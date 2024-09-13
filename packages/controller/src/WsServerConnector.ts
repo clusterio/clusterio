@@ -188,7 +188,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 
 		if (this._state === "resuming") {
 			this._reset();
-			this.emit("close", lib.ConnectionClosed.Reset, "Forced Closed");
+			this.emit("close");
 			return;
 		}
 
@@ -224,7 +224,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	setClosing() {
 		if (this._state === "resuming") {
 			this._reset();
-			this.emit("close", lib.ConnectionClosed.Reset, "Forced Closed");
+			this.emit("close");
 			return;
 		}
 

@@ -42,12 +42,12 @@ describe("Integration of lib/link", function() {
 		await assert.rejects(
 			// event.once rejects if "error" is emitted before "close"
 			events.once(controlConnector, "close"),
-			new ProtocolViolation("Test")
+			new ProtocolError("Test")
 		);
 	});
 	it("should emit an error if closed due to PolicyError", async function() {
 		await controlConnector.connect();
-		controlConnector._socket.close(ConnectionClosed.PolicyError, "Test");
+		controlConnector._socket.close(ConnectionClosed.PolicyViolation, "Test");
 		await assert.rejects(
 			// event.once rejects if "error" is emitted before "close"
 			events.once(controlConnector, "close"),

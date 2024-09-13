@@ -12,21 +12,26 @@ import type { Request, Event } from "./link";
 /**
  * Numbered codes describing why a connection was closed
  * See: https://github.com/Luka967/websocket-close-codes
+ * See: https://www.iana.org/assignments/websocket/websocket.xhtml#close-code-number
+ * See: https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4
  */
 export enum ConnectionClosed {
-	// Codes between 1000 and 1015 are pre-allocated for web sockets
-	Normal = 1000, // CLOSE_NORMAL
-	ServerQuit = 1001, // CLOSE_GOING_AWAY
-	ProtocolError = 1002, // CLOSE_PROTOCOL_ERROR
-	PolicyError = 1008, // Policy Violation
-	ServerError = 1011, // Server Error
+	// Codes between 1000 and 1015 are pre-assigned by IANA
+	// A browser client can only (on demand) send 1000 from this range
+	NormalClosure = 1000, // Purpose fulfilled
+	GoingAway = 1001, // Server quit or browser navigation
+	ProtocolError = 1002, // Protocol not followed
+	PolicyViolation = 1008, // Generic code for any endpoint policy
+	InternalError = 1011, // Endpoint failed to fulfil request
+
+	// Codes after 3000 are available for frameworks
+	// However they should be registered to IANA
+	Unauthorized = 3000,
+	Forbidden = 3003,
+	Timeout = 3008,
 
 	// Codes after 4000 are available for applications
-	// Ours are somewhat based on http client error codes
-	BadRequest = 4000,
-	Unauthorized = 4003,
-	Timeout = 4008,
-	Reset = 4010
+	MalformedMessage = 4000,
 };
 
 /**
@@ -197,13 +202,13 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		try {
 			json = JSON.parse(text);
 		} catch (err) {
-			this.close(ConnectionClosed.BadRequest, "Malformed JSON");
+			this.close(ConnectionClosed.MalformedMessage, "Malformed JSON");
 			return undefined;
 		}
 		if (!libData.Message.validate(json)) {
 			logger.error(`Received malformed message: ${text}`);
 			// logger.error(JSON.stringify(libData.Message.validate.errors, null, "\t"));
-			this.close(ConnectionClosed.BadRequest, "Malformed message");
+			this.close(ConnectionClosed.MalformedMessage, "Malformed message");
 			return undefined;
 		}
 		return libData.Message.fromJSON(json);
@@ -316,7 +321,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 * @param [code=1000] WebSocket close code.
 	 * @param [reason="Disconnect"] WebSocket close reason.
 	 */
-	async disconnect(code: number = ConnectionClosed.Normal, reason: string = "Disconnect") {
+	async disconnect(code: number = ConnectionClosed.NormalClosure, reason: string = "Disconnect") {
 		if (this._state !== "connected") {
 			await this.close(code, reason);
 			return;
@@ -457,7 +462,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		} else {
 			this._reset();
-			this.emit("close", ConnectionClosed.Reset, "Forced Closed");
+			this.emit("close");
 		}
 	}
 
@@ -479,11 +484,11 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		if (this._socket) {
-			this._socket!.close(ConnectionClosed.Normal, "Connector closing");
+			this._socket!.close(ConnectionClosed.NormalClosure, "Connector closing");
 
 		} else {
 			this._reset();
-			this.emit("close", ConnectionClosed.Reset, "Forced Closed");
+			this.emit("close");
 		}
 	}
 
@@ -569,10 +574,10 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 					break;
 				case ConnectionClosed.ProtocolError:
 					// Connection was closed because invalid data was sent
-					this.emit("error", new libErrors.ProtocolViolation(event.reason));
+					this.emit("error", new libErrors.ProtocolError(event.reason));
 					this._closing = true;
 					break;
-				case ConnectionClosed.PolicyError:
+				case ConnectionClosed.PolicyViolation:
 					// Connection was closed to prevent the server entering an invalid state
 					this.emit("error", new libErrors.PolicyViolation(event.reason));
 					this._closing = true;
@@ -607,7 +612,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 			// Log must be sent after state change is complete
 			let message = `Connector | Close (code: ${event.code}, reason: ${event.reason})`;
-			if (previousState === "connected" && event.code !== ConnectionClosed.Normal) {
+			if (previousState === "connected" && event.code !== ConnectionClosed.NormalClosure) {
 				logger.info(message);
 			} else {
 				logger.verbose(message);
@@ -705,7 +710,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			logger.warn("Connector | session invalidated by controller");
 			if (this._closing) {
 				this._reset();
-				this.emit("close", ConnectionClosed.Reset, "Invalidated");
+				this.emit("close");
 			} else {
 				this._invalidate();
 				this.emit("invalidate");

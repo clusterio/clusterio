@@ -78,8 +78,8 @@ export class AuthenticationFailed extends WebSocketError {
 /**
  * Thrown when WebSocket protocol is violated
  */
-export class ProtocolViolation extends WebSocketError {
-	code = "ProtocolViolation";
+export class ProtocolError extends WebSocketError {
+	code = "ProtocolError";
 }
 
 /**
