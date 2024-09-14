@@ -547,7 +547,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._reset();
 			if (this._closing) {
 				this._reset();
-				this.emit("close", ConnectionClosed.Timeout, "Session timed out");
+				this.emit("close");
 			} else {
 				this._state = "connecting";
 				this.emit("invalidate");
@@ -590,7 +590,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 				this.stopHeartbeat();
 				if (this._closing) {
 					this._reset();
-					this.emit("close", event.code, event.reason);
+					this.emit("close");
 
 				} else {
 					this._state = "resuming";
@@ -603,7 +603,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 				// eslint-disable-next-line no-lonely-if
 				if (this._closing) {
 					this._reset();
-					this.emit("close", event.code, event.reason);
+					this.emit("close");
 
 				} else {
 					this.reconnect();
