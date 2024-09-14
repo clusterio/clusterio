@@ -62,10 +62,31 @@ export class SessionLost extends Error {
 }
 
 /**
+ * Super class for all custom websocket errors
+ */
+export class WebSocketError extends Error {
+	code = "WebSocketError";
+}
+
+/**
  * Thrown when WebSocket authentication failed
  */
-export class AuthenticationFailed extends Error {
+export class AuthenticationFailed extends WebSocketError {
 	code = "AuthenticationFailed";
+}
+
+/**
+ * Thrown when WebSocket protocol is violated
+ */
+export class ProtocolError extends WebSocketError {
+	code = "ProtocolError";
+}
+
+/**
+ * Thrown when WebSocket policy is violated
+ */
+export class PolicyViolation extends WebSocketError {
+	code = "PolicyViolation";
 }
 
 /**

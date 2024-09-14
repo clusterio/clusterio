@@ -78,11 +78,11 @@ export default class WsServer {
 
 		let disconnectTasks = [];
 		for (let controlConnection of this.controlConnections.values()) {
-			disconnectTasks.push(controlConnection.disconnect(1001, "Server Quit"));
+			disconnectTasks.push(controlConnection.disconnect(lib.ConnectionClosed.GoingAway, "Server Quit"));
 		}
 
 		for (let hostConnection of this.hostConnections.values()) {
-			disconnectTasks.push(hostConnection.disconnect(1001, "Server Quit"));
+			disconnectTasks.push(hostConnection.disconnect(lib.ConnectionClosed.GoingAway, "Server Quit"));
 		}
 
 		logger.info(`WsServer | Waiting for ${disconnectTasks.length} connectors to close`);
@@ -97,7 +97,7 @@ export default class WsServer {
 		}
 
 		for (let socket of this.pendingSockets) {
-			socket.close(1001, "Server Quit");
+			socket.close(lib.ConnectionClosed.GoingAway, "Server Quit");
 		}
 	}
 
@@ -170,7 +170,7 @@ export default class WsServer {
 ${err.stack}`
 				);
 				wsRejectedConnectionsCounter.inc();
-				socket.close(1011, "Unexpected error");
+				socket.close(lib.ConnectionClosed.InternalError, "Unexpected error");
 			});
 		});
 	}
@@ -184,7 +184,7 @@ ${err.stack}`
 		} catch (err: any) {
 			logger.verbose(`WsServer | closing ${this.remoteAddr(req)} after receiving invalid message`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(1002, `Invalid message: ${err.message}`);
+			socket.close(lib.ConnectionClosed.ProtocolError, `Invalid message: ${err.message}`);
 			return;
 		}
 
@@ -196,14 +196,14 @@ ${err.stack}`
 		if (message.type !== "registerHost" && message.type !== "registerControl") {
 			logger.verbose(`WsServer | closing ${this.remoteAddr(req)} after receiving invalid handshake`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(1002, "Bad handshake");
+			socket.close(lib.ConnectionClosed.ProtocolError, "Bad handshake");
 			return;
 		}
 
 		if (this.stopAcceptingNewSessions) {
 			logger.verbose(`WsServer | closing ${this.remoteAddr(req)}, server is shutting down`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(1001, "Shutting down");
+			socket.close(lib.ConnectionClosed.GoingAway, "Shutting down");
 			return;
 		}
 
@@ -263,15 +263,26 @@ ${err.stack}`
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(4003, `Authentication failed: ${err.message}`);
+			socket.close(lib.ConnectionClosed.Unauthorized, `Authentication failed: ${err.message}`);
 			return;
 		}
 
-		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));
 		let connection = this.hostConnections.get(data.id);
 		if (connection) {
-			logger.verbose(`WsServer | disconnecting existing connection for host ${data.id}`);
-			await connection.disconnect(1008, "Registered from another connection");
+			if (connection.remoteAddress !== this.remoteAddr(req)) {
+				logger.verbose(
+					`WsServer | disallowed duplicate connection from ${this.remoteAddr(req)} for host ${data.id}`
+				);
+				wsRejectedConnectionsCounter.inc();
+				socket.close(lib.ConnectionClosed.PolicyViolation, "Host already connected from another address");
+				return;
+			}
+			logger.verbose(
+				`WsServer | disconnecting duplicate connection from host ${data.id}`
+			);
+			await connection.disconnect(
+				lib.ConnectionClosed.PolicyViolation, "Newer connection for host from same address"
+			);
 		}
 
 		logger.info(
@@ -283,6 +294,8 @@ ${err.stack}`
 				`version of the controller is currently running (${packageVersion}). It may not work as expected.`
 			);
 		}
+
+		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));
 
 		// Handle close before HostConnection does. This avoids a host
 		// connection event happening between the connection breaking and
@@ -326,7 +339,7 @@ ${err.stack}`
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(4003, `Authentication failed: ${err.message}`);
+			socket.close(lib.ConnectionClosed.Unauthorized, `Authentication failed: ${err.message}`);
 			return;
 		}
 

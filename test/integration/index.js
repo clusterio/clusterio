@@ -94,9 +94,20 @@ class TestControlConnector extends lib.WebSocketClientConnector {
 		this.sendHandshake(
 			new lib.MessageRegisterControl(
 				new lib.RegisterControlData(
-					this.token,
-					"clusterioctl",
-					"test",
+					this.token, "test",
+				)
+			)
+		);
+	}
+}
+
+class TestHostConnector extends lib.WebSocketClientConnector {
+	register() {
+		this.sendHandshake(
+			new lib.MessageRegisterHost(
+				new lib.RegisterHostData(
+					this.token, "test",
+					this.hostId, {},
 				)
 			)
 		);
@@ -347,6 +358,7 @@ process.on("exit", () => {
 module.exports = {
 	TestControl,
 	TestControlConnector,
+	TestHostConnector,
 	slowTest,
 	get,
 	exec,

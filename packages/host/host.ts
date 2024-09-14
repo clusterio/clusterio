@@ -293,8 +293,8 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startHost().catch(err => {
-		if (err instanceof lib.AuthenticationFailed) {
-			logger.fatal(err.message);
+		if (err instanceof lib.WebSocketError) {
+			// Already handled by connector.on("error") within Host
 
 		} else if (err instanceof lib.StartupError) {
 			logger.fatal(`

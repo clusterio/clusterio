@@ -41,7 +41,7 @@ export default class BaseConnection extends lib.Link {
 
 	async disconnect(code: number, reason: string) {
 		try {
-			await this.connector.disconnect();
+			await this.connector.disconnect(code, reason);
 		} catch (err: any) {
 			if (!(err instanceof lib.SessionLost)) {
 				logger.error(`"Unexpected error preparing disconnect:\n${err.stack}`);

@@ -346,11 +346,15 @@ export default class Host extends lib.Link {
 					logger.fatal(`Unexpected error reconnecting to controller:\n${err.stack}`);
 					return this.shutdown();
 				});
-
 			} else {
 				logger.fatal("Controller connection was unexpectedly closed");
 				this.shutdown();
 			}
+		});
+
+		this.connector.on("error", err => {
+			logger.fatal(err.message);
+			this.shutdown();
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
