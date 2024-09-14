@@ -211,27 +211,28 @@ describe("host/server", function() {
 
 		describe(".stop()", function() {
 			it("should handle server quitting on its own during stop", async function() {
-				if (process.platform === "win32") {
-					this.skip();
-				}
-				server.hangTimeoutMs = 20;
+				server.shutdownTimeoutMs = 20;
 				server._server = new events.EventEmitter();
 				server._server.kill = () => true;
 				server._state = "running";
-				server._rconReady = true;
+				server._rconReady = false;
 				server._rconClient = {
+					async sendRcon() { },
 					async end() {
 						server._rconClient = null;
-						process.nextTick(() => {
-							server.emit("_quitting");
-							server._server.emit("exit");
-						});
 					},
 				};
 				server._watchExit();
 
-				await server.stop();
-				await wait(21); // Wait until after hang timeout
+				const stop = server.stop();
+				stop.catch(() => {});
+				process.nextTick(() => {
+					server.emit("rcon-ready");
+					server._server.emit("exit");
+				});
+
+				await stop;
+				await wait(21); // Wait until after shutdown timeout
 			});
 		});
 	});

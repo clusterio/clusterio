@@ -48,6 +48,8 @@ Many thanks to the following for contributing to this release:
 - Fixed numeric admin name breaking login [#536](https://github.com/clusterio/clusterio/issues/536)
 - Added factorio.executable_path option which allows overriding the default path to the Factorio executable run.
 - Added instance version display [#573](https://github.com/clusterio/clusterio/pull/573)
+- Added `factorio.shutdown_timeout` config to set the time the host will wait for a Factorio server to shut down befor killing it.
+- Changed shutdown logic to prefer sending a /quit command via RCON instead of using diverging logic on Windows and Linux.
 
 ### Breaking Changes
 

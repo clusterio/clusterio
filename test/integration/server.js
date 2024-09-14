@@ -14,9 +14,25 @@ const { slowTest, factorioDir } = require("./index");
 describe("Integration of host/src/server", function() {
 	describe("_getVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
+			function checkVersion(version) {
+				if (!/^\d+\.\d+\.\d+$/.test(version)) {
+					assert.fail(`Detected version '${version}' does not followed the format x.y.z`);
+				}
+			}
+
 			let version = await _getVersion(path.join(factorioDir, "data", "changelog.txt"));
-			if (!/^\d+\.\d+\.\d+$/.test(version)) {
-				assert.fail(`Detected version '${version}' does not followed the format x.y.z`);
+			if (version !== null) {
+				checkVersion(version);
+			} else {
+				for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
+					if (!entry.isDirectory()) {
+						continue;
+					}
+
+					checkVersion(
+						await _getVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"))
+					);
+				}
 			}
 		});
 	});
@@ -93,7 +109,7 @@ describe("Integration of host/src/server", function() {
 				let mapPath = server.writePath("saves", "test.zip");
 				assert(!await fs.exists(mapPath), "save exist before test");
 
-				await server.create("test.zip");
+				await server.create("test.zip", undefined, { width: 50, height: 50 });
 				assert(await fs.exists(mapPath), "test did not create save");
 			});
 		});
@@ -213,16 +229,79 @@ describe("Integration of host/src/server", function() {
 				server.sendRcon("/c while true do end").catch(() => {});
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				log(".stop() for hang detection");
+				server.shutdownTimeoutMs = 2000;
 				await server.stop();
+				server.shutdownTimeoutMs = 0;
+			});
+			it("should not hang if RCON fails to connect while stopping", async function() {
+				slowTest(this);
+
+				const origWaitForReady = server._waitForReady;
+				server._waitForReady = () => {
+					server._waitForReady = origWaitForReady;
+					server.rconPort -= 1; // Mangle port so it fails to connect.
+					return server._waitForReady();
+				};
+				try {
+					await server.start("test.zip");
+					if (server._rconReady) {
+						assert.fail("Test failed, RCON managed to connect");
+					}
+					await server.stop();
+
+				} finally {
+					if (server._state !== "init") {
+						await server.kill();
+						assert.fail("Server did not stop");
+					}
+				}
+			});
+			it("should not hang if RCON fails to connect before stopping", async function() {
+				slowTest(this);
+
+				const origWaitForReady = server._waitForReady;
+				server._waitForReady = () => {
+					server._waitForReady = origWaitForReady;
+					server.rconPassword = "wrong"; // Mangle password so it fails to authenticate.
+					return server._waitForReady();
+				};
+				try {
+					await server.start("test.zip");
+					if (server._rconReady) {
+						assert.fail("Test failed, RCON managed to connect");
+					}
+					await events.once(server, "rcon-ready");
+					await server.stop();
+
+				} finally {
+					if (server._state !== "init") {
+						await server.kill();
+						assert.fail("Server did not stop");
+					}
+				}
+			});
+			it("should work if RCON has dropped out", async function() {
+				slowTest(this);
+
+				try {
+					await server.start("test.zip");
+					if (!server._rconReady) {
+						await events.once(server, "rcon-ready");
+					}
+					await server._rconClient.end();
+					await server.stop();
+
+				} finally {
+					if (server._state !== "init") {
+						await server.kill();
+						assert.fail("Server did not stop");
+					}
+				}
 			});
 		});
 
 		describe(".start() termination detection", function() {
 			it("should tell if Factorio got killed", async function() {
-				// This does not work on Windows
-				if (process.platform === "win32") {
-					this.skip();
-				}
 				slowTest(this);
 				log(".start() for kill detection");
 

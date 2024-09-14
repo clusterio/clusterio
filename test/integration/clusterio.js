@@ -13,7 +13,7 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	get, exec, execCtl, sendRcon, getControl, spawn, instancesDir,
+	exec, execCtl, sendRcon, getControl, spawn, instancesDir, factorioDir,
 } = require("./index");
 
 
@@ -41,15 +41,29 @@ async function startAltHost() {
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
 	await exec(`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
 	await exec(`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`);
-	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ../../factorio`);
+	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
+	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ${dir}`);
 	await exec(`node ../../packages/host --config ${config} config set host.mods_directory alt-mods`);
 	return await spawnAltHost(config);
 }
 
 async function stopAltHost(hostProcess) {
 	if (hostProcess && hostProcess.exitCode === null) {
-		hostProcess.kill("SIGINT");
-		await events.once(hostProcess, "exit");
+		const waitForExit = lib.timeout(
+			events.once(hostProcess, "exit"),
+			10e3,
+			"timeout"
+		).catch(() => {});
+		try {
+			await execCtl("host stop 5");
+		} catch (err) {
+			// Some tests cause the host to stop
+		}
+		if (await waitForExit === "timeout" && hostProcess.exitCode === null) {
+			// eslint-disable-next-line no-console
+			console.warn("Stopping alt-host failed. Killing.");
+			hostProcess.kill("SIGINT");
+		}
 	}
 }
 
@@ -148,12 +162,6 @@ describe("Integration of Clusterio", function() {
 	describe("clusteriohost", function() {
 		describe("hostUpdateEventHandler()", function() {
 			it("should trigger when a new host is added", async function() {
-				// On windows there's currently no way to automate graceful shutdown of the host
-				// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
-				if (process.platform === "win32") {
-					this.skip();
-				}
-
 				slowTest(this);
 				getControl().hostUpdates = [];
 
@@ -189,12 +197,6 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 		it("should download mods from controller", async function() {
-			// On windows there's currently no way to automate graceful shutdown of the host
-			// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
-			if (process.platform === "win32") {
-				this.skip();
-			}
-
 			slowTest(this);
 			await runWithAltHost(async () => {
 				const clusterioLib = path.join("temp", "test", "alt-mods", "clusterio_lib_0.1.2.zip");
@@ -206,12 +208,6 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 		it("should auto start instances with auto_start enabled", async function() {
-			// On windows there's currently no way to automate graceful shutdown of the host
-			// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
-			if (process.platform === "win32") {
-				this.skip();
-			}
-
 			slowTest(this);
 
 			let hostProcess;
@@ -310,12 +306,6 @@ describe("Integration of Clusterio", function() {
 		});
 		describe("host revoke-token", async function() {
 			it("should disconnect existing host", async function() {
-				// On windows there's currently no way to automate graceful shutdown of the host
-				// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
-				if (process.platform === "win32") {
-					this.skip();
-				}
-
 				slowTest(this);
 				let sawDisconnected;
 				await runWithAltHost(async () => {
@@ -774,11 +764,6 @@ describe("Integration of Clusterio", function() {
 					if (remote) {
 						let hostProcess;
 						before(async function() {
-							// On windows there's currently no way to automate graceful shutdown of the host
-							// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
-							if (process.platform === "win32") {
-								this.skip();
-							}
 							slowTest(this);
 
 							hostProcess = await startAltHost();
@@ -907,12 +892,8 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				let statusesToCheck = new Set([
 					"unassigned", "stopped", "creating_save", "exporting_data",
-					"starting", "running", "stopping", "deleted",
+					"starting", "running", "stopping", "deleted", "unknown",
 				]);
-				// Windows does not see the unknown status because alt-host is not spawned.
-				if (process.platform !== "win32") {
-					statusesToCheck.add("unknown");
-				}
 				let statusesNotSeen = new Set(statusesToCheck);
 
 				for (let update of getControl().instanceUpdates) {
