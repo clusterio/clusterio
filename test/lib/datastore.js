@@ -8,8 +8,8 @@ const path = require("path");
 async function incrementDateMs() {
 	const prev = Date.now();
 	do {
-		await lib.wait(15);
-	} while (prev <= Date.now());
+		await lib.wait(1);
+	} while (prev >= Date.now());
 }
 
 class MockDatastoreProvider extends lib.DatastoreProvider {
