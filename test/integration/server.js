@@ -109,7 +109,7 @@ describe("Integration of host/src/server", function() {
 				let mapPath = server.writePath("saves", "test.zip");
 				assert(!await fs.exists(mapPath), "save exist before test");
 
-				await server.create("test.zip");
+				await server.create("test.zip", undefined, { width: 50, height: 50 });
 				assert(await fs.exists(mapPath), "test did not create save");
 			});
 		});
