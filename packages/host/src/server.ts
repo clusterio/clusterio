@@ -781,6 +781,7 @@ export class FactorioServer extends events.EventEmitter {
 		this._rconReady = false;
 		this._gameReady = false;
 		this._unexpected = [];
+		this._killed = false;
 		this._runningAutosave = null;
 	}
 
