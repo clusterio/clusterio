@@ -5,6 +5,13 @@ const lib = require("@clusterio/lib");
 const fs = require("fs-extra");
 const path = require("path");
 
+async function incrementDateMs() {
+	const prev = Date.now();
+	do {
+		await lib.wait(1);
+	} while (prev >= Date.now());
+}
+
 class MockDatastoreProvider extends lib.DatastoreProvider {
 	constructor() {
 		super();
@@ -548,7 +555,7 @@ describe("lib/datastore", function() {
 				assert.notEqual(value.updatedAtMs, undefined);
 				assert(value.updatedAtMs > 0, "updatedAtMs greater than zero");
 				const prev = value.updatedAtMs;
-				await lib.wait();
+				await incrementDateMs();
 				datastore.set(value);
 				assert(value.updatedAtMs > prev, "updatedAtMs must increase");
 			});
@@ -581,7 +588,7 @@ describe("lib/datastore", function() {
 				assert(updates[0].updatedAtMs > 0, "updatedAtMs greater than zero");
 				assert(updates[1].updatedAtMs > 0, "updatedAtMs greater than zero");
 				const prev = [updates[0].updatedAtMs, updates[1].updatedAtMs];
-				await lib.wait();
+				await incrementDateMs();
 				datastore.setMany(updates);
 				assert(updates[0].updatedAtMs > prev[0], "updatedAtMs must increase");
 				assert(updates[1].updatedAtMs > prev[1], "updatedAtMs must increase");
