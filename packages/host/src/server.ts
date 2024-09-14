@@ -700,16 +700,39 @@ export class FactorioServer extends events.EventEmitter {
 		};
 
 		this._rconClient = new Rcon(config);
-		this._rconClient.on("error", () => { /* Ignore */ });
-		this._rconClient.on("authenticated", () => { this._rconReady = true; this.emit("rcon-ready"); });
+		this._rconClient.on("error", () => {
+			// Errors before being authenticated might not emit end
+			this._rconClient = null;
+			if (!this._rconReady) {
+				this._rconReady = true;
+				this.emit("rcon-ready");
+			}
+		});
+		this._rconClient.on("authenticated", () => {
+			this._rconReady = true;
+			this.emit("rcon-ready");
+		 });
 		this._rconClient.on("end", () => {
 			this._rconClient = null;
+			if (!this._rconReady) {
+				this._rconReady = true;
+				this.emit("rcon-ready");
+			}
 		});
 		// XXX: Workaround to suppress bogus event listener warning
 		if (this._rconClient.emitter instanceof events.EventEmitter) {
 			this._rconClient.emitter.setMaxListeners(this.maxConcurrentCommands + 5);
 		}
-		await this._rconClient.connect();
+		try {
+			await this._rconClient.connect();
+		} catch (err: any) {
+			this._logger.error(`Failed to start RCON connection:\n${err?.stack ?? err?.message ?? err}`);
+			this._rconClient = null;
+			if (!this._rconReady) {
+				this._rconReady = true;
+				this.emit("rcon-ready");
+			}
+		}
 	}
 
 	/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
@@ -1081,7 +1104,8 @@ export class FactorioServer extends events.EventEmitter {
 		// If RCON is not yet fully connected that operation needs to
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
-			await events.once(this, "rcon-ready");
+			// Not using events.once here to avoid throwing on error events.
+			await new Promise(resolve => this.once("rcon-ready", resolve));
 		}
 
 		// The Factorio server may have decided to get ahead of us and

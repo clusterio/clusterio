@@ -233,7 +233,7 @@ describe("Integration of host/src/server", function() {
 				await server.stop();
 				server.shutdownTimeoutMs = 0;
 			});
-			it("should not hang if RCON fails to connect", async function() {
+			it("should not hang if RCON fails to connect while stopping", async function() {
 				slowTest(this);
 
 				const origWaitForReady = server._waitForReady;
@@ -247,14 +247,36 @@ describe("Integration of host/src/server", function() {
 					if (server._rconReady) {
 						assert.fail("Test failed, RCON managed to connect");
 					}
-					await assert.rejects(
-						server.stop(),
-						{ code: "ECONNREFUSED" }
-					);
+					await server.stop();
 
 				} finally {
 					if (server._state !== "init") {
 						await server.kill();
+						assert.fail("Server did not stop");
+					}
+				}
+			});
+			it("should not hang if RCON fails to connect before stopping", async function() {
+				slowTest(this);
+
+				const origWaitForReady = server._waitForReady;
+				server._waitForReady = () => {
+					server._waitForReady = origWaitForReady;
+					server.rconPassword = "wrong"; // Mangle password so it fails to authenticate.
+					return server._waitForReady();
+				};
+				try {
+					await server.start("test.zip");
+					if (server._rconReady) {
+						assert.fail("Test failed, RCON managed to connect");
+					}
+					await events.once(server, "rcon-ready");
+					await server.stop();
+
+				} finally {
+					if (server._state !== "init") {
+						await server.kill();
+						assert.fail("Server did not stop");
 					}
 				}
 			});
@@ -272,6 +294,7 @@ describe("Integration of host/src/server", function() {
 				} finally {
 					if (server._state !== "init") {
 						await server.kill();
+						assert.fail("Server did not stop");
 					}
 				}
 			});
