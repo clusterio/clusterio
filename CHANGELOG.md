@@ -51,6 +51,9 @@ Many thanks to the following for contributing to this release:
 - Added instance version display [#573](https://github.com/clusterio/clusterio/pull/573)
 - Added `factorio.shutdown_timeout` config to set the time the host will wait for a Factorio server to shut down befor killing it.
 - Changed shutdown logic to prefer sending a /quit command via RCON instead of using diverging logic on Windows and Linux.
+- Added `controller.factorio_username` and `controller.factorio_token` config to set Factorio credentials used for the whole cluster.
+- Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
+- Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
 
 ### Breaking Changes
 

@@ -583,11 +583,23 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * entries from the given settings object.
 	 *
 	 * @param overrides - Server settings to override.
+	 * @param includeCredentials - Include Factorio username and token from host/controller config.
 	 * @returns
 	 *     server example settings with the given settings applied over it.
 	 */
-	async resolveServerSettings(overrides: Record<string, unknown>) {
+	async resolveServerSettings(overrides: Record<string, unknown>, includeCredentials: boolean) {
 		let serverSettings = await this.server.exampleSettings();
+		if (includeCredentials && !overrides.username && !overrides.token) {
+			let credentials = {
+				username: this._host.config.get("host.factorio_username") ?? undefined,
+				token: this._host.config.get("host.factorio_token") ?? undefined,
+			};
+			if (!credentials.username && !credentials.token) {
+				Object.assign(credentials, await this.sendTo("controller", new lib.GetFactorioCredentialsRequest()));
+			}
+			if (credentials.username) { serverSettings.username = credentials.username; }
+			if (credentials.token) { serverSettings.token = credentials.token; }
+		}
 
 		for (let [key, value] of Object.entries(overrides)) {
 			if (!Object.hasOwnProperty.call(serverSettings, key)) {
@@ -605,12 +617,14 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Generate the server-settings.json file from the example file in the
 	 * data directory and override any settings configured in the instance's
 	 * factorio_settings config entry.
+	 *
+	 * @param includeCredentials - Include Factorio username and token from host/controller config.
 	 */
-	async writeServerSettings() {
+	async writeServerSettings(includeCredentials: boolean) {
 		const warning = "Changes to this file will be overwitten by the factorio.settings config on the instance.";
 		const serverSettings = {
 			"_comment_warning": warning,
-			...await this.resolveServerSettings(this.config.get("factorio.settings")),
+			...await this.resolveServerSettings(this.config.get("factorio.settings"), includeCredentials),
 		};
 		await lib.safeOutputFile(
 			this.server.writePath("server-settings.json"),
@@ -714,7 +728,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 */
 	async prepare() {
 		this.logger.verbose("Writing server-settings.json");
-		await this.writeServerSettings();
+		await this.writeServerSettings(true);
 
 		if (this.config.get("factorio.sync_adminlist")) {
 			this.logger.verbose("Writing server-adminlist.json");
@@ -884,8 +898,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async updateFactorioSettings(current: Record<string, unknown>, previous: Record<string, unknown>) {
-		current = await this.resolveServerSettings(current);
-		previous = await this.resolveServerSettings(previous);
+		current = await this.resolveServerSettings(current, false);
+		previous = await this.resolveServerSettings(previous, false);
 
 		for (let [key, action] of Object.entries(serverSettingsActions)) {
 			if (current[key] !== undefined && !util.isDeepStrictEqual(current[key], previous[key])) {
@@ -1008,21 +1022,26 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async handleInstanceStartRequest(request: lib.InstanceStartRequest) {
 		let saveName = request.save;
 		try {
-			await this.prepare();
-			saveName = await this.prepareSave(saveName);
-		} catch (err: any) {
-			this.logger.error(`Error preparing instance: ${err.message}`);
-			this.notifyExit();
-			await this.sendSaveListUpdate();
-			throw err;
-		}
+			try {
+				await this.prepare();
+				saveName = await this.prepareSave(saveName);
+			} catch (err: any) {
+				this.logger.error(`Error preparing instance: ${err.message}`);
+				this.notifyExit();
+				await this.sendSaveListUpdate();
+				throw err;
+			}
 
-		try {
-			await this.start(saveName);
-		} catch (err: any) {
-			this.logger.error(`Error starting ${saveName}: ${err.message}`);
-			await this.stop();
-			throw err;
+			try {
+				await this.start(saveName);
+			} catch (err: any) {
+				this.logger.error(`Error starting ${saveName}: ${err.message}`);
+				await this.stop();
+				throw err;
+			}
+		} finally {
+			this.logger.verbose("Wiping credentials from server-settings.json");
+			await this.writeServerSettings(false);
 		}
 	}
 
@@ -1033,21 +1052,26 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 
 		try {
-			await this.prepare();
-		} catch (err: any) {
-			this.logger.error(`Error preparing instance: ${err.message}`);
-			this.notifyExit();
-			await this.sendSaveListUpdate();
-			throw err;
-		}
+			try {
+				await this.prepare();
+			} catch (err: any) {
+				this.logger.error(`Error preparing instance: ${err.message}`);
+				this.notifyExit();
+				await this.sendSaveListUpdate();
+				throw err;
+			}
 
-		let { scenario, seed, mapGenSettings, mapSettings } = request;
-		try {
-			await this.startScenario(scenario, seed, mapGenSettings, mapSettings);
-		} catch (err: any) {
-			this.logger.error(`Error starting scenario ${scenario}: ${err.message}`);
-			await this.stop();
-			throw err;
+			let { scenario, seed, mapGenSettings, mapSettings } = request;
+			try {
+				await this.startScenario(scenario, seed, mapGenSettings, mapSettings);
+			} catch (err: any) {
+				this.logger.error(`Error starting scenario ${scenario}: ${err.message}`);
+				await this.stop();
+				throw err;
+			}
+		} finally {
+			this.logger.verbose("Wiping credentials from server-settings.json");
+			await this.writeServerSettings(false);
 		}
 	}
 
@@ -1059,7 +1083,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");
-			await this.writeServerSettings();
+			await this.writeServerSettings(false);
 			await this.syncMods();
 
 		} catch (err: any) {
@@ -1087,7 +1111,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this.notifyStatus("exporting_data");
 		try {
 			this.logger.verbose("Writing server-settings.json");
-			await this.writeServerSettings();
+			await this.writeServerSettings(false);
 
 			this.logger.info("Exporting data .....");
 			await this.syncMods();
