@@ -111,6 +111,11 @@ export interface FieldDefinition {
 	 * modified from.
 	 */
 	access?: ConfigLocation[];
+	/**
+	 * If present treat the config value as a credential and only allow reading
+	 * from the locations specified.
+	 */
+	credential?: ConfigLocation[];
 }
 
 export type ConfigDefs<Fields> = {
@@ -129,6 +134,12 @@ function defaultValue(def: FieldDefinition) {
 
 export type ConfigEvents = {
 	fieldChanged: (name: string, curr: FieldValue, prev: FieldValue) => void;
+}
+
+export enum ConfigAccess {
+	read = 0x1,
+	write = 0x2,
+	readWrite = 0x3,
 }
 
 /**
@@ -188,7 +199,7 @@ export class Config<
 			Object.entries(
 				this.constructor.fieldDefinitions
 			).filter(
-				([name, def]) => this._checkAccess(name, def, location, false)
+				([name, def]) => this._checkAccess(name, def, location, ConfigAccess.read, false)
 			).map(
 				([name, def]) => [name, defaultValue(def)]
 			)
@@ -204,21 +215,28 @@ export class Config<
 	 *
 	 * @param name - Name of the field to check.
 	 * @param def - definition for for the field to check.
-	 * @param remote - location of remote access to check for.
+	 * @param location - location to check access for.
+	 * @param mode - type of access to check for.
 	 * @param error - throw on failure to pass check.
 	 * @throws {InvalidAccess}
 	 *     if access is not granted and error is true.
 	 * @returns true if access is granted
 	 * @private
 	 */
-	_checkAccess(name: string, def: FieldDefinition, remote: ConfigLocation, error: boolean) {
-		for (let loc of [remote, this.location]) {
-			if (!(def.access ?? this.defaultAccess).includes(loc)) {
-				if (error) {
-					throw new InvalidAccess(`Field '${name}' is not accessible from ${loc}`);
-				} else {
-					return false;
-				}
+	_checkAccess(name: string, def: FieldDefinition, location: ConfigLocation, mode: ConfigAccess, error: boolean) {
+		// If credential array is present it acts as read permission and the access array as write permission,
+		// if not present access array acts as a combined read/write permission check.
+		if (
+			def.credential && mode & ConfigAccess.read && !(def.credential).includes(location)
+			|| (
+				(!def.credential || mode & ConfigAccess.write)
+				&& !(def.access ?? this.defaultAccess).includes(location)
+			)
+		) {
+			if (error) {
+				throw new InvalidAccess(`Field '${name}' is not accessible from ${location}`);
+			} else {
+				return false;
 			}
 		}
 		return true;
@@ -263,14 +281,17 @@ export class Config<
 	/**
 	 * Serialize the config to a plain JavaScript object
 	 *
-	 * @param location - Location used for access control.
-	 * @returns JSON serializable representation of the group.
+	 * @param remote - Location this serialised representation is for
+	 * @returns JSON serializable representation of the config.
 	 */
-	toRemote(location: ConfigLocation): Static<typeof Config.jsonSchema> {
+	toRemote(remote: ConfigLocation): Static<typeof Config.jsonSchema> {
 		let fields: Record<string, FieldValue> = {};
 		for (let [name, value] of Object.entries(this.fields)) {
 			let def = this.constructor.fieldDefinitions[name];
-			if (!this._checkAccess(name, def, location, false)) {
+			if (
+				!this._checkAccess(name, def, this.location, ConfigAccess.write, false)
+				|| this.location !== remote && !this._checkAccess(name, def, remote, ConfigAccess.read, false)
+			) {
 				continue;
 			}
 
@@ -293,12 +314,12 @@ export class Config<
 	 * @param json -
 	 *     Result from a previous call to .toRemote().
 	 * @param notify - Invoke fieldChanged events if true.
-	 * @param location - Location used for access control.
+	 * @param remote - Location this serialised representation was received from.
 	 */
 	update(
 		json: Static<typeof Config.jsonSchema>,
 		notify: boolean,
-		location = this.location
+		remote = this.location
 	) {
 		const valid = Config.validate(json);
 		if (!valid) {
@@ -316,7 +337,9 @@ export class Config<
 				continue;
 			}
 
-			if (!this._checkAccess(name, def, location, false)) {
+			if (
+				!this._checkAccess(name, def, remote, ConfigAccess.write, false)
+			) {
 				continue;
 			}
 
@@ -346,30 +369,45 @@ export class Config<
 	 * Check if field can be accessed from the given location
 	 *
 	 * @param name - Name of field to check.
+	 * @param mode - Mode to access the field as.
 	 * @param location - Location used for access control.
 	 * @returns true if field is accessible
 	 */
-	canAccess(name: string, location = this.location) {
+	canAccess(name: string, mode: ConfigAccess, location = this.location) {
+		if (typeof mode !== "number") {
+			throw new TypeError("mode argument is required to canAccess");
+		}
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
-		return this._checkAccess(name, def, location, false);
+		return this._checkAccess(name, def, location, mode, false);
 	}
 
 	/**
 	 * Get value for field
 	 *
 	 * @param name - Name of field to get.
-	 * @param location - Location used for access control.
+	 * @param remote - Location this value is being read from.
 	 * @returns Value stored for the field.
 	 */
-	get<Field extends keyof Fields & string>(name: Field, location = this.location) {
+	get<Field extends keyof Fields & string>(name: Field, remote = this.location) {
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
-		this._checkAccess(name, def, location, true);
+		// If remote access is requested require it to be able to read the field
+		if (remote !== this.location) {
+			this._checkAccess(name, def, remote, ConfigAccess.read, true);
+		}
+		// Require that the field is either read or writable locally so that you can get the value
+		// back of write only fields recently written to.
+		if (
+			!this._checkAccess(name, def, this.location, ConfigAccess.write, false)
+			&& !this._checkAccess(name, def, this.location, ConfigAccess.read, false)
+		) {
+			throw new InvalidAccess(`Field '${name}' is not accessible from ${this.location}`);
+		}
 
 		return this.fields[name];
 	}
@@ -377,22 +415,25 @@ export class Config<
 	/**
 	 * Set value of field
 	 *
-	 * The field must be defined for the config group and the value is
+	 * The field must be defined for the config and the value is
 	 * type checked against the field definition.
 	 *
 	 * @param name - Name of field to set.
 	 * @param newValue - Value to set for field.
-	 * @param location - Location used for access control.
+	 * @param remote - Location this field is being set from.
 	 * @throws {InvalidField} if field is not defined.
 	 * @throws {InvalidValue} if value is not allowed for the field.
 	 */
-	set<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], location = this.location) {
+	set<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], remote = this.location) {
 		let value: FieldValue = newValue;
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
-		this._checkAccess(name, def, location, true);
+		this._checkAccess(name, def, remote, ConfigAccess.write, true);
+		if (remote !== this.location) {
+			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
+		}
 
 		// Empty strings are treates as null
 		if (value === "") {
@@ -447,12 +488,12 @@ export class Config<
 	 * Set property of object field
 	 *
 	 * Update value of stored object field by setting the specified property
-	 * on it.  The field must be defined as an object for the config group.
+	 * on it.  The field must be defined as an object for the config.
 	 *
 	 * @param name - Name of field to set property on.
 	 * @param prop - Name of property to set on field.
 	 * @param value - the value to set the property to.
-	 * @param location - Location used for access control.
+	 * @param remote - Location this property is being set from
 	 * @throws {InvalidField} if field is not defined.
 	 * @throws {InvalidValue} if field is not an object.
 	 */
@@ -460,13 +501,16 @@ export class Config<
 		name: Field,
 		prop: string,
 		value?: unknown,
-		location = this.location,
+		remote = this.location,
 	) {
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
-		this._checkAccess(name, def, location, true);
+		this._checkAccess(name, def, remote, ConfigAccess.write, true);
+		if (remote !== this.location) {
+			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
+		}
 
 		if (def.type !== "object") {
 			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);

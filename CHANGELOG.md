@@ -31,6 +31,7 @@ Many thanks to the following for contributing to this release:
 - Added clean script to speed up publishing and debugging of build steps [#640](https://github.com/clusterio/clusterio/pull/640).
 - Added sub-tile option on plugin page headers [#642](https://github.com/clusterio/clusterio/pull/642).
 - Greatly improved plugin and module template generation [#641](https://github.com/clusterio/clusterio/pull/641).
+- Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
 
 ### Changes
 
@@ -55,6 +56,7 @@ Many thanks to the following for contributing to this release:
 
 - Previously silent errors for controller.sendEvent now throw exceptions [#625](https://github.com/clusterio/clusterio/pull/625).
 - @clusterio/controller export InstanceInfo has added factorioVersion parameter.
+- Argument order for `Config.canAccess` changed to require an access mode passed as the second argument.
 
 Many thanks to the following for contributing to this release:  
 [@CCpersonguy](https://github.com/CCpersonguy)
