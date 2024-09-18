@@ -78,6 +78,12 @@ export interface FieldDefinition {
 	 */
 	description?: string;
 	/**
+	 * Value to use for the autocomplete attribute in the Web UI's input element.
+	 * Useful for making browsers behave properly with credential inputs.
+	 * Only used for string and number fields.
+	 */
+	autoComplete?: string;
+	/**
 	 * Web UI component to use for rending this input. Can be extended by
 	 * @{link "@clusterio/web_ui".BaseWebPlugin.inputComponents}
 	 */

@@ -44,12 +44,12 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 	}
 	if (def.type === "string") {
 		if (def.credential) {
-			return <Input.Password/>;
+			return <Input.Password autoComplete={def.autoComplete} />;
 		}
-		return <Input/>;
+		return <Input autoComplete={def.autoComplete} />;
 	}
 	if (def.type === "number") {
-		return <InputNumber/>;
+		return <InputNumber autoComplete={def.autoComplete} />;
 	}
 
 	return `Unknown type ${def.type}`;

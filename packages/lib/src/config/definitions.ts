@@ -153,12 +153,14 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		"controller.factorio_username": {
 			title: "Factorio Username",
 			description: "Username to authenticate with Factorio API with.",
+			autoComplete: "section-factorio username",
 			type: "string",
 			optional: true,
 		},
 		"controller.factorio_token": {
 			title: "Factorio Token",
 			description: "Token to authenticate with Factorio API with.",
+			autoComplete: "section-factorio new-password",
 			type: "string",
 			credential: ["controller"],
 			optional: true,
@@ -276,6 +278,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			description:
 				"Username to authenticate with Factorio API with. If set this will be used in the server settings " +
 				"of all instances on this host.",
+			autoComplete: "section-factorio username",
 			type: "string",
 			optional: true,
 		},
@@ -284,6 +287,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			description:
 				"Token to authenticate with Factorio API with. If set this will be used in the server settings " +
 				"of all instances on this host.",
+			autoComplete: "section-factorio new-password",
 			type: "string",
 			credential: ["host"],
 			optional: true,
