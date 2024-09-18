@@ -20,6 +20,9 @@ export interface ControllerConfigFields {
 	"controller.metrics_timeout": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
+	"controller.factorio_username": string | null;
+	"controller.factorio_token": string | null;
+	"controller.share_factorio_credentials_with_hosts": boolean;
 	"controller.default_mod_pack_id": number | null;
 	"controller.default_role_id": number | null;
 	"controller.autosave_interval": number;
@@ -147,6 +150,29 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 15,
 		},
+		"controller.factorio_username": {
+			title: "Factorio Username",
+			description: "Username to authenticate with Factorio API with.",
+			autoComplete: "section-factorio username",
+			type: "string",
+			optional: true,
+		},
+		"controller.factorio_token": {
+			title: "Factorio Token",
+			description: "Token to authenticate with Factorio API with.",
+			autoComplete: "section-factorio new-password",
+			type: "string",
+			credential: ["controller"],
+			optional: true,
+		},
+		"controller.share_factorio_credentials_with_hosts": {
+			title: "Share Factorio credentials with Hosts",
+			description:
+				"If enabled, the Factorio Username and Token will be shared with hosts and " +
+				"used in the server settings of instances in this cluster.",
+			type: "boolean",
+			initialValue: true,
+		},
 		"controller.default_mod_pack_id": {
 			title: "Default Mod Pack",
 			description: "Mod pack used by default for instances.",
@@ -175,6 +201,8 @@ export interface HostConfigFields {
 	"host.tls_ca": string | null;
 	"host.public_address": string;
 	"host.factorio_port_range": string;
+	"host.factorio_username": string | null,
+	"host.factorio_token": string | null,
 	"host.max_reconnect_delay": number;
 }
 
@@ -244,6 +272,25 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 				"ranges separated with a dash.",
 			type: "string",
 			initialValue: "34100-34199",
+		},
+		"host.factorio_username": {
+			title: "Factorio Username",
+			description:
+				"Username to authenticate with Factorio API with. If set this will be used in the server settings " +
+				"of all instances on this host.",
+			autoComplete: "section-factorio username",
+			type: "string",
+			optional: true,
+		},
+		"host.factorio_token": {
+			title: "Factorio Token",
+			description:
+				"Token to authenticate with Factorio API with. If set this will be used in the server settings " +
+				"of all instances on this host.",
+			autoComplete: "section-factorio new-password",
+			type: "string",
+			credential: ["host"],
+			optional: true,
 		},
 		"host.max_reconnect_delay": {
 			title: "Max Reconnect Delay",

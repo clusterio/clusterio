@@ -24,6 +24,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.ControllerConfigSetPropRequest,
 	controller.HostGenerateTokenRequest,
 	controller.HostConfigCreateRequest,
+	controller.GetFactorioCredentialsRequest,
 	controller.LogSetSubscriptionsRequest,
 	controller.LogQueryRequest,
 	controller.LogMessageEvent,

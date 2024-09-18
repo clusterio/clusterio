@@ -16,13 +16,13 @@ const { Title } = Typography;
 function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	let initialValues: any = {};
 	for (let [name, def] of Object.entries(config.constructor.fieldDefinitions)) {
-		if (!config.canAccess(name)) {
+		if (!config.canAccess(name, lib.ConfigAccess.read)) {
 			continue;
 		}
 
 		let value = config.get(name) as any;
 		if (def.type === "object") {
-			for (let prop of Object.keys(value)) {
+			for (let prop of Object.keys(value ?? {})) {
 				initialValues[`${name}.${prop}`] = JSON.stringify(value[prop]);
 			}
 		} else {
@@ -43,10 +43,13 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 		return <Checkbox/>;
 	}
 	if (def.type === "string") {
-		return <Input/>;
+		if (def.credential) {
+			return <Input.Password autoComplete={def.autoComplete} />;
+		}
+		return <Input autoComplete={def.autoComplete} />;
 	}
 	if (def.type === "number") {
-		return <InputNumber/>;
+		return <InputNumber autoComplete={def.autoComplete} />;
 	}
 
 	return `Unknown type ${def.type}`;
@@ -110,7 +113,8 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 			if (key.endsWith(":add.name") || key.endsWith(":add.value")) {
 				continue;
 			}
-			if (initialValues[key] === value) {
+			const def = config?.constructor.fieldDefinitions[key];
+			if (!def?.credential && initialValues[key] === value) {
 				changed = newChangedFields.delete(key) || changed;
 			} else {
 				changed = !newChangedFields.has(key) || changed;
@@ -213,6 +217,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	</>;
 }
 
+// eslint-disable-next-line complexity
 function computeTreeData(
 	control: Control,
 	form: FormInstance<any>,
@@ -259,7 +264,9 @@ function computeTreeData(
 		};
 
 		for (let [field, def] of Object.entries(groupDefs)) {
-			if (!config.canAccess(`${groupName}.${field}`)) {
+			const canWrite = config.canAccess(`${groupName}.${field}`, lib.ConfigAccess.write);
+			const canRead = config.canAccess(`${groupName}.${field}`, lib.ConfigAccess.read);
+			if (!canWrite && !canRead) {
 				continue;
 			}
 
@@ -279,7 +286,7 @@ function computeTreeData(
 					</>}
 					tooltip={def.description}
 				/>;
-				for (let prop of Object.keys(value)) {
+				for (let prop of Object.keys(value ?? {})) {
 					let propPath = `${groupName}.${field}.${prop}`;
 					let restart = Boolean(
 						def.restartRequiredProps && Number(def.restartRequired) ^ Number(restartRequiredProps.has(prop))
@@ -333,7 +340,7 @@ function computeTreeData(
 							onClick={() => {
 								let propName = form.getFieldValue(`${newPropPath}.name`);
 								let propValue = form.getFieldValue(`${newPropPath}.value`);
-								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
+								if (!value || !Object.prototype.hasOwnProperty.call(value, propName)) {
 									let newConfig = ConfigClass.fromJSON(config!.toJSON(), "control");
 									(newConfig as lib.Config<any>).setProp(fieldName, propName, null);
 									setConfig(newConfig);

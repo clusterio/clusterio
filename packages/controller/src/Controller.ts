@@ -788,8 +788,6 @@ export default class Controller {
 			"tags": ["clusterio"],
 			"max_players": 0,
 			"visibility": { "public": true, "lan": true },
-			"username": "",
-			"token": "",
 			"game_password": "",
 			"require_user_verification": true,
 			"max_upload_in_kilobytes_per_second": 0,
