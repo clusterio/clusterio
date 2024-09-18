@@ -589,16 +589,25 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 */
 	async resolveServerSettings(overrides: Record<string, unknown>, includeCredentials: boolean) {
 		let serverSettings = await this.server.exampleSettings();
-		if (includeCredentials && !overrides.username && !overrides.token) {
+		if (includeCredentials && overrides.username === undefined && overrides.token === undefined) {
 			let credentials = {
 				username: this._host.config.get("host.factorio_username") ?? undefined,
 				token: this._host.config.get("host.factorio_token") ?? undefined,
 			};
 			if (!credentials.username && !credentials.token) {
 				Object.assign(credentials, await this.sendTo("controller", new lib.GetFactorioCredentialsRequest()));
+				if (credentials.username || credentials.token) {
+					this.logger.info("Using Factorio credentials from controller config");
+				} else {
+					this.logger.warn("No Factorio credentials found");
+				}
+			} else {
+				this.logger.info("Using Factorio credentials from host config");
 			}
 			if (credentials.username) { serverSettings.username = credentials.username; }
 			if (credentials.token) { serverSettings.token = credentials.token; }
+		} else if (includeCredentials) {
+			this.logger.info("Using Factorio credentials from instance config");
 		}
 
 		for (let [key, value] of Object.entries(overrides)) {
