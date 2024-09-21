@@ -74,6 +74,7 @@ export default class HostConnection extends BaseConnection {
 			this._controller.hosts.set(this.info);
 		});
 
+		this.handle(lib.GetFactorioCredentialsRequest, this.handleGetFactorioCredentialsRequest.bind(this));
 		this.handle(lib.HostInfoUpdateEvent, this.handleHostInfoUpdateEvent.bind(this));
 		this.handle(lib.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
 		this.handle(lib.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
@@ -159,6 +160,16 @@ export default class HostConnection extends BaseConnection {
 	 */
 	get remoteAddress() {
 		return this.info.remoteAddress;
+	}
+
+	async handleGetFactorioCredentialsRequest() {
+		if (this._controller.config.get("controller.share_factorio_credentials_with_hosts")) {
+			return {
+				username: this._controller.config.get("controller.factorio_username") ?? undefined,
+				token: this._controller.config.get("controller.factorio_token") ?? undefined,
+			};
+		}
+		return {};
 	}
 
 	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {

@@ -35,6 +35,7 @@ Many thanks to the following for contributing to this release:
 - Controller will refuse duplicate host connections from different addresses [#647](https://github.com/clusterio/clusterio/pull/647).
 - Monorepos are now supported for external plugins [#654](https://github.com/clusterio/clusterio/pull/654).
 - Changed default role selection to be a dropdown menu rather than id [#664](https://github.com/clusterio/clusterio/pull/664).
+- Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
 
 ### Changes
 
@@ -57,11 +58,15 @@ Many thanks to the following for contributing to this release:
 - Fixed issues with subscriptions which prevented them from working on instances or generic events [#655](https://github.com/clusterio/clusterio/pull/655).
 - Fixed unreliable datastore tests [#662](https://github.com/clusterio/clusterio/pull/662).
 - Added option for silent tests.
+- Added `controller.factorio_username` and `controller.factorio_token` config to set Factorio credentials used for the whole cluster.
+- Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
+- Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
 
 ### Breaking Changes
 
 - Previously silent errors for controller.sendEvent now throw exceptions [#625](https://github.com/clusterio/clusterio/pull/625).
 - @clusterio/controller export InstanceInfo has added factorioVersion parameter.
+- Argument order for `Config.canAccess` changed to require an access mode passed as the second argument.
 
 Many thanks to the following for contributing to this release:  
 [@CCpersonguy](https://github.com/CCpersonguy)

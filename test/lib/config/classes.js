@@ -1,7 +1,7 @@
 "use strict";
 const lib = require("@clusterio/lib");
 const assert = require("assert").strict;
-const events = require("events");
+const CA = lib.ConfigAccess;
 
 
 describe("lib/config/classes", function() {
@@ -26,6 +26,7 @@ describe("lib/config/classes", function() {
 				"test.bool": { type: "boolean", initialValue: false, optional: true },
 				"test.json": { type: "object", initialValue: {}, optional: true },
 				"test.priv": { access: ["local"], type: "string", optional: true },
+				"test.cred": { credential: ["local"] },
 			};
 
 			constructor(location, fields) {
@@ -72,6 +73,7 @@ describe("lib/config/classes", function() {
 					"test.bool": false,
 					"test.json": {},
 					"test.priv": null,
+					"test.cred": null,
 				});
 			});
 		});
@@ -148,6 +150,7 @@ describe("lib/config/classes", function() {
 					"test.bool": false,
 					"test.json": {},
 					"test.priv": null,
+					"test.cred": null,
 					"test.alpha": null,
 					"test.beta": "decay",
 					"test.gamma": 99,
@@ -181,6 +184,7 @@ describe("lib/config/classes", function() {
 					"test.func": 42,
 					"test.json": {},
 					"test.priv": null,
+					"test.cred": null,
 					"test.test": null,
 				});
 			});
@@ -227,20 +231,61 @@ describe("lib/config/classes", function() {
 		describe(".canAccess()", function() {
 			it("should throw if field does not exist", function() {
 				let testInstance = new TestConfig("local");
-				assert.throws(() => testInstance.canAccess("invalid"), new Error("No field named 'invalid'"));
+				assert.throws(() => testInstance.canAccess("invalid", CA.read), new Error("No field named 'invalid'"));
 			});
 
-			it("should return true for fields that are accessible", function() {
+			it("should throw if mode is not passed ", function() {
 				let testInstance = new TestConfig("local");
-				assert.equal(testInstance.canAccess("alpha.foo"), true);
+				assert.throws(
+					() => { testInstance.canAccess("alpha.foo"); },
+					new TypeError("mode argument is required to canAccess")
+				);
+			});
+
+			it("should return true checking read for fields that are readable", function() {
+				let testInstance = new TestConfig("local");
+				assert.equal(testInstance.canAccess("alpha.foo", CA.read), true);
 				for (let field of ["test.enum", "test.test", "test.func", "test.bool", "test.json"]) {
-					assert.equal(testInstance.canAccess(field), true);
-					assert.equal(testInstance.canAccess(field, "local"), true);
-					assert.equal(testInstance.canAccess(field, "remote"), true);
+					assert.equal(testInstance.canAccess(field, CA.read), true);
+					assert.equal(testInstance.canAccess(field, CA.read, "local"), true);
+					assert.equal(testInstance.canAccess(field, CA.read, "remote"), true);
 				}
-				assert.equal(testInstance.canAccess("test.priv"), true);
-				assert.equal(testInstance.canAccess("test.priv", "local"), true);
-				assert.equal(testInstance.canAccess("test.priv", "remote"), false);
+				assert.equal(testInstance.canAccess("test.priv", CA.read), true);
+				assert.equal(testInstance.canAccess("test.priv", CA.read, "local"), true);
+				assert.equal(testInstance.canAccess("test.priv", CA.read, "remote"), false);
+				assert.equal(testInstance.canAccess("test.cred", CA.read), true);
+				assert.equal(testInstance.canAccess("test.cred", CA.read, "local"), true);
+				assert.equal(testInstance.canAccess("test.cred", CA.read, "remote"), false);
+			});
+			it("should return true checking write for fields that are writeable", function() {
+				let testInstance = new TestConfig("local");
+				assert.equal(testInstance.canAccess("alpha.foo", CA.write), true);
+				for (let field of ["test.enum", "test.test", "test.func", "test.bool", "test.json"]) {
+					assert.equal(testInstance.canAccess(field, CA.write), true);
+					assert.equal(testInstance.canAccess(field, CA.write, "local"), true);
+					assert.equal(testInstance.canAccess(field, CA.write, "remote"), true);
+				}
+				assert.equal(testInstance.canAccess("test.priv", CA.write), true);
+				assert.equal(testInstance.canAccess("test.priv", CA.write, "local"), true);
+				assert.equal(testInstance.canAccess("test.priv", CA.write, "remote"), false);
+				assert.equal(testInstance.canAccess("test.cred", CA.write), true);
+				assert.equal(testInstance.canAccess("test.cred", CA.write, "local"), true);
+				assert.equal(testInstance.canAccess("test.cred", CA.write, "remote"), true);
+			});
+			it("should return true for checking readWrite for fields that are readable and writeable", function() {
+				let testInstance = new TestConfig("local");
+				assert.equal(testInstance.canAccess("alpha.foo", CA.readWrite), true);
+				for (let field of ["test.enum", "test.test", "test.func", "test.bool", "test.json"]) {
+					assert.equal(testInstance.canAccess(field, CA.readWrite), true);
+					assert.equal(testInstance.canAccess(field, CA.readWrite, "local"), true);
+					assert.equal(testInstance.canAccess(field, CA.readWrite, "remote"), true);
+				}
+				assert.equal(testInstance.canAccess("test.priv", CA.readWrite), true);
+				assert.equal(testInstance.canAccess("test.priv", CA.readWrite, "local"), true);
+				assert.equal(testInstance.canAccess("test.priv", CA.readWrite, "remote"), false);
+				assert.equal(testInstance.canAccess("test.cred", CA.readWrite), true);
+				assert.equal(testInstance.canAccess("test.cred", CA.readWrite, "local"), true);
+				assert.equal(testInstance.canAccess("test.cred", CA.readWrite, "remote"), false);
 			});
 		});
 
@@ -259,10 +304,17 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.get("test.priv"), "blah");
 				assert.equal(testInstance.get("test.func"), 27);
 			});
-			it("should throw if field is inaccessible", function() {
+			it("should throw if field is remotely inaccessible", function() {
 				let testInstance = new TestConfig("local");
 				assert.throws(
 					() => testInstance.get("test.priv", "remote"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is locally inaccessible", function() {
+				let testInstance = new TestConfig("remote");
+				assert.throws(
+					() => testInstance.get("test.priv"),
 					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
 				);
 			});
@@ -290,9 +342,16 @@ describe("lib/config/classes", function() {
 				);
 			});
 
-			it("should throw if field is inaccesible", function() {
+			it("should throw if field is remotely inaccessible", function() {
 				assert.throws(
 					() => testInstance.set("test.priv", "bad", "remote"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is locally inaccessible", function() {
+				testInstance = new TestConfig("remote");
+				assert.throws(
+					() => testInstance.set("test.priv", "bad", "local"),
 					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
 				);
 			});
@@ -398,9 +457,16 @@ describe("lib/config/classes", function() {
 				);
 			});
 
-			it("should throw if field is inaccesible", function() {
+			it("should throw if field is remotely inaccessible", function() {
 				assert.throws(
 					() => testInstance.setProp("test.priv", "prop", "bad", "remote"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is locally inaccessible", function() {
+				testInstance = new TestConfig("remote");
+				assert.throws(
+					() => testInstance.setProp("test.priv", "prop", "bad", "local"),
 					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
 				);
 			});

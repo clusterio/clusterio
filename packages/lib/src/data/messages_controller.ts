@@ -122,6 +122,18 @@ export class HostConfigCreateRequest {
 	static Response = plainJson(HostConfig.jsonSchema);
 }
 
+export class GetFactorioCredentialsRequest {
+	declare ["constructor"]: typeof GetFactorioCredentialsRequest;
+	static type = "request" as const;
+	static src = ["host", "instance"] as const;
+	static dst = "controller" as const;
+
+	static Response = plainJson(Type.Object({
+		"username": Type.Optional(Type.String()),
+		"token": Type.Optional(Type.String()),
+	}));
+}
+
 export class LogSetSubscriptionsRequest {
 	declare ["constructor"]: typeof LogSetSubscriptionsRequest;
 	static type = "request" as const;
