@@ -183,6 +183,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		"controller.default_role_id": {
 			title: "Default role",
 			description: "ID of role assigned by default to new users.",
+			inputComponent: "role",
 			type: "number",
 			optional: true,
 			initialValue: 1,

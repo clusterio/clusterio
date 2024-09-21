@@ -31,6 +31,10 @@ Many thanks to the following for contributing to this release:
 - Added clean script to speed up publishing and debugging of build steps [#640](https://github.com/clusterio/clusterio/pull/640).
 - Added sub-tile option on plugin page headers [#642](https://github.com/clusterio/clusterio/pull/642).
 - Greatly improved plugin and module template generation [#641](https://github.com/clusterio/clusterio/pull/641).
+- Duplicate host connections from the same address will kill the older host process [#647](https://github.com/clusterio/clusterio/pull/647).
+- Controller will refuse duplicate host connections from different addresses [#647](https://github.com/clusterio/clusterio/pull/647).
+- Monorepos are now supported for external plugins [#654](https://github.com/clusterio/clusterio/pull/654).
+- Changed default role selection to be a dropdown menu rather than id [#664](https://github.com/clusterio/clusterio/pull/664).
 - Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
 
 ### Changes
@@ -42,7 +46,7 @@ Many thanks to the following for contributing to this release:
 - Fixed loopback routing for instances reporting the wrong error message [#625](https://github.com/clusterio/clusterio/pull/625).
 - Fixed docs linking to non-existing js files after ts migration [#633](https://github.com/clusterio/clusterio/pull/633).
 - Fixed CI workflows using deprecated version of nodejs [#637](https://github.com/clusterio/clusterio/pull/637).
-- Fixed test running on windows that should be linux only [#628](https://github.com/clusterio/clusterio/pull/628).
+- Fixed linux only tests to run on windows [#661](https://github.com/clusterio/clusterio/pull/661).
 - Fixed log events being sent from a host over an invalid websocket [#639](https://github.com/clusterio/clusterio/pull/639).
 - Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir" [#648](https://github.com/clusterio/clusterio/pull/648).
 - Fixed spaces passed in arguments to the installer causing it to break [#620](https://github.com/clusterio/clusterio/issues/620)
@@ -51,6 +55,9 @@ Many thanks to the following for contributing to this release:
 - Added instance version display [#573](https://github.com/clusterio/clusterio/pull/573)
 - Added `factorio.shutdown_timeout` config to set the time the host will wait for a Factorio server to shut down befor killing it.
 - Changed shutdown logic to prefer sending a /quit command via RCON instead of using diverging logic on Windows and Linux.
+- Fixed issues with subscriptions which prevented them from working on instances or generic events [#655](https://github.com/clusterio/clusterio/pull/655).
+- Fixed unreliable datastore tests [#662](https://github.com/clusterio/clusterio/pull/662).
+- Added option for silent tests.
 - Added `controller.factorio_username` and `controller.factorio_token` config to set Factorio credentials used for the whole cluster.
 - Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
 - Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
