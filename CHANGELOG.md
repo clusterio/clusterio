@@ -36,6 +36,7 @@ Many thanks to the following for contributing to this release:
 - Monorepos are now supported for external plugins [#654](https://github.com/clusterio/clusterio/pull/654).
 - Changed default role selection to be a dropdown menu rather than id [#664](https://github.com/clusterio/clusterio/pull/664).
 - Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
+- Allow hidden and readonly graphical representations of config values. [#665](https://github.com/clusterio/clusterio/pull/665).
 
 ### Changes
 

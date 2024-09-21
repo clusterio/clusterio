@@ -24,6 +24,7 @@ export interface PluginLoginForm {
 }
 
 export interface InputComponentProps {
+	disabled?: boolean,
 	fieldDefinition: FieldDefinition,
 	value: null | boolean | number | string,
 	onChange: (value: null | boolean | number | string) => void,

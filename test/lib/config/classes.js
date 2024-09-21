@@ -27,6 +27,7 @@ describe("lib/config/classes", function() {
 				"test.json": { type: "object", initialValue: {}, optional: true },
 				"test.priv": { access: ["local"], type: "string", optional: true },
 				"test.cred": { credential: ["local"] },
+				"test.rdo": { readonly: ["local"] },
 			};
 
 			constructor(location, fields) {
@@ -74,6 +75,7 @@ describe("lib/config/classes", function() {
 					"test.json": {},
 					"test.priv": null,
 					"test.cred": null,
+					"test.rdo": null,
 				});
 			});
 		});
@@ -89,6 +91,7 @@ describe("lib/config/classes", function() {
 					"test.func": 42,
 					"test.bool": false,
 					"test.json": {},
+					"test.rdo": null,
 				});
 			});
 		});
@@ -151,6 +154,7 @@ describe("lib/config/classes", function() {
 					"test.json": {},
 					"test.priv": null,
 					"test.cred": null,
+					"test.rdo": null,
 					"test.alpha": null,
 					"test.beta": "decay",
 					"test.gamma": 99,
@@ -185,6 +189,7 @@ describe("lib/config/classes", function() {
 					"test.json": {},
 					"test.priv": null,
 					"test.cred": null,
+					"test.rdo": null,
 					"test.test": null,
 				});
 			});
@@ -256,6 +261,9 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.canAccess("test.cred", CA.read), true);
 				assert.equal(testInstance.canAccess("test.cred", CA.read, "local"), true);
 				assert.equal(testInstance.canAccess("test.cred", CA.read, "remote"), false);
+				assert.equal(testInstance.canAccess("test.rdo", CA.read), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.read, "local"), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.read, "remote"), true);
 			});
 			it("should return true checking write for fields that are writeable", function() {
 				let testInstance = new TestConfig("local");
@@ -271,6 +279,9 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.canAccess("test.cred", CA.write), true);
 				assert.equal(testInstance.canAccess("test.cred", CA.write, "local"), true);
 				assert.equal(testInstance.canAccess("test.cred", CA.write, "remote"), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.write), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.write, "local"), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.write, "remote"), false);
 			});
 			it("should return true for checking readWrite for fields that are readable and writeable", function() {
 				let testInstance = new TestConfig("local");
@@ -286,6 +297,9 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.canAccess("test.cred", CA.readWrite), true);
 				assert.equal(testInstance.canAccess("test.cred", CA.readWrite, "local"), true);
 				assert.equal(testInstance.canAccess("test.cred", CA.readWrite, "remote"), false);
+				assert.equal(testInstance.canAccess("test.rdo", CA.readWrite), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.readWrite, "local"), true);
+				assert.equal(testInstance.canAccess("test.rdo", CA.readWrite, "remote"), false);
 			});
 		});
 

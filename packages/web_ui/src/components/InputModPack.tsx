@@ -15,6 +15,6 @@ export default function InputModPack(props: InputComponentProps) {
 			value: modPack.id,
 		}))}
 		allowClear={props.fieldDefinition.optional}
+		disabled={props.disabled}
 	/>;
 }
-

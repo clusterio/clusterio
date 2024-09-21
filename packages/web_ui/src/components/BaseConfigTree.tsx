@@ -32,24 +32,24 @@ function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	return initialValues;
 }
 
-function renderInput(inputComponents: Record<string, InputComponent>, def: lib.FieldDefinition) {
+function renderInput(inputComponents: Record<string, InputComponent>, def: lib.FieldDefinition, readonly: boolean) {
 	if (def.inputComponent && Object.prototype.hasOwnProperty.call(inputComponents, def.inputComponent)) {
 		// Field.Item will provide the value and onChange props to the component.
 		type InputPartial = React.ComponentClass<Omit<InputComponentProps, "value" | "onChange">>;
 		const CustomInput = inputComponents[def.inputComponent] as unknown as InputPartial;
-		return <CustomInput fieldDefinition={def} />;
+		return <CustomInput fieldDefinition={def} disabled={readonly} />;
 	}
 	if (def.type === "boolean") {
-		return <Checkbox/>;
+		return <Checkbox disabled={readonly} />;
 	}
 	if (def.type === "string") {
 		if (def.credential) {
-			return <Input.Password autoComplete={def.autoComplete} />;
+			return <Input.Password autoComplete={def.autoComplete} disabled={readonly} />;
 		}
-		return <Input autoComplete={def.autoComplete} />;
+		return <Input autoComplete={def.autoComplete} disabled={readonly} />;
 	}
 	if (def.type === "number") {
-		return <InputNumber autoComplete={def.autoComplete} />;
+		return <InputNumber autoComplete={def.autoComplete} disabled={readonly} />;
 	}
 
 	return `Unknown type ${def.type}`;
@@ -264,13 +264,17 @@ function computeTreeData(
 		};
 
 		for (let [field, def] of Object.entries(groupDefs)) {
-			const canWrite = config.canAccess(`${groupName}.${field}`, lib.ConfigAccess.write);
-			const canRead = config.canAccess(`${groupName}.${field}`, lib.ConfigAccess.read);
+			if (def.hidden === true) {
+				continue;
+			}
+
+			const fieldName = `${groupName}.${field}`;
+			const canWrite = config.canAccess(fieldName, lib.ConfigAccess.write);
+			const canRead = config.canAccess(fieldName, lib.ConfigAccess.read);
 			if (!canWrite && !canRead) {
 				continue;
 			}
 
-			let fieldName = `${groupName}.${field}`;
 			let value = config.get(fieldName) as any;
 			let childNode: ChildNode = {
 				key: fieldName,
@@ -311,7 +315,7 @@ function computeTreeData(
 								return Promise.resolve();
 							}}]}
 						>
-							<Input className="json-input" />
+							<Input className="json-input" disabled={!canWrite} />
 						</Form.Item>,
 					});
 
@@ -319,47 +323,53 @@ function computeTreeData(
 					propsMap.set(propPath, [fieldName, prop]);
 				}
 
-				let newPropPath = `${groupName}.${field}:add`;
-				childNode.children.push({
-					key: newPropPath,
-					title: <Space>
-						<Form.Item
-							name={`${newPropPath}.name`}
-							noStyle={true}
-						>
-							<Input />
-						</Form.Item>:
-						<Form.Item
-							name={`${newPropPath}.value`}
-							noStyle={true}
-						>
-							<Input className="json-input" />
-						</Form.Item>
-						<Button
-							size="small"
-							onClick={() => {
-								let propName = form.getFieldValue(`${newPropPath}.name`);
-								let propValue = form.getFieldValue(`${newPropPath}.value`);
-								if (!value || !Object.prototype.hasOwnProperty.call(value, propName)) {
-									let newConfig = ConfigClass.fromJSON(config!.toJSON(), "control");
-									(newConfig as lib.Config<any>).setProp(fieldName, propName, null);
-									setConfig(newConfig);
-								}
+				if (canWrite) {
+					let newPropPath = `${groupName}.${field}:add`;
+					childNode.children.push({
+						key: newPropPath,
+						title: <Space>
+							<Form.Item
+								name={`${newPropPath}.name`}
+								noStyle={true}
+							>
+								<Input />
+							</Form.Item>:
+							<Form.Item
+								name={`${newPropPath}.value`}
+								noStyle={true}
+							>
+								<Input className="json-input" />
+							</Form.Item>
+							<Button
+								size="small"
+								onClick={() => {
+									let propName = form.getFieldValue(`${newPropPath}.name`);
+									let propValue = form.getFieldValue(`${newPropPath}.value`);
+									if (!value || !Object.prototype.hasOwnProperty.call(value, propName)) {
+										let newConfig = ConfigClass.fromJSON(config!.toJSON(), "control");
+										(newConfig as lib.Config<any>).setProp(fieldName, propName, null);
+										setConfig(newConfig);
+									}
 
-								let propPath = `${groupName}.${field}.${propName}`;
-								form.setFieldsValue({
-									[`${newPropPath}.name`]: "",
-									[`${newPropPath}.value`]: "",
-									[propPath]: propValue,
-								});
-								form.validateFields([propPath]);
-								onValuesChange({ [propPath]: propValue });
-							}}
-						>
-							Add
-						</Button>
-					</Space>,
-				});
+									let propPath = `${groupName}.${field}.${propName}`;
+									form.setFieldsValue({
+										[`${newPropPath}.name`]: "",
+										[`${newPropPath}.value`]: "",
+										[propPath]: propValue,
+									});
+									form.validateFields([propPath]);
+									onValuesChange({ [propPath]: propValue });
+								}}
+							>
+								Add
+							</Button>
+						</Space>,
+					});
+				}
+
+				if (!childNode.children.length) {
+					continue;
+				}
 
 			} else {
 				childNode.title = <Form.Item
@@ -373,7 +383,7 @@ function computeTreeData(
 					tooltip={def.description}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
 				>
-					{renderInput(control.inputComponents, def)}
+					{renderInput(control.inputComponents, def, !canWrite)}
 				</Form.Item>;
 				initialValues[fieldName] = value;
 			}
