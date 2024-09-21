@@ -118,15 +118,17 @@ export interface FieldDefinition {
 	 */
 	access?: ConfigLocation[];
 	/**
-	 * If present treat the config value as a credential and only allow reading
-	 * from the locations specified.
+	 * If present treat the config value as a credential.
+	 * Only the locations specified will be able to read the current value.
+	 * Access can be used to specify which locations are able to overwrite the value.
 	 */
 	credential?: ConfigLocation[];
 	/**
-	 * True if graphical interfaces should prevent the user modifying the value
-	 * This is client side and does not provide any validation logic
+	 * If present treat the config value as readonly.
+	 * Only the locations specified will be able to update the config value.
+	 * Access can be used to specify which locations are able to read the value.
 	 */
-	readonly?: boolean;
+	readonly?: ConfigLocation[];
 	/**
 	 * True if graphical interfaces should hide the config value
 	 */
@@ -240,11 +242,14 @@ export class Config<
 	 */
 	_checkAccess(name: string, def: FieldDefinition, location: ConfigLocation, mode: ConfigAccess, error: boolean) {
 		// If credential array is present it acts as read permission and the access array as write permission,
-		// if not present access array acts as a combined read/write permission check.
+		// If readonly array is present it acts as write permission and the access array as the read permission.
+		// If neither is present access array acts as a combined read/write permission check.
 		if (
 			def.credential && mode & ConfigAccess.read && !(def.credential).includes(location)
+			|| def.readonly && mode & ConfigAccess.write && !(def.readonly).includes(location)
 			|| (
 				(!def.credential || mode & ConfigAccess.write)
+				&& (!def.readonly || mode & ConfigAccess.read)
 				&& !(def.access ?? this.defaultAccess).includes(location)
 			)
 		) {
@@ -304,7 +309,7 @@ export class Config<
 		for (let [name, value] of Object.entries(this.fields)) {
 			let def = this.constructor.fieldDefinitions[name];
 			if (
-				!this._checkAccess(name, def, this.location, ConfigAccess.write, false)
+				this.location !== "control" && !this._checkAccess(name, def, this.location, ConfigAccess.write, false)
 				|| this.location !== remote && !this._checkAccess(name, def, remote, ConfigAccess.read, false)
 			) {
 				continue;
@@ -353,7 +358,7 @@ export class Config<
 			}
 
 			if (
-				!this._checkAccess(name, def, remote, ConfigAccess.write, false)
+				this.location !== "control" && !this._checkAccess(name, def, remote, ConfigAccess.write, false)
 			) {
 				continue;
 			}
