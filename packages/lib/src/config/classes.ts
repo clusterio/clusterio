@@ -122,6 +122,15 @@ export interface FieldDefinition {
 	 * from the locations specified.
 	 */
 	credential?: ConfigLocation[];
+	/**
+	 * True if graphical interfaces should prevent the user modifying the value
+	 * This is client side and does not provide any validation logic
+	 */
+	readonly?: boolean;
+	/**
+	 * True if graphical interfaces should hide the config value
+	 */
+	hidden?: boolean;
 }
 
 export type ConfigDefs<Fields> = {

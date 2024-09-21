@@ -40,16 +40,16 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 		return <CustomInput fieldDefinition={def} />;
 	}
 	if (def.type === "boolean") {
-		return <Checkbox/>;
+		return <Checkbox disabled={def.readonly} />;
 	}
 	if (def.type === "string") {
 		if (def.credential) {
-			return <Input.Password autoComplete={def.autoComplete} />;
+			return <Input.Password autoComplete={def.autoComplete} disabled={def.readonly} />;
 		}
-		return <Input autoComplete={def.autoComplete} />;
+		return <Input autoComplete={def.autoComplete} disabled={def.readonly} />;
 	}
 	if (def.type === "number") {
-		return <InputNumber autoComplete={def.autoComplete} />;
+		return <InputNumber autoComplete={def.autoComplete} disabled={def.readonly} />;
 	}
 
 	return `Unknown type ${def.type}`;
@@ -267,6 +267,9 @@ function computeTreeData(
 			const canWrite = config.canAccess(`${groupName}.${field}`, lib.ConfigAccess.write);
 			const canRead = config.canAccess(`${groupName}.${field}`, lib.ConfigAccess.read);
 			if (!canWrite && !canRead) {
+				continue;
+			}
+			if (def.hidden === true) {
 				continue;
 			}
 
