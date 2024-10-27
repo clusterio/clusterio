@@ -26,5 +26,6 @@ export default function InputRole(props: InputComponentProps) {
 			value: role.id,
 		}))}
 		allowClear={props.fieldDefinition.optional}
+		disabled={props.disabled}
 	/>;
 }

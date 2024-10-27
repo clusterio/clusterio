@@ -223,6 +223,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			description: "ID of the host",
 			type: "number",
 			initialValue: () => Math.random() * 2**31 | 0,
+			hidden: true,
 		},
 		"host.factorio_directory": {
 			description: "Path to directory to look for factorio installs",
@@ -345,10 +346,12 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description: "ID of the instance",
 			type: "number",
 			initialValue: () => Math.random() * 2**31 | 0,
+			hidden: true,
 		},
 		"instance.assigned_host": {
 			type: "number",
 			optional: true,
+			hidden: true,
 		},
 		"instance.auto_start": {
 			description: "Automatically start this instance when the host hosting it is started up",
