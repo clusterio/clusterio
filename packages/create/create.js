@@ -746,7 +746,11 @@ async function downloadLinuxServer() {
 	const url = new URL(res.headers.location);
 	// get the filename of the latest factorio archive from redirected url
 	const filename = path.posix.basename(url.pathname);
-	const version = filename.match(/(?<=factorio_headless_x64_).*(?=\.tar\.xz)/)[0];
+	const match = filename.match(/(?<=factorio_headless_x64_|factorio-headless_linux_)\d+\.\d+\.\d+(?=\.tar\.xz)/);
+	if (!match || !match.length) {
+		throw Error(`Unable to extract version from filename: ${filename}`);
+	}
+	const version = match[0];
 
 	const tmpDir = "temp/create-temp/";
 	const archivePath = tmpDir + filename;
