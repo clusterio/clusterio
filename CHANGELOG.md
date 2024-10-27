@@ -61,6 +61,7 @@ Many thanks to the following for contributing to this release:
 - Added `controller.factorio_username` and `controller.factorio_token` config to set Factorio credentials used for the whole cluster.
 - Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
 - Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
+- Fixed 2.0 version extraction from linux headless downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
 
 ### Breaking Changes
 
