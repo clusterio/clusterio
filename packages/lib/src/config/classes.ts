@@ -7,7 +7,7 @@ import { basicType } from "../helpers";
 import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
 
-const ConfigLocation = StringEnum(["controller", "host", "instance", "control"]);
+const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
 
 /**
