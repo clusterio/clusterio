@@ -127,6 +127,7 @@ describe("Integration of lib/link", function() {
 		hostConnectorFirst.token = hostConnector.token;
 		hostConnectorFirst.hostId = hostConnector.hostId;
 		const onceClose = events.once(hostConnectorFirst, "close");
+		onceClose.catch(() => {}); // Prevent unhandled promise rejection.
 		await hostConnectorFirst.connect();
 		await hostConnector.connect();
 		await assert.rejects(
