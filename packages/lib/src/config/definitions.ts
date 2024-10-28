@@ -90,8 +90,8 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			optional: true,
 		},
 		"controller.external_address": {
-			title: "External Address",
-			description: "Public facing address the controller is hosted on.",
+			title: "Public URL",
+			description: "Public facing URL the controller is hosted on, including the protocol.",
 			type: "string",
 			optional: true,
 		},
