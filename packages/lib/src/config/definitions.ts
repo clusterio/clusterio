@@ -398,7 +398,8 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			optional: true,
 		},
 		"factorio.rcon_password": {
-			description: "Password for RCON, randomly generated if null",
+			credential: ["host", "controller"],
+			description: "Password for RCON, randomly generated if null.",
 			restartRequired: true,
 			type: "string",
 			optional: true,
