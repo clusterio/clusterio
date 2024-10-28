@@ -17,7 +17,9 @@ class MockInstanceConfig extends EventEmitter {
 	}
 
 	set(field, value) {
-		return this._data.set(field, value);
+		const prev = this.get(field);
+		this._data.set(field, value);
+		this.emit("fieldChanged", field, value, prev);
 	}
 }
 
@@ -177,6 +179,14 @@ describe("controller/src/Controller", function() {
 					() => controller.sendEvent(new MockEvent(), new Address(99, 99)),
 					new Error("Unknown address type 99")
 				);
+			});
+		});
+
+		describe(".instances", function() {
+			it("should set the dirty flag if the config is updated", function() {
+				controller.instances.dirty = false;
+				mockInstanceConfig.set("instance.assigned_host", null);
+				assert(controller.instances.dirty === true, "dirty flag was not set");
 			});
 		});
 	});
