@@ -11,7 +11,7 @@ export interface ControllerConfigFields {
 	"controller.https_port": number | null;
 	"controller.bind_address": string | null;
 	"controller.trusted_proxies": string | null;
-	"controller.public_url": string | null;
+	"controller.external_address": string | null;
 	"controller.tls_certificate": string | null;
 	"controller.tls_private_key": string | null;
 	"controller.auth_secret": string;
@@ -89,8 +89,8 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			optional: true,
 		},
-		"controller.public_url": {
-			title: "External Address",
+		"controller.external_address": {
+			title: "Public URL",
 			description: "Public facing URL the controller is hosted on, including the protocol.",
 			type: "string",
 			optional: true,
