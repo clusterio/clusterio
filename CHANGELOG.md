@@ -63,6 +63,7 @@ Many thanks to the following for contributing to this release:
 - Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
 - Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
 - Fixed 2.0 version extraction from linux headless downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
+- Renamed `controller.external_address` to `controller.public_url` to avoid confusion. [#671](https://github.com/clusterio/clusterio/pull/674)
 
 ### Breaking Changes
 
