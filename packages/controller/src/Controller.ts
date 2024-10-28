@@ -924,9 +924,7 @@ export default class Controller {
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
 			instance.updatedAtMs = Date.now();
-			if (field === "instance.name") {
-				this.instances.set(instance); // Trigger updated logic
-			}
+			this.instances.set(instance); // Trigger update logic
 
 			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, field, curr, prev);
 		});

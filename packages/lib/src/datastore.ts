@@ -2,6 +2,7 @@ import fs from "fs-extra";
 
 import { safeOutputFile } from "./file_ops";
 import { SubscribableValue } from "./subscriptions";
+import { logger } from "./logging";
 import { EventEmitter } from "stream";
 import { ControllerConfig } from "./config";
 import path from "path";
@@ -60,6 +61,7 @@ export class JsonDatastoreProvider<
 
 	// Save the data to the json file
 	async save(data: Map<K, V>) {
+		logger.verbose(`Saving ${this.filePath}`);
 		await safeOutputFile(this.filePath, JSON.stringify(Object.fromEntries(data), null, "\t"));
 	}
 
@@ -68,6 +70,7 @@ export class JsonDatastoreProvider<
 		// Read the raw json from the file
 		let rawJson;
 		try {
+			logger.verbose(`Loading ${this.filePath}`);
 			rawJson = JSON.parse(await fs.readFile(this.filePath, { encoding: "utf8" }));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
@@ -101,6 +104,7 @@ export class JsonIdDatastoreProvider<
 
 	// Save the data to the json file
 	async save(data: Map<K, V>) {
+		logger.verbose(`Saving ${this.filePath}`);
 		await safeOutputFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
 	}
 
@@ -109,6 +113,7 @@ export class JsonIdDatastoreProvider<
 		// Read the raw json from the file
 		let rawJson;
 		try {
+			logger.verbose(`Loading ${this.filePath}`);
 			rawJson = JSON.parse(await fs.readFile(this.filePath, { encoding: "utf8" }));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
