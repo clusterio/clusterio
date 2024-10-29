@@ -64,6 +64,7 @@ Many thanks to the following for contributing to this release:
 - Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
 - Fixed 2.0 version extraction from linux headless downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
 - Updated display name and description of `controller.external_address` to avoid confusion. [#674](https://github.com/clusterio/clusterio/pull/674)
+- Fixed invalid transient state during server start. [#676](https://github.com/clusterio/clusterio/issues/676)
 
 ### Breaking Changes
 

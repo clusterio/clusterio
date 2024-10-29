@@ -896,28 +896,36 @@ export class FactorioServer extends events.EventEmitter {
 		this._check(["init"]);
 		this._state = "create";
 
-		await this._writeConfigIni();
-		await this._writeMapSettings(mapGenSettings, mapSettings);
-		this._server = child_process.spawn(
-			this.binaryPath(),
-			[
-				"--config", this.writePath("config.ini"),
-				"--create", this.writePath("saves", name),
-				...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
-				...(mapGenSettings !== undefined
-					? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
-				),
-				...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
-				...(this.verboseLogging ? ["--verbose"] : []),
-			],
-			{
-				detached: true,
-				stdio: "pipe",
-			}
-		);
-
-		this._attachStdio();
-		this._server.once("exit", () => this.emit("exit"));
+		try {
+			// Everything between _state and once exit must be sync and call _resetState on error
+			// If this this thread yields then the server will be left in an invalid transient state
+			/* eslint-disable node/no-sync */
+			this._writeConfigIniSync();
+			this._writeMapSettingsSync(mapGenSettings, mapSettings);
+			this._server = child_process.spawn(
+				this.binaryPath(),
+				[
+					"--config", this.writePath("config.ini"),
+					"--create", this.writePath("saves", name),
+					...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
+					...(mapGenSettings !== undefined
+						? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
+					),
+					...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
+					...(this.verboseLogging ? ["--verbose"] : []),
+				],
+				{
+					detached: true,
+					stdio: "pipe",
+				}
+			);
+			this._attachStdio();
+			this._server.once("exit", () => this.emit("exit"));
+			/* eslint-enable node/no-sync */
+		} catch (err: any) {
+			this._resetState();
+			throw new lib.EnvironmentError(`Unexpected error:\n${err.stack}`);
+		}
 
 		try {
 			let [code, signal] = await events.once(this._server, "exit");
@@ -949,27 +957,36 @@ export class FactorioServer extends events.EventEmitter {
 		this._check(["init"]);
 		this._state = "running";
 
-		await this._writeConfigIni();
-		this._server = child_process.spawn(
-			this.binaryPath(),
-			[
-				"--config", this.writePath("config.ini"),
-				"--start-server", this.writePath("saves", save),
-				"--port", String(this.gamePort),
-				"--rcon-port", String(this.rconPort),
-				"--rcon-password", this.rconPassword,
-				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
-				...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
-				...(this.verboseLogging ? ["--verbose"] : []),
-			],
-			{
-				detached: true,
-				stdio: "pipe",
-			}
-		);
+		try {
+			// Everything between _state and _watchExist must be sync and call _resetState on error
+			// If this this thread yields then the server will be left in an invalid transient state
+			/* eslint-disable node/no-sync */
+			this._writeConfigIniSync();
+			this._server = child_process.spawn(
+				this.binaryPath(),
+				[
+					"--config", this.writePath("config.ini"),
+					"--start-server", this.writePath("saves", save),
+					"--port", String(this.gamePort),
+					"--rcon-port", String(this.rconPort),
+					"--rcon-password", this.rconPassword,
+					...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
+					...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
+					...(this.verboseLogging ? ["--verbose"] : []),
+				],
+				{
+					detached: true,
+					stdio: "pipe",
+				}
+			);
+			this._attachStdio();
+			this._watchExit();
+			/* eslint-enable node/no-sync */
+		} catch (err: any) {
+			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
+			this._resetState();
+		}
 
-		this._attachStdio();
-		this._watchExit();
 		await this._waitForReady();
 	}
 
@@ -990,33 +1007,42 @@ export class FactorioServer extends events.EventEmitter {
 		this._check(["init"]);
 		this._state = "running";
 
-		await this._writeConfigIni();
-		await this._writeMapSettings(mapGenSettings, mapSettings);
-		this._server = child_process.spawn(
-			this.binaryPath(),
-			[
-				"--config", this.writePath("config.ini"),
-				"--start-server-load-scenario", scenario,
-				...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
-				...(mapGenSettings !== undefined
-					? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
-				),
-				...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
-				"--port", String(this.gamePort),
-				"--rcon-port", String(this.rconPort),
-				"--rcon-password", this.rconPassword,
-				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
-				...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
-				...(this.verboseLogging ? ["--verbose"] : []),
-			],
-			{
-				detached: true,
-				stdio: "pipe",
-			}
-		);
+		try {
+			// Everything between _state and _watchExist must be sync and call _resetState on error
+			// If this this thread yields then the server will be left in an invalid transient state
+			/* eslint-disable node/no-sync */
+			this._writeConfigIniSync();
+			this._writeMapSettingsSync(mapGenSettings, mapSettings);
+			this._server = child_process.spawn(
+				this.binaryPath(),
+				[
+					"--config", this.writePath("config.ini"),
+					"--start-server-load-scenario", scenario,
+					...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
+					...(mapGenSettings !== undefined
+						? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
+					),
+					...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
+					"--port", String(this.gamePort),
+					"--rcon-port", String(this.rconPort),
+					"--rcon-password", this.rconPassword,
+					...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
+					...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
+					...(this.verboseLogging ? ["--verbose"] : []),
+				],
+				{
+					detached: true,
+					stdio: "pipe",
+				}
+			);
+			this._attachStdio();
+			this._watchExit();
+			/* eslint-enable node/no-sync */
+		} catch (err: any) {
+			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
+			this._resetState();
+		}
 
-		this._attachStdio();
-		this._watchExit();
 		await this._waitForReady();
 	}
 
@@ -1247,24 +1273,29 @@ export class FactorioServer extends events.EventEmitter {
 		return JSON.parse(await fs.readFile(this.dataPath("server-settings.example.json"), "utf-8"));
 	}
 
-	async _writeConfigIni() {
+	_writeConfigIniSync() {
 		let content = lib.stringify({
 			path: {
 				"read-data": this.dataPath(),
 				"write-data": this.writePath(),
 			},
 		});
-		await lib.safeOutputFile(this.writePath("config.ini"), content);
+		// Must be sync to allow process spawn without awaiting
+		// eslint-disable-next-line node/no-sync
+		fs.writeFileSync(this.writePath("config.ini"), content);
 	}
 
-	async _writeMapSettings(mapGenSettings?: object, mapSettings?: object) {
+	_writeMapSettingsSync(mapGenSettings?: object, mapSettings?: object) {
+		// Must be sync to allow process spawn without awaiting
 		if (mapGenSettings) {
-			await lib.safeOutputFile(
+			// eslint-disable-next-line node/no-sync
+			fs.writeFileSync(
 				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, "\t")
 			);
 		}
 		if (mapSettings) {
-			await lib.safeOutputFile(
+			// eslint-disable-next-line node/no-sync
+			fs.writeFileSync(
 				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, "\t")
 			);
 		}
