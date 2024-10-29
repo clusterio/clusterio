@@ -65,6 +65,7 @@ Many thanks to the following for contributing to this release:
 - Fixed 2.0 version extraction from linux headless downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
 - Updated display name and description of `controller.external_address` to avoid confusion. [#674](https://github.com/clusterio/clusterio/pull/674)
 - Fixed invalid transient state during server start. [#676](https://github.com/clusterio/clusterio/issues/676)
+- Fixed host user sync to instances after reconnecting to the controller. [#678](https://github.com/clusterio/clusterio/pull/678)
 
 ### Breaking Changes
 
