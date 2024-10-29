@@ -4,6 +4,7 @@ const path = require("path");
 
 const lib = require("@clusterio/lib");
 const Host = require("@clusterio/host/dist/node/src/Host").default;
+const Instance = require("@clusterio/host/dist/node/src/Instance").default;
 const { _discoverInstances } = require("@clusterio/host/dist/node/src/Host");
 
 describe("Host testing", function() {
@@ -28,7 +29,15 @@ describe("Host testing", function() {
 
 	describe("class Host", function() {
 		describe(".handleSyncUserListsEvent()", function() {
-			let mockHost;
+			const hostAddress = lib.Address.fromShorthand({ hostId: 1 });
+			const instanceAddress = lib.Address.fromShorthand({ instanceId: 1 });
+			let mockHost, hostConnector, instanceConnector;
+			before(function() {
+				[hostConnector, instanceConnector] = lib.VirtualConnector.makePair(hostAddress, instanceAddress);
+				instanceConnector.on("message", function(message) {
+					Instance.prototype._validateMessage(message);
+				});
+			});
 			beforeEach(function() {
 				mockHost = {
 					adminlist: new Set(),
@@ -37,6 +46,7 @@ describe("Host testing", function() {
 					broadcasts: [],
 					broadcastEventToInstance(event) {
 						this.broadcasts.push(event);
+						hostConnector.sendEvent(event, instanceAddress);
 					},
 					handleSyncUserListsEvent: Host.prototype.handleSyncUserListsEvent,
 					syncLists(adminlist, banlist, whitelist) {
