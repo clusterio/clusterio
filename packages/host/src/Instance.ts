@@ -966,7 +966,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 
 		let { name, whitelisted } = request;
-		let command = whitelisted ? `/whitelist add ${name}` : `/whiteliste remove ${name}`;
+		let command = whitelisted ? `/whitelist add ${name}` : `/whitelist remove ${name}`;
 		await this.sendRcon(command);
 	}
 
