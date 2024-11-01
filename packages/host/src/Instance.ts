@@ -18,7 +18,7 @@ const scriptCommands = [
 	"/cheat", "/editor",
 	"/command", "/c",
 	"/measured-command", "/mc",
-	"/silent-command", "/sc"
+	"/silent-command", "/sc",
 ];
 
 const instanceRconCommandDuration = new lib.Histogram(
@@ -876,7 +876,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this._loadedSave = saveName;
 		await this.server.start(saveName);
 
-		if (this.config.get("factorio.enable_save_patching")) {
+		if (this.config.get("factorio.enable_save_patching") && this.config.get("factorio.enable_script_commands")) {
 			await this.server.disableAchievements();
 			await this.updateInstanceData();
 		} else {
