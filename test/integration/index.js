@@ -179,7 +179,7 @@ async function exec(command, options = {}) {
 }
 
 async function execCtl(...args) {
-	args[0] = `node ../../packages/ctl ${args[0]}`;
+	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
 	return await exec(...args);
 }
 
@@ -219,6 +219,10 @@ function spawn(name, cmd, waitFor) {
 		process.stdout.pipe(stdout);
 		process.stderr.pipe(stderr);
 	});
+}
+
+async function spawnNode(name, cmd, waitFor) {
+	return await spawn(name, `node --enable-source-maps ${cmd}`, waitFor);
 }
 
 before(async function() {
@@ -302,7 +306,7 @@ before(async function() {
 	await exec("node ../../packages/controller bootstrap create-ctl-config test");
 	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
-	controllerProcess = await spawn("controller:", "node ../../packages/controller run", /Started controller/);
+	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
 	await execCtl("host create-config --id 4 --name host --generate-token");
 
@@ -310,7 +314,7 @@ before(async function() {
 	await exec(`node ../../packages/host config set host.factorio_directory ${relativeFactorioDir}`);
 	await exec("node ../../packages/host config set host.tls_ca ../../test/file/tls/cert.pem");
 
-	hostProcess = await spawn("host:", "node ../../packages/host run", /Started host/);
+	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
 
 	let tlsCa = await fs.readFile("test/file/tls/cert.pem");
 	let controlConnector = new TestControlConnector(url, 2, tlsCa);
@@ -366,6 +370,7 @@ module.exports = {
 	sendRcon,
 	getControl,
 	spawn,
+	spawnNode,
 
 	url,
 	controlToken,
