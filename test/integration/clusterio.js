@@ -13,7 +13,7 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	exec, execCtl, sendRcon, getControl, spawn, instancesDir, factorioDir,
+	exec, execCtl, sendRcon, getControl, spawnNode, instancesDir, factorioDir,
 } = require("./index");
 
 
@@ -29,7 +29,7 @@ async function checkInstanceStatus(id, status) {
 }
 
 async function spawnAltHost(config = "alt-host-config.json") {
-	return await spawn("alt-host:", `node ../../packages/host run --config ${config}`, /Started host/);
+	return await spawnNode("alt-host:", `../../packages/host run --config ${config}`, /Started host/);
 }
 
 async function startAltHost() {
