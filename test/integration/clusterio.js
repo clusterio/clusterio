@@ -620,6 +620,79 @@ describe("Integration of Clusterio", function() {
 				let user = await getUser("test_ban_reason");
 				assert.equal(user.banReason, "a-reason");
 			});
+			it("should send ban list commands to running instances", async function() {
+				slowTest(this);
+				// Check that both names are not on the list
+				const preCommandStateLower = await sendRcon(44, "/banlist get test_rcon_ban");
+				const preCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
+				assert.equal(preCommandStateLower, "test_rcon_ban is not banned.\n", "User is already banned");
+				assert.equal(preCommandStateUpper, "test_RCON_ban is not banned.\n", "User is already banned");
+
+				// Add the lower case name to the list
+				await execCtl("user set-banned --create test_rcon_ban --reason a-reason");
+				const addCommandStateLower = await sendRcon(44, "/banlist get test_rcon_ban");
+				const addCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
+				assert.equal(addCommandStateLower, "test_rcon_ban is banned.\n", "User is not banned");
+				assert.equal(addCommandStateUpper, "test_RCON_ban is banned.\n", "User is not banned");
+
+				// Remove the upper case name from the list
+				await execCtl("user set-banned --create test_RCON_ban --pardon");
+				const removeCommandStateLower = await sendRcon(44, "/banlist get test_rcon_ban");
+				const removeCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
+				assert.equal(removeCommandStateLower, "test_rcon_ban is not banned.\n", "User is banned");
+				assert.equal(removeCommandStateUpper, "test_RCON_ban is not banned.\n", "User is banned");
+			});
+			it("should send whitelist commands to running instances", async function() {
+				slowTest(this);
+				// Check that both names are not on the list
+				const preCommandStateLower = await sendRcon(44, "/whitelist get test_rcon_whitelist");
+				const preCommandStateUpper = await sendRcon(44, "/whitelist get test_RCON_whitelist");
+				assert.equal(preCommandStateLower,
+					"test_rcon_whitelist is not whitelisted.\n", "User is already whitelisted");
+				assert.equal(preCommandStateUpper,
+					"test_RCON_whitelist is not whitelisted.\n", "User is already whitelisted");
+
+				// Add the lower case name to the list
+				await execCtl("user set-whitelisted --create test_rcon_whitelist");
+				const addCommandStateLower = await sendRcon(44, "/whitelist get test_rcon_whitelist");
+				const addCommandStateUpper = await sendRcon(44, "/whitelist get test_RCON_whitelist");
+				assert.equal(addCommandStateLower,
+					"test_rcon_whitelist is whitelisted.\n", "User is not whitelisted");
+				assert.equal(addCommandStateUpper,
+					"test_RCON_whitelist is whitelisted.\n", "User is not whitelisted");
+
+				// Remove the upper case name from the list
+				await execCtl("user set-whitelisted --create test_RCON_whitelist --remove");
+				const removeCommandStateLower = await sendRcon(44, "/whitelist get test_rcon_whitelist");
+				const removeCommandStateUpper = await sendRcon(44, "/whitelist get test_RCON_whitelist");
+				assert.equal(removeCommandStateLower,
+					"test_rcon_whitelist is not whitelisted.\n", "User is whitelisted");
+				assert.equal(removeCommandStateUpper,
+					"test_RCON_whitelist is not whitelisted.\n", "User is whitelisted");
+			});
+			it("should send admin list commands to running instances", async function() {
+				this.skip(); // It is not currently possible to get admin state without the player joining the game
+				slowTest(this);
+				// Check that both names are not on the list
+				const preCommandStateLower = await sendRcon(44, "/admins get test_rcon_admin");
+				const preCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
+				assert.equal(preCommandStateLower, "test_rcon_admin is not admin.\n", "User is already admin");
+				assert.equal(preCommandStateUpper, "test_RCON_admin is not admin.\n", "User is already admin");
+
+				// Add the lower case name to the list
+				await execCtl("user set-admin --create test_rcon_admin");
+				const addCommandStateLower = await sendRcon(44, "/admins get test_rcon_admin");
+				const addCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
+				assert.equal(addCommandStateLower, "test_rcon_admin is admin.\n", "User is not admin");
+				assert.equal(addCommandStateUpper, "test_RCON_admin is admin.\n", "User is not admin");
+
+				// Remove the upper case name from the list
+				await execCtl("user set-admin --create test_RCON_admin --revoke");
+				const removeCommandStateLower = await sendRcon(44, "/admins get test_rcon_admin");
+				const removeCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
+				assert.equal(removeCommandStateLower, "test_rcon_admin is not admin.\n", "User is admin");
+				assert.equal(removeCommandStateUpper, "test_RCON_admin is not admin.\n", "User is admin");
+			});
 		});
 
 		describe("instance extract-players", function() {
