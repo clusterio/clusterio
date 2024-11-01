@@ -433,7 +433,6 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 				"Allows achievement breaking commands to be executed over rcon. " +
 				"Required for Clusterio integrations and most plugins. " +
 				"This does not prevent players using script commands.",
-			restartRequired: true,
 			type: "boolean",
 			initialValue: true,
 		},

@@ -442,6 +442,10 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance send-rcon", function() {
+			this.afterAll(async function() {
+				// Prevents cascading failure where enable_script_commands is expected to be true
+				await execCtl("instance config set test factorio.enable_script_commands true");
+			});
 			it("sends the command", async function() {
 				slowTest(this);
 				await execCtl("instance send-rcon test technobabble");
@@ -464,6 +468,24 @@ describe("Integration of Clusterio", function() {
 					await wait(100);
 				}
 				assert(received, "InstanceSaveDetailsUpdatesEvent not sent");
+			});
+			it("should prevent execution of script commands when disabled", async function() {
+				slowTest(this);
+				await execCtl("instance send-rcon test /c");
+				const r1 = await getControl().send(
+					new lib.LogQueryRequest(false, false, [], [44], undefined, 10, "desc")
+				);
+				assert(r1.log.some(info => /\[COMMAND\]/.test(info.message)), "Command was not sent");
+				await execCtl("instance config set test factorio.enable_script_commands false");
+
+				assert.rejects(
+					execCtl("instance send-rcon test /c"),
+					new Error(
+						"Attempted to use script command while disabled. " +
+						"See config factorio.enable_script_commands.\nCommand: /c"
+					)
+				);
+				await execCtl("instance config set test factorio.enable_script_commands true");
 			});
 		});
 
