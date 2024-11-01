@@ -44,7 +44,7 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 	}
 	if (def.type === "string") {
 		if (def.credential) {
-			return <Input.Password autoComplete={def.autoComplete} disabled={readonly} />;
+			return <Input.Password autoComplete={def.autoComplete ?? "new-password"} disabled={readonly} />;
 		}
 		return <Input autoComplete={def.autoComplete} disabled={readonly} />;
 	}
