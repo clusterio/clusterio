@@ -14,6 +14,12 @@ import { exportData } from "./export";
 import type Host from "./Host";
 import BaseInstancePlugin from "./BaseInstancePlugin";
 
+const scriptCommands = [
+	"/cheat", "/editor",
+	"/command", "/c",
+	"/measured-command", "/mc",
+	"/silent-command", "/sc"
+];
 
 const instanceRconCommandDuration = new lib.Histogram(
 	"clusterio_instance_rcon_command_duration_seconds",
@@ -371,6 +377,16 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async sendRcon(message: string, expectEmpty = false, plugin = "") {
+		if (
+			!this.config.get("factorio.enable_script_commands")
+			&& scriptCommands.find(cmd => message.startsWith(cmd))
+		) {
+			throw new Error(
+				"Attempted to use script command while disabled. See config factorio.enable_script_commands.\n" +
+				`Command: ${message}`
+			);
+		}
+
 		let instanceId = String(this.id);
 		let observeDuration = instanceRconCommandDuration.labels(instanceId).startTimer();
 		try {

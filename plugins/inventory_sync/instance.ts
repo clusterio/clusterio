@@ -31,6 +31,12 @@ export class InstancePlugin extends BaseInstancePlugin {
 	disconnecting!: boolean;
 
 	async init() {
+		if (!this.instance.config.get("factorio.enable_save_patching")) {
+			throw new Error("inventory_sync plugin requires save patching.");
+		}
+		if (!this.instance.config.get("factorio.enable_script_commands")) {
+			throw new Error("inventory_sync plugin requires script commands.");
+		}
 		this.playersToRelease = new Set();
 		this.disconnecting = false;
 
