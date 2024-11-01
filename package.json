@@ -6,6 +6,7 @@
 		"build": "tsc --build",
 		"watch": "tsc --build --watch",
 		"test": "pnpm run build && mocha --check-leaks -R spec --recursive test \"plugins/*/test/**\" --exclude \"test/manual/**\"",
+		"silent-test": "SILENT_TEST=y pnpm test",
 		"fast-test": "FAST_TEST=y pnpm test",
 		"cover": "nyc pnpm test",
 		"fast-cover": "FAST_TEST=y nyc pnpm test",
