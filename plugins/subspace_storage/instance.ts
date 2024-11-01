@@ -20,6 +20,10 @@ export class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async init() {
+		if (!this.instance.config.get("factorio.enable_script_commands")) {
+			throw new Error("subspace_storage plugin requires script commands.");
+		}
+
 		this.pendingTasks = new Set();
 		this.instance.server.on("ipc-subspace_storage:output", (output: IpcItems) => {
 			this.provideItems(output).catch(err => this.unexpectedError(err));

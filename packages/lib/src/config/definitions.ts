@@ -319,6 +319,7 @@ export interface InstanceConfigFields {
 	"factorio.player_online_autosave_slots": number;
 	"factorio.mod_pack_id": number | null;
 	"factorio.enable_save_patching": boolean;
+	"factorio.enable_script_commands": boolean;
 	"factorio.enable_whitelist": boolean;
 	"factorio.enable_authserver_bans": boolean;
 	"factorio.settings": Record<string, unknown>;
@@ -424,6 +425,14 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description:
 				"Patch saves with Lua code. Required for Clusterio integrations, lua modules, and most plugins.",
 			restartRequired: true,
+			type: "boolean",
+			initialValue: true,
+		},
+		"factorio.enable_script_commands": {
+			description:
+				"Allows achievement breaking commands to be executed over rcon. " +
+				"Required for Clusterio integrations and most plugins. " +
+				"This does not prevent players using script commands.",
 			type: "boolean",
 			initialValue: true,
 		},

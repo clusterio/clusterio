@@ -72,6 +72,7 @@ Many thanks to the following for contributing to this release:
 - Previously silent errors for controller.sendEvent now throw exceptions [#625](https://github.com/clusterio/clusterio/pull/625).
 - @clusterio/controller export InstanceInfo has added factorioVersion parameter.
 - Argument order for `Config.canAccess` changed to require an access mode passed as the second argument.
+- Instances can now have `factorio.enable_script_commands` disabled which will throw an error when any script command is used over rcon. [#681](https://github.com/clusterio/clusterio/pull/681).
 
 Many thanks to the following for contributing to this release:  
 [@CCpersonguy](https://github.com/CCpersonguy)

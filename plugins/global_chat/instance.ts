@@ -16,6 +16,10 @@ export class InstancePlugin extends BaseInstancePlugin {
 	messageQueue: string[] = [];
 
 	async init() {
+		if (!this.instance.config.get("factorio.enable_script_commands")) {
+			throw new Error("global_chat plugin requires script commands.");
+		}
+
 		this.instance.handle(ChatEvent, this.handleChatEvent.bind(this));
 	}
 
