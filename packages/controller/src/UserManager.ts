@@ -58,7 +58,7 @@ export default class UserManager {
 				lib.logger.warn(
 					`A total of ${duplicates} users were merged, a backup was written to: ${backupPath}`
 				);
-				await lib.safeOutputFile(backupPath, content);
+				await lib.safeOutputFile(backupPath, JSON.stringify(content, null, "\t"));
 			}
 
 		} catch (err: any) {
