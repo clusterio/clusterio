@@ -53,7 +53,7 @@ function connectInstance(controller, host, instanceId) {
 function connectControl(controller, controlId) {
 	const [controllerSide, controlSide] = lib.VirtualConnector.makePair(addr("controller"), addr({ controlId }));
 	const registerData = new lib.RegisterControlData("", "0.0.0");
-	let user = controller.userManager.users.get("test");
+	let user = controller.userManager.getByName("test");
 	if (!user) {
 		user = controller.userManager.createUser("test");
 	}

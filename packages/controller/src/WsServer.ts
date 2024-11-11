@@ -327,7 +327,7 @@ ${err.stack}`
 				throw new Error("unexpected JsonWebToken type");
 			}
 
-			user = this.controller.userManager.users.get(tokenPayload.user);
+			user = this.controller.userManager.getByName(tokenPayload.user);
 			if (!user) {
 				throw new Error("invalid user");
 			}

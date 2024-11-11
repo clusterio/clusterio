@@ -104,7 +104,7 @@ describe("controller/src/routes", function() {
 				data: "totally a zip file",
 			});
 			assert.equal(response.statusCode, 401);
-			controller.userManager.users.get("test").tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
+			controller.userManager.getByName("test").tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
 			response = await phin({
 				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
 				headers: {

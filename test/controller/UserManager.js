@@ -8,7 +8,7 @@ describe("controller/src/UserManager", function() {
 		const userManager = new UserManager({});
 		it("should track online users", function() {
 			let user = ControllerUser.fromJSON({ name: "admin", roles: [1] });
-			userManager.users.set(user.name, user);
+			userManager.users.set(user.id, user);
 			assert(!userManager.onlineUsers.has(user));
 			assert.deepEqual(user.instances, new Set());
 
