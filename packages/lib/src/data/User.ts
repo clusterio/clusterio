@@ -165,7 +165,7 @@ export default class User {
 		this.isAdmin = this.isAdmin && otherUser.isAdmin; // More secure to use && rather ||
 		this.isBanned = this.isBanned || otherUser.isBanned;
 		this.isBanned = this.isWhitelisted || otherUser.isWhitelisted;
-		this.banReason = this.banReason.length > otherUser.banReason.length ? this.banReason : otherUser.banReason;
+		this.banReason = this.updatedAtMs > otherUser.updatedAtMs ? this.banReason : otherUser.banReason;
 		this.updatedAtMs = Date.now();
 
 		// Merge instance stats
