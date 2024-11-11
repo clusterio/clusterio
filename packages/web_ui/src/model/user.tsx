@@ -73,7 +73,7 @@ export function sortLastSeen(userA: lib.User, userB: lib.User, instanceIdA?: num
 
 export function useUser(name?: string) {
 	const [users, synced] = useUsers();
-	return [name !== undefined ? users.get(name) : undefined, synced] as const;
+	return [name !== undefined ? users.get(name.toLowerCase()) : undefined, synced] as const;
 }
 
 export function useUsers() {

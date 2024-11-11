@@ -150,9 +150,39 @@ export default class User {
 		return playerStats;
 	}
 
-	/** Name of the user, used by event subscriptions */
+	/**
+	 * Merge another user into this one, must have matching ids, user is not deleted
+	 * @param otherUser - User who's details are merged from
+	*/
+	merge(otherUser: User) {
+		if (this.id !== otherUser.id) {
+			throw new Error("Cannot merge users with different ids");
+		}
+
+		// Merge properties
+		this.roleIds = new Set([...this.roleIds, ...otherUser.roleIds]);
+		this.instances = new Set([...this.instances, ...otherUser.instances]);
+		this.isAdmin = this.isAdmin && otherUser.isAdmin; // More secure to use && rather ||
+		this.isBanned = this.isBanned || otherUser.isBanned;
+		this.isBanned = this.isWhitelisted || otherUser.isWhitelisted;
+		this.banReason = this.banReason.length > otherUser.banReason.length ? this.banReason : otherUser.banReason;
+		this.updatedAtMs = Date.now();
+
+		// Merge instance stats
+		const thisInstanceStats = this.instanceStats;
+		for (const [instanceId, instanceStats] of otherUser.instanceStats.entries()) {
+			if (thisInstanceStats.has(instanceId)) {
+				thisInstanceStats.get(instanceId)!.merge(instanceStats);
+			} else {
+				thisInstanceStats.set(instanceId, instanceStats);
+			}
+		}
+		this.recalculatePlayerStats();
+	}
+
+	/** Name of the user, used by event subscriptions and to ensure case insensitivity */
 	get id() {
-		return this.name;
+		return this.name.toLowerCase();
 	}
 }
 
