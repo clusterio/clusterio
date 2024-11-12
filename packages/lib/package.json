@@ -27,7 +27,7 @@
 		"set-blocking": "^2.0.0",
 		"triple-beam": "^1.4.1",
 		"winston": "^3.17.0",
-		"winston-transport": "^4.5.0",
+		"winston-transport": "^4.9.0",
 		"ws": "^8.13.0",
 		"yargs": "^17.7.2"
 	},
