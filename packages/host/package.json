@@ -29,7 +29,7 @@
 		"rcon-client": "^4.2.3",
 		"semver": "^7.5.4",
 		"set-blocking": "^2.0.0",
-		"winston": "^3.10.0",
+		"winston": "^3.17.0",
 		"winston-daily-rotate-file": "^4.7.1",
 		"yargs": "^17.7.2"
 	},

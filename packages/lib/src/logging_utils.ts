@@ -139,6 +139,10 @@ function formatServerOutput(parsed: ParsedFactorioOutput) {
 // These are defined here to avoid circular dependencies and pulling them
 // into the web interface code.
 
+export interface TerminalFormatOptions extends winston.Logform.ColorizeOptions {
+	showTimestamp?: boolean
+}
+
 /**
  * Formats winston log messages for a character terminal.
  */
@@ -146,12 +150,13 @@ export class TerminalFormat {
 	colorize: winston.Logform.Colorizer;
 
 	constructor(
-		public options: object = {}
+		public options: TerminalFormatOptions = {}
 	) {
 		this.colorize = winston.format.colorize(options);
 	}
 
-	transform(info: any, options: { showTimestamp: boolean }) {
+	transform(info: any, opts: unknown) {
+		const options = opts as TerminalFormatOptions;
 		info = this.colorize.transform(info, this.colorize.options);
 		let ts = "";
 		if (options.showTimestamp && info.timestamp) {
