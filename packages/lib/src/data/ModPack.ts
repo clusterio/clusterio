@@ -391,6 +391,7 @@ export default class ModPack {
 	 */
 	static getBuiltinMods(factorioVersion: string) {
 		let defaultMods: ModRecord[] = [
+			// "core" not included because core cannot be disabled
 			{ name: "base", enabled: true, version: factorioVersion },
 		];
 
@@ -404,5 +405,9 @@ export default class ModPack {
 		}
 
 		return defaultMods;
+	}
+
+	static getBuiltinModNames(factorioVersion: string) {
+		return this.getBuiltinMods(factorioVersion).map(builtinMod => builtinMod.name);
 	}
 }
