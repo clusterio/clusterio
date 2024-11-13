@@ -103,7 +103,8 @@ async function loadFile(server: FactorioServer, modVersions: Map<string, string>
 
 	let [, mod, filePath] = match;
 
-	if (["core", "base"].includes(mod)) {
+	const builtinMods = lib.ModPack.getBuiltinMods(server.version!);
+	if (builtinMods.some(builtinMod => builtinMod.name === mod)) {
 		try {
 			return await fs.readFile(server.dataPath(mod, filePath));
 		} catch (err: any) {
@@ -396,11 +397,15 @@ async function exportLocale(
 		}
 	}
 
-	let baseLocaleFilePath = server.dataPath("base", "locale", languageCode, "base.cfg");
-	mergeLocale(lib.parse(await fs.readFile(baseLocaleFilePath, "utf8")));
+	const builtinMods = lib.ModPack.getBuiltinMods(server.version!);
+	for (const builtinMod of builtinMods) {
+		const localeFilePath = server.dataPath(builtinMod.name, "locale", languageCode, `${builtinMod.name}.cfg`);
+		mergeLocale(lib.parse(await fs.readFile(localeFilePath, "utf8")));
+	}
 
+	const builtinModNames = ["export", ...builtinMods.map(builtinMod => builtinMod.name)];
 	for (let mod of modOrder) {
-		if (["core", "base", "export"].includes(mod)) {
+		if (builtinModNames.includes(mod)) {
 			continue;
 		}
 

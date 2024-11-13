@@ -894,7 +894,9 @@ export default function ModPackViewPage() {
 				changes={changes}
 				onChange={pushChange}
 				onRevert={revertChange}
-				builtInMods={["base", "core"]}
+				builtInMods={
+					lib.ModPack.getBuiltinMods(modPack.factorioVersion).map(builtinMod => builtinMod.name)
+				}
 			/>
 			<SettingsTable
 				modPack={modifiedModPack}
