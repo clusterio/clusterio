@@ -96,10 +96,11 @@ function CreateModPackButton() {
 					} catch {
 						return; // Validation failed
 					}
-					const modPack = lib.ModPack.fromJSON({} as any);
-					modPack.name = values.name;
-					modPack.factorioVersion = values.factorioVersion;
-					if (values.description) { modPack.description = values.description; }
+					const modPack = lib.ModPack.fromJSON({
+						name: values.name,
+						description: values.description,
+						factorio_version: values.factorioVersion,
+					} as any);
 					await control.send(new lib.ModPackCreateRequest(modPack));
 					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));

@@ -25,6 +25,10 @@ Many thanks to the following for contributing to this release:
 
 ## Version 2.0.0-alpha.19
 
+### Major Features
+
+- Added support for 2.0 builtin mods during mod pack creation. [#684](https://github.com/clusterio/clusterio/pull/684).
+
 ### Features
 
 - Added Datastore and Datastore Provider classes to the library to support savable Maps [#629](https://github.com/clusterio/clusterio/pull/629).

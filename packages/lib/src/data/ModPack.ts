@@ -395,7 +395,7 @@ export default class ModPack {
 		];
 
 		const integerVersion = integerFactorioVersion(factorioVersion);
-		if (integerVersion > integerFactorioVersion("1.2")) {
+		if (integerVersion >= integerFactorioVersion("1.2")) {
 			defaultMods = defaultMods.concat([
 				{ name: "elevated-rails", enabled: false, version: factorioVersion },
 				{ name: "quality", enabled: false, version: factorioVersion },

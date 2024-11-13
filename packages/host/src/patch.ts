@@ -202,12 +202,6 @@ export class PatchInfo {
 	}
 }
 
-
-const knownScenarios: Record<string, lib.ModuleInfo> = {
-	// First seen in 0.17.63
-	"4e866186ebe297f1038fd325b09df1a1f5e2fdd1": new lib.ModuleInfo("freeplay", "0.17.63", ["freeplay", "silo-script"]),
-};
-
 /**
  * Generates control.lua code for loading the Clusterio modules
  *
@@ -349,6 +343,14 @@ function reorderDependencies(modules: SaveModule[]) {
 	}
 }
 
+const knownScenarios: Record<string, lib.ModuleInfo> = {
+	// First seen in 0.17.63
+	"4e866186ebe297f1038fd325b09df1a1f5e2fdd1": new lib.ModuleInfo("freeplay", "0.17.63", [], ["scenario"]),
+	// First seen in 1.2.0 (aka 2.0) TODO Uncomment once clusterio lib supports 2.0
+	// The rest of the code has already been updated to support the new control.lua file for 2.0
+	// "bcbdde18ce4ec16ebfd93bd694cd9b12ef969c9a": new lib.ModuleInfo("freeplay", "1.2.0", [], ["scenario"]),
+};
+
 /**
  * Patch a save with the given modules
  *
@@ -387,6 +389,7 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 
 		if (controlHash in knownScenarios) {
 			patchInfo = new PatchInfo(0, knownScenarios[controlHash], []);
+			root.file("scenario.lua", controlFile.nodeStream("nodebuffer"));
 		} else {
 			throw new Error(`Unable to patch save, unknown scenario (${controlHash})`);
 		}
