@@ -22,10 +22,12 @@ jobs:
     - uses: pnpm/action-setup@v4
       with:
         version: 8
+        run_install: false
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+        cache: 'pnpm'
     - run: pnpm i --no-frozen-lockfile
     - name: Use Factorio ${{ matrix.factorio-version }}
       run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ matrix.factorio-version }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
@@ -49,8 +51,10 @@ jobs:
     - uses: pnpm/action-setup@v4
       with:
         version: 8
+        run_install: false
     - uses: actions/setup-node@v4
       with:
         node-version: 18.x
+        cache: 'pnpm'
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
