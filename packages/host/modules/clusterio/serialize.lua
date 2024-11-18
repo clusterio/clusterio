@@ -122,7 +122,7 @@ function serialize.serialize_item_stack(slot, entry)
 	entry.c = slot.count
 	if has_quality and slot.quality.level ~= 0 then entry.q = slot.quality.name end
 	if slot.health < 1 then entry.h = slot.health end
-	if slot.durability then entry.d = slot.durability end
+	if slot.type == "tool" and slot.durability then entry.d = slot.durability end
 	if slot.type == "ammo" then entry.a = slot.ammo end
 	if slot.is_item_with_label then
 		local label = {}

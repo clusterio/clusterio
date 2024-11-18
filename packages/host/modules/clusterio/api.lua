@@ -2,6 +2,7 @@
 local compat = require("modules/clusterio/compat")
 local api = {}
 
+clusterio_patch_number = clusterio_patch_number or 0 --- @type number
 
 api.events = {
 	on_instance_updated = script.generate_event_name(),

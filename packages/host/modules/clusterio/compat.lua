@@ -2,6 +2,8 @@
 Adds various functions used to ensure compatibly between version including some polyfills
 ]]
 
+--- @diagnostic disable: deprecated
+
 --- @class LibCompat
 local compat = {}
 
@@ -83,6 +85,7 @@ local major_v1_1 = not major_v2 and compat.version_ge("1.1.0")
 --- @return table script_data
 function compat.script_data()
 	if major_v1_1 then
+		--- @diagnostic disable-next-line
 		return global
 	elseif major_v2 then
 		return storage
@@ -111,37 +114,34 @@ function compat.active_mods()
 	return unsupported_version()
 end
 
---- Converts a table into a json string
---- @param tbl table Table to convert to json
---- @return string # Json string representing the table
+--- @param tbl table
+--- @return string
 function compat.table_to_json(tbl)
 	return unsupported_version()
 end
 
---- Converts a json string into a table
---- @param json string Json string representing a table
---- @return table # Table created from the string
-function compat.json_to_table(tbl)
+--- @param json string
+--- @return table
+function compat.json_to_table(json)
 	return unsupported_version()
 end
 
---- Write a file to script output directory
---- @param filename string The name of the file.
---- @param data LocalisedString The content to write to the file.
---- @param append boolean? True if the data will be appended, false will overwrite existing data
---- @param for_player uint? If given, file is only written for this player index, 0 represents the server
---- @return table # Table created from the string
+--- @param filename string
+--- @param data LocalisedString
+--- @param append boolean?
+--- @param for_player uint?
 function compat.write_file(filename, data, append, for_player)
-	return unsupported_version()
+	unsupported_version()
 end
 
+--- Select the appropriate polyfill implementation
 if major_v1_1 then
 	-- Game is not always available so it needs to be called within another function
 	-- Can not use ... here because of luals type suggestion breaking when it is used
 	-- TODO maybe include a version that does not require game?
 
 	compat.table_to_json = function(tbl) return game.table_to_json(tbl) end
-	compat.json_to_table = function(tbl) return game.json_to_table(tbl) end
+	compat.json_to_table = function(json) return game.json_to_table(json) end
 	compat.write_file = function(filename, data, append, for_player) return game.write_file(filename, data, append, for_player) end
 elseif major_v2 then
 	compat.table_to_json = helpers.table_to_json
