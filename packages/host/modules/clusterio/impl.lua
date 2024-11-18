@@ -1,11 +1,15 @@
 local api = require('modules/clusterio/api')
 local compat = require("modules/clusterio/compat")
 
+--- @class (exact) EventData.on_server_startup:EventData
+
 local function check_patch()
 	local script_data = compat.script_data()
 	if script_data.clusterio_patch_number ~= clusterio_patch_number then
 		script_data.clusterio_patch_number = clusterio_patch_number
-		script.raise_event(api.events.on_server_startup, {})
+		script.raise_event(api.events.on_server_startup, {
+			name = api.events.on_server_startup, tick = game.tick
+		})
 	end
 end
 
