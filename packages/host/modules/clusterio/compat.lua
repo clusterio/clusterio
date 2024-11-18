@@ -73,7 +73,15 @@ end
 --- @param version string Version to compare against
 --- @return boolean # True if the version is less or equal to provided
 function compat.version_le(version)
-	return not compat.version_ge(version)
+	local version_tbl = version_to_table(version)
+	for i = 1, 3 do
+		if version_tbl[i] < current_version[i] then
+			return false
+		elseif version_tbl[i] > current_version[i] then
+			return true
+		end
+	end
+	return true
 end
 
 --- The major versions of factorio we support
