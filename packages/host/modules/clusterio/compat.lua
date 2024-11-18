@@ -137,12 +137,16 @@ end
 
 if major_v1_1 then
 	-- Game is not always available so it needs to be called within another function
+	-- Can not use ... here because of luals type suggestion breaking when it is used
 	-- TODO maybe include a version that does not require game?
-	compat.table_to_json = function(...) return game.table_to_json(...) end
-	compat.json_to_table = function(...) return game.json_to_table(...) end
-	compat.write_file = function(...) return game.write_file(...) end
+
+	compat.table_to_json = function(tbl) return game.table_to_json(tbl) end
+	compat.json_to_table = function(tbl) return game.json_to_table(tbl) end
+	compat.write_file = function(filename, data, append, for_player) return game.write_file(filename, data, append, for_player) end
 elseif major_v2 then
 	compat.table_to_json = helpers.table_to_json
 	compat.json_to_table = helpers.json_to_table
 	compat.write_file = helpers.write_file
 end
+
+return compat
