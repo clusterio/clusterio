@@ -1,6 +1,12 @@
 local clusterio_api = require("modules/clusterio/api")
+local compat = require("modules/clusterio/compat")
 local auth = {}
 
+local v2_styles = compat.version_ge("2.0.0")
+
+--- @param player LuaPlayer
+--- @param url string
+--- @param code string
 local function open_dialog(player, url, code)
 	if player.gui.screen.player_auth_dialog then
 		player.gui.screen.player_auth_dialog.destroy()
@@ -28,7 +34,7 @@ local function open_dialog(player, url, code)
 		type = "empty-widget",
 		style = "draggable_space_header",
 	}
-	filler.style.horizontally_stretchable = "on"
+	filler.style.horizontally_stretchable = true
 	filler.style.right_margin = 4
 	filler.style.height = 24
 	filler.drag_target = frame
@@ -36,7 +42,7 @@ local function open_dialog(player, url, code)
 	titlebar.add {
 		name = "player_auth_dialog_close_button",
 		type = "sprite-button",
-		sprite = "utility/close_white",
+		sprite = v2_styles and "utility/close" or "utility/close_white",
 		hovered_sprite = "utility/close_black",
 		clicked_sprite = "utility/close_black",
 		style = "frame_action_button",
@@ -178,6 +184,8 @@ function auth.add_commands()
 end
 
 auth.events = {}
+
+--- @param event EventData.on_gui_click
 auth.events[defines.events.on_gui_click] = function(event)
 	if not event.element or not event.element.valid then
 		return
@@ -197,6 +205,7 @@ auth.events[defines.events.on_gui_click] = function(event)
 	end
 end
 
+--- @param event EventData.on_gui_closed
 auth.events[defines.events.on_gui_closed] = function(event)
 	if
 		event.element
