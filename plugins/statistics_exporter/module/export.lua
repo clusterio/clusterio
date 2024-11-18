@@ -1,3 +1,7 @@
+local compat = require("modules/clusterio/compat")
+
+local v2_pollution = compat.version_ge("2.0.0")
+
 local statistics = {
 	"item_production_statistics",
 	"fluid_production_statistics",
@@ -12,8 +16,11 @@ function statistics_exporter.export()
 		player_count = #game.connected_players,
 		game_flow_statistics = {
 			pollution_statistics = {
-				input = game.pollution_statistics.input_counts,
-				output = game.pollution_statistics.output_counts,
+				--- TODO support multi surface pollution statistics
+				--- @diagnostic disable undefined-field
+				input = v2_pollution and game.get_pollution_statistics(1).input_counts or game.pollution_statistics.input_counts,
+				output = v2_pollution and game.get_pollution_statistics(1).output_counts or game.pollution_statistics.output_counts,
+				--- @diagnostic enable undefined-field
 			},
 		},
 		force_flow_statistics = {}
@@ -30,5 +37,5 @@ function statistics_exporter.export()
 	end
 
 
-	rcon.print(game.table_to_json(stats))
+	rcon.print(compat.table_to_json(stats))
 end
