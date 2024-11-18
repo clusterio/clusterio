@@ -1,7 +1,7 @@
 local clusterio_api = require("modules/clusterio/api")
+local compat = require("modules/clusterio/compat")
 
 local sync = {}
-
 
 local function get_technology_progress(tech)
 	if tech == tech.force.current_research then
@@ -19,26 +19,39 @@ local function set_technology_progress(tech, progress)
 	end
 end
 
-sync.events = {}
-sync.events[clusterio_api.events.on_server_startup] = function(event)
-	if not global.research_sync then
-		global.research_sync = {
-			technologies = {},
-		}
+--- @param no_early_return boolean?
+--- @return table
+local function get_script_data(no_early_return)
+	local script_data = compat.script_data()
+	local research_sync = script_data.research_sync
+	if research_sync and not no_early_return then
+		return research_sync
 	end
 
-	-- Used when syncing completed technologies from the controller
-	global.research_sync.ignore_research_finished = false
+	research_sync = research_sync or {}
+	research_sync.technologies = research_sync.technologies or {}
+
+	if research_sync.ignore_research_finished == nil then
+		research_sync.ignore_research_finished = false
+	end
 
 	local force = game.forces["player"]
 	for _, tech in pairs(force.technologies) do
 		local progress = get_technology_progress(tech)
-		global.research_sync.technologies[tech.name] = {
+		research_sync.technologies[tech.name] = {
 			level = tech.level,
 			researched = tech.researched,
 			progress = progress,
 		}
 	end
+
+	script_data.research_sync = research_sync
+	return research_sync
+end
+
+sync.events = {}
+sync.events[clusterio_api.events.on_server_startup] = function(event)
+	get_script_data(true)
 end
 
 local function get_contribution(tech)
@@ -47,7 +60,8 @@ local function get_contribution(tech)
 		return 0, nil
 	end
 
-	local prev_tech = global.research_sync.technologies[tech.name]
+	local research_sync = get_script_data()
+	local prev_tech = research_sync.technologies[tech.name]
 	if prev_tech.progress and prev_tech.level == tech.level then
 		return progress - prev_tech.progress, progress
 	else
@@ -63,7 +77,8 @@ local function send_contribution(tech)
 			level = tech.level,
 			contribution = contribution,
 		})
-		global.research_sync.technologies[tech.name].progress = progress
+		local research_sync = get_script_data()
+		research_sync.technologies[tech.name].progress = progress
 	end
 end
 
@@ -75,12 +90,13 @@ sync.events[defines.events.on_research_started] = function(event)
 end
 
 sync.events[defines.events.on_research_finished] = function(event)
-	if global.research_sync.ignore_research_finished then
+	local research_sync = get_script_data()
+	if research_sync.ignore_research_finished then
 		return
 	end
 
 	local tech = event.research
-	global.research_sync.technologies[tech.name] = {
+	research_sync.technologies[tech.name] = {
 		level = tech.level,
 		researched = tech.researched,
 	}
@@ -121,7 +137,7 @@ function research_sync.dump_technologies()
 	if #techs == 0 then
 		rcon.print("[]")
 	else
-		rcon.print(game.table_to_json(techs))
+		rcon.print(compat.table_to_json(techs))
 	end
 end
 
@@ -133,8 +149,9 @@ function research_sync.sync_technologies(data)
 	local progressIndex = 3
 	local researchedIndex = 4
 
-	global.research_sync.ignore_research_finished = true
-	for _, tech_data in pairs(game.json_to_table(data)) do
+	local research_sync = get_script_data()
+	research_sync.ignore_research_finished = true
+	for _, tech_data in pairs(compat.json_to_table(data) --[[@as table]]) do
 		local tech = force.technologies[tech_data[nameIndex]]
 		if tech and tech.level <= tech_data[levelIndex] then
 			local new_level = math.min(tech_data[levelIndex], tech.prototype.max_level)
@@ -162,18 +179,19 @@ function research_sync.sync_technologies(data)
 				progress = get_technology_progress(tech)
 			end
 
-			global.research_sync.technologies[tech.name] = {
+			research_sync.technologies[tech.name] = {
 				level = tech.level,
 				researched = tech.researched,
 				progress = progress,
 			}
 		end
 	end
-	global.research_sync.ignore_research_finished = false
+	research_sync.ignore_research_finished = false
 end
 
 function research_sync.update_progress(data)
-	local techs = game.json_to_table(data)
+	local research_sync = get_script_data()
+	local techs = compat.json_to_table(data) --[[@as table]]
 	local force = game.forces["player"]
 
 	for _, controllerTech in ipairs(techs) do
@@ -181,7 +199,7 @@ function research_sync.update_progress(data)
 		if tech and tech.level == controllerTech.level then
 			send_contribution(tech)
 			set_technology_progress(tech, controllerTech.progress)
-			global.research_sync.technologies[tech.name] = {
+			research_sync.technologies[tech.name] = {
 				level = tech.level,
 				progress = controllerTech.progress
 			}
@@ -200,7 +218,8 @@ function research_sync.research_technology(name, level)
 		level = tech.prototype.max_level
 	end
 
-	global.research_sync.ignore_research_finished = true
+	local research_sync = get_script_data()
+	research_sync.ignore_research_finished = true
 	if tech == force.current_research and tech.level == level then
 		force.research_progress = 1
 
@@ -215,9 +234,9 @@ function research_sync.research_technology(name, level)
 		end
 		game.play_sound { path = "utility/research_completed" }
 	end
-	global.research_sync.ignore_research_finished = false
+	research_sync.ignore_research_finished = false
 
-	global.research_sync.technologies[tech.name] = {
+	research_sync.technologies[tech.name] = {
 		level = tech.level,
 		researched = tech.researched,
 	}
