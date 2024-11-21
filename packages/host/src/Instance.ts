@@ -377,9 +377,10 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async sendRcon(message: string, expectEmpty = false, plugin = "") {
+		const trimmedMessage = message.trim();
 		if (
 			!this.config.get("factorio.enable_script_commands")
-			&& scriptCommands.find(cmd => message.startsWith(cmd))
+			&& scriptCommands.find(cmd => trimmedMessage.startsWith(cmd))
 		) {
 			throw new Error(
 				"Attempted to use script command while disabled. See config factorio.enable_script_commands.\n" +
