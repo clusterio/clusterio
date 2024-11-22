@@ -31,6 +31,7 @@ node_modules
 
 Factorio*
 /factorio
+!/test/file/factorio
 /instances
 /mods
 /database

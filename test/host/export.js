@@ -17,7 +17,16 @@ describe("host/src/export", function() {
 
 		it("returns a flattened mapping with locale definitions", async function() {
 			let locale = await _exportLocale(testServer, new Map(), ["base"], "en");
-			assert.deepEqual(locale, new Map([["test.key-a", "1"], ["test.key-b", "2"]]));
+			assert.deepEqual(locale, new Map([
+				["test.core-a", "1"], ["test.core-b", "2"],
+				["test.base-a", "1"], ["test.base-b", "2"],
+			]));
+		});
+		it("returns a filtered locale definitions based on mod order", async function() {
+			let locale = await _exportLocale(testServer, new Map(), [], "en");
+			assert.deepEqual(locale, new Map([
+				["test.core-a", "1"], ["test.core-b", "2"],
+			]));
 		});
 	});
 });

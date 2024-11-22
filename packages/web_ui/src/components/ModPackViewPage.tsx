@@ -679,7 +679,10 @@ function applyModPackChanges(modPack: lib.ModPack, changes: ModChange[]) {
 	let modifiedModPack = modPack.shallowClone();
 	for (let change of changes) {
 		// Only modify fields that change to reduce re-renders
-		if (["mods.set", "mods.delete"].includes(change.type) && modifiedModPack.mods === modPack.mods) {
+		if (
+			["mods.set", "mods.delete", "factorioVersion"].includes(change.type)
+			&& modifiedModPack.mods === modPack.mods
+		) {
 			modifiedModPack.mods = new Map(modifiedModPack.mods);
 		}
 		if (
@@ -697,22 +700,30 @@ function applyModPackChanges(modPack: lib.ModPack, changes: ModChange[]) {
 			modifiedModPack.name = change.value;
 		} else if (change.type === "description") {
 			modifiedModPack.description = change.value;
-		} else if (change.type === "factorioVersion") {
-			modifiedModPack.factorioVersion = change.value;
 		} else if (change.type === "mods.set") {
-			if (change.name) {
-				modifiedModPack.mods.set(change.name, change.value as lib.ModRecord);
-			}
+			modifiedModPack.mods.set(change.name, change.value as lib.ModRecord);
 		} else if (change.type === "mods.delete") {
-			modifiedModPack.mods.delete(change.name!);
+			modifiedModPack.mods.delete(change.name);
 		} else if (change.type === "settings.set") {
-			if (change.name) {
-				modifiedModPack.settings[change.scope].set(change.name, change.value);
-			}
+			modifiedModPack.settings[change.scope].set(change.name, change.value);
 		} else if (change.type === "settings.delete") {
-			if (change.name) {
-				modifiedModPack.settings[change.scope].delete(change.name);
+			modifiedModPack.settings[change.scope].delete(change.name);
+		} else if (change.type === "factorioVersion") {
+			const newBuiltinMods = lib.ModPack.getBuiltinMods(change.value);
+			for (const newBuiltinMod of newBuiltinMods) {
+				const builtinMod = modifiedModPack.mods.get(newBuiltinMod.name);
+				if (builtinMod) { newBuiltinMod.enabled = builtinMod.enabled; }
+				modifiedModPack.mods.set(newBuiltinMod.name, newBuiltinMod);
 			}
+
+			const oldBuiltinMods = lib.ModPack.getBuiltinMods(modifiedModPack.factorioVersion);
+			for (const oldBuiltinMod of oldBuiltinMods) {
+				if (!newBuiltinMods.some(builtinMod => builtinMod.name === oldBuiltinMod.name)) {
+					modifiedModPack.mods.delete(oldBuiltinMod.name);
+				}
+			}
+
+			modifiedModPack.factorioVersion = change.value;
 		} else {
 			throw new Error(`Unknown change type ${change.type}`);
 		}
@@ -879,8 +890,9 @@ export default function ModPackViewPage() {
 						name="factorioVersion"
 						style={{ marginBottom: 0 }}
 						rules={[{
-							pattern: /^\d+\.\d+\.\d+?$/,
-							message: "Must be an a.b.c version number.",
+							required: true,
+							pattern: /^\d+\.\d+(\.\d+)?$/,
+							message: "Must be an a.b or a.b.c version number.",
 						}]}
 					>
 						<Input
@@ -894,7 +906,9 @@ export default function ModPackViewPage() {
 				changes={changes}
 				onChange={pushChange}
 				onRevert={revertChange}
-				builtInMods={["base", "core"]}
+				builtInMods={
+					lib.ModPack.getBuiltinMods(modifiedModPack.factorioVersion).map(builtinMod => builtinMod.name)
+				}
 			/>
 			<SettingsTable
 				modPack={modifiedModPack}

@@ -173,8 +173,11 @@ export default class ModPack {
 		if (json.updated_at_ms) { modPack.updatedAtMs = json.updated_at_ms; }
 		if (json.is_deleted) { modPack.isDeleted = json.is_deleted; }
 
-		if (!modPack.mods.has("base")) {
-			modPack.mods.set("base", { name: "base", enabled: true, version: modPack.factorioVersion });
+		const builtinMods = ModPack.getBuiltinMods(modPack.factorioVersion);
+		for (const builtinMod of builtinMods) {
+			if (!modPack.mods.has(builtinMod.name)) {
+				modPack.mods.set(builtinMod.name, builtinMod);
+			}
 		}
 
 		return modPack;
@@ -378,5 +381,33 @@ export default class ModPack {
 			}
 			this.settings[settingType].set(prototype.name, { value });
 		}
+	}
+
+	/**
+	 * Returns an array of ModInfo containing all mods included in factorio
+	 *
+	 * @param factorioVersion - Factorio version to get the default mods for
+	 * @return Built in mods for the given version
+	 */
+	static getBuiltinMods(factorioVersion: string) {
+		let defaultMods: ModRecord[] = [
+			// "core" not included because core cannot be disabled
+			{ name: "base", enabled: true, version: factorioVersion },
+		];
+
+		const integerVersion = integerFactorioVersion(factorioVersion);
+		if (integerVersion >= integerFactorioVersion("1.2")) {
+			defaultMods = defaultMods.concat([
+				{ name: "elevated-rails", enabled: false, version: factorioVersion },
+				{ name: "quality", enabled: false, version: factorioVersion },
+				{ name: "space-age", enabled: false, version: factorioVersion },
+			]);
+		}
+
+		return defaultMods;
+	}
+
+	static getBuiltinModNames(factorioVersion: string) {
+		return this.getBuiltinMods(factorioVersion).map(builtinMod => builtinMod.name);
 	}
 }

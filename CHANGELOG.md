@@ -25,6 +25,10 @@ Many thanks to the following for contributing to this release:
 
 ## Version 2.0.0-alpha.19
 
+### Major Features
+
+- Added support for 2.0 builtin mods during mod pack creation. [#684](https://github.com/clusterio/clusterio/pull/684).
+
 ### Features
 
 - Added Datastore and Datastore Provider classes to the library to support savable Maps [#629](https://github.com/clusterio/clusterio/pull/629).
@@ -37,6 +41,7 @@ Many thanks to the following for contributing to this release:
 - Changed default role selection to be a dropdown menu rather than id [#664](https://github.com/clusterio/clusterio/pull/664).
 - Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
 - Allow hidden and readonly graphical representations of config values. [#665](https://github.com/clusterio/clusterio/pull/665).
+- Added locale exporting for all builtin mods, not just for the base mod. [#684](https://github.com/clusterio/clusterio/pull/684).
 - Added option for silent testing which only shows the results, can be ran using `pnpm silent-test` [#655](https://github.com/clusterio/clusterio/pull/655).
 
 ### Changes
@@ -68,6 +73,8 @@ Many thanks to the following for contributing to this release:
 - Updated display name and description of `controller.external_address` to avoid confusion. [#674](https://github.com/clusterio/clusterio/pull/674)
 - Fixed invalid transient state during server start. [#676](https://github.com/clusterio/clusterio/issues/676)
 - Fixed host user sync to instances after reconnecting to the controller. [#678](https://github.com/clusterio/clusterio/pull/678)
+- Fixed WebUI adding and displaying the wrong base mod version. [#684](https://github.com/clusterio/clusterio/pull/684).
+- Fixed WebUI inconsistent pattern matching for factorio version. [#684](https://github.com/clusterio/clusterio/pull/684).
 
 ### Breaking Changes
 
