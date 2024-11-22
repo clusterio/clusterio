@@ -92,4 +92,19 @@ export default class PlayerStats {
 		}
 		return json;
 	}
+
+	merge(other: PlayerStats) {
+		this.joinCount += other.joinCount;
+		this.onlineTimeMs += other.onlineTimeMs;
+		if (!this.firstJoinAt || (other.firstJoinAt && other.firstJoinAt < this.firstJoinAt)) {
+			this.firstJoinAt = other.firstJoinAt;
+		}
+		if (!this.lastJoinAt || (other.lastJoinAt && other.lastJoinAt > this.lastJoinAt)) {
+			this.lastJoinAt = other.lastJoinAt;
+		}
+		if (!this.lastLeaveAt || (other.lastLeaveAt && other.lastLeaveAt > this.lastLeaveAt)) {
+			this.lastLeaveAt = other.lastLeaveAt;
+			this.lastLeaveReason = other.lastLeaveReason;
+		}
+	}
 }

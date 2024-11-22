@@ -279,13 +279,13 @@ export default class HostConnection extends BaseConnection {
 
 		for (let user of this._controller.userManager.users.values()) {
 			if (user.isAdmin) {
-				adminlist.add(user.name);
+				adminlist.add(user.id);
 			}
 			if (user.isBanned) {
-				banlist.set(user.name, user.banReason);
+				banlist.set(user.id, user.banReason);
 			}
 			if (user.isWhitelisted) {
-				whitelist.add(user.name);
+				whitelist.add(user.id);
 			}
 		}
 
@@ -326,7 +326,7 @@ export default class HostConnection extends BaseConnection {
 
 	async handleInstancePlayerUpdateEvent(event: lib.InstancePlayerUpdateEvent, src: lib.Address) {
 		let instanceId = src.id;
-		let user = this._controller.userManager.users.get(event.name);
+		let user = this._controller.userManager.getByName(event.name);
 		if (!user) {
 			user = this._controller.userManager.createUser(event.name);
 		}

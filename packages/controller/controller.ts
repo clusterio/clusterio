@@ -139,7 +139,7 @@ async function handleBootstrapCommand(
 			return;
 		}
 
-		let admin = userManager.users.get(args.name);
+		let admin = userManager.getByName(args.name);
 		if (!admin) {
 			admin = userManager.createUser(args.name);
 		}
@@ -150,14 +150,14 @@ async function handleBootstrapCommand(
 		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
 
 	} else if (subCommand === "generate-user-token") {
-		let user = userManager.users.get(args.name);
+		let user = userManager.getByName(args.name);
 		if (!user) {
 			logger.error(`No user named '${args.name}'`);
 			process.exitCode = 1;
 			return;
 		}
 		// eslint-disable-next-line no-console
-		console.log(userManager.signUserToken(user.name));
+		console.log(userManager.signUserToken(user));
 
 	} else if (subCommand === "generate-host-token") {
 		// eslint-disable-next-line no-console
@@ -167,7 +167,7 @@ async function handleBootstrapCommand(
 		));
 
 	} else if (subCommand === "create-ctl-config") {
-		let admin = userManager.users.get(args.name);
+		let admin = userManager.getByName(args.name);
 		if (!admin) {
 			logger.error(`No user named '${args.name}'`);
 			process.exitCode = 1;
@@ -178,7 +178,7 @@ async function handleBootstrapCommand(
 		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
 		controlConfig.set(
 			"control.controller_token",
-			userManager.signUserToken(admin.name),
+			userManager.signUserToken(admin),
 		);
 
 		let content = JSON.stringify(controlConfig, null, "\t");

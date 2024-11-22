@@ -30,6 +30,9 @@ export class InstancePlugin extends BaseInstancePlugin {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("research_sync plugin requires save patching.");
 		}
+		if (!this.instance.config.get("factorio.enable_script_commands")) {
+			throw new Error("research_sync plugin requires script commands.");
+		}
 
 		this.instance.server.on("ipc-research_sync:contribution", (tech: IpcContribution) => {
 			this.researchContribution(tech).catch(err => this.unexpectedError(err));

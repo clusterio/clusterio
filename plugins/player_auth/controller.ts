@@ -152,13 +152,13 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		for (let [player, entry] of this.players) {
 			if (entry.playerCode === playerCode && entry.expiresMs > Date.now()) {
 				if (entry.verifyCode === verifyCode) {
-					let user = this.controller.userManager.users.get(player);
+					let user = this.controller.userManager.getByName(player);
 					if (!user) {
 						res.send({ error: true, message: "invalid user" });
 						return;
 					}
 
-					let token = this.controller.userManager.signUserToken(user.name);
+					let token = this.controller.userManager.signUserToken(user);
 					res.send({ verified: true, token });
 					return;
 

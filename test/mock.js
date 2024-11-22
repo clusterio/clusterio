@@ -129,6 +129,7 @@ class MockInstance extends lib.Link {
 		this.mockConfigEntries = new Map([
 			["instance.id", 7357],
 			["factorio.enable_save_patching", true],
+			["factorio.enable_script_commands", true],
 		]);
 		this.config = {
 			get: (name) => {

@@ -134,7 +134,7 @@ export default class ControlConnection extends BaseConnection {
 			this.checkPermission(message, entry);
 		} catch (err: any) {
 			this.connector.sendResponseError(new lib.ResponseError(err.message, err.code), message.src);
-			logger.audit(`Permission denied for ${message.name} by ${this.user.name} from ${this.connector.dst}`);
+			logger.audit(`Permission denied for ${message.name} by ${this.user.id} from ${this.connector.dst}`);
 			throw err;
 		}
 	}
@@ -626,7 +626,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserGetRequest(request: lib.UserGetRequest): Promise<lib.User> {
 		let name = request.name;
-		let user = this._controller.userManager.users.get(name);
+		let user = this._controller.userManager.getByName(name);
 		if (!user) {
 			throw new lib.RequestError(`User ${name} does not exist`);
 		}
@@ -644,17 +644,17 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleUserRevokeTokenRequest(request: lib.UserRevokeTokenRequest) {
-		let user = this._controller.userManager.users.get(request.name);
+		let user = this._controller.userManager.getByName(request.name);
 		if (!user) {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
 		}
-		if (user.name !== this.user.name) {
+		if (user.id !== this.user.id) {
 			this.user.checkPermission("core.user.revoke_other_token");
 		}
 
 		user.invalidateToken();
 		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
-			if (controlConnection.user.name === user.name) {
+			if (controlConnection.user.id === user.id) {
 				controlConnection.connector.terminate();
 			}
 		}
@@ -662,7 +662,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleUserUpdateRolesRequest(request: lib.UserUpdateRolesRequest) {
-		let user = this._controller.userManager.users.get(request.name);
+		let user = this._controller.userManager.getByName(request.name);
 		if (!user) {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
 		}
@@ -680,7 +680,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserSetAdminRequest(request: lib.UserSetAdminRequest) {
 		let { name, create, admin } = request;
-		let user = this._controller.userManager.users.get(name);
+		let user = this._controller.userManager.getByName(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
@@ -697,7 +697,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserSetBannedRequest(request: lib.UserSetBannedRequest) {
 		let { name, create, banned, reason } = request;
-		let user = this._controller.userManager.users.get(name);
+		let user = this._controller.userManager.getByName(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
@@ -715,7 +715,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserSetWhitelistedRequest(request: lib.UserSetWhitelistedRequest) {
 		let { name, create, whitelisted } = request;
-		let user = this._controller.userManager.users.get(name);
+		let user = this._controller.userManager.getByName(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
@@ -732,7 +732,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserDeleteRequest(request: lib.UserDeleteRequest) {
 		let name = request.name;
-		let user = this._controller.userManager.users.get(name);
+		let user = this._controller.userManager.getByName(name);
 		if (!user) {
 			throw new lib.RequestError(`User '${name}' does not exist`);
 		}

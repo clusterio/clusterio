@@ -42,6 +42,7 @@ Many thanks to the following for contributing to this release:
 - Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
 - Allow hidden and readonly graphical representations of config values. [#665](https://github.com/clusterio/clusterio/pull/665).
 - Added locale exporting for all builtin mods, not just for the base mod. [#684](https://github.com/clusterio/clusterio/pull/684).
+- Added option for silent testing which only shows the results, can be ran using `pnpm silent-test` [#655](https://github.com/clusterio/clusterio/pull/655).
 
 ### Changes
 
@@ -63,10 +64,11 @@ Many thanks to the following for contributing to this release:
 - Changed shutdown logic to prefer sending a /quit command via RCON instead of using diverging logic on Windows and Linux.
 - Fixed issues with subscriptions which prevented them from working on instances or generic events [#655](https://github.com/clusterio/clusterio/pull/655).
 - Fixed unreliable datastore tests [#662](https://github.com/clusterio/clusterio/pull/662).
-- Added option for silent tests.
 - Added `controller.factorio_username` and `controller.factorio_token` config to set Factorio credentials used for the whole cluster.
 - Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
 - Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
+- Changed `instance.rcon_password` config to be a credential field that can not be read by the control interface.
+- Changed `host.id` `instance.id` and `instance.assign_host` config to be hidden fields that can not be seen on the web ui.
 - Fixed 2.0 version extraction from linux headless downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
 - Updated display name and description of `controller.external_address` to avoid confusion. [#674](https://github.com/clusterio/clusterio/pull/674)
 - Fixed invalid transient state during server start. [#676](https://github.com/clusterio/clusterio/issues/676)
@@ -79,6 +81,8 @@ Many thanks to the following for contributing to this release:
 - Previously silent errors for controller.sendEvent now throw exceptions [#625](https://github.com/clusterio/clusterio/pull/625).
 - @clusterio/controller export InstanceInfo has added factorioVersion parameter.
 - Argument order for `Config.canAccess` changed to require an access mode passed as the second argument.
+- Instances can now have `factorio.enable_script_commands` disabled which will throw an error when any script command is used over rcon. [#681](https://github.com/clusterio/clusterio/pull/681).
+- User IDs are now case insensitive, duplicate users will be automatically merged with a backup created. [#682](https://github.com/clusterio/clusterio/pull/682)
 
 Many thanks to the following for contributing to this release:  
 [@CCpersonguy](https://github.com/CCpersonguy)

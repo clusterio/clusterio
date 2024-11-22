@@ -13,7 +13,7 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	exec, execCtl, sendRcon, getControl, spawn, instancesDir, factorioDir,
+	exec, execCtl, sendRcon, getControl, spawnNode, instancesDir, factorioDir,
 } = require("./index");
 
 
@@ -29,7 +29,7 @@ async function checkInstanceStatus(id, status) {
 }
 
 async function spawnAltHost(config = "alt-host-config.json") {
-	return await spawn("alt-host:", `node ../../packages/host run --config ${config}`, /Started host/);
+	return await spawnNode("alt-host:", `../../packages/host run --config ${config}`, /Started host/);
 }
 
 async function startAltHost() {
@@ -97,7 +97,7 @@ async function deleteSave(instanceId, save) {
 
 async function getUsers() {
 	let users = await getControl().send(new lib.UserListRequest());
-	return new Map(users.map(user => [user.name, user]));
+	return new Map(users.map(user => [user.id, user]));
 }
 
 function jsonArg(value) {
@@ -442,6 +442,10 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance send-rcon", function() {
+			this.afterAll(async function() {
+				// Prevents cascading failure where enable_script_commands is expected to be true
+				await execCtl("instance config set test factorio.enable_script_commands true");
+			});
 			it("sends the command", async function() {
 				slowTest(this);
 				await execCtl("instance send-rcon test technobabble");
@@ -464,6 +468,24 @@ describe("Integration of Clusterio", function() {
 					await wait(100);
 				}
 				assert(received, "InstanceSaveDetailsUpdatesEvent not sent");
+			});
+			it("should prevent execution of script commands when disabled", async function() {
+				slowTest(this);
+				await execCtl("instance send-rcon test /c");
+				const r1 = await getControl().send(
+					new lib.LogQueryRequest(false, false, [], [44], undefined, 10, "desc")
+				);
+				assert(r1.log.some(info => /\[COMMAND\]/.test(info.message)), "Command was not sent");
+				await execCtl("instance config set test factorio.enable_script_commands false");
+
+				assert.rejects(
+					execCtl("instance send-rcon test /c"),
+					new Error(
+						"Attempted to use script command while disabled. " +
+						"See config factorio.enable_script_commands.\nCommand: /c"
+					)
+				);
+				await execCtl("instance config set test factorio.enable_script_commands true");
 			});
 		});
 
@@ -641,6 +663,11 @@ describe("Integration of Clusterio", function() {
 				const removeCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
 				assert.equal(removeCommandStateLower, "test_rcon_ban is not banned.\n", "User is banned");
 				assert.equal(removeCommandStateUpper, "test_RCON_ban is not banned.\n", "User is banned");
+
+				// Check it is case insensitive by checking it was converted correctly
+				const users = await getUsers();
+				assert(users.has("test_rcon_ban"), "User ID was not lowercase");
+				assert(!users.has("test_RCON_ban"), "Username was not converted to User ID");
 			});
 			it("should send whitelist commands to running instances", async function() {
 				slowTest(this);
@@ -669,6 +696,11 @@ describe("Integration of Clusterio", function() {
 					"test_rcon_whitelist is not whitelisted.\n", "User is whitelisted");
 				assert.equal(removeCommandStateUpper,
 					"test_RCON_whitelist is not whitelisted.\n", "User is whitelisted");
+
+				// Check it is case insensitive by checking it was converted correctly
+				const users = await getUsers();
+				assert(users.has("test_rcon_whitelist"), "User ID was not lowercase");
+				assert(!users.has("test_RCON_whitelist"), "Username was not converted to User ID");
 			});
 			it("should send admin list commands to running instances", async function() {
 				this.skip(); // It is not currently possible to get admin state without the player joining the game
@@ -692,6 +724,11 @@ describe("Integration of Clusterio", function() {
 				const removeCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
 				assert.equal(removeCommandStateLower, "test_rcon_admin is not admin.\n", "User is admin");
 				assert.equal(removeCommandStateUpper, "test_RCON_admin is not admin.\n", "User is admin");
+
+				// Check it is case insensitive by checking it was converted correctly
+				const users = await getUsers();
+				assert(users.has("test_rcon_admin"), "User ID was not lowercase");
+				assert(!users.has("test_RCON_admin"), "Username was not converted to User ID");
 			});
 		});
 
@@ -1256,10 +1293,10 @@ describe("Integration of Clusterio", function() {
 				getControl().userUpdates = [];
 				await execCtl("user create temp");
 				let users = await getControl().send(new lib.UserListRequest());
-				let tempUser = users.find(user => user.name === "temp");
+				let tempUser = users.find(user => user.id === "temp");
 				assert(tempUser, "user was not created");
 				assert.equal(getControl().userUpdates.length, 1);
-				assert.equal(getControl().userUpdates[0].name, "temp");
+				assert.equal(getControl().userUpdates[0].id, "temp");
 			});
 		});
 
@@ -1288,7 +1325,7 @@ describe("Integration of Clusterio", function() {
 				getControl().userUpdates = [];
 				await execCtl('user set-roles temp "Cluster Admin"');
 				let users = await getControl().send(new lib.UserListRequest());
-				let tempUser = users.find(user => user.name === "temp");
+				let tempUser = users.find(user => user.id === "temp");
 				assert.deepEqual(tempUser.roleIds, new Set([0]));
 				assert.equal(getControl().userUpdates.length, 1);
 			});
@@ -1324,7 +1361,7 @@ describe("Integration of Clusterio", function() {
 				getControl().userUpdates = [];
 				await execCtl("user delete temp");
 				let users = await getControl().send(new lib.UserListRequest());
-				let tempUser = users.find(user => user.name === "temp");
+				let tempUser = users.find(user => user.id === "temp");
 				assert(!tempUser, "user was note deleted");
 				assert.equal(getControl().userUpdates.length, 1);
 				assert.equal(getControl().userUpdates[0].isDeleted, true);

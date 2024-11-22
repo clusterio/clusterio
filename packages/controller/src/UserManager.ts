@@ -10,8 +10,8 @@ import ControllerUser from "./ControllerUser";
  * @alias module:controller/src/UserManager
  */
 export default class UserManager {
-	roles: Map<number, lib.Role> = new Map();
-	users: Map<string, ControllerUser> = new Map();
+	roles: Map<lib.Role["id"], lib.Role> = new Map();
+	users: Map<ControllerUser["id"], ControllerUser> = new Map();
 	dirty = false;
 
 	/**
@@ -24,6 +24,10 @@ export default class UserManager {
 	) {
 	}
 
+	getByName(name: string) {
+		return this.users.get(name.toLowerCase());
+	}
+
 	async load(filePath: string): Promise<void> {
 		try {
 			let content = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
@@ -32,9 +36,29 @@ export default class UserManager {
 				this.roles.set(role.id, role);
 			}
 
+			let duplicates = 0;
 			for (let serializedUser of content.users) {
 				let user = ControllerUser.fromJSON(serializedUser, this);
-				this.users.set(user.name, user);
+				const existingUser = this.users.get(user.id);
+				if (existingUser) {
+					// Required migration to all lowercase ids in alpha 19
+					duplicates += 1;
+					// We assume the user with the lower online time is the duplicate
+					if (user.playerStats.onlineTimeMs <= existingUser.playerStats.onlineTimeMs) {
+						existingUser.merge(user);
+						continue; // Skip users.set
+					}
+					user.merge(existingUser);
+				}
+				this.users.set(user.id, user);
+			}
+
+			if (duplicates) {
+				const backupPath = `${filePath}.${Date.now()}.bak`;
+				lib.logger.warn(
+					`A total of ${duplicates} users were merged, a backup was written to: ${backupPath}`
+				);
+				await lib.safeOutputFile(backupPath, JSON.stringify(content, null, "\t"));
 			}
 
 		} catch (err: any) {
@@ -48,7 +72,7 @@ export default class UserManager {
 		}
 	}
 
-	async save(filePath:string): Promise<void> {
+	async save(filePath: string): Promise<void> {
 		let serializedRoles = [];
 		for (let role of this.roles.values()) {
 			serializedRoles.push(role.toJSON());
@@ -72,8 +96,8 @@ export default class UserManager {
 	 * @param name - Name of the user to create.
 	 * @returns The created user.
 	 */
-	createUser(name:string): ControllerUser {
-		if (this.users.has(name)) {
+	createUser(name: string): ControllerUser {
+		if (this.getByName(name)) {
 			throw new Error(`User '${name}' already exists`);
 		}
 
@@ -84,20 +108,20 @@ export default class UserManager {
 		}
 
 		let user = new ControllerUser(this, 0, name, roles);
-		this.users.set(name, user);
+		this.users.set(user.id, user);
 		this.dirty = true;
 		return user;
 	}
 
 	/**
-	 * Sign access token for the given user name
+	 * Sign access token for the given user
 	 *
-	 * @param name - user name to sign token for
+	 * @param user - user to sign token for
 	 * @returns JWT access token for the user.
 	 */
-	signUserToken(name: string): string {
+	signUserToken(user: ControllerUser): string {
 		return jwt.sign(
-			{ aud: "user", user: name },
+			{ aud: "user", user: user.id },
 			Buffer.from(this._config.get("controller.auth_secret"), "base64")
 		);
 	}
