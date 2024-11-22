@@ -96,7 +96,7 @@ export default class PlayerStats {
 	merge(other: PlayerStats) {
 		this.joinCount += other.joinCount;
 		this.onlineTimeMs += other.onlineTimeMs;
-		if (!this.firstJoinAt || (other.firstJoinAt && other.firstJoinAt > this.firstJoinAt)) {
+		if (!this.firstJoinAt || (other.firstJoinAt && other.firstJoinAt < this.firstJoinAt)) {
 			this.firstJoinAt = other.firstJoinAt;
 		}
 		if (!this.lastJoinAt || (other.lastJoinAt && other.lastJoinAt > this.lastJoinAt)) {
