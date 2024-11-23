@@ -1,4 +1,5 @@
 -- Important: Keep this API in sync with modules/clusterio/api.lua
+local compat = require("compat")
 local api = {}
 
 
@@ -48,7 +49,7 @@ function api.send_json(channel, data)
 		return "\\x" .. string.format("%02x", match:byte())
 	end)
 
-	data = game.table_to_json(data)
+	data = compat.table_to_json(data)
 
 	-- If there's more than about 4kB of data users running with the Windows
 	-- console open will start to experience stuttering, otherwise we could
@@ -58,7 +59,7 @@ function api.send_json(channel, data)
 	else
 		local file_no = remote.call("clusterio_api", "get_file_no")
 		local file_name = "clst_" .. file_no .. ".json"
-		game.write_file(file_name, data, false, 0)
+		compat.write_file(file_name, data, false, 0)
 		print("\f$ipc:" .. channel .. "?f" .. file_name)
 	end
 end

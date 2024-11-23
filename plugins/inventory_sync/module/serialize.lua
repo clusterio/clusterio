@@ -1,7 +1,11 @@
+local compat = require("modules/clusterio/compat")
 local clusterio_serialize = require("modules/clusterio/serialize")
 local character_inventories = require("modules/inventory_sync/define_player_inventories")
 local character_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
 local serialize = {}
+
+local v2_logistic_api = compat.version_ge("2.0.0")
+local v2_storage_api = compat.version_ge("2.0.0")
 
 function serialize.serialize_inventories(source, inventories)
 	local serialized = {}
@@ -72,6 +76,10 @@ end
 --   min
 --   max
 function serialize.serialize_personal_logistic_slots(player)
+	if v2_logistic_api then
+		return nil -- TODO implement v2_logistic_api
+	end
+
 	local serialized = nil
 
 	-- Serialize personal logistic slots
@@ -298,8 +306,8 @@ function serialize.serialize_player(player)
 		end
 	end
 
-	-- Serialize crafting queue
-	if player.character then
+	-- Serialize crafting queue, TODO implement v2_storage_api
+	if player.character and not v2_storage_api then
 		serialized.crafting_queue = serialize.serialize_crafting_queue(player)
 	end
 
@@ -328,8 +336,8 @@ function serialize.deserialize_player(player, serialized)
 					-- We have to set ticks to respawn to save the hidden state into the player but we
 					-- can't unset tick_to_respawn by setting it back to nil as that triggers a respawn.
 					player.ticks_to_respawn = 0
-					player.set_controller({ type = defines.controller.god })
-					player.set_controller({ type = defines.controller.ghost })
+					player.set_controller({ type = defines.controllers.god })
+					player.set_controller({ type = defines.controllers.ghost })
 				end
 				character.destroy()
 			end

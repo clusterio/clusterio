@@ -1,6 +1,9 @@
 -- Show inventory download progressbar
 local progress_dialog = {}
 
+--- @param player LuaPlayer
+--- @param progress number
+--- @param total number
 function progress_dialog.create(player, progress, total)
 	local frame = player.gui.screen.add {
 		name = "inventory_sync_progress",
@@ -24,7 +27,7 @@ function progress_dialog.create(player, progress, total)
 		type = "empty-widget",
 		style = "draggable_space_header",
 	}
-	filler.style.horizontally_stretchable = "on"
+	filler.style.horizontally_stretchable = true
 	filler.style.right_margin = 4
 	filler.style.height = 24
 	filler.drag_target = frame
@@ -54,12 +57,16 @@ function progress_dialog.create(player, progress, total)
 	player.opened = frame
 end
 
+--- @param player LuaPlayer
 function progress_dialog.remove(player)
 	if player.gui.screen.inventory_sync_progress then
 		player.gui.screen.inventory_sync_progress.destroy()
 	end
 end
 
+--- @param player LuaPlayer
+--- @param progress number
+--- @param total number
 function progress_dialog.update(player, progress, total)
 	-- Be defensive here in case an old GUI is present
 	local frame = player.gui.screen.inventory_sync_progress
@@ -88,6 +95,9 @@ function progress_dialog.update(player, progress, total)
 	return true
 end
 
+--- @param player LuaPlayer
+--- @param progress number
+--- @param total number
 function progress_dialog.display(player, progress, total)
 	if not progress_dialog.update(player, progress, total) then
 		progress_dialog.remove(player)

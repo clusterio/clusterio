@@ -28,6 +28,7 @@ Many thanks to the following for contributing to this release:
 ### Major Features
 
 - Added support for 2.0 builtin mods during mod pack creation. [#684](https://github.com/clusterio/clusterio/pull/684).
+- Added basic 2.0 support to clusterio lua api and 1st party plugins [#685](https://github.com/clusterio/clusterio/pull/685).
 
 ### Features
 

@@ -1,6 +1,7 @@
 local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local ensure_character = require("modules/inventory_sync/ensure_character")
-local serialize = require("modules/inventory_sync/serialize")
+local restore_position = require("modules/inventory_sync/restore_position")
+local get_script_data = require("modules/inventory_sync/get_script_data")
 
 
 local function download_inventory(player_name, data, number, total)
@@ -10,13 +11,14 @@ local function download_inventory(player_name, data, number, total)
 		return
 	end
 
-	local record = global.inventory_sync.active_downloads[player_name]
+	local script_data = get_script_data()
+	local record = script_data.active_downloads[player_name]
 	if record == nil then
 		rcon.print("No active download is in progress for " .. player_name)
 		return
 	end
 
-	local player_record = global.inventory_sync.players[player_name]
+	local player_record = script_data.players[player_name]
 	if record.restart then
 		rcon.print("Restarting outdated download")
 		inventory_sync.initiate_inventory_download(player, player_record, record.generation)
@@ -36,7 +38,7 @@ local function download_inventory(player_name, data, number, total)
 		-- Restore player position and driving state
 		restore_position(record, player)
 
-		global.inventory_sync.active_downloads[player_name] = nil
+		script_data.active_downloads[player_name] = nil
 		player_record.dirty = player.connected
 		player_record.sync = true
 		player_record.generation = record.generation
@@ -60,8 +62,8 @@ local function download_inventory(player_name, data, number, total)
 	progress_dialog.remove(player)
 
 	-- Remove download session and store finished download
-	global.inventory_sync.active_downloads[player_name] = nil
-	global.inventory_sync.finished_downloads[player_name] = record
+	script_data.active_downloads[player_name] = nil
+	script_data.finished_downloads[player_name] = record
 
 	local ticks = game.ticks_played - record.started
 	player.print("Imported player data in " .. ticks .. " ticks")

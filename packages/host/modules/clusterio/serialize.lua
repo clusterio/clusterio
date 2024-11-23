@@ -1,44 +1,22 @@
 -- Library for serializing items in Factorio
 -- Based on code from playerManager and trainTeleports
+local compat = require("modules/clusterio/compat")
 local serialize = {}
 
-local function version_to_table(version)
-	local t = {}
-	for p in string.gmatch(version, "%d+") do
-		t[#t + 1] = tonumber(p)
-	end
-	return t
-end
-
 -- 0.17 compatibility
-local supports_bar, get_bar, set_bar, version
-if (pcall(function() local mods = script.active_mods end)) then
+local supports_bar, get_bar, set_bar
+if compat.version_ge("1.0.0") then
 	supports_bar = "supports_bar"
 	get_bar = "get_bar"
 	set_bar = "set_bar"
-	version = version_to_table(script.active_mods.base)
 else
 	supports_bar = "hasbar"
 	get_bar = "getbar"
 	set_bar = "setbar"
-	version = version_to_table("0.17.69")
 end
 
--- returns true if the game version is greater than or equal to the given version
-local function version_ge(comp)
-	comp = version_to_table(comp)
-	for i=1, 3 do
-		if comp[i] > version[i] then
-			return false
-		elseif comp[i] < version[i] then
-			return true
-		end
-	end
-	return true
-end
-
-local has_create_grid = version_ge("1.1.7")
-
+local has_create_grid = compat.version_ge("1.1.7")
+local has_quality = compat.version_ge("2.0.0")
 
 -- Equipment Grids are serialized into an array of equipment entries
 -- where ench entry is a table with the following fields:
@@ -109,6 +87,7 @@ end
 -- Item stacks are serialized into a table with the following fields:
 --	 n: name
 --	 c: count
+--	 q: quality (optional)
 --	 h: health (optional)
 --	 d: durability (optional)
 --	 a: ammo count (optional)
@@ -141,8 +120,9 @@ function serialize.serialize_item_stack(slot, entry)
 
 	entry.n = slot.name
 	entry.c = slot.count
+	if has_quality and slot.quality.level ~= 0 then entry.q = slot.quality.name end
 	if slot.health < 1 then entry.h = slot.health end
-	if slot.durability then entry.d = slot.durability end
+	if slot.type == "tool" and slot.durability then entry.d = slot.durability end
 	if slot.type == "ammo" then entry.a = slot.ammo end
 	if slot.is_item_with_label then
 		local label = {}
@@ -178,6 +158,7 @@ function serialize.deserialize_item_stack(slot, entry)
 		name = entry.n,
 		count = entry.c,
 	}
+	if entry.q then item_stack.quality = entry.q end
 	if entry.h then item_stack.health = entry.h end
 	if entry.d then item_stack.durability = entry.d end
 	if entry.a then item_stack.ammo = entry.a end
@@ -244,7 +225,7 @@ function serialize.serialize_inventory(inventory)
 		end
 
 		if item.n or item.f or item.e then
-			local item_serialized = game.table_to_json(item)
+			local item_serialized = compat.table_to_json(item)
 			if item_serialized == previous_serialized then
 				local previous_item = serialized.i[#serialized.i]
 				previous_item.r = (previous_item.r or 0) + 1
@@ -304,6 +285,5 @@ function serialize.deserialize_inventory(inventory, serialized)
 		last_slot_index = base_index + repeat_count
 	end
 end
-
 
 return serialize

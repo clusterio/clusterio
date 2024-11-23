@@ -1,4 +1,6 @@
-return {
+local compat = require("modules/clusterio/compat")
+
+local keys = {
 	"character_crafting_speed_modifier",
 	"character_mining_speed_modifier",
 	"character_additional_mining_categories",
@@ -13,5 +15,10 @@ return {
 	"character_trash_slot_count_bonus",
 	"character_maximum_following_robot_count_bonus",
 	"character_health_bonus",
-	"character_personal_logistic_requests_enabled",
 }
+
+if compat.version_le("1.1.110") then
+	keys[#keys + 1] = "character_personal_logistic_requests_enabled"
+end
+
+return keys

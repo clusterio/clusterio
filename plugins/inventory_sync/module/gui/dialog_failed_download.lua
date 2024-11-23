@@ -1,7 +1,10 @@
 local ensure_character = require("modules/inventory_sync/ensure_character")
+local get_script_data = require("modules/inventory_sync/get_script_data")
 
 local dialog_failed_download = {}
 
+--- @param player LuaPlayer
+--- @param acquire_response table
 function dialog_failed_download.create(player, acquire_response)
 	if player.gui.screen.dialog_failed_download then
 		player.gui.screen.dialog_failed_download.destroy()
@@ -34,7 +37,7 @@ function dialog_failed_download.create(player, acquire_response)
 		type = "empty-widget",
 		style = "draggable_space_header",
 	}
-	filler.style.horizontally_stretchable = "on"
+	filler.style.horizontally_stretchable = true
 	filler.style.right_margin = 4
 	filler.style.height = 24
 	filler.drag_target = frame
@@ -98,7 +101,7 @@ function dialog_failed_download.create(player, acquire_response)
 		type = "empty-widget",
 		style = "draggable_space_header",
 	}
-	dialog_filler.style.horizontally_stretchable = "on"
+	dialog_filler.style.horizontally_stretchable = true
 	dialog_filler.style.right_margin = 4
 	dialog_filler.style.height = 28
 	dialog_filler.drag_target = frame
@@ -121,23 +124,24 @@ dialog_failed_download.events = {
 		end
 
 		if event.element.name == "inventory_sync_failed_download_abort" then
-			-- Give the player a charatcer and let them play with that
-			local player = game.get_player(event.player_index)
+			-- Give the player a character and let them play with that
+			local player = assert(game.get_player(event.player_index))
 			ensure_character(player)
+			local inventory_sync = get_script_data()
 			player.gui.screen.dialog_failed_download.destroy()
-			global.inventory_sync.players[player.name].dirty = true
-			global.inventory_sync.players[player.name].sync = false
+			inventory_sync.players[player.name].dirty = true
+			inventory_sync.players[player.name].sync = false
 
 		elseif event.element.name == "inventory_sync_failed_download_retry" then
 			-- Retry acquiring the player from the controller
-			local player = game.get_player(event.player_index)
+			local player = assert(game.get_player(event.player_index))
 			inventory_sync.acquire(player)
 			player.gui.screen.dialog_failed_download.destroy()
 		end
 	end,
 
 	[defines.events.on_player_left_game] = function(event)
-		local player = game.get_player(event.player_index)
+		local player = assert(game.get_player(event.player_index))
 		if player.gui.screen.dialog_failed_download then
 			player.gui.screen.dialog_failed_download.destroy()
 		end

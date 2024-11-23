@@ -1,6 +1,8 @@
 -- Important: Keep this API in sync with mod/api.lua
+local compat = require("modules/clusterio/compat")
 local api = {}
 
+clusterio_patch_number = clusterio_patch_number or 0 --- @type number
 
 api.events = {
 	on_instance_updated = script.generate_event_name(),
@@ -8,11 +10,11 @@ api.events = {
 }
 
 function api.get_instance_name()
-	return global.clusterio.instance_name
+	return compat.script_data().clusterio.instance_name
 end
 
 function api.get_instance_id()
-	return global.clusterio.instance_id
+	return compat.script_data().clusterio.instance_id
 end
 
 function api.send_json(channel, data)
@@ -23,7 +25,7 @@ function api.send_json(channel, data)
 		return "\\x" .. string.format("%02x", match:byte())
 	end)
 
-	data = game.table_to_json(data)
+	data = compat.table_to_json(data)
 
 	-- If there's more than about 4kB of data users running with the Windows
 	-- console open will start to experience stuttering, otherwise we could
@@ -31,9 +33,10 @@ function api.send_json(channel, data)
 	if #data < 4000 then
 		print("\f$ipc:" .. channel .. "?j" .. data)
 	else
-		global.clusterio_file_no = (global.clusterio_file_no or 0) + 1
-		local file_name = "clst_" .. global.clusterio_file_no .. ".json"
-		game.write_file(file_name, data, false, 0)
+		local script_data = compat.script_data()
+		script_data.clusterio_file_no = (script_data.clusterio_file_no or 0) + 1
+		local file_name = "clst_" .. script_data.clusterio_file_no .. ".json"
+		compat.write_file(file_name, data, false, 0)
 		print("\f$ipc:" .. channel .. "?f" .. file_name)
 	end
 end
