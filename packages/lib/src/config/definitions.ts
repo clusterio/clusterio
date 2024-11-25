@@ -1,7 +1,7 @@
 // Core definitions for the configuration system
 import * as classes from "./classes";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
-
+import { Static } from "@sinclair/typebox";
 
 export interface ControllerConfigFields {
 	"controller.name": string;
@@ -11,7 +11,7 @@ export interface ControllerConfigFields {
 	"controller.https_port": number | null;
 	"controller.bind_address": string | null;
 	"controller.trusted_proxies": string | null;
-	"controller.external_address": string | null;
+	"controller.public_url": string | null;
 	"controller.tls_certificate": string | null;
 	"controller.tls_private_key": string | null;
 	"controller.auth_secret": string;
@@ -34,6 +34,15 @@ export interface ControllerConfigFields {
  */
 export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => ControllerConfig;
+	static migrations(config: Static<typeof this.jsonSchema>) {
+		if (config.hasOwnProperty("controller.external_address")) {
+			config["controller.public_url"] = config["controller.external_address"];
+			delete config["controller.external_address"];
+		}
+
+		return config;
+	}
+
 	static fieldDefinitions: classes.ConfigDefs<ControllerConfigFields> = {
 		"controller.name": {
 			title: "Name",
@@ -89,7 +98,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			optional: true,
 		},
-		"controller.external_address": {
+		"controller.public_url": {
 			title: "Public URL",
 			description: "Public facing URL the controller is hosted on, including the protocol.",
 			type: "string",
