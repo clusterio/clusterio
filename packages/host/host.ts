@@ -147,14 +147,7 @@ async function startHost() {
 	}
 
 	logger.info(`Loading available plugins from ${args.pluginList}`);
-	let pluginList = new Map();
-	try {
-		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList, "utf8")));
-	} catch (err: any) {
-		if (err.code !== "ENOENT") {
-			throw err;
-		}
-	}
+	let pluginList = await lib.loadPluginList(args.pluginList);
 
 	// If the command is plugin management we don't try to load plugins
 	if (command === "plugin") {
