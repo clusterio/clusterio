@@ -4,7 +4,12 @@ import { logger } from "./logging";
 import * as libFileOps from "./file_ops";
 
 /**
- * Find local plugins to add to the plugin list. This is primarily used during development.
+ * Searches for local plugins in the plugins/ and external_plugins/ directories
+ * and adds them to the plugin list if they contain a package.json file.
+ *
+ * @param pluginList - Map of plugin names to their file paths
+ * @param pluginListPath - Path to the JSON file storing the plugin list
+ * @returns Promise that resolves when plugin discovery is complete
  */
 async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath: string) {
 	// Check folders for plugins
@@ -31,11 +36,10 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 			if (!(await fs.exists(packageJsonPath))) {
 				continue;
 			}
-			console.log(`Adding ${pluginName} from ${pluginFolder}`);
 
 			pluginList.set(pluginName, pluginPath);
 			logger.info(`Added ${pluginName} from ${pluginFolder}`);
-			has_changed++;
+			has_changed += 1;
 		}
 	}
 
@@ -46,15 +50,21 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 
 /**
  * Find NPM packages in the root package.json that satisfies the requirements for plugins.
+ *
+ * @param pluginList - Map of plugin names to their file paths
+ * @param pluginListPath - Path to the JSON file storing the plugin list
+ * @returns Promise that resolves when plugin discovery is complete
  */
 async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: string) {
-	const rootPackageJson = JSON.parse(await fs.readFile(path.resolve(process.cwd(), "package.json"), { encoding: "utf8" }));
+	const rootPackageJson = JSON.parse(await fs.readFile(path.resolve(
+		process.cwd(),
+		"package.json",
+	), { encoding: "utf8" }));
 	const dependencies = rootPackageJson.dependencies;
 
 	let changed = 0;
 	for (const [pluginName, pluginVersion] of Object.entries(dependencies)) {
 		if (pluginList.has(pluginName)) {
-			console.log(`${pluginName} already exists`);
 			continue;
 		}
 		// Find the package in node_modules and read the package.json
@@ -62,10 +72,11 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 		const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
 		// Check if the package has the "clusterio-plugin" keyword
 		if (packageJson.keywords?.includes("clusterio-plugin")) {
+			// eslint-disable-next-line @typescript-eslint/no-var-requires
 			const pluginInfo = require(path.resolve(process.cwd(), "node_modules", pluginName)).plugin;
 			pluginList.set(pluginInfo.name, pluginName);
 			logger.info(`Added ${pluginInfo.name} from NPM`);
-			changed++;
+			changed += 1;
 		} else {
 			logger.info(`${pluginName}@${pluginVersion} is not a clusterio-plugin`);
 		}
