@@ -8,6 +8,9 @@
 //%if !typescript
 	"main": "index.js",
 //%endif
+	"keywords": [
+		"clusterio-plugin"
+	],
 	"scripts": {
 		"prepare": "__prepare__"
 	},

@@ -45,6 +45,37 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 }
 
 /**
+ * Find NPM packages in the root package.json that satisfies the requirements for plugins.
+ */
+async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: string) {
+	const rootPackageJson = JSON.parse(await fs.readFile(path.resolve(process.cwd(), "package.json"), { encoding: "utf8" }));
+	const dependencies = rootPackageJson.dependencies;
+
+	let changed = 0;
+	for (const [pluginName, pluginVersion] of Object.entries(dependencies)) {
+		if (pluginList.has(pluginName)) {
+			console.log(`${pluginName} already exists`);
+			continue;
+		}
+		// Find the package in node_modules and read the package.json
+		const packageJsonPath = path.resolve(process.cwd(), "node_modules", pluginName, "package.json");
+		const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
+		// Check if the package has the "clusterio-plugin" keyword
+		if (packageJson.keywords?.includes("clusterio-plugin")) {
+			const pluginInfo = require(path.resolve(process.cwd(), "node_modules", pluginName)).plugin;
+			pluginList.set(pluginInfo.name, pluginName);
+			logger.info(`Added ${pluginInfo.name} from NPM`);
+			changed++;
+		} else {
+			logger.info(`${pluginName}@${pluginVersion} is not a clusterio-plugin`);
+		}
+	}
+	if (changed > 0) {
+		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
+	}
+}
+
+/**
  * Loads the plugin list from the specified file and optionally discovers local plugins
  *
  * @param pluginListPath - Path to the plugin list JSON file
@@ -69,6 +100,9 @@ export async function loadPluginList(pluginListPath: string, findLocal = true): 
 	if (findLocal) {
 		await findLocalPlugins(pluginList, pluginListPath);
 	}
+
+	// Optionally discover NPM plugins
+	await findNpmPlugins(pluginList, pluginListPath);
 
 	return pluginList;
 }
