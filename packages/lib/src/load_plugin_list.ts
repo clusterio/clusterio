@@ -14,13 +14,22 @@ import * as libFileOps from "./file_ops";
 async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath: string) {
 	// Check folders for plugins
 	const pluginFolders = [
-		path.join(process.cwd(), "plugins"),
-		path.join(process.cwd(), "external_plugins"),
+		"plugins",
+		"external_plugins",
 	];
 
 	let has_changed = 0;
 	for (const pluginFolder of pluginFolders) {
-		const pluginNames = await fs.readdir(pluginFolder);
+		let pluginNames;
+		try {
+			pluginNames = await fs.readdir(pluginFolder);
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				// Skip if folder doesn't exist
+				continue;
+			}
+			throw err;
+		}
 		for (const pluginName of pluginNames) {
 			if (pluginList.has(pluginName)) {
 				continue;
@@ -56,11 +65,17 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
  * @returns Promise that resolves when plugin discovery is complete
  */
 async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: string) {
-	const rootPackageJson = JSON.parse(await fs.readFile(path.resolve(
-		process.cwd(),
-		"package.json",
-	), { encoding: "utf8" }));
-	const dependencies = rootPackageJson.dependencies;
+	let dependencies;
+	try {
+		const rootPackageJson = JSON.parse(await fs.readFile(path.resolve("package.json"), { encoding: "utf8" }));
+		dependencies = rootPackageJson.dependencies;
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			// Skip if package.json doesn't exist
+			return;
+		}
+		throw err;
+	}
 
 	let changed = 0;
 	for (const [pluginName, pluginVersion] of Object.entries(dependencies)) {
@@ -68,12 +83,12 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 			continue;
 		}
 		// Find the package in node_modules and read the package.json
-		const packageJsonPath = path.resolve(process.cwd(), "node_modules", pluginName, "package.json");
+		const packageJsonPath = path.resolve("node_modules", pluginName, "package.json");
 		const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
 		// Check if the package has the "clusterio-plugin" keyword
 		if (packageJson.keywords?.includes("clusterio-plugin")) {
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			const pluginInfo = require(path.resolve(process.cwd(), "node_modules", pluginName)).plugin;
+			const pluginInfo = require(path.resolve("node_modules", pluginName)).plugin;
 			pluginList.set(pluginInfo.name, pluginName);
 			logger.info(`Added ${pluginInfo.name} from NPM`);
 			changed += 1;
