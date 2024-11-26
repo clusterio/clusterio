@@ -77,7 +77,22 @@ end
 --   max
 function serialize.serialize_personal_logistic_slots(player)
 	if v2_logistic_api then
-		return nil -- TODO implement v2_logistic_api
+		local logistic_point = player.get_requester_point()
+		local serialized = {
+			enabled = logistic_point.enabled,
+			trash_not_requested = logistic_point.trash_not_requested,
+			sections = {},
+		}
+		for i = 1, logistic_point.sections_count do
+			local section = logistic_point.get_section(i)
+			table.insert(serialized.sections, {
+				group = section.group,
+				active = section.active,
+				multiplier = section.multiplier,
+				filters = section.filters,
+			})
+		end
+		return serialized
 	end
 
 	local serialized = nil
@@ -112,9 +127,46 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 	end
 
 	-- Load personal logistic slots
-	for i, slot in pairs(serialized) do
-		if slot ~= nil then
-			player.set_personal_logistic_slot(tonumber(i), slot)
+	if v2_logistic_api then
+		local logistic_point = player.get_requester_point()
+
+		-- Remove old sections up to section_count
+		for i = logistic_point.sections_count, 1, -1 do
+			logistic_point.remove_section(i)
+		end
+
+		-- If this is an array instead of a table, migrate to v2 format
+		if serialized[1] ~= nil then
+			local section = logistic_point.add_section()
+			for i, slot in pairs(serialized) do
+				section.set_slot(i, {
+					value = { name = slot.name },
+					min = slot.min,
+					max = slot.max,
+				})
+			end
+		else
+			-- Regular 2.0+ deserialization
+			logistic_point.enabled = serialized.enabled
+			logistic_point.trash_not_requested = serialized.trash_not_requested
+			for i, section in pairs(serialized.sections) do
+				local sec = logistic_point.add_section()
+				sec.active = section.active
+				sec.multiplier = section.multiplier
+				if section.group ~= "" then -- "" is the default group name, which is truthy
+					-- Named groups get added with name only - this avoids overwriting existing groups on the server
+					sec.group = section.group
+				else
+					-- Unnamed groups get added with filters
+					sec.filters = section.filters
+				end
+			end
+		end
+	else
+		for i, slot in pairs(serialized) do
+			if slot ~= nil then
+				player.set_personal_slogistic_slot(tonumber(i), slot)
+			end
 		end
 	end
 end
