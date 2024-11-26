@@ -33,11 +33,9 @@ describe("lib/plugin_loader", function() {
 			await writePlugin(invalidPlugin, "wrong");
 		});
 
-		it("should throw on missing plugin", async function() {
-			await assert.rejects(
-				lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
-				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}'`)
-			);
+		it("should ignore missing plugins", async function() {
+			const result = await lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []);
+			assert.deepEqual(result, []);
 		});
 		it("should load test plugin", async function() {
 			assert.deepEqual(
