@@ -131,11 +131,11 @@ function serialize.serialize_crafting_queue(player)
 	-- Save current items
 	local inventory = player.get_main_inventory()
 	local old_items = inventory.get_contents()
+	local crafting_queue_progress = player.crafting_queue_progress
 
 	-- Cancel old crafts to get the items back
 	while player.crafting_queue_size > 0 do
 		local old_queue = player.crafting_queue
-		local queueItem = player.crafting_queue[1]
 
 		-- Cancel craft
 		player.cancel_crafting {
@@ -180,22 +180,50 @@ function serialize.serialize_crafting_queue(player)
 		-- game.print("Saved craft "..oldItem.recipe)
 	end
 
-	-- Find amount of items added and remove from inventory
-	local new_items = inventory.get_contents()
 	local difference = {}
-	for k,v in pairs(new_items) do
-		local old_count = old_items[k]
-		local diff = v
-		if old_count ~= nil then
-			diff = diff - old_count
+	if v2_storage_api then
+		-- Find amount of items added and remove from inventory
+		local new_items = inventory.get_contents()
+		-- Build map of old counts by item name and quality
+		local old_counts = {}
+		for _, item in ipairs(old_items) do
+			local key = item.name .. ":" .. item.quality
+			old_counts[key] = (old_counts[key] or 0) + item.count
 		end
-		if diff > 0 then
-			local ingredient = {
-				name = k,
-				count = diff,
-			}
-			inventory.remove(ingredient)
-			table.insert(difference, ingredient)
+
+		-- Compare with new items to find differences
+		for _, item in ipairs(new_items) do
+			local key = item.name .. ":" .. item.quality
+			local old_count = old_counts[key] or 0
+			local diff = item.count - old_count
+
+			if diff > 0 then
+				-- We don't have to worry about quality because quality can't be handcrafted
+				local ingredient = {
+					name = item.name,
+					count = diff
+				}
+				inventory.remove(ingredient)
+				table.insert(difference, ingredient)
+			end
+		end
+	else
+		-- Find amount of items added and remove from inventory
+		local new_items = inventory.get_contents()
+		for k,v in pairs(new_items) do
+			local old_count = old_items[k]
+			local diff = v
+			if old_count ~= nil then
+				diff = diff - old_count
+			end
+			if diff > 0 then
+				local ingredient = {
+					name = k,
+					count = diff,
+				}
+				inventory.remove(ingredient)
+				table.insert(difference, ingredient)
+			end
 		end
 	end
 
@@ -204,6 +232,7 @@ function serialize.serialize_crafting_queue(player)
 
 	local serialized = {
 		crafting_queue = crafting_queue,
+		crafting_queue_progress = crafting_queue_progress,
 		ingredients = difference,
 	}
 
@@ -236,6 +265,8 @@ function serialize.deserialize_crafting_queue(player, serialized)
 
 	-- Remove extra inventory slots
 	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus - 1000
+	-- Set progress of current craft
+	player.crafting_queue_progress = serialized.crafting_queue_progress
 end
 
 local controller_to_name = {}
@@ -306,8 +337,8 @@ function serialize.serialize_player(player)
 		end
 	end
 
-	-- Serialize crafting queue, TODO implement v2_storage_api
-	if player.character and not v2_storage_api then
+	-- Serialize crafting queue
+	if player.character then
 		serialized.crafting_queue = serialize.serialize_crafting_queue(player)
 	end
 
