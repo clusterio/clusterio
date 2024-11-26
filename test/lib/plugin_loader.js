@@ -119,6 +119,8 @@ describe("lib/plugin_loader", function() {
 		const externalPluginPath = path.join(baseDir, "external_plugins", "external_plugin");
 		const externalPluginPathAbs = path.resolve(externalPluginPath);
 		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
+		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo-plugin");
+		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
 		let pluginList;
 
 		before(async function() {
@@ -144,14 +146,22 @@ describe("lib/plugin_loader", function() {
 			await writePlugin(externalPluginPath, "external_plugin");
 			// Create npm plugin
 			await writePlugin(npmPluginPath, "npm");
+			// Write a monorepo plugin
+			await writePlugin(monorepoPluginPath, "monorepo-plugin");
 			// Create root package.json
 			await fs.outputFile(
 				path.join(baseDir, "package.json"),
 				JSON.stringify({
 					dependencies: {
 						"npm-plugin": "^1.0.0",
+						"not-a-plugin": "^1.0.0",
 					},
 				})
+			);
+			// Create an npm module that is not a plugin
+			await fs.outputFile(
+				path.join(baseDir, "node_modules", "not-a-plugin", "package.json"),
+				JSON.stringify({ name: "not-a-plugin", version: "1.0.0" })
 			);
 
 			process.chdir(baseDir);
@@ -171,6 +181,8 @@ describe("lib/plugin_loader", function() {
 		it("should discover npm plugins", async function() {
 			assert.ok(pluginList.has("npm"));
 			assert.strictEqual(pluginList.get("npm"), "npm-plugin");
+			// Check that it does not contain not-a-plugin
+			assert.strictEqual(pluginList.get("not-a-plugin"), undefined);
 		});
 
 		it("should load existing plugin list", async function() {
@@ -179,6 +191,11 @@ describe("lib/plugin_loader", function() {
 			const loadedPlugins = await lib.loadPluginList(pluginListPath, false);
 			assert.ok(loadedPlugins.has("test"));
 			assert.strictEqual(loadedPlugins.get("test"), "/test/path");
+		});
+
+		it("should support monorepo plugins", async function() {
+			assert.ok(pluginList.has("monorepo-plugin"));
+			assert.strictEqual(pluginList.get("monorepo-plugin"), monorepoPluginPathAbs);
 		});
 
 		after(async function() {
