@@ -160,7 +160,7 @@ class MockController {
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 		this.mockConfigEntries = new Map([
-			["controller.external_address", "test"],
+			["controller.public_url", "test"],
 			["controller.auth_secret", "TestSecretDoNotUse"],
 			["controller.proxy_stream_timeout", 1],
 		]);

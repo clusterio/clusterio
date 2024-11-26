@@ -1115,7 +1115,7 @@ export default class Controller {
 	}
 
 	static calculateControllerUrl(config: lib.ControllerConfig) {
-		let url = config.get("controller.external_address");
+		let url = config.get("controller.public_url");
 		if (!url) {
 			if (config.get("controller.https_port")) {
 				url = `https://localhost:${config.get("controller.https_port")}/`;

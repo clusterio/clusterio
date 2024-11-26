@@ -187,6 +187,16 @@ export class Config<
 	declare static fieldDefinitions: ConfigDefs<any>;
 	declare ["constructor"]: typeof Config;
 
+	/**
+	 * Handle migration between clusterio versions
+	 *
+	 * @param config - Input config read and validated from file
+	 * @returns Output config to be loaded into the class
+	 * @protected
+	 */
+	static migrations(config: Static<typeof this.jsonSchema>) {
+		return config;
+	}
 
 	fields: Fields;
 	_unknownFields: Record<string, FieldValue> = {};
@@ -223,7 +233,7 @@ export class Config<
 		) as Fields;
 
 		if (fields) {
-			this.update(fields, false, location);
+			this.update(this.constructor.migrations(fields), false, location);
 		}
 	}
 

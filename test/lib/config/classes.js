@@ -7,6 +7,14 @@ const CA = lib.ConfigAccess;
 describe("lib/config/classes", function() {
 	describe("Config", function() {
 		class TestConfig extends lib.Config {
+			static migrations(config) {
+				if (config.hasOwnProperty("test.migration")) {
+					config["alpha.foo"] = config["test.migration"];
+					delete config["test.migration"];
+				}
+				return config;
+			}
+
 			static fieldDefinitions = {
 				"alpha.foo": { type: "string", optional: true },
 				"beta.bar": { type: "object", initialValue: {} },
@@ -59,6 +67,13 @@ describe("lib/config/classes", function() {
 				let testInstance = new TestConfig("remote");
 				assert.equal(testInstance.fields["test.enum"], "b");
 				assert.equal(testInstance.fields["test.priv"], undefined);
+			});
+			it("should apply migrations", function() {
+				const config = new TestConfig("local", {
+					"test.migration": "foo",
+				});
+				assert.equal(config.get("alpha.foo"), "foo");
+				assert.equal(config.fields["test.migration"], undefined);
 			});
 		});
 
