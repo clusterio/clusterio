@@ -24,6 +24,7 @@
 	"description": "Library for interfacing with Clusterio.  Warning: work in progress alpha.",
 	"additional_files": {
 		"compat.lua": ["..", "..", "modules", "clusterio", "compat.lua"],
-		"serialize.lua": ["..", "..", "modules", "clusterio", "serialize.lua"]
+		"serialize.lua": ["..", "..", "modules", "clusterio", "serialize.lua"],
+		"json.lua": ["..", "..", "modules", "clusterio", "json.lua"]
 	}
 }

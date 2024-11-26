@@ -2,6 +2,8 @@
 Adds various functions used to ensure compatibly between version including some polyfills
 ]]
 
+local json = require("json")
+
 --- @diagnostic disable: deprecated
 
 --- @class LibCompat
@@ -148,9 +150,14 @@ if major_v1_1 then
 	-- Can not use ... here because of luals type suggestion breaking when it is used
 	-- TODO maybe include a version that does not require game?
 
-	compat.table_to_json = function(tbl) return game.table_to_json(tbl) end
-	compat.json_to_table = function(json) return game.json_to_table(json) end
-	compat.write_file = function(filename, data, append, for_player) return game.write_file(filename, data, append, for_player) end
+	if game ~= nil then
+		compat.table_to_json = function(tbl) return game.table_to_json(tbl) end
+		compat.json_to_table = function(json) return game.json_to_table(json) end
+		compat.write_file = function(filename, data, append, for_player) return game.write_file(filename, data, append, for_player) end
+	else
+		compat.table_to_json = json.encode
+		compat.json_to_table = json.decode
+	end
 elseif major_v2 then
 	compat.table_to_json = helpers.table_to_json
 	compat.json_to_table = helpers.json_to_table
