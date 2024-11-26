@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import { logger } from "./logging";
 import * as libFileOps from "./file_ops";
+import vm from "vm";
 
 /**
  * Searches for local plugins in the plugins/ and external_plugins/ directories
@@ -31,10 +32,14 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 			throw err;
 		}
 		for (const pluginName of pluginNames) {
+			const pluginPath = path.resolve(pluginFolder, pluginName);
 			if (pluginList.has(pluginName)) {
+				// If the one in the list is not the same as this one, warn
+				if (pluginList.get(pluginName) !== pluginPath) {
+					logger.warn(`${pluginName} is already in the plugin list, but with a different path - using ${pluginList.get(pluginName)}`);
+				}
 				continue;
 			}
-			const pluginPath = path.resolve(pluginFolder, pluginName);
 			const stats = await fs.stat(pluginPath);
 			if (!stats.isDirectory()) {
 				continue;
@@ -55,6 +60,13 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 	if (has_changed > 0) {
 		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
 	}
+}
+
+function getPluginName(requireSpec: string) {
+	const context = vm.createContext({ require: require });
+	const code = `const pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;
+	vm.runInContext(code, context);
+	return context.pluginInfo.name;
 }
 
 /**
@@ -79,8 +91,8 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 
 	let changed = 0;
 	for (const [packageName, packageVersion] of Object.entries(dependencies)) {
-		if (pluginList.has(packageName)) {
-			continue;
+		if ([...pluginList.values()].includes(packageName)) {
+			continue; // This npm module is already in the plugin list
 		}
 		// Find the package in node_modules and read the package.json
 		const packageJsonPath = path.resolve("node_modules", packageName, "package.json");
@@ -88,10 +100,17 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 		// Check if the package has the "clusterio-plugin" keyword
 		if (packageJson.keywords?.includes("clusterio-plugin")) {
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			const pluginInfo = require(path.resolve("node_modules", packageName)).plugin;
-			pluginList.set(pluginInfo.name, packageName);
-			logger.info(`Added ${pluginInfo.name} from NPM`);
-			changed += 1;
+			const pluginName = getPluginName(path.resolve("node_modules", packageName));
+			if (pluginList.has(pluginName)) {
+				logger.warn(
+					`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
+					`but with a different path - using ${pluginList.get(pluginName)}`
+				);
+			} else {
+				pluginList.set(pluginName, packageName);
+				logger.info(`Added ${pluginName} from NPM`);
+				changed += 1;
+			}
 		} else if (![
 			"@clusterio/controller",
 			"@clusterio/ctl",
