@@ -112,4 +112,81 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 	});
+	describe("loadPluginList()", async function() {
+		const old_cwd = process.cwd();
+		const baseDir = path.join("temp", "test", "plugin_list");
+		const pluginListPath = path.join(baseDir, "plugin_list.json");
+		const localPluginPath = path.join(baseDir, "plugins", "local_plugin");
+		const localPluginPathAbs = path.resolve(localPluginPath);
+		const externalPluginPath = path.join(baseDir, "external_plugins", "external_plugin");
+		const externalPluginPathAbs = path.resolve(externalPluginPath);
+		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
+		let pluginList;
+
+		before(async function() {
+			// Setup test plugins
+			async function writePlugin(pluginPath, name) {
+				await fs.outputFile(
+					path.join(pluginPath, "index.js"),
+					`module.exports.plugin = { name: "${name}" };`
+				);
+				await fs.outputFile(
+					path.join(pluginPath, "package.json"),
+					JSON.stringify({
+						name: path.basename(pluginPath),
+						version: "0.0.1",
+						keywords: ["clusterio-plugin"]
+					})
+				);
+			}
+
+			// Create local plugin
+			await writePlugin(localPluginPath, "local_plugin");
+			// Create external plugin
+			await writePlugin(externalPluginPath, "external_plugin");
+			// Create npm plugin
+			await writePlugin(npmPluginPath, "npm");
+			// Create root package.json
+			await fs.outputFile(
+				path.join(baseDir, "package.json"),
+				JSON.stringify({
+					dependencies: {
+						"npm-plugin": "^1.0.0"
+					}
+				})
+			);
+
+			process.chdir(baseDir);
+			pluginList = await lib.loadPluginList(pluginListPath, true);
+		});
+		beforeEach(async function() {
+			await fs.remove(pluginListPath);
+		});
+
+		it("should discover local plugins", async function() {
+			assert.ok(pluginList.has("local_plugin"));
+			assert.ok(pluginList.has("external_plugin"));
+			assert.strictEqual(pluginList.get("local_plugin"), localPluginPathAbs);
+			assert.strictEqual(pluginList.get("external_plugin"), externalPluginPathAbs);
+		});
+
+		it("should discover npm plugins", async function() {
+			assert.ok(pluginList.has("npm"));
+			assert.strictEqual(pluginList.get("npm"), "npm-plugin");
+		});
+
+		it("should load existing plugin list", async function() {
+			const existingList = new Map([["test", "/test/path"]]);
+			await fs.outputFile(pluginListPath, JSON.stringify([...existingList]));
+			const pluginList = await lib.loadPluginList(pluginListPath, false);
+			assert.ok(pluginList.has("test"));
+			assert.strictEqual(pluginList.get("test"), "/test/path");
+		});
+
+		after(async function() {
+			process.chdir(old_cwd);
+			console.log(baseDir, process.cwd());
+			await fs.remove(baseDir);
+		});
+	});
 });

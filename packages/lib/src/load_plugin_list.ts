@@ -74,8 +74,8 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 }
 
 function getPluginName(requireSpec: string) {
-	const context = vm.createContext({ require: require });
-	const code = `const pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;
+	const context = vm.createContext({ require: require, pluginInfo: null });
+	const code = `pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;
 	vm.runInContext(code, context);
 	return context.pluginInfo.name;
 }
