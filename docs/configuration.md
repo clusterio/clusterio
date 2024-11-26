@@ -51,9 +51,9 @@ interfaces.
 Defaults to null.
 
 
-### controller.external_address
+### controller.public_url
 
-External address the controller is accessible on.
+Public address the controller is accessible on.
 Currently only used for `clusteriocontroller bootstrap create-ctl-config` in order to give the right url to connect to.
 This should be a full URL ending with a /.
 

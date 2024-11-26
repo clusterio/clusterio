@@ -198,7 +198,7 @@ For the standalone installation mode you can use
 If you plan to make your cluster available externally set the address
 that it will be accessible under with, for example
 
-    npx clusteriocontroller config set controller.external_address http://203.0.113.4:1234/
+    npx clusteriocontroller config set controller.public_url http://203.0.113.4:1234/
 
 Change the url to reflect the IP, protocol, and port the controller is accessible under, dns names are also supported.
 If you're planning on making the controller accessible on the internet it's recommended to set up TLS, see the [Setting Up TLS](/docs/setting-up-tls.md) document for more details.
