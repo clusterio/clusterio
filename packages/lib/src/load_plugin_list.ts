@@ -78,22 +78,28 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 	}
 
 	let changed = 0;
-	for (const [pluginName, pluginVersion] of Object.entries(dependencies)) {
-		if (pluginList.has(pluginName)) {
+	for (const [packageName, packageVersion] of Object.entries(dependencies)) {
+		if (pluginList.has(packageName)) {
 			continue;
 		}
 		// Find the package in node_modules and read the package.json
-		const packageJsonPath = path.resolve("node_modules", pluginName, "package.json");
+		const packageJsonPath = path.resolve("node_modules", packageName, "package.json");
 		const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
 		// Check if the package has the "clusterio-plugin" keyword
 		if (packageJson.keywords?.includes("clusterio-plugin")) {
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			const pluginInfo = require(path.resolve("node_modules", pluginName)).plugin;
-			pluginList.set(pluginInfo.name, pluginName);
+			const pluginInfo = require(path.resolve("node_modules", packageName)).plugin;
+			pluginList.set(pluginInfo.name, packageName);
 			logger.info(`Added ${pluginInfo.name} from NPM`);
 			changed += 1;
-		} else {
-			logger.info(`${pluginName}@${pluginVersion} is not a clusterio-plugin`);
+		} else if (![
+			"@clusterio/controller",
+			"@clusterio/ctl",
+			"@clusterio/host",
+			"@clusterio/lib",
+			"@clusterio/web_ui",
+		].includes(packageName)) {
+			logger.warn(`${packageName}@${packageVersion} is not a clusterio-plugin`);
 		}
 	}
 	if (changed > 0) {
