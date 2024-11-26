@@ -20,6 +20,9 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 	];
 
 	let has_changed = 0;
+	const ignoredFolders = new Set(["node_modules", ".git", "dist", "build", "disabled"]);
+	const maxDepth = 3;
+
 	for (const pluginFolder of pluginFolders) {
 		let pluginNames;
 		try {
@@ -32,28 +35,36 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 			throw err;
 		}
 		for (const pluginName of pluginNames) {
-			const pluginPath = path.resolve(pluginFolder, pluginName);
+			const pluginPath = path.join(pluginFolder, pluginName);
 			if (pluginList.has(pluginName)) {
 				// If the one in the list is not the same as this one, warn
-				if (pluginList.get(pluginName) !== pluginPath) {
+				if (pluginList.get(pluginName) !== path.resolve(pluginPath)) {
 					logger.warn(`${pluginName} is already in the plugin list, but with a different path - using ${pluginList.get(pluginName)}`);
 				}
 				continue;
 			}
 			const stats = await fs.stat(pluginPath);
-			if (!stats.isDirectory()) {
-				continue;
-			}
+			if (stats.isDirectory()) {
+				// Check for package.json in current directory
+				const packageJsonPath = path.join(pluginPath, "package.json");
+				if (await fs.exists(packageJsonPath)) {
+					// Read and parse package.json
+					const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
 
-			// Check that the plugin has a package.json file
-			const packageJsonPath = path.resolve(pluginPath, "package.json");
-			if (!(await fs.exists(packageJsonPath))) {
-				continue;
-			}
+					// Check if package has the clusterio-plugin keyword
+					if (packageJson.keywords?.includes("clusterio-plugin")) {
+						pluginList.set(pluginName, path.resolve(pluginPath));
+						logger.info(`Added ${pluginName} from ${pluginFolder}`);
+						has_changed += 1;
+						continue;
+					}
+				}
 
-			pluginList.set(pluginName, pluginPath);
-			logger.info(`Added ${pluginName} from ${pluginFolder}`);
-			has_changed += 1;
+				if (pluginPath.split(path.sep).length < maxDepth && !ignoredFolders.has(pluginName)) {
+					logger.warn(`Possible monorepo detected, scanning ${pluginPath} for clusterio-plugins`);
+					pluginFolders.push(pluginPath);
+				}
+			}
 		}
 	}
 
