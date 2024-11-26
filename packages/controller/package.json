@@ -13,6 +13,7 @@
 		"clusteriocontroller": "./dist/node/controller.js"
 	},
 	"keywords": [
+		"clusterio",
 		"factorio"
 	],
 	"engines": {

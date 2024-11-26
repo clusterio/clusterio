@@ -8,7 +8,9 @@
 	"repository": "clusterio/factorioClusterio",
 	"main": "dist/node/index.js",
 	"keywords": [
-		"clusterio-plugin"
+		"clusterio",
+		"clusterio-plugin",
+		"factorio"
 	],
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",

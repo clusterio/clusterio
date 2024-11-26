@@ -127,7 +127,7 @@ export async function loadPluginList(pluginListPath: string, findLocal = true): 
 		await findLocalPlugins(pluginList, pluginListPath);
 	}
 
-	// Optionally discover NPM plugins
+	// Discover NPM plugins
 	await findNpmPlugins(pluginList, pluginListPath);
 
 	return pluginList;

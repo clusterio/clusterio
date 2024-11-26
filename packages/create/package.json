@@ -9,8 +9,8 @@
 		"clusteriocreate": "./create.js"
 	},
 	"keywords": [
-		"factorio",
-		"clusterio"
+		"clusterio",
+		"factorio"
 	],
 	"engines": {
 		"node": ">=18"

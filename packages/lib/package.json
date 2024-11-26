@@ -11,6 +11,7 @@
 	"main": "dist/node/index.js",
 	"browser": "browser.ts",
 	"keywords": [
+		"clusterio",
 		"factorio"
 	],
 	"engines": {
