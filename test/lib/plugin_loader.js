@@ -133,7 +133,7 @@ describe("lib/plugin_loader", function() {
 					JSON.stringify({
 						name: path.basename(pluginPath),
 						version: "0.0.1",
-						keywords: ["clusterio-plugin"]
+						keywords: ["clusterio-plugin"],
 					})
 				);
 			}
@@ -149,8 +149,8 @@ describe("lib/plugin_loader", function() {
 				path.join(baseDir, "package.json"),
 				JSON.stringify({
 					dependencies: {
-						"npm-plugin": "^1.0.0"
-					}
+						"npm-plugin": "^1.0.0",
+					},
 				})
 			);
 
@@ -176,14 +176,13 @@ describe("lib/plugin_loader", function() {
 		it("should load existing plugin list", async function() {
 			const existingList = new Map([["test", "/test/path"]]);
 			await fs.outputFile(pluginListPath, JSON.stringify([...existingList]));
-			const pluginList = await lib.loadPluginList(pluginListPath, false);
-			assert.ok(pluginList.has("test"));
-			assert.strictEqual(pluginList.get("test"), "/test/path");
+			const loadedPlugins = await lib.loadPluginList(pluginListPath, false);
+			assert.ok(loadedPlugins.has("test"));
+			assert.strictEqual(loadedPlugins.get("test"), "/test/path");
 		});
 
 		after(async function() {
 			process.chdir(old_cwd);
-			console.log(baseDir, process.cwd());
 			await fs.remove(baseDir);
 		});
 	});

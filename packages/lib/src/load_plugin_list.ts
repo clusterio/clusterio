@@ -39,25 +39,21 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 			if (pluginList.has(pluginName)) {
 				// If the one in the list is not the same as this one, warn
 				if (pluginList.get(pluginName) !== path.resolve(pluginPath)) {
-					logger.warn(`${pluginName} is already in the plugin list, but with a different path - using ${pluginList.get(pluginName)}`);
+					logger.warn(
+						`${pluginName} is already in the plugin list, but with a different path - ` +
+						`using ${pluginList.get(pluginName)}`
+					);
 				}
 				continue;
 			}
 			const stats = await fs.stat(pluginPath);
 			if (stats.isDirectory()) {
-				// Check for package.json in current directory
-				const packageJsonPath = path.join(pluginPath, "package.json");
-				if (await fs.exists(packageJsonPath)) {
-					// Read and parse package.json
-					const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
-
-					// Check if package has the clusterio-plugin keyword
-					if (packageJson.keywords?.includes("clusterio-plugin")) {
-						pluginList.set(pluginName, path.resolve(pluginPath));
-						logger.info(`Added ${pluginName} from ${pluginFolder}`);
-						has_changed += 1;
-						continue;
-					}
+				// Check for package.json and plugin keyword
+				if (await checkPackageJson(pluginPath)) {
+					pluginList.set(pluginName, path.resolve(pluginPath));
+					logger.info(`Added ${pluginName} from ${pluginFolder}`);
+					has_changed += 1;
+					continue;
 				}
 
 				if (pluginPath.split(path.sep).length < maxDepth && !ignoredFolders.has(pluginName)) {
@@ -167,4 +163,22 @@ export async function loadPluginList(pluginListPath: string, findLocal = true): 
 	await findNpmPlugins(pluginList, pluginListPath);
 
 	return pluginList;
+}
+
+/**
+ * Helper function to check if a package.json file exists and contains the clusterio-plugin keyword
+ * @param pluginPath - Path to the plugin directory
+ * @returns Promise that resolves to true if package.json exists and has clusterio-plugin keyword
+ */
+async function checkPackageJson(pluginPath: string): Promise<boolean> {
+	const packageJsonPath = path.join(pluginPath, "package.json");
+	if (!await fs.exists(packageJsonPath)) {
+		return false;
+	}
+
+	// Read and parse package.json
+	const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
+
+	// Check if package has the clusterio-plugin keyword
+	return packageJson.keywords?.includes("clusterio-plugin");
 }
