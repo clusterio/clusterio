@@ -9,17 +9,16 @@ import vm from "vm";
  * and adds them to the plugin list if they contain a package.json file.
  *
  * @param pluginList - Map of plugin names to their file paths
- * @param pluginListPath - Path to the JSON file storing the plugin list
- * @returns Promise that resolves when plugin discovery is complete
+ * @returns Promise that resolves to true if any plugins were added to the list, false otherwise
  */
-async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath: string) {
+async function findLocalPlugins(pluginList: Map<string, string>): Promise<boolean> {
 	// Check folders for plugins
 	const pluginFolders = [
 		"plugins",
 		"external_plugins",
 	];
 
-	let has_changed = 0;
+	let hasChanged = 0;
 	const ignoredFolders = new Set(["node_modules", ".git", "dist", "build", "disabled"]);
 	const maxDepth = 3;
 
@@ -52,7 +51,7 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 				if (await checkPackageJson(pluginPath)) {
 					pluginList.set(pluginName, path.resolve(pluginPath));
 					logger.info(`Added ${pluginName} from ${pluginFolder}`);
-					has_changed += 1;
+					hasChanged += 1;
 					continue;
 				}
 
@@ -64,9 +63,7 @@ async function findLocalPlugins(pluginList: Map<string, string>, pluginListPath:
 		}
 	}
 
-	if (has_changed > 0) {
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
-	}
+	return hasChanged > 0;
 }
 
 function getPluginName(requireSpec: string) {
@@ -78,12 +75,12 @@ function getPluginName(requireSpec: string) {
 
 /**
  * Find NPM packages in the root package.json that satisfies the requirements for plugins.
+ * Adds discovered plugins to the plugin list.
  *
  * @param pluginList - Map of plugin names to their file paths
- * @param pluginListPath - Path to the JSON file storing the plugin list
- * @returns Promise that resolves when plugin discovery is complete
+ * @returns Promise that resolves to true if any plugins were added to the list, false otherwise
  */
-async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: string) {
+async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean> {
 	let dependencies;
 	try {
 		const rootPackageJson = JSON.parse(await fs.readFile(path.resolve("package.json"), { encoding: "utf8" }));
@@ -91,16 +88,16 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			// Skip if package.json doesn't exist
-			return;
+			return false;
 		}
 		throw err;
 	}
 
 	if (!dependencies) {
-		return;
+		return false;
 	}
 
-	let changed = 0;
+	let hasChanged = 0;
 	for (const [packageName, packageVersion] of Object.entries(dependencies)) {
 		if ([...pluginList.values()].includes(packageName)) {
 			continue; // This npm module is already in the plugin list
@@ -116,7 +113,7 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 			} else {
 				pluginList.set(pluginName, packageName);
 				logger.info(`Added ${pluginName} from NPM`);
-				changed += 1;
+				hasChanged += 1;
 			}
 		} else if (![
 			"@clusterio/controller",
@@ -128,9 +125,7 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 			logger.warn(`${packageName}@${packageVersion} is not a clusterio-plugin`);
 		}
 	}
-	if (changed > 0) {
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
-	}
+	return hasChanged > 0;
 }
 
 /**
@@ -154,13 +149,20 @@ export async function loadPluginList(pluginListPath: string, findLocal = true): 
 		logger.info(`No existing plugin list found at ${pluginListPath}`);
 	}
 
+	// Track if any changes were made
+	let hasChanges = false;
+
 	// Optionally discover local plugins
 	if (findLocal) {
-		await findLocalPlugins(pluginList, pluginListPath);
+		hasChanges = await findLocalPlugins(pluginList) || hasChanges;
 	}
 
 	// Discover NPM plugins
-	await findNpmPlugins(pluginList, pluginListPath);
+	hasChanges = await findNpmPlugins(pluginList) || hasChanges;
+
+	if (hasChanges) {
+		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
+	}
 
 	return pluginList;
 }
