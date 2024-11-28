@@ -88,14 +88,12 @@ export default function UserViewPage() {
 			onChange={() => setRolesDirty(true)}
 			loading={!roles}
 			mode="multiple"
-			filterOption={(inputValue:string, option: any): boolean => {
-				let role = roles.get(option.value);
-				return role?.name.toLowerCase().includes(inputValue.toLowerCase()) ?? false;
-			}}
+			optionFilterProp="name"
 		>
 			{[...roles.values()].map(r => <Select.Option
 				key={r.id}
 				value={r.id}
+				name={r.name}
 			>{r.name}</Select.Option>)}
 		</Select>
 	</Form.Item>;

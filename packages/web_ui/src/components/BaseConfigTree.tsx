@@ -48,7 +48,7 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 		}
 		if (def.enum) {
 			return <Select
-				showSearch={true}
+				showSearch
 				style={{ minWidth: 175 }}
 				options={def.enum.map(value => ({ label: value, value: value }))}
 				allowClear={def.optional}

@@ -7,6 +7,8 @@ import { InputComponentProps } from "../BaseWebPlugin";
 export default function InputModPack(props: InputComponentProps) {
 	const [modPacks] = useModPacks();
 	return <Select
+		showSearch
+		optionFilterProp="label"
 		style={{ minWidth: 175 }}
 		onChange={(value) => props.onChange(value ?? null)}
 		value={props.value}

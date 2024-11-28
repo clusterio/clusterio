@@ -201,8 +201,10 @@ function SearchModsTable(props: SearchModsTableProps) {
 						key: "version",
 						align: "right",
 						render: (_, result) => <Select
+							showSearch
 							size="small"
 							variant="borderless"
+							optionFilterProp="label"
 							value={modResultSelectedVersion.get(result.name) || 0}
 							onChange={index => {
 								const newVersions = new Map(modResultSelectedVersion);

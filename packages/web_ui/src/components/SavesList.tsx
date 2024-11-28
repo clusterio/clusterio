@@ -151,9 +151,7 @@ function TransferModal(props: ModalProps) {
 					<Select
 						autoFocus
 						showSearch
-						filterOption={(input, option) => (
-							(option?.title!.toLowerCase().indexOf(input.toLowerCase()) ?? -1) >= 0
-						)}
+						optionFilterProp="title"
 					>
 						{[...instances.values()].filter(
 							instance => instance["id"] !== props.instanceId
