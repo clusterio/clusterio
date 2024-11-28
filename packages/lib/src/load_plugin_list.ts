@@ -96,17 +96,17 @@ async function findNpmPlugins(pluginList: Map<string, string>, pluginListPath: s
 		throw err;
 	}
 
+	if (!dependencies) {
+		return;
+	}
+
 	let changed = 0;
 	for (const [packageName, packageVersion] of Object.entries(dependencies)) {
 		if ([...pluginList.values()].includes(packageName)) {
 			continue; // This npm module is already in the plugin list
 		}
-		// Find the package in node_modules and read the package.json
-		const packageJsonPath = path.resolve("node_modules", packageName, "package.json");
-		const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
-		// Check if the package has the "clusterio-plugin" keyword
-		if (packageJson.keywords?.includes("clusterio-plugin")) {
-			// eslint-disable-next-line @typescript-eslint/no-var-requires
+		// Find the package in node_modules and read the package.json to check if it's a clusterio-plugin
+		if (await checkPackageJson(path.resolve("node_modules", packageName))) {
 			const pluginName = getPluginName(path.resolve("node_modules", packageName));
 			if (pluginList.has(pluginName)) {
 				logger.warn(
