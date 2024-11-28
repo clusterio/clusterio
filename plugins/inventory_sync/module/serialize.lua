@@ -85,12 +85,12 @@ function serialize.serialize_personal_logistic_slots(player)
 		}
 		for i = 1, logistic_point.sections_count do
 			local section = logistic_point.get_section(i)
-			table.insert(serialized.sections, {
+			serialized.sections[i] = {
 				group = section.group,
 				active = section.active,
 				multiplier = section.multiplier,
 				filters = section.filters,
-			})
+			}
 		end
 		return serialized
 	end
@@ -140,7 +140,10 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 			local section = logistic_point.add_section()
 			for i, slot in pairs(serialized) do
 				section.set_slot(i, {
-					value = { name = slot.name },
+					value = {
+						name = slot.name,
+						quality = "normal",
+					},
 					min = slot.min,
 					max = slot.max,
 				})
