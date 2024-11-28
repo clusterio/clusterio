@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import {
-	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography,
+	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Select, Space, Spin, Tooltip, Tree, Typography,
 } from "antd";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 
@@ -45,6 +45,15 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 	if (def.type === "string") {
 		if (def.credential) {
 			return <Input.Password autoComplete={def.autoComplete ?? "new-password"} disabled={readonly} />;
+		}
+		if (def.enum) {
+			return <Select
+				showSearch
+				style={{ minWidth: 175 }}
+				options={def.enum.map(value => ({ label: value, value: value }))}
+				allowClear={def.optional}
+				disabled={readonly}
+			/>;
 		}
 		return <Input autoComplete={def.autoComplete} disabled={readonly} />;
 	}

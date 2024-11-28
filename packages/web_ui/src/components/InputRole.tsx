@@ -18,6 +18,8 @@ export default function InputRole(props: InputComponentProps) {
 	}, []);
 
 	return <Select
+		showSearch
+		optionFilterProp="label"
 		style={{ minWidth: 175 }}
 		onChange={(value) => props.onChange(value ?? null)}
 		value={props.value}

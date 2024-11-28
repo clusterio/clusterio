@@ -77,13 +77,14 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 			</Paragraph>
 			<Form form={form} initialValues={{ host: props.hostId ?? "null" }}>
 				<Form.Item name="host" label="Host">
-					<Select>
+					<Select showSearch optionFilterProp="name">
 						<Select.Option value={"null"}>
 							<Typography.Text italic>Unassigned</Typography.Text>
 						</Select.Option>
 						{[...hosts.values()].sort((a, b) => strcmp(a.name, b.name)).map((host) => <Select.Option
 							key={host["id"]}
 							value={host["id"]}
+							name={host["name"]}
 							disabled={!host["connected"]}
 						>
 							{host["name"]}
@@ -95,4 +96,3 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 		</Modal>
 	</>;
 }
-
