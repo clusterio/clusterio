@@ -33,11 +33,9 @@ describe("lib/plugin_loader", function() {
 			await writePlugin(invalidPlugin, "wrong");
 		});
 
-		it("should throw on missing plugin", async function() {
-			await assert.rejects(
-				lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
-				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}'`)
-			);
+		it("should ignore missing plugins", async function() {
+			const result = await lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []);
+			assert.deepEqual(result, []);
 		});
 		it("should load test plugin", async function() {
 			assert.deepEqual(
@@ -110,6 +108,115 @@ describe("lib/plugin_loader", function() {
 						`${path.posix.join(requirePath, "controller")} to be a subclass of BaseControllerPlugin`,
 				}
 			);
+		});
+	});
+	describe("loadPluginList()", async function() {
+		const old_cwd = process.cwd();
+		const baseDir = path.join("temp", "test", "plugin_list");
+		const pluginListPath = path.join(baseDir, "plugin_list.json");
+		const localPluginPath = path.join(baseDir, "plugins", "local_plugin");
+		const localPluginPathAbs = path.resolve(localPluginPath);
+		const externalPluginPath = path.join(baseDir, "external_plugins", "external_plugin");
+		const externalPluginPathAbs = path.resolve(externalPluginPath);
+		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
+		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo-plugin");
+		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
+		let pluginList;
+
+		before(async function() {
+			// Setup test plugins
+			async function writePlugin(pluginPath, name) {
+				await fs.outputFile(
+					path.join(pluginPath, "index.js"),
+					`module.exports.plugin = { name: "${name}" };`
+				);
+				await fs.outputFile(
+					path.join(pluginPath, "package.json"),
+					JSON.stringify({
+						name: path.basename(pluginPath),
+						version: "0.0.1",
+						keywords: ["clusterio-plugin"],
+					})
+				);
+			}
+
+			// Create local plugin
+			await writePlugin(localPluginPath, "local_plugin");
+			// Create external plugin
+			await writePlugin(externalPluginPath, "external_plugin");
+			// Create npm plugin
+			await writePlugin(npmPluginPath, "npm");
+			// Write a monorepo plugin
+			await writePlugin(monorepoPluginPath, "monorepo-plugin");
+			// Create root package.json
+			await fs.outputFile(
+				path.join(baseDir, "package.json"),
+				JSON.stringify({
+					dependencies: {
+						"npm-plugin": "^1.0.0",
+						"not-a-plugin": "^1.0.0",
+					},
+				})
+			);
+			// Create an npm module that is not a plugin
+			await fs.outputFile(
+				path.join(baseDir, "node_modules", "not-a-plugin", "package.json"),
+				JSON.stringify({ name: "not-a-plugin", version: "1.0.0" })
+			);
+
+			process.chdir(baseDir);
+			pluginList = await lib.loadPluginList(pluginListPath, true);
+		});
+		beforeEach(async function() {
+			await fs.remove(pluginListPath);
+		});
+
+		it("should discover local plugins", async function() {
+			assert.ok(pluginList.has("local_plugin"));
+			assert.ok(pluginList.has("external_plugin"));
+			assert.strictEqual(pluginList.get("local_plugin"), localPluginPathAbs);
+			assert.strictEqual(pluginList.get("external_plugin"), externalPluginPathAbs);
+		});
+
+		it("should discover npm plugins", async function() {
+			assert.ok(pluginList.has("npm"));
+			assert.strictEqual(pluginList.get("npm"), "npm-plugin");
+			// Check that it does not contain not-a-plugin
+			assert.strictEqual(pluginList.get("not-a-plugin"), undefined);
+		});
+
+		it("should load existing plugin list", async function() {
+			const existingList = new Map([["test", "/test/path"]]);
+			await fs.outputFile(pluginListPath, JSON.stringify([...existingList]));
+			const loadedPlugins = await lib.loadPluginList(pluginListPath, false);
+			assert.ok(loadedPlugins.has("test"));
+			assert.strictEqual(loadedPlugins.get("test"), "/test/path");
+		});
+
+		it("should support monorepo plugins", async function() {
+			assert.ok(pluginList.has("monorepo-plugin"));
+			assert.strictEqual(pluginList.get("monorepo-plugin"), monorepoPluginPathAbs);
+		});
+
+		it("should not throw when package.json has no dependencies field", async function() {
+			// Create a package.json without dependencies
+			await fs.outputFile(
+				path.join("package.json"),
+				JSON.stringify({
+					name: "test-package",
+					version: "1.0.0",
+				})
+			);
+
+			// Should not throw
+			await assert.doesNotReject(async () => {
+				await lib.loadPluginList(pluginListPath, true);
+			});
+		});
+
+		after(async function() {
+			process.chdir(old_cwd);
+			await fs.remove(baseDir);
 		});
 	});
 });

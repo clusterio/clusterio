@@ -13,6 +13,7 @@
 		"clusterioctl": "./dist/node/ctl.js"
 	},
 	"keywords": [
+		"clusterio",
 		"factorio"
 	],
 	"engines": {
