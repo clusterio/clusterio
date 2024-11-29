@@ -30,7 +30,7 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		try {
 			require.resolve(pluginPath);
 		} catch (err) {
-			logger.warn(`Plugin path ${pluginPath} does not exist, not loading ${pluginName}`);
+			logger.error(`Plugin path ${pluginPath} does not exist, not loading ${pluginName}`);
 			pluginList.delete(pluginName);
 			continue;
 		}
