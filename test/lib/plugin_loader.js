@@ -198,6 +198,22 @@ describe("lib/plugin_loader", function() {
 			assert.strictEqual(pluginList.get("monorepo-plugin"), monorepoPluginPathAbs);
 		});
 
+		it("should not throw when package.json has no dependencies field", async function() {
+			// Create a package.json without dependencies
+			await fs.outputFile(
+				path.join("package.json"),
+				JSON.stringify({
+					name: "test-package",
+					version: "1.0.0",
+				})
+			);
+
+			// Should not throw
+			await assert.doesNotReject(async () => {
+				await lib.loadPluginList(pluginListPath, true);
+			});
+		});
+
 		after(async function() {
 			process.chdir(old_cwd);
 			await fs.remove(baseDir);
