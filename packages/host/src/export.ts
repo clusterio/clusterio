@@ -15,12 +15,12 @@ interface Prototype {
 }
 interface SimpleIconSpecification {
 	icon: string;
-	icon_size: number;
+	icon_size?: number;
 	icon_mipmaps?: number;
 }
 interface IconLayer {
 	icon: string;
-	icon_size: number;
+	icon_size?: number;
 	tint?: lib.FactorioColor,
 	shift?: [number, number],
 	scale?: number,
@@ -28,7 +28,7 @@ interface IconLayer {
 }
 interface LayeredIconSpecification {
 	icons: IconLayer[];
-	icon_size: number;
+	icon_size?: number;
 	icon_mipmaps?: number;
 }
 type IconSpecification = LayeredIconSpecification | SimpleIconSpecification;
@@ -165,9 +165,9 @@ async function loadSimpleIcon(
 	size: number,
 	iconCache: IconCache,
 ) {
-	let icon = await loadIcon(server, modVersions, item.icon, item.icon_size, 0, iconCache);
+	let icon = await loadIcon(server, modVersions, item.icon, item.icon_size ?? 64, 0, iconCache);
 	if (icon) {
-		let iconScale = size / item.icon_size;
+		let iconScale = size / (item.icon_size ?? 64);
 		if (iconScale !== 1) {
 			icon = icon.clone();
 			icon.scale(iconScale);
@@ -183,7 +183,7 @@ async function loadLayeredIcon(
 	size: number,
 	iconCache: IconCache,
 ) {
-	let baseLayerSize = item.icons[0].icon_size || item.icon_size;
+	let baseLayerSize = (item.icons[0].icon_size || item.icon_size) ?? 64;
 	let icon = await Jimp.create(size, size);
 
 	// The scaling factor of the base layer
@@ -193,7 +193,7 @@ async function loadLayeredIcon(
 	let baseUnit = size / (baseLayerSize * baseLayerScale);
 
 	for (let layer of item.icons) {
-		let layerSize = layer.icon_size || item.icon_size;
+		let layerSize = (layer.icon_size || item.icon_size) ?? 64;
 		let iconLayer = await loadIcon(server, modVersions, layer.icon, layerSize, layer.icon_mipmaps || 0, iconCache);
 
 		if (!iconLayer) {
