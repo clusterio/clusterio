@@ -236,7 +236,7 @@ After completing the installation start up the controller and at least one host 
 The installer provides the `run-controller` and `run-host` scripts to make this simple.
 Once the controller process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
 
-The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a host and then click start.
+The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a host and then click start. You can also use the "Connect via Steam" button to launch Factorio directly and connect to the server using Steam's protocol handler.
 
 ### Running via Systemd
 

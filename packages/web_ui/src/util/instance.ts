@@ -8,4 +8,4 @@ export function instancePublicAddress(instance: lib.InstanceDetails, host?: lib.
 		return host.publicAddress;
 	}
 	return `${host.publicAddress}:${instance.gamePort}`;
-} 
+}
