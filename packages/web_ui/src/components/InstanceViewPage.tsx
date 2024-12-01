@@ -23,6 +23,7 @@ import { useInstance } from "../model/instance";
 import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
+import { instancePublicAddress } from "../util/instance";
 
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
@@ -73,6 +74,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let [exportingData, setExportingData] = useState(false);
 	let instance = props.instance;
 	let instanceId = instance.id!;
+	let [host] = useHost(instance.assignedHost);
 
 	let instanceButtonMenuItems: MenuItem[] = [];
 	if (account.hasPermission("core.instance.export_data")) {
@@ -156,6 +158,17 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			account.hasAnyPermission("core.instance.start", "core.instance.stop")
 			&& <StartStopInstanceButton instance={instance} />
 		}
+		<Button
+			onClick={() => {
+				const address = instancePublicAddress(instance, host);
+				if (address) {
+					window.location.href = `steam://run/427520//--mp-connect=${address}`;
+				}
+			}}
+			disabled={instance.status !== "running" || !instancePublicAddress(instance, host)}
+		>
+			Connect via Steam
+		</Button>
 		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
 		{account.hasAnyPermission(
 			"core.instance.export_data",
