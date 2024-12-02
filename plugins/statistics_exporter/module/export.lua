@@ -11,32 +11,37 @@ local statistics = {
 
 statistics_exporter = {}
 function statistics_exporter.export()
-	--- @diagnostic disable-next-line undefined-field
-	local pollution = v2_stats and game.get_pollution_statistics(1) or game.pollution_statistics
 	local stats = {
 		game_tick = game.tick,
 		player_count = #game.connected_players,
-		game_flow_statistics = {
-			pollution_statistics = {
-				--- TODO support multi surface pollution statistics
-				input = pollution.input_counts,
-				output = pollution.output_counts,
-			},
-		},
-		force_flow_statistics = {}
+		surface_statistics = {}
 	}
-	for _, force in pairs(game.forces) do
-		local flow_statistics = {}
-		for _, statName in pairs(statistics) do
-			local stat = v2_stats and force["get_" .. statName](1) or force[statName]
-			flow_statistics[statName] = {
-				input = stat.input_counts,
-				output = stat.output_counts,
-			}
-		end
-		stats.force_flow_statistics[force.name] = flow_statistics
-	end
 
+	for _, surface in pairs(game.surfaces) do
+		local surface_stats = {
+			game_flow_statistics = {
+				pollution_statistics = {
+					input = (v2_stats and game.get_pollution_statistics(surface.index) or surface.pollution_statistics).input_counts,
+					output = (v2_stats and game.get_pollution_statistics(surface.index) or surface.pollution_statistics).output_counts,
+				},
+			},
+			force_flow_statistics = {}
+		}
+
+		for _, force in pairs(game.forces) do
+			local flow_statistics = {}
+			for _, statName in pairs(statistics) do
+				local stat = v2_stats and force["get_" .. statName](surface.index) or force[statName]
+				flow_statistics[statName] = {
+					input = stat.input_counts,
+					output = stat.output_counts,
+				}
+			end
+			surface_stats.force_flow_statistics[force.name] = flow_statistics
+		end
+
+		stats.surface_statistics[surface.name] = surface_stats
+	end
 
 	rcon.print(compat.table_to_json(stats))
 end

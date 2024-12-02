@@ -6,14 +6,18 @@ const { Gauge } = lib;
 type IpcStats = {
 	game_tick: number,
 	player_count: number,
-	game_flow_statistics: {
-		pollution_statistics: IpcFlowType,
-	},
-	force_flow_statistics: {
-		[key:string]: {
-			[key:string]: IpcFlowType,
+	surface_statistics: {
+		[key: string]: {
+			game_flow_statistics: {
+				pollution_statistics: IpcFlowType,
+			},
+			force_flow_statistics: {
+				[key:string]: {
+					[key:string]: IpcFlowType,
+				}
+			},
 		}
-	},
+	}
 }
 
 type IpcFlowType = {
@@ -34,29 +38,44 @@ const instanceGameTicksTotal = new Gauge(
 const instanceForceFlowStatistics = new Gauge(
 	"clusterio_statistics_exporter_instance_force_flow_statistics",
 	"Items/fluids/enemies/buildings produced/built/killed by a force",
-	{ labels: ["instance_id", "force", "statistic", "direction", "name"] },
+	{ labels: ["instance_id", "surface", "force", "statistic", "direction", "name"] },
 );
 const instanceGameFlowStatistics = new Gauge(
 	"clusterio_statistics_exporter_instance_game_flow_statistics",
 	"Pollution produced/consumed in the game",
-	{ labels: ["instance_id", "statistic", "direction", "name"] },
+	{ labels: ["instance_id", "surface", "statistic", "direction", "name"] },
 );
 
 function setForceFlowStatistic(
 	instanceId: number,
+	surfaceName: string,
 	forceName: string,
 	statisticName: string,
 	direction: string,
 	item: string,
 	value: number,
 ) {
-	instanceForceFlowStatistics.labels(String(instanceId), forceName, statisticName, direction, item).set(value);
+	instanceForceFlowStatistics.labels(
+		String(instanceId),
+		surfaceName,
+		forceName,
+		statisticName,
+		direction,
+		item
+	).set(value);
 
 	// For item and fluid statistics it's useful to compare the input flow with the
 	// output flow, to simplify the comparison ensure both directions have a value.
 	if (["item_production_statistics", "fluid_production_statistic"].includes(statisticName)) {
 		let reverseDirection = direction === "input" ? "output" : "input";
-		instanceForceFlowStatistics.labels(String(instanceId), forceName, statisticName, reverseDirection, item);
+		instanceForceFlowStatistics.labels(
+			String(instanceId),
+			surfaceName,
+			forceName,
+			statisticName,
+			reverseDirection,
+			item
+		).set(value);
 	}
 }
 
@@ -84,21 +103,32 @@ export class InstancePlugin extends BaseInstancePlugin {
 		instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
 		instancePlayerCount.labels(String(instanceId)).set(stats.player_count);
 
-		for (let [forceName, flowStatistics] of Object.entries(stats.force_flow_statistics)) {
-			for (let [statisticName, statistic] of Object.entries(flowStatistics)) {
-				for (let [direction, counts] of Object.entries(statistic)) {
-					for (let [item, value] of Object.entries(counts)) {
-						setForceFlowStatistic(instanceId, forceName, statisticName, direction, item, value);
+		for (let [surfaceName, surfaceStats] of Object.entries(stats.surface_statistics)) {
+			for (let [forceName, flowStatistics] of Object.entries(surfaceStats.force_flow_statistics)) {
+				for (let [statisticName, statistic] of Object.entries(flowStatistics)) {
+					for (let [direction, counts] of Object.entries(statistic)) {
+						// eslint-disable-next-line max-depth
+						for (let [item, value] of Object.entries(counts)) {
+							setForceFlowStatistic(
+								instanceId,
+								surfaceName,
+								forceName,
+								statisticName,
+								direction,
+								item,
+								value
+							);
+						}
 					}
 				}
 			}
-		}
 
-		for (let [direction, counts] of Object.entries(stats.game_flow_statistics.pollution_statistics)) {
-			for (let [item, value] of Object.entries(counts)) {
-				instanceGameFlowStatistics.labels(
-					String(instanceId), "pollution_statistics", direction, item
-				).set(value);
+			for (let [direction, counts] of Object.entries(surfaceStats.game_flow_statistics.pollution_statistics)) {
+				for (let [item, value] of Object.entries(counts)) {
+					instanceGameFlowStatistics.labels(
+						String(instanceId), surfaceName, "pollution_statistics", direction, item
+					).set(value);
+				}
 			}
 		}
 	}
