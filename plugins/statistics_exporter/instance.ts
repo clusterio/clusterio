@@ -17,6 +17,12 @@ type IpcStats = {
 				}
 			},
 		}
+	},
+	platforms: {
+		[key: string]: {
+			force: string,
+			surface: string,
+		}
 	}
 }
 
@@ -44,6 +50,11 @@ const instanceGameFlowStatistics = new Gauge(
 	"clusterio_statistics_exporter_instance_game_flow_statistics",
 	"Pollution produced/consumed in the game",
 	{ labels: ["instance_id", "surface", "statistic", "direction", "name"] },
+);
+const instancePlatformMapping = new Gauge(
+	"clusterio_statistics_exporter_platform_mapping",
+	"Mapping of platform name to force, surface and instance",
+	{ labels: ["instance_id", "platform_name", "force", "surface"] }
 );
 
 function setForceFlowStatistic(
@@ -103,6 +114,19 @@ export class InstancePlugin extends BaseInstancePlugin {
 		instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
 		instancePlayerCount.labels(String(instanceId)).set(stats.player_count);
 
+		// Remove existing platform mappings for this instance
+		instancePlatformMapping.removeAll({ instance_id: String(instanceId) });
+
+		// Set new platform mappings
+		for (let [platformName, platform] of Object.entries(stats.platforms)) {
+			instancePlatformMapping.labels(
+				String(instanceId),
+				platformName,
+				platform.force,
+				platform.surface
+			).set(1);
+		}
+
 		for (let [surfaceName, surfaceStats] of Object.entries(stats.surface_statistics)) {
 			for (let [forceName, flowStatistics] of Object.entries(surfaceStats.force_flow_statistics)) {
 				for (let [statisticName, statistic] of Object.entries(flowStatistics)) {
@@ -151,3 +175,4 @@ export const _instancePlayerCount = instancePlayerCount;
 export const _instanceGameTicksTotal = instanceGameTicksTotal;
 export const _instanceForceFlowStatistics = instanceForceFlowStatistics;
 export const _instanceGameFlowStatistics = instanceGameFlowStatistics;
+export const _instancePlatformMapping = instancePlatformMapping;

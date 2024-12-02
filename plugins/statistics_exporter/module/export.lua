@@ -14,7 +14,8 @@ function statistics_exporter.export()
 	local stats = {
 		game_tick = game.tick,
 		player_count = #game.connected_players,
-		surface_statistics = {}
+		surface_statistics = {},
+		platforms = {}
 	}
 
 	for _, surface in pairs(game.surfaces) do
@@ -41,6 +42,17 @@ function statistics_exporter.export()
 		end
 
 		stats.surface_statistics[surface.name] = surface_stats
+	end
+
+	if v2_stats then
+		for _, force in pairs(game.forces) do
+			for _, platform in pairs(force.platforms) do
+				stats.platforms[platform.name] = {
+					force = force.name,
+					surface = platform.surface.name
+				}
+			end
+		end
 	end
 
 	rcon.print(compat.table_to_json(stats))
