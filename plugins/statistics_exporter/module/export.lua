@@ -49,7 +49,9 @@ function statistics_exporter.export()
 			for _, platform in pairs(force.platforms) do
 				stats.platforms[platform.name] = {
 					force = force.name,
-					surface = platform.surface.name
+					surface = platform.surface.name,
+					speed = platform.speed,
+					weight = platform.weight,
 				}
 			end
 		end

@@ -22,6 +22,8 @@ type IpcStats = {
 		[key: string]: {
 			force: string,
 			surface: string,
+			speed: number,
+			weight: number,
 		}
 	}
 }
@@ -55,6 +57,16 @@ const instancePlatformMapping = new Gauge(
 	"clusterio_statistics_exporter_platform_mapping",
 	"Mapping of platform name to force, surface and instance",
 	{ labels: ["instance_id", "platform_name", "force", "surface"] }
+);
+const instancePlatformSpeed = new Gauge(
+	"clusterio_statistics_exporter_platform_speed",
+	"Current speed of the platform",
+	{ labels: ["instance_id", "force", "surface"] }
+);
+const instancePlatformWeight = new Gauge(
+	"clusterio_statistics_exporter_platform_weight",
+	"Current weight/mass of the platform",
+	{ labels: ["instance_id", "force", "surface"] }
 );
 
 function setForceFlowStatistic(
@@ -114,10 +126,12 @@ export class InstancePlugin extends BaseInstancePlugin {
 		instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
 		instancePlayerCount.labels(String(instanceId)).set(stats.player_count);
 
-		// Remove existing platform mappings for this instance
+		// Remove existing platform mappings and stats for this instance
 		instancePlatformMapping.removeAll({ instance_id: String(instanceId) });
+		instancePlatformSpeed.removeAll({ instance_id: String(instanceId) });
+		instancePlatformWeight.removeAll({ instance_id: String(instanceId) });
 
-		// Set new platform mappings
+		// Set new platform mappings and stats
 		for (let [platformName, platform] of Object.entries(stats.platforms)) {
 			instancePlatformMapping.labels(
 				String(instanceId),
@@ -125,6 +139,18 @@ export class InstancePlugin extends BaseInstancePlugin {
 				platform.force,
 				platform.surface
 			).set(1);
+
+			instancePlatformSpeed.labels(
+				String(instanceId),
+				platform.force,
+				platform.surface
+			).set(platform.speed);
+
+			instancePlatformWeight.labels(
+				String(instanceId),
+				platform.force,
+				platform.surface
+			).set(platform.weight);
 		}
 
 		for (let [surfaceName, surfaceStats] of Object.entries(stats.surface_statistics)) {
@@ -176,3 +202,5 @@ export const _instanceGameTicksTotal = instanceGameTicksTotal;
 export const _instanceForceFlowStatistics = instanceForceFlowStatistics;
 export const _instanceGameFlowStatistics = instanceGameFlowStatistics;
 export const _instancePlatformMapping = instancePlatformMapping;
+export const _instancePlatformSpeed = instancePlatformSpeed;
+export const _instancePlatformWeight = instancePlatformWeight;

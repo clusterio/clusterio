@@ -52,6 +52,8 @@ describe("statistics_exporter plugin", function() {
 							"platform-1": {
 								force: "player",
 								surface: "nauvis",
+								speed: 1,
+								weight: 2,
 							},
 						},
 					})
@@ -70,6 +72,12 @@ describe("statistics_exporter plugin", function() {
 				assert.equal(instance._instancePlatformMapping.labels(
 					"7357", "platform-1", "player", "nauvis").get(),
 				1);
+				assert.equal(instance._instancePlatformSpeed.labels(
+					"7357", "player", "nauvis").get(),
+				1);
+				assert.equal(instance._instancePlatformWeight.labels(
+					"7357", "player", "nauvis").get(),
+				2);
 			});
 			it("should pass on JSON parse errors", async function() {
 				let string = "An error occured\n";
