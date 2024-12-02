@@ -30,18 +30,30 @@ describe("statistics_exporter plugin", function() {
 					JSON.stringify({
 						game_tick: 100,
 						player_count: 3,
-						force_flow_statistics: {
-							player: {
-								item_production_statistics: {
-									input: { "inserter": 10 },
-									output: { "iron-plate": 24 },
+						surface_statistics: {
+							"nauvis": {
+								game_flow_statistics: {
+									pollution_statistics: {
+										input: { "boiler": 2000 },
+										output: { "tree-proxy": 560 },
+									},
+								},
+								force_flow_statistics: {
+									player: {
+										item_production_statistics: {
+											input: { "inserter": 10 },
+											output: { "iron-plate": 24 },
+										},
+									},
 								},
 							},
 						},
-						game_flow_statistics: {
-							pollution_statistics: {
-								input: { "boiler": 2000 },
-								output: { "tree-proxy": 560 },
+						platforms: {
+							"platform-1": {
+								force: "player",
+								surface: "nauvis",
+								speed: 1,
+								weight: 2,
 							},
 						},
 					})
@@ -52,11 +64,20 @@ describe("statistics_exporter plugin", function() {
 				assert.equal(instance._instancePlayerCount.labels("7357").get(), 3);
 				assert.equal(instance._instanceGameTicksTotal.labels("7357").get(), 100);
 				assert.equal(instance._instanceForceFlowStatistics.labels(
-					"7357", "player", "item_production_statistics", "input", "inserter").get(),
+					"7357", "nauvis", "player", "item_production_statistics", "input", "inserter").get(),
 				10);
 				assert.equal(instance._instanceGameFlowStatistics.labels(
-					"7357", "pollution_statistics", "input", "boiler").get(),
+					"7357", "nauvis", "pollution_statistics", "input", "boiler").get(),
 				2000);
+				assert.equal(instance._instancePlatformMapping.labels(
+					"7357", "platform-1", "player", "nauvis").get(),
+				1);
+				assert.equal(instance._instancePlatformSpeed.labels(
+					"7357", "player", "nauvis").get(),
+				1);
+				assert.equal(instance._instancePlatformWeight.labels(
+					"7357", "player", "nauvis").get(),
+				2);
 			});
 			it("should pass on JSON parse errors", async function() {
 				let string = "An error occured\n";
