@@ -260,6 +260,8 @@ export default class Instance extends lib.Link {
 				this._recordPlayerLeave(event.name, event.reason);
 			} else if (["BAN", "UNBANNED", "PROMOTE", "DEMOTE"].includes(event.type)) {
 				this._recordUserUpdate(event.type, event.name, event.reason);
+			} else {
+				this.logger.warn(`Unknown type from player event ipc: ${event.type}`);
 			}
 		});
 
