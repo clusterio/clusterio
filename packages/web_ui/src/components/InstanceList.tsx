@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { message, Button, Space, Table, Typography } from "antd";
+import { message, Button, Table } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
 import type { ColumnsType } from "antd/es/table";
@@ -9,13 +9,14 @@ import { useAccount } from "../model/account";
 import { useHosts } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
-import { InstanceDetails, integerFactorioVersion } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 import Link from "./Link";
+import { instancePublicAddress } from "../util/instance";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 type InstanceListProps = {
-	instances: ReadonlyMap<number, Readonly<InstanceDetails>>;
+	instances: ReadonlyMap<number, Readonly<lib.InstanceDetails>>;
 	size?: SizeType;
 	hideAssignedHost?: boolean;
 };
@@ -32,28 +33,14 @@ export default function InstanceList(props: InstanceListProps) {
 		return hosts.get(hostId)?.name ?? String(hostId);
 	}
 
-	function instancePublicAddress(instance: InstanceDetails) {
-		if (instance.assignedHost === undefined) {
-			return "";
-		}
-		let host = hosts.get(instance.assignedHost);
-		if (!host || !host.publicAddress) {
-			return "";
-		}
-		if (instance.gamePort === undefined) {
-			return host.publicAddress;
-		}
-		return `${host.publicAddress}:${instance.gamePort}`;
-	}
-
-	function integerFactorioVersionOrDefault(instance: InstanceDetails) {
+	function integerFactorioVersionOrDefault(instance: lib.InstanceDetails) {
 		if (instance.factorioVersion === undefined) {
 			return -1;
 		}
-		return integerFactorioVersion(instance.factorioVersion);
+		return lib.integerFactorioVersion(instance.factorioVersion);
 	}
 
-	let columns: ColumnsType<InstanceDetails> = [
+	let columns: ColumnsType<lib.InstanceDetails> = [
 		{
 			title: "Name",
 			dataIndex: "name",
@@ -76,7 +63,7 @@ export default function InstanceList(props: InstanceListProps) {
 			title: "Public address",
 			key: "publicAddress",
 			render: (_, instance) => {
-				let publicAddress = instancePublicAddress(instance);
+				let publicAddress = instancePublicAddress(instance, hosts.get(instance.assignedHost!) ?? null);
 				return publicAddress ? <>
 					{publicAddress}
 					<Button
@@ -90,7 +77,10 @@ export default function InstanceList(props: InstanceListProps) {
 					/>
 				</> : "";
 			},
-			sorter: (a, b) => strcmp(instancePublicAddress(a), instancePublicAddress(b)),
+			sorter: (a, b) => strcmp(
+				instancePublicAddress(a, hosts.get(a.assignedHost!) ?? null),
+				instancePublicAddress(b, hosts.get(b.assignedHost!) ?? null)
+			),
 			responsive: ["lg"],
 		},
 		{
