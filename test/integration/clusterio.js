@@ -209,6 +209,7 @@ describe("Integration of Clusterio", function() {
 		});
 		it("should auto start instances with auto_start enabled", async function() {
 			slowTest(this);
+			this.timeout(30000); // Need an even longer timeout for this test
 
 			let hostProcess;
 			try {
@@ -661,12 +662,12 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-banned --create test_RCON_ban --pardon");
 				const removeCommandStateLower = await sendRcon(44, "/banlist get test_rcon_ban");
 				const removeCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
-				assert.equal(removeCommandStateLower, "test_rcon_ban is not banned.\n", "User is banned");
-				assert.equal(removeCommandStateUpper, "test_RCON_ban is not banned.\n", "User is banned");
+				assert.equal(removeCommandStateLower, "test_rcon_ban is not banned.\n", "User is not unbanned");
+				assert.equal(removeCommandStateUpper, "test_RCON_ban is not banned.\n", "User is not unbanned");
 
 				// Check it is case insensitive by checking it was converted correctly
 				const users = await getUsers();
-				assert(users.has("test_rcon_ban"), "User ID was not lowercase");
+				assert(users.has("test_rcon_ban"), "The first User ID was not used");
 				assert(!users.has("test_RCON_ban"), "Username was not converted to User ID");
 			});
 			it("should send whitelist commands to running instances", async function() {
@@ -693,41 +694,59 @@ describe("Integration of Clusterio", function() {
 				const removeCommandStateLower = await sendRcon(44, "/whitelist get test_rcon_whitelist");
 				const removeCommandStateUpper = await sendRcon(44, "/whitelist get test_RCON_whitelist");
 				assert.equal(removeCommandStateLower,
-					"test_rcon_whitelist is not whitelisted.\n", "User is whitelisted");
+					"test_rcon_whitelist is not whitelisted.\n", "User is not unwhitelisted");
 				assert.equal(removeCommandStateUpper,
-					"test_RCON_whitelist is not whitelisted.\n", "User is whitelisted");
+					"test_RCON_whitelist is not whitelisted.\n", "User is not unwhitelisted");
 
 				// Check it is case insensitive by checking it was converted correctly
 				const users = await getUsers();
-				assert(users.has("test_rcon_whitelist"), "User ID was not lowercase");
+				assert(users.has("test_rcon_whitelist"), "The first User ID was not used");
 				assert(!users.has("test_RCON_whitelist"), "Username was not converted to User ID");
 			});
 			it("should send admin list commands to running instances", async function() {
-				this.skip(); // It is not currently possible to get admin state without the player joining the game
+				// Because there is no admin list command this test will be different to the other two above
 				slowTest(this);
 				// Check that both names are not on the list
-				const preCommandStateLower = await sendRcon(44, "/admins get test_rcon_admin");
-				const preCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
-				assert.equal(preCommandStateLower, "test_rcon_admin is not admin.\n", "User is already admin");
-				assert.equal(preCommandStateUpper, "test_RCON_admin is not admin.\n", "User is already admin");
+				const preCommandStateLower = await sendRcon(44, "/demote test_rcon_admin");
+				const preCommandStateUpper = await sendRcon(44, "/demote test_RCON_admin");
+				assert.equal(preCommandStateLower,
+					"test_rcon_admin is not in the admin list.\n",
+					"User is already admin"
+				);
+				assert.equal(preCommandStateUpper,
+					"test_RCON_admin is not in the admin list.\n",
+					"User is already admin"
+				);
 
 				// Add the lower case name to the list
 				await execCtl("user set-admin --create test_rcon_admin");
-				const addCommandStateLower = await sendRcon(44, "/admins get test_rcon_admin");
-				const addCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
-				assert.equal(addCommandStateLower, "test_rcon_admin is admin.\n", "User is not admin");
-				assert.equal(addCommandStateUpper, "test_RCON_admin is admin.\n", "User is not admin");
+				const addCommandStateLower = await sendRcon(44, "/promote test_rcon_admin");
+				const addCommandStateUpper = await sendRcon(44, "/promote test_RCON_admin");
+				assert.equal(addCommandStateLower,
+					"test_rcon_admin is already in the admin list and will be promoted upon joining the game.\n",
+					"User is not admin"
+				);
+				assert.equal(addCommandStateUpper,
+					"test_RCON_admin is already in the admin list and will be promoted upon joining the game.\n",
+					"User is not admin"
+				);
 
 				// Remove the upper case name from the list
 				await execCtl("user set-admin --create test_RCON_admin --revoke");
-				const removeCommandStateLower = await sendRcon(44, "/admins get test_rcon_admin");
-				const removeCommandStateUpper = await sendRcon(44, "/admins get test_RCON_admin");
-				assert.equal(removeCommandStateLower, "test_rcon_admin is not admin.\n", "User is admin");
-				assert.equal(removeCommandStateUpper, "test_RCON_admin is not admin.\n", "User is admin");
+				const removeCommandStateLower = await sendRcon(44, "/demote test_rcon_admin");
+				const removeCommandStateUpper = await sendRcon(44, "/demote test_RCON_admin");
+				assert.equal(removeCommandStateLower,
+					"test_rcon_admin is not in the admin list.\n",
+					"User is not demoted"
+				);
+				assert.equal(removeCommandStateUpper,
+					"test_RCON_admin is not in the admin list.\n",
+					"User is not demoted"
+				);
 
 				// Check it is case insensitive by checking it was converted correctly
 				const users = await getUsers();
-				assert(users.has("test_rcon_admin"), "User ID was not lowercase");
+				assert(users.has("test_rcon_admin"), "The first User ID was not used");
 				assert(!users.has("test_RCON_admin"), "Username was not converted to User ID");
 			});
 		});
