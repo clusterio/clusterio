@@ -4,6 +4,8 @@ import pidusage from "pidusage";
 import phin from "phin";
 import util from "util";
 import type { Static } from "@sinclair/typebox";
+import { exec } from "child_process";
+const execAsync = util.promisify(exec);
 
 // internal libraries
 import * as lib from "@clusterio/lib";
@@ -97,6 +99,38 @@ const serverSettingsActions = {
 	},
 };
 
+/**
+ * Get process stats for a Windows process
+ * Due to wmic being removed in later versions of Windows, pidusage does not work
+ * until this PR is merged: https://github.com/soyuka/pidusage/pull/143
+ * @param pid - Process ID
+ * @param logger - Logger instance
+ * @returns Process stats
+ */
+async function getWindowsProcessStats(pid: number, logger: lib.Logger) {
+	try {
+		const { stdout } = await execAsync(
+			`powershell "Get-Process -Id ${pid} | Select-Object TotalProcessorTime,WorkingSet | ConvertTo-Json"`
+		);
+		const stats = JSON.parse(stdout);
+		// Convert ticks (100-nanosecond intervals) to milliseconds
+		const totalTimeMs = stats.TotalProcessorTime.Ticks / 10000;
+		return {
+			ctime: totalTimeMs,
+			memory: stats.WorkingSet,
+		};
+	} catch (err) {
+		logger.warn("Failed to get process stats:", err);
+		return { ctime: 0, memory: 0 };
+	}
+}
+
+async function getProcessStats(pid: number, logger: lib.Logger) {
+	if (process.platform === "win32") {
+		return getWindowsProcessStats(pid, logger);
+	}
+	return pidusage(pid);
+}
 
 /**
  * Keeps track of the runtime parameters of an instance
@@ -1035,9 +1069,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		let pid = this.server.pid;
 		if (pid) {
-			let stats = await pidusage(pid);
-			instanceFactorioCpuTime.labels(String(this.id)).set(stats.ctime / 1000);
-			instanceFactorioMemoryUsage.labels(String(this.id)).set(stats.memory);
+			try {
+				let stats = await getProcessStats(pid, this.logger);
+				instanceFactorioCpuTime.labels(String(this.id)).set(stats.ctime / 1000);
+				instanceFactorioMemoryUsage.labels(String(this.id)).set(stats.memory);
+			} catch (err) {
+				this.logger.warn("Failed to get process stats:", err);
+			}
 		}
 
 		return new lib.InstanceMetricsRequest.Response(results);
