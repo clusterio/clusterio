@@ -641,6 +641,7 @@ export default class Host extends lib.Link {
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instanceId);
 			if (instanceInfo) {
+				await Instance.populate_folders(instanceInfo.path);
 				instanceInfo.config.update(config, true, "controller");
 
 			} else {
@@ -650,7 +651,7 @@ export default class Host extends lib.Link {
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
 				logger.info(`Creating ${instanceDir}`);
-				await Instance.create(instanceDir, this.config.get("host.factorio_directory"));
+				await Instance.populate_folders(instanceDir);
 				instanceInfo = {
 					path: instanceDir,
 					config: instanceConfig,

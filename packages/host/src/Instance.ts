@@ -661,14 +661,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	/**
 	 * Creates a new empty instance directory
 	 *
-	 * Creates the neccessary files for starting up a new instance into the
-	 * provided instance directory.
+	 * Ensures the neccessary files for starting up a new instance into the
+	 * provided instance directory are present.
 	 *
 	 * @param instanceDir -
-	 *     Directory to create the new instance into.
-	 * @param factorioDir - Path to factorio installation.
 	 */
-	static async create(instanceDir: string, factorioDir: string) {
+	static async populate_folders(instanceDir: string) {
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
