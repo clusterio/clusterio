@@ -97,7 +97,6 @@ const serverSettingsActions = {
 	},
 };
 
-
 /**
  * Keeps track of the runtime parameters of an instance
  * @alias module:host/src/Instance
@@ -133,7 +132,7 @@ export default class Instance extends lib.Link {
 	_playerCheckInterval: ReturnType<typeof setInterval> | undefined;
 	_hadPlayersOnline = false;
 	_playerAutosaveSlot = 1;
-
+	_expectedUserUpdates: { action: string, name: string, reason: string }[] = [];
 
 	constructor(
 		host: Host,
@@ -224,6 +223,10 @@ export default class Instance extends lib.Link {
 				this._recordPlayerJoin(event.name);
 			} else if (event.type === "leave") {
 				this._recordPlayerLeave(event.name, event.reason);
+			} else if (["BAN", "UNBANNED", "PROMOTE", "DEMOTE"].includes(event.type)) {
+				this._recordUserUpdate(event.type, event.name, event.reason);
+			} else {
+				this.logger.warn(`Unknown type from player event ipc: ${event.type}`);
 			}
 		});
 
@@ -246,13 +249,15 @@ export default class Instance extends lib.Link {
 		this.handle(lib.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
 	}
 
-	_watchPlayerJoinsByChat() {
+	_watchServerLogActions() {
 		this.server.on("output", (parsed: lib.ParsedFactorioOutput, line: string) => {
 			if (parsed.type !== "action") {
 				return;
 			}
 
 			let name = /^([^ ]+)/.exec(parsed.message)![1];
+
+			// Detect player leave and join
 			if (parsed.action === "JOIN") {
 				this._recordPlayerJoin(name);
 			} else if (["LEAVE", "KICK", "BAN"].includes(parsed.action)) {
@@ -263,6 +268,14 @@ export default class Instance extends lib.Link {
 				}[parsed.action]!;
 				this._recordPlayerLeave(name, reason);
 			}
+
+			// Detect banned and admin state change, whitelist changes are not logged
+			if (parsed.action === "BAN") {
+				const reason = /\. Reason: (.+)\.$/.exec(parsed.message)![1];
+				this._recordUserUpdate(parsed.action, name, reason !== "unspecified" ? reason : "");
+			} else if (["UNBANNED", "PROMOTE", "DEMOTE"].includes(parsed.action)) {
+				this._recordUserUpdate(parsed.action, name);
+			}
 		});
 
 		// Leave log entries are unreliable and sometimes don't show up.
@@ -271,6 +284,22 @@ export default class Instance extends lib.Link {
 				this.logger.error(`Error checking online players:\n${err.stack}`);
 			});
 		}, 60e3);
+	}
+
+	// Needed to cover promote/demote when player is not on map, not required when _watchServerLogActions is used
+	_watchPlayerPromote() {
+		this.server.on("output", (parsed: lib.ParsedFactorioOutput, line: string) => {
+			if (
+				parsed.type !== "action"
+				|| !["PROMOTE", "DEMOTE"].includes(parsed.action)
+				|| !parsed.message.includes("be promoted upon joining the game.")
+			) {
+				return;
+			}
+
+			const name = /^([^ ]+)/.exec(parsed.message)![1];
+			this._recordUserUpdate(parsed.action, name);
+		});
 	}
 
 	async _checkOnlinePlayers() {
@@ -755,8 +784,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async prepare() {
 		this.logger.verbose("Writing server-settings.json");
 		await this.writeServerSettings(true);
+		this._expectedUserUpdates = [];
 
-		if (this.config.get("factorio.sync_adminlist")) {
+		if (this.config.get("factorio.sync_adminlist") !== "Disabled") {
 			this.logger.verbose("Writing server-adminlist.json");
 			lib.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
@@ -764,7 +794,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			);
 		}
 
-		if (this.config.get("factorio.sync_banlist")) {
+		if (this.config.get("factorio.sync_banlist") !== "Disabled") {
 			this.logger.verbose("Writing server-banlist.json");
 			lib.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
@@ -774,7 +804,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			);
 		}
 
-		if (this.config.get("factorio.sync_whitelist")) {
+		if (this.config.get("factorio.sync_whitelist") !== "Disabled") {
 			this.logger.verbose("Writing server-whitelist.json");
 			lib.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
@@ -880,8 +910,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		if (this.config.get("factorio.enable_save_patching") && this.config.get("factorio.enable_script_commands")) {
 			await this.server.disableAchievements();
 			await this.updateInstanceData();
+			this._watchPlayerPromote();
 		} else {
-			this._watchPlayerJoinsByChat();
+			this._watchServerLogActions();
 		}
 
 		await this.sendSaveListUpdate();
@@ -908,7 +939,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
-		this._watchPlayerJoinsByChat();
+		this._watchServerLogActions();
 
 		await lib.invokeHook(this.plugins, "onStart");
 
@@ -945,7 +976,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			await this.sendRcon("/whitelist disable");
 		}
 
-		if (this.config.get("factorio.sync_whitelist")) {
+		if (this.config.get("factorio.sync_whitelist") !== "Disabled") {
 			await this.sendRcon("/whitelist clear");
 			for (let player of this._host.whitelist) {
 				await this.sendRcon(`/whitelist ${player}`);
@@ -957,32 +988,77 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
+	_recordUserUpdate(action: string, name: string, reason: string = "") {
+		// TODO: Implement bidirectional whitelist sync, likely by watching the json file
+		const addr = lib.Address.fromShorthand("allInstances");
+		const expectedIndex = this._expectedUserUpdates.findIndex(
+			expected => expected.name === name && expected.action === action && expected.reason === reason
+		);
+		if (expectedIndex >= 0) {
+			this._expectedUserUpdates = this._expectedUserUpdates.splice(expectedIndex, 1);
+		} else if (action === "BAN") {
+			if (this.config.get("factorio.sync_banlist") !== "Bidirectional") { return; }
+			this.sendTo(addr, new lib.InstanceBanlistUpdateEvent(name, true, reason ?? ""));
+		} else if (action === "UNBANNED") {
+			if (this.config.get("factorio.sync_banlist") !== "Bidirectional") { return; }
+			this.sendTo(addr, new lib.InstanceBanlistUpdateEvent(name, false, ""));
+		} else if (action === "PROMOTE") {
+			if (this.config.get("factorio.sync_adminlist") !== "Bidirectional") { return; }
+			this.sendTo(addr, new lib.InstanceAdminlistUpdateEvent(name, true));
+		} else if (action === "DEMOTE") {
+			if (this.config.get("factorio.sync_adminlist") !== "Bidirectional") { return; }
+			this.sendTo(addr, new lib.InstanceAdminlistUpdateEvent(name, false));
+		} else if (action === "WHITELISTED") {
+			if (this.config.get("factorio.sync_whitelist") !== "Bidirectional") { return; }
+			this.sendTo(addr, new lib.InstanceWhitelistUpdateEvent(name, true));
+		} else if (action === "UNWHITELISTED") {
+			if (this.config.get("factorio.sync_whitelist") !== "Bidirectional") { return; }
+			this.sendTo(addr, new lib.InstanceWhitelistUpdateEvent(name, false));
+		} else {
+			throw new Error(`Unexpected Action: ${action} for ${name}`);
+		}
+	}
+
 	async handleInstanceAdminlistUpdateEvent(request: lib.InstanceAdminlistUpdateEvent) {
-		if (!this.config.get("factorio.sync_adminlist")) {
+		const { name, admin } = request;
+		const sync = this.config.get("factorio.sync_adminlist");
+		if (sync === "Disabled") {
 			return;
+		} else if (sync === "Bidirectional") {
+			this._expectedUserUpdates.push({action: admin ? "PROMOTE" : "DEMOTE", name: name, reason: "" });
 		}
 
-		let { name, admin } = request;
 		let command = admin ? `/promote ${name}` : `/demote ${name}`;
 		await this.sendRcon(command);
 	}
 
 	async handleInstanceBanlistUpdateEvent(request: lib.InstanceBanlistUpdateEvent) {
-		if (!this.config.get("factorio.sync_banlist")) {
+		const { name, banned, reason } = request;
+		const sync = this.config.get("factorio.sync_banlist");
+		if (sync === "Disabled") {
 			return;
+		} else if (sync === "Bidirectional") {
+			this._expectedUserUpdates.push({action: banned ? "BAN" : "UNBANNED", name: name, reason: reason});
 		}
 
-		let { name, banned, reason } = request;
 		let command = banned ? `/ban ${name} ${reason}` : `/unban ${name}`;
 		await this.sendRcon(command);
 	}
 
 	async handleInstanceWhitelistUpdateEvent(request: lib.InstanceWhitelistUpdateEvent) {
-		if (!this.config.get("factorio.sync_whitelist")) {
+		const { name, whitelisted } = request;
+		const sync = this.config.get("factorio.sync_whitelist");
+		if (this.config.get("factorio.sync_whitelist") === "Disabled") {
 			return;
+		} else if (sync === "Bidirectional") {
+			// Factorio does not contain log events for whitelist so these values currently have no special meaning
+			this._expectedUserUpdates.push({
+				action: whitelisted ? "WHITELISTED" : "UNWHITELISTED",
+				name: name,
+				reason: "",
+			});
 		}
 
-		let { name, whitelisted } = request;
 		let command = whitelisted ? `/whitelist add ${name}` : `/whitelist remove ${name}`;
 		await this.sendRcon(command);
 	}
