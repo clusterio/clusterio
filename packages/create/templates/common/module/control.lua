@@ -12,9 +12,8 @@ local MyModule = {
 -- If you use any of these events and access globalData then make sure to call this function first
 local script_data = {}
 local function setup_script_data()
-	local _script_data = compat.script_data()
-	if _script_data["__plugin_name__"] == nil then
-		_script_data["__plugin_name__"] = {
+	if compat.script_data["__plugin_name__"] == nil then
+		compat.script_data["__plugin_name__"] = {
 			-- starting values go here
 		}
 	end
@@ -24,8 +23,7 @@ end
 --- The on_load function is called independently for each client when they first load the map
 -- It should be used to restore global aliases and metatables not registered with script.register_metatable
 function MyModule.on_load()
-	local _script_data = compat.script_data()
-	script_data = _script_data["__plugin_name__"]
+	script_data = compat.script_data["__plugin_name__"]
 end
 
 --- Public methods should be available though your top level module table

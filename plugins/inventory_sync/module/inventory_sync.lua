@@ -360,7 +360,7 @@ end
 -- Upload inventory when a player leaves the game. Triggers on restart after crash if player was online during crash.
 inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	-- for some reason, on_pre_player_left_game gets called before on_server_startup so script_data isn't ready yet
-	if not compat.script_data().inventory_sync then
+	if not compat.script_data.inventory_sync then
 		log("ERROR: script data for inventory sync is not defined")
 		return
 	end

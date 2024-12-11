@@ -10,11 +10,11 @@ api.events = {
 }
 
 function api.get_instance_name()
-	return compat.script_data().clusterio.instance_name
+	return compat.script_data.clusterio.instance_name
 end
 
 function api.get_instance_id()
-	return compat.script_data().clusterio.instance_id
+	return compat.script_data.clusterio.instance_id
 end
 
 function api.send_json(channel, data)
@@ -33,7 +33,7 @@ function api.send_json(channel, data)
 	if #data < 4000 then
 		print("\f$ipc:" .. channel .. "?j" .. data)
 	else
-		local script_data = compat.script_data()
+		local script_data = compat.script_data
 		script_data.clusterio_file_no = (script_data.clusterio_file_no or 0) + 1
 		local file_name = "clst_" .. script_data.clusterio_file_no .. ".json"
 		compat.write_file(file_name, data, false, 0)

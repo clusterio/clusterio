@@ -33,8 +33,7 @@ end
 --- @param no_early_return boolean?
 --- @return table
 local function get_script_data(no_early_return)
-	local script_data = compat.script_data()
-	local research_sync = script_data.research_sync
+	local research_sync = compat.script_data.research_sync
 	if research_sync and not no_early_return then
 		return research_sync
 	end
@@ -56,7 +55,7 @@ local function get_script_data(no_early_return)
 		}
 	end
 
-	script_data.research_sync = research_sync
+	compat.script_data.research_sync = research_sync
 	return research_sync
 end
 
