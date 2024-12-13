@@ -182,7 +182,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		return latestVersion;
 	}
 
-	private static async getLatestVersionsChunk(modNames: Array<string>): Promise<{ [key: string]: string; }> {
+	private static async getLatestVersionsChunk(modNames: Array<string>): Promise<Map<string, string>> {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
 		const response = await fetch(url, {
@@ -193,11 +193,11 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
 		}
 		const mods = (await response.json() as ModsInfoResponse).results;
-		const versions: { [key: string]: string; } = {};
+		const versions: Map<string, string> = new Map<string, string>();
 		mods.forEach((mod) => {
 			const modName = mod.name;
 			let latestVersion = ModStore.getLatestVersionFromReleases(mod.releases);
-			if (latestVersion !== undefined) { versions[modName] = latestVersion; }
+			if (latestVersion !== undefined) { versions.set(modName, latestVersion); }
 
 		});
 
@@ -210,14 +210,15 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	 * @returns a dict/object with the keys being mod names and values being their latest version,
 	 * it is not guarteed that all mods submited will be returned
 	 */
-	static async getLatestVersions(modNames: Array<string>): Promise<{ [key: string]: string; }> {
+	static async getLatestVersions(modNames: Array<string>): Promise<Map<string, string>> {
 		const chunkSize = 500;
-		const chunks: Array<{ [key: string]: string; }> = [];
+		const chunks: Array<Map<string, string>> = [];
 		for (let i = 0; i < modNames.length; i += chunkSize) {
 			chunks.push(await ModStore.getLatestVersionsChunk(modNames.slice(i, i + chunkSize)));
 		}
-		const versions = chunks.reduce((acc, curr) => ({ ...acc, ...curr }), {});
-
+		const versions = chunks.reduce((acc, curr) => (
+			new Map<string, string>([...acc, ...curr])
+		), new Map<string, string>());
 		return versions;
 	}
 
