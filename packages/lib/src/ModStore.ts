@@ -169,7 +169,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		return new this(modsDirectory, files);
 	}
 
-	private static getLatestVersionFromReleases(releases: Array<ModRelease>): string | undefined {
+	private static getLatestVersionFromReleases(releases: Array<ModRelease>) {
 		if (releases.length === 0) {
 			return undefined;
 		}
@@ -182,7 +182,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		return latestVersion;
 	}
 
-	private static async getLatestVersionsChunk(modNames: Array<string>): Promise<Map<string, string>> {
+	private static async getLatestVersionsChunk(modNames: string[]) {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
 		const response = await fetch(url, {
@@ -207,18 +207,19 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	/**
 	 *
 	 * @param modNames an array of mod names to check for their latest version
-	 * @returns a dict/object with the keys being mod names and values being their latest version,
+	 * @returns a Map with the keys being mod names and values being their latest version,
 	 * it is not guarteed that all mods submited will be returned
 	 */
-	static async getLatestVersions(modNames: Array<string>): Promise<Map<string, string>> {
+	static async getLatestVersions(modNames: string[]) {
 		const chunkSize = 500;
-		const chunks: Array<Map<string, string>> = [];
+		let versions = new Map<string, string>();
 		for (let i = 0; i < modNames.length; i += chunkSize) {
-			chunks.push(await ModStore.getLatestVersionsChunk(modNames.slice(i, i + chunkSize)));
+			const chunk = (await ModStore.getLatestVersionsChunk(modNames.slice(i, i + chunkSize)));
+
+			for (const [modName, version] of chunk) {
+				versions.set(modName, version);
+			}
 		}
-		const versions = chunks.reduce((acc, curr) => (
-			new Map<string, string>([...acc, ...curr])
-		), new Map<string, string>());
 		return versions;
 	}
 
