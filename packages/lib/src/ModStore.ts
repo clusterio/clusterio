@@ -6,6 +6,7 @@ import { integerModVersion, ModInfo } from "./data";
 import * as libSchema from "./schema";
 import TypedEventEmitter from "./TypedEventEmitter";
 import { safeOutputFile } from "./file_ops";
+import { BinaryLike } from "crypto";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -35,7 +36,7 @@ interface ModDetails {
 	summary: string,
 	downloads_count: number,
 	category: string,
-	score: number,
+	score?: number,
 	releases: Array<ModRelease>,
 }
 
@@ -168,20 +169,20 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		return new this(modsDirectory, files);
 	}
 
-	static getLatestVersionFromReleases(releases: Array<ModRelease>): string | undefined {
-		let latestVersion = "0.0.0";
+	private static getLatestVersionFromReleases(releases: Array<ModRelease>): string | undefined {
+		if (releases.length === 0) {
+			return undefined;
+		}
+		let latestVersion = releases[0].version;
 		releases.forEach((release) => {
 			if (integerModVersion(latestVersion) < integerModVersion(release.version)) {
 				latestVersion = release.version;
 			}
 		});
-		if (latestVersion === "0.0.0") {
-			return undefined;
-		}
 		return latestVersion;
 	}
 
-	static async getLatestVersionsChunk(modNames: Array<string>): Promise<{ [key: string]: string | undefined; }> {
+	private static async getLatestVersionsChunk(modNames: Array<string>): Promise<{ [key: string]: string; }> {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
 		const response = await fetch(url, {
@@ -192,25 +193,32 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
 		}
 		const mods = (await response.json() as ModsInfoResponse).results;
-		const versions: { [key: string]: string | undefined; } = {};
+		const versions: { [key: string]: string; } = {};
 		mods.forEach((mod) => {
 			const modName = mod.name;
 			let latestVersion = ModStore.getLatestVersionFromReleases(mod.releases);
-			versions[modName] = latestVersion;
+			if (latestVersion !== undefined) { versions[modName] = latestVersion; }
+
 		});
 
 		return versions;
 	}
 
-	static async getLatestVersions(modNames: Array<string>): Promise<{ [key: string]: string | undefined; }> {
+	/**
+	 *
+	 * @param modNames an array of mod names to check for their latest version
+	 * @returns a dict/object with the keys being mod names and values being their latest version,
+	 * it is not guarteed that all mods submited will be returned
+	 */
+	static async getLatestVersions(modNames: Array<string>): Promise<{ [key: string]: string; }> {
 		const chunkSize = 500;
-		const chunks: Array<{ [key: string]: string | undefined; }> = [];
+		const chunks: Array<{ [key: string]: string; }> = [];
 		for (let i = 0; i < modNames.length; i += chunkSize) {
 			chunks.push(await ModStore.getLatestVersionsChunk(modNames.slice(i, i + chunkSize)));
 		}
 		const versions = chunks.reduce((acc, curr) => ({ ...acc, ...curr }), {});
+
 		return versions;
 	}
-
 
 }
