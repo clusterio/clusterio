@@ -7,6 +7,7 @@ import * as libSchema from "./schema";
 import TypedEventEmitter from "./TypedEventEmitter";
 import { safeOutputFile } from "./file_ops";
 import { BinaryLike } from "crypto";
+import { Writable } from "stream";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -221,6 +222,29 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 			}
 		}
 		return versions;
+	}
+
+	static async downloadFile(url: string, filePath: string) {
+		try {
+			const response = await fetch(url);
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+			}
+
+			const fileStream = fs.createWriteStream(filePath);
+
+			// Check if the response body exists and pipe it to the file
+			if (response.body) {
+				const writer = Writable.toWeb(fileStream);
+				await response.body.pipeTo(writer);
+			} else {
+				throw new Error("Response body is missing.");
+			}
+		} catch (error) {
+			logger.error("Error downloading file:", error);
+			throw error;
+		}
 	}
 
 }
