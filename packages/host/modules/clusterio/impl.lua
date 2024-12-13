@@ -4,9 +4,8 @@ local compat = require("modules/clusterio/compat")
 --- @class (exact) EventData.on_server_startup:EventData
 
 local function check_patch()
-	local script_data = compat.script_data()
-	if script_data.clusterio_patch_number ~= clusterio_patch_number then
-		script_data.clusterio_patch_number = clusterio_patch_number
+	if compat.script_data.clusterio_patch_number ~= clusterio_patch_number then
+		compat.script_data.clusterio_patch_number = clusterio_patch_number
 		script.raise_event(api.events.on_server_startup, {
 			name = api.events.on_server_startup, tick = game.tick
 		})
@@ -19,9 +18,8 @@ impl.events = {}
 impl.events[defines.events.on_tick] = check_patch
 
 impl.events[api.events.on_server_startup] = function()
-	local script_data = compat.script_data()
-	if not script_data.clusterio then
-		script_data.clusterio = {
+	if not compat.script_data.clusterio then
+		compat.script_data.clusterio = {
 			instance_id = nil,
 			instance_name = nil,
 		}
@@ -55,8 +53,8 @@ end
 -- Internal API
 clusterio_private = {}
 function clusterio_private.update_instance(new_id, new_name)
-	local script_data = compat.script_data()
 	check_patch()
+	local script_data = compat.script_data
 	script_data.clusterio.instance_id = new_id
 	script_data.clusterio.instance_name = new_name
 	script.raise_event(api.events.on_instance_updated, {
@@ -78,15 +76,15 @@ remote.add_interface('clusterio_api', {
 	end,
 
 	get_instance_id = function()
-		return compat.script_data().clusterio.instance_id
+		return compat.script_data.clusterio.instance_id
 	end,
 
 	get_instance_name = function()
-		return compat.script_data().clusterio.instance_name
+		return compat.script_data.clusterio.instance_name
 	end,
 
 	get_file_no = function()
-		local script_data = compat.script_data()
+		local script_data = compat.script_data
 		script_data.clusterio_file_no = (script_data.clusterio_file_no or 0) + 1
 		return script_data.clusterio_file_no
 	end,
