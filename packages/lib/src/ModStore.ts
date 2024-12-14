@@ -8,6 +8,7 @@ import TypedEventEmitter from "./TypedEventEmitter";
 import { safeOutputFile } from "./file_ops";
 import { BinaryLike } from "crypto";
 import { Writable } from "stream";
+import { read } from "fs";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -211,7 +212,10 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	 * @returns a Map with the keys being mod names and values being their latest version,
 	 * it is not guarteed that all mods submited will be returned
 	 */
-	static async getLatestVersions(modNames: string[]) {
+	static async getLatestVersions(modNames: string[] | string) {
+		if (typeof modNames === "string") {
+			modNames = [modNames];
+		}
 		const chunkSize = 500;
 		let versions = new Map<string, string>();
 		for (let i = 0; i < modNames.length; i += chunkSize) {
@@ -224,7 +228,56 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		return versions;
 	}
 
-	static async downloadFile(url: string, filePath: string) {
+	private async downloadModFromReleases(releases: Array<ModRelease>, version: string,
+		username: string, token: string
+	) {
+		if (releases.length === 0) { }
+		releases.forEach(async (release) => {
+			if (release.version === version) {
+				const url = new URL(`https://mods.factorio.com/${release.download_url}`);
+				url.searchParams.set("username", username);
+				url.searchParams.set("token", token);
+				const fileName = `${this.modsDirectory}/${release.file_name}.tmp`;
+				await ModStore.downloadFile(url, fileName);
+				await fs.rename(fileName, `${this.modsDirectory}/${release.file_name}`);
+			}
+		});
+	}
+
+	private async downloadModsChunk(modNames: string[], modVersions: string[], username: string, token: string) {
+		const url = new URL("https://mods.factorio.com/api/mods");
+		url.searchParams.set("page_size", "max");
+		const response = await fetch(url, {
+			method: "POST",
+			body: new URLSearchParams({ namelist: modNames }),
+		});
+		if (response.status !== 200) {
+			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
+		}
+		const mods = (await response.json() as ModsInfoResponse).results;
+		let futures: Promise<void>[] = [];
+		mods.forEach((mod) => {
+			futures.push(this.downloadModFromReleases(mod.releases, modVersions[modNames.indexOf(mod.name)],
+				username, token));
+		});
+		futures.forEach(async (future) => await future);
+	}
+
+	async downloadMods(modMap: Map<string, string>, username: string, token: string) {
+		const chunkSize = 500;
+		let futures: Promise<void>[] = [];
+		const modNames = Array.from(modMap.keys());
+		const modVersions = Array.from(modMap.values());
+		for (let i = 0; i < modMap.size; i += chunkSize) {
+			futures.push(
+				this.downloadModsChunk(modNames.slice(i, i + chunkSize), modVersions.slice(i, i + chunkSize),
+					username, token)
+			);
+		}
+		futures.forEach(async (future) => await future);
+	}
+
+	static async downloadFile(url: string | URL, filePath: string) {
 		try {
 			const response = await fetch(url);
 
