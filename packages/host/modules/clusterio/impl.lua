@@ -50,6 +50,28 @@ impl.events[defines.events.on_player_left_game] = function(event)
 	})
 end
 
+impl.events[defines.events.on_player_banned] = function(event)
+	api.send_json("player_event", {
+		type = "BAN",
+		name = event.player_name,
+		reason = event.reason,
+	})
+end
+
+impl.events[defines.events.on_player_unbanned] = function(event)
+	api.send_json("player_event", { type = "UNBANNED", name = event.player_name })
+end
+
+impl.events[defines.events.on_player_promoted] = function(event)
+	local player = game.players[event.player_index]
+	api.send_json("player_event", { type = "PROMOTE", name = player.name })
+end
+
+impl.events[defines.events.on_player_demoted] = function(event)
+	local player = game.players[event.player_index]
+	api.send_json("player_event", { type = "DEMOTE", name = player.name })
+end
+
 -- Internal API
 clusterio_private = {}
 function clusterio_private.update_instance(new_id, new_name)

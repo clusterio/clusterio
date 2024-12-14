@@ -81,6 +81,9 @@ export default class HostConnection extends BaseConnection {
 		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
+		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.snoopInstanceAdminlistUpdateEvent.bind(this));
+		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.snoopInstanceBanlistUpdateEvent.bind(this));
+		this.snoopEvent(lib.InstanceWhitelistUpdateEvent, this.snoopInstanceWhitelistUpdateEvent.bind(this));
 	}
 
 	validateIngress(message: lib.MessageRoutable) {
@@ -348,6 +351,68 @@ export default class HostConnection extends BaseConnection {
 			name: event.name,
 			reason: event.reason,
 			stats: event.stats,
+		});
+	}
+
+	async snoopInstanceAdminlistUpdateEvent(event: lib.InstanceAdminlistUpdateEvent, src: lib.Address) {
+		if (src.type !== lib.Address.instance) {
+			return;
+		}
+
+		let user = this._controller.userManager.getByName(event.name);
+		if (!user) {
+			user = this._controller.userManager.createUser(event.name);
+		}
+
+		user.isAdmin = event.admin;
+		this._controller.usersUpdated([user]);
+		const instance = this._controller.instances.get(src.id)!;
+		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+			type: event.admin ? "promote" : "demote" as lib.PlayerEvent["type"],
+			name: event.name,
+			stats: user.instanceStats.get(src.id)!,
+		});
+	}
+
+	async snoopInstanceBanlistUpdateEvent(event: lib.InstanceBanlistUpdateEvent, src: lib.Address) {
+		if (src.type !== lib.Address.instance) {
+			return;
+		}
+
+		let user = this._controller.userManager.getByName(event.name);
+		if (!user) {
+			user = this._controller.userManager.createUser(event.name);
+		}
+
+		user.isBanned = event.banned;
+		user.banReason = event.reason;
+		this._controller.usersUpdated([user]);
+		const instance = this._controller.instances.get(src.id)!;
+		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+			type: event.banned ? "ban" : "unban" as lib.PlayerEvent["type"],
+			name: event.name,
+			stats: user.instanceStats.get(src.id)!,
+			resaon: event.reason,
+		});
+	}
+
+	async snoopInstanceWhitelistUpdateEvent(event: lib.InstanceWhitelistUpdateEvent, src: lib.Address) {
+		if (src.type !== lib.Address.instance) {
+			return;
+		}
+
+		let user = this._controller.userManager.getByName(event.name);
+		if (!user) {
+			user = this._controller.userManager.createUser(event.name);
+		}
+
+		user.isWhitelisted = event.whitelisted;
+		this._controller.usersUpdated([user]);
+		const instance = this._controller.instances.get(src.id)!;
+		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+			type: event.whitelisted ? "whitelisted" : "unwhitelisted" as lib.PlayerEvent["type"],
+			name: event.name,
+			stats: user.instanceStats.get(src.id)!,
 		});
 	}
 }
