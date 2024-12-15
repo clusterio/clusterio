@@ -1,16 +1,11 @@
 import fs from "fs-extra";
 import path from "path";
-import { Static, StringContentEncodingOption, Type } from "@sinclair/typebox";
+import { Static} from "@sinclair/typebox";
 import { logger } from "./logging";
 import { integerModVersion, ModInfo, ModPack, ModRecord } from "./data";
-import * as libSchema from "./schema";
 import TypedEventEmitter from "./TypedEventEmitter";
 import { safeOutputFile } from "./file_ops";
-import { BinaryLike } from "crypto";
 import { Writable } from "stream";
-import { read } from "fs";
-import { Value } from "@sinclair/typebox/value";
-import { keyword$DataError } from "ajv/dist/compile/errors";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
