@@ -9,7 +9,7 @@ import {
 	Item,
 } from "./messages";
 
-type IpcItems = [string, number][];
+type IpcItems = [string, { [quality: string]: number }][];
 
 export class InstancePlugin extends BaseInstancePlugin {
 	pendingTasks!: Set<any>;
@@ -54,7 +54,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		let items = await this.instance.sendTo("controller", new GetStorageRequest());
 		// TODO Diff with dump of invdata produce minimal command to sync
 		let itemsJson = lib.escapeString(JSON.stringify(items));
-		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
+		await this.sendRcon(`/c __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
 	}
 
 	async onStop() {
@@ -78,8 +78,15 @@ export class InstancePlugin extends BaseInstancePlugin {
 			return;
 		}
 
-
-		const fromIpcItems = items.map(item => new Item(item[0], item[1]));
+		const fromIpcItems: Item[] = [];
+		items.forEach(item => {
+			// Loop over quality
+			for (const quality in item[1]) {
+				if (Object.prototype.hasOwnProperty.call(item[1], quality)) {
+					fromIpcItems.push(new Item(item[0], item[1][quality], quality));
+				}
+			}
+		});
 		this.instance.sendTo("controller", new PlaceEvent(fromIpcItems));
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
@@ -90,8 +97,17 @@ export class InstancePlugin extends BaseInstancePlugin {
 
 	// request items --------------------------------------------------------------
 	async requestItems(requestItems: IpcItems) {
+		this.logger.info(`Requesting items: ${JSON.stringify(requestItems)}`);
 		// Request the items all at once
-		let fromIpcItems = requestItems.map(item => new Item(item[0], item[1]));
+		const fromIpcItems: Item[] = [];
+		requestItems.forEach(item => {
+			// Loop over quality
+			for (const quality in item[1]) {
+				if (Object.prototype.hasOwnProperty.call(item[1], quality)) {
+					fromIpcItems.push(new Item(item[0], item[1][quality], quality));
+				}
+			}
+		});
 		let items = await this.instance.sendTo("controller", new RemoveRequest(fromIpcItems));
 
 		if (!items.length) {
@@ -104,7 +120,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		}
 
 		let itemsJson = lib.escapeString(JSON.stringify(items));
-		await this.sendRcon(`/sc __subspace_storage__ Import("${itemsJson}")`, true);
+		await this.sendRcon(`/c __subspace_storage__ Import("${itemsJson}")`, true);
 	}
 
 	// combinator signals ---------------------------------------------------------
@@ -115,10 +131,10 @@ export class InstancePlugin extends BaseInstancePlugin {
 		let items = event.items;
 
 		// XXX this should be moved to instance/clusterio api
-		items.push(new Item("signal-unixtime", Math.floor(Date.now()/1000)));
+		items.push(new Item("signal-unixtime", Math.floor(Date.now()/1000), "normal"));
 
 		let itemsJson = lib.escapeString(JSON.stringify(items));
-		let task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
+		let task = this.sendRcon(`/c __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
 		this.pendingTasks.add(task);
 		await task.finally(() => { this.pendingTasks.delete(task); });
 	}

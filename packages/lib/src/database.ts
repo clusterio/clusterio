@@ -164,7 +164,7 @@ function checkCount(count: unknown): asserts count is number {
  * deserialized the content is verified.
  */
 export class ItemDatabase {
-	private _items: Map<string, number> = new Map();
+	private _items: Map<string, { [quality: string]: number }> = new Map();
 
 	/**
 	 * Create a new item database
@@ -177,11 +177,19 @@ export class ItemDatabase {
 	constructor(serialized?: object) {
 		// Verify the content of the serialized database
 		if (serialized !== undefined) {
-			for (let [name, count] of Object.entries(serialized)) {
+			for (let [name, qualities] of Object.entries(serialized)) {
 				checkName(name);
-				checkCount(count);
+				// Migration from pre-quality database format
+				if (typeof qualities === "number") {
+					qualities = { normal: qualities };
+				}
+				for (const quality in qualities) {
+					if (Object.prototype.hasOwnProperty.call(qualities, quality)) {
+						checkCount(qualities[quality]);
+					}
+				}
 
-				this._items.set(name, count);
+				this._items.set(name, qualities);
 			}
 		}
 	}
@@ -195,10 +203,15 @@ export class ItemDatabase {
 	 * @returns Serialized representation of the database
 	 */
 	serialize() {
-		let obj: Record<string, number> = {};
-		for (let [name, count] of this._items) {
-			if (count !== 0) {
-				obj[name] = count;
+		let obj: Record<string, { [quality: string]: number }> = {};
+		for (let [name, qualities] of this._items) {
+			for (const quality in qualities) {
+				if (Object.prototype.hasOwnProperty.call(qualities, quality) && qualities[quality] !== 0) {
+					if (!obj[name]) {
+						obj[name] = {};
+					}
+					obj[name][quality] = qualities[quality];
+				}
 			}
 		}
 		return obj;
@@ -222,16 +235,17 @@ export class ItemDatabase {
 	 * then 0 is returned.
 	 *
 	 * @param name - The name of the item to get the count of.
+	 * @param quality - The quality of the item to get the count of.
 	 * @returns The count of the item stored.
 	 */
-	getItemCount(name: string): number {
+	getItemCount(name: string, quality: string): number {
 		checkName(name);
 
-		if (!this._items.has(name)) {
+		if (!this._items.has(name) || !this._items.get(name)?.[quality]) {
 			return 0;
 		}
 
-		return this._items.get(name)!;
+		return this._items.get(name)![quality];
 	}
 
 	/**
@@ -241,16 +255,20 @@ export class ItemDatabase {
 	 *
 	 * @param name - The name of the item to add.
 	 * @param count - The count of item to remove.
+	 * @param quality - The quality of the item to add.
 	 */
-	addItem(name: string, count: number) {
+	addItem(name: string, count: number, quality: string) {
 		checkName(name);
 		checkCount(count);
 
-		if (this._items.has(name)) {
-			count += this._items.get(name)!;
+		if (!this._items.has(name)) {
+			this._items.set(name, { [quality]: count });
+			return;
 		}
 
-		this._items.set(name, count);
+		// Nullish coalescing operator is used to avoid NaN when the quality is not present
+		let currentCount = this._items.get(name)![quality] ?? 0;
+		this._items.get(name)![quality] = currentCount + count;
 	};
 
 	/**
@@ -262,24 +280,20 @@ export class ItemDatabase {
 	 *
 	 * @param name - The name of the item to remove.
 	 * @param count - The count of items to remove.
+	 * @param quality - The quality of the item to remove.
 	 */
-	removeItem(name: string, count: number) {
+	removeItem(name: string, count: number, quality: string) {
 		checkName(name);
 		checkCount(count);
 
-		count = -count;
-		if (this._items.has(name)) {
-			count += this._items.get(name)!;
-		}
-
-		this._items.set(name, count);
+		this.addItem(name, -count, quality);
 	};
 
 	/**
 	 * Allow to iterate through the items.
 	 * @returns array of items.
 	 */
-	getEntries(): IterableIterator<[string, number]> {
+	getEntries(): IterableIterator<[string, { [quality: string]: number }]> {
 		return this._items.entries();
 	}
 }
