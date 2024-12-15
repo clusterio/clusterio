@@ -9,6 +9,8 @@ import { safeOutputFile } from "./file_ops";
 import { BinaryLike } from "crypto";
 import { Writable } from "stream";
 import { read } from "fs";
+import { Value } from "@sinclair/typebox/value";
+import { keyword$DataError } from "ajv/dist/compile/errors";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -25,7 +27,7 @@ interface ModRelease {
 	download_url: string,
 	file_name: string,
 	info_json: { factorio_version: string; },
-	releasted_at: string, // ISO 8601
+	released_at: string, // ISO 8601
 	version: string,
 	sha1: string;
 }
@@ -203,7 +205,6 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 			if (latestVersion !== undefined) { versions.set(modName, latestVersion); }
 
 		});
-
 		return versions;
 	}
 
@@ -221,6 +222,9 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		if (factorioVersion.split(".").length >= 3) {
 			factorioVersion = factorioVersion.slice(0, factorioVersion.lastIndexOf("."));
 		}
+		modNames = modNames.filter((modName, index, array) => !(modName in ModPack.getBuiltinModNames(factorioVersion))
+		);
+
 		const chunkSize = 500;
 		let versions = new Map<string, string>();
 		for (let i = 0; i < modNames.length; i += chunkSize) {
@@ -238,17 +242,21 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	) {
 		if (releases.length === 0) { }
 
-		releases.forEach(async (release) => {
-			if (release.version === version) {
-				const url = new URL(`https://mods.factorio.com/${release.download_url}`);
-				url.searchParams.set("username", username);
-				url.searchParams.set("token", token);
-				const fileName = `${this.modsDirectory}/${release.file_name}.tmp`;
-				await ModStore.downloadFile(url, fileName);
-				await fs.rename(fileName, `${this.modsDirectory}/${release.file_name}`);
-				this.addMod(await this.loadFile(`${this.modsDirectory}/${release.file_name}`));
-			}
-		});
+		// releases.find() // work on this
+
+		const latestRelease = releases.find(release => release.version === version);
+
+		if (latestRelease === undefined) {
+			return;
+		}
+
+		const url = new URL(`https://mods.factorio.com/${latestRelease.download_url}`);
+		url.searchParams.set("username", username);
+		url.searchParams.set("token", token);
+		const fileName = `${this.modsDirectory}/${latestRelease.file_name}.tmp`;
+		await ModStore.downloadFile(url, fileName);
+		await fs.rename(fileName, `${this.modsDirectory}/${latestRelease.file_name}`);
+		this.addMod(await this.loadFile(`${this.modsDirectory}/${latestRelease.file_name}`));
 	}
 
 	private async downloadModsChunk(
@@ -265,12 +273,9 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
 		}
 		const mods = (await response.json() as ModsInfoResponse).results;
-		let futures: Promise<void>[] = [];
-		mods.forEach((mod) => {
-			futures.push(this.downloadModFromReleases(mod.releases, modVersions[modNames.indexOf(mod.name)],
-				username, token));
-		});
-		futures.forEach(async (future) => await future);
+
+		await Promise.all(mods.map((mod) => this.downloadModFromReleases(mod.releases,
+			modVersions[modNames.indexOf(mod.name)], username, token)));
 	}
 
 
@@ -287,8 +292,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	async downloadMods(modMap: Map<string, string>, username: string, token: string, factorioVersion: string = "1.1") {
 		const chunkSize = 500;
 		let futures: Promise<void>[] = [];
-		const modNames = Array.from(modMap.keys());
-		const modVersions = Array.from(modMap.values());
+		modMap = new Map(modMap);
 		if (factorioVersion.split(".").length >= 3) {
 			factorioVersion = factorioVersion.slice(0, factorioVersion.lastIndexOf("."));
 		}
@@ -296,19 +300,20 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		// get rid of mods already downloaded, why download what is already there
 		modMap.forEach((modVersion, modName, map) => {
 			const filename = `${modName}_${modVersion}.zip`;
-			if (this.files.has(filename)) {
+			if (modName in ModPack.getBuiltinModNames(factorioVersion) || this.files.has(filename)) {
 				map.delete(modName);
 			}
 		});
 
-
+		const modNames = Array.from(modMap.keys());
+		const modVersions = Array.from(modMap.values());
 		for (let i = 0; i < modMap.size; i += chunkSize) {
 			futures.push(
 				this.downloadModsChunk(modNames.slice(i, i + chunkSize), modVersions.slice(i, i + chunkSize),
 					username, token, factorioVersion)
 			);
 		}
-		futures.forEach(async (future) => await future);
+		await Promise.all(futures);
 	}
 
 	static async downloadFile(url: string | URL, filePath: string) {
@@ -334,6 +339,43 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		}
 	}
 
+	async updateModpack(modPack: ModPack) {
+		const modNames = Array.from(modPack.mods.keys());
+		let currentVersions = new Map<string, string>();
+
+		modPack.mods.forEach((value, key, map) => {
+			currentVersions.set(key, value.version);
+		});
+		const factorioVersion = modPack.factorioVersion;
+
+		const latestVersions = await ModStore.getLatestVersions(modNames, factorioVersion);
+
+		let versionChanges = new Map<string, string>();
+		for (const modName in latestVersions.keys()) {
+			if (!latestVersions.has(modName)) { continue; }
+
+			const latestVersion = latestVersions.get(modName) as string;
+
+			const currentVerScore = integerModVersion(currentVersions.get(modName) as string);
+			const latestVerScore = integerModVersion(latestVersion);
+			const haveLatestVer = this.files.has(`${modName}_${latestVersion}.zip`);
+
+			if (currentVerScore >= latestVerScore) {
+				continue;
+			}
+			if (modName in ModPack.getBuiltinModNames(modPack.factorioVersion)) {
+				continue;
+			}
+			if (haveLatestVer) {
+				versionChanges.set(modName, latestVersion);
+			}
+		}
+
+		return versionChanges;
+
+
+	}
+
 
 	/**
 	 * goes through a modpack and updates all it's mods, whether that is switching to a newer version or
@@ -343,11 +385,11 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	 * @param username factorio username used for auth to download mods
 	 * @param token factorio token used for auth to download mods
 	 */
-	async updateModpack(modPack: ModPack, username: string, token: string) {
+	async updateAndDownloadMods(modPack: ModPack, username: string, token: string) {
 		const modNames = Array.from(modPack.mods.keys());
 		const factorioVersion = modPack.factorioVersion;
 		let modLatestVersion = await ModStore.getLatestVersions(modNames, factorioVersion);
-
+		// TODO : change so it returns the changes, rather than change directly
 		// get rid of mods from the map where we already are using or have the latest version
 		modLatestVersion.forEach((modVersion, modName, map) => {
 			const currentVerScore = integerModVersion(modPack.mods.get(modName)?.version as string);
@@ -357,18 +399,22 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 				map.delete(modName);
 				return;
 			}
+			if (modName in ModPack.getBuiltinModNames(modPack.factorioVersion)) {
+				return;
+			}
 			if (haveLatestVer) {
 				let mod = modPack.mods.get(modName) as ModRecord;
 				mod.version = modVersion;
 				map.delete(modName);
 			}
+
 		});
 
 		// download latest version of mods
 		await this.downloadMods(modLatestVersion, username, token, factorioVersion);
 
 		// switch mods to use said latest version
-		modLatestVersion.forEach((modVersion, modName, map) => {
+		modLatestVersion.forEach((modVersion, modName, _map) => {
 			const haveLatestVer = this.files.has(`${modName}_${modVersion}.zip`);
 			if (haveLatestVer) {
 				let mod = modPack.mods.get(modName) as ModRecord;
