@@ -96,16 +96,17 @@ function compat.version_le(version)
 	return true
 end
 
---- The versions of factorio we support
-local v2_0  = compat.version_ge("2.0")
-local v1_1  = not v2_0  and compat.version_ge("1.1")
-local v1_0  = not v1_1  and compat.version_ge("1.0")
-local v0_18 = not v1_0  and compat.version_ge("0.18")
-local v0_17 = not v0_18 and compat.version_ge("0.17")
-
+--- The major versions of factorio we support
 local v2 = compat.version_ge("2.0")
-local v1 = not v2 and compat.version_ge("1.0")
-local v0 = not v1 and compat.version_ge("0.17")
+local v1 = compat.version_ge("1.0")  and not compat.version_ge("2.0")
+local v0 = compat.version_ge("0.17") and not compat.version_ge("1.0")
+
+--- The minor versions of factorio we support
+local v2_0  = compat.version_ge("2.0")
+local v1_1  = compat.version_ge("1.1")  and not compat.version_ge("2.0")
+local v1_0  = compat.version_ge("1.0")  and not compat.version_ge("1.1")
+local v0_18 = compat.version_ge("0.18") and not compat.version_ge("1.0")
+local v0_17 = compat.version_ge("0.17") and not compat.version_ge("0.18")
 
 --- Raise an error because the current version is unsupported
 local function unsupported_version()
@@ -145,10 +146,8 @@ end
 function runtime_properties.prototypes()
 	if v0 or v1 then
 		--- Lazy loading of prototype data
+		--- Iteration is UB, we can fix this once someone actually needs it
 		return setmetatable({}, {
-			-- Prevent iteration due to lazy loading, its a really rare use case
-			__pairs = function() error("Pairs not supported in " .. current_version_str, 2) end,
-			__ipairs = function() error("IPairs not supported in " .. current_version_str, 2) end,
 			__index = function(self, key)
 				local value = game[key .. "_prototypes"]
 				rawset(self, key, value)
