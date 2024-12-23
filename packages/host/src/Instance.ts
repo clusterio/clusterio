@@ -309,7 +309,7 @@ export default class Instance extends lib.Link {
 				const reason = /\. Reason: (.+)\.$/.exec(parsed.message)![1];
 				this._recordUserUpdate(parsed.action, name, reason !== "unspecified" ? reason : "");
 			} else if (["UNBANNED", "PROMOTE", "DEMOTE"].includes(parsed.action)) {
-				this._recordUserUpdate(parsed.action, name);
+				this._recordUserUpdate(parsed.action as "UNBANNED" | "PROMOTE" | "DEMOTE", name);
 			}
 		});
 
@@ -333,7 +333,7 @@ export default class Instance extends lib.Link {
 			}
 
 			const name = /^([^ ]+)/.exec(parsed.message)![1];
-			this._recordUserUpdate(parsed.action, name);
+			this._recordUserUpdate(parsed.action as "PROMOTE" | "DEMOTE", name);
 		});
 	}
 
@@ -1021,7 +1021,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	_recordUserUpdate(action: string, name: string, reason: string = "") {
+	_recordUserUpdate(
+		action: "BAN" | "UNBANNED" | "PROMOTE" | "DEMOTE" | "WHITELISTED" | "UNWHITELISTED",
+		name: string,
+		reason: string = ""
+	) {
 		// TODO: Implement bidirectional whitelist sync, likely by watching the json file
 		const addr = lib.Address.fromShorthand("allInstances");
 		const expectedIndex = this._expectedUserUpdates.findIndex(
