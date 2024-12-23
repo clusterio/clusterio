@@ -3,6 +3,8 @@
 You are probably reading this because you want to contribute code to Clusterio.
 Great!  We need people like you.
 Though we have some conventions and workflows that we kindly ask you to follow.
+We have included all the pratical considerations in this document.
+Although, we recomend checking out out our [past decisions](/docs/decisions.md) if you have the time.
 
 
 ## Contents
@@ -182,7 +184,7 @@ GitHub has no interface or functionality for keeping the branches in your fork u
 
 There's a [Changelog](../CHANGELOG.md) in the root of the project.
 If you make changes that are visible to users of this project you should add an entry to the changelog describing what has changed.
-The format of this log should be self explanatory, please follow it carefully.
+The format of this log should be self explanatory, please follow it carefully. Please make sure to document any [breaking changes](/docs/decisions.md#breaking-changes).
 
 
 ## Supported Node.js and Factorio Versions
@@ -194,12 +196,14 @@ For Factorio Clusterio 2.0 aims to support version 0.17.69 and up, including the
 It's recommended that you use the lua API reference for 0.17.69, as there's no information on what version Factorio API's were introduced in.
 The GitHub Actions tests are run against the latest experimental release.
 
+Check out all our of decisions for [node, factorio, and operation support](/docs/decisions.md#supportability).
+
 
 ## Code Style
 
 The style of the code is a bit of a mixed bag at the moment.
 But there are at least a few things that have been agreed upon.
-
+See our [decisions document](/docs/decisions.md) for justifcations.
 
 ### Naming style
 
