@@ -82,7 +82,7 @@ Consequently, we decided that a log of important decisions should be kept for th
 
 ### TSDoc
 
-🧾 12th August 2023 | [Discord Discussion](https://discord.com/channels/450361298220351489/450361298220351491/1320573126731370506) | Github PR #493
+🧾 12th August 2023 | [Discord Discussion](https://discord.com/channels/450361298220351489/450361298220351491/1320573126731370506) | [Github PR #493](https://github.com/clusterio/clusterio/pull/493)
 
 > When a function or it's arguments do not have a clear purpose, a TSDoc comment should be used to describe it.
 
@@ -266,7 +266,7 @@ To avoid putting more files into the repository root we created a folder for the
 
 ### TypeScript Configs
 
-🧾 26th August 2023 | Github PR #504
+🧾 26th August 2023 | [Github PR #504](https://github.com/clusterio/clusterio/pull/504)
 
 > Each package / plugin may contain any of: `tsconfig.json` `tsconfig.node.json` and `tsconfig.web.json`.
 > The main respository root will contain all three files in addition to `tsconfig.base.json` which node and web extend from.
@@ -338,7 +338,7 @@ The additional `create` package is used by `npm create` to provide a user-friend
 
 ### TypeScript
 
-🧾 6th August 2023 | Github PR #491
+🧾 6th August 2023 | [Github PR #491](https://github.com/clusterio/clusterio/issues/491)
 
 > We use TypeScript as our language of choice.
 
