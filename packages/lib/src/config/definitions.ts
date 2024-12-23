@@ -334,9 +334,9 @@ export interface InstanceConfigFields {
 	"factorio.settings": Record<string, unknown>;
 	"factorio.verbose_logging": boolean;
 	"factorio.strip_paths": boolean;
-	"factorio.sync_adminlist": boolean;
-	"factorio.sync_whitelist": boolean;
-	"factorio.sync_banlist": boolean;
+	"factorio.sync_adminlist": "enabled" | "disabled" | "bidirectional";
+	"factorio.sync_whitelist": "enabled" | "disabled" | "bidirectional";
+	"factorio.sync_banlist": "enabled" | "disabled" | "bidirectional";
 	"factorio.max_concurrent_commands": number;
 }
 
@@ -347,6 +347,20 @@ export interface InstanceConfigFields {
  */
 export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => InstanceConfig;
+	static migrations(config: Static<typeof this.jsonSchema>) {
+		function boolToEnableDisable(name: string) {
+			if (config.hasOwnProperty(name) && typeof config[name] === "boolean") {
+				config[name] = config[name] ? "enabled" : "disabled";
+			}
+		}
+
+		boolToEnableDisable("factorio.sync_adminlist");
+		boolToEnableDisable("factorio.sync_whitelist");
+		boolToEnableDisable("factorio.sync_banlist");
+
+		return config;
+	}
+
 	static fieldDefinitions: classes.ConfigDefs<InstanceConfigFields> = {
 		"instance.name": {
 			type: "string",
@@ -481,19 +495,22 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: true,
 		},
 		"factorio.sync_adminlist": {
-			description: "Synchronize adminlist with controller",
-			type: "boolean",
-			initialValue: true,
+			description: "Synchronize adminlist with the controller",
+			type: "string",
+			enum: ["disabled", "enabled", "bidirectional"],
+			initialValue: "bidirectional",
 		},
 		"factorio.sync_whitelist": {
-			description: "Synchronize whitelist with controller",
-			type: "boolean",
-			initialValue: true,
+			description: "Synchronize whitelist with the controller",
+			type: "string",
+			enum: ["disabled", "enabled"], // TODO: Implement bidirectional
+			initialValue: "enabled",
 		},
 		"factorio.sync_banlist": {
-			description: "Synchronize banlist with controller",
-			type: "boolean",
-			initialValue: true,
+			description: "Synchronize banlist with the controller",
+			type: "string",
+			enum: ["disabled", "enabled", "bidirectional"],
+			initialValue: "bidirectional",
 		},
 		"factorio.max_concurrent_commands": {
 			description: "Maximum number of RCON commands trasmitted in parallel",

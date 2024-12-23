@@ -195,4 +195,112 @@ describe("class Instance", function() {
 			);
 		});
 	});
+
+	describe("_recordUserUpdate()", function() {
+		beforeEach(function() {
+			instance.config.set("factorio.sync_banlist", "bidirectional");
+			instance.config.set("factorio.sync_adminlist", "bidirectional");
+			// instance.config.set("factorio.sync_whitelist", "bidirectional"); // Not Implemented
+		});
+		it("should send InstanceBanlistUpdateEvent for bans", function() {
+			instance._recordUserUpdate("BAN", "player", "reason");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceBanlistUpdateEvent",
+					new lib.InstanceBanlistUpdateEvent(
+						"player",
+						true,
+						"reason",
+					)
+				),
+			);
+		});
+		it("should send InstanceBanlistUpdateEvent for unbans", function() {
+			instance._recordUserUpdate("UNBANNED", "player");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceBanlistUpdateEvent",
+					new lib.InstanceBanlistUpdateEvent(
+						"player",
+						false,
+						"",
+					)
+				),
+			);
+		});
+		it("should send InstanceAdminlistUpdateEvent for promotes", function() {
+			instance._recordUserUpdate("PROMOTE", "player");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceAdminlistUpdateEvent",
+					new lib.InstanceAdminlistUpdateEvent(
+						"player",
+						true,
+					)
+				),
+			);
+		});
+		it("should send InstanceAdminlistUpdateEvent for demotes", function() {
+			instance._recordUserUpdate("DEMOTE", "player");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceAdminlistUpdateEvent",
+					new lib.InstanceAdminlistUpdateEvent(
+						"player",
+						false,
+					)
+				),
+			);
+		});
+		it("should send InstanceWhitelistUpdateEvent for whitelist add", function() {
+			this.skip(); // Bidirectional not implemented
+			instance._recordUserUpdate("WHITELISTED", "player");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceWhitelistUpdateEvent",
+					new lib.InstanceWhitelistUpdateEvent(
+						"player",
+						true,
+					)
+				),
+			);
+		});
+		it("should send InstanceWhitelistUpdateEvent for whitelist remove", function() {
+			this.skip(); // Bidirectional not implemented
+			instance._recordUserUpdate("UNWHITELISTED", "player");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceWhitelistUpdateEvent",
+					new lib.InstanceWhitelistUpdateEvent(
+						"player",
+						false,
+					)
+				),
+			);
+		});
+		it("should throw for unknown event types", function() {
+			assert.throws(() => {
+				instance._recordUserUpdate("INVALID TYPE", "player");
+			});
+		});
+		it("should not send events when it is not bidirectional", function() {
+			for (const configValue of ["disabled", "enabled"]) { // Excludes Bidirectional
+				instance.config.set("factorio.sync_banlist", configValue);
+				instance.config.set("factorio.sync_adminlist", configValue);
+				instance.config.set("factorio.sync_whitelist", configValue);
+				for (const eventType of
+					["BAN", "UNBANNED", "PROMOTE", "DEMOTE", "WHITELISTED", "UNWHITELISTED"]
+				) {
+					instance._recordUserUpdate(eventType, "player");
+					assert.equal(connector.sentMessages[0], undefined);
+				}
+			}
+		});
+	});
 });

@@ -53,13 +53,14 @@ export type PluginWebpackEnvInfo = PluginDeclaration & {
  * Information about the event.
  */
 export interface PlayerEvent {
-	type: "join" | "leave" | "import";
-	/** Name of the player that joined/left */
+	type: "join" | "leave" | "import" | "promote" | "demote" | "ban" | "unban" | "whitelisted" | "unwhitelisted";
+	/** Name of the player that caused the event */
 	name: string,
 	/**
-	 * Only present for type "leave". Reason for player leaving the
+	 * Only present for type "leave" and "ban". Reason for player leaving the
 	 * game, one of the possible reasons in defines.disconnect_reason
 	 * or "server_quit" if the server exits while the player is online.
+	 * When type is "ban" this is the reason given for the ban.
 	 */
 	reason?: string;
 	/**

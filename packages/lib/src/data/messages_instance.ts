@@ -864,7 +864,7 @@ export class InstanceDetailsChangedEvent {
 export class InstanceBanlistUpdateEvent {
 	declare ["constructor"]: typeof InstanceBanlistUpdateEvent;
 	static type = "event" as const;
-	static src = ["controller", "host"] as const;
+	static src = ["controller", "host", "instance"] as const;
 	static dst = "instance" as const;
 
 	constructor(
@@ -887,7 +887,7 @@ export class InstanceBanlistUpdateEvent {
 export class InstanceAdminlistUpdateEvent {
 	declare ["constructor"]: typeof InstanceAdminlistUpdateEvent;
 	static type = "event" as const;
-	static src = ["controller", "host"] as const;
+	static src = ["controller", "host", "instance"] as const;
 	static dst = "instance" as const;
 
 	constructor(
@@ -908,7 +908,7 @@ export class InstanceAdminlistUpdateEvent {
 export class InstanceWhitelistUpdateEvent {
 	declare ["constructor"]: typeof InstanceWhitelistUpdateEvent;
 	static type = "event" as const;
-	static src = ["controller", "host"] as const;
+	static src = ["controller", "host", "instance"] as const;
 	static dst = "instance" as const;
 
 	constructor(
