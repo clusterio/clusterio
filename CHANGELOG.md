@@ -27,55 +27,80 @@ Many thanks to the following for contributing to this release:
 
 ### Major Features
 
-- Added support for 2.0 builtin mods during mod pack creation. [#684](https://github.com/clusterio/clusterio/pull/684).
-- Added basic 2.0 support to clusterio lua api and 1st party plugins [#685](https://github.com/clusterio/clusterio/pull/685).
+- Added support for 2.0 builtin mods during mod pack creation. [#684](https://github.com/clusterio/clusterio/pull/684)
+- Added basic 2.0 support to clusterio lua api and 1st party plugins. [#685](https://github.com/clusterio/clusterio/pull/685)
 
 ### Features
 
-- Added Datastore and Datastore Provider classes to the library to support savable Maps [#629](https://github.com/clusterio/clusterio/pull/629).
-- Added clean script to speed up publishing and debugging of build steps [#640](https://github.com/clusterio/clusterio/pull/640).
-- Added sub-tile option on plugin page headers [#642](https://github.com/clusterio/clusterio/pull/642).
-- Greatly improved plugin and module template generation [#641](https://github.com/clusterio/clusterio/pull/641).
-- Duplicate host connections from the same address will kill the older host process [#647](https://github.com/clusterio/clusterio/pull/647).
-- Controller will refuse duplicate host connections from different addresses [#647](https://github.com/clusterio/clusterio/pull/647).
-- Monorepos are now supported for external plugins [#654](https://github.com/clusterio/clusterio/pull/654).
-- Changed default role selection to be a dropdown menu rather than id [#664](https://github.com/clusterio/clusterio/pull/664).
+- Added Datastore and Datastore Provider classes to the library to support savable Maps. [#629](https://github.com/clusterio/clusterio/pull/629)
+- Added clean script to speed up publishing and debugging of build steps. [#640](https://github.com/clusterio/clusterio/pull/640)
+- Added sub-tile option on plugin page headers. [#642](https://github.com/clusterio/clusterio/pull/642)
+- Greatly improved plugin and module template generation. [#641](https://github.com/clusterio/clusterio/pull/641)
+- Duplicate host connections from the same address will kill the older host process. [#647](https://github.com/clusterio/clusterio/pull/647)
+- Controller will refuse duplicate host connections from different addresses. [#647](https://github.com/clusterio/clusterio/pull/647)
+- Monorepos are now supported for external plugins. [#654](https://github.com/clusterio/clusterio/pull/654)
+- Changed default role selection to be a dropdown menu rather than id. [#664](https://github.com/clusterio/clusterio/pull/664)
 - Added credential option to config entries to allow writing sensitive data that can't be read back remotely.
-- Allow hidden and readonly graphical representations of config values. [#665](https://github.com/clusterio/clusterio/pull/665).
-- Added locale exporting for all builtin mods, not just for the base mod. [#684](https://github.com/clusterio/clusterio/pull/684).
-- Added option for silent testing which only shows the results, can be ran using `pnpm silent-test` [#655](https://github.com/clusterio/clusterio/pull/655).
+- Allow hidden and readonly graphical representations of config values. [#665](https://github.com/clusterio/clusterio/pull/665)
+- Added locale exporting for all builtin mods, not just for the base mod. [#684](https://github.com/clusterio/clusterio/pull/684)
+- Added option for silent testing which only shows the results, can be ran using `pnpm silent-test` [#680](https://github.com/clusterio/clusterio/pull/680)
+- Added prompt for http port on installation of Clusterio. [#564](https://github.com/clusterio/clusterio/issues/564)
+- Added drag and drop overlay to upload button on mods page and save table on instance page. [#591](https://github.com/clusterio/clusterio/issues/591)
+- Automatically add plugins from ./plugins, ./external_plugins and installed npm modules. [#692](https://github.com/clusterio/clusterio/pull/692)
+- `compat.table_to_json` and `compat.json_to_table` supported in all stages in pre 2.0 [#687](https://github.com/clusterio/clusterio/issues/687)
+- Add "connect to server" button to web interface, launches with steam api. [#608](https://github.com/clusterio/clusterio/issues/608)
+- Add space platform name mapping to space platform statistics. [#706](https://github.com/clusterio/clusterio/pull/706)
+- Track space platform speed metric clusterio_statistics_exporter_platform_speed. [#706](https://github.com/clusterio/clusterio/pull/706)
+- Track space platform weight metric clusterio_statistics_exporter_platform_weight. [#706](https://github.com/clusterio/clusterio/pull/706)
+- Added bidirectional sync to admin and ban list. [#709](https://github.com/clusterio/clusterio/pull/709)
+
+### Fixes
+
+- Fixed IPC errors reporting undefined when no stack trace was present. [#624](https://github.com/clusterio/clusterio/pull/624)
+- Fixed loopback routing for instances reporting the wrong error message. [#625](https://github.com/clusterio/clusterio/pull/625)
+- Fixed docs linking to non-existing js files after ts migration. [#633](https://github.com/clusterio/clusterio/pull/633)
+- Fixed CI workflows using deprecated version of nodejs. [#637](https://github.com/clusterio/clusterio/pull/637)
+- Fixed linux only tests to run on windows. [#661](https://github.com/clusterio/clusterio/pull/661)
+- Fixed log events being sent from a host over an invalid websocket. [#639](https://github.com/clusterio/clusterio/pull/639)
+- Fixed spaces passed in arguments to the installer causing it to break. [#620](https://github.com/clusterio/clusterio/issues/620)
+- Fixed numeric admin name breaking login. [#536](https://github.com/clusterio/clusterio/issues/536)
+- Fixed issues with subscriptions which prevented them from working on instances or generic events. [#655](https://github.com/clusterio/clusterio/pull/655).
+- Fixed unreliable datastore tests. [#662](https://github.com/clusterio/clusterio/pull/662).
+- Fixed 2.0 version extraction from linux headless. downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
+- Fixed invalid transient state during server start. [#676](https://github.com/clusterio/clusterio/issues/676)
+- Fixed host user sync to instances after reconnecting to the. controller. [#678](https://github.com/clusterio/clusterio/pull/678)
+- Fixed WebUI adding and displaying the wrong base mod version. [#684](https://github.com/clusterio/clusterio/pull/684)
+- Fixed WebUI inconsistent pattern matching for factorio version. [#684](https://github.com/clusterio/clusterio/pull/684)
+- Fixed `safeOutputFile` not being atomic because of a missing path separator. [#659](https://github.com/clusterio/clusterio/pull/659)
+- Fixed built-in mods showing as missing in the WebUI. [#581](https://github.com/clusterio/clusterio/issues/581)
+- Fixed dirty flag not being set when only the config of an instance is updated. [#675](https://github.com/clusterio/clusterio/pull/675)
+- Fixed incorrect command being used to remove players from the whitelist. [#679](https://github.com/clusterio/clusterio/pull/679)
+- Fixed CI following undocumented breaking change from downstream dependency. [#683](https://github.com/clusterio/clusterio/pull/683)
+- Fixed instance crash when missing saves folder. [#698](https://github.com/clusterio/clusterio/issues/698)
+- Fixed statistics exporter not working on newer versions of windows 11 due to wmic deprecation. [#707](https://github.com/clusterio/clusterio/issues/707)
 
 ### Changes
 
-- Added prompt for the HTTP port to host the controller to the installer [#619](https://github.com/clusterio/clusterio/pull/619).
-- Added tests for sendEvent and sendRequest throwing the correct error messages [#638](https://github.com/clusterio/clusterio/pull/638).
-- Updated all web ui pages to use correct page header component [#643](https://github.com/clusterio/clusterio/pull/643).
-- Fixed IPC errors reporting undefined when no stack trace was present [#624](https://github.com/clusterio/clusterio/pull/624).
-- Fixed loopback routing for instances reporting the wrong error message [#625](https://github.com/clusterio/clusterio/pull/625).
-- Fixed docs linking to non-existing js files after ts migration [#633](https://github.com/clusterio/clusterio/pull/633).
-- Fixed CI workflows using deprecated version of nodejs [#637](https://github.com/clusterio/clusterio/pull/637).
-- Fixed linux only tests to run on windows [#661](https://github.com/clusterio/clusterio/pull/661).
-- Fixed log events being sent from a host over an invalid websocket [#639](https://github.com/clusterio/clusterio/pull/639).
-- Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir" [#648](https://github.com/clusterio/clusterio/pull/648).
-- Fixed spaces passed in arguments to the installer causing it to break [#620](https://github.com/clusterio/clusterio/issues/620)
-- Fixed numeric admin name breaking login [#536](https://github.com/clusterio/clusterio/issues/536)
+- Added prompt for the HTTP port to host the controller to the installer. [#619](https://github.com/clusterio/clusterio/pull/619)
+- Added tests for sendEvent and sendRequest throwing the correct error messages. [#638](https://github.com/clusterio/clusterio/pull/638)
+- Updated all web ui pages to use correct page header component. [#643](https://github.com/clusterio/clusterio/pull/643)
+- Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir". [#648](https://github.com/clusterio/clusterio/pull/648).
 - Added factorio.executable_path option which allows overriding the default path to the Factorio executable run.
-- Added instance version display [#573](https://github.com/clusterio/clusterio/pull/573)
+- Added instance version display. [#573](https://github.com/clusterio/clusterio/pull/573)
 - Added `factorio.shutdown_timeout` config to set the time the host will wait for a Factorio server to shut down befor killing it.
 - Changed shutdown logic to prefer sending a /quit command via RCON instead of using diverging logic on Windows and Linux.
-- Fixed issues with subscriptions which prevented them from working on instances or generic events [#655](https://github.com/clusterio/clusterio/pull/655).
-- Fixed unreliable datastore tests [#662](https://github.com/clusterio/clusterio/pull/662).
 - Added `controller.factorio_username` and `controller.factorio_token` config to set Factorio credentials used for the whole cluster.
 - Added `controller.share_factorio_credential_with_hosts` config to optionally require hosts to provide their own credentials.
 - Added `host.factorio_username` and `host.factorio_token` config to set Factorio credentials used on a given host.
 - Changed `instance.rcon_password` config to be a credential field that can not be read by the control interface.
 - Changed `host.id` `instance.id` and `instance.assign_host` config to be hidden fields that can not be seen on the web ui.
-- Fixed 2.0 version extraction from linux headless downloaded during installation of clusterio. [#671](https://github.com/clusterio/clusterio/pull/671)
 - Updated display name and description of `controller.external_address` to avoid confusion. [#674](https://github.com/clusterio/clusterio/pull/674)
-- Fixed invalid transient state during server start. [#676](https://github.com/clusterio/clusterio/issues/676)
-- Fixed host user sync to instances after reconnecting to the controller. [#678](https://github.com/clusterio/clusterio/pull/678)
-- Fixed WebUI adding and displaying the wrong base mod version. [#684](https://github.com/clusterio/clusterio/pull/684).
-- Fixed WebUI inconsistent pattern matching for factorio version. [#684](https://github.com/clusterio/clusterio/pull/684).
+- Renamed config value `controller.external_address` to `controller.public_url`, migrations are applied automatically.
+- String config values with whitelisted values (enum) now display as a selection dropdown. [#701](https://github.com/clusterio/clusterio/pull/701)
+- Existing selection dropdowns now support search filtering. [#701](https://github.com/clusterio/clusterio/pull/701)
+- Added surface label to clusterio_statistics_exporter_instance_force_flow_statistics. [#691](https://github.com/clusterio/clusterio/issues/691)
+- Compat lib now supports versions from 0.17 to 2.0 [#711](https://github.com/clusterio/clusterio/pull/711)
+- Add bidirectional sync to admin and ban list. [#709](https://github.com/clusterio/clusterio/pull/709)
 
 ### Breaking Changes
 
@@ -84,6 +109,7 @@ Many thanks to the following for contributing to this release:
 - Argument order for `Config.canAccess` changed to require an access mode passed as the second argument.
 - Instances can now have `factorio.enable_script_commands` disabled which will throw an error when any script command is used over rcon. [#681](https://github.com/clusterio/clusterio/pull/681).
 - User IDs are now case insensitive, duplicate users will be automatically merged with a backup created. [#682](https://github.com/clusterio/clusterio/pull/682)
+- Plugins now require the keyword "clusterio-plugin" in package.json to be automatically loaded [#692](https://github.com/clusterio/clusterio/pull/692)
 
 Many thanks to the following for contributing to this release:  
 [@CCpersonguy](https://github.com/CCpersonguy)

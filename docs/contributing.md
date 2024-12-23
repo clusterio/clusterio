@@ -300,14 +300,16 @@ You will need commit access to the repository as well publish access to the @clu
 
     Check and make sure there are no untracked files with `git status`.
 
-2.  Update the version in package files.
+2.  Check all PRs merged since the last version and copy their change logs into the main changelog.
+
+3.  Update the version in package files.
     Make sure to update the command for the right version jump.
 
     ```sh
     sed -i 's/2\.0\.0-alpha\.12/2\.0\.0-alpha\.13/' {packages,plugins}/*/package.json
     ```
 
-3.  Inspect, commit and tag the changes.
+4.  Inspect, commit and tag the changes.
     Again, make sure to be tagging the right version.
 
     ```sh
@@ -316,7 +318,7 @@ You will need commit access to the repository as well publish access to the @clu
     git tag v2.0.0-alpha.13
     ```
 
-4.  Publish the packages.
+5.  Publish the packages.
 
     ```sh
     pnpm clean

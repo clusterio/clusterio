@@ -4,12 +4,12 @@ The changelog lines below will be copied directly from merged pull requests to t
 ## Changelog
 ```
 ### Features
-- Added doodad to web interface [#999](https://github.com/clusterio/clusterio/issues/999)
+- Added doodad to web interface. [#999](https://github.com/clusterio/clusterio/issues/999)
 
 ### Changes
 - ...
 
-### Bugfixes
+### Fixes
 - ...
 
 ### Breaking changes
