@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-player_auth",
-	"version": "2.0.0-alpha.18",
+	"version": "2.0.0-alpha.19",
 	"description": "Clusterio plugin authenticating logged in players to the web interface",
 	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",

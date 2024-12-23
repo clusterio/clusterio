@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-inventory_sync",
-	"version": "2.0.0-alpha.18",
+	"version": "2.0.0-alpha.19",
 	"description": "Clusterio plugin forwarding between Factorio servers",
 	"author": "Danielv <danielv@danielv.no>",
 	"homepage": "https://github.com/clusterio/factorioClusterio#readme",
