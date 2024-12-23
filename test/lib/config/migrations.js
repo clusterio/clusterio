@@ -28,9 +28,9 @@ describe("lib/config/migrations", function() {
 				"factorio.sync_banlist": true,
 			}, "controller");
 
-			assert.equal(configTrue.get("factorio.sync_adminlist"), "Enabled", "sync_adminlist contains wrong value");
-			assert.equal(configTrue.get("factorio.sync_whitelist"), "Enabled", "sync_adminlist contains wrong value");
-			assert.equal(configTrue.get("factorio.sync_banlist"), "Enabled", "sync_adminlist contains wrong value");
+			assert.equal(configTrue.get("factorio.sync_adminlist"), "enabled", "sync_adminlist contains wrong value");
+			assert.equal(configTrue.get("factorio.sync_whitelist"), "enabled", "sync_adminlist contains wrong value");
+			assert.equal(configTrue.get("factorio.sync_banlist"), "enabled", "sync_adminlist contains wrong value");
 
 			const configFalse = lib.InstanceConfig.fromJSON({
 				"factorio.sync_adminlist": false,
@@ -38,9 +38,9 @@ describe("lib/config/migrations", function() {
 				"factorio.sync_banlist": false,
 			}, "controller");
 
-			assert.equal(configFalse.get("factorio.sync_adminlist"), "Disabled", "sync_adminlist contains wrong value");
-			assert.equal(configFalse.get("factorio.sync_whitelist"), "Disabled", "sync_adminlist contains wrong value");
-			assert.equal(configFalse.get("factorio.sync_banlist"), "Disabled", "sync_adminlist contains wrong value");
+			assert.equal(configFalse.get("factorio.sync_adminlist"), "disabled", "sync_adminlist contains wrong value");
+			assert.equal(configFalse.get("factorio.sync_whitelist"), "disabled", "sync_adminlist contains wrong value");
+			assert.equal(configFalse.get("factorio.sync_banlist"), "disabled", "sync_adminlist contains wrong value");
 		});
 	});
 	describe("Control Config", function() {

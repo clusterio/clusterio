@@ -198,9 +198,9 @@ describe("class Instance", function() {
 
 	describe("_recordUserUpdate()", function() {
 		beforeEach(function() {
-			instance.config.set("factorio.sync_banlist", "Bidirectional");
-			instance.config.set("factorio.sync_adminlist", "Bidirectional");
-			// instance.config.set("factorio.sync_whitelist", "Bidirectional"); // Not Implemented
+			instance.config.set("factorio.sync_banlist", "bidirectional");
+			instance.config.set("factorio.sync_adminlist", "bidirectional");
+			// instance.config.set("factorio.sync_whitelist", "bidirectional"); // Not Implemented
 		});
 		it("should send InstanceBanlistUpdateEvent for bans", function() {
 			instance._recordUserUpdate("BAN", "player", "reason");
@@ -288,7 +288,7 @@ describe("class Instance", function() {
 			});
 		});
 		it("should not send events when it is not bidirectional", function() {
-			for (const configValue of ["Disabled", "Enabled"]) { // Excludes Bidirectional
+			for (const configValue of ["disabled", "enabled"]) { // Excludes Bidirectional
 				instance.config.set("factorio.sync_banlist", configValue);
 				instance.config.set("factorio.sync_adminlist", configValue);
 				instance.config.set("factorio.sync_whitelist", configValue);

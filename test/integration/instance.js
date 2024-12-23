@@ -96,7 +96,7 @@ describe("Clusterio Instance", function() {
 					});
 				}
 				it("should respond to a player ban and unban event", async function() {
-					await execCtl(`instance config set ${instName} factorio.sync_banlist Bidirectional`);
+					await execCtl(`instance config set ${instName} factorio.sync_banlist bidirectional`);
 					await sendRcon(instId, "/ban BannedPlayer");
 					const userBanned = await getUser("BannedPlayer");
 					assert(userBanned.isBanned, "Player is not banned");
@@ -111,7 +111,7 @@ describe("Clusterio Instance", function() {
 				});
 				it("should respond to a player promote and demote event", async function() {
 					// Because there is no admin list command this test will be different to the other two
-					await execCtl(`instance config set ${instName} factorio.sync_adminlist Bidirectional`);
+					await execCtl(`instance config set ${instName} factorio.sync_adminlist bidirectional`);
 					await sendRcon(instId, "/promote AdminPlayer");
 					const userPromote = await getUser("AdminPlayer");
 					assert(userPromote.isAdmin, "Player is not promoted");
@@ -132,7 +132,7 @@ describe("Clusterio Instance", function() {
 				});
 				it("should respond to a player whitelist add and remove event", async function() {
 					this.skip(); // Not implemented
-					await execCtl(`instance config set ${instName} factorio.sync_whitelist Bidirectional`);
+					await execCtl(`instance config set ${instName} factorio.sync_whitelist bidirectional`);
 					await sendRcon(instId, "/whitelist add WhitelistPlayer");
 					const userAdded = await getUser("WhitelistPlayer");
 					assert(userAdded.isWhitelisted, "Player is not whitelisted");
