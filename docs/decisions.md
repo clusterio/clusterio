@@ -199,7 +199,7 @@ Although, we have also allowed the use of lowercase_underscore for config values
 > To enable Clusterio support, use the CLI flag `--clusterio-modules` under `Lua.runtime.pluginArgs`.
 
 We needed to maintain a consistent style across all our files.
-TThere are multiple competing standards for Lua code, and given the limited amount of Lua code in this project, we chose not to adopt any automatic linting or shared luarc file.
+There are multiple competing standards for Lua code, and given the limited amount of Lua code in this project, we chose not to adopt any automatic linting or shared luarc file.
 Nevertheless, we recomend the use of [FMTK](https://github.com/justarandomgeek/vscode-factoriomod-debug) and have taken steps towords supporting it in Clusterio.
 
 
@@ -262,7 +262,6 @@ Creating a folder provided a simple solution to this.
 We require a set of core packages to represent the different applications used in a cluster.
 See [Separation of Host and Controller](#separation-of-host-and-controller).
 To avoid putting more files into the repository root we created a folder for the core packages.
-This was simple and effective.
 
 
 ### TypeScript Configs
@@ -345,6 +344,7 @@ The additional `create` package is used by `npm create` to provide a user-friend
 
 We previously used JavaScript and switched to TypeScript to provide a robust type system.
 Transitioning to any other langauge would be too significant an undertaking.
+Initially, we supported multiple languages for plugins, including Rust and Go; however, this approach was quickly abandoned due to its complexity.
 
 
 ### Webpack
