@@ -3,10 +3,11 @@
 	"description": "Clusterio web interface implementation",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.19",
+	"version": "2.0.0-alpha.19.b",
 	"browser": "src/index.ts",
 	"main": "dist/browser/src/index.js",
 	"scripts": {
+		"prepare": "tsc --build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"keywords": [
