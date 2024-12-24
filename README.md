@@ -90,13 +90,13 @@ Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for w
 
 ## Installation
 
-Clusterio runs on Node.js v18 and up, it's distributed via npm and comes with a guided install script.
+Clusterio runs on all LTS version of NodeJS, it is distributed via npm and comes with a guided install script.
 If you already have a recent Node.js installed, you can set it up in a new directory with:
 
     npm init "@clusterio"
 
-Otherwise see below for OS specific instructions.
-
+Otherwise see below for OS specific instructions.  
+Check out all our of decisions for [node, factorio, and operation support](/docs/decisions.md#supportability).
 
 ### Ubuntu setup
 
