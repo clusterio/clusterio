@@ -27,7 +27,7 @@ export function formatDuration(ms: number): string {
 		result += formatMinute(Math.floor(ms / 60e3));
 		ms %= 60e3;
 	}
-	result += formatSecond(Math.round(ms / 1e3));
+	result += formatSecond(Math.floor(ms / 1e3));
 	return result;
 }
 
