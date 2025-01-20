@@ -78,6 +78,9 @@ end
 function serialize.serialize_personal_logistic_slots(player)
 	if v2_logistic_api then
 		local logistic_point = player.get_requester_point()
+		if logistic_point == nil then
+			return nil
+		end
 		local serialized = {
 			enabled = logistic_point.enabled,
 			trash_not_requested = logistic_point.trash_not_requested,
