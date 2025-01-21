@@ -348,6 +348,8 @@ const knownScenarios: Record<string, lib.ModuleInfo> = {
 	"4e866186ebe297f1038fd325b09df1a1f5e2fdd1": new lib.ModuleInfo("freeplay", "0.17.63", [], ["scenario"]),
 	// First seen in 2.0
 	"bcbdde18ce4ec16ebfd93bd694cd9b12ef969c9a": new lib.ModuleInfo("freeplay", "2.0.0", [], ["scenario"]),
+	// First seen in 2.0.29
+	"3af547d2f4db3728b75ac5d1b3a4f47830dc48e7": new lib.ModuleInfo("freeplay", "2.0.29", [], ["scenario"]),
 };
 
 /**
