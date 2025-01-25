@@ -183,10 +183,8 @@ export class ItemDatabase {
 				if (typeof qualities === "number") {
 					qualities = { normal: qualities };
 				}
-				for (const quality in qualities) {
-					if (Object.prototype.hasOwnProperty.call(qualities, quality)) {
-						checkCount(qualities[quality]);
-					}
+				for (const count of Object.values(qualities)) {
+					checkCount(count);
 				}
 
 				this._items.set(name, qualities);
@@ -241,7 +239,7 @@ export class ItemDatabase {
 	getItemCount(name: string, quality: string): number {
 		checkName(name);
 
-		if (!this._items.has(name) || !this._items.get(name)?.[quality]) {
+		if (!this._items.get(name)?.[quality]) {
 			return 0;
 		}
 

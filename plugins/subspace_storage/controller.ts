@@ -152,7 +152,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				result.push(new Item(name, count, quality));
 			}
 		}
-		this.logger.verbose(`Sending storage update:\n${JSON.stringify(result)}`);
 		return result;
 	}
 
