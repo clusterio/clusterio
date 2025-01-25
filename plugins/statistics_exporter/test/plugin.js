@@ -66,9 +66,19 @@ describe("statistics_exporter plugin", function() {
 				assert.equal(instance._instanceForceFlowStatistics.labels(
 					"7357", "nauvis", "player", "item_production_statistics", "input", "inserter").get(),
 				10);
+				assert.equal(instance._instanceForceFlowStatistics.labels(
+					"7357", "nauvis", "player", "item_production_statistics", "output", "iron-plate").get(),
+				24);
+				// Assert that it didn't record inserter consumption as production
+				assert.equal(instance._instanceForceFlowStatistics.labels(
+					"7357", "nauvis", "player", "item_production_statistics", "output", "inserter").get(),
+				0);
 				assert.equal(instance._instanceGameFlowStatistics.labels(
 					"7357", "nauvis", "pollution_statistics", "input", "boiler").get(),
 				2000);
+				assert.equal(instance._instanceGameFlowStatistics.labels(
+					"7357", "nauvis", "pollution_statistics", "output", "tree-proxy").get(),
+				560);
 				assert.equal(instance._instancePlatformMapping.labels(
 					"7357", "platform-1", "player", "nauvis").get(),
 				1);

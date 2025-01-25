@@ -98,7 +98,7 @@ function setForceFlowStatistic(
 			statisticName,
 			reverseDirection,
 			item
-		).set(value);
+		);
 	}
 }
 
