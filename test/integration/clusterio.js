@@ -1072,8 +1072,15 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("mod-pack list", function() {
+			let result = null;
 			it("runs", async function() {
-				await execCtl("mod-pack list");
+				result = await execCtl("mod-pack list");
+			});
+			it("contains defaults", function() {
+				assert(result !== null, "Failed to return a value");
+				const stdout = result.stdout.trim();
+				assert(stdout.indexOf("Base Game") >= 0, "No base game pack");
+				assert(stdout.indexOf("Space Age") >= 0, "No space age pack");
 			});
 		});
 

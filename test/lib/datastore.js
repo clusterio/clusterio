@@ -413,6 +413,22 @@ describe("lib/datastore", function() {
 			});
 		});
 
+		describe("size", function() {
+			it("returns the correct size", function() {
+				assert.equal(datastore.size, 3);
+			});
+		});
+
+		describe("iterator", function() {
+			it("iterates all values", function() {
+				const entries = [];
+				for (const entry of datastore) {
+					entries.push(entry);
+				}
+				assert.deepEqual(entries, [...datastoreProvider.value.entries()]);
+			});
+		});
+
 		describe("values", function() {
 			it("returns all values", function() {
 				assert.deepEqual([...datastore.values()], [...datastoreProvider.value.values()]);

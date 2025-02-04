@@ -189,6 +189,11 @@ export abstract class Datastore<
 		return this.data.get(key);
 	}
 
+	// Allow getting the size of the datastore
+	get size() {
+		return this.data.size;
+	}
+
 	// Allow iterating through the datastore like a Map.
 	[Symbol.iterator](): IterableIterator<[K, Readonly<V>]> {
 		return this.data.entries();
