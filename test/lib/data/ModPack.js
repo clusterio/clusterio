@@ -378,6 +378,24 @@ describe("lib/data/ModPack", function() {
 				/* eslint-enable indent */
 			});
 		});
+		describe("defaultModPacks", function() {
+			it("should contain at least one base game only", function() {
+				const modPack = ModPack.defaultModPacks.find(pack => {
+					const base = pack.mods.get("base");
+					const spaceAge = pack.mods.get("space-age");
+					return base && base.enabled && (!spaceAge || !spaceAge.enabled);
+				});
+				assert(modPack, "Does not contain base game only");
+			});
+			it("should contain at least one space age expansion", function() {
+				const modPack = ModPack.defaultModPacks.find(pack => {
+					const base = pack.mods.get("base");
+					const spaceAge = pack.mods.get("space-age");
+					return base && base.enabled && spaceAge && spaceAge.enabled;
+				});
+				assert(modPack, "Does not contain space age expansion");
+			});
+		});
 		describe("getBuiltinMods()", function() {
 			it("should work with versions before 2.0", function() {
 				const builtinMods = ModPack.getBuiltinMods("1.1");

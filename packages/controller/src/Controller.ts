@@ -127,6 +127,10 @@ export default class Controller {
 			lib.ModPack.fromJSON.bind(lib.ModPack)
 		).bootstrap());
 
+		if (modPacks.size === 0) {
+			modPacks.setMany(lib.ModPack.defaultModPacks);
+		}
+
 		const userManager = new UserManager(config);
 		await userManager.load(path.join(databaseDirectory, "users.json"));
 

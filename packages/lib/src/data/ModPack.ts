@@ -383,6 +383,27 @@ export default class ModPack {
 		}
 	}
 
+	/** Array of default mod packs which should exist on a newly installed cluster */
+	static defaultModPacks = [
+		...["0.17", "0.18", "1.0", "1.1", "2.0"]
+			.map(version => this.fromJSON({
+				name: `Base Game ${version}`,
+				description: `Factorio ${version} with no extra mods.`,
+				factorio_version: version,
+			} as any)),
+		...["2.0"]
+			.map(version => this.fromJSON({
+				name: `Space Age ${version}`,
+				description: `Factorio ${version} with Space Age expansion.`,
+				factorio_version: version,
+				mods: [
+					{ name: "elevated-rails", enabled: true, version },
+					{ name: "quality", enabled: true, version },
+					{ name: "space-age", enabled: true, version },
+				],
+			} as any)),
+	];
+
 	/**
 	 * Returns an array of ModInfo containing all mods included in factorio
 	 *
