@@ -35,7 +35,7 @@ function StoragePage() {
 	let locale = useLocale();
 	let itemMetadata = useItemMetadata();
 	let storage = useStorage(control);
-	type ItemFilter = ([name, count]: [string, number]) => boolean;
+	type ItemFilter = ([name, item]: [string, Item]) => boolean;
 	let [filter, setFilter] = useState<null | ItemFilter>(null);
 
 	function getLocaleName(itemName: string) {
@@ -73,9 +73,9 @@ function StoragePage() {
 					search = search.replace(/(^| )(\w)/g, "$1\\b$2");
 					search = search.replace(/ +/g, ".*");
 					let filterExpr = new RegExp(search, "i");
-					setFilter(() => ((item: [string, number]) => {
-						let name = getLocaleName(item[0]);
-						return filterExpr.test(name) || filterExpr.test(item[0]);
+					setFilter(() => ((item: [string, Item]) => {
+						let name = getLocaleName(item[1].name);
+						return filterExpr.test(name) || filterExpr.test(item[1].name);
 					}));
 				}}
 			/>
@@ -86,29 +86,34 @@ function StoragePage() {
 					title: "Resource",
 					key: "resource",
 					sorter: (a, b) => {
-						let aName = getLocaleName(a[0]);
-						let bName = getLocaleName(b[0]);
+						let aName = getLocaleName(a[1].name);
+						let bName = getLocaleName(b[1].name);
 						if (aName < bName) { return -1; }
 						if (aName > bName) { return 1; }
 						return 0;
 					},
 					render: (_, item) => {
-						let localeName = getLocaleName(item[0]);
-						let hasMeta = itemMetadata.get(item[0]);
+						let localeName = getLocaleName(item[1].name);
+						let hasMeta = itemMetadata.get(item[1].name);
 
 						return <>
-							<span className={`factorio-icon item-${hasMeta ? item[0] : "unknown-item"}`}/>
+							<span className={`factorio-icon item-${hasMeta ? item[1].name : "unknown-item"}`}/>
 							{localeName}
 						</>;
 					},
+				},
+				{
+					title: "Quality",
+					key: "quality",
+					render: (_, item) => item[1].quality,
 				},
 				{
 					title: "Quantity",
 					key: "quantity",
 					align: "right",
 					defaultSortOrder: "descend",
-					sorter: (a, b) => a[1] - b[1],
-					render: (_, item) => numberFormat.format(item[1]),
+					sorter: (a, b) => a[1].count - b[1].count,
+					render: (_, item) => numberFormat.format(item[1].count),
 				},
 			]}
 			dataSource={filter ? storage.filter(filter) : storage}
@@ -119,7 +124,7 @@ function StoragePage() {
 }
 
 export class WebPlugin extends BaseWebPlugin {
-	storage = new Map<string, number>();
+	storage = new Map<string, Item>();
 	callbacks: (() => void)[] = [];
 
 	async init() {
@@ -165,7 +170,7 @@ export class WebPlugin extends BaseWebPlugin {
 
 	updateStorage(items: Item[]) {
 		for (let item of items) {
-			this.storage.set(item.name, item.count);
+			this.storage.set(`${item.name}:${item.quality}`, item);
 		}
 		for (let callback of this.callbacks) {
 			callback();

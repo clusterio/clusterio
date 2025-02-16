@@ -199,12 +199,16 @@ describe("Integration of Clusterio", function() {
 		it("should download mods from controller", async function() {
 			slowTest(this);
 			await runWithAltHost(async () => {
-				const clusterioLib = path.join("temp", "test", "alt-mods", "clusterio_lib_0.1.2.zip");
-				assert(!await fs.pathExists(clusterioLib), "mod was downloaded before the test");
+				// Use the latest vesion in /dist instead of a hardcoded version
+				async function checkModDownloaded() {
+					let files = await fs.readdir(path.join("temp", "test", "alt-mods"));
+					return files.find(name => name.startsWith("clusterio_lib_"));
+				}
+				assert(!await checkModDownloaded(), "mod was downloaded before the test");
 				await execCtl("instance create alt-mod --id 98");
 				await execCtl("instance assign alt-mod 5");
 				await execCtl("instance save create alt-mod");
-				assert(await fs.pathExists(clusterioLib), "mod was not downloaded by the test");
+				assert(await checkModDownloaded(), "mod was not downloaded by the test");
 			});
 		});
 		it("should auto start instances with auto_start enabled", async function() {

@@ -55,3 +55,23 @@ jobs:
         node-version: 18.x
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 8
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+    - run: pnpm i --no-frozen-lockfile
+    - run: pnpm run build-mod
+    # Upload build to artifacts
+    - name: Upload build to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: clusterio_lib
+        path: ./dist
+        if-no-files-found: error

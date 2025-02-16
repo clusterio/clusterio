@@ -18,9 +18,6 @@ require("../../plugins/research_sync/dist/node/index");
 require("../../plugins/statistics_exporter/dist/node/index");
 require("../../plugins/subspace_storage/dist/node/index");
 
-const subspaceStorageVersion = "1.99.8";
-const subspaceStorageGitHubTag = "1.99.6"; // Tag subspaceStorageVersion was released under on GitHub
-
 class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
 		super(connector);
@@ -266,24 +263,6 @@ before(async function() {
 		sourceDir: "packages/host/lua/clusterio_lib",
 		outputDir: modsDir,
 	});
-	const ssv = subspaceStorageVersion;
-	const ssTag = subspaceStorageGitHubTag;
-	const ssZip = `subspace_storage_${ssv}.zip`;
-	if (!await fs.pathExists(`mods/${ssZip}`)) {
-		console.log(`Downloading ${ssZip}`);
-		const ssUrl = `https://github.com/clusterio/subspace_storage/releases/download/${ssTag}/${ssZip}`;
-		let response = await phin({
-			url: ssUrl,
-			method: "GET",
-			stream: false, // phin leaks open sockets when stream and followRedirects is combined
-			followRedirects: true,
-		});
-		if (response.statusCode !== 200) {
-			throw new Error(`${ssUrl} returned ${response.statusCode} ${response.statusMessage}`);
-		}
-		await fs.outputFile(`mods/${ssZip}`, response.body);
-	}
-	await fs.copyFile(`mods/${ssZip}`, `${modsDir}/${ssZip}`);
 
 	console.log("Setting Controller Config");
 	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
@@ -325,9 +304,8 @@ before(async function() {
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
 	testPack.name = "subspace_storage-pack";
-	testPack.factorioVersion = "1.1.0";
-	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
-	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: subspaceStorageVersion });
+	testPack.factorioVersion = "2.0.0";
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "2.0.20" });
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
 		"controller",
