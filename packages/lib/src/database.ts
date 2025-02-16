@@ -154,6 +154,11 @@ function checkCount(count: unknown): asserts count is number {
 	}
 }
 
+function checkQuality(quality: unknown): asserts quality is string {
+	if (typeof quality !== "string") {
+		throw new Error("quality must be a string");
+	}
+}
 
 /**
  * Item database
@@ -238,6 +243,7 @@ export class ItemDatabase {
 	 */
 	getItemCount(name: string, quality: string): number {
 		checkName(name);
+		checkQuality(quality);
 
 		if (!this._items.get(name)?.[quality]) {
 			return 0;
@@ -258,6 +264,7 @@ export class ItemDatabase {
 	addItem(name: string, count: number, quality: string) {
 		checkName(name);
 		checkCount(count);
+		checkQuality(quality);
 
 		if (!this._items.has(name)) {
 			this._items.set(name, { [quality]: count });
