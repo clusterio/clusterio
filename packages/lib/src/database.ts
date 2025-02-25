@@ -9,6 +9,7 @@ import fs from "fs-extra";
 import * as libFileOps from "./file_ops";
 import { basicType } from "./helpers";
 
+export type ItemCountWithQuality = { [quality: string]: number };
 
 /**
  * Converts a Map with only string keys to a JavaScript object.
@@ -169,7 +170,7 @@ function checkQuality(quality: unknown): asserts quality is string {
  * deserialized the content is verified.
  */
 export class ItemDatabase {
-	private _items: Map<string, { [quality: string]: number }> = new Map();
+	private _items: Map<string, ItemCountWithQuality> = new Map();
 
 	/**
 	 * Create a new item database
@@ -206,10 +207,10 @@ export class ItemDatabase {
 	 * @returns Serialized representation of the database
 	 */
 	serialize() {
-		let obj: Record<string, { [quality: string]: number }> = {};
+		let obj: Record<string, ItemCountWithQuality> = {};
 		for (let [name, qualities] of this._items) {
-			for (const quality in qualities) {
-				if (Object.prototype.hasOwnProperty.call(qualities, quality) && qualities[quality] !== 0) {
+			for (const quality of Object.getOwnPropertyNames(qualities)) {
+				if (qualities[quality] !== 0) {
 					if (!obj[name]) {
 						obj[name] = {};
 					}
@@ -288,9 +289,6 @@ export class ItemDatabase {
 	 * @param quality - The quality of the item to remove.
 	 */
 	removeItem(name: string, count: number, quality: string) {
-		checkName(name);
-		checkCount(count);
-
 		this.addItem(name, -count, quality);
 	};
 
@@ -298,7 +296,7 @@ export class ItemDatabase {
 	 * Allow to iterate through the items.
 	 * @returns array of items.
 	 */
-	getEntries(): IterableIterator<[string, { [quality: string]: number }]> {
+	getEntries(): IterableIterator<[string, ItemCountWithQuality]> {
 		return this._items.entries();
 	}
 }

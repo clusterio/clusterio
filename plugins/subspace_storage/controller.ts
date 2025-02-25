@@ -73,7 +73,7 @@ async function saveDatabase(
 export class ControllerPlugin extends BaseControllerPlugin {
 	items!: lib.ItemDatabase;
 	itemUpdateRateLimiter!: lib.RateLimiter;
-	itemsLastUpdate: Map<string, { [quality: string]: number }> = new Map();
+	itemsLastUpdate: Map<string, lib.ItemCountWithQuality> = new Map();
 	subscribedControlLinks!: Set<ControlConnection>;
 	doleMagicId!: ReturnType<typeof setInterval>;
 	neuralDole!: dole.NeuralDole;
