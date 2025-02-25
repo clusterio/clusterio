@@ -18,11 +18,11 @@
 		"node": ">=12"
 	},
 	"dependencies": {
-		"@ant-design/icons": "^5.1.4",
+		"@ant-design/icons": "^5.6.1",
 		"@clusterio/lib": "workspace:*",
 		"@sinclair/typebox": "^0.30.4",
-		"@swc/core": "^1.4.0",
-		"antd": "^5.13.0",
+		"@swc/core": "^1.11.1",
+		"antd": "^5.24.2",
 		"assert": "^2.0.0",
 		"browserify-zlib": "^0.2.0",
 		"buffer": "^6.0.3",
@@ -37,14 +37,14 @@
 		"rc-field-form": "^1.37.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"react-router-dom": "^6.14.2",
+		"react-router-dom": "^6.29.0",
 		"stream-browserify": "^3.0.0",
 		"style-loader": "^3.3.3",
 		"swc-loader": "^0.2.6",
-		"terser-webpack-plugin": "^5.3.9",
-		"typescript": "^5.5.3",
+		"terser-webpack-plugin": "^5.3.11",
+		"typescript": "^5.7.3",
 		"util": "^0.12.5",
-		"webpack": "^5.88.2",
+		"webpack": "^5.98.0",
 		"webpack-cli": "^5.1.4",
 		"webpack-manifest-plugin": "^5.0.0"
 	},
@@ -52,8 +52,8 @@
 		"access": "public"
 	},
 	"devDependencies": {
-		"@types/node": "^20.4.5",
-		"@types/react": "^18.2.21",
-		"@types/react-dom": "^18.2.7"
+		"@types/node": "^20.17.19",
+		"@types/react": "^18.3.18",
+		"@types/react-dom": "^18.3.5"
 	}
 }
