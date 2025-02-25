@@ -416,7 +416,11 @@ local players = {}
 for _, p in pairs(game.players) do
 	players[p.name] = p.online_time
 end
-rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
+if helpers ~= nil then
+	rcon.print(helpers.table_to_json(players))
+else
+	rcon.print(game.table_to_json(players))
+end`.replace(/\r?\n/g, " ");
 		let playerTimes: Record<string, number> = JSON.parse(await this.sendRcon(exportPlayerTimes));
 		let count = 0;
 

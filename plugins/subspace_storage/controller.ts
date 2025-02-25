@@ -22,17 +22,17 @@ import {
 const exportCounter = new Counter(
 	"clusterio_subspace_storage_export_total",
 	"Resources exported by instance",
-	{ labels: ["instance_id", "resource"] }
+	{ labels: ["instance_id", "resource", "quality"] }
 );
 const importCounter = new Counter(
 	"clusterio_subspace_storage_import_total",
 	"Resources imported by instance",
-	{ labels: ["instance_id", "resource"] }
+	{ labels: ["instance_id", "resource", "quality"] }
 );
 const controllerInventoryGauge = new Gauge(
 	"clusterio_subspace_storage_controller_inventory",
 	"Amount of resources stored on controller",
-	{ labels: ["resource"] }
+	{ labels: ["resource", "quality"] }
 );
 
 
@@ -73,7 +73,7 @@ async function saveDatabase(
 export class ControllerPlugin extends BaseControllerPlugin {
 	items!: lib.ItemDatabase;
 	itemUpdateRateLimiter!: lib.RateLimiter;
-	itemsLastUpdate!: Map<string, number>;
+	itemsLastUpdate: Map<string, lib.ItemCountWithQuality> = new Map();
 	subscribedControlLinks!: Set<ControlConnection>;
 	doleMagicId!: ReturnType<typeof setInterval>;
 	neuralDole!: dole.NeuralDole;
@@ -91,7 +91,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				}
 			},
 		});
-		this.itemsLastUpdate = new Map(this.items.getEntries());
+		this.itemsLastUpdate = new Map();
+		for (const [name, qualities] of this.items.getEntries()) {
+			this.itemsLastUpdate.set(name, { ...qualities });
+		}
 
 		this.neuralDole = new dole.NeuralDole({ items: this.items });
 		this.doleMagicId = setInterval(() => {
@@ -116,37 +119,48 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	}
 
 	broadcastStorage() {
-		let itemsToUpdateMap:Map<string, number> = new Map();
-		for (let [name, count] of this.items.getEntries()) {
-			if (this.itemsLastUpdate.get(name) === count) {
-				continue;
+		let itemsToUpdate: Item[] = [];
+		for (const [name, qualities] of this.items.getEntries()) {
+			const lastQualities = this.itemsLastUpdate.get(name);
+			for (const [quality, count] of Object.entries(qualities)) {
+				if (!lastQualities || lastQualities[quality] !== count) {
+					itemsToUpdate.push(new Item(name, count, quality));
+				}
 			}
-			itemsToUpdateMap.set(name, count);
 		}
 
-		if (!itemsToUpdateMap.size) {
+		if (!itemsToUpdate.length) {
 			return;
 		}
 
-		let itemsToUpdate = [...itemsToUpdateMap.entries()];
-		let update = UpdateStorageEvent.fromJSON({ items: itemsToUpdate });
+		let update = new UpdateStorageEvent(itemsToUpdate);
 		this.controller.sendTo("allInstances", update);
 		for (let link of this.subscribedControlLinks) {
 			link.send(update);
 		}
-		this.itemsLastUpdate = new Map(this.items.getEntries());
+
+		this.itemsLastUpdate = new Map();
+		for (const [name, qualities] of this.items.getEntries()) {
+			this.itemsLastUpdate.set(name, { ...qualities });
+		}
 	}
 
 	async handleGetStorageRequest() {
-		return [...this.items.getEntries()];
+		const result: Item[] = [];
+		for (const [name, qualities] of this.items.getEntries()) {
+			for (const [quality, count] of Object.entries(qualities)) {
+				result.push(new Item(name, count, quality));
+			}
+		}
+		return result;
 	}
 
 	async handlePlaceEvent(request: PlaceEvent, src: lib.Address) {
 		let instanceId = src.id;
 
 		for (let item of request.items) {
-			this.items.addItem(item.name, item.count);
-			exportCounter.labels(String(instanceId), item.name).inc(item.count);
+			this.items.addItem(item.name, item.count, item.quality || "normal");
+			exportCounter.labels(String(instanceId), item.name, item.quality || "normal").inc(item.count);
 		}
 
 		this.updateStorage();
@@ -164,55 +178,55 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		let itemsRemoved = [];
 		if (method === "simple") {
-			// Give out as much items as possible until there are 0 left.  This
-			// might lead to one host getting all the items and the rest nothing.
 			for (let item of request.items) {
-				let count = this.items.getItemCount(item.name);
+				const quality = item.quality || "normal";
+				let count = this.items.getItemCount(item.name, quality);
 				let toRemove = Math.min(count, item.count);
 				if (toRemove > 0) {
-					this.items.removeItem(item.name, toRemove);
-					itemsRemoved.push(new Item(item.name, toRemove));
+					this.items.removeItem(item.name, toRemove, quality);
+					itemsRemoved.push(new Item(item.name, toRemove, quality));
 				}
 			}
-
 		} else {
 			let instance = this.controller.instances.get(instanceId);
-			let instanceName = instance ? instance.config.get("instance.name") : "unkonwn";
+			let instanceName = instance ? instance.config.get("instance.name") : "unknown";
 
 			// use fancy neural net to calculate a "fair" dole division rate.
 			if (method === "neural_dole") {
 				for (let item of request.items) {
+					const quality = item.quality || "normal";
 					let count = this.neuralDole.divider(
-						{ name: item.name, count: item.count, instanceId, instanceName }
+						{ name: item.name, quality, count: item.count, instanceId, instanceName }
 					);
 					if (count > 0) {
-						itemsRemoved.push(new Item(item.name, count));
+						itemsRemoved.push(new Item(item.name, count, quality));
 					}
 				}
 
 			// Use dole division. Makes it really slow to drain out the last little bit.
 			} else if (method === "dole") {
 				for (let item of request.items) {
+					const quality = item.quality || "normal";
 					let count = dole.doleDivider({
-						object: { name: item.name, count: item.count, instanceId, instanceName },
+						object: { name: item.name, quality, count: item.count, instanceId, instanceName },
 						items: this.items,
 						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers"),
 						logger: this.logger,
 					});
 					if (count > 0) {
-						itemsRemoved.push(new Item(item.name, count));
+						itemsRemoved.push(new Item(item.name, count, quality));
 					}
 				}
 
 			// Should not be possible
 			} else {
-				throw Error(`Unkown division_method ${method}`);
+				throw Error(`Unknown division_method ${method}`);
 			}
 		}
 
 		if (itemsRemoved.length) {
 			for (let item of itemsRemoved) {
-				importCounter.labels(String(instanceId), item.name).inc(item.count);
+				importCounter.labels(String(instanceId), item.name, item.quality || "normal").inc(item.count);
 			}
 
 			this.updateStorage();
@@ -242,8 +256,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async onMetrics() {
 		if (this.items) {
-			for (let [key, count] of this.items.getEntries()) {
-				controllerInventoryGauge.labels(key).set(Number(count) || 0);
+			for (const [name, qualities] of this.items.getEntries()) {
+				for (const [quality, count] of Object.entries(qualities)) {
+					controllerInventoryGauge.labels(name, quality).set(Number(count) || 0);
+				}
 			}
 		}
 	}

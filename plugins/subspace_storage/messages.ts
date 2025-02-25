@@ -1,25 +1,26 @@
 import { Type, Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
-import { type } from "os";
 
 export class Item {
 	constructor(
 		public name: string,
-		public count: number
+		public count: number,
+		public quality: string = "normal"
 	) {
 	}
 
 	static jsonSchema = Type.Tuple([
 		Type.String(),
 		Type.Number(),
+		Type.String(),
 	]);
 
 	toJSON() {
-		return [this.name, this.count];
+		return [this.name, this.count, this.quality];
 	}
 
 	static fromJSON(json: Static<typeof Item.jsonSchema>): Item {
-		return new this(json[0], json[1]);
+		return new this(json[0], json[1], json[2]);
 	}
 }
 

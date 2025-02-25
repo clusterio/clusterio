@@ -169,7 +169,7 @@ describe("lib/database", function() {
 
 			it("should restore the passed serialized database", function() {
 				let items = new lib.ItemDatabase({ "a": 1, "b": 2 });
-				assert.deepEqual(items._items, new Map([["a", 1], ["b", 2]]));
+				assert.deepEqual(items._items, new Map([["a", { normal: 1 }], ["b", { normal: 2 }]]));
 			});
 
 			it("should throw on invalid serialized database", function() {
@@ -188,7 +188,7 @@ describe("lib/database", function() {
 		describe(".serialize()", function() {
 			it("should return a serialized database", function() {
 				let items = new lib.ItemDatabase({ "a": 10 });
-				assert.deepEqual(items.serialize(), { "a": 10 });
+				assert.deepEqual(items.serialize(), { "a": { normal: 10 } });
 			});
 
 			it("should remove zero count entries", function() {
@@ -207,18 +207,18 @@ describe("lib/database", function() {
 		describe(".getItemCount()", function() {
 			it("should return the count of the given item", function() {
 				let items = new lib.ItemDatabase({ "a": 10 });
-				assert.equal(items.getItemCount("a"), 10);
+				assert.equal(items.getItemCount("a", "normal"), 10);
 			});
 
 			it("should return zero if item does not exist", function() {
 				let items = new lib.ItemDatabase();
-				assert.equal(items.getItemCount("b"), 0);
+				assert.equal(items.getItemCount("b", "normal"), 0);
 			});
 
 			it("should throw on invalid name", function() {
 				let items = new lib.ItemDatabase();
 				assert.throws(
-					() => items.getItemCount(2),
+					() => items.getItemCount(2, "normal"),
 					new Error("name must be a string")
 				);
 			});
@@ -227,20 +227,20 @@ describe("lib/database", function() {
 		describe(".addItem()", function() {
 			it("should add a new item", function() {
 				let items = new lib.ItemDatabase();
-				items.addItem("a", 10);
-				assert.deepEqual(items._items, new Map([["a", 10]]));
+				items.addItem("a", 10, "normal");
+				assert.deepEqual(items._items, new Map([["a", { normal: 10 }]]));
 			});
 
 			it("should add an existing item", function() {
 				let items = new lib.ItemDatabase({ "a": 10 });
-				items.addItem("a", 10);
-				assert.deepEqual(items._items, new Map([["a", 20]]));
+				items.addItem("a", 10, "normal");
+				assert.deepEqual(items._items, new Map([["a", { normal: 20 }]]));
 			});
 
 			it("should throw on invalid name", function() {
 				let items = new lib.ItemDatabase();
 				assert.throws(
-					() => items.addItem(2, 10),
+					() => items.addItem(2, 10, "normal"),
 					new Error("name must be a string")
 				);
 			});
@@ -248,11 +248,11 @@ describe("lib/database", function() {
 			it("should throw on invalid count", function() {
 				let items = new lib.ItemDatabase();
 				assert.throws(
-					() => items.addItem("a", NaN),
+					() => items.addItem("a", NaN, "normal"),
 					new Error("count must be a number")
 				);
 				assert.throws(
-					() => items.addItem("a", "1"),
+					() => items.addItem("a", "1", "normal"),
 					new Error("count must be a number")
 				);
 			});
@@ -261,20 +261,20 @@ describe("lib/database", function() {
 		describe(".removeItem()", function() {
 			it("should remove an existing item", function() {
 				let items = new lib.ItemDatabase({ "a": 20 });
-				items.removeItem("a", 10);
-				assert.deepEqual(items._items, new Map([["a", 10]]));
+				items.removeItem("a", 10, "normal");
+				assert.deepEqual(items._items, new Map([["a", { normal: 10 }]]));
 			});
 
 			it("should turn a non-existing item negative", function() {
 				let items = new lib.ItemDatabase();
-				items.removeItem("a", 10);
-				assert.deepEqual(items._items, new Map([["a", -10]]));
+				items.removeItem("a", 10, "normal");
+				assert.deepEqual(items._items, new Map([["a", { normal: -10 }]]));
 			});
 
 			it("should throw on invalid name", function() {
 				let items = new lib.ItemDatabase();
 				assert.throws(
-					() => items.removeItem(2, 10),
+					() => items.removeItem(2, 10, "normal"),
 					new Error("name must be a string")
 				);
 			});
@@ -282,11 +282,11 @@ describe("lib/database", function() {
 			it("should throw on invalid count", function() {
 				let items = new lib.ItemDatabase();
 				assert.throws(
-					() => items.removeItem("a", "b"),
+					() => items.removeItem("a", "b", "normal"),
 					new Error("count must be a number")
 				);
 				assert.throws(
-					() => items.removeItem("a", "1"),
+					() => items.removeItem("a", "1", "normal"),
 					new Error("count must be a number")
 				);
 			});
