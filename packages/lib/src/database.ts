@@ -289,6 +289,7 @@ export class ItemDatabase {
 	 * @param quality - The quality of the item to remove.
 	 */
 	removeItem(name: string, count: number, quality: string) {
+		checkCount(count);
 		this.addItem(name, -count, quality);
 	};
 
