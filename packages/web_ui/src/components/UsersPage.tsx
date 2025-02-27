@@ -98,8 +98,8 @@ export default function UsersPage() {
 					title: "Roles",
 					key: "roles",
 					render: (_, user) => (
-						[...user.roleIds].map(id => <Link to={`/roles/${id}/view`} onClick={e => e.stopPropagation()}>
-							<Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>
+						[...user.roleIds].map(id => <Link key={id} to={`/roles/${id}/view`} onClick={e => e.stopPropagation()}>
+							<Tag>{(roles.get(id) || { name: id }).name}</Tag>
 						</Link>)
 					),
 				},
