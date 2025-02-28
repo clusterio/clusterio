@@ -13,15 +13,46 @@
 
 ### Changes
 
-- Bugfixes and small changes to existing behaviour.
+- Small changes to existing behaviour.
+
+### Fixes
+
+- Bugfixes
 
 ### Breaking Changes
 
 - Changes which break backwards compatibility with older hosts or plugins code.
 
+### Meta
+
+- Changes to the project activities / structure worth highlighting but have no impact on the published package.
+
 Many thanks to the following for contributing to this release:  
 [@username](https://github.com/username)
 -->
+
+## Version 2.0.0-alpha.20
+
+### Features
+
+- Update subspace storage to 2.0 and space age. [#733](https://github.com/clusterio/clusterio/pull/733)
+- A fresh install of Clusterio will include default mod packs. [#719](https://github.com/clusterio/clusterio/issues/719)
+
+### Fixes
+
+- Fix crash when leaving a server without a logistic requester point [#731](https://github.com/clusterio/clusterio/pull/731)
+- Use floor instead of round to prevent "1 minute and 60 seconds" being shown [#723](https://github.com/clusterio/clusterio/issues/723)
+- Fixed production statistics overwriting consumption statistics and vise versa [#734](https://github.com/clusterio/clusterio/pulls/734)
+- Hot patch to add the updated 2.0.29 control.lua freeplay hash to know scenarios. [commit](https://github.com/clusterio/clusterio/commit/26269df7d4d8f39042c59653008bc8f034a4f3b4)
+
+### Meta
+
+- We have now introduced a new [decisions log](https://github.com/clusterio/clusterio/blob/master/docs/decisions.md) to aid tracking all the technical and design decisions we make and their reasons. [#714](https://github.com/clusterio/clusterio/pull/714)
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
+[@psihius](https://github.com/psihius)
 
 ## Version 2.0.0-alpha.19
 
