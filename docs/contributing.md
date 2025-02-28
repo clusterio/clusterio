@@ -17,6 +17,7 @@ Although, we recomend checking out out our [past decisions](/docs/decisions.md) 
     - [Editing your Feature Branch](#editing-your-feature-branch)
     - [Resolving Merge Conflicts](#resolving-merge-conflicts)
     - [Updating Your GitHub Fork](#updating-your-github-fork)
+    - [Publishing releases to npm](#publishing-releases-to-npm)
 - [Changelog](#changelog)
 - [Supported Node.js and Factorio Version](#supported-node.js-and-factorio-version)
 - [Code Style](#code-style)
@@ -25,7 +26,6 @@ Although, we recomend checking out out our [past decisions](/docs/decisions.md) 
     - [Indenting](#indenting)
     - [Line Length](#line-length)
     - [Markdown](#markdown)
-- [Pushing releases to npm](#pushing-releases-to-npm)
 
 
 ## Workflow
@@ -180,6 +180,10 @@ Fetch the main repository directly as described above and base your feature bran
 GitHub has no interface or functionality for keeping the branches in your fork up to date with the branches in the main repository and there is no point in doing this for our feature branch based workflow.
 
 
+### Publishing releases to npm
+
+For publishing new releases see [package release workflow](./release-workflow.md#packages).
+
 ## Changelog
 
 There's a [Changelog](../CHANGELOG.md) in the root of the project.
@@ -288,43 +292,3 @@ And there's two spaces before the next heading.
 
 Headings use the `# heading` format.
 ```
-
-
-## Pushing releases to npm
-
-The releases are done by updating packages versions and then publishing them with pnpm.
-You will need commit access to the repository as well publish access to the @clusterio org on npm to do this.
-
-1.  To do a release switch to the master branch and make sure it's up to date with the repository before proceeding.
-
-    ```sh
-    git switch master
-    git pull --ff-only upstream master
-    ```
-
-    Check and make sure there are no untracked files with `git status`.
-
-2.  Check all PRs merged since the last version and copy their change logs into the main changelog.
-
-3.  Update the version in package files.
-    Make sure to update the command for the right version jump.
-
-    ```sh
-    sed -i 's/2\.0\.0-alpha\.12/2\.0\.0-alpha\.13/' {packages,plugins}/*/package.json
-    ```
-
-4.  Inspect, commit and tag the changes.
-    Again, make sure to be tagging the right version.
-
-    ```sh
-    git add -p
-    git commit -m v2.0.0-alpha.13
-    git tag v2.0.0-alpha.13
-    ```
-
-5.  Publish the packages.
-
-    ```sh
-    pnpm clean
-    pnpm -r --filter='./{plugins,packages}/*' publish
-    ```
