@@ -3,31 +3,25 @@ import type JSZip from "jszip";
 /**
  * Returns the root folder in the zip file
  *
- * Returns the name of the folder that all files in the zip file is
- * contained in.  Throws an error if there are multiple such folders.
+ * Returns the name of the folder that the first entry in the zip file is
+ * contained in.  Throws an error if this is not in a folder.
+ *
+ * This matches the logic Factorio uses when determining the folder to look
+ * for content in a zip file.
  *
  * @param zip - Zip to search through.
  * @returns name of the root folder.
  */
 export function findRoot(zip: JSZip) {
-	let root: undefined | string;
-	zip.forEach((relativePath, file) => {
-		let index = relativePath.indexOf("/");
-		if (index === -1) {
-			throw new Error(`Zip contains file '${relativePath}' in root dir`);
-		}
-
-		let pathRoot = relativePath.slice(0, index);
-		if (root === undefined) {
-			root = pathRoot;
-		} else if (root !== pathRoot) {
-			throw new Error("Zip contains multiple root folders");
-		}
-	});
-
-	if (root === undefined) {
+	const relativePath = Object.keys(zip.files)[0];
+	if (relativePath === undefined) {
 		throw new Error("Empty zip file");
 	}
 
-	return root;
+	let index = relativePath.indexOf("/");
+	if (index === -1) {
+		throw new Error(`Zip contains file '${relativePath}' in root dir`);
+	}
+
+	return relativePath.slice(0, index);
 }

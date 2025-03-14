@@ -15,10 +15,10 @@ describe("lib/factorio", function() {
 			assert.equal(findRoot(zip), "root");
 		});
 
-		it("should throw if files are at the root of the zip", function() {
+		it("should throw if the first file is at the root of the zip", function() {
 			let zip = new JSZip();
-			zip.file("root/foo.txt", "");
 			zip.file("bar.txt", "");
+			zip.file("root/foo.txt", "");
 
 			assert.throws(
 				() => findRoot(zip),
@@ -26,15 +26,12 @@ describe("lib/factorio", function() {
 			);
 		});
 
-		it("should throw if there are multiple root dirs", function() {
+		it("should return directory of first file if there are multiple root dirs", function() {
 			let zip = new JSZip();
 			zip.file("root-1/foo.txt", "");
 			zip.file("root-2/bar.txt", "");
 
-			assert.throws(
-				() => findRoot(zip),
-				new Error("Zip contains multiple root folders")
-			);
+			assert.equal(findRoot(zip), "root-1");
 		});
 
 		it("should throw if given an empty zip file", function() {
