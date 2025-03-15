@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
-import { Static} from "@sinclair/typebox";
+import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { integerModVersion, ModInfo, ModPack, ModRecord } from "./data";
 import TypedEventEmitter from "./TypedEventEmitter";
@@ -36,7 +36,8 @@ interface ModDetails {
 	downloads_count: number,
 	category: string,
 	score?: number,
-	releases: Array<ModRelease>,
+	releases?: Array<ModRelease>,
+	latest_release?: ModRelease,
 }
 
 interface ModsInfoResponse {
@@ -196,9 +197,14 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		const versions = new Map<string, string>();
 		mods.forEach((mod) => {
 			const modName = mod.name;
-			let latestVersion = ModStore.getLatestVersionFromReleases(mod.releases);
-			if (latestVersion !== undefined) { versions.set(modName, latestVersion); }
-
+			if (mod.releases) {
+				let latestVersion = ModStore.getLatestVersionFromReleases(mod.releases);
+				if (latestVersion !== undefined) { versions.set(modName, latestVersion); }
+			} else if (mod.latest_release) {
+				versions.set(modName, mod.latest_release.version);
+			} else {
+				logger.warn(`Mod ${modName} has no releases or latest_release`);
+			}
 		});
 		return versions;
 	}
@@ -217,8 +223,9 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		if (factorioVersion.split(".").length >= 3) {
 			factorioVersion = factorioVersion.slice(0, factorioVersion.lastIndexOf("."));
 		}
-		modNames = modNames.filter((modName, index, array) => !(modName in ModPack.getBuiltinModNames(factorioVersion))
-		);
+
+		const builtinMods = ModPack.getBuiltinModNames(factorioVersion);
+		modNames = modNames.filter(modName => !(modName in builtinMods));
 
 		const chunkSize = 500;
 		let versions = new Map<string, string>();
@@ -269,8 +276,16 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		}
 		const mods = (await response.json() as ModsInfoResponse).results;
 
-		await Promise.all(mods.map((mod) => this.downloadModFromReleases(mod.releases,
-			modVersions[modNames.indexOf(mod.name)], username, token)));
+		await Promise.all(mods.map((mod) => {
+			if (mod.releases) {
+				return this.downloadModFromReleases(mod.releases,
+					modVersions[modNames.indexOf(mod.name)], username, token);
+			} else if (mod.latest_release) {
+				return this.downloadModFromReleases([mod.latest_release],
+					modVersions[modNames.indexOf(mod.name)], username, token);
+			}
+			throw new Error(`Mod ${mod.name} has no releases or latest_release`);
+		}));
 	}
 
 
@@ -418,4 +433,96 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		});
 	}
 
+	/**
+	 * Search for mods on the Factorio mod portal
+	 *
+	 * @param query Search query string
+	 * @param factorioVersion Factorio version to filter for
+	 * @param page Page number (1-based)
+	 * @param pageSize Number of results per page
+	 * @param sort Field to sort by (name, title, downloads, etc.)
+	 * @param sortOrder Sort order (asc or desc)
+	 * @returns Search results from the mod portal
+	 */
+	static async searchModPortal(
+		query: string,
+		factorioVersion: string,
+		page: number,
+		pageSize: number = 10,
+		sort?: string,
+		sortOrder: string = "asc"
+	) {
+		// eslint-disable-next-line
+		logger.info(`Searching mod portal for ${query} with factorio version ${factorioVersion} on page ${page} with page size ${pageSize} and sort ${sort} and sort order ${sortOrder}`);
+
+		// Construct the URL for the Factorio mod portal API
+		const url = new URL("https://mods.factorio.com/api/mods");
+
+		// Add query parameters
+		url.searchParams.set("page", page.toString());
+		url.searchParams.set("page_size", pageSize.toString());
+		url.searchParams.set("version", factorioVersion);
+
+		if (query) {
+			url.searchParams.set("q", query);
+		}
+
+		// Handle sorting
+		if (sort) {
+			let sortField = sort;
+			// Map frontend sort fields to API sort fields
+			if (sort === "name") {
+				sortField = "name";
+			} else if (sort === "title") {
+				sortField = "title";
+			} else if (sort === "downloads") {
+				sortField = "downloads_count";
+			} else if (sort === "updated") {
+				sortField = "updated_at";
+			}
+
+			url.searchParams.set("sort", sortField);
+			url.searchParams.set("sort_order", sortOrder);
+		}
+
+		// Make the request to the Factorio mod portal
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			throw new Error(`Failed to fetch from mod portal: ${response.status} ${response.statusText}`);
+		}
+
+		const data = await response.json() as ModsInfoResponse;
+		logger.info(`Mod portal search results: ${JSON.stringify(data)}`);
+
+		// Transform the response to match our expected format
+		const results = data.results.map(mod => {
+			// Find the latest release for the specified Factorio version
+			const latestRelease = mod.latest_release;
+
+			const transformedMod = {
+				name: mod.name,
+				title: mod.title,
+				summary: mod.summary,
+				owner: mod.owner,
+				downloads_count: mod.downloads_count,
+				latest_release: latestRelease ? {
+					version: latestRelease.version,
+					factorio_version: latestRelease.info_json.factorio_version,
+					released_at: latestRelease.released_at,
+					download_url: latestRelease.download_url,
+					file_name: latestRelease.file_name,
+					sha1: latestRelease.sha1,
+				} : undefined,
+			};
+			return transformedMod;
+		}).filter(mod => mod.latest_release); // Only include mods with a release for the specified version
+
+		return {
+			queryIssues: [],
+			pageCount: Math.ceil(data.pagination.count / pageSize),
+			resultCount: data.pagination.count,
+			results,
+		};
+	}
 }

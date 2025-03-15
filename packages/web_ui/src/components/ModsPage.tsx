@@ -1,8 +1,9 @@
-import React, { Fragment, useState, useContext } from "react";
+import React, { Fragment, useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload } from "antd";
 import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
+import SearchOutlined from "@ant-design/icons/SearchOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -129,6 +130,184 @@ function CreateModPackButton() {
 	</>;
 }
 
+function SearchModsButton() {
+	const control = useContext(ControlContext);
+	const account = useAccount();
+	const [open, setOpen] = useState(false);
+	const [form] = Form.useForm();
+	const [searchText, setSearchText] = useState("");
+	const [factorioVersion, setFactorioVersion] = useState("1.1");
+	const [modResults, setModResults] = useState<any[]>([]);
+	const [loading, setLoading] = useState(false);
+	const [page, setPage] = useState(1);
+	const [pageSize, setPageSize] = useState(10);
+	const [totalResults, setTotalResults] = useState(0);
+	const [totalPages, setTotalPages] = useState(0);
+	const [sort, setSort] = useState<string>("name");
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+	// Search mods when search parameters change
+	useEffect(() => {
+		if (!open) { return; }
+
+		setLoading(true);
+		let canceled = false;
+
+		control.send(new lib.ModPortalSearchRequest(
+			searchText,
+			factorioVersion,
+			page,
+			pageSize,
+			sort,
+			sortOrder
+		)).then(response => {
+			if (canceled) { return; }
+
+			setModResults(response.results);
+			setTotalResults(response.resultCount);
+			setTotalPages(response.pageCount);
+			setLoading(false);
+		}).catch(error => {
+			if (canceled) { return; }
+			setLoading(false);
+		});
+
+		return () => {
+			canceled = true;
+		};
+	}, [open, searchText, factorioVersion, page, pageSize, sort, sortOrder, control]);
+
+	const handleSearch = () => {
+		const values = form.getFieldsValue();
+		setSearchText(values.name || "");
+		setFactorioVersion(values.factorioVersion || "1.1");
+		setPage(1); // Reset to first page on new search
+	};
+
+	const handleTableChange = (
+		pagination: any,
+		filters: any,
+		sorter: any
+	) => {
+		if (pagination.current !== page) {
+			setPage(pagination.current);
+		}
+		if (pagination.pageSize !== pageSize) {
+			setPageSize(pagination.pageSize);
+		}
+
+		if (sorter.field && sorter.order) {
+			setSort(sorter.field);
+			setSortOrder(sorter.order === "ascend" ? "asc" : "desc");
+		}
+	};
+
+	return <>
+		<Button icon={<SearchOutlined />} onClick={() => { setOpen(true); }}>Search</Button>
+		<Modal
+			title="Search Mods"
+			open={open}
+			onCancel={() => { setOpen(false); }}
+			width={800}
+			footer={[
+				<Button key="close" onClick={() => { setOpen(false); }}>
+					Close
+				</Button>,
+				<Button key="search" type="primary" onClick={handleSearch}>
+					Search
+				</Button>,
+			]}
+		>
+			<Form
+				form={form}
+				layout="vertical"
+				onFinish={handleSearch}
+				initialValues={{ factorioVersion: "2.0" }}
+			>
+				<Form.Item name="name" label="Name or Title">
+					<Input placeholder="Enter mod name or title" />
+				</Form.Item>
+				<Form.Item name="factorioVersion" label="Factorio Version">
+					<Input placeholder="e.g. 1.1" />
+				</Form.Item>
+			</Form>
+
+			<Table
+				dataSource={modResults}
+				rowKey={record => record.name}
+				loading={loading}
+				onChange={handleTableChange}
+				pagination={{
+					current: page,
+					pageSize: pageSize,
+					total: totalResults,
+					showSizeChanger: true,
+					pageSizeOptions: ["10", "20", "50"],
+				}}
+				expandable={{
+					expandedRowRender: record => (
+						<div>
+							<p><strong>Summary:</strong> {record.summary}</p>
+							<p><strong>Downloads:</strong> {record.downloads_count}</p>
+							<p><strong>Latest Release:</strong></p>
+							<ul>
+								<li>Version: {record.latest_release.version}</li>
+								<li>Factorio Version: {record.latest_release.info_json.factorio_version}</li>
+								<li>Released: {new Date(record.latest_release.released_at).toLocaleString()}</li>
+							</ul>
+							{account.hasPermission("core.mod.download") && (
+								<Button
+									onClick={() => {
+										control.send(
+											new lib.ModDownloadRequest(record.name, record.latest_release.version)
+										).then((streamId: string) => {
+											let url = new URL(webRoot, document.location.origin);
+											url.pathname += `api/stream/${streamId}`;
+											document.location = url.href;
+										}).catch(
+											notifyErrorHandler("Error downloading mod")
+										);
+									}}
+								>
+									Download Latest Version
+								</Button>
+							)}
+						</div>
+					),
+				}}
+				columns={[
+					{
+						title: "Name",
+						dataIndex: "name",
+						key: "name",
+						sorter: true,
+						sortOrder: sort === "name" ? (sortOrder === "asc" ? "ascend" : "descend") : undefined,
+					},
+					{
+						title: "Title",
+						dataIndex: "title",
+						key: "title",
+						sorter: true,
+						sortOrder: sort === "title" ? (sortOrder === "asc" ? "ascend" : "descend") : undefined,
+					},
+					{
+						title: "Author",
+						dataIndex: "owner",
+						key: "owner",
+						sorter: true,
+						sortOrder: sort === "owner" ? (sortOrder === "asc" ? "ascend" : "descend") : undefined,
+					},
+					{
+						title: "Latest Version",
+						key: "version",
+						render: (_, record) => record.latest_release.version,
+					},
+				]}
+			/>
+		</Modal>
+	</>;
+}
+
 export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -223,7 +402,10 @@ export default function ModsPage() {
 				},
 			})}
 		/>
-		<SectionHeader title="Stored Mods" extra={uploadButton} />
+		<SectionHeader title="Stored Mods" extra={<Space>
+			<SearchModsButton />
+			{uploadButton}
+		</Space>} />
 
 		<Upload.Dragger
 			className="save-list-dragger"

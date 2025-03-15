@@ -197,6 +197,91 @@ export class ModSearchRequest {
 	};
 }
 
+export class ModPortalSearchRequest {
+	declare ["constructor"]: typeof ModPortalSearchRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.search_portal" as const;
+
+	constructor(
+		public query: string,
+		public factorioVersion: string,
+		public page: number,
+		public pageSize?: number,
+		public sort?: string,
+		public sortOrder?: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"query": Type.String(),
+		"factorioVersion": Type.String(),
+		"page": Type.Integer(),
+		"pageSize": Type.Optional(Type.Integer()),
+		"sort": Type.Optional(Type.String()),
+		"sortOrder": Type.Optional(Type.String()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.query, json.factorioVersion, json.page, json.pageSize, json.sort, json.sortOrder);
+	}
+
+	static Response = class Response {
+		constructor(
+			public queryIssues: string[],
+			public pageCount: number,
+			public resultCount: number,
+			public results: {
+				name: string,
+				title: string,
+				summary: string,
+				owner: string,
+				downloads_count: number,
+				latest_release: {
+					version: string,
+					factorio_version: string,
+					released_at: string,
+					download_url: string,
+					file_name: string,
+					sha1: string,
+				},
+			}[],
+		) { }
+
+		static jsonSchema = Type.Object({
+			"queryIssues": Type.Array(Type.String()),
+			"pageCount": Type.Integer(),
+			"resultCount": Type.Integer(),
+			"results": Type.Array(
+				Type.Object({
+					"name": Type.String(),
+					"title": Type.String(),
+					"summary": Type.String(),
+					"owner": Type.String(),
+					"downloads_count": Type.Number(),
+					"latest_release": Type.Object({
+						"version": Type.String(),
+						"factorio_version": Type.String(),
+						"released_at": Type.String(),
+						"download_url": Type.String(),
+						"file_name": Type.String(),
+						"sha1": Type.String(),
+					}),
+				}),
+			),
+		});
+
+		static fromJSON(json: Static<typeof this.jsonSchema>) {
+			return new this(
+				json.queryIssues,
+				json.pageCount,
+				json.resultCount,
+				json.results
+			);
+		}
+	};
+}
+
 export class ModDownloadRequest {
 	declare ["constructor"]: typeof ModDownloadRequest;
 	static type = "request" as const;
