@@ -98,6 +98,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ModGetRequest, this.handleModGetRequest.bind(this));
 		this.handle(lib.ModListRequest, this.handleModListRequest.bind(this));
 		this.handle(lib.ModSearchRequest, this.handleModSearchRequest.bind(this));
+		this.handle(lib.ModPortalSearchRequest, this.handleModPortalSearchRequest.bind(this));
 		this.handle(lib.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
 		this.handle(lib.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
 		this.handle(lib.LogQueryRequest, this.handleLogQueryRequest.bind(this));
@@ -512,6 +513,22 @@ export default class ControlConnection extends BaseConnection {
 			resultCount: results.size,
 			results: resultList,
 		};
+	}
+
+	async handleModPortalSearchRequest(request: lib.ModPortalSearchRequest) {
+		try {
+			return lib.ModStore.searchModPortal(
+				request.query,
+				request.factorioVersion,
+				request.page,
+				request.pageSize || 10,
+				request.sort,
+				request.sortOrder || "asc"
+			);
+		} catch (error: any) {
+			logger.error(`Error searching mod portal: ${error}`);
+			throw new lib.RequestError(`Failed to search mod portal: ${error.message}`);
+		}
 	}
 
 	async handleModDeleteRequest(request: lib.ModDeleteRequest) {
