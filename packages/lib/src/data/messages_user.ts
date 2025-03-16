@@ -1,8 +1,9 @@
 import { Type, Static } from "@sinclair/typebox";
 import Permission from "./Permission";
 import Role from "./Role";
-import User from "./User";
+import User, { IControllerUser } from "./User";
 import { JsonNumber, StringEnum, jsonArray, plainJson } from "./composites";
+import { MessageRequest } from "./messages_core";
 
 export class PermissionListRequest {
 	declare ["constructor"]: typeof PermissionListRequest;
@@ -361,27 +362,60 @@ export class UserBulkImportRequest {
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission = "core.user.bulk_import" as const;
+	static permission(user: IControllerUser, message: MessageRequest) {
+		if (typeof message.data === "object" && message.data !== null) {
+			const data = message.data as Static<typeof UserBulkImportRequest.jsonSchema>;
+			// Check if this is a restore or import request
+			if (data.restore) {
+				user.checkPermission("core.user.bulk_restore");
+			} else {
+				user.checkPermission("core.user.bulk_import");
+			}
+			// Check if they have the permission for that type
+			switch (data.importType) {
+				case "users":
+					user.checkPermission("core.user.set_admin");
+					user.checkPermission("core.user.set_banned");
+					user.checkPermission("core.user.set_whitelisted");
+					break;
+				case "admins":
+					user.checkPermission("core.user.set_admin");
+					break;
+				case "bans":
+					user.checkPermission("core.user.set_banned");
+					break;
+				case "whitelist":
+					user.checkPermission("core.user.set_whitelisted");
+					break;
+				default:
+					// @ts-expect-error Unreachable
+					throw new Error(`Unknown import / restore type: ${data.importType}`);
+			}
+		}
+	}
 
 	constructor(
 		public importType: "users" | "bans" | "admins" | "whitelist",
 		public users: Static<typeof ClusterioUserExport.clusterioUserSchema>[]
-			| Static<typeof ClusterioUserExport.factorioUserSchema>[]
+			| Static<typeof ClusterioUserExport.factorioUserSchema>[],
+		public restore?: boolean
 	) { }
 
 	static jsonSchema = Type.Union([
 		Type.Object({
 			"importType": StringEnum(["bans", "admins", "whitelist"]),
 			"users": Type.Array(ClusterioUserExport.factorioUserSchema),
+			"restore": Type.Optional(Type.Boolean()),
 		}),
 		Type.Object({
 			"importType": Type.Literal("users"),
 			"users": Type.Array(ClusterioUserExport.clusterioUserSchema),
+			"restore": Type.Optional(Type.Boolean()),
 		}),
 	]);
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.importType, json.users);
+		return new this(json.importType, json.users, json.restore);
 	}
 }
 

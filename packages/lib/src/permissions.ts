@@ -495,6 +495,12 @@ definePermission({
 	description: "Bulk export users including admin, whitelist, and bans.",
 });
 definePermission({
+	name: "core.user.bulk_restore",
+	title: "Bulk user restore",
+	description: "Bulk restore users including admin, whitelist, and bans.",
+});
+
+definePermission({
 	name: "core.log.follow",
 	title: "Follow cluster log",
 	description: "Receive new entries in the cluster log.  Required to see instance console.",

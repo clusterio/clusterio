@@ -76,10 +76,11 @@ function saveJson(name: string, json: object) {
 
 type UserBulkActionProps = {
 	setApplyAction(func: () => Promise<void>): void,
-	form: FormInstance
+	form: FormInstance,
+	restore?: boolean,
 }
 
-function UserBulkActionImport({ setApplyAction, form }: UserBulkActionProps) {
+function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionProps) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 
@@ -202,7 +203,7 @@ function UserBulkActionImport({ setApplyAction, form }: UserBulkActionProps) {
 						throw new Error(`Unknown json (could not guess by file name): ${file.name}`);
 					}
 				}
-				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()]));
+				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()], restore));
 				break;
 			}
 
@@ -212,7 +213,7 @@ function UserBulkActionImport({ setApplyAction, form }: UserBulkActionProps) {
 				for (const file of values.fileList as File[]) {
 					parseUsers(JSON.parse(await file.text()), usersToSend);
 				}
-				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()]));
+				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()], restore));
 				break;
 			}
 
@@ -222,7 +223,7 @@ function UserBulkActionImport({ setApplyAction, form }: UserBulkActionProps) {
 				for (const file of values.fileList as File[]) {
 					parseBans(JSON.parse(await file.text()), usersToSend);
 				}
-				await control.send(new lib.UserBulkImportRequest("bans", [...usersToSend.values()]));
+				await control.send(new lib.UserBulkImportRequest("bans", [...usersToSend.values()], restore));
 				break;
 			}
 
@@ -233,7 +234,7 @@ function UserBulkActionImport({ setApplyAction, form }: UserBulkActionProps) {
 				for (const file of values.fileList as File[]) {
 					parseAdminsWhitelist(JSON.parse(await file.text()), usersToSend);
 				}
-				await control.send(new lib.UserBulkImportRequest(values.importType, [...usersToSend.keys()]));
+				await control.send(new lib.UserBulkImportRequest(values.importType, [...usersToSend.keys()], restore));
 				break;
 			}
 
@@ -355,10 +356,13 @@ function BulkUserActionButton() {
 							? <Radio.Button value="import">Import</Radio.Button> : undefined}
 						{account.hasPermission("core.user.bulk_export")
 							? <Radio.Button value="export">Export</Radio.Button> : undefined}
+						{account.hasPermission("core.user.bulk_restore")
+							? <Radio.Button value="restore">Restore</Radio.Button> : undefined}
 					</Radio.Group>
 				</Form.Item>
 				{formAction === "import" ? <UserBulkActionImport {...{setApplyAction, form}}/> : undefined}
 				{formAction === "export" ? <UserBulkActionExport {...{setApplyAction, form}}/> : undefined}
+				{formAction === "restore" ? <UserBulkActionImport restore {...{setApplyAction, form}}/> : undefined}
 			</Form>
 		</Modal>
 	</>;
