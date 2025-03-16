@@ -2,6 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Form, FormInstance, GetProp, Input, Modal, Radio, Space, Table, Tag, Upload, UploadProps } from "antd";
 import { InboxOutlined } from "@ant-design/icons";
+import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
@@ -82,21 +83,173 @@ function UserBulkActionImport({ setApplyAction, form }: UserBulkActionProps) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 
+	// Combines an array of users into the main array to be sent to the controller
+	function combineMixed(
+		prop: "is_admin" | "is_banned" | "is_whitelisted",
+		users: Array<Static<typeof lib.ClusterioUserExport.factorioUserSchema>>,
+		usersToSend: Map<string, Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>
+	) {
+		for (const user of users) {
+			if (typeof user !== "string") {
+				// It can only be a ban in this case
+				const existingUser = usersToSend.get(user.username);
+				if (existingUser) {
+					existingUser.is_banned = true;
+					existingUser.ban_reason = existingUser.ban_reason ? existingUser.ban_reason : user.reason;
+				} else {
+					usersToSend.set(user.username, {
+						is_banned: true,
+						...user,
+					});
+				}
+			} else {
+				// We only have the username
+				const existingUser = usersToSend.get(user);
+				if (existingUser) {
+					existingUser[prop] = true;
+				} else {
+					usersToSend.set(user, {
+						username: user,
+						[prop]: true,
+					});
+				}
+			}
+		}
+	}
+
+	// Parse a user json and combine into the format to be sent to the controller
+	function parseUsers(
+		users: Array<Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>,
+		usersToSend: Map<string, Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>
+	) {
+		for (const user of users) {
+			const existingUser = usersToSend.get(user.username);
+			// Combine all fields with an existing user
+			if (existingUser) {
+				existingUser.is_admin ||= user.is_admin;
+				existingUser.is_banned ||= user.is_banned;
+				existingUser.is_whitelisted ||= user.is_whitelisted;
+				existingUser.ban_reason = existingUser.ban_reason ? existingUser.ban_reason : user.ban_reason;
+			}
+			// We do not send false values
+			if (user.is_admin === false) {
+				delete user.is_admin;
+			}
+			if (user.is_banned === false) {
+				delete user.is_banned;
+				delete user.ban_reason;
+			}
+			if (user.is_whitelisted === false) {
+				delete user.is_whitelisted;
+			}
+			usersToSend.set(user.username, user);
+		}
+	}
+
+	// Parse a ban json and combine into the format to be sent to the controller
+	function parseBans(
+		users: Array<Static<typeof lib.ClusterioUserExport.factorioUserSchema>>,
+		usersToSend: Map<string, string | { username: string, reason: string }>
+	) {
+		for (const user of users) {
+			if (typeof user === "string") {
+				if (!usersToSend.has(user)) {
+					usersToSend.set(user, user);
+				}
+			} else if (!user.reason) {
+				if (!usersToSend.has(user.username)) {
+					usersToSend.set(user.username, user.username);
+				}
+			} else {
+				usersToSend.set(user.username, user);
+			}
+		}
+	}
+
+	// Parse an admin or whitelist json and combine into the format to be sent to the controller
+	function parseAdminsWhitelist(
+		users: Array<string>,
+		usersToSend: Set<string>,
+	) {
+		for (const user of users) {
+			usersToSend.add(user);
+		}
+	}
+
+	setApplyAction(async () => {
+		const values = form.getFieldsValue();
+		switch (values.importType) {
+			case "mixed": {
+				// Parse and combine multiple json types then send
+				const usersToSend = new Map<string, Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>();
+				for (const file of values.fileList as File[]) {
+					const json = JSON.parse(await file.text());
+					if (json.export_version) {
+						parseUsers(json.users, usersToSend);
+					} else if (file.name.includes("ban")) {
+						const users = new Map();
+						parseBans(json, users);
+						combineMixed("is_banned", [...users.values()], usersToSend);
+					} else if (file.name.includes("admin")) {
+						const users = new Set<string>();
+						parseAdminsWhitelist(json, users);
+						combineMixed("is_admin", [...users.values()], usersToSend);
+					} else if (file.name.includes("whitelist")) {
+						const users = new Set<string>();
+						parseAdminsWhitelist(json, users);
+						combineMixed("is_whitelisted", [...users.values()], usersToSend);
+					} else {
+						throw new Error(`Unknown json (could not guess by file name): ${file.name}`);
+					}
+				}
+				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()]));
+				break;
+			}
+
+			case "users": {
+				// Parse and user jsons then send
+				const usersToSend = new Map<string, Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>();
+				for (const file of values.fileList as File[]) {
+					parseUsers(JSON.parse(await file.text()), usersToSend);
+				}
+				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()]));
+				break;
+			}
+
+			case "bans": {
+				// Parse and combine ban jsons then send
+				const usersToSend = new Map<string, Static<typeof lib.ClusterioUserExport.factorioUserSchema>>();
+				for (const file of values.fileList as File[]) {
+					parseBans(JSON.parse(await file.text()), usersToSend);
+				}
+				await control.send(new lib.UserBulkImportRequest("bans", [...usersToSend.values()]));
+				break;
+			}
+
+			case "admins":
+			case "whitelist": {
+				// Parse and combine admin or whitelist jsons then send
+				const usersToSend = new Set<string>();
+				for (const file of values.fileList as File[]) {
+					parseAdminsWhitelist(JSON.parse(await file.text()), usersToSend);
+				}
+				await control.send(new lib.UserBulkImportRequest(values.importType, [...usersToSend.keys()]));
+				break;
+			}
+
+			default: {
+				// Should be unreachable
+				throw new Error(`Unknown importType: ${values.importType}`);
+			}
+		}
+	});
+
+	const normaliseFiles = (e: any) => (Array.isArray(e) ? e : e.fileList).map((f: any) => f.originFileObj);
 	const uploadProps: UploadProps = {
 		accept: ".json",
 		multiple: true,
 		beforeUpload: (file) => false,
 	};
-
-	setApplyAction(async () => {
-		const values = form.getFieldsValue();
-		// console.log(values);
-		for (const file of values.fileList as File[]) {
-			// console.log(JSON.parse(await file.text()));
-		}
-	});
-
-	const normaliseFiles = (e: any) => (Array.isArray(e) ? e : e.fileList).map((f: any) => f.originFileObj);
 
 	return <>
 		<Form.Item label="Type" name="importType" initialValue="mixed">
@@ -135,8 +288,14 @@ function UserBulkActionExport({ setApplyAction, form }: UserBulkActionProps) {
 
 	setApplyAction(async () => {
 		const values = form.getFieldsValue();
-		// console.log(values);
-		saveJson("test.json", values);
+		const response = await control.send(new lib.UserBulkExportRequest(values.exportType));
+		switch (values.exportType) {
+			case "users": return saveJson("clusterio-userlist.json", response);
+			case "admins": return saveJson("server-adminlist.json", response);
+			case "bans": return saveJson("server-banlist.json", response);
+			case "whitelist": return saveJson("server-whitelist.json", response);
+			default: throw new Error(`Unknown exportType: ${values.importType}`);
+		}
 	});
 
 	return <>

@@ -116,6 +116,8 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.UserSetBannedRequest, this.handleUserSetBannedRequest.bind(this));
 		this.handle(lib.UserSetWhitelistedRequest, this.handleUserSetWhitelistedRequest.bind(this));
 		this.handle(lib.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
+		this.handle(lib.UserBulkImportRequest, this.handleUserBulkImportRequest.bind(this));
+		this.handle(lib.UserBulkExportRequest, this.handleUserBulkExportRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
@@ -750,6 +752,15 @@ export default class ControlConnection extends BaseConnection {
 		if (user.isBanned) {
 			this._controller.sendTo("allInstances", new lib.InstanceBanlistUpdateEvent(name, false, ""));
 		}
+	}
+
+	async handleUserBulkImportRequest(request: lib.UserBulkImportRequest) {
+		logger.info(`handleUserBulkImportRequest ${JSON.stringify(request)}`);
+	}
+
+	async handleUserBulkExportRequest(request: lib.UserBulkExportRequest) {
+		logger.info(`handleUserBulkExportRequest ${JSON.stringify(request)}`);
+		return [] as any;
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {

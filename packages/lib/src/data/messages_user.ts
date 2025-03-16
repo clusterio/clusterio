@@ -2,7 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import Permission from "./Permission";
 import Role from "./Role";
 import User from "./User";
-import { JsonNumber, jsonArray } from "./composites";
+import { JsonNumber, StringEnum, jsonArray, plainJson } from "./composites";
 
 export class PermissionListRequest {
 	declare ["constructor"]: typeof PermissionListRequest;
@@ -318,5 +318,93 @@ export class UserUpdatesEvent {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.updates.map(update => User.fromJSON(update)));
+	}
+}
+
+export class ClusterioUserExport {
+	public export_version = "2.0.0-alpha.20";
+
+	static clusterioUserSchema = Type.Object({
+		"username": Type.String(),
+		"is_admin": Type.Optional(Type.Boolean()),
+		"is_whitelisted": Type.Optional(Type.Boolean()),
+		"is_banned": Type.Optional(Type.Boolean()),
+		"ban_reason": Type.Optional(Type.String()),
+	});
+
+	static factorioUserSchema = Type.Union([
+		Type.String(),
+		Type.Object({
+			"username": Type.String(),
+			"reason": Type.String(),
+		}),
+	]);
+
+	static jsonSchema = Type.Object({
+		"export_version": Type.String(),
+		"users": Type.Array(this.clusterioUserSchema),
+	});
+
+	constructor(
+		public users: Static<typeof ClusterioUserExport.jsonSchema.properties.users>,
+	) { }
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		const obj = new this(json.users);
+		obj.export_version = json.export_version;
+		return obj;
+	}
+}
+
+export class UserBulkImportRequest {
+	declare ["constructor"]: typeof UserBulkImportRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.bulk_import" as const;
+
+	constructor(
+		public importType: "users" | "bans" | "admins" | "whitelist",
+		public users: Static<typeof ClusterioUserExport.clusterioUserSchema>[]
+			| Static<typeof ClusterioUserExport.factorioUserSchema>[]
+	) { }
+
+	static jsonSchema = Type.Union([
+		Type.Object({
+			"importType": StringEnum(["bans", "admins", "whitelist"]),
+			"users": Type.Array(ClusterioUserExport.factorioUserSchema),
+		}),
+		Type.Object({
+			"importType": Type.Literal("users"),
+			"users": Type.Array(ClusterioUserExport.clusterioUserSchema),
+		}),
+	]);
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.importType, json.users);
+	}
+}
+
+export class UserBulkExportRequest {
+	declare ["constructor"]: typeof UserBulkExportRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.bulk_export" as const;
+	static Response = plainJson(Type.Union([
+		Type.Array(ClusterioUserExport.factorioUserSchema),
+		ClusterioUserExport.jsonSchema,
+	]));
+
+	constructor(
+		public exportType: "users" | "bans" | "admins" | "whitelist",
+	) { }
+
+	static jsonSchema = Type.Object({
+		"exportType": StringEnum(["users", "bans", "admins", "whitelist"]),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.exportType);
 	}
 }
