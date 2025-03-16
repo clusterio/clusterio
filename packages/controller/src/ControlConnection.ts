@@ -754,13 +754,205 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
+	async handleUserBulkRestoreRequest(request: lib.UserBulkImportRequest, updated: Map<string, ControllerUser>) {
+		if (request.importType === "users") {
+			// Update all fields for all users
+			const users = request.users as Extract<typeof request.users, { username: string }[]>;
+			const admin = new Set(users.filter(u => u.is_admin).map(u => u.username.toLowerCase()));
+			const banned = new Set(users.filter(u => u.is_banned).map(u => u.username.toLowerCase()));
+			const whitelist = new Set(users.filter(u => u.is_whitelisted).map(u => u.username.toLowerCase()));
+			for (const user of this._controller.userManager.users.values()) {
+				if (user.isAdmin && !admin.has(user.name)) {
+					user.isAdmin = false;
+					updated.set(user.id, user);
+				}
+				if (user.isBanned && !banned.has(user.name)) {
+					user.isBanned = false;
+					user.banReason = "";
+					updated.set(user.id, user);
+				}
+				if (user.isWhitelisted && !whitelist.has(user.name)) {
+					user.isWhitelisted = false;
+					updated.set(user.id, user);
+				}
+			}
+		} else if (request.importType === "bans") {
+			// Bans have extra logic to handle ban reason
+			const users = request.users as (string | { username: string, reason: string })[];
+			const expected = new Set(
+				users.map(u => (typeof u === "string" ? u.toLowerCase() : u.username.toLowerCase()))
+			);
+			for (const user of this._controller.userManager.users.values()) {
+				if (user.isBanned && !expected.has(user.name)) {
+					user.isBanned = false;
+					user.banReason = "";
+					updated.set(user.id, user);
+				}
+			}
+		} else {
+			// Whitelist and admin have the same logic
+			const users = request.users as string[];
+			const expected = new Set(users.map(u => u.toLowerCase()));
+			const prop = request.importType === "admins" ? "isAdmin" : "isWhitelisted";
+			for (const user of this._controller.userManager.users.values()) {
+				if (user[prop] && !expected.has(user.name)) {
+					user[prop] = false;
+					updated.set(user.id, user);
+				}
+			}
+		}
+	}
+
+	// A large number of small if statements are unavoidable when reducing the number of updates sent
+	// eslint-disable-next-line complexity
 	async handleUserBulkImportRequest(request: lib.UserBulkImportRequest) {
-		logger.info(`handleUserBulkImportRequest ${JSON.stringify(request)}`);
+		let backup: undefined | Awaited<ReturnType<ControlConnection["handleUserBulkExportRequest"]>>;
+		const updated = new Map<ControllerUser["id"], ControllerUser>();
+		if (request.restore) {
+			// Unban / Demote / Unwhitelist players not on the list
+			backup = await this.handleUserBulkExportRequest(new lib.UserBulkExportRequest(request.importType));
+			await this.handleUserBulkRestoreRequest(request, updated);
+		}
+
+		// Will get a user or attempt to create one
+		const getUserOrCreate = (username: string) => {
+			const user = this._controller.userManager.getByName(username);
+			if (user) { return user; }
+			this.user.checkPermission("core.user.create");
+			return this._controller.userManager.createUser(username);
+		};
+
+		// Merge the imported data with existing data, this is strictly additive
+		if (request.importType === "users") {
+			// Update all fields
+			const users = request.users as Extract<typeof request.users, { username: string }[]>;
+			for (const user of users) {
+				const cUser = getUserOrCreate(user.username);
+				if (user.is_admin && !cUser.isAdmin) {
+					cUser.isAdmin = true;
+					updated.set(cUser.id, cUser);
+				}
+				if (user.is_banned && !cUser.isBanned) {
+					cUser.isBanned = true;
+					cUser.banReason = user.ban_reason ?? "";
+					updated.set(cUser.id, cUser);
+				}
+				if (user.is_whitelisted && !cUser.isWhitelisted) {
+					cUser.isWhitelisted = true;
+					updated.set(cUser.id, cUser);
+				}
+			}
+		} else if (request.importType === "bans") {
+			// Bans have extra logic to handle ban reason
+			const users = request.users as (string | { username: string, reason: string })[];
+			for (const user of users) {
+				if (typeof user === "string") {
+					const cUser = getUserOrCreate(user);
+					if (!cUser.isBanned) {
+						cUser.isBanned = true;
+						cUser.banReason = "";
+						updated.set(cUser.id, cUser);
+					}
+				} else {
+					const cUser = getUserOrCreate(user.username);
+					if (!cUser.isBanned) {
+						cUser.isBanned = true;
+						cUser.banReason = user.reason;
+						updated.set(cUser.id, cUser);
+					}
+				}
+			}
+		} else {
+			// Whitelist and admin have the same logic
+			const users = request.users as string[];
+			const prop = request.importType === "admins" ? "isAdmin" : "isWhitelisted";
+			for (const user of users) {
+				const cUser = getUserOrCreate(user);
+				if (!cUser[prop]) {
+					cUser[prop] = true;
+					updated.set(cUser.id, cUser);
+				}
+			}
+		}
+
+		// Send the necessary update events
+		const updatedUsers = [...updated.values()];
+		this._controller.usersUpdated(updatedUsers);
+
+		// Resync the host user lists
+		const adminlist: Set<string> = new Set();
+		const banlist: Map<string, string> = new Map();
+		const whitelist: Set<string> = new Set();
+
+		for (let user of this._controller.userManager.users.values()) {
+			if (user.isAdmin) {
+				adminlist.add(user.id);
+			}
+			if (user.isBanned) {
+				banlist.set(user.id, user.banReason);
+			}
+			if (user.isWhitelisted) {
+				whitelist.add(user.id);
+			}
+		}
+
+		this._controller.sendEvent(
+			new lib.SyncUserListsEvent(adminlist, banlist, whitelist),
+			lib.Address.fromShorthand("allHosts")
+		);
+
+		return backup;
 	}
 
 	async handleUserBulkExportRequest(request: lib.UserBulkExportRequest) {
-		logger.info(`handleUserBulkExportRequest ${JSON.stringify(request)}`);
-		return [] as any;
+		if (request.exportType === "users") {
+			// Send a full user export
+			const usersToSend = [] as lib.ClusterioUserExport["users"];
+			for (const user of this._controller.userManager.users.values()) {
+				let send = false;
+				const userToSend = { username: user.name } as typeof usersToSend[0];
+				if (user.isBanned) {
+					send = true;
+					userToSend.is_banned = true;
+					userToSend.ban_reason = user.banReason;
+				}
+				if (user.isAdmin) {
+					send = true;
+					userToSend.is_admin = true;
+				}
+				if (user.isWhitelisted) {
+					send = true;
+					userToSend.is_whitelisted = true;
+				}
+				if (send) {
+					usersToSend.push(userToSend);
+				}
+			}
+			return new lib.ClusterioUserExport(usersToSend);
+		} else if (request.exportType === "bans") {
+			// Bans have extra logic to handle ban reason
+			const usersToSend = [] as Array<string | { username: string, reason: string }>;
+			for (const user of this._controller.userManager.users.values()) {
+				if (user.isBanned) {
+					if (user.banReason) {
+						usersToSend.push({ username: user.name, reason: user.banReason });
+					} else {
+						usersToSend.push(user.name);
+					}
+				}
+			}
+			return usersToSend;
+		}
+
+		// This is a whitelist or admins export
+		const usersToSend = [] as string[];
+		const prop = request.exportType === "admins" ? "isAdmin" : "isWhitelisted";
+		for (const user of this._controller.userManager.users.values()) {
+			if (user[prop]) {
+				usersToSend.push(user.name);
+			}
+		}
+		return usersToSend;
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {

@@ -178,8 +178,10 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 	}
 
 	setApplyAction(async () => {
+		let backup: object | undefined;
 		const values = form.getFieldsValue();
-		switch (values.importType) {
+		const importType = restore ? values.restoreType : values.importType;
+		switch (importType) {
 			case "mixed": {
 				// Parse and combine multiple json types then send
 				const usersToSend = new Map<string, Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>();
@@ -203,7 +205,7 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 						throw new Error(`Unknown json (could not guess by file name): ${file.name}`);
 					}
 				}
-				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()], restore));
+				backup = await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()], restore));
 				break;
 			}
 
@@ -211,9 +213,9 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 				// Parse and user jsons then send
 				const usersToSend = new Map<string, Static<typeof lib.ClusterioUserExport.clusterioUserSchema>>();
 				for (const file of values.fileList as File[]) {
-					parseUsers(JSON.parse(await file.text()), usersToSend);
+					parseUsers(JSON.parse(await file.text()).users, usersToSend);
 				}
-				await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()], restore));
+				backup = await control.send(new lib.UserBulkImportRequest("users", [...usersToSend.values()], restore));
 				break;
 			}
 
@@ -223,7 +225,7 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 				for (const file of values.fileList as File[]) {
 					parseBans(JSON.parse(await file.text()), usersToSend);
 				}
-				await control.send(new lib.UserBulkImportRequest("bans", [...usersToSend.values()], restore));
+				backup = await control.send(new lib.UserBulkImportRequest("bans", [...usersToSend.values()], restore));
 				break;
 			}
 
@@ -234,14 +236,19 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 				for (const file of values.fileList as File[]) {
 					parseAdminsWhitelist(JSON.parse(await file.text()), usersToSend);
 				}
-				await control.send(new lib.UserBulkImportRequest(values.importType, [...usersToSend.keys()], restore));
+				backup = await control.send(
+					new lib.UserBulkImportRequest(importType, [...usersToSend.keys()], restore)
+				);
 				break;
 			}
 
 			default: {
 				// Should be unreachable
-				throw new Error(`Unknown importType: ${values.importType}`);
+				throw new Error(`Unknown importType: ${importType}`);
 			}
+		}
+		if (backup) {
+			saveJson(`${importType}-backup.json`, backup);
 		}
 	});
 
@@ -253,11 +260,15 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 	};
 
 	return <>
-		<Form.Item label="Type" name="importType" initialValue="mixed">
+		<Form.Item
+			label="Type"
+			name={restore ? "restoreType" : "importType"}
+			initialValue={restore ? "users" : "mixed"}
+		>
 			<Radio.Group>
-				<Radio.Button value="mixed" disabled={!account.hasAnyPermission(
+				{restore ? undefined : <Radio.Button value="mixed" disabled={!account.hasAnyPermission(
 					"core.user.set_admin", "core.user.set_banned", "core.user.set_whitelisted"
-				)}>Mixed</Radio.Button>
+				)}>Mixed</Radio.Button>}
 				<Radio.Button value="users" disabled={!account.hasAllPermission(
 					"core.user.set_admin", "core.user.set_banned", "core.user.set_whitelisted"
 				)}>Users</Radio.Button>

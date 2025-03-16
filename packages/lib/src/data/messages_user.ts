@@ -394,6 +394,11 @@ export class UserBulkImportRequest {
 		}
 	}
 
+	static Response = plainJson(Type.Optional(Type.Union([
+		Type.Array(ClusterioUserExport.factorioUserSchema),
+		ClusterioUserExport.jsonSchema,
+	])));
+
 	constructor(
 		public importType: "users" | "bans" | "admins" | "whitelist",
 		public users: Static<typeof ClusterioUserExport.clusterioUserSchema>[]
