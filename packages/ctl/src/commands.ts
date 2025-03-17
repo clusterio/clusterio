@@ -1836,6 +1836,118 @@ userCommands.add(new lib.Command({
 	},
 }));
 
+async function handleImportOrRestore(args: {
+	filepath: string,
+	users: boolean,
+	bans: boolean,
+	admins: boolean,
+	whitelist: boolean,
+	noBackup?: boolean,
+}, control: Control, restore: boolean) {
+	let importType: ConstructorParameters<typeof lib.UserBulkImportRequest>[0];
+	const data = JSON.parse((await fs.readFile(args.filepath)).toString());
+	const optionCount = [args.users, args.bans, args.admins, args.whitelist]
+		.reduce((acc, bool) => (bool ? acc + 1 : acc), 0);
+
+	if (optionCount > 1) {
+		throw new lib.CommandError("Can not specify multiple options");
+	}
+
+	// Assign based on options or attempt to guess based on filename
+	const filename = path.basename(args.filepath);
+	if (args.users || (optionCount === 0 && data.export_version)) {
+		importType = "users";
+	} else if (args.bans || (optionCount === 0 && filename.includes("ban"))) {
+		importType = "bans";
+	} else if (args.admins || (optionCount === 0 && filename.includes("admin"))) {
+		importType = "admins";
+	} else if (args.whitelist || (optionCount === 0 && filename.includes("whitelist"))) {
+		importType = "whitelist";
+	} else {
+		throw new lib.CommandError("Unknown json file, please specify an option");
+	}
+
+	const backup = await control.send(
+		new lib.UserBulkImportRequest(importType, importType === "users" ? data.users : data, restore)
+	);
+
+	print(`${restore ? "Restored" : "Imported"} ${importType} from ${args.filepath}`);
+	if (restore && backup && !args.noBackup) {
+		fs.writeJSON(`${importType}-backup.json`, backup, { spaces: 2 });
+		print(`Wrote backup to ${importType}-backup.json`);
+	}
+}
+
+userCommands.add(new lib.Command({
+	definition: ["import <filepath>", "Import user data from a file", (yargs) => {
+		yargs.positional("filepath", { describe: "Path to the file to import", type: "string" });
+		yargs.options({
+			"users": { describe: "Import users json", nargs: 0, type: "boolean", default: false },
+			"bans": { describe: "Import banlist json", nargs: 0, type: "boolean", default: false },
+			"admins": { describe: "Import adminlist json", nargs: 0, type: "boolean", default: false },
+			"whitelist": { describe: "Import whitelist json", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args: any, control: any) {
+		await handleImportOrRestore(args, control, false);
+	},
+}));
+
+userCommands.add(new lib.Command({
+	definition: ["restore <filepath>", "Restore user data from a file", (yargs) => {
+		yargs.positional("filepath", { describe: "Path to the file to import", type: "string" });
+		yargs.options({
+			"users": { describe: "Import users json", nargs: 0, type: "boolean", default: false },
+			"bans": { describe: "Import banlist json", nargs: 0, type: "boolean", default: false },
+			"admins": { describe: "Import adminlist json", nargs: 0, type: "boolean", default: false },
+			"whitelist": { describe: "Import whitelist json", nargs: 0, type: "boolean", default: false },
+			"no-backup": { describe: "Don't save a backup to the cwd", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args: any, control: any) {
+		await handleImportOrRestore(args, control, true);
+	},
+}));
+
+userCommands.add(new lib.Command({
+	definition: ["export <filepath>", "Export user data to a file", (yargs) => {
+		yargs.positional("filepath", { describe: "Path to the file to save to", type: "string" });
+		yargs.options({
+			"bans": { describe: "Import banlist json", nargs: 0, type: "boolean", default: false },
+			"admins": { describe: "Import adminlist json", nargs: 0, type: "boolean", default: false },
+			"whitelist": { describe: "Import whitelist json", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args: {
+		filepath: string,
+		bans: boolean,
+		admins: boolean,
+		whitelist: boolean,
+	}, control: any) {
+		let exportType = "users" as ConstructorParameters<typeof lib.UserBulkExportRequest>[0];
+		const optionCount = [args.bans, args.admins, args.whitelist]
+			.reduce((acc, bool) => (bool ? acc + 1 : acc), 0);
+
+		if (optionCount > 1) {
+			throw new lib.CommandError("Can not specify multiple options");
+		}
+
+		// Assign based on options or attempt to guess based on filename
+		if (args.bans) {
+			exportType = "bans";
+		} else if (args.admins) {
+			exportType = "admins";
+		} else if (args.whitelist) {
+			exportType = "whitelist";
+		}
+
+		fs.writeJSON(args.filepath, await control.send(
+			new lib.UserBulkExportRequest(exportType)
+		), { spaces: 2 });
+		print(`Exported ${exportType} to ${args.filepath}`);
+	},
+}));
+
 const logCommands = new lib.CommandTree({ name: "log", description: "Log inspection" });
 logCommands.add(new lib.Command({
 	definition: ["follow", "follow cluster log", (yargs) => {

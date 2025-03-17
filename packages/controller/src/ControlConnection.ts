@@ -901,7 +901,7 @@ export default class ControlConnection extends BaseConnection {
 			lib.Address.fromShorthand("allHosts")
 		);
 
-		return backup;
+		return backup ?? [];
 	}
 
 	async handleUserBulkExportRequest(request: lib.UserBulkExportRequest) {

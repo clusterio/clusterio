@@ -247,7 +247,7 @@ function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionP
 				throw new Error(`Unknown importType: ${importType}`);
 			}
 		}
-		if (backup) {
+		if (restore && backup) {
 			saveJson(`${importType}-backup.json`, backup);
 		}
 	});
