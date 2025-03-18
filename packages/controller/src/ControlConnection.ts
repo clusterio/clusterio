@@ -914,7 +914,9 @@ export default class ControlConnection extends BaseConnection {
 				if (user.isBanned) {
 					send = true;
 					userToSend.is_banned = true;
-					userToSend.ban_reason = user.banReason;
+					if (user.banReason !== "") {
+						userToSend.ban_reason = user.banReason;
+					}
 				}
 				if (user.isAdmin) {
 					send = true;
@@ -934,7 +936,7 @@ export default class ControlConnection extends BaseConnection {
 			const usersToSend = [] as Array<string | { username: string, reason: string }>;
 			for (const user of this._controller.userManager.users.values()) {
 				if (user.isBanned) {
-					if (user.banReason) {
+					if (user.banReason && user.banReason !== "") {
 						usersToSend.push({ username: user.name, reason: user.banReason });
 					} else {
 						usersToSend.push(user.name);

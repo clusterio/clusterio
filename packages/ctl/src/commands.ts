@@ -1873,7 +1873,7 @@ async function handleImportOrRestore(args: {
 
 	print(`${restore ? "Restored" : "Imported"} ${importType} from ${args.filepath}`);
 	if (restore && backup && !args.noBackup) {
-		fs.writeJSON(`${importType}-backup.json`, backup, { spaces: 2 });
+		await fs.writeJSON(`${importType}-backup.json`, backup, { spaces: 2 });
 		print(`Wrote backup to ${importType}-backup.json`);
 	}
 }
@@ -1897,10 +1897,10 @@ userCommands.add(new lib.Command({
 	definition: ["restore <filepath>", "Restore user data from a file", (yargs) => {
 		yargs.positional("filepath", { describe: "Path to the file to import", type: "string" });
 		yargs.options({
-			"users": { describe: "Import users json", nargs: 0, type: "boolean", default: false },
-			"bans": { describe: "Import banlist json", nargs: 0, type: "boolean", default: false },
-			"admins": { describe: "Import adminlist json", nargs: 0, type: "boolean", default: false },
-			"whitelist": { describe: "Import whitelist json", nargs: 0, type: "boolean", default: false },
+			"users": { describe: "Restore users json", nargs: 0, type: "boolean", default: false },
+			"bans": { describe: "Restore banlist json", nargs: 0, type: "boolean", default: false },
+			"admins": { describe: "Restore adminlist json", nargs: 0, type: "boolean", default: false },
+			"whitelist": { describe: "Restore whitelist json", nargs: 0, type: "boolean", default: false },
 			"no-backup": { describe: "Don't save a backup to the cwd", nargs: 0, type: "boolean", default: false },
 		});
 	}],
@@ -1913,17 +1913,19 @@ userCommands.add(new lib.Command({
 	definition: ["export <filepath>", "Export user data to a file", (yargs) => {
 		yargs.positional("filepath", { describe: "Path to the file to save to", type: "string" });
 		yargs.options({
-			"bans": { describe: "Import banlist json", nargs: 0, type: "boolean", default: false },
-			"admins": { describe: "Import adminlist json", nargs: 0, type: "boolean", default: false },
-			"whitelist": { describe: "Import whitelist json", nargs: 0, type: "boolean", default: false },
+			"users": { describe: "Export users json", nargs: 0, type: "boolean", default: false },
+			"bans": { describe: "Export banlist json", nargs: 0, type: "boolean", default: false },
+			"admins": { describe: "Export adminlist json", nargs: 0, type: "boolean", default: false },
+			"whitelist": { describe: "Export whitelist json", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args: {
 		filepath: string,
+		users: boolean,
 		bans: boolean,
 		admins: boolean,
 		whitelist: boolean,
-	}, control: any) {
+	}, control: Control) {
 		let exportType = "users" as ConstructorParameters<typeof lib.UserBulkExportRequest>[0];
 		const optionCount = [args.bans, args.admins, args.whitelist]
 			.reduce((acc, bool) => (bool ? acc + 1 : acc), 0);
@@ -1933,7 +1935,9 @@ userCommands.add(new lib.Command({
 		}
 
 		// Assign based on options or attempt to guess based on filename
-		if (args.bans) {
+		if (args.users) {
+			exportType = "users";
+		} else if (args.bans) {
 			exportType = "bans";
 		} else if (args.admins) {
 			exportType = "admins";
