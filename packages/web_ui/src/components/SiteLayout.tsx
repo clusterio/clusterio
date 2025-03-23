@@ -10,6 +10,8 @@ import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
 import { pages } from "../pages";
 import { DraggingContext } from "../model/is_dragging";
+import { saveJson } from "../util/save_file";
+import { ControlConfig } from "@clusterio/lib";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -24,6 +26,8 @@ function isActiveDropzone(element: HTMLElement | null): boolean {
 	while (element && depth < checkDepth) {
 		if (element.classList.contains("dropzone")) {
 			return element.classList.contains("enabled");
+		} else if (element.classList.contains("ant-upload-drag")) {
+			return !element.classList.contains("disabled");
 		}
 		element = element.parentElement;
 		depth += 1;
@@ -36,6 +40,7 @@ export default function SiteLayout() {
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
+	const control = useContext(ControlContext);
 	const [dragging, setDragging] = useState(0);
 
 	function SetSidebar(props: { path: string | null }) {
@@ -49,12 +54,19 @@ export default function SiteLayout() {
 		onClick: ({ key }: { key: string }) => {
 			if (key === "user") {
 				navigate(`/users/${account.name}/view`);
+			} else if (key === "ctlConfig") {
+				const config = new ControlConfig("control", {
+					"control.controller_token": control.connector.token,
+					"control.controller_url": (new URL(webRoot, document.location.href)).href,
+				});
+				saveJson("config-control.json", config.toJSON());
 			} else if (key === "logOut") {
 				account.logOut();
 			}
 		},
 		items: [
 			{ label: account.name, key: "user" },
+			{ label: "Ctl Config", key: "ctlConfig" },
 			{ type: "divider" },
 			{ label: "Log out", danger: true, key: "logOut" },
 		],
