@@ -690,4 +690,5 @@ export const webRoutes = [
 	"/roles/:id/view",
 	"/plugins",
 	"/plugins/:name/view",
+	"/error",
 ];
