@@ -191,7 +191,7 @@ module.exports = {
 		"multiline-comment-style": ["error", "separate-lines"],
 		"multiline-ternary": "off",
 		"new-cap": ["error", {
-			"capIsNewExceptions": ["StringEnum"],
+			"capIsNewExceptions": ["StringEnum", "StringKey"],
 			"capIsNewExceptionPattern": "^Type\\.",
 		}],
 		"new-parens": "error",

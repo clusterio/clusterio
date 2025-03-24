@@ -4,6 +4,10 @@ export function StringEnum<T extends string[]>(values: [...T]) {
 	return Type.Unsafe<T[number]>({ type: "string", enum: values });
 }
 
+export function StringKey<T extends string>(object: Record<T, any>) {
+	return Type.Unsafe<keyof typeof object>({ type: "string", enum: Object.keys(object) });
+}
+
 export interface JSONDeserialisable<T> {
 	fromJSON(json: unknown): T;
 	jsonSchema: object;

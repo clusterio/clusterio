@@ -1,5 +1,5 @@
-import React, { useContext } from "react";
-import { Descriptions, Spin, Tag, Typography, Button, Space, Modal, Popconfirm } from "antd";
+import React, { useContext, useState } from "react";
+import { Descriptions, Spin, Tag, Typography, Button, Space, Modal, Popconfirm, Flex } from "antd";
 import { useParams } from "react-router-dom";
 
 import * as lib from "@clusterio/lib";
@@ -7,7 +7,7 @@ import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import HostConfigTree from "./HostConfigTree";
 import InstanceList from "./InstanceList";
-import LogConsole from "./LogConsole";
+import LogConsole, { LogConsoleMaxLevel } from "./LogConsole";
 import { useAccount } from "../model/account";
 import { useInstances } from "../model/instance";
 import { useHost } from "../model/host";
@@ -32,6 +32,7 @@ export default function HostViewPage() {
 	const [systems] = useSystems();
 	const system = systems.get(hostId);
 	const [host, synced] = useHost(hostId);
+	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
 	const hostInstances = new Map([...instances].filter(([_id, instance]) => instance.assignedHost === hostId));
 
 	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host?.name ?? String(hostId) }];
@@ -141,8 +142,15 @@ export default function HostViewPage() {
 			<InstanceList instances={hostInstances} size="small" hideAssignedHost />
 		</>}
 		{account.hasPermission("core.log.follow") && <>
-			<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-			<LogConsole hosts={[hostId]} />
+			<Flex justify="space-between" align="baseline">
+				<Title level={5} style={{ marginTop: 16 }}>Console</Title>
+				<LogConsoleMaxLevel
+					value={maxLevel}
+					onChange={value => setMaxLevel(value)}
+					hidden={["server", "http"]}
+				/>
+			</Flex>
+			<LogConsole hosts={[hostId]} maxLevel={maxLevel}/>
 		</>}
 		{account.hasPermission("core.host.get_config") && <HostConfigTree id={hostId} available={host.connected} />}
 		<PluginExtra component="HostViewPage" host={host} />

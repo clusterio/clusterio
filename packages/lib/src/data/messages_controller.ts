@@ -1,5 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import { JsonString, StringEnum, plainJson } from "./composites";
+import { JsonString, StringEnum, StringKey, plainJson } from "./composites";
 import { levels } from "../logging";
 import { ControllerConfig, HostConfig } from "../config";
 
@@ -217,12 +217,12 @@ export class LogMessageEvent {
 	static dst = ["controller", "control"] as const;
 
 	constructor(
-		public info: { level: string, message: string },
+		public info: { level: keyof typeof levels, message: string },
 	) { }
 
 	static jsonSchema = Type.Object({
 		"info": Type.Object({
-			"level": Type.String(),
+			"level": StringKey(levels),
 			"message": Type.String(),
 		}),
 	});
