@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Space, Spin, Typography } from "antd";
+import { Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Space, Spin, Switch, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -186,6 +186,7 @@ export default function InstanceViewPage() {
 	let params = useParams();
 	let instanceId = Number(params.id);
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("server");
+	const [actionsOnly, setActionsOnly] = useState<boolean>(true);
 
 	let navigate = useNavigate();
 
@@ -230,19 +231,30 @@ export default function InstanceViewPage() {
 		}
 		{
 			account.hasAnyPermission("core.log.follow", "core.instance.send_rcon")
-			&& <Title level={5} style={{ marginTop: 16 }}>Console</Title>
-		}
-		{account.hasPermission("core.log.follow") && <>
-			<Flex justify="space-between" align="baseline">
+			&& <Flex justify="space-between" align="baseline">
 				<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-				<LogConsoleMaxLevel
-					value={maxLevel}
-					onChange={value => setMaxLevel(value)}
-					hidden={["http"]}
-				/>
+				{
+					account.hasPermission("core.log.follow")
+					&& <Flex align="center" gap="middle">
+						<Switch
+							checkedChildren="Chat"
+							unCheckedChildren="Log"
+							checked={actionsOnly}
+							onChange={setActionsOnly}
+						/>
+						<LogConsoleMaxLevel
+							value={maxLevel}
+							onChange={setMaxLevel}
+							hidden={["http"]}
+						/>
+					</Flex>
+				}
 			</Flex>
-			<LogConsole instances={[instanceId]} maxLevel={maxLevel}/>
-		</>}
+		}
+		{
+			account.hasPermission("core.log.follow")
+			&& <LogConsole instances={[instanceId]} maxLevel={maxLevel} actionsOnly={actionsOnly}/>
+		}
 		{
 			account.hasPermission("core.instance.send_rcon")
 			&& <InstanceRcon id={instanceId} disabled={instance.status !== "running"} />

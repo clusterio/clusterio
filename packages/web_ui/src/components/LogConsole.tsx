@@ -70,6 +70,7 @@ type LogConsoleProps = {
 	hosts?: number[];
 	instances?: number[];
 	maxLevel?: keyof typeof lib.levels;
+	actionsOnly?: boolean;
 };
 
 export function LogConsoleMaxLevel(props: {
@@ -123,7 +124,15 @@ export default function LogConsole(props: LogConsoleProps) {
 				400,
 				"desc",
 			)).then(result => {
-				setPastLines(result.log.map((info, index) => formatLog(info as Info, -index - 1)).reverse());
+				setPastLines(result.log
+					.filter(info => (
+						!props.actionsOnly
+						|| (info as Info).level !== "server"
+						|| (info as Info).parsed?.type === "action"
+					))
+					.map((info, index) => formatLog(info as Info, -index - 1))
+					.reverse()
+				);
 			}).catch(err => {
 				setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
 			});
@@ -132,11 +141,14 @@ export default function LogConsole(props: LogConsoleProps) {
 		}
 
 		function logHandler(info: Info) {
-			setLines(currentLines => currentLines.concat(
-				[formatLog(info, currentLines.length)]
-			));
+			if (!props.actionsOnly || info.level !== "server" || info.parsed?.type === "action") {
+				setLines(currentLines => currentLines.concat(
+					[formatLog(info, currentLines.length)]
+				));
+			}
 		}
 
+		setLines([]);
 		control.onLog(logFilter, logHandler);
 		return () => {
 			control.offLog(logFilter, logHandler);
@@ -147,6 +159,7 @@ export default function LogConsole(props: LogConsoleProps) {
 		(props.hosts || []).join(),
 		(props.instances || []).join(),
 		props.maxLevel,
+		props.actionsOnly,
 	]);
 
 	return <>
