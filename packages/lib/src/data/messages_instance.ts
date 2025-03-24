@@ -137,14 +137,16 @@ export class InstanceCreateRequest {
 
 	constructor(
 		public config: Static<typeof InstanceConfig.jsonSchema>,
+		public cloneFromId?: number,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"config": InstanceConfig.jsonSchema,
+		"cloneFromId": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.config);
+		return new this(json.config, json.cloneFromId);
 	}
 }
 

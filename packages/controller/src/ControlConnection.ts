@@ -249,6 +249,14 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
 		const instanceConfig = new lib.InstanceConfig("controller");
+		if (request.cloneFromId) {
+			const baseInstance = this._controller.instances.get(request.cloneFromId);
+			if (!baseInstance) {
+				throw new lib.RequestError(`Instance with ID ${request.cloneFromId} does not exist`);
+			}
+			instanceConfig.update(baseInstance.config.toJSON(), false);
+			instanceConfig.set("instance.assigned_host", null); // New instances are unassigned
+		}
 		instanceConfig.update(request.config, false, "control");
 		await this._controller.instanceCreate(instanceConfig);
 	}
