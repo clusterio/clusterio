@@ -333,6 +333,7 @@ export interface InstanceConfigFields {
 	"factorio.enable_authserver_bans": boolean;
 	"factorio.settings": Record<string, unknown>;
 	"factorio.verbose_logging": boolean;
+	"factorio.console_logging": boolean;
 	"factorio.strip_paths": boolean;
 	"factorio.sync_adminlist": "enabled" | "disabled" | "bidirectional";
 	"factorio.sync_whitelist": "enabled" | "disabled" | "bidirectional";
@@ -484,6 +485,12 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		},
 		"factorio.verbose_logging": {
 			description: "Enable verbose logging on the Factorio server",
+			restartRequired: true,
+			type: "boolean",
+			initialValue: false,
+		},
+		"factorio.console_logging": {
+			description: "Enable console logging to a separate file, useful for 3rd party integrations",
 			restartRequired: true,
 			type: "boolean",
 			initialValue: false,
