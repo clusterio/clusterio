@@ -438,6 +438,8 @@ export interface FactorioServerOptions {
 	enableAuthserverBans?: boolean,
 	/** Enable verbose logging. */
 	verboseLogging?: boolean,
+	/** Enable console logging. */
+	consoleLogging?: boolean,
 	/** Strip paths in the console. */
 	stripPaths?: boolean,
 	/**
@@ -486,6 +488,8 @@ export class FactorioServer extends events.EventEmitter {
 	enableAuthserverBans: boolean;
 	/** Enable verbose logging */
 	verboseLogging: boolean;
+	/** Enable console logging */
+	consoleLogging: boolean;
 	_shutdownTimeoutMs = 0;
 	_stopTimeoutId?: ReturnType<typeof setTimeout>;
 
@@ -541,6 +545,8 @@ export class FactorioServer extends events.EventEmitter {
 		this.enableAuthserverBans = options.enableAuthserverBans || false;
 		/** Enable verbose logging */
 		this.verboseLogging = options.verboseLogging || false;
+		/** Enable console logging */
+		this.consoleLogging = options.consoleLogging || false;
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
 		if (options.shutdownTimeoutMs !== undefined) {
@@ -973,6 +979,7 @@ export class FactorioServer extends events.EventEmitter {
 					...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
 					...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
 					...(this.verboseLogging ? ["--verbose"] : []),
+					...(this.consoleLogging ? ["--console-log", this.writePath("console.log")] : []),
 				],
 				{
 					detached: true,
