@@ -485,6 +485,24 @@ definePermission({
 	description: "Delete users and all data stored for them.",
 });
 definePermission({
+	name: "core.user.bulk_import",
+	title: "Bulk user import",
+	description: "Bulk import users including admin, whitelist, and bans." +
+	" (Imports types are restricted by other permissions, e.g. core.user.set_admin)",
+});
+definePermission({
+	name: "core.user.bulk_export",
+	title: "Bulk user export",
+	description: "Bulk export users including admin, whitelist, and bans.",
+});
+definePermission({
+	name: "core.user.bulk_restore",
+	title: "Bulk user restore",
+	description: "Bulk restore users including admin, whitelist, and bans." +
+	" (Restore types are restricted by other permissions, e.g. core.user.set_admin)",
+});
+
+definePermission({
 	name: "core.log.follow",
 	title: "Follow cluster log",
 	description: "Receive new entries in the cluster log.  Required to see instance console.",

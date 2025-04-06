@@ -1397,5 +1397,248 @@ describe("Integration of Clusterio", function() {
 				assert.equal(getControl().userUpdates[0].isDeleted, true);
 			});
 		});
+
+		describe("user import", function() {
+			it("should import users", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-users.json"), {
+					export_version: "2.0.0.alpha20",
+					users: [
+						{ username: "import_user_admin", is_admin: true },
+						{ username: "import_user_banned", is_banned: true },
+						{ username: "import_user_ban_reason", is_banned: true, ban_reason: "banned" },
+						{ username: "import_user_whitelist", is_whitelisted: true },
+						{ username: "import_user_none" },
+					],
+				});
+
+				await execCtl("user import --users import-users.json");
+
+				const users = await getUsers();
+				assert(users.get("import_user_admin").isAdmin, "import_user_admin was not admin");
+				assert(users.get("import_user_banned").isBanned, "import_user_banned was not banned");
+				assert(
+					users.get("import_user_whitelist").isWhitelisted,
+					"import_user_whitelist was not whitelisted"
+				);
+
+				const userNone = users.get("import_user_none");
+				assert(!userNone.isAdmin, "import_user_none was admin");
+				assert(!userNone.isBanned, "import_user_none was banned");
+				assert(!userNone.isWhitelisted, "import_user_none was whitelisted");
+
+				const userBanReason = users.get("import_user_ban_reason");
+				assert(userBanReason.isBanned, "import_user_ban_reason was not banned");
+				assert.equal(userBanReason.banReason, "banned", "import_user_ban_reason had incorrect ban reason");
+			});
+			it("should import users by json format", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-users.json"), {
+					export_version: "2.0.0.alpha20",
+					users: [{ username: "import_user", is_admin: true, is_whitelisted: true }],
+				});
+
+				await execCtl("user import import-users.json");
+				const userFoo = (await getUsers()).get("import_user");
+				assert(userFoo.isAdmin, "import_user was not admin");
+				assert(userFoo.isWhitelisted, "import_user was not whitelisted");
+			});
+			it("should import bans", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-bans.json"), [
+					{ username: "import_ban_reason", reason: "banned" },
+					"import_ban",
+				]);
+
+				await execCtl("user import --bans import-bans.json");
+
+				const users = await getUsers();
+
+				const userFoo = users.get("import_ban_reason");
+				assert(userFoo.isBanned, "import_ban_reason was not banned");
+				assert.equal(userFoo.banReason, "banned", "import_ban_reason had incorrect ban reason");
+
+				const userBar = users.get("import_ban");
+				assert(userBar.isBanned, "import_ban was not banned");
+				assert.equal(userBar.banReason, "", "import_ban had incorrect ban reason");
+			});
+			it("should import bans by filename", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-bans.json"), [
+					"import_ban_filename",
+				]);
+
+				await execCtl("user import import-bans.json");
+				assert((await getUsers()).get("import_ban_filename").isBanned, "import_ban_filename was not banned");
+			});
+			it("should import admins", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-admins.json"), [
+					"import_admin",
+				]);
+
+				await execCtl("user import --admins import-admins.json");
+				assert((await getUsers()).get("import_admin").isAdmin, "import_admin was not admin");
+			});
+			it("should import admins by filename", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-admins.json"), [
+					"import_admin_filename",
+				]);
+
+				await execCtl("user import import-admins.json");
+				assert((await getUsers()).get("import_admin_filename").isAdmin, "import_admin_filename was not admin");
+			});
+			it("should import whitelist", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-whitelist.json"), [
+					"import_whitelist",
+				]);
+
+				await execCtl("user import --whitelist import-whitelist.json");
+				assert(
+					(await getUsers()).get("import_whitelist").isWhitelisted,
+					"import_whitelist was not whitelisted"
+				);
+			});
+			it("should import whitelist by filename", async function() {
+				await fs.writeJSON(path.join("temp", "test", "import-whitelist.json"), [
+					"import_whitelist_filename",
+				]);
+
+				await execCtl("user import import-whitelist.json");
+				assert(
+					(await getUsers()).get("import_whitelist_filename").isWhitelisted,
+					"import_whitelist_filename was not whitelisted"
+				);
+			});
+			it("should reject multiple provided options", async function() {
+				assert.rejects(execCtl("user import --bans --admins import-admins.json"));
+			});
+		});
+
+		describe("user export", function() {
+			before(async function() {
+				await execCtl("user create export_control");
+			});
+			it("should export users", async function() {
+				slowTest(this);
+				await execCtl("user set-admin export_user --create");
+				await execCtl("user set-whitelisted export_user");
+				await execCtl("user export --users user-export.json");
+				const data = await fs.readJson(path.join("temp", "test", "user-export.json"));
+				assert(data.users, "Users array does not exist");
+				assert(!data.users.find(u => u.username === "export_control"), "Control user is present");
+				assert.deepEqual(data.users.find(u => u.username === "export_user"), {
+					username: "export_user", is_admin: true, is_whitelisted: true,
+				});
+			});
+			it("should export bans", async function() {
+				slowTest(this);
+				await execCtl("user set-banned export_ban --create");
+				await execCtl("user set-banned export_ban_reason --create --reason banned");
+				await execCtl("user export --bans ban-export.json");
+				const data = await fs.readJson(path.join("temp", "test", "ban-export.json"));
+				assert.equal(data.indexOf("export_control"), -1, "Control user is present");
+				assert(data.indexOf("export_ban") >= 0, "export_ban is missing");
+				assert.deepEqual(data.find(u => typeof u === "object" && u.username === "export_ban_reason"), {
+					username: "export_ban_reason", reason: "banned",
+				});
+			});
+			it("should export admins", async function() {
+				await execCtl("user set-admin export_admin --create");
+				await execCtl("user export --admins admin-export.json");
+				const data = await fs.readJson(path.join("temp", "test", "admin-export.json"));
+				assert.equal(data.indexOf("export_control"), -1, "Control user is present");
+				assert(data.indexOf("export_admin") >= 0, "export_admin is missing");
+			});
+			it("should export whitelist", async function() {
+				await execCtl("user set-whitelisted export_whitelist --create");
+				await execCtl("user export --whitelist whitelist-export.json");
+				const data = await fs.readJson(path.join("temp", "test", "whitelist-export.json"));
+				assert.equal(data.indexOf("export_control"), -1, "Control user is present");
+				assert(data.indexOf("export_whitelist") >= 0, "export_whitelist is missing");
+			});
+		});
+
+		describe("user restore", function() {
+			beforeEach(async function() {
+				slowTest(this);
+				await execCtl("user set-admin restore_control --create");
+				await execCtl("user set-banned restore_control");
+				await execCtl("user set-whitelisted restore_control");
+			});
+			it("should restore users", async function() {
+				await fs.writeJSON(path.join("temp", "test", "restore-users.json"), {
+					export_version: "2.0.0.alpha20",
+					users: [{ username: "restore_user", is_admin: true, is_whitelisted: true }],
+				});
+
+				await execCtl("user restore restore-users.json");
+				const users = await getUsers();
+
+				const user = users.get("restore_user");
+				assert(user.isAdmin, "restore_user was not admin");
+				assert(user.isWhitelisted, "restore_user was not whitelisted");
+
+				const control = users.get("restore_control");
+				assert(!control.isAdmin, "restore_user was admin");
+				assert(!control.isBanned, "restore_user was banned");
+				assert(!control.isWhitelisted, "restore_user was whitelisted");
+
+				const data = await fs.readJson(path.join("temp", "test", "users-backup.json"));
+				assert(data.users, "Users array does not exist");
+				assert.deepEqual(data.users.find(u => u.username === "restore_control"), {
+					username: "restore_control", is_admin: true, is_banned: true, is_whitelisted: true,
+				});
+			});
+			it("should restore bans", async function() {
+				await fs.writeJSON(path.join("temp", "test", "restore-bans.json"), [
+					{ username: "restore_ban_reason", reason: "banned" },
+					"restore_ban",
+				]);
+
+				await execCtl("user restore --bans restore-bans.json");
+
+				const users = await getUsers();
+
+				const userFoo = users.get("restore_ban_reason");
+				assert(userFoo.isBanned, "restore_ban_reason was not banned");
+				assert.equal(userFoo.banReason, "banned", "restore_ban_reason had incorrect ban reason");
+
+				const userBar = users.get("restore_ban");
+				assert(userBar.isBanned, "restore_ban was not banned");
+				assert.equal(userBar.banReason, "", "restore_ban had incorrect ban reason");
+
+				assert(!users.get("restore_control").isBanned, "restore_user was banned");
+
+				const data = await fs.readJson(path.join("temp", "test", "bans-backup.json"));
+				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
+			});
+			it("should restore admins", async function() {
+				await fs.writeJSON(path.join("temp", "test", "restore-admins.json"), [
+					"restore_admin",
+				]);
+
+				await execCtl("user restore --admins restore-admins.json");
+				const users = await getUsers();
+
+				assert(users.get("restore_admin").isAdmin, "restore_admin was not admin");
+				assert(!users.get("restore_control").isAdmin, "restore_user was admin");
+
+				const data = await fs.readJson(path.join("temp", "test", "admins-backup.json"));
+				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
+			});
+			it("should restore whitelist", async function() {
+				await fs.writeJSON(path.join("temp", "test", "restore-whitelist.json"), [
+					"restore_whitelist",
+				]);
+
+				await execCtl("user restore --whitelist restore-whitelist.json");
+				const users = await getUsers();
+
+				assert(users.get("restore_whitelist").isWhitelisted, "restore_whitelist was not whitelisted");
+				assert(!users.get("restore_control").isWhitelisted, "restore_user was whitelisted");
+
+				const data = await fs.readJson(path.join("temp", "test", "whitelist-backup.json"));
+				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
+			});
+			it("should reject multiple provided options", async function() {
+				assert.rejects(execCtl("user restore --bans --admins restore-admins.json"));
+			});
+		});
 	});
 });

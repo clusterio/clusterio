@@ -118,4 +118,6 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	user.UserSetBannedRequest,
 	user.UserDeleteRequest,
 	user.UserUpdatesEvent,
+	user.UserBulkImportRequest,
+	user.UserBulkExportRequest,
 ];

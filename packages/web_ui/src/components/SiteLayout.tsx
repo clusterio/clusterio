@@ -24,6 +24,8 @@ function isActiveDropzone(element: HTMLElement | null): boolean {
 	while (element && depth < checkDepth) {
 		if (element.classList.contains("dropzone")) {
 			return element.classList.contains("enabled");
+		} else if (element.classList.contains("ant-upload-drag")) {
+			return !element.classList.contains("disabled");
 		}
 		element = element.parentElement;
 		depth += 1;
