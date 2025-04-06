@@ -1036,7 +1036,7 @@ end`.replace(/\r?\n/g, " ");
 			expected => expected.name === name && expected.action === action && expected.reason === reason
 		);
 		if (expectedIndex >= 0) {
-			this._expectedUserUpdates = this._expectedUserUpdates.splice(expectedIndex, 1);
+			this._expectedUserUpdates.splice(expectedIndex, 1);
 		} else if (action === "BAN") {
 			if (this.config.get("factorio.sync_banlist") !== "bidirectional") { return; }
 			this.sendTo(addr, new lib.InstanceBanlistUpdateEvent(name, true, reason ?? ""));
