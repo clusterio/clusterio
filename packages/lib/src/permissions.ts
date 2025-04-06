@@ -487,7 +487,8 @@ definePermission({
 definePermission({
 	name: "core.user.bulk_import",
 	title: "Bulk user import",
-	description: "Bulk import users including admin, whitelist, and bans.",
+	description: "Bulk import users including admin, whitelist, and bans." +
+	" (Imports types are restricted by other permissions, e.g. core.user.set_admin)",
 });
 definePermission({
 	name: "core.user.bulk_export",
@@ -497,7 +498,8 @@ definePermission({
 definePermission({
 	name: "core.user.bulk_restore",
 	title: "Bulk user restore",
-	description: "Bulk restore users including admin, whitelist, and bans.",
+	description: "Bulk restore users including admin, whitelist, and bans." +
+	" (Restore types are restricted by other permissions, e.g. core.user.set_admin)",
 });
 
 definePermission({
