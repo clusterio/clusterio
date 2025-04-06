@@ -351,6 +351,23 @@ describe("Integration of Clusterio", function() {
 				await execCtl(`instance config set-prop test factorio.settings visibility "${value}"`);
 				await execCtl("instance config set-prop test factorio.settings require_user_verification false");
 			});
+			it("can clone an instance", async function() {
+				slowTest(this);
+				await execCtl("instance create testClone --id 440 --from 44");
+				const instances = await getInstances();
+				assert(instances.has(440), "instance was not created");
+				assert.equal(instances.get(440).status, "unassigned", "incorrect instance status");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(44));
+				assert.deepEqual(config["factorio.settings"]["visibility"], { lan: true, public: false });
+				assert.equal(config["factorio.settings"]["require_user_verification"], false);
+			});
+			it("errors when cloning an invalid instance", async function() {
+				slowTest(this);
+				assert.rejects(
+					execCtl("instance create testClone --id 440 --from 441"),
+					new lib.RequestError("Instance with ID 441 does not exist")
+				);
+			});
 		});
 
 		describe("instance assign", function() {

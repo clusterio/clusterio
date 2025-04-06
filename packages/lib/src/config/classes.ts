@@ -312,11 +312,16 @@ export class Config<
 	 * Serialize the config to a plain JavaScript object
 	 *
 	 * @param remote - Location this serialised representation is for
+	 * @param filter - When provided, only the given fields are serialized
 	 * @returns JSON serializable representation of the config.
 	 */
-	toRemote(remote: ConfigLocation): Static<typeof Config.jsonSchema> {
+	toRemote(remote: ConfigLocation, filter?: (keyof Fields)[]): Static<typeof Config.jsonSchema> {
 		let fields: Record<string, FieldValue> = {};
 		for (let [name, value] of Object.entries(this.fields)) {
+			if (filter && !filter.includes(name as keyof Fields)) {
+				continue;
+			}
+
 			let def = this.constructor.fieldDefinitions[name];
 			if (
 				this.location !== "control" && !this._checkAccess(name, def, this.location, ConfigAccess.write, false)

@@ -484,16 +484,21 @@ instanceCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Instance name", type: "string" });
 		yargs.options({
 			"id": { type: "number", nargs: 1, describe: "Instance id" },
+			"from": { type: "number", nargs: 1, describe: "Clone config from instance id" },
 		});
 	}],
-	handler: async function(args: { name: string, id?: number }, control: Control) {
+	handler: async function(args: { name: string, id?: number, from?: number, }, control: Control) {
 		let instanceConfig = new lib.InstanceConfig("control");
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		const serializedConfig = instanceConfig.toRemote("controller");
-		await control.send(new lib.InstanceCreateRequest(serializedConfig));
+		await control.send(new lib.InstanceCreateRequest(
+			instanceConfig.toRemote("controller", [
+				"instance.id", "instance.name",
+			]),
+			args.from
+		));
 	},
 }));
 

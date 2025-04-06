@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Input, Modal } from "antd";
+import { Button, Form, Input, Modal, Select, Tooltip } from "antd";
 
 import * as lib from "@clusterio/lib";
 
@@ -13,7 +13,7 @@ import { useInstances } from "../model/instance";
 import InstanceList from "./InstanceList";
 import { notifyErrorHandler } from "../util/notify";
 
-function CreateInstanceButton() {
+function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances>[0] }) {
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
@@ -28,8 +28,14 @@ function CreateInstanceButton() {
 
 		let instanceConfig = new lib.InstanceConfig("control");
 		instanceConfig.set("instance.name", values.instanceName);
-		const serializedConfig = instanceConfig.toRemote("controller");
-		await control.send(new lib.InstanceCreateRequest(serializedConfig));
+
+		await control.send(new lib.InstanceCreateRequest(
+			instanceConfig.toRemote("controller", [
+				"instance.id", "instance.name",
+			]),
+			values.instanceClone >= 0 ? values.instanceClone : undefined,
+		));
+
 		setOpen(false);
 		navigate(`/instances/${instanceConfig.get("instance.id")}/view`);
 	}
@@ -53,6 +59,16 @@ function CreateInstanceButton() {
 				<Form.Item name="instanceName" label="Name">
 					<Input />
 				</Form.Item>
+				<Tooltip title="Perform a one time copy of an existing config (assigned host is not copied)">
+					<Form.Item name="instanceClone" label="Copy Config">
+						<Select
+							defaultValue={-1}
+							options={[{ id: -1, name: "Default Config" }, ...props.instances.values()]
+								.map(i => ({ value: i.id, label: i.name }))
+							}
+						/>
+					</Form.Item>
+				</Tooltip>
 			</Form>
 		</Modal>
 	</>;
@@ -67,7 +83,7 @@ export default function InstancesPage() {
 		<PageHeader
 			title="Instances"
 			extra={<>
-				{account.hasPermission("core.instance.create") && <CreateInstanceButton />}
+				{account.hasPermission("core.instance.create") && <CreateInstanceButton instances={instances}/>}
 				{account.hasPermission("core.instance.start")
 					&& <Button onClick={e => instances.forEach(instance => {
 						if (instance.status === "stopped") {
