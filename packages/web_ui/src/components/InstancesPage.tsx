@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Input, Modal, Select } from "antd";
+import { Button, Form, Input, Modal, Select, Tooltip } from "antd";
 
 import * as lib from "@clusterio/lib";
 
@@ -59,14 +59,16 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 				<Form.Item name="instanceName" label="Name">
 					<Input />
 				</Form.Item>
-				<Form.Item name="instanceClone" label="Clone From">
-					<Select
-						defaultValue={-1}
-						options={[{ id: -1, name: "Default Config" }, ...props.instances.values()]
-							.map(i => ({ value: i.id, label: i.name }))
-						}
-					/>
-				</Form.Item>
+				<Tooltip title="Perform a one time copy of an existing config (assigned host is not copied)">
+					<Form.Item name="instanceClone" label="Copy Config">
+						<Select
+							defaultValue={-1}
+							options={[{ id: -1, name: "Default Config" }, ...props.instances.values()]
+								.map(i => ({ value: i.id, label: i.name }))
+							}
+						/>
+					</Form.Item>
+				</Tooltip>
 			</Form>
 		</Modal>
 	</>;
