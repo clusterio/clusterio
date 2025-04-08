@@ -5,12 +5,15 @@
  */
 export { default as ExportManifest } from "./ExportManifest";
 export { default as ModInfo } from "./ModInfo";
-export { default as ModPack, ModSetting, ModSettingColor, ModRecord } from "./ModPack";
+export { ModSettingColor } from "./ModPack";
+export type { ModSetting, ModRecord } from "./ModPack";
+export { default as ModPack } from "./ModPack";
 export { default as ModuleInfo } from "./ModuleInfo";
 export { default as Permission } from "./Permission";
 export { default as PlayerStats } from "./PlayerStats";
 export { default as Role } from "./Role";
-export { default as User, IControllerUser } from "./User";
+export { default as User } from "./User";
+export type { IControllerUser } from "./User";
 export * from "./composites";
 export * from "./messages_core";
 export * from "./messages_controller";
