@@ -247,15 +247,27 @@ function SearchModsButton() {
 				expandable={{
 					expandedRowRender: record => (
 						<div>
-							<p><strong>Summary:</strong> {record.summary}</p>
-							<p><strong>Downloads:</strong> {record.downloads_count}</p>
+							<p><strong>Summary:</strong> {record.summary ?? "N/A"}</p>
+							<p><strong>Downloads:</strong> {record.downloads_count ?? "N/A"}</p>
 							<p><strong>Latest Release:</strong></p>
-							<ul>
-								<li>Version: {record.latest_release.version}</li>
-								<li>Factorio Version: {record.latest_release.info_json.factorio_version}</li>
-								<li>Released: {new Date(record.latest_release.released_at).toLocaleString()}</li>
-							</ul>
-							{account.hasPermission("core.mod.download") && (
+							{record.latest_release ? (
+								<ul>
+									<li>Version: {record.latest_release.version ?? "N/A"}</li>
+									<li>
+										Factorio Version: {
+											record.latest_release.factorio_version ?? "N/A"
+										}
+									</li>
+									<li>
+										Released: {
+											record.latest_release.released_at
+												? new Date(record.latest_release.released_at).toLocaleString()
+												: "N/A"
+										}
+									</li>
+								</ul>
+							) : <p>No release information available.</p>}
+							{account.hasPermission("core.mod.download") && record.latest_release && (
 								<Button
 									onClick={() => {
 										control.send(
@@ -268,6 +280,8 @@ function SearchModsButton() {
 											notifyErrorHandler("Error downloading mod")
 										);
 									}}
+									// Disable button if version is missing
+									disabled={!record.latest_release.version}
 								>
 									Download Latest Version
 								</Button>
@@ -300,7 +314,7 @@ function SearchModsButton() {
 					{
 						title: "Latest Version",
 						key: "version",
-						render: (_, record) => record.latest_release.version,
+						render: (_, record) => record.latest_release?.version ?? "N/A",
 					},
 				]}
 			/>
