@@ -172,6 +172,7 @@ function SearchModsButton() {
 			setLoading(false);
 		});
 
+		// eslint-disable-next-line consistent-return
 		return () => {
 			canceled = true;
 		};
@@ -200,6 +201,13 @@ function SearchModsButton() {
 			setSort(sorter.field);
 			setSortOrder(sorter.order === "ascend" ? "asc" : "desc");
 		}
+	};
+
+	const getColumnSortOrder = (columnKey: string): "ascend" | "descend" | undefined => {
+		if (sort === columnKey) {
+			return sortOrder === "asc" ? "ascend" : "descend";
+		}
+		return undefined;
 	};
 
 	return <>
@@ -295,21 +303,21 @@ function SearchModsButton() {
 						dataIndex: "name",
 						key: "name",
 						sorter: true,
-						sortOrder: sort === "name" ? (sortOrder === "asc" ? "ascend" : "descend") : undefined,
+						sortOrder: getColumnSortOrder("name"),
 					},
 					{
 						title: "Title",
 						dataIndex: "title",
 						key: "title",
 						sorter: true,
-						sortOrder: sort === "title" ? (sortOrder === "asc" ? "ascend" : "descend") : undefined,
+						sortOrder: getColumnSortOrder("title"),
 					},
 					{
 						title: "Author",
 						dataIndex: "owner",
 						key: "owner",
 						sorter: true,
-						sortOrder: sort === "owner" ? (sortOrder === "asc" ? "ascend" : "descend") : undefined,
+						sortOrder: getColumnSortOrder("owner"),
 					},
 					{
 						title: "Latest Version",
