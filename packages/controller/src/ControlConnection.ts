@@ -515,17 +515,25 @@ export default class ControlConnection extends BaseConnection {
 		};
 	}
 
-
 	/**
 	 * Handle request to fetch all mods from the Factorio Mod Portal for a given version.
 	 * @param request - The request object containing factorioVersion.
 	 */
 	async handleModPortalGetAllRequest(request: lib.ModPortalGetAllRequest) {
+		const cacheKey = `${request.factorioVersion}-${request.hide_deprecated}`;
+		const cachedData = this._controller.modPortalCache.get(cacheKey);
+
+		if (cachedData && Date.now() - cachedData.timestamp < Controller.MOD_PORTAL_CACHE_DURATION) {
+			return new lib.ModPortalGetAllRequest.Response(cachedData.data);
+		}
+
 		try {
+			logger.info(`Fetching mod portal data for ${cacheKey}`);
 			const mods = await lib.ModStore.fetchAllModsFromPortal(
 				request.factorioVersion,
 				request.hide_deprecated
 			);
+			this._controller.modPortalCache.set(cacheKey, { timestamp: Date.now(), data: mods });
 			// The Response class is defined inline within the Request class
 			return new lib.ModPortalGetAllRequest.Response(mods);
 		} catch (error: any) {
