@@ -374,6 +374,12 @@ definePermission({
 	grantByDefault: true,
 });
 definePermission({
+	name: "core.mod.search_portal",
+	title: "Search mod portal",
+	description: "Search for mods on the Factorio mod portal.",
+	grantByDefault: true,
+});
+definePermission({
 	name: "core.mod.subscribe",
 	title: "Subscribe to mod updates",
 	description: "Subscribe to be notified on updates on the details of mods.",

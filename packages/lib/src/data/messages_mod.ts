@@ -197,6 +197,77 @@ export class ModSearchRequest {
 	};
 }
 
+// Define the structure for the latest release info from the portal
+const ModPortalReleaseSchema = Type.Object({
+	version: Type.String(),
+	// Match the structure from ModStore's ModRelease/ModDetails
+	info_json: Type.Object({ factorio_version: Type.String() }),
+	released_at: Type.String(), // ISO 8601 date string
+	download_url: Type.String(),
+	file_name: Type.String(),
+	sha1: Type.String(),
+});
+
+// Define the structure for mod details returned by the portal API
+// This should align with the ModDetails interface in ModStore.ts
+const ModPortalDetailsSchema = Type.Object({
+	name: Type.String(),
+	title: Type.String(),
+	summary: Type.String(),
+	owner: Type.String(),
+	downloads_count: Type.Integer(),
+	category: Type.Optional(Type.String()), // Add optional category
+	score: Type.Optional(Type.Number()), // Add optional score
+	latest_release: Type.Optional(ModPortalReleaseSchema),
+	// Add releases array if needed: releases: Type.Optional(Type.Array(ModPortalReleaseSchema)),
+});
+
+export class ModPortalGetAllRequest {
+	declare ["constructor"]: typeof ModPortalGetAllRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.search_portal" as const; // Reuse search permission for now
+
+	// Define allowed Factorio versions
+	static allowedVersions = [
+		Type.Literal("0.13"), Type.Literal("0.14"), Type.Literal("0.15"),
+		Type.Literal("0.16"), Type.Literal("0.17"), Type.Literal("0.18"),
+		Type.Literal("1.0"), Type.Literal("1.1"), Type.Literal("2.0"),
+	] as const;
+
+	constructor(
+		public factorioVersion: Static<typeof ModPortalGetAllRequest.allowedVersions[number]>,
+		public hide_deprecated?: boolean,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"factorioVersion": Type.Union([...this.allowedVersions]), // Use Union for validation
+		"hide_deprecated": Type.Optional(Type.Boolean()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.factorioVersion, json.hide_deprecated);
+	}
+
+	// Define the Response class inline
+	static Response = class ModPortalGetAllResponse {
+		declare ["constructor"]: typeof ModPortalGetAllResponse;
+		constructor(
+			public mods: Static<typeof ModPortalDetailsSchema>[],
+		) { }
+
+		static jsonSchema = Type.Object({
+			mods: Type.Array(ModPortalDetailsSchema),
+		});
+
+		static fromJSON(json: Static<typeof this.jsonSchema>) {
+			// No transformation needed if schema matches API structure
+			return new this(json.mods);
+		}
+	};
+}
+
 export class ModDownloadRequest {
 	declare ["constructor"]: typeof ModDownloadRequest;
 	static type = "request" as const;

@@ -2,14 +2,70 @@ import fs from "fs-extra";
 import path from "path";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
-import { ModInfo } from "./data";
+import { integerModVersion, ModInfo, ModPack, ModRecord } from "./data";
 import TypedEventEmitter from "./TypedEventEmitter";
 import { safeOutputFile } from "./file_ops";
+import { Writable } from "stream";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
 	change: (mod: ModInfo) => void;
 }
+
+interface ModDownloadRequest {
+	name: string;
+	version?: string;
+	sha1?: string;
+}
+
+interface ModRelease {
+	download_url: string,
+	file_name: string,
+	info_json: { factorio_version: string; },
+	released_at: string, // ISO 8601
+	version: string,
+	sha1: string;
+}
+
+
+interface ModDetails {
+	name: string,
+	title: string,
+	owner: string,
+	summary: string,
+	downloads_count: number,
+	category: string,
+	score?: number,
+	releases?: Array<ModRelease>,
+	latest_release?: ModRelease,
+}
+
+interface ModsInfoResponse {
+	pagination: any,
+	results: Array<ModDetails>,
+}
+
+/**
+ * Interface describing the structure of the pagination info from the portal API
+ */
+interface ModPortalPagination {
+	count: number;
+	links: { next?: string; prev?: string; };
+	page: number;
+	page_count: number;
+	page_size: number;
+}
+
+/**
+ * Interface describing the structure of the portal API response for a single page
+ */
+interface ModPortalResponse {
+	pagination: ModPortalPagination;
+	results: ModDetails[];
+}
+
+const MOD_PORTAL_API_URL = "https://mods.factorio.com/api/mods";
+const MOD_PORTAL_MAX_PAGE_SIZE = 10000; // Or largest allowed by API
 
 export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, ModStoreEvents> {
 	constructor(
@@ -133,5 +189,327 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		}
 
 		return new this(modsDirectory, files);
+	}
+
+	private static getLatestVersionFromReleases(releases: Array<ModRelease>) {
+		if (releases.length === 0) {
+			return undefined;
+		}
+		let latestVersion = releases[0].version;
+		releases.forEach((release) => {
+			if (integerModVersion(latestVersion) < integerModVersion(release.version)) {
+				latestVersion = release.version;
+			}
+		});
+		return latestVersion;
+	}
+
+	private static async getLatestVersionsChunk(modNames: string[], factorioVersion: string) {
+		const url = new URL("https://mods.factorio.com/api/mods");
+		url.searchParams.set("page_size", "max");
+		url.searchParams.set("version", factorioVersion);
+		const response = await fetch(url, {
+			method: "POST",
+			body: new URLSearchParams({ namelist: modNames }),
+		});
+		if (response.status !== 200) {
+			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
+		}
+		const mods = (await response.json() as ModsInfoResponse).results;
+		const versions = new Map<string, string>();
+		mods.forEach((mod) => {
+			const modName = mod.name;
+			if (mod.releases) {
+				let latestVersion = ModStore.getLatestVersionFromReleases(mod.releases);
+				if (latestVersion !== undefined) { versions.set(modName, latestVersion); }
+			} else if (mod.latest_release) {
+				versions.set(modName, mod.latest_release.version);
+			} else {
+				logger.warn(`Mod ${modName} has no releases or latest_release`);
+			}
+		});
+		return versions;
+	}
+
+	/**
+	 *
+	 * @param modNames an array of mod names to check for their latest version
+	 * @param factorioVersion factorio version to filter for (mods are not guaranteed to work between Middle versions)
+	 * @returns a Map with the keys being mod names and values being their latest version,
+	 * it is not guarteed that all mods submited will be returned
+	 */
+	static async getLatestVersions(modNames: string[] | string, factorioVersion: string = "1.1") {
+		if (typeof modNames === "string") {
+			modNames = [modNames];
+		}
+		if (factorioVersion.split(".").length >= 3) {
+			factorioVersion = factorioVersion.slice(0, factorioVersion.lastIndexOf("."));
+		}
+
+		const builtinMods = ModPack.getBuiltinModNames(factorioVersion);
+		modNames = modNames.filter(modName => !(modName in builtinMods));
+
+		const chunkSize = 500;
+		let versions = new Map<string, string>();
+		for (let i = 0; i < modNames.length; i += chunkSize) {
+			const chunk = (await ModStore.getLatestVersionsChunk(modNames.slice(i, i + chunkSize), factorioVersion));
+
+			for (const [modName, version] of chunk) {
+				versions.set(modName, version);
+			}
+		}
+		return versions;
+	}
+
+	private async downloadModFromReleases(releases: Array<ModRelease>, version: string,
+		username: string, token: string
+	) {
+		if (releases.length === 0) { }
+
+		// releases.find() // work on this
+
+		const latestRelease = releases.find(release => release.version === version);
+
+		if (latestRelease === undefined) {
+			return;
+		}
+
+		const url = new URL(`https://mods.factorio.com/${latestRelease.download_url}`);
+		url.searchParams.set("username", username);
+		url.searchParams.set("token", token);
+		const fileName = `${this.modsDirectory}/${latestRelease.file_name}.tmp`;
+		await ModStore.downloadFile(url, fileName);
+		await fs.rename(fileName, `${this.modsDirectory}/${latestRelease.file_name}`);
+		this.addMod(await this.loadFile(`${this.modsDirectory}/${latestRelease.file_name}`));
+	}
+
+	private async downloadModsChunk(
+		modNames: string[], modVersions: string[], username: string, token: string, factorioVersion: string
+	) {
+		const url = new URL("https://mods.factorio.com/api/mods");
+		url.searchParams.set("page_size", "max");
+		url.searchParams.set("version", factorioVersion);
+		const response = await fetch(url, {
+			method: "POST",
+			body: new URLSearchParams({ namelist: modNames }),
+		});
+		if (response.status !== 200) {
+			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
+		}
+		const mods = (await response.json() as ModsInfoResponse).results;
+
+		await Promise.all(mods.map((mod) => {
+			if (mod.releases) {
+				return this.downloadModFromReleases(mod.releases,
+					modVersions[modNames.indexOf(mod.name)], username, token);
+			} else if (mod.latest_release) {
+				return this.downloadModFromReleases([mod.latest_release],
+					modVersions[modNames.indexOf(mod.name)], username, token);
+			}
+			throw new Error(`Mod ${mod.name} has no releases or latest_release`);
+		}));
+	}
+
+
+	/**
+	 *
+	 * downloads mods to the mod dir, will not download mods for which are already in the mod directory
+	 *
+	 * @param modMap a map of what mods to download and what version to download
+	 * @param username factorio username used for auth to download mods
+	 * @param token factorio token used for auth to download mods
+	 * @param factorioVersion factorio version to filter for (mods are not guaranteed to work between Middle versions)
+	 *
+	 */
+	async downloadMods(modMap: Map<string, string>, username: string, token: string, factorioVersion: string = "1.1") {
+		const chunkSize = 500;
+		let futures: Promise<void>[] = [];
+		modMap = new Map(modMap);
+		if (factorioVersion.split(".").length >= 3) {
+			factorioVersion = factorioVersion.slice(0, factorioVersion.lastIndexOf("."));
+		}
+
+		// get rid of mods already downloaded, why download what is already there
+		modMap.forEach((modVersion, modName, map) => {
+			const filename = `${modName}_${modVersion}.zip`;
+			if (modName in ModPack.getBuiltinModNames(factorioVersion) || this.files.has(filename)) {
+				map.delete(modName);
+			}
+		});
+
+		const modNames = Array.from(modMap.keys());
+		const modVersions = Array.from(modMap.values());
+		for (let i = 0; i < modMap.size; i += chunkSize) {
+			futures.push(
+				this.downloadModsChunk(modNames.slice(i, i + chunkSize), modVersions.slice(i, i + chunkSize),
+					username, token, factorioVersion)
+			);
+		}
+		await Promise.all(futures);
+	}
+
+	static async downloadFile(url: string | URL, filePath: string) {
+		try {
+			const response = await fetch(url);
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+			}
+
+			const fileStream = fs.createWriteStream(filePath);
+
+			// Check if the response body exists and pipe it to the file
+			if (response.body) {
+				const writer = Writable.toWeb(fileStream);
+				await response.body.pipeTo(writer);
+			} else {
+				throw new Error("Response body is missing.");
+			}
+		} catch (error) {
+			logger.error("Error downloading file:", error);
+			throw error;
+		}
+	}
+
+	async updateModpack(modPack: ModPack) {
+		const modNames = Array.from(modPack.mods.keys());
+		let currentVersions = new Map<string, string>();
+
+		modPack.mods.forEach((value, key, map) => {
+			currentVersions.set(key, value.version);
+		});
+		const factorioVersion = modPack.factorioVersion;
+
+		const latestVersions = await ModStore.getLatestVersions(modNames, factorioVersion);
+
+		let versionChanges = new Map<string, string>();
+		for (const modName in latestVersions.keys()) {
+			if (!latestVersions.has(modName)) { continue; }
+
+			const latestVersion = latestVersions.get(modName) as string;
+
+			const currentVerScore = integerModVersion(currentVersions.get(modName) as string);
+			const latestVerScore = integerModVersion(latestVersion);
+			const haveLatestVer = this.files.has(`${modName}_${latestVersion}.zip`);
+
+			if (currentVerScore >= latestVerScore) {
+				continue;
+			}
+			if (modName in ModPack.getBuiltinModNames(modPack.factorioVersion)) {
+				continue;
+			}
+			if (haveLatestVer) {
+				versionChanges.set(modName, latestVersion);
+			}
+		}
+
+		return versionChanges;
+
+
+	}
+
+
+	/**
+	 * goes through a modpack and updates all it's mods, whether that is switching to a newer version or
+	 * downloading a newer version
+	 *
+	 * @param modPack what modpack to update
+	 * @param username factorio username used for auth to download mods
+	 * @param token factorio token used for auth to download mods
+	 */
+	async updateAndDownloadMods(modPack: ModPack, username: string, token: string) {
+		const modNames = Array.from(modPack.mods.keys());
+		const factorioVersion = modPack.factorioVersion;
+		let modLatestVersion = await ModStore.getLatestVersions(modNames, factorioVersion);
+		// TODO : change so it returns the changes, rather than change directly
+		// get rid of mods from the map where we already are using or have the latest version
+		modLatestVersion.forEach((modVersion, modName, map) => {
+			const currentVerScore = integerModVersion(modPack.mods.get(modName)?.version as string);
+			const latestVerScore = integerModVersion(modVersion);
+			const haveLatestVer = this.files.has(`${modName}_${modVersion}.zip`);
+			if (currentVerScore >= latestVerScore) {
+				map.delete(modName);
+				return;
+			}
+			if (modName in ModPack.getBuiltinModNames(modPack.factorioVersion)) {
+				return;
+			}
+			if (haveLatestVer) {
+				let mod = modPack.mods.get(modName) as ModRecord;
+				mod.version = modVersion;
+				map.delete(modName);
+			}
+
+		});
+
+		// download latest version of mods
+		await this.downloadMods(modLatestVersion, username, token, factorioVersion);
+
+		// switch mods to use said latest version
+		modLatestVersion.forEach((modVersion, modName, _map) => {
+			const haveLatestVer = this.files.has(`${modName}_${modVersion}.zip`);
+			if (haveLatestVer) {
+				let mod = modPack.mods.get(modName) as ModRecord;
+				mod.version = modVersion;
+			}
+		});
+	}
+
+	/**
+	 * Fetch all mods from the Factorio Mod Portal for a specific Factorio version.
+	 *
+	 * Handles pagination automatically to retrieve the complete list.
+	 *
+	 * @param factorioVersion - The Factorio version to fetch mods for (e.g., "1.1").
+	 * @param hide_deprecated - Whether to exclude deprecated mods.
+	 * @returns An array of mod details.
+	 */
+	static async fetchAllModsFromPortal(
+		factorioVersion: string,
+		hide_deprecated: boolean = false
+	): Promise<ModDetails[]> {
+		logger.info(`Fetching all mods for Factorio version ${factorioVersion}...`);
+		let currentPage = 1;
+		let allMods: ModDetails[] = [];
+		let hasMorePages = true;
+
+		try {
+			while (hasMorePages) {
+				const url = new URL(MOD_PORTAL_API_URL);
+				url.searchParams.set("page_size", String(MOD_PORTAL_MAX_PAGE_SIZE));
+				url.searchParams.set("version", factorioVersion);
+				url.searchParams.set("page", String(currentPage));
+				url.searchParams.set("hide_deprecated", String(hide_deprecated));
+
+				logger.verbose(`Fetching mod portal page ${currentPage}: ${url.toString()}`);
+				const response = await fetch(url.toString());
+
+				if (!response.ok) {
+					let errorDetail = "";
+					try {
+						errorDetail = await response.text();
+					} catch (bodyError) {
+						logger.warn("Failed to read response body for failed portal request");
+					}
+					let errorMessage = `Mod portal fetch page ${currentPage} failed: `;
+					errorMessage += `${response.status} ${response.statusText}`;
+					if (errorDetail) {
+						errorMessage += ` - ${errorDetail}`;
+					}
+					throw new Error(errorMessage);
+				}
+
+				const data = await response.json() as ModPortalResponse;
+				allMods = allMods.concat(data.results);
+
+				hasMorePages = currentPage < data.pagination.page_count;
+				currentPage += 1;
+			}
+			logger.info(`Successfully fetched ${allMods.length} mods for Factorio version ${factorioVersion}.`);
+			return allMods;
+		} catch (err: any) {
+			logger.error(err);
+			throw new Error(err);
+		}
 	}
 }

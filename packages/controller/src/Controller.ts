@@ -96,6 +96,13 @@ export default class Controller {
 	clusterLogIndex: lib.LogIndex | null = null;
 	clusterLogBuildInterval: ReturnType<typeof setInterval> | null = null;
 
+	// Cache for mod portal requests
+	static MOD_PORTAL_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+	modPortalCache = new Map<string, { timestamp: number, data: any[] }>();
+
+	/** @type {?module:lib.ProcessConnector} */
+	process = null;
+
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
@@ -288,7 +295,7 @@ export default class Controller {
 		let tls_cert = this.config.get("controller.tls_certificate");
 		let tls_key = this.config.get("controller.tls_private_key");
 
-		if (httpsPort && (!tls_cert || !tls_key)) {
+		if (httpsPort && (!tls_cert || !tls_key)) {
 			throw new lib.StartupError(
 				"tls_certificate and tls_private_key must be configure in order to use https_port"
 			);
