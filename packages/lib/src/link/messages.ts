@@ -97,7 +97,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	mod.ModGetRequest,
 	mod.ModListRequest,
 	mod.ModSearchRequest,
-	mod.ModPortalSearchRequest,
+	mod.ModPortalGetAllRequest,
 	mod.ModDownloadRequest,
 	mod.ModDeleteRequest,
 	mod.ModPackUpdatesEvent,

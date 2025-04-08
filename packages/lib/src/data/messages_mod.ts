@@ -197,87 +197,73 @@ export class ModSearchRequest {
 	};
 }
 
-export class ModPortalSearchRequest {
-	declare ["constructor"]: typeof ModPortalSearchRequest;
+// Define the structure for the latest release info from the portal
+const ModPortalReleaseSchema = Type.Object({
+	version: Type.String(),
+	// Match the structure from ModStore's ModRelease/ModDetails
+	info_json: Type.Object({ factorio_version: Type.String() }),
+	released_at: Type.String(), // ISO 8601 date string
+	download_url: Type.String(),
+	file_name: Type.String(),
+	sha1: Type.String(),
+});
+
+// Define the structure for mod details returned by the portal API
+// This should align with the ModDetails interface in ModStore.ts
+const ModPortalDetailsSchema = Type.Object({
+	name: Type.String(),
+	title: Type.String(),
+	summary: Type.String(),
+	owner: Type.String(),
+	downloads_count: Type.Integer(),
+	category: Type.Optional(Type.String()), // Add optional category
+	score: Type.Optional(Type.Number()), // Add optional score
+	latest_release: Type.Optional(ModPortalReleaseSchema),
+	// Add releases array if needed: releases: Type.Optional(Type.Array(ModPortalReleaseSchema)),
+});
+
+export class ModPortalGetAllRequest {
+	declare ["constructor"]: typeof ModPortalGetAllRequest;
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission = "core.mod.search_portal" as const;
+	static permission = "core.mod.search_portal" as const; // Reuse search permission for now
+
+	// Define allowed Factorio versions
+	static allowedVersions = [
+		Type.Literal("0.13"), Type.Literal("0.14"), Type.Literal("0.15"),
+		Type.Literal("0.16"), Type.Literal("0.17"), Type.Literal("0.18"),
+		Type.Literal("1.0"), Type.Literal("1.1"), Type.Literal("2.0"),
+	] as const;
 
 	constructor(
-		public query: string,
-		public factorioVersion: string,
-		public page: number,
-		public pageSize?: number,
-		public sort?: string,
-		public sortOrder?: string,
+		public factorioVersion: Static<typeof ModPortalGetAllRequest.allowedVersions[number]>,
+		public hide_deprecated?: boolean,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"query": Type.String(),
-		"factorioVersion": Type.String(),
-		"page": Type.Integer(),
-		"pageSize": Type.Optional(Type.Integer()),
-		"sort": Type.Optional(Type.String()),
-		"sortOrder": Type.Optional(Type.String()),
+		"factorioVersion": Type.Union([...this.allowedVersions]), // Use Union for validation
+		"hide_deprecated": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.query, json.factorioVersion, json.page, json.pageSize, json.sort, json.sortOrder);
+		return new this(json.factorioVersion, json.hide_deprecated);
 	}
 
-	static Response = class Response {
+	// Define the Response class inline
+	static Response = class ModPortalGetAllResponse {
+		declare ["constructor"]: typeof ModPortalGetAllResponse;
 		constructor(
-			public queryIssues: string[],
-			public pageCount: number,
-			public resultCount: number,
-			public results: {
-				name: string,
-				title: string,
-				summary: string,
-				owner: string,
-				downloads_count: number,
-				latest_release: {
-					version: string,
-					factorio_version: string,
-					released_at: string,
-					download_url: string,
-					file_name: string,
-					sha1: string,
-				},
-			}[],
+			public mods: Static<typeof ModPortalDetailsSchema>[],
 		) { }
 
 		static jsonSchema = Type.Object({
-			"queryIssues": Type.Array(Type.String()),
-			"pageCount": Type.Integer(),
-			"resultCount": Type.Integer(),
-			"results": Type.Array(
-				Type.Object({
-					"name": Type.String(),
-					"title": Type.String(),
-					"summary": Type.String(),
-					"owner": Type.String(),
-					"downloads_count": Type.Number(),
-					"latest_release": Type.Object({
-						"version": Type.String(),
-						"factorio_version": Type.String(),
-						"released_at": Type.String(),
-						"download_url": Type.String(),
-						"file_name": Type.String(),
-						"sha1": Type.String(),
-					}),
-				}),
-			),
+			mods: Type.Array(ModPortalDetailsSchema),
 		});
 
 		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			return new this(
-				json.queryIssues,
-				json.pageCount,
-				json.resultCount,
-				json.results
-			);
+			// No transformation needed if schema matches API structure
+			return new this(json.mods);
 		}
 	};
 }

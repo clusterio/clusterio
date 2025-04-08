@@ -98,7 +98,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ModGetRequest, this.handleModGetRequest.bind(this));
 		this.handle(lib.ModListRequest, this.handleModListRequest.bind(this));
 		this.handle(lib.ModSearchRequest, this.handleModSearchRequest.bind(this));
-		this.handle(lib.ModPortalSearchRequest, this.handleModPortalSearchRequest.bind(this));
+		this.handle(lib.ModPortalGetAllRequest, this.handleModPortalGetAllRequest.bind(this));
 		this.handle(lib.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
 		this.handle(lib.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
 		this.handle(lib.LogQueryRequest, this.handleLogQueryRequest.bind(this));
@@ -515,19 +515,23 @@ export default class ControlConnection extends BaseConnection {
 		};
 	}
 
-	async handleModPortalSearchRequest(request: lib.ModPortalSearchRequest) {
+
+	/**
+	 * Handle request to fetch all mods from the Factorio Mod Portal for a given version.
+	 * @param request - The request object containing factorioVersion.
+	 */
+	async handleModPortalGetAllRequest(request: lib.ModPortalGetAllRequest) {
 		try {
-			return lib.ModStore.searchModPortal(
-				request.query,
+			const mods = await lib.ModStore.fetchAllModsFromPortal(
 				request.factorioVersion,
-				request.page,
-				request.pageSize || 10,
-				request.sort,
-				request.sortOrder || "asc"
+				request.hide_deprecated
 			);
+			// The Response class is defined inline within the Request class
+			return new lib.ModPortalGetAllRequest.Response(mods);
 		} catch (error: any) {
-			logger.error(`Error searching mod portal: ${error}`);
-			throw new lib.RequestError(`Failed to search mod portal: ${error.message}`);
+			logger.error(`Error fetching all mods from portal (${request.factorioVersion}): ${error.message}`);
+			// Propagate a user-friendly error back to the client
+			throw new lib.RequestError(`Portal mod fetch failed: ${error.message}`);
 		}
 	}
 

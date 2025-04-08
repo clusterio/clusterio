@@ -1,9 +1,10 @@
-import React, { Fragment, useState, useContext, useEffect } from "react";
+import React, { Fragment, useState, useContext, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload } from "antd";
+import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select } from "antd";
 import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import SearchOutlined from "@ant-design/icons/SearchOutlined";
+import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
@@ -21,6 +22,9 @@ import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+// Define the allowed Factorio versions based on the lib schema
+type FactorioVersion = Static<(typeof lib.ModPortalGetAllRequest)["allowedVersions"][number]>;
 
 function ImportModPackButton() {
 	let control = useContext(ControlContext);
@@ -130,45 +134,71 @@ function CreateModPackButton() {
 	</>;
 }
 
+// Define a basic type for the mod data we expect back from the new backend request
+// This should ideally match the structure returned by the backend.
+// We reuse the ModPortalMod structure name for convenience, but it's fetched via backend.
+interface ModPortalMod {
+	name: string;
+	title: string;
+	owner: string;
+	summary: string;
+	downloads_count: number;
+	category: string;
+	score?: number;
+	latest_release?: {
+		download_url: string;
+		file_name: string;
+		info_json: { factorio_version: string; };
+		released_at: string;
+		version: string;
+		sha1: string;
+	};
+}
+
 function SearchModsButton() {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [open, setOpen] = useState(false);
 	const [form] = Form.useForm();
 	const [searchText, setSearchText] = useState("");
-	const [factorioVersion, setFactorioVersion] = useState("1.1");
-	const [modResults, setModResults] = useState<any[]>([]);
-	const [loading, setLoading] = useState(false);
+	const [factorioVersion, setFactorioVersion] = useState<FactorioVersion>("2.0");
+
+	// State for all mods fetched from backend
+	const [allMods, setAllMods] = useState<ModPortalMod[]>([]);
+	const [loading, setLoading] = useState<boolean>(false);
+	const [error, setError] = useState<Error | null>(null);
+
+	// State for client-side pagination and sorting
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useState(10);
-	const [totalResults, setTotalResults] = useState(0);
-	const [totalPages, setTotalPages] = useState(0);
 	const [sort, setSort] = useState<string>("name");
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-	// Search mods when search parameters change
+	// Fetch all mods from backend when modal opens or version changes
 	useEffect(() => {
-		if (!open) { return; }
+		if (!open || !factorioVersion) {
+			setAllMods([]); // Clear mods if modal closed or no version
+			return;
+		}
 
 		setLoading(true);
+		setError(null);
 		let canceled = false;
 
-		control.send(new lib.ModPortalSearchRequest(
-			searchText,
-			factorioVersion,
-			page,
-			pageSize,
-			sort,
-			sortOrder
-		)).then(response => {
+		// Use the hypothetical new backend request
+		control.send(
+			// Factorio version state now matches the required type
+			new lib.ModPortalGetAllRequest(factorioVersion)
+		).then((response: any) => {
 			if (canceled) { return; }
-
-			setModResults(response.results);
-			setTotalResults(response.resultCount);
-			setTotalPages(response.pageCount);
+			// *** Backend Change Needed: Ensure the response has a 'mods' array ***
+			setAllMods(response?.mods || []); // Added optional chaining
 			setLoading(false);
-		}).catch(error => {
+		}).catch(err => {
 			if (canceled) { return; }
+			notifyErrorHandler("Error fetching mods from portal")(err);
+			setError(err);
+			setAllMods([]);
 			setLoading(false);
 		});
 
@@ -176,15 +206,80 @@ function SearchModsButton() {
 		return () => {
 			canceled = true;
 		};
-	}, [open, searchText, factorioVersion, page, pageSize, sort, sortOrder, control]);
+		// Re-fetch when modal opens or factorio version changes
+	}, [open, factorioVersion, control]);
 
-	const handleSearch = () => {
-		const values = form.getFieldsValue();
-		setSearchText(values.name || "");
-		setFactorioVersion(values.factorioVersion || "1.1");
-		setPage(1); // Reset to first page on new search
+
+	// Memoize the filtered, sorted, and paginated mods (logic remains the same)
+	const displayedMods = useMemo(() => {
+		let filtered = allMods;
+
+		// Apply search filter (case-insensitive)
+		if (searchText) {
+			const lowerSearchText = searchText.toLowerCase();
+			filtered = filtered.filter(mod => mod.name.toLowerCase().includes(lowerSearchText)
+				|| mod.title.toLowerCase().includes(lowerSearchText)
+			);
+		}
+
+		// Apply sorting
+		if (sort && sortOrder) {
+			filtered = [...filtered].sort((a, b) => {
+				let aValue: any = a[sort as keyof ModPortalMod] ?? "";
+				let bValue: any = b[sort as keyof ModPortalMod] ?? "";
+
+				// Handle specific types if necessary (e.g., numbers, dates)
+				if (sort === "downloads_count") {
+					aValue = a.downloads_count ?? 0;
+					bValue = b.downloads_count ?? 0;
+					return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+				}
+
+				// Default string comparison
+				const comparison = strcmp(String(aValue), String(bValue));
+				return sortOrder === "asc" ? comparison : -comparison;
+			});
+		}
+
+		// Apply pagination
+		const startIndex = (page - 1) * pageSize;
+		return filtered.slice(startIndex, startIndex + pageSize);
+
+	}, [allMods, searchText, sort, sortOrder, page, pageSize]);
+
+	// Calculate total results based on the filtered list *before* pagination (logic remains the same)
+	const totalResults = useMemo(() => {
+		let filtered = allMods;
+		if (searchText) {
+			const lowerSearchText = searchText.toLowerCase();
+			filtered = filtered.filter(mod => mod.name.toLowerCase().includes(lowerSearchText)
+				|| mod.title.toLowerCase().includes(lowerSearchText)
+			);
+		}
+		return filtered.length;
+	}, [allMods, searchText]);
+
+	// Update search text and factorio version from form
+	const handleSearch = (changedValues: any, allValues: any) => {
+		const nameValue = allValues.name;
+		const versionValue = allValues.factorioVersion as FactorioVersion | undefined;
+
+		// Only trigger state updates if values actually changed
+		if (nameValue !== searchText) {
+			setSearchText(nameValue || "");
+		}
+		if (versionValue && versionValue !== factorioVersion) {
+			setFactorioVersion(versionValue);
+			setAllMods([]); // Clear mods when version changes, useEffect will fetch new ones
+			setLoading(true); // Show loading indicator immediately
+		}
+		// Reset page only if search text or version changed
+		if (nameValue !== searchText || (versionValue && versionValue !== factorioVersion)) {
+			setPage(1);
+		}
 	};
 
+	// Update pagination and sorting state when table changes (logic remains the same)
 	const handleTableChange = (
 		pagination: any,
 		filters: any,
@@ -195,14 +290,23 @@ function SearchModsButton() {
 		}
 		if (pagination.pageSize !== pageSize) {
 			setPageSize(pagination.pageSize);
+			setPage(1); // Reset to first page if page size changes
 		}
 
-		if (sorter.field && sorter.order) {
+		// Update sort state if sorter exists and has changed
+		if (sorter.field && (sorter.field !== sort || sorter.order !== (sortOrder === "asc" ? "ascend" : "descend"))) {
 			setSort(sorter.field);
 			setSortOrder(sorter.order === "ascend" ? "asc" : "desc");
+			setPage(1); // Reset to first page on sort change
+		} else if (!sorter.field && sort !== "name") { // Reset only if not already default
+			// Clear sort if column header clicked without order - default to name ascending
+			setSort("name");
+			setSortOrder("asc");
+			setPage(1);
 		}
 	};
 
+	// Helper to get antd sort order format (logic remains the same)
 	const getColumnSortOrder = (columnKey: string): "ascend" | "descend" | undefined => {
 		if (sort === columnKey) {
 			return sortOrder === "asc" ? "ascend" : "descend";
@@ -213,7 +317,7 @@ function SearchModsButton() {
 	return <>
 		<Button icon={<SearchOutlined />} onClick={() => { setOpen(true); }}>Search</Button>
 		<Modal
-			title="Search Mods"
+			title="Search Mod Portal"
 			open={open}
 			onCancel={() => { setOpen(false); }}
 			width={800}
@@ -221,27 +325,48 @@ function SearchModsButton() {
 				<Button key="close" onClick={() => { setOpen(false); }}>
 					Close
 				</Button>,
-				<Button key="search" type="primary" onClick={handleSearch}>
-					Search
-				</Button>,
+				// Remove explicit search button as form updates trigger search/filter
 			]}
 		>
 			<Form
 				form={form}
 				layout="vertical"
-				onFinish={handleSearch}
-				initialValues={{ factorioVersion: "2.0" }}
+				onValuesChange={handleSearch} // Trigger update on any form change
+				initialValues={{ factorioVersion: factorioVersion, name: searchText }}
 			>
-				<Form.Item name="name" label="Name or Title">
-					<Input placeholder="Enter mod name or title" />
+				<Form.Item name="name" label="Filter by Name or Title">
+					<Input placeholder="Start typing to filter..." />
 				</Form.Item>
-				<Form.Item name="factorioVersion" label="Factorio Version">
-					<Input placeholder="e.g. 1.1" />
+				<Form.Item
+					name="factorioVersion"
+					label="Factorio Version"
+				>
+					<Select>
+						{/* Map allowed versions to Select Options */}
+						<Select.Option value="2.0">2.0</Select.Option>
+						<Select.Option value="1.1">1.1</Select.Option>
+						<Select.Option value="1.0">1.0</Select.Option>
+						<Select.Option value="0.18">0.18</Select.Option>
+						<Select.Option value="0.17">0.17</Select.Option>
+						<Select.Option value="0.16">0.16</Select.Option>
+						<Select.Option value="0.15">0.15</Select.Option>
+						<Select.Option value="0.14">0.14</Select.Option>
+						<Select.Option value="0.13">0.13</Select.Option>
+					</Select>
 				</Form.Item>
 			</Form>
 
+			{/* Display error message if fetching failed */}
+			{error && <Alert
+				message="Error Fetching Mods"
+				description={error.message}
+				type="error"
+				showIcon
+				style={{ marginBottom: 16 }}
+			/>}
+
 			<Table
-				dataSource={modResults}
+				dataSource={displayedMods}
 				rowKey={record => record.name}
 				loading={loading}
 				onChange={handleTableChange}
@@ -250,20 +375,20 @@ function SearchModsButton() {
 					pageSize: pageSize,
 					total: totalResults,
 					showSizeChanger: true,
-					pageSizeOptions: ["10", "20", "50"],
+					pageSizeOptions: ["10", "20", "50", "100"],
 				}}
 				expandable={{
 					expandedRowRender: record => (
 						<div>
 							<p><strong>Summary:</strong> {record.summary ?? "N/A"}</p>
-							<p><strong>Downloads:</strong> {record.downloads_count ?? "N/A"}</p>
+							<p><strong>Downloads:</strong> {record.downloads_count?.toLocaleString() ?? "N/A"}</p>
 							<p><strong>Latest Release:</strong></p>
 							{record.latest_release ? (
 								<ul>
 									<li>Version: {record.latest_release.version ?? "N/A"}</li>
 									<li>
 										Factorio Version: {
-											record.latest_release.factorio_version ?? "N/A"
+											record.latest_release.info_json?.factorio_version ?? "N/A"
 										}
 									</li>
 									<li>
@@ -275,21 +400,28 @@ function SearchModsButton() {
 									</li>
 								</ul>
 							) : <p>No release information available.</p>}
+							{/* Download button logic remains the same, assuming backend handles downloads */}
 							{account.hasPermission("core.mod.download") && record.latest_release && (
 								<Button
 									onClick={() => {
-										control.send(
-											new lib.ModDownloadRequest(record.name, record.latest_release.version)
-										).then((streamId: string) => {
-											let url = new URL(webRoot, document.location.origin);
-											url.pathname += `api/stream/${streamId}`;
-											document.location = url.href;
-										}).catch(
-											notifyErrorHandler("Error downloading mod")
-										);
+										if (record.latest_release?.version) {
+											control.send(
+												new lib.ModDownloadRequest(
+													record.name,
+													record.latest_release.version
+												)
+											)
+												.then((streamId: string) => {
+													let url = new URL(webRoot, document.location.origin);
+													url.pathname += `api/stream/${streamId}`;
+													document.location = url.href;
+												})
+												.catch(
+													notifyErrorHandler("Error downloading mod")
+												);
+										}
 									}}
-									// Disable button if version is missing
-									disabled={!record.latest_release.version}
+									disabled={!record.latest_release?.version}
 								>
 									Download Latest Version
 								</Button>
@@ -298,6 +430,7 @@ function SearchModsButton() {
 					),
 				}}
 				columns={[
+					// Columns remain largely the same
 					{
 						title: "Name",
 						dataIndex: "name",
@@ -318,6 +451,15 @@ function SearchModsButton() {
 						key: "owner",
 						sorter: true,
 						sortOrder: getColumnSortOrder("owner"),
+					},
+					{
+						title: "Downloads",
+						dataIndex: "downloads_count",
+						key: "downloads_count",
+						sorter: true,
+						sortOrder: getColumnSortOrder("downloads_count"),
+						align: "right",
+						render: (count) => count?.toLocaleString() ?? "N/A",
 					},
 					{
 						title: "Latest Version",

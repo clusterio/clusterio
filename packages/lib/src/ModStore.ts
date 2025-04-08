@@ -45,6 +45,28 @@ interface ModsInfoResponse {
 	results: Array<ModDetails>,
 }
 
+/**
+ * Interface describing the structure of the pagination info from the portal API
+ */
+interface ModPortalPagination {
+	count: number;
+	links: { next?: string; prev?: string; };
+	page: number;
+	page_count: number;
+	page_size: number;
+}
+
+/**
+ * Interface describing the structure of the portal API response for a single page
+ */
+interface ModPortalResponse {
+	pagination: ModPortalPagination;
+	results: ModDetails[];
+}
+
+const MOD_PORTAL_API_URL = "https://mods.factorio.com/api/mods";
+const MOD_PORTAL_MAX_PAGE_SIZE = 10000; // Or largest allowed by API
+
 export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, ModStoreEvents> {
 	constructor(
 		public modsDirectory: string,
@@ -434,95 +456,60 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	}
 
 	/**
-	 * Search for mods on the Factorio mod portal
+	 * Fetch all mods from the Factorio Mod Portal for a specific Factorio version.
 	 *
-	 * @param query Search query string
-	 * @param factorioVersion Factorio version to filter for
-	 * @param page Page number (1-based)
-	 * @param pageSize Number of results per page
-	 * @param sort Field to sort by (name, title, downloads, etc.)
-	 * @param sortOrder Sort order (asc or desc)
-	 * @returns Search results from the mod portal
+	 * Handles pagination automatically to retrieve the complete list.
+	 *
+	 * @param factorioVersion - The Factorio version to fetch mods for (e.g., "1.1").
+	 * @param hide_deprecated - Whether to exclude deprecated mods.
+	 * @returns An array of mod details.
 	 */
-	static async searchModPortal(
-		query: string,
+	static async fetchAllModsFromPortal(
 		factorioVersion: string,
-		page: number,
-		pageSize: number = 10,
-		sort?: string,
-		sortOrder: string = "asc"
-	) {
-		// eslint-disable-next-line
-		logger.info(`Searching mod portal for ${query} with factorio version ${factorioVersion} on page ${page} with page size ${pageSize} and sort ${sort} and sort order ${sortOrder}`);
+		hide_deprecated: boolean = false
+	): Promise<ModDetails[]> {
+		logger.info(`Fetching all mods for Factorio version ${factorioVersion}...`);
+		let currentPage = 1;
+		let allMods: ModDetails[] = [];
+		let hasMorePages = true;
 
-		// Construct the URL for the Factorio mod portal API
-		const url = new URL("https://mods.factorio.com/api/mods");
+		try {
+			while (hasMorePages) {
+				const url = new URL(MOD_PORTAL_API_URL);
+				url.searchParams.set("page_size", String(MOD_PORTAL_MAX_PAGE_SIZE));
+				url.searchParams.set("version", factorioVersion);
+				url.searchParams.set("page", String(currentPage));
+				url.searchParams.set("hide_deprecated", String(hide_deprecated));
 
-		// Add query parameters
-		url.searchParams.set("page", page.toString());
-		url.searchParams.set("page_size", pageSize.toString());
-		url.searchParams.set("version", factorioVersion);
+				logger.verbose(`Fetching mod portal page ${currentPage}: ${url.toString()}`);
+				const response = await fetch(url.toString());
 
-		if (query) {
-			url.searchParams.set("q", query);
-		}
+				if (!response.ok) {
+					let errorDetail = "";
+					try {
+						errorDetail = await response.text();
+					} catch (bodyError) {
+						logger.warn("Failed to read response body for failed portal request");
+					}
+					let errorMessage = `Mod portal fetch page ${currentPage} failed: `;
+					errorMessage += `${response.status} ${response.statusText}`;
+					if (errorDetail) {
+						errorMessage += ` - ${errorDetail}`;
+					}
+					throw new Error(errorMessage);
+				}
 
-		// Handle sorting
-		if (sort) {
-			let sortField = sort;
-			// Map frontend sort fields to API sort fields
-			if (sort === "name") {
-				sortField = "name";
-			} else if (sort === "title") {
-				sortField = "title";
-			} else if (sort === "downloads") {
-				sortField = "downloads_count";
-			} else if (sort === "updated") {
-				sortField = "updated_at";
+				const data = await response.json() as ModPortalResponse;
+				allMods = allMods.concat(data.results);
+
+				hasMorePages = currentPage < data.pagination.page_count;
+				currentPage += 1;
 			}
-
-			url.searchParams.set("sort", sortField);
-			url.searchParams.set("sort_order", sortOrder);
+			logger.info(`Successfully fetched ${allMods.length} mods for Factorio version ${factorioVersion}.`);
+			return allMods;
+		} catch (err: any) {
+			logger.error(err);
+			throw new Error(err);
 		}
-
-		// Make the request to the Factorio mod portal
-		const response = await fetch(url);
-
-		if (!response.ok) {
-			throw new Error(`Failed to fetch from mod portal: ${response.status} ${response.statusText}`);
-		}
-
-		const data = await response.json() as ModsInfoResponse;
-		logger.info(`Mod portal search results: ${JSON.stringify(data)}`);
-
-		// Transform the response to match our expected format
-		const results = data.results.map(mod => {
-			// Find the latest release for the specified Factorio version
-			const latestRelease = mod.latest_release;
-
-			const transformedMod = {
-				name: mod.name,
-				title: mod.title,
-				summary: mod.summary,
-				owner: mod.owner,
-				downloads_count: mod.downloads_count,
-				latest_release: latestRelease ? {
-					version: latestRelease.version,
-					factorio_version: latestRelease.info_json.factorio_version,
-					released_at: latestRelease.released_at,
-					download_url: latestRelease.download_url,
-					file_name: latestRelease.file_name,
-					sha1: latestRelease.sha1,
-				} : undefined,
-			};
-			return transformedMod;
-		}).filter(mod => mod.latest_release); // Only include mods with a release for the specified version
-
-		return {
-			queryIssues: [],
-			pageCount: Math.ceil(data.pagination.count / pageSize),
-			resultCount: data.pagination.count,
-			results,
-		};
 	}
 }
