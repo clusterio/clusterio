@@ -1,6 +1,6 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { Dropdown, Layout, Menu, MenuProps } from "antd";
+import { Button, Dropdown, Layout, Menu, MenuProps, Tooltip } from "antd";
 import UserOutlined from "@ant-design/icons/UserOutlined";
 import webUiPackage from "../../package.json";
 
@@ -12,6 +12,7 @@ import { pages } from "../pages";
 import { DraggingContext } from "../model/is_dragging";
 import { saveJson } from "../util/save_file";
 import { ControlConfig } from "@clusterio/lib";
+import { DownloadOutlined } from "@ant-design/icons";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -66,7 +67,12 @@ export default function SiteLayout() {
 		},
 		items: [
 			{ label: account.name, key: "user" },
-			{ label: "Ctl Config", key: "ctlConfig" },
+			{
+				label: <Tooltip title="Download credentials and configuration file for cli interface">
+					Ctl Config <Button size="small" icon={<DownloadOutlined />} />
+				</Tooltip>,
+				key: "ctlConfig",
+			},
 			{ type: "divider" },
 			{ label: "Log out", danger: true, key: "logOut" },
 		],
