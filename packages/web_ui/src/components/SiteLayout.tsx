@@ -1,6 +1,6 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { Dropdown, Layout, Menu, MenuProps } from "antd";
+import { Button, Dropdown, Layout, Menu, MenuProps, Tooltip } from "antd";
 import UserOutlined from "@ant-design/icons/UserOutlined";
 import webUiPackage from "../../package.json";
 
@@ -10,6 +10,9 @@ import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
 import { pages } from "../pages";
 import { DraggingContext } from "../model/is_dragging";
+import { saveJson } from "../util/save_file";
+import { ControlConfig } from "@clusterio/lib";
+import { DownloadOutlined } from "@ant-design/icons";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -38,6 +41,7 @@ export default function SiteLayout() {
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
+	const control = useContext(ControlContext);
 	const [dragging, setDragging] = useState(0);
 
 	function SetSidebar(props: { path: string | null }) {
@@ -51,12 +55,24 @@ export default function SiteLayout() {
 		onClick: ({ key }: { key: string }) => {
 			if (key === "user") {
 				navigate(`/users/${account.name}/view`);
+			} else if (key === "ctlConfig") {
+				const config = new ControlConfig("control", {
+					"control.controller_token": control.connector.token,
+					"control.controller_url": (new URL(webRoot, document.location.href)).href,
+				});
+				saveJson("config-control.json", config.toJSON());
 			} else if (key === "logOut") {
 				account.logOut();
 			}
 		},
 		items: [
 			{ label: account.name, key: "user" },
+			{
+				label: <Tooltip title="Download credentials and configuration file for cli interface">
+					Ctl Config <Button size="small" icon={<DownloadOutlined />} />
+				</Tooltip>,
+				key: "ctlConfig",
+			},
 			{ type: "divider" },
 			{ label: "Log out", danger: true, key: "logOut" },
 		],

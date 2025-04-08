@@ -10,6 +10,7 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
+import { saveJson } from "../util/save_file";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
@@ -56,22 +57,6 @@ function CreateUserButton() {
 			</Form>
 		</Modal>
 	</>;
-}
-
-// This is the most common and best supported method
-// For full support we should consider using npm:file-saver
-function saveFile(name: string, blob: Blob) {
-	const a = document.createElement("a");
-	a.href = URL.createObjectURL(blob);
-	a.download = name;
-	a.addEventListener("click", (e) => {
-		setTimeout(() => URL.revokeObjectURL(a.href), 30 * 1000);
-	});
-	a.click();
-};
-
-function saveJson(name: string, json: object) {
-	return saveFile(name, new Blob([JSON.stringify(json, null, 2)], { type: "application/json" }));
 }
 
 type UserBulkActionProps = {
