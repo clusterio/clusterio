@@ -12,7 +12,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import InstanceConfigTree from "./InstanceConfigTree";
-import LogConsole, { LogConsoleMaxLevel } from "./LogConsole";
+import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
 import StartStopInstanceButton from "./StartStopInstanceButton";
@@ -242,7 +242,7 @@ export default function InstanceViewPage() {
 							checked={actionsOnly}
 							onChange={setActionsOnly}
 						/>
-						<LogConsoleMaxLevel
+						<SelectMaxLogLevel
 							value={maxLevel}
 							onChange={setMaxLevel}
 							hidden={["http"]}

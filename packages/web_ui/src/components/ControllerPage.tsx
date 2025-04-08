@@ -4,7 +4,7 @@ import { Button, Descriptions, Flex, Popconfirm, Space, Typography } from "antd"
 import * as lib from "@clusterio/lib";
 
 import PluginExtra from "./PluginExtra";
-import LogConsole, { LogConsoleMaxLevel } from "./LogConsole";
+import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio,
@@ -85,9 +85,9 @@ export default function ControllerPage() {
 		{account.hasPermission("core.log.follow") && <>
 			<Flex justify="space-between" align="baseline">
 				<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-				<LogConsoleMaxLevel
+				<SelectMaxLogLevel
 					value={maxLevel}
-					onChange={value => setMaxLevel(value)}
+					onChange={setMaxLevel}
 					hidden={["server"]}
 				/>
 			</Flex>

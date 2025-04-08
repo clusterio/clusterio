@@ -7,7 +7,7 @@ import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import HostConfigTree from "./HostConfigTree";
 import InstanceList from "./InstanceList";
-import LogConsole, { LogConsoleMaxLevel } from "./LogConsole";
+import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import { useAccount } from "../model/account";
 import { useInstances } from "../model/instance";
 import { useHost } from "../model/host";
@@ -144,9 +144,9 @@ export default function HostViewPage() {
 		{account.hasPermission("core.log.follow") && <>
 			<Flex justify="space-between" align="baseline">
 				<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-				<LogConsoleMaxLevel
+				<SelectMaxLogLevel
 					value={maxLevel}
-					onChange={value => setMaxLevel(value)}
+					onChange={setMaxLevel}
 					hidden={["server", "http"]}
 				/>
 			</Flex>

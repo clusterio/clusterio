@@ -73,7 +73,7 @@ type LogConsoleProps = {
 	actionsOnly?: boolean;
 };
 
-export function LogConsoleMaxLevel(props: {
+export function SelectMaxLogLevel(props: {
 	value: keyof typeof lib.levels,
 	hidden?: (keyof typeof lib.levels)[],
 	onChange: (option: keyof typeof lib.levels) => void
