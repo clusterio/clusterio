@@ -1,9 +1,7 @@
 import React, { Fragment, useState, useContext, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select } from "antd";
-import ImportOutlined from "@ant-design/icons/ImportOutlined";
-import PlusOutlined from "@ant-design/icons/PlusOutlined";
-import SearchOutlined from "@ant-design/icons/SearchOutlined";
+import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select, Tooltip } from "antd";
+import { ImportOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
@@ -320,7 +318,7 @@ function SearchModsButton() {
 			title="Search Mod Portal"
 			open={open}
 			onCancel={() => { setOpen(false); }}
-			width={800}
+			width={1000}
 			footer={[
 				<Button key="close" onClick={() => { setOpen(false); }}>
 					Close
@@ -330,8 +328,10 @@ function SearchModsButton() {
 		>
 			<Form
 				form={form}
-				layout="vertical"
-				onValuesChange={handleSearch} // Trigger update on any form change
+				layout="horizontal"
+				labelCol={{ span: 6 }}
+				wrapperCol={{ span: 18 }}
+				onValuesChange={handleSearch}
 				initialValues={{ factorioVersion: factorioVersion, name: searchText }}
 			>
 				<Form.Item name="name" label="Filter by Name or Title">
@@ -465,6 +465,26 @@ function SearchModsButton() {
 						title: "Latest Version",
 						key: "version",
 						render: (_, record) => record.latest_release?.version ?? "N/A",
+					},
+					{
+						title: "Actions",
+						key: "actions",
+						align: "center",
+						render: (_, record) => (
+							<Tooltip title="Open in Factorio Mod Portal">
+								<Typography.Link
+									href={`https://mods.factorio.com/mod/${record.name}`}
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<img
+										src="https://mods.factorio.com/static/favicon.ico"
+										alt="Factorio Mod Portal"
+										style={{ height: "1em", verticalAlign: "middle" }}
+									/>
+								</Typography.Link>
+							</Tooltip>
+						),
 					},
 				]}
 			/>
