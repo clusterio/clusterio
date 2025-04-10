@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useRef, useState, ReactElement } from "react";
-import { Typography } from "antd";
+import { Select, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
 
@@ -51,10 +51,11 @@ function formatParsedOutput(parsed: Parsed, key: number) {
 }
 
 type Info = {
-	level: string;
+	level: keyof typeof lib.levels;
 	message: string;
 	parsed?: Parsed;
 };
+
 function formatLog(info: Info, key: number): ReactElement {
 	if (info.level === "server" && info.parsed) {
 		return formatParsedOutput(info.parsed, key);
@@ -68,7 +69,30 @@ type LogConsoleProps = {
 	controller?: boolean;
 	hosts?: number[];
 	instances?: number[];
+	maxLevel?: keyof typeof lib.levels;
+	actionsOnly?: boolean;
 };
+
+export function SelectMaxLogLevel(props: {
+	value: keyof typeof lib.levels,
+	hidden?: (keyof typeof lib.levels)[],
+	onChange: (option: keyof typeof lib.levels) => void
+}) {
+	return <Select
+		showSearch
+		style={{ width: 100 }}
+		defaultValue={props.value}
+		onChange={props.onChange}
+		options={(Object.entries(lib.levels) as [keyof typeof lib.levels, number][])
+			.filter(([level]) => !props.hidden || !props.hidden.includes(level))
+			.map(([level, index]) => ({
+				value: level, label: level.charAt(0).toUpperCase() + level.slice(1), index: index,
+			}))
+			.sort((a, b) => a.index - b.index)
+		}
+	/>;
+}
+
 export default function LogConsole(props: LogConsoleProps) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -82,6 +106,7 @@ export default function LogConsole(props: LogConsoleProps) {
 			controller: props.controller || false,
 			hostIds: props.hosts || [],
 			instanceIds: props.instances || [],
+			maxLevel: props.maxLevel || undefined,
 		};
 
 		// Scroll view to the anchor so it sticks to the bottom
@@ -95,11 +120,19 @@ export default function LogConsole(props: LogConsoleProps) {
 				logFilter.controller,
 				logFilter.hostIds,
 				logFilter.instanceIds,
-				undefined,
+				logFilter.maxLevel,
 				400,
 				"desc",
 			)).then(result => {
-				setPastLines(result.log.map((info, index) => formatLog(info as Info, -index - 1)).reverse());
+				setPastLines(result.log
+					.filter(info => (
+						!props.actionsOnly
+						|| (info as Info).level !== "server"
+						|| (info as Info).parsed?.type === "action"
+					))
+					.map((info, index) => formatLog(info as Info, -index - 1))
+					.reverse()
+				);
 			}).catch(err => {
 				setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
 			});
@@ -108,16 +141,26 @@ export default function LogConsole(props: LogConsoleProps) {
 		}
 
 		function logHandler(info: Info) {
-			setLines(currentLines => currentLines.concat(
-				[formatLog(info, currentLines.length)]
-			));
+			if (!props.actionsOnly || info.level !== "server" || info.parsed?.type === "action") {
+				setLines(currentLines => currentLines.concat(
+					[formatLog(info, currentLines.length)]
+				));
+			}
 		}
 
+		setLines([]);
 		control.onLog(logFilter, logHandler);
 		return () => {
 			control.offLog(logFilter, logHandler);
 		};
-	}, [props.all, props.controller, (props.hosts || []).join(), (props.instances || []).join()]);
+	}, [
+		props.all,
+		props.controller,
+		(props.hosts || []).join(),
+		(props.instances || []).join(),
+		props.maxLevel,
+		props.actionsOnly,
+	]);
 
 	return <>
 		<Paragraph code className="instance-console">

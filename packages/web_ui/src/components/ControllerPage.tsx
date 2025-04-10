@@ -1,10 +1,10 @@
-import React, {useContext} from "react";
-import { Button, Descriptions, Popconfirm, Space, Typography } from "antd";
+import React, {useContext, useState} from "react";
+import { Button, Descriptions, Flex, Popconfirm, Space, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
 
 import PluginExtra from "./PluginExtra";
-import LogConsole from "./LogConsole";
+import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio,
@@ -26,6 +26,7 @@ export default function ControllerPage() {
 	const control = useContext(ControlContext);
 	const [systems] = useSystems();
 	const system = systems.get("controller");
+	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
 
 	return <PageLayout nav={[{ name: "Controller" }]}>
 		<PageHeader
@@ -82,8 +83,15 @@ export default function ControllerPage() {
 			<Descriptions.Item label="Disk"><MetricDiskUsed system={system} /></Descriptions.Item>
 		</Descriptions>
 		{account.hasPermission("core.log.follow") && <>
-			<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-			<LogConsole controller={true} />
+			<Flex justify="space-between" align="baseline">
+				<Title level={5} style={{ marginTop: 16 }}>Console</Title>
+				<SelectMaxLogLevel
+					value={maxLevel}
+					onChange={setMaxLevel}
+					hidden={["server"]}
+				/>
+			</Flex>
+			<LogConsole controller={true} maxLevel={maxLevel}/>
 		</>}
 		{account.hasPermission("core.controller.get_config") && <ControllerConfigTree />}
 		<PluginExtra component="ControllerPage" />
