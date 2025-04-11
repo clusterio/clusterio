@@ -176,6 +176,33 @@ function SearchModsButton() {
 	const [sort, setSort] = useState<string>("name");
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
+	// Function to handle download from Mod Portal to Controller
+	const handleControllerDownload = (
+		modName: string,
+		modTitle: string | undefined,
+		modVersion: string | undefined,
+		portalFactorioVersion: FactorioVersion,
+	) => {
+		if (modVersion) {
+			control.send(
+				new lib.ModPortalDownloadRequest(
+					modName,
+					modVersion,
+					portalFactorioVersion
+				)
+			).then(() => {
+				notification.success({
+					message: "Download started",
+					description: `${modTitle || modName} v${
+						modVersion
+					} is being downloaded to the controller.`,
+				});
+			}).catch(
+				notifyErrorHandler("Error starting mod download")
+			);
+		}
+	};
+
 	// Fetch all mods from backend when modal opens or version changes
 	useEffect(() => {
 		if (!open || !factorioVersion) {
@@ -408,22 +435,12 @@ function SearchModsButton() {
 							{account.hasPermission("core.mod.download") && record.latest_release && (
 								<Button
 									onClick={() => {
-										if (record.latest_release?.version) {
-											control.send(
-												new lib.ModDownloadRequest(
-													record.name,
-													record.latest_release.version
-												)
-											)
-												.then((streamId: string) => {
-													let url = new URL(webRoot, document.location.origin);
-													url.pathname += `api/stream/${streamId}`;
-													document.location = url.href;
-												})
-												.catch(
-													notifyErrorHandler("Error downloading mod")
-												);
-										}
+										handleControllerDownload(
+											record.name,
+											record.title,
+											record.latest_release?.version,
+											factorioVersion
+										);
 									}}
 									disabled={!record.latest_release?.version}
 								>
@@ -496,24 +513,12 @@ function SearchModsButton() {
 											icon={<DownloadOutlined />}
 											disabled={!record.latest_release?.version}
 											onClick={() => {
-												if (record.latest_release?.version) {
-													control.send(
-														new lib.ModPortalDownloadRequest(
-															record.name,
-															record.latest_release.version,
-															factorioVersion
-														)
-													).then(() => {
-														notification.success({
-															message: "Download started",
-															description: `${record.title || record.name} v${
-																record.latest_release?.version
-															} is being downloaded to the controller.`,
-														});
-													}).catch(
-														notifyErrorHandler("Error starting mod download")
-													);
-												}
+												handleControllerDownload(
+													record.name,
+													record.title,
+													record.latest_release?.version,
+													factorioVersion
+												);
 											}}
 										/>
 									</Tooltip>
