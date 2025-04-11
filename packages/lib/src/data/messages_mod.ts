@@ -355,3 +355,39 @@ export class ModUpdatesEvent {
 		return new this(json.updates.map(update => ModInfo.fromJSON(update)));
 	}
 }
+
+/**
+ * Request mods to be downloaded from the Factorio mod portal to the controller.
+ *
+ * The controller handles the actual download process asynchronously.
+ * Requires Factorio credentials to be configured on the controller if the portal
+ * requires authentication for downloads.
+ *
+ * @param name - Name of the mod to download.
+ * @param version - Version of the mod to download.
+ * @param factorioVersion - Factorio version context for the download.
+ */
+export class ModPortalDownloadRequest {
+	declare ["constructor"]: typeof ModPortalDownloadRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.download_from_portal" as const;
+	static Response = ModInfo;
+
+	constructor(
+		public name: string,
+		public version: string,
+		public factorioVersion: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"version": Type.String(),
+		"factorioVersion": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.name, json.version, json.factorioVersion);
+	}
+}

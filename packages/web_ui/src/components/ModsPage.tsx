@@ -1,7 +1,11 @@
 import React, { Fragment, useState, useContext, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select, Tooltip } from "antd";
-import { ImportOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+	Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select, Tooltip, notification,
+} from "antd";
+import {
+	ImportOutlined, PlusOutlined, SearchOutlined, DownloadOutlined,
+} from "@ant-design/icons";
 import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
@@ -471,19 +475,50 @@ function SearchModsButton() {
 						key: "actions",
 						align: "center",
 						render: (_, record) => (
-							<Tooltip title="Open in Factorio Mod Portal">
-								<Typography.Link
-									href={`https://mods.factorio.com/mod/${record.name}`}
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									<img
-										src="https://mods.factorio.com/static/favicon.ico"
-										alt="Factorio Mod Portal"
-										style={{ height: "1em", verticalAlign: "middle" }}
-									/>
-								</Typography.Link>
-							</Tooltip>
+							<Space>
+								<Tooltip title="Open in Factorio Mod Portal">
+									<Typography.Link
+										href={`https://mods.factorio.com/mod/${record.name}`}
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										<img
+											src="https://mods.factorio.com/static/favicon.ico"
+											alt="Factorio Mod Portal"
+											style={{ height: "1em", verticalAlign: "middle" }}
+										/>
+									</Typography.Link>
+								</Tooltip>
+								{account.hasPermission("core.mod.download") && record.latest_release && (
+									<Tooltip title="Download to Controller">
+										<Button
+											type="text"
+											icon={<DownloadOutlined />}
+											disabled={!record.latest_release?.version}
+											onClick={() => {
+												if (record.latest_release?.version) {
+													control.send(
+														new lib.ModPortalDownloadRequest(
+															record.name,
+															record.latest_release.version,
+															factorioVersion
+														)
+													).then(() => {
+														notification.success({
+															message: "Download started",
+															description: `${record.title || record.name} v${
+																record.latest_release?.version
+															} is being downloaded to the controller.`,
+														});
+													}).catch(
+														notifyErrorHandler("Error starting mod download")
+													);
+												}
+											}}
+										/>
+									</Tooltip>
+								)}
+							</Space>
 						),
 					},
 				]}

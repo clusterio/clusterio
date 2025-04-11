@@ -65,7 +65,7 @@ interface ModPortalResponse {
 }
 
 const MOD_PORTAL_API_URL = "https://mods.factorio.com/api/mods";
-const MOD_PORTAL_MAX_PAGE_SIZE = 10000; // Or largest allowed by API
+const MOD_PORTAL_MAX_PAGE_SIZE = 1000; // Or largest allowed by API
 
 export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, ModStoreEvents> {
 	constructor(
@@ -266,8 +266,6 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	) {
 		if (releases.length === 0) { }
 
-		// releases.find() // work on this
-
 		const latestRelease = releases.find(release => release.version === version);
 
 		if (latestRelease === undefined) {
@@ -280,7 +278,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		const fileName = `${this.modsDirectory}/${latestRelease.file_name}.tmp`;
 		await ModStore.downloadFile(url, fileName);
 		await fs.rename(fileName, `${this.modsDirectory}/${latestRelease.file_name}`);
-		this.addMod(await this.loadFile(`${this.modsDirectory}/${latestRelease.file_name}`));
+		this.addMod(await this.loadFile(latestRelease.file_name));
 	}
 
 	private async downloadModsChunk(
@@ -473,43 +471,38 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		let allMods: ModDetails[] = [];
 		let hasMorePages = true;
 
-		try {
-			while (hasMorePages) {
-				const url = new URL(MOD_PORTAL_API_URL);
-				url.searchParams.set("page_size", String(MOD_PORTAL_MAX_PAGE_SIZE));
-				url.searchParams.set("version", factorioVersion);
-				url.searchParams.set("page", String(currentPage));
-				url.searchParams.set("hide_deprecated", String(hide_deprecated));
+		while (hasMorePages) {
+			const url = new URL(MOD_PORTAL_API_URL);
+			url.searchParams.set("page_size", String(MOD_PORTAL_MAX_PAGE_SIZE));
+			url.searchParams.set("version", factorioVersion);
+			url.searchParams.set("page", String(currentPage));
+			url.searchParams.set("hide_deprecated", String(hide_deprecated));
 
-				logger.verbose(`Fetching mod portal page ${currentPage}: ${url.toString()}`);
-				const response = await fetch(url.toString());
+			logger.verbose(`Fetching mod portal page ${currentPage}: ${url.toString()}`);
+			const response = await fetch(url.toString());
 
-				if (!response.ok) {
-					let errorDetail = "";
-					try {
-						errorDetail = await response.text();
-					} catch (bodyError) {
-						logger.warn("Failed to read response body for failed portal request");
-					}
-					let errorMessage = `Mod portal fetch page ${currentPage} failed: `;
-					errorMessage += `${response.status} ${response.statusText}`;
-					if (errorDetail) {
-						errorMessage += ` - ${errorDetail}`;
-					}
-					throw new Error(errorMessage);
+			if (!response.ok) {
+				let errorDetail = "";
+				try {
+					errorDetail = await response.text();
+				} catch (bodyError) {
+					logger.warn("Failed to read response body for failed portal request");
 				}
-
-				const data = await response.json() as ModPortalResponse;
-				allMods = allMods.concat(data.results);
-
-				hasMorePages = currentPage < data.pagination.page_count;
-				currentPage += 1;
+				let errorMessage = `Mod portal fetch page ${currentPage} failed: `;
+				errorMessage += `${response.status} ${response.statusText}`;
+				if (errorDetail) {
+					errorMessage += ` - ${errorDetail}`;
+				}
+				throw new Error(errorMessage);
 			}
-			logger.info(`Successfully fetched ${allMods.length} mods for Factorio version ${factorioVersion}.`);
-			return allMods;
-		} catch (err: any) {
-			logger.error(err);
-			throw new Error(err);
+
+			const data = await response.json() as ModPortalResponse;
+			allMods = allMods.concat(data.results);
+
+			hasMorePages = currentPage < data.pagination.page_count;
+			currentPage += 1;
 		}
+		logger.info(`Successfully fetched ${allMods.length} mods for Factorio version ${factorioVersion}.`);
+		return allMods;
 	}
 }

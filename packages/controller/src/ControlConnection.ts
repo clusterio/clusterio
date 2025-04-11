@@ -118,6 +118,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.UserSetWhitelistedRequest, this.handleUserSetWhitelistedRequest.bind(this));
 		this.handle(lib.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
+		this.handle(lib.ModPortalDownloadRequest, this.handleModPortalDownloadRequest.bind(this));
 	}
 
 	validateIngress(message: lib.MessageRequest | lib.MessageEvent) {
@@ -537,9 +538,66 @@ export default class ControlConnection extends BaseConnection {
 			// The Response class is defined inline within the Request class
 			return new lib.ModPortalGetAllRequest.Response(mods);
 		} catch (error: any) {
-			logger.error(`Error fetching all mods from portal (${request.factorioVersion}): ${error.message}`);
+			logger.error(`Error fetching all mods from portal (${request.factorioVersion}): ${error}`);
 			// Propagate a user-friendly error back to the client
-			throw new lib.RequestError(`Portal mod fetch failed: ${error.message}`);
+			throw new lib.RequestError(`Portal mod fetch failed: ${error}`);
+		}
+	}
+
+	/**
+	 * Handle request to download a mod from the Factorio Mod Portal to the controller.
+	 * @param request - Request object with mod name, version, and factorioVersion.
+	 */
+	async handleModPortalDownloadRequest(request: lib.ModPortalDownloadRequest): Promise<lib.ModInfo> {
+		const { name, version, factorioVersion } = request;
+		const filename = lib.ModInfo.filename(name, version);
+
+		// Check if mod already exists
+		if (this._controller.modStore.files.has(filename)) {
+			logger.verbose(`Mod ${filename} already exists, skipping download.`);
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			return this._controller.modStore.files.get(filename)!;
+		}
+
+		// Get Factorio credentials from config
+		const username = this._controller.config.get("controller.factorio_username");
+		const token = this._controller.config.get("controller.factorio_token");
+
+		if (!username || !token) {
+			// Attempt download without credentials - might fail for some mods
+			logger.warn(`Factorio username or token not configured. Attempting anonymous download for ${filename}.`);
+			// Note: The Factorio Mod Portal API might reject downloads without credentials.
+			// Consider throwing an error here if credentials are required by your setup.
+			// throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
+		}
+
+		try {
+			logger.info(`Downloading mod ${filename} for Factorio ${factorioVersion} from portal.`);
+			const modMap = new Map([[name, version]]);
+			await this._controller.modStore.downloadMods(modMap, username || "", token || "", factorioVersion);
+
+			// Verify download and return ModInfo
+			const downloadedMod = this._controller.modStore.files.get(filename);
+			if (!downloadedMod) {
+				throw new lib.RequestError(`Failed to find mod ${filename} in store after download attempt.`);
+			}
+			logger.info(`Successfully downloaded mod ${filename}.`);
+			return downloadedMod;
+
+		} catch (error: any) {
+			logger.error(`Error downloading mod ${filename} from portal: ${error.message}`);
+			// Improve error message clarity
+			let errorMessage = `Mod portal download failed for ${name} v${version}`;
+			if (error instanceof lib.RequestError) {
+				errorMessage += `: ${error.message}`;
+			} else if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+				errorMessage += ": Authentication failed. Check Factorio username/token in controller config.";
+			} else if (error.message.includes("404") || error.message.includes("Not Found")) {
+				errorMessage += ": Mod version not found on the portal.";
+			} else {
+				errorMessage += `: ${error.message}`;
+			}
+			throw new lib.RequestError(errorMessage);
 		}
 	}
 

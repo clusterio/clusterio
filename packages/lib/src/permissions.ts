@@ -387,7 +387,7 @@ definePermission({
 });
 definePermission({
 	name: "core.mod.upload",
-	title: "Upload mod",
+	title: "Upload mods",
 	description: "Upload mods to the controller.",
 });
 definePermission({
@@ -400,6 +400,12 @@ definePermission({
 	name: "core.mod.delete",
 	title: "Delete mod",
 	description: "Delete mods stored on the controller.",
+});
+definePermission({
+	name: "core.mod.download_from_portal",
+	title: "Download mods from portal",
+	description: "Allow downloading mods directly from the Factorio mod portal to the controller.",
+	grantByDefault: true,
 });
 
 definePermission({
