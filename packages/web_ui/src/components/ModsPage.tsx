@@ -494,17 +494,18 @@ function SearchModsButton() {
 						render: (_, record) => (
 							<Space>
 								<Tooltip title="Open in Factorio Mod Portal">
-									<Typography.Link
+									<a
 										href={`https://mods.factorio.com/mod/${record.name}`}
 										target="_blank"
 										rel="noopener noreferrer"
 									>
-										<img
-											src="https://mods.factorio.com/static/favicon.ico"
-											alt="Factorio Mod Portal"
-											style={{ height: "1em", verticalAlign: "middle" }}
-										/>
-									</Typography.Link>
+										<Button type="text">
+											<img
+												src="https://mods.factorio.com/static/favicon.ico"
+												alt="Factorio Mod Portal"
+											/>
+										</Button>
+									</a>
 								</Tooltip>
 								{account.hasPermission("core.mod.download") && record.latest_release && (
 									<Tooltip title="Download to Controller">
