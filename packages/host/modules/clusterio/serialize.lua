@@ -21,6 +21,8 @@ local has_quality = compat.version_ge("2.0.0")
 -- Equipment Grids are serialized into an array of equipment entries
 -- where ench entry is a table with the following fields:
 --	 n: name
+--	 g: ghost name (optional)
+--	 t: to_be_removed (optional)
 --	 p: position (array of 2 numbers corresponding to x and y)
 --	 s: shield (optional)
 --	 e: energy (optional)
@@ -29,6 +31,8 @@ local has_quality = compat.version_ge("2.0.0")
 --	 r: result inventory
 --	 b: currently burning (optional)
 --	 f: remaining_burning_fuel (optional)
+-- If the equipment has a quality the following is also present:
+--	 q: quality (optional)
 function serialize.serialize_equipment_grid(grid)
 	local serialized = {}
 	local processed = {}
@@ -44,6 +48,11 @@ function serialize.serialize_equipment_grid(grid)
 						n = equipment.name,
 						p = {pos.x, pos.y},
 					}
+					if equipment.type == "equipment-ghost" then
+						if equipment.ghost_name then
+							entry.g = equipment.ghost_name
+						end
+					end
 					if equipment.shield > 0 then entry.s = equipment.shield end
 					if equipment.energy > 0 then entry.e = equipment.energy end
 					if equipment.burner then
@@ -55,6 +64,13 @@ function serialize.serialize_equipment_grid(grid)
 							entry.f = burner.remaining_burning_fuel
 						end
 					end
+					if equipment.quality then
+						entry.q = equipment.quality.name
+					end
+					if equipment.to_be_removed then
+						entry.t = equipment.to_be_removed
+					end
+					log(entry)
 					table.insert(serialized, entry)
 				end
 			end
@@ -67,8 +83,10 @@ function serialize.deserialize_equipment_grid(grid, serialized)
 	grid.clear()
 	for _, entry in ipairs(serialized) do
 		local equipment = grid.put({
-			name = entry.n,
+			name = entry.g or entry.n,
+			quality = has_quality and entry.q or nil,
 			position = entry.p,
+			ghost = entry.g and true or nil,
 		})
 		if equipment then
 			if entry.s then equipment.shield = entry.s end
