@@ -28,6 +28,9 @@ const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 // Define the allowed Factorio versions based on the lib schema
 type FactorioVersion = Static<(typeof lib.ModPortalGetAllRequest)["allowedVersions"][number]>;
 
+// Type alias for the mod structure derived from the library response
+type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
+
 function ImportModPackButton() {
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
@@ -136,27 +139,6 @@ function CreateModPackButton() {
 	</>;
 }
 
-// Define a basic type for the mod data we expect back from the new backend request
-// This should ideally match the structure returned by the backend.
-// We reuse the ModPortalMod structure name for convenience, but it's fetched via backend.
-interface ModPortalMod {
-	name: string;
-	title: string;
-	owner: string;
-	summary: string;
-	downloads_count: number;
-	category: string;
-	score?: number;
-	latest_release?: {
-		download_url: string;
-		file_name: string;
-		info_json: { factorio_version: string; };
-		released_at: string;
-		version: string;
-		sha1: string;
-	};
-}
-
 function SearchModsButton() {
 	const control = useContext(ControlContext);
 	const account = useAccount();
@@ -166,7 +148,7 @@ function SearchModsButton() {
 	const [factorioVersion, setFactorioVersion] = useState<FactorioVersion>("2.0");
 
 	// State for all mods fetched from backend
-	const [allMods, setAllMods] = useState<ModPortalMod[]>([]);
+	const [allMods, setAllMods] = useState<ModPortalModType[]>([]);
 	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<Error | null>(null);
 
@@ -214,14 +196,11 @@ function SearchModsButton() {
 		setError(null);
 		let canceled = false;
 
-		// Use the hypothetical new backend request
 		control.send(
-			// Factorio version state now matches the required type
 			new lib.ModPortalGetAllRequest(factorioVersion)
 		).then((response: any) => {
 			if (canceled) { return; }
-			// *** Backend Change Needed: Ensure the response has a 'mods' array ***
-			setAllMods(response?.mods || []); // Added optional chaining
+			setAllMods(response.mods || []);
 			setLoading(false);
 		}).catch(err => {
 			if (canceled) { return; }
@@ -254,8 +233,8 @@ function SearchModsButton() {
 		// Apply sorting
 		if (sort && sortOrder) {
 			filtered = [...filtered].sort((a, b) => {
-				let aValue: any = a[sort as keyof ModPortalMod] ?? "";
-				let bValue: any = b[sort as keyof ModPortalMod] ?? "";
+				let aValue: any = a[sort as keyof ModPortalModType] ?? "";
+				let bValue: any = b[sort as keyof ModPortalModType] ?? "";
 
 				// Handle specific types if necessary (e.g., numbers, dates)
 				if (sort === "downloads_count") {
@@ -354,7 +333,6 @@ function SearchModsButton() {
 				<Button key="close" onClick={() => { setOpen(false); }}>
 					Close
 				</Button>,
-				// Remove explicit search button as form updates trigger search/filter
 			]}
 		>
 			<Form
@@ -373,16 +351,14 @@ function SearchModsButton() {
 					label="Factorio Version"
 				>
 					<Select>
-						{/* Map allowed versions to Select Options */}
-						<Select.Option value="2.0">2.0</Select.Option>
-						<Select.Option value="1.1">1.1</Select.Option>
-						<Select.Option value="1.0">1.0</Select.Option>
-						<Select.Option value="0.18">0.18</Select.Option>
-						<Select.Option value="0.17">0.17</Select.Option>
-						<Select.Option value="0.16">0.16</Select.Option>
-						<Select.Option value="0.15">0.15</Select.Option>
-						<Select.Option value="0.14">0.14</Select.Option>
-						<Select.Option value="0.13">0.13</Select.Option>
+						{lib.ModPortalGetAllRequest.allowedVersions.map((literalSchema: any) => (
+							<Select.Option
+								key={literalSchema.const}
+								value={literalSchema.const}
+							>
+								{literalSchema.const}
+							</Select.Option>
+						)).reverse()}
 					</Select>
 				</Form.Item>
 			</Form>
@@ -431,14 +407,13 @@ function SearchModsButton() {
 									</li>
 								</ul>
 							) : <p>No release information available.</p>}
-							{/* Download button logic remains the same, assuming backend handles downloads */}
-							{account.hasPermission("core.mod.download") && record.latest_release && (
+							{account.hasPermission("core.mod.download_from_portal") && record.latest_release && (
 								<Button
 									onClick={() => {
 										handleControllerDownload(
 											record.name,
 											record.title,
-											record.latest_release?.version,
+											record.latest_release!.version,
 											factorioVersion
 										);
 									}}
@@ -507,17 +482,17 @@ function SearchModsButton() {
 										</Button>
 									</a>
 								</Tooltip>
-								{account.hasPermission("core.mod.download") && record.latest_release && (
+								{account.hasPermission("core.mod.download_from_portal") && record.latest_release && (
 									<Tooltip title="Download to Controller">
 										<Button
 											type="text"
 											icon={<DownloadOutlined />}
-											disabled={!record.latest_release?.version}
+											disabled={!record.latest_release.version}
 											onClick={() => {
 												handleControllerDownload(
 													record.name,
 													record.title,
-													record.latest_release?.version,
+													record.latest_release!.version,
 													factorioVersion
 												);
 											}}
