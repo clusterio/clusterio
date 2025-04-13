@@ -6,43 +6,16 @@ import { integerModVersion, ModInfo, ModPack, ModRecord } from "./data";
 import TypedEventEmitter from "./TypedEventEmitter";
 import { safeOutputFile } from "./file_ops";
 import { Writable } from "stream";
+import { ModPortalReleaseSchema, ModPortalDetailsSchema } from "./data/messages_mod";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
 	change: (mod: ModInfo) => void;
 }
 
-interface ModDownloadRequest {
-	name: string;
-	version?: string;
-	sha1?: string;
-}
-
-interface ModRelease {
-	download_url: string,
-	file_name: string,
-	info_json: { factorio_version: string; },
-	released_at: string, // ISO 8601
-	version: string,
-	sha1: string;
-}
-
-
-interface ModDetails {
-	name: string,
-	title: string,
-	owner: string,
-	summary: string,
-	downloads_count: number,
-	category: string,
-	score?: number,
-	releases?: Array<ModRelease>,
-	latest_release?: ModRelease,
-}
-
 interface ModsInfoResponse {
 	pagination: any,
-	results: Array<ModDetails>,
+	results: Array<Static<typeof ModPortalDetailsSchema>>,
 }
 
 /**
@@ -61,7 +34,7 @@ interface ModPortalPagination {
  */
 interface ModPortalResponse {
 	pagination: ModPortalPagination;
-	results: ModDetails[];
+	results: Static<typeof ModPortalDetailsSchema>[];
 }
 
 export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, ModStoreEvents> {
@@ -182,7 +155,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		return new this(modsDirectory, files);
 	}
 
-	private async downloadModFromReleases(releases: Array<ModRelease>, version: string,
+	private async downloadModFromReleases(releases: Array<Static<typeof ModPortalReleaseSchema>>, version: string,
 		username: string, token: string
 	) {
 		const selectedRelease = releases.find(release => release.version === version);
@@ -325,10 +298,10 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		factorioVersion: string,
 		pageSize: number,
 		hide_deprecated: boolean = false
-	): Promise<ModDetails[]> {
+	): Promise<Static<typeof ModPortalDetailsSchema>[]> {
 		logger.info(`Fetching all mods for Factorio version ${factorioVersion}...`);
 		let currentPage = 1;
-		let allMods: ModDetails[] = [];
+		let allMods: Static<typeof ModPortalDetailsSchema>[] = [];
 		let hasMorePages = true;
 
 		while (hasMorePages) {

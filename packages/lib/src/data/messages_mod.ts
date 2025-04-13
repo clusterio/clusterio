@@ -198,7 +198,7 @@ export class ModSearchRequest {
 }
 
 // Define the structure for the latest release info from the portal
-const ModPortalReleaseSchema = Type.Object({
+export const ModPortalReleaseSchema = Type.Object({
 	version: Type.String(),
 	// Match the structure from ModStore's ModRelease/ModDetails
 	info_json: Type.Object({ factorio_version: Type.String() }),
@@ -210,16 +210,16 @@ const ModPortalReleaseSchema = Type.Object({
 
 // Define the structure for mod details returned by the portal API
 // This should align with the ModDetails interface in ModStore.ts
-const ModPortalDetailsSchema = Type.Object({
+export const ModPortalDetailsSchema = Type.Object({
 	name: Type.String(),
 	title: Type.String(),
 	summary: Type.String(),
 	owner: Type.String(),
 	downloads_count: Type.Integer(),
-	category: Type.Optional(Type.String()), // Add optional category
-	score: Type.Optional(Type.Number()), // Add optional score
+	category: Type.Optional(Type.String()),
+	score: Type.Optional(Type.Number()),
 	latest_release: Type.Optional(ModPortalReleaseSchema),
-	// Add releases array if needed: releases: Type.Optional(Type.Array(ModPortalReleaseSchema)),
+	releases: Type.Optional(Type.Array(ModPortalReleaseSchema)),
 });
 
 export class ModPortalGetAllRequest {
@@ -227,7 +227,7 @@ export class ModPortalGetAllRequest {
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission = "core.mod.search_portal" as const; // Reuse search permission for now
+	static permission = "core.mod.search_portal" as const;
 
 	// Define allowed Factorio versions
 	static allowedVersions = [
