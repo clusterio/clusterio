@@ -693,10 +693,10 @@ describe("lib/ModStore", function () {
 				return currentFetch(url, options);
 			};
 
-			await ModStore.fetchAllModsFromPortal(factorioVersion, true); // hide_deprecated = true
+			await ModStore.fetchAllModsFromPortal(factorioVersion, 100, true); // hide_deprecated = true
 			assert(capturedUrl.includes("hide_deprecated=true"), "URL should contain hide_deprecated=true");
 
-			await ModStore.fetchAllModsFromPortal(factorioVersion, false); // hide_deprecated = false
+			await ModStore.fetchAllModsFromPortal(factorioVersion, 100, false); // hide_deprecated = false
 			assert(capturedUrl.includes("hide_deprecated=false"), "URL should contain hide_deprecated=false");
 		});
 
@@ -769,7 +769,7 @@ describe("lib/ModStore", function () {
 
 			let allMods = [];
 			try {
-				allMods = await ModStore.fetchAllModsFromPortal(liveFactorioVersion, true); // hide deprecated
+				allMods = await ModStore.fetchAllModsFromPortal(liveFactorioVersion, 100, true); // hide deprecated
 			} catch (err) {
 				// Provide more context if the API call fails
 				const cause = err.cause ? ` - Cause: ${err.cause}` : "";
