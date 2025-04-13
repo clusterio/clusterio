@@ -451,6 +451,18 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance start test --save world.zip");
 				await checkInstanceStatus(44, "running");
 			});
+			it("allows having a separate console log", async function() {
+				slowTest(this);
+				await execCtl("instance stop 44");
+				await execCtl("instance config set 44 factorio.console_logging true");
+				await execCtl("instance start test");
+				await checkInstanceStatus(44, "running");
+				const checkMessage = `check${Date.now()}`;
+				await sendRcon(44, checkMessage);
+				const consoleLog = await fs.readFile(path.join("temp", "test", "instances", "test", "console.log"));
+				assert(consoleLog.includes(checkMessage));
+				await execCtl("instance config set 44 factorio.console_logging false");
+			});
 			it("copies the save if an autosave is the target", async function() {
 				slowTest(this);
 				await execCtl("instance stop 44");

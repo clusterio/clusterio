@@ -218,6 +218,7 @@ export default class Instance extends lib.Link {
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
 			enableAuthserverBans: this.config.get("factorio.enable_authserver_bans"),
 			verboseLogging: this.config.get("factorio.verbose_logging"),
+			consoleLogging: this.config.get("factorio.console_logging"),
 			stripPaths: this.config.get("factorio.strip_paths"),
 			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
 			shutdownTimeoutMs: this.config.get("factorio.shutdown_timeout") * 1000,
