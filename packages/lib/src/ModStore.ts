@@ -64,9 +64,6 @@ interface ModPortalResponse {
 	results: ModDetails[];
 }
 
-const MOD_PORTAL_API_URL = "https://mods.factorio.com/api/mods";
-const MOD_PORTAL_MAX_PAGE_SIZE = 1000; // Or largest allowed by API
-
 export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, ModStoreEvents> {
 	constructor(
 		public modsDirectory: string,
@@ -188,35 +185,33 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	private async downloadModFromReleases(releases: Array<ModRelease>, version: string,
 		username: string, token: string
 	) {
-		if (releases.length === 0) { return; }
+		const selectedRelease = releases.find(release => release.version === version);
 
-		const latestRelease = releases.find(release => release.version === version);
-
-		if (latestRelease === undefined) {
+		if (selectedRelease === undefined) {
 			logger.warn(`Mod release matching version ${version} not found.`);
 			return;
 		}
 
 		try {
-			const url = new URL(`https://mods.factorio.com/${latestRelease.download_url}`);
+			const url = new URL(`https://mods.factorio.com/${selectedRelease.download_url}`);
 			url.searchParams.set("username", username);
 			url.searchParams.set("token", token);
-			const tempFileName = `${this.modsDirectory}/${latestRelease.file_name}.tmp`;
-			const finalFileName = `${this.modsDirectory}/${latestRelease.file_name}`;
+			const tempFileName = `${this.modsDirectory}/${selectedRelease.file_name}.tmp`;
+			const finalFileName = `${this.modsDirectory}/${selectedRelease.file_name}`;
 
 			await ModStore.downloadFile(url, tempFileName);
 			await fs.rename(tempFileName, finalFileName);
-			await this.loadFile(latestRelease.file_name);
+			await this.loadFile(selectedRelease.file_name);
 
 		} catch (err: any) {
-			logger.error(`Failed to download or load mod ${latestRelease.file_name} (${version}): ${err.message}`);
+			logger.error(`Failed to download or load mod ${selectedRelease.file_name} (${version}): ${err.message}`);
 			// Attempt to clean up temp file if it exists
 			try {
-				const tempFileName = `${this.modsDirectory}/${latestRelease.file_name}.tmp`;
+				const tempFileName = `${this.modsDirectory}/${selectedRelease.file_name}.tmp`;
 				await fs.unlink(tempFileName);
 			} catch (unlinkErr: any) {
 				if (unlinkErr.code !== "ENOENT") { // Ignore if file doesn't exist
-					logger.warn(`Failed to clean up temp file ${latestRelease.file_name}.tmp: ${unlinkErr.message}`);
+					logger.warn(`Failed to clean up temp file ${selectedRelease.file_name}.tmp: ${unlinkErr.message}`);
 				}
 			}
 		}
@@ -322,11 +317,13 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	 * Handles pagination automatically to retrieve the complete list.
 	 *
 	 * @param factorioVersion - The Factorio version to fetch mods for (e.g., "1.1").
+	 * @param pageSize - The page size for fetching mods.
 	 * @param hide_deprecated - Whether to exclude deprecated mods.
 	 * @returns An array of mod details.
 	 */
 	static async fetchAllModsFromPortal(
 		factorioVersion: string,
+		pageSize: number,
 		hide_deprecated: boolean = false
 	): Promise<ModDetails[]> {
 		logger.info(`Fetching all mods for Factorio version ${factorioVersion}...`);
@@ -335,8 +332,8 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		let hasMorePages = true;
 
 		while (hasMorePages) {
-			const url = new URL(MOD_PORTAL_API_URL);
-			url.searchParams.set("page_size", String(MOD_PORTAL_MAX_PAGE_SIZE));
+			const url = new URL("https://mods.factorio.com/api/mods");
+			url.searchParams.set("page_size", String(pageSize));
 			url.searchParams.set("version", factorioVersion);
 			url.searchParams.set("page", String(currentPage));
 			url.searchParams.set("hide_deprecated", String(hide_deprecated));
@@ -345,16 +342,12 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 			const response = await fetch(url.toString());
 
 			if (!response.ok) {
-				let errorDetail = "";
-				try {
-					errorDetail = await response.text();
-				} catch (bodyError) {
-					logger.warn("Failed to read response body for failed portal request");
-				}
 				let errorMessage = `Mod portal fetch page ${currentPage} failed: `;
 				errorMessage += `${response.status} ${response.statusText}`;
-				if (errorDetail) {
-					errorMessage += ` - ${errorDetail}`;
+				try {
+					errorMessage += ` - ${await response.text()}`;
+				} catch (bodyError) {
+					logger.warn("Failed to read response body for failed portal request");
 				}
 				throw new Error(errorMessage);
 			}

@@ -524,7 +524,8 @@ export default class ControlConnection extends BaseConnection {
 		const cacheKey = `${request.factorioVersion}-${request.hide_deprecated}`;
 		const cachedData = this._controller.modPortalCache.get(cacheKey);
 
-		if (cachedData && Date.now() - cachedData.timestamp < Controller.MOD_PORTAL_CACHE_DURATION) {
+		const cacheDuration = this._controller.config.get("controller.mod_portal_cache_duration_minutes") * 60 * 1000;
+		if (cachedData && Date.now() - cachedData.timestamp < cacheDuration) {
 			return new lib.ModPortalGetAllRequest.Response(cachedData.data);
 		}
 
@@ -532,6 +533,7 @@ export default class ControlConnection extends BaseConnection {
 			logger.info(`Fetching mod portal data for ${cacheKey}`);
 			const mods = await lib.ModStore.fetchAllModsFromPortal(
 				request.factorioVersion,
+				this._controller.config.get("controller.mod_portal_page_size"),
 				request.hide_deprecated
 			);
 			this._controller.modPortalCache.set(cacheKey, { timestamp: Date.now(), data: mods });
@@ -555,7 +557,6 @@ export default class ControlConnection extends BaseConnection {
 		// Check if mod already exists
 		if (this._controller.modStore.files.has(filename)) {
 			logger.verbose(`Mod ${filename} already exists, skipping download.`);
-			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 			return this._controller.modStore.files.get(filename)!;
 		}
 
@@ -564,11 +565,7 @@ export default class ControlConnection extends BaseConnection {
 		const token = this._controller.config.get("controller.factorio_token");
 
 		if (!username || !token) {
-			// Attempt download without credentials - might fail for some mods
-			logger.warn(`Factorio username or token not configured. Attempting anonymous download for ${filename}.`);
-			// Note: The Factorio Mod Portal API might reject downloads without credentials.
-			// Consider throwing an error here if credentials are required by your setup.
-			// throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
+			throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
 		}
 
 		try {
