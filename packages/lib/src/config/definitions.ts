@@ -26,6 +26,8 @@ export interface ControllerConfigFields {
 	"controller.default_mod_pack_id": number | null;
 	"controller.default_role_id": number | null;
 	"controller.autosave_interval": number;
+	"controller.mod_portal_cache_duration_minutes": number;
+	"controller.mod_portal_page_size": number;
 }
 
 /**
@@ -196,6 +198,18 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			optional: true,
 			initialValue: 1,
+		},
+		"controller.mod_portal_cache_duration_minutes": {
+			title: "Mod Portal Cache Duration",
+			description: "Duration in minutes to cache mod portal API responses.",
+			type: "number",
+			initialValue: 30,
+		},
+		"controller.mod_portal_page_size": {
+			title: "Mod Portal Page Size",
+			description: "Maximum number of results per page when querying the Factorio mod portal API.",
+			type: "number",
+			initialValue: 1000,
 		},
 	};
 }

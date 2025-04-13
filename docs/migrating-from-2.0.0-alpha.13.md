@@ -10,6 +10,10 @@ You can do this by running the follow RCON command on an instance that is curren
 
     /sc local m={name="pack",description="",factorio_version=game.active_mods.base,mods={},settings={startup={},["runtime-global"]={},["runtime-per-user"]={}}} for n,v in pairs(game.active_mods) do table.insert(m.mods,{name=n,enabled=true,version=v}) end local function set(s,c) for n,v in pairs(s) do m.settings[c][n]=v end end set(settings.startup,"startup") set(settings.global,"runtime-global") if game.player then set(game.player.mod_settings,"runtime-per-user") else set(settings.player,"runtime-per-user") end local e=game.encode_string(game.table_to_json(m)) log(e) rcon.print(e)
 
+If you for some reason want to run this function in 2.0+, use the following command:
+
+    /sc local a={name="pack",description="",factorio_version=script.active_mods.base,mods={},settings={startup={},["runtime-global"]={},["runtime-per-user"]={}}}for b,c in pairs(script.active_mods)do table.insert(a.mods,{name=b,enabled=true,version=c})end;local function d(e,f)for b,c in pairs(e)do a.settings[f][b]=c end end;d(settings.startup,"startup")d(settings.global,"runtime-global")if game.player then d(game.player.mod_settings,"runtime-per-user")else d(settings.player,"runtime-per-user")end;local g=helpers.encode_string(helpers.table_to_json(a))log(g)rcon.print(g)
+
 This should produce a [Mod Pack String](https://forums.factorio.com/viewtopic.php?f=96&t=103578) which you need to copy and paste somewhere to keep it for later.
 Mod Pack strings looks something like this:
 

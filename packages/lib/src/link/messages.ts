@@ -97,10 +97,12 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	mod.ModGetRequest,
 	mod.ModListRequest,
 	mod.ModSearchRequest,
+	mod.ModPortalGetAllRequest,
 	mod.ModDownloadRequest,
 	mod.ModDeleteRequest,
 	mod.ModPackUpdatesEvent,
 	mod.ModUpdatesEvent,
+	mod.ModPortalDownloadRequest,
 
 	user.PermissionListRequest,
 	user.RoleListRequest,

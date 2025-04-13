@@ -98,6 +98,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ModGetRequest, this.handleModGetRequest.bind(this));
 		this.handle(lib.ModListRequest, this.handleModListRequest.bind(this));
 		this.handle(lib.ModSearchRequest, this.handleModSearchRequest.bind(this));
+		this.handle(lib.ModPortalGetAllRequest, this.handleModPortalGetAllRequest.bind(this));
 		this.handle(lib.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
 		this.handle(lib.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
 		this.handle(lib.LogQueryRequest, this.handleLogQueryRequest.bind(this));
@@ -119,6 +120,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.UserBulkImportRequest, this.handleUserBulkImportRequest.bind(this));
 		this.handle(lib.UserBulkExportRequest, this.handleUserBulkExportRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
+		this.handle(lib.ModPortalDownloadRequest, this.handleModPortalDownloadRequest.bind(this));
 	}
 
 	validateIngress(message: lib.MessageRequest | lib.MessageEvent) {
@@ -522,6 +524,88 @@ export default class ControlConnection extends BaseConnection {
 			resultCount: results.size,
 			results: resultList,
 		};
+	}
+
+	/**
+	 * Handle request to fetch all mods from the Factorio Mod Portal for a given version.
+	 * @param request - The request object containing factorioVersion.
+	 */
+	async handleModPortalGetAllRequest(request: lib.ModPortalGetAllRequest) {
+		const cacheKey = `${request.factorioVersion}-${request.hide_deprecated}`;
+		const cachedData = this._controller.modPortalCache.get(cacheKey);
+
+		const cacheDuration = this._controller.config.get("controller.mod_portal_cache_duration_minutes") * 60 * 1000;
+		if (cachedData && Date.now() - cachedData.timestamp < cacheDuration) {
+			return new lib.ModPortalGetAllRequest.Response(cachedData.data);
+		}
+
+		try {
+			logger.info(`Fetching mod portal data for ${cacheKey}`);
+			const mods = await lib.ModStore.fetchAllModsFromPortal(
+				request.factorioVersion,
+				this._controller.config.get("controller.mod_portal_page_size"),
+				request.hide_deprecated
+			);
+			this._controller.modPortalCache.set(cacheKey, { timestamp: Date.now(), data: mods });
+			// The Response class is defined inline within the Request class
+			return new lib.ModPortalGetAllRequest.Response(mods);
+		} catch (error: any) {
+			logger.error(`Error fetching all mods from portal (${request.factorioVersion}): ${error}`);
+			// Propagate a user-friendly error back to the client
+			throw new lib.RequestError(`Portal mod fetch failed: ${error}`);
+		}
+	}
+
+	/**
+	 * Handle request to download a mod from the Factorio Mod Portal to the controller.
+	 * @param request - Request object with mod name, version, and factorioVersion.
+	 */
+	async handleModPortalDownloadRequest(request: lib.ModPortalDownloadRequest): Promise<lib.ModInfo> {
+		const { name, version, factorioVersion } = request;
+		const filename = lib.ModInfo.filename(name, version);
+
+		// Check if mod already exists
+		if (this._controller.modStore.files.has(filename)) {
+			logger.verbose(`Mod ${filename} already exists, skipping download.`);
+			return this._controller.modStore.files.get(filename)!;
+		}
+
+		// Get Factorio credentials from config
+		const username = this._controller.config.get("controller.factorio_username");
+		const token = this._controller.config.get("controller.factorio_token");
+
+		if (!username || !token) {
+			throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
+		}
+
+		try {
+			logger.info(`Downloading mod ${filename} for Factorio ${factorioVersion} from portal.`);
+			const modMap = new Map([[name, version]]);
+			await this._controller.modStore.downloadMods(modMap, username || "", token || "", factorioVersion);
+
+			// Verify download and return ModInfo
+			const downloadedMod = this._controller.modStore.files.get(filename);
+			if (!downloadedMod) {
+				throw new lib.RequestError(`Failed to find mod ${filename} in store after download attempt.`);
+			}
+			logger.info(`Successfully downloaded mod ${filename}.`);
+			return downloadedMod;
+
+		} catch (error: any) {
+			logger.error(`Error downloading mod ${filename} from portal: ${error.message}`);
+			// Improve error message clarity
+			let errorMessage = `Mod portal download failed for ${name} v${version}`;
+			if (error instanceof lib.RequestError) {
+				errorMessage += `: ${error.message}`;
+			} else if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+				errorMessage += ": Authentication failed. Check Factorio username/token in controller config.";
+			} else if (error.message.includes("404") || error.message.includes("Not Found")) {
+				errorMessage += ": Mod version not found on the portal.";
+			} else {
+				errorMessage += `: ${error.message}`;
+			}
+			throw new lib.RequestError(errorMessage);
+		}
 	}
 
 	async handleModDeleteRequest(request: lib.ModDeleteRequest) {
