@@ -4,12 +4,10 @@ const events = require("events");
 const FormData = require("form-data");
 const jwt = require("jsonwebtoken");
 const http = require("http");
-const phin = require("phin");
 
 const { wait } = require("@clusterio/lib");
 const routes = require("@clusterio/controller/dist/node/src/routes");
 const mock = require("../mock");
-
 
 describe("controller/src/routes", function() {
 	let controller;
@@ -27,20 +25,23 @@ describe("controller/src/routes", function() {
 		server.close();
 	});
 	describe("/api/stream/:id", function() {
+		let endpoint;
+		beforeEach(function() {
+			endpoint = `http://localhost:${port}/api/stream`;
+		});
 		it("should respond with 404 if stream doesn't exist", async function() {
 			let response;
-			response = await phin(`http://localhost:${port}/api/stream/01020304`);
-			assert.equal(response.statusCode, 404);
-			response = await phin({
-				url: `http://localhost:${port}/api/stream/01020304`, method: "PUT",
-				data: "test stream",
+			response = await fetch(`${endpoint}/01020304`);
+			assert.equal(response.status, 404);
+			response = await fetch(`${endpoint}/01020304`, {
+				method: "PUT", body: "test stream",
 			});
-			assert.equal(response.statusCode, 404);
+			assert.equal(response.status, 404);
 		});
 		it("should respond with 500 if stream times out", async function() {
 			let stream = await routes.createProxyStream(controller.app);
-			let response = await phin(`http://localhost:${port}/api/stream/${stream.id}`);
-			assert.equal(response.statusCode, 500);
+			let response = await fetch(`${endpoint}/${stream.id}`);
+			assert.equal(response.status, 500);
 		});
 		it("should passthrough a stream", async function() {
 			let stream;
@@ -49,121 +50,123 @@ describe("controller/src/routes", function() {
 			responses = await Promise.all([
 				(async function() {
 					await wait(100);
-					return await phin({
-						url: `http://localhost:${port}/api/stream/${stream.id}`, method: "PUT",
-						data: "test content",
+					return await fetch(`${endpoint}/${stream.id}`, {
+						method: "PUT", body: "test content",
 					});
 				}()),
-				phin(`http://localhost:${port}/api/stream/${stream.id}`),
+				fetch(`${endpoint}/${stream.id}`),
 			]);
-			assert.equal(responses[0].statusCode, 200);
-			assert.equal(responses[1].statusCode, 200);
-			assert.equal(responses[1].body.toString(), "test content");
+			assert.equal(responses[0].status, 200);
+			assert.equal(responses[1].status, 200);
+			assert.equal(await responses[1].text(), "test content");
 			stream = await routes.createProxyStream(controller.app);
 			responses = await Promise.all([
-				phin({
-					url: `http://localhost:${port}/api/stream/${stream.id}`, method: "PUT",
-					data: "test content",
+				fetch(`${endpoint}/${stream.id}`, {
+					method: "PUT", body: "test content",
 				}),
 				(async function() {
 					await wait(100);
-					return await phin(`http://localhost:${port}/api/stream/${stream.id}`);
+					return await fetch(`${endpoint}/${stream.id}`);
 				}()),
 			]);
-			assert.equal(responses[0].statusCode, 200);
-			assert.equal(responses[1].statusCode, 200);
-			assert.equal(responses[1].body.toString(), "test content");
+			assert.equal(responses[0].status, 200);
+			assert.equal(responses[1].status, 200);
+			assert.equal(await responses[1].text(), "test content");
 		});
 	});
 	describe("/api/upload-save", function() {
+		let endpoint;
+		beforeEach(function() {
+			endpoint = `http://localhost:${port}/api/upload-save`;
+		});
 		it("should respond with 401 with invalid token", async function() {
 			let response;
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: { "Content-Type": "application/zip" },
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 401);
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			assert.equal(response.status, 401);
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
 					"X-Access-Token": "invalid",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 401);
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			assert.equal(response.status, 401);
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
 					"X-Access-Token": jwt.sign(
 						{ aud: "user", user: "invalid" }, Buffer.from("TestSecretDoNotUse", "base64")
 					),
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 401);
+			assert.equal(response.status, 401);
 			controller.userManager.getByName("test").tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
 					"X-Access-Token": jwt.sign(
 						{ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64")
 					),
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 401);
+			assert.equal(response.status, 401);
 		});
 
 		it("should respond with 403 when user has insufficient permission", async function() {
-			let response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			let response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
 					"X-Access-Token": jwt.sign(
 						{ aud: "user", user: "player" }, Buffer.from("TestSecretDoNotUse", "base64")
 					),
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 403);
+			assert.equal(response.status, 403);
 		});
 
 		let testToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 		it("should respond with 415 if content type is missing or invalid", async function() {
 			let response;
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 415);
-			assert.deepEqual(JSON.parse(response.body), { request_errors: ["invalid Content-Type"] });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			assert.equal(response.status, 415);
+			assert.deepEqual(await response.json(), { request_errors: ["invalid Content-Type"] });
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "invalid",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 415);
-			assert.deepEqual(JSON.parse(response.body), { request_errors: ["invalid Content-Type"] });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
+			assert.equal(response.status, 415);
+			assert.deepEqual(await response.json(), { request_errors: ["invalid Content-Type"] });
+			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "text/plain",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 415);
-			assert.deepEqual(JSON.parse(response.body), { request_errors: ["invalid Content-Type"] });
+			assert.equal(response.status, 415);
+			assert.deepEqual(await response.json(), { request_errors: ["invalid Content-Type"] });
 		});
 
 		it("should respond with 400 if invalid multipart request", async function() {
@@ -172,96 +175,96 @@ describe("controller/src/routes", function() {
 			form = new FormData();
 			form.append("instance_id", "123");
 			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "text/plain" });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save`, method: "POST",
+			response = await fetch(endpoint, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					...form.getHeaders(),
 				},
-				data: form.getBuffer(),
+				body: form.getBuffer(),
 			});
-			assert.equal(response.statusCode, 400);
-			assert.deepEqual(JSON.parse(response.body), { request_errors: ["invalid file Content-Type"] });
+			assert.equal(response.status, 400);
+			assert.deepEqual(await response.json(), { request_errors: ["invalid file Content-Type"] });
 			form = new FormData();
 			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "application/zip" });
 			form.append("instance_id", "123");
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save`, method: "POST",
+			response = await fetch(endpoint, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					...form.getHeaders(),
 				},
-				data: form.getBuffer(),
+				body: form.getBuffer(),
 			});
-			assert.equal(response.statusCode, 400);
+			assert.equal(response.status, 400);
 			assert.deepEqual(
-				JSON.parse(response.body), { request_errors: ["instance_id must come before files uploaded"] }
+				await response.json(), { request_errors: ["instance_id must come before files uploaded"] }
 			);
 			form = new FormData();
 			form.append("instance_id", "123");
 			form.append("file", "totally a zip file", { filename: "test.txt", contentType: "application/zip" });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save`, method: "POST",
+			response = await fetch(endpoint, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					...form.getHeaders(),
 				},
-				data: form.getBuffer(),
+				body: form.getBuffer(),
 			});
-			assert.equal(response.statusCode, 400);
+			assert.equal(response.status, 400);
 			assert.deepEqual(
-				JSON.parse(response.body), { request_errors: ["filename must end with .zip"] }
+				await response.json(), { request_errors: ["filename must end with .zip"] }
 			);
 			form = new FormData();
 			form.append("instance_id", "invalid");
 			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "application/zip" });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save`, method: "POST",
+			response = await fetch(endpoint, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					...form.getHeaders(),
 				},
-				data: form.getBuffer(),
+				body: form.getBuffer(),
 			});
-			assert.equal(response.statusCode, 400);
+			assert.equal(response.status, 400);
 			assert.deepEqual(
-				JSON.parse(response.body), { request_errors: ["invalid instance_id"] }
+				await response.json(), { request_errors: ["invalid instance_id"] }
 			);
 		});
 
 		it("should respond with 400 if invalid file request", async function() {
 			let response;
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/zip",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 400);
-			assert.deepEqual(JSON.parse(response.body), { request_errors: ["Missing or invalid filename parameter"] });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=test.txt`, method: "POST",
+			assert.equal(response.status, 400);
+			assert.deepEqual(await response.json(), { request_errors: ["Missing or invalid filename parameter"] });
+			response = await fetch(`${endpoint}?instance_id=123&filename=test.txt`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/zip",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 400);
-			assert.deepEqual(JSON.parse(response.body), { request_errors: ["filename must end with .zip"] });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?filename=test.zip`, method: "POST",
+			assert.equal(response.status, 400);
+			assert.deepEqual(await response.json(), { request_errors: ["filename must end with .zip"] });
+			response = await fetch(`${endpoint}?filename=test.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/zip",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 400);
+			assert.equal(response.status, 400);
 			assert.deepEqual(
-				JSON.parse(response.body), { request_errors: ["Missing or invalid instance_id parameter"] }
+				await response.json(), { request_errors: ["Missing or invalid instance_id parameter"] }
 			);
 		});
 
@@ -274,82 +277,78 @@ describe("controller/src/routes", function() {
 			form = new FormData();
 			form.append("instance_id", "123");
 			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "application/zip" });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save`, method: "POST",
+			response = await fetch(endpoint, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					...form.getHeaders(),
 				},
-				data: form.getBuffer(),
+				body: form.getBuffer(),
 			});
-			assert.equal(response.statusCode, 500);
-			assert.deepEqual(JSON.parse(response.body), { errors: ["Something went wrong"], request_errors: [] });
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=test.zip`, method: "POST",
+			assert.equal(response.status, 500);
+			assert.deepEqual(await response.json(), { errors: ["Something went wrong"], request_errors: [] });
+			response = await fetch(`${endpoint}?instance_id=123&filename=test.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/zip",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 500);
-			assert.deepEqual(JSON.parse(response.body), { errors: ["Something went wrong"], request_errors: [] });
+			assert.equal(response.status, 500);
+			assert.deepEqual(await response.json(), { errors: ["Something went wrong"], request_errors: [] });
 			controller.sendToHostByInstanceId = async (request) => {
 				await new Promise(() => {});
 			};
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=test.zip`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123&filename=test.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/zip",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.equal(response.statusCode, 500);
+			assert.equal(response.status, 500);
 			assert.deepEqual(
-				JSON.parse(response.body), { errors: ["Timed out establishing stream to host"], request_errors: [] }
+				await response.json(), { errors: ["Timed out establishing stream to host"], request_errors: [] }
 			);
 		});
 
 		it("should complete a valid transfer", async function() {
 			controller.sendToHostByInstanceId = async (request) => {
-				let stream = await phin({
-					url: `http://localhost:${port}/api/stream/${request.streamId}`,
-				});
-				assert.equal(stream.body.toString(), "totally a zip file");
+				const stream = await fetch(`http://localhost:${port}/api/stream/${request.streamId}`);
+				assert.equal(await stream.text(), "totally a zip file");
 				return request.name;
 			};
 			let response;
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=test.zip`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123&filename=test.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/zip",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.deepEqual(JSON.parse(response.body), { saves: ["test.zip"] });
-			assert.equal(response.statusCode, 200);
+			assert.deepEqual(await response.json(), { saves: ["test.zip"] });
+			assert.equal(response.status, 200);
 		});
 		it("should complete a valid transfer with non-standerd mime type", async function() {
 			controller.sendToHostByInstanceId = async (request) => {
-				let stream = await phin({
-					url: `http://localhost:${port}/api/stream/${request.streamId}`,
-				});
-				assert.equal(stream.body.toString(), "totally a zip file");
+				const stream = await fetch(`http://localhost:${port}/api/stream/${request.streamId}`);
+				assert.equal(await stream.text(), "totally a zip file");
 				return request.name;
 			};
 			let response;
-			response = await phin({
-				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=test.zip`, method: "POST",
+			response = await fetch(`${endpoint}?instance_id=123&filename=test.zip`, {
+				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
 					"Content-Type": "application/x-zip-compressed",
 				},
-				data: "totally a zip file",
+				body: "totally a zip file",
 			});
-			assert.deepEqual(JSON.parse(response.body), { saves: ["test.zip"] });
-			assert.equal(response.statusCode, 200);
+			assert.deepEqual(await response.json(), { saves: ["test.zip"] });
+			assert.equal(response.status, 200);
 		});
 	});
 });

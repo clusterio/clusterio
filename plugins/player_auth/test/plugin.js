@@ -1,6 +1,5 @@
 "use strict";
 const assert = require("assert").strict;
-const phin = require("phin");
 const jwt = require("jsonwebtoken");
 
 const mock = require("../../../test/mock");
@@ -11,6 +10,13 @@ const info = require("../dist/node/index").plugin;
 const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("../dist/node/messages");
 const lib = require("@clusterio/lib");
 
+function postJSON(url, body) {
+	return fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+}
 
 describe("player_auth", function() {
 	describe("controller.js", function() {
@@ -39,6 +45,7 @@ describe("player_auth", function() {
 		describe("ControllerPlugin", function() {
 			let controllerPlugin;
 			let controllerUrl;
+			let endpoint;
 			before(async function() {
 				controllerPlugin = await mock.createControllerPlugin(controller.ControllerPlugin, info);
 				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_length", 10);
@@ -75,11 +82,8 @@ describe("player_auth", function() {
 					addInstance(3, "running", false, "running unloaded");
 					addInstance(4, "stopped", false, "stopped unloaded");
 					addInstance(5, "running", true, undefined);
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/servers`,
-						parse: "json",
-					});
-					assert.deepEqual(result.body, ["running loaded", "unnamed server"]);
+					const result = await fetch(`${controllerUrl}/api/player_auth/servers`);
+					assert.deepEqual(await result.json(), ["running loaded", "unnamed server"]);
 					for (let id of [1, 2, 3, 4, 5]) {
 						controllerPlugin.controller.instances.delete(id);
 					}
@@ -87,128 +91,81 @@ describe("player_auth", function() {
 			});
 
 			describe("/api/player_auth/player_code", function() {
+				before(function() {
+					endpoint = `${controllerUrl}/api/player_auth/player_code`;
+				});
 				it("should return 400 on invalid json", async function() {
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/player_code`,
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						data: "invalid",
-					});
-					assert.equal(result.statusCode, 400);
+					const result = await postJSON(endpoint, "invalid");
+					assert.equal(result.status, 400);
 				});
 				it("should return 400 on valid json which is not an object", async function() {
 					for (let obj of [true, false, null, "string", 123, ["an", "array"]]) {
-						let result = await phin({
-							url: `${controllerUrl}/api/player_auth/player_code`,
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-							},
-							data: JSON.stringify(obj),
-						});
-						assert.equal(result.statusCode, 400);
+						const result = await postJSON(endpoint, obj);
+						assert.equal(result.status, 400);
 					}
 				});
 				it("should return 400 if player_code is not a string", async function() {
 					for (let obj of [true, false, null, 123, [], {}]) {
-						let result = await phin({
-							url: `${controllerUrl}/api/player_auth/player_code`,
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-							},
-							data: JSON.stringify({ player_code: obj }),
-						});
-						assert.equal(result.statusCode, 400);
+						const result = await postJSON(endpoint, { player_code: obj });
+						assert.equal(result.status, 400);
 					}
 				});
 				it("should return invalid player_code if the code is expired", async function() {
 					let expiresMs = Date.now() - 1000;
 					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: null, expiresMs });
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/player_code`,
-						method: "POST",
-						data: { player_code: "expired" },
-						parse: "json",
-					});
-					assert.deepEqual(result.body, { error: true, message: "invalid player_code" });
+					const result = await postJSON(endpoint, { player_code: "expired" });
+					assert.deepEqual(await result.json(), { error: true, message: "invalid player_code" });
 				});
 				it("should return a verify code and token if code is valid", async function() {
 					let expiresMs = Date.now() + 1000;
 					controllerPlugin.players.set("valid", { playerCode: "valid", verifyCode: null, expiresMs });
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/player_code`,
-						method: "POST",
-						data: { player_code: "valid" },
-						parse: "json",
-					});
-					assert.equal(typeof result.body.verify_code, "string");
-					assert.equal(typeof result.body.verify_token, "string");
+					const result = await postJSON(endpoint, { player_code: "valid" });
+					const body = await result.json();
+					assert.equal(typeof body.verify_code, "string");
+					assert.equal(typeof body.verify_token, "string");
 				});
 			});
 
 			describe("/api/player_auth/verify", function() {
+				before(function() {
+					endpoint = `${controllerUrl}/api/player_auth/verify`;
+				});
 				it("should return 400 on invalid json", async function() {
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/verify`,
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						data: "invalid",
-					});
-					assert.equal(result.statusCode, 400);
+					const result = await postJSON(endpoint, "invalid");
+					assert.equal(result.status, 400);
 				});
 				it("should return 400 on valid json which is not an object", async function() {
 					for (let obj of [true, false, null, "string", 123, ["an", "array"]]) {
-						let result = await phin({
-							url: `${controllerUrl}/api/player_auth/verify`,
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-							},
-							data: JSON.stringify(obj),
-						});
-						assert.equal(result.statusCode, 400);
+						const result = await postJSON(endpoint, obj);
+						assert.equal(result.status, 400);
 					}
 				});
 				it("should return 400 if player_code, verify_code or verify_token are not strings", async function() {
 					for (let obj of [true, false, null, 123, [], {}]) {
 						for (let field of ["player_code", "verify_code", "verify_token"]) {
-							let result = await phin({
-								url: `${controllerUrl}/api/player_auth/verify`,
-								method: "POST",
-								data: {
-									player_code: "str",
-									verify_code: "str",
-									verify_token: "str",
-									[field]: obj,
-								},
+							const result = await postJSON(endpoint, {
+								player_code: "str",
+								verify_code: "str",
+								verify_token: "str",
+								[field]: obj,
 							});
-							assert.equal(result.statusCode, 400);
+							assert.equal(result.status, 400);
 						}
 					}
 				});
 				it("should return error if verify_token is not valid", async function() {
 					async function verify(tokenParams, error) {
-						let result = await phin({
-							url: `${controllerUrl}/api/player_auth/verify`,
-							method: "POST",
-							data: {
+						const result = await postJSON(endpoint, {
+							player_code: "player",
+							verify_code: "verify",
+							verify_token: jwt.sign({
+								aud: "player_auth.verify_code",
 								player_code: "player",
 								verify_code: "verify",
-								verify_token: jwt.sign({
-									aud: "player_auth.verify_code",
-									player_code: "player",
-									verify_code: "verify",
-									...tokenParams,
-								}, Buffer.from(tokenParams.secret || "TestSecretDoNotUse", "base64")),
-							},
-							parse: "json",
+								...tokenParams,
+							}, Buffer.from(tokenParams.secret || "TestSecretDoNotUse", "base64")),
 						});
-						assert.deepEqual(result.body.error, true);
+						assert.deepEqual((await result.json()).error, true);
 					}
 					await verify({ secret: "InvalidSecret" });
 					await verify({ verify_code: "bad" });
@@ -218,21 +175,16 @@ describe("player_auth", function() {
 				it("should return invalid player_code if the code is expired", async function() {
 					let expiresMs = Date.now() - 1000;
 					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: "verify", expiresMs });
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/verify`,
-						method: "POST",
-						data: {
+					const result = await postJSON(endpoint, {
+						player_code: "expired",
+						verify_code: "verify",
+						verify_token: jwt.sign({
+							aud: "player_auth.verify_code",
 							player_code: "expired",
 							verify_code: "verify",
-							verify_token: jwt.sign({
-								aud: "player_auth.verify_code",
-								player_code: "expired",
-								verify_code: "verify",
-							}, Buffer.from("TestSecretDoNotUse", "base64")),
-						},
-						parse: "json",
+						}, Buffer.from("TestSecretDoNotUse", "base64")),
 					});
-					assert.deepEqual(result.body, { error: true, message: "invalid player_code" });
+					assert.deepEqual(await result.json(), { error: true, message: "invalid player_code" });
 				});
 				it("should return verified false if verify code has not yet been set", async function() {
 					let expiresMs = Date.now() + 1000;
@@ -240,60 +192,46 @@ describe("player_auth", function() {
 						"unverified",
 						{ playerCode: "unverified", verifyCode: null, expiresMs },
 					);
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/verify`,
-						method: "POST",
-						data: {
+					const result = await postJSON(endpoint, {
+						player_code: "unverified",
+						verify_code: "verify",
+						verify_token: jwt.sign({
+							aud: "player_auth.verify_code",
 							player_code: "unverified",
 							verify_code: "verify",
-							verify_token: jwt.sign({
-								aud: "player_auth.verify_code",
-								player_code: "unverified",
-								verify_code: "verify",
-							}, Buffer.from("TestSecretDoNotUse", "base64")),
-						},
-						parse: "json",
+						}, Buffer.from("TestSecretDoNotUse", "base64")),
 					});
-					assert.deepEqual(result.body, { verified: false });
+					assert.deepEqual(await result.json(), { verified: false });
 				});
 				it("should return error if user is missing", async function() {
 					let expiresMs = Date.now() + 1000;
 					controllerPlugin.players.set("missing", { playerCode: "missing", verifyCode: "verify", expiresMs });
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/verify`,
-						method: "POST",
-						data: {
+					const result = await postJSON(endpoint, {
+						player_code: "missing",
+						verify_code: "verify",
+						verify_token: jwt.sign({
+							aud: "player_auth.verify_code",
 							player_code: "missing",
 							verify_code: "verify",
-							verify_token: jwt.sign({
-								aud: "player_auth.verify_code",
-								player_code: "missing",
-								verify_code: "verify",
-							}, Buffer.from("TestSecretDoNotUse", "base64")),
-						},
-						parse: "json",
+						}, Buffer.from("TestSecretDoNotUse", "base64")),
 					});
-					assert.deepEqual(result.body, { error: true, message: "invalid user" });
+					assert.deepEqual(await result.json(), { error: true, message: "invalid user" });
 				});
 				it("should return verified true with token if valid verification", async function() {
 					let expiresMs = Date.now() + 1000;
 					controllerPlugin.players.set("player", { playerCode: "player", verifyCode: "verify", expiresMs });
-					let result = await phin({
-						url: `${controllerUrl}/api/player_auth/verify`,
-						method: "POST",
-						data: {
+					const result = await postJSON(endpoint, {
+						player_code: "player",
+						verify_code: "verify",
+						verify_token: jwt.sign({
+							aud: "player_auth.verify_code",
 							player_code: "player",
 							verify_code: "verify",
-							verify_token: jwt.sign({
-								aud: "player_auth.verify_code",
-								player_code: "player",
-								verify_code: "verify",
-							}, Buffer.from("TestSecretDoNotUse", "base64")),
-						},
-						parse: "json",
+						}, Buffer.from("TestSecretDoNotUse", "base64")),
 					});
-					assert.equal(result.body.verified, true);
-					assert.deepEqual(typeof result.body.token, "string", "missing token");
+					const body = await result.json();
+					assert.equal(body.verified, true);
+					assert.deepEqual(typeof body.token, "string", "missing token");
 				});
 			});
 
@@ -338,25 +276,21 @@ describe("player_auth", function() {
 						new FetchPlayerCodeRequest("test")
 					);
 
-					let playerCodeResult = await phin({
-						url: `${controllerUrl}/api/player_auth/player_code`,
-						method: "POST",
-						data: { player_code: playerCode },
-						parse: "json",
-					});
+					const playerCodeResult = await postJSON(
+						`${controllerUrl}/api/player_auth/player_code`,
+						{ player_code: playerCode }
+					);
 
-					let { verify_code, verify_token } = playerCodeResult.body;
+					let { verify_code, verify_token } = await playerCodeResult.json();
 					await controllerPlugin.handleSetVerifyCodeRequest(
 						new SetVerifyCodeRequest("test", verify_code)
 					);
 
-					let verifyResult = await phin({
-						url: `${controllerUrl}/api/player_auth/verify`,
-						method: "POST",
-						data: { player_code: playerCode, verify_code, verify_token },
-						parse: "json",
-					});
-					assert.equal(verifyResult.body.verified, true);
+					const verifyResult = await postJSON(
+						`${controllerUrl}/api/player_auth/verify`,
+						{ player_code: playerCode, verify_code, verify_token }
+					);
+					assert.equal((await verifyResult.json()).verified, true);
 				});
 			});
 		});
