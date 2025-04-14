@@ -269,15 +269,13 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 				throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
 			}
 
-			const fileStream = fs.createWriteStream(filePath);
-
-			// Check if the response body exists and pipe it to the file
-			if (response.body) {
-				const writer = Writable.toWeb(fileStream);
-				await response.body.pipeTo(writer);
-			} else {
+			if (!response.body) {
 				throw new Error("Response body is missing.");
 			}
+
+			const fileStream = fs.createWriteStream(filePath);
+			const writer = Writable.toWeb(fileStream);
+			await response.body.pipeTo(writer);
 		} catch (error) {
 			logger.error("Error downloading file:", error);
 			throw error;
