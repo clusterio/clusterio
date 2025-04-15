@@ -19,7 +19,6 @@
 		"chalk": "^4.1.2",
 		"fs-extra": "^11.3.0",
 		"inquirer": "^8.2.4",
-		"phin": "^3.7.0",
 		"yargs": "^17.7.2"
 	},
 	"publishConfig": {

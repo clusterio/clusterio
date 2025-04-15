@@ -4,7 +4,6 @@ const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
-const phin = require("phin");
 const child_process = require("child_process");
 const util = require("util");
 

@@ -7,14 +7,7 @@ const JSZip = require("jszip"); // Added for creating mock zips
 // Capture native fetch before any potential mocks are applied
 const nativeFetch = global.fetch;
 
-// Removed logger mocking setup
-
 const { ModStore, ModInfo } = require("@clusterio/lib"); // Adjust path based on compiled output
-
-// Mock fetch function
-global.fetch = async (url, options) => {
-	throw new Error(`fetch mock not implemented for ${url}`);
-};
 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");
@@ -47,6 +40,10 @@ async function waitBriefly() {
 describe("lib/ModStore", function () {
 	before(async function () {
 		await fs.ensureDir(MODS_DIR);
+	});
+
+	after(function() {
+		global.fetch = nativeFetch;
 	});
 
 	beforeEach(function () {

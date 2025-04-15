@@ -6,7 +6,6 @@ const fs = require("fs-extra");
 const inquirer = require("inquirer");
 const os = require("os");
 const path = require("path");
-const phin = require("phin");
 const stream = require("stream");
 const util = require("util");
 const yargs = require("yargs");
@@ -624,7 +623,7 @@ async function inquirerMissingArgs(args) {
 			answers.publicAddress = args.publicAddress;
 		} else {
 			try {
-				let result = await phin("https://api.ipify.org/");
+				let result = await fetch("https://api.ipify.org/");
 				myIp = result.body.toString();
 			} catch (err) { /* ignore */ }
 		}
@@ -741,7 +740,7 @@ async function inquirerMissingArgs(args) {
 }
 
 async function downloadLinuxServer() {
-	let res = await phin("https://factorio.com/get-download/stable/headless/linux64");
+	let res = await fetch("https://factorio.com/get-download/stable/headless/linux64");
 
 	const url = new URL(res.headers.location);
 	// get the filename of the latest factorio archive from redirected url
@@ -764,14 +763,11 @@ async function downloadLinuxServer() {
 		await fs.ensureDir(tmpDir);
 
 		// follow the redirect
-		res = await phin({
-			url: url.href,
-			stream: true,
-		});
+		res = await fetch(url.href);
 
 		logger.info("Downloading latest Factorio server release. This may take a while.");
 		const writeStream = fs.createWriteStream(tmpArchivePath);
-		res.pipe(writeStream);
+		stream.Readable.fromWeb(res.body).pipe(writeStream);
 
 		await finished(writeStream);
 

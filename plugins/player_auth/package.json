@@ -38,7 +38,6 @@
 		"@types/node": "^20.17.19",
 		"@types/react": "^18.3.18",
 		"antd": "^5.24.2",
-		"phin": "^3.7.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"typescript": "^5.7.3",
