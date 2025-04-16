@@ -1,8 +1,15 @@
-import React, { useEffect, useContext, useState } from "react";
+import React, { useEffect, useContext, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, FormInstance, GetProp, Input, Modal, Radio, Space, Table, Tag, Upload, UploadProps } from "antd";
-import { InboxOutlined } from "@ant-design/icons";
 import { Static } from "@sinclair/typebox";
+
+import {
+	Button, Form, FormInstance, Input, InputRef, Modal,
+	Radio, Space, Table, Tag, Upload, UploadProps,
+} from "antd";
+
+import {
+	InboxOutlined, SearchOutlined,
+} from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 
@@ -370,7 +377,8 @@ export default function UsersPage() {
 	let navigate = useNavigate();
 	let [users] = useUsers();
 
-	let [roles, setRoles] = useState(new Map());
+	const [roles, setRoles] = useState(new Map());
+	const searchInput = useRef<InputRef>(null);
 
 	useEffect(() => {
 		control.send(new lib.RoleListRequest()).then(newRoles => {
@@ -404,6 +412,24 @@ export default function UsersPage() {
 					</Space>,
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					filterIcon: (filtered) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
+					onFilter: (value, record) => record.name.toLowerCase().includes((value as string).toLowerCase()),
+					filterDropdownProps: {
+						onOpenChange: open => open && setTimeout(() => searchInput.current?.select(), 100),
+					},
+					filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }) => (
+						<div style={{ padding: 4 }} onKeyDown={(e) => e.stopPropagation()}>
+							<Input.Search
+								allowClear
+								ref={searchInput}
+								placeholder={"Search username"}
+								value={selectedKeys[0]}
+								onChange={(e) => setSelectedKeys([e.target.value])}
+								onClear={() => clearFilters && clearFilters({ confirm: true, closeDropdown: true })}
+								onSearch={() => confirm({ closeDropdown: true })}
+							/>
+						</div>
+					),
 				},
 				{
 					title: "Roles",
@@ -439,7 +465,12 @@ export default function UsersPage() {
 				},
 			]}
 			dataSource={[...users.values()]}
-			pagination={false}
+			pagination={{
+				defaultPageSize: 50,
+				showSizeChanger: true,
+				pageSizeOptions: ["10", "20", "50", "100", "200"],
+				showTotal: total => `${total} Users`,
+			}}
 			rowKey={user => user.name}
 			onRow={(user, rowIndex) => ({
 				onClick: event => {
