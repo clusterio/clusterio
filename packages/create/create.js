@@ -624,7 +624,7 @@ async function inquirerMissingArgs(args) {
 		} else {
 			try {
 				let result = await fetch("https://api.ipify.org/");
-				myIp = result.body.toString();
+				myIp = await result.text();
 			} catch (err) { /* ignore */ }
 		}
 		answers = await inquirer.prompt([
