@@ -203,6 +203,8 @@ export class Config<
 
 	/** Set to true when a field in the config is changed. */
 	dirty = false;
+	/** Set to true when a 'restart required' field in the config is changed. */
+	restartRequired = false;
 
 	/**
 	 * Create a new instance of the given config
@@ -270,6 +272,27 @@ export class Config<
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Set the value of a field, while also settings the required flags and events.
+	 * This method does not perform any validation on the value being set
+	 *
+	 * @param name - Name of the field to set
+	 * @param value - The new value of the field
+	 * @param notify - False to skip setting dirty flags and emitting events
+	 */
+	_set(name: keyof Fields & string, value: FieldValue, notify: boolean = true) {
+		const prev = this.fields[name];
+		this.fields[name] = value as any;
+		if (notify && !isDeepStrictEqual(value, prev)) {
+			const def = this.constructor.fieldDefinitions[name];
+			if (def.restartRequired) {
+				this.restartRequired = true;
+			}
+			this.dirty = true;
+			this.emit("fieldChanged", name, value, prev);
+		}
 	}
 
 	static jsonSchema = ConfigSchema;
@@ -391,12 +414,7 @@ export class Config<
 				continue;
 			}
 
-			let prev = this.fields[name];
-			this.fields[name] = value as any;
-			if (notify && !isDeepStrictEqual(value, prev)) {
-				this.dirty = true;
-				this.emit("fieldChanged", name, value, prev);
-			}
+			this._set(name, value, notify);
 		}
 	}
 
@@ -511,12 +529,7 @@ export class Config<
 			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
 		}
 
-		let prev = this.fields[name];
-		this.fields[name] = value as Fields[Field];
-		if (!isDeepStrictEqual(value, prev)) {
-			this.dirty = true;
-			this.emit("fieldChanged", name, value, prev);
-		}
+		this._set(name, value);
 	}
 
 	/**
@@ -559,10 +572,7 @@ export class Config<
 		} else {
 			delete updated[prop];
 		}
-		this.fields[name] = updated as Fields[Field];
-		if (!isDeepStrictEqual(updated, prev)) {
-			this.dirty = true;
-			this.emit("fieldChanged", name, updated, prev);
-		}
+
+		this._set(name, updated);
 	}
 }

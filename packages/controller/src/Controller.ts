@@ -523,7 +523,7 @@ export default class Controller {
 				}
 				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
-			requests.push(lib.gatherSystemInfo("controller", this.canRestart));
+			requests.push(lib.gatherSystemInfo("controller", this.canRestart, this.config.restartRequired));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
 				this.systems.set(metric);

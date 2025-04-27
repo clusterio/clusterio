@@ -798,7 +798,7 @@ export default class Host extends lib.Link {
 	}
 
 	async handleSystemInfoRequest() {
-		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart);
+		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, this.config.restartRequired);
 	}
 
 	async handleHostMetricsRequest() {
