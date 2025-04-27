@@ -4,6 +4,7 @@ import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import { Static } from "@sinclair/typebox";
 
 export interface ControllerConfigFields {
+	"controller.version": string;
 	"controller.name": string;
 	"controller.mods_directory": string;
 	"controller.database_directory": string;
@@ -46,6 +47,12 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 	}
 
 	static fieldDefinitions: classes.ConfigDefs<ControllerConfigFields> = {
+		"controller.version": {
+			type: "string",
+			initialValue: "", // Set on start
+			readonly: ["controller"],
+			hidden: true,
+		},
 		"controller.name": {
 			title: "Name",
 			description: "Name of the cluster.",
@@ -215,6 +222,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 }
 
 export interface HostConfigFields {
+	"host.version": string;
 	"host.name": string;
 	"host.id": number;
 	"host.factorio_directory": string;
@@ -237,6 +245,12 @@ export interface HostConfigFields {
 export class HostConfig extends classes.Config<HostConfigFields> {
 	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => HostConfig;
 	static fieldDefinitions: classes.ConfigDefs<HostConfigFields> = {
+		"host.version": {
+			type: "string",
+			initialValue: "", // Set on start
+			readonly: ["host"],
+			hidden: true,
+		},
 		"host.name": {
 			description: "Name of the host",
 			type: "string",

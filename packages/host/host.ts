@@ -176,13 +176,14 @@ async function startHost() {
 		}
 	}
 
+	hostConfig.set("host.version", version); // Allows tracking last loaded version
+
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, args.config);
 		return;
 	}
 
 	// If we get here the command was run
-
 	await fs.ensureDir(hostConfig.get("host.instances_directory"));
 	await fs.ensureDir(hostConfig.get("host.mods_directory"));
 	await fs.ensureDir("modules");

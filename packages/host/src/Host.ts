@@ -798,6 +798,18 @@ export default class Host extends lib.Link {
 	}
 
 	async handleSystemInfoRequest() {
+		if (!this.config.restartRequired) {
+			// If a restart isn't already required, then test if a new version is installed
+			try {
+				const runningVersion = this.config.get("host.version");
+				const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
+				if (runningVersion !== packageJson.version) {
+					this.config.restartRequired = true;
+				}
+			} catch (err: any) {
+				logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
+			}
+		}
 		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, this.config.restartRequired);
 	}
 
