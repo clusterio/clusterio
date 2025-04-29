@@ -526,6 +526,22 @@ definePermission({
 });
 
 definePermission({
+	name: "core.rce.remote_update",
+	title: "Clusterio remote update",
+	description: "Start a remote update of the clusterio packages",
+});
+definePermission({
+	name: "core.rce.plugin_update",
+	title: "Plugin remote update",
+	description: "Start a remote update of a third party plugin package",
+});
+definePermission({
+	name: "core.rce.plugin_install",
+	title: "Plugin remote install",
+	description: "Start a remote install of a third party plugin package",
+});
+
+definePermission({
 	name: "core.debug.dump_ws",
 	title: "Dump WebSocket",
 	description: "Dump all WebSocket communicatation from the controller.",

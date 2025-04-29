@@ -20,6 +20,7 @@ import {
 } from "./system_metrics";
 import { formatTimestamp } from "../util/time_format";
 import { useSystems } from "../model/system";
+import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
 
 const { Title } = Typography;
 
@@ -100,6 +101,10 @@ export default function HostViewPage() {
 			>
 				Restart
 			</Button>
+		}
+		{
+			hasNpmButtonPermission()
+			&& <NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
 		}
 	</Space>;
 

@@ -95,6 +95,47 @@ controllerCommands.add(new lib.Command({
 		await control.send(new lib.ControllerRestartRequest());
 	},
 }));
+controllerCommands.add(new lib.Command({
+	definition: ["update", "Update the controller", (yargs) => {
+		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+	}],
+	handler: async function(args: { restart: boolean }, control: Control) {
+		await control.sendTo("controller", new lib.RemoteUpdateRequest());
+		if (args.restart) {
+			await control.send(new lib.ControllerRestartRequest());
+		} else {
+			print("Controller updated; a restart is required to apply the changes.");
+		}
+	},
+}));
+controllerCommands.add(new lib.Command({
+	definition: ["update-plugin", "Update a plugin on the controller", (yargs) => {
+		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
+		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+	}],
+	handler: async function(args: { plugin: string, restart: boolean }, control: Control) {
+		await control.sendTo("controller", new lib.PluginUpdateRequest(args.plugin));
+		if (args.restart) {
+			await control.send(new lib.ControllerRestartRequest());
+		} else {
+			print("Plugin updated; a restart is required to apply the changes.");
+		}
+	},
+}));
+controllerCommands.add(new lib.Command({
+	definition: ["install-plugin", "Install a plugin on the controller", (yargs) => {
+		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
+		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+	}],
+	handler: async function(args: { plugin: string, restart: boolean }, control: Control) {
+		await control.sendTo("controller", new lib.PluginInstallRequest(args.plugin));
+		if (args.restart) {
+			await control.send(new lib.ControllerRestartRequest());
+		} else {
+			print("Plugin installed; a restart is required to apply the changes.");
+		}
+	},
+}));
 
 const controllerConfigCommands = new lib.CommandTree({
 	name: "config", alias: ["c"], description: "controller config management",
@@ -319,6 +360,53 @@ hostCommands.add(new lib.Command({
 				}
 				throw err;
 			}
+		}
+	},
+}));
+hostCommands.add(new lib.Command({
+	definition: ["update", "Update the host", (yargs) => {
+		yargs.positional("host", { describe: "Host to update", type: "string" });
+		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+	}],
+	handler: async function(args: { host: string, restart: boolean }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		await control.sendTo({ hostId }, new lib.RemoteUpdateRequest());
+		if (args.restart) {
+			await control.sendTo({ hostId }, new lib.HostRestartRequest());
+		} else {
+			print("Host updated; a restart is required to apply the changes.");
+		}
+	},
+}));
+hostCommands.add(new lib.Command({
+	definition: ["update-plugin", "Update a plugin on a host", (yargs) => {
+		yargs.positional("host", { describe: "Host to update on", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
+		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+	}],
+	handler: async function(args: { host: string, plugin: string, restart: boolean }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		await control.sendTo({ hostId }, new lib.PluginUpdateRequest(args.plugin));
+		if (args.restart) {
+			await control.sendTo({ hostId }, new lib.HostRestartRequest());
+		} else {
+			print("Plugin updated; a restart is required to apply the changes.");
+		}
+	},
+}));
+hostCommands.add(new lib.Command({
+	definition: ["install-plugin", "Install a plugin on a host", (yargs) => {
+		yargs.positional("host", { describe: "Host to install on", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
+		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+	}],
+	handler: async function(args: { host: string, plugin: string, restart: boolean }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		await control.sendTo({ hostId }, new lib.PluginInstallRequest(args.plugin));
+		if (args.restart) {
+			await control.sendTo({ hostId }, new lib.HostRestartRequest());
+		} else {
+			print("Plugin installed; a restart is required to apply the changes.");
 		}
 	},
 }));

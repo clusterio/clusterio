@@ -30,6 +30,9 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.LogMessageEvent,
 	controller.SystemInfoRequest,
 	controller.SystemInfoUpdateEvent,
+	controller.RemoteUpdateRequest,
+	controller.PluginUpdateRequest,
+	controller.PluginInstallRequest,
 	controller.DebugDumpWsRequest,
 	controller.DebugWsMessageEvent,
 

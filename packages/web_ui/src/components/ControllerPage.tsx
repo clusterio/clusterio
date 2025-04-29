@@ -17,6 +17,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import { notifyErrorHandler } from "../util/notify";
 import webUiPackage from "../../package.json";
+import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
 
 const { Title } = Typography;
 
@@ -64,6 +65,10 @@ export default function ControllerPage() {
 					>
 						Restart
 					</Button>
+				}
+				{
+					hasNpmButtonPermission()
+					&& <NpmButton target="controller" canRestart={system?.canRestart}/>
 				}
 			</Space>}
 		/>

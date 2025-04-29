@@ -352,6 +352,58 @@ export class SystemInfoUpdateEvent {
 	}
 }
 
+export class RemoteUpdateRequest {
+	declare ["constructor"]: typeof RemoteUpdateRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = ["controller", "host"] as const;
+	static permission = "core.rce.remote_update";
+}
+
+export class PluginUpdateRequest {
+	declare ["constructor"]: typeof PluginUpdateRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = ["controller", "host"] as const;
+	static permission = "core.rce.plugin_update";
+
+	constructor(
+		public pluginPackage: string,
+	) {}
+
+	static jsonSchema = Type.String();
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json);
+	}
+
+	toJSON() {
+		return this.pluginPackage;
+	}
+}
+
+export class PluginInstallRequest {
+	declare ["constructor"]: typeof PluginInstallRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = ["controller", "host"] as const;
+	static permission = "core.rce.plugin_install";
+
+	constructor(
+		public pluginPackage: string,
+	) {}
+
+	static jsonSchema = Type.String();
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json);
+	}
+
+	toJSON() {
+		return this.pluginPackage;
+	}
+}
+
 export class DebugDumpWsRequest {
 	declare ["constructor"]: typeof DebugDumpWsRequest;
 	static type = "request" as const;

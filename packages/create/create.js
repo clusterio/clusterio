@@ -688,6 +688,18 @@ async function inquirerMissingArgs(args) {
 		}
 	}
 
+	if (["standalone", "controller", "host"].includes(answers.mode)) {
+		answers = inquirer.prompt([
+			{
+				type: "confirm",
+				name: "remoteNpm",
+				// TODO maybe link remote install to this once it isn't free text
+				message: "Allow remote updates via npm?",
+				default: true,
+			},
+		], answers);
+	}
+
 	if (answers.mode === "plugin-template") {
 		if (args["plugin-template"] && args["plugin-template"].length > 0) {
 			answers.pluginTemplate = args["plugin-template"];
@@ -824,6 +836,9 @@ async function main() {
 		.option("factorio-dir", {
 			nargs: 1, describe: "Path to Factorio installation [standalone/host]", type: "string",
 		})
+		.option("remote-npm", {
+			nargs: 0, description: "Allow remote usage of npm [standalone/controller/host]", type: "boolean",
+		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
 		})
@@ -889,6 +904,9 @@ async function main() {
 		logger.info("Setting up controller");
 		await execController(["bootstrap", "create-admin", answers.admin]);
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
+		await execController(["config", "set", "controller.allow_remote_updates", answers.remoteNpm]);
+		await execController(["config", "set", "controller.allow_plugin_updates", answers.remoteNpm]);
+		// await execController(["config", "set", "controller.allow_plugin_install", answers.remoteNpm]);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
@@ -908,6 +926,9 @@ async function main() {
 		await execHost(["config", "set", "host.controller_token", hostToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
+		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
+		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
+		// await execHost(["config", "set", "host.allow_plugin_install", answers.remoteNpm]);
 	}
 
 	if (answers.mode === "host") {
@@ -919,6 +940,9 @@ async function main() {
 		await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
+		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
+		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
+		// await execHost(["config", "set", "host.allow_plugin_install", answers.remoteNpm]);
 	}
 
 	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
