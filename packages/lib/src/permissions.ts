@@ -132,6 +132,11 @@ definePermission({
 	description: "Restart the Node.js controller process if the system is set up for restarting.",
 });
 definePermission({
+	name: "core.controller.update",
+	title: "Update controller",
+	description: "Remotely update the controller if the controller allows for remote updates.",
+});
+definePermission({
 	name: "core.controller.get_config",
 	title: "Get controller config",
 	description: "Get the config of controller.",
@@ -159,6 +164,11 @@ definePermission({
 	name: "core.host.restart",
 	title: "Restart Hosts",
 	description: "Restart Node.js host processes if the system they run on are set up for restarting.",
+});
+definePermission({
+	name: "core.host.update",
+	title: "Update Hosts",
+	description: "Remotely update a host if the host allows for remote updates.",
 });
 definePermission({
 	name: "core.host.get_config",
@@ -526,19 +536,19 @@ definePermission({
 });
 
 definePermission({
-	name: "core.rce.remote_update",
-	title: "Clusterio remote update",
-	description: "Start a remote update of the clusterio packages",
+	name: "core.plugin.list",
+	title: "Lust plugins",
+	description: "List all installed plugins on a machine.",
 });
 definePermission({
-	name: "core.rce.plugin_update",
-	title: "Plugin remote update",
-	description: "Start a remote update of a third party plugin package",
+	name: "core.plugin.update",
+	title: "Update plugin",
+	description: "Remotely update a plugin if the target allows remote updates of plugins.",
 });
 definePermission({
-	name: "core.rce.plugin_install",
-	title: "Plugin remote install",
-	description: "Start a remote install of a third party plugin package",
+	name: "core.plugin.install",
+	title: "Install plugin",
+	description: "Remotely install a plugin if the target allows remote installs of plugins.",
 });
 
 definePermission({

@@ -67,7 +67,7 @@ export default function ControllerPage() {
 					</Button>
 				}
 				{
-					hasNpmButtonPermission()
+					hasNpmButtonPermission(true)
 					&& <NpmButton target="controller" canRestart={system?.canRestart}/>
 				}
 			</Space>}

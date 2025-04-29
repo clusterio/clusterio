@@ -371,17 +371,23 @@ export default class Host extends lib.Link {
 
 		this.handle(lib.HostStopRequest, this.handleHostStopRequest.bind(this));
 		this.handle(lib.HostRestartRequest, this.handleHostRestartRequest.bind(this));
+		this.handle(lib.HostUpdateRequest, this.handleHostUpdateRequest.bind(this));
 		this.handle(lib.HostConfigGetRequest, this.handleHostConfigGetRequest.bind(this));
 		this.handle(lib.HostConfigSetFieldRequest, this.handleHostConfigSetFieldRequest.bind(this));
 		this.handle(lib.HostConfigSetPropRequest, this.handleHostConfigSetPropRequest.bind(this));
+		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
 		this.handle(lib.SyncUserListsEvent, this.handleSyncUserListsEvent.bind(this));
+		this.handle(lib.SystemInfoRequest, this.handleSystemInfoRequest.bind(this));
+		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
+		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
+		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
+
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.handleAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.handleBanlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceWhitelistUpdateEvent, this.handleWhitelistUpdateEvent.bind(this));
+
 		this.handle(lib.InstanceAssignInternalRequest, this.handleInstanceAssignInternalRequest.bind(this));
 		this.handle(lib.InstanceUnassignInternalRequest, this.handleInstanceUnassignInternalRequest.bind(this));
-		this.handle(lib.SystemInfoRequest, this.handleSystemInfoRequest.bind(this));
-		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
 		this.fallbackRequest(
 			lib.InstanceSaveDetailsListRequest, this.fallbackInstanceSaveDetailsListRequest.bind(this),
 		);
@@ -392,9 +398,6 @@ export default class Host extends lib.Link {
 		this.handle(lib.InstancePullSaveRequest, this.handleInstancePullSaveRequest.bind(this));
 		this.handle(lib.InstancePushSaveRequest, this.handleInstancePushSaveRequest.bind(this));
 		this.handle(lib.InstanceDeleteInternalRequest, this.handleInstanceDeleteInternalRequest.bind(this));
-		this.handle(lib.RemoteUpdateRequest, this.handleRemoteUpdateRequest.bind(this));
-		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
-		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
 	}
 
 	async loadPlugins() {
@@ -1046,7 +1049,7 @@ export default class Host extends lib.Link {
 		await fs.remove(instanceInfo.path);
 	}
 
-	async handleRemoteUpdateRequest(request: lib.RemoteUpdateRequest) {
+	async handleHostUpdateRequest(request: lib.HostUpdateRequest) {
 		if (!this.config.get("host.allow_remote_updates")) {
 			throw new lib.RequestError("Remote updates are disabled on this machine");
 		}
@@ -1057,21 +1060,18 @@ export default class Host extends lib.Link {
 		if (!this.config.get("host.allow_plugin_updates")) {
 			throw new lib.RequestError("Plugin updates are disabled on this machine");
 		}
-		if (!this.pluginInfos.some(plugin => plugin.npmPackage === request.pluginPackage)) {
-			throw new lib.RequestError(`Plugin ${request.pluginPackage} is not installed on this machine`);
-		}
-		return lib.updatePackage(request.pluginPackage);
+		return await lib.handlePluginUpdate(request.pluginPackage, this.pluginInfos);
 	}
 
 	async handlePluginInstallRequest(request: lib.PluginInstallRequest) {
 		if (!this.config.get("host.allow_plugin_install")) {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
-		const npmRequest = await fetch(`https://www.npmjs.com/package/${encodeURI(request.pluginPackage)}`);
-		if (!npmRequest.ok) {
-			throw new lib.RequestError(`Unknown plugin: ${request.pluginPackage}`);
-		}
-		return lib.installPackage(request.pluginPackage);
+		return await lib.handlePluginInstall(request.pluginPackage);
+	}
+
+	async handlePluginListRequest(request: lib.PluginListRequest) {
+		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(pluginInfo));
 	}
 
 	sendHostUpdate() {

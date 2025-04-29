@@ -103,7 +103,7 @@ export default function HostViewPage() {
 			</Button>
 		}
 		{
-			hasNpmButtonPermission()
+			hasNpmButtonPermission(false)
 			&& <NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
 		}
 	</Space>;

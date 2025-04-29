@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Button, Checkbox, Form, FormInstance, Input, Modal, Radio, Select } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -17,7 +17,10 @@ function NpmRemoteUpdate({ setApplyAction, form, target }: NpmActionProps) {
 	const control = useContext(ControlContext);
 
 	setApplyAction(async () => {
-		await control.sendTo(target, new lib.RemoteUpdateRequest());
+		if (target === "controller") {
+			return await control.send(new lib.ControllerUpdateRequest());
+		}
+		return await control.sendTo(target, new lib.HostUpdateRequest());
 	});
 
 	return <>
@@ -26,6 +29,7 @@ function NpmRemoteUpdate({ setApplyAction, form, target }: NpmActionProps) {
 
 function NpmPluginUpdate({ setApplyAction, form, target }: NpmActionProps) {
 	const control = useContext(ControlContext);
+	const [plugins, setPlugins] = useState<lib.PluginDetails[]>([]);
 
 	setApplyAction(async () => {
 		const values = form.getFieldsValue();
@@ -35,27 +39,28 @@ function NpmPluginUpdate({ setApplyAction, form, target }: NpmActionProps) {
 		await control.sendTo(target, new lib.PluginUpdateRequest(values.plugin));
 	});
 
-	return <>
-		<Form.Item label="Plugin" name="plugin">
-			<Input />
-		</Form.Item>
-	</>;
+	useEffect(() => {
+		control.sendTo(target, new lib.PluginListRequest()).then(newPlugins => {
+			setPlugins(newPlugins);
+		}).catch(notifyErrorHandler("Error fetching role list"));
+	}, [target]);
 
-	// eslint-disable-next-line multiline-comment-style
-	/* TODO Allow control access to plugins on hosts
 	return <>
 		<Form.Item label="Plugin" name="plugin">
 			<Select
 				showSearch
 				placeholder="Select a plugin"
 				optionLabelProp="label"
-				options={plugins.map(plugin => ({
-					value: plugin.npmPackage,
-					label: `${plugin.name} (v${plugin.version})`,
-				}))}
+				options={plugins
+					.filter(p => p.npmPackage !== undefined)
+					.map(plugin => ({
+						value: plugin.npmPackage,
+						label: `${plugin.title} (v${plugin.version})`,
+					}))
+				}
 			/>
 		</Form.Item>
-	</>; */
+	</>;
 }
 
 function NpmPluginInstall({ setApplyAction, form, target }: NpmActionProps) {
@@ -132,11 +137,11 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 			<Form form={form} onValuesChange={onValuesChange} clearOnDestroy>
 				<Form.Item label="Action" name="action">
 					<Radio.Group value={formAction}>
-						{account.hasPermission("core.rce.remote_update")
+						{account.hasPermission(`core.${props.target === "controller" ? "controller" : "host"}.update`)
 							? <Radio.Button value="remote_update">Update Clusterio</Radio.Button> : undefined}
-						{account.hasPermission("core.rce.plugin_update")
+						{account.hasPermission("core.plugin.update")
 							? <Radio.Button value="plugin_update">Update Plugin</Radio.Button> : undefined}
-						{account.hasPermission("core.rce.plugin_install")
+						{account.hasPermission("core.plugin.install")
 							? <Radio.Button value="plugin_install">Install Plugin</Radio.Button> : undefined}
 					</Radio.Group>
 				</Form.Item>
@@ -158,9 +163,10 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 	</>;
 }
 
-export function hasNpmButtonPermission() {
+export function hasNpmButtonPermission(controller: boolean) {
 	const account = useAccount();
 	return account.hasAnyPermission(
-		"core.rce.remote_update", "core.rce.plugin_update", "core.rce.plugin_install"
+		controller ? "core.controller.update" : "core.host.update",
+		"core.plugin.update", "core.plugin.install"
 	);
 }

@@ -4,6 +4,7 @@ import * as host from "../data/messages_host";
 import * as instance from "../data/messages_instance";
 import * as mod from "../data/messages_mod";
 import * as user from "../data/messages_user";
+import * as plugin from "../data/messages_plugin";
 import * as subscriptions from "../subscriptions";
 import type { RequestClass, EventClass } from "./link";
 
@@ -19,6 +20,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	controller.ControllerStopRequest,
 	controller.ControllerRestartRequest,
+	controller.ControllerUpdateRequest,
 	controller.ControllerConfigGetRequest,
 	controller.ControllerConfigSetFieldRequest,
 	controller.ControllerConfigSetPropRequest,
@@ -30,9 +32,6 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.LogMessageEvent,
 	controller.SystemInfoRequest,
 	controller.SystemInfoUpdateEvent,
-	controller.RemoteUpdateRequest,
-	controller.PluginUpdateRequest,
-	controller.PluginInstallRequest,
 	controller.DebugDumpWsRequest,
 	controller.DebugWsMessageEvent,
 
@@ -40,6 +39,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	host.HostStopRequest,
 	host.HostRestartRequest,
+	host.HostUpdateRequest,
 	host.HostConfigGetRequest,
 	host.HostConfigSetFieldRequest,
 	host.HostConfigSetPropRequest,
@@ -125,4 +125,8 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	user.UserUpdatesEvent,
 	user.UserBulkImportRequest,
 	user.UserBulkExportRequest,
+
+	plugin.PluginListRequest,
+	plugin.PluginUpdateRequest,
+	plugin.PluginInstallRequest,
 ];
