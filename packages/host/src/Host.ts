@@ -1071,7 +1071,11 @@ export default class Host extends lib.Link {
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
-		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(pluginInfo));
+		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
+			pluginInfo,
+			this.plugins.has(pluginInfo.name),
+			this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields) as boolean,
+		));
 	}
 
 	sendHostUpdate() {

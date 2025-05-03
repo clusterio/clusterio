@@ -89,6 +89,40 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 	const [formAction, setFormAction] = useState<string | undefined>(undefined);
 	const [form] = Form.useForm();
 
+	const [allows, setAllows] = useState({
+		remoteUpdates: true, pluginUpdates: true, pluginInstall: true,
+	});
+
+	useEffect(() => {
+		if (props.target === "controller") {
+			if (!account.hasPermission("core.controller.get_config")) {
+				setAllows({ remoteUpdates: true, pluginUpdates: true, pluginInstall: true });
+				return; // If a user doesn't have config perms, then assume true to allow the sending the request
+			}
+			control.send(new lib.ControllerConfigGetRequest()).then(async (serializedConfig) => {
+				const config = lib.ControllerConfig.fromJSON(serializedConfig, "control");
+				setAllows({
+					remoteUpdates: config.get("controller.allow_remote_updates"),
+					pluginUpdates: config.get("controller.allow_plugin_updates"),
+					pluginInstall: config.get("controller.allow_plugin_install"),
+				});
+			}).catch(notifyErrorHandler("Failed to fetch controller config for remote updates"));
+		} else {
+			if (!account.hasPermission("core.host.get_config")) {
+				setAllows({ remoteUpdates: true, pluginUpdates: true, pluginInstall: true });
+				return; // If a user doesn't have config perms, then assume true to allow the sending the request
+			}
+			control.sendTo(props.target, new lib.HostConfigGetRequest()).then(async (serializedConfig) => {
+				const config = lib.HostConfig.fromJSON(serializedConfig, "control");
+				setAllows({
+					remoteUpdates: config.get("host.allow_remote_updates"),
+					pluginUpdates: config.get("host.allow_plugin_updates"),
+					pluginInstall: config.get("host.allow_plugin_install"),
+				});
+			}).catch(notifyErrorHandler("Failed to fetch host config for remote updates"));
+		}
+	}, [props.target]);
+
 	function onValuesChange({ action } : { action?: string }) {
 		if (action) {
 			setFormAction(action);
@@ -138,11 +172,17 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 				<Form.Item label="Action" name="action">
 					<Radio.Group value={formAction}>
 						{account.hasPermission(`core.${props.target === "controller" ? "controller" : "host"}.update`)
-							? <Radio.Button value="remote_update">Update Clusterio</Radio.Button> : undefined}
+							? <Radio.Button value="remote_update" disabled={!allows.remoteUpdates}>
+								Update Clusterio
+							</Radio.Button>: undefined}
 						{account.hasPermission("core.plugin.update")
-							? <Radio.Button value="plugin_update">Update Plugin</Radio.Button> : undefined}
+							? <Radio.Button value="plugin_update" disabled={!allows.pluginUpdates}>
+								Update Plugin
+							</Radio.Button> : undefined}
 						{account.hasPermission("core.plugin.install")
-							? <Radio.Button value="plugin_install">Install Plugin</Radio.Button> : undefined}
+							? <Radio.Button value="plugin_install" disabled={!allows.pluginInstall}>
+								Install Plugin
+							</Radio.Button> : undefined}
 					</Radio.Group>
 				</Form.Item>
 				{

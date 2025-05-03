@@ -8,6 +8,8 @@ export class PluginDetails {
 		public name: string,
 		public title: string,
 		public version: string,
+		public loaded: boolean,
+		public enabled: boolean,
 		public description?: string,
 		public npmPackage?: string,
 	) {}
@@ -16,19 +18,23 @@ export class PluginDetails {
 		name: Type.String(),
 		title: Type.String(),
 		version: Type.String(),
+		loaded: Type.Boolean(),
+		enabled: Type.Boolean(),
 		description: Type.Optional(Type.String()),
 		npmPackage: Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.title, json.version, json.description, json.npmPackage);
+		return new this(
+			json.name, json.title, json.version, json.loaded, json.enabled,
+			json.description, json.npmPackage
+		);
 	}
 
-	static fromNodeEnvInfo(pluginInfo: PluginNodeEnvInfo) {
+	static fromNodeEnvInfo(pluginInfo: PluginNodeEnvInfo, loaded: boolean, enabled: boolean) {
 		return new this(
-			pluginInfo.name, pluginInfo.title,
-			pluginInfo.version, pluginInfo.description,
-			pluginInfo.npmPackage,
+			pluginInfo.name, pluginInfo.title, pluginInfo.version, loaded, enabled,
+			pluginInfo.description, pluginInfo.npmPackage,
 		);
 	}
 }
