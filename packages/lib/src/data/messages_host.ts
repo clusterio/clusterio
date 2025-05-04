@@ -19,6 +19,14 @@ export class HostRestartRequest {
 	static permission = "core.host.restart" as const;
 }
 
+export class HostUpdateRequest {
+	declare ["constructor"]: typeof HostUpdateRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.update" as const;
+}
+
 export class HostConfigGetRequest {
 	declare ["constructor"]: typeof HostConfigGetRequest;
 	static type = "request" as const;
