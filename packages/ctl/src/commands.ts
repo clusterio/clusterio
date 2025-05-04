@@ -365,7 +365,7 @@ hostCommands.add(new lib.Command({
 	},
 }));
 hostCommands.add(new lib.Command({
-	definition: ["update", "Update the host", (yargs) => {
+	definition: ["update <host>", "Update the host", (yargs) => {
 		yargs.positional("host", { describe: "Host to update", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],

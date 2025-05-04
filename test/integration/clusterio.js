@@ -256,6 +256,7 @@ describe("Integration of Clusterio", function() {
 				assert.equal(Object.prototype.hasOwnProperty.call(result, "controller.auth_secret"), false);
 			});
 		});
+
 		describe("controller config set", function() {
 			it("sets given config option", async function() {
 				await execCtl('controller config set controller.name "Test Cluster"');
@@ -273,11 +274,58 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("controller plugin update", function() {
+			it("runs", async function() {
+				// In dev plugins have no npm package, so best we can do is get an error from the controller
+				assert.rejects(
+					execCtl("controller plugin update foo"),
+					"Plugin foo is not installed on this machine"
+				);
+			});
+			// Update always fails, we can not test restart option
+		});
+
+		describe("controller plugin install", function() {
+			it("runs", async function() {
+				// Default is to disallow updates, changing this value would require a restart
+				// Additionally, it can not be changed via ctl, so best we can do is get an error from the controller
+				assert.rejects(
+					execCtl("controller plugin install foo"),
+					"Plugin installs are disabled on this machine"
+				);
+			});
+			// Install always fails, we can not test restart option
+		});
+
+		describe("controller update", function() {
+			it("runs", async function() {
+				await execCtl("controller update");
+			});
+			it("accepts --restart", async function() {
+				// We cannot restart the controller, so we check for controller error instead
+				assert.rejects(
+					execCtl("controller update --restart"),
+					"Cannot restart, controller does not have a process monitor to restart it."
+				);
+			});
+		});
+
+		describe("controller restart", function() {
+			it("runs", async function() {
+				// We cannot restart the controller, so we check for controller error instead
+				assert.rejects(
+					execCtl("controller restart"),
+					"Cannot restart, controller does not have a process monitor to restart it."
+				);
+			});
+		});
+
 		describe("host list", function() {
 			it("runs", async function() {
 				await execCtl("host list");
 			});
 		});
+
 		describe("host config", function() {
 			it("changes host config", async function() {
 				await execCtl("host config set 4 host.name My-Host");
@@ -301,6 +349,59 @@ describe("Integration of Clusterio", function() {
 				assert.equal(Object.prototype.hasOwnProperty.call(result, "host.controller_token"), false);
 			});
 		});
+
+		describe("host plugin list", function() {
+			it("runs", async function() {
+				await execCtl("host plugin list 4");
+			});
+		});
+
+		describe("host plugin update", function() {
+			it("runs", async function() {
+				// In dev plugins have no npm package, so best we can do is get an error from the host
+				assert.rejects(
+					execCtl("host plugin update 4 foo"),
+					"Plugin foo is not installed on this machine"
+				);
+			});
+			// Update always fails, we can not test restart option
+		});
+
+		describe("host plugin install", function() {
+			it("runs", async function() {
+				// Default is to disallow updates, changing this value would require a restart
+				// Additionally, it can not be changed via ctl, so best we can do is get an error from the host
+				assert.rejects(
+					execCtl("host plugin install 4 foo"),
+					"Plugin installs are disabled on this machine"
+				);
+			});
+			// Install always fails, we can not test restart option
+		});
+
+		describe("host update", function() {
+			it("runs", async function() {
+				await execCtl("host update 4");
+			});
+			it("accepts --restart", async function() {
+				// We cannot restart the host, so we check for host error instead
+				assert.rejects(
+					execCtl("host update 4 --restart"),
+					"Cannot restart, host does not have a process monitor to restart it."
+				);
+			});
+		});
+
+		describe("host restart", function() {
+			it("runs", async function() {
+				// We cannot restart the host, so we check for host error instead
+				assert.rejects(
+					execCtl("host restart 4"),
+					"Cannot restart, host does not have a process monitor to restart it."
+				);
+			});
+		});
+
 		describe("host generate-token", function() {
 			it("runs", async function() {
 				await execCtl("host generate-token --id 42");
@@ -309,6 +410,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("host generate-token");
 			});
 		});
+
 		describe("host revoke-token", async function() {
 			it("should disconnect existing host", async function() {
 				slowTest(this);
@@ -330,6 +432,7 @@ describe("Integration of Clusterio", function() {
 				assert(sawDisconnected, "No host update with status disconnected was sent after revoking token");
 			});
 		});
+
 		describe("instance list", function() {
 			it("runs", async function() {
 				await execCtl("instance list");
