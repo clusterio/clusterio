@@ -476,12 +476,13 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		},
 		"factorio.enable_whitelist": {
 			description: "Turn on whitelist for joining the server.",
+			restartRequired: true, // Because of the cli option "--use-server-whitelist"
 			type: "boolean",
 			initialValue: false,
 		},
 		"factorio.enable_authserver_bans": {
 			description: "Turn on Factorio.com based multiplayer bans.",
-			restartRequired: true,
+			restartRequired: true, // Because of the cli option "--use-authserver-bans"
 			type: "boolean",
 			initialValue: false,
 		},
@@ -499,13 +500,13 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		},
 		"factorio.verbose_logging": {
 			description: "Enable verbose logging on the Factorio server",
-			restartRequired: true,
+			restartRequired: true, // Because of the cli option "--verbose"
 			type: "boolean",
 			initialValue: false,
 		},
 		"factorio.console_logging": {
 			description: "Enable console logging to a separate file, useful for 3rd party integrations",
-			restartRequired: true,
+			restartRequired: true, // Because of the cli option "--console-log"
 			type: "boolean",
 			initialValue: false,
 		},
@@ -522,10 +523,10 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: "bidirectional",
 		},
 		"factorio.sync_whitelist": {
-			description: "Synchronize whitelist with the controller",
+			description: "Synchronize whitelist with the controller (whitelist must be enabled)",
 			type: "string",
-			enum: ["disabled", "enabled"], // TODO: Implement bidirectional
-			initialValue: "enabled",
+			enum: ["disabled", "enabled", "bidirectional"],
+			initialValue: "bidirectional",
 		},
 		"factorio.sync_banlist": {
 			description: "Synchronize banlist with the controller",

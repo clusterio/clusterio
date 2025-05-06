@@ -266,6 +266,15 @@ export default class Instance extends lib.Link {
 			}
 		});
 
+		this.server.on("whitelist-change", (added: string[], removed: string[]) => {
+			for (const player of added) {
+				this._recordUserUpdate("WHITELISTED", player);
+			}
+			for (const player of removed) {
+				this._recordUserUpdate("UNWHITELISTED", player);
+			}
+		});
+
 		this.handle(lib.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
 		this.handle(lib.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
 		this.handle(lib.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
@@ -1031,7 +1040,6 @@ end`.replace(/\r?\n/g, " ");
 		name: string,
 		reason: string = ""
 	) {
-		// TODO: Implement bidirectional whitelist sync, likely by watching the json file
 		const addr = lib.Address.fromShorthand("allInstances");
 		const expectedIndex = this._expectedUserUpdates.findIndex(
 			expected => expected.name === name && expected.action === action && expected.reason === reason
