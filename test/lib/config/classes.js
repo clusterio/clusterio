@@ -7,6 +7,8 @@ const CA = lib.ConfigAccess;
 describe("lib/config/classes", function() {
 	describe("Config", function() {
 		class TestConfig extends lib.Config {
+			static defaultAccess = ["local", "remote"];
+
 			static migrations(config) {
 				if (config.hasOwnProperty("test.migration")) {
 					config["alpha.foo"] = config["test.migration"];
@@ -38,10 +40,6 @@ describe("lib/config/classes", function() {
 				"test.cred": { credential: ["local"] },
 				"test.rdo": { readonly: ["local"] },
 			};
-
-			constructor(location, fields) {
-				super(location, fields, ["local", "remote"]);
-			}
 		}
 
 		describe("constructor", function() {

@@ -198,6 +198,9 @@ export class Config<
 		return config;
 	}
 
+	/** Defines the default access locations for the config class */
+	static defaultAccess: ConfigLocation[] = ["controller", "host", "control"];
+
 	fields: Fields;
 	_unknownFields: Record<string, FieldValue> = {};
 
@@ -217,7 +220,6 @@ export class Config<
 	constructor(
 		public location: ConfigLocation,
 		fields?: Static<typeof Config.jsonSchema>,
-		public defaultAccess: ConfigLocation[] = ["controller", "host", "control"],
 	) {
 		if (typeof location !== "string") {
 			throw new Error("location must be a string");
@@ -262,7 +264,7 @@ export class Config<
 			|| (
 				(!def.credential || mode & ConfigAccess.write)
 				&& (!def.readonly || mode & ConfigAccess.read)
-				&& !(def.access ?? this.defaultAccess).includes(location)
+				&& !(def.access ?? this.constructor.defaultAccess).includes(location)
 			)
 		) {
 			if (error) {
