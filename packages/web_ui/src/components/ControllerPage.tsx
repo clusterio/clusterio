@@ -1,5 +1,6 @@
 import React, {useContext, useState} from "react";
-import { Button, Descriptions, Flex, Popconfirm, Space, Typography } from "antd";
+import { Button, Descriptions, Flex, Popconfirm, Space, Tooltip, Typography } from "antd";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 
@@ -54,16 +55,20 @@ export default function ControllerPage() {
 				}
 				{
 					account.hasPermission("core.controller.restart")
-					&& <Button
-						disabled={system?.canRestart === false}
-						onClick={() => {
-							control.send(
-								new lib.ControllerRestartRequest()
-							).catch(notifyErrorHandler("Error restarting controller"));
-						}}
-					>
-						Restart
-					</Button>
+					&& <Tooltip title={system?.restartRequired ? "Restart Required" : null}>
+						<Button
+							disabled={system?.canRestart === false}
+							onClick={() => {
+								control.send(
+									new lib.ControllerRestartRequest()
+								).catch(notifyErrorHandler("Error restarting controller"));
+							}}
+						>
+							Restart
+							{!system?.restartRequired ? undefined
+								: <ExclamationCircleOutlined style={{ color: "yellow" }}/>}
+						</Button>
+					</Tooltip>
 				}
 			</Space>}
 		/>

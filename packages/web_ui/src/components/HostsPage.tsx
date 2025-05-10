@@ -1,10 +1,11 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Flex, Form, InputNumber, Modal, Progress, Switch, Table, Tag, Typography } from "antd";
-import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
+import { Button, Flex, Form, InputNumber, Modal, Progress, Space, Switch, Table, Tag, Tooltip, Typography } from "antd";
+import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 
+import webUiPackage from "../../package.json";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
@@ -13,6 +14,7 @@ import PluginExtra from "./PluginExtra";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio,
+	RestartRequired,
 } from "./system_metrics";
 import { useHosts } from "../model/host";
 import { useSystems } from "../model/system";
@@ -268,6 +270,12 @@ export default function HostsPage() {
 				{
 					title: "Version",
 					dataIndex: "version",
+					render: (_, host) => <Space>
+						{host.version}
+						{webUiPackage.version === host.version ? undefined : <Tooltip title="Version Mismatch">
+							<ExclamationCircleOutlined style={{ color: "yellow" }}/>
+						</Tooltip>}
+					</Space>,
 					sorter: (a, b) => strcmp(a.version, b.version),
 				},
 				{
@@ -278,11 +286,14 @@ export default function HostsPage() {
 				{
 					title: "Connected",
 					key: "connected",
-					render: (_, host) => <Tag
-						color={host.connected ? "#389e0d" : "#cf1322"}
-					>
-						{host.connected ? "Connected" : "Disconnected"}
-					</Tag>,
+					render: (_, host) => <>
+						<Tag
+							color={host.connected ? "#389e0d" : "#cf1322"}
+						>
+							{host.connected ? "Connected" : "Disconnected"}
+						</Tag>
+						<RestartRequired system={systems.get(host.id)}/>
+					</>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
 				},
 			]}

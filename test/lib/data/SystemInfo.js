@@ -21,6 +21,7 @@ describe("lib/data/SystemInfo", function() {
 				2048,
 				512,
 				false,
+				false,
 				0,
 				false
 			);

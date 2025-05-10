@@ -33,6 +33,7 @@ describe("lib/config/classes", function() {
 				"test.func": { type: "number", initialValue: () => 42 },
 				"test.bool": { type: "boolean", initialValue: false, optional: true },
 				"test.json": { type: "object", initialValue: {}, optional: true },
+				"test.rest": { type: "object", initialValue: {}, optional: true, restartRequired: true },
 				"test.priv": { access: ["local"], type: "string", optional: true },
 				"test.cred": { credential: ["local"] },
 				"test.rdo": { readonly: ["local"] },
@@ -88,6 +89,7 @@ describe("lib/config/classes", function() {
 					"test.func": 42,
 					"test.bool": false,
 					"test.json": {},
+					"test.rest": {},
 					"test.priv": null,
 					"test.cred": null,
 					"test.rdo": null,
@@ -106,6 +108,7 @@ describe("lib/config/classes", function() {
 					"test.func": 42,
 					"test.bool": false,
 					"test.json": {},
+					"test.rest": {},
 					"test.rdo": null,
 				});
 			});
@@ -167,6 +170,7 @@ describe("lib/config/classes", function() {
 					"test.func": 50,
 					"test.bool": false,
 					"test.json": {},
+					"test.rest": {},
 					"test.priv": null,
 					"test.cred": null,
 					"test.rdo": null,
@@ -202,6 +206,7 @@ describe("lib/config/classes", function() {
 					"test.enum": "b",
 					"test.func": 42,
 					"test.json": {},
+					"test.rest": {},
 					"test.priv": null,
 					"test.cred": null,
 					"test.rdo": null,
@@ -245,6 +250,74 @@ describe("lib/config/classes", function() {
 					() => testInstance.update(null, false),
 					new Error("Invalid config")
 				);
+			});
+			it("should notify fieldChanged listeners", function() {
+				const testInstance = new TestConfig("local");
+
+				const changes = [];
+				testInstance.on("fieldChanged", (name, value, prev) => changes.push([name, value, prev]));
+
+				testInstance.update({
+					"extra.blah": true,
+					"alpha.foo": "baz",
+					"beta.bar": { value: 30 },
+				}, false);
+
+				assert.deepEqual(changes, [], "fieldChanged emitted when notify was false");
+
+				testInstance.update({
+					"extra.blah": false,
+					"alpha.foo": "bam",
+					"beta.bar": { value: 45 },
+				}, true);
+
+				assert.deepEqual(changes, [
+					["alpha.foo", "bam", "baz"],
+					["beta.bar", { value: 45 }, { value: 30 }],
+				], "fieldChanged emitted incorrectly");
+			});
+			it("should set the dirty flag", function() {
+				const testInstance = new TestConfig("local");
+
+				testInstance.update({
+					"extra.blah": true,
+					"alpha.foo": "baz",
+					"beta.bar": { value: 30 },
+				}, false);
+
+				assert.deepEqual(testInstance.dirty, false, "dirty flag set when notify was false");
+
+				testInstance.update({
+					"extra.blah": false,
+					"alpha.foo": "bam",
+					"beta.bar": { value: 45 },
+				}, true);
+
+				assert.deepEqual(testInstance.dirty, true, "dirty flag not set when notify was true");
+			});
+			it("should set the requires restart flag", function() {
+				const testInstance = new TestConfig("local");
+
+				testInstance.update({
+					"test.enum": "a",
+					"alpha.foo": "baz",
+					"beta.bar": { value: 30 },
+				}, false);
+
+				assert.deepEqual(testInstance.restartRequired, false, "restart required set when notify was false");
+
+				testInstance.update({
+					"alpha.foo": "bam",
+					"beta.bar": { value: 45 },
+				}, true);
+
+				assert.deepEqual(testInstance.restartRequired, false, "restart required when no restart field changed");
+
+				testInstance.update({
+					"test.enum": "b",
+				}, true);
+
+				assert.deepEqual(testInstance.restartRequired, true, "restart required not set when notify was true");
 			});
 		});
 
@@ -467,6 +540,26 @@ describe("lib/config/classes", function() {
 					new lib.InvalidValue(`Error parsing value for test.json: ${errMsg}`)
 				);
 			});
+			it("should notify fieldChanged listeners", function() {
+				const changes = [];
+				testInstance.on("fieldChanged", (name, value, prev) => changes.push([name, value, prev]));
+
+				testInstance.set("test.test", "foo");
+
+				assert.deepEqual(changes, [
+					["test.test", "foo", "blah"],
+				], "fieldChanged emitted incorrectly");
+			});
+			it("should set the dirty flag", function() {
+				testInstance.set("test.test", "foo");
+				assert.deepEqual(testInstance.dirty, true, "dirty flag not set");
+			});
+			it("should set the requires restart flag", function() {
+				testInstance.set("test.test", "foo");
+				assert.deepEqual(testInstance.restartRequired, false, "restart required when no restart field changed");
+				testInstance.set("test.enum", "b");
+				assert.deepEqual(testInstance.restartRequired, true, "restart required not set");
+			});
 		});
 
 		describe(".setProp()", function() {
@@ -524,36 +617,25 @@ describe("lib/config/classes", function() {
 				testInstance.setProp("test.json", "extra", undefined);
 				assert.deepEqual(testInstance.get("test.json"), { test: true });
 			});
-		});
+			it("should notify fieldChanged listeners", function() {
+				const changes = [];
+				testInstance.on("fieldChanged", (name, value, prev) => changes.push([name, value, prev]));
 
-		describe("fieldChanged event", function() {
-			let testInstance;
-			let called;
-			beforeEach(function() {
-				testInstance = new TestConfig("local");
-				called = false;
-				testInstance.once("fieldChanged", (field, curr, prev) => {
-					if (field === "beta.bar") {
-						called = true;
-					}
-				});
+				testInstance.setProp("test.json", "test", true);
+
+				assert.deepEqual(changes, [
+					["test.json", { test: true }, {}],
+				], "fieldChanged emitted incorrectly");
 			});
-
-			it("should be called when setting a field", function() {
-				testInstance.set("beta.bar", { value: 1 });
-				assert(called, "fieldChanged was not called");
+			it("should set the dirty flag", function() {
+				testInstance.setProp("test.json", "test", true);
+				assert.deepEqual(testInstance.dirty, true, "dirty flag not set");
 			});
-
-			it("should be called when updating a config", function() {
-				testInstance.update({
-					"beta.bar": { value: 1 },
-				}, true);
-				assert(called, "fieldChanged was not called");
-			});
-
-			it("should be called when setting a prop", function() {
-				testInstance.setProp("beta.bar", "value", 2);
-				assert(called, "fieldChanged was not called");
+			it("should set the requires restart flag", function() {
+				testInstance.setProp("test.json", "test", true);
+				assert.deepEqual(testInstance.restartRequired, false, "restart required when no restart field changed");
+				testInstance.setProp("test.rest", "test", true);
+				assert.deepEqual(testInstance.restartRequired, true, "restart required not set");
 			});
 		});
 	});
