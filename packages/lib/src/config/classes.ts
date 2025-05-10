@@ -201,8 +201,9 @@ export class Config<
 	/** Defines the default access locations for the config class */
 	static defaultAccess: ConfigLocation[] = ["controller", "host", "control"];
 
-	fields: Fields;
-	_unknownFields: Record<string, FieldValue> = {};
+	/** Contains the fields and their values */
+	private fields: Fields;
+	private _unknownFields: Record<string, FieldValue> = {};
 
 	/** Set to true when a field in the config is changed. */
 	dirty = false;
@@ -213,13 +214,16 @@ export class Config<
 	 * Create a new instance of the given config
 	 *
 	 * @param location -
-	 *     Location to evaluate access for this instance from
+	 *     Location to evaluate access for this instance from.
 	 * @param fields -
 	 *     Serialized representation of fields to load.
+	 * @param filepath -
+	 *     Filepath for the config to save to.
 	 */
 	constructor(
 		public location: ConfigLocation,
 		fields?: Static<typeof Config.jsonSchema>,
+		public filepath?: string,
 	) {
 		if (typeof location !== "string") {
 			throw new Error("location must be a string");
@@ -306,11 +310,13 @@ export class Config<
 	 *
 	 * @param json - Serialized config to load.
 	 * @param location - Location used for access control.
+	 * @param filepath - Filepath for the config to save to.
 	 * @returns Instance of this config
 	 */
 	static fromJSON(
 		json: Static<typeof this.jsonSchema>,
 		location: ConfigLocation,
+		filepath?: string,
 	) {
 		// migrate: Pre alpha 14 config format
 		if (typeof json === "object" && json !== null && json.groups instanceof Array) {
@@ -326,7 +332,7 @@ export class Config<
 		if (!valid) {
 			throw new Error("Invalid config");
 		}
-		return new this(location, json);
+		return new this(location, json, filepath);
 	}
 
 	toJSON() {

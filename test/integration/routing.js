@@ -23,7 +23,7 @@ function connectHost(controller, hostId, plugins) {
 	controller.wsServer.hostConnections.set(hostId, hostConnection);
 	const hostConfig = new lib.HostConfig("host");
 	hostConfig.set("host.id", hostId);
-	return new Host(hostSide, "invalid", hostConfig, undefined, []);
+	return new Host(hostSide, hostConfig, undefined, []);
 }
 
 /**
@@ -107,12 +107,7 @@ describe("Integration of link routing", function() {
 	let controlB;
 
 	beforeEach(function() {
-		controller = new Controller(
-			{},
-			[],
-			"invalid",
-			new lib.ControllerConfig("controller")
-		);
+		controller = new Controller({}, [], new lib.ControllerConfig("controller"));
 		hostA = connectHost(controller, 10, []);
 		hostB = connectHost(controller, 20, []);
 		instanceA1 = connectInstance(controller, hostA, 11);

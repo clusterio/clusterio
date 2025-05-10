@@ -48,14 +48,14 @@ async function discoverInstances(instancesDir: string) {
 
 			try {
 				const jsonConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
-				instanceConfig = lib.InstanceConfig.fromJSON(jsonConfig, "host");
+				instanceConfig = lib.InstanceConfig.fromJSON(jsonConfig, "host", configPath);
 
 			} catch (err: any) {
 				if (err.code === "ENOENT") {
 					continue; // Ignore folders without config.json
 				}
 
-				logger.error(`Error occured while parsing ${configPath}: ${err.message}`);
+				logger.error(`Error occurred while parsing ${configPath}: ${err.message}`);
 				continue;
 			}
 
@@ -258,7 +258,6 @@ export default class Host extends lib.Link {
 	 */
 	tlsCa?: string;
 	pluginInfos: lib.PluginNodeEnvInfo[];
-	configPath: string;
 	config: lib.HostConfig;
 
 	/** Mapping of plugin name to loaded plugin */
@@ -289,7 +288,6 @@ export default class Host extends lib.Link {
 
 	constructor(
 		connector: HostConnector,
-		hostConfigPath: string,
 		hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[],
@@ -309,7 +307,6 @@ export default class Host extends lib.Link {
 		this.tlsCa = tlsCa;
 
 		this.pluginInfos = pluginInfos;
-		this.configPath = hostConfigPath;
 		this.config = hostConfig;
 
 		this.config.on("fieldChanged", (name, curr, prev) => {
@@ -659,6 +656,7 @@ export default class Host extends lib.Link {
 				instanceConfig.update(config, false, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
+				instanceConfig.filepath = path.join(instanceDir, "instance.json");
 
 				logger.info(`Creating ${instanceDir}`);
 				await Instance.populate_folders(instanceDir);
@@ -701,10 +699,7 @@ export default class Host extends lib.Link {
 			_warning: "Changes to this file will be overwritten by the controller's copy.",
 			...instanceInfo.config.toJSON(),
 		};
-		await lib.safeOutputFile(
-			path.join(instanceInfo.path, "instance.json"),
-			JSON.stringify(warnedOutput, null, "\t")
-		);
+		await lib.safeOutputFile(instanceInfo.config.filepath!, JSON.stringify(warnedOutput, null, "\t"));
 	}
 
 	async handleInstanceUnassignInternalRequest(request: lib.InstanceUnassignInternalRequest) {
@@ -1157,7 +1152,7 @@ export default class Host extends lib.Link {
 		}
 
 		logger.info("Saving config");
-		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
+		await lib.safeOutputFile(this.config.filepath!, JSON.stringify(this.config, null, "\t"));
 		for (const instanceInfo of this.instanceInfos.values()) {
 			// Save in case host_assigned_game_port changed in the config.
 			await this.saveInstanceConfig(instanceInfo);

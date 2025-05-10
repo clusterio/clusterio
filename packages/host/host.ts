@@ -167,16 +167,17 @@ async function startHost() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	logger.info(`Loading config from ${args.config}`);
 	let hostConfig;
+	const hostConfigPath = args.config;
+	logger.info(`Loading config from ${hostConfigPath}`);
 	try {
-		const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
-		hostConfig = lib.HostConfig.fromJSON(jsonConfig, "host");
+		const jsonConfig = JSON.parse(await fs.readFile(hostConfigPath, "utf8"));
+		hostConfig = lib.HostConfig.fromJSON(jsonConfig, "host", hostConfigPath);
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			hostConfig = new lib.HostConfig("host");
+			hostConfig = new lib.HostConfig("host", undefined, hostConfigPath);
 
 		} else {
 			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
@@ -186,7 +187,7 @@ async function startHost() {
 	hostConfig.set("host.version", version); // Allows tracking last loaded version
 
 	if (command === "config") {
-		await lib.handleConfigCommand(args, hostConfig, args.config);
+		await lib.handleConfigCommand(args, hostConfig);
 		return;
 	}
 
@@ -229,7 +230,6 @@ async function startHost() {
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
 	host = new Host(
 		hostConnector,
-		args.config,
 		hostConfig,
 		tlsCa,
 		pluginInfos,

@@ -50,7 +50,6 @@ export default class Controller {
 	clusterLogger: winston.Logger;
 	/** Array of plugin info objects for known plugins */
 	pluginInfos: lib.PluginNodeEnvInfo[];
-	configPath: string;
 	/** Controller config. */
 	config: lib.ControllerConfig;
 	app: Application;
@@ -155,7 +154,6 @@ export default class Controller {
 	constructor(
 		clusterLogger: winston.Logger,
 		pluginInfos: lib.PluginNodeEnvInfo[],
-		configPath: string,
 		config: lib.ControllerConfig,
 
 		/**
@@ -184,7 +182,6 @@ export default class Controller {
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
-		this.configPath = configPath;
 		this.config = config;
 
 		this.app = express();
@@ -586,7 +583,7 @@ export default class Controller {
 	private async _saveDataInternal() {
 		if (this.config.dirty) {
 			this.config.dirty = false;
-			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
+			await lib.safeOutputFile(this.config.filepath!, JSON.stringify(this.config, null, "\t"));
 		}
 
 		await Promise.all([
