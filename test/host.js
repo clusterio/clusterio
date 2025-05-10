@@ -15,6 +15,7 @@ describe("Host testing", function() {
 
 			const configPath = path.join(instancePath, "test", "instance.json");
 			const referenceConfig = new lib.InstanceConfig("host", {
+				...Host.instanceConfigWarning,
 				"instance.id": 1,
 				"instance.name": "test",
 			}, configPath);

@@ -581,12 +581,8 @@ export default class Controller {
 	});
 
 	private async _saveDataInternal() {
-		if (this.config.dirty) {
-			this.config.dirty = false;
-			await lib.safeOutputFile(this.config.filepath!, JSON.stringify(this.config, null, "\t"));
-		}
-
 		await Promise.all([
+			this.config.save(),
 			this.systems.save(),
 			this.hosts.save(),
 			this.instances.save(),

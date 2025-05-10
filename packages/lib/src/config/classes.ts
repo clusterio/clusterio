@@ -1,11 +1,13 @@
 // Configuration classes
 import { Type, Static } from "@sinclair/typebox";
-import TypedEventEmitter from "../TypedEventEmitter";
+import * as fs from "fs-extra";
 
+import TypedEventEmitter from "../TypedEventEmitter";
 import isDeepStrictEqual from "../is_deep_strict_equal";
 import { basicType } from "../helpers";
 import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
+import { safeOutputFile } from "../file_ops";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -206,7 +208,7 @@ export class Config<
 	private _unknownFields: Record<string, FieldValue> = {};
 
 	/** Set to true when a field in the config is changed. */
-	dirty = false;
+	private dirty = false;
 	/** Set to true when a 'restart required' field in the config is changed. */
 	restartRequired = false;
 
@@ -301,8 +303,31 @@ export class Config<
 		}
 	}
 
-	static jsonSchema = ConfigSchema;
+	/**
+	 * Create config from file
+	 *
+	 * @param location - Location used for access control.
+	 * @param filepath - Filepath for the config to save to.
+	 * @returns Instance of this config
+	 */
+	static async fromFile(location: ConfigLocation, filepath: string) {
+		const fields = await fs.readJson(filepath, { encoding: "utf8" });
+		return this.fromJSON(fields, location, filepath);
+	}
 
+	/** Saves this config to file if there are unsaved changes */
+	async save() {
+		if (!this.dirty) {
+			return;
+		}
+		if (!this.filepath) {
+			throw new Error("Cannot save config which has no filepath");
+		}
+		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"));
+		this.dirty = false;
+	}
+
+	static jsonSchema = ConfigSchema;
 	static validate = libSchema.compile(this.jsonSchema as any);
 
 	/**

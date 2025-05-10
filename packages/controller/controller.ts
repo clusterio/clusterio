@@ -346,8 +346,7 @@ async function initialize(): Promise<InitializeParameters> {
 	const controllerConfigPath = args.config;
 	logger.info(`Loading config from ${controllerConfigPath}`);
 	try {
-		let jsonConfig = JSON.parse(await fs.readFile(controllerConfigPath, { encoding: "utf8" }));
-		controllerConfig = lib.ControllerConfig.fromJSON(jsonConfig, "controller", controllerConfigPath);
+		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
@@ -366,9 +365,7 @@ async function initialize(): Promise<InitializeParameters> {
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
 		controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
-		await lib.safeOutputFile(
-			controllerConfigPath, JSON.stringify(controllerConfig, null, "\t")
-		);
+		await controllerConfig.save();
 	}
 
 	if (command === "config") {

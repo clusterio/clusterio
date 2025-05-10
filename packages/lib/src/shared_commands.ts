@@ -164,7 +164,7 @@ export async function handleConfigCommand(
 
 		try {
 			instance.set(args.field as string, args.value);
-			await libFileOps.safeOutputFile(instance.filepath!, JSON.stringify(instance, null, "\t"));
+			await instance.save();
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
 				logger.error(err.message);
