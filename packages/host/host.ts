@@ -120,6 +120,10 @@ async function startHost() {
 				type: "boolean", nargs: 0, default: false,
 				describe: "Indicate that a process monitor will restart this host on failure",
 			});
+			yargs.option("recovery", {
+				type: "boolean", nargs: 0, default: false,
+				describe: "Start the host in recovery mode with all plugins disabled and controller disconnected",
+			});
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -144,6 +148,9 @@ async function startHost() {
 	let command = args._[0];
 	if (command === "run") {
 		logger.info(`Starting Clusterio host ${version}`);
+		if (args.recovery) {
+			logger.warn("Host recovery mode enabled. Some features will be disabled.");
+		}
 	}
 
 	logger.info(`Loading available plugins from ${args.pluginList}`);
@@ -226,6 +233,7 @@ async function startHost() {
 		tlsCa,
 		pluginInfos,
 		Boolean(args.canRestart),
+		Boolean(args.recovery),
 		...await Host.bootstrap(hostConfig)
 	);
 

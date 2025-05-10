@@ -163,6 +163,11 @@ export default class Controller {
 		 * will restart the controller on non-zero exit codes.
 		 */
 		public canRestart: boolean = false,
+		/**
+		 * If true indicates the controller is in recovery mode and should
+		 * disable certain actions such as loading plugins or connecting to hosts
+		 */
+		public recoveryMode: boolean = false,
 		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
 		/** Mapping of host id to host info */
 		public hosts = new lib.SubscribableDatastore<HostInfo>(),
@@ -537,6 +542,10 @@ export default class Controller {
 		if (this.autosaveInterval) {
 			clearInterval(this.autosaveInterval);
 			this.autosaveInterval = undefined;
+		}
+		if (this.recoveryMode) {
+			logger.warn("Recovery | autosaving disabled");
+			return;
 		}
 		const autosaveIntervalSeconds = this.config.get("controller.autosave_interval");
 		if (autosaveIntervalSeconds > 0) {
@@ -1055,6 +1064,11 @@ export default class Controller {
 			}
 
 			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields)) {
+				continue;
+			}
+
+			if (this.recoveryMode) {
+				logger.warn(`Recovery | force disabled plugin ${pluginInfo.name}`);
 				continue;
 			}
 
