@@ -239,6 +239,13 @@ ${err.stack}`
 	}
 
 	async registerHost(data: lib.RegisterHostData, socket: WebSocket, req: IncomingMessage) {
+		if (this.controller.recoveryMode) {
+			logger.warn(`Recovery | rejected host connection attempt for ${this.remoteAddr(req)}`);
+			wsRejectedConnectionsCounter.inc();
+			socket.close(lib.ConnectionClosed.RecoveryMode, "Connection Refused: Controller in recovery mode");
+			return;
+		}
+
 		try {
 			let tokenPayload = jwt.verify(
 				data.token,

@@ -23,6 +23,7 @@ export enum ConnectionClosed {
 	ProtocolError = 1002, // Protocol not followed
 	PolicyViolation = 1008, // Generic code for any endpoint policy
 	InternalError = 1011, // Endpoint failed to fulfil request
+	TryAgainLater = 1013, // Temporary server condition blocking requests
 
 	// Codes after 3000 are available for frameworks
 	// However they should be registered to IANA
@@ -32,6 +33,7 @@ export enum ConnectionClosed {
 
 	// Codes after 4000 are available for applications
 	MalformedMessage = 4000,
+	RecoveryMode = 4001,
 };
 
 /**

@@ -270,6 +270,10 @@ async function initialize(): Promise<InitializeParameters> {
 				type: "boolean", nargs: 0, default: false,
 				describe: "Indicate that a process monitor will restart the controller on failure",
 			});
+			yargs.option("recovery", {
+				type: "boolean", nargs: 0, default: false,
+				describe: "Start the controller in recovery mode with all plugins disabled and hosts disconnected",
+			});
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
 			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
@@ -313,6 +317,9 @@ async function initialize(): Promise<InitializeParameters> {
 	let shouldRun = false;
 	if (command === "run") {
 		logger.info(`Starting Clusterio controller ${version}`);
+		if (args.recovery) {
+			logger.warn("Controller recovery mode enabled. Some features will be disabled.");
+		}
 		shouldRun = true;
 	}
 
@@ -406,6 +413,7 @@ async function startup() {
 		controllerConfigPath,
 		controllerConfig,
 		Boolean(args.canRestart),
+		Boolean(args.recovery),
 		...await Controller.bootstrap(controllerConfig)
 	);
 

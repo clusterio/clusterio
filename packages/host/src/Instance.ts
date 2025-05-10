@@ -646,6 +646,11 @@ end`.replace(/\r?\n/g, " ");
 				continue;
 			}
 
+			if (this._host.recoveryMode) {
+				this.logger.warn(`Recovery | force disabled plugin ${pluginInfo.name}`);
+				continue;
+			}
+
 			try {
 				await this._loadPlugin(pluginInfo, this._host);
 			} catch (err) {

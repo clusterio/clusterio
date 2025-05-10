@@ -298,6 +298,11 @@ export default class Host extends lib.Link {
 		 * will restart this host on a non-zero exit codes.
 		 */
 		public canRestart = false,
+		/**
+		 * If true indicates the host is in recovery mode and should
+		 * disable certain actions such as loading plugins or instance autostart
+		 */
+		public recoveryMode = false,
 		public modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
 	) {
 		super(connector);
@@ -400,6 +405,11 @@ export default class Host extends lib.Link {
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
 				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)
 			) {
+				continue;
+			}
+
+			if (this.recoveryMode) {
+				logger.warn(`Recovery | force disabled plugin ${pluginInfo.name}`);
 				continue;
 			}
 
@@ -1080,6 +1090,10 @@ export default class Host extends lib.Link {
 
 			for (let [instanceId, instanceInfo] of this.instanceInfos) {
 				if (instanceInfo.config.get("instance.auto_start")) {
+					if (this.recoveryMode) {
+						logger.warn(`Recovery | skipping auto startup for ${instanceInfo.config.get("instance.name")}`);
+						continue;
+					}
 					try {
 						let instanceConnection = await this._connectInstance(instanceId);
 						await instanceConnection.instance.handleInstanceStartRequest(new lib.InstanceStartRequest());
