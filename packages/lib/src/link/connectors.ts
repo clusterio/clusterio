@@ -33,6 +33,7 @@ export enum ConnectionClosed {
 
 	// Codes after 4000 are available for applications
 	MalformedMessage = 4000,
+	RecoveryMode = 4001,
 };
 
 /**

@@ -242,7 +242,7 @@ ${err.stack}`
 		if (this.controller.recoveryMode) {
 			logger.warn(`Recovery | rejected host connection attempt for ${this.remoteAddr(req)}`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(lib.ConnectionClosed.TryAgainLater, "Connection Refused: Controller in recovery mode");
+			socket.close(lib.ConnectionClosed.RecoveryMode, "Connection Refused: Controller in recovery mode");
 			return;
 		}
 
