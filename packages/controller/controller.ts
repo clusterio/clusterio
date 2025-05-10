@@ -354,7 +354,7 @@ async function initialize(): Promise<InitializeParameters> {
 			controllerConfig = new lib.ControllerConfig("controller", undefined, controllerConfigPath);
 
 		} else {
-			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.stack ?? err.message ?? err}`);
 		}
 	}
 

@@ -180,7 +180,7 @@ async function startHost() {
 			hostConfig = new lib.HostConfig("host", undefined, hostConfigPath);
 
 		} else {
-			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${args.config}: ${err.stack ?? err.message ?? err}`);
 		}
 	}
 

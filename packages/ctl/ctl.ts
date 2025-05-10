@@ -222,7 +222,7 @@ async function startControl() {
 			controlConfig = new lib.ControlConfig("control", undefined, controlConfigPath);
 
 		} else {
-			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${args.config}: ${err.stack ?? err.message ?? err}`);
 		}
 	}
 
