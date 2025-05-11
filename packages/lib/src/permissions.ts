@@ -537,7 +537,7 @@ definePermission({
 
 definePermission({
 	name: "core.plugin.list",
-	title: "Lust plugins",
+	title: "List plugins",
 	description: "List all installed plugins on a machine.",
 });
 definePermission({
