@@ -201,8 +201,15 @@ function getControl() {
 function spawn(name, cmd, waitFor) {
 	// eslint-disable-next-line node/no-process-env
 	const silent = process.env.SILENT_TEST;
+	const bootstrap = !controllerProcess || !hostProcess;
+	function log(...args) {
+		if (!silent || bootstrap) {
+			console.log(...args);
+		}
+	}
+
 	return new Promise((resolve, reject) => {
-		console.log(cmd);
+		log(cmd);
 		let parts = cmd.split(" ");
 		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
 		let stdout = new LineSplitter({ readableObjectMode: true });
@@ -216,10 +223,10 @@ function spawn(name, cmd, waitFor) {
 				}
 				resolve(process);
 			}
-			console.log(name, line);
+			log(name, line);
 		};
 		let onDataErr = line => {
-			console.log(name, line.toString("utf8"));
+			log(name, line.toString("utf8"));
 		};
 		stdout.on("data", onDataOut);
 		stderr.on("data", onDataErr);
