@@ -30,6 +30,7 @@ describe("Clusterio Instance", function() {
 
 		// Create a new instance
 		await execCtl(`instance create ${instName} --id ${instId}`);
+		await execCtl(`instance config set ${instName} factorio.enable_whitelist true`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instName} 4`);
@@ -42,6 +43,7 @@ describe("Clusterio Instance", function() {
 
 		// Create a new alt instance
 		await execCtl(`instance create ${instAltName} --id ${instAltId}`);
+		await execCtl(`instance config set ${instAltName} factorio.enable_whitelist true`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instAltName} 4`);
@@ -98,12 +100,14 @@ describe("Clusterio Instance", function() {
 				it("should respond to a player ban and unban event", async function() {
 					await execCtl(`instance config set ${instName} factorio.sync_banlist bidirectional`);
 					await sendRcon(instId, "/ban BannedPlayer");
+					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userBanned = await getUser("BannedPlayer");
 					assert(userBanned.isBanned, "Player is not banned");
 					const isAltBanned = await sendRcon(instAltId, "/banlist get BannedPlayer");
 					assert.equal(isAltBanned, "BannedPlayer is banned.\n", "User is not banned on alt");
 
 					await sendRcon(instId, "/unban BannedPlayer");
+					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userUnbanned = await getUser("BannedPlayer");
 					assert(!userUnbanned.isBanned, "Player is not unbanned");
 					const isAltUnbanned = await sendRcon(instAltId, "/banlist get BannedPlayer");
@@ -113,6 +117,7 @@ describe("Clusterio Instance", function() {
 					// Because there is no admin list command this test will be different to the other two
 					await execCtl(`instance config set ${instName} factorio.sync_adminlist bidirectional`);
 					await sendRcon(instId, "/promote AdminPlayer");
+					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userPromote = await getUser("AdminPlayer");
 					assert(userPromote.isAdmin, "Player is not promoted");
 					const isAltPromoted = await sendRcon(instAltId, "/promote AdminPlayer");
@@ -122,6 +127,7 @@ describe("Clusterio Instance", function() {
 					);
 
 					await sendRcon(instId, "/demote AdminPlayer");
+					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userDemote = await getUser("AdminPlayer");
 					assert(!userDemote.isAdmin, "Player is not demoted");
 					const isAltDemoted = await sendRcon(instAltId, "/demote AdminPlayer");
@@ -131,21 +137,22 @@ describe("Clusterio Instance", function() {
 					);
 				});
 				it("should respond to a player whitelist add and remove event", async function() {
-					this.skip(); // Not implemented
 					await execCtl(`instance config set ${instName} factorio.sync_whitelist bidirectional`);
 					await sendRcon(instId, "/whitelist add WhitelistPlayer");
+					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userAdded = await getUser("WhitelistPlayer");
 					assert(userAdded.isWhitelisted, "Player is not whitelisted");
-					const isAltAdded = await sendRcon(instAltId, "/whitelist get whitelisted");
+					const isAltAdded = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
 					assert.equal(isAltAdded,
 						"WhitelistPlayer is whitelisted.\n",
 						"User is not whitelisted on alt"
 					);
 
 					await sendRcon(instId, "/whitelist remove WhitelistPlayer");
+					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userRemoved = await getUser("WhitelistPlayer");
 					assert(!userRemoved.isWhitelisted, "Player is not unwhitelisted");
-					const isAltRemoved = await sendRcon(instAltId, "/whitelist get whitelisted");
+					const isAltRemoved = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
 					assert.equal(isAltRemoved,
 						"WhitelistPlayer is not whitelisted.\n",
 						"User is not unwhitelisted on alt"

@@ -200,7 +200,7 @@ describe("class Instance", function() {
 		beforeEach(function() {
 			instance.config.set("factorio.sync_banlist", "bidirectional");
 			instance.config.set("factorio.sync_adminlist", "bidirectional");
-			// instance.config.set("factorio.sync_whitelist", "bidirectional"); // Not Implemented
+			instance.config.set("factorio.sync_whitelist", "bidirectional");
 		});
 		it("should send InstanceBanlistUpdateEvent for bans", function() {
 			instance._recordUserUpdate("BAN", "player", "reason");
@@ -257,7 +257,6 @@ describe("class Instance", function() {
 			);
 		});
 		it("should send InstanceWhitelistUpdateEvent for whitelist add", function() {
-			this.skip(); // Bidirectional not implemented
 			instance._recordUserUpdate("WHITELISTED", "player");
 			assert.deepEqual(
 				connector.sentMessages[0],
@@ -271,7 +270,6 @@ describe("class Instance", function() {
 			);
 		});
 		it("should send InstanceWhitelistUpdateEvent for whitelist remove", function() {
-			this.skip(); // Bidirectional not implemented
 			instance._recordUserUpdate("UNWHITELISTED", "player");
 			assert.deepEqual(
 				connector.sentMessages[0],
