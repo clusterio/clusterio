@@ -36,7 +36,7 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 }
 
 export async function handlePluginInstall(pluginName: string) {
-	if (pluginName.length > 214 || /[^a-zA-z0-9\-_.+@\/]/.test(pluginName)) {
+	if (pluginName.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(pluginName)) {
 		// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
 		// https://www.npmjs.com/package/validate-npm-package-name
 		throw new RequestError(`Invalid plugin name: ${pluginName}`);
