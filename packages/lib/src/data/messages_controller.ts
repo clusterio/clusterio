@@ -250,6 +250,7 @@ export class SystemInfo {
 		public diskCapacity: number,
 		public diskAvailable: number,
 		public canRestart: boolean,
+		public restartRequired: boolean,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs: number,
 		public isDeleted: boolean,
@@ -268,6 +269,7 @@ export class SystemInfo {
 		"diskCapacity": Type.Number(),
 		"diskAvailable": Type.Number(),
 		"canRestart": Type.Boolean(),
+		"restartRequired": Type.Boolean(),
 		"updatedAtMs": Type.Number(),
 		"isDeleted": Type.Boolean(),
 	});
@@ -286,6 +288,7 @@ export class SystemInfo {
 			json.diskCapacity,
 			json.diskAvailable,
 			json.canRestart,
+			json.restartRequired,
 			json.updatedAtMs,
 			json.isDeleted,
 		);

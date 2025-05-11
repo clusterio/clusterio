@@ -1,5 +1,6 @@
 import React, { useContext, useState } from "react";
-import { Descriptions, Spin, Tag, Typography, Button, Space, Modal, Popconfirm, Flex } from "antd";
+import { Descriptions, Spin, Tag, Typography, Button, Space, Modal, Popconfirm, Flex, Tooltip } from "antd";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 
 import * as lib from "@clusterio/lib";
@@ -89,17 +90,21 @@ export default function HostViewPage() {
 		}
 		{
 			account.hasPermission("core.host.restart")
-			&& <Button
-				disabled={system?.canRestart === false}
-				onClick={() => {
-					control.sendTo(
-						{ hostId },
-						new lib.HostRestartRequest()
-					).catch(notifyErrorHandler("Error restarting host"));
-				}}
-			>
-				Restart
-			</Button>
+			&& <Tooltip title={system?.restartRequired ? "Restart Required" : null}>
+				<Button
+					disabled={system?.canRestart === false}
+					onClick={() => {
+						control.sendTo(
+							{ hostId },
+							new lib.HostRestartRequest()
+						).catch(notifyErrorHandler("Error restarting host"));
+					}}
+				>
+					Restart
+					{!system?.restartRequired ? undefined
+						: <ExclamationCircleOutlined style={{ color: "yellow" }} />}
+				</Button>
+			</Tooltip>
 		}
 	</Space>;
 

@@ -1,7 +1,8 @@
 import React from "react";
 
 import * as lib from "@clusterio/lib";
-import { Progress } from "antd";
+import { Progress, Tooltip } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 
 export function MetricCpuRatio(props: { system?: lib.SystemInfo }) {
 	if (!props.system) {
@@ -52,4 +53,13 @@ export function MetricDiskUsed(props: { system?: lib.SystemInfo }) {
 	const used = lib.formatBytes(props.system.diskUsed);
 	const capacity = lib.formatBytes(props.system.diskCapacity);
 	return `${used} / ${capacity}`;
+}
+
+export function RestartRequired(props: { system?: lib.SystemInfo }) {
+	if (!props.system || !props.system.restartRequired) {
+		return "";
+	}
+	return <Tooltip title="Restart Required">
+		<ReloadOutlined style={{ color: "yellow" }}/>
+	</Tooltip>;
 }

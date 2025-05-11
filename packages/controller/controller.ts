@@ -361,6 +361,8 @@ async function initialize(): Promise<InitializeParameters> {
 		}
 	}
 
+	controllerConfig.set("controller.version", version); // Allows tracking last loaded version
+
 	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
