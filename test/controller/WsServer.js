@@ -10,7 +10,7 @@ describe("controller/src/WsServer", function() {
 		before(function() {
 			let config = new ControllerConfig("controller");
 			config.set("controller.trusted_proxies", "127.0.0.0/8, ::1");
-			let controller = new Controller({}, [], "", config);
+			let controller = new Controller({}, [], config);
 			wsServer = controller.wsServer;
 		});
 		describe(".remoteAddr()", function() {

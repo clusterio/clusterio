@@ -175,6 +175,16 @@ async function exec(command, options = {}) {
 	return await util.promisify(child_process.exec)(command, options);
 }
 
+async function execController(...args) {
+	args[0] = `node --enable-source-maps ../../packages/controller ${args[0]}`;
+	return await exec(...args);
+}
+
+async function execHost(...args) {
+	args[0] = `node --enable-source-maps ../../packages/host ${args[0]}`;
+	return await exec(...args);
+}
+
 async function execCtl(...args) {
 	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
 	return await exec(...args);
@@ -191,8 +201,15 @@ function getControl() {
 function spawn(name, cmd, waitFor) {
 	// eslint-disable-next-line node/no-process-env
 	const silent = process.env.SILENT_TEST;
+	const bootstrap = !controllerProcess || !hostProcess;
+	function log(...args) {
+		if (!silent || bootstrap) {
+			console.log(...args);
+		}
+	}
+
 	return new Promise((resolve, reject) => {
-		console.log(cmd);
+		log(cmd);
 		let parts = cmd.split(" ");
 		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
 		let stdout = new LineSplitter({ readableObjectMode: true });
@@ -206,10 +223,10 @@ function spawn(name, cmd, waitFor) {
 				}
 				resolve(process);
 			}
-			console.log(name, line);
+			log(name, line);
 		};
 		let onDataErr = line => {
-			console.log(name, line.toString("utf8"));
+			log(name, line.toString("utf8"));
 		};
 		stdout.on("data", onDataOut);
 		stderr.on("data", onDataErr);
@@ -265,33 +282,33 @@ before(async function() {
 	});
 
 	console.log("Setting Controller Config");
-	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
-	await exec("node ../../packages/controller config set controller.http_port 8880");
-	await exec("node ../../packages/controller config set controller.https_port 4443");
-	await exec("node ../../packages/controller config set controller.heartbeat_interval 0.25");
-	await exec("node ../../packages/controller config set controller.session_timeout 2");
-	await exec("node ../../packages/controller config set controller.tls_certificate ../../test/file/tls/cert.pem");
-	await exec("node ../../packages/controller config set controller.tls_private_key ../../test/file/tls/key.pem");
+	await execController("config set controller.auth_secret TestSecretDoNotUse");
+	await execController("config set controller.http_port 8880");
+	await execController("config set controller.https_port 4443");
+	await execController("config set controller.heartbeat_interval 0.25");
+	await execController("config set controller.session_timeout 2");
+	await execController("config set controller.tls_certificate ../../test/file/tls/cert.pem");
+	await execController("config set controller.tls_private_key ../../test/file/tls/key.pem");
 
 	console.log("Setting Controller Plugins");
-	await exec("node ../../packages/ctl plugin add ../../plugins/global_chat");
-	await exec("node ../../packages/ctl plugin add ../../plugins/research_sync");
-	await exec("node ../../packages/ctl plugin add ../../plugins/statistics_exporter");
-	await exec("node ../../packages/ctl plugin add ../../plugins/subspace_storage");
-	await exec("node ../../packages/ctl plugin add ../../plugins/player_auth");
+	await execCtl("plugin add ../../plugins/global_chat");
+	await execCtl("plugin add ../../plugins/research_sync");
+	await execCtl("plugin add ../../plugins/statistics_exporter");
+	await execCtl("plugin add ../../plugins/subspace_storage");
+	await execCtl("plugin add ../../plugins/player_auth");
 
 	console.log("Bootstrapping");
-	await exec("node ../../packages/controller bootstrap create-admin test");
-	await exec("node ../../packages/controller bootstrap create-ctl-config test");
-	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");
+	await execController("bootstrap create-admin test");
+	await execController("bootstrap create-ctl-config test");
+	await execCtl("control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
 	await execCtl("host create-config --id 4 --name host --generate-token");
 
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
-	await exec(`node ../../packages/host config set host.factorio_directory ${relativeFactorioDir}`);
-	await exec("node ../../packages/host config set host.tls_ca ../../test/file/tls/cert.pem");
+	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
+	await execHost("config set host.tls_ca ../../test/file/tls/cert.pem");
 
 	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
 

@@ -10,13 +10,15 @@ const { _discoverInstances } = require("@clusterio/host/dist/node/src/Host");
 describe("Host testing", function() {
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
-			let instancePath = path.join("test", "file", "instances");
-			let instanceInfos = await _discoverInstances(instancePath);
+			const instancePath = path.join("test", "file", "instances");
+			const instanceInfos = await _discoverInstances(instancePath);
 
-			let referenceConfig = new lib.InstanceConfig("host");
-			referenceConfig.set("instance.id", 1);
-			referenceConfig.set("instance.name", "test");
-			referenceConfig.dirty = false;
+			const configPath = path.join(instancePath, "test", "instance.json");
+			const referenceConfig = new lib.InstanceConfig("host", {
+				...Host.instanceConfigWarning,
+				"instance.id": 1,
+				"instance.name": "test",
+			}, configPath);
 
 			assert.deepEqual(instanceInfos, new Map([
 				[1, {

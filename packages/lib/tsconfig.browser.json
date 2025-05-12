@@ -20,6 +20,7 @@
 		"./src/schema.ts",
 		"./src/subscriptions.ts",
 		"./src/zip_ops.ts",
+		"./src/file_ops.ts",
 		"./src/ExponentialBackoff.ts",
 		"./src/RateLimiter.ts",
 		"./src/TypedEventEmitter.ts",
