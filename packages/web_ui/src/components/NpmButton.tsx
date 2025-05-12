@@ -152,7 +152,6 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 		setOpen(false);
 	}
 
-	// TODO retrieve config so options can be disabled rather than using the error messages
 	return <>
 		<Button
 			type="default"

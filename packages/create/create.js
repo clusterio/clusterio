@@ -693,7 +693,6 @@ async function inquirerMissingArgs(args) {
 			{
 				type: "confirm",
 				name: "remoteNpm",
-				// TODO maybe link remote install to this once it isn't free text
 				message: "Allow remote updates via npm?",
 				default: true,
 			},
@@ -837,7 +836,7 @@ async function main() {
 			nargs: 1, describe: "Path to Factorio installation [standalone/host]", type: "string",
 		})
 		.option("remote-npm", {
-			nargs: 0, description: "Allow remote usage of npm [standalone/controller/host]", type: "boolean",
+			nargs: 0, description: "Allow remote updates of npm [standalone/controller/host]", type: "boolean",
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
@@ -906,7 +905,6 @@ async function main() {
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
 		await execController(["config", "set", "controller.allow_remote_updates", answers.remoteNpm]);
 		await execController(["config", "set", "controller.allow_plugin_updates", answers.remoteNpm]);
-		// await execController(["config", "set", "controller.allow_plugin_install", answers.remoteNpm]);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
@@ -928,7 +926,6 @@ async function main() {
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
 		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
-		// await execHost(["config", "set", "host.allow_plugin_install", answers.remoteNpm]);
 	}
 
 	if (answers.mode === "host") {
@@ -942,7 +939,6 @@ async function main() {
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
 		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
-		// await execHost(["config", "set", "host.allow_plugin_install", answers.remoteNpm]);
 	}
 
 	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
