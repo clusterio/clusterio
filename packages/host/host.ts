@@ -171,8 +171,7 @@ async function startHost() {
 	const hostConfigPath = args.config;
 	logger.info(`Loading config from ${hostConfigPath}`);
 	try {
-		const jsonConfig = JSON.parse(await fs.readFile(hostConfigPath, "utf8"));
-		hostConfig = lib.HostConfig.fromJSON(jsonConfig, "host", hostConfigPath);
+		hostConfig = await lib.HostConfig.fromFile("host", hostConfigPath);
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {

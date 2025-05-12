@@ -213,8 +213,7 @@ async function startControl() {
 	const controlConfigPath = args.config;
 	logger.verbose(`Loading config from ${controlConfigPath}`);
 	try {
-		const jsonConfig = JSON.parse(await fs.readFile(controlConfigPath, "utf8"));
-		controlConfig = lib.ControlConfig.fromJSON(jsonConfig, "control", controlConfigPath);
+		controlConfig = await lib.ControlConfig.fromFile("control", controlConfigPath);
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
