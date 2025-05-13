@@ -836,7 +836,7 @@ async function main() {
 			nargs: 1, describe: "Path to Factorio installation [standalone/host]", type: "string",
 		})
 		.option("remote-npm", {
-			nargs: 0, description: "Allow remote updates of npm [standalone/controller/host]", type: "boolean",
+			nargs: 0, description: "Allow remote updates via npm [standalone/controller/host]", type: "boolean",
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
