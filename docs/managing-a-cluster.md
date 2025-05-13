@@ -28,6 +28,21 @@ Generate a token for a host. `--id` is the host id.
 
 Create a host config. `--id` id the host id. `--name` is the host name. `--generate-token` decides whether to also generate a token, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-host.json", "-" for stdout.
 
+### Update Clusterio
+
+    ctl> host update [--id <host id>] [--name <host name>] [--restart]
+
+If remote updates are enabled on the host, this will attempt to update `@clusterio/host` on the machine. Changes will not be applied until the host is restarted. If the `--restart` flag is provided, the host will automatically restart once the update is complete.
+
+Remote updates are enabled by default but can be disabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the following command locally while the host is offline:
+
+    host> config set host.allow_remote_updates true/false
+
+The controller also supports remote updates, following the same logic. The corresponding commands are:
+
+    ctl> controller update [--restart]
+    controller> config set controller.allow_remote_updates true/false
+
 ## Instances
 
 ### List Instances
@@ -199,3 +214,50 @@ Note: If the player joins the cluster again a new account will be made for them 
 ## Roles
 
 To be written.
+
+
+## Plugins (Local)
+
+To be written.
+
+
+## Plugins (Remote)
+
+By default, remote updates are enabled unless you selected "no" during installation.
+Remote updates allow ctl and the web UI to update plugins on machines within the cluster.
+However, remote installations are disabled by default to prevent the risk of arbitrary code execution through the installation of malicious npm packages onto the machine. See below if you wish to enable this feature.
+
+### List
+
+    ctl> controller plugin list
+    ctl> host plugin list <host>
+
+This command lists all plugins currently known to the remote. Newly installed plugins will not be displayed until the remote is restarted. Plugins that are distributed as an npm package can be updated remotely.
+
+### Update
+
+    ctl> controller plugin update <name> [--restart]
+    ctl> host plugin update <host> <name> [--restart]
+
+If remote plugin updates are enabled on the remote, this will execute `npm update --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
+
+### Install
+
+    ctl> controller plugin install <name> [--restart]
+    ctl> host plugin install <host> <name> [--restart]
+
+If remote plugin installs are enabled on the remote, this will execute `npm install --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
+
+### Enable/Disable Updates
+
+    host> config set host.allow_plugin_updates true/false
+    controller> config set controller.allow_plugin_updates true/false
+
+Remote updates are enabled by default but can be disabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the above commands locally while the remote is offline.
+
+### Enable/Disable Installs
+
+    host> config set host.allow_plugin_install true/false
+    controller> config set controller.allow_plugin_install true/false
+
+Remote installs are disabled by default but can be enabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the above commands locally while the remote is offline.
