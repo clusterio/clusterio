@@ -161,8 +161,8 @@ function readBoundingBox(state: MapReaderState) {
 function readCliffSettings(state: MapReaderState) {
 	return {
 		name: readString(state),
-		elevation_0: readFloat(state),
-		elevation_interval: readFloat(state),
+		cliff_elevation_0: readFloat(state),
+		cliff_elevation_interval: readFloat(state),
 		richness: readFloat(state),
 	};
 }
