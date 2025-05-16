@@ -352,13 +352,14 @@ const modified_v2_map_gen_settings = {
 	},
 	cliff_settings: {
 		name: "cliff",
-		_unknown: 0,
+		control: "",
 		cliff_elevation_0: 10,
 		cliff_elevation_interval: 40,
 		richness: 1,
 		cliff_smoothing: 1,
 	},
 	no_enemies_mode: false,
+	territory_settings: null,
 };
 
 const modified_v2_map_settings = {
@@ -461,8 +462,8 @@ const modified_v2_map_settings = {
 		spoil_time_modifier: 1,
 	},
 	asteroids: {
-		spawning_rate: null,
-		max_ray_portals_expanded_per_tick: null,
+		spawning_rate: 1,
+		max_ray_portals_expanded_per_tick: 100,
 	},
 };
 
@@ -535,13 +536,14 @@ const modified_space_age_map_gen_settings = {
 	},
 	cliff_settings: {
 		name: "cliff",
-		_unknown: 0,
+		control: "",
 		cliff_elevation_0: 10,
 		cliff_elevation_interval: 40,
 		richness: 1,
 		cliff_smoothing: 1,
 	},
 	no_enemies_mode: false,
+	territory_settings: null,
 };
 
 module.exports = {

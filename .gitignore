@@ -33,6 +33,7 @@ Factorio*
 /factorio
 !/test/file/factorio
 !/test/lib/factorio
+!/packages/lib/src/factorio
 /instances
 /mods
 /database

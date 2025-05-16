@@ -3,6 +3,8 @@ import zlib from "zlib";
 class MapReaderState {
 	pos = 0;
 	last_position = { x: 0, y: 0 };
+	/** True when a version greater than 2.0.0 is detected */
+	v2 = false;
 	constructor(
 		public buf: Buffer
 	) { }
@@ -159,7 +161,14 @@ function readBoundingBox(state: MapReaderState) {
 }
 
 function readCliffSettings(state: MapReaderState) {
-	return {
+	return state.v2 ? {
+		name: readString(state),
+		control: readString(state), // v2
+		cliff_elevation_0: readFloat(state),
+		cliff_elevation_interval: readFloat(state),
+		richness: readFloat(state),
+		cliff_smoothing: readFloat(state), // v2
+	} : {
 		name: readString(state),
 		cliff_elevation_0: readFloat(state),
 		cliff_elevation_interval: readFloat(state),
@@ -167,10 +176,34 @@ function readCliffSettings(state: MapReaderState) {
 	};
 }
 
-function readMapGenSettings(state: MapReaderState) {
+function readTerritorySettings(state: MapReaderState) {
 	return {
-		terrain_segmentation: readFloat(state),
-		water: readFloat(state),
+		units: readArray(state, readString),
+		territory_index_expression: readString(state),
+		territory_variation_expression: readString(state),
+		minimum_territory_size: readUInt32(state),
+	};
+}
+
+function readMapGenSettings(state: MapReaderState) {
+	return state.v2 ? {
+		autoplace_controls: Object.fromEntries(readDict(state, readString, readFrequencySizeRichness)),
+		autoplace_settings: Object.fromEntries(readDict(state, readString, readAutoplaceSetting)),
+		default_enable_all_autoplace_controls: readBool(state),
+		seed: readUInt32(state),
+		width: readUInt32(state),
+		height: readUInt32(state),
+		area_to_generate_at_start: readBoundingBox(state),
+		starting_area: readFloat(state),
+		peaceful_mode: readBool(state),
+		no_enemies_mode: readBool(state), // v2
+		starting_points: readArray(state, readMapPosition),
+		property_expression_names: Object.fromEntries(readDict(state, readString, readString)),
+		cliff_settings: readCliffSettings(state),
+		territory_settings: readOptional(state, readTerritorySettings), // v2
+	} : {
+		terrain_segmentation: readFloat(state), // v1
+		water: readFloat(state), // v1
 		autoplace_controls: Object.fromEntries(readDict(state, readString, readFrequencySizeRichness)),
 		autoplace_settings: Object.fromEntries(readDict(state, readString, readAutoplaceSetting)),
 		default_enable_all_autoplace_controls: readBool(state),
@@ -303,16 +336,36 @@ function readPathFinder(state: MapReaderState) {
 }
 
 function readDifficultySettings(state: MapReaderState) {
-	return {
-		recipe_difficulty: readUInt8(state),
-		technology_difficulty: readUInt8(state),
+	return state.v2 ? {
 		technology_price_multiplier: readDouble(state),
-		research_queue_setting: ["always", "after-victory", "never"][readUInt8(state)],
+		spoil_time_modifier: readDouble(state), // v2
+	} : {
+		recipe_difficulty: readUInt8(state), // v1
+		technology_difficulty: readUInt8(state), // v1
+		technology_price_multiplier: readDouble(state),
+		research_queue_setting: ["always", "after-victory", "never"][readUInt8(state)], // v1
+	};
+}
+
+function readAsteroids(state: MapReaderState) {
+	return {
+		spawning_rate: readOptional(state, readDouble) ?? 1,
+		max_ray_portals_expanded_per_tick: readOptional(state, readUInt32) ?? 100,
 	};
 }
 
 function readMapSettings(state: MapReaderState) {
-	return {
+	return state.v2 ? {
+		pollution: readPollution(state),
+		steering: readSteering(state),
+		enemy_evolution: readEnemyEvolution(state),
+		enemy_expansion: readEnemyExpansion(state),
+		unit_group: readUnitGroup(state),
+		path_finder: readPathFinder(state),
+		max_failed_behavior_count: readUInt32(state),
+		difficulty_settings: readDifficultySettings(state),
+		asteroids: readAsteroids(state), // v2
+	} : {
 		pollution: readPollution(state),
 		steering: readSteering(state),
 		enemy_evolution: readEnemyEvolution(state),
@@ -372,8 +425,10 @@ export function readMapExchangeString(exchangeString: string) {
 	let data: MapExchangeData;
 
 	try {
+		const version = readVersion(state);
+		state.v2 = version >= [2, 0, 0, 0];
 		data = {
-			version: readVersion(state),
+			version: version,
 			unknown: readUInt8(state),
 			map_gen_settings: readMapGenSettings(state),
 			map_settings: readMapSettings(state),
