@@ -70,6 +70,7 @@ export default class ControlConnection extends BaseConnection {
 
 		this.handle(lib.ControllerStopRequest, this.handleControllerStopRequest.bind(this));
 		this.handle(lib.ControllerRestartRequest, this.handleControllerRestartRequest.bind(this));
+		this.handle(lib.ControllerUpdateRequest, this.handleControllerUpdateRequest.bind(this));
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
@@ -119,6 +120,9 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
 		this.handle(lib.UserBulkImportRequest, this.handleUserBulkImportRequest.bind(this));
 		this.handle(lib.UserBulkExportRequest, this.handleUserBulkExportRequest.bind(this));
+		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
+		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
+		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 		this.handle(lib.ModPortalDownloadRequest, this.handleModPortalDownloadRequest.bind(this));
 	}
@@ -1047,6 +1051,37 @@ export default class ControlConnection extends BaseConnection {
 			}
 		}
 		return usersToSend;
+	}
+
+	async handleControllerUpdateRequest(request: lib.ControllerUpdateRequest) {
+		if (!this._controller.config.get("controller.allow_remote_updates")) {
+			throw new lib.RequestError("Remote updates are disabled on this machine");
+		}
+		return lib.updatePackage("@clusterio/controller");
+	}
+
+	async handlePluginUpdateRequest(request: lib.PluginUpdateRequest) {
+		if (!this._controller.config.get("controller.allow_plugin_updates")) {
+			throw new lib.RequestError("Plugin updates are disabled on this machine");
+		}
+		return await lib.handlePluginUpdate(request.pluginPackage, this._controller.pluginInfos);
+	}
+
+	async handlePluginInstallRequest(request: lib.PluginInstallRequest) {
+		if (!this._controller.config.get("controller.allow_plugin_install")) {
+			throw new lib.RequestError("Plugin installs are disabled on this machine");
+		}
+		return await lib.handlePluginInstall(request.pluginPackage);
+	}
+
+	async handlePluginListRequest(request: lib.PluginListRequest) {
+		return this._controller.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
+			pluginInfo,
+			this._controller.plugins.has(pluginInfo.name),
+			this._controller.config.get(
+				`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields
+			) as boolean,
+		));
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {

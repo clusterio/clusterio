@@ -29,6 +29,9 @@ export interface ControllerConfigFields {
 	"controller.autosave_interval": number;
 	"controller.mod_portal_cache_duration_minutes": number;
 	"controller.mod_portal_page_size": number;
+	"controller.allow_remote_updates": boolean;
+	"controller.allow_plugin_updates": boolean;
+	"controller.allow_plugin_install": boolean;
 }
 
 /**
@@ -218,6 +221,27 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 1000,
 		},
+		"controller.allow_remote_updates": {
+			description: "When true, allows a remote event to trigger a clusterio update via npm",
+			type: "boolean",
+			initialValue: true,
+			readonly: ["controller"],
+			hidden: true,
+		},
+		"controller.allow_plugin_updates": {
+			description: "When true, allows a remote event to trigger a plugin update via npm",
+			type: "boolean",
+			initialValue: true,
+			readonly: ["controller"],
+			hidden: true,
+		},
+		"controller.allow_plugin_install": {
+			description: "When true, allows a remote event to trigger a plugin install via npm",
+			type: "boolean",
+			initialValue: false,
+			readonly: ["controller"],
+			hidden: true,
+		},
 	};
 }
 
@@ -236,6 +260,9 @@ export interface HostConfigFields {
 	"host.factorio_username": string | null,
 	"host.factorio_token": string | null,
 	"host.max_reconnect_delay": number;
+	"host.allow_remote_updates": boolean;
+	"host.allow_plugin_updates": boolean;
+	"host.allow_plugin_install": boolean;
 }
 
 /**
@@ -336,6 +363,27 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			description: "Maximum delay to wait before attempting to reconnect WebSocket",
 			type: "number",
 			initialValue: 60,
+		},
+		"host.allow_remote_updates": {
+			description: "When true, allows a remote event to trigger a clusterio update via npm",
+			type: "boolean",
+			initialValue: true,
+			readonly: ["host"],
+			hidden: true,
+		},
+		"host.allow_plugin_updates": {
+			description: "When true, allows a remote event to trigger a plugin update via npm",
+			type: "boolean",
+			initialValue: true,
+			readonly: ["host"],
+			hidden: true,
+		},
+		"host.allow_plugin_install": {
+			description: "When true, allows a remote event to trigger a plugin install via npm",
+			type: "boolean",
+			initialValue: false,
+			readonly: ["host"],
+			hidden: true,
 		},
 	};
 }
