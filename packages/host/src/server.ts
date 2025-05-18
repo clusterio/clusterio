@@ -500,6 +500,10 @@ export class FactorioServer extends events.EventEmitter {
 	_version: string | null = null;
 	_dataDir: string | null = null;
 
+	// Due to inconsistencies in the factorio api, we must manually watch the whitelist
+	// https://forums.factorio.com/viewtopic.php?t=123673
+	_whitelistWatcher: fs.FSWatcher | null = null;
+	_whitelist = new Set<string>();
 
 	_logger: lib.Logger;
 	_targetVersion: string;
@@ -741,6 +745,62 @@ export class FactorioServer extends events.EventEmitter {
 		}
 	}
 
+	_watchWhitelist() {
+		if (this._whitelistWatcher !== null) {
+			throw new Error("Whitelist watcher already started");
+		}
+
+		if (!this.enableWhitelist) {
+			return; // The file is not updated if the whitelist is disabled
+		}
+
+		const filePath = this.writePath("server-whitelist.json");
+		try {
+			this._whitelistWatcher = fs.watch(filePath);
+		} catch (err: any) {
+			this._logger.error(`Unable to watch whitelist, bidirectional sync will not be available:\n${err}`);
+			return;
+		}
+
+		this._whitelistWatcher.unref();
+		this._whitelistWatcher.on("error", (err) => {
+			this._whitelistWatcher = null;
+			this._logger.error(`Whitelist Watcher has errored:\n${err?.stack ?? err?.message ?? err}`);
+		});
+		this._whitelistWatcher.on("close", () => {
+			this._whitelistWatcher = null;
+		});
+		this._whitelistWatcher.on("change", async (eventType) => {
+			if (eventType !== "change") {
+				this._logger.warn(`Unexpected file watcher event: ${eventType}`);
+				return;
+			}
+
+			let newWhitelistJson;
+			try {
+				newWhitelistJson = await fs.readJSON(filePath);
+			} catch (err: any) {
+				this._logger.error(`Unable to read whitelist, bidirectional sync will not be available:\n${err}`);
+				return;
+			}
+
+			if (!(newWhitelistJson instanceof Array) || !newWhitelistJson.every(e => typeof e === "string")) {
+				// The whitelist must be an array of strings
+				this._logger.error("Unable to read whitelist, bidirectional sync will not be available:" +
+					"Unexpected whitelist format");
+				return;
+			}
+
+			const newWhitelist = new Set(newWhitelistJson);
+			// Set.difference added in node v22 and so we can not use this due to v20 support
+			const added = newWhitelistJson.filter(e => !this._whitelist.has(e));
+			const removed = [...this._whitelist.values()].filter(e => !newWhitelist.has(e));
+			this._whitelist = newWhitelist;
+
+			this.emit("whitelist-change", added, removed);
+		});
+	}
+
 	/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 	get maxConcurrentCommands() {
 		return this._maxConcurrentCommands;
@@ -854,6 +914,10 @@ export class FactorioServer extends events.EventEmitter {
 				this._rconClient.end().catch(() => {});
 			}
 
+			if (this._whitelistWatcher) {
+				this._whitelistWatcher.close();
+			}
+
 			this._resetState();
 			this.emit("exit");
 		});
@@ -866,6 +930,10 @@ export class FactorioServer extends events.EventEmitter {
 
 			if (this._rconClient) {
 				this._rconClient.end().catch(() => {});
+			}
+
+			if (this._whitelistWatcher) {
+				this._whitelistWatcher.close();
 			}
 
 			this._resetState();
@@ -986,6 +1054,7 @@ export class FactorioServer extends events.EventEmitter {
 					stdio: "pipe",
 				}
 			);
+			this._watchWhitelist();
 			this._attachStdio();
 			this._watchExit();
 			/* eslint-enable node/no-sync */
@@ -1036,12 +1105,14 @@ export class FactorioServer extends events.EventEmitter {
 					...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
 					...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
 					...(this.verboseLogging ? ["--verbose"] : []),
+					...(this.consoleLogging ? ["--console-log", this.writePath("console.log")] : []),
 				],
 				{
 					detached: true,
 					stdio: "pipe",
 				}
 			);
+			this._watchWhitelist();
 			this._attachStdio();
 			this._watchExit();
 			/* eslint-enable node/no-sync */
@@ -1116,6 +1187,9 @@ export class FactorioServer extends events.EventEmitter {
 		this._logger.error("Factorio appears to have hanged, killing process");
 		if (this._rconClient) {
 			this._rconClient.end().catch(() => {});
+		}
+		if (this._whitelistWatcher) {
+			this._whitelistWatcher.close();
 		}
 		this._server!.kill("SIGKILL");
 	}
