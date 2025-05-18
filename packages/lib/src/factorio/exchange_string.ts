@@ -426,7 +426,7 @@ export function readMapExchangeString(exchangeString: string) {
 
 	try {
 		const version = readVersion(state);
-		state.v2 = version >= [2, 0, 0, 0];
+		state.v2 = version[0] >= 2;
 		data = {
 			version: version,
 			unknown: readUInt8(state),
