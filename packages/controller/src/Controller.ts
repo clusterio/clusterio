@@ -104,7 +104,8 @@ export default class Controller {
 
 		const systems = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "systems.json"),
-			lib.SystemInfo.fromJSON.bind(lib.SystemInfo)
+			lib.SystemInfo.fromJSON.bind(lib.SystemInfo),
+			this.migrateSystems,
 		).bootstrap());
 
 		const hosts = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
@@ -597,10 +598,23 @@ export default class Controller {
 		await lib.invokeHook(this.plugins, "onSaveData");
 	}
 
+	static migrateSystems(rawJson: unknown[]): Static<typeof lib.SystemInfo.jsonSchema>[] {
+		const serialized = rawJson as Static<typeof lib.SystemInfo.jsonSchema>[];
+		return serialized.map(json => {
+			if (!json.canRestart) { // Added in 2.0.0.alpha.17
+				json.canRestart = false;
+			}
+			if (!json.restartRequired) { // Added in 2.0.0.alpha.21
+				json.restartRequired = false;
+			}
+			return json;
+		});
+	}
+
 	static migrateHosts(rawJson: unknown[]): Static<typeof HostInfo.jsonSchema>[] {
 		let serialized = rawJson as any;
 
-		// migrate from pre alpha.19 format
+		// New format 2.0.0.alpha.19
 		if (serialized.length && serialized[0] instanceof Array) {
 			serialized = serialized.map((e: any) => e[1]);
 		}
@@ -619,7 +633,7 @@ export default class Controller {
 	static migrateInstances(rawJson: unknown[]): Static<typeof InstanceInfo.jsonSchema>[] {
 		const serialized = rawJson as Static<typeof InstanceInfo.jsonSchema>[];
 		return serialized.map(json => {
-			if (!json.config) { // migrate: from pre Alpha 14 format.
+			if (!json.config) { // New format 2.0.0.alpha.14
 				return { config: json as any, status: "running" }; // Use running to force updatedAtMs
 			}
 			return json;
