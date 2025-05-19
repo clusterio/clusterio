@@ -911,17 +911,28 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
 				await execCtl("instance config set 44 subspace_storage.load_plugin false");
 
-				let exchangeString = testStrings.modified.replace(/[\n\r]+/g, "");
-				let args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+				await execCtl("instance start 44");
+				const instance = (await getInstances()).get(44);
+				const isV2 = lib.integerFactorioVersion(instance.factorioVersion) > lib.integerFactorioVersion("2.0.0");
+				const exchangeString = (isV2 ? testStrings.modified_v2 : testStrings.modified).replace(/[\n\r]+/g, "");
+				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+				await execCtl("instance stop 44");
+
 				await execCtl(`instance load-scenario test ${args}`);
 				await checkInstanceStatus(44, "running");
 				await sendRcon(44, '/c game.print("disable achievements")');
 				await sendRcon(44, '/c game.print("disable achievements")');
 				assert.equal(await sendRcon(44, "/c rcon.print(game.default_map_gen_settings.seed)"), "1234\n");
 				assert.equal(await sendRcon(44, "/c rcon.print(game.map_settings.pollution.ageing)"), "1.5\n");
-				assert.equal(
-					await sendRcon(44, "/c rcon.print(game.difficulty_settings.research_queue_setting)"), "never\n"
-				);
+				if (isV2) {
+					assert.equal(
+						await sendRcon(44, "/c rcon.print(game.difficulty_settings.spoil_time_modifier)"), "1\n"
+					);
+				} else {
+					assert.equal(
+						await sendRcon(44, "/c rcon.print(game.difficulty_settings.research_queue_setting)"), "never\n"
+					);
+				}
 			});
 		});
 
