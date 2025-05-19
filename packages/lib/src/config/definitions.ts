@@ -3,6 +3,9 @@ import * as classes from "./classes";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import { Static } from "@sinclair/typebox";
 
+type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;
+type configFromFile<T> = (...args: Parameters<typeof classes.Config.fromFile>) => Promise<T>;
+
 export interface ControllerConfigFields {
 	"controller.version": string;
 	"controller.name": string;
@@ -39,7 +42,8 @@ export interface ControllerConfigFields {
  * @extends classes.Config
  */
 export class ControllerConfig extends classes.Config<ControllerConfigFields> {
-	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => ControllerConfig;
+	declare static fromJSON: configFromJSON<ControllerConfig>;
+	declare static fromFile: configFromFile<ControllerConfig>;
 	static migrations(config: Static<typeof this.jsonSchema>) {
 		if (config.hasOwnProperty("controller.external_address")) {
 			config["controller.public_url"] = config["controller.external_address"];
@@ -270,7 +274,8 @@ export interface HostConfigFields {
  * @extends classes.Config
  */
 export class HostConfig extends classes.Config<HostConfigFields> {
-	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => HostConfig;
+	declare static fromJSON: configFromJSON<HostConfig>;
+	declare static fromFile: configFromFile<HostConfig>;
 	static fieldDefinitions: classes.ConfigDefs<HostConfigFields> = {
 		"host.version": {
 			type: "string",
@@ -423,7 +428,8 @@ export interface InstanceConfigFields {
  * @extends classes.Config
  */
 export class InstanceConfig extends classes.Config<InstanceConfigFields> {
-	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => InstanceConfig;
+	declare static fromJSON: configFromJSON<InstanceConfig>;
+	declare static fromFile: configFromFile<InstanceConfig>;
 	static migrations(config: Static<typeof this.jsonSchema>) {
 		function boolToEnableDisable(name: string) {
 			if (config.hasOwnProperty(name) && typeof config[name] === "boolean") {
@@ -617,7 +623,8 @@ export interface ControlConfigFields {
  * @extends classes.Config
  */
 export class ControlConfig extends classes.Config<ControlConfigFields> {
-	declare static fromJSON: (json: classes.ConfigSchema, location: classes.ConfigLocation) => ControlConfig;
+	declare static fromJSON: configFromJSON<ControlConfig>;
+	declare static fromFile: configFromFile<ControlConfig>;
 	static fieldDefinitions: classes.ConfigDefs<ControlConfigFields> = {
 		"control.controller_url": {
 			description: "URL to connect to the controller at",

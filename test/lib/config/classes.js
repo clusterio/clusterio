@@ -1,5 +1,7 @@
 "use strict";
 const lib = require("@clusterio/lib");
+const fs = require("fs-extra");
+const path = require("path");
 const assert = require("assert").strict;
 const CA = lib.ConfigAccess;
 
@@ -7,6 +9,8 @@ const CA = lib.ConfigAccess;
 describe("lib/config/classes", function() {
 	describe("Config", function() {
 		class TestConfig extends lib.Config {
+			static defaultAccess = ["local", "remote"];
+
 			static migrations(config) {
 				if (config.hasOwnProperty("test.migration")) {
 					config["alpha.foo"] = config["test.migration"];
@@ -38,10 +42,6 @@ describe("lib/config/classes", function() {
 				"test.cred": { credential: ["local"] },
 				"test.rdo": { readonly: ["local"] },
 			};
-
-			constructor(location, fields) {
-				super(location, fields, ["local", "remote"]);
-			}
 		}
 
 		describe("constructor", function() {
@@ -75,6 +75,10 @@ describe("lib/config/classes", function() {
 				});
 				assert.equal(config.get("alpha.foo"), "foo");
 				assert.equal(config.fields["test.migration"], undefined);
+			});
+			it("should accept a filepath", function() {
+				const testInstance = new TestConfig("local", undefined, "filepath");
+				assert.equal(testInstance.filepath, "filepath");
 			});
 		});
 
@@ -186,6 +190,167 @@ describe("lib/config/classes", function() {
 				let testInstance = TestConfig.fromJSON({ "test.priv": "bad" }, "remote");
 				assert.equal(testInstance.fields["test.priv"], undefined);
 				assert.equal(testInstance.fields["test.func"], 42);
+			});
+			it("should accept a filepath", function() {
+				const testInstance = TestConfig.fromJSON({}, "local", "filepath");
+				assert.equal(testInstance.filepath, "filepath");
+			});
+		});
+
+		describe("static .fromFile", function() {
+			const filepath = path.join("temp", "test", "config_test.json");
+			it("should throw for file and json errors", async function() {
+				await fs.writeFile(filepath, "abc");
+				assert.rejects(
+					TestConfig.fromFile("local", filepath),
+					new Error(
+						`${filepath}: SyntaxError: JSON.parse: unexpected character at line 1 column 1 of the JSON data`
+					)
+				);
+				assert.rejects(
+					TestConfig.fromFile("local", `${filepath}.notExist`),
+				);
+			});
+			it("should throw on incorrect input passed", async function() {
+				await fs.writeFile(filepath, "null");
+				await assert.rejects(
+					TestConfig.fromFile("local", filepath),
+					new Error("Invalid config")
+				);
+				await fs.writeFile(filepath, "undefined");
+				assert.rejects(
+					TestConfig.fromFile("local", filepath),
+					new Error("Invalid config")
+				);
+				await fs.writeFile(filepath, "[]");
+				assert.rejects(
+					TestConfig.fromFile("local", filepath),
+					new Error("Invalid config")
+				);
+			});
+			it("should load defaults for missing fields", async function() {
+				await fs.writeJSON(filepath, {
+					"alpha.foo": "a",
+					"test.enum": "a",
+				});
+				const testInstance = await TestConfig.fromFile("local", filepath);
+				assert.equal(testInstance.get("alpha.foo"), "a");
+				assert.deepEqual(testInstance.get("beta.bar"), {});
+				assert.equal(testInstance.get("test.enum"), "a");
+				assert.equal(testInstance.get("test.test"), null);
+				assert.equal(testInstance.get("test.func"), 42);
+				assert.equal(testInstance.filepath, filepath);
+			});
+			it("should load fields", async function() {
+				await fs.writeJSON(filepath, {
+					"test.enum": "c",
+					"test.test": "blah",
+					"test.func": 22,
+					"test.bool": null,
+					"test.json": { valid: true },
+					"test.priv": "bar",
+				});
+				const testInstance = await TestConfig.fromFile("local", filepath);
+				assert.equal(testInstance.get("test.enum"), "c");
+				assert.equal(testInstance.get("test.test"), "blah");
+				assert.equal(testInstance.get("test.func"), 22);
+				assert.equal(testInstance.get("test.bool"), null);
+				assert.equal(testInstance.get("test.priv"), "bar");
+				assert.deepEqual(testInstance.get("test.json"), { valid: true });
+				assert.equal(testInstance.filepath, filepath);
+			});
+			it("should preserve unknown fields", async function() {
+				const testFields = {
+					"extra.blah": true,
+					"extra.spam": "foobar",
+					"alpha.foo": "true",
+					"beta.bar": { value: 20 },
+					"test.enum": "a",
+					"test.test": "blah",
+					"test.func": 50,
+					"test.bool": false,
+					"test.json": {},
+					"test.rest": {},
+					"test.priv": null,
+					"test.cred": null,
+					"test.rdo": null,
+					"test.alpha": null,
+					"test.beta": "decay",
+					"test.gamma": 99,
+				};
+				await fs.writeJson(filepath, testFields);
+				const testInstance = await TestConfig.fromFile("local", filepath);
+				assert.deepEqual(testInstance.toJSON(), testFields);
+				assert.equal(testInstance.filepath, filepath);
+			});
+			it("should ignore inaccessible fields", async function() {
+				await fs.writeJSON(filepath, { "test.priv": "bad" });
+				const testInstance = await TestConfig.fromFile("remote", filepath);
+				assert.equal(testInstance.fields["test.priv"], undefined);
+				assert.equal(testInstance.fields["test.func"], 42);
+				assert.equal(testInstance.filepath, filepath);
+			});
+		});
+
+		describe(".save()", function() {
+			const filepath = path.join("temp", "test", "config_test.json");
+			beforeEach(async function() {
+				await fs.remove(filepath);
+				assert(!await fs.exists(filepath), "File was not removed");
+			});
+			it("should throw if there is no filepath", async function() {
+				const testInstance = new TestConfig("local", { "alpha.foo": "a" });
+				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
+				await assert.rejects(
+					testInstance.save(),
+					new Error("Cannot save config which has no filepath")
+				);
+			});
+			it("should do nothing when not dirty", async function() {
+				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
+				await testInstance.save();
+				assert(!await fs.exists(filepath), "File was created");
+			});
+			it("should save data to file", async function() {
+				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
+				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
+				await testInstance.save();
+				const json = await fs.readJSON(filepath);
+				assert.deepEqual(json, testInstance.toJSON());
+			});
+			it("should clear the dirty flag after saving", async function() {
+				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
+				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
+				await testInstance.save();
+				assert(await fs.exists(filepath), "File was not created");
+				await fs.remove(filepath);
+				assert(!await fs.exists(filepath), "File was not removed");
+				await testInstance.save();
+				assert(!await fs.exists(filepath), "File was created");
+			});
+			it("should be round trip savable", async function() {
+				const testInstance = new TestConfig("local", {
+					"extra.blah": true,
+					"extra.spam": "foobar",
+					"alpha.foo": "true",
+					"beta.bar": { value: 20 },
+					"test.enum": "a",
+					"test.test": "blah",
+					"test.func": 50,
+					"test.bool": false,
+					"test.json": {},
+					"test.rest": {},
+					"test.priv": null,
+					"test.cred": null,
+					"test.rdo": null,
+					"test.alpha": null,
+					"test.beta": "decay",
+					"test.gamma": 99,
+				}, filepath);
+				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
+				await testInstance.save();
+				const loadedInstance = await TestConfig.fromFile("local", filepath);
+				assert.deepEqual(loadedInstance, testInstance);
 			});
 		});
 

@@ -1,11 +1,13 @@
 // Configuration classes
 import { Type, Static } from "@sinclair/typebox";
-import TypedEventEmitter from "../TypedEventEmitter";
+import * as fs from "fs-extra";
 
+import TypedEventEmitter from "../TypedEventEmitter";
 import isDeepStrictEqual from "../is_deep_strict_equal";
 import { basicType } from "../helpers";
 import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
+import { safeOutputFile } from "../file_ops";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -198,11 +200,15 @@ export class Config<
 		return config;
 	}
 
-	fields: Fields;
-	_unknownFields: Record<string, FieldValue> = {};
+	/** Defines the default access locations for the config class */
+	static defaultAccess: ConfigLocation[] = ["controller", "host", "control"];
+
+	/** Contains the fields and their values */
+	private fields: Fields;
+	private _unknownFields: Record<string, FieldValue> = {};
 
 	/** Set to true when a field in the config is changed. */
-	dirty = false;
+	private dirty = false;
 	/** Set to true when a 'restart required' field in the config is changed. */
 	restartRequired = false;
 
@@ -210,14 +216,16 @@ export class Config<
 	 * Create a new instance of the given config
 	 *
 	 * @param location -
-	 *     Location to evaluate access for this instance from
+	 *     Location to evaluate access for this instance from.
 	 * @param fields -
 	 *     Serialized representation of fields to load.
+	 * @param filepath -
+	 *     Filepath for the config to save to.
 	 */
 	constructor(
 		public location: ConfigLocation,
 		fields?: Static<typeof Config.jsonSchema>,
-		public defaultAccess: ConfigLocation[] = ["controller", "host", "control"],
+		public filepath?: string,
 	) {
 		if (typeof location !== "string") {
 			throw new Error("location must be a string");
@@ -262,7 +270,7 @@ export class Config<
 			|| (
 				(!def.credential || mode & ConfigAccess.write)
 				&& (!def.readonly || mode & ConfigAccess.read)
-				&& !(def.access ?? this.defaultAccess).includes(location)
+				&& !(def.access ?? this.constructor.defaultAccess).includes(location)
 			)
 		) {
 			if (error) {
@@ -295,8 +303,31 @@ export class Config<
 		}
 	}
 
-	static jsonSchema = ConfigSchema;
+	/**
+	 * Create config from file
+	 *
+	 * @param location - Location used for access control.
+	 * @param filepath - Filepath for the config to save to.
+	 * @returns Instance of this config
+	 */
+	static async fromFile(location: ConfigLocation, filepath: string) {
+		const fields = await fs.readJson(filepath, { encoding: "utf8" });
+		return this.fromJSON(fields, location, filepath);
+	}
 
+	/** Saves this config to file if there are unsaved changes */
+	async save() {
+		if (!this.dirty) {
+			return;
+		}
+		if (!this.filepath) {
+			throw new Error("Cannot save config which has no filepath");
+		}
+		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"));
+		this.dirty = false;
+	}
+
+	static jsonSchema = ConfigSchema;
 	static validate = libSchema.compile(this.jsonSchema as any);
 
 	/**
@@ -304,11 +335,13 @@ export class Config<
 	 *
 	 * @param json - Serialized config to load.
 	 * @param location - Location used for access control.
+	 * @param filepath - Filepath for the config to save to.
 	 * @returns Instance of this config
 	 */
 	static fromJSON(
 		json: Static<typeof this.jsonSchema>,
 		location: ConfigLocation,
+		filepath?: string,
 	) {
 		// migrate: Pre alpha 14 config format
 		if (typeof json === "object" && json !== null && json.groups instanceof Array) {
@@ -324,7 +357,7 @@ export class Config<
 		if (!valid) {
 			throw new Error("Invalid config");
 		}
-		return new this(location, json);
+		return new this(location, json, filepath);
 	}
 
 	toJSON() {

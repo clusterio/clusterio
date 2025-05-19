@@ -28,7 +28,7 @@ describe("controller/src/Controller", function() {
 		/** @type {Controller} */
 		let controller, mockInstanceConfig;
 		before(async function() {
-			controller = new Controller({}, [], "", new ControllerConfig("controller"));
+			controller = new Controller({}, [], new ControllerConfig("controller"));
 			mockInstanceConfig = new MockInstanceConfig(new Map([
 				["instance.id", 100], ["instance.name", "test"], ["factorio.settings", []],
 			]));

@@ -210,7 +210,6 @@ interface InitializeParameters {
 	shouldRun: boolean;
 	clusterLogger: winston.Logger;
 	pluginInfos: lib.PluginNodeEnvInfo[] | null;
-	controllerConfigPath: string | null;
 	controllerConfig: lib.ControllerConfig | null;
 }
 
@@ -334,7 +333,6 @@ async function initialize(): Promise<InitializeParameters> {
 			shouldRun,
 			clusterLogger,
 			pluginInfos: null,
-			controllerConfigPath: null,
 			controllerConfig: null,
 		};
 	}
@@ -344,20 +342,19 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
+	let controllerConfig;
 	const controllerConfigPath = args.config;
 	logger.info(`Loading config from ${controllerConfigPath}`);
-	let controllerConfig = new lib.ControllerConfig("controller");
 	try {
-		let jsonConfig = JSON.parse(await fs.readFile(controllerConfigPath, { encoding: "utf8" }));
-		controllerConfig = lib.ControllerConfig.fromJSON(jsonConfig, "controller");
+		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			controllerConfig = new lib.ControllerConfig("controller");
+			controllerConfig = new lib.ControllerConfig("controller", undefined, controllerConfigPath);
 
 		} else {
-			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.stack ?? err.message ?? err}`);
 		}
 	}
 
@@ -368,15 +365,11 @@ async function initialize(): Promise<InitializeParameters> {
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
 		controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
-		await lib.safeOutputFile(
-			controllerConfigPath, JSON.stringify(controllerConfig, null, "\t")
-		);
+		await controllerConfig.save();
 	}
 
 	if (command === "config") {
-		await lib.handleConfigCommand(
-			args, controllerConfig, controllerConfigPath
-		);
+		await lib.handleConfigCommand(args, controllerConfig);
 
 	} else if (command === "bootstrap") {
 		await handleBootstrapCommand(args, controllerConfig);
@@ -386,7 +379,6 @@ async function initialize(): Promise<InitializeParameters> {
 		args,
 		clusterLogger,
 		pluginInfos,
-		controllerConfigPath,
 		controllerConfig,
 		shouldRun,
 	};
@@ -402,17 +394,15 @@ async function startup() {
 		shouldRun,
 		clusterLogger,
 		pluginInfos,
-		controllerConfigPath,
 		controllerConfig,
 	} = await initialize();
-	if (!shouldRun || !pluginInfos || !controllerConfigPath || !controllerConfig) {
+	if (!shouldRun || !pluginInfos || !controllerConfig) {
 		return;
 	}
 
 	controller = new Controller(
 		clusterLogger,
 		pluginInfos,
-		controllerConfigPath,
 		controllerConfig,
 		Boolean(args.canRestart),
 		Boolean(args.recovery),

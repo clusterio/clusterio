@@ -43,19 +43,20 @@ async function discoverInstances(instancesDir: string) {
 	let instanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			let instanceConfig = new lib.InstanceConfig("host");
-			let configPath = path.join(instancesDir, entry.name, "instance.json");
+			let instanceConfig = new lib.InstanceConfig("host", Host.instanceConfigWarning);
+			const instancePath = path.join(instancesDir, entry.name);
+			const configPath = path.join(instancePath, "instance.json");
 
 			try {
-				const jsonConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
-				instanceConfig = lib.InstanceConfig.fromJSON(jsonConfig, "host");
+				instanceConfig = await lib.InstanceConfig.fromFile("host", configPath);
+				instanceConfig.update(Host.instanceConfigWarning, false); // File might be missing the warning
 
 			} catch (err: any) {
 				if (err.code === "ENOENT") {
 					continue; // Ignore folders without config.json
 				}
 
-				logger.error(`Error occured while parsing ${configPath}: ${err.message}`);
+				logger.error(`Error occurred while parsing ${configPath}: ${err.message}`);
 				continue;
 			}
 
@@ -64,7 +65,6 @@ async function discoverInstances(instancesDir: string) {
 				continue;
 			}
 
-			let instancePath = path.join(instancesDir, entry.name);
 			logger.verbose(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
 				path: instancePath,
@@ -258,7 +258,6 @@ export default class Host extends lib.Link {
 	 */
 	tlsCa?: string;
 	pluginInfos: lib.PluginNodeEnvInfo[];
-	configPath: string;
 	config: lib.HostConfig;
 
 	/** Mapping of plugin name to loaded plugin */
@@ -279,6 +278,10 @@ export default class Host extends lib.Link {
 	_disconnecting = false;
 	_shuttingDown = false;
 
+	static instanceConfigWarning = {
+		"_warning": "Changes to this file will be overwritten by the controller's copy.",
+	};
+
 	static async bootstrap(hostConfig: lib.HostConfig) {
 		const modsDirectory = hostConfig.get("host.mods_directory");
 		await fs.ensureDir(modsDirectory);
@@ -289,7 +292,6 @@ export default class Host extends lib.Link {
 
 	constructor(
 		connector: HostConnector,
-		hostConfigPath: string,
 		hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[],
@@ -309,7 +311,6 @@ export default class Host extends lib.Link {
 		this.tlsCa = tlsCa;
 
 		this.pluginInfos = pluginInfos;
-		this.configPath = hostConfigPath;
 		this.config = hostConfig;
 
 		this.config.on("fieldChanged", (name, curr, prev) => {
@@ -661,10 +662,11 @@ export default class Host extends lib.Link {
 				instanceInfo.config.update(config, true, "controller");
 
 			} else {
-				let instanceConfig = new lib.InstanceConfig("host");
+				let instanceConfig = new lib.InstanceConfig("host", Host.instanceConfigWarning);
 				instanceConfig.update(config, false, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
+				instanceConfig.filepath = path.join(instanceDir, "instance.json");
 
 				logger.info(`Creating ${instanceDir}`);
 				await Instance.populate_folders(instanceDir);
@@ -699,18 +701,7 @@ export default class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
 
 		// save a copy of the instance config
-		await this.saveInstanceConfig(instanceInfo);
-	}
-
-	async saveInstanceConfig(instanceInfo: { path: string, config: lib.InstanceConfig }) {
-		let warnedOutput = {
-			_warning: "Changes to this file will be overwritten by the controller's copy.",
-			...instanceInfo.config.toJSON(),
-		};
-		await lib.safeOutputFile(
-			path.join(instanceInfo.path, "instance.json"),
-			JSON.stringify(warnedOutput, null, "\t")
-		);
+		await instanceInfo.config.save();
 	}
 
 	async handleInstanceUnassignInternalRequest(request: lib.InstanceUnassignInternalRequest) {
@@ -1192,11 +1183,11 @@ export default class Host extends lib.Link {
 		}
 
 		logger.info("Saving config");
-		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
-		for (const instanceInfo of this.instanceInfos.values()) {
-			// Save in case host_assigned_game_port changed in the config.
-			await this.saveInstanceConfig(instanceInfo);
-		}
+		await this.config.save();
+		// Save host side in case host_assigned_game_port changed in the config.
+		await Promise.all(
+			[...this.instanceInfos.values()].map(instanceInfo => instanceInfo.config.save())
+		);
 
 		try {
 			// Clear silly interval in pidfile library.
