@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
-const { Controller } = require("@clusterio/controller");
-const { ControllerConfig, Address, RequestError } = require("@clusterio/lib");
+const { Controller, HostInfo, InstanceInfo } = require("@clusterio/controller");
+const { ControllerConfig, Address, RequestError, InstanceConfig, HostConfig, SystemInfo } = require("@clusterio/lib");
 const { EventEmitter } = require("stream");
 
 class MockEvent {}
@@ -187,6 +187,131 @@ describe("controller/src/Controller", function() {
 				controller.instances.dirty = false;
 				mockInstanceConfig.set("instance.assigned_host", null);
 				assert(controller.instances.dirty === true, "dirty flag was not set");
+			});
+		});
+		describe(".finaliseHosts()", function() {
+			it("resets the connected state to false", function() {
+				const hostInfo = new HostInfo(1, "", "", new Map(), true);
+				Controller.finaliseHosts(hostInfo);
+				assert.equal(hostInfo.connected, false);
+				assert(hostInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+			});
+			it("does not increment updatedAtMs when there are no changes", function() {
+				const hostInfo = new HostInfo(1, "", "", new Map(), false);
+				Controller.finaliseHosts(hostInfo);
+				assert.equal(hostInfo.connected, false);
+				assert(hostInfo.updatedAtMs === 0, "updatedAtMs incremented");
+			});
+		});
+		describe(".finaliseInstances()", function() {
+			it("resets the stats for assigned instances", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
+				const instanceInfo = new InstanceInfo(instanceConfig, "running");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unknown");
+				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+			});
+			it("resets the status for unassigned instances", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
+				const instanceInfo = new InstanceInfo(instanceConfig, "running");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unassigned");
+				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+			});
+			it("does not update updatedAtMs when there are no changes (assigned)", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
+				const instanceInfo = new InstanceInfo(instanceConfig, "unknown");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unknown");
+				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
+			});
+			it("does not update updatedAtMs when there are no changes (unassigned)", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
+				const instanceInfo = new InstanceInfo(instanceConfig, "unassigned");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unassigned");
+				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
+			});
+		});
+	});
+	describe("migrations", function() {
+		describe("SystemInfo", function() {
+			it("migrates 'canRestart' from undefined to false", function() { // Alpha 17
+				const result = Controller.migrateSystems([
+					{}, { canRestart: true }, { canRestart: false },
+				]);
+				assert.equal(result[0].canRestart, false);
+				assert.equal(result[1].canRestart, true);
+				assert.equal(result[2].canRestart, false);
+			});
+			it("migrates 'restartRequired' from undefined to false", function() { // Alpha 21
+				const result = Controller.migrateSystems([
+					{}, { restartRequired: true }, { restartRequired: false },
+				]);
+				assert.equal(result[0].restartRequired, false);
+				assert.equal(result[1].restartRequired, true);
+				assert.equal(result[2].restartRequired, false);
+			});
+			it("does nothing for upto date data", function() {
+				const systemInfo = new SystemInfo(
+					1, "name", "n", "k", "m", "cm", "cr", "mc", "ma", "dc", "da", false, false, 0, false
+				);
+				const jsonString = JSON.stringify(systemInfo);
+				const systemInfoJson = JSON.parse(jsonString);
+				const systemInfoJsonCopy = JSON.parse(jsonString);
+				const result = Controller.migrateSystems([
+					systemInfoJson, systemInfoJson, systemInfoJson,
+				]);
+				assert.deepEqual(result, [
+					systemInfoJsonCopy, systemInfoJsonCopy, systemInfoJsonCopy,
+				]);
+			});
+		});
+		describe("HostInfo", function() {
+			it("migrates to the new format", function() { // Alpha 19
+				const result = Controller.migrateHosts([
+					["", "foo"], ["", "bar"], ["", "baz"],
+				]);
+				assert.deepEqual(result, [
+					"foo", "bar", "baz",
+				]);
+			});
+			it("does nothing for upto date data", function() {
+				const hostInfo = new HostInfo(1, "", "", new Map());
+				const jsonString = JSON.stringify(hostInfo);
+				const hostInfoJson = JSON.parse(jsonString);
+				const hostInfoJsonCopy = JSON.parse(jsonString);
+				const result = Controller.migrateHosts([
+					hostInfoJson, hostInfoJson, hostInfoJson,
+				]);
+				assert.deepEqual(result, [
+					hostInfoJsonCopy, hostInfoJsonCopy, hostInfoJsonCopy,
+				]);
+			});
+		});
+		describe("InstanceInfo", function() {
+			it("migrates to the new format", function() { // Alpha 14
+				const result = Controller.migrateInstances([
+					{ name: "foo" }, { name: "bar" }, { name: "baz" },
+				]);
+				assert.deepEqual(result, [
+					{ config: { name: "foo" }, status: "running" },
+					{ config: { name: "bar" }, status: "running" },
+					{ config: { name: "baz" }, status: "running" },
+				]);
+			});
+			it("does nothing for upto date data", function() {
+				const instanceConfig = new InstanceConfig("controller");
+				const instanceInfo = new InstanceInfo(instanceConfig, "unknown");
+				const jsonString = JSON.stringify(instanceInfo);
+				const instanceInfoJson = JSON.parse(jsonString);
+				const instanceInfoJsonCopy = JSON.parse(jsonString);
+				const result = Controller.migrateInstances([
+					instanceInfoJson, instanceInfoJson, instanceInfoJson,
+				]);
+				assert.deepEqual(result, [
+					instanceInfoJsonCopy, instanceInfoJsonCopy, instanceInfoJsonCopy,
+				]);
 			});
 		});
 	});
