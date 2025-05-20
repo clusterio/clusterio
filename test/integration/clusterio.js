@@ -707,9 +707,8 @@ describe("Integration of Clusterio", function() {
 				for (let [, , configName, expectedResult] of testConfigs) {
 					assert.equal(await sendRcon(44, `/config get ${configName}`), `${expectedResult}\n`);
 				}
-			});
-			it("should not change the instance status", async function() {
-				slowTest(this);
+
+				// should not change instance status
 				await checkInstanceStatus(44, "running");
 			});
 			it("should allow creating and removing props", async function() {
