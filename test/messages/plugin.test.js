@@ -19,7 +19,7 @@ describe("messages/plugin", function() {
 			lib.Address.fromShorthand("controller"),
 			lib.Address.fromShorthand({ controlId: 1 }),
 		);
-		controller = new Controller(lib.logger, [], "", controllerConfig);
+		controller = new Controller(lib.logger, [], controllerConfig);
 		const user = new ControllerUser(controller.userManager, undefined, "test");
 		controlConnection = new ControlConnection({ version: "2.0.0" }, connection, controller, user, 1);
 
@@ -28,7 +28,7 @@ describe("messages/plugin", function() {
 			lib.Address.fromShorthand({ hostId: 1 }),
 			lib.Address.fromShorthand("controller"),
 		);
-		host = new Host(hostConnector, "", hostConfig, undefined, []);
+		host = new Host(hostConnector, hostConfig, undefined, []);
 	});
 
 	describe("PluginDetails", function() {

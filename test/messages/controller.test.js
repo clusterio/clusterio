@@ -16,7 +16,7 @@ describe("messages/controller", function() {
 			lib.Address.fromShorthand("controller"),
 			lib.Address.fromShorthand({ controlId: 1 }),
 		);
-		controller = new Controller(lib.logger, [], "", controllerConfig);
+		controller = new Controller(lib.logger, [], controllerConfig);
 		const user = new ControllerUser(controller.userManager, undefined, "test");
 		controlConnection = new ControlConnection({ version: "2.0.0" }, connection, controller, user, 1);
 	});
