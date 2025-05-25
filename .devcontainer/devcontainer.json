@@ -1,4 +1,4 @@
 {
 	"image":"mcr.microsoft.com/devcontainers/universal:2",
-	"postCreateCommand": "wget https://factorio.com/get-download/1.1.107/headless/linux64 && tar -xf linux64 && pnpm install",
+	"postCreateCommand": "mkdir factorio && cd factorio && wget https://factorio.com/get-download/1.1.107/headless/linux64 && tar -xf linux64 && mv factorio factorio_1.1.107 && rm linux64 && wget https://factorio.com/get-download/2.0.47/headless/linux64 && tar -xf linux64 && mv factorio factorio_2.0.47 && rm linux64 && pnpm install",
 }

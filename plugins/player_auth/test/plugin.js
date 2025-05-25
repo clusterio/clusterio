@@ -286,11 +286,14 @@ describe("player_auth", function() {
 						new SetVerifyCodeRequest("test", verify_code)
 					);
 
+					const user = controllerPlugin.controller.userManager.getByName("test");
+					const token = controllerPlugin.controller.userManager.signUserToken(user);
 					const verifyResult = await postJSON(
 						`${controllerUrl}/api/player_auth/verify`,
 						{ player_code: playerCode, verify_code, verify_token }
 					);
-					assert.equal((await verifyResult.json()).verified, true);
+					assert.equal(verifyResult.status, 200);
+					assert.deepEqual(await verifyResult.json(), { verified: true, token: token });
 				});
 			});
 		});

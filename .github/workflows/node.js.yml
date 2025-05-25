@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-        factorio-version: [1.1.110]
-        # Supported versions are latest stable/experimental and one minor version before stable (even if from a previous major) 
+        # Supported versions are active lts and maintenance see https://nodejs.org/en/about/releases/
+        node-version: [20.x, 22.x]
+        # Supported versions are latest stable and one minor version before stable (even if from a previous major) 
+        factorio-version: [1.1.110, 2.0.47]
 
     steps:
     - uses: actions/checkout@v4
@@ -31,13 +31,13 @@ jobs:
     - name: Use Factorio ${{ matrix.factorio-version }}
       run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ matrix.factorio-version }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
-      if: ${{ matrix.node-version != '18.x' || matrix.factorio-version != '1.1.110' }}
+      if: ${{ matrix.node-version != '20.x' || matrix.factorio-version != '1.1.110' }}
       run: pnpm test
     - name: Run coverage
-      if: ${{ matrix.node-version == '18.x' && matrix.factorio-version == '1.1.110' }}
+      if: ${{ matrix.node-version == '20.x' && matrix.factorio-version == '1.1.110' }}
       run: pnpm run ci-cover
     - name : Upload coverage to Codecov
-      if: ${{ matrix.node-version == '18.x' && matrix.factorio-version == '1.1.110' }}
+      if: ${{ matrix.node-version == '20.x' && matrix.factorio-version == '1.1.110' }}
       uses: codecov/codecov-action@v4
       with:
         files: ./coverage/lcov.info
