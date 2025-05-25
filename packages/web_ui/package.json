@@ -3,7 +3,7 @@
 	"description": "Clusterio web interface implementation",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.20.b",
+	"version": "2.0.0-alpha.21",
 	"browser": "src/index.ts",
 	"main": "dist/browser/src/index.js",
 	"scripts": {

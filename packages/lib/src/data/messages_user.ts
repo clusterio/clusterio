@@ -323,7 +323,7 @@ export class UserUpdatesEvent {
 }
 
 export class ClusterioUserExport {
-	public export_version = "2.0.0-alpha.20";
+	public export_version = "2.0.0-alpha.20"; // Only increment when jsonSchema changes
 
 	static clusterioUserSchema = Type.Object({
 		"username": Type.String(),

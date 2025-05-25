@@ -31,6 +31,52 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.21
+
+### Major Features
+
+- Added import, export, and restore of user lists (bans / admins / whitelist / combined). [#717](https://github.com/clusterio/clusterio/issues/717)
+- Added remote update for core packages and third party plugins. [#761](https://github.com/clusterio/clusterio/issues/761)
+- Added config cloning on instance creation. [#720](https://github.com/clusterio/clusterio/issues/720)
+
+### Features
+
+- Added social links and instructions to error page. [#742](https://github.com/clusterio/clusterio/issues/742)
+- Added button to download control config. [#740](https://github.com/clusterio/clusterio/issues/740)
+- Added server action filter (aka "chat filter") to instance log in web ui. [#744](https://github.com/clusterio/clusterio/issues/744)
+- Added `factorio.console_logging` to enable dedicated console log file for servers. [#748](https://github.com/clusterio/clusterio/issues/748)
+- Added a recovery mode to host and controller accessible as an option on the run command. [#752](https://github.com/clusterio/clusterio/issues/752)
+- Added username search to the users list. [#751](https://github.com/clusterio/clusterio/issues/751)
+- Added log level filtering to the web ui. [#745](https://github.com/clusterio/clusterio/issues/745)
+- Added pending update detection for host and controller. [#758](https://github.com/clusterio/clusterio/issues/758)
+- Added restart required indicator for host and controller. [#758](https://github.com/clusterio/clusterio/issues/758)
+- Added version mismatch indicator in host list. [#758](https://github.com/clusterio/clusterio/issues/758)
+- Added host plugin list command to crl where previously only controller plugin list existed. [#760](https://github.com/clusterio/clusterio/issues/760)
+- Added optional feature which allows new plugins to be installed remotely.
+- Added bidirectional whitelist syncing. [#716](https://github.com/clusterio/clusterio/issues/716)
+- Added support for v2 map exchange strings. [#700](https://github.com/clusterio/clusterio/issues/700)
+
+### Fixes
+
+- Fixed handling of zip files with multiple top-level folders. [#739](https://github.com/clusterio/clusterio/issues/739)
+- Fixed looping between instances of ban and admin sync events. [#736](https://github.com/clusterio/clusterio/issues/736)
+- Fixed quality being stripped from power armour equipment when moving between servers [#753](https://github.com/clusterio/clusterio/pull/753)
+- Resolved webpack type export warnings [#750](https://github.com/clusterio/clusterio/pull/750)
+- Reduce page load time on users list by enabling pagination. [#718](https://github.com/clusterio/clusterio/issues/718)
+- Corrected stack trace and enabled source mapping during bootstrap. [#764](https://github.com/clusterio/clusterio/pull/764)
+- Fixed map gen settings using the incorrect name for cliff settings following exchange string decode.
+
+### Meta
+
+- Silent testing is now truly silent. [#764](https://github.com/clusterio/clusterio/pull/764)
+- Node 18 has reached end of life and is no longer maintained, we no longer guarantee support for it.
+- CI testing now runs on node 20 & 22 as well as factorio 1.1.110 & 2.0.47.
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
+[@Hornwitser](https://github.com/Hornwitser)
+
 ## Version 2.0.0-alpha.20
 
 ### Features
