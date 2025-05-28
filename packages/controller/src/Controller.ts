@@ -6,7 +6,7 @@ import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
 
 import compression from "compression";
-import events, { EventEmitter } from "events";
+import events from "events";
 import fs from "fs-extra";
 import http from "http";
 import https from "https";
@@ -42,6 +42,14 @@ const logSizeGauge = new Gauge(
 
 type InstanceId = { instanceId: number };
 
+type ControllerDebugEvents = {
+	"message": [ { direction: "in" | "out", content: string } ],
+};
+
+type ControllerEvents = {
+	"stop": [],
+}
+
 /**
  * Manages all controller related operations
  * @alias module:controller/src/Controller
@@ -66,8 +74,8 @@ export default class Controller {
 	wsServer: WsServer;
 	router = new ControllerRouter(this);
 	trustedProxies: BlockList;
-	debugEvents: events.EventEmitter = new events.EventEmitter();
-	private _events: events.EventEmitter = new events.EventEmitter();
+	debugEvents = new events.EventEmitter<ControllerDebugEvents>();
+	private _events = new events.EventEmitter<ControllerEvents>();
 
 	/** Event subscription controller */
 	subscriptions = new lib.SubscriptionController();
