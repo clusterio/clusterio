@@ -1,8 +1,8 @@
 // Connection adapters for Links
 import { strict as assert } from "assert";
 import events from "events";
-import WebSocket from "./WebSocket";
 
+import WebSocket from "./WebSocket";
 import * as libData from "../data";
 import * as libErrors from "../errors";
 import { logger } from "../logging";
@@ -36,12 +36,18 @@ export enum ConnectionClosed {
 	RecoveryMode = 4001,
 };
 
+type BaseConnectorEvents = {
+	"message": [ message: libData.Message ],
+};
+
 /**
  * Base connector for links
  *
  * @extends events.EventEmitter
  */
-export abstract class BaseConnector extends events.EventEmitter {
+export abstract class BaseConnector<
+	E extends Record<string, any[]> = never, // Should be "extends EventMap"
+> extends events.EventEmitter<E | BaseConnectorEvents> {
 	protected _seq = 1;
 
 	constructor(
@@ -131,6 +137,12 @@ export abstract class BaseConnector extends events.EventEmitter {
 
 type ConnectorState = "closed" | "connecting" | "connected" | "resuming";
 
+type WebSocketBaseConnectorEvents = {
+	"disconnectReady": [],
+	"disconnectPrepare": [],
+	"close": [],
+};
+
 export type WebSocketClusterio = WebSocket.WebSocket & {
 	clusterio_ignore_dump?: boolean;
 };
@@ -140,7 +152,9 @@ export type WebSocketClusterio = WebSocket.WebSocket & {
  *
  * @extends module:lib.BaseConnector
  */
-export abstract class WebSocketBaseConnector extends BaseConnector {
+export abstract class WebSocketBaseConnector<
+	E extends Record<string, any[]> = never, // Should be "extends EventMap"
+> extends BaseConnector<E | WebSocketBaseConnectorEvents> {
 	// One of closed, connecting (client only), connected and resuming.
 	_state: ConnectorState = "closed";
 	_closing = false;
@@ -385,12 +399,21 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	}
 }
 
+type WebSocketClientConnectorEvents = {
+	"hello": [ data: any ],
+	"connect": [ data: any ],
+	"resume": [],
+	"drop": [],
+	"invalidate": [],
+	"error": [ err: libErrors.WebSocketError ],
+};
+
 /**
  * Connector for controller clients
  *
  * @extends module:lib.WebSocketBaseConnector
  */
-export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
+export abstract class WebSocketClientConnector extends WebSocketBaseConnector<WebSocketClientConnectorEvents> {
 	_reconnectId?: ReturnType<typeof setTimeout>;
 	_sessionToken: string | null = null;
 	_sessionTimeout: number | null = null;
