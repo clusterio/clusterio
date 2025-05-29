@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { EventEmitter } from "events";
 
-class Permission extends EventEmitter {
+type PermissionEvents = {
+	"change": [ status: string ]
+};
+
+class Permission extends EventEmitter<PermissionEvents> {
 	status!: { state: string };
 
 	constructor(name: PermissionName) {
