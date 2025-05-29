@@ -461,7 +461,7 @@ type FactorioServerEvents = {
 	"output": [ parsed: lib.ParsedFactorioOutput, line: string ]
 
 	"error": [ err: any ],
-	"rcon-ready": [ void ],
+	"rcon-ready": [],
 	"game-ready": [],
 	"exit": [],
 
@@ -1238,7 +1238,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
 			// Not using events.once here to avoid throwing on error events.
-			await new Promise(resolve => this.once("rcon-ready", resolve));
+			await new Promise<void>(resolve => this.once("rcon-ready", resolve));
 		}
 
 		// The Factorio server may have decided to get ahead of us and

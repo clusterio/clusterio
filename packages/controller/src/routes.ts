@@ -267,6 +267,7 @@ async function uploadExport(req: Request, res: Response) {
 }
 
 type ProxyStreamEvents = {
+	"error": [ err: any ],
 	"close": [],
 	"timeout": [],
 	"source": [],
