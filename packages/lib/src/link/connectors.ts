@@ -188,13 +188,18 @@ export abstract class WebSocketBaseConnector<
 	_invalidate() {
 		this._state = "connecting";
 		assert(this._closing === false);
-		assert(this._socket);
+		// We do not care about the socket state
 		this._lastHeartbeatMs = null;
 		assert(this._heartbeatId === null);
 		this._heartbeatInterval = null;
 		this._lastReceivedSeq = undefined;
 		this._sendBuffer.length = 0;
 		super._invalidate();
+	}
+
+	_close() {
+		this._reset();
+		this.emit("close");
 	}
 
 	_check(...expectedStates: ConnectorState[]) {
@@ -489,8 +494,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			await events.once(this, "close");
 
 		} else {
-			this._reset();
-			this.emit("close");
+			this._close();
 		}
 	}
 
@@ -515,8 +519,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			this._socket!.close(ConnectionClosed.NormalClosure, "Connector closing");
 
 		} else {
-			this._reset();
-			this.emit("close");
+			this._close();
 		}
 	}
 
@@ -572,13 +575,10 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			&& this._startedResumingMs! + this._sessionTimeout! * 1000 < Date.now() + delayMs
 		) {
 			logger.error("Connector | Session timed out trying to resume");
-			this._reset();
 			if (this._closing) {
-				this._reset();
-				this.emit("close");
+				this._close();
 			} else {
-				this._state = "connecting";
-				this.emit("invalidate");
+				this._invalidate();
 			}
 		}
 		logger.verbose(
@@ -630,8 +630,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			} else {
 				// eslint-disable-next-line no-lonely-if
 				if (this._closing) {
-					this._reset();
-					this.emit("close");
+					this._close();
 
 				} else {
 					this.reconnect();
@@ -737,8 +736,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 		} else if (type === "invalidate") {
 			logger.warn("Connector | session invalidated by controller");
 			if (this._closing) {
-				this._reset();
-				this.emit("close");
+				this._close();
 			} else {
 				this._invalidate();
 				this.register();
