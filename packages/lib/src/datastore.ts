@@ -30,7 +30,7 @@ export class MemoryDatastoreProvider<
 	V extends DatastoreValue,
 > extends DatastoreProvider<K, V> {
 	constructor(
-		private value: Map<K, V> = new Map()
+		private value = new Map<K, V>()
 	) {
 		super();
 	}
@@ -39,34 +39,33 @@ export class MemoryDatastoreProvider<
 		this.value = new Map(data);
 	}
 
-	async load() {
+	async load(): Promise<Map<K, V>> {
 		return new Map(this.value);
 	}
 }
 
 // Store all data within a json object file and validate the result against a schema
 export class JsonDatastoreProvider<
-	K extends DatastoreKey,
 	V extends DatastoreValue,
 	J, // Intermediate type returned from migrations
-> extends DatastoreProvider<K, V> {
+> extends DatastoreProvider<string, V> {
 	constructor(
 		private filePath: string,
-		private fromJson: (json: J) => V = v => v as any,
-		private migrations: (rawJson: Record<DatastoreKey, unknown>) => Record<DatastoreKey, J> = v => v as any,
+		private fromJson: (json: J) => V = v => v as any as V,
+		private migrations: (rawJson: Record<string, unknown>) => Record<string, J> = v => v as Record<string, J>,
 		private finalise: (obj: V) => V = v => v,
 	) {
 		super();
 	}
 
 	// Save the data to the json file
-	async save(data: Map<K, V>) {
+	async save(data: Map<string, V>) {
 		logger.verbose(`Saving ${this.filePath}`);
 		await safeOutputFile(this.filePath, JSON.stringify(Object.fromEntries(data), null, "\t"));
 	}
 
 	// Load the data from the json file
-	async load() {
+	async load(): Promise<Map<string, V>> {
 		// Read the raw json from the file
 		let rawJson;
 		try {
@@ -89,27 +88,26 @@ export class JsonDatastoreProvider<
 
 // Store all data within a json array file where each element has a unique id
 export class JsonIdDatastoreProvider<
-	K extends DatastoreKey,
-	V extends DatastoreValue & { id: K },
+	V extends DatastoreValue & { id: DatastoreKey },
 	J, // Intermediate type returned from migrations
-> extends DatastoreProvider<K, V> {
+> extends DatastoreProvider<V["id"], V> {
 	constructor(
 		private filePath: string,
-		private fromJson: (json: J) => V = v => v as any,
-		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as any,
+		private fromJson: (json: J) => V = v => v as any as V,
+		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as Array<J>,
 		private finalise: (obj: V) => V = v => v,
 	) {
 		super();
 	}
 
 	// Save the data to the json file
-	async save(data: Map<K, V>) {
+	async save(data: Map<V["id"], V>) {
 		logger.verbose(`Saving ${this.filePath}`);
 		await safeOutputFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
 	}
 
 	// Load the data from the json file
-	async load() {
+	async load(): Promise<Map<V["id"], V>> {
 		// Read the raw json from the file
 		let rawJson;
 		try {
@@ -217,7 +215,7 @@ export abstract class Datastore<
 export class KeyValueDatastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
-> extends Datastore<K, V, [K, V, isDeleted?: boolean]> {
+> extends Datastore<K, V, [key: K, value: V, isDeleted?: boolean]> {
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(key: K, value: V) {
 		this.data.set(key, value);
