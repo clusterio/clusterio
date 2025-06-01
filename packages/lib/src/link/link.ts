@@ -113,7 +113,7 @@ export class Link {
 		// Process messages received by the connector
 		connector.on("message", payload => {
 			try {
-				this._processMessage(payload);
+				this._processMessage(payload as MessageRoutable);
 			} catch (err) {
 				if (err instanceof libErrors.InvalidMessage) {
 					logger.error(err.message);
@@ -128,10 +128,10 @@ export class Link {
 			}
 		});
 
+		// The events below exist only on websocket connectors, we can't early return because of test mocking
+		const webSocketConnector = this.connector as WebSocketBaseConnector;
 		connector.on("disconnectPrepare", () => {
 			this.prepareDisconnect().finally(() => {
-				// Only WebSocket connectors issue disconnection events.
-				const webSocketConnector = this.connector as WebSocketBaseConnector;
 				if (webSocketConnector.hasSession) {
 					webSocketConnector.sendDisconnectReady();
 				}

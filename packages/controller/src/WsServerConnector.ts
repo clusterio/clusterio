@@ -1,6 +1,7 @@
 import type WebSocket from "ws";
 
 import events from "events";
+import assert from "assert/strict";
 
 import * as lib from "@clusterio/lib";
 const { logger } = lib;
@@ -113,8 +114,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 
 	_timedOut() {
 		logger.verbose("Connector | Connection timed out");
-		this._reset();
-		this.emit("close");
+		this._close();
 	}
 
 	_attachSocketHandlers() {
@@ -130,8 +130,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 			this._socket = null;
 
 			if (this._closing) {
-				this._reset();
-				this.emit("close");
+				this._close();
 
 			} else {
 				this._state = "resuming";
@@ -187,8 +186,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		}
 
 		if (this._state === "resuming") {
-			this._reset();
-			this.emit("close");
+			this._close();
 			return;
 		}
 
@@ -223,8 +221,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	 */
 	setClosing() {
 		if (this._state === "resuming") {
-			this._reset();
-			this.emit("close");
+			this._close();
 			return;
 		}
 

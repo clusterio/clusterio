@@ -1,11 +1,11 @@
+import path from "path";
 import fs from "fs-extra";
+import { EventEmitter } from "events";
 
 import { safeOutputFile } from "./file_ops";
 import { SubscribableValue } from "./subscriptions";
 import { logger } from "./logging";
-import { EventEmitter } from "stream";
 import { ControllerConfig } from "./config";
-import path from "path";
 
 type DatastoreKey = string | number;
 type DatastoreValue = string | number | boolean | object;
@@ -137,7 +137,10 @@ export class JsonIdDatastoreProvider<
 export abstract class Datastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
-> extends EventEmitter {
+	U = V,
+> extends EventEmitter<{
+	"update": [ updates: U[] ],
+}> {
 	private dirty = false;
 
 	constructor(
@@ -167,7 +170,7 @@ export abstract class Datastore<
 	}
 
 	// Set the dirty flag and call update handlers
-	protected touch(updates: any[]) {
+	protected touch(updates: U[]) {
 		if (updates.length) {
 			this.dirty = true;
 			this.emit("update", updates);
@@ -214,7 +217,7 @@ export abstract class Datastore<
 export class KeyValueDatastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
-> extends Datastore<K, V> {
+> extends Datastore<K, V, [K, V, isDeleted?: boolean]> {
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(key: K, value: V) {
 		this.data.set(key, value);

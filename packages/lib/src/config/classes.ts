@@ -1,8 +1,8 @@
 // Configuration classes
 import { Type, Static } from "@sinclair/typebox";
 import * as fs from "fs-extra";
+import events from "events";
 
-import TypedEventEmitter from "../TypedEventEmitter";
 import isDeepStrictEqual from "../is_deep_strict_equal";
 import { basicType } from "../helpers";
 import * as libSchema from "../schema";
@@ -152,7 +152,7 @@ function defaultValue(def: FieldDefinition) {
 }
 
 export type ConfigEvents = {
-	fieldChanged: (name: string, curr: FieldValue, prev: FieldValue) => void;
+	fieldChanged: [ name: string, curr: FieldValue, prev: FieldValue ],
 }
 
 export enum ConfigAccess {
@@ -178,10 +178,7 @@ export enum ConfigAccess {
  */
 export class Config<
 	Fields extends { [Field in keyof Fields]: FieldValue },
-> extends TypedEventEmitter<
-	keyof ConfigEvents,
-	ConfigEvents
-> {
+> extends events.EventEmitter<ConfigEvents> {
 	/**
 	 * Mapping of config name to field meta data
 	 * Note that mutating this object will lead to unexpected behaviour.

@@ -313,7 +313,7 @@ export default class ControlConnection extends BaseConnection {
 		let stream = await routes.createProxyStream(this._controller.app);
 		stream.filename = name;
 
-		let ready = new Promise((resolve, reject) => {
+		let ready = new Promise<void>((resolve, reject) => {
 			stream.events.on("source", resolve);
 			stream.events.on("timeout", () => reject(
 				new lib.RequestError("Timed out establishing stream from host")

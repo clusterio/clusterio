@@ -454,6 +454,32 @@ export interface FactorioServerOptions {
 	shutdownTimeoutMs?: number,
 }
 
+type FactorioServerEvents = {
+	// Public Events
+	"stdout": [ rawLine: Buffer ],
+	"stderr": [ rawLine: Buffer ],
+	"output": [ parsed: lib.ParsedFactorioOutput, line: string ]
+
+	"error": [ err: any ],
+	"rcon-ready": [],
+	"game-ready": [],
+	"exit": [],
+
+	"autosave-start": [ name: string ],
+	"autosave-finished": [ name: string ],
+	"save-finished": [],
+
+	"whitelist-change": [ added: string[], removed: string[] ],
+
+	// Private Events
+	"_autosave": [ name: string ]
+	"_saving": [],
+	"_saved": [],
+
+	// IPS events
+	[ipcEvent: `ipc-${string}`]: [ event: any ],
+};
+
 /**
  * Factorio Server interface
  *
@@ -473,7 +499,7 @@ export interface FactorioServerOptions {
  * - exit - invoked when the sterver has exited
  * @extends events.EventEmitter
  */
-export class FactorioServer extends events.EventEmitter {
+export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	/** Path to executable to invoke when starting the server */
 	executablePath?: string;
 	/** UDP port used for hosting the Factorio game server on */
@@ -1212,7 +1238,7 @@ export class FactorioServer extends events.EventEmitter {
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
 			// Not using events.once here to avoid throwing on error events.
-			await new Promise(resolve => this.once("rcon-ready", resolve));
+			await new Promise<void>(resolve => this.once("rcon-ready", resolve));
 		}
 
 		// The Factorio server may have decided to get ahead of us and

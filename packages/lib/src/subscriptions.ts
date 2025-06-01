@@ -222,10 +222,12 @@ export class EventSubscriber<
 		public control: Link,
 	) {
 		control.handle(Event, this._handleEvent.bind(this));
-		control.connector.on("connect", () => {
+		// The events below exist only on websocket connectors, we can't early return because of test mocking
+		const webSocketConnector = control.connector as WebSocketBaseConnector;
+		webSocketConnector.on("connect", () => {
 			this.handleConnectionEvent("connect");
 		});
-		control.connector.on("close", () => {
+		webSocketConnector.on("close", () => {
 			this.handleConnectionEvent("close");
 		});
 	}
