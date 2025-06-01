@@ -7,6 +7,7 @@
  * @module lib/users
  */
 import { Permission, Role } from "./data";
+import { SubscribableDatastore } from "./datastore";
 
 
 export const permissions = new Map<string, Permission>();
@@ -66,7 +67,7 @@ export function definePermission({
  * @param roles - role storage to modify.
  * @returns the default admin role
  */
-export function ensureDefaultAdminRole(roles: Map<number, Role>) {
+export function ensureDefaultAdminRole(roles: SubscribableDatastore<Role>) {
 	let admin = roles.get(0);
 	if (!admin) {
 		admin = Role.fromJSON({
@@ -75,9 +76,9 @@ export function ensureDefaultAdminRole(roles: Map<number, Role>) {
 			description: "Cluster wide administrator.",
 			permissions: [],
 		});
-		roles.set(0, admin);
 	}
 	admin.permissions.add("core.admin");
+	roles.set(admin);
 	return admin;
 }
 
@@ -90,7 +91,7 @@ export function ensureDefaultAdminRole(roles: Map<number, Role>) {
  *
  * @param roles - role storage to modify.
  */
-export function ensureDefaultPlayerRole(roles: Map<number, Role>) {
+export function ensureDefaultPlayerRole(roles: SubscribableDatastore<Role>) {
 	let player = roles.get(1);
 	if (!player) {
 		player = Role.fromJSON({
@@ -99,9 +100,9 @@ export function ensureDefaultPlayerRole(roles: Map<number, Role>) {
 			description: "Default player role.",
 			permissions: [],
 		});
-		roles.set(1, player);
 	}
 	player.grantDefaultPermissions();
+	roles.set(player);
 }
 
 

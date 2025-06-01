@@ -671,22 +671,21 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleRoleListRequest() {
-		return [...this._controller.userManager.roles.values()];
+		return [...this._controller.roles.values()];
 	}
 
 	async handleRoleCreateRequest(request: lib.RoleCreateRequest) {
-		let lastId = Math.max.apply(null, [...this._controller.userManager.roles.keys()]);
+		let lastId = Math.max.apply(null, [...this._controller.roles.keys()]);
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		this._controller.userManager.roles.set(id, lib.Role.fromJSON({ id, ...request }));
-		this._controller.userManager.dirty = true;
+		this._controller.roles.set(lib.Role.fromJSON({ id, ...request }));
 		return id;
 	}
 
 	async handleRoleUpdateRequest(request: lib.RoleUpdateRequest) {
 		let { id, name, description, permissions } = request;
-		let role = this._controller.userManager.roles.get(id);
+		let role = this._controller.roles.getMutable(id);
 		if (!role) {
 			throw new lib.RequestError(`Role with ID ${id} does not exist`);
 		}
@@ -694,27 +693,29 @@ export default class ControlConnection extends BaseConnection {
 		role.name = name;
 		role.description = description;
 		role.permissions = new Set(permissions);
-		this._controller.rolePermissionsUpdated(role);
+		this._controller.roles.set(role);
 	}
 
 	async handleRoleGrantDefaultPermissionsRequest(request: lib.RoleGrantDefaultPermissionsRequest) {
-		let role = this._controller.userManager.roles.get(request.id);
+		let role = this._controller.roles.get(request.id);
 		if (!role) {
 			throw new lib.RequestError(`Role with ID ${request.id} does not exist`);
 		}
 
 		role.grantDefaultPermissions();
-		this._controller.rolePermissionsUpdated(role);
+		this._controller.roles.set(role);
 	}
 
 	async handleRoleDeleteRequest(request: lib.RoleDeleteRequest) {
 		let id = request.id;
 
-		if (!this._controller.userManager.roles.delete(id)) {
+		const role = this._controller.roles.get(id);
+		if (!role) {
 			throw new lib.RequestError(`Role with ID ${id} does not exist`);
 		}
-		this._controller.userManager.dirty = true;
+		this._controller.roles.delete(role);
 
+		this._controller.userManager.dirty = true;
 		for (let user of this._controller.userManager.users.values()) {
 			if (user.roleIds.delete(id)) {
 				this._controller.userPermissionsUpdated(user);
@@ -766,7 +767,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		for (let roleId of request.roles) {
-			if (!this._controller.userManager.roles.has(roleId)) {
+			if (!this._controller.roles.has(roleId)) {
 				throw new lib.RequestError(`Role with ID ${roleId} does not exist`);
 			}
 		}

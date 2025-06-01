@@ -6,6 +6,7 @@
 		"./src/api.ts",
 		"./src/config/*.ts",
 		"./src/data/*.ts",
+		"./src/datastore.ts",
 		"./src/errors.ts",
 		"./src/factorio/exchange_string.ts",
 		"./src/helpers.ts",

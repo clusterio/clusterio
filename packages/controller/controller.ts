@@ -130,8 +130,16 @@ async function handleBootstrapCommand(
 	controllerConfig: lib.ControllerConfig
 ): Promise<void> {
 	let subCommand = args._[1];
-	let userManager = new UserManager(controllerConfig);
-	await userManager.load(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
+
+	const databaseDirectory = controllerConfig.get("controller.database_directory");
+	const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		path.join(databaseDirectory, "roles.json"),
+		lib.Role.fromJSON.bind(lib.Role),
+	).bootstrap());
+
+	const userManager = new UserManager(controllerConfig, roles);
+	await userManager.load(path.join(databaseDirectory, "users.json"));
+
 	if (subCommand === "create-admin") {
 		if (!args.name) {
 			logger.error("name cannot be blank");
@@ -144,7 +152,7 @@ async function handleBootstrapCommand(
 			admin = userManager.createUser(args.name);
 		}
 
-		let adminRole = lib.ensureDefaultAdminRole(userManager.roles);
+		let adminRole = lib.ensureDefaultAdminRole(roles);
 		admin.roleIds.add(adminRole.id);
 		admin.isAdmin = true;
 		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));

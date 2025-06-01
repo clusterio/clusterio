@@ -138,16 +138,26 @@ export default class Controller {
 			lib.ModPack.fromJSON.bind(lib.ModPack)
 		).bootstrap());
 
-		if (modPacks.size === 0) {
-			modPacks.setMany(lib.ModPack.defaultModPacks);
-		}
+		const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "roles.json"),
+			lib.Role.fromJSON.bind(lib.Role),
+		).bootstrap());
 
-		const userManager = new UserManager(config);
+		const userManager = new UserManager(config, roles);
 		await userManager.load(path.join(databaseDirectory, "users.json"));
 
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.ensureDir(modsDirectory);
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
+
+		// Add default mod packs
+		if (modPacks.size === 0) {
+			modPacks.setMany(lib.ModPack.defaultModPacks);
+		}
+
+		// Add default roles
+		lib.ensureDefaultAdminRole(roles);
+		lib.ensureDefaultPlayerRole(roles);
 
 		return [
 			systems,
@@ -156,6 +166,7 @@ export default class Controller {
 			saves,
 			modPacks,
 			modStore,
+			roles,
 			userManager,
 		] as const;
 	}
@@ -186,8 +197,10 @@ export default class Controller {
 		public modPacks = new lib.SubscribableDatastore<lib.ModPack>(),
 		/** Mods stored on the controller */
 		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
+		/** Mapping of mod pack id to mod pack */
+		public roles = new lib.SubscribableDatastore<lib.Role>(),
 		/** User and roles manager for the cluster */
-		public userManager = new UserManager(config),
+		public userManager = new UserManager(config, roles),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -221,6 +234,7 @@ export default class Controller {
 		this.instances.on("update", this.instanceDetailsUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
+		this.roles.on("update", this.rolesUpdated.bind(this));
 	}
 
 	async start(args: ControllerArgs) {
@@ -597,6 +611,7 @@ export default class Controller {
 			this.instances.save(),
 			this.saves.save(),
 			this.modPacks.save(),
+			this.roles.save(),
 		]);
 
 		if (this.userManager.dirty) {
@@ -1063,20 +1078,22 @@ export default class Controller {
 	/**
 	 * Notify connected control clients with the given role that the
 	 * permissions may have changed.
-	 * @param role - Role permisions updated for.
+	 * @param roles - Roles updated.
 	 */
-	rolePermissionsUpdated(role: lib.Role) {
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.user.roles.has(role)) {
-				controlConnection.send(
-					new lib.AccountUpdateEvent(
-						[...controlConnection.user.roles].map(r => ({
-							name: r.name,
-							id: r.id,
-							permissions: [...r.permissions],
-						}))
-					)
-				);
+	rolesUpdated(roles: lib.Role[]) {
+		for (const role of roles) {
+			for (let controlConnection of this.wsServer.controlConnections.values()) {
+				if (controlConnection.user.roles.has(role)) {
+					controlConnection.send(
+						new lib.AccountUpdateEvent(
+							[...controlConnection.user.roles].map(r => ({
+								name: r.name,
+								id: r.id,
+								permissions: [...r.permissions],
+							}))
+						)
+					);
+				}
 			}
 		}
 	}

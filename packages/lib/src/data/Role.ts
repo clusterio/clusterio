@@ -10,6 +10,8 @@ export default class Role {
 		public name: string,
 		public description: string,
 		public permissions: Set<string>,
+		public updatedAtMs = 0,
+		public isDeleted = false,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -17,6 +19,8 @@ export default class Role {
 		name: Type.String(),
 		description: Type.String(),
 		permissions: Type.Array(Type.String()),
+		updated_at_ms: Type.Optional(Type.Number()),
+		is_deleted: Type.Optional(Type.Boolean()),
 	});
 
 	static remapPermission(permission: string) {
@@ -33,6 +37,8 @@ export default class Role {
 			json.name,
 			json.description,
 			new Set(json.permissions.map(this.remapPermission)),
+			json.updated_at_ms,
+			json.is_deleted,
 		);
 	}
 
@@ -42,6 +48,8 @@ export default class Role {
 			name: this.name,
 			description: this.description,
 			permissions: [...this.permissions],
+			updated_at_ms: this.updatedAtMs,
+			is_deleted: this.isDeleted,
 		};
 	}
 

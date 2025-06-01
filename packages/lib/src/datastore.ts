@@ -209,6 +209,10 @@ export abstract class Datastore<
 	valuesMutable() {
 		return this.data.values();
 	}
+
+	keys() {
+		return this.data.keys();
+	}
 }
 
 // General key value mapping which can be saved and loaded with the file system
@@ -233,8 +237,10 @@ export class KeyValueDatastore<
 	// Delete a value in the datastore
 	delete(key: K) {
 		const value = this.data.get(key);
-		this.data.delete(key);
-		this.touch([[key, value!, true]]);
+		if (value !== undefined) {
+			this.data.delete(key);
+			this.touch([[key, value, true]]);
+		}
 	}
 
 	// Delete many values at once from an array of keys
