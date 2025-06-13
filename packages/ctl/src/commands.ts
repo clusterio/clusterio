@@ -197,28 +197,24 @@ controllerConfigCommands.add(new lib.Command({
 		editorSpawn.on("data", (data) => {
 			process.stdout.pipe(data);
 		});
-		let doneEmitter = new events.EventEmitter();
-		editorSpawn.on("exit", async (exit) => {
-			const data = await fs.readFile(tmpFile, "utf8");
-			const final = await configToKeyVal(data);
-			for (let index in final) {
-				if (index in final) {
-					try {
-						await control.send(new lib.ControllerConfigSetFieldRequest(
-							index,
-							final[index],
-						));
-					} catch (err) {
-						// eslint-disable-next-line
-						print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
-						print(err);
-						// If the string is empty, it's better to just print "" instead of nothing
-					}
+		await events.once(editorSpawn, "exit");
+		const data = await fs.readFile(tmpFile, "utf8");
+		const final = await configToKeyVal(data);
+		for (let index in final) {
+			if (index in final) {
+				try {
+					await control.send(new lib.ControllerConfigSetFieldRequest(
+						index,
+						final[index],
+					));
+				} catch (err) {
+					// eslint-disable-next-line
+					print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+					print(err);
+					// If the string is empty, it's better to just print "" instead of nothing
 				}
 			}
-			doneEmitter.emit("dot_on_done");
-		});
-		await events.once(doneEmitter, "dot_on_done");
+		}
 		try {
 			await fs.unlink(tmpFile);
 		} catch (err) {
@@ -487,33 +483,29 @@ hostConfigCommands.add(new lib.Command({
 		editorSpawn.on("data", (data) => {
 			process.stdout.pipe(data);
 		});
-		let doneEmitter = new events.EventEmitter();
-		editorSpawn.on("exit", async (exit) => {
-			const data = await fs.readFile(tmpFile, "utf8");
-			const final = await configToKeyVal(data);
-			for (let index in final) {
-				if (index in final) {
-					try {
-						await control.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(
-							index,
-							final[index],
-						));
-					} catch (err) {
-						// eslint-disable-next-line
-						print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
-						// If the string is empty, it's better to just print "" instead of nothing
-						print("This message shouldn't normally appear; if the below message does not indicate it");
-						print("was a user mistake, please report it to the clustorio devs.");
-						// added this because it could be a missed entry in disallowedList
-						// i've added all the vanilla clustorio configs, but there may be
-						// some modded ones that need to be added.
-						print(err);
-					}
+		await events.once(editorSpawn, "exit");
+		const data = await fs.readFile(tmpFile, "utf8");
+		const final = await configToKeyVal(data);
+		for (let index in final) {
+			if (index in final) {
+				try {
+					await control.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(
+						index,
+						final[index],
+					));
+				} catch (err) {
+					// eslint-disable-next-line
+					print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+					// If the string is empty, it's better to just print "" instead of nothing
+					print("This message shouldn't normally appear; if the below message does not indicate it");
+					print("was a user mistake, please report it to the clustorio devs.");
+					// added this because it could be a missed entry in disallowedList
+					// i've added all the vanilla clustorio configs, but there may be
+					// some modded ones that need to be added.
+					print(err);
 				}
 			}
-			doneEmitter.emit("dot_on_done");
-		});
-		await events.once(doneEmitter, "dot_on_done");
+		}
 		try {
 			await fs.unlink(tmpFile);
 		} catch (err) {
@@ -732,34 +724,30 @@ instanceConfigCommands.add(new lib.Command({
 		editorSpawn.on("data", (data) => {
 			process.stdout.pipe(data);
 		});
-		let doneEmitter = new events.EventEmitter();
-		editorSpawn.on("exit", async (exit) => {
-			const data = await fs.readFile(tmpFile, "utf8");
-			const final = await configToKeyVal(data);
-			for (let index in final) {
-				if (index in final) {
-					try {
-						await control.send(new lib.InstanceConfigSetFieldRequest(
-							instanceId,
-							index,
-							final[index],
-						));
-					} catch (err) {
-						// eslint-disable-next-line
-						print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
-						// If the string is empty, it's better to just print "" instead of nothing
-						print("This message shouldn't normally appear; if the below message does not indicate it");
-						print("was a user mistake, please report it to the clustorio devs.");
-						// added this because it could be a missed entry in disallowedList
-						// i've added all the vanilla clustorio configs, but there may be
-						// some modded ones that need to be added.
-						print(err);
-					}
+		await events.once(editorSpawn, "exit");
+		const data = await fs.readFile(tmpFile, "utf8");
+		const final = await configToKeyVal(data);
+		for (let index in final) {
+			if (index in final) {
+				try {
+					await control.send(new lib.InstanceConfigSetFieldRequest(
+						instanceId,
+						index,
+						final[index],
+					));
+				} catch (err) {
+					// eslint-disable-next-line
+					print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+					// If the string is empty, it's better to just print "" instead of nothing
+					print("This message shouldn't normally appear; if the below message does not indicate it");
+					print("was a user mistake, please report it to the clustorio devs.");
+					// added this because it could be a missed entry in disallowedList
+					// i've added all the vanilla clustorio configs, but there may be
+					// some modded ones that need to be added.
+					print(err);
 				}
 			}
-			doneEmitter.emit("dot_on_done");
-		});
-		await events.once(doneEmitter, "dot_on_done");
+		}
 		try {
 			await fs.unlink(tmpFile);
 		} catch (err) {

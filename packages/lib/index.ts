@@ -35,4 +35,3 @@ export * from "./src/rce_ops";
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as ModStore } from "./src/ModStore";
 export { default as RateLimiter } from "./src/RateLimiter";
-export { default as TypedEventEmitter } from "./src/TypedEventEmitter";

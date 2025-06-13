@@ -266,6 +266,12 @@ async function uploadExport(req: Request, res: Response) {
 	res.sendStatus(200);
 }
 
+type ProxyStreamEvents = {
+	"error": [ err: any ],
+	"close": [],
+	"timeout": [],
+	"source": [],
+}
 
 export interface ProxyStream {
 	id: string;
@@ -274,7 +280,7 @@ export interface ProxyStream {
 	size?: string;
 	mime?: string;
 	filename: string | null;
-	events: events.EventEmitter;
+	events: events.EventEmitter<ProxyStreamEvents>;
 	timeout: ReturnType<typeof setTimeout>;
 }
 

@@ -1,16 +1,16 @@
 import fs from "fs-extra";
 import path from "path";
+import events from "events";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
-import { integerModVersion, ModInfo, ModPack, ModRecord } from "./data";
-import TypedEventEmitter from "./TypedEventEmitter";
+import { ModInfo, ModPack } from "./data";
 import { safeOutputFile } from "./file_ops";
 import { Writable } from "stream";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema } from "./data/messages_mod";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
-	change: (mod: ModInfo) => void;
+	"change": [ mod: ModInfo ];
 }
 
 interface ModsInfoResponse {
@@ -37,7 +37,7 @@ interface ModPortalResponse {
 	results: Static<typeof ModPortalDetailsSchema>[];
 }
 
-export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, ModStoreEvents> {
+export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	constructor(
 		public modsDirectory: string,
 		public files: Map<string, ModInfo>,

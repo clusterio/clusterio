@@ -1,8 +1,8 @@
 // Connection adapters for Links
 import { strict as assert } from "assert";
 import events from "events";
-import WebSocket from "./WebSocket";
 
+import WebSocket from "./WebSocket";
 import * as libData from "../data";
 import * as libErrors from "../errors";
 import { logger } from "../logging";
@@ -36,12 +36,21 @@ export enum ConnectionClosed {
 	RecoveryMode = 4001,
 };
 
+type BaseConnectorEvents = {
+	"message": [ message: libData.Message ],
+	"error": [ err: any ],
+	"invalidate": [],
+	"reset": [],
+};
+
 /**
  * Base connector for links
  *
  * @extends events.EventEmitter
  */
-export abstract class BaseConnector extends events.EventEmitter {
+export abstract class BaseConnector<
+	E extends Record<string, any[]> | [never] = [never], // Should be "extends EventMap = DefaultEventMap"
+> extends events.EventEmitter<E | BaseConnectorEvents> {
 	protected _seq = 1;
 
 	constructor(
@@ -53,10 +62,12 @@ export abstract class BaseConnector extends events.EventEmitter {
 
 	_reset() {
 		this._seq = 1;
+		this.emit("reset");
 	}
 
 	_invalidate() {
 		this._seq = 1;
+		this.emit("invalidate");
 	}
 
 	protected abstract send(message: libData.MessageRoutable): void;
@@ -131,6 +142,15 @@ export abstract class BaseConnector extends events.EventEmitter {
 
 type ConnectorState = "closed" | "connecting" | "connected" | "resuming";
 
+type WebSocketBaseConnectorEvents = {
+	"disconnectReady": [],
+	"disconnectPrepare": [],
+	"connect": [ data: any ],
+	"resume": [],
+	"close": [],
+	"drop": [],
+};
+
 export type WebSocketClusterio = WebSocket.WebSocket & {
 	clusterio_ignore_dump?: boolean;
 };
@@ -140,7 +160,9 @@ export type WebSocketClusterio = WebSocket.WebSocket & {
  *
  * @extends module:lib.BaseConnector
  */
-export abstract class WebSocketBaseConnector extends BaseConnector {
+export abstract class WebSocketBaseConnector<
+	E extends Record<string, any[]> | [never] = [never], // Should be "extends EventMap = DefaultEventMap"
+> extends BaseConnector<E | WebSocketBaseConnectorEvents> {
 	// One of closed, connecting (client only), connected and resuming.
 	_state: ConnectorState = "closed";
 	_closing = false;
@@ -166,13 +188,18 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	_invalidate() {
 		this._state = "connecting";
 		assert(this._closing === false);
-		assert(this._socket);
+		// We do not care about the socket state
 		this._lastHeartbeatMs = null;
 		assert(this._heartbeatId === null);
 		this._heartbeatInterval = null;
 		this._lastReceivedSeq = undefined;
 		this._sendBuffer.length = 0;
 		super._invalidate();
+	}
+
+	_close() {
+		this._reset();
+		this.emit("close");
 	}
 
 	_check(...expectedStates: ConnectorState[]) {
@@ -385,12 +412,16 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	}
 }
 
+type WebSocketClientConnectorEvents = {
+	"hello": [ data: any ],
+};
+
 /**
  * Connector for controller clients
  *
  * @extends module:lib.WebSocketBaseConnector
  */
-export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
+export abstract class WebSocketClientConnector extends WebSocketBaseConnector<WebSocketClientConnectorEvents> {
 	_reconnectId?: ReturnType<typeof setTimeout>;
 	_sessionToken: string | null = null;
 	_sessionTimeout: number | null = null;
@@ -418,8 +449,8 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		this._sessionToken = null;
 		this._sessionTimeout = null;
 		this._startedResumingMs = null;
-		super._reset();
 		this.src = undefined as any;
+		super._reset();
 	}
 
 	_invalidate() {
@@ -427,8 +458,8 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		this._sessionToken = null;
 		this._sessionTimeout = null;
 		this._startedResumingMs = null;
-		super._invalidate();
 		this.src = undefined as any;
+		super._invalidate();
 	}
 
 	/**
@@ -463,8 +494,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			await events.once(this, "close");
 
 		} else {
-			this._reset();
-			this.emit("close");
+			this._close();
 		}
 	}
 
@@ -489,8 +519,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._socket!.close(ConnectionClosed.NormalClosure, "Connector closing");
 
 		} else {
-			this._reset();
-			this.emit("close");
+			this._close();
 		}
 	}
 
@@ -546,13 +575,10 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			&& this._startedResumingMs! + this._sessionTimeout! * 1000 < Date.now() + delayMs
 		) {
 			logger.error("Connector | Session timed out trying to resume");
-			this._reset();
 			if (this._closing) {
-				this._reset();
-				this.emit("close");
+				this._close();
 			} else {
-				this._state = "connecting";
-				this.emit("invalidate");
+				this._invalidate();
 			}
 		}
 		logger.verbose(
@@ -604,8 +630,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			} else {
 				// eslint-disable-next-line no-lonely-if
 				if (this._closing) {
-					this._reset();
-					this.emit("close");
+					this._close();
 
 				} else {
 					this.reconnect();
@@ -711,11 +736,9 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		} else if (type === "invalidate") {
 			logger.warn("Connector | session invalidated by controller");
 			if (this._closing) {
-				this._reset();
-				this.emit("close");
+				this._close();
 			} else {
 				this._invalidate();
-				this.emit("invalidate");
 				this.register();
 			}
 		}
