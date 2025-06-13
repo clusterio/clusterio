@@ -433,6 +433,12 @@ definePermission({
 	grantByDefault: true,
 });
 definePermission({
+	name: "core.role.subscribe",
+	title: "Subscribe to role updates",
+	description: "Subscribe to be notified on updates on the details of roles.",
+	grantByDefault: true,
+});
+definePermission({
 	name: "core.role.create",
 	title: "Create role",
 	description: "Create new roles with permissions.",

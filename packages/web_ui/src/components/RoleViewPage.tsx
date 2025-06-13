@@ -5,36 +5,13 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import * as lib from "@clusterio/lib";
 
+import { useRole } from "../model/roles";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
-
-
-function useRole(id: number): [Readonly<lib.Role> | undefined, boolean, () => void] {
-	let control = useContext(ControlContext);
-	let [role, setRole] = useState<lib.Role>();
-	let [synced, setSynced] = useState(false);
-
-	function updateRole() {
-		// XXX optimize by requesting only the role in question
-		control.send(new lib.RoleListRequest()).then(roles => {
-			let match = roles.find(u => u.id === id);
-			if (match) {
-				setRole(match);
-			}
-			setSynced(true);
-		});
-	}
-
-	useEffect(() => {
-		updateRole();
-	}, [id]);
-
-	return [role, synced, updateRole];
-}
 
 export default function RoleViewPage() {
 	let params = useParams();
@@ -44,7 +21,7 @@ export default function RoleViewPage() {
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	const [role, synced, updateRole] = useRole(roleId);
+	const [role, synced] = useRole(roleId);
 	let [edited, setEdited] = useState(false);
 
 
@@ -63,6 +40,7 @@ export default function RoleViewPage() {
 		</PageLayout>;
 	}
 
+	// TODO: Update displayed perms when role perms change and have not been edited locally
 	let initialValues = {
 		name: role["name"],
 		description: role["description"],
@@ -88,7 +66,6 @@ export default function RoleViewPage() {
 					new lib.RoleUpdateRequest(roleId, values.name || "", values.description || "", newPermissions)
 				).then(() => {
 					setEdited(false);
-					updateRole();
 				}).catch(notifyErrorHandler("Error applying changes"));
 			}}
 		>

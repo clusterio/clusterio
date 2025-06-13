@@ -141,6 +141,7 @@ export default class Controller {
 		const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "roles.json"),
 			lib.Role.fromJSON.bind(lib.Role),
+			this.migrateRoles,
 		).bootstrap());
 
 		const userManager = new UserManager(config, roles);
@@ -227,6 +228,7 @@ export default class Controller {
 		this.subscriptions.handle(lib.ModPackUpdatesEvent, this.handleModPackSubscription.bind(this));
 		this.subscriptions.handle(lib.ModUpdatesEvent, this.handleModSubscription.bind(this));
 		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
+		this.subscriptions.handle(lib.RoleUpdatesEvent, this.handleRoleSubscription.bind(this));
 
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
@@ -672,6 +674,20 @@ export default class Controller {
 		return instance;
 	}
 
+	static migrateRoles(rawJson: unknown[]): Static<typeof lib.Role.jsonSchema>[] {
+		const serialized = rawJson as Static<typeof lib.Role.jsonSchema>[];
+		return serialized.map(json => {
+			json.permissions = json.permissions.map(permission => {
+				// migrate: core.instance.save.list.subscribe was renamed in alpha 17
+				if (permission === "core.instance.save.list.subscribe") {
+					return "core.instance.save.subscribe";
+				}
+				return permission;
+			});
+			return json;
+		});
+	}
+
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
 		let manifest = {};
 		try {
@@ -1075,12 +1091,10 @@ export default class Controller {
 		}
 	}
 
-	/**
-	 * Notify connected control clients with the given role that the
-	 * permissions may have changed.
-	 * @param roles - Roles updated.
-	 */
 	rolesUpdated(roles: lib.Role[]) {
+		this.subscriptions.broadcast(new lib.RoleUpdatesEvent(roles));
+		// lib.invokeHook(this.plugins, "onRolesUpdated", roles); // This doesn't exist at the moment
+		// Notify connected control clients with the given role that the permissions may have changed.
 		for (const role of roles) {
 			for (let controlConnection of this.wsServer.controlConnections.values()) {
 				if (controlConnection.user.roles.has(role)) {
@@ -1096,6 +1110,13 @@ export default class Controller {
 				}
 			}
 		}
+	}
+
+	async handleRoleSubscription(request: lib.SubscriptionRequest) {
+		const roles = [...this.roles.values()].filter(
+			role => role.updatedAtMs > request.lastRequestTimeMs,
+		);
+		return roles.length ? new lib.RoleUpdatesEvent(roles) : null;
 	}
 
 	async loadPlugins() {

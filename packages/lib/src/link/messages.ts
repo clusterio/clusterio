@@ -4,6 +4,7 @@ import * as host from "../data/messages_host";
 import * as instance from "../data/messages_instance";
 import * as mod from "../data/messages_mod";
 import * as user from "../data/messages_user";
+import * as role from "../data/messages_role";
 import * as plugin from "../data/messages_plugin";
 import * as subscriptions from "../subscriptions";
 import type { RequestClass, EventClass } from "./link";
@@ -107,12 +108,14 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	mod.ModUpdatesEvent,
 	mod.ModPortalDownloadRequest,
 
-	user.PermissionListRequest,
-	user.RoleListRequest,
-	user.RoleCreateRequest,
-	user.RoleUpdateRequest,
-	user.RoleGrantDefaultPermissionsRequest,
-	user.RoleDeleteRequest,
+	role.PermissionListRequest,
+	role.RoleListRequest,
+	role.RoleUpdatesEvent,
+	role.RoleCreateRequest,
+	role.RoleUpdateRequest,
+	role.RoleGrantDefaultPermissionsRequest,
+	role.RoleDeleteRequest,
+
 	user.UserGetRequest,
 	user.UserListRequest,
 	user.UserCreateRequest,

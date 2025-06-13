@@ -67,6 +67,7 @@ export class Control extends lib.Link {
 	modPacks = new lib.EventSubscriber(lib.ModPackUpdatesEvent, this);
 	mods = new lib.EventSubscriber(lib.ModUpdatesEvent, this);
 	users = new lib.EventSubscriber(lib.UserUpdatesEvent, this);
+	roles = new lib.EventSubscriber(lib.RoleUpdatesEvent, this);
 
 	declare connector: ControlConnector;
 

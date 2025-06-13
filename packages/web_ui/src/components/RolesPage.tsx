@@ -4,6 +4,7 @@ import { Button, Form, Input, Modal, Table } from "antd";
 
 import * as lib from "@clusterio/lib";
 
+import { useRoles } from "../model/roles";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -60,16 +61,8 @@ function CreateRoleButton() {
 
 export default function RolesPage() {
 	let account = useAccount();
-	let control = useContext(ControlContext);
 	let navigate = useNavigate();
-
-	let [roles, setRoles] = useState<lib.Role[]>([]);
-
-	useEffect(() => {
-		control.send(new lib.RoleListRequest()).then(newRoles => {
-			setRoles(newRoles);
-		}).catch(notifyErrorHandler("Error fetching role list"));
-	}, []);
+	const [roles] = useRoles();
 
 	return <PageLayout nav={[{ name: "Roles" }]}>
 		<PageHeader
@@ -88,7 +81,7 @@ export default function RolesPage() {
 					dataIndex: "description",
 				},
 			]}
-			dataSource={roles}
+			dataSource={[...roles.values()]}
 			pagination={false}
 			rowKey={role => role.id}
 			onRow={(role, rowIndex) => ({
