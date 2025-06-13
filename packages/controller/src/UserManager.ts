@@ -10,7 +10,6 @@ import ControllerUser from "./ControllerUser";
  * @alias module:controller/src/UserManager
  */
 export default class UserManager {
-	roles: Map<lib.Role["id"], lib.Role> = new Map();
 	users: Map<ControllerUser["id"], ControllerUser> = new Map();
 	dirty = false;
 
@@ -20,7 +19,8 @@ export default class UserManager {
 	onlineUsers = new Set<ControllerUser>();
 
 	constructor(
-		private _config: lib.ControllerConfig
+		private _config: lib.ControllerConfig,
+		private _roles: lib.SubscribableDatastore<lib.Role>,
 	) {
 	}
 
@@ -31,14 +31,15 @@ export default class UserManager {
 	async load(filePath: string): Promise<void> {
 		try {
 			let content = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
-			for (let serializedRole of content.roles) {
-				let role = lib.Role.fromJSON(serializedRole);
-				this.roles.set(role.id, role);
+			if ("roles" in content) { // Split file format after 2.0.0-alpha.22
+				this._roles.setMany(content.roles.map((serializedRole: any) => lib.Role.fromJSON(serializedRole)));
+				await this._roles.save(); // Force a save to prevent data loss
+				content = content.users;
 			}
 
 			let duplicates = 0;
-			for (let serializedUser of content.users) {
-				let user = ControllerUser.fromJSON(serializedUser, this);
+			for (const serializedUser of content) {
+				const user = ControllerUser.fromJSON(serializedUser, this._roles);
 				const existingUser = this.users.get(user.id);
 				if (existingUser) {
 					// Required migration to all lowercase ids in alpha 19
@@ -65,30 +66,14 @@ export default class UserManager {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
-
-			// Create default roles if loading failed
-			lib.ensureDefaultAdminRole(this.roles);
-			lib.ensureDefaultPlayerRole(this.roles);
 		}
 	}
 
 	async save(filePath: string): Promise<void> {
-		let serializedRoles = [];
-		for (let role of this.roles.values()) {
-			serializedRoles.push(role.toJSON());
-		}
-
-		let serializedUsers = [];
-		for (let user of this.users.values()) {
-			serializedUsers.push(user.toJSON(true));
-		}
-
-		let serialized = {
-			users: serializedUsers,
-			roles: serializedRoles,
-		};
 		this.dirty = false;
-		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
+		await lib.safeOutputFile(filePath,
+			JSON.stringify([...this.users.values()].map(user => user.toJSON(true)), null, "\t")
+		);
 	}
 
 	/**
@@ -103,11 +88,11 @@ export default class UserManager {
 
 		let roles = new Set<number>();
 		let defaultRoleId = this._config.get("controller.default_role_id");
-		if (defaultRoleId !== null && this.roles.has(defaultRoleId)) {
+		if (defaultRoleId !== null && this._roles.has(defaultRoleId)) {
 			roles.add(defaultRoleId);
 		}
 
-		let user = new ControllerUser(this, 0, name, roles);
+		let user = new ControllerUser(this._roles, 0, name, roles);
 		this.users.set(user.id, user);
 		this.dirty = true;
 		return user;

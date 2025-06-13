@@ -507,10 +507,9 @@ describe("lib/datastore", function() {
 					["save", new Map([...datastoreProvider.value.entries()].filter((v, k) => k !== "foo"))]
 				);
 			});
-			it("does not break when the key does not exist", function() {
+			it("does nothing when the key does not exist", function() {
 				datastore.delete("test");
-				assert.equal(eventsRaised.length, 1);
-				assert.deepEqual(eventsRaised[0], [["test", undefined, true]]);
+				assert.equal(eventsRaised.length, 0);
 			});
 		});
 

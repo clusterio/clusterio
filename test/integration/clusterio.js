@@ -1404,6 +1404,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl(`role create temp ${args}`);
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let tempRole = roles.find(role => role.name === "temp");
+				if (tempRole) { tempRole.updatedAtMs = 0; }
 				assert.deepEqual(
 					tempRole,
 					new lib.Role(5, "temp", "A temp role", new Set(["core.control.connect"]))
@@ -1417,6 +1418,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl(`role edit temp ${args}`);
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
+				if (newRole) { newRole.updatedAtMs = 0; }
 				assert.deepEqual(newRole, new lib.Role(5, "new", "A new role", new Set()));
 			});
 			it("should add permissions with --add-perms", async function() {

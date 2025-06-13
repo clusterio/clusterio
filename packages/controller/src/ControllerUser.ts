@@ -1,10 +1,13 @@
 import { Static, Type } from "@sinclair/typebox";
-import { IControllerUser, PermissionError, PlayerStats, Role, User, permissions } from "@clusterio/lib";
-import type UserManager from "./UserManager";
+
+import {
+	IControllerUser, PermissionError, PlayerStats,
+	Role, SubscribableDatastore, User, permissions,
+} from "@clusterio/lib";
 
 export default class ControllerUser extends User implements IControllerUser {
 	constructor(
-		public userManager: UserManager,
+		private _controllerRoles: SubscribableDatastore<Role>,
 		/** Unix time in seconds the user token must be issued after to be valid.  */
 		public tokenValidAfter = 0,
 		...args: ConstructorParameters<typeof User>
@@ -17,7 +20,7 @@ export default class ControllerUser extends User implements IControllerUser {
 		token_valid_after: Type.Optional(Type.Number()),
 	});
 
-	static fromJSON(json: Static<typeof this.jsonSchema>, userManager: UserManager) {
+	static fromJSON(json: Static<typeof this.jsonSchema>, controllerRoles: SubscribableDatastore<Role>) {
 		const roleIds = new Set<number>(json.roles ?? []);
 		const instanceStats = new Map(
 			(json.instance_stats ?? []).map(
@@ -26,7 +29,7 @@ export default class ControllerUser extends User implements IControllerUser {
 		);
 		const playerStats = User._calculatePlayerStats(instanceStats);
 		return new this(
-			userManager,
+			controllerRoles,
 			json.token_valid_after,
 			json.name,
 			roleIds,
@@ -57,7 +60,7 @@ export default class ControllerUser extends User implements IControllerUser {
 
 	get roles(): ReadonlySet<Readonly<Role>> {
 		return new Set([...this.roleIds].map(
-			id => this.userManager.roles.get(id)
+			id => this._controllerRoles.get(id)
 		).filter(
 			(r): r is Role => Boolean(r)
 		));
@@ -79,7 +82,7 @@ export default class ControllerUser extends User implements IControllerUser {
 		}
 
 		for (let roleId of this.roleIds) {
-			let role = this.userManager.roles.get(roleId);
+			let role = this._controllerRoles.get(roleId);
 			if (!role) {
 				continue;
 			}
