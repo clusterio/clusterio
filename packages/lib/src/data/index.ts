@@ -21,5 +21,6 @@ export * from "./messages_host";
 export * from "./messages_instance";
 export * from "./messages_mod";
 export * from "./messages_user";
+export * from "./messages_role";
 export * from "./messages_plugin";
 export * from "./version";

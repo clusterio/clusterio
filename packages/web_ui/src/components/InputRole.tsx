@@ -1,21 +1,10 @@
-import React, { useContext, useEffect, useState } from "react";
 import { Select } from "antd";
 
-import * as lib from "@clusterio/lib";
-
-import ControlContext from "./ControlContext";
-import { notifyErrorHandler } from "../util/notify";
 import { InputComponentProps } from "../BaseWebPlugin";
+import { useRoles } from "../model/roles";
 
 export default function InputRole(props: InputComponentProps) {
-	let control = useContext(ControlContext);
-	let [roles, setRoles] = useState<lib.Role[]>([]);
-
-	useEffect(() => {
-		control.send(new lib.RoleListRequest()).then(newRoles => {
-			setRoles(newRoles);
-		}).catch(notifyErrorHandler("Error fetching role list"));
-	}, []);
+	const [roles] = useRoles();
 
 	return <Select
 		showSearch
