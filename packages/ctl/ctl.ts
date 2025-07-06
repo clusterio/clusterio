@@ -143,7 +143,19 @@ interface CtlArguments {
 	pluginList: string,
 }
 
-async function startControl() {
+interface InitializeParameters {
+	args: CtlArguments;
+	shouldRun: boolean;
+	ctlPlugins?: Map<string, BaseCtlPlugin>;
+	rootCommands?: lib.CommandTree;
+	controlConfig?: lib.ControlConfig;
+}
+
+export async function initialize(
+	argv: string | string[],
+	ctlPlugins?: Map<string, BaseCtlPlugin>,
+	noLoggerTransport?: boolean,
+): Promise<InitializeParameters> {
 	yargs
 		.scriptName("clusterioctl")
 		.usage("$0 <command> [options]")
@@ -175,38 +187,41 @@ async function startControl() {
 
 	// Parse the args first to get the configured plugin list.
 	// eslint-disable-next-line node/no-sync
-	let args = yargs.parseSync() as CtlArguments;
+	let args = yargs.parseSync(argv) as CtlArguments;
 
-	// Log stream for the ctl session.
-	logger.add(
-		new ConsoleTransport({
-			errorLevels: Object.keys(levels),
-			level: args.logLevel,
-			format: new lib.TerminalFormat(),
-		})
-	);
-	lib.handleUnhandledErrors();
-
-	logger.verbose(`Loading available plugins from ${args.pluginList}`);
-	let pluginList = await lib.loadPluginList(args.pluginList);
-
-	// If the command is plugin management we don't try to load plugins
-	if (args._[0] === "plugin") {
-		await lib.handlePluginCommand(args, pluginList, args.pluginList);
-		return;
+	// Log stream for the ctl session. Skipped in testing.
+	if (!noLoggerTransport) {
+		logger.add(
+			new ConsoleTransport({
+				errorLevels: Object.keys(levels),
+				level: args.logLevel,
+				format: new lib.TerminalFormat(),
+			})
+		);
+		lib.handleUnhandledErrors();
 	}
 
-	logger.verbose("Loading Plugins");
-	let ctlPlugins = await loadPlugins(pluginList);
+	// Discover and load plugins. This check exists to allow tests to inject plugins.
+	if (!ctlPlugins || args._[0] === "plugin") {
+		logger.verbose(`Loading available plugins from ${args.pluginList}`);
+		const pluginList = await lib.loadPluginList(args.pluginList);
 
-	// Add all cluster management commands including ones from plugins
-	let rootCommands = await commands.registerCommands(ctlPlugins, yargs);
+		// If the command is plugin management we don't try to load plugins
+		if (args._[0] === "plugin") {
+			await lib.handlePluginCommand(args, pluginList, args.pluginList);
+			return { args, shouldRun: false };
+		}
 
-	// Reparse after commands have been added with help and strict checking.
+		logger.verbose("Loading Plugins");
+		ctlPlugins = await loadPlugins(pluginList);
+	}
+
+	// Add all commands including from plugins and reparse with help and strict checking.
+	const rootCommands = await commands.registerCommands(ctlPlugins, yargs);
 	args = yargs
 		.help()
 		.strict()
-		.parse() as CtlArguments
+		.parse(argv) as CtlArguments
 	;
 
 	let controlConfig;
@@ -233,18 +248,34 @@ async function startControl() {
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
 		await lib.handleConfigCommand(args, controlConfig);
-		return;
+		return { args, controlConfig, ctlPlugins, rootCommands, shouldRun: false };
 	}
 
-	// Determine which command is being executed.
+	return { args, controlConfig, ctlPlugins, rootCommands, shouldRun: true };
+}
+
+export function selectTargetCommand(args: CtlArguments, rootCommands: lib.CommandTree): lib.Command {
 	let commandPath = [...args._] as string[];
 	let targetCommand: lib.CommandTree | lib.Command = rootCommands;
 	while (commandPath.length && targetCommand instanceof lib.CommandTree) {
 		targetCommand = targetCommand.get(commandPath.shift()!)!;
 	}
 	assert(targetCommand instanceof lib.Command);
+	return targetCommand;
+}
 
-	// The remaining commands require connecting to the controller.
+async function startControl() {
+	const {
+		args,
+		shouldRun,
+		ctlPlugins,
+		rootCommands,
+		controlConfig,
+	} = await initialize(process.argv.slice(2));
+	if (!shouldRun || !ctlPlugins || !rootCommands || !controlConfig) {
+		return;
+	}
+
 	if (!controlConfig.get("control.controller_url") || !controlConfig.get("control.controller_token")) {
 		logger.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
 		process.exitCode = 1;
@@ -263,6 +294,7 @@ async function startControl() {
 		tlsCa,
 		controlConfig.get("control.controller_token")!,
 	);
+
 	let control = new Control(controlConnector, controlConfig, tlsCa, ctlPlugins);
 	try {
 		await controlConnector.connect();
@@ -284,6 +316,7 @@ async function startControl() {
 	});
 
 	try {
+		const targetCommand = selectTargetCommand(args, rootCommands);
 		await targetCommand.run(args, control);
 
 	} catch (err) {

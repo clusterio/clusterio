@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
 
 const {
-	slowTest, exec, execCtl, sendRcon, getControl,
+	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
 } = require("./index");
 
 const instId = 48;
@@ -31,12 +31,12 @@ describe("Clusterio Instance", function() {
 		// Create a new instance
 		await execCtl(`instance create ${instName} --id ${instId}`);
 		await execCtl(`instance config set ${instName} factorio.enable_whitelist true`);
-		await execCtl(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
+		await execCtlProcess(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instName} 4`);
 
 		for (const plugin of [
-			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth",
+			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth", "inventory_sync",
 		]) {
 			await execCtl(`instance config set ${instName} ${plugin}.load_plugin false`);
 		}
@@ -44,7 +44,7 @@ describe("Clusterio Instance", function() {
 		// Create a new alt instance
 		await execCtl(`instance create ${instAltName} --id ${instAltId}`);
 		await execCtl(`instance config set ${instAltName} factorio.enable_whitelist true`);
-		await execCtl(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
+		await execCtlProcess(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instAltName} 4`);
 		await execCtl(`instance start ${instAltName}`);

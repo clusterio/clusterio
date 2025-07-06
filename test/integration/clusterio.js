@@ -13,7 +13,8 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	exec, execCtl, sendRcon, getControl, spawnNode, instancesDir, factorioDir,
+	exec, execCtl, execCtlProcess, execHost, sendRcon, getControl,
+	spawnNode, instancesDir, factorioDir,
 } = require("./index");
 
 
@@ -39,11 +40,11 @@ async function startAltHost() {
 	await fs.remove(path.join("temp", "test", "alt-instances"));
 	await fs.remove(path.join("temp", "test", "alt-mods"));
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
-	await exec(`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
-	await exec(`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`);
+	await execHost(`--config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
+	await execHost(`--config ${config} config set host.instances_directory alt-instances`);
 	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
-	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ${dir}`);
-	await exec(`node ../../packages/host --config ${config} config set host.mods_directory alt-mods`);
+	await execHost(`--config ${config} config set host.factorio_directory ${dir}`);
+	await execHost(`--config ${config} config set host.mods_directory alt-mods`);
 	return await spawnAltHost(config);
 }
 
@@ -259,9 +260,9 @@ describe("Integration of Clusterio", function() {
 
 		describe("controller config set", function() {
 			it("sets given config option", async function() {
-				await execCtl('controller config set controller.name "Test Cluster"');
+				await execCtl("controller config set controller.name Test-Cluster");
 				let result = await getControl().send(new lib.ControllerConfigGetRequest());
-				assert.equal(result["controller.name"], "Test Cluster");
+				assert.equal(result["controller.name"], "Test-Cluster");
 			});
 			it("should not allow setting auth_secret", async function() {
 				await assert.rejects(execCtl("controller config set controller.auth_secret root"));
@@ -329,7 +330,7 @@ describe("Integration of Clusterio", function() {
 		describe("host config", function() {
 			it("changes host config", async function() {
 				await execCtl("host config set 4 host.name My-Host");
-				const result = await execCtl("host config list 4");
+				const result = await execCtlProcess("host config list 4");
 				assert(/My-Host/.test(result.stdout), "New host name not in config output");
 			});
 			it("should not allow setting host.controller_token", async function() {
@@ -416,9 +417,12 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				let sawDisconnected;
 				await runWithAltHost(async () => {
-					getControl().hostUpdates = [];
+					const control = getControl();
+					control.hostUpdates = [];
+					await wait(50); // Allow for host to update instances
 					await execCtl("host revoke-token 5");
-					for (let update of getControl().hostUpdates) {
+					await wait(50); // Allow controller to notify control
+					for (let update of control.hostUpdates) {
 						if (update.name !== "alt-host") {
 							continue;
 						}
@@ -448,10 +452,8 @@ describe("Integration of Clusterio", function() {
 				assert.equal(instances.get(44).status, "unassigned", "incorrect instance status");
 
 				// Make sure the following tests does not fail due to not having internet
-				let value = JSON.stringify({ lan: true, public: false }).replace(
-					/"/g, process.platform === "win32" ? '""' : '\\"'
-				);
-				await execCtl(`instance config set-prop test factorio.settings visibility "${value}"`);
+				const value = jsonArg({ lan: true, public: false });
+				await execCtlProcess(`instance config set-prop test factorio.settings visibility ${value}`);
 				await execCtl("instance config set-prop test factorio.settings require_user_verification false");
 			});
 			it("can clone an instance", async function() {
@@ -500,7 +502,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance save list", function() {
 			it("lists the created save", async function() {
 				slowTest(this);
-				let result = await execCtl("instance save list test");
+				let result = await execCtlProcess("instance save list test");
 				assert(/world\.zip/.test(result.stdout), "world.zip not present in list save output");
 			});
 		});
@@ -698,8 +700,8 @@ describe("Integration of Clusterio", function() {
 				];
 
 				for (let [prop, value] of testConfigs) {
-					let args = `test factorio.settings ${prop} ${jsonArg(value)}`;
-					await execCtl(`instance config set-prop ${args}`);
+					const args = `test factorio.settings ${prop} ${jsonArg(value)}`;
+					await execCtlProcess(`instance config set-prop ${args}`);
 				}
 
 				// Do this afterwards to leave enough to time for the
@@ -909,6 +911,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance config set 44 research_sync.load_plugin false");
 				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
 				await execCtl("instance config set 44 subspace_storage.load_plugin false");
+				await execCtl("instance config set 44 inventory_sync.load_plugin false");
 
 				await execCtl("instance start 44");
 				const instance = (await getInstances()).get(44);
@@ -1188,7 +1191,7 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should allow setting all fields", async function() {
 				const color = { r: 1, g: 0, b: 1, a: 0 };
-				await execCtl(
+				await execCtlProcess(
 					"mod-pack create full-pack 0.17.59 " +
 					"--description Description " +
 					"--mods empty_mod:1.0.0 " +
@@ -1220,7 +1223,7 @@ describe("Integration of Clusterio", function() {
 		describe("mod-pack list", function() {
 			let result = null;
 			it("runs", async function() {
-				result = await execCtl("mod-pack list");
+				result = await execCtlProcess("mod-pack list");
 			});
 			it("contains defaults", function() {
 				assert(result !== null, "Failed to return a value");
@@ -1249,7 +1252,7 @@ describe("Integration of Clusterio", function() {
 				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
 				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
 				await execCtl(`mod-pack import ${reference.toModPackString()}`);
-				const result = await execCtl("mod-pack export imported-pack");
+				const result = await execCtlProcess("mod-pack export imported-pack");
 				const roundtrip = lib.ModPack.fromModPackString(result.stdout.trim());
 				roundtrip.id = reference.id;
 				assert.deepEqual(roundtrip, reference);
@@ -1308,7 +1311,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod show", function() {
 			it("gives details of a mod", async function() {
-				let result = await execCtl("mod show empty_mod 1.0.0");
+				let result = await execCtlProcess("mod show empty_mod 1.0.0");
 				let hash = await lib.hashFile(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
 				let stat = await fs.stat(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
 				assert.equal(
@@ -1333,14 +1336,14 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod list", function() {
 			it("shows the list of mods", async function() {
-				let result = await execCtl("mod list");
+				let result = await execCtlProcess("mod list");
 				assert(result.stdout.indexOf("empty_mod") !== -1, "empty_mod is not in the list");
 			});
 		});
 
 		describe("mod search", function() {
 			it("searches the list of mods", async function() {
-				let result = await execCtl("mod search 1.1 name:empty_mod");
+				let result = await execCtlProcess("mod search 1.1 name:empty_mod");
 				assert(result.stdout.indexOf("empty_mod") !== -1, "empty_mod is not in the result");
 			});
 		});
@@ -1414,7 +1417,7 @@ describe("Integration of Clusterio", function() {
 		describe("role edit", function() {
 			it("should modify the given role", async function() {
 				let args = "--name new --description \"A new role\" --set-perms";
-				await execCtl(`role edit temp ${args}`);
+				await execCtlProcess(`role edit temp ${args}`);
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
 				assert.deepEqual(newRole, new lib.Role(5, "new", "A new role", new Set()));
@@ -1495,7 +1498,7 @@ describe("Integration of Clusterio", function() {
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
 				getControl().userUpdates = [];
-				await execCtl('user set-roles temp "Cluster Admin"');
+				await execCtlProcess('user set-roles temp "Cluster Admin"');
 				let users = await getControl().send(new lib.UserListRequest());
 				let tempUser = users.find(user => user.id === "temp");
 				assert.deepEqual(tempUser.roleIds, new Set([0]));
@@ -1503,7 +1506,7 @@ describe("Integration of Clusterio", function() {
 			});
 
 			it("should restrict actions based on roles", async function() {
-				await execCtl('user set-roles temp "Player"');
+				await execCtl("user set-roles temp Player");
 				let tempControl;
 				try {
 					let tlsCa = await fs.readFile("test/file/tls/cert.pem");
@@ -1657,7 +1660,6 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user create export_control");
 			});
 			it("should export users", async function() {
-				slowTest(this);
 				await execCtl("user set-admin export_user --create");
 				await execCtl("user set-whitelisted export_user");
 				await execCtl("user export --users user-export.json");
@@ -1669,7 +1671,6 @@ describe("Integration of Clusterio", function() {
 				});
 			});
 			it("should export bans", async function() {
-				slowTest(this);
 				await execCtl("user set-banned export_ban --create");
 				await execCtl("user set-banned export_ban_reason --create --reason banned");
 				await execCtl("user export --bans ban-export.json");
