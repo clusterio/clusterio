@@ -277,9 +277,9 @@ describe("Integration of Clusterio", function() {
 		describe("controller plugin update", function() {
 			it("runs", async function() {
 				// In dev plugins have no npm package, so best we can do is get an error from the controller
-				assert.rejects(
+				await assert.rejects(
 					execCtl("controller plugin update foo"),
-					"Plugin foo is not installed on this machine"
+					/Plugin foo is not installed on this machine/
 				);
 			});
 			// Update always fails, we can not test restart option
@@ -289,9 +289,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				// Default is to disallow updates, changing this value would require a restart
 				// Additionally, it can not be changed via ctl, so best we can do is get an error from the controller
-				assert.rejects(
+				await assert.rejects(
 					execCtl("controller plugin install foo"),
-					"Plugin installs are disabled on this machine"
+					/Plugin installs are disabled on this machine/
 				);
 			});
 			// Install always fails, we can not test restart option
@@ -303,9 +303,9 @@ describe("Integration of Clusterio", function() {
 			});
 			it("accepts --restart", async function() {
 				// We cannot restart the controller, so we check for controller error instead
-				assert.rejects(
+				await assert.rejects(
 					execCtl("controller update --restart"),
-					"Cannot restart, controller does not have a process monitor to restart it."
+					/Cannot restart, controller does not have a process monitor to restart it./
 				);
 			});
 		});
@@ -313,9 +313,9 @@ describe("Integration of Clusterio", function() {
 		describe("controller restart", function() {
 			it("runs", async function() {
 				// We cannot restart the controller, so we check for controller error instead
-				assert.rejects(
+				await assert.rejects(
 					execCtl("controller restart"),
-					"Cannot restart, controller does not have a process monitor to restart it."
+					/Cannot restart, controller does not have a process monitor to restart it./
 				);
 			});
 		});
@@ -359,9 +359,9 @@ describe("Integration of Clusterio", function() {
 		describe("host plugin update", function() {
 			it("runs", async function() {
 				// In dev plugins have no npm package, so best we can do is get an error from the host
-				assert.rejects(
+				await assert.rejects(
 					execCtl("host plugin update 4 foo"),
-					"Plugin foo is not installed on this machine"
+					/Plugin foo is not installed on this machine/
 				);
 			});
 			// Update always fails, we can not test restart option
@@ -371,9 +371,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				// Default is to disallow updates, changing this value would require a restart
 				// Additionally, it can not be changed via ctl, so best we can do is get an error from the host
-				assert.rejects(
+				await assert.rejects(
 					execCtl("host plugin install 4 foo"),
-					"Plugin installs are disabled on this machine"
+					/Plugin installs are disabled on this machine/
 				);
 			});
 			// Install always fails, we can not test restart option
@@ -385,9 +385,9 @@ describe("Integration of Clusterio", function() {
 			});
 			it("accepts --restart", async function() {
 				// We cannot restart the host, so we check for host error instead
-				assert.rejects(
+				await assert.rejects(
 					execCtl("host update 4 --restart"),
-					"Cannot restart, host does not have a process monitor to restart it."
+					/Cannot restart, host does not have a process monitor to restart it./
 				);
 			});
 		});
@@ -395,9 +395,9 @@ describe("Integration of Clusterio", function() {
 		describe("host restart", function() {
 			it("runs", async function() {
 				// We cannot restart the host, so we check for host error instead
-				assert.rejects(
+				await assert.rejects(
 					execCtl("host restart 4"),
-					"Cannot restart, host does not have a process monitor to restart it."
+					/Cannot restart, host does not have a process monitor to restart it./
 				);
 			});
 		});
@@ -466,7 +466,7 @@ describe("Integration of Clusterio", function() {
 			});
 			it("errors when cloning an invalid instance", async function() {
 				slowTest(this);
-				assert.rejects(
+				await assert.rejects(
 					execCtl("instance create testClone --id 440 --from 441"),
 					new lib.RequestError("Instance with ID 441 does not exist")
 				);
@@ -615,7 +615,7 @@ describe("Integration of Clusterio", function() {
 				assert(r1.log.some(info => /\[COMMAND\]/.test(info.message)), "Command was not sent");
 				await execCtl("instance config set test factorio.enable_script_commands false");
 
-				assert.rejects(
+				await assert.rejects(
 					execCtl("instance send-rcon test /c"),
 					new Error(
 						"Attempted to use script command while disabled. " +
@@ -1648,7 +1648,7 @@ describe("Integration of Clusterio", function() {
 				);
 			});
 			it("should reject multiple provided options", async function() {
-				assert.rejects(execCtl("user import --bans --admins import-admins.json"));
+				await assert.rejects(execCtl("user import --bans --admins import-admins.json"));
 			});
 		});
 
@@ -1779,7 +1779,7 @@ describe("Integration of Clusterio", function() {
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
 			});
 			it("should reject multiple provided options", async function() {
-				assert.rejects(execCtl("user restore --bans --admins restore-admins.json"));
+				await assert.rejects(execCtl("user restore --bans --admins restore-admins.json"));
 			});
 		});
 	});

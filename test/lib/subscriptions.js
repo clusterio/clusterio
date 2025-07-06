@@ -240,18 +240,18 @@ describe("lib/subscriptions", function() {
 				subscriptions.handle(RegisteredEvent);
 			});
 
-			it("should not accept subscriptions to unregistered events", function() {
+			it("should not accept subscriptions to unregistered events", async function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				request.eventName = UnregisteredEvent.name;
-				assert.rejects(
+				await assert.rejects(
 					subscriptions.handleRequest(getLink(0), request, addr({ controlId: 0 }), addr("controller")),
 					new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
 				);
 			});
-			it("should not accept subscriptions to events not handled by the class", function() {
+			it("should not accept subscriptions to events not handled by the class", async function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				request.eventName = StringPermissionEvent.name;
-				assert.rejects(
+				await assert.rejects(
 					subscriptions.handleRequest(getLink(0), request, addr({ controlId: 0 }), addr("controller")),
 					new Error(`Event ${StringPermissionEvent.eventName} is not a registered as subscribable`)
 				);

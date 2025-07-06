@@ -75,12 +75,12 @@ describe("Clusterio Instance", function() {
 				if (savePatchingEnabled) {
 					// IPC expects save patching to be enabled
 					it("should do nothing for an unknown type", async function() {
-						assert.rejects(getUser("DoesNotExist"), "User should not exist");
+						await assert.rejects(getUser("DoesNotExist"), "User should not exist");
 						await sendRcon(instId,
 							`/sc ${requireApi} api.send_json("player_event",` +
 							"{ type='invalid type', name='DoesNotExist' })"
 						);
-						assert.rejects(getUser("DoesNotExist"), "User was created");
+						await assert.rejects(getUser("DoesNotExist"), "User was created");
 					});
 					it("should respond to a player join and leave event", async function() {
 						await sendRcon(instId,

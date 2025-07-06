@@ -28,9 +28,9 @@ describe("messages/controller", function() {
 		});
 		it("rejects if updates are disabled", async function() {
 			controller.config.set("controller.allow_remote_updates", false);
-			assert.rejects(
+			await assert.rejects(
 				controlConnection.handleControllerUpdateRequest(new lib.ControllerUpdateRequest()),
-				"Remote updates are disabled on this machine"
+				/Remote updates are disabled on this machine/
 			);
 		});
 	});

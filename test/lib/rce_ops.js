@@ -22,9 +22,9 @@ describe("rce_ops", function() {
 			await lib.handlePluginUpdate("foo", [{ npmPackage: "foo" }]);
 		});
 		it("rejects when plugin not installed", async function() {
-			assert.rejects(
+			await assert.rejects(
 				lib.handlePluginUpdate("foo", []),
-				"Plugin foo is not installed on this machine"
+				/Plugin foo is not installed on this machine/
 			);
 		});
 	});
@@ -50,14 +50,14 @@ describe("rce_ops", function() {
 		});
 		it("rejects when name too long", async function() {
 			const pluginName = "a".repeat(215);
-			assert.rejects(
+			await assert.rejects(
 				lib.handlePluginInstall(pluginName),
 				`Invalid plugin name: ${pluginName}`
 			);
 		});
 		it("rejects when invalid symbol present", async function() {
 			const pluginName = "?";
-			assert.rejects(
+			await assert.rejects(
 				lib.handlePluginInstall(pluginName),
 				`Invalid plugin name: ${pluginName}`
 			);
@@ -69,7 +69,7 @@ describe("rce_ops", function() {
 				return { ok: false };
 			};
 
-			assert.rejects(lib.handlePluginInstall("foo"), "Unknown plugin: foo");
+			await assert.rejects(lib.handlePluginInstall("foo"), /Unknown plugin: foo/);
 			assert.equal(calledWith, "https://registry.npmjs.com/foo");
 		});
 	});

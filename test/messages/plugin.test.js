@@ -115,9 +115,9 @@ describe("messages/plugin", function() {
 		});
 		it("rejects if updates are disabled on the controller", async function() {
 			controller.config.set("controller.allow_plugin_updates", false);
-			assert.rejects(
+			await assert.rejects(
 				controlConnection.handlePluginUpdateRequest(new lib.PluginUpdateRequest("foo")),
-				"Plugin updates are disabled on this machine"
+				/Plugin updates are disabled on this machine/
 			);
 		});
 		it("runs on a host", async function() {
@@ -127,9 +127,9 @@ describe("messages/plugin", function() {
 		});
 		it("rejects if updates are disabled on the host", async function() {
 			host.config.set("host.allow_plugin_updates", false);
-			assert.rejects(
+			await assert.rejects(
 				host.handlePluginUpdateRequest(new lib.PluginUpdateRequest("foo")),
-				"Plugin updates are disabled on this machine"
+				/Plugin updates are disabled on this machine/
 			);
 		});
 	});
@@ -156,9 +156,9 @@ describe("messages/plugin", function() {
 		});
 		it("rejects if updates are disabled on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", false);
-			assert.rejects(
+			await assert.rejects(
 				controlConnection.handlePluginInstallRequest(new lib.PluginInstallRequest("foo")),
-				"Plugin updates are disabled on this machine"
+				/Plugin updates are disabled on this machine/
 			);
 		});
 		it("runs on a host", async function() {
@@ -167,9 +167,9 @@ describe("messages/plugin", function() {
 		});
 		it("rejects if updates are disabled on the host", async function() {
 			host.config.set("host.allow_plugin_install", false);
-			assert.rejects(
+			await assert.rejects(
 				host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo")),
-				"Plugin updates are disabled on this machine"
+				/Plugin updates are disabled on this machine/
 			);
 		});
 	});
