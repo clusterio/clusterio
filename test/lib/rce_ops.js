@@ -52,14 +52,14 @@ describe("rce_ops", function() {
 			const pluginName = "a".repeat(215);
 			await assert.rejects(
 				lib.handlePluginInstall(pluginName),
-				`Invalid plugin name: ${pluginName}`
+				{ message: `Invalid plugin name: ${pluginName}` }
 			);
 		});
 		it("rejects when invalid symbol present", async function() {
 			const pluginName = "?";
 			await assert.rejects(
 				lib.handlePluginInstall(pluginName),
-				`Invalid plugin name: ${pluginName}`
+				{ message: `Invalid plugin name: ${pluginName}` },
 			);
 		});
 		it("rejects unregistered packages", async function() {

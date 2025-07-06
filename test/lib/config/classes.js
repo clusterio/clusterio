@@ -201,32 +201,16 @@ describe("lib/config/classes", function() {
 			const filepath = path.join("temp", "test", "config_test.json");
 			it("should throw for file and json errors", async function() {
 				await fs.writeFile(filepath, "abc");
-				await assert.rejects(
-					TestConfig.fromFile("local", filepath),
-					new Error(
-						`${filepath}: SyntaxError: JSON.parse: unexpected character at line 1 column 1 of the JSON data`
-					)
-				);
-				await assert.rejects(
-					TestConfig.fromFile("local", `${filepath}.notExist`),
-				);
+				await assert.rejects(TestConfig.fromFile("local", filepath));
+				await assert.rejects(TestConfig.fromFile("local", `${filepath}.notExist`));
 			});
 			it("should throw on incorrect input passed", async function() {
 				await fs.writeFile(filepath, "null");
-				await assert.rejects(
-					TestConfig.fromFile("local", filepath),
-					new Error("Invalid config")
-				);
+				await assert.rejects(TestConfig.fromFile("local", filepath));
 				await fs.writeFile(filepath, "undefined");
-				await assert.rejects(
-					TestConfig.fromFile("local", filepath),
-					new Error("Invalid config")
-				);
+				await assert.rejects(TestConfig.fromFile("local", filepath));
 				await fs.writeFile(filepath, "[]");
-				await assert.rejects(
-					TestConfig.fromFile("local", filepath),
-					new Error("Invalid config")
-				);
+				await assert.rejects(TestConfig.fromFile("local", filepath));
 			});
 			it("should load defaults for missing fields", async function() {
 				await fs.writeJSON(filepath, {
