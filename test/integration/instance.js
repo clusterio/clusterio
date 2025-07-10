@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
 
 const {
-	slowTest, exec, execCtl, sendRcon, getControl,
+	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
 } = require("./index");
 
 const instId = 48;
@@ -31,12 +31,12 @@ describe("Clusterio Instance", function() {
 		// Create a new instance
 		await execCtl(`instance create ${instName} --id ${instId}`);
 		await execCtl(`instance config set ${instName} factorio.enable_whitelist true`);
-		await execCtl(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
+		await execCtlProcess(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instName} 4`);
 
 		for (const plugin of [
-			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth",
+			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth", "inventory_sync",
 		]) {
 			await execCtl(`instance config set ${instName} ${plugin}.load_plugin false`);
 		}
@@ -44,7 +44,7 @@ describe("Clusterio Instance", function() {
 		// Create a new alt instance
 		await execCtl(`instance create ${instAltName} --id ${instAltId}`);
 		await execCtl(`instance config set ${instAltName} factorio.enable_whitelist true`);
-		await execCtl(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
+		await execCtlProcess(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instAltName} 4`);
 		await execCtl(`instance start ${instAltName}`);
@@ -75,12 +75,12 @@ describe("Clusterio Instance", function() {
 				if (savePatchingEnabled) {
 					// IPC expects save patching to be enabled
 					it("should do nothing for an unknown type", async function() {
-						assert.rejects(getUser("DoesNotExist"), "User should not exist");
+						await assert.rejects(getUser("DoesNotExist"), "User should not exist");
 						await sendRcon(instId,
 							`/sc ${requireApi} api.send_json("player_event",` +
 							"{ type='invalid type', name='DoesNotExist' })"
 						);
-						assert.rejects(getUser("DoesNotExist"), "User was created");
+						await assert.rejects(getUser("DoesNotExist"), "User was created");
 					});
 					it("should respond to a player join and leave event", async function() {
 						await sendRcon(instId,

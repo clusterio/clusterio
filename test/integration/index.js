@@ -11,6 +11,8 @@ const events = require("events");
 const lib = require("@clusterio/lib");
 const { LineSplitter, ConsoleTransport, logger } = lib;
 
+const { selectTargetCommand, initialize: initializeCtl } = require("@clusterio/ctl");
+
 // Make sure permissions from plugins are loaded
 require("../../plugins/global_chat/dist/node/index");
 require("../../plugins/player_auth/dist/node/index");
@@ -83,6 +85,10 @@ class TestControl extends lib.Link {
 
 	async handleUserUpdatesEvent(event) {
 		this.userUpdates.push(...event.updates);
+	}
+
+	async setLogSubscriptions(args) {
+		// Do nothing
 	}
 }
 
@@ -185,9 +191,25 @@ async function execHost(...args) {
 	return await exec(...args);
 }
 
-async function execCtl(...args) {
+async function execCtlProcess(...args) {
 	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
 	return await exec(...args);
+}
+
+async function execCtl(command) {
+	process.chdir("temp/test");
+	try {
+		const initArgs = await initializeCtl(command, control.plugins, true);
+		if (!initArgs.shouldRun) {
+			return;
+		}
+
+		control.config = initArgs.controlConfig;
+		const targetCommand = selectTargetCommand(initArgs.args, initArgs.rootCommands);
+		await targetCommand.run(initArgs.args, control);
+	} finally {
+		process.chdir("../..");
+	}
 }
 
 async function sendRcon(instanceId, command) {
@@ -291,32 +313,37 @@ before(async function() {
 	await execController("config set controller.tls_private_key ../../test/file/tls/key.pem");
 
 	console.log("Setting Controller Plugins");
-	await execCtl("plugin add ../../plugins/global_chat");
-	await execCtl("plugin add ../../plugins/research_sync");
-	await execCtl("plugin add ../../plugins/statistics_exporter");
-	await execCtl("plugin add ../../plugins/subspace_storage");
-	await execCtl("plugin add ../../plugins/player_auth");
+	await execCtlProcess("plugin add ../../plugins/global_chat");
+	await execCtlProcess("plugin add ../../plugins/research_sync");
+	await execCtlProcess("plugin add ../../plugins/statistics_exporter");
+	await execCtlProcess("plugin add ../../plugins/subspace_storage");
+	await execCtlProcess("plugin add ../../plugins/inventory_sync");
+	await execCtlProcess("plugin add ../../plugins/player_auth");
 
 	console.log("Bootstrapping");
 	await execController("bootstrap create-admin test");
 	await execController("bootstrap create-ctl-config test");
-	await execCtl("control-config set control.tls_ca ../../test/file/tls/cert.pem");
+	await execCtlProcess("control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
-	await execCtl("host create-config --id 4 --name host --generate-token");
-
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
+	await execCtlProcess("host create-config --id 4 --name host --generate-token");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
 	await execHost("config set host.tls_ca ../../test/file/tls/cert.pem");
 
 	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
 
-	let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-	let controlConnector = new TestControlConnector(url, 2, tlsCa);
+	const tlsCa = await fs.readFile("test/file/tls/cert.pem");
+	const controlConnector = new TestControlConnector(url, 2, tlsCa);
 	controlConnector.token = controlToken;
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
+
+	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} control-config list`, undefined, true);
+	control.config = initArgs.controlConfig;
+	control.plugins = initArgs.ctlPlugins;
+	control.tlsCa = tlsCa;
 
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
@@ -358,10 +385,12 @@ module.exports = {
 	TestControl,
 	TestControlConnector,
 	TestHostConnector,
+	execCtlProcess,
 	slowTest,
 	get,
 	exec,
 	execCtl,
+	execHost,
 	sendRcon,
 	getControl,
 	spawn,

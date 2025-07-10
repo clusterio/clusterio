@@ -218,7 +218,6 @@ class MockController {
 }
 
 async function createControllerPlugin(ControllerPluginClass, info) {
-	lib.registerPluginMessages([info]);
 	let controller = new MockController();
 	let metrics = {};
 	let logger = new MockLogger();
