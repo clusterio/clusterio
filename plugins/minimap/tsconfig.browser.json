@@ -1,0 +1,13 @@
+{
+	"extends": "../../tsconfig.browser.json",
+	"compilerOptions": {
+		"outDir": "dist/browser"
+	},
+	"include": [
+		"web/**/*",
+		"messages.ts"
+	],
+	"exclude": [
+		"dist/**/*"
+	]
+} 
