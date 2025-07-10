@@ -5,20 +5,17 @@ const lib = require("@clusterio/lib");
 
 describe("controller/src/ControllerUser", function() {
 	describe("class ControllerUser", function() {
-		class MockUserManager {
-			roles = new Map([
-				[1, new lib.Role(1, "a", "a role", new Set(["core.admin"]))],
-				[2, new lib.Role(2, "b", "b role", new Set(["user-test"]))],
-			]);
-		}
-		const userManager = new MockUserManager();
+		const roles = new Map([
+			[1, new lib.Role(1, "a", "a role", new Set(["core.admin"]))],
+			[2, new lib.Role(2, "b", "b role", new Set(["user-test"]))],
+		]);
 
 		it("should round trip serialize", function() {
 			function test_roundtrip(serialized) {
-				let user = ControllerUser.fromJSON(serialized, userManager);
+				let user = ControllerUser.fromJSON(serialized, roles);
 				let user_serialized = user.toJSON(true);
 				assert.deepEqual(user_serialized, serialized);
-				let user_deserialized = ControllerUser.fromJSON(user_serialized, userManager);
+				let user_deserialized = ControllerUser.fromJSON(user_serialized, roles);
 				assert.deepEqual(user_deserialized, user);
 			}
 
@@ -31,9 +28,9 @@ describe("controller/src/ControllerUser", function() {
 		describe(".checkPermission()", function() {
 			it("should correctly resolve permissions", function() {
 				lib.definePermission({ name: "user-test", title: "Test", description: "User Test" });
-				let a = ControllerUser.fromJSON({ name: "admin", roles: [1] }, userManager);
-				let b = ControllerUser.fromJSON({ name: "user", roles: [2] }, userManager);
-				let c = ControllerUser.fromJSON({ name: "null", roles: [] }, userManager);
+				let a = ControllerUser.fromJSON({ name: "admin", roles: [1] }, roles);
+				let b = ControllerUser.fromJSON({ name: "user", roles: [2] }, roles);
+				let c = ControllerUser.fromJSON({ name: "null", roles: [] }, roles);
 
 				a.checkPermission("core.control.connect");
 				assert.throws(() => b.checkPermission("core.control.connect"), new Error("Permission denied"));

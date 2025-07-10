@@ -13,6 +13,7 @@ import {
 
 import * as lib from "@clusterio/lib";
 
+import { useRoles } from "../model/roles";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -373,20 +374,10 @@ function BulkUserActionButton() {
 
 export default function UsersPage() {
 	let account = useAccount();
-	let control = useContext(ControlContext);
 	let navigate = useNavigate();
 	let [users] = useUsers();
-
-	const [roles, setRoles] = useState(new Map());
+	const [roles] = useRoles();
 	const searchInput = useRef<InputRef>(null);
-
-	useEffect(() => {
-		control.send(new lib.RoleListRequest()).then(newRoles => {
-			setRoles(new Map(newRoles.map(role => [role.id, role])));
-		}).catch(() => {
-			// ignore
-		});
-	}, []);
 
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader

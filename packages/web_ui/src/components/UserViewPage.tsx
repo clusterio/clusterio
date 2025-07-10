@@ -8,6 +8,7 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import * as lib from "@clusterio/lib";
 
+import { useRoles } from "../model/roles";
 import { useAccount } from "../model/account";
 import { useInstances } from "../model/instance";
 import ControlContext from "./ControlContext";
@@ -35,20 +36,12 @@ export default function UserViewPage() {
 	let control = useContext(ControlContext);
 	let [instances] = useInstances();
 	const [user, synced] = useUser(userName);
-	let [roles, setRoles] = useState<Map<number, lib.Role>>(new Map());
+	let [roles] = useRoles();
 	let [form] = Form.useForm();
 	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
 	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);
 	let [applyingRoles, setApplyingRoles] = useState<boolean>(false);
 	let [rolesError, setRolesError] = useState<string|undefined>();
-
-	useEffect(() => {
-		control.send(new lib.RoleListRequest()).then(newRoles => {
-			setRoles(new Map(newRoles.map(role => [role.id, role])));
-		}).catch(() => {
-			setRoles(new Map());
-		});
-	}, []);
 
 	useEffect(() => {
 		if (
@@ -76,6 +69,7 @@ export default function UserViewPage() {
 		</PageLayout>;
 	}
 
+	// TODO: Update displayed roles when user roles change and have not been edited locally
 	let roleSelector = <Form.Item
 		noStyle
 		name="roles"

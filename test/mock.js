@@ -173,17 +173,20 @@ class MockController {
 			},
 		};
 
-		this.userManager = new UserManager(this.config);
-		this.userManager.roles = new Map([
+		const roleProvider = new lib.MemoryDatastoreProvider(new Map([
 			[0, lib.Role.fromJSON({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
 			[1, lib.Role.fromJSON({ id: 1, name: "Player", description: "player", permissions: [] })],
-		]);
-		this.userManager.roles.get(1).grantDefaultPermissions();
+		]));
 
+		this.roles = new lib.SubscribableDatastore(roleProvider, roleProvider.value);
+		this.roles.get(1).grantDefaultPermissions();
+
+		this.userManager = new UserManager(this.config, this.roles);
 		this.userManager.users = new Map([
-			["test", ControllerUser.fromJSON({ name: "test", roles: [0, 1] }, this.userManager)],
-			["player", ControllerUser.fromJSON({ name: "player", roles: [1] }, this.userManager)],
+			["test", ControllerUser.fromJSON({ name: "test", roles: [0, 1] }, this.roles)],
+			["player", ControllerUser.fromJSON({ name: "player", roles: [1] }, this.roles)],
 		]);
+
 		this.instances = new lib.KeyValueDatastore();
 		this.hosts = new lib.KeyValueDatastore();
 		this.handles = new Map();

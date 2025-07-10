@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const { Controller, HostInfo, InstanceInfo } = require("@clusterio/controller");
-const { ControllerConfig, Address, RequestError, InstanceConfig, HostConfig, SystemInfo } = require("@clusterio/lib");
+const { ControllerConfig, Address, RequestError, InstanceConfig, SystemInfo, Role } = require("@clusterio/lib");
 const { EventEmitter } = require("stream");
 
 class MockEvent {}
@@ -311,6 +311,34 @@ describe("controller/src/Controller", function() {
 				]);
 				assert.deepEqual(result, [
 					instanceInfoJsonCopy, instanceInfoJsonCopy, instanceInfoJsonCopy,
+				]);
+			});
+		});
+		describe("Role", function() {
+			it("migrates renamed permissions", function() { // Alpha 17
+				const result = Controller.migrateRoles([
+					{ permissions: ["foo", "bar", "core.instance.save.list.subscribe"] },
+					{ permissions: ["bar", "core.instance.save.list.subscribe"] },
+					{ permissions: ["core.instance.save.subscribe"] },
+				]);
+				assert.deepEqual(result, [
+					{ permissions: ["foo", "bar", "core.instance.save.subscribe"] },
+					{ permissions: ["bar", "core.instance.save.subscribe"] },
+					{ permissions: ["core.instance.save.subscribe"] },
+				]);
+			});
+			it("does nothing for upto date data", function() {
+				const role = new Role(
+					0, "n", "d", new Set("p1", "p2"), 0, false
+				);
+				const jsonString = JSON.stringify(role);
+				const roleJson = JSON.parse(jsonString);
+				const roleJsonCopy = JSON.parse(jsonString);
+				const result = Controller.migrateRoles([
+					roleJson, roleJson, roleJson,
+				]);
+				assert.deepEqual(result, [
+					roleJsonCopy, roleJsonCopy, roleJsonCopy,
 				]);
 			});
 		});
