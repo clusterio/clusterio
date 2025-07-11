@@ -2,118 +2,67 @@ local clusterio_api = require("modules/clusterio/api")
 
 minimap = {}
 
-local function dump_mapview(position_a, position_b)
-	-- Only process on the server
+-- Convert RGB565 to RGB888 values
+local function rgb565_to_rgb888(rgb565_value)
+	local r = math.floor(bit32.rshift(rgb565_value, 11) * 255 / 31)
+	local g = math.floor(bit32.rshift(bit32.band(rgb565_value, 0x07E0), 5) * 255 / 63)
+	local b = math.floor(bit32.band(rgb565_value, 0x001F) * 255 / 31)
+	return r, g, b
+end
+
+-- Queue a chunk for update
+local function queue_chunk_for_update(chunk_position)
 	if not storage.minimap or not storage.minimap.enabled then
 		return
 	end
 
-	local tiles = game.surfaces[1].find_tiles_filtered{area = {position_a, position_b}}
-	local map_data = {}
-	local CHUNK_SIZE = position_b[1] - position_a[1]
-	
-	-- Fill map_data with black squares initially
-	for x = 1, CHUNK_SIZE * CHUNK_SIZE do
-		map_data[x] = string.format("%02x%02x%02x", 0, 0, 0)
-	end
-	
-	-- Process each tile
-	for _, tile in pairs(tiles) do
-		local map_color = tile.prototype.map_color
-		local position = tile.position
-		local index = (position.x - position_a[1] + 1) + (position.y - position_a[2]) * CHUNK_SIZE
-		if index >= 1 and index <= #map_data then
-			map_data[index] = string.format("%02x%02x%02x", map_color.r, map_color.g, map_color.b)
+	-- If the chunk isn't already in the queue, add it
+	for _, queued_chunk in pairs(storage.minimap.chunk_update_queue) do
+		if queued_chunk.x == chunk_position.x and queued_chunk.y == chunk_position.y then
+			return
 		end
 	end
 
-	-- Send tile data to the plugin
-	clusterio_api.send_json("minimap:tile_data", {
-		type = "tiles",
-		position = position_a,
-		size = CHUNK_SIZE,
-		data = table.concat(map_data, ";"),
-		layer = "tiles_"
-	})
+	table.insert(storage.minimap.chunk_update_queue, chunk_position)
 end
 
-local function dump_entities(entities)
-	-- Only process on the server
-	if not storage.minimap or not storage.minimap.enabled then
-		return
-	end
-
-	local ignored_entities = {
-		["character"] = true,
-		["character-corpse"] = true,
-		["highlight-box"] = true,
-		["item-request-proxy"] = true,
-		["tile-ghost"] = true,
-	}
-
-	local map_data = {}
-	
-	for _, entity in pairs(entities) do
-		if entity and entity.valid and not ignored_entities[entity.type] then
-			local position = entity.position
-			local map_color = entity.prototype.friendly_map_color or 
-			                 entity.prototype.map_color or 
-			                 entity.prototype.enemy_map_color or 
-			                 {r = 255, g = 255, b = 255, a = 255}
-			
-			-- Determine entity size for drawing
-			local size_x = math.max(1, math.ceil(math.abs(entity.bounding_box.right_bottom.x - entity.bounding_box.left_top.x)))
-			local size_y = math.max(1, math.ceil(math.abs(entity.bounding_box.right_bottom.y - entity.bounding_box.left_top.y)))
-			
-			-- Add pixels for entity
-			for x = 0, size_x - 1 do
-				for y = 0, size_y - 1 do
-					local pixel_x = position.x + x - (size_x - 1) / 2
-					local pixel_y = position.y + y - (size_y - 1) / 2
-					
-					table.insert(map_data, pixel_x)
-					table.insert(map_data, pixel_y)
-					
-					if entity.type == "entity-ghost" then
-						-- Render ghosts as transparent purple
-						table.insert(map_data, string.format("%02x%02x%02x%02x", 168, 0, 168, 127))
-					else
-						table.insert(map_data, string.format("%02x%02x%02x%02x", 
-							map_color.r or 255, 
-							map_color.g or 255, 
-							map_color.b or 255, 
-							map_color.a or 255))
-					end
-				end
+local function dump_chunk_chart(chunk_position)
+	local data = {}
+	local surfaces = game.surfaces
+	local forces = game.forces
+	for _, force in pairs(forces) do
+		for _, surface in pairs(surfaces) do
+			local chart_data = force.get_chunk_chart(surface, chunk_position)
+			if chart_data then
+				table.insert(data, {surface = surface.name, force = force.name, chart_data = chart_data})
 			end
 		end
 	end
 
-	if #map_data > 0 then
-		-- Send entity data to the plugin
-		clusterio_api.send_json("minimap:tile_data", {
-			type = "pixels",
-			data = table.concat(map_data, ";"),
-			layer = ""
-		})
-	end
+	-- Calculate world position from chunk position
+	local world_x = chunk_position.x * 32
+	local world_y = chunk_position.y * 32
+
+	-- Send tile data to the plugin
+	clusterio_api.send_json("minimap:tile_data", {
+		type = "chart",
+		position = {world_x, world_y},
+		size = 32,
+		data = data,
+	})
 end
 
-local function on_chunk_generated(event)
+-- Event handlers
+local function on_chunk_charted(event)
 	if not storage.minimap or not storage.minimap.enabled then
 		return
 	end
 
-	-- Process new entities in the generated chunk
-	local entities = event.surface.find_entities_filtered({area = event.area})
-	if #entities > 0 then
-		dump_entities(entities)
-	end
+	-- Convert area to chunk position
+	local chunk_x = math.floor(event.area.left_top.x / 32)
+	local chunk_y = math.floor(event.area.left_top.y / 32)
 
-	-- Process tiles in the generated chunk
-	local left_top = event.area.left_top
-	local right_bottom = event.area.right_bottom
-	dump_mapview({left_top.x, left_top.y}, {right_bottom.x, right_bottom.y})
+	queue_chunk_for_update({x = chunk_x, y = chunk_y})
 end
 
 local function on_entity_built(event)
@@ -122,7 +71,11 @@ local function on_entity_built(event)
 	end
 
 	if event.created_entity and event.created_entity.valid then
-		dump_entities({event.created_entity})
+		local position = event.created_entity.position
+		local chunk_x = math.floor(position.x / 32)
+		local chunk_y = math.floor(position.y / 32)
+
+		queue_chunk_for_update({x = chunk_x, y = chunk_y})
 	end
 end
 
@@ -131,18 +84,12 @@ local function on_entity_removed(event)
 		return
 	end
 
-	-- For removed entities, we send a transparent pixel to "erase" them
 	if event.entity and event.entity.position then
 		local position = event.entity.position
-		local map_data = {
-			position.x, position.y, "00000000" -- Transparent pixel
-		}
-		
-		clusterio_api.send_json("minimap:tile_data", {
-			type = "pixels",
-			data = table.concat(map_data, ";"),
-			layer = ""
-		})
+		local chunk_x = math.floor(position.x / 32)
+		local chunk_y = math.floor(position.y / 32)
+
+		queue_chunk_for_update({x = chunk_x, y = chunk_y})
 	end
 end
 
@@ -151,49 +98,21 @@ local function on_tile_changed(event)
 		return
 	end
 
-	-- Process changed tiles
-	local tiles = {}
+	-- Get unique chunks that were affected
+	local affected_chunks = {}
 	for _, tile in pairs(event.tiles) do
-		table.insert(tiles, tile.position)
-	end
-	
-	if #tiles > 0 then
-		local map_data = {}
-		for _, position in pairs(tiles) do
-			local tile = game.surfaces[1].get_tile(position)
-			local map_color = tile.prototype.map_color
-			table.insert(map_data, position.x)
-			table.insert(map_data, position.y)
-			table.insert(map_data, string.format("%02x%02x%02x%02x", 
-				map_color.r, map_color.g, map_color.b, 255))
-		end
-		
-		clusterio_api.send_json("minimap:tile_data", {
-			type = "pixels",
-			data = table.concat(map_data, ";"),
-			layer = "tiles_"
-		})
-	end
-end
+		local chunk_x = math.floor(tile.position.x / 32)
+		local chunk_y = math.floor(tile.position.y / 32)
+		local chunk_key = chunk_x .. "," .. chunk_y
 
-local function on_nth_tick_update()
-	if not storage.minimap or not storage.minimap.enabled then
-		return
+		if not affected_chunks[chunk_key] then
+			affected_chunks[chunk_key] = {x = chunk_x, y = chunk_y}
+		end
 	end
 
-	-- Periodic update of entities (every ~5 seconds)
-	storage.minimap.update_timer = (storage.minimap.update_timer or 0) + 1
-	if storage.minimap.update_timer >= 300 then -- 5 seconds at 60 UPS
-		storage.minimap.update_timer = 0
-		
-		-- Find all entities in a reasonable area around spawn
-		local entities = game.surfaces[1].find_entities_filtered({
-			area = {{-512, -512}, {512, 512}}
-		})
-		
-		if #entities > 0 then
-			dump_entities(entities)
-		end
+	-- Update each affected chunk
+	for _, chunk_pos in pairs(affected_chunks) do
+		queue_chunk_for_update(chunk_pos)
 	end
 end
 
@@ -202,34 +121,39 @@ local function init()
 	if not storage.minimap then
 		storage.minimap = {
 			enabled = true,
-			update_timer = 0
+			chunk_update_queue = {}
 		}
 	end
 end
 
+local function on_tick(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	-- Process the chunk update queue
+	if #storage.minimap.chunk_update_queue > 0 then
+		local chunk_position = table.remove(storage.minimap.chunk_update_queue, 1)
+		dump_chunk_chart(chunk_position)
+	end
+end
+
 -- Export functions
-minimap.dump_mapview = dump_mapview
-minimap.dump_entities = dump_entities
-minimap.init = init
+minimap.dump_chunk_chart = dump_chunk_chart
 
--- Event handlers
-script.on_event(defines.events.on_chunk_generated, on_chunk_generated)
-script.on_event(defines.events.on_built_entity, on_entity_built)
-script.on_event(defines.events.on_robot_built_entity, on_entity_built)
-script.on_event(defines.events.on_entity_died, on_entity_removed)
-script.on_event(defines.events.on_player_mined_entity, on_entity_removed)
-script.on_event(defines.events.on_robot_mined_entity, on_entity_removed)
-script.on_event(defines.events.on_player_built_tile, on_tile_changed)
-script.on_event(defines.events.on_robot_built_tile, on_tile_changed)
-script.on_event(defines.events.on_player_mined_tile, on_tile_changed)
-script.on_event(defines.events.on_robot_mined_tile, on_tile_changed)
-script.on_event(defines.events.script_raised_set_tiles, on_tile_changed)
-
--- Periodic updates
-script.on_nth_tick(60, on_nth_tick_update) -- Every second
-
--- Initialize on load
 minimap.events = {}
 minimap.events[clusterio_api.events.on_server_startup] = init
+minimap.events[defines.events.on_tick] = on_tick
+minimap.events[defines.events.on_chunk_charted] = on_chunk_charted
+minimap.events[defines.events.on_built_entity] = on_entity_built
+minimap.events[defines.events.on_robot_built_entity] = on_entity_built
+minimap.events[defines.events.on_entity_died] = on_entity_removed
+minimap.events[defines.events.on_player_mined_entity] = on_entity_removed
+minimap.events[defines.events.on_robot_mined_entity] = on_entity_removed
+minimap.events[defines.events.on_player_built_tile] = on_tile_changed
+minimap.events[defines.events.on_robot_built_tile] = on_tile_changed
+minimap.events[defines.events.on_player_mined_tile] = on_tile_changed
+minimap.events[defines.events.on_robot_mined_tile] = on_tile_changed
+minimap.events[defines.events.script_raised_set_tiles] = on_tile_changed
 
 return minimap
