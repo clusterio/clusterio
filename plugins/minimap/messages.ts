@@ -1,6 +1,15 @@
 import { Type, Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
 
+// Define the chart data structure
+export const ChartDataSchema = Type.Object({
+	surface: Type.String(),
+	force: Type.String(),
+	chart_data: Type.String(),
+});
+
+export type ChartData = Static<typeof ChartDataSchema>;
+
 export class TileDataEvent {
 	declare ["constructor"]: typeof TileDataEvent;
 	static type = "event" as const;
@@ -10,99 +19,28 @@ export class TileDataEvent {
 	static permission = null;
 
 	constructor(
-		public type: "tiles" | "pixels",
-		public data: string[],
-		public position: [number, number] | null,
-		public size: number | null,
-		public instanceId: number,
-		public layer: string = ""
+		public type: "chart",
+		public data: ChartData[],
+		public position: [number, number],
+		public instanceId: number
 	) {
 	}
 
 	static jsonSchema = Type.Object({
-		"type": Type.Union([Type.Literal("tiles"), Type.Literal("pixels")]),
-		"data": Type.Array(Type.String()),
-		"position": Type.Union([Type.Array(Type.Number(), { minItems: 2, maxItems: 2 }), Type.Null()]),
-		"size": Type.Union([Type.Number(), Type.Null()]),
+		"type": Type.Union([Type.Literal("chart")]),
+		"data": Type.Array(ChartDataSchema),
+		"position": Type.Array(Type.Number(), { minItems: 2, maxItems: 2 }),
 		"instanceId": Type.Number(),
-		"layer": Type.String(),
 	});
 
 	static fromJSON(json: Static<typeof TileDataEvent.jsonSchema>) {
 		return new this(
 			json.type, 
 			json.data, 
-			json.position as [number, number] | null, 
-			json.size, 
-			json.instanceId, 
-			json.layer
+			json.position as [number, number], 
+			json.instanceId,
 		);
 	}
-}
-
-export class RefreshTileDataRequest {
-	declare ["constructor"]: typeof RefreshTileDataRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static plugin = "minimap" as const;
-	static permission = "minimap.refresh";
-
-	constructor(
-		public instanceId: number,
-		public area?: { x1: number; y1: number; x2: number; y2: number }
-	) {
-	}
-
-	static jsonSchema = Type.Object({
-		"instanceId": Type.Number(),
-		"area": Type.Optional(Type.Object({
-			"x1": Type.Number(),
-			"y1": Type.Number(),
-			"x2": Type.Number(),
-			"y2": Type.Number(),
-		})),
-	});
-
-	static fromJSON(json: Static<typeof RefreshTileDataRequest.jsonSchema>) {
-		return new this(json.instanceId, json.area);
-	}
-
-	static Response = lib.plainJson(Type.Object({
-		"success": Type.Boolean(),
-		"message": Type.Optional(Type.String()),
-	}));
-}
-
-export class GetTileDataRequest {
-	declare ["constructor"]: typeof GetTileDataRequest;
-	static type = "request" as const;
-	static src = "controller" as const;
-	static dst = "instance" as const;
-	static plugin = "minimap" as const;
-	static permission = null;
-
-	constructor(
-		public area: { x1: number; y1: number; x2: number; y2: number }
-	) {
-	}
-
-	static jsonSchema = Type.Object({
-		"area": Type.Object({
-			"x1": Type.Number(),
-			"y1": Type.Number(),
-			"x2": Type.Number(),
-			"y2": Type.Number(),
-		}),
-	});
-
-	static fromJSON(json: Static<typeof GetTileDataRequest.jsonSchema>) {
-		return new this(json.area);
-	}
-
-	static Response = lib.plainJson(Type.Object({
-		"tileData": Type.Array(Type.String()),
-	}));
 }
 
 export class GetInstanceBoundsRequest {
