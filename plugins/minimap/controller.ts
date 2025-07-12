@@ -2,9 +2,8 @@ import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin } from "@clusterio/controller";
 import {
 	TileDataEvent,
-	RefreshTileDataRequest,
-	GetTileDataRequest,
 	GetInstanceBoundsRequest,
+	ChartData,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -31,11 +30,19 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		await fs.ensureDir(this.tilesPath);
 
 		this.controller.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
-		this.controller.handle(RefreshTileDataRequest, this.handleRefreshTileDataRequest.bind(this));
+
 		this.controller.handle(GetInstanceBoundsRequest, this.handleGetInstanceBoundsRequest.bind(this));
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
+	}
+
+	// Convert RGB565 to RGB888 values
+	private rgb565ToRgb888(rgb565Value: number): [number, number, number] {
+		const r = Math.floor(((rgb565Value >> 11) & 0x1F) * 255 / 31);
+		const g = Math.floor(((rgb565Value >> 5) & 0x3F) * 255 / 63);
+		const b = Math.floor((rgb565Value & 0x1F) * 255 / 31);
+		return [r, g, b];
 	}
 
 	private setupTileRoutes() {
@@ -53,11 +60,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}).png().toBuffer();
 		};
 
-		// Serve terrain tiles
-		app.get("/api/minimap/tiles/:z/:x/:y.png", async (req, res) => {
+		// Serve chart tiles with surface and force support
+		app.get("/api/minimap/chart/:surface/:force/:z/:x/:y.png", async (req, res) => {
 			try {
-				const { z, x, y } = req.params;
-				const filename = `tiles_z${z}x${x}y${y}.png`;
+				const { surface, force, z, x, y } = req.params;
+				const filename = `${surface}_${force}_z${z}x${x}y${y}.png`;
 				const filePath = path.resolve(this.tilesPath, filename);
 				
 				if (await fs.pathExists(filePath)) {
@@ -70,135 +77,103 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					res.send(blackImage);
 				}
 			} catch (err) {
-				this.logger.error(`Error serving tile: ${err}`);
+				this.logger.error(`Error serving chart tile: ${err}`);
 				const blackImage = await createBlackImage();
 				res.setHeader("Content-Type", "image/png");
 				res.send(blackImage);
 			}
 		});
 
-		// Serve entity tiles
-		app.get("/api/minimap/entities/:z/:x/:y.png", async (req, res) => {
+		// List available surfaces and forces
+		app.get("/api/minimap/surfaces", async (req, res) => {
 			try {
-				const { z, x, y } = req.params;
-				const filename = `entities_z${z}x${x}y${y}.png`;
-				const filePath = path.resolve(this.tilesPath, filename);
+				const files = await fs.readdir(this.tilesPath);
+				const surfaces = new Set<string>();
+				const forces = new Set<string>();
 				
-				if (await fs.pathExists(filePath)) {
-					const file = await fs.readFile(filePath);
-					res.setHeader("Content-Type", "image/png");
-					res.send(file);
-				} else {
-					const blackImage = await createBlackImage();
-					res.setHeader("Content-Type", "image/png");
-					res.send(blackImage);
+				// Parse filenames to extract surface and force information
+				for (const file of files) {
+					const match = file.match(/^([^_]+)_([^_]+)_.*\.png$/);
+					if (match) {
+						surfaces.add(match[1]);
+						forces.add(match[2]);
+					}
 				}
+				
+				res.json({
+					surfaces: Array.from(surfaces),
+					forces: Array.from(forces),
+				});
 			} catch (err) {
-				this.logger.error(`Error serving entity tile: ${err}`);
-				const blackImage = await createBlackImage();
-				res.setHeader("Content-Type", "image/png");
-				res.send(blackImage);
+				this.logger.error(`Error listing surfaces: ${err}`);
+				res.status(500).json({ error: "Failed to list surfaces" });
 			}
 		});
 	}
 
 	async handleTileDataEvent(event: TileDataEvent) {
 		try {
-			const { type, data, position, size, instanceId, layer } = event;
+			const { type, data, position, instanceId } = event;
 
-			if (type === "pixels") {
-				await this.processPixelData(data, instanceId, layer);
-			} else if (type === "tiles" && position && size) {
-				await this.processTileData(data, position, size, instanceId, layer);
+			if (type === "chart") {
+				await this.processChartData(data as ChartData[], position, instanceId);
 			}
 		} catch (err) {
 			this.logger.error(`Error processing tile data: ${err}`);
 		}
 	}
 
-	private async processPixelData(data: string[], instanceId: number, layer: string) {
-		if (data.length % 3 !== 0) {
-			this.logger.error(`Invalid pixel data length: ${data.length}`);
+	private async processChartData(chartData: ChartData[], position: [number, number], instanceId: number) {
+		if (!position || !instanceId) {
+			this.logger.error("Chart data requires position and instanceId");
 			return;
 		}
 
-		const updates = new Map<string, Set<PixelUpdate>>();
-
-		for (let i = 0; i < data.length; i += 3) {
-			const x = Math.floor(Number(data[i]));
-			const y = Math.floor(Number(data[i + 1]));
-			const colorHex = data[i + 2];
-
-			if (colorHex.length !== 8) {
-				continue; // Skip invalid color data
-			}
-
-			const rgba: [number, number, number, number] = [
-				parseInt(colorHex.slice(0, 2), 16),
-				parseInt(colorHex.slice(2, 4), 16),
-				parseInt(colorHex.slice(4, 6), 16),
-				parseInt(colorHex.slice(6, 8), 16),
-			];
-
-			// Calculate which tile this pixel belongs to
-			const tileX = Math.floor(x / TILE_SIZE) + (x < 0 ? -1 : 0);
-			const tileY = Math.floor(y / TILE_SIZE) + (y < 0 ? -1 : 0);
-			const filename = `${layer}z10x${tileX}y${tileY}.png`;
-
-			if (!updates.has(filename)) {
-				updates.set(filename, new Set());
-			}
-
-			updates.get(filename)!.add({
-				x: ((x % TILE_SIZE) + TILE_SIZE) % TILE_SIZE,
-				y: ((y % TILE_SIZE) + TILE_SIZE) % TILE_SIZE,
-				rgba,
-			});
-		}
-
-		// Apply updates to tiles
-		for (const [filename, pixels] of updates) {
-			await this.updateTileImage(filename, pixels);
-		}
-	}
-
-	private async processTileData(data: string[], position: [number, number], size: number, instanceId: number, layer: string) {
+		const size = 32;
 		const [originX, originY] = position;
 		const updates = new Map<string, Set<PixelUpdate>>();
 
-		for (let i = 0; i < data.length; i++) {
-			const x = i % size;
-			const y = Math.floor(i / size);
-			const colorHex = data[i];
+		// Process each surface/force combination
+		for (const chart of chartData) {
+			const { surface, force, chart_data } = chart;
+			
+			// Process each pixel in the 32x32 chunk
+			for (let i = 0; i < chart_data.length; i += 2) {
+				const byte1 = chart_data.charCodeAt(i);
+				const byte2 = chart_data.charCodeAt(i + 1);
+				
+				if (isNaN(byte1) || isNaN(byte2)) {
+					continue;
+				}
 
-			if (colorHex.length !== 6) {
-				continue; // Skip invalid color data
+				const rgb565Value = byte1 + (byte2 << 8);
+				const [r, g, b] = this.rgb565ToRgb888(rgb565Value);
+
+				// Calculate pixel position within the chunk
+				const pixelIndex = i / 2;
+				const x = pixelIndex % size;
+				const y = Math.floor(pixelIndex / size);
+
+				const worldX = originX + x;
+				const worldY = originY + y;
+
+				// Calculate which tile this pixel belongs to
+				const tileX = Math.floor(worldX / TILE_SIZE) + (worldX < 0 ? -1 : 0);
+				const tileY = Math.floor(worldY / TILE_SIZE) + (worldY < 0 ? -1 : 0);
+				
+				// Use surface and force in the filename for differentiation
+				const filename = `${surface}_${force}_z10x${tileX}y${tileY}.png`;
+
+				if (!updates.has(filename)) {
+					updates.set(filename, new Set());
+				}
+
+				updates.get(filename)!.add({
+					x: ((worldX % TILE_SIZE) + TILE_SIZE) % TILE_SIZE,
+					y: ((worldY % TILE_SIZE) + TILE_SIZE) % TILE_SIZE,
+					rgba: [r, g, b, 255], // Full alpha for chart data
+				});
 			}
-
-			const rgba: [number, number, number, number] = [
-				parseInt(colorHex.slice(0, 2), 16),
-				parseInt(colorHex.slice(2, 4), 16),
-				parseInt(colorHex.slice(4, 6), 16),
-				255, // Full alpha for tile data
-			];
-
-			const worldX = originX + x;
-			const worldY = originY + y;
-
-			// Calculate which tile this pixel belongs to
-			const tileX = Math.floor(worldX / TILE_SIZE) + (worldX < 0 ? -1 : 0);
-			const tileY = Math.floor(worldY / TILE_SIZE) + (worldY < 0 ? -1 : 0);
-			const filename = `${layer}z10x${tileX}y${tileY}.png`;
-
-			if (!updates.has(filename)) {
-				updates.set(filename, new Set());
-			}
-
-			updates.get(filename)!.add({
-				x: ((worldX % TILE_SIZE) + TILE_SIZE) % TILE_SIZE,
-				y: ((worldY % TILE_SIZE) + TILE_SIZE) % TILE_SIZE,
-				rgba,
-			});
 		}
 
 		// Apply updates to tiles
@@ -273,35 +248,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				channels: 4,
 			},
 		}).png().toFile(imagePath);
-	}
-
-	async handleRefreshTileDataRequest(request: RefreshTileDataRequest): Promise<{ success: boolean; message?: string }> {
-		try {
-			const { instanceId, area } = request;
-			const instance = this.controller.instances.get(instanceId);
-			
-			if (!instance) {
-				return { success: false, message: "Instance not found" };
-			}
-
-			if (instance.status !== "running") {
-				return { success: false, message: "Instance is not running" };
-			}
-
-			// Send request to instance to get tile data
-			const defaultArea = { x1: -512, y1: -512, x2: 512, y2: 512 };
-			const tileArea = area || defaultArea;
-
-			await this.controller.sendTo(
-				{ instanceId },
-				new GetTileDataRequest(tileArea)
-			);
-
-			return { success: true, message: "Tile refresh initiated" };
-		} catch (err) {
-			this.logger.error(`Error refreshing tile data: ${err}`);
-			return { success: false, message: `Error: ${err}` };
-		}
 	}
 
 	async handleGetInstanceBoundsRequest(request: GetInstanceBoundsRequest) {

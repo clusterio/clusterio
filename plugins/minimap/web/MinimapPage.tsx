@@ -3,7 +3,10 @@ import { Row, Col, Button, Card, Space, Select } from "antd";
 import { MapContainer, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import { ControlContext } from "@clusterio/web_ui";
-import { GetInstanceBoundsRequest, RefreshTileDataRequest } from "../messages";
+import { GetInstanceBoundsRequest } from "../messages";
+
+// Import Leaflet CSS
+import "leaflet/dist/leaflet.css";
 
 interface Instance {
 	instanceId: number;
@@ -16,9 +19,17 @@ interface Instance {
 	};
 }
 
+interface SurfaceForceData {
+	surfaces: string[];
+	forces: string[];
+}
+
 export default function MinimapPage() {
 	const [instances, setInstances] = useState<Instance[]>([]);
 	const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
+	const [selectedSurface, setSelectedSurface] = useState<string>("nauvis");
+	const [selectedForce, setSelectedForce] = useState<string>("player");
+	const [surfaceForceData, setSurfaceForceData] = useState<SurfaceForceData>({ surfaces: [], forces: [] });
 	const [refreshTiles, setRefreshTiles] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const control = useContext(ControlContext);
@@ -26,6 +37,7 @@ export default function MinimapPage() {
 	// Load instance bounds on component mount
 	useEffect(() => {
 		loadInstances();
+		loadSurfaceForceData();
 	}, []);
 
 	const loadInstances = async () => {
@@ -44,19 +56,22 @@ export default function MinimapPage() {
 		}
 	};
 
-	const refreshTileData = async () => {
-		if (!selectedInstance) return;
-
+	const loadSurfaceForceData = async () => {
 		try {
-			setLoading(true);
-			await control.send(new RefreshTileDataRequest(selectedInstance));
+			const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
+			console.log(response);
+			const data = await response.json();
+			setSurfaceForceData(data);
 			
-			// Force tile refresh by incrementing the refresh parameter
-			setRefreshTiles(prev => prev + 1);
+			// Set default selections if available
+			if (data.surfaces.length > 0 && !selectedSurface) {
+				setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
+			}
+			if (data.forces.length > 0 && !selectedForce) {
+				setSelectedForce(data.forces.includes("player") ? "player" : data.forces[0]);
+			}
 		} catch (err) {
-			console.error("Failed to refresh tile data:", err);
-		} finally {
-			setLoading(false);
+			console.error("Failed to load surface/force data:", err);
 		}
 	};
 
@@ -74,7 +89,7 @@ export default function MinimapPage() {
 					<Card 
 						title="Factorio Instance Minimap" 
 						extra={
-							<Space>
+							<Space wrap>
 								<Select
 									style={{ width: 200 }}
 									placeholder="Select instance"
@@ -88,14 +103,31 @@ export default function MinimapPage() {
 										</Select.Option>
 									))}
 								</Select>
-								<Button 
-									type="primary" 
-									onClick={refreshTileData}
-									loading={loading}
-									disabled={!selectedInstance}
+								<Select
+									style={{ width: 150 }}
+									placeholder="Select surface"
+									value={selectedSurface}
+									onChange={setSelectedSurface}
 								>
-									Refresh Map
-								</Button>
+									{surfaceForceData.surfaces.map(surface => (
+										<Select.Option key={surface} value={surface}>
+											{surface}
+										</Select.Option>
+									))}
+								</Select>
+								<Select
+									style={{ width: 150 }}
+									placeholder="Select force"
+									value={selectedForce}
+									onChange={setSelectedForce}
+								>
+									{surfaceForceData.forces.map(force => (
+										<Select.Option key={force} value={force}>
+											{force}
+										</Select.Option>
+									))}
+								</Select>
+
 								<Button onClick={loadInstances} loading={loading}>
 									Reload Instances
 								</Button>
@@ -112,19 +144,12 @@ export default function MinimapPage() {
 									minZoom={7}
 									crs={L.CRS.Simple}
 								>
-									{/* Terrain layer */}
+									{/* Chart layer with surface and force data */}
 									<TileLayer
-										url={`${window.location.origin}/api/minimap/tiles/{z}/{x}/{y}.png?refresh=${refreshTiles}`}
+										url={`${window.location.origin}/api/minimap/chart/${selectedSurface}/${selectedForce}/{z}/{x}/{y}.png?refresh=${refreshTiles}`}
 										maxNativeZoom={10}
-										minNativeZoom={7}
+										minNativeZoom={10}
 										opacity={1}
-									/>
-									{/* Entity layer */}
-									<TileLayer
-										url={`${window.location.origin}/api/minimap/entities/{z}/{x}/{y}.png?refresh=${refreshTiles}`}
-										maxNativeZoom={10}
-										minNativeZoom={7}
-										opacity={0.8}
 									/>
 								</MapContainer>
 							</div>

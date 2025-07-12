@@ -2,8 +2,6 @@ import * as lib from "@clusterio/lib";
 
 import {
 	TileDataEvent,
-	RefreshTileDataRequest,
-	GetTileDataRequest,
 	GetInstanceBoundsRequest,
 } from "./messages";
 
@@ -12,13 +10,6 @@ lib.definePermission({
 	name: "minimap.view",
 	title: "View Minimap",
 	description: "View the interactive minimap of Factorio instances.",
-	grantByDefault: true,
-});
-
-lib.definePermission({
-	name: "minimap.refresh",
-	title: "Refresh Minimap",
-	description: "Refresh the minimap data for Factorio instances.",
 	grantByDefault: true,
 });
 
@@ -32,8 +23,7 @@ export const plugin: lib.PluginDeclaration = {
 
 	messages: [
 		TileDataEvent,
-		RefreshTileDataRequest,
-		GetTileDataRequest,
 		GetInstanceBoundsRequest,
 	],
+	routes: ["/minimap"],
 };

@@ -47,7 +47,6 @@ local function dump_chunk_chart(chunk_position)
 	clusterio_api.send_json("minimap:tile_data", {
 		type = "chart",
 		position = {world_x, world_y},
-		size = 32,
 		data = data,
 	})
 end
@@ -116,14 +115,43 @@ local function on_tile_changed(event)
 	end
 end
 
+log("minimap.lua loaded")
 -- Initialize the module
 local function init()
+	log("minimap.lua init")
 	if not storage.minimap then
 		storage.minimap = {
 			enabled = true,
 			chunk_update_queue = {}
 		}
 	end
+
+	if not storage.minimap.enabled then
+		return
+	end
+
+	-- Remove previous queue
+	storage.minimap.chunk_update_queue = {}
+
+	-- Queue all existing charted chunks for update
+	local chunks_queued = 0
+
+	for _, force in pairs(game.forces) do
+		for _, surface in pairs(game.surfaces) do
+			-- Iterate through all generated chunks on this surface
+			for chunk in surface.get_chunks() do
+				local chunk_position = {x = chunk.x, y = chunk.y}
+
+				-- Check if this chunk is charted for this force
+				if force.is_chunk_charted(surface, chunk_position) then
+					table.insert(storage.minimap.chunk_update_queue, chunk_position)
+					chunks_queued = chunks_queued + 1
+				end
+			end
+		end
+	end
+
+	log("Minimap: Queued " .. chunks_queued .. " chunks for initial map generation")
 end
 
 local function on_tick(event)

@@ -1,13 +1,11 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
-import { TileDataEvent, GetTileDataRequest } from "./messages";
+import { TileDataEvent, ChartData } from "./messages";
 
 interface TileDataIpc {
-	type: "tiles" | "pixels";
-	data: string;
-	position?: [number, number];
-	size?: number;
-	layer?: string;
+	type: "chart";
+	data: ChartData[];
+	position: [number, number];
 }
 
 export class InstancePlugin extends BaseInstancePlugin {
@@ -18,8 +16,6 @@ export class InstancePlugin extends BaseInstancePlugin {
 			throw new Error("minimap plugin requires script commands to be enabled.");
 		}
 
-		this.instance.handle(GetTileDataRequest, this.handleGetTileDataRequest.bind(this));
-
 		// Listen for tile data from the Lua module
 		this.instance.server.on("ipc-minimap:tile_data", (data: TileDataIpc) => {
 			this.handleTileDataFromLua(data).catch(err => this.logger.error(
@@ -28,43 +24,29 @@ export class InstancePlugin extends BaseInstancePlugin {
 		});
 	}
 
-	async handleGetTileDataRequest(request: GetTileDataRequest): Promise<{ tileData: string[] }> {
-		const { area } = request;
-		try {
-			// Send command to Lua to dump tile data for the specified area
-			const command = `/sc minimap.dump_mapview({${area.x1}, ${area.y1}}, {${area.x2}, ${area.y2}})`;
-			const response = await this.sendRcon(command);
-			
-			// Parse the response - it should be a semicolon-separated string of hex colors
-			const tileData = response ? response.split(";").filter(data => data.length > 0) : [];
-			
-			return { tileData };
-		} catch (err) {
-			this.logger.error(`Failed to get tile data: ${err}`);
-			return { tileData: [] };
-		}
-	}
-
 	async handleTileDataFromLua(data: TileDataIpc) {
 		try {
-			// Parse the incoming data
-			const tileData = data.data.split(";").filter(segment => segment.length > 0);
+			const { type, data: rawData, position } = data;
 			
-			if (tileData.length === 0) {
-				return;
+			if (type === "chart") {
+				// Handle new chart data format
+				const chartData = rawData as ChartData[];
+				
+				if (!chartData || !Array.isArray(chartData)) {
+					this.logger.error("Invalid chart data received");
+					return;
+				}
+
+				// Send chart data to controller
+				const event = new TileDataEvent(
+					"chart",
+					chartData,
+					position!,
+					this.instance.config.get("instance.id")
+				);
+
+				return this.instance.sendTo("controller", event);
 			}
-
-			// Send tile data to controller
-			const event = new TileDataEvent(
-				data.type,
-				tileData,
-				data.position || null,
-				data.size || null,
-				this.instance.config.get("instance.id"),
-				data.layer || ""
-			);
-
-			await this.instance.sendTo("controller", event);
 			
 		} catch (err) {
 			this.logger.error(`Failed to process tile data from Lua: ${err}`);
