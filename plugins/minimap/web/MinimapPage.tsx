@@ -150,6 +150,7 @@ export default function MinimapPage() {
 										maxNativeZoom={10}
 										minNativeZoom={10}
 										opacity={1}
+										tileSize={512}
 									/>
 								</MapContainer>
 							</div>
