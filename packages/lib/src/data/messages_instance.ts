@@ -284,6 +284,26 @@ export class InstanceStartRequest {
 	}
 }
 
+export class InstanceRestartRequest {
+	declare ["constructor"]: typeof InstanceRestartRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.restart" as const;
+
+	constructor(
+		public save?: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"save": Type.Optional(Type.String()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.save);
+	}
+}
+
 export class SaveDetails {
 	constructor(
 		public instanceId: number,

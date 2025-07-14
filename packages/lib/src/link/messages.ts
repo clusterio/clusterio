@@ -63,6 +63,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	instance.InstanceAssignRequest,
 	instance.InstanceMetricsRequest,
 	instance.InstanceStartRequest,
+	instance.InstanceRestartRequest,
 	instance.InstanceSaveDetailsListRequest,
 	instance.InstanceSaveDetailsUpdatesEvent,
 	instance.InstanceCreateSaveRequest,
