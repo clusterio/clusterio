@@ -146,7 +146,7 @@ export default function MinimapPage() {
 								>
 									{/* Chart layer with surface and force data */}
 									<TileLayer
-										url={`${window.location.origin}/api/minimap/chart/${selectedSurface}/${selectedForce}/{z}/{x}/{y}.png?refresh=${refreshTiles}`}
+										url={`${window.location.origin}/api/minimap/chart/${selectedInstance}/${selectedSurface}/${selectedForce}/{z}/{x}/{y}.png?refresh=${refreshTiles}`}
 										maxNativeZoom={10}
 										minNativeZoom={10}
 										opacity={1}
