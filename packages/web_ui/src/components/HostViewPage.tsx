@@ -22,8 +22,63 @@ import {
 import { formatTimestamp } from "../util/time_format";
 import { useSystems } from "../model/system";
 import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
+import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableDropdownButton";
 
 const { Title } = Typography;
+
+type HostControlButtonProps = { hostId: number, canRestart?: boolean, restartRequired?: boolean };
+
+function HostControlButton({ hostId, canRestart, restartRequired }: HostControlButtonProps) {
+	const account = useAccount();
+	const control = useContext(ControlContext);
+	const actions: VariableDropdownButtonProps["actions"] = [];
+
+	if (account.hasPermission("core.host.restart") && canRestart) {
+		actions.push({
+			key: "restart",
+			label: (
+				<Tooltip title={restartRequired ? "Restart Required" : null}>
+					Restart {restartRequired ? <ExclamationCircleOutlined style={{ color: "yellow" }}/> : undefined}
+				</Tooltip>
+			),
+			onClick: () => {
+				control.sendTo(
+					{ hostId },
+					new lib.HostRestartRequest()
+				).catch(notifyErrorHandler("Error restarting host"));
+			},
+		});
+	}
+
+	if (account.hasPermission("core.host.stop")) {
+		actions.push({
+			key: "stop",
+			danger: true,
+			label: (
+				<Popconfirm
+					title={<>
+						Stopping this host will leave it inaccessible until someone with
+						access to the system it runs on manually starts it again.<br />
+						Are you sure you want to stop the host?
+					</>}
+					placement="bottomRight"
+					okText="Stop"
+					okButtonProps={{ danger: true }}
+					onConfirm={() => {
+						control.sendTo(
+							{ hostId },
+							new lib.HostStopRequest()
+						).catch(notifyErrorHandler("Error stopping host"));
+					}}
+				>
+					Stop
+				</Popconfirm>
+			),
+		});
+	}
+
+	return <VariableDropdownButton actions={actions} />;
+}
 
 export default function HostViewPage() {
 	let params = useParams();
@@ -50,6 +105,7 @@ export default function HostViewPage() {
 	}
 
 	let hostButtons = <Space>
+		<HostControlButton hostId={hostId} canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
 		{
 			account.hasPermission("core.host.revoke_token")
 			&& <Popconfirm
@@ -67,45 +123,6 @@ export default function HostViewPage() {
 					Revoke tokens
 				</Button>
 			</Popconfirm>
-		}
-		{
-			account.hasPermission("core.host.stop")
-			&& <Popconfirm
-				title={<>
-					Stopping this host will leave it inaccessible until someone with
-					access to the system it runs on manually starts it again.<br />
-					Are you sure you want to stop the host?
-				</>}
-				placement="bottomRight"
-				okText="Stop"
-				okButtonProps={{ danger: true }}
-				onConfirm={() => {
-					control.sendTo(
-						{ hostId },
-						new lib.HostStopRequest()
-					).catch(notifyErrorHandler("Error stopping host"));
-				}}
-			>
-				<Button danger>Stop</Button>
-			</Popconfirm>
-		}
-		{
-			account.hasPermission("core.host.restart")
-			&& <Tooltip title={system?.restartRequired ? "Restart Required" : null}>
-				<Button
-					disabled={system?.canRestart === false}
-					onClick={() => {
-						control.sendTo(
-							{ hostId },
-							new lib.HostRestartRequest()
-						).catch(notifyErrorHandler("Error restarting host"));
-					}}
-				>
-					Restart
-					{!system?.restartRequired ? undefined
-						: <ExclamationCircleOutlined style={{ color: "yellow" }} />}
-				</Button>
-			</Tooltip>
 		}
 		{
 			hasNpmButtonPermission(false)

@@ -1,5 +1,5 @@
 import React, {useContext, useState} from "react";
-import { Button, Descriptions, Flex, Popconfirm, Space, Tooltip, Typography } from "antd";
+import { Descriptions, Flex, Popconfirm, Space, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -19,13 +19,65 @@ import PageLayout from "./PageLayout";
 import { notifyErrorHandler } from "../util/notify";
 import webUiPackage from "../../package.json";
 import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
+import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableDropdownButton";
 
 const { Title } = Typography;
 
+type ControllerControlButtonProps = { canRestart?: boolean, restartRequired?: boolean };
+
+function ControllerControlButton({ canRestart, restartRequired }: ControllerControlButtonProps) {
+	const account = useAccount();
+	const control = useContext(ControlContext);
+	const actions: VariableDropdownButtonProps["actions"] = [];
+
+	if (account.hasPermission("core.controller.restart") && canRestart) {
+		actions.push({
+			key: "restart",
+			label: (
+				<Tooltip title={restartRequired ? "Restart Required" : null}>
+					Restart {restartRequired ? <ExclamationCircleOutlined style={{ color: "yellow" }}/> : undefined}
+				</Tooltip>
+			),
+			onClick: () => {
+				control.send(
+					new lib.ControllerRestartRequest()
+				).catch(notifyErrorHandler("Error restarting controller"));
+			},
+		});
+	}
+
+	if (account.hasPermission("core.controller.stop")) {
+		actions.push({
+			key: "stop",
+			danger: true,
+			label: (
+				<Popconfirm
+					title={<>
+						Stopping the controller will leave the cluster inoperable until someone with
+						access to the system it runs on manually starts it again.<br />
+						Are you sure you want to stop the controller?
+					</>}
+					placement="bottomRight"
+					okText="Stop"
+					okButtonProps={{ danger: true }}
+					onConfirm={() => {
+						control.send(
+							new lib.ControllerStopRequest()
+						).catch(notifyErrorHandler("Error stopping controller"));
+					}}
+				>
+					Stop
+				</Popconfirm>
+			),
+		});
+	}
+
+	return <VariableDropdownButton actions={actions} />;
+}
+
 
 export default function ControllerPage() {
-	let account = useAccount();
-	const control = useContext(ControlContext);
+	const account = useAccount();
 	const [systems] = useSystems();
 	const system = systems.get("controller");
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
@@ -34,43 +86,7 @@ export default function ControllerPage() {
 		<PageHeader
 			title="Controller"
 			extra={<Space>
-				{
-					account.hasPermission("core.controller.stop")
-					&& <Popconfirm
-						title={<>
-							Stopping the controller will leave the cluster inoperable until someone with
-							access to the system it runs on manually starts it again.<br />
-							Are you sure you want to stop the controller?
-						</>}
-						placement="bottomRight"
-						okText="Stop"
-						okButtonProps={{ danger: true }}
-						onConfirm={() => {
-							control.send(
-								new lib.ControllerStopRequest()
-							).catch(notifyErrorHandler("Error stopping controller"));
-						}}
-					>
-						<Button danger>Stop</Button>
-					</Popconfirm>
-				}
-				{
-					account.hasPermission("core.controller.restart")
-					&& <Tooltip title={system?.restartRequired ? "Restart Required" : null}>
-						<Button
-							disabled={system?.canRestart === false}
-							onClick={() => {
-								control.send(
-									new lib.ControllerRestartRequest()
-								).catch(notifyErrorHandler("Error restarting controller"));
-							}}
-						>
-							Restart
-							{!system?.restartRequired ? undefined
-								: <ExclamationCircleOutlined style={{ color: "yellow" }}/>}
-						</Button>
-					</Tooltip>
-				}
+				<ControllerControlButton canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
 				{
 					hasNpmButtonPermission(true)
 					&& <NpmButton target="controller" canRestart={system?.canRestart}/>
