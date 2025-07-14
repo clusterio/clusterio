@@ -34,7 +34,9 @@ local function dump_chunk_chart(chunk_position)
 		for _, surface in pairs(surfaces) do
 			local chart_data = force.get_chunk_chart(surface, chunk_position)
 			if chart_data then
-				table.insert(data, {surface = surface.name, force = force.name, chart_data = chart_data})
+				-- Use Factorio's built-in deflate compression and base64 encoding
+				local encoded_data = helpers.encode_string(chart_data)
+				table.insert(data, {surface = surface.name, force = force.name, chart_data = encoded_data})
 			end
 		end
 	end
