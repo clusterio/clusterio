@@ -382,11 +382,11 @@ export default function UsersPage() {
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
 			title="Users"
-			extra={<>
+			extra={<Space>
 				{account.hasPermission("core.user.create") ? <CreateUserButton /> : undefined}
 				{account.hasAnyPermission("core.user.bulk_import", "core.user.bulk_export")
 					? <BulkUserActionButton /> : undefined}
-			</>}
+			</Space>}
 		/>
 		<Table
 			columns={[
