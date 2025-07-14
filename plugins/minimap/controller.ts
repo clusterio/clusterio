@@ -7,9 +7,12 @@ import {
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
+import * as zlib from "zlib";
+import { promisify } from "util";
 import sharp from "sharp";
 
 const CHUNK_SIZE = 32;
+const inflateAsync = promisify(zlib.inflate);
 
 
 export class ControllerPlugin extends BaseControllerPlugin {
@@ -57,9 +60,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		};
 
 		// Serve chart tiles with surface and force support - now serving 512x512 tiles
-		app.get("/api/minimap/chart/:surface/:force/:z/:x/:y.png", async (req, res) => {
+		app.get("/api/minimap/chart/:instanceId/:surface/:force/:z/:x/:y.png", async (req, res) => {
 			try {
-				const { surface, force, z, x, y } = req.params;
+				const { instanceId, surface, force, z, x, y } = req.params;
 				const tileX = parseInt(x);
 				const tileY = parseInt(y);
 				
@@ -67,7 +70,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				const chunksPerTile = 16;
 				const tileSize = 512;
 				
-				// Calculate the range of 32x32 chunks that make up this 512x512 tile
+				// Calculate the range of chunk coordinates that make up this 512x512 tile
 				const startChunkX = tileX * chunksPerTile;
 				const startChunkY = tileY * chunksPerTile;
 				const endChunkX = startChunkX + chunksPerTile;
@@ -89,7 +92,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				
 				for (let chunkY = startChunkY; chunkY < endChunkY; chunkY++) {
 					for (let chunkX = startChunkX; chunkX < endChunkX; chunkX++) {
-						const filename = `${surface}_${force}_${chunkX*32}_${chunkY*32}.png`;
+						const filename = `${instanceId}/${surface}/${force}/${chunkX}_${chunkY}.png`;
 						const filePath = path.resolve(this.tilesPath, filename);
 						
 						if (await fs.pathExists(filePath)) {
@@ -132,20 +135,39 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		// List available surfaces and forces
 		app.get("/api/minimap/surfaces", async (req, res) => {
 			try {
-				const files = await fs.readdir(this.tilesPath);
+				const instances = new Set<string>();
 				const surfaces = new Set<string>();
 				const forces = new Set<string>();
 				
-				// Parse filenames to extract surface and force information
-				for (const file of files) {
-					const match = file.match(/^([^_]+)_([^_]+)_.*\.png$/);
-					if (match) {
-						surfaces.add(match[1]);
-						forces.add(match[2]);
+				// Traverse the hierarchical directory structure: instanceId/surface/force/
+				const instanceDirs = await fs.readdir(this.tilesPath, { withFileTypes: true });
+				
+				for (const instanceDir of instanceDirs) {
+					if (instanceDir.isDirectory()) {
+						instances.add(instanceDir.name);
+						
+						const instancePath = path.join(this.tilesPath, instanceDir.name);
+						const surfaceDirs = await fs.readdir(instancePath, { withFileTypes: true });
+						
+						for (const surfaceDir of surfaceDirs) {
+							if (surfaceDir.isDirectory()) {
+								surfaces.add(surfaceDir.name);
+								
+								const surfacePath = path.join(instancePath, surfaceDir.name);
+								const forceDirs = await fs.readdir(surfacePath, { withFileTypes: true });
+								
+								for (const forceDir of forceDirs) {
+									if (forceDir.isDirectory()) {
+										forces.add(forceDir.name);
+									}
+								}
+							}
+						}
 					}
 				}
 				
 				res.json({
+					instances: Array.from(instances),
 					surfaces: Array.from(surfaces),
 					forces: Array.from(forces),
 				});
@@ -174,14 +196,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			return;
 		}
 
-		const [chunkX, chunkY] = position;
+		const [worldX, worldY] = position;
+		
+		// Convert world coordinates to chunk coordinates
+		const chunkX = Math.floor(worldX / 32);
+		const chunkY = Math.floor(worldY / 32);
 
 		// Process each surface/force combination
 		for (const chart of chartData) {
 			const { surface, force, chart_data } = chart;
 			
-			// Create filename for this chunk
-			const filename = `${surface}_${force}_${chunkX}_${chunkY}.png`;
+			// Create filename using chunk coordinates
+			const filename = `${instanceId}/${surface}/${force}/${chunkX}_${chunkY}.png`;
 			
 			// Process the 32x32 chunk directly
 			await this.saveChunkImage(filename, chart_data);
@@ -191,53 +217,52 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private async saveChunkImage(filename: string, chartData: string) {
 		const imagePath = path.resolve(this.tilesPath, filename);
 		
+		// Ensure the directory structure exists
+		await fs.ensureDir(path.dirname(imagePath));
+		
 		// Create raw image buffer for 32x32 RGBA
 		const raw = Buffer.alloc(CHUNK_SIZE * CHUNK_SIZE * 4);
 		
-		// Convert string to proper binary buffer first
-		const binaryBuffer = Buffer.from(chartData, 'latin1'); // or 'latin1'
-		const dataLength = Math.min(binaryBuffer.length, CHUNK_SIZE * CHUNK_SIZE * 2);
-		
-		this.logger.info(`Processing chunk ${filename}, buffer length: ${binaryBuffer.length}, expected: ${CHUNK_SIZE * CHUNK_SIZE * 2}`);
-		
-		for (let i = 0; i < dataLength; i += 2) {
-			// Read bytes properly from binary buffer
-			const byte1 = binaryBuffer[i];
-			const byte2 = binaryBuffer[i + 1];
-			
-			if (byte1 === undefined || byte2 === undefined) {
-				continue;
-			}
-
-			// Choose endianness based on flag
-			const rgb565Value = this.useBigEndian ? 
-				(byte1 << 8) + byte2 :  // Big-endian: byte1 is high byte
-				byte1 + (byte2 << 8);   // Little-endian: byte1 is low byte
-			
-			const [r, g, b] = this.rgb565ToRgb888(rgb565Value);
-
-			// Debug first few pixels
-			if (i < 10) {
-				this.logger.info(`Pixel ${i/2}: bytes[${byte1.toString(16)}, ${byte2.toString(16)}] -> RGB565: 0x${rgb565Value.toString(16)} -> RGB[${r}, ${g}, ${b}]`);
-			}
-
-			// Calculate pixel position within the chunk
-			const pixelIndex = i / 2;
-			const x = pixelIndex % CHUNK_SIZE;
-			const y = Math.floor(pixelIndex / CHUNK_SIZE);
-
-			// Set pixel in raw buffer (RGBA order - Sharp expects this)
-			const bufferIndex = pixelIndex * 4;
-			if (bufferIndex >= 0 && bufferIndex < raw.length - 3) {
-				raw[bufferIndex] = r;         // R
-				raw[bufferIndex + 1] = g;     // G
-				raw[bufferIndex + 2] = b;     // B
-				raw[bufferIndex + 3] = 255;   // A (full alpha)
-			}
-		}
-
-		// Save the chunk image directly
 		try {
+			// Decode base64 to get the deflate-compressed data
+			const compressedBuffer = Buffer.from(chartData, 'base64');
+			
+			// Decompress the deflate data to get the original binary chart data
+			const binaryBuffer = await inflateAsync(compressedBuffer);
+			const dataLength = Math.min(binaryBuffer.length, CHUNK_SIZE * CHUNK_SIZE * 2);
+			
+			for (let i = 0; i < dataLength; i += 2) {
+				// Read bytes properly from binary buffer
+				const byte1 = binaryBuffer[i];
+				const byte2 = binaryBuffer[i + 1];
+				
+				if (byte1 === undefined || byte2 === undefined) {
+					continue;
+				}
+
+				// Choose endianness based on flag
+				const rgb565Value = this.useBigEndian ? 
+					(byte1 << 8) + byte2 :  // Big-endian: byte1 is high byte
+					byte1 + (byte2 << 8);   // Little-endian: byte1 is low byte
+				
+				const [r, g, b] = this.rgb565ToRgb888(rgb565Value);
+
+				// Calculate pixel position within the chunk
+				const pixelIndex = i / 2;
+				const x = pixelIndex % CHUNK_SIZE;
+				const y = Math.floor(pixelIndex / CHUNK_SIZE);
+
+				// Set pixel in raw buffer (RGBA order - Sharp expects this)
+				const bufferIndex = pixelIndex * 4;
+				if (bufferIndex >= 0 && bufferIndex < raw.length - 3) {
+					raw[bufferIndex] = r;         // R
+					raw[bufferIndex + 1] = g;     // G
+					raw[bufferIndex + 2] = b;     // B
+					raw[bufferIndex + 3] = 255;   // A (full alpha)
+				}
+			}
+
+			// Save the chunk image directly
 			await sharp(raw, {
 				raw: {
 					width: CHUNK_SIZE,
@@ -245,8 +270,14 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					channels: 4,
 				},
 			}).png().toFile(imagePath);
+			
+			// Get the final PNG file size for comparison
+			const stats = await fs.stat(imagePath);
+			const pngSize = stats.size;
+			
+			this.logger.info(`Chunk ${filename}: raw ${raw.length}, decompressed ${binaryBuffer.length}, compressed ${compressedBuffer.length}, PNG ${pngSize} bytes`);
 		} catch (err) {
-			this.logger.error(`Error saving chunk image ${filename}: ${err}`);
+			this.logger.error(`Error processing chunk image ${filename}: ${err}`);
 		}
 	}
 
