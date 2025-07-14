@@ -15,7 +15,7 @@ import InstanceConfigTree from "./InstanceConfigTree";
 import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
-import StartStopInstanceButton from "./StartStopInstanceButton";
+import InstanceControlButton, { InstanceControlButtonPermissions } from "./InstanceControlButton";
 import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
 import { notifyErrorHandler } from "../util/notify";
@@ -91,13 +91,6 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			label: "Extract players from save",
 		});
 	}
-	if (account.hasPermission("core.instance.kill")) {
-		instanceButtonMenuItems.push({
-			disabled: ["unknown", "unassigned", "stopped"].includes(instance.status!),
-			key: "kill",
-			label: "Kill process",
-		});
-	}
 	if (account.hasPermission("core.instance.delete")) {
 		if (instanceButtonMenuItems.length) {
 			instanceButtonMenuItems.push({ type: "divider" });
@@ -130,12 +123,6 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 					new lib.InstanceExtractPlayersRequest(),
 				).catch(notifyErrorHandler("Error extracting player data"));
 
-			} else if (key === "kill") {
-				control.sendTo(
-					{ instanceId },
-					new lib.InstanceKillRequest(),
-				).catch(notifyErrorHandler("Error killing instance"));
-
 			} else if (key === "delete") {
 				Modal.confirm({
 					autoFocusButton: "cancel",
@@ -155,8 +142,8 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	};
 	return <Space>
 		{
-			account.hasAnyPermission("core.instance.start", "core.instance.stop")
-			&& <StartStopInstanceButton instance={instance} />
+			account.hasAnyPermission(...InstanceControlButtonPermissions)
+			&& <InstanceControlButton instance={instance} />
 		}
 		<Button
 			onClick={() => {
@@ -173,7 +160,6 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 		{account.hasAnyPermission(
 			"core.instance.export_data",
 			"core.instance.extract_players",
-			"core.instance.kill",
 			"core.instance.delete",
 		)
 			&& <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
