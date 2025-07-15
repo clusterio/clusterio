@@ -51,6 +51,9 @@ export default function CanvasMinimapPage() {
 	});
 	const [resizeCounter, setResizeCounter] = useState(0);
 
+	// Mouse drag state for panning (for cursor display only)
+	const [isDragging, setIsDragging] = useState(false);
+
 	// Canvas refs
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +72,10 @@ export default function CanvasMinimapPage() {
 
 	// Animation frame for smooth rendering
 	const animationFrameRef = useRef<number>();
+
+	// Refs for drag state to avoid re-attaching event listeners
+	const isDraggingRef = useRef<boolean>(false);
+	const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
 
 	const control = useContext(ControlContext);
 
@@ -154,6 +161,76 @@ export default function CanvasMinimapPage() {
 			}
 		};
 	}, [viewState.zoomLevel]);
+
+	// Mouse event handlers for click and drag panning
+	useEffect(() => {
+		const canvasElement = canvasRef.current;
+		
+		if (!canvasElement) {
+			return;
+		}
+
+		const handleMouseDown = (e: MouseEvent) => {
+			if (e.button === 0) { // Left mouse button
+				isDraggingRef.current = true;
+				lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+				setIsDragging(true); // Update state for cursor change
+				e.preventDefault();
+			}
+		};
+
+		const handleMouseMove = (e: MouseEvent) => {
+			if (isDraggingRef.current && lastMousePosRef.current) {
+				const deltaX = e.clientX - lastMousePosRef.current.x;
+				const deltaY = e.clientY - lastMousePosRef.current.y;
+
+				// Convert screen delta to world delta (invert because dragging right should move view left)
+				const worldDeltaX = -deltaX / viewState.zoomLevel;
+				const worldDeltaY = -deltaY / viewState.zoomLevel;
+
+				setViewState(prev => ({
+					...prev,
+					centerX: prev.centerX + worldDeltaX,
+					centerY: prev.centerY + worldDeltaY
+				}));
+
+				lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+			}
+		};
+
+		const handleMouseUp = (e: MouseEvent) => {
+			if (e.button === 0) { // Left mouse button
+				isDraggingRef.current = false;
+				lastMousePosRef.current = null;
+				setIsDragging(false); // Update state for cursor change
+			}
+		};
+
+		const handleMouseLeave = () => {
+			// Stop dragging if mouse leaves canvas
+			isDraggingRef.current = false;
+			lastMousePosRef.current = null;
+			setIsDragging(false); // Update state for cursor change
+		};
+
+		canvasElement.addEventListener('mousedown', handleMouseDown);
+		canvasElement.addEventListener('mousemove', handleMouseMove);
+		canvasElement.addEventListener('mouseup', handleMouseUp);
+		canvasElement.addEventListener('mouseleave', handleMouseLeave);
+
+		// Also listen to document for mouse events to handle dragging outside canvas
+		document.addEventListener('mousemove', handleMouseMove);
+		document.addEventListener('mouseup', handleMouseUp);
+
+		return () => {
+			canvasElement.removeEventListener('mousedown', handleMouseDown);
+			canvasElement.removeEventListener('mousemove', handleMouseMove);
+			canvasElement.removeEventListener('mouseup', handleMouseUp);
+			canvasElement.removeEventListener('mouseleave', handleMouseLeave);
+			document.removeEventListener('mousemove', handleMouseMove);
+			document.removeEventListener('mouseup', handleMouseUp);
+		};
+	}, [viewState.zoomLevel, selectedInstance]); // Add selectedInstance to trigger setup when canvas becomes available
 
 	// Render loop
 	useEffect(() => {
@@ -674,7 +751,7 @@ export default function CanvasMinimapPage() {
 						{selectedInstance ? (
 							<div>
 								<div style={{ marginBottom: "10px", fontSize: "14px", color: "#666" }}>
-									Use WASD to move, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel}x
+									Use WASD to move, click and drag to pan, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel}x
 								</div>
 								<div
 									ref={containerRef}
@@ -692,7 +769,7 @@ export default function CanvasMinimapPage() {
 										ref={canvasRef}
 										style={{
 											display: "block",
-											cursor: "grab",
+											cursor: isDragging ? "grabbing" : "grab",
 											width: "100%",
 											height: "100%",
 										}}
