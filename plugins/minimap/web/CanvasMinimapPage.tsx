@@ -1,0 +1,687 @@
+import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
+import { Row, Col, Button, Card, Space, Select } from "antd";
+import { ControlContext } from "@clusterio/web_ui";
+import { GetInstanceBoundsRequest, ChunkUpdateEvent } from "../messages";
+
+interface Instance {
+	instanceId: number;
+	name: string;
+	bounds: {
+		x1: number;
+		y1: number;
+		x2: number;
+		y2: number;
+	};
+}
+
+interface SurfaceForceData {
+	surfaces: string[];
+	forces: string[];
+}
+
+interface ChunkData {
+	surface: string;
+	force: string;
+	chunkX: number;
+	chunkY: number;
+	imageData: ImageData;
+}
+
+interface ViewState {
+	centerX: number;
+	centerY: number;
+	zoomLevel: number;
+}
+
+const CHUNK_SIZE = 32; // 32x32 pixels per chunk
+const TILE_SIZE = 512; // 512x512 pixels per tile (16x16 chunks)
+const CHUNKS_PER_TILE = 16;
+
+export default function CanvasMinimapPage() {
+	const [instances, setInstances] = useState<Instance[]>([]);
+	const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
+	const [selectedSurface, setSelectedSurface] = useState<string>("nauvis");
+	const [selectedForce, setSelectedForce] = useState<string>("player");
+	const [surfaceForceData, setSurfaceForceData] = useState<SurfaceForceData>({ surfaces: [], forces: [] });
+	const [loading, setLoading] = useState(false);
+	const [viewState, setViewState] = useState<ViewState>({
+		centerX: 0,
+		centerY: 0,
+		zoomLevel: 1,
+	});
+	const [resizeCounter, setResizeCounter] = useState(0);
+
+	// Canvas refs
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	
+	// Virtual tile storage - maps "tileX,tileY" to canvas element
+	const virtualTiles = useRef<Map<string, HTMLCanvasElement>>(new Map());
+	
+	// Tile cache - maps "tileX,tileY" to ImageData for entire 512x512 tiles
+	const tileCache = useRef<Map<string, ImageData>>(new Map());
+	
+	// Chunk cache - maps "chunkX,chunkY" to ImageData
+	const chunkCache = useRef<Map<string, ImageData>>(new Map());
+	
+	// Loading state cache - prevents duplicate API calls for the same tile
+	const loadingTiles = useRef<Map<string, Promise<ImageData | null>>>(new Map());
+	
+	// Animation frame for smooth rendering
+	const animationFrameRef = useRef<number>();
+
+	const control = useContext(ControlContext);
+
+	// Load instance bounds on component mount
+	useEffect(() => {
+		loadInstances();
+		loadSurfaceForceData();
+	}, []);
+
+	// Set up keyboard and mouse event listeners
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const moveSpeed = 50 / viewState.zoomLevel;
+			const zoomFactor = 1.2;
+			
+			switch (e.key.toLowerCase()) {
+				case 'w':
+					setViewState(prev => ({ ...prev, centerY: prev.centerY - moveSpeed }));
+					break;
+				case 's':
+					setViewState(prev => ({ ...prev, centerY: prev.centerY + moveSpeed }));
+					break;
+				case 'a':
+					setViewState(prev => ({ ...prev, centerX: prev.centerX - moveSpeed }));
+					break;
+				case 'd':
+					setViewState(prev => ({ ...prev, centerX: prev.centerX + moveSpeed }));
+					break;
+				case '+':
+				case '=': // Handle both + and = key (since + requires shift)
+					setViewState(prev => ({ 
+						...prev, 
+						zoomLevel: Math.min(10, prev.zoomLevel * zoomFactor) 
+					}));
+					e.preventDefault(); // Prevent browser zoom
+					break;
+				case '-':
+				case '_': // Handle both - and _ key (since _ requires shift)
+					setViewState(prev => ({ 
+						...prev, 
+						zoomLevel: Math.max(0.1, prev.zoomLevel / zoomFactor) 
+					}));
+					e.preventDefault(); // Prevent browser zoom
+					break;
+			}
+		};
+
+		const handleWheel = (e: WheelEvent) => {
+			e.preventDefault();
+			const zoomFactor = 1.1;
+			const newZoom = e.deltaY > 0 
+				? Math.max(0.1, viewState.zoomLevel / zoomFactor)
+				: Math.min(10, viewState.zoomLevel * zoomFactor);
+			
+			setViewState(prev => ({ ...prev, zoomLevel: newZoom }));
+		};
+
+		document.addEventListener('keydown', handleKeyDown);
+		const canvasElement = canvasRef.current;
+		if (canvasElement) {
+			canvasElement.addEventListener('wheel', handleWheel, { passive: false });
+		}
+
+		return () => {
+			document.removeEventListener('keydown', handleKeyDown);
+			if (canvasElement) {
+				canvasElement.removeEventListener('wheel', handleWheel);
+			}
+		};
+	}, [viewState.zoomLevel]);
+
+	// Render loop
+	useEffect(() => {
+		const render = () => {
+			if (canvasRef.current && selectedInstance) {
+				renderCanvas();
+			}
+			animationFrameRef.current = requestAnimationFrame(render);
+		};
+		
+		animationFrameRef.current = requestAnimationFrame(render);
+		
+		return () => {
+			if (animationFrameRef.current) {
+				cancelAnimationFrame(animationFrameRef.current);
+			}
+		};
+	}, [selectedInstance, selectedSurface, selectedForce, viewState, resizeCounter]);
+
+	const loadInstances = async () => {
+		try {
+			setLoading(true);
+			const response = await control.send(new GetInstanceBoundsRequest());
+			setInstances(response.instances);
+			
+			if (response.instances.length > 0 && !selectedInstance) {
+				setSelectedInstance(response.instances[0].instanceId);
+			}
+		} catch (err) {
+			console.error("Failed to load instances:", err);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const loadSurfaceForceData = async () => {
+		try {
+			const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
+			const data = await response.json();
+			setSurfaceForceData(data);
+			
+			if (data.surfaces.length > 0 && !selectedSurface) {
+				setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
+			}
+			if (data.forces.length > 0 && !selectedForce) {
+				setSelectedForce(data.forces.includes("player") ? "player" : data.forces[0]);
+			}
+		} catch (err) {
+			console.error("Failed to load surface/force data:", err);
+		}
+	};
+
+	// Load a tile from the server (512x512 pixels containing 16x16 chunks)
+	const loadTile = async (tileX: number, tileY: number): Promise<ImageData | null> => {
+		const tileKey = `${tileX},${tileY}`;
+		
+		// Check tile cache first
+		if (tileCache.current.has(tileKey)) {
+			return tileCache.current.get(tileKey)!;
+		}
+
+		// Check if we're already loading this tile
+		if (loadingTiles.current.has(tileKey)) {
+			return loadingTiles.current.get(tileKey)!;
+		}
+
+		// Start loading the tile
+		const loadPromise = (async () => {
+			try {
+				// Load the entire tile from server
+				const response = await fetch(
+					`${window.location.origin}/api/minimap/chart/${selectedInstance}/${selectedSurface}/${selectedForce}/10/${tileX}/${tileY}.png`
+				);
+				
+				if (!response.ok) {
+					return null;
+				}
+
+				const blob = await response.blob();
+				const img = new Image();
+				
+				return new Promise<ImageData | null>((resolve) => {
+					img.onload = () => {
+						// Create a canvas to get the tile ImageData
+						const tempCanvas = document.createElement('canvas');
+						tempCanvas.width = TILE_SIZE;
+						tempCanvas.height = TILE_SIZE;
+						const tempCtx = tempCanvas.getContext('2d')!;
+						
+						tempCtx.drawImage(img, 0, 0);
+						
+						// Get the full tile as ImageData
+						const tileImageData = tempCtx.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
+						
+						// Cache the tile
+						tileCache.current.set(tileKey, tileImageData);
+						
+						// Extract and cache all chunks from this tile
+						for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
+							for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
+								const actualChunkX = tileX * CHUNKS_PER_TILE + cx;
+								const actualChunkY = tileY * CHUNKS_PER_TILE + cy;
+								const actualChunkKey = `${actualChunkX},${actualChunkY}`;
+								
+								const chunkImageData = tempCtx.getImageData(
+									cx * CHUNK_SIZE,
+									cy * CHUNK_SIZE,
+									CHUNK_SIZE,
+									CHUNK_SIZE
+								);
+								
+								chunkCache.current.set(actualChunkKey, chunkImageData);
+							}
+						}
+						
+						resolve(tileImageData);
+					};
+					
+					img.onerror = () => {
+						console.error(`Failed to load image for tile ${tileX},${tileY}`);
+						resolve(null);
+					};
+					
+					img.src = URL.createObjectURL(blob);
+				});
+			} catch (err) {
+				console.error(`Failed to load tile ${tileX},${tileY}:`, err);
+				return null;
+			} finally {
+				// Remove from loading cache when done
+				loadingTiles.current.delete(tileKey);
+			}
+		})();
+
+		// Cache the loading promise
+		loadingTiles.current.set(tileKey, loadPromise);
+		
+		return loadPromise;
+	};
+
+	// Update a single chunk (for live updates) - directly modify the virtual tile in memory
+	const updateChunk = useCallback((chunkX: number, chunkY: number, imageData: ImageData) => {
+		const chunkKey = `${chunkX},${chunkY}`;
+		chunkCache.current.set(chunkKey, imageData);
+		
+		// Calculate which tile contains this chunk
+		const tileX = Math.floor(chunkX / CHUNKS_PER_TILE);
+		const tileY = Math.floor(chunkY / CHUNKS_PER_TILE);
+		const tileKey = `${tileX},${tileY}`;
+		
+		// Calculate position within the tile
+		const localChunkX = chunkX % CHUNKS_PER_TILE;
+		const localChunkY = chunkY % CHUNKS_PER_TILE;
+		const pixelX = localChunkX * CHUNK_SIZE;
+		const pixelY = localChunkY * CHUNK_SIZE;
+		
+		// Update the virtual tile directly if it exists
+		const virtualTile = virtualTiles.current.get(tileKey);
+		if (virtualTile) {
+			const ctx = virtualTile.getContext('2d')!;
+			ctx.putImageData(imageData, pixelX, pixelY);
+		}
+		
+		// Update the tile cache if it exists
+		const cachedTile = tileCache.current.get(tileKey);
+		if (cachedTile) {
+			// Update the tile ImageData directly
+			const tileData = cachedTile.data;
+			const chunkData = imageData.data;
+			
+			for (let y = 0; y < CHUNK_SIZE; y++) {
+				for (let x = 0; x < CHUNK_SIZE; x++) {
+					const chunkIndex = (y * CHUNK_SIZE + x) * 4;
+					const tileIndex = ((pixelY + y) * TILE_SIZE + (pixelX + x)) * 4;
+					
+					tileData[tileIndex] = chunkData[chunkIndex];         // R
+					tileData[tileIndex + 1] = chunkData[chunkIndex + 1]; // G
+					tileData[tileIndex + 2] = chunkData[chunkIndex + 2]; // B
+					tileData[tileIndex + 3] = chunkData[chunkIndex + 3]; // A
+				}
+			}
+		}
+	}, []);
+
+	// Get or create a virtual tile
+	const getVirtualTile = async (tileX: number, tileY: number): Promise<HTMLCanvasElement> => {
+		const tileKey = `${tileX},${tileY}`;
+		
+		if (virtualTiles.current.has(tileKey)) {
+			return virtualTiles.current.get(tileKey)!;
+		}
+
+		// Create new virtual tile
+		const virtualCanvas = document.createElement('canvas');
+		virtualCanvas.width = TILE_SIZE;
+		virtualCanvas.height = TILE_SIZE;
+		const ctx = virtualCanvas.getContext('2d')!;
+		
+		// Always start with black background
+		ctx.fillStyle = '#000000';
+		ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+		
+		// Load the entire tile at once (much more efficient than loading chunks individually)
+		const tileImageData = await loadTile(tileX, tileY);
+		
+		if (tileImageData) {
+			// Draw the entire tile directly to the virtual canvas
+			ctx.putImageData(tileImageData, 0, 0);
+		}
+		
+		virtualTiles.current.set(tileKey, virtualCanvas);
+		return virtualCanvas;
+	};
+
+	// Render the canvas
+	const renderCanvas = () => {
+		const canvas = canvasRef.current;
+		if (!canvas) return;
+
+		const ctx = canvas.getContext('2d')!;
+		
+		// Get canvas dimensions
+		const width = canvas.width;
+		const height = canvas.height;
+		
+		// Clear canvas completely
+		ctx.fillStyle = '#1a1a1a';
+		ctx.fillRect(0, 0, width, height);
+		
+		// Calculate scale factor (pixels per world unit) - this must be the same for X and Y to preserve 1:1 aspect ratio
+		const scale = viewState.zoomLevel;
+		
+		// Calculate visible world area - ensuring 1:1 aspect ratio
+		const worldWidth = width / scale;
+		const worldHeight = height / scale;
+		const worldLeft = viewState.centerX - worldWidth / 2;
+		const worldTop = viewState.centerY - worldHeight / 2;
+		const worldRight = worldLeft + worldWidth;
+		const worldBottom = worldTop + worldHeight;
+		
+		// Calculate which tiles are visible (with extra margin to ensure full coverage)
+		const leftTile = Math.floor(worldLeft / TILE_SIZE) - 1;
+		const topTile = Math.floor(worldTop / TILE_SIZE) - 1;
+		const rightTile = Math.ceil(worldRight / TILE_SIZE) + 1;
+		const bottomTile = Math.ceil(worldBottom / TILE_SIZE) + 1;
+		
+		// Render visible tiles (only those that are already loaded)
+		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
+			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
+				const tileKey = `${tileX},${tileY}`;
+				const virtualTile = virtualTiles.current.get(tileKey);
+				
+				// Calculate screen position using consistent scale factor
+				const worldTileX = tileX * TILE_SIZE;
+				const worldTileY = tileY * TILE_SIZE;
+				const screenX = (worldTileX - worldLeft) * scale;
+				const screenY = (worldTileY - worldTop) * scale;
+				const screenWidth = TILE_SIZE * scale;
+				const screenHeight = TILE_SIZE * scale;
+				
+				// Calculate clipping bounds to ensure we don't draw outside canvas
+				const clippedX = Math.max(0, screenX);
+				const clippedY = Math.max(0, screenY);
+				const clippedWidth = Math.min(screenWidth, width - clippedX);
+				const clippedHeight = Math.min(screenHeight, height - clippedY);
+				
+				// Skip if tile is completely outside canvas
+				if (clippedWidth <= 0 || clippedHeight <= 0) {
+					continue;
+				}
+				
+				if (virtualTile) {
+					// Tile is loaded, draw it with clipping
+					// Always use nearest neighbor (pixelated) scaling
+					ctx.imageSmoothingEnabled = false;
+					
+					// Calculate source coordinates maintaining 1:1 aspect ratio
+					const sourceX = clippedX > screenX ? (clippedX - screenX) / scale : 0;
+					const sourceY = clippedY > screenY ? (clippedY - screenY) / scale : 0;
+					const sourceWidth = clippedWidth / scale;
+					const sourceHeight = clippedHeight / scale;
+					
+					// Ensure pixel-perfect alignment by rounding to integers
+					// This preserves aspect ratio by maintaining the same rounding for both dimensions
+					const destX = Math.round(clippedX);
+					const destY = Math.round(clippedY);
+					const destWidth = Math.round(clippedWidth);
+					const destHeight = Math.round(clippedHeight);
+					
+					ctx.drawImage(
+						virtualTile,
+						sourceX, sourceY, sourceWidth, sourceHeight,
+						destX, destY, destWidth, destHeight
+					);
+				} else {
+					// Tile not loaded yet, draw black
+					ctx.fillStyle = '#000000';
+					ctx.fillRect(Math.round(clippedX), Math.round(clippedY), Math.round(clippedWidth), Math.round(clippedHeight));
+					
+					// Start loading the tile in the background (but don't wait for it)
+					getVirtualTile(tileX, tileY).then(() => {
+						// When tile loads, trigger a re-render
+						// But only if we're still looking at the same area
+						if (selectedInstance && selectedSurface && selectedForce) {
+							// Use a small delay to batch multiple tile loads
+							setTimeout(() => {
+								if (animationFrameRef.current) {
+									// Render will happen on next animation frame anyway
+								}
+							}, 16);
+						}
+					}).catch(err => {
+						console.error(`Failed to load tile ${tileX},${tileY}:`, err);
+					});
+				}
+			}
+		}
+	};
+
+	// Handle canvas resize
+	useEffect(() => {
+		const handleResize = () => {
+			const canvas = canvasRef.current;
+			const container = containerRef.current;
+			if (!canvas || !container) return;
+
+			// Use ResizeObserver for more accurate container size tracking
+			const rect = container.getBoundingClientRect();
+			
+			// Set canvas size to match container (simple 1:1 ratio)
+			canvas.width = rect.width;
+			canvas.height = rect.height;
+			
+			// Trigger re-render
+			setResizeCounter(prev => prev + 1);
+		};
+
+		// Defer initial resize to ensure layout is complete
+		const timeoutId = setTimeout(handleResize, 0);
+		
+		// Set up ResizeObserver for container size changes
+		const container = containerRef.current;
+		if (container && 'ResizeObserver' in window) {
+			const resizeObserver = new ResizeObserver(handleResize);
+			resizeObserver.observe(container);
+			
+			// Also listen to window resize as fallback
+			window.addEventListener('resize', handleResize);
+			
+			return () => {
+				clearTimeout(timeoutId);
+				resizeObserver.disconnect();
+				window.removeEventListener('resize', handleResize);
+			};
+		} else {
+			// Fallback for browsers without ResizeObserver
+			window.addEventListener('resize', handleResize);
+			return () => {
+				clearTimeout(timeoutId);
+				window.removeEventListener('resize', handleResize);
+			};
+		}
+	}, []);
+
+	// Ensure proper canvas sizing when instance selection changes
+	useEffect(() => {
+		if (selectedInstance) {
+			// Force a resize check when instance becomes available
+			const canvas = canvasRef.current;
+			const container = containerRef.current;
+			if (canvas && container) {
+				const rect = container.getBoundingClientRect();
+				canvas.width = rect.width;
+				canvas.height = rect.height;
+				setResizeCounter(prev => prev + 1);
+			}
+		}
+	}, [selectedInstance]);
+
+	// Reset view when instance changes
+	useEffect(() => {
+		if (selectedInstance) {
+			const instanceData = instances.find(inst => inst.instanceId === selectedInstance);
+			if (instanceData) {
+				setViewState({
+					centerX: (instanceData.bounds.x1 + instanceData.bounds.x2) / 2,
+					centerY: (instanceData.bounds.y1 + instanceData.bounds.y2) / 2,
+					zoomLevel: 1,
+				});
+			}
+			
+			// Clear caches when switching instances
+			virtualTiles.current.clear();
+			tileCache.current.clear();
+			chunkCache.current.clear();
+			loadingTiles.current.clear();
+		}
+	}, [selectedInstance, instances]);
+
+	// Set up live chunk update listener
+	useEffect(() => {
+		if (!selectedInstance || !selectedSurface || !selectedForce) {
+			return;
+		}
+		
+		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
+		if (!plugin) {
+			console.error("Minimap plugin not found");
+			return;
+		}
+		
+		const handleChunkUpdate = (event: ChunkUpdateEvent) => {
+			// Only process updates for the currently selected instance/surface/force
+			if (event.instanceId === selectedInstance && 
+				event.surface === selectedSurface && 
+				event.force === selectedForce) {
+				
+				try {
+					// Decode the base64 ImageData
+					const imageDataJson = JSON.parse(atob(event.imageData));
+					const imageData = new ImageData(
+						new Uint8ClampedArray(imageDataJson.data),
+						imageDataJson.width,
+						imageDataJson.height
+					);
+					
+					// Update the chunk in our cache
+					updateChunk(event.chunkX, event.chunkY, imageData);
+				} catch (err) {
+					console.error("Failed to process live chunk update:", err);
+				}
+			}
+		};
+		
+		// Subscribe to chunk update events through the plugin
+		plugin.onChunkUpdate(handleChunkUpdate);
+		
+		return () => {
+			plugin.offChunkUpdate(handleChunkUpdate);
+		};
+	}, [selectedInstance, selectedSurface, selectedForce, updateChunk, control]);
+
+	return (
+		<div style={{ padding: "20px" }}>
+			<Row gutter={[16, 16]}>
+				<Col span={24}>
+					<Card 
+						title="Factorio Instance Minimap (Canvas)" 
+						extra={
+							<Space wrap>
+								<Select
+									style={{ width: 200 }}
+									placeholder="Select instance"
+									value={selectedInstance}
+									onChange={setSelectedInstance}
+									loading={loading}
+								>
+									{instances.map(instance => (
+										<Select.Option key={instance.instanceId} value={instance.instanceId}>
+											{instance.name}
+										</Select.Option>
+									))}
+								</Select>
+								<Select
+									style={{ width: 150 }}
+									placeholder="Select surface"
+									value={selectedSurface}
+									onChange={setSelectedSurface}
+								>
+									{surfaceForceData.surfaces.map(surface => (
+										<Select.Option key={surface} value={surface}>
+											{surface}
+										</Select.Option>
+									))}
+								</Select>
+								<Select
+									style={{ width: 150 }}
+									placeholder="Select force"
+									value={selectedForce}
+									onChange={setSelectedForce}
+								>
+									{surfaceForceData.forces.map(force => (
+										<Select.Option key={force} value={force}>
+											{force}
+										</Select.Option>
+									))}
+								</Select>
+								<Button onClick={loadInstances} loading={loading}>
+									Reload Instances
+								</Button>
+							</Space>
+						}
+					>
+						{selectedInstance ? (
+							<div>
+								<div style={{ marginBottom: "10px", fontSize: "14px", color: "#666" }}>
+									Use WASD to move, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel.toFixed(2)}x
+								</div>
+								<div 
+									ref={containerRef}
+									style={{ 
+										height: "calc(100vh - 300px)", // Dynamic height based on viewport
+										minHeight: "500px",
+										width: "100%",
+										border: "1px solid #d9d9d9",
+										borderRadius: "6px",
+										overflow: "hidden",
+										position: "relative",
+									}}
+								>
+									<canvas
+										ref={canvasRef}
+										style={{
+											display: "block",
+											cursor: "grab",
+											width: "100%",
+											height: "100%",
+										}}
+										tabIndex={0}
+									/>
+								</div>
+							</div>
+						) : (
+							<div 
+								style={{ 
+									height: "400px", 
+									display: "flex", 
+									alignItems: "center", 
+									justifyContent: "center",
+									backgroundColor: "#f5f5f5",
+									border: "1px dashed #d9d9d9",
+									borderRadius: "6px",
+								}}
+							>
+								<div style={{ textAlign: "center" }}>
+									<h3>No Instance Selected</h3>
+									<p>Select a running instance to view its minimap</p>
+								</div>
+							</div>
+						)}
+					</Card>
+				</Col>
+			</Row>
+		</div>
+	);
+}
