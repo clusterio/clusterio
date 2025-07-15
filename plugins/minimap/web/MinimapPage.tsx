@@ -135,7 +135,24 @@ export default function MinimapPage() {
 						}
 					>
 						{selectedInstanceData && mapBounds ? (
-							<div style={{ height: "700px", width: "100%" }}>
+							<div 
+								style={{ 
+									height: "700px", 
+									width: "100%"
+								}}
+								className="minimap-container"
+							>
+								<style>
+									{`/* Avoid blurry rendering when zooming in */
+									.minimap-container .leaflet-container .leaflet-overlay-pane svg,
+									.minimap-container .leaflet-container .leaflet-marker-pane img,
+									.minimap-container .leaflet-container .leaflet-shadow-pane img,
+									.minimap-container .leaflet-container .leaflet-tile-pane img,
+									.minimap-container .leaflet-container img.leaflet-image-layer {
+										image-rendering: pixelated;
+									}
+									`}
+								</style>
 								<MapContainer
 									bounds={mapBounds}
 									style={{ height: "100%", width: "100%", backgroundColor: "#1a1a1a" }}
