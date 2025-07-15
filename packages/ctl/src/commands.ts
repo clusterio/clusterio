@@ -1038,14 +1038,29 @@ instanceCommands.add(new lib.Command({
 	definition: ["start <instance>", "Start instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to start", type: "string" });
 		yargs.options({
-			"save": { describe: "Save load, defaults to latest", nargs: 1, type: "string" },
+			"save": { describe: "Save to load, defaults to latest", nargs: 1, type: "string" },
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
+		const instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		await control.sendTo({ instanceId }, new lib.InstanceStartRequest(args.save));
+		control.keepOpen = args.keepOpen;
+	},
+}));
+instanceCommands.add(new lib.Command({
+	definition: ["restart <instance>", "Restart instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to restart", type: "string" });
+		yargs.options({
+			"save": { describe: "Save to load, defaults to latest", nargs: 1, type: "string" },
+			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, control: Control) {
+		const instanceId = await lib.resolveInstance(control, args.instance);
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo({ instanceId }, new lib.InstanceRestartRequest(args.save));
 		control.keepOpen = args.keepOpen;
 	},
 }));
