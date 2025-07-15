@@ -19,14 +19,6 @@ interface SurfaceForceData {
 	forces: string[];
 }
 
-interface ChunkData {
-	surface: string;
-	force: string;
-	chunkX: number;
-	chunkY: number;
-	imageData: ImageData;
-}
-
 interface ViewState {
 	centerX: number;
 	centerY: number;
@@ -77,6 +69,9 @@ export default function CanvasMinimapPage() {
 	const isDraggingRef = useRef<boolean>(false);
 	const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
 
+	// Refs for tracking pressed movement keys for smooth movement at 60fps
+	const keysPressed = useRef<Set<string>>(new Set());
+
 	const control = useContext(ControlContext);
 
 	// Load instance bounds on component mount
@@ -106,21 +101,16 @@ export default function CanvasMinimapPage() {
 	// Set up keyboard and mouse event listeners
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			const moveSpeed = 50 / viewState.zoomLevel;
+			const key = e.key.toLowerCase();
 
-			switch (e.key.toLowerCase()) {
-				case 'w':
-					setViewState(prev => ({ ...prev, centerY: prev.centerY - moveSpeed }));
-					break;
-				case 's':
-					setViewState(prev => ({ ...prev, centerY: prev.centerY + moveSpeed }));
-					break;
-				case 'a':
-					setViewState(prev => ({ ...prev, centerX: prev.centerX - moveSpeed }));
-					break;
-				case 'd':
-					setViewState(prev => ({ ...prev, centerX: prev.centerX + moveSpeed }));
-					break;
+			// Track movement keys for smooth animation
+			if (['w', 'a', 's', 'd'].includes(key)) {
+				keysPressed.current.add(key);
+				return;
+			}
+
+			// Handle zoom keys immediately (not animated)
+			switch (key) {
 				case '+':
 				case '=': // Handle both + and = key (since + requires shift)
 					setViewState(prev => ({
@@ -140,6 +130,20 @@ export default function CanvasMinimapPage() {
 			}
 		};
 
+		const handleKeyUp = (e: KeyboardEvent) => {
+			const key = e.key.toLowerCase();
+			
+			// Remove movement keys when released
+			if (['w', 'a', 's', 'd'].includes(key)) {
+				keysPressed.current.delete(key);
+			}
+		};
+
+		const handleBlur = () => {
+			// Clear all pressed keys when window loses focus to prevent stuck keys
+			keysPressed.current.clear();
+		};
+
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
 			const direction = e.deltaY > 0 ? 'down' : 'up';
@@ -149,6 +153,8 @@ export default function CanvasMinimapPage() {
 		};
 
 		document.addEventListener('keydown', handleKeyDown);
+		document.addEventListener('keyup', handleKeyUp);
+		window.addEventListener('blur', handleBlur);
 		const canvasElement = canvasRef.current;
 		if (canvasElement) {
 			canvasElement.addEventListener('wheel', handleWheel, { passive: false });
@@ -156,6 +162,8 @@ export default function CanvasMinimapPage() {
 
 		return () => {
 			document.removeEventListener('keydown', handleKeyDown);
+			document.removeEventListener('keyup', handleKeyUp);
+			window.removeEventListener('blur', handleBlur);
 			if (canvasElement) {
 				canvasElement.removeEventListener('wheel', handleWheel);
 			}
@@ -449,6 +457,35 @@ export default function CanvasMinimapPage() {
 	const renderCanvas = () => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
+
+		// Apply smooth WASD movement
+		if (keysPressed.current.size > 0) {
+			// Adjust base speed for 60fps
+			const moveSpeed = 20 / viewState.zoomLevel;
+			let deltaX = 0;
+			let deltaY = 0;
+
+			// Calculate movement delta based on currently pressed keys
+			if (keysPressed.current.has('w')) deltaY -= moveSpeed;
+			if (keysPressed.current.has('s')) deltaY += moveSpeed;
+			if (keysPressed.current.has('a')) deltaX -= moveSpeed;
+			if (keysPressed.current.has('d')) deltaX += moveSpeed;
+
+			// Reduce speed if moving diagonally
+			if (deltaX !== 0 && deltaY !== 0) {
+				deltaX *= 0.7071; // sqrt(2) / 2
+				deltaY *= 0.7071;
+			}
+
+			// Apply movement if any keys are pressed
+			if (deltaX !== 0 || deltaY !== 0) {
+				setViewState(prev => ({
+					...prev,
+					centerX: prev.centerX + deltaX,
+					centerY: prev.centerY + deltaY
+				}));
+			}
+		}
 
 		const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 		ctx.imageSmoothingEnabled = false;
