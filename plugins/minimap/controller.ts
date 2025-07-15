@@ -4,6 +4,7 @@ import {
 	TileDataEvent,
 	GetInstanceBoundsRequest,
 	ChartData,
+	ChunkUpdateEvent,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -209,12 +210,27 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			// Create filename using chunk coordinates
 			const filename = `${instanceId}/${surface}/${force}/${chunkX}_${chunkY}.png`;
 			
-			// Process the 32x32 chunk directly
-			await this.saveChunkImage(filename, chart_data);
+			// Process the 32x32 chunk directly and get the processed image data
+			const imageDataBase64 = await this.saveChunkImage(filename, chart_data);
+			
+			// Send live update to connected web clients
+			if (imageDataBase64) {
+				const updateEvent = new ChunkUpdateEvent(
+					instanceId,
+					surface,
+					force,
+					chunkX,
+					chunkY,
+					imageDataBase64
+				);
+				
+				// Broadcast to all connected control clients
+				this.controller.sendEvent(updateEvent, new lib.Address(lib.Address.broadcast, lib.Address.control));
+			}
 		}
 	}
 
-	private async saveChunkImage(filename: string, chartData: string) {
+	private async saveChunkImage(filename: string, chartData: string): Promise<string | null> {
 		const imagePath = path.resolve(this.tilesPath, filename);
 		
 		// Ensure the directory structure exists
@@ -262,22 +278,38 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				}
 			}
 
-			// Save the chunk image directly
-			await sharp(raw, {
+			// Create the PNG buffer for both saving and live updates
+			const pngBuffer = await sharp(raw, {
 				raw: {
 					width: CHUNK_SIZE,
 					height: CHUNK_SIZE,
 					channels: 4,
 				},
-			}).png().toFile(imagePath);
+			}).png().toBuffer();
+			
+			// Save the chunk image to disk
+			await fs.writeFile(imagePath, pngBuffer);
+			
+			// Convert ImageData to base64 for live updates
+			// Create ImageData-like structure that can be sent over WebSocket
+			const imageDataArray = new Uint8ClampedArray(raw);
+			const imageDataJson = {
+				data: Array.from(imageDataArray),
+				width: CHUNK_SIZE,
+				height: CHUNK_SIZE,
+			};
 			
 			// Get the final PNG file size for comparison
 			const stats = await fs.stat(imagePath);
 			const pngSize = stats.size;
-			
 			this.logger.info(`Chunk ${filename}: raw ${raw.length}, decompressed ${binaryBuffer.length}, compressed ${compressedBuffer.length}, PNG ${pngSize} bytes`);
+
+			// Return base64 encoded ImageData for live updates
+			return Buffer.from(JSON.stringify(imageDataJson)).toString('base64');
+			
 		} catch (err) {
 			this.logger.error(`Error processing chunk image ${filename}: ${err}`);
+			return null;
 		}
 	}
 

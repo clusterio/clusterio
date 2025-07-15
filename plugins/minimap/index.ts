@@ -3,6 +3,7 @@ import * as lib from "@clusterio/lib";
 import {
 	TileDataEvent,
 	GetInstanceBoundsRequest,
+	ChunkUpdateEvent,
 } from "./messages";
 
 // Define permissions
@@ -24,6 +25,7 @@ export const plugin: lib.PluginDeclaration = {
 	messages: [
 		TileDataEvent,
 		GetInstanceBoundsRequest,
+		ChunkUpdateEvent,
 	],
 	routes: ["/minimap"],
 };

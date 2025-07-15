@@ -43,6 +43,45 @@ export class TileDataEvent {
 	}
 }
 
+export class ChunkUpdateEvent {
+	declare ["constructor"]: typeof ChunkUpdateEvent;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
+	static plugin = "minimap" as const;
+	static permission = "minimap.view";
+
+	constructor(
+		public instanceId: number,
+		public surface: string,
+		public force: string,
+		public chunkX: number,
+		public chunkY: number,
+		public imageData: string, // base64 encoded ImageData
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"instanceId": Type.Number(),
+		"surface": Type.String(),
+		"force": Type.String(),
+		"chunkX": Type.Number(),
+		"chunkY": Type.Number(),
+		"imageData": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof ChunkUpdateEvent.jsonSchema>) {
+		return new this(
+			json.instanceId,
+			json.surface,
+			json.force,
+			json.chunkX,
+			json.chunkY,
+			json.imageData,
+		);
+	}
+}
+
 export class GetInstanceBoundsRequest {
 	declare ["constructor"]: typeof GetInstanceBoundsRequest;
 	static type = "request" as const;
