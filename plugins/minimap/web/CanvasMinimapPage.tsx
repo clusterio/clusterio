@@ -54,19 +54,19 @@ export default function CanvasMinimapPage() {
 	// Canvas refs
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
-	
+
 	// Virtual tile storage - maps "tileX,tileY" to canvas element
 	const virtualTiles = useRef<Map<string, HTMLCanvasElement>>(new Map());
-	
+
 	// Tile cache - maps "tileX,tileY" to ImageData for entire 512x512 tiles
 	const tileCache = useRef<Map<string, ImageData>>(new Map());
-	
+
 	// Chunk cache - maps "chunkX,chunkY" to ImageData
 	const chunkCache = useRef<Map<string, ImageData>>(new Map());
-	
+
 	// Loading state cache - prevents duplicate API calls for the same tile
 	const loadingTiles = useRef<Map<string, Promise<ImageData | null>>>(new Map());
-	
+
 	// Animation frame for smooth rendering
 	const animationFrameRef = useRef<number>();
 
@@ -78,12 +78,29 @@ export default function CanvasMinimapPage() {
 		loadSurfaceForceData();
 	}, []);
 
+	// Define pixel-perfect zoom levels to eliminate seaming issues
+	const ZOOM_LEVELS = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+
+	const getClosestZoomLevel = (targetZoom: number): number => {
+		return ZOOM_LEVELS.reduce((prev, curr) =>
+			Math.abs(curr - targetZoom) < Math.abs(prev - targetZoom) ? curr : prev
+		);
+	};
+
+	const getNextZoomLevel = (currentZoom: number, direction: 'up' | 'down'): number => {
+		const currentIndex = ZOOM_LEVELS.findIndex(zoom => Math.abs(zoom - currentZoom) < 0.001);
+		if (direction === 'up') {
+			return ZOOM_LEVELS[Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1)];
+		} else {
+			return ZOOM_LEVELS[Math.max(currentIndex - 1, 0)];
+		}
+	};
+
 	// Set up keyboard and mouse event listeners
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const moveSpeed = 50 / viewState.zoomLevel;
-			const zoomFactor = 1.2;
-			
+
 			switch (e.key.toLowerCase()) {
 				case 'w':
 					setViewState(prev => ({ ...prev, centerY: prev.centerY - moveSpeed }));
@@ -99,17 +116,17 @@ export default function CanvasMinimapPage() {
 					break;
 				case '+':
 				case '=': // Handle both + and = key (since + requires shift)
-					setViewState(prev => ({ 
-						...prev, 
-						zoomLevel: Math.min(10, prev.zoomLevel * zoomFactor) 
+					setViewState(prev => ({
+						...prev,
+						zoomLevel: getNextZoomLevel(prev.zoomLevel, 'up')
 					}));
 					e.preventDefault(); // Prevent browser zoom
 					break;
 				case '-':
 				case '_': // Handle both - and _ key (since _ requires shift)
-					setViewState(prev => ({ 
-						...prev, 
-						zoomLevel: Math.max(0.1, prev.zoomLevel / zoomFactor) 
+					setViewState(prev => ({
+						...prev,
+						zoomLevel: getNextZoomLevel(prev.zoomLevel, 'down')
 					}));
 					e.preventDefault(); // Prevent browser zoom
 					break;
@@ -118,11 +135,9 @@ export default function CanvasMinimapPage() {
 
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
-			const zoomFactor = 1.1;
-			const newZoom = e.deltaY > 0 
-				? Math.max(0.1, viewState.zoomLevel / zoomFactor)
-				: Math.min(10, viewState.zoomLevel * zoomFactor);
-			
+			const direction = e.deltaY > 0 ? 'down' : 'up';
+			const newZoom = getNextZoomLevel(viewState.zoomLevel, direction);
+
 			setViewState(prev => ({ ...prev, zoomLevel: newZoom }));
 		};
 
@@ -148,9 +163,9 @@ export default function CanvasMinimapPage() {
 			}
 			animationFrameRef.current = requestAnimationFrame(render);
 		};
-		
+
 		animationFrameRef.current = requestAnimationFrame(render);
-		
+
 		return () => {
 			if (animationFrameRef.current) {
 				cancelAnimationFrame(animationFrameRef.current);
@@ -163,7 +178,7 @@ export default function CanvasMinimapPage() {
 			setLoading(true);
 			const response = await control.send(new GetInstanceBoundsRequest());
 			setInstances(response.instances);
-			
+
 			if (response.instances.length > 0 && !selectedInstance) {
 				setSelectedInstance(response.instances[0].instanceId);
 			}
@@ -179,7 +194,7 @@ export default function CanvasMinimapPage() {
 			const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
 			const data = await response.json();
 			setSurfaceForceData(data);
-			
+
 			if (data.surfaces.length > 0 && !selectedSurface) {
 				setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
 			}
@@ -194,7 +209,7 @@ export default function CanvasMinimapPage() {
 	// Load a tile from the server (512x512 pixels containing 16x16 chunks)
 	const loadTile = async (tileX: number, tileY: number): Promise<ImageData | null> => {
 		const tileKey = `${tileX},${tileY}`;
-		
+
 		// Check tile cache first
 		if (tileCache.current.has(tileKey)) {
 			return tileCache.current.get(tileKey)!;
@@ -212,14 +227,14 @@ export default function CanvasMinimapPage() {
 				const response = await fetch(
 					`${window.location.origin}/api/minimap/chart/${selectedInstance}/${selectedSurface}/${selectedForce}/10/${tileX}/${tileY}.png`
 				);
-				
+
 				if (!response.ok) {
 					return null;
 				}
 
 				const blob = await response.blob();
 				const img = new Image();
-				
+
 				return new Promise<ImageData | null>((resolve) => {
 					img.onload = () => {
 						// Create a canvas to get the tile ImageData
@@ -227,41 +242,41 @@ export default function CanvasMinimapPage() {
 						tempCanvas.width = TILE_SIZE;
 						tempCanvas.height = TILE_SIZE;
 						const tempCtx = tempCanvas.getContext('2d')!;
-						
+
 						tempCtx.drawImage(img, 0, 0);
-						
+
 						// Get the full tile as ImageData
 						const tileImageData = tempCtx.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
-						
+
 						// Cache the tile
 						tileCache.current.set(tileKey, tileImageData);
-						
+
 						// Extract and cache all chunks from this tile
 						for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
 							for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
 								const actualChunkX = tileX * CHUNKS_PER_TILE + cx;
 								const actualChunkY = tileY * CHUNKS_PER_TILE + cy;
 								const actualChunkKey = `${actualChunkX},${actualChunkY}`;
-								
+
 								const chunkImageData = tempCtx.getImageData(
 									cx * CHUNK_SIZE,
 									cy * CHUNK_SIZE,
 									CHUNK_SIZE,
 									CHUNK_SIZE
 								);
-								
+
 								chunkCache.current.set(actualChunkKey, chunkImageData);
 							}
 						}
-						
+
 						resolve(tileImageData);
 					};
-					
+
 					img.onerror = () => {
 						console.error(`Failed to load image for tile ${tileX},${tileY}`);
 						resolve(null);
 					};
-					
+
 					img.src = URL.createObjectURL(blob);
 				});
 			} catch (err) {
@@ -275,7 +290,7 @@ export default function CanvasMinimapPage() {
 
 		// Cache the loading promise
 		loadingTiles.current.set(tileKey, loadPromise);
-		
+
 		return loadPromise;
 	};
 
@@ -283,37 +298,37 @@ export default function CanvasMinimapPage() {
 	const updateChunk = useCallback((chunkX: number, chunkY: number, imageData: ImageData) => {
 		const chunkKey = `${chunkX},${chunkY}`;
 		chunkCache.current.set(chunkKey, imageData);
-		
+
 		// Calculate which tile contains this chunk
 		const tileX = Math.floor(chunkX / CHUNKS_PER_TILE);
 		const tileY = Math.floor(chunkY / CHUNKS_PER_TILE);
 		const tileKey = `${tileX},${tileY}`;
-		
+
 		// Calculate position within the tile
 		const localChunkX = ((chunkX % CHUNKS_PER_TILE) + CHUNKS_PER_TILE) % CHUNKS_PER_TILE;
 		const localChunkY = ((chunkY % CHUNKS_PER_TILE) + CHUNKS_PER_TILE) % CHUNKS_PER_TILE;
 		const pixelX = localChunkX * CHUNK_SIZE;
 		const pixelY = localChunkY * CHUNK_SIZE;
-		
+
 		// Update the virtual tile directly if it exists
 		const virtualTile = virtualTiles.current.get(tileKey);
 		if (virtualTile) {
 			const ctx = virtualTile.getContext('2d')!;
 			ctx.putImageData(imageData, pixelX, pixelY);
 		}
-		
+
 		// Update the tile cache if it exists
 		const cachedTile = tileCache.current.get(tileKey);
 		if (cachedTile) {
 			// Update the tile ImageData directly
 			const tileData = cachedTile.data;
 			const chunkData = imageData.data;
-			
+
 			for (let y = 0; y < CHUNK_SIZE; y++) {
 				for (let x = 0; x < CHUNK_SIZE; x++) {
 					const chunkIndex = (y * CHUNK_SIZE + x) * 4;
 					const tileIndex = ((pixelY + y) * TILE_SIZE + (pixelX + x)) * 4;
-					
+
 					tileData[tileIndex] = chunkData[chunkIndex];         // R
 					tileData[tileIndex + 1] = chunkData[chunkIndex + 1]; // G
 					tileData[tileIndex + 2] = chunkData[chunkIndex + 2]; // B
@@ -326,7 +341,7 @@ export default function CanvasMinimapPage() {
 	// Get or create a virtual tile
 	const getVirtualTile = async (tileX: number, tileY: number): Promise<HTMLCanvasElement> => {
 		const tileKey = `${tileX},${tileY}`;
-		
+
 		if (virtualTiles.current.has(tileKey)) {
 			return virtualTiles.current.get(tileKey)!;
 		}
@@ -336,19 +351,19 @@ export default function CanvasMinimapPage() {
 		virtualCanvas.width = TILE_SIZE;
 		virtualCanvas.height = TILE_SIZE;
 		const ctx = virtualCanvas.getContext('2d')!;
-		
+
 		// Always start with black background
 		ctx.fillStyle = '#000000';
 		ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-		
+
 		// Load the entire tile at once (much more efficient than loading chunks individually)
 		const tileImageData = await loadTile(tileX, tileY);
-		
+
 		if (tileImageData) {
 			// Draw the entire tile directly to the virtual canvas
 			ctx.putImageData(tileImageData, 0, 0);
 		}
-		
+
 		virtualTiles.current.set(tileKey, virtualCanvas);
 		return virtualCanvas;
 	};
@@ -358,19 +373,20 @@ export default function CanvasMinimapPage() {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 
-		const ctx = canvas.getContext('2d')!;
-		
+		const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+		ctx.imageSmoothingEnabled = false;
+
 		// Get canvas dimensions
 		const width = canvas.width;
 		const height = canvas.height;
-		
+
 		// Clear canvas completely
 		ctx.fillStyle = '#1a1a1a';
 		ctx.fillRect(0, 0, width, height);
-		
+
 		// Calculate scale factor (pixels per world unit) - this must be the same for X and Y to preserve 1:1 aspect ratio
 		const scale = viewState.zoomLevel;
-		
+
 		// Calculate visible world area - ensuring 1:1 aspect ratio
 		const worldWidth = width / scale;
 		const worldHeight = height / scale;
@@ -378,66 +394,81 @@ export default function CanvasMinimapPage() {
 		const worldTop = viewState.centerY - worldHeight / 2;
 		const worldRight = worldLeft + worldWidth;
 		const worldBottom = worldTop + worldHeight;
-		
+
 		// Calculate which tiles are visible (with extra margin to ensure full coverage)
 		const leftTile = Math.floor(worldLeft / TILE_SIZE) - 1;
 		const topTile = Math.floor(worldTop / TILE_SIZE) - 1;
 		const rightTile = Math.ceil(worldRight / TILE_SIZE) + 1;
 		const bottomTile = Math.ceil(worldBottom / TILE_SIZE) + 1;
-		
-		// Render visible tiles (only those that are already loaded)
+
+		const scaledTileSize = TILE_SIZE * scale;
+		const firstTileScreenX = Math.round((leftTile * TILE_SIZE - worldLeft) * scale);
+		const firstTileScreenY = Math.round((topTile * TILE_SIZE - worldTop) * scale);
+
+		// Pre-calculate all tile edge positions using exact integer steps
+		const tileEdgesX: number[] = [];
+		const tileEdgesY: number[] = [];
+
+		// Build tile edges using clean integer arithmetic from the first tile position
+		for (let i = 0; i <= (rightTile - leftTile + 1); i++) {
+			tileEdgesX.push(firstTileScreenX + Math.round(i * scaledTileSize));
+		}
+
+		for (let i = 0; i <= (bottomTile - topTile + 1); i++) {
+			tileEdgesY.push(firstTileScreenY + Math.round(i * scaledTileSize));
+		}
+
+		// Render visible tiles using the pre-calculated edge grid
 		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
 			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
 				const tileKey = `${tileX},${tileY}`;
 				const virtualTile = virtualTiles.current.get(tileKey);
-				
-				// Calculate screen position using consistent scale factor
-				const worldTileX = tileX * TILE_SIZE;
-				const worldTileY = tileY * TILE_SIZE;
-				const screenX = (worldTileX - worldLeft) * scale;
-				const screenY = (worldTileY - worldTop) * scale;
-				const screenWidth = TILE_SIZE * scale;
-				const screenHeight = TILE_SIZE * scale;
-				
+
+				// Get tile position from pre-calculated edges
+				const tileIndexX = tileX - leftTile;
+				const tileIndexY = tileY - topTile;
+				const screenX = tileEdgesX[tileIndexX];
+				const screenY = tileEdgesY[tileIndexY];
+				const screenWidth = tileEdgesX[tileIndexX + 1] - screenX;
+				const screenHeight = tileEdgesY[tileIndexY + 1] - screenY;
+
 				// Calculate clipping bounds to ensure we don't draw outside canvas
 				const clippedX = Math.max(0, screenX);
 				const clippedY = Math.max(0, screenY);
 				const clippedWidth = Math.min(screenWidth, width - clippedX);
 				const clippedHeight = Math.min(screenHeight, height - clippedY);
-				
+
 				// Skip if tile is completely outside canvas
 				if (clippedWidth <= 0 || clippedHeight <= 0) {
 					continue;
 				}
-				
+
 				if (virtualTile) {
 					// Tile is loaded, draw it with clipping
-					// Always use nearest neighbor (pixelated) scaling
 					ctx.imageSmoothingEnabled = false;
-					
-					// Calculate source coordinates maintaining 1:1 aspect ratio
-					const sourceX = clippedX > screenX ? (clippedX - screenX) / scale : 0;
-					const sourceY = clippedY > screenY ? (clippedY - screenY) / scale : 0;
-					const sourceWidth = clippedWidth / scale;
-					const sourceHeight = clippedHeight / scale;
-					
-					// Ensure pixel-perfect alignment by rounding to integers
-					// This preserves aspect ratio by maintaining the same rounding for both dimensions
-					const destX = Math.round(clippedX);
-					const destY = Math.round(clippedY);
-					const destWidth = Math.round(clippedWidth);
-					const destHeight = Math.round(clippedHeight);
-					
+
+					// Round source coordinates to prevent subpixel sampling
+					const rawSourceX = clippedX > screenX ? (clippedX - screenX) / scale : 0;
+					const rawSourceY = clippedY > screenY ? (clippedY - screenY) / scale : 0;
+					const rawSourceWidth = clippedWidth / scale;
+					const rawSourceHeight = clippedHeight / scale;
+
+					// Use clipped coordinates directly since screen coordinates are already rounded
+					const destX = clippedX;
+					const destY = clippedY;
+					const destWidth = clippedWidth;
+					const destHeight = clippedHeight;
+
 					ctx.drawImage(
 						virtualTile,
-						sourceX, sourceY, sourceWidth, sourceHeight,
+						rawSourceX, rawSourceY, rawSourceWidth, rawSourceHeight,
 						destX, destY, destWidth, destHeight
 					);
 				} else {
 					// Tile not loaded yet, draw black
 					ctx.fillStyle = '#000000';
-					ctx.fillRect(Math.round(clippedX), Math.round(clippedY), Math.round(clippedWidth), Math.round(clippedHeight));
-					
+					ctx.fillRect(clippedX, clippedY, clippedWidth, clippedHeight);
+
 					// Start loading the tile in the background (but don't wait for it)
 					getVirtualTile(tileX, tileY).then(() => {
 						// When tile loads, trigger a re-render
@@ -467,27 +498,27 @@ export default function CanvasMinimapPage() {
 
 			// Use ResizeObserver for more accurate container size tracking
 			const rect = container.getBoundingClientRect();
-			
+
 			// Set canvas size to match container (simple 1:1 ratio)
 			canvas.width = rect.width;
 			canvas.height = rect.height;
-			
+
 			// Trigger re-render
 			setResizeCounter(prev => prev + 1);
 		};
 
 		// Defer initial resize to ensure layout is complete
 		const timeoutId = setTimeout(handleResize, 0);
-		
+
 		// Set up ResizeObserver for container size changes
 		const container = containerRef.current;
 		if (container && 'ResizeObserver' in window) {
 			const resizeObserver = new ResizeObserver(handleResize);
 			resizeObserver.observe(container);
-			
+
 			// Also listen to window resize as fallback
 			window.addEventListener('resize', handleResize);
-			
+
 			return () => {
 				clearTimeout(timeoutId);
 				resizeObserver.disconnect();
@@ -518,7 +549,7 @@ export default function CanvasMinimapPage() {
 		}
 	}, [selectedInstance]);
 
-	// Reset view when instance changes
+	// Reset view when instance changes and snap to pixel-perfect zoom
 	useEffect(() => {
 		if (selectedInstance) {
 			const instanceData = instances.find(inst => inst.instanceId === selectedInstance);
@@ -526,10 +557,10 @@ export default function CanvasMinimapPage() {
 				setViewState({
 					centerX: (instanceData.bounds.x1 + instanceData.bounds.x2) / 2,
 					centerY: (instanceData.bounds.y1 + instanceData.bounds.y2) / 2,
-					zoomLevel: 1,
+					zoomLevel: getClosestZoomLevel(1), // Snap to nearest pixel-perfect zoom
 				});
 			}
-			
+
 			// Clear caches when switching instances
 			virtualTiles.current.clear();
 			tileCache.current.clear();
@@ -538,24 +569,32 @@ export default function CanvasMinimapPage() {
 		}
 	}, [selectedInstance, instances]);
 
+	// Snap current zoom level to nearest pixel-perfect level on mount
+	useEffect(() => {
+		setViewState(prev => ({
+			...prev,
+			zoomLevel: getClosestZoomLevel(prev.zoomLevel)
+		}));
+	}, []);
+
 	// Set up live chunk update listener
 	useEffect(() => {
 		if (!selectedInstance || !selectedSurface || !selectedForce) {
 			return;
 		}
-		
+
 		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
 		if (!plugin) {
 			console.error("Minimap plugin not found");
 			return;
 		}
-		
+
 		const handleChunkUpdate = (event: ChunkUpdateEvent) => {
 			// Only process updates for the currently selected instance/surface/force
-			if (event.instanceId === selectedInstance && 
-				event.surface === selectedSurface && 
+			if (event.instanceId === selectedInstance &&
+				event.surface === selectedSurface &&
 				event.force === selectedForce) {
-				
+
 				try {
 					// Decode the base64 ImageData
 					const imageDataJson = JSON.parse(atob(event.imageData));
@@ -564,7 +603,7 @@ export default function CanvasMinimapPage() {
 						imageDataJson.width,
 						imageDataJson.height
 					);
-					
+
 					// Update the chunk in our cache
 					updateChunk(event.chunkX, event.chunkY, imageData);
 				} catch (err) {
@@ -572,10 +611,10 @@ export default function CanvasMinimapPage() {
 				}
 			}
 		};
-		
+
 		// Subscribe to chunk update events through the plugin
 		plugin.onChunkUpdate(handleChunkUpdate);
-		
+
 		return () => {
 			plugin.offChunkUpdate(handleChunkUpdate);
 		};
@@ -585,8 +624,8 @@ export default function CanvasMinimapPage() {
 		<div style={{ padding: "20px" }}>
 			<Row gutter={[16, 16]}>
 				<Col span={24}>
-					<Card 
-						title="Factorio Instance Minimap (Canvas)" 
+					<Card
+						title="Factorio Instance Minimap (Canvas)"
 						extra={
 							<Space wrap>
 								<Select
@@ -635,11 +674,11 @@ export default function CanvasMinimapPage() {
 						{selectedInstance ? (
 							<div>
 								<div style={{ marginBottom: "10px", fontSize: "14px", color: "#666" }}>
-									Use WASD to move, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel.toFixed(2)}x
+									Use WASD to move, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel}x
 								</div>
-								<div 
+								<div
 									ref={containerRef}
-									style={{ 
+									style={{
 										height: "calc(100vh - 300px)", // Dynamic height based on viewport
 										minHeight: "500px",
 										width: "100%",
@@ -662,11 +701,11 @@ export default function CanvasMinimapPage() {
 								</div>
 							</div>
 						) : (
-							<div 
-								style={{ 
-									height: "400px", 
-									display: "flex", 
-									alignItems: "center", 
+							<div
+								style={{
+									height: "400px",
+									display: "flex",
+									alignItems: "center",
 									justifyContent: "center",
 									backgroundColor: "#f5f5f5",
 									border: "1px dashed #d9d9d9",
