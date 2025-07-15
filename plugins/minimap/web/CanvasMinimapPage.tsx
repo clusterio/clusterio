@@ -290,8 +290,8 @@ export default function CanvasMinimapPage() {
 		const tileKey = `${tileX},${tileY}`;
 		
 		// Calculate position within the tile
-		const localChunkX = chunkX % CHUNKS_PER_TILE;
-		const localChunkY = chunkY % CHUNKS_PER_TILE;
+		const localChunkX = ((chunkX % CHUNKS_PER_TILE) + CHUNKS_PER_TILE) % CHUNKS_PER_TILE;
+		const localChunkY = ((chunkY % CHUNKS_PER_TILE) + CHUNKS_PER_TILE) % CHUNKS_PER_TILE;
 		const pixelX = localChunkX * CHUNK_SIZE;
 		const pixelY = localChunkY * CHUNK_SIZE;
 		
