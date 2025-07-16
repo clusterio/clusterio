@@ -1302,9 +1302,6 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceRestartRequest(request: lib.InstanceRestartRequest) {
-		if (this._status !== "running") {
-			throw new Error("Instance is not running");
-		}
 		await this.stop();
 		// Stopping invalidates this instance object, a new one must be created by the host
 		// To do this we simulate a waking an instance and sending a start request
