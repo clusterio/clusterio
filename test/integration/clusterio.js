@@ -529,56 +529,92 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("instance start", function() {
-			it("should not hang if factorio version does not exist", async function() {
-				slowTest(this);
-				try {
-					await execCtl("instance config set 44 factorio.version 0.1.2");
-					await assert.rejects(execCtl("instance start test"));
+		for (let cmd of ["start", "restart"]) {
+			describe(`instance ${cmd}`, function() {
+				async function prepareToStart() {
+					if (cmd === "restart") {
+						await execCtl("instance start test");
+					}
+				}
+				after(async function() {
+					// It is expected that after these tests the instance is running, I dislike this dependency
+					// So this is here to make sure the other tests can continue any of these ones fail
+					const instances = await getInstances();
+					if (instances.get(44).status !== "running") {
+						await execCtl("instance start test");
+					}
+				});
+				it("should not hang if factorio version does not exist", async function() {
+					slowTest(this);
+					try {
+						await execCtl("instance config set 44 factorio.version 0.1.2");
+						await assert.rejects(execCtl(`instance ${cmd} test`));
 
-				} finally {
-					await execCtl("instance config set 44 factorio.version latest");
+					} finally {
+						await execCtl("instance config set 44 factorio.version latest");
+					}
+				});
+				it("should not leave the instance in the stopping state if it fails", async function() {
+					slowTest(this);
+					try {
+						await execCtl("instance config set 44 factorio.game_port 100000");
+						await assert.rejects(execCtl(`instance ${cmd} test`));
+						await checkInstanceStatus(44, "stopped");
+
+					} finally {
+						await execCtl("instance config set 44 factorio.game_port");
+					}
+				});
+				it("starts the given save", async function() {
+					slowTest(this);
+					await prepareToStart();
+					await execCtl(`instance ${cmd} test --save world.zip`);
+					await checkInstanceStatus(44, "running");
+				});
+				it("allows having a separate console log", async function() {
+					slowTest(this);
+					await execCtl("instance stop 44");
+					await execCtl("instance config set 44 factorio.console_logging true");
+					await prepareToStart();
+					await execCtl(`instance ${cmd} test`);
+					await checkInstanceStatus(44, "running");
+					const checkMessage = `check${Date.now()}`;
+					await sendRcon(44, checkMessage);
+					const consoleLog = await fs.readFile(path.join("temp", "test", "instances", "test", "console.log"));
+					assert(consoleLog.includes(checkMessage));
+					await execCtl("instance config set 44 factorio.console_logging false");
+				});
+				it("copies the save if an autosave is the target", async function() {
+					slowTest(this);
+					await execCtl("instance stop 44");
+					let savesDir = path.join("temp", "test", "instances", "test", "saves");
+					await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
+					await prepareToStart();
+					await execCtl(`instance ${cmd} test`);
+					let saves = await getControl().sendTo({ instanceId: 44 }, new lib.InstanceSaveDetailsListRequest());
+					let running = saves.find(s => s.loaded);
+					assert(running.name !== "_autosave1.zip");
+				});
+				if (cmd === "restart") {
+					it("fails if the server is not running", async function() {
+						await execCtl("instance stop test");
+						await checkInstanceStatus(44, "stopped");
+						await assert.rejects(
+							execCtl("instance restart test"),
+							/Instance is not running/,
+						);
+						await execCtl("instance start test");
+					});
+				} else {
+					it("fails if the server is running", async function() {
+						await assert.rejects(
+							execCtl("instance start test"),
+							/Instance is already running./,
+						);
+					});
 				}
 			});
-			it("should not leave the instance in the stopping state if it fails", async function() {
-				slowTest(this);
-				try {
-					await execCtl("instance config set 44 factorio.game_port 100000");
-					await assert.rejects(execCtl("instance start test"));
-					await checkInstanceStatus(44, "stopped");
-
-				} finally {
-					await execCtl("instance config set 44 factorio.game_port");
-				}
-			});
-			it("starts the given save", async function() {
-				slowTest(this);
-				await execCtl("instance start test --save world.zip");
-				await checkInstanceStatus(44, "running");
-			});
-			it("allows having a separate console log", async function() {
-				slowTest(this);
-				await execCtl("instance stop 44");
-				await execCtl("instance config set 44 factorio.console_logging true");
-				await execCtl("instance start test");
-				await checkInstanceStatus(44, "running");
-				const checkMessage = `check${Date.now()}`;
-				await sendRcon(44, checkMessage);
-				const consoleLog = await fs.readFile(path.join("temp", "test", "instances", "test", "console.log"));
-				assert(consoleLog.includes(checkMessage));
-				await execCtl("instance config set 44 factorio.console_logging false");
-			});
-			it("copies the save if an autosave is the target", async function() {
-				slowTest(this);
-				await execCtl("instance stop 44");
-				let savesDir = path.join("temp", "test", "instances", "test", "saves");
-				await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
-				await execCtl("instance start test");
-				let saves = await getControl().sendTo({ instanceId: 44 }, new lib.InstanceSaveDetailsListRequest());
-				let running = saves.find(s => s.loaded);
-				assert(running.name !== "_autosave1.zip");
-			});
-		});
+		}
 
 		describe("instance send-rcon", function() {
 			this.afterAll(async function() {
