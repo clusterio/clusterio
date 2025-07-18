@@ -3,6 +3,7 @@ import { BaseControllerPlugin } from "@clusterio/controller";
 import {
 	TileDataEvent,
 	GetInstanceBoundsRequest,
+	GetRawTileRequest,
 	ChartData,
 } from "./messages";
 import * as fs from "fs-extra";
@@ -10,6 +11,12 @@ import * as path from "path";
 import * as zlib from "zlib";
 import { promisify } from "util";
 import sharp from "sharp";
+import {
+	renderChunkToPixels, 
+	extractChunkFromTile, 
+	renderTileToPixels,
+	pixelsToRGBA
+} from "./tile-utils";
 
 const CHUNK_SIZE = 32;
 const inflateAsync = promisify(zlib.inflate);
@@ -37,6 +44,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		this.controller.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
 		this.controller.handle(GetInstanceBoundsRequest, this.handleGetInstanceBoundsRequest.bind(this));
+		this.controller.handle(GetRawTileRequest, this.handleGetRawTileRequest.bind(this));
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
@@ -46,40 +54,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}, 5000);
 	}
 
-	// Convert RGB565 to RGB888 values using Factorio's exact method
-	private rgb565ToRgb888(rgb565Value: number): [number, number, number] {
-		// This matches ByteColor(uint16_t rgb5) constructor in Factorio source
-		const r = ((rgb565Value >> 11) & 0x1F) << 3;  // 5 bits -> 8 bits
-		const g = ((rgb565Value >> 5) & 0x3F) << 2;   // 6 bits -> 8 bits  
-		const b = (rgb565Value & 0x1F) << 3;          // 5 bits -> 8 bits
-		return [r, g, b];
-	}
 
-	// Render chunk data to get RGB565 pixel array for comparison
-	private async renderChunkToPixels(chunkData: Buffer): Promise<Uint16Array> {
-		try {
-			const decompressed = await inflateAsync(chunkData);
-			const pixels = new Uint16Array(32 * 32);
-			
-			// Ensure we don't read beyond available data
-			const maxPixels = Math.min(decompressed.length / 2, 32 * 32);
-			
-			for (let i = 0; i < maxPixels; i++) {
-				pixels[i] = decompressed.readUInt16LE(i * 2);
-			}
-			
-			// Fill remaining pixels with black (0) if we have less data than expected
-			for (let i = maxPixels; i < 32 * 32; i++) {
-				pixels[i] = 0;
-			}
-			
-			return pixels;
-		} catch (decompressError) {
-			this.logger.error(`Failed to decompress chunk data: ${decompressError}`);
-			// Return black pixels on error
-			return new Uint16Array(32 * 32);
-		}
-	}
 
 	// Compare two pixel arrays and return changes
 	private comparePixels(oldPixels: Uint16Array, newPixels: Uint16Array, chunkX: number, chunkY: number): PixelChange[] {
@@ -207,19 +182,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async renderTile(tileData: Buffer): Promise<Buffer> {
 		// Use renderTileToPixels to get the current state, then convert to image
-		const currentPixels = await this.renderTileToPixels(tileData);
+		const currentPixels = await renderTileToPixels(tileData);
 		
-		// Convert RGB565 pixel data to RGBA buffer for Sharp
-		const raw = Buffer.alloc(256 * 256 * 4);
-		for (let i = 0; i < 256 * 256; i++) {
-			const rgb565Value = currentPixels[i];
-			const [r, g, b] = this.rgb565ToRgb888(rgb565Value);
-			const bufferIndex = i * 4;
-			raw[bufferIndex] = r;
-			raw[bufferIndex + 1] = g;
-			raw[bufferIndex + 2] = b;
-			raw[bufferIndex + 3] = 255; // Alpha
-		}
+		// Convert RGB565 pixel data to RGBA buffer for Sharp  
+		const rgbaData = pixelsToRGBA(currentPixels);
+		const raw = Buffer.from(rgbaData);
 
 		// Create and return the image directly
 		return sharp(raw, { 
@@ -332,7 +299,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		// Render the current state of the entire tile if we have existing data
 		let currentTilePixels: Uint16Array | null = null;
 		if (existingTile.length > 0) {
-			currentTilePixels = await this.renderTileToPixels(existingTile);
+			currentTilePixels = await renderTileToPixels(existingTile);
 		}
 
 		// Process new chunks and determine what to append
@@ -355,12 +322,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				hasChanges = true;
 			} else {
 				// Existing chunk - compare current tile state with new chunk data
-				const newPixels = await this.renderChunkToPixels(newChunkData);
+				const newPixels = await renderChunkToPixels(newChunkData);
 				
 				let oldPixels: Uint16Array;
 				if (currentTilePixels) {
 					// Extract current chunk area from the rendered tile
-					oldPixels = this.extractChunkFromTile(currentTilePixels, chunkX, chunkY);
+					oldPixels = extractChunkFromTile(currentTilePixels, chunkX, chunkY);
 				} else {
 					// Fallback to black pixels if tile couldn't be rendered
 					oldPixels = new Uint16Array(32 * 32);
@@ -386,112 +353,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		return Buffer.concat([existingTile, ...appendBuffers]);
 	}
 
-	// Render tile data to pixels
-	private async renderTileToPixels(tileData: Buffer): Promise<Uint16Array> {
-		const currentPixels = new Uint16Array(256 * 256); // 256x256 tile
-		
-		let offset = 0;
-		while (offset < tileData.length) {
-			if (offset + 1 > tileData.length) {
-				break;
-			}
-			
-			const type = tileData.readUInt8(offset);
-			offset += 1;
 
-			if (type === 1) { // Chunk
-				if (offset + 7 > tileData.length) {
-					break;
-				}
-				
-				const tick = tileData.readUInt32BE(offset);
-				offset += 4;
-				const chunkCoordsByte = tileData.readUInt8(offset);
-				offset += 1;
-				const length = tileData.readUInt16BE(offset);
-				offset += 2;
 
-				if (offset + length > tileData.length) {
-					break;
-				}
 
-				const chunkX = chunkCoordsByte >> 4;
-				const chunkY = chunkCoordsByte & 0x0F;
-				const chunkData = tileData.slice(offset, offset + length);
-
-				try {
-					const chunkPixels = await this.renderChunkToPixels(chunkData);
-					
-					// Update current pixel state
-					for (let y = 0; y < 32; y++) {
-						for (let x = 0; x < 32; x++) {
-							const chunkIndex = y * 32 + x;
-							const tileX = chunkX * 32 + x;
-							const tileY = chunkY * 32 + y;
-							const tileIndex = tileY * 256 + tileX;
-							currentPixels[tileIndex] = chunkPixels[chunkIndex];
-						}
-					}
-				} catch (decompressError) {
-					this.logger.error(`Failed to decompress chunk data: ${decompressError}`);
-				}
-				
-				offset += length;
-			} else if (type === 2) { // Pixels
-				if (offset + 6 > tileData.length) {
-					break;
-				}
-				
-				const tick = tileData.readUInt32BE(offset);
-				offset += 4;
-				const pixelCount = tileData.readUInt16BE(offset);
-				offset += 2;
-				
-				const expectedDataLength = pixelCount * 6;
-				if (offset + expectedDataLength > tileData.length) {
-					break;
-				}
-				
-				// Apply pixel changes to current state
-				for (let i = 0; i < pixelCount; i++) {
-					const pixelOffset = offset + i * 6;
-					const x = tileData.readUInt8(pixelOffset);
-					const y = tileData.readUInt8(pixelOffset + 1);
-					const newColor = tileData.readUInt16BE(pixelOffset + 2);
-					// oldColor at pixelOffset + 4 is not needed for rendering
-					
-					// Update current pixel state
-					if (x < 256 && y < 256) {
-						const tileIndex = y * 256 + x;
-						currentPixels[tileIndex] = newColor;
-					}
-				}
-				
-				offset += expectedDataLength;
-			} else {
-				break;
-			}
-		}
-
-		return currentPixels;
-	}
-
-	// Extract a 32x32 chunk area from a 256x256 tile
-	private extractChunkFromTile(tilePixels: Uint16Array, chunkX: number, chunkY: number): Uint16Array {
-		const chunkPixels = new Uint16Array(32 * 32);
-		
-		for (let y = 0; y < 32; y++) {
-			for (let x = 0; x < 32; x++) {
-				const tileX = chunkX * 32 + x;
-				const tileY = chunkY * 32 + y;
-				const tileIndex = tileY * 256 + tileX;
-				const chunkIndex = y * 32 + x;
-				chunkPixels[chunkIndex] = tilePixels[tileIndex];
-			}
-		}
-		
-		return chunkPixels;
-	}
 
 	async handleTileDataEvent(event: TileDataEvent) {
 		try {
@@ -547,4 +411,28 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		return { instances };
 	}
-} 
+
+	async handleGetRawTileRequest(request: GetRawTileRequest) {
+		const { instance_id, surface, force, tile_x, tile_y, tick } = request;
+		
+		const tileName = `${instance_id}_${surface}_${force}_${tile_x}_${tile_y}.bin`;
+		const tilePath = path.join(this.tilesPath, tileName);
+
+		if (!await fs.pathExists(tilePath)) {
+			return { tile_data: null, tick: tick || 0 };
+		}
+
+		try {
+			const tileData = await fs.readFile(tilePath);
+			
+			const base64Data = tileData.toString('base64');
+			
+			return { 
+				tile_data: base64Data
+			};
+		} catch (err) {
+			this.logger.error(`Error reading tile file: ${err}`);
+			return { tile_data: null };
+		}
+	}
+}

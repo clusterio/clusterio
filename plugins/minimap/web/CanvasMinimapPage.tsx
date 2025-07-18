@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { Row, Col, Button, Card, Space, Select } from "antd";
 import { ControlContext } from "@clusterio/web_ui";
-import { GetInstanceBoundsRequest, TileDataEvent } from "../messages";
+import { GetInstanceBoundsRequest, GetRawTileRequest, TileDataEvent } from "../messages";
 import * as zlib from "zlib";
+import { renderTileToPixels, pixelsToImageData, rgb565ToRgb888 } from "../tile-utils";
 
 interface Instance {
 	instanceId: number;
@@ -30,14 +31,7 @@ const CHUNK_SIZE = 32; // 32x32 pixels per chunk
 const TILE_SIZE = 256; // 256x256 pixels per tile (8x8 chunks)
 const CHUNKS_PER_TILE = 8;
 
-// Convert RGB565 to RGB888 values using Factorio's exact method
-function rgb565ToRgb888(rgb565Value: number): [number, number, number] {
-	// This matches ByteColor(uint16_t rgb5) constructor in Factorio source
-	const r = ((rgb565Value >> 11) & 0x1F) << 3;  // 5 bits -> 8 bits
-	const g = ((rgb565Value >> 5) & 0x3F) << 2;   // 6 bits -> 8 bits  
-	const b = (rgb565Value & 0x1F) << 3;          // 5 bits -> 8 bits
-	return [r, g, b];
-}
+
 
 // Convert raw chart data to ImageData
 async function chartDataToImageData(chartData: string): Promise<ImageData> {
@@ -337,7 +331,7 @@ export default function CanvasMinimapPage() {
 		}
 	};
 
-	// Load a tile from the server (512x512 pixels containing 16x16 chunks)
+	// Load a tile from the server using raw tile data
 	const loadTile = async (tileX: number, tileY: number): Promise<ImageData | null> => {
 		const tileKey = `${tileX},${tileY}`;
 
@@ -354,62 +348,62 @@ export default function CanvasMinimapPage() {
 		// Start loading the tile
 		const loadPromise = (async () => {
 			try {
-				// Load the entire tile from server
-				const response = await fetch(
-					`${window.location.origin}/api/minimap/tile/${selectedInstance}/${selectedSurface}/${selectedForce}/10/${tileX}/${tileY}.png`
-				);
+				// Load the raw tile data from server
+				const response = await control.send(new GetRawTileRequest(
+					selectedInstance!,
+					selectedSurface,
+					selectedForce,
+					tileX,
+					tileY
+				));
 
-				if (!response.ok) {
+				if (!response.tile_data) {
 					return null;
 				}
 
-				const blob = await response.blob();
-				const img = new Image();
+				// Decode base64 tile data
+				const binaryString = atob(response.tile_data);
+				const tileData = new Uint8Array(binaryString.length);
+				for (let i = 0; i < binaryString.length; i++) {
+					tileData[i] = binaryString.charCodeAt(i);
+				}
 
-				return new Promise<ImageData | null>((resolve) => {
-					img.onload = () => {
-						// Create a canvas to get the tile ImageData
-						const tempCanvas = document.createElement('canvas');
-						tempCanvas.width = TILE_SIZE;
-						tempCanvas.height = TILE_SIZE;
-						const tempCtx = tempCanvas.getContext('2d')!;
+				// Parse the tile data to get RGB565 pixels
+				const pixels = await renderTileToPixels(tileData);
+				
+				// Convert to ImageData
+				const tileImageData = pixelsToImageData(pixels);
 
-						tempCtx.drawImage(img, 0, 0);
+				// Cache the tile
+				tileCache.current.set(tileKey, tileImageData);
 
-						// Get the full tile as ImageData
-						const tileImageData = tempCtx.getImageData(0, 0, TILE_SIZE, TILE_SIZE);
+				// Extract and cache all chunks from this tile
+				for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
+					for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
+						const actualChunkX = tileX * CHUNKS_PER_TILE + cx;
+						const actualChunkY = tileY * CHUNKS_PER_TILE + cy;
+						const actualChunkKey = `${actualChunkX},${actualChunkY}`;
 
-						// Cache the tile
-						tileCache.current.set(tileKey, tileImageData);
-
-						// Extract and cache all chunks from this tile
-						for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
-							for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
-								const actualChunkX = tileX * CHUNKS_PER_TILE + cx;
-								const actualChunkY = tileY * CHUNKS_PER_TILE + cy;
-								const actualChunkKey = `${actualChunkX},${actualChunkY}`;
-
-								const chunkImageData = tempCtx.getImageData(
-									cx * CHUNK_SIZE,
-									cy * CHUNK_SIZE,
-									CHUNK_SIZE,
-									CHUNK_SIZE
-								);
-
-								chunkCache.current.set(actualChunkKey, chunkImageData);
+						// Extract chunk area from the full tile ImageData
+						const chunkData = new Uint8ClampedArray(CHUNK_SIZE * CHUNK_SIZE * 4);
+						for (let y = 0; y < CHUNK_SIZE; y++) {
+							for (let x = 0; x < CHUNK_SIZE; x++) {
+								const tilePixelIndex = ((cy * CHUNK_SIZE + y) * TILE_SIZE + (cx * CHUNK_SIZE + x)) * 4;
+								const chunkPixelIndex = (y * CHUNK_SIZE + x) * 4;
+								
+								chunkData[chunkPixelIndex] = tileImageData.data[tilePixelIndex];         // R
+								chunkData[chunkPixelIndex + 1] = tileImageData.data[tilePixelIndex + 1]; // G
+								chunkData[chunkPixelIndex + 2] = tileImageData.data[tilePixelIndex + 2]; // B
+								chunkData[chunkPixelIndex + 3] = tileImageData.data[tilePixelIndex + 3]; // A
 							}
 						}
 
-						resolve(tileImageData);
-					};
+						const chunkImageData = new ImageData(chunkData, CHUNK_SIZE, CHUNK_SIZE);
+						chunkCache.current.set(actualChunkKey, chunkImageData);
+					}
+				}
 
-					img.onerror = () => {
-						console.error(`Failed to load image for tile ${tileX},${tileY}`);
-						resolve(null);
-					};
-
-					img.src = URL.createObjectURL(blob);
-				});
+				return tileImageData;
 			} catch (err) {
 				console.error(`Failed to load tile ${tileX},${tileY}:`, err);
 				return null;
