@@ -1,10 +1,10 @@
 import React from "react";
 import { BaseWebPlugin } from "@clusterio/web_ui";
 import CanvasMinimapPage from "./CanvasMinimapPage";
-import { ChunkUpdateEvent } from "../messages";
+import { TileDataEvent } from "../messages";
 
 export class WebPlugin extends BaseWebPlugin {
-	chunkUpdateCallbacks: Array<(event: ChunkUpdateEvent) => void> = [];
+	tileUpdateCallbacks: Array<(event: TileDataEvent) => void> = [];
 
 	async init() {
 		this.pages = [
@@ -16,26 +16,26 @@ export class WebPlugin extends BaseWebPlugin {
 			},
 		];
 		
-		// Handle chunk update events from the controller
-		this.control.handle(ChunkUpdateEvent, this.handleChunkUpdateEvent.bind(this));
+		// Handle tile update events from the controller
+		this.control.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
 	}
 
-	async handleChunkUpdateEvent(event: ChunkUpdateEvent) {
+	async handleTileDataEvent(event: TileDataEvent) {
 		// Notify all registered callbacks
-		for (let callback of this.chunkUpdateCallbacks) {
+		for (let callback of this.tileUpdateCallbacks) {
 			callback(event);
 		}
 	}
 
-	onChunkUpdate(callback: (event: ChunkUpdateEvent) => void) {
-		this.chunkUpdateCallbacks.push(callback);
+	onTileUpdate(callback: (event: TileDataEvent) => void) {
+		this.tileUpdateCallbacks.push(callback);
 	}
 
-	offChunkUpdate(callback: (event: ChunkUpdateEvent) => void) {
-		let index = this.chunkUpdateCallbacks.lastIndexOf(callback);
+	offTileUpdate(callback: (event: TileDataEvent) => void) {
+		let index = this.tileUpdateCallbacks.lastIndexOf(callback);
 		if (index === -1) {
 			throw new Error("callback is not registered");
 		}
-		this.chunkUpdateCallbacks.splice(index, 1);
+		this.tileUpdateCallbacks.splice(index, 1);
 	}
 } 

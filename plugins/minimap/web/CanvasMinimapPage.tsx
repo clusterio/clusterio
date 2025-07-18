@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { Row, Col, Button, Card, Space, Select } from "antd";
 import { ControlContext } from "@clusterio/web_ui";
-import { GetInstanceBoundsRequest, ChunkUpdateEvent } from "../messages";
+import { GetInstanceBoundsRequest, TileDataEvent } from "../messages";
+import * as zlib from "zlib";
 
 interface Instance {
 	instanceId: number;
@@ -26,8 +27,53 @@ interface ViewState {
 }
 
 const CHUNK_SIZE = 32; // 32x32 pixels per chunk
-const TILE_SIZE = 512; // 512x512 pixels per tile (16x16 chunks)
-const CHUNKS_PER_TILE = 16;
+const TILE_SIZE = 256; // 256x256 pixels per tile (8x8 chunks)
+const CHUNKS_PER_TILE = 8;
+
+// Convert RGB565 to RGB888 values using Factorio's exact method
+function rgb565ToRgb888(rgb565Value: number): [number, number, number] {
+	// This matches ByteColor(uint16_t rgb5) constructor in Factorio source
+	const r = ((rgb565Value >> 11) & 0x1F) << 3;  // 5 bits -> 8 bits
+	const g = ((rgb565Value >> 5) & 0x3F) << 2;   // 6 bits -> 8 bits  
+	const b = (rgb565Value & 0x1F) << 3;          // 5 bits -> 8 bits
+	return [r, g, b];
+}
+
+// Convert raw chart data to ImageData
+async function chartDataToImageData(chartData: string): Promise<ImageData> {
+	// Decode base64 and decompress
+	const compressedData = Buffer.from(chartData, "base64");
+	const decompressed = zlib.inflateSync(compressedData);
+	
+	// Create RGBA image data (32x32 pixels)
+	const imageData = new Uint8ClampedArray(32 * 32 * 4);
+	
+	// Ensure we don't read beyond available data
+	const maxPixels = Math.min(decompressed.length / 2, 32 * 32);
+	
+	for (let i = 0; i < maxPixels * 2; i += 2) {
+		const rgb565Value = decompressed.readUInt16LE(i);
+		const [r, g, b] = rgb565ToRgb888(rgb565Value);
+		const pixelIndex = i / 2;
+		const bufferIndex = pixelIndex * 4;
+		
+		imageData[bufferIndex] = r;
+		imageData[bufferIndex + 1] = g;
+		imageData[bufferIndex + 2] = b;
+		imageData[bufferIndex + 3] = 255; // Alpha
+	}
+	
+	// Fill remaining pixels with black if we have less data than expected
+	for (let pixelIndex = maxPixels; pixelIndex < 32 * 32; pixelIndex++) {
+		const bufferIndex = pixelIndex * 4;
+		imageData[bufferIndex] = 0;     // R
+		imageData[bufferIndex + 1] = 0; // G
+		imageData[bufferIndex + 2] = 0; // B
+		imageData[bufferIndex + 3] = 255; // A
+	}
+	
+	return new ImageData(imageData, 32, 32);
+}
 
 export default function CanvasMinimapPage() {
 	const [instances, setInstances] = useState<Instance[]>([]);
@@ -310,7 +356,7 @@ export default function CanvasMinimapPage() {
 			try {
 				// Load the entire tile from server
 				const response = await fetch(
-					`${window.location.origin}/api/minimap/chart/${selectedInstance}/${selectedSurface}/${selectedForce}/10/${tileX}/${tileY}.png`
+					`${window.location.origin}/api/minimap/tile/${selectedInstance}/${selectedSurface}/${selectedForce}/10/${tileX}/${tileY}.png`
 				);
 
 				if (!response.ok) {
@@ -703,23 +749,24 @@ export default function CanvasMinimapPage() {
 			return;
 		}
 
-		const handleChunkUpdate = (event: ChunkUpdateEvent) => {
+		const handleChunkUpdate = (event: TileDataEvent) => {
 			// Only process updates for the currently selected instance/surface/force
-			if (event.instanceId === selectedInstance &&
+			if (event.instance_id === selectedInstance &&
 				event.surface === selectedSurface &&
 				event.force === selectedForce) {
 
 				try {
-					// Decode the base64 ImageData
-					const imageDataJson = JSON.parse(atob(event.imageData));
-					const imageData = new ImageData(
-						new Uint8ClampedArray(imageDataJson.data),
-						imageDataJson.width,
-						imageDataJson.height
-					);
-
-					// Update the chunk in our cache
-					updateChunk(event.chunkX, event.chunkY, imageData);
+					// Calculate chunk coordinates from world coordinates
+					const chunkX = Math.floor(event.x / 32);
+					const chunkY = Math.floor(event.y / 32);
+					
+					// Convert raw chart data to ImageData
+					chartDataToImageData(event.chunk.chart_data).then(imageData => {
+						// Update the chunk in our cache
+						updateChunk(chunkX, chunkY, imageData);
+					}).catch(err => {
+						console.error("Failed to convert chart data to ImageData:", err);
+					});
 				} catch (err) {
 					console.error("Failed to process live chunk update:", err);
 				}
@@ -727,10 +774,10 @@ export default function CanvasMinimapPage() {
 		};
 
 		// Subscribe to chunk update events through the plugin
-		plugin.onChunkUpdate(handleChunkUpdate);
+		plugin.onTileUpdate(handleChunkUpdate);
 
 		return () => {
-			plugin.offChunkUpdate(handleChunkUpdate);
+			plugin.offTileUpdate(handleChunkUpdate);
 		};
 	}, [selectedInstance, selectedSurface, selectedForce, updateChunk, control]);
 
