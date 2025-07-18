@@ -91,4 +91,46 @@ export class GetInstanceBoundsRequest {
 			}),
 		})),
 	}));
+}
+
+export class GetRawTileRequest {
+	declare ["constructor"]: typeof GetRawTileRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "minimap" as const;
+	static permission = "minimap.view";
+
+	constructor(
+		public instance_id: number,
+		public surface: string,
+		public force: string,
+		public tile_x: number,
+		public tile_y: number,
+		public tick?: number, // Optional tick for timelapse support
+	) {}
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"surface": Type.String(),
+		"force": Type.String(),
+		"tile_x": Type.Number(),
+		"tile_y": Type.Number(),
+		"tick": Type.Optional(Type.Number()),
+	});
+
+	static fromJSON(json: Static<typeof GetRawTileRequest.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.surface,
+			json.force,
+			json.tile_x,
+			json.tile_y,
+			json.tick
+		);
+	}
+
+	static Response = lib.plainJson(Type.Object({
+		"tile_data": Type.Union([Type.String(), Type.Null()]), // Base64 encoded tile file or null if not found
+	}));
 } 
