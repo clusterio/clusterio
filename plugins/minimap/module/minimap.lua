@@ -49,6 +49,7 @@ local function dump_chunk_chart(chunk_position)
 	clusterio_api.send_json("minimap:tile_data", {
 		type = "chart",
 		position = {world_x, world_y},
+		tick = game.tick,
 		data = data,
 	})
 end

@@ -6,6 +6,7 @@ interface TileDataIpc {
 	type: "chart";
 	data: ChartData[];
 	position: [number, number];
+	tick: number;
 }
 
 export class InstancePlugin extends BaseInstancePlugin {
@@ -26,7 +27,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 
 	async handleTileDataFromLua(data: TileDataIpc) {
 		try {
-			const { type, data: rawData, position } = data;
+			const { type, data: rawData, position, tick } = data;
 			
 			if (type === "chart") {
 				// Handle new chart data format
@@ -38,17 +39,17 @@ export class InstancePlugin extends BaseInstancePlugin {
 				}
 
 				// Send chart data to controller
-				const event = new TileDataEvent(
+				const TileDataEvents = chartData.map(chart => new TileDataEvent(
 					this.instance.config.get("instance.id"),
-					chartData[0].surface,
-					chartData[0].force,
+					chart.surface,
+					chart.force,
 					position[0],
 					position[1],
-					0, // TODO: Get tick from lua
-					chartData[0]
-				);
+					tick,
+					chart
+				));
 
-				return this.instance.sendTo("controller", event);
+				return Promise.all(TileDataEvents.map(event => this.instance.sendTo("controller", event)));
 			}
 			
 		} catch (err) {
