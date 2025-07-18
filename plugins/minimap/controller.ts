@@ -14,6 +14,12 @@ import sharp from "sharp";
 const CHUNK_SIZE = 32;
 const inflateAsync = promisify(zlib.inflate);
 
+interface PixelChange {
+	x: number;
+	y: number;
+	newColor: number;
+	oldColor: number;
+}
 
 export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
@@ -47,6 +53,101 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		const g = ((rgb565Value >> 5) & 0x3F) << 2;   // 6 bits -> 8 bits  
 		const b = (rgb565Value & 0x1F) << 3;          // 5 bits -> 8 bits
 		return [r, g, b];
+	}
+
+	// Render chunk data to get RGB565 pixel array for comparison
+	private async renderChunkToPixels(chunkData: Buffer): Promise<Uint16Array> {
+		try {
+			const decompressed = await inflateAsync(chunkData);
+			const pixels = new Uint16Array(32 * 32);
+			
+			// Ensure we don't read beyond available data
+			const maxPixels = Math.min(decompressed.length / 2, 32 * 32);
+			
+			for (let i = 0; i < maxPixels; i++) {
+				pixels[i] = decompressed.readUInt16LE(i * 2);
+			}
+			
+			// Fill remaining pixels with black (0) if we have less data than expected
+			for (let i = maxPixels; i < 32 * 32; i++) {
+				pixels[i] = 0;
+			}
+			
+			return pixels;
+		} catch (decompressError) {
+			this.logger.error(`Failed to decompress chunk data: ${decompressError}`);
+			// Return black pixels on error
+			return new Uint16Array(32 * 32);
+		}
+	}
+
+	// Compare two pixel arrays and return changes
+	private comparePixels(oldPixels: Uint16Array, newPixels: Uint16Array, chunkX: number, chunkY: number): PixelChange[] {
+		const changes: PixelChange[] = [];
+		
+		for (let y = 0; y < 32; y++) {
+			for (let x = 0; x < 32; x++) {
+				const index = y * 32 + x;
+				const oldColor = oldPixels[index];
+				const newColor = newPixels[index];
+				
+				if (oldColor !== newColor) {
+					// Calculate absolute position within the 256x256 tile
+					const absoluteX = chunkX * 32 + x;
+					const absoluteY = chunkY * 32 + y;
+					
+					changes.push({
+						x: absoluteX,
+						y: absoluteY,
+						newColor,
+						oldColor,
+					});
+				}
+			}
+		}
+		
+		return changes;
+	}
+
+	// Create pixel changeset data buffer
+	private createPixelChangeset(changes: PixelChange[], tick: number): Buffer {
+		if (changes.length === 0) {
+			return Buffer.alloc(0);
+		}
+		
+		// Type (1) + Tick (4) + Length (2) + Pixel data (6 bytes per pixel)
+		const headerSize = 7;
+		const pixelDataSize = changes.length * 6; // 6 bytes per pixel change
+		const totalSize = headerSize + pixelDataSize;
+		const buffer = Buffer.alloc(totalSize);
+		
+		let offset = 0;
+		
+		// Type 2 for pixels
+		buffer.writeUInt8(2, offset);
+		offset += 1;
+		
+		// Tick (converted to seconds)
+		buffer.writeUInt32BE(Math.floor(tick / 60), offset);
+		offset += 4;
+		
+		// Length (number of pixel changes, not bytes)
+		buffer.writeUInt16BE(changes.length, offset);
+		offset += 2;
+		
+		// Write pixel changes
+		for (const change of changes) {
+			buffer.writeUInt8(change.x, offset);
+			offset += 1;
+			buffer.writeUInt8(change.y, offset);
+			offset += 1;
+			buffer.writeUInt16BE(change.newColor, offset);
+			offset += 2;
+			buffer.writeUInt16BE(change.oldColor, offset);
+			offset += 2;
+		}
+		
+		return buffer;
 	}
 
 	private setupTileRoutes() {
@@ -105,110 +206,25 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	}
 
 	async renderTile(tileData: Buffer): Promise<Buffer> {
-		const tileSize = 256;
-		const canvas = sharp({
-			create: {
-				width: tileSize,
-				height: tileSize,
-				channels: 4,
-				background: { r: 0, g: 0, b: 0, alpha: 0 },
-			},
-		});
-
-		const compositeImages: any[] = [];
-		let offset = 0;
-		while (offset < tileData.length) {
-			if (offset + 1 > tileData.length) {
-				this.logger.error(`Invalid tile data: cannot read type at offset ${offset}`);
-				break;
-			}
-			
-			const type = tileData.readUInt8(offset);
-			offset += 1; // After type
-
-			if (type === 1) { // Chunk
-				// Check if we have enough bytes for the header
-				if (offset + 7 > tileData.length) {
-					this.logger.error(`Invalid tile data: insufficient header data at offset ${offset}`);
-					break;
-				}
-				
-				const tick = tileData.readUInt32BE(offset); // Read tick
-				offset += 4; // After tick
-				const chunkCoordsByte = tileData.readUInt8(offset); // Read coords
-				offset += 1; // After coords
-				const length = tileData.readUInt16BE(offset); // Read length
-				offset += 2; // After length
-
-				// Check if we have enough bytes for the data
-				if (offset + length > tileData.length) {
-					this.logger.error(`Invalid tile data: insufficient chunk data at offset ${offset}, need ${length} bytes but only ${tileData.length - offset} available`);
-					break;
-				}
-
-				const chunkX = chunkCoordsByte >> 4;
-				const chunkY = chunkCoordsByte & 0x0F;
-				const chunkData = tileData.slice(offset, offset + length);
-
-				try {
-					const decompressed = await inflateAsync(chunkData);
-					
-					const raw = Buffer.alloc(32 * 32 * 4);
-					// Initialize buffer to black (all zeros with alpha=255)
-					for (let i = 0; i < 32 * 32; i++) {
-						raw[i * 4 + 3] = 255; // Set alpha to 255 for all pixels
-					}
-					
-					// Ensure we don't read beyond available data
-					const maxPixels = Math.min(decompressed.length / 2, 32 * 32);
-					
-					for (let i = 0; i < maxPixels * 2; i += 2) {
-						const rgb565Value = decompressed.readUInt16LE(i);
-						const [r, g, b] = this.rgb565ToRgb888(rgb565Value);
-						const pixelIndex = i / 2;
-						const bufferIndex = pixelIndex * 4;
-						raw[bufferIndex] = r;
-						raw[bufferIndex + 1] = g;
-						raw[bufferIndex + 2] = b;
-						raw[bufferIndex + 3] = 255;
-					}
-
-					compositeImages.push({
-						input: await sharp(raw, { raw: { width: 32, height: 32, channels: 4 } }).png().toBuffer(),
-						left: chunkX * 32,
-						top: chunkY * 32,
-					});
-				} catch (decompressError) {
-					this.logger.error(`Failed to decompress chunk data: ${decompressError}`);
-				}
-				
-				offset += length; // Advance offset by the data block length
-			} else if (type === 2) { // Pixels
-				// Check if we have enough bytes for the header
-				if (offset + 6 > tileData.length) {
-					this.logger.error(`Invalid tile data: insufficient pixel header data at offset ${offset}`);
-					break;
-				}
-				
-				// Read tick (4 bytes) and length (2 bytes) first
-				offset += 4; // Skip tick
-				const length = tileData.readUInt16BE(offset); // Read length
-				offset += 2; // After length
-				
-				// Check if we have enough bytes for the data
-				if (offset + length > tileData.length) {
-					this.logger.error(`Invalid tile data: insufficient pixel data at offset ${offset}, need ${length} bytes but only ${tileData.length - offset} available`);
-					break;
-				}
-				
-				offset += length; // Advance offset by the data block length
-			} else {
-				this.logger.error(`Unknown tile data type: ${type} at offset ${offset}`);
-				break;
-			}
+		// Use renderTileToPixels to get the current state, then convert to image
+		const currentPixels = await this.renderTileToPixels(tileData);
+		
+		// Convert RGB565 pixel data to RGBA buffer for Sharp
+		const raw = Buffer.alloc(256 * 256 * 4);
+		for (let i = 0; i < 256 * 256; i++) {
+			const rgb565Value = currentPixels[i];
+			const [r, g, b] = this.rgb565ToRgb888(rgb565Value);
+			const bufferIndex = i * 4;
+			raw[bufferIndex] = r;
+			raw[bufferIndex + 1] = g;
+			raw[bufferIndex + 2] = b;
+			raw[bufferIndex + 3] = 255; // Alpha
 		}
 
-		return canvas.composite(compositeImages).png().toBuffer();
+		// Create and return the image directly
+		return sharp(raw, { 
+			raw: { width: 256, height: 256, channels: 4 } 
+		}).png().toBuffer();
 	}
 
 	async saveTiles() {
@@ -235,7 +251,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 						existingTile = await fs.readFile(tilePath);
 					}
 					const newTile = await this.updateTile(existingTile, chunks);
-					await fs.writeFile(tilePath, newTile);
+					if (newTile && newTile.length > 0) {
+						await fs.writeFile(tilePath, newTile);
+					}
 				})();
 				savePromises.push(promise);
 			}
@@ -247,20 +265,37 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 	}
 
-	async updateTile(existingTile: Buffer, newChunks: Map<string, { data: ChartData, tick: number }>): Promise<Buffer> {
+	async updateTile(existingTile: Buffer, newChunks: Map<string, { data: ChartData, tick: number }>): Promise<Buffer | undefined> {
 		const existingChunks = new Map<string, { tick: number, data: Buffer }>();
+		
+		// Parse existing tile data to find existing chunks
 		let offset = 0;
 		while (offset < existingTile.length) {
+			if (offset + 1 > existingTile.length) {
+				this.logger.error(`Invalid tile data: cannot read type at offset ${offset}`);
+				break;
+			}
+			
 			const type = existingTile.readUInt8(offset);
 			offset += 1;
 			
 			if (type === 1) { // Chunk
+				if (offset + 7 > existingTile.length) {
+					this.logger.error(`Invalid tile data: insufficient chunk header data at offset ${offset}`);
+					break;
+				}
+				
 				const tick = existingTile.readUInt32BE(offset);
 				offset += 4;
 				const chunkCoordsByte = existingTile.readUInt8(offset);
 				offset += 1;
 				const length = existingTile.readUInt16BE(offset);
 				offset += 2;
+				
+				if (offset + length > existingTile.length) {
+					this.logger.error(`Invalid tile data: insufficient chunk data at offset ${offset}`);
+					break;
+				}
 				
 				const chunkX = chunkCoordsByte >> 4;
 				const chunkY = chunkCoordsByte & 0x0F;
@@ -270,32 +305,192 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				existingChunks.set(chunkName, { tick, data });
 
 			} else if (type === 2) { // Pixels
+				if (offset + 6 > existingTile.length) {
+					this.logger.error(`Invalid tile data: insufficient pixel header data at offset ${offset}`);
+					break;
+				}
+				
 				const tick = existingTile.readUInt32BE(offset);
 				offset += 4;
-				const length = existingTile.readUInt16BE(offset);
+				const pixelCount = existingTile.readUInt16BE(offset);
 				offset += 2;
-				offset += length; // Skip pixel data
+				const pixelDataLength = pixelCount * 6;
+				
+				if (offset + pixelDataLength > existingTile.length) {
+					this.logger.error(`Invalid tile data: insufficient pixel data at offset ${offset}`);
+					break;
+				}
+				
+				// Skip pixel data since we're not rebuilding the file
+				offset += pixelDataLength;
+			} else {
+				this.logger.error(`Unknown tile data type: ${type} at offset ${offset}`);
+				break;
 			}
 		}
 
-		for (const [chunkName, chunk] of newChunks) {
-			// chart_data is already compressed by Factorio, just decode base64
-			const chunkData = Buffer.from(chunk.data.chart_data, "base64");
-			existingChunks.set(chunkName, { tick: chunk.tick, data: chunkData });
+		// Render the current state of the entire tile if we have existing data
+		let currentTilePixels: Uint16Array | null = null;
+		if (existingTile.length > 0) {
+			currentTilePixels = await this.renderTileToPixels(existingTile);
 		}
 
-		const newTileParts: Buffer[] = [];
-		for (const [chunkName, chunk] of existingChunks) {
+		// Process new chunks and determine what to append
+		const appendBuffers: Buffer[] = [];
+		let hasChanges = false;
+		
+		for (const [chunkName, newChunk] of newChunks) {
+			const newChunkData = Buffer.from(newChunk.data.chart_data, "base64");
 			const [chunkX, chunkY] = chunkName.split("_").map(Number);
-			const header = Buffer.alloc(8); // Type (1) + Tick (4) + Coords (1) + Length (2)
-			header.writeUInt8(1, 0); // Type
-			header.writeUInt32BE(Math.floor(chunk.tick / 60), 1); // Tick
-			header.writeUInt8((chunkX << 4) | chunkY, 5); // Coords
-			header.writeUInt16BE(chunk.data.length, 6); // Length of data block only
-			newTileParts.push(header, chunk.data);
+			
+			if (!existingChunks.has(chunkName)) {
+				// New chunk - append as chunk data (type 1)
+				this.logger.info(`Adding new chunk ${chunkName} to tile`);
+				const header = Buffer.alloc(8);
+				header.writeUInt8(1, 0); // Type 1 (chunk)
+				header.writeUInt32BE(Math.floor(newChunk.tick / 60), 1); // Tick
+				header.writeUInt8((chunkX << 4) | chunkY, 5); // Coords
+				header.writeUInt16BE(newChunkData.length, 6); // Length
+				appendBuffers.push(header, newChunkData);
+				hasChanges = true;
+			} else {
+				// Existing chunk - compare current tile state with new chunk data
+				const newPixels = await this.renderChunkToPixels(newChunkData);
+				
+				let oldPixels: Uint16Array;
+				if (currentTilePixels) {
+					// Extract current chunk area from the rendered tile
+					oldPixels = this.extractChunkFromTile(currentTilePixels, chunkX, chunkY);
+				} else {
+					// Fallback to black pixels if tile couldn't be rendered
+					oldPixels = new Uint16Array(32 * 32);
+				}
+				
+				const changes = this.comparePixels(oldPixels, newPixels, chunkX, chunkY);
+				if (changes.length > 0) {
+					this.logger.info(`Adding ${changes.length} pixel changes for chunk ${chunkName} to tile`);
+					const changeset = this.createPixelChangeset(changes, newChunk.tick);
+					if (changeset.length > 0) {
+						appendBuffers.push(changeset);
+						hasChanges = true;
+					}
+				}
+			}
 		}
 
-		return Buffer.concat(newTileParts);
+		if (!hasChanges) {
+			return;
+		}
+
+		// Append new data to existing tile (never modify existing data)
+		return Buffer.concat([existingTile, ...appendBuffers]);
+	}
+
+	// Render tile data to pixels
+	private async renderTileToPixels(tileData: Buffer): Promise<Uint16Array> {
+		const currentPixels = new Uint16Array(256 * 256); // 256x256 tile
+		
+		let offset = 0;
+		while (offset < tileData.length) {
+			if (offset + 1 > tileData.length) {
+				break;
+			}
+			
+			const type = tileData.readUInt8(offset);
+			offset += 1;
+
+			if (type === 1) { // Chunk
+				if (offset + 7 > tileData.length) {
+					break;
+				}
+				
+				const tick = tileData.readUInt32BE(offset);
+				offset += 4;
+				const chunkCoordsByte = tileData.readUInt8(offset);
+				offset += 1;
+				const length = tileData.readUInt16BE(offset);
+				offset += 2;
+
+				if (offset + length > tileData.length) {
+					break;
+				}
+
+				const chunkX = chunkCoordsByte >> 4;
+				const chunkY = chunkCoordsByte & 0x0F;
+				const chunkData = tileData.slice(offset, offset + length);
+
+				try {
+					const chunkPixels = await this.renderChunkToPixels(chunkData);
+					
+					// Update current pixel state
+					for (let y = 0; y < 32; y++) {
+						for (let x = 0; x < 32; x++) {
+							const chunkIndex = y * 32 + x;
+							const tileX = chunkX * 32 + x;
+							const tileY = chunkY * 32 + y;
+							const tileIndex = tileY * 256 + tileX;
+							currentPixels[tileIndex] = chunkPixels[chunkIndex];
+						}
+					}
+				} catch (decompressError) {
+					this.logger.error(`Failed to decompress chunk data: ${decompressError}`);
+				}
+				
+				offset += length;
+			} else if (type === 2) { // Pixels
+				if (offset + 6 > tileData.length) {
+					break;
+				}
+				
+				const tick = tileData.readUInt32BE(offset);
+				offset += 4;
+				const pixelCount = tileData.readUInt16BE(offset);
+				offset += 2;
+				
+				const expectedDataLength = pixelCount * 6;
+				if (offset + expectedDataLength > tileData.length) {
+					break;
+				}
+				
+				// Apply pixel changes to current state
+				for (let i = 0; i < pixelCount; i++) {
+					const pixelOffset = offset + i * 6;
+					const x = tileData.readUInt8(pixelOffset);
+					const y = tileData.readUInt8(pixelOffset + 1);
+					const newColor = tileData.readUInt16BE(pixelOffset + 2);
+					// oldColor at pixelOffset + 4 is not needed for rendering
+					
+					// Update current pixel state
+					if (x < 256 && y < 256) {
+						const tileIndex = y * 256 + x;
+						currentPixels[tileIndex] = newColor;
+					}
+				}
+				
+				offset += expectedDataLength;
+			} else {
+				break;
+			}
+		}
+
+		return currentPixels;
+	}
+
+	// Extract a 32x32 chunk area from a 256x256 tile
+	private extractChunkFromTile(tilePixels: Uint16Array, chunkX: number, chunkY: number): Uint16Array {
+		const chunkPixels = new Uint16Array(32 * 32);
+		
+		for (let y = 0; y < 32; y++) {
+			for (let x = 0; x < 32; x++) {
+				const tileX = chunkX * 32 + x;
+				const tileY = chunkY * 32 + y;
+				const tileIndex = tileY * 256 + tileX;
+				const chunkIndex = y * 32 + x;
+				chunkPixels[chunkIndex] = tilePixels[tileIndex];
+			}
+		}
+		
+		return chunkPixels;
 	}
 
 	async handleTileDataEvent(event: TileDataEvent) {
