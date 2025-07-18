@@ -87,65 +87,127 @@ async function chartDataToImageData(chartData: string): Promise<ImageData> {
 }
 
 export default function CanvasMinimapPage() {
+	// UI-related states (these need React re-renders)
 	const [instances, setInstances] = useState<Instance[]>([]);
 	const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
 	const [selectedSurface, setSelectedSurface] = useState<string>("nauvis");
 	const [selectedForce, setSelectedForce] = useState<string>("player");
 	const [surfaceForceData, setSurfaceForceData] = useState<SurfaceForceData>({ surfaces: [], forces: [] });
 	const [loading, setLoading] = useState(false);
-	const [viewState, setViewState] = useState<ViewState>({
-		centerX: 0,
-		centerY: 0,
-		zoomLevel: 1,
-	});
-	const [resizeCounter, setResizeCounter] = useState(0);
 
-	// Mouse drag state for panning (for cursor display only)
-	const [isDragging, setIsDragging] = useState(false);
-
-	// Timelapse state
+	// Timelapse UI states (these need React re-renders for UI)
 	const [isTimelapseMode, setIsTimelapseMode] = useState(false);
 	const [availableTicks, setAvailableTicks] = useState<number[]>([]);
 	const [currentTick, setCurrentTick] = useState<number | null>(null);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
+	// Display state for zoom level (throttled updates to avoid excessive re-renders)
+	const [displayZoom, setDisplayZoom] = useState(1);
+
 	// Canvas refs
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	// Virtual tile storage - maps "tileX,tileY" to canvas element
-	const virtualTiles = useRef<Map<string, HTMLCanvasElement>>(new Map());
+	// View state as ref (no React re-renders needed)
+	const viewStateRef = useRef<ViewState>({
+		centerX: 0,
+		centerY: 0,
+		zoomLevel: 1,
+	});
 
-	// Tile state cache - maps "tileX,tileY" to TileState for efficient timelapse navigation
-	const tileStateCache = useRef<Map<string, TileState>>(new Map());
-
-	// Chunk cache - maps "chunkX,chunkY" to ImageData
-	const chunkCache = useRef<Map<string, ImageData>>(new Map());
-
-	// Loading state cache - prevents duplicate API calls for the same tile
-	const loadingTiles = useRef<Map<string, Promise<ImageData | null>>>(new Map());
-
-	// Animation frame for smooth rendering
-	const animationFrameRef = useRef<number>();
-
-	// Refs for drag state to avoid re-attaching event listeners
+	// Mouse drag state refs (no React re-renders needed)
 	const isDraggingRef = useRef<boolean>(false);
 	const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
 
-	// Refs for tracking pressed movement keys for smooth movement at 60fps
+	// Movement keys ref (no React re-renders needed)
 	const keysPressed = useRef<Set<string>>(new Set());
+
+	// Cache refs
+	const virtualTiles = useRef<Map<string, HTMLCanvasElement>>(new Map());
+	const tileStateCache = useRef<Map<string, TileState>>(new Map());
+	const chunkCache = useRef<Map<string, ImageData>>(new Map());
+	const loadingTiles = useRef<Map<string, Promise<ImageData | null>>>(new Map());
+
+	// Animation frame ref
+	const animationFrameRef = useRef<number>();
 
 	// Timelapse playback timer ref
 	const playbackTimerRef = useRef<NodeJS.Timeout>();
 
+	// Refs for current state access in event handlers
+	const currentStateRef = useRef({
+		selectedInstance: null as number | null,
+		selectedSurface: "nauvis",
+		selectedForce: "player",
+		isTimelapseMode: false,
+		currentTick: null as number | null,
+		availableTicks: [] as number[],
+	});
+
 	const control = useContext(ControlContext);
+
+	// Update current state ref when state changes
+	useEffect(() => {
+		currentStateRef.current = {
+			selectedInstance,
+			selectedSurface,
+			selectedForce,
+			isTimelapseMode,
+			currentTick,
+			availableTicks,
+		};
+	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, currentTick, availableTicks]);
+
+	// Define pixel-perfect zoom levels to eliminate seaming issues
+	const ZOOM_LEVELS = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+
+	const getClosestZoomLevel = (targetZoom: number): number => {
+		return ZOOM_LEVELS.reduce((prev, curr) =>
+			Math.abs(curr - targetZoom) < Math.abs(prev - targetZoom) ? curr : prev
+		);
+	};
+
+	const getNextZoomLevel = (currentZoom: number, direction: 'up' | 'down'): number => {
+		const currentIndex = ZOOM_LEVELS.findIndex(zoom => Math.abs(zoom - currentZoom) < 0.001);
+		if (direction === 'up') {
+			return ZOOM_LEVELS[Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1)];
+		} else {
+			return ZOOM_LEVELS[Math.max(currentIndex - 1, 0)];
+		}
+	};
+
+	// Throttled zoom display update to avoid excessive re-renders
+	const throttledZoomUpdate = useRef<NodeJS.Timeout>();
+	
+	// Helper to update view state without React re-render
+	const updateViewState = (updates: Partial<ViewState>) => {
+		Object.assign(viewStateRef.current, updates);
+		
+		// Update display zoom if zoom changed (throttled)
+		if (updates.zoomLevel !== undefined) {
+			if (throttledZoomUpdate.current) {
+				clearTimeout(throttledZoomUpdate.current);
+			}
+			throttledZoomUpdate.current = setTimeout(() => {
+				setDisplayZoom(viewStateRef.current.zoomLevel);
+			}, 100); // Update display every 100ms max
+		}
+	};
+
+	// Helper to update cursor style directly
+	const updateCursor = (isDragging: boolean) => {
+		if (canvasRef.current) {
+			canvasRef.current.style.cursor = isDragging ? "grabbing" : "grab";
+		}
+	};
 
 	// Calculate which tiles are visible based on current view state
 	const calculateVisibleTiles = () => {
 		const canvas = canvasRef.current;
 		if (!canvas) return null;
 
+		const viewState = viewStateRef.current;
 		const scale = viewState.zoomLevel;
 		const width = canvas.width;
 		const height = canvas.height;
@@ -402,25 +464,7 @@ export default function CanvasMinimapPage() {
 		loadSurfaceForceData();
 	}, []);
 
-	// Define pixel-perfect zoom levels to eliminate seaming issues
-	const ZOOM_LEVELS = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
-
-	const getClosestZoomLevel = (targetZoom: number): number => {
-		return ZOOM_LEVELS.reduce((prev, curr) =>
-			Math.abs(curr - targetZoom) < Math.abs(prev - targetZoom) ? curr : prev
-		);
-	};
-
-	const getNextZoomLevel = (currentZoom: number, direction: 'up' | 'down'): number => {
-		const currentIndex = ZOOM_LEVELS.findIndex(zoom => Math.abs(zoom - currentZoom) < 0.001);
-		if (direction === 'up') {
-			return ZOOM_LEVELS[Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1)];
-		} else {
-			return ZOOM_LEVELS[Math.max(currentIndex - 1, 0)];
-		}
-	};
-
-	// Set up keyboard and mouse event listeners
+	// Set up keyboard and mouse event listeners (one-time setup)
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const key = e.key.toLowerCase();
@@ -435,30 +479,28 @@ export default function CanvasMinimapPage() {
 			switch (key) {
 				case '+':
 				case '=': // Handle both + and = key (since + requires shift)
-					setViewState(prev => ({
-						...prev,
-						zoomLevel: getNextZoomLevel(prev.zoomLevel, 'up')
-					}));
+					updateViewState({
+						zoomLevel: getNextZoomLevel(viewStateRef.current.zoomLevel, 'up')
+					});
 					e.preventDefault(); // Prevent browser zoom
 					break;
 				case '-':
 				case '_': // Handle both - and _ key (since _ requires shift)
-					setViewState(prev => ({
-						...prev,
-						zoomLevel: getNextZoomLevel(prev.zoomLevel, 'down')
-					}));
+					updateViewState({
+						zoomLevel: getNextZoomLevel(viewStateRef.current.zoomLevel, 'down')
+					});
 					e.preventDefault(); // Prevent browser zoom
 					break;
 				case 'f':
 					// Step backward in timeline (only in timelapse mode)
-					if (isTimelapseMode && availableTicks.length > 0) {
+					if (currentStateRef.current.isTimelapseMode && currentStateRef.current.availableTicks.length > 0) {
 						stepBackward();
 						e.preventDefault();
 					}
 					break;
 				case 'g':
 					// Step forward in timeline (only in timelapse mode)
-					if (isTimelapseMode && availableTicks.length > 0) {
+					if (currentStateRef.current.isTimelapseMode && currentStateRef.current.availableTicks.length > 0) {
 						stepForward();
 						e.preventDefault();
 					}
@@ -483,9 +525,9 @@ export default function CanvasMinimapPage() {
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
 			const direction = e.deltaY > 0 ? 'down' : 'up';
-			const newZoom = getNextZoomLevel(viewState.zoomLevel, direction);
+			const newZoom = getNextZoomLevel(viewStateRef.current.zoomLevel, direction);
 
-			setViewState(prev => ({ ...prev, zoomLevel: newZoom }));
+			updateViewState({ zoomLevel: newZoom });
 		};
 
 		document.addEventListener('keydown', handleKeyDown);
@@ -504,9 +546,9 @@ export default function CanvasMinimapPage() {
 				canvasElement.removeEventListener('wheel', handleWheel);
 			}
 		};
-	}, [viewState.zoomLevel, isTimelapseMode, availableTicks, stepBackward, stepForward]);
+	}, []); // No dependencies - use refs for current state
 
-	// Mouse event handlers for click and drag panning
+	// Mouse event handlers for click and drag panning (one-time setup)
 	useEffect(() => {
 		const canvasElement = canvasRef.current;
 		
@@ -518,7 +560,7 @@ export default function CanvasMinimapPage() {
 			if (e.button === 0) { // Left mouse button
 				isDraggingRef.current = true;
 				lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-				setIsDragging(true); // Update state for cursor change
+				updateCursor(true); // Update state for cursor change
 				e.preventDefault();
 			}
 		};
@@ -529,14 +571,13 @@ export default function CanvasMinimapPage() {
 				const deltaY = e.clientY - lastMousePosRef.current.y;
 
 				// Convert screen delta to world delta (invert because dragging right should move view left)
-				const worldDeltaX = -deltaX / viewState.zoomLevel;
-				const worldDeltaY = -deltaY / viewState.zoomLevel;
+				const worldDeltaX = -deltaX / viewStateRef.current.zoomLevel;
+				const worldDeltaY = -deltaY / viewStateRef.current.zoomLevel;
 
-				setViewState(prev => ({
-					...prev,
-					centerX: prev.centerX + worldDeltaX,
-					centerY: prev.centerY + worldDeltaY
-				}));
+				updateViewState({
+					centerX: viewStateRef.current.centerX + worldDeltaX,
+					centerY: viewStateRef.current.centerY + worldDeltaY
+				});
 
 				lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 			}
@@ -546,7 +587,7 @@ export default function CanvasMinimapPage() {
 			if (e.button === 0) { // Left mouse button
 				isDraggingRef.current = false;
 				lastMousePosRef.current = null;
-				setIsDragging(false); // Update state for cursor change
+				updateCursor(false); // Update state for cursor change
 			}
 		};
 
@@ -554,7 +595,7 @@ export default function CanvasMinimapPage() {
 			// Stop dragging if mouse leaves canvas
 			isDraggingRef.current = false;
 			lastMousePosRef.current = null;
-			setIsDragging(false); // Update state for cursor change
+			updateCursor(false); // Update state for cursor change
 		};
 
 		canvasElement.addEventListener('mousedown', handleMouseDown);
@@ -574,12 +615,12 @@ export default function CanvasMinimapPage() {
 			document.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mouseup', handleMouseUp);
 		};
-	}, [viewState.zoomLevel, selectedInstance]); // Add selectedInstance to trigger setup when canvas becomes available
+	}, [selectedInstance]); // Only need to re-setup when canvas becomes available
 
-	// Render loop
+	// Render loop (one-time setup)
 	useEffect(() => {
 		const render = () => {
-			if (canvasRef.current && selectedInstance) {
+			if (canvasRef.current && currentStateRef.current.selectedInstance) {
 				renderCanvas();
 			}
 			animationFrameRef.current = requestAnimationFrame(render);
@@ -592,7 +633,7 @@ export default function CanvasMinimapPage() {
 				cancelAnimationFrame(animationFrameRef.current);
 			}
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, viewState, resizeCounter, currentTick, isTimelapseMode]);
+	}, []); // No dependencies - render loop accesses current state via refs
 
 	const loadInstances = async () => {
 		try {
@@ -832,7 +873,7 @@ export default function CanvasMinimapPage() {
 		// Apply smooth WASD movement
 		if (keysPressed.current.size > 0) {
 			// Adjust base speed for 60fps
-			const moveSpeed = 20 / viewState.zoomLevel;
+			const moveSpeed = 20 / viewStateRef.current.zoomLevel;
 			let deltaX = 0;
 			let deltaY = 0;
 
@@ -850,11 +891,10 @@ export default function CanvasMinimapPage() {
 
 			// Apply movement if any keys are pressed
 			if (deltaX !== 0 || deltaY !== 0) {
-				setViewState(prev => ({
-					...prev,
-					centerX: prev.centerX + deltaX,
-					centerY: prev.centerY + deltaY
-				}));
+				updateViewState({
+					centerX: viewStateRef.current.centerX + deltaX,
+					centerY: viewStateRef.current.centerY + deltaY
+				});
 			}
 		}
 
@@ -963,7 +1003,7 @@ export default function CanvasMinimapPage() {
 		}
 	};
 
-	// Handle canvas resize
+	// Handle canvas resize (one-time setup)
 	useEffect(() => {
 		const handleResize = () => {
 			const canvas = canvasRef.current;
@@ -976,9 +1016,6 @@ export default function CanvasMinimapPage() {
 			// Set canvas size to match container (simple 1:1 ratio)
 			canvas.width = rect.width;
 			canvas.height = rect.height;
-
-			// Trigger re-render
-			setResizeCounter(prev => prev + 1);
 		};
 
 		// Defer initial resize to ensure layout is complete
@@ -1018,7 +1055,6 @@ export default function CanvasMinimapPage() {
 				const rect = container.getBoundingClientRect();
 				canvas.width = rect.width;
 				canvas.height = rect.height;
-				setResizeCounter(prev => prev + 1);
 			}
 		}
 	}, [selectedInstance]);
@@ -1028,7 +1064,7 @@ export default function CanvasMinimapPage() {
 		if (selectedInstance) {
 			const instanceData = instances.find(inst => inst.instanceId === selectedInstance);
 			if (instanceData) {
-				setViewState({
+				updateViewState({
 					centerX: (instanceData.bounds.x1 + instanceData.bounds.x2) / 2,
 					centerY: (instanceData.bounds.y1 + instanceData.bounds.y2) / 2,
 					zoomLevel: getClosestZoomLevel(1), // Snap to nearest pixel-perfect zoom
@@ -1043,7 +1079,7 @@ export default function CanvasMinimapPage() {
 		}
 	}, [selectedInstance, instances]);
 
-	// Reload ticks when instance, surface, force, or view changes
+	// Reload ticks when instance, surface, force changes or timelapse mode toggles
 	useEffect(() => {
 		if (isTimelapseMode && selectedInstance && selectedSurface && selectedForce) {
 			// Debounce the reload to avoid too many requests during navigation
@@ -1053,22 +1089,24 @@ export default function CanvasMinimapPage() {
 			
 			return () => clearTimeout(timeoutId);
 		}
-	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, viewState.centerX, viewState.centerY, viewState.zoomLevel]);
+	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode]);
 
 	// Snap current zoom level to nearest pixel-perfect level on mount
 	useEffect(() => {
-		setViewState(prev => ({
-			...prev,
-			zoomLevel: getClosestZoomLevel(prev.zoomLevel)
-		}));
+		updateViewState({
+			zoomLevel: getClosestZoomLevel(viewStateRef.current.zoomLevel)
+		});
+
+		// Cleanup throttled zoom update on unmount
+		return () => {
+			if (throttledZoomUpdate.current) {
+				clearTimeout(throttledZoomUpdate.current);
+			}
+		};
 	}, []);
 
 	// Set up live chunk update listener (only in live mode)
 	useEffect(() => {
-		if (!selectedInstance || !selectedSurface || !selectedForce || isTimelapseMode) {
-			return;
-		}
-
 		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
 		if (!plugin) {
 			console.error("Minimap plugin not found");
@@ -1076,10 +1114,12 @@ export default function CanvasMinimapPage() {
 		}
 
 		const handleChunkUpdate = (event: TileDataEvent) => {
+			const currentState = currentStateRef.current;
 			// Only process updates for the currently selected instance/surface/force
-			if (event.instance_id === selectedInstance &&
-				event.surface === selectedSurface &&
-				event.force === selectedForce) {
+			if (event.instance_id === currentState.selectedInstance &&
+				event.surface === currentState.selectedSurface &&
+				event.force === currentState.selectedForce &&
+				!currentState.isTimelapseMode) {
 
 				try {
 					// Calculate chunk coordinates from world coordinates
@@ -1105,7 +1145,7 @@ export default function CanvasMinimapPage() {
 		return () => {
 			plugin.offTileUpdate(handleChunkUpdate);
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, updateChunk, control, isTimelapseMode]);
+	}, [updateChunk, control]);
 
 	return (
 		<div style={{ padding: "20px" }}>
@@ -1241,7 +1281,7 @@ export default function CanvasMinimapPage() {
 									</div>
 								)}
 								<div style={{ marginBottom: "10px", fontSize: "14px", color: "#666" }}>
-									Use WASD to move, click and drag to pan, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel}x
+									Use WASD to move, click and drag to pan, +/- or scroll wheel to zoom. Current zoom: {displayZoom}x
 									{isTimelapseMode && (
 										<span style={{ marginLeft: "16px", color: "#1890ff" }}>
 											📹 Timelapse Mode {currentTick ? `- ${formatTickTime(currentTick)}` : ""} (F/G to step through timeline)
@@ -1264,7 +1304,7 @@ export default function CanvasMinimapPage() {
 										ref={canvasRef}
 										style={{
 											display: "block",
-											cursor: isDragging ? "grabbing" : "grab",
+											cursor: "grab", // Initial cursor, updated by updateCursor helper
 											width: "100%",
 											height: "100%",
 										}}
