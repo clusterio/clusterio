@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { Row, Col, Button, Card, Space, Select } from "antd";
+import { Row, Col, Button, Card, Space, Select, Switch, Slider, Typography, Tooltip } from "antd";
 import { ControlContext } from "@clusterio/web_ui";
 import { GetInstanceBoundsRequest, GetRawTileRequest, TileDataEvent } from "../messages";
 import * as zlib from "zlib";
-import { renderTileToPixels, pixelsToImageData, rgb565ToRgb888 } from "../tile-utils";
+import { renderTileToPixels, pixelsToImageData, rgb565ToRgb888, extractAvailableTicks } from "../tile-utils";
+
+const { Text } = Typography;
 
 interface Instance {
 	instanceId: number;
@@ -86,6 +88,13 @@ export default function CanvasMinimapPage() {
 	// Mouse drag state for panning (for cursor display only)
 	const [isDragging, setIsDragging] = useState(false);
 
+	// Timelapse state
+	const [isTimelapseMode, setIsTimelapseMode] = useState(false);
+	const [availableTicks, setAvailableTicks] = useState<number[]>([]);
+	const [currentTick, setCurrentTick] = useState<number | null>(null);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
 	// Canvas refs
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -112,7 +121,208 @@ export default function CanvasMinimapPage() {
 	// Refs for tracking pressed movement keys for smooth movement at 60fps
 	const keysPressed = useRef<Set<string>>(new Set());
 
+	// Timelapse playback timer ref
+	const playbackTimerRef = useRef<NodeJS.Timeout>();
+
 	const control = useContext(ControlContext);
+
+	// Calculate which tiles are visible based on current view state
+	const calculateVisibleTiles = () => {
+		const canvas = canvasRef.current;
+		if (!canvas) return null;
+
+		const scale = viewState.zoomLevel;
+		const width = canvas.width;
+		const height = canvas.height;
+
+		// Calculate visible world area
+		const worldWidth = width / scale;
+		const worldHeight = height / scale;
+		const worldLeft = viewState.centerX - worldWidth / 2;
+		const worldTop = viewState.centerY - worldHeight / 2;
+		const worldRight = worldLeft + worldWidth;
+		const worldBottom = worldTop + worldHeight;
+
+		// Calculate which tiles are visible (with extra margin to ensure full coverage)
+		const leftTile = Math.floor(worldLeft / TILE_SIZE) - 1;
+		const topTile = Math.floor(worldTop / TILE_SIZE) - 1;
+		const rightTile = Math.ceil(worldRight / TILE_SIZE) + 1;
+		const bottomTile = Math.ceil(worldBottom / TILE_SIZE) + 1;
+
+		return {
+			leftTile,
+			topTile,
+			rightTile,
+			bottomTile,
+			scale,
+			worldLeft,
+			worldTop,
+			worldRight,
+			worldBottom
+		};
+	};
+
+	// Timelapse functions
+	const loadAvailableTicks = async () => {
+		if (!selectedInstance) return;
+
+		const visibleTiles = calculateVisibleTiles();
+		if (!visibleTiles) {
+			console.warn("Canvas not available for tile culling calculation");
+			return;
+		}
+
+		try {
+			const { leftTile, topTile, rightTile, bottomTile } = visibleTiles;
+			
+			const allTicks = new Set<number>();
+			let tilesChecked = 0;
+			let tilesWithData = 0;
+
+			// Check all visible tiles
+			for (let tileY = topTile; tileY <= bottomTile; tileY++) {
+				for (let tileX = leftTile; tileX <= rightTile; tileX++) {
+					try {
+						const response = await control.send(new GetRawTileRequest(
+							selectedInstance,
+							selectedSurface,
+							selectedForce,
+							tileX,
+							tileY
+						));
+
+						tilesChecked++;
+
+						if (response.tile_data) {
+							const binaryString = atob(response.tile_data);
+							const tileData = new Uint8Array(binaryString.length);
+							for (let i = 0; i < binaryString.length; i++) {
+								tileData[i] = binaryString.charCodeAt(i);
+							}
+
+							const ticks = extractAvailableTicks(tileData);
+							console.log(`Tile ${tileX},${tileY}: Found ${ticks.length} ticks:`, ticks);
+							
+							if (ticks.length > 0) {
+								tilesWithData++;
+								ticks.forEach(tick => allTicks.add(tick));
+							}
+						}
+					} catch (err) {
+						console.warn(`Failed to load tile ${tileX},${tileY}:`, err);
+					}
+				}
+			}
+
+			const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
+			setAvailableTicks(sortedTicks);
+			
+			console.log(`Timelapse Summary:`);
+			console.log(`- Checked tiles: ${tilesChecked} (${leftTile},${topTile} to ${rightTile},${bottomTile})`);
+			console.log(`- Tiles with data: ${tilesWithData}`);
+			console.log(`- Total unique timestamps: ${sortedTicks.length}`);
+			console.log(`- Timestamps:`, sortedTicks);
+			
+			// Set current tick to latest if not set
+			if (sortedTicks.length > 0 && currentTick === null) {
+				const latestTick = sortedTicks[sortedTicks.length - 1];
+				console.log(`Setting current tick to latest:`, latestTick);
+				setCurrentTick(latestTick);
+			} else if (sortedTicks.length === 0) {
+				console.log(`No timestamps found - currentTick will remain null`);
+			}
+		} catch (err) {
+			console.error("Failed to load available ticks:", err);
+		}
+	};
+
+	const toggleTimelapseMode = async (enabled: boolean) => {
+		setIsTimelapseMode(enabled);
+		setIsPlaying(false);
+		
+		if (enabled) {
+			await loadAvailableTicks();
+		} else {
+			setCurrentTick(null);
+		}
+		
+		// Clear caches when switching modes
+		virtualTiles.current.clear();
+		tileCache.current.clear();
+		chunkCache.current.clear();
+		loadingTiles.current.clear();
+	};
+
+	const stepToTick = (tickIndex: number) => {
+		if (tickIndex >= 0 && tickIndex < availableTicks.length) {
+			setCurrentTick(availableTicks[tickIndex]);
+			
+			// Clear caches to force reload with new tick
+			virtualTiles.current.clear();
+			tileCache.current.clear();
+			chunkCache.current.clear();
+			loadingTiles.current.clear();
+		}
+	};
+
+	const stepForward = () => {
+		const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
+		if (currentIndex >= 0 && currentIndex < availableTicks.length - 1) {
+			stepToTick(currentIndex + 1);
+		}
+	};
+
+	const stepBackward = () => {
+		const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
+		if (currentIndex > 0) {
+			stepToTick(currentIndex - 1);
+		}
+	};
+
+	const togglePlayback = () => {
+		setIsPlaying(!isPlaying);
+	};
+
+	// Handle playback timer
+	useEffect(() => {
+		if (isPlaying && isTimelapseMode && availableTicks.length > 0) {
+			playbackTimerRef.current = setInterval(() => {
+				const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
+				if (currentIndex >= 0 && currentIndex < availableTicks.length - 1) {
+					stepToTick(currentIndex + 1);
+				} else {
+					// Reached the end, stop playing
+					setIsPlaying(false);
+				}
+			}, 1000 / playbackSpeed);
+		} else {
+			if (playbackTimerRef.current) {
+				clearInterval(playbackTimerRef.current);
+				playbackTimerRef.current = undefined;
+			}
+		}
+
+		return () => {
+			if (playbackTimerRef.current) {
+				clearInterval(playbackTimerRef.current);
+			}
+		};
+	}, [isPlaying, isTimelapseMode, currentTick, playbackSpeed, availableTicks]);
+
+	// Format tick as time
+	const formatTickTime = (tick: number): string => {
+		const seconds = Math.floor(tick / 60);
+		const minutes = Math.floor(seconds / 60);
+		const hours = Math.floor(minutes / 60);
+		
+		if (hours > 0) {
+			return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+		} else if (minutes > 0) {
+			return `${minutes}m ${seconds % 60}s`;
+		} else {
+			return `${seconds}s`;
+		}
+	};
 
 	// Load instance bounds on component mount
 	useEffect(() => {
@@ -354,7 +564,8 @@ export default function CanvasMinimapPage() {
 					selectedSurface,
 					selectedForce,
 					tileX,
-					tileY
+					tileY,
+					isTimelapseMode ? currentTick || undefined : undefined
 				));
 
 				if (!response.tile_data) {
@@ -369,7 +580,10 @@ export default function CanvasMinimapPage() {
 				}
 
 				// Parse the tile data to get RGB565 pixels
-				const pixels = await renderTileToPixels(tileData);
+				const pixels = await renderTileToPixels(
+					tileData, 
+					isTimelapseMode ? currentTick || undefined : undefined
+				);
 				
 				// Convert to ImageData
 				const tileImageData = pixelsToImageData(pixels);
@@ -538,22 +752,11 @@ export default function CanvasMinimapPage() {
 		ctx.fillStyle = '#1a1a1a';
 		ctx.fillRect(0, 0, width, height);
 
-		// Calculate scale factor (pixels per world unit) - this must be the same for X and Y to preserve 1:1 aspect ratio
-		const scale = viewState.zoomLevel;
+		// Calculate visible tiles using shared function
+		const visibleTiles = calculateVisibleTiles();
+		if (!visibleTiles) return;
 
-		// Calculate visible world area - ensuring 1:1 aspect ratio
-		const worldWidth = width / scale;
-		const worldHeight = height / scale;
-		const worldLeft = viewState.centerX - worldWidth / 2;
-		const worldTop = viewState.centerY - worldHeight / 2;
-		const worldRight = worldLeft + worldWidth;
-		const worldBottom = worldTop + worldHeight;
-
-		// Calculate which tiles are visible (with extra margin to ensure full coverage)
-		const leftTile = Math.floor(worldLeft / TILE_SIZE) - 1;
-		const topTile = Math.floor(worldTop / TILE_SIZE) - 1;
-		const rightTile = Math.ceil(worldRight / TILE_SIZE) + 1;
-		const bottomTile = Math.ceil(worldBottom / TILE_SIZE) + 1;
+		const { leftTile, topTile, rightTile, bottomTile, scale, worldLeft, worldTop } = visibleTiles;
 
 		const scaledTileSize = TILE_SIZE * scale;
 		const firstTileScreenX = Math.round((leftTile * TILE_SIZE - worldLeft) * scale);
@@ -723,6 +926,18 @@ export default function CanvasMinimapPage() {
 		}
 	}, [selectedInstance, instances]);
 
+	// Reload ticks when instance, surface, force, or view changes
+	useEffect(() => {
+		if (isTimelapseMode && selectedInstance && selectedSurface && selectedForce) {
+			// Debounce the reload to avoid too many requests during navigation
+			const timeoutId = setTimeout(() => {
+				loadAvailableTicks();
+			}, 500);
+			
+			return () => clearTimeout(timeoutId);
+		}
+	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, viewState.centerX, viewState.centerY, viewState.zoomLevel]);
+
 	// Snap current zoom level to nearest pixel-perfect level on mount
 	useEffect(() => {
 		setViewState(prev => ({
@@ -731,9 +946,9 @@ export default function CanvasMinimapPage() {
 		}));
 	}, []);
 
-	// Set up live chunk update listener
+	// Set up live chunk update listener (only in live mode)
 	useEffect(() => {
-		if (!selectedInstance || !selectedSurface || !selectedForce) {
+		if (!selectedInstance || !selectedSurface || !selectedForce || isTimelapseMode) {
 			return;
 		}
 
@@ -773,7 +988,7 @@ export default function CanvasMinimapPage() {
 		return () => {
 			plugin.offTileUpdate(handleChunkUpdate);
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, updateChunk, control]);
+	}, [selectedInstance, selectedSurface, selectedForce, updateChunk, control, isTimelapseMode]);
 
 	return (
 		<div style={{ padding: "20px" }}>
@@ -823,13 +1038,98 @@ export default function CanvasMinimapPage() {
 								<Button onClick={loadInstances} loading={loading}>
 									Reload Instances
 								</Button>
+								<Space direction="vertical" size="small">
+									<Space>
+										<Text strong>Timelapse:</Text>
+										<Switch 
+											checked={isTimelapseMode} 
+											onChange={toggleTimelapseMode}
+											loading={loading}
+										/>
+										{isTimelapseMode && (
+											<Text type="secondary">
+												{availableTicks.length} snapshots
+											</Text>
+										)}
+									</Space>
+								</Space>
 							</Space>
 						}
 					>
 						{selectedInstance ? (
 							<div>
+								{isTimelapseMode && availableTicks.length > 0 && (
+									<div style={{ marginBottom: "16px", padding: "12px", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "6px" }}>
+										<Space direction="vertical" style={{ width: "100%" }}>
+											<Space wrap>
+												<Button 
+													onClick={stepBackward}
+													disabled={availableTicks.findIndex(tick => tick === currentTick) <= 0}
+													size="small"
+												>
+													◀◀ Step Back
+												</Button>
+												<Button 
+													onClick={togglePlayback}
+													type={isPlaying ? "primary" : "default"}
+													size="small"
+												>
+													{isPlaying ? "⏸ Pause" : "▶ Play"}
+												</Button>
+												<Button 
+													onClick={stepForward}
+													disabled={availableTicks.findIndex(tick => tick === currentTick) >= availableTicks.length - 1}
+													size="small"
+												>
+													Step Forward ▶▶
+												</Button>
+												<Space>
+													<Text strong>Speed:</Text>
+													<Select 
+														value={playbackSpeed} 
+														onChange={setPlaybackSpeed}
+														size="small"
+														style={{ width: 80 }}
+													>
+														<Select.Option value={0.25}>0.25x</Select.Option>
+														<Select.Option value={0.5}>0.5x</Select.Option>
+														<Select.Option value={1}>1x</Select.Option>
+														<Select.Option value={2}>2x</Select.Option>
+														<Select.Option value={4}>4x</Select.Option>
+													</Select>
+												</Space>
+											</Space>
+											<div>
+												<Text strong>Timeline: </Text>
+												<Text>
+													{currentTick ? formatTickTime(currentTick) : "No data"}
+												</Text>
+												<Slider
+													min={0}
+													max={availableTicks.length - 1}
+													value={availableTicks.findIndex(tick => tick === currentTick)}
+													onChange={(value) => stepToTick(value)}
+													style={{ marginTop: "8px" }}
+													tooltip={{
+														formatter: (value) => {
+															if (value !== undefined && availableTicks[value]) {
+																return formatTickTime(availableTicks[value]);
+															}
+															return "";
+														}
+													}}
+												/>
+											</div>
+										</Space>
+									</div>
+								)}
 								<div style={{ marginBottom: "10px", fontSize: "14px", color: "#666" }}>
 									Use WASD to move, click and drag to pan, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel}x
+									{isTimelapseMode && (
+										<span style={{ marginLeft: "16px", color: "#1890ff" }}>
+											📹 Timelapse Mode {currentTick ? `- ${formatTickTime(currentTick)}` : ""}
+										</span>
+									)}
 								</div>
 								<div
 									ref={containerRef}
