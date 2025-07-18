@@ -10,6 +10,17 @@ export const ChartDataSchema = Type.Object({
 
 export type ChartData = Static<typeof ChartDataSchema>;
 
+/**
+ * TileDataEvent: Used for both Factorio Instance -> Controller and Controller -> Web Clients
+ * 
+ * Contains compressed RGB565 chart data from Factorio's internal mapping system.
+ * When sent from instance to controller: triggers storage in persistent tile files.
+ * When sent from controller to web clients: enables real-time minimap updates.
+ * 
+ * Data flow: 
+ * - Lua module -> Instance plugin -> Controller plugin (for persistence)
+ * - Controller plugin -> Web UI plugin -> Canvas renderer (for live updates)
+ */
 export class TileDataEvent {
 	declare ["constructor"]: typeof TileDataEvent;
 	static type = "event" as const;
@@ -19,65 +30,34 @@ export class TileDataEvent {
 	static permission = null;
 
 	constructor(
-		public type: "chart",
-		public data: ChartData[],
-		public position: [number, number],
-		public instanceId: number
-	) {
-	}
+		public instance_id: number,
+		public surface: string,
+		public force: string,
+		public x: number,
+		public y: number,
+		public tick: number,
+		public chunk: ChartData,
+	) { }
 
 	static jsonSchema = Type.Object({
-		"type": Type.Union([Type.Literal("chart")]),
-		"data": Type.Array(ChartDataSchema),
-		"position": Type.Array(Type.Number(), { minItems: 2, maxItems: 2 }),
-		"instanceId": Type.Number(),
+		"instance_id": Type.Number(),
+		"surface": Type.String(),
+		"force": Type.String(),
+		"x": Type.Number(),
+		"y": Type.Number(),
+		"tick": Type.Number(),
+		"chunk": ChartDataSchema,
 	});
 
 	static fromJSON(json: Static<typeof TileDataEvent.jsonSchema>) {
 		return new this(
-			json.type, 
-			json.data, 
-			json.position as [number, number], 
-			json.instanceId,
-		);
-	}
-}
-
-export class ChunkUpdateEvent {
-	declare ["constructor"]: typeof ChunkUpdateEvent;
-	static type = "event" as const;
-	static src = "controller" as const;
-	static dst = "control" as const;
-	static plugin = "minimap" as const;
-	static permission = "minimap.view";
-
-	constructor(
-		public instanceId: number,
-		public surface: string,
-		public force: string,
-		public chunkX: number,
-		public chunkY: number,
-		public imageData: string, // base64 encoded ImageData
-	) {
-	}
-
-	static jsonSchema = Type.Object({
-		"instanceId": Type.Number(),
-		"surface": Type.String(),
-		"force": Type.String(),
-		"chunkX": Type.Number(),
-		"chunkY": Type.Number(),
-		"imageData": Type.String(),
-	});
-
-	static fromJSON(json: Static<typeof ChunkUpdateEvent.jsonSchema>) {
-		return new this(
-			json.instanceId,
+			json.instance_id,
 			json.surface,
 			json.force,
-			json.chunkX,
-			json.chunkY,
-			json.imageData,
+			json.x,
+			json.y,
+			json.tick,
+			json.chunk
 		);
 	}
 }
