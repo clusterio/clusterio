@@ -24,8 +24,8 @@ export type ChartData = Static<typeof ChartDataSchema>;
 export class TileDataEvent {
 	declare ["constructor"]: typeof TileDataEvent;
 	static type = "event" as const;
-	static src = "instance" as const;
-	static dst = "controller" as const;
+	static src = ["instance", "controller"] as const;
+	static dst = ["controller", "control"] as const;
 	static plugin = "minimap" as const;
 	static permission = null;
 
