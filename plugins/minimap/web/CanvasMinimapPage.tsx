@@ -217,19 +217,9 @@ export default function CanvasMinimapPage() {
 			const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
 			setAvailableTicks(sortedTicks);
 			
-			console.log(`Timelapse Summary:`);
-			console.log(`- Checked tiles: ${tilesChecked} (${leftTile},${topTile} to ${rightTile},${bottomTile})`);
-			console.log(`- Tiles with data: ${tilesWithData}`);
-			console.log(`- Total unique timestamps: ${sortedTicks.length}`);
-			console.log(`- Timestamps:`, sortedTicks);
-			
 			// Set current tick to latest if not set
 			if (sortedTicks.length > 0 && currentTick === null) {
-				const latestTick = sortedTicks[sortedTicks.length - 1];
-				console.log(`Setting current tick to latest:`, latestTick);
-				setCurrentTick(latestTick);
-			} else if (sortedTicks.length === 0) {
-				console.log(`No timestamps found - currentTick will remain null`);
+				setCurrentTick(sortedTicks[sortedTicks.length - 1]);
 			}
 		} catch (err) {
 			console.error("Failed to load available ticks:", err);
@@ -255,13 +245,15 @@ export default function CanvasMinimapPage() {
 
 	const stepToTick = (tickIndex: number) => {
 		if (tickIndex >= 0 && tickIndex < availableTicks.length) {
-			setCurrentTick(availableTicks[tickIndex]);
+			const newTick = availableTicks[tickIndex];
 			
 			// Clear caches to force reload with new tick
 			virtualTiles.current.clear();
 			tileCache.current.clear();
 			chunkCache.current.clear();
 			loadingTiles.current.clear();
+			
+			setCurrentTick(newTick);
 		}
 	};
 
@@ -506,7 +498,7 @@ export default function CanvasMinimapPage() {
 				cancelAnimationFrame(animationFrameRef.current);
 			}
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, viewState, resizeCounter]);
+	}, [selectedInstance, selectedSurface, selectedForce, viewState, resizeCounter, currentTick, isTimelapseMode]);
 
 	const loadInstances = async () => {
 		try {
@@ -580,10 +572,8 @@ export default function CanvasMinimapPage() {
 				}
 
 				// Parse the tile data to get RGB565 pixels
-				const pixels = await renderTileToPixels(
-					tileData, 
-					isTimelapseMode ? currentTick || undefined : undefined
-				);
+				const targetTick = isTimelapseMode ? currentTick || undefined : undefined;
+				const pixels = await renderTileToPixels(tileData, targetTick);
 				
 				// Convert to ImageData
 				const tileImageData = pixelsToImageData(pixels);
@@ -925,6 +915,16 @@ export default function CanvasMinimapPage() {
 			loadingTiles.current.clear();
 		}
 	}, [selectedInstance, instances]);
+
+	// Clear caches when currentTick changes (React state timing fix)
+	useEffect(() => {
+		if (isTimelapseMode) {
+			virtualTiles.current.clear();
+			tileCache.current.clear();
+			chunkCache.current.clear();
+			loadingTiles.current.clear();
+		}
+	}, [currentTick, isTimelapseMode]);
 
 	// Reload ticks when instance, surface, force, or view changes
 	useEffect(() => {
