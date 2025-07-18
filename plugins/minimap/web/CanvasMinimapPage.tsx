@@ -3,7 +3,15 @@ import { Row, Col, Button, Card, Space, Select, Switch, Slider, Typography, Tool
 import { ControlContext } from "@clusterio/web_ui";
 import { GetInstanceBoundsRequest, GetRawTileRequest, TileDataEvent } from "../messages";
 import * as zlib from "zlib";
-import { renderTileToPixels, pixelsToImageData, rgb565ToRgb888, extractAvailableTicks } from "../tile-utils";
+import { 
+	renderTileToPixels, 
+	pixelsToImageData, 
+	rgb565ToRgb888, 
+	extractAvailableTicks,
+	parseTileData,
+	renderTileIncremental,
+	ParsedTileData
+} from "../tile-utils";
 
 const { Text } = Typography;
 
@@ -27,6 +35,13 @@ interface ViewState {
 	centerX: number;
 	centerY: number;
 	zoomLevel: number;
+}
+
+interface TileState {
+	currentTick: number;
+	pixels: Uint16Array;
+	parsedData: ParsedTileData;
+	imageData: ImageData;
 }
 
 const CHUNK_SIZE = 32; // 32x32 pixels per chunk
@@ -102,8 +117,8 @@ export default function CanvasMinimapPage() {
 	// Virtual tile storage - maps "tileX,tileY" to canvas element
 	const virtualTiles = useRef<Map<string, HTMLCanvasElement>>(new Map());
 
-	// Tile cache - maps "tileX,tileY" to ImageData for entire 512x512 tiles
-	const tileCache = useRef<Map<string, ImageData>>(new Map());
+	// Tile state cache - maps "tileX,tileY" to TileState for efficient timelapse navigation
+	const tileStateCache = useRef<Map<string, TileState>>(new Map());
 
 	// Chunk cache - maps "chunkX,chunkY" to ImageData
 	const chunkCache = useRef<Map<string, ImageData>>(new Map());
@@ -238,36 +253,101 @@ export default function CanvasMinimapPage() {
 		
 		// Clear caches when switching modes
 		virtualTiles.current.clear();
-		tileCache.current.clear();
+		tileStateCache.current.clear();
 		chunkCache.current.clear();
 		loadingTiles.current.clear();
 	};
 
-	const stepToTick = (tickIndex: number) => {
+	const stepToTick = async (tickIndex: number) => {
 		if (tickIndex >= 0 && tickIndex < availableTicks.length) {
 			const newTick = availableTicks[tickIndex];
+			const oldTick = currentTick;
 			
-			// Clear caches to force reload with new tick
-			virtualTiles.current.clear();
-			tileCache.current.clear();
-			chunkCache.current.clear();
-			loadingTiles.current.clear();
+			if (oldTick === newTick) {
+				return; // No change needed
+			}
+			
+			// Use incremental updates for loaded tiles instead of clearing cache
+			const updatePromises: Promise<void>[] = [];
+			
+			for (const [tileKey, tileState] of tileStateCache.current) {
+				updatePromises.push((async () => {
+					try {
+						// Apply incremental changes from current tick to new tick
+						await renderTileIncremental(
+							tileState.parsedData,
+							tileState.pixels,
+							tileState.currentTick,
+							newTick
+						);
+						
+						// Update tile state
+						tileState.currentTick = newTick;
+						
+						// Convert to ImageData and update virtual tile
+						const newImageData = pixelsToImageData(tileState.pixels);
+						tileState.imageData = newImageData;
+						
+						// Update virtual tile canvas if it exists
+						const virtualTile = virtualTiles.current.get(tileKey);
+						if (virtualTile) {
+							const ctx = virtualTile.getContext('2d')!;
+							ctx.putImageData(newImageData, 0, 0);
+						}
+						
+						// Update chunk cache for this tile
+						const [tileX, tileY] = tileKey.split(',').map(Number);
+						for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
+							for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
+								const actualChunkX = tileX * CHUNKS_PER_TILE + cx;
+								const actualChunkY = tileY * CHUNKS_PER_TILE + cy;
+								const actualChunkKey = `${actualChunkX},${actualChunkY}`;
+
+								// Extract chunk area from the full tile ImageData
+								const chunkData = new Uint8ClampedArray(CHUNK_SIZE * CHUNK_SIZE * 4);
+								for (let y = 0; y < CHUNK_SIZE; y++) {
+									for (let x = 0; x < CHUNK_SIZE; x++) {
+										const tilePixelIndex = ((cy * CHUNK_SIZE + y) * TILE_SIZE + (cx * CHUNK_SIZE + x)) * 4;
+										const chunkPixelIndex = (y * CHUNK_SIZE + x) * 4;
+										
+										chunkData[chunkPixelIndex] = newImageData.data[tilePixelIndex];         // R
+										chunkData[chunkPixelIndex + 1] = newImageData.data[tilePixelIndex + 1]; // G
+										chunkData[chunkPixelIndex + 2] = newImageData.data[tilePixelIndex + 2]; // B
+										chunkData[chunkPixelIndex + 3] = newImageData.data[tilePixelIndex + 3]; // A
+									}
+								}
+
+								const chunkImageData = new ImageData(chunkData, CHUNK_SIZE, CHUNK_SIZE);
+								chunkCache.current.set(actualChunkKey, chunkImageData);
+							}
+						}
+					} catch (err) {
+						console.error(`Failed to update tile ${tileKey} incrementally:`, err);
+						// If incremental update fails, remove from cache to force full reload
+						tileStateCache.current.delete(tileKey);
+						virtualTiles.current.delete(tileKey);
+					}
+				})());
+			}
+			
+			// Wait for all tile updates to complete
+			await Promise.all(updatePromises);
 			
 			setCurrentTick(newTick);
 		}
 	};
 
-	const stepForward = () => {
+	const stepForward = async () => {
 		const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
 		if (currentIndex >= 0 && currentIndex < availableTicks.length - 1) {
-			stepToTick(currentIndex + 1);
+			await stepToTick(currentIndex + 1);
 		}
 	};
 
-	const stepBackward = () => {
+	const stepBackward = async () => {
 		const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
 		if (currentIndex > 0) {
-			stepToTick(currentIndex - 1);
+			await stepToTick(currentIndex - 1);
 		}
 	};
 
@@ -278,10 +358,10 @@ export default function CanvasMinimapPage() {
 	// Handle playback timer
 	useEffect(() => {
 		if (isPlaying && isTimelapseMode && availableTicks.length > 0) {
-			playbackTimerRef.current = setInterval(() => {
+			playbackTimerRef.current = setInterval(async () => {
 				const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
 				if (currentIndex >= 0 && currentIndex < availableTicks.length - 1) {
-					stepToTick(currentIndex + 1);
+					await stepToTick(currentIndex + 1);
 				} else {
 					// Reached the end, stop playing
 					setIsPlaying(false);
@@ -537,9 +617,28 @@ export default function CanvasMinimapPage() {
 	const loadTile = async (tileX: number, tileY: number): Promise<ImageData | null> => {
 		const tileKey = `${tileX},${tileY}`;
 
-		// Check tile cache first
-		if (tileCache.current.has(tileKey)) {
-			return tileCache.current.get(tileKey)!;
+		// Check tile state cache first
+		if (tileStateCache.current.has(tileKey)) {
+			const tileState = tileStateCache.current.get(tileKey)!;
+			
+			// Check if we need to update to current tick
+			const targetTick = isTimelapseMode ? currentTick || 0 : tileState.parsedData.allTicks[tileState.parsedData.allTicks.length - 1] || 0;
+			if (tileState.currentTick !== targetTick) {
+				try {
+					await renderTileIncremental(
+						tileState.parsedData,
+						tileState.pixels,
+						tileState.currentTick,
+						targetTick
+					);
+					tileState.currentTick = targetTick;
+					tileState.imageData = pixelsToImageData(tileState.pixels);
+				} catch (err) {
+					console.error(`Failed to update tile ${tileKey} to tick ${targetTick}:`, err);
+				}
+			}
+			
+			return tileState.imageData;
 		}
 
 		// Check if we're already loading this tile
@@ -571,15 +670,29 @@ export default function CanvasMinimapPage() {
 					tileData[i] = binaryString.charCodeAt(i);
 				}
 
-				// Parse the tile data to get RGB565 pixels
-				const targetTick = isTimelapseMode ? currentTick || undefined : undefined;
-				const pixels = await renderTileToPixels(tileData, targetTick);
+				// Parse the tile data into structured change records
+				const parsedData = parseTileData(tileData);
+				
+				// Determine target tick
+				const targetTick = isTimelapseMode ? 
+					(currentTick || 0) : 
+					(parsedData.allTicks[parsedData.allTicks.length - 1] || 0);
+				
+				// Render to target tick (undefined means latest for non-timelapse mode)
+				const renderTick = isTimelapseMode ? targetTick : undefined;
+				const pixels = await renderTileToPixels(tileData, renderTick);
 				
 				// Convert to ImageData
 				const tileImageData = pixelsToImageData(pixels);
 
-				// Cache the tile
-				tileCache.current.set(tileKey, tileImageData);
+				// Create and cache the tile state
+				const tileState: TileState = {
+					currentTick: targetTick,
+					pixels: pixels,
+					parsedData: parsedData,
+					imageData: tileImageData
+				};
+				tileStateCache.current.set(tileKey, tileState);
 
 				// Extract and cache all chunks from this tile
 				for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
@@ -646,11 +759,11 @@ export default function CanvasMinimapPage() {
 			ctx.putImageData(imageData, pixelX, pixelY);
 		}
 
-		// Update the tile cache if it exists
-		const cachedTile = tileCache.current.get(tileKey);
-		if (cachedTile) {
+		// Update the tile state if it exists
+		const tileState = tileStateCache.current.get(tileKey);
+		if (tileState) {
 			// Update the tile ImageData directly
-			const tileData = cachedTile.data;
+			const tileData = tileState.imageData.data;
 			const chunkData = imageData.data;
 
 			for (let y = 0; y < CHUNK_SIZE; y++) {
@@ -910,21 +1023,11 @@ export default function CanvasMinimapPage() {
 
 			// Clear caches when switching instances
 			virtualTiles.current.clear();
-			tileCache.current.clear();
+			tileStateCache.current.clear();
 			chunkCache.current.clear();
 			loadingTiles.current.clear();
 		}
 	}, [selectedInstance, instances]);
-
-	// Clear caches when currentTick changes (React state timing fix)
-	useEffect(() => {
-		if (isTimelapseMode) {
-			virtualTiles.current.clear();
-			tileCache.current.clear();
-			chunkCache.current.clear();
-			loadingTiles.current.clear();
-		}
-	}, [currentTick, isTimelapseMode]);
 
 	// Reload ticks when instance, surface, force, or view changes
 	useEffect(() => {
@@ -1108,7 +1211,7 @@ export default function CanvasMinimapPage() {
 													min={0}
 													max={availableTicks.length - 1}
 													value={availableTicks.findIndex(tick => tick === currentTick)}
-													onChange={(value) => stepToTick(value)}
+													onChange={async (value) => await stepToTick(value)}
 													style={{ marginTop: "8px" }}
 													tooltip={{
 														formatter: (value) => {

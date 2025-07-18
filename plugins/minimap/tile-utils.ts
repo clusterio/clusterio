@@ -309,4 +309,248 @@ export function extractAvailableTicks(tileData: BinaryData): number[] {
 	}
 
 	return Array.from(ticks).sort((a, b) => a - b);
+}
+
+/**
+ * Interface for tracking pixel changes in timelapse data
+ */
+export interface PixelChange {
+	x: number;
+	y: number;
+	newColor: number;
+	oldColor: number;
+}
+
+/**
+ * Interface for chunk records in timelapse data
+ */
+export interface ChunkRecord {
+	tick: number;
+	chunkX: number;
+	chunkY: number;
+	data: BinaryData;
+}
+
+/**
+ * Interface for pixel change records in timelapse data
+ */
+export interface PixelChangeRecord {
+	tick: number;
+	changes: PixelChange[];
+}
+
+/**
+ * Interface for parsed tile data with all change records
+ */
+export interface ParsedTileData {
+	chunks: ChunkRecord[];
+	pixelChanges: PixelChangeRecord[];
+	allTicks: number[];
+}
+
+/**
+ * Parse tile data into structured change records for efficient timelapse navigation
+ */
+export function parseTileData(tileData: BinaryData): ParsedTileData {
+	const chunks: ChunkRecord[] = [];
+	const pixelChanges: PixelChangeRecord[] = [];
+	const ticks = new Set<number>();
+	
+	let offset = 0;
+	while (offset < tileData.length) {
+		if (offset + 1 > tileData.length) {
+			break;
+		}
+		
+		const type = readUInt8(tileData, offset);
+		offset += 1;
+
+		if (type === 1) { // Chunk
+			if (offset + 7 > tileData.length) {
+				break;
+			}
+			
+			const tick = readUInt32BE(tileData, offset) * 60; // Convert back to actual tick
+			ticks.add(tick);
+			offset += 4;
+			
+			const chunkCoordsByte = readUInt8(tileData, offset);
+			offset += 1;
+			const length = readUInt16BE(tileData, offset);
+			offset += 2;
+
+			if (offset + length > tileData.length) {
+				break;
+			}
+
+			const chunkX = chunkCoordsByte >> 4;
+			const chunkY = chunkCoordsByte & 0x0F;
+			const data = sliceData(tileData, offset, offset + length);
+
+			chunks.push({
+				tick,
+				chunkX,
+				chunkY,
+				data
+			});
+			
+			offset += length;
+		} else if (type === 2) { // Pixels
+			if (offset + 6 > tileData.length) {
+				break;
+			}
+			
+			const tick = readUInt32BE(tileData, offset) * 60; // Convert back to actual tick
+			ticks.add(tick);
+			offset += 4;
+			const pixelCount = readUInt16BE(tileData, offset);
+			offset += 2;
+			
+			const expectedDataLength = pixelCount * 6;
+			if (offset + expectedDataLength > tileData.length) {
+				break;
+			}
+			
+			const changes: PixelChange[] = [];
+			for (let i = 0; i < pixelCount; i++) {
+				const pixelOffset = offset + i * 6;
+				const x = readUInt8(tileData, pixelOffset);
+				const y = readUInt8(tileData, pixelOffset + 1);
+				const newColor = readUInt16BE(tileData, pixelOffset + 2);
+				const oldColor = readUInt16BE(tileData, pixelOffset + 4);
+				
+				if (x < 256 && y < 256) {
+					changes.push({ x, y, newColor, oldColor });
+				}
+			}
+			
+			if (changes.length > 0) {
+				pixelChanges.push({
+					tick,
+					changes
+				});
+			}
+			
+			offset += expectedDataLength;
+		} else {
+			break;
+		}
+	}
+
+	return {
+		chunks,
+		pixelChanges,
+		allTicks: Array.from(ticks).sort((a, b) => a - b)
+	};
+}
+
+/**
+ * Apply chunk data to RGB565 pixel array
+ */
+export async function applyChunkToPixels(pixels: Uint16Array, chunkRecord: ChunkRecord): Promise<void> {
+	try {
+		const chunkPixels = await renderChunkToPixels(chunkRecord.data);
+		
+		// Update tile pixels with chunk data
+		for (let y = 0; y < 32; y++) {
+			for (let x = 0; x < 32; x++) {
+				const chunkIndex = y * 32 + x;
+				const tileX = chunkRecord.chunkX * 32 + x;
+				const tileY = chunkRecord.chunkY * 32 + y;
+				const tileIndex = tileY * 256 + tileX;
+				pixels[tileIndex] = chunkPixels[chunkIndex];
+			}
+		}
+	} catch (err) {
+		console.error(`Failed to apply chunk ${chunkRecord.chunkX},${chunkRecord.chunkY}:`, err);
+	}
+}
+
+/**
+ * Clear chunk area to black (for rewinding past chunk creation)
+ */
+export function clearChunkInPixels(pixels: Uint16Array, chunkRecord: ChunkRecord): void {
+	for (let y = 0; y < 32; y++) {
+		for (let x = 0; x < 32; x++) {
+			const tileX = chunkRecord.chunkX * 32 + x;
+			const tileY = chunkRecord.chunkY * 32 + y;
+			const tileIndex = tileY * 256 + tileX;
+			pixels[tileIndex] = 0; // Black
+		}
+	}
+}
+
+/**
+ * Apply pixel changes to RGB565 pixel array (forward direction)
+ */
+export function applyPixelChanges(pixels: Uint16Array, changes: PixelChange[]): void {
+	for (const change of changes) {
+		const tileIndex = change.y * 256 + change.x;
+		pixels[tileIndex] = change.newColor;
+	}
+}
+
+/**
+ * Revert pixel changes from RGB565 pixel array (backward direction)
+ */
+export function revertPixelChanges(pixels: Uint16Array, changes: PixelChange[]): void {
+	for (const change of changes) {
+		const tileIndex = change.y * 256 + change.x;
+		pixels[tileIndex] = change.oldColor;
+	}
+}
+
+/**
+ * Render tile data incrementally from one tick to another
+ * Much more efficient than re-rendering from scratch
+ */
+export async function renderTileIncremental(
+	parsedData: ParsedTileData, 
+	currentPixels: Uint16Array, 
+	fromTick: number, 
+	toTick: number
+): Promise<void> {
+	const { chunks, pixelChanges } = parsedData;
+	
+	if (fromTick === toTick) {
+		return; // No changes needed
+	}
+	
+	const forward = toTick > fromTick;
+	
+	if (forward) {
+		// Apply changes forward from fromTick to toTick
+		
+		// Apply chunks that occur in this range
+		for (const chunk of chunks) {
+			if (chunk.tick > fromTick && chunk.tick <= toTick) {
+				await applyChunkToPixels(currentPixels, chunk);
+			}
+		}
+		
+		// Apply pixel changes that occur in this range
+		for (const record of pixelChanges) {
+			if (record.tick > fromTick && record.tick <= toTick) {
+				applyPixelChanges(currentPixels, record.changes);
+			}
+		}
+	} else {
+		// Revert changes backward from fromTick to toTick
+		
+		// Revert pixel changes in reverse order
+		for (let i = pixelChanges.length - 1; i >= 0; i--) {
+			const record = pixelChanges[i];
+			if (record.tick <= fromTick && record.tick > toTick) {
+				revertPixelChanges(currentPixels, record.changes);
+			}
+		}
+		
+		// Revert chunks (clear to black if we're going before their creation time)
+		for (let i = chunks.length - 1; i >= 0; i--) {
+			const chunk = chunks[i];
+			if (chunk.tick <= fromTick && chunk.tick > toTick) {
+				clearChunkInPixels(currentPixels, chunk);
+			}
+		}
+	}
 } 
