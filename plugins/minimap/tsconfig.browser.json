@@ -5,7 +5,8 @@
 	},
 	"include": [
 		"web/**/*",
-		"messages.ts"
+		"messages.ts",
+		"tile-utils.ts"
 	],
 	"exclude": [
 		"dist/**/*"
