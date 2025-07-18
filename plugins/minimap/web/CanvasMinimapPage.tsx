@@ -449,6 +449,20 @@ export default function CanvasMinimapPage() {
 					}));
 					e.preventDefault(); // Prevent browser zoom
 					break;
+				case 'f':
+					// Step backward in timeline (only in timelapse mode)
+					if (isTimelapseMode && availableTicks.length > 0) {
+						stepBackward();
+						e.preventDefault();
+					}
+					break;
+				case 'g':
+					// Step forward in timeline (only in timelapse mode)
+					if (isTimelapseMode && availableTicks.length > 0) {
+						stepForward();
+						e.preventDefault();
+					}
+					break;
 			}
 		};
 
@@ -490,7 +504,7 @@ export default function CanvasMinimapPage() {
 				canvasElement.removeEventListener('wheel', handleWheel);
 			}
 		};
-	}, [viewState.zoomLevel]);
+	}, [viewState.zoomLevel, isTimelapseMode, availableTicks, stepBackward, stepForward]);
 
 	// Mouse event handlers for click and drag panning
 	useEffect(() => {
@@ -1098,7 +1112,7 @@ export default function CanvasMinimapPage() {
 			<Row gutter={[16, 16]}>
 				<Col span={24}>
 					<Card
-						title="Factorio Instance Minimap (Canvas)"
+						title="Factorio Instance Minimap"
 						extra={
 							<Space wrap>
 								<Select
@@ -1230,7 +1244,7 @@ export default function CanvasMinimapPage() {
 									Use WASD to move, click and drag to pan, +/- or scroll wheel to zoom. Current zoom: {viewState.zoomLevel}x
 									{isTimelapseMode && (
 										<span style={{ marginLeft: "16px", color: "#1890ff" }}>
-											📹 Timelapse Mode {currentTick ? `- ${formatTickTime(currentTick)}` : ""}
+											📹 Timelapse Mode {currentTick ? `- ${formatTickTime(currentTick)}` : ""} (F/G to step through timeline)
 										</span>
 									)}
 								</div>
