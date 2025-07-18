@@ -39,10 +39,13 @@ export class InstancePlugin extends BaseInstancePlugin {
 
 				// Send chart data to controller
 				const event = new TileDataEvent(
-					"chart",
-					chartData,
-					position!,
-					this.instance.config.get("instance.id")
+					this.instance.config.get("instance.id"),
+					chartData[0].surface,
+					chartData[0].force,
+					position[0],
+					position[1],
+					0, // TODO: Get tick from lua
+					chartData[0]
 				);
 
 				return this.instance.sendTo("controller", event);

@@ -39,17 +39,17 @@ The tile format is as follows:
   - 2 = pixels
 
 For chunk:
-- 2 byte: length, number of data bytes
 - 4 byte: math.floor(tick / 60)
 - 4 bits: chunk relative X coordinate
 - 4 bits: chunk relative Y coordinate
+- 2 byte: length, number of data bytes
 - n bytes of 32x32 rgb565, with deflate compression
 
 Type 1 chunks are assumed to only occur upon first exploration - further changes usually happen as individual pixels. For that reason, there is no rewind information tied to chunks, and they revert to black when rewinded.
 
 For pixels:
-- 2 byte: length, number of pixels
 - 4 byte: math.floor(tick / 60)
+- 2 byte: length, number of pixels
 - Each pixel:
   - 1 byte X coordinate
   - 1 byte Y coordinate
