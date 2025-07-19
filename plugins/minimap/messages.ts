@@ -28,8 +28,8 @@ export const ChartTagDataSchema = Type.Object({
 	surface: Type.String(),
 	position: Type.Tuple([Type.Number(), Type.Number()]),
 	text: Type.String(),
-	icon: Type.Union([SignalIDSchema, Type.Null()]),
-	last_user: Type.Union([Type.String(), Type.Null()]),
+	icon: Type.Optional(SignalIDSchema),
+	last_user: Type.Optional(Type.String()),
 });
 
 export type ChartTagData = Static<typeof ChartTagDataSchema>;

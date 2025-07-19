@@ -35,7 +35,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private chartTagsPath: string = "";
 	private chunkSavingQueue = new Map<string, Map<string, { data: ChartData, tick: number }>>();
 	private chartTagQueues = new Map<string, ChartTagData[]>();
-	private seenTagNumbers = new Map<string, Set<number>>();
+	private lastSeenTagContent = new Map<string, Map<number, {
+		position: [number, number];
+		text: string;
+		icon?: any;
+		last_user?: string;
+	}>>();
 	private savingTiles: boolean = false;
 	private savingChartTags = new Set<string>();
 	private saveInterval: NodeJS.Timeout | null = null;
@@ -61,7 +66,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.setupTileRoutes();
 
 		// Load existing tag numbers for deduplication
-		await this.loadExistingTagNumbers();
+		await this.loadExistingTagContent();
 
 		this.saveInterval = setInterval(() => {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
@@ -377,7 +382,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		return Buffer.concat([existingTile, ...appendBuffers]);
 	}
 
-	async loadExistingTagNumbers() {
+	async loadExistingTagContent() {
 		try {
 			if (!await fs.pathExists(this.chartTagsPath)) {
 				return;
@@ -390,10 +395,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				const fileKey = file.replace('_chart_tags.json', '');
 				const filePath = path.join(this.chartTagsPath, file);
 				
-				if (!this.seenTagNumbers.has(fileKey)) {
-					this.seenTagNumbers.set(fileKey, new Set<number>());
+				if (!this.lastSeenTagContent.has(fileKey)) {
+					this.lastSeenTagContent.set(fileKey, new Map());
 				}
-				const seenTags = this.seenTagNumbers.get(fileKey)!;
+				const seenTags = this.lastSeenTagContent.get(fileKey)!;
 
 				try {
 					const content = await fs.readFile(filePath, 'utf-8');
@@ -402,21 +407,27 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					for (const line of lines) {
 						try {
 							const tagData = JSON.parse(line);
-							if (typeof tagData.tag_number === 'number') {
-								seenTags.add(tagData.tag_number);
+							if (typeof tagData.tag_number === 'number' && !tagData.end_tick) {
+								// Only store the latest content for tags that haven't been deleted
+								seenTags.set(tagData.tag_number, {
+									position: tagData.position,
+									text: tagData.text,
+									icon: tagData.icon,
+									last_user: tagData.last_user
+								});
 							}
 						} catch (parseErr) {
 							this.logger.warn(`Failed to parse chart tag line in ${file}: ${parseErr}`);
 						}
 					}
 					
-					this.logger.info(`Loaded ${seenTags.size} existing tag numbers from ${file}`);
+					this.logger.info(`Loaded ${seenTags.size} existing tag contents from ${file}`);
 				} catch (readErr) {
 					this.logger.warn(`Failed to read chart tag file ${file}: ${readErr}`);
 				}
 			}
 		} catch (err) {
-			this.logger.error(`Error loading existing tag numbers: ${err}`);
+			this.logger.error(`Error loading existing tag content: ${err}`);
 		}
 	}
 
@@ -449,12 +460,17 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					await fs.appendFile(filePath, jsonLines + '\n');
 					
 					// Mark tags as successfully saved
-					if (!this.seenTagNumbers.has(fileKey)) {
-						this.seenTagNumbers.set(fileKey, new Set<number>());
+					if (!this.lastSeenTagContent.has(fileKey)) {
+						this.lastSeenTagContent.set(fileKey, new Map());
 					}
-					const seenTags = this.seenTagNumbers.get(fileKey)!;
+					const seenTags = this.lastSeenTagContent.get(fileKey)!;
 					for (const tag of tagsToSave) {
-						seenTags.add(tag.tag_number);
+						seenTags.set(tag.tag_number, {
+							position: tag.position,
+							text: tag.text,
+							icon: tag.icon,
+							last_user: tag.last_user
+						});
 					}
 					
 					this.logger.info(`Saved ${tagsToSave.length} chart tag entries to ${fileKey}`);
@@ -479,15 +495,30 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			// Create file key based on instance, surface, and force
 			const fileKey = `${instance_id}_${tag_data.surface}_${tag_data.force}`;
 
-			// Initialize seen tags set if it doesn't exist
-			if (!this.seenTagNumbers.has(fileKey)) {
-				this.seenTagNumbers.set(fileKey, new Set<number>());
+			// Initialize seen tags map if it doesn't exist
+			if (!this.lastSeenTagContent.has(fileKey)) {
+				this.lastSeenTagContent.set(fileKey, new Map());
 			}
 
-			// Check for duplicate tag_number
-			const seenTags = this.seenTagNumbers.get(fileKey)!;
-			if (seenTags.has(tag_data.tag_number)) {
-				return;
+			// Check for duplicate content, but allow deletion events (end_tick set) even if we've seen the tag before
+			const seenTags = this.lastSeenTagContent.get(fileKey)!;
+			const lastSeenContent = seenTags.get(tag_data.tag_number);
+			
+			// For deletion events (end_tick set), always allow through
+			if (tag_data.end_tick !== undefined) {
+				// Don't skip deletion events
+			} else if (lastSeenContent) {
+				// For creation/modification events, check if content has actually changed
+				const contentUnchanged = 
+					lastSeenContent.position[0] === tag_data.position[0] &&
+					lastSeenContent.position[1] === tag_data.position[1] &&
+					lastSeenContent.text === tag_data.text &&
+					JSON.stringify(lastSeenContent.icon) === JSON.stringify(tag_data.icon) &&
+					lastSeenContent.last_user === tag_data.last_user;
+				
+				if (contentUnchanged) {
+					return; // Skip if content hasn't changed
+				}
 			}
 
 			// Add instance_id to the tag data for storage
