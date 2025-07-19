@@ -26,6 +26,26 @@ local function queue_chunk_for_update(chunk_position)
 	table.insert(storage.minimap.chunk_update_queue, chunk_position)
 end
 
+-- Send chart tag data to plugin
+local function send_chart_tag_data(tag_data)
+	clusterio_api.send_json("minimap:chart_tag_data", tag_data)
+end
+
+-- Create tag data structure
+local function create_tag_data(tag, start_tick, end_tick)
+	return {
+		tag_number = tag.tag_number,
+		start_tick = start_tick,
+		end_tick = end_tick,
+		force = tag.force.name,
+		surface = tag.surface.name,
+		position = {tag.position.x, tag.position.y},
+		text = tag.text,
+		icon = tag.icon or nil,
+		last_user = tag.last_user and tag.last_user.name or nil
+	}
+end
+
 local function dump_chunk_chart(chunk_position)
 	local data = {}
 	local surfaces = game.surfaces
@@ -52,6 +72,63 @@ local function dump_chunk_chart(chunk_position)
 		tick = game.tick,
 		data = data,
 	})
+end
+
+-- Chart tag event handlers
+local function on_chart_tag_added(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	local tag = event.tag
+	if not tag or not tag.valid then
+		return
+	end
+
+	local start_tick = game.tick
+	local tag_data = create_tag_data(tag, start_tick, nil)
+
+	-- Send to plugin
+	send_chart_tag_data(tag_data)
+end
+
+local function on_chart_tag_modified(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	local tag = event.tag
+	if not tag or not tag.valid then
+		return
+	end
+
+	-- End the old version
+	local end_tick = game.tick
+	local old_tag_data = create_tag_data(tag, nil, end_tick)
+	send_chart_tag_data(old_tag_data)
+
+	-- Create new tag entry
+	local start_tick = game.tick
+	local tag_data = create_tag_data(tag, start_tick, nil)
+
+	-- Send to plugin
+	send_chart_tag_data(tag_data)
+end
+
+local function on_chart_tag_removed(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	local tag = event.tag
+	if not tag then
+		return
+	end
+
+	-- End the tag
+	local end_tick = game.tick
+	local tag_data = create_tag_data(tag, nil, end_tick)
+	send_chart_tag_data(tag_data)
 end
 
 -- Event handlers
@@ -118,10 +195,8 @@ local function on_tile_changed(event)
 	end
 end
 
-log("minimap.lua loaded")
 -- Initialize the module
 local function init()
-	log("minimap.lua init")
 	if not storage.minimap then
 		storage.minimap = {
 			enabled = true,
@@ -151,10 +226,18 @@ local function init()
 					chunks_queued = chunks_queued + 1
 				end
 			end
+
+			-- Initialize existing chart tags
+			local existing_tags = force.find_chart_tags(surface)
+			for _, tag in pairs(existing_tags) do
+				local start_tick = game.tick
+				local tag_data = create_tag_data(tag, start_tick, nil)
+
+				-- Send to plugin
+				send_chart_tag_data(tag_data)
+			end
 		end
 	end
-
-	log("Minimap: Queued " .. chunks_queued .. " chunks for initial map generation")
 end
 
 local function on_tick(event)
@@ -186,5 +269,8 @@ minimap.events[defines.events.on_robot_built_tile] = on_tile_changed
 minimap.events[defines.events.on_player_mined_tile] = on_tile_changed
 minimap.events[defines.events.on_robot_mined_tile] = on_tile_changed
 minimap.events[defines.events.script_raised_set_tiles] = on_tile_changed
+minimap.events[defines.events.on_chart_tag_added] = on_chart_tag_added
+minimap.events[defines.events.on_chart_tag_modified] = on_chart_tag_modified
+minimap.events[defines.events.on_chart_tag_removed] = on_chart_tag_removed
 
 return minimap

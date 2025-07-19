@@ -2,8 +2,9 @@ import * as lib from "@clusterio/lib";
 
 import {
 	TileDataEvent,
-	GetInstanceBoundsRequest,
+	ChartTagDataEvent,
 	GetRawTileRequest,
+	GetChartTagsRequest,
 } from "./messages";
 
 // Define permissions
@@ -24,8 +25,9 @@ export const plugin: lib.PluginDeclaration = {
 
 	messages: [
 		TileDataEvent,
-		GetInstanceBoundsRequest,
+		ChartTagDataEvent,
 		GetRawTileRequest,
+		GetChartTagsRequest,
 	],
 	routes: ["/minimap"],
 };
