@@ -27,8 +27,8 @@ interface MergedChartTag {
 	surface: string;
 	position: [number, number];
 	text: string;
-	icon: SignalID | null;
-	last_user: string | null;
+	icon?: SignalID;
+	last_user?: string;
 	instance_id: number;
 }
 
@@ -107,6 +107,7 @@ export default function CanvasMinimapPage() {
 	const [currentTick, setCurrentTick] = useState<number | null>(null);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1);
+	const [chartTagTimestamps, setChartTagTimestamps] = useState(0);
 
 	// Chart tag states
 	const [showChartTags, setShowChartTags] = useState(true);
@@ -156,6 +157,7 @@ export default function CanvasMinimapPage() {
 		availableTicks: [] as number[],
 		showChartTags: true,
 		mergedChartTags: [] as MergedChartTag[],
+		chartTagTimestamps: 0,
 	});
 
 	const control = useContext(ControlContext);
@@ -227,8 +229,9 @@ export default function CanvasMinimapPage() {
 			availableTicks,
 			showChartTags,
 			mergedChartTags,
+			chartTagTimestamps,
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, currentTick, availableTicks, showChartTags, mergedChartTags]);
+	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, currentTick, availableTicks, showChartTags, mergedChartTags, chartTagTimestamps]);
 
 	// Define pixel-perfect zoom levels to eliminate seaming issues
 	const ZOOM_LEVELS = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
@@ -363,6 +366,30 @@ export default function CanvasMinimapPage() {
 				}
 			}
 
+			// Also include chart tag timestamps
+			const currentState = currentStateRef.current;
+			let tagsWithTicks = 0;
+			
+			if (currentState.mergedChartTags.length > 0) {
+				for (const tag of currentState.mergedChartTags) {
+					// Add start_tick if it exists (tag creation)
+					if (tag.start_tick !== undefined) {
+						allTicks.add(tag.start_tick);
+						tagsWithTicks++;
+					}
+					
+					// Add end_tick if it exists (tag deletion)
+					if (tag.end_tick !== undefined) {
+						allTicks.add(tag.end_tick);
+						tagsWithTicks++;
+					}
+				}
+				
+				console.log(`Added ${tagsWithTicks} chart tag timestamps to timeline`);
+			}
+			
+			setChartTagTimestamps(tagsWithTicks);
+
 			const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
 			setAvailableTicks(sortedTicks);
 			
@@ -380,9 +407,14 @@ export default function CanvasMinimapPage() {
 		setIsPlaying(false);
 		
 		if (enabled) {
+			// Ensure chart tags are loaded before getting available ticks
+			if (selectedInstance && selectedSurface && selectedForce) {
+				await loadExistingChartTags();
+			}
 			await loadAvailableTicks();
 		} else {
 			setCurrentTick(null);
+			setChartTagTimestamps(0);
 		}
 		
 		// Clear caches when switching modes
@@ -1283,8 +1315,10 @@ export default function CanvasMinimapPage() {
 	useEffect(() => {
 		if (isTimelapseMode && selectedInstance && selectedSurface && selectedForce) {
 			// Debounce the reload to avoid too many requests during navigation
-			const timeoutId = setTimeout(() => {
-				loadAvailableTicks();
+			const timeoutId = setTimeout(async () => {
+				// Ensure chart tags are loaded before getting available ticks
+				await loadExistingChartTags();
+				await loadAvailableTicks();
 			}, 500);
 			
 			return () => clearTimeout(timeoutId);
@@ -1332,13 +1366,19 @@ export default function CanvasMinimapPage() {
 				return false;
 			}
 
-			// In timelapse mode, filter by current tick
+			// Filter by tick range (both in timelapse and live mode)
 			if (currentState.isTimelapseMode && currentState.currentTick !== null) {
+				// In timelapse mode, filter by current tick
 				// Tag is visible if it started before or at current tick and hasn't ended yet
 				if (tag.start_tick !== undefined && tag.start_tick > currentState.currentTick) {
 					return false;
 				}
 				if (tag.end_tick !== undefined && tag.end_tick <= currentState.currentTick) {
+					return false;
+				}
+			} else {
+				// In live mode, only hide tags that have been deleted (have an end_tick)
+				if (tag.end_tick !== undefined) {
 					return false;
 				}
 			}
@@ -1547,6 +1587,11 @@ export default function CanvasMinimapPage() {
 												<Text>
 													{currentTick ? formatTickTime(currentTick) : "No data"}
 												</Text>
+												<div style={{ marginTop: "4px", fontSize: "12px", color: "#666" }}>
+													<Text type="secondary">
+														{availableTicks.length} total timestamps
+													</Text>
+												</div>
 												<Slider
 													min={0}
 													max={availableTicks.length - 1}

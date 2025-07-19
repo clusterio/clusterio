@@ -102,13 +102,13 @@ local function on_chart_tag_modified(event)
 		return
 	end
 
-	-- End the old version
+	-- End the old version at current tick
 	local end_tick = game.tick
 	local old_tag_data = create_tag_data(tag, nil, end_tick)
 	send_chart_tag_data(old_tag_data)
 
-	-- Create new tag entry
-	local start_tick = game.tick
+	-- Create new tag entry starting at next tick
+	local start_tick = game.tick + 1
 	local tag_data = create_tag_data(tag, start_tick, nil)
 
 	-- Send to plugin
@@ -121,7 +121,7 @@ local function on_chart_tag_removed(event)
 	end
 
 	local tag = event.tag
-	if not tag then
+	if not tag or not tag.valid then
 		return
 	end
 
