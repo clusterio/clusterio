@@ -1,12 +1,24 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
-import { TileDataEvent, ChartData } from "./messages";
+import { TileDataEvent, ChartData, ChartTagDataEvent, ChartTagData } from "./messages";
 
 interface TileDataIpc {
 	type: "chart";
 	data: ChartData[];
 	position: [number, number];
 	tick: number;
+}
+
+interface ChartTagDataIpc {
+	tag_number: number;
+	start_tick: number | null;
+	end_tick: number | null;
+	force: string;
+	surface: string;
+	position: [number, number];
+	text: string;
+	icon: string | null;
+	last_user: string | null;
 }
 
 export class InstancePlugin extends BaseInstancePlugin {
@@ -21,6 +33,13 @@ export class InstancePlugin extends BaseInstancePlugin {
 		this.instance.server.on("ipc-minimap:tile_data", (data: TileDataIpc) => {
 			this.handleTileDataFromLua(data).catch(err => this.logger.error(
 				`Error handling tile data from Lua:\n${err}`
+			));
+		});
+
+		// Listen for chart tag data from the Lua module
+		this.instance.server.on("ipc-minimap:chart_tag_data", (data: ChartTagDataIpc) => {
+			this.handleChartTagDataFromLua(data).catch(err => this.logger.error(
+				`Error handling chart tag data from Lua:\n${err}`
 			));
 		});
 	}
@@ -55,6 +74,23 @@ export class InstancePlugin extends BaseInstancePlugin {
 		} catch (err) {
 			this.logger.error(`Failed to process tile data from Lua: ${err}`);
 		}
+	}
+
+	async handleChartTagDataFromLua(data: ChartTagDataIpc) {
+		// Validate the chart tag data
+		if (!data || typeof data.tag_number !== 'number') {
+			this.logger.error("Invalid chart tag data received");
+			return;
+		}
+
+		// Create chart tag data event
+		const chartTagEvent = new ChartTagDataEvent(
+			this.instance.config.get("instance.id"),
+			data as ChartTagData
+		);
+
+		// Send to controller
+		return this.instance.sendTo("controller", chartTagEvent);
 	}
 
 	async onStart() {

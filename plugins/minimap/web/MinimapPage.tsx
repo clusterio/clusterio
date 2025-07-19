@@ -2,22 +2,10 @@ import React, { useState, useEffect, useContext } from "react";
 import { Row, Col, Button, Card, Space, Select } from "antd";
 import { MapContainer, TileLayer } from "react-leaflet";
 import L from "leaflet";
-import { ControlContext } from "@clusterio/web_ui";
-import { GetInstanceBoundsRequest } from "../messages";
+import { ControlContext, useInstances } from "@clusterio/web_ui";
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css";
-
-interface Instance {
-	instanceId: number;
-	name: string;
-	bounds: {
-		x1: number;
-		y1: number;
-		x2: number;
-		y2: number;
-	};
-}
 
 interface SurfaceForceData {
 	surfaces: string[];
@@ -25,7 +13,7 @@ interface SurfaceForceData {
 }
 
 export default function MinimapPage() {
-	const [instances, setInstances] = useState<Instance[]>([]);
+	const [instances] = useInstances();
 	const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
 	const [selectedSurface, setSelectedSurface] = useState<string>("nauvis");
 	const [selectedForce, setSelectedForce] = useState<string>("player");
@@ -34,27 +22,20 @@ export default function MinimapPage() {
 	const [loading, setLoading] = useState(false);
 	const control = useContext(ControlContext);
 
-	// Load instance bounds on component mount
+	// Set default instance when instances become available
 	useEffect(() => {
-		loadInstances();
+		if (instances.size > 0 && !selectedInstance) {
+			const firstInstance = instances.values().next().value;
+			if (firstInstance) {
+				setSelectedInstance(firstInstance.id);
+			}
+		}
+	}, [instances, selectedInstance]);
+
+	// Load surface and force data on component mount
+	useEffect(() => {
 		loadSurfaceForceData();
 	}, []);
-
-	const loadInstances = async () => {
-		try {
-			setLoading(true);
-			const response = await control.send(new GetInstanceBoundsRequest());
-			setInstances(response.instances);
-			
-			if (response.instances.length > 0 && !selectedInstance) {
-				setSelectedInstance(response.instances[0].instanceId);
-			}
-		} catch (err) {
-			console.error("Failed to load instances:", err);
-		} finally {
-			setLoading(false);
-		}
-	};
 
 	const loadSurfaceForceData = async () => {
 		try {
@@ -75,12 +56,11 @@ export default function MinimapPage() {
 		}
 	};
 
-	const selectedInstanceData = instances.find(inst => inst.instanceId === selectedInstance);
-
-	const mapBounds = selectedInstanceData ? [
-		[selectedInstanceData.bounds.y1 / 256, selectedInstanceData.bounds.x1 / 256],
-		[selectedInstanceData.bounds.y2 / 256, selectedInstanceData.bounds.x2 / 256],
-	] as L.LatLngBoundsExpression : undefined;
+	// Use default map bounds centered around origin
+	const mapBounds = [
+		[-512 / 256, -512 / 256],
+		[512 / 256, 512 / 256],
+	] as L.LatLngBoundsExpression;
 
 	return (
 		<div style={{ padding: "20px" }}>
@@ -96,13 +76,11 @@ export default function MinimapPage() {
 									value={selectedInstance}
 									onChange={setSelectedInstance}
 									loading={loading}
-								>
-									{instances.map(instance => (
-										<Select.Option key={instance.instanceId} value={instance.instanceId}>
-											{instance.name}
-										</Select.Option>
-									))}
-								</Select>
+									options={[...instances.values()].map(instance => ({
+										value: instance.id,
+										label: instance.name
+									}))}
+								/>
 								<Select
 									style={{ width: 150 }}
 									placeholder="Select surface"
@@ -127,14 +105,10 @@ export default function MinimapPage() {
 										</Select.Option>
 									))}
 								</Select>
-
-								<Button onClick={loadInstances} loading={loading}>
-									Reload Instances
-								</Button>
 							</Space>
 						}
 					>
-						{selectedInstanceData && mapBounds ? (
+						{selectedInstance && mapBounds ? (
 							<div 
 								style={{ 
 									height: "700px", 

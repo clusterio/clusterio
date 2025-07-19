@@ -10,6 +10,30 @@ export const ChartDataSchema = Type.Object({
 
 export type ChartData = Static<typeof ChartDataSchema>;
 
+// Define the SignalID structure (based on Factorio API)
+export const SignalIDSchema = Type.Object({
+	type: Type.Optional(Type.String()), // SignalIDType, nil when reading for "item" type
+	name: Type.Optional(Type.String()), // Name of the prototype
+	quality: Type.Optional(Type.String()), // Quality name, defaults to "normal"
+});
+
+export type SignalID = Static<typeof SignalIDSchema>;
+
+// Define the chart tag data structure
+export const ChartTagDataSchema = Type.Object({
+	tag_number: Type.Number(),
+	start_tick: Type.Optional(Type.Number()),
+	end_tick: Type.Optional(Type.Number()),
+	force: Type.String(),
+	surface: Type.String(),
+	position: Type.Tuple([Type.Number(), Type.Number()]),
+	text: Type.String(),
+	icon: Type.Union([SignalIDSchema, Type.Null()]),
+	last_user: Type.Union([Type.String(), Type.Null()]),
+});
+
+export type ChartTagData = Static<typeof ChartTagDataSchema>;
+
 /**
  * TileDataEvent: Used for both Factorio Instance -> Controller and Controller -> Web Clients
  * 
@@ -62,37 +86,51 @@ export class TileDataEvent {
 	}
 }
 
-export class GetInstanceBoundsRequest {
-	declare ["constructor"]: typeof GetInstanceBoundsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
+/**
+ * ChartTagDataEvent: Used for both Factorio Instance -> Controller and Controller -> Web Clients
+ * 
+ * Contains chart tag information from Factorio's map tags.
+ * When sent from instance to controller: triggers storage for tag history and timelapse.
+ * When sent from controller to web clients: enables real-time tag updates.
+ * 
+ * Data flow: 
+ * - Lua module -> Instance plugin -> Controller plugin (for persistence)
+ * - Controller plugin -> Web UI plugin -> Tag renderer (for live updates)
+ */
+export class ChartTagDataEvent {
+	declare ["constructor"]: typeof ChartTagDataEvent;
+	static type = "event" as const;
+	static src = ["instance", "controller"] as const;
+	static dst = ["controller", "control"] as const;
 	static plugin = "minimap" as const;
-	static permission = "minimap.view";
+	static permission = null;
 
-	constructor() {
+	constructor(
+		public instance_id: number,
+		public tag_data: ChartTagData,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"tag_data": ChartTagDataSchema,
+	});
+
+	static fromJSON(json: Static<typeof ChartTagDataEvent.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.tag_data
+		);
 	}
-
-	static jsonSchema = Type.Object({});
-
-	static fromJSON(json: Static<typeof GetInstanceBoundsRequest.jsonSchema>) {
-		return new this();
-	}
-
-	static Response = lib.plainJson(Type.Object({
-		"instances": Type.Array(Type.Object({
-			"instanceId": Type.Number(),
-			"name": Type.String(),
-			"bounds": Type.Object({
-				"x1": Type.Number(),
-				"y1": Type.Number(),
-				"x2": Type.Number(),
-				"y2": Type.Number(),
-			}),
-		})),
-	}));
 }
 
+
+
+/**
+ * GetRawTileRequest: Request raw tile data from controller storage
+ * 
+ * Returns base64-encoded tile data that can be processed in timelapse mode
+ * or for initial tile loading when canvas minimap starts up.
+ */
 export class GetRawTileRequest {
 	declare ["constructor"]: typeof GetRawTileRequest;
 	static type = "request" as const;
@@ -107,13 +145,13 @@ export class GetRawTileRequest {
 		public force: string,
 		public tile_x: number,
 		public tile_y: number,
-		public tick?: number, // Optional tick for timelapse support
-	) {}
+		public tick?: number,
+	) { }
 
 	static jsonSchema = Type.Object({
 		"instance_id": Type.Number(),
 		"surface": Type.String(),
-		"force": Type.String(),
+		"force": Type.String(), 
 		"tile_x": Type.Number(),
 		"tile_y": Type.Number(),
 		"tick": Type.Optional(Type.Number()),
@@ -132,5 +170,44 @@ export class GetRawTileRequest {
 
 	static Response = lib.plainJson(Type.Object({
 		"tile_data": Type.Union([Type.String(), Type.Null()]), // Base64 encoded tile file or null if not found
+	}));
+}
+
+/**
+ * GetChartTagsRequest: Request existing chart tags from controller storage
+ * 
+ * Returns all saved chart tags for a specific instance/surface/force combination.
+ * Used to load existing chart tags when the web UI starts up or selection changes.
+ */
+export class GetChartTagsRequest {
+	declare ["constructor"]: typeof GetChartTagsRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "minimap" as const;
+	static permission = "minimap.view";
+
+	constructor(
+		public instance_id: number,
+		public surface: string,
+		public force: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"surface": Type.String(),
+		"force": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof GetChartTagsRequest.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.surface,
+			json.force
+		);
+	}
+
+	static Response = lib.plainJson(Type.Object({
+		"chart_tags": Type.Array(ChartTagDataSchema),
 	}));
 } 
