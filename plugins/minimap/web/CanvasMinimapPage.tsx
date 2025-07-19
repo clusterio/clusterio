@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { Row, Col, Button, Card, Space, Select, Switch, Slider, Typography, Tooltip } from "antd";
-import { ControlContext } from "@clusterio/web_ui";
-import { GetInstanceBoundsRequest, GetRawTileRequest, TileDataEvent } from "../messages";
+import { Row, Col, Button, Card, Space, Select, Switch, Slider, Typography } from "antd";
+import { ControlContext, useInstances } from "@clusterio/web_ui";
+import { GetRawTileRequest, GetChartTagsRequest, TileDataEvent, ChartTagData, ChartTagDataEvent, SignalID } from "../messages";
 import * as zlib from "zlib";
 import { 
 	renderTileToPixels, 
@@ -15,15 +15,21 @@ import {
 
 const { Text } = Typography;
 
-interface Instance {
-	instanceId: number;
-	name: string;
-	bounds: {
-		x1: number;
-		y1: number;
-		x2: number;
-		y2: number;
-	};
+interface ChartTagDataWithInstance extends ChartTagData {
+	instance_id: number;
+}
+
+interface MergedChartTag {
+	tag_number: number;
+	start_tick: number | undefined;
+	end_tick: number | undefined;
+	force: string;
+	surface: string;
+	position: [number, number];
+	text: string;
+	icon: SignalID | null;
+	last_user: string | null;
+	instance_id: number;
 }
 
 interface SurfaceForceData {
@@ -88,7 +94,7 @@ async function chartDataToImageData(chartData: string): Promise<ImageData> {
 
 export default function CanvasMinimapPage() {
 	// UI-related states (these need React re-renders)
-	const [instances, setInstances] = useState<Instance[]>([]);
+	const [instances] = useInstances();
 	const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
 	const [selectedSurface, setSelectedSurface] = useState<string>("nauvis");
 	const [selectedForce, setSelectedForce] = useState<string>("player");
@@ -101,6 +107,11 @@ export default function CanvasMinimapPage() {
 	const [currentTick, setCurrentTick] = useState<number | null>(null);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+	// Chart tag states
+	const [showChartTags, setShowChartTags] = useState(true);
+	const [rawChartTags, setRawChartTags] = useState<ChartTagDataWithInstance[]>([]);
+	const [mergedChartTags, setMergedChartTags] = useState<MergedChartTag[]>([]);
 
 	// Display state for zoom level (throttled updates to avoid excessive re-renders)
 	const [displayZoom, setDisplayZoom] = useState(1);
@@ -143,9 +154,67 @@ export default function CanvasMinimapPage() {
 		isTimelapseMode: false,
 		currentTick: null as number | null,
 		availableTicks: [] as number[],
+		showChartTags: true,
+		mergedChartTags: [] as MergedChartTag[],
 	});
 
 	const control = useContext(ControlContext);
+
+	// Merge raw chart tag data into timeline-friendly format
+	const mergeChartTags = useCallback((rawTags: ChartTagDataWithInstance[]): MergedChartTag[] => {
+		const tagMap = new Map<string, MergedChartTag>();
+
+		for (const rawTag of rawTags) {
+			// Create a unique key for each tag (tag_number + surface + force + instance)
+			const key = `${rawTag.tag_number}_${rawTag.surface}_${rawTag.force}_${rawTag.instance_id}`;
+			
+			if (!tagMap.has(key)) {
+				// Create new merged tag entry
+				tagMap.set(key, {
+					tag_number: rawTag.tag_number,
+					start_tick: rawTag.start_tick,
+					end_tick: rawTag.end_tick,
+					force: rawTag.force,
+					surface: rawTag.surface,
+					position: rawTag.position,
+					text: rawTag.text,
+					icon: rawTag.icon,
+					last_user: rawTag.last_user,
+					instance_id: rawTag.instance_id,
+				});
+			} else {
+				// Merge with existing entry
+				const existing = tagMap.get(key)!;
+				
+				// If this entry has a start_tick, use it
+				if (rawTag.start_tick !== undefined) {
+					existing.start_tick = rawTag.start_tick;
+					// Also update other properties from the start entry
+					existing.position = rawTag.position;
+					existing.text = rawTag.text;
+					existing.icon = rawTag.icon;
+					existing.last_user = rawTag.last_user;
+				}
+				
+				// If this entry has an end_tick, use it
+				if (rawTag.end_tick !== undefined) {
+					existing.end_tick = rawTag.end_tick;
+					// Use the properties from the end entry as they might have been modified
+					existing.position = rawTag.position;
+					existing.text = rawTag.text;
+					existing.icon = rawTag.icon;
+					existing.last_user = rawTag.last_user;
+				}
+			}
+		}
+
+		return Array.from(tagMap.values());
+	}, []);
+
+	// Update merged chart tags when raw tags change
+	useEffect(() => {
+		setMergedChartTags(mergeChartTags(rawChartTags));
+	}, [rawChartTags, mergeChartTags]);
 
 	// Update current state ref when state changes
 	useEffect(() => {
@@ -156,8 +225,10 @@ export default function CanvasMinimapPage() {
 			isTimelapseMode,
 			currentTick,
 			availableTicks,
+			showChartTags,
+			mergedChartTags,
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, currentTick, availableTicks]);
+	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, currentTick, availableTicks, showChartTags, mergedChartTags]);
 
 	// Define pixel-perfect zoom levels to eliminate seaming issues
 	const ZOOM_LEVELS = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
@@ -241,7 +312,9 @@ export default function CanvasMinimapPage() {
 
 	// Timelapse functions
 	const loadAvailableTicks = async () => {
-		if (!selectedInstance) return;
+		if (!selectedInstance) {
+			return;
+		}
 
 		const visibleTiles = calculateVisibleTiles();
 		if (!visibleTiles) {
@@ -278,7 +351,6 @@ export default function CanvasMinimapPage() {
 							}
 
 							const ticks = extractAvailableTicks(tileData);
-							console.log(`Tile ${tileX},${tileY}: Found ${ticks.length} ticks:`, ticks);
 							
 							if (ticks.length > 0) {
 								tilesWithData++;
@@ -321,9 +393,10 @@ export default function CanvasMinimapPage() {
 	};
 
 	const stepToTick = async (tickIndex: number) => {
-		if (tickIndex >= 0 && tickIndex < availableTicks.length) {
-			const newTick = availableTicks[tickIndex];
-			const oldTick = currentTick;
+		const currentState = currentStateRef.current;
+		if (tickIndex >= 0 && tickIndex < currentState.availableTicks.length) {
+			const newTick = currentState.availableTicks[tickIndex];
+			const oldTick = currentState.currentTick;
 			
 			if (oldTick === newTick) {
 				return; // No change needed
@@ -400,14 +473,16 @@ export default function CanvasMinimapPage() {
 	};
 
 	const stepForward = async () => {
-		const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
-		if (currentIndex >= 0 && currentIndex < availableTicks.length - 1) {
+		const currentState = currentStateRef.current;
+		const currentIndex = currentState.availableTicks.findIndex(tick => tick === currentState.currentTick);
+		if (currentIndex >= 0 && currentIndex < currentState.availableTicks.length - 1) {
 			await stepToTick(currentIndex + 1);
 		}
 	};
 
 	const stepBackward = async () => {
-		const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
+		const currentState = currentStateRef.current;
+		const currentIndex = currentState.availableTicks.findIndex(tick => tick === currentState.currentTick);
 		if (currentIndex > 0) {
 			await stepToTick(currentIndex - 1);
 		}
@@ -421,8 +496,9 @@ export default function CanvasMinimapPage() {
 	useEffect(() => {
 		if (isPlaying && isTimelapseMode && availableTicks.length > 0) {
 			playbackTimerRef.current = setInterval(async () => {
-				const currentIndex = availableTicks.findIndex(tick => tick === currentTick);
-				if (currentIndex >= 0 && currentIndex < availableTicks.length - 1) {
+				const currentState = currentStateRef.current;
+				const currentIndex = currentState.availableTicks.findIndex(tick => tick === currentState.currentTick);
+				if (currentIndex >= 0 && currentIndex < currentState.availableTicks.length - 1) {
 					await stepToTick(currentIndex + 1);
 				} else {
 					// Reached the end, stop playing
@@ -458,9 +534,18 @@ export default function CanvasMinimapPage() {
 		}
 	};
 
-	// Load instance bounds on component mount
+	// Set default instance when instances become available
 	useEffect(() => {
-		loadInstances();
+		if (instances.size > 0 && !selectedInstance) {
+			const firstInstance = instances.values().next().value;
+			if (firstInstance) {
+				setSelectedInstance(firstInstance.id);
+			}
+		}
+	}, [instances, selectedInstance]);
+
+	// Load surface and force data on component mount
+	useEffect(() => {
 		loadSurfaceForceData();
 	}, []);
 
@@ -620,7 +705,7 @@ export default function CanvasMinimapPage() {
 	// Render loop (one-time setup)
 	useEffect(() => {
 		const render = () => {
-			if (canvasRef.current && currentStateRef.current.selectedInstance) {
+			if (canvasRef.current) {
 				renderCanvas();
 			}
 			animationFrameRef.current = requestAnimationFrame(render);
@@ -635,21 +720,7 @@ export default function CanvasMinimapPage() {
 		};
 	}, []); // No dependencies - render loop accesses current state via refs
 
-	const loadInstances = async () => {
-		try {
-			setLoading(true);
-			const response = await control.send(new GetInstanceBoundsRequest());
-			setInstances(response.instances);
 
-			if (response.instances.length > 0 && !selectedInstance) {
-				setSelectedInstance(response.instances[0].instanceId);
-			}
-		} catch (err) {
-			console.error("Failed to load instances:", err);
-		} finally {
-			setLoading(false);
-		}
-	};
 
 	const loadSurfaceForceData = async () => {
 		try {
@@ -668,8 +739,49 @@ export default function CanvasMinimapPage() {
 		}
 	};
 
+	// Load existing chart tags from disk
+	const loadExistingChartTags = async () => {
+		if (!selectedInstance || !selectedSurface || !selectedForce) {
+			return;
+		}
+
+		try {
+			const response = await control.send(new GetChartTagsRequest(
+				selectedInstance,
+				selectedSurface,
+				selectedForce
+			));
+
+			if (response.chart_tags && response.chart_tags.length > 0) {
+				// Convert to ChartTagDataWithInstance format
+				const existingTags: ChartTagDataWithInstance[] = response.chart_tags.map((tag: ChartTagData) => ({
+					...tag,
+					instance_id: selectedInstance,
+				}));
+
+				// Replace existing tags with loaded ones
+				setRawChartTags(existingTags);
+				console.log(`Loaded ${existingTags.length} existing chart tags`);
+			} else {
+				// Clear tags if no existing data
+				setRawChartTags([]);
+			}
+		} catch (err) {
+			console.error("Failed to load existing chart tags:", err);
+			// Don't clear tags on error, keep what we have
+		}
+	};
+
 	// Load a tile from the server using raw tile data
 	const loadTile = async (tileX: number, tileY: number): Promise<ImageData | null> => {
+		// Get current state from ref
+		const currentState = currentStateRef.current;
+		
+		// Early return if no instance is selected
+		if (!currentState.selectedInstance) {
+			return null;
+		}
+
 		const tileKey = `${tileX},${tileY}`;
 
 		// Check tile state cache first
@@ -706,12 +818,12 @@ export default function CanvasMinimapPage() {
 			try {
 				// Load the raw tile data from server
 				const response = await control.send(new GetRawTileRequest(
-					selectedInstance!,
-					selectedSurface,
-					selectedForce,
+					currentState.selectedInstance!, // We already checked for null above
+					currentState.selectedSurface,
+					currentState.selectedForce,
 					tileX,
 					tileY,
-					isTimelapseMode ? currentTick || undefined : undefined
+					currentState.isTimelapseMode ? currentState.currentTick || undefined : undefined
 				));
 
 				if (!response.tile_data) {
@@ -837,6 +949,14 @@ export default function CanvasMinimapPage() {
 
 	// Get or create a virtual tile
 	const getVirtualTile = async (tileX: number, tileY: number): Promise<HTMLCanvasElement> => {
+		// Get current state from ref
+		const currentState = currentStateRef.current;
+		
+		// Don't create virtual tiles if no instance is selected
+		if (!currentState.selectedInstance) {
+			throw new Error("Cannot create virtual tile: no instance selected");
+		}
+
 		const tileKey = `${tileX},${tileY}`;
 
 		if (virtualTiles.current.has(tileKey)) {
@@ -869,6 +989,18 @@ export default function CanvasMinimapPage() {
 	const renderCanvas = () => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
+
+		// Get current state from ref to ensure consistency
+		const currentState = currentStateRef.current;
+		
+		// Early return if no instance selected
+		if (!currentState.selectedInstance) {
+			// Draw dark background and return
+			const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+			ctx.fillStyle = '#1a1a1a';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			return;
+		}
 
 		// Apply smooth WASD movement
 		if (keysPressed.current.size > 0) {
@@ -984,22 +1116,92 @@ export default function CanvasMinimapPage() {
 					ctx.fillRect(clippedX, clippedY, clippedWidth, clippedHeight);
 
 					// Start loading the tile in the background (but don't wait for it)
-					getVirtualTile(tileX, tileY).then(() => {
-						// When tile loads, trigger a re-render
-						// But only if we're still looking at the same area
-						if (selectedInstance && selectedSurface && selectedForce) {
-							// Use a small delay to batch multiple tile loads
-							setTimeout(() => {
-								if (animationFrameRef.current) {
-									// Render will happen on next animation frame anyway
-								}
-							}, 16);
-						}
-					}).catch(err => {
-						console.error(`Failed to load tile ${tileX},${tileY}:`, err);
-					});
+					// Only attempt to load if we have all required parameters
+					if (currentState.selectedInstance && currentState.selectedSurface && currentState.selectedForce) {
+						getVirtualTile(tileX, tileY).then(() => {
+							// When tile loads, trigger a re-render
+							// But only if we're still looking at the same area
+							const latestState = currentStateRef.current;
+							if (latestState.selectedInstance && latestState.selectedSurface && latestState.selectedForce) {
+								// Use a small delay to batch multiple tile loads
+								setTimeout(() => {
+									if (animationFrameRef.current) {
+										// Render will happen on next animation frame anyway
+									}
+								}, 16);
+							}
+						}).catch(err => {
+							console.error(`Failed to load tile ${tileX},${tileY}:`, err);
+						});
+					}
 				}
 			}
+		}
+
+		// Render chart tags if enabled
+		if (currentState.showChartTags) {
+			const visibleTags = getVisibleChartTags();
+			
+			ctx.save();
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.font = `${Math.max(10, 12 / scale)}px Arial`;
+			
+			for (const tag of visibleTags) {
+				// Convert world coordinates to screen coordinates
+				const screenX = Math.round((tag.position[0] - worldLeft) * scale);
+				const screenY = Math.round((tag.position[1] - worldTop) * scale);
+				
+				// Skip if tag is outside visible area
+				if (screenX < -50 || screenX > width + 50 || screenY < -50 || screenY > height + 50) {
+					continue;
+				}
+				
+				// Constant tag size regardless of zoom level
+				const tagSize = 16;
+				const halfSize = tagSize / 2;
+				
+				// Draw tag background
+				ctx.fillStyle = tag.icon ? '#4CAF50' : '#2196F3';
+				ctx.fillRect(screenX - halfSize, screenY - halfSize, tagSize, tagSize);
+				
+				// Draw tag border
+				ctx.strokeStyle = '#FFFFFF';
+				ctx.lineWidth = 2;
+				ctx.strokeRect(screenX - halfSize, screenY - halfSize, tagSize, tagSize);
+				
+				// Draw tag text if zoom level is high enough
+				if (scale > 0.5 && tag.text) {
+					const fontSize = 12;
+					ctx.font = `${fontSize}px Arial`;
+					
+					// Position text to the right of the square
+					const textX = screenX + halfSize + 4; // 4px padding from square edge
+					const textY = screenY; // Vertically centered with square
+					
+					// Draw text background
+					const textMetrics = ctx.measureText(tag.text);
+					const textWidth = textMetrics.width;
+					const textHeight = fontSize;
+					const textPadding = 2;
+					
+					ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+					ctx.fillRect(
+						textX - textPadding,
+						textY - textHeight / 2 - textPadding,
+						textWidth + textPadding * 2,
+						textHeight + textPadding * 2
+					);
+					
+					// Draw text
+					ctx.fillStyle = '#FFFFFF';
+					ctx.textAlign = 'left'; // Align text to start from the left edge
+					ctx.fillText(tag.text, textX, textY);
+					ctx.textAlign = 'center'; // Reset for next iteration
+				}
+			}
+			
+			ctx.restore();
 		}
 	};
 
@@ -1062,14 +1264,12 @@ export default function CanvasMinimapPage() {
 	// Reset view when instance changes and snap to pixel-perfect zoom
 	useEffect(() => {
 		if (selectedInstance) {
-			const instanceData = instances.find(inst => inst.instanceId === selectedInstance);
-			if (instanceData) {
-				updateViewState({
-					centerX: (instanceData.bounds.x1 + instanceData.bounds.x2) / 2,
-					centerY: (instanceData.bounds.y1 + instanceData.bounds.y2) / 2,
-					zoomLevel: getClosestZoomLevel(1), // Snap to nearest pixel-perfect zoom
-				});
-			}
+			// Reset to center view with default zoom when switching instances
+			updateViewState({
+				centerX: 0,
+				centerY: 0,
+				zoomLevel: getClosestZoomLevel(1), // Snap to nearest pixel-perfect zoom
+			});
 
 			// Clear caches when switching instances
 			virtualTiles.current.clear();
@@ -1077,7 +1277,7 @@ export default function CanvasMinimapPage() {
 			chunkCache.current.clear();
 			loadingTiles.current.clear();
 		}
-	}, [selectedInstance, instances]);
+	}, [selectedInstance]);
 
 	// Reload ticks when instance, surface, force changes or timelapse mode toggles
 	useEffect(() => {
@@ -1091,6 +1291,16 @@ export default function CanvasMinimapPage() {
 		}
 	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode]);
 
+	// Load existing chart tags when instance/surface/force selection changes
+	useEffect(() => {
+		if (selectedInstance && selectedSurface && selectedForce) {
+			loadExistingChartTags();
+		} else {
+			// Clear chart tags if no valid selection
+			setRawChartTags([]);
+		}
+	}, [selectedInstance, selectedSurface, selectedForce]);
+
 	// Snap current zoom level to nearest pixel-perfect level on mount
 	useEffect(() => {
 		updateViewState({
@@ -1103,6 +1313,38 @@ export default function CanvasMinimapPage() {
 				clearTimeout(throttledZoomUpdate.current);
 			}
 		};
+	}, []);
+
+	// Get visible chart tags based on current state
+	const getVisibleChartTags = useCallback(() => {
+		// Use the same ref state that the render function uses for consistency
+		const currentState = currentStateRef.current;
+		
+		if (!currentState.selectedInstance || !currentState.showChartTags) {
+			return [];
+		}
+
+		return currentState.mergedChartTags.filter((tag: MergedChartTag) => {
+			// Filter by instance, surface, and force
+			if (tag.instance_id !== currentState.selectedInstance ||
+				tag.surface !== currentState.selectedSurface ||
+				tag.force !== currentState.selectedForce) {
+				return false;
+			}
+
+			// In timelapse mode, filter by current tick
+			if (currentState.isTimelapseMode && currentState.currentTick !== null) {
+				// Tag is visible if it started before or at current tick and hasn't ended yet
+				if (tag.start_tick !== undefined && tag.start_tick > currentState.currentTick) {
+					return false;
+				}
+				if (tag.end_tick !== undefined && tag.end_tick <= currentState.currentTick) {
+					return false;
+				}
+			}
+
+			return true;
+		});
 	}, []);
 
 	// Set up live chunk update listener (only in live mode)
@@ -1139,11 +1381,48 @@ export default function CanvasMinimapPage() {
 			}
 		};
 
-		// Subscribe to chunk update events through the plugin
+		const handleChartTagUpdate = (event: ChartTagDataEvent) => {
+			const currentState = currentStateRef.current;
+			// Only process updates for the currently selected instance/surface/force
+			if (event.instance_id === currentState.selectedInstance &&
+				event.tag_data.surface === currentState.selectedSurface &&
+				event.tag_data.force === currentState.selectedForce) {
+
+				// Add the new chart tag data to our collection
+				const newTagData: ChartTagDataWithInstance = {
+					...event.tag_data,
+					instance_id: event.instance_id,
+				};
+
+				setRawChartTags(prevTags => {
+					// Check if we already have this tag (by tag_number and instance)
+					const existingIndex = prevTags.findIndex(tag => 
+						tag.tag_number === newTagData.tag_number &&
+						tag.instance_id === newTagData.instance_id &&
+						tag.surface === newTagData.surface &&
+						tag.force === newTagData.force
+					);
+
+					if (existingIndex >= 0) {
+						// Update existing tag
+						const newTags = [...prevTags];
+						newTags[existingIndex] = newTagData;
+						return newTags;
+					} else {
+						// Add new tag
+						return [...prevTags, newTagData];
+					}
+				});
+			}
+		};
+
+		// Subscribe to update events through the plugin
 		plugin.onTileUpdate(handleChunkUpdate);
+		plugin.onChartTagUpdate(handleChartTagUpdate);
 
 		return () => {
 			plugin.offTileUpdate(handleChunkUpdate);
+			plugin.offChartTagUpdate(handleChartTagUpdate);
 		};
 	}, [updateChunk, control]);
 
@@ -1161,13 +1440,11 @@ export default function CanvasMinimapPage() {
 									value={selectedInstance}
 									onChange={setSelectedInstance}
 									loading={loading}
-								>
-									{instances.map(instance => (
-										<Select.Option key={instance.instanceId} value={instance.instanceId}>
-											{instance.name}
-										</Select.Option>
-									))}
-								</Select>
+									options={[...instances.values()].map(instance => ({
+										value: instance.id,
+										label: instance.name
+									}))}
+								/>
 								<Select
 									style={{ width: 150 }}
 									placeholder="Select surface"
@@ -1192,9 +1469,6 @@ export default function CanvasMinimapPage() {
 										</Select.Option>
 									))}
 								</Select>
-								<Button onClick={loadInstances} loading={loading}>
-									Reload Instances
-								</Button>
 								<Space direction="vertical" size="small">
 									<Space>
 										<Text strong>Timelapse:</Text>
@@ -1206,6 +1480,18 @@ export default function CanvasMinimapPage() {
 										{isTimelapseMode && (
 											<Text type="secondary">
 												{availableTicks.length} snapshots
+											</Text>
+										)}
+									</Space>
+									<Space>
+										<Text strong>Chart Tags:</Text>
+										<Switch 
+											checked={showChartTags} 
+											onChange={setShowChartTags}
+										/>
+										{showChartTags && (
+											<Text type="secondary">
+												{getVisibleChartTags().length} visible
 											</Text>
 										)}
 									</Space>

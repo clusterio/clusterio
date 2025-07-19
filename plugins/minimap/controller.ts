@@ -2,9 +2,11 @@ import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin } from "@clusterio/controller";
 import {
 	TileDataEvent,
-	GetInstanceBoundsRequest,
 	GetRawTileRequest,
+	GetChartTagsRequest,
 	ChartData,
+	ChartTagDataEvent,
+	ChartTagData,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -30,31 +32,53 @@ interface PixelChange {
 
 export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
+	private chartTagsPath: string = "";
 	private chunkSavingQueue = new Map<string, Map<string, { data: ChartData, tick: number }>>();
+	private chartTagQueues = new Map<string, ChartTagData[]>();
+	private seenTagNumbers = new Map<string, Set<number>>();
 	private savingTiles: boolean = false;
-	// Set to true if colors appear inverted - this will try big-endian byte order
-	private useBigEndian: boolean = false;
+	private savingChartTags = new Set<string>();
+	private saveInterval: NodeJS.Timeout | null = null;
 
 	async init() {
 		this.tilesPath = path.resolve(
 			this.controller.config.get("controller.database_directory"),
 			"minimap_tiles"
 		);
+		this.chartTagsPath = path.resolve(
+			this.controller.config.get("controller.database_directory"),
+			"minimap_chart_tags"
+		);
 		await fs.ensureDir(this.tilesPath);
+		await fs.ensureDir(this.chartTagsPath);
 
 		this.controller.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
-		this.controller.handle(GetInstanceBoundsRequest, this.handleGetInstanceBoundsRequest.bind(this));
+		this.controller.handle(ChartTagDataEvent, this.handleChartTagDataEvent.bind(this));
 		this.controller.handle(GetRawTileRequest, this.handleGetRawTileRequest.bind(this));
+		this.controller.handle(GetChartTagsRequest, this.handleGetChartTagsRequest.bind(this));
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
 
-		setInterval(() => {
+		// Load existing tag numbers for deduplication
+		await this.loadExistingTagNumbers();
+
+		this.saveInterval = setInterval(() => {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
+			this.saveChartTags().catch(err => this.logger.error(`Error saving chart tags: ${err}`));
 		}, 5000);
 	}
 
-
+	async onShutdown() {
+		if (this.saveInterval) {
+			clearInterval(this.saveInterval);
+			this.saveInterval = null;
+		}
+		
+		// Perform final save before shutdown
+		await this.saveTiles();
+		await this.saveChartTags();
+	}
 
 	// Compare two pixel arrays and return changes
 	private comparePixels(oldPixels: Uint16Array, newPixels: Uint16Array, chunkX: number, chunkY: number): PixelChange[] {
@@ -353,9 +377,143 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		return Buffer.concat([existingTile, ...appendBuffers]);
 	}
 
+	async loadExistingTagNumbers() {
+		try {
+			if (!await fs.pathExists(this.chartTagsPath)) {
+				return;
+			}
 
+			const files = await fs.readdir(this.chartTagsPath);
+			const tagFiles = files.filter(file => file.endsWith('_chart_tags.json'));
 
+			for (const file of tagFiles) {
+				const fileKey = file.replace('_chart_tags.json', '');
+				const filePath = path.join(this.chartTagsPath, file);
+				
+				if (!this.seenTagNumbers.has(fileKey)) {
+					this.seenTagNumbers.set(fileKey, new Set<number>());
+				}
+				const seenTags = this.seenTagNumbers.get(fileKey)!;
 
+				try {
+					const content = await fs.readFile(filePath, 'utf-8');
+					const lines = content.trim().split('\n').filter(line => line.trim());
+					
+					for (const line of lines) {
+						try {
+							const tagData = JSON.parse(line);
+							if (typeof tagData.tag_number === 'number') {
+								seenTags.add(tagData.tag_number);
+							}
+						} catch (parseErr) {
+							this.logger.warn(`Failed to parse chart tag line in ${file}: ${parseErr}`);
+						}
+					}
+					
+					this.logger.info(`Loaded ${seenTags.size} existing tag numbers from ${file}`);
+				} catch (readErr) {
+					this.logger.warn(`Failed to read chart tag file ${file}: ${readErr}`);
+				}
+			}
+		} catch (err) {
+			this.logger.error(`Error loading existing tag numbers: ${err}`);
+		}
+	}
+
+	async saveChartTags() {
+		if (this.chartTagQueues.size === 0) {
+			return;
+		}
+
+		const savePromises = [];
+		for (const [fileKey, tags] of this.chartTagQueues) {
+			if (tags.length === 0 || this.savingChartTags.has(fileKey)) {
+				// Remove empty queues to prevent repeated processing
+				if (tags.length === 0 && !this.savingChartTags.has(fileKey)) {
+					this.chartTagQueues.delete(fileKey);
+				}
+				continue;
+			}
+
+			const promise = (async () => {
+				this.savingChartTags.add(fileKey);
+				const tagsToSave = [...tags];
+				tags.length = 0; // Clear the queue
+
+				try {
+					const filePath = path.join(this.chartTagsPath, `${fileKey}_chart_tags.json`);
+					
+					// Convert chart tags to newline-delimited JSON format
+					const jsonLines = tagsToSave.map(tag => JSON.stringify(tag)).join('\n');
+					
+					await fs.appendFile(filePath, jsonLines + '\n');
+					
+					// Mark tags as successfully saved
+					if (!this.seenTagNumbers.has(fileKey)) {
+						this.seenTagNumbers.set(fileKey, new Set<number>());
+					}
+					const seenTags = this.seenTagNumbers.get(fileKey)!;
+					for (const tag of tagsToSave) {
+						seenTags.add(tag.tag_number);
+					}
+					
+					this.logger.info(`Saved ${tagsToSave.length} chart tag entries to ${fileKey}`);
+				} catch (err) {
+					this.logger.error(`Error saving chart tags for ${fileKey}: ${err}`);
+					// Re-queue the failed tags
+					tags.unshift(...tagsToSave);
+				} finally {
+					this.savingChartTags.delete(fileKey);
+				}
+			})();
+			savePromises.push(promise);
+		}
+
+		await Promise.all(savePromises);
+	}
+
+	async handleChartTagDataEvent(event: ChartTagDataEvent) {
+		try {
+			const { instance_id, tag_data } = event;
+
+			// Create file key based on instance, surface, and force
+			const fileKey = `${instance_id}_${tag_data.surface}_${tag_data.force}`;
+
+			// Initialize seen tags set if it doesn't exist
+			if (!this.seenTagNumbers.has(fileKey)) {
+				this.seenTagNumbers.set(fileKey, new Set<number>());
+			}
+
+			// Check for duplicate tag_number
+			const seenTags = this.seenTagNumbers.get(fileKey)!;
+			if (seenTags.has(tag_data.tag_number)) {
+				return;
+			}
+
+			// Add instance_id to the tag data for storage
+			const enrichedTagData = {
+				...tag_data,
+				instance_id
+			};
+
+			// Initialize queue if it doesn't exist
+			if (!this.chartTagQueues.has(fileKey)) {
+				this.chartTagQueues.set(fileKey, []);
+			}
+
+			// Queue for batch saving
+			this.chartTagQueues.get(fileKey)!.push(enrichedTagData);
+
+			// Send live update to connected web clients
+			const updateEvent = new ChartTagDataEvent(instance_id, tag_data);
+			
+			// Broadcast to web clients (overriding the formal src/dst routing)
+			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
+
+		} catch (err) {
+			this.logger.error(`Error processing chart tag data: ${err}`);
+		}
+	}
 
 	async handleTileDataEvent(event: TileDataEvent) {
 		try {
@@ -395,23 +553,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 	}
 
-	async handleGetInstanceBoundsRequest(request: GetInstanceBoundsRequest) {
-		const instances = Array.from(this.controller.instances.values())
-			.filter(instance => instance.status === "running")
-			.map(instance => ({
-				instanceId: instance.config.get("instance.id"),
-				name: instance.config.get("instance.name"),
-				bounds: {
-					x1: -512, // Default bounds, could be made configurable
-					y1: -512,
-					x2: 512,
-					y2: 512,
-				},
-			}));
-
-		return { instances };
-	}
-
 	async handleGetRawTileRequest(request: GetRawTileRequest) {
 		const { instance_id, surface, force, tile_x, tile_y, tick } = request;
 		
@@ -433,6 +574,37 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		} catch (err) {
 			this.logger.error(`Error reading tile file: ${err}`);
 			return { tile_data: null };
+		}
+	}
+
+	async handleGetChartTagsRequest(request: GetChartTagsRequest) {
+		const { instance_id, surface, force } = request;
+		
+		const fileKey = `${instance_id}_${surface}_${force}`;
+		const filePath = path.join(this.chartTagsPath, `${fileKey}_chart_tags.json`);
+
+		if (!await fs.pathExists(filePath)) {
+			return { chart_tags: [] };
+		}
+
+		try {
+			const content = await fs.readFile(filePath, 'utf-8');
+			const lines = content.trim().split('\n').filter(line => line.trim());
+			
+			const chartTags: ChartTagData[] = [];
+			for (const line of lines) {
+				try {
+					const tagData = JSON.parse(line);
+					chartTags.push(tagData);
+				} catch (parseErr) {
+					this.logger.warn(`Failed to parse chart tag line: ${parseErr}`);
+				}
+			}
+			
+			return { chart_tags: chartTags };
+		} catch (err) {
+			this.logger.error(`Error reading chart tag file: ${err}`);
+			return { chart_tags: [] };
 		}
 	}
 }
