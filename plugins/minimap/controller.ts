@@ -46,6 +46,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		icon?: any;
 		last_user?: string;
 	}>>();
+	private lastSeenRecipeContent = new Map<string, Map<string, string | undefined>>(); // tileKey -> posKey -> recipe
 	private savingTiles: boolean = false;
 	private savingChartTags = new Set<string>();
 	private saveInterval: NodeJS.Timeout | null = null;
@@ -80,6 +81,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		// Load existing tag numbers for deduplication
 		await this.loadExistingTagContent();
+		// Load existing recipe data for deduplication
+		await this.loadExistingRecipeContent();
 
 		this.saveInterval = setInterval(() => {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
@@ -446,6 +449,60 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 	}
 
+	/**
+	 * Parses existing recipe jsonl files and builds an in-memory map that tracks
+	 * the latest active (non-ended) recipe for every position. This allows incoming
+	 * RecipeDataEvents to be deduplicated so we do not append identical recipe lines
+	 * to disk multiple times.
+	 */
+	async loadExistingRecipeContent() {
+		try {
+			if (!await fs.pathExists(this.recipeTilesPath)) {
+				return;
+			}
+
+			const files = await fs.readdir(this.recipeTilesPath);
+			const recipeFiles = files.filter(file => file.endsWith("_recipes.jsonl"));
+
+			for (const file of recipeFiles) {
+				const tileKey = file.replace("_recipes.jsonl", "");
+				const filePath = path.join(this.recipeTilesPath, file);
+
+				if (!this.lastSeenRecipeContent.has(tileKey)) {
+					this.lastSeenRecipeContent.set(tileKey, new Map());
+				}
+				const seenRecipes = this.lastSeenRecipeContent.get(tileKey)!;
+
+				try {
+					const content = await fs.readFile(filePath, "utf-8");
+					const lines = content.trim().split("\n").filter(line => line.trim());
+
+					for (const line of lines) {
+						try {
+							const recipeData = JSON.parse(line) as RecipeData;
+							const posKey = `${recipeData.position[0]}_${recipeData.position[1]}`;
+
+							// Update map: if the recipe has an end_tick it's no longer active, otherwise store/update it.
+							if (recipeData.end_tick !== undefined) {
+								seenRecipes.delete(posKey);
+							} else {
+								seenRecipes.set(posKey, recipeData.recipe);
+							}
+						} catch (parseErr) {
+							this.logger.warn(`Failed to parse recipe line in ${file}: ${parseErr}`);
+						}
+					}
+
+					this.logger.info(`Loaded ${seenRecipes.size} existing recipe entries from ${file}`);
+				} catch (readErr) {
+					this.logger.warn(`Failed to read recipe file ${file}: ${readErr}`);
+				}
+			}
+		} catch (err) {
+			this.logger.error(`Error loading existing recipe content: ${err}`);
+		}
+	}
+
 	async saveChartTags() {
 		if (this.chartTagQueues.size === 0) {
 			return;
@@ -705,6 +762,33 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const tileX = Math.floor(x / 256);
 			const tileY = Math.floor(y / 256);
 			const tileKey = `${instance_id}_${recipe_data.surface}_${recipe_data.force}_${tileX}_${tileY}`;
+			const posKey = `${x}_${y}`;
+
+			// Initialise the deduplication map for this tile if needed
+			if (!this.lastSeenRecipeContent.has(tileKey)) {
+				this.lastSeenRecipeContent.set(tileKey, new Map());
+			}
+			const seenRecipes = this.lastSeenRecipeContent.get(tileKey)!;
+
+			let shouldEnqueue = true;
+
+			if (recipe_data.end_tick !== undefined) {
+				// A recipe is being removed/ended – always enqueue the event but update our cache
+				seenRecipes.delete(posKey);
+			} else {
+				const existingRecipe = seenRecipes.get(posKey);
+				if (existingRecipe === recipe_data.recipe) {
+					// Duplicate event – skip persisting
+					shouldEnqueue = false;
+				} else {
+					// New or changed recipe – remember it
+					seenRecipes.set(posKey, recipe_data.recipe);
+				}
+			}
+
+			if (!shouldEnqueue) {
+				return;
+			}
 
 			if (!this.recipeSavingQueue.has(tileKey)) {
 				this.recipeSavingQueue.set(tileKey, []);
