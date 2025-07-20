@@ -514,6 +514,35 @@ export default function CanvasMinimapPage() {
 
 			setChartTagTimestamps(tagsWithTicks);
 
+			// Collect recipe timestamps across visible recipe tiles
+			let recipeTicksAdded = 0;
+			for (let tileY = topTile; tileY <= bottomTile; tileY++) {
+				for (let tileX = leftTile; tileX <= rightTile; tileX++) {
+					try {
+						const recipeResp = await control.send(new GetRawRecipeTileRequest(
+							selectedInstance,
+							selectedSurface,
+							selectedForce,
+							tileX,
+							tileY
+						));
+						if (recipeResp.recipe_tile) {
+							const text = atob(recipeResp.recipe_tile);
+							const lines = text.trim().split('\n').filter(l => l.trim());
+							for (const line of lines) {
+								try {
+									const rec = JSON.parse(line);
+									if (rec.start_tick !== undefined) { allTicks.add(rec.start_tick); recipeTicksAdded++; }
+									if (rec.end_tick !== undefined) { allTicks.add(rec.end_tick); recipeTicksAdded++; }
+								} catch { /* ignore parse errors */ }
+							}
+						}
+					} catch (e) {
+						console.warn(`Failed to load recipe tile ${tileX},${tileY}:`, e);
+					}
+				}
+			}
+
 			const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
 			setAvailableTicks(sortedTicks);
 
@@ -546,6 +575,7 @@ export default function CanvasMinimapPage() {
 		tileStateCache.current.clear();
 		chunkCache.current.clear();
 		loadingTiles.current.clear();
+		recipeCache.current.clear();
 	};
 
 	const stepToTick = async (tickIndex: number) => {
@@ -557,6 +587,9 @@ export default function CanvasMinimapPage() {
 			if (oldTick === newTick) {
 				return; // No change needed
 			}
+
+			// Clear recipe cache; will be repopulated for this tick
+			recipeCache.current.clear();
 
 			// Use incremental updates for loaded tiles instead of clearing cache
 			const updatePromises: Promise<void>[] = [];
@@ -1451,6 +1484,7 @@ export default function CanvasMinimapPage() {
 			tileStateCache.current.clear();
 			chunkCache.current.clear();
 			loadingTiles.current.clear();
+			recipeCache.current.clear();
 		}
 	}, [selectedInstance]);
 
@@ -1705,6 +1739,24 @@ export default function CanvasMinimapPage() {
 		plugin.onRecipeUpdate(handleRecipeUpdate);
 		return () => { plugin.offRecipeUpdate(handleRecipeUpdate); };
 	}, [control]);
+
+	// Reload recipe overlay when timeline tick changes
+	useEffect(() => {
+		if (isTimelapseMode && currentTick !== null && showRecipes) {
+			// Clear existing icons
+			recipeCache.current.clear();
+
+			const visible = calculateVisibleTiles();
+			if (!visible) return;
+
+			const { leftTile, topTile, rightTile, bottomTile } = visible;
+			for (let ty = topTile; ty <= bottomTile; ty++) {
+				for (let tx = leftTile; tx <= rightTile; tx++) {
+					loadRecipeTile(tx, ty);
+				}
+			}
+		}
+	}, [currentTick, isTimelapseMode, showRecipes]);
 
 	return (
 		<div style={{ padding: "20px" }}>
