@@ -31,6 +31,100 @@ local function send_chart_tag_data(tag_data)
 	clusterio_api.send_json("minimap:chart_tag_data", tag_data)
 end
 
+-- Send recipe data to plugin
+local function send_recipe_data(recipe_data)
+	clusterio_api.send_json("minimap:recipe_data", recipe_data)
+end
+
+-- Helper for creating and sending recipe start/stop events
+local function update_entity_recipe(entity)
+	if not entity or not entity.valid then
+		return
+	end
+
+	-- Ensure storage.minimap exists
+	if not storage.minimap then
+		storage.minimap = { enabled = true, chunk_update_queue = {}, recipe_cache = {} }
+	end
+
+	if not storage.minimap.recipe_cache then
+		storage.minimap.recipe_cache = {}
+	end
+
+	-- Only consider entities that can have recipes
+	local recipe = nil
+	if entity.type == "assembling-machine" then
+		local rec_obj = entity.get_recipe()
+		if rec_obj then
+			recipe = rec_obj.name
+		end
+	elseif entity.type == "furnace" then
+		-- Furnaces often idle with get_recipe() = nil; fall back to previous_recipe
+		local prev = entity.previous_recipe
+		if prev and prev.name then
+			recipe = prev.name.name -- Recipe prototype name
+		end
+	end
+
+	local cache = storage.minimap.recipe_cache
+	if not cache then
+		cache = {}
+		storage.minimap.recipe_cache = cache
+	end
+	local unit_number = entity.unit_number
+	if not unit_number then
+		return -- Cannot track entities without persistent ID
+	end
+
+	local previous = cache[unit_number]
+	if previous and previous.recipe_name == recipe then
+		return -- No change
+	end
+
+	local position = entity.position
+	local data_common = {
+		position = { position.x, position.y },
+		surface = entity.surface.name,
+		force = entity.force.name,
+	}
+
+	-- Close previous recipe if it existed
+	if previous and previous.recipe_name then
+		local end_data = {
+			position = data_common.position,
+			surface = data_common.surface,
+			force = data_common.force,
+			start_tick = nil,
+			end_tick = game.tick,
+			recipe = nil,
+		}
+		send_recipe_data(end_data)
+	end
+
+	-- Open new recipe interval if recipe now set
+	if recipe then
+		local icon_signal = nil
+		local recipe_proto = prototypes.recipe[recipe]
+		if recipe_proto and recipe_proto.main_product then
+			icon_signal = { type = recipe_proto.main_product.type, name = recipe_proto.main_product.name }
+		end
+		local start_data = {
+			position = data_common.position,
+			surface = data_common.surface,
+			force = data_common.force,
+			start_tick = game.tick,
+			end_tick = nil,
+			recipe = recipe,
+			icon = icon_signal,
+		}
+		send_recipe_data(start_data)
+		cache[unit_number] = { recipe_name = recipe }
+	else
+		-- Recipe cleared
+		cache[unit_number] = nil
+	end
+end
+
 -- Create tag data structure
 local function create_tag_data(tag, start_tick, end_tick)
 	return {
@@ -150,11 +244,14 @@ local function on_entity_built(event)
 	end
 
 	if event.created_entity and event.created_entity.valid then
-		local position = event.created_entity.position
+		local entity = event.created_entity
+		local position = entity.position
 		local chunk_x = math.floor(position.x / 32)
 		local chunk_y = math.floor(position.y / 32)
 
 		queue_chunk_for_update({x = chunk_x, y = chunk_y})
+		-- Track recipe for newly built crafting entities
+		update_entity_recipe(entity)
 	end
 end
 
@@ -164,11 +261,14 @@ local function on_entity_removed(event)
 	end
 
 	if event.entity and event.entity.position then
-		local position = event.entity.position
+		local entity = event.entity
+		local position = entity.position
 		local chunk_x = math.floor(position.x / 32)
 		local chunk_y = math.floor(position.y / 32)
 
 		queue_chunk_for_update({x = chunk_x, y = chunk_y})
+		-- End recipe interval for removed entity
+		update_entity_recipe(entity)
 	end
 end
 
@@ -195,12 +295,39 @@ local function on_tile_changed(event)
 	end
 end
 
+-- Handle recipe change via settings paste
+local function on_entity_settings_pasted(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+	if event.destination and event.destination.valid then
+		update_entity_recipe(event.destination)
+	end
+end
+
+local function on_gui_closed(event)
+    if not storage.minimap or not storage.minimap.enabled then
+        return
+    end
+
+    -- We're only interested in entity GUIs
+    if event.gui_type ~= defines.gui_type.entity then
+        return
+    end
+
+    local entity = event.entity
+    if entity and entity.valid and (entity.type == "assembling-machine" or entity.type == "furnace") then
+        update_entity_recipe(entity)
+    end
+end
+
 -- Initialize the module
 local function init()
 	if not storage.minimap then
 		storage.minimap = {
 			enabled = true,
-			chunk_update_queue = {}
+			chunk_update_queue = {},
+			recipe_cache = {}
 		}
 	end
 
@@ -235,6 +362,48 @@ local function init()
 
 				-- Send to plugin
 				send_chart_tag_data(tag_data)
+			end
+
+			-- Initialize existing crafting recipes on this surface and force
+			local crafting_entities = surface.find_entities_filtered{
+				type = {
+					"assembling-machine",
+					"furnace",
+				}
+			}
+			for _, entity in pairs(crafting_entities) do
+				if entity.valid and entity.force == force then
+					local recipe
+					if entity.type == "assembling-machine" then
+						recipe = entity.get_recipe()
+					elseif entity.type == "furnace" then
+						local prev = entity.previous_recipe
+						if prev and prev.name then
+							recipe = { name = prev.name.name }
+						end
+					end
+					if recipe then
+						local data = {
+							position = { entity.position.x, entity.position.y },
+							surface = surface.name,
+							force = force.name,
+							start_tick = game.tick,
+							end_tick = nil,
+							recipe = recipe.name,
+							icon = (function()
+								local rp = prototypes.recipe[recipe.name]
+								if rp and rp.main_product then
+									return { type = rp.main_product.type, name = rp.main_product.name }
+								end
+								return nil
+							end)()
+						}
+						send_recipe_data(data)
+
+						-- Cache for tracking
+						storage.minimap.recipe_cache[entity.unit_number] = { recipe_name = recipe.name }
+					end
+				end
 			end
 		end
 	end
@@ -272,5 +441,7 @@ minimap.events[defines.events.script_raised_set_tiles] = on_tile_changed
 minimap.events[defines.events.on_chart_tag_added] = on_chart_tag_added
 minimap.events[defines.events.on_chart_tag_modified] = on_chart_tag_modified
 minimap.events[defines.events.on_chart_tag_removed] = on_chart_tag_removed
+minimap.events[defines.events.on_entity_settings_pasted] = on_entity_settings_pasted
+minimap.events[defines.events.on_gui_closed] = on_gui_closed
 
 return minimap

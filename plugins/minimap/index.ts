@@ -5,6 +5,8 @@ import {
 	ChartTagDataEvent,
 	GetRawTileRequest,
 	GetChartTagsRequest,
+	RecipeDataEvent,
+	GetRawRecipeTileRequest,
 } from "./messages";
 
 // Define permissions
@@ -26,8 +28,10 @@ export const plugin: lib.PluginDeclaration = {
 	messages: [
 		TileDataEvent,
 		ChartTagDataEvent,
+		RecipeDataEvent,
 		GetRawTileRequest,
 		GetChartTagsRequest,
+		GetRawRecipeTileRequest,
 	],
 	routes: ["/minimap"],
 };
