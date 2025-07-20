@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
-import { TileDataEvent, ChartData, ChartTagDataEvent, ChartTagData } from "./messages";
+import { TileDataEvent, ChartData, ChartTagDataEvent, ChartTagData, RecipeDataEvent, RecipeData } from "./messages";
 
 interface TileDataIpc {
 	type: "chart";
@@ -19,6 +19,17 @@ interface ChartTagDataIpc {
 	text: string;
 	icon: string | null;
 	last_user: string | null;
+}
+
+interface RecipeDataIpc {
+	tag_number?: number
+	start_tick: number | null
+	end_tick: number | null
+	surface: string
+	force: string
+	position: [number, number]
+	recipe: string | null
+	icon?: { type?: string, name?: string, quality?: string }
 }
 
 export class InstancePlugin extends BaseInstancePlugin {
@@ -40,6 +51,13 @@ export class InstancePlugin extends BaseInstancePlugin {
 		this.instance.server.on("ipc-minimap:chart_tag_data", (data: ChartTagDataIpc) => {
 			this.handleChartTagDataFromLua(data).catch(err => this.logger.error(
 				`Error handling chart tag data from Lua:\n${err}`
+			));
+		});
+
+		// Listen for recipe data from Lua module
+		this.instance.server.on("ipc-minimap:recipe_data", (data: RecipeDataIpc) => {
+			this.handleRecipeDataFromLua(data).catch(err => this.logger.error(
+				`Error handling recipe data from Lua:\n${err}`
 			));
 		});
 	}
@@ -91,6 +109,35 @@ export class InstancePlugin extends BaseInstancePlugin {
 
 		// Send to controller
 		return this.instance.sendTo("controller", chartTagEvent);
+	}
+
+	async handleRecipeDataFromLua(data: RecipeDataIpc) {
+		try {
+			if (!data) {
+				this.logger.error("Invalid recipe data received")
+				return
+			}
+
+			const recipeData: RecipeData = {
+				start_tick: data.start_tick ?? undefined,
+				end_tick: data.end_tick ?? undefined,
+				surface: data.surface,
+				force: data.force,
+				position: data.position,
+				recipe: data.recipe ?? undefined,
+				icon: data.icon ?? undefined,
+			};
+
+			const event = new RecipeDataEvent(
+				this.instance.config.get("instance.id"),
+				recipeData
+			);
+
+			return this.instance.sendTo("controller", event);
+
+		} catch (err: unknown) {
+			this.logger.error(`Failed to process recipe data from Lua: ${err}`);
+		}
 	}
 
 	async onStart() {

@@ -7,6 +7,9 @@ import {
 	ChartData,
 	ChartTagDataEvent,
 	ChartTagData,
+    RecipeDataEvent,
+    RecipeData,
+    GetRawRecipeTileRequest,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -33,8 +36,10 @@ interface PixelChange {
 export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
 	private chartTagsPath: string = "";
+    private recipeTilesPath: string = "";
 	private chunkSavingQueue = new Map<string, Map<string, { data: ChartData, tick: number }>>();
 	private chartTagQueues = new Map<string, ChartTagData[]>();
+    private recipeSavingQueue = new Map<string, RecipeData[]>();
 	private lastSeenTagContent = new Map<string, Map<number, {
 		position: [number, number];
 		text: string;
@@ -44,6 +49,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private savingTiles: boolean = false;
 	private savingChartTags = new Set<string>();
 	private saveInterval: NodeJS.Timeout | null = null;
+	private saveRecipeTilesInProgress: boolean = false;
 
 	async init() {
 		this.tilesPath = path.resolve(
@@ -54,13 +60,20 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			this.controller.config.get("controller.database_directory"),
 			"minimap_chart_tags"
 		);
+		this.recipeTilesPath = path.resolve(
+			this.controller.config.get("controller.database_directory"),
+			"minimap_recipe_tiles"
+		);
 		await fs.ensureDir(this.tilesPath);
 		await fs.ensureDir(this.chartTagsPath);
+		await fs.ensureDir(this.recipeTilesPath);
 
 		this.controller.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
 		this.controller.handle(ChartTagDataEvent, this.handleChartTagDataEvent.bind(this));
 		this.controller.handle(GetRawTileRequest, this.handleGetRawTileRequest.bind(this));
 		this.controller.handle(GetChartTagsRequest, this.handleGetChartTagsRequest.bind(this));
+        this.controller.handle(RecipeDataEvent, this.handleRecipeDataEvent.bind(this));
+        this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
@@ -71,6 +84,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.saveInterval = setInterval(() => {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
 			this.saveChartTags().catch(err => this.logger.error(`Error saving chart tags: ${err}`));
+            this.saveRecipeTiles().catch(err => this.logger.error(`Error saving recipe tiles: ${err}`));
 		}, 5000);
 	}
 
@@ -83,6 +97,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		// Perform final save before shutdown
 		await this.saveTiles();
 		await this.saveChartTags();
+		await this.saveRecipeTiles();
 	}
 
 	// Compare two pixel arrays and return changes
@@ -527,6 +542,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				instance_id
 			};
 
+			// Immediately update last seen content to improve deduplication before save completes
+			if (tag_data.end_tick !== undefined) {
+				seenTags.delete(tag_data.tag_number);
+			} else {
+				seenTags.set(tag_data.tag_number, {
+					position: tag_data.position,
+					text: tag_data.text,
+					icon: tag_data.icon,
+					last_user: tag_data.last_user
+				});
+			}
+
 			// Initialize queue if it doesn't exist
 			if (!this.chartTagQueues.has(fileKey)) {
 				this.chartTagQueues.set(fileKey, []);
@@ -636,6 +663,78 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		} catch (err) {
 			this.logger.error(`Error reading chart tag file: ${err}`);
 			return { chart_tags: [] };
+		}
+	}
+
+	async saveRecipeTiles() {
+		if (this.saveRecipeTilesInProgress) {
+			return;
+		}
+
+		if (this.recipeSavingQueue.size === 0) {
+			return;
+		}
+
+		this.saveRecipeTilesInProgress = true;
+		const queue = this.recipeSavingQueue;
+		this.recipeSavingQueue = new Map();
+
+		try {
+			const promises = [] as Promise<void>[];
+			for (const [tileName, list] of queue) {
+				const promise = (async () => {
+					const tilePath = path.join(this.recipeTilesPath, `${tileName}_recipes.jsonl`);
+					const lines = list.map(rec => JSON.stringify(rec)).join("\n") + "\n";
+					await fs.appendFile(tilePath, lines, "utf-8");
+				})();
+				promises.push(promise);
+			}
+			await Promise.all(promises);
+		} catch (err) {
+			this.logger.error(`Error saving recipe tiles: ${err}`);
+		} finally {
+			this.saveRecipeTilesInProgress = false;
+		}
+	}
+
+	async handleRecipeDataEvent(event: RecipeDataEvent) {
+		try {
+			const { instance_id, recipe_data } = event;
+			const x = recipe_data.position[0];
+			const y = recipe_data.position[1];
+			const tileX = Math.floor(x / 256);
+			const tileY = Math.floor(y / 256);
+			const tileKey = `${instance_id}_${recipe_data.surface}_${recipe_data.force}_${tileX}_${tileY}`;
+
+			if (!this.recipeSavingQueue.has(tileKey)) {
+				this.recipeSavingQueue.set(tileKey, []);
+			}
+			this.recipeSavingQueue.get(tileKey)!.push(recipe_data);
+
+			// broadcast live update
+			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), event);
+
+		} catch (err) {
+			this.logger.error(`Error processing recipe data: ${err}`);
+		}
+	}
+
+	async handleGetRawRecipeTileRequest(request: GetRawRecipeTileRequest) {
+		const { instance_id, surface, force, tile_x, tile_y } = request;
+		const tileKey = `${instance_id}_${surface}_${force}_${tile_x}_${tile_y}`;
+		const filePath = path.join(this.recipeTilesPath, `${tileKey}_recipes.jsonl`);
+
+		if (!await fs.pathExists(filePath)) {
+			return { recipe_tile: null };
+		}
+
+		try {
+			const data = await fs.readFile(filePath, "utf-8");
+			const base64 = Buffer.from(data, "utf-8").toString("base64");
+			return { recipe_tile: base64 };
+		} catch (err) {
+			this.logger.error(`Error reading recipe tile: ${err}`);
+			return { recipe_tile: null };
 		}
 	}
 }
