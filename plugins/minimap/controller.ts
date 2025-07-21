@@ -7,9 +7,9 @@ import {
 	ChartData,
 	ChartTagDataEvent,
 	ChartTagData,
-    RecipeDataEvent,
-    RecipeData,
-    GetRawRecipeTileRequest,
+	RecipeDataEvent,
+	RecipeData,
+	GetRawRecipeTileRequest,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -17,10 +17,12 @@ import * as zlib from "zlib";
 import { promisify } from "util";
 import sharp from "sharp";
 import {
-	renderChunkToPixels, 
-	extractChunkFromTile, 
+	renderChunkToPixels,
+	extractChunkFromTile,
 	renderTileToPixels,
-	pixelsToRGBA
+	pixelsToRGBA,
+	parseRecipeTileBinary,
+	ParsedRecipeTile
 } from "./tile-utils";
 
 const CHUNK_SIZE = 32;
@@ -36,10 +38,13 @@ interface PixelChange {
 export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
 	private chartTagsPath: string = "";
-    private recipeTilesPath: string = "";
+	private recipeTilesPath: string = "";
 	private chunkSavingQueue = new Map<string, Map<string, { data: ChartData, tick: number }>>();
 	private chartTagQueues = new Map<string, ChartTagData[]>();
-    private recipeSavingQueue = new Map<string, RecipeData[]>();
+	private recipeSavingQueue = new Map<string, Buffer[]>();
+	// Keep per-tile dictionary of recipe -> uint16 index as well as next free index
+	private recipeDictionaries = new Map<string, Map<string, number>>();
+	private nextRecipeIndex = new Map<string, number>();
 	private lastSeenTagContent = new Map<string, Map<number, {
 		position: [number, number];
 		text: string;
@@ -73,8 +78,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(ChartTagDataEvent, this.handleChartTagDataEvent.bind(this));
 		this.controller.handle(GetRawTileRequest, this.handleGetRawTileRequest.bind(this));
 		this.controller.handle(GetChartTagsRequest, this.handleGetChartTagsRequest.bind(this));
-        this.controller.handle(RecipeDataEvent, this.handleRecipeDataEvent.bind(this));
-        this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
+		this.controller.handle(RecipeDataEvent, this.handleRecipeDataEvent.bind(this));
+		this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
@@ -87,7 +92,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.saveInterval = setInterval(() => {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
 			this.saveChartTags().catch(err => this.logger.error(`Error saving chart tags: ${err}`));
-            this.saveRecipeTiles().catch(err => this.logger.error(`Error saving recipe tiles: ${err}`));
+			this.saveRecipeTiles().catch(err => this.logger.error(`Error saving recipe tiles: ${err}`));
 		}, 5000);
 	}
 
@@ -96,7 +101,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			clearInterval(this.saveInterval);
 			this.saveInterval = null;
 		}
-		
+
 		// Perform final save before shutdown
 		await this.saveTiles();
 		await this.saveChartTags();
@@ -106,18 +111,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	// Compare two pixel arrays and return changes
 	private comparePixels(oldPixels: Uint16Array, newPixels: Uint16Array, chunkX: number, chunkY: number): PixelChange[] {
 		const changes: PixelChange[] = [];
-		
+
 		for (let y = 0; y < 32; y++) {
 			for (let x = 0; x < 32; x++) {
 				const index = y * 32 + x;
 				const oldColor = oldPixels[index];
 				const newColor = newPixels[index];
-				
+
 				if (oldColor !== newColor) {
 					// Calculate absolute position within the 256x256 tile
 					const absoluteX = chunkX * 32 + x;
 					const absoluteY = chunkY * 32 + y;
-					
+
 					changes.push({
 						x: absoluteX,
 						y: absoluteY,
@@ -127,7 +132,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				}
 			}
 		}
-		
+
 		return changes;
 	}
 
@@ -136,27 +141,27 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		if (changes.length === 0) {
 			return Buffer.alloc(0);
 		}
-		
+
 		// Type (1) + Tick (4) + Length (2) + Pixel data (6 bytes per pixel)
 		const headerSize = 7;
 		const pixelDataSize = changes.length * 6; // 6 bytes per pixel change
 		const totalSize = headerSize + pixelDataSize;
 		const buffer = Buffer.alloc(totalSize);
-		
+
 		let offset = 0;
-		
+
 		// Type 2 for pixels
 		buffer.writeUInt8(2, offset);
 		offset += 1;
-		
+
 		// Tick (converted to seconds)
 		buffer.writeUInt32BE(Math.floor(tick / 60), offset);
 		offset += 4;
-		
+
 		// Length (number of pixel changes, not bytes)
 		buffer.writeUInt16BE(changes.length, offset);
 		offset += 2;
-		
+
 		// Write pixel changes
 		for (const change of changes) {
 			buffer.writeUInt8(change.x, offset);
@@ -168,7 +173,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			buffer.writeUInt16BE(change.oldColor, offset);
 			offset += 2;
 		}
-		
+
 		return buffer;
 	}
 
@@ -230,14 +235,14 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	async renderTile(tileData: Buffer): Promise<Buffer> {
 		// Use renderTileToPixels to get the current state, then convert to image
 		const currentPixels = await renderTileToPixels(tileData);
-		
+
 		// Convert RGB565 pixel data to RGBA buffer for Sharp  
 		const rgbaData = pixelsToRGBA(currentPixels);
 		const raw = Buffer.from(rgbaData);
 
 		// Create and return the image directly
-		return sharp(raw, { 
-			raw: { width: 256, height: 256, channels: 4 } 
+		return sharp(raw, {
+			raw: { width: 256, height: 256, channels: 4 }
 		}).png().toBuffer();
 	}
 
@@ -281,7 +286,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async updateTile(existingTile: Buffer, newChunks: Map<string, { data: ChartData, tick: number }>): Promise<Buffer | undefined> {
 		const existingChunks = new Map<string, { tick: number, data: Buffer }>();
-		
+
 		// Parse existing tile data to find existing chunks
 		let offset = 0;
 		while (offset < existingTile.length) {
@@ -289,28 +294,28 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				this.logger.error(`Invalid tile data: cannot read type at offset ${offset}`);
 				break;
 			}
-			
+
 			const type = existingTile.readUInt8(offset);
 			offset += 1;
-			
+
 			if (type === 1) { // Chunk
 				if (offset + 7 > existingTile.length) {
 					this.logger.error(`Invalid tile data: insufficient chunk header data at offset ${offset}`);
 					break;
 				}
-				
+
 				const tick = existingTile.readUInt32BE(offset);
 				offset += 4;
 				const chunkCoordsByte = existingTile.readUInt8(offset);
 				offset += 1;
 				const length = existingTile.readUInt16BE(offset);
 				offset += 2;
-				
+
 				if (offset + length > existingTile.length) {
 					this.logger.error(`Invalid tile data: insufficient chunk data at offset ${offset}`);
 					break;
 				}
-				
+
 				const chunkX = chunkCoordsByte >> 4;
 				const chunkY = chunkCoordsByte & 0x0F;
 				const chunkName = `${chunkX}_${chunkY}`;
@@ -323,18 +328,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					this.logger.error(`Invalid tile data: insufficient pixel header data at offset ${offset}`);
 					break;
 				}
-				
+
 				const tick = existingTile.readUInt32BE(offset);
 				offset += 4;
 				const pixelCount = existingTile.readUInt16BE(offset);
 				offset += 2;
 				const pixelDataLength = pixelCount * 6;
-				
+
 				if (offset + pixelDataLength > existingTile.length) {
 					this.logger.error(`Invalid tile data: insufficient pixel data at offset ${offset}`);
 					break;
 				}
-				
+
 				// Skip pixel data since we're not rebuilding the file
 				offset += pixelDataLength;
 			} else {
@@ -352,11 +357,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		// Process new chunks and determine what to append
 		const appendBuffers: Buffer[] = [];
 		let hasChanges = false;
-		
+
 		for (const [chunkName, newChunk] of newChunks) {
 			const newChunkData = Buffer.from(newChunk.data.chart_data, "base64");
 			const [chunkX, chunkY] = chunkName.split("_").map(Number);
-			
+
 			if (!existingChunks.has(chunkName)) {
 				// New chunk - append as chunk data (type 1)
 				this.logger.info(`Adding new chunk ${chunkName} to tile`);
@@ -370,7 +375,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			} else {
 				// Existing chunk - compare current tile state with new chunk data
 				const newPixels = await renderChunkToPixels(newChunkData);
-				
+
 				let oldPixels: Uint16Array;
 				if (currentTilePixels) {
 					// Extract current chunk area from the rendered tile
@@ -379,7 +384,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					// Fallback to black pixels if tile couldn't be rendered
 					oldPixels = new Uint16Array(32 * 32);
 				}
-				
+
 				const changes = this.comparePixels(oldPixels, newPixels, chunkX, chunkY);
 				if (changes.length > 0) {
 					this.logger.info(`Adding ${changes.length} pixel changes for chunk ${chunkName} to tile`);
@@ -412,7 +417,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			for (const file of tagFiles) {
 				const fileKey = file.replace('_chart_tags.json', '');
 				const filePath = path.join(this.chartTagsPath, file);
-				
+
 				if (!this.lastSeenTagContent.has(fileKey)) {
 					this.lastSeenTagContent.set(fileKey, new Map());
 				}
@@ -421,7 +426,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				try {
 					const content = await fs.readFile(filePath, 'utf-8');
 					const lines = content.trim().split('\n').filter(line => line.trim());
-					
+
 					for (const line of lines) {
 						try {
 							const tagData = JSON.parse(line);
@@ -438,7 +443,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 							this.logger.warn(`Failed to parse chart tag line in ${file}: ${parseErr}`);
 						}
 					}
-					
+
 					this.logger.info(`Loaded ${seenTags.size} existing tag contents from ${file}`);
 				} catch (readErr) {
 					this.logger.warn(`Failed to read chart tag file ${file}: ${readErr}`);
@@ -462,38 +467,21 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 
 			const files = await fs.readdir(this.recipeTilesPath);
-			const recipeFiles = files.filter(file => file.endsWith("_recipes.jsonl"));
+			const recipeFiles = files.filter(file => file.endsWith(".recipes"));
 
 			for (const file of recipeFiles) {
-				const tileKey = file.replace("_recipes.jsonl", "");
+				const tileKey = file.replace(".recipes", "");
 				const filePath = path.join(this.recipeTilesPath, file);
 
-				if (!this.lastSeenRecipeContent.has(tileKey)) {
-					this.lastSeenRecipeContent.set(tileKey, new Map());
-				}
-				const seenRecipes = this.lastSeenRecipeContent.get(tileKey)!;
+				// Initialise structures
+				this.lastSeenRecipeContent.set(tileKey, new Map());
+				this.recipeDictionaries.set(tileKey, new Map());
+				this.nextRecipeIndex.set(tileKey, 0);
 
 				try {
-					const content = await fs.readFile(filePath, "utf-8");
-					const lines = content.trim().split("\n").filter(line => line.trim());
-
-					for (const line of lines) {
-						try {
-							const recipeData = JSON.parse(line) as RecipeData;
-							const posKey = `${recipeData.position[0]}_${recipeData.position[1]}`;
-
-							// Update map: if the recipe has an end_tick it's no longer active, otherwise store/update it.
-							if (recipeData.end_tick !== undefined) {
-								seenRecipes.delete(posKey);
-							} else {
-								seenRecipes.set(posKey, recipeData.recipe);
-							}
-						} catch (parseErr) {
-							this.logger.warn(`Failed to parse recipe line in ${file}: ${parseErr}`);
-						}
-					}
-
-					this.logger.info(`Loaded ${seenRecipes.size} existing recipe entries from ${file}`);
+					const data = await fs.readFile(filePath);
+					await this.parseRecipeTileForState(tileKey, data);
+					this.logger.info(`Loaded recipe state for ${tileKey}`);
 				} catch (readErr) {
 					this.logger.warn(`Failed to read recipe file ${file}: ${readErr}`);
 				}
@@ -501,6 +489,73 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		} catch (err) {
 			this.logger.error(`Error loading existing recipe content: ${err}`);
 		}
+	}
+
+	// Parse binary recipe tile and populate lastSeenRecipeContent & recipeDictionaries
+	private async parseRecipeTileForState(tileKey: string, buffer: Buffer) {
+		// Derive tile coordinates from key (last two underscore-separated parts)
+		const parts = tileKey.split("_");
+		const tileY = parseInt(parts.pop()!); // last
+		const tileX = parseInt(parts.pop()!); // second last
+		const parsed: ParsedRecipeTile = parseRecipeTileBinary(tileX, tileY, buffer, null);
+
+		// Populate dictionary mapping (name -> index)
+		const dict = this.recipeDictionaries.get(tileKey)!;
+		for (const [id, name] of parsed.dictionary) {
+			dict.set(name, id);
+			const currentNext = this.nextRecipeIndex.get(tileKey) ?? 0;
+			if (id + 1 > currentNext) this.nextRecipeIndex.set(tileKey, id + 1);
+		}
+
+		// Populate active recipe cache
+		const seen = this.lastSeenRecipeContent.get(tileKey)!;
+		for (const [posKey, recipe] of parsed.activeRecipes) {
+			seen.set(posKey, recipe);
+		}
+	}
+
+	// Encode helpers
+	private getOrCreateRecipeIndex(tileKey: string, recipe: string): { index: number, dictEntry?: Buffer } {
+		if (!this.recipeDictionaries.has(tileKey)) {
+			this.recipeDictionaries.set(tileKey, new Map());
+			this.nextRecipeIndex.set(tileKey, 0);
+		}
+		const dict = this.recipeDictionaries.get(tileKey)!;
+		if (dict.has(recipe)) {
+			return { index: dict.get(recipe)! };
+		}
+		const nextIdx = this.nextRecipeIndex.get(tileKey)!;
+		dict.set(recipe, nextIdx);
+		this.nextRecipeIndex.set(tileKey, nextIdx + 1);
+		const nameBuf = Buffer.from(recipe, "utf-8");
+		const dictEntry = Buffer.alloc(1 + 2 + 1 + nameBuf.length);
+		dictEntry.writeUInt8(0, 0);
+		dictEntry.writeUInt16BE(nextIdx, 1);
+		dictEntry.writeUInt8(nameBuf.length, 3);
+		nameBuf.copy(dictEntry, 4);
+		return { index: nextIdx, dictEntry };
+	}
+
+	private encodeSet(tileKey: string, tick: number, px: number, py: number, recipe: string): Buffer[] {
+		const { index, dictEntry } = this.getOrCreateRecipeIndex(tileKey, recipe);
+		const buf = Buffer.alloc(1 + 4 + 1 + 1 + 2);
+		let o = 0;
+		buf.writeUInt8(1, o); o += 1;
+		buf.writeUInt32BE(Math.floor(tick / 60), o); o += 4;
+		buf.writeUInt8(px, o); o += 1;
+		buf.writeUInt8(py, o); o += 1;
+		buf.writeUInt16BE(index, o);
+		return dictEntry ? [dictEntry, buf] : [buf];
+	}
+
+	private encodeClear(tick: number, px: number, py: number): Buffer {
+		const buf = Buffer.alloc(1 + 4 + 1 + 1);
+		let o = 0;
+		buf.writeUInt8(2, o); o += 1;
+		buf.writeUInt32BE(Math.floor(tick / 60), o); o += 4;
+		buf.writeUInt8(px, o); o += 1;
+		buf.writeUInt8(py, o);
+		return buf;
 	}
 
 	async saveChartTags() {
@@ -525,12 +580,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 				try {
 					const filePath = path.join(this.chartTagsPath, `${fileKey}_chart_tags.json`);
-					
+
 					// Convert chart tags to newline-delimited JSON format
 					const jsonLines = tagsToSave.map(tag => JSON.stringify(tag)).join('\n');
-					
+
 					await fs.appendFile(filePath, jsonLines + '\n');
-					
+
 					// Mark tags as successfully saved
 					if (!this.lastSeenTagContent.has(fileKey)) {
 						this.lastSeenTagContent.set(fileKey, new Map());
@@ -544,7 +599,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 							last_user: tag.last_user
 						});
 					}
-					
+
 					this.logger.info(`Saved ${tagsToSave.length} chart tag entries to ${fileKey}`);
 				} catch (err) {
 					this.logger.error(`Error saving chart tags for ${fileKey}: ${err}`);
@@ -575,19 +630,19 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			// Check for duplicate content, but allow deletion events (end_tick set) even if we've seen the tag before
 			const seenTags = this.lastSeenTagContent.get(fileKey)!;
 			const lastSeenContent = seenTags.get(tag_data.tag_number);
-			
+
 			// For deletion events (end_tick set), always allow through
 			if (tag_data.end_tick !== undefined) {
 				// Don't skip deletion events
 			} else if (lastSeenContent) {
 				// For creation/modification events, check if content has actually changed
-				const contentUnchanged = 
+				const contentUnchanged =
 					lastSeenContent.position[0] === tag_data.position[0] &&
 					lastSeenContent.position[1] === tag_data.position[1] &&
 					lastSeenContent.text === tag_data.text &&
 					JSON.stringify(lastSeenContent.icon) === JSON.stringify(tag_data.icon) &&
 					lastSeenContent.last_user === tag_data.last_user;
-				
+
 				if (contentUnchanged) {
 					return; // Skip if content hasn't changed
 				}
@@ -621,7 +676,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			// Send live update to connected web clients
 			const updateEvent = new ChartTagDataEvent(instance_id, tag_data);
-			
+
 			// Broadcast to web clients (overriding the formal src/dst routing)
 			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
 
@@ -659,7 +714,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				tick,
 				chunk
 			);
-			
+
 			// Broadcast to web clients (overriding the formal src/dst routing)
 			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
 
@@ -670,7 +725,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async handleGetRawTileRequest(request: GetRawTileRequest) {
 		const { instance_id, surface, force, tile_x, tile_y, tick } = request;
-		
+
 		const tileName = `${instance_id}_${surface}_${force}_${tile_x}_${tile_y}.bin`;
 		const tilePath = path.join(this.tilesPath, tileName);
 
@@ -680,10 +735,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		try {
 			const tileData = await fs.readFile(tilePath);
-			
+
 			const base64Data = tileData.toString('base64');
-			
-			return { 
+
+			return {
 				tile_data: base64Data
 			};
 		} catch (err) {
@@ -694,7 +749,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async handleGetChartTagsRequest(request: GetChartTagsRequest) {
 		const { instance_id, surface, force } = request;
-		
+
 		const fileKey = `${instance_id}_${surface}_${force}`;
 		const filePath = path.join(this.chartTagsPath, `${fileKey}_chart_tags.json`);
 
@@ -705,7 +760,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		try {
 			const content = await fs.readFile(filePath, 'utf-8');
 			const lines = content.trim().split('\n').filter(line => line.trim());
-			
+
 			const chartTags: ChartTagData[] = [];
 			for (const line of lines) {
 				try {
@@ -715,7 +770,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					this.logger.warn(`Failed to parse chart tag line: ${parseErr}`);
 				}
 			}
-			
+
 			return { chart_tags: chartTags };
 		} catch (err) {
 			this.logger.error(`Error reading chart tag file: ${err}`);
@@ -737,12 +792,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.recipeSavingQueue = new Map();
 
 		try {
-			const promises = [] as Promise<void>[];
-			for (const [tileName, list] of queue) {
+			const promises: Promise<void>[] = [];
+			for (const [tileName, buffers] of queue) {
 				const promise = (async () => {
-					const tilePath = path.join(this.recipeTilesPath, `${tileName}_recipes.jsonl`);
-					const lines = list.map(rec => JSON.stringify(rec)).join("\n") + "\n";
-					await fs.appendFile(tilePath, lines, "utf-8");
+					const tilePath = path.join(this.recipeTilesPath, `${tileName}.recipes`);
+					const concat = Buffer.concat(buffers);
+					await fs.appendFile(tilePath, concat);
 				})();
 				promises.push(promise);
 			}
@@ -764,36 +819,44 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const tileKey = `${instance_id}_${recipe_data.surface}_${recipe_data.force}_${tileX}_${tileY}`;
 			const posKey = `${x}_${y}`;
 
-			// Initialise the deduplication map for this tile if needed
+			// Initialise dedup map
 			if (!this.lastSeenRecipeContent.has(tileKey)) {
 				this.lastSeenRecipeContent.set(tileKey, new Map());
 			}
 			const seenRecipes = this.lastSeenRecipeContent.get(tileKey)!;
 
-			let shouldEnqueue = true;
+			let buffersToWrite: Buffer[] = [];
+
+			// Translate world pos to local px/py
+			const px = Math.round(x - tileX * 256);
+			const py = Math.round(y - tileY * 256);
 
 			if (recipe_data.end_tick !== undefined) {
-				// A recipe is being removed/ended – always enqueue the event but update our cache
-				seenRecipes.delete(posKey);
-			} else {
-				const existingRecipe = seenRecipes.get(posKey);
-				if (existingRecipe === recipe_data.recipe) {
-					// Duplicate event – skip persisting
-					shouldEnqueue = false;
+				// Clear recipe
+				if (seenRecipes.has(posKey)) {
+					seenRecipes.delete(posKey);
+					buffersToWrite.push(this.encodeClear(recipe_data.end_tick, px, py));
 				} else {
-					// New or changed recipe – remember it
-					seenRecipes.set(posKey, recipe_data.recipe);
+					return; // nothing changed
 				}
+			} else {
+				if (!recipe_data.recipe) {
+					return; // nothing to set
+				}
+				const existing = seenRecipes.get(posKey);
+				if (existing === recipe_data.recipe) {
+					return; // duplicate
+				}
+				seenRecipes.set(posKey, recipe_data.recipe);
+				buffersToWrite = this.encodeSet(tileKey, recipe_data.start_tick ?? 0, px, py, recipe_data.recipe);
 			}
 
-			if (!shouldEnqueue) {
-				return;
-			}
+			if (buffersToWrite.length === 0) return;
 
 			if (!this.recipeSavingQueue.has(tileKey)) {
 				this.recipeSavingQueue.set(tileKey, []);
 			}
-			this.recipeSavingQueue.get(tileKey)!.push(recipe_data);
+			this.recipeSavingQueue.get(tileKey)!.push(...buffersToWrite);
 
 			// broadcast live update
 			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), event);
@@ -806,15 +869,15 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	async handleGetRawRecipeTileRequest(request: GetRawRecipeTileRequest) {
 		const { instance_id, surface, force, tile_x, tile_y } = request;
 		const tileKey = `${instance_id}_${surface}_${force}_${tile_x}_${tile_y}`;
-		const filePath = path.join(this.recipeTilesPath, `${tileKey}_recipes.jsonl`);
+		const filePath = path.join(this.recipeTilesPath, `${tileKey}.recipes`);
 
 		if (!await fs.pathExists(filePath)) {
 			return { recipe_tile: null };
 		}
 
 		try {
-			const data = await fs.readFile(filePath, "utf-8");
-			const base64 = Buffer.from(data, "utf-8").toString("base64");
+			const data = await fs.readFile(filePath);
+			const base64 = data.toString("base64");
 			return { recipe_tile: base64 };
 		} catch (err) {
 			this.logger.error(`Error reading recipe tile: ${err}`);
