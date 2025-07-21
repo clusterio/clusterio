@@ -188,30 +188,28 @@ export async function renderTileToPixels(tileData: BinaryData, maxTick?: number)
 			offset += 4;
 			const pixelCount = readUInt16BE(tileData, offset);
 			offset += 2;
+			const newColor = readUInt16BE(tileData, offset);
+			offset += 2;
+			const oldColor = readUInt16BE(tileData, offset);
+			offset += 2;
 
-			const expectedDataLength = pixelCount * 6;
+			const expectedDataLength = pixelCount * 2; // x,y per pixel
 			if (offset + expectedDataLength > tileData.length) {
 				break;
 			}
 
-			// Skip this pixel changeset if it's beyond our target tick
+			// Skip if beyond target tick
 			if (maxTick !== undefined && tick > maxTick) {
 				offset += expectedDataLength;
 				continue;
 			}
 
-			// Apply pixel changes to current state
 			for (let i = 0; i < pixelCount; i++) {
-				const pixelOffset = offset + i * 6;
+				const pixelOffset = offset + i * 2;
 				const x = readUInt8(tileData, pixelOffset);
 				const y = readUInt8(tileData, pixelOffset + 1);
-				const newColor = readUInt16BE(tileData, pixelOffset + 2);
-				// oldColor at pixelOffset + 4 is not needed for rendering
-
-				// Update current pixel state
 				if (x < 256 && y < 256) {
-					const tileIndex = y * 256 + x;
-					currentPixels[tileIndex] = newColor;
+					currentPixels[y * 256 + x] = newColor;
 				}
 			}
 
@@ -295,9 +293,8 @@ export function extractAvailableTicks(tileData: BinaryData): number[] {
 			offset += 4;
 
 			const pixelCount = readUInt16BE(tileData, offset);
-			offset += 2;
-
-			const expectedDataLength = pixelCount * 6;
+			offset += 2 + 2 + 2; // skip newColor oldColor too
+			const expectedDataLength = pixelCount * 2;
 			if (offset + expectedDataLength > tileData.length) {
 				break;
 			}
@@ -405,32 +402,25 @@ export function parseTileData(tileData: BinaryData): ParsedTileData {
 			offset += 4;
 			const pixelCount = readUInt16BE(tileData, offset);
 			offset += 2;
+			const newColor = readUInt16BE(tileData, offset);
+			offset += 2;
+			const oldColor = readUInt16BE(tileData, offset);
+			offset += 2;
 
-			const expectedDataLength = pixelCount * 6;
+			const expectedDataLength = pixelCount * 2;
 			if (offset + expectedDataLength > tileData.length) {
 				break;
 			}
 
 			const changes: PixelChange[] = [];
 			for (let i = 0; i < pixelCount; i++) {
-				const pixelOffset = offset + i * 6;
+				const pixelOffset = offset + i * 2;
 				const x = readUInt8(tileData, pixelOffset);
 				const y = readUInt8(tileData, pixelOffset + 1);
-				const newColor = readUInt16BE(tileData, pixelOffset + 2);
-				const oldColor = readUInt16BE(tileData, pixelOffset + 4);
-
-				if (x < 256 && y < 256) {
-					changes.push({ x, y, newColor, oldColor });
-				}
+				changes.push({ x, y, newColor, oldColor });
 			}
 
-			if (changes.length > 0) {
-				pixelChanges.push({
-					tick,
-					changes
-				});
-			}
-
+			pixelChanges.push({ tick, changes });
 			offset += expectedDataLength;
 		} else {
 			break;
