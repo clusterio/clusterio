@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { Row, Col, Button, Card, Space, Select, Switch, Slider, Typography } from "antd";
 import { ControlContext, useInstances, useItemMetadata } from "@clusterio/web_ui";
-import { GetRawTileRequest, GetChartTagsRequest, GetRawRecipeTileRequest, TileDataEvent, ChartTagData, ChartTagDataEvent, SignalID, RecipeDataEvent } from "../messages";
+import {
+	GetRawTileRequest,
+	GetChartTagsRequest,
+	GetRawRecipeTileRequest,
+	TileDataEvent,
+	ChartTagData,
+	ChartTagDataEvent,
+	SignalID,
+	RecipeDataEvent,
+} from "../messages";
 import * as zlib from "zlib";
 import {
 	renderTileToPixels,
@@ -11,7 +20,7 @@ import {
 	parseTileData,
 	renderTileIncremental,
 	ParsedTileData,
-	parseRecipeTileBinary
+	parseRecipeTileBinary,
 } from "../tile-utils";
 
 const { Text } = Typography;
@@ -56,7 +65,6 @@ const TILE_SIZE = 256; // 256x256 pixels per tile (8x8 chunks)
 const CHUNKS_PER_TILE = 8;
 
 
-
 // Convert raw chart data to ImageData
 async function chartDataToImageData(chartData: string): Promise<ImageData> {
 	// Decode base64 and decompress
@@ -84,7 +92,7 @@ async function chartDataToImageData(chartData: string): Promise<ImageData> {
 	// Fill remaining pixels with black if we have less data than expected
 	for (let pixelIndex = maxPixels; pixelIndex < 32 * 32; pixelIndex++) {
 		const bufferIndex = pixelIndex * 4;
-		imageData[bufferIndex] = 0;     // R
+		imageData[bufferIndex] = 0; // R
 		imageData[bufferIndex + 1] = 0; // G
 		imageData[bufferIndex + 2] = 0; // B
 		imageData[bufferIndex + 3] = 255; // A
@@ -180,19 +188,19 @@ export default function CanvasMinimapPage() {
 
 	// Detect spritesheet URL by inspecting CSS once metadata available
 	useEffect(() => {
-		if (spriteImgRef.current || itemMetadata.size === undefined || itemMetadata.size === null) return;
+		if (spriteImgRef.current || itemMetadata.size === undefined || itemMetadata.size === null) { return; }
 		// pick first metadata entry
 		const firstEntry = itemMetadata.entries().next();
-		if (firstEntry.done) return;
+		if (firstEntry.done) { return; }
 		const testName = firstEntry.value[0];
-		const span = document.createElement('span');
+		const span = document.createElement("span");
 		span.className = `factorio-icon item-${testName}`;
-		span.style.position = 'absolute'; span.style.visibility = 'hidden';
+		span.style.position = "absolute"; span.style.visibility = "hidden";
 		document.body.appendChild(span);
 		const bg = getComputedStyle(span).backgroundImage;
 		document.body.removeChild(span);
 		const match = bg.match(/url\("?([^"\)]+)"?\)/);
-		if (!match) return;
+		if (!match) { return; }
 		const url = match[1];
 		const img = new Image();
 		img.src = url;
@@ -201,7 +209,7 @@ export default function CanvasMinimapPage() {
 			for (const [name, canvas] of iconCanvasCache.current) {
 				const meta = itemMetadata.get(name);
 				if (meta) {
-					const ctx = canvas.getContext('2d')!;
+					const ctx = canvas.getContext("2d")!;
 					ctx.clearRect(0, 0, canvas.width, canvas.height);
 					ctx.drawImage(img, meta.x, meta.y, meta.size, meta.size, 0, 0, meta.size, meta.size);
 				}
@@ -214,10 +222,10 @@ export default function CanvasMinimapPage() {
 
 	const getIconCanvas = (name: string): HTMLCanvasElement | null => {
 		// Wait until metadata is ready
-		if (!itemMetadataRef.current.size) return null;
+		if (!itemMetadataRef.current.size) { return null; }
 
 		// Re-use cached canvas if we already built one for this name
-		if (iconCanvasCache.current.has(name)) return iconCanvasCache.current.get(name)!;
+		if (iconCanvasCache.current.has(name)) { return iconCanvasCache.current.get(name)!; }
 
 		// Helper that tries to find metadata for a given key
 		const resolveMeta = (key: string) => itemMetadataRef.current.get(key);
@@ -235,7 +243,7 @@ export default function CanvasMinimapPage() {
 		}
 
 		// If still not found, give up
-		if (!meta) return null;
+		if (!meta) { return null; }
 
 		// Build off-screen canvas containing the icon
 		const canvas = document.createElement("canvas");
@@ -281,8 +289,8 @@ export default function CanvasMinimapPage() {
 
 	// After getIconCanvas
 	const signalToKey = (sig: any): string | null => {
-		if (!sig || !sig.name) return null;
-		const t = sig.type || 'item';
+		if (!sig || !sig.name) { return null; }
+		const t = sig.type || "item";
 		return `${t}-${sig.name}`;
 	};
 
@@ -356,24 +364,33 @@ export default function CanvasMinimapPage() {
 			mergedChartTags,
 			chartTagTimestamps,
 		};
-	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode, currentTick, availableTicks, showChartTags, mergedChartTags, chartTagTimestamps, showRecipes]);
+	}, [
+		selectedInstance,
+		selectedSurface,
+		selectedForce,
+		isTimelapseMode,
+		currentTick,
+		availableTicks,
+		showChartTags,
+		mergedChartTags,
+		chartTagTimestamps,
+		showRecipes,
+	]);
 
 	// Define pixel-perfect zoom levels to eliminate seaming issues
 	const ZOOM_LEVELS = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
 
-	const getClosestZoomLevel = (targetZoom: number): number => {
-		return ZOOM_LEVELS.reduce((prev, curr) =>
-			Math.abs(curr - targetZoom) < Math.abs(prev - targetZoom) ? curr : prev
-		);
-	};
+	const getClosestZoomLevel = (targetZoom: number): number => ZOOM_LEVELS.reduce(
+		(prev, curr) => (Math.abs(curr - targetZoom) < Math.abs(prev - targetZoom) ? curr : prev)
+	);
 
-	const getNextZoomLevel = (currentZoom: number, direction: 'up' | 'down'): number => {
+	const getNextZoomLevel = (currentZoom: number, direction: "up" | "down"): number => {
 		const currentIndex = ZOOM_LEVELS.findIndex(zoom => Math.abs(zoom - currentZoom) < 0.001);
-		if (direction === 'up') {
+		if (direction === "up") {
 			return ZOOM_LEVELS[Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1)];
-		} else {
-			return ZOOM_LEVELS[Math.max(currentIndex - 1, 0)];
 		}
+		return ZOOM_LEVELS[Math.max(currentIndex - 1, 0)];
+
 	};
 
 	// Throttled zoom display update to avoid excessive re-renders
@@ -404,7 +421,7 @@ export default function CanvasMinimapPage() {
 	// Calculate which tiles are visible based on current view state
 	const calculateVisibleTiles = () => {
 		const canvas = canvasRef.current;
-		if (!canvas) return null;
+		if (!canvas) { return null; }
 
 		const viewState = viewStateRef.current;
 		const scale = viewState.zoomLevel;
@@ -434,8 +451,112 @@ export default function CanvasMinimapPage() {
 			worldLeft,
 			worldTop,
 			worldRight,
-			worldBottom
+			worldBottom,
 		};
+	};
+
+	// Helper function to load ticks from tiles
+	const loadTicksFromTiles = async (
+		leftTile: number,
+		topTile: number,
+		rightTile: number,
+		bottomTile: number
+	): Promise<{ allTicks: Set<number>; tilesChecked: number; tilesWithData: number }> => {
+		const allTicks = new Set<number>();
+		let tilesChecked = 0;
+		let tilesWithData = 0;
+
+		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
+			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
+				const response = await control.send(new GetRawTileRequest(
+					selectedInstance!,
+					selectedSurface,
+					selectedForce,
+					tileX,
+					tileY
+				));
+
+				tilesChecked += 1;
+
+				if (response.tile_data) {
+					const binaryString = atob(response.tile_data);
+					const tileData = new Uint8Array(binaryString.length);
+					for (let i = 0; i < binaryString.length; i += 1) {
+						tileData[i] = binaryString.charCodeAt(i);
+					}
+
+					const ticks = extractAvailableTicks(tileData);
+
+					if (ticks.length > 0) {
+						tilesWithData += 1;
+						ticks.forEach(tick => allTicks.add(tick));
+					}
+				}
+			}
+		}
+
+		return { allTicks, tilesChecked, tilesWithData };
+	};
+
+	// Helper function to add chart tag timestamps
+	const addChartTagTimestamps = (allTicks: Set<number>): number => {
+		const currentState = currentStateRef.current;
+		let tagsWithTicks = 0;
+
+		if (currentState.mergedChartTags.length > 0) {
+			for (const tag of currentState.mergedChartTags) {
+				// Add start_tick if it exists (tag creation)
+				if (tag.start_tick !== undefined) {
+					allTicks.add(tag.start_tick);
+					tagsWithTicks += 1;
+				}
+
+				// Add end_tick if it exists (tag deletion)
+				if (tag.end_tick !== undefined) {
+					allTicks.add(tag.end_tick);
+					tagsWithTicks += 1;
+				}
+			}
+		}
+
+		return tagsWithTicks;
+	};
+
+	// Helper function to load recipe timestamps
+	const loadRecipeTimestamps = async (
+		leftTile: number,
+		topTile: number,
+		rightTile: number,
+		bottomTile: number,
+		allTicks: Set<number>
+	): Promise<number> => {
+		let recipeTicksAdded = 0;
+
+		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
+			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
+				const recipeResp = await control.send(new GetRawRecipeTileRequest(
+					selectedInstance!,
+					selectedSurface,
+					selectedForce,
+					tileX,
+					tileY
+				));
+				if (recipeResp.recipe_tile) {
+					const binStr = atob(recipeResp.recipe_tile);
+					const buf = new Uint8Array(binStr.length);
+					for (let i = 0; i < binStr.length; i += 1) {
+						buf[i] = binStr.charCodeAt(i);
+					}
+					const parsed = parseRecipeTileBinary(tileX, tileY, buf, null);
+					for (const t of parsed.ticks) {
+						allTicks.add(t);
+						recipeTicksAdded += 1;
+					}
+				}
+			}
+		}
+
+		return recipeTicksAdded;
 	};
 
 	// Timelapse functions
@@ -446,109 +567,27 @@ export default function CanvasMinimapPage() {
 
 		const visibleTiles = calculateVisibleTiles();
 		if (!visibleTiles) {
-			console.warn("Canvas not available for tile culling calculation");
 			return;
 		}
 
-		try {
-			const { leftTile, topTile, rightTile, bottomTile } = visibleTiles;
+		const { leftTile, topTile, rightTile, bottomTile } = visibleTiles;
 
-			const allTicks = new Set<number>();
-			let tilesChecked = 0;
-			let tilesWithData = 0;
+		// Load ticks from tiles
+		const { allTicks } = await loadTicksFromTiles(leftTile, topTile, rightTile, bottomTile);
 
-			// Check all visible tiles
-			for (let tileY = topTile; tileY <= bottomTile; tileY++) {
-				for (let tileX = leftTile; tileX <= rightTile; tileX++) {
-					try {
-						const response = await control.send(new GetRawTileRequest(
-							selectedInstance,
-							selectedSurface,
-							selectedForce,
-							tileX,
-							tileY
-						));
+		// Add chart tag timestamps
+		const tagsWithTicks = addChartTagTimestamps(allTicks);
+		setChartTagTimestamps(tagsWithTicks);
 
-						tilesChecked++;
+		// Load recipe timestamps
+		await loadRecipeTimestamps(leftTile, topTile, rightTile, bottomTile, allTicks);
 
-						if (response.tile_data) {
-							const binaryString = atob(response.tile_data);
-							const tileData = new Uint8Array(binaryString.length);
-							for (let i = 0; i < binaryString.length; i++) {
-								tileData[i] = binaryString.charCodeAt(i);
-							}
+		const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
+		setAvailableTicks(sortedTicks);
 
-							const ticks = extractAvailableTicks(tileData);
-
-							if (ticks.length > 0) {
-								tilesWithData++;
-								ticks.forEach(tick => allTicks.add(tick));
-							}
-						}
-					} catch (err) {
-						console.warn(`Failed to load tile ${tileX},${tileY}:`, err);
-					}
-				}
-			}
-
-			// Also include chart tag timestamps
-			const currentState = currentStateRef.current;
-			let tagsWithTicks = 0;
-
-			if (currentState.mergedChartTags.length > 0) {
-				for (const tag of currentState.mergedChartTags) {
-					// Add start_tick if it exists (tag creation)
-					if (tag.start_tick !== undefined) {
-						allTicks.add(tag.start_tick);
-						tagsWithTicks++;
-					}
-
-					// Add end_tick if it exists (tag deletion)
-					if (tag.end_tick !== undefined) {
-						allTicks.add(tag.end_tick);
-						tagsWithTicks++;
-					}
-				}
-
-				console.log(`Added ${tagsWithTicks} chart tag timestamps to timeline`);
-			}
-
-			setChartTagTimestamps(tagsWithTicks);
-
-			// Collect recipe timestamps across visible recipe tiles
-			let recipeTicksAdded = 0;
-			for (let tileY = topTile; tileY <= bottomTile; tileY++) {
-				for (let tileX = leftTile; tileX <= rightTile; tileX++) {
-					try {
-						const recipeResp = await control.send(new GetRawRecipeTileRequest(
-							selectedInstance,
-							selectedSurface,
-							selectedForce,
-							tileX,
-							tileY
-						));
-						if (recipeResp.recipe_tile) {
-							const binStr = atob(recipeResp.recipe_tile);
-							const buf = new Uint8Array(binStr.length);
-							for (let i = 0; i < binStr.length; i++) buf[i] = binStr.charCodeAt(i);
-							const parsed = parseRecipeTileBinary(tileX, tileY, buf, null);
-							for (const t of parsed.ticks) { allTicks.add(t); recipeTicksAdded++; }
-						}
-					} catch (e) {
-						console.warn(`Failed to load recipe tile ${tileX},${tileY}:`, e);
-					}
-				}
-			}
-
-			const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
-			setAvailableTicks(sortedTicks);
-
-			// Set current tick to latest if not set
-			if (sortedTicks.length > 0 && currentTick === null) {
-				setCurrentTick(sortedTicks[sortedTicks.length - 1]);
-			}
-		} catch (err) {
-			console.error("Failed to load available ticks:", err);
+		// Set current tick to latest if not set
+		if (sortedTicks.length > 0 && currentTick === null) {
+			setCurrentTick(sortedTicks[sortedTicks.length - 1]);
 		}
 	};
 
@@ -612,12 +651,12 @@ export default function CanvasMinimapPage() {
 						// Update virtual tile canvas if it exists
 						const virtualTile = virtualTiles.current.get(tileKey);
 						if (virtualTile) {
-							const ctx = virtualTile.getContext('2d')!;
+							const ctx = virtualTile.getContext("2d")!;
 							ctx.putImageData(newImageData, 0, 0);
 						}
 
 						// Update chunk cache for this tile
-						const [tileX, tileY] = tileKey.split(',').map(Number);
+						const [tileX, tileY] = tileKey.split(",").map(Number);
 						for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
 							for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
 								const actualChunkX = tileX * CHUNKS_PER_TILE + cx;
@@ -627,11 +666,13 @@ export default function CanvasMinimapPage() {
 								// Extract chunk area from the full tile ImageData
 								const chunkData = new Uint8ClampedArray(CHUNK_SIZE * CHUNK_SIZE * 4);
 								for (let y = 0; y < CHUNK_SIZE; y++) {
+									// eslint-disable-next-line max-depth
 									for (let x = 0; x < CHUNK_SIZE; x++) {
+										// eslint-disable-next-line max-len
 										const tilePixelIndex = ((cy * CHUNK_SIZE + y) * TILE_SIZE + (cx * CHUNK_SIZE + x)) * 4;
 										const chunkPixelIndex = (y * CHUNK_SIZE + x) * 4;
 
-										chunkData[chunkPixelIndex] = newImageData.data[tilePixelIndex];         // R
+										chunkData[chunkPixelIndex] = newImageData.data[tilePixelIndex]; // R
 										chunkData[chunkPixelIndex + 1] = newImageData.data[tilePixelIndex + 1]; // G
 										chunkData[chunkPixelIndex + 2] = newImageData.data[tilePixelIndex + 2]; // B
 										chunkData[chunkPixelIndex + 3] = newImageData.data[tilePixelIndex + 3]; // A
@@ -643,7 +684,6 @@ export default function CanvasMinimapPage() {
 							}
 						}
 					} catch (err) {
-						console.error(`Failed to update tile ${tileKey} incrementally:`, err);
 						// If incremental update fails, remove from cache to force full reload
 						tileStateCache.current.delete(tileKey);
 						virtualTiles.current.delete(tileKey);
@@ -691,11 +731,9 @@ export default function CanvasMinimapPage() {
 					setIsPlaying(false);
 				}
 			}, 1000 / playbackSpeed);
-		} else {
-			if (playbackTimerRef.current) {
-				clearInterval(playbackTimerRef.current);
-				playbackTimerRef.current = undefined;
-			}
+		} else if (playbackTimerRef.current) {
+			clearInterval(playbackTimerRef.current);
+			playbackTimerRef.current = undefined;
 		}
 
 		return () => {
@@ -715,9 +753,9 @@ export default function CanvasMinimapPage() {
 			return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
 		} else if (minutes > 0) {
 			return `${minutes}m ${seconds % 60}s`;
-		} else {
-			return `${seconds}s`;
 		}
+		return `${seconds}s`;
+
 	};
 
 	// Set default instance when instances become available
@@ -741,40 +779,43 @@ export default function CanvasMinimapPage() {
 			const key = e.key.toLowerCase();
 
 			// Track movement keys for smooth animation
-			if (['w', 'a', 's', 'd'].includes(key)) {
+			if (["w", "a", "s", "d"].includes(key)) {
 				keysPressed.current.add(key);
 				return;
 			}
 
 			// Handle zoom keys immediately (not animated)
 			switch (key) {
-				case '+':
-				case '=': // Handle both + and = key (since + requires shift)
+				case "+":
+				case "=": // Handle both + and = key (since + requires shift)
 					updateViewState({
-						zoomLevel: getNextZoomLevel(viewStateRef.current.zoomLevel, 'up')
+						zoomLevel: getNextZoomLevel(viewStateRef.current.zoomLevel, "up"),
 					});
 					e.preventDefault(); // Prevent browser zoom
 					break;
-				case '-':
-				case '_': // Handle both - and _ key (since _ requires shift)
+				case "-":
+				case "_": // Handle both - and _ key (since _ requires shift)
 					updateViewState({
-						zoomLevel: getNextZoomLevel(viewStateRef.current.zoomLevel, 'down')
+						zoomLevel: getNextZoomLevel(viewStateRef.current.zoomLevel, "down"),
 					});
 					e.preventDefault(); // Prevent browser zoom
 					break;
-				case 'f':
+				case "f":
 					// Step backward in timeline (only in timelapse mode)
 					if (currentStateRef.current.isTimelapseMode && currentStateRef.current.availableTicks.length > 0) {
 						stepBackward();
 						e.preventDefault();
 					}
 					break;
-				case 'g':
+				case "g":
 					// Step forward in timeline (only in timelapse mode)
 					if (currentStateRef.current.isTimelapseMode && currentStateRef.current.availableTicks.length > 0) {
 						stepForward();
 						e.preventDefault();
 					}
+					break;
+				default:
+					// No action for other keys
 					break;
 			}
 		};
@@ -783,7 +824,7 @@ export default function CanvasMinimapPage() {
 			const key = e.key.toLowerCase();
 
 			// Remove movement keys when released
-			if (['w', 'a', 's', 'd'].includes(key)) {
+			if (["w", "a", "s", "d"].includes(key)) {
 				keysPressed.current.delete(key);
 			}
 		};
@@ -795,26 +836,26 @@ export default function CanvasMinimapPage() {
 
 		const handleWheel = (e: WheelEvent) => {
 			e.preventDefault();
-			const direction = e.deltaY > 0 ? 'down' : 'up';
+			const direction = e.deltaY > 0 ? "down" : "up";
 			const newZoom = getNextZoomLevel(viewStateRef.current.zoomLevel, direction);
 
 			updateViewState({ zoomLevel: newZoom });
 		};
 
-		document.addEventListener('keydown', handleKeyDown);
-		document.addEventListener('keyup', handleKeyUp);
-		window.addEventListener('blur', handleBlur);
+		document.addEventListener("keydown", handleKeyDown);
+		document.addEventListener("keyup", handleKeyUp);
+		window.addEventListener("blur", handleBlur);
 		const canvasElement = canvasRef.current;
 		if (canvasElement) {
-			canvasElement.addEventListener('wheel', handleWheel, { passive: false });
+			canvasElement.addEventListener("wheel", handleWheel, { passive: false });
 		}
 
 		return () => {
-			document.removeEventListener('keydown', handleKeyDown);
-			document.removeEventListener('keyup', handleKeyUp);
-			window.removeEventListener('blur', handleBlur);
+			document.removeEventListener("keydown", handleKeyDown);
+			document.removeEventListener("keyup", handleKeyUp);
+			window.removeEventListener("blur", handleBlur);
 			if (canvasElement) {
-				canvasElement.removeEventListener('wheel', handleWheel);
+				canvasElement.removeEventListener("wheel", handleWheel);
 			}
 		};
 	}, []); // No dependencies - use refs for current state
@@ -824,7 +865,7 @@ export default function CanvasMinimapPage() {
 		const canvasElement = canvasRef.current;
 
 		if (!canvasElement) {
-			return;
+			return () => { };
 		}
 
 		const handleMouseDown = (e: MouseEvent) => {
@@ -847,7 +888,7 @@ export default function CanvasMinimapPage() {
 
 				updateViewState({
 					centerX: viewStateRef.current.centerX + worldDeltaX,
-					centerY: viewStateRef.current.centerY + worldDeltaY
+					centerY: viewStateRef.current.centerY + worldDeltaY,
 				});
 
 				lastMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -869,22 +910,22 @@ export default function CanvasMinimapPage() {
 			updateCursor(false); // Update state for cursor change
 		};
 
-		canvasElement.addEventListener('mousedown', handleMouseDown);
-		canvasElement.addEventListener('mousemove', handleMouseMove);
-		canvasElement.addEventListener('mouseup', handleMouseUp);
-		canvasElement.addEventListener('mouseleave', handleMouseLeave);
+		canvasElement.addEventListener("mousedown", handleMouseDown);
+		canvasElement.addEventListener("mousemove", handleMouseMove);
+		canvasElement.addEventListener("mouseup", handleMouseUp);
+		canvasElement.addEventListener("mouseleave", handleMouseLeave);
 
 		// Also listen to document for mouse events to handle dragging outside canvas
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
+		document.addEventListener("mousemove", handleMouseMove);
+		document.addEventListener("mouseup", handleMouseUp);
 
 		return () => {
-			canvasElement.removeEventListener('mousedown', handleMouseDown);
-			canvasElement.removeEventListener('mousemove', handleMouseMove);
-			canvasElement.removeEventListener('mouseup', handleMouseUp);
-			canvasElement.removeEventListener('mouseleave', handleMouseLeave);
-			document.removeEventListener('mousemove', handleMouseMove);
-			document.removeEventListener('mouseup', handleMouseUp);
+			canvasElement.removeEventListener("mousedown", handleMouseDown);
+			canvasElement.removeEventListener("mousemove", handleMouseMove);
+			canvasElement.removeEventListener("mouseup", handleMouseUp);
+			canvasElement.removeEventListener("mouseleave", handleMouseLeave);
+			document.removeEventListener("mousemove", handleMouseMove);
+			document.removeEventListener("mouseup", handleMouseUp);
 		};
 	}, [selectedInstance]); // Only need to re-setup when canvas becomes available
 
@@ -907,21 +948,16 @@ export default function CanvasMinimapPage() {
 	}, []); // No dependencies - render loop accesses current state via refs
 
 
-
 	const loadSurfaceForceData = async () => {
-		try {
-			const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
-			const data = await response.json();
-			setSurfaceForceData(data);
+		const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
+		const data = await response.json();
+		setSurfaceForceData(data);
 
-			if (data.surfaces.length > 0 && !selectedSurface) {
-				setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
-			}
-			if (data.forces.length > 0 && !selectedForce) {
-				setSelectedForce(data.forces.includes("player") ? "player" : data.forces[0]);
-			}
-		} catch (err) {
-			console.error("Failed to load surface/force data:", err);
+		if (data.surfaces.length > 0 && !selectedSurface) {
+			setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
+		}
+		if (data.forces.length > 0 && !selectedForce) {
+			setSelectedForce(data.forces.includes("player") ? "player" : data.forces[0]);
 		}
 	};
 
@@ -931,30 +967,24 @@ export default function CanvasMinimapPage() {
 			return;
 		}
 
-		try {
-			const response = await control.send(new GetChartTagsRequest(
-				selectedInstance,
-				selectedSurface,
-				selectedForce
-			));
+		const response = await control.send(new GetChartTagsRequest(
+			selectedInstance,
+			selectedSurface,
+			selectedForce
+		));
 
-			if (response.chart_tags && response.chart_tags.length > 0) {
-				// Convert to ChartTagDataWithInstance format
-				const existingTags: ChartTagDataWithInstance[] = response.chart_tags.map((tag: ChartTagData) => ({
-					...tag,
-					instance_id: selectedInstance,
-				}));
+		if (response.chart_tags && response.chart_tags.length > 0) {
+			// Convert to ChartTagDataWithInstance format
+			const existingTags: ChartTagDataWithInstance[] = response.chart_tags.map((tag: ChartTagData) => ({
+				...tag,
+				instance_id: selectedInstance,
+			}));
 
-				// Replace existing tags with loaded ones
-				setRawChartTags(existingTags);
-				console.log(`Loaded ${existingTags.length} existing chart tags`);
-			} else {
-				// Clear tags if no existing data
-				setRawChartTags([]);
-			}
-		} catch (err) {
-			console.error("Failed to load existing chart tags:", err);
-			// Don't clear tags on error, keep what we have
+			// Replace existing tags with loaded ones
+			setRawChartTags(existingTags);
+		} else {
+			// Clear tags if no existing data
+			setRawChartTags([]);
 		}
 	};
 
@@ -975,20 +1005,18 @@ export default function CanvasMinimapPage() {
 			const tileState = tileStateCache.current.get(tileKey)!;
 
 			// Check if we need to update to current tick
-			const targetTick = isTimelapseMode ? currentTick || 0 : tileState.parsedData.allTicks[tileState.parsedData.allTicks.length - 1] || 0;
+			const targetTick = isTimelapseMode
+				? (currentTick || 0)
+				: (tileState.parsedData.allTicks[tileState.parsedData.allTicks.length - 1] || 0);
 			if (tileState.currentTick !== targetTick) {
-				try {
-					await renderTileIncremental(
-						tileState.parsedData,
-						tileState.pixels,
-						tileState.currentTick,
-						targetTick
-					);
-					tileState.currentTick = targetTick;
-					tileState.imageData = pixelsToImageData(tileState.pixels);
-				} catch (err) {
-					console.error(`Failed to update tile ${tileKey} to tick ${targetTick}:`, err);
-				}
+				await renderTileIncremental(
+					tileState.parsedData,
+					tileState.pixels,
+					tileState.currentTick,
+					targetTick
+				);
+				tileState.currentTick = targetTick;
+				tileState.imageData = pixelsToImageData(tileState.pixels);
 			}
 
 			return tileState.imageData;
@@ -1027,9 +1055,9 @@ export default function CanvasMinimapPage() {
 				const parsedData = parseTileData(tileData);
 
 				// Determine target tick
-				const targetTick = isTimelapseMode ?
-					(currentTick || 0) :
-					(parsedData.allTicks[parsedData.allTicks.length - 1] || 0);
+				const targetTick = isTimelapseMode
+					? (currentTick || 0)
+					: (parsedData.allTicks[parsedData.allTicks.length - 1] || 0);
 
 				// Render to target tick (undefined means latest for non-timelapse mode)
 				const renderTick = isTimelapseMode ? targetTick : undefined;
@@ -1043,7 +1071,7 @@ export default function CanvasMinimapPage() {
 					currentTick: targetTick,
 					pixels: pixels,
 					parsedData: parsedData,
-					imageData: tileImageData
+					imageData: tileImageData,
 				};
 				tileStateCache.current.set(tileKey, tileState);
 
@@ -1057,11 +1085,12 @@ export default function CanvasMinimapPage() {
 						// Extract chunk area from the full tile ImageData
 						const chunkData = new Uint8ClampedArray(CHUNK_SIZE * CHUNK_SIZE * 4);
 						for (let y = 0; y < CHUNK_SIZE; y++) {
+							// eslint-disable-next-line max-depth
 							for (let x = 0; x < CHUNK_SIZE; x++) {
 								const tilePixelIndex = ((cy * CHUNK_SIZE + y) * TILE_SIZE + (cx * CHUNK_SIZE + x)) * 4;
 								const chunkPixelIndex = (y * CHUNK_SIZE + x) * 4;
 
-								chunkData[chunkPixelIndex] = tileImageData.data[tilePixelIndex];         // R
+								chunkData[chunkPixelIndex] = tileImageData.data[tilePixelIndex]; // R
 								chunkData[chunkPixelIndex + 1] = tileImageData.data[tilePixelIndex + 1]; // G
 								chunkData[chunkPixelIndex + 2] = tileImageData.data[tilePixelIndex + 2]; // B
 								chunkData[chunkPixelIndex + 3] = tileImageData.data[tilePixelIndex + 3]; // A
@@ -1074,9 +1103,6 @@ export default function CanvasMinimapPage() {
 				}
 
 				return tileImageData;
-			} catch (err) {
-				console.error(`Failed to load tile ${tileX},${tileY}:`, err);
-				return null;
 			} finally {
 				// Remove from loading cache when done
 				loadingTiles.current.delete(tileKey);
@@ -1108,7 +1134,7 @@ export default function CanvasMinimapPage() {
 		// Update the virtual tile directly if it exists
 		const virtualTile = virtualTiles.current.get(tileKey);
 		if (virtualTile) {
-			const ctx = virtualTile.getContext('2d')!;
+			const ctx = virtualTile.getContext("2d")!;
 			ctx.putImageData(imageData, pixelX, pixelY);
 		}
 
@@ -1124,7 +1150,7 @@ export default function CanvasMinimapPage() {
 					const chunkIndex = (y * CHUNK_SIZE + x) * 4;
 					const tileIndex = ((pixelY + y) * TILE_SIZE + (pixelX + x)) * 4;
 
-					tileData[tileIndex] = chunkData[chunkIndex];         // R
+					tileData[tileIndex] = chunkData[chunkIndex]; // R
 					tileData[tileIndex + 1] = chunkData[chunkIndex + 1]; // G
 					tileData[tileIndex + 2] = chunkData[chunkIndex + 2]; // B
 					tileData[tileIndex + 3] = chunkData[chunkIndex + 3]; // A
@@ -1150,19 +1176,19 @@ export default function CanvasMinimapPage() {
 		}
 
 		// Create new virtual tile
-		const virtualCanvas = document.createElement('canvas');
+		const virtualCanvas = document.createElement("canvas");
 		virtualCanvas.width = TILE_SIZE;
 		virtualCanvas.height = TILE_SIZE;
-		const ctx = virtualCanvas.getContext('2d')!;
+		const ctx = virtualCanvas.getContext("2d")!;
 
 		// Always start with black background
-		ctx.fillStyle = '#000000';
+		ctx.fillStyle = "#000000";
 		ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
 
 		// Load the entire tile at once (much more efficient than loading chunks individually)
 		const [tileImageData, recipeImageData] = await Promise.all([
 			loadTile(tileX, tileY),
-			loadRecipeTile(tileX, tileY)
+			loadRecipeTile(tileX, tileY),
 		]);
 
 		if (tileImageData) {
@@ -1174,68 +1200,43 @@ export default function CanvasMinimapPage() {
 		return virtualCanvas;
 	};
 
-	// Render the canvas
-	const renderCanvas = () => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
+	// Helper function to handle WASD movement
+	const handleMovementKeys = () => {
+		if (keysPressed.current.size === 0) { return; }
 
-		// Get current state from ref to ensure consistency
-		const currentState = currentStateRef.current;
+		// Adjust base speed for 60fps
+		const moveSpeed = 20 / viewStateRef.current.zoomLevel;
+		let deltaX = 0;
+		let deltaY = 0;
 
-		// Early return if no instance selected
-		if (!currentState.selectedInstance) {
-			// Draw dark background and return
-			const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-			ctx.fillStyle = '#1a1a1a';
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			return;
+		// Calculate movement delta based on currently pressed keys
+		if (keysPressed.current.has("w")) { deltaY -= moveSpeed; }
+		if (keysPressed.current.has("s")) { deltaY += moveSpeed; }
+		if (keysPressed.current.has("a")) { deltaX -= moveSpeed; }
+		if (keysPressed.current.has("d")) { deltaX += moveSpeed; }
+
+		// Reduce speed if moving diagonally
+		if (deltaX !== 0 && deltaY !== 0) {
+			deltaX *= 0.7071; // sqrt(2) / 2
+			deltaY *= 0.7071;
 		}
 
-		// Apply smooth WASD movement
-		if (keysPressed.current.size > 0) {
-			// Adjust base speed for 60fps
-			const moveSpeed = 20 / viewStateRef.current.zoomLevel;
-			let deltaX = 0;
-			let deltaY = 0;
-
-			// Calculate movement delta based on currently pressed keys
-			if (keysPressed.current.has('w')) deltaY -= moveSpeed;
-			if (keysPressed.current.has('s')) deltaY += moveSpeed;
-			if (keysPressed.current.has('a')) deltaX -= moveSpeed;
-			if (keysPressed.current.has('d')) deltaX += moveSpeed;
-
-			// Reduce speed if moving diagonally
-			if (deltaX !== 0 && deltaY !== 0) {
-				deltaX *= 0.7071; // sqrt(2) / 2
-				deltaY *= 0.7071;
-			}
-
-			// Apply movement if any keys are pressed
-			if (deltaX !== 0 || deltaY !== 0) {
-				updateViewState({
-					centerX: viewStateRef.current.centerX + deltaX,
-					centerY: viewStateRef.current.centerY + deltaY
-				});
-			}
+		// Apply movement if any keys are pressed
+		if (deltaX !== 0 || deltaY !== 0) {
+			updateViewState({
+				centerX: viewStateRef.current.centerX + deltaX,
+				centerY: viewStateRef.current.centerY + deltaY,
+			});
 		}
+	};
 
-		const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-		ctx.imageSmoothingEnabled = false;
-
-		// Get canvas dimensions
-		const width = canvas.width;
-		const height = canvas.height;
-
-		// Clear canvas completely
-		ctx.fillStyle = '#1a1a1a';
-		ctx.fillRect(0, 0, width, height);
-
-		// Calculate visible tiles using shared function
-		const visibleTiles = calculateVisibleTiles();
-		if (!visibleTiles) return;
-
+	// Helper function to render visible tiles
+	const renderVisibleTiles = (
+		ctx: CanvasRenderingContext2D,
+		visibleTiles: any,
+		currentState: any
+	) => {
 		const { leftTile, topTile, rightTile, bottomTile, scale, worldLeft, worldTop } = visibleTiles;
-
 		const scaledTileSize = TILE_SIZE * scale;
 		const firstTileScreenX = Math.round((leftTile * TILE_SIZE - worldLeft) * scale);
 		const firstTileScreenY = Math.round((topTile * TILE_SIZE - worldTop) * scale);
@@ -1256,84 +1257,166 @@ export default function CanvasMinimapPage() {
 		// Render visible tiles using the pre-calculated edge grid
 		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
 			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
-				const tileKey = `${tileX},${tileY}`;
-				const virtualTile = virtualTiles.current.get(tileKey);
-
-				// Get tile position from pre-calculated edges
-				const tileIndexX = tileX - leftTile;
-				const tileIndexY = tileY - topTile;
-				const screenX = tileEdgesX[tileIndexX];
-				const screenY = tileEdgesY[tileIndexY];
-				const screenWidth = tileEdgesX[tileIndexX + 1] - screenX;
-				const screenHeight = tileEdgesY[tileIndexY + 1] - screenY;
-
-				// Calculate clipping bounds to ensure we don't draw outside canvas
-				const clippedX = Math.max(0, screenX);
-				const clippedY = Math.max(0, screenY);
-				const clippedWidth = Math.min(screenWidth, width - clippedX);
-				const clippedHeight = Math.min(screenHeight, height - clippedY);
-
-				// Skip if tile is completely outside canvas
-				if (clippedWidth <= 0 || clippedHeight <= 0) {
-					continue;
-				}
-
-				if (virtualTile) {
-					// Tile is loaded, draw it with clipping
-					ctx.imageSmoothingEnabled = false;
-
-					// Round source coordinates to prevent subpixel sampling
-					const rawSourceX = clippedX > screenX ? (clippedX - screenX) / scale : 0;
-					const rawSourceY = clippedY > screenY ? (clippedY - screenY) / scale : 0;
-					const rawSourceWidth = clippedWidth / scale;
-					const rawSourceHeight = clippedHeight / scale;
-
-					// Use clipped coordinates directly since screen coordinates are already rounded
-					const destX = clippedX;
-					const destY = clippedY;
-					const destWidth = clippedWidth;
-					const destHeight = clippedHeight;
-
-					ctx.drawImage(
-						virtualTile,
-						rawSourceX, rawSourceY, rawSourceWidth, rawSourceHeight,
-						destX, destY, destWidth, destHeight
-					);
-				} else {
-					// Tile not loaded yet, draw black
-					ctx.fillStyle = '#000000';
-					ctx.fillRect(clippedX, clippedY, clippedWidth, clippedHeight);
-
-					// Start loading the tile in the background (but don't wait for it)
-					// Only attempt to load if we have all required parameters
-					if (currentState.selectedInstance && currentState.selectedSurface && currentState.selectedForce) {
-						getVirtualTile(tileX, tileY).then(() => {
-							// When tile loads, trigger a re-render
-							// But only if we're still looking at the same area
-							const latestState = currentStateRef.current;
-							if (latestState.selectedInstance && latestState.selectedSurface && latestState.selectedForce) {
-								// Use a small delay to batch multiple tile loads
-								setTimeout(() => {
-									if (animationFrameRef.current) {
-										// Render will happen on next animation frame anyway
-									}
-								}, 16);
-							}
-						}).catch(err => {
-							console.error(`Failed to load tile ${tileX},${tileY}:`, err);
-						});
-					}
-				}
+				renderSingleTile(ctx, tileX, tileY, tileEdgesX, tileEdgesY, leftTile, topTile, currentState);
 			}
 		}
+	};
+
+	// Helper function to render a single tile
+	const renderSingleTile = (
+		ctx: CanvasRenderingContext2D,
+		tileX: number,
+		tileY: number,
+		tileEdgesX: number[],
+		tileEdgesY: number[],
+		leftTile: number,
+		topTile: number,
+		currentState: any
+	) => {
+		const tileKey = `${tileX},${tileY}`;
+		const virtualTile = virtualTiles.current.get(tileKey);
+
+		// Get tile position from pre-calculated edges
+		const tileIndexX = tileX - leftTile;
+		const tileIndexY = tileY - topTile;
+		const screenX = tileEdgesX[tileIndexX];
+		const screenY = tileEdgesY[tileIndexY];
+		const screenWidth = tileEdgesX[tileIndexX + 1] - screenX;
+		const screenHeight = tileEdgesY[tileIndexY + 1] - screenY;
+
+		// Calculate clipping bounds to ensure we don't draw outside canvas
+		const clippedX = Math.max(0, screenX);
+		const clippedY = Math.max(0, screenY);
+		const clippedWidth = Math.min(screenWidth, ctx.canvas.width - clippedX);
+		const clippedHeight = Math.min(screenHeight, ctx.canvas.height - clippedY);
+
+		// Skip if tile is completely outside canvas
+		if (clippedWidth <= 0 || clippedHeight <= 0) {
+			return;
+		}
+
+		if (virtualTile) {
+			drawLoadedTile(ctx, virtualTile, screenX, screenY, clippedX, clippedY, clippedWidth, clippedHeight);
+		} else {
+			drawUnloadedTile(ctx, clippedX, clippedY, clippedWidth, clippedHeight, tileX, tileY, currentState);
+		}
+	};
+
+	// Helper function to draw a loaded tile
+	const drawLoadedTile = (
+		ctx: CanvasRenderingContext2D,
+		virtualTile: HTMLCanvasElement,
+		screenX: number,
+		screenY: number,
+		clippedX: number,
+		clippedY: number,
+		clippedWidth: number,
+		clippedHeight: number
+	) => {
+		// Tile is loaded, draw it with clipping
+		ctx.imageSmoothingEnabled = false;
+
+		// Round source coordinates to prevent subpixel sampling
+		const scale = viewStateRef.current.zoomLevel;
+		const rawSourceX = clippedX > screenX ? (clippedX - screenX) / scale : 0;
+		const rawSourceY = clippedY > screenY ? (clippedY - screenY) / scale : 0;
+		const rawSourceWidth = clippedWidth / scale;
+		const rawSourceHeight = clippedHeight / scale;
+
+		// Use clipped coordinates directly since screen coordinates are already rounded
+		const destX = clippedX;
+		const destY = clippedY;
+		const destWidth = clippedWidth;
+		const destHeight = clippedHeight;
+
+		ctx.drawImage(
+			virtualTile,
+			rawSourceX, rawSourceY, rawSourceWidth, rawSourceHeight,
+			destX, destY, destWidth, destHeight
+		);
+	};
+
+	// Helper function to draw unloaded tile and start loading
+	const drawUnloadedTile = (
+		ctx: CanvasRenderingContext2D,
+		clippedX: number,
+		clippedY: number,
+		clippedWidth: number,
+		clippedHeight: number,
+		tileX: number,
+		tileY: number,
+		currentState: any
+	) => {
+		// Tile not loaded yet, draw black
+		ctx.fillStyle = "#000000";
+		ctx.fillRect(clippedX, clippedY, clippedWidth, clippedHeight);
+
+		// Start loading the tile in the background (but don't wait for it)
+		// Only attempt to load if we have all required parameters
+		if (currentState.selectedInstance && currentState.selectedSurface && currentState.selectedForce) {
+			getVirtualTile(tileX, tileY).then(() => {
+				// When tile loads, trigger a re-render
+				// But only if we're still looking at the same area
+				const latestState = currentStateRef.current;
+				if (latestState.selectedInstance && latestState.selectedSurface && latestState.selectedForce) {
+					// Use a small delay to batch multiple tile loads
+					setTimeout(() => {
+						if (animationFrameRef.current) {
+							// Render will happen on next animation frame anyway
+						}
+					}, 16);
+				}
+			});
+		}
+	};
+
+	// Render the canvas
+	// eslint-disable-next-line complexity
+	const renderCanvas = () => {
+		const canvas = canvasRef.current;
+		if (!canvas) { return; }
+
+		// Get current state from ref to ensure consistency
+		const currentState = currentStateRef.current;
+
+		// Early return if no instance selected
+		if (!currentState.selectedInstance) {
+			// Draw dark background and return
+			const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+			ctx.fillStyle = "#1a1a1a";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			return;
+		}
+
+		// Apply smooth WASD movement
+		handleMovementKeys();
+
+		const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+		ctx.imageSmoothingEnabled = false;
+
+		// Clear canvas completely
+		ctx.fillStyle = "#1a1a1a";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+		// Calculate visible tiles using shared function
+		const visibleTiles = calculateVisibleTiles();
+		if (!visibleTiles) { return; }
+
+		// Render all visible tiles
+		renderVisibleTiles(ctx, visibleTiles, currentState);
+
+		// Extract needed variables for chart tags and recipes
+		const { scale, worldLeft, worldTop } = visibleTiles;
+		const width = canvas.width;
+		const height = canvas.height;
 
 		// Render chart tags if enabled
 		if (currentState.showChartTags) {
 			const visibleTags = getVisibleChartTags();
 
 			ctx.save();
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle';
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
 			ctx.font = `${Math.max(10, 12 / scale)}px Arial`;
 
 			for (const tag of visibleTags) {
@@ -1354,9 +1437,9 @@ export default function CanvasMinimapPage() {
 				if (iconKey) {
 					drawIcon(ctx, screenX, screenY, iconKey, "screen");
 				} else {
-					ctx.fillStyle = tag.icon ? '#4CAF50' : '#2196F3';
+					ctx.fillStyle = tag.icon ? "#4CAF50" : "#2196F3";
 					ctx.fillRect(screenX - halfSize, screenY - halfSize, tagSize, tagSize);
-					ctx.strokeStyle = '#FFFFFF';
+					ctx.strokeStyle = "#FFFFFF";
 					ctx.lineWidth = 2;
 					ctx.strokeRect(screenX - halfSize, screenY - halfSize, tagSize, tagSize);
 				}
@@ -1376,7 +1459,7 @@ export default function CanvasMinimapPage() {
 					const textHeight = fontSize;
 					const textPadding = 2;
 
-					ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+					ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
 					ctx.fillRect(
 						textX - textPadding,
 						textY - textHeight / 2 - textPadding,
@@ -1385,10 +1468,10 @@ export default function CanvasMinimapPage() {
 					);
 
 					// Draw text
-					ctx.fillStyle = '#FFFFFF';
-					ctx.textAlign = 'left'; // Align text to start from the left edge
+					ctx.fillStyle = "#FFFFFF";
+					ctx.textAlign = "left"; // Align text to start from the left edge
 					ctx.fillText(tag.text, textX, textY);
-					ctx.textAlign = 'center'; // Reset for next iteration
+					ctx.textAlign = "center"; // Reset for next iteration
 				}
 			}
 
@@ -1399,11 +1482,13 @@ export default function CanvasMinimapPage() {
 		if (currentState.showRecipes) {
 			ctx.save();
 			for (const [coord, recName] of recipeCache.current) {
-				const [rx, ry] = coord.split(',').map(Number);
+				const [rx, ry] = coord.split(",").map(Number);
 				const screenX = Math.round((rx - worldLeft) * scale);
 				const screenY = Math.round((ry - worldTop) * scale);
-				if (screenX < -30 || screenX > width + 30 || screenY < -30 || screenY > height + 30) continue;
-				const iconKey = recName.startsWith('item-') || recName.startsWith('fluid-') ? recName : signalToKey({ type: 'item', name: recName });
+				if (screenX < -30 || screenX > width + 30 || screenY < -30 || screenY > height + 30) { continue; }
+				const iconKey = recName.startsWith("item-") || recName.startsWith("fluid-")
+					? recName
+					: signalToKey({ type: "item", name: recName });
 				drawIcon(ctx, screenX, screenY, iconKey || recName, "world");
 			}
 			ctx.restore();
@@ -1415,7 +1500,7 @@ export default function CanvasMinimapPage() {
 		const handleResize = () => {
 			const canvas = canvasRef.current;
 			const container = containerRef.current;
-			if (!canvas || !container) return;
+			if (!canvas || !container) { return; }
 
 			// Use ResizeObserver for more accurate container size tracking
 			const rect = container.getBoundingClientRect();
@@ -1430,26 +1515,26 @@ export default function CanvasMinimapPage() {
 
 		// Set up ResizeObserver for container size changes
 		const container = containerRef.current;
-		if (container && 'ResizeObserver' in window) {
+		if (container && "ResizeObserver" in window) {
 			const resizeObserver = new ResizeObserver(handleResize);
 			resizeObserver.observe(container);
 
 			// Also listen to window resize as fallback
-			window.addEventListener('resize', handleResize);
+			window.addEventListener("resize", handleResize);
 
 			return () => {
 				clearTimeout(timeoutId);
 				resizeObserver.disconnect();
-				window.removeEventListener('resize', handleResize);
-			};
-		} else {
-			// Fallback for browsers without ResizeObserver
-			window.addEventListener('resize', handleResize);
-			return () => {
-				clearTimeout(timeoutId);
-				window.removeEventListener('resize', handleResize);
+				window.removeEventListener("resize", handleResize);
 			};
 		}
+		// Fallback for browsers without ResizeObserver
+		window.addEventListener("resize", handleResize);
+		return () => {
+			clearTimeout(timeoutId);
+			window.removeEventListener("resize", handleResize);
+		};
+
 	}, []);
 
 	// Ensure proper canvas sizing when instance selection changes
@@ -1497,6 +1582,7 @@ export default function CanvasMinimapPage() {
 
 			return () => clearTimeout(timeoutId);
 		}
+		return () => { };
 	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode]);
 
 	// Load existing chart tags when instance/surface/force selection changes
@@ -1512,7 +1598,7 @@ export default function CanvasMinimapPage() {
 	// Snap current zoom level to nearest pixel-perfect level on mount
 	useEffect(() => {
 		updateViewState({
-			zoomLevel: getClosestZoomLevel(viewStateRef.current.zoomLevel)
+			zoomLevel: getClosestZoomLevel(viewStateRef.current.zoomLevel),
 		});
 
 		// Cleanup throttled zoom update on unmount
@@ -1534,9 +1620,9 @@ export default function CanvasMinimapPage() {
 
 		return currentState.mergedChartTags.filter((tag: MergedChartTag) => {
 			// Filter by instance, surface, and force
-			if (tag.instance_id !== currentState.selectedInstance ||
-				tag.surface !== currentState.selectedSurface ||
-				tag.force !== currentState.selectedForce) {
+			if (tag.instance_id !== currentState.selectedInstance
+				|| tag.surface !== currentState.selectedSurface
+				|| tag.force !== currentState.selectedForce) {
 				return false;
 			}
 
@@ -1550,11 +1636,9 @@ export default function CanvasMinimapPage() {
 				if (tag.end_tick !== undefined && tag.end_tick <= currentState.currentTick) {
 					return false;
 				}
-			} else {
+			} else if (tag.end_tick !== undefined) {
 				// In live mode, only hide tags that have been deleted (have an end_tick)
-				if (tag.end_tick !== undefined) {
-					return false;
-				}
+				return false;
 			}
 
 			return true;
@@ -1565,42 +1649,35 @@ export default function CanvasMinimapPage() {
 	useEffect(() => {
 		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
 		if (!plugin) {
-			console.error("Minimap plugin not found");
-			return;
+			return () => { };
 		}
 
 		const handleChunkUpdate = (event: TileDataEvent) => {
 			const currentState = currentStateRef.current;
 			// Only process updates for the currently selected instance/surface/force
-			if (event.instance_id === currentState.selectedInstance &&
-				event.surface === currentState.selectedSurface &&
-				event.force === currentState.selectedForce &&
-				!currentState.isTimelapseMode) {
+			if (event.instance_id === currentState.selectedInstance
+				&& event.surface === currentState.selectedSurface
+				&& event.force === currentState.selectedForce
+				&& !currentState.isTimelapseMode) {
 
-				try {
-					// Calculate chunk coordinates from world coordinates
-					const chunkX = Math.floor(event.x / 32);
-					const chunkY = Math.floor(event.y / 32);
+				// Calculate chunk coordinates from world coordinates
+				const chunkX = Math.floor(event.x / 32);
+				const chunkY = Math.floor(event.y / 32);
 
-					// Convert raw chart data to ImageData
-					chartDataToImageData(event.chunk.chart_data).then(imageData => {
-						// Update the chunk in our cache
-						updateChunk(chunkX, chunkY, imageData);
-					}).catch(err => {
-						console.error("Failed to convert chart data to ImageData:", err);
-					});
-				} catch (err) {
-					console.error("Failed to process live chunk update:", err);
-				}
+				// Convert raw chart data to ImageData
+				chartDataToImageData(event.chunk.chart_data).then(imageData => {
+					// Update the chunk in our cache
+					updateChunk(chunkX, chunkY, imageData);
+				});
 			}
 		};
 
 		const handleChartTagUpdate = (event: ChartTagDataEvent) => {
 			const currentState = currentStateRef.current;
 			// Only process updates for the currently selected instance/surface/force
-			if (event.instance_id === currentState.selectedInstance &&
-				event.tag_data.surface === currentState.selectedSurface &&
-				event.tag_data.force === currentState.selectedForce) {
+			if (event.instance_id === currentState.selectedInstance
+				&& event.tag_data.surface === currentState.selectedSurface
+				&& event.tag_data.force === currentState.selectedForce) {
 
 				// Add the new chart tag data to our collection
 				const newTagData: ChartTagDataWithInstance = {
@@ -1610,11 +1687,10 @@ export default function CanvasMinimapPage() {
 
 				setRawChartTags(prevTags => {
 					// Check if we already have this tag (by tag_number and instance)
-					const existingIndex = prevTags.findIndex(tag =>
-						tag.tag_number === newTagData.tag_number &&
-						tag.instance_id === newTagData.instance_id &&
-						tag.surface === newTagData.surface &&
-						tag.force === newTagData.force
+					const existingIndex = prevTags.findIndex(tag => tag.tag_number === newTagData.tag_number
+						&& tag.instance_id === newTagData.instance_id
+						&& tag.surface === newTagData.surface
+						&& tag.force === newTagData.force
 					);
 
 					if (existingIndex >= 0) {
@@ -1622,10 +1698,10 @@ export default function CanvasMinimapPage() {
 						const newTags = [...prevTags];
 						newTags[existingIndex] = newTagData;
 						return newTags;
-					} else {
-						// Add new tag
-						return [...prevTags, newTagData];
 					}
+					// Add new tag
+					return [...prevTags, newTagData];
+
 				});
 			}
 		};
@@ -1662,7 +1738,7 @@ export default function CanvasMinimapPage() {
 			// 6 world-pixels wide at zoom 1 feels about right with some overdraw to make it more visible
 			size = 6 * zoom;
 			// Clamp so icons don't disappear completely at extreme zoom-outs
-			if (size < 4) size = 4;
+			if (size < 4) { size = 4; }
 		}
 
 		const half = size / 2;
@@ -1681,29 +1757,32 @@ export default function CanvasMinimapPage() {
 	// Function to load recipe tile
 	const loadRecipeTile = async (tileX: number, tileY: number) => {
 		const cs = currentStateRef.current;
-		if (!cs.selectedInstance) return;
-		try {
-			const resp = await control.send(new GetRawRecipeTileRequest(
-				cs.selectedInstance, cs.selectedSurface, cs.selectedForce, tileX, tileY
-			));
-			if (!resp.recipe_tile) return;
-			const binStr = atob(resp.recipe_tile);
-			const buf = new Uint8Array(binStr.length);
-			for (let i = 0; i < binStr.length; i++) buf[i] = binStr.charCodeAt(i);
+		if (!cs.selectedInstance) { return; }
+		const resp = await control.send(new GetRawRecipeTileRequest(
+			cs.selectedInstance, cs.selectedSurface, cs.selectedForce, tileX, tileY
+		));
+		if (!resp.recipe_tile) { return; }
+		const binStr = atob(resp.recipe_tile);
+		const buf = new Uint8Array(binStr.length);
+		for (let i = 0; i < binStr.length; i++) { buf[i] = binStr.charCodeAt(i); }
 
-			const parsed = parseRecipeTileBinary(tileX, tileY, buf, cs.isTimelapseMode ? cs.currentTick : null);
+		const parsed = parseRecipeTileBinary(tileX, tileY, buf, cs.isTimelapseMode ? cs.currentTick : null);
 
-			// Apply parsed active recipes to cache
-			for (const [coord, recName] of parsed.activeRecipes) {
-				recipeCache.current.set(coord, recName);
-			}
-		} catch (e) { console.warn('loadRecipeTile', e); }
+		// Apply parsed active recipes to cache
+		for (const [coord, recName] of parsed.activeRecipes) {
+			recipeCache.current.set(coord, recName);
+		}
 	};
 
 	// Live recipe update handler
 	const handleRecipeUpdate = (event: RecipeDataEvent) => {
 		const cs = currentStateRef.current;
-		if (event.instance_id !== cs.selectedInstance || event.recipe_data.surface !== cs.selectedSurface || event.recipe_data.force !== cs.selectedForce) return;
+		const isWrongInstance = event.instance_id !== cs.selectedInstance;
+		const isWrongSurface = event.recipe_data.surface !== cs.selectedSurface;
+		const isWrongForce = event.recipe_data.force !== cs.selectedForce;
+		if (isWrongInstance || isWrongSurface || isWrongForce) {
+			return;
+		}
 		// Handle recipe end events: remove icon if recipe interval finished
 		if (event.recipe_data.end_tick !== undefined) {
 			const endKey = `${event.recipe_data.position[0]},${event.recipe_data.position[1]}`;
@@ -1724,7 +1803,9 @@ export default function CanvasMinimapPage() {
 	// Subscribe to updates (tile, tag, recipe) once plugin is available
 	useEffect(() => {
 		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
-		if (!plugin) return;
+		if (!plugin) {
+			return () => { };
+		}
 
 		plugin.onRecipeUpdate(handleRecipeUpdate);
 		return () => { plugin.offRecipeUpdate(handleRecipeUpdate); };
@@ -1737,7 +1818,7 @@ export default function CanvasMinimapPage() {
 			recipeCache.current.clear();
 
 			const visible = calculateVisibleTiles();
-			if (!visible) return;
+			if (!visible) { return; }
 
 			const { leftTile, topTile, rightTile, bottomTile } = visible;
 			for (let ty = topTile; ty <= bottomTile; ty++) {
@@ -1764,7 +1845,7 @@ export default function CanvasMinimapPage() {
 									loading={loading}
 									options={[...instances.values()].map(instance => ({
 										value: instance.id,
-										label: instance.name
+										label: instance.name,
 									}))}
 								/>
 								<Select
@@ -1831,11 +1912,19 @@ export default function CanvasMinimapPage() {
 						{selectedInstance ? (
 							<div>
 								{isTimelapseMode && availableTicks.length > 0 && (
-									<div style={{ marginBottom: "16px", padding: "12px", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "6px" }}>
+									<div
+										style={{
+											marginBottom: "16px",
+											padding: "12px",
+											border: "1px solid rgba(255, 255, 255, 0.15)",
+											borderRadius: "6px",
+										}}
+									>
 										<Space direction="vertical" style={{ width: "100%" }}>
 											<Space wrap>
 												<Button
 													onClick={stepBackward}
+													// eslint-disable-next-line max-len
 													disabled={availableTicks.findIndex(tick => tick === currentTick) <= 0}
 													size="small"
 												>
@@ -1850,6 +1939,7 @@ export default function CanvasMinimapPage() {
 												</Button>
 												<Button
 													onClick={stepForward}
+													// eslint-disable-next-line max-len
 													disabled={availableTicks.findIndex(tick => tick === currentTick) >= availableTicks.length - 1}
 													size="small"
 												>
@@ -1893,7 +1983,7 @@ export default function CanvasMinimapPage() {
 																return formatTickTime(availableTicks[value]);
 															}
 															return "";
-														}
+														},
 													}}
 												/>
 											</div>
@@ -1901,9 +1991,11 @@ export default function CanvasMinimapPage() {
 									</div>
 								)}
 								<div style={{ marginBottom: "10px", fontSize: "14px", color: "#666" }}>
+									{/* eslint-disable-next-line max-len */}
 									Use WASD to move, click and drag to pan, +/- or scroll wheel to zoom. Current zoom: {displayZoom}x
 									{isTimelapseMode && (
 										<span style={{ marginLeft: "16px", color: "#1890ff" }}>
+											{/* eslint-disable-next-line max-len */}
 											📹 Timelapse Mode {currentTick ? `- ${formatTickTime(currentTick)}` : ""} (F/G to step through timeline)
 										</span>
 									)}

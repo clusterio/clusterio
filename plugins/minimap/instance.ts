@@ -65,11 +65,11 @@ export class InstancePlugin extends BaseInstancePlugin {
 	async handleTileDataFromLua(data: TileDataIpc) {
 		try {
 			const { type, data: rawData, position, tick } = data;
-			
+
 			if (type === "chart") {
 				// Handle new chart data format
 				const chartData = rawData as ChartData[];
-				
+
 				if (!chartData || !Array.isArray(chartData)) {
 					this.logger.error("Invalid chart data received");
 					return;
@@ -86,9 +86,9 @@ export class InstancePlugin extends BaseInstancePlugin {
 					chart
 				));
 
-				return Promise.all(TileDataEvents.map(event => this.instance.sendTo("controller", event)));
+				TileDataEvents.map(event => this.instance.sendTo("controller", event));
 			}
-			
+
 		} catch (err) {
 			this.logger.error(`Failed to process tile data from Lua: ${err}`);
 		}
@@ -96,7 +96,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 
 	async handleChartTagDataFromLua(data: ChartTagDataIpc) {
 		// Validate the chart tag data
-		if (!data || typeof data.tag_number !== 'number') {
+		if (!data || typeof data.tag_number !== "number") {
 			this.logger.error("Invalid chart tag data received");
 			return;
 		}
@@ -108,14 +108,14 @@ export class InstancePlugin extends BaseInstancePlugin {
 		);
 
 		// Send to controller
-		return this.instance.sendTo("controller", chartTagEvent);
+		this.instance.sendTo("controller", chartTagEvent);
 	}
 
 	async handleRecipeDataFromLua(data: RecipeDataIpc) {
 		try {
 			if (!data) {
-				this.logger.error("Invalid recipe data received")
-				return
+				this.logger.error("Invalid recipe data received");
+				return;
 			}
 
 			const recipeData: RecipeData = {
@@ -133,8 +133,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 				recipeData
 			);
 
-			return this.instance.sendTo("controller", event);
-
+			this.instance.sendTo("controller", event);
 		} catch (err: unknown) {
 			this.logger.error(`Failed to process recipe data from Lua: ${err}`);
 		}
@@ -144,7 +143,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		// Initialize the Lua module when the instance starts
 		try {
 			await this.sendRcon("/sc if not storage.minimap then storage.minimap = {} end");
-			
+
 			// Set up periodic tile updates every 30 seconds
 			await this.sendRcon(`/sc 
 				if not storage.minimap.update_timer then
@@ -165,4 +164,4 @@ export class InstancePlugin extends BaseInstancePlugin {
 			// Could handle custom factorio output here if the Lua module sends special messages
 		}
 	}
-} 
+}
