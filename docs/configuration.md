@@ -239,6 +239,14 @@ Does not affect start or stop of the instance while the host is running.
 Defaults to false.
 
 
+### instance.exclude_from_start_all
+
+If enabled this instance will be excluded from the "Start all" button operation in the web interface.
+This allows you to prevent certain instances from being started when using the bulk start operation.
+
+Defaults to false.
+
+
 ### factorio.version
 
 Version of Factorio to use for this instance.
