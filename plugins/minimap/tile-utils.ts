@@ -243,7 +243,7 @@ function processPixelData(
 	currentPixels: Uint16Array,
 	maxTick?: number
 ): { success: boolean; newOffset: number } {
-	if (offset + 6 > tileData.length) {
+	if (offset + 10 > tileData.length) {
 		return { success: false, newOffset: offset };
 	}
 
@@ -370,7 +370,7 @@ export function extractAvailableTicks(tileData: BinaryData): number[] {
 			offset += 2;
 			offset += length; // Skip chunk data
 		} else if (type === 2) { // Pixels
-			if (offset + 6 > tileData.length) {
+			if (offset + 10 > tileData.length) {
 				break;
 			}
 
@@ -533,7 +533,7 @@ function parsePixelChangeRecord(
 	pixelChanges: PixelChangeRecord[],
 	ticks: Set<number>
 ): { success: boolean; newOffset: number } {
-	if (offset + 6 > tileData.length) {
+	if (offset + 10 > tileData.length) {
 		return { success: false, newOffset: offset };
 	}
 
