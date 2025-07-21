@@ -45,6 +45,7 @@ export class InstanceDetails {
 		public factorioVersion: string | undefined,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs = 0,
+		public excludeFromStartAll = false,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -58,6 +59,7 @@ export class InstanceDetails {
 		]),
 		"factorioVersion": Type.Optional(Type.String()),
 		"updatedAtMs": Type.Optional(Type.Number()),
+		"excludeFromStartAll": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -69,6 +71,7 @@ export class InstanceDetails {
 			json.status,
 			json.factorioVersion,
 			json.updatedAtMs,
+			json.excludeFromStartAll,
 		);
 	}
 
