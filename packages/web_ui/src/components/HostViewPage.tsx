@@ -15,6 +15,7 @@ import { useHost } from "../model/host";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import FactorioVersionManager from "./FactorioVersionManager";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio,
@@ -151,6 +152,7 @@ export default function HostViewPage() {
 			<Title level={5} style={{ marginTop: 16 }}>Instances</Title>
 			<InstanceList instances={hostInstances} size="small" hideAssignedHost />
 		</>}
+		<FactorioVersionManager hostId={hostId} system={system} connected={host.connected} />
 		{account.hasPermission("core.log.follow") && <>
 			<Flex justify="space-between" align="baseline">
 				<Title level={5} style={{ marginTop: 16 }}>Console</Title>

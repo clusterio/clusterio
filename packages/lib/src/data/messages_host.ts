@@ -288,3 +288,51 @@ export class HostRevokeTokensRequest {
 		return new this(json.hostId);
 	}
 }
+
+export class HostFactorioVersionsRequest {
+	declare ["constructor"]: typeof HostFactorioVersionsRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.list" as const;
+
+	static Response = class Response {
+		constructor(
+			public versions: string[],
+		) { }
+
+		static jsonSchema = Type.Object({
+			"versions": Type.Array(Type.String()),
+		});
+
+		static fromJSON(json: Static<typeof this.jsonSchema>) {
+			return new this(json.versions);
+		}
+	};
+}
+
+export class HostDownloadFactorioRequest {
+	declare ["constructor"]: typeof HostDownloadFactorioRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.update" as const;
+
+	static Response = class Response {
+		constructor(
+			public success: boolean,
+			public version?: string,
+			public error?: string,
+		) { }
+
+		static jsonSchema = Type.Object({
+			"success": Type.Boolean(),
+			"version": Type.Optional(Type.String()),
+			"error": Type.Optional(Type.String()),
+		});
+
+		static fromJSON(json: Static<typeof this.jsonSchema>) {
+			return new this(json.success, json.version, json.error);
+		}
+	};
+}

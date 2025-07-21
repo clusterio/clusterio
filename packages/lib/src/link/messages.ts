@@ -52,6 +52,8 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	host.PrepareControllerDisconnectRequest,
 	host.SyncUserListsEvent,
 	host.HostRevokeTokensRequest,
+	host.HostFactorioVersionsRequest,
+	host.HostDownloadFactorioRequest,
 
 	instance.InstanceDetailsGetRequest,
 	instance.InstanceDetailsListRequest,

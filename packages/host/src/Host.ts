@@ -6,6 +6,7 @@ import setBlocking from "set-blocking";
 import phin from "phin";
 import stream from "stream";
 import util from "util";
+import child_process from "child_process";
 
 // internal libraries
 import * as lib from "@clusterio/lib";
@@ -384,6 +385,8 @@ export default class Host extends lib.Link {
 		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
 		this.handle(lib.SyncUserListsEvent, this.handleSyncUserListsEvent.bind(this));
 		this.handle(lib.SystemInfoRequest, this.handleSystemInfoRequest.bind(this));
+		this.handle(lib.HostFactorioVersionsRequest, this.handleHostFactorioVersionsRequest.bind(this));
+		this.handle(lib.HostDownloadFactorioRequest, this.handleHostDownloadFactorioRequest.bind(this));
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
@@ -857,6 +860,160 @@ export default class Host extends lib.Link {
 		}
 
 		return { results };
+	}
+
+	async handleHostFactorioVersionsRequest() {
+		const factorioDir = this.config.get("host.factorio_directory");
+		const versions: string[] = [];
+
+		try {
+			// Check if factorioDir is a simple installation
+			const simpleVersion = await this.getFactorioVersion(path.join(factorioDir, "data", "changelog.txt"));
+			if (simpleVersion !== null) {
+				versions.push(simpleVersion);
+			} else {
+				// Check for multiple versions in subdirectories
+				const entries = await fs.readdir(factorioDir, { withFileTypes: true });
+				for (const entry of entries) {
+					if (!entry.isDirectory()) {
+						continue;
+					}
+
+					const version = await this.getFactorioVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"));
+					if (version !== null) {
+						versions.push(version);
+					}
+				}
+			}
+		} catch (error: any) {
+			if (error.code !== "ENOENT") {
+				logger.warn(`Error reading Factorio directory: ${error.message}`);
+			}
+		}
+
+		// Sort versions in descending order (newest first)
+		versions.sort((a, b) => {
+			const aParts = a.split(".").map(s => parseInt(s, 10));
+			const bParts = b.split(".").map(s => parseInt(s, 10));
+
+			for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+				const aPart = aParts[i] || 0;
+				const bPart = bParts[i] || 0;
+				if (aPart !== bPart) {
+					return bPart - aPart;
+				}
+			}
+			return 0;
+		});
+
+		return new lib.HostFactorioVersionsRequest.Response(versions);
+	}
+
+	async handleHostDownloadFactorioRequest() {
+		try {
+			const factorioDir = this.config.get("host.factorio_directory");
+			
+			// Fetch the latest version info
+			const res = await fetch("https://factorio.com/get-download/stable/headless/linux64");
+			const location = res.headers.get("location");
+			if (!location) {
+				throw new Error("No redirect location found in response headers");
+			}
+			const url = new URL(location);
+			const filename = path.posix.basename(url.pathname);
+			const match = filename.match(/(?<=factorio_headless_x64_|factorio-headless_linux_)\d+\.\d+\.\d+(?=\.tar\.xz)/);
+			
+			if (!match || !match.length) {
+				throw new Error(`Unable to extract version from filename: ${filename}`);
+			}
+			
+			const version = match[0];
+			const tmpDir = "temp/create-temp/";
+			const archivePath = path.join(tmpDir, filename);
+			const tmpArchivePath = `${archivePath}.tmp`;
+			const versionDir = path.join(factorioDir, version);
+			const tmpFactorioDir = path.join(tmpDir, version);
+
+			// Check if version already exists
+			if (await fs.pathExists(versionDir)) {
+				return new lib.HostDownloadFactorioRequest.Response(true, version);
+			}
+
+			await fs.ensureDir(tmpDir);
+
+			// Download the factorio archive
+			const downloadRes = await fetch(url.href);
+			if (!downloadRes.ok) {
+				throw new Error(`Failed to download Factorio: ${downloadRes.statusText}`);
+			}
+
+			logger.info(`Downloading Factorio ${version}. This may take a while.`);
+			const writeStream = fs.createWriteStream(tmpArchivePath);
+			if (downloadRes.body) {
+				const readableStream = stream.Readable.fromWeb(downloadRes.body);
+				readableStream.pipe(writeStream);
+				await finished(writeStream);
+			} else {
+				throw new Error("No response body received from download");
+			}
+
+			await fs.rename(tmpArchivePath, archivePath);
+
+			// Extract the archive
+			await fs.ensureDir(tmpFactorioDir);
+			await this.execFile("tar", [
+				"xf", archivePath, "-C", tmpFactorioDir, "--strip-components", "1",
+			]);
+
+			// Clean up archive and move to final location
+			await fs.unlink(archivePath);
+			await fs.rename(tmpFactorioDir, versionDir);
+
+			logger.info(`Successfully downloaded and installed Factorio ${version}`);
+			return new lib.HostDownloadFactorioRequest.Response(true, version);
+
+		} catch (error: any) {
+			logger.error(`Failed to download Factorio: ${error.message}`);
+			return new lib.HostDownloadFactorioRequest.Response(false, undefined, error.message);
+		}
+	}
+
+	private async getFactorioVersion(changelogPath: string): Promise<string | null> {
+		try {
+			const changelog = await fs.readFile(changelogPath, "utf-8");
+			for (const line of changelog.split(/[\r\n]+/)) {
+				const index = line.indexOf(":");
+				if (index !== -1) {
+					const name = line.slice(0, index).trim();
+					if (name.toLowerCase() === "version") {
+						return line.slice(index + 1).trim();
+					}
+				}
+			}
+			return null;
+		} catch (error: any) {
+			if (error.code === "ENOENT") {
+				return null;
+			}
+			throw error;
+		}
+	}
+
+	private async execFile(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+		return new Promise((resolve, reject) => {
+			child_process.execFile(
+				cmd,
+				args,
+				{ shell: true },
+				(err, stdout, stderr) => {
+					if (err) {
+						reject(err);
+					} else {
+						resolve({ stdout, stderr });
+					}
+				}
+			);
+		});
 	}
 
 	async fallbackInstanceSaveDetailsListRequest(
