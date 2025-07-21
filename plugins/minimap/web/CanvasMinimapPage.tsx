@@ -10,7 +10,8 @@ import {
 	extractAvailableTicks,
 	parseTileData,
 	renderTileIncremental,
-	ParsedTileData
+	ParsedTileData,
+	parseRecipeTileBinary
 } from "../tile-utils";
 
 const { Text } = Typography;
@@ -527,15 +528,11 @@ export default function CanvasMinimapPage() {
 							tileY
 						));
 						if (recipeResp.recipe_tile) {
-							const text = atob(recipeResp.recipe_tile);
-							const lines = text.trim().split('\n').filter(l => l.trim());
-							for (const line of lines) {
-								try {
-									const rec = JSON.parse(line);
-									if (rec.start_tick !== undefined) { allTicks.add(rec.start_tick); recipeTicksAdded++; }
-									if (rec.end_tick !== undefined) { allTicks.add(rec.end_tick); recipeTicksAdded++; }
-								} catch { /* ignore parse errors */ }
-							}
+							const binStr = atob(recipeResp.recipe_tile);
+							const buf = new Uint8Array(binStr.length);
+							for (let i = 0; i < binStr.length; i++) buf[i] = binStr.charCodeAt(i);
+							const parsed = parseRecipeTileBinary(tileX, tileY, buf, null);
+							for (const t of parsed.ticks) { allTicks.add(t); recipeTicksAdded++; }
 						}
 					} catch (e) {
 						console.warn(`Failed to load recipe tile ${tileX},${tileY}:`, e);
@@ -1690,22 +1687,15 @@ export default function CanvasMinimapPage() {
 				cs.selectedInstance, cs.selectedSurface, cs.selectedForce, tileX, tileY
 			));
 			if (!resp.recipe_tile) return;
-			const text = atob(resp.recipe_tile);
-			const lines = text.trim().split('\n').filter(l => l.trim());
-			for (const line of lines) {
-				try {
-					const rec = JSON.parse(line);
-					const key = `${rec.position[0]},${rec.position[1]}`;
-					// Timelapse filter
-					if (cs.isTimelapseMode && cs.currentTick !== null) {
-						const t = cs.currentTick;
-						if (rec.start_tick !== undefined && rec.start_tick > t) continue;
-						if (rec.end_tick !== undefined && rec.end_tick <= t) { recipeCache.current.delete(key); continue; }
-					} else {
-						if (rec.end_tick !== undefined) { recipeCache.current.delete(key); continue; }
-					}
-					if (rec.recipe) { recipeCache.current.set(key, rec.recipe); }
-				} catch { }
+			const binStr = atob(resp.recipe_tile);
+			const buf = new Uint8Array(binStr.length);
+			for (let i = 0; i < binStr.length; i++) buf[i] = binStr.charCodeAt(i);
+
+			const parsed = parseRecipeTileBinary(tileX, tileY, buf, cs.isTimelapseMode ? cs.currentTick : null);
+
+			// Apply parsed active recipes to cache
+			for (const [coord, recName] of parsed.activeRecipes) {
+				recipeCache.current.set(coord, recName);
 			}
 		} catch (e) { console.warn('loadRecipeTile', e); }
 	};
