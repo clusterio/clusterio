@@ -142,39 +142,40 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			return Buffer.alloc(0);
 		}
 
-		// Type (1) + Tick (4) + Length (2) + Pixel data (6 bytes per pixel)
-		const headerSize = 7;
-		const pixelDataSize = changes.length * 6; // 6 bytes per pixel change
-		const totalSize = headerSize + pixelDataSize;
-		const buffer = Buffer.alloc(totalSize);
-
-		let offset = 0;
-
-		// Type 2 for pixels
-		buffer.writeUInt8(2, offset);
-		offset += 1;
-
-		// Tick (converted to seconds)
-		buffer.writeUInt32BE(Math.floor(tick / 60), offset);
-		offset += 4;
-
-		// Length (number of pixel changes, not bytes)
-		buffer.writeUInt16BE(changes.length, offset);
-		offset += 2;
-
-		// Write pixel changes
-		for (const change of changes) {
-			buffer.writeUInt8(change.x, offset);
-			offset += 1;
-			buffer.writeUInt8(change.y, offset);
-			offset += 1;
-			buffer.writeUInt16BE(change.newColor, offset);
-			offset += 2;
-			buffer.writeUInt16BE(change.oldColor, offset);
-			offset += 2;
+		// Group changes by identical new/old color pair for better compression
+		const groups = new Map<string, PixelChange[]>();
+		for (const ch of changes) {
+			const key = `${ch.newColor}_${ch.oldColor}`;
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(ch);
 		}
 
-		return buffer;
+		// Build buffers for each group and concatenate
+		const groupBuffers: Buffer[] = [];
+		for (const [key, group] of groups) {
+			const sample = group[0];
+			const count = group.length;
+
+			// New format: Type(1) + Tick(4) + Count(2) + NewColor(2) + OldColor(2) + (x,y)*count
+			const headerSize = 1 + 4 + 2 + 2 + 2;
+			const pixelDataSize = count * 2; // 1 byte x + 1 byte y per pixel
+			const buf = Buffer.alloc(headerSize + pixelDataSize);
+			let offset = 0;
+			buf.writeUInt8(2, offset); offset += 1;
+			buf.writeUInt32BE(Math.floor(tick / 60), offset); offset += 4;
+			buf.writeUInt16BE(count, offset); offset += 2;
+			buf.writeUInt16BE(sample.newColor, offset); offset += 2;
+			buf.writeUInt16BE(sample.oldColor, offset); offset += 2;
+
+			for (const c of group) {
+				buf.writeUInt8(c.x, offset); offset += 1;
+				buf.writeUInt8(c.y, offset); offset += 1;
+			}
+
+			groupBuffers.push(buf);
+		}
+
+		return Buffer.concat(groupBuffers);
 	}
 
 	private setupTileRoutes() {

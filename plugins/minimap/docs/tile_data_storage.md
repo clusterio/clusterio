@@ -55,32 +55,35 @@ Initial exploration data for a 32×32 area.
 - **Compression**: Deflate (zlib)
 
 #### Pixel Changes Record (Type 2)  
-Incremental updates for individual pixels.
+Incremental updates for pixels sharing the same color transition.
 
-| Bytes | Field            | Description             |
-| ----- | ---------------- | ----------------------- |
-| 4     | `tick` (uint32)  | ⌊tick / 60⌋ timestamp   |
-| 2     | `count` (uint16) | Number of pixel changes |
+| Bytes | Field               | Description                 |
+| ----- | ------------------- | --------------------------- |
+| 4     | `tick` (uint32)     | ⌊tick / 60⌋ timestamp       |
+| 2     | `count` (uint16)    | Number of pixels changed    |
+| 2     | `new_color` (uint16)| New RGB565 value            |
+| 2     | `old_color` (uint16)| Previous RGB565 value       |
 
-**Per pixel change (6 bytes each):**
-| Bytes | Field                | Description                  |
-| ----- | -------------------- | ---------------------------- |
-| 1     | `x` (uint8)          | X coordinate in tile (0-255) |
-| 1     | `y` (uint8)          | Y coordinate in tile (0-255) |
-| 2     | `new_color` (uint16) | New RGB565 value             |
-| 2     | `old_color` (uint16) | Previous RGB565 value        |
+**Per pixel coordinate (2 bytes each):**
+| Bytes | Field       | Description                  |
+| ----- | ----------- | ---------------------------- |
+| 1     | `x` (uint8) | X coordinate in tile (0-255) |
+| 1     | `y` (uint8) | Y coordinate in tile (0-255) |
+
+**Note**: Multiple Type 2 records may be generated for a single tick if pixels have different color transitions. Each record groups pixels that share the same `old_color` -> `new_color` transition.
 
 ## Processing Strategy
 
 ### Live Updates
 1. **Exploration**: New chunks sent as Type 1 records
-2. **Changes**: Individual pixel updates as Type 2 records  
-3. **Optimization**: Multiple changes at same tick can be merged
+2. **Changes**: Individual pixel updates grouped by color transition as Type 2 records  
+3. **Optimization**: Pixels with identical color changes are batched together
 
 ### Storage Efficiency
 - **Chunks**: ~100-500 bytes after compression (vs 2048 uncompressed)
-- **Pixels**: 6 bytes per change (compact for sparse updates)
+- **Pixels**: 2 bytes per coordinate + 11-byte header per color group (vs 6 bytes per pixel in old format)
 - **Timeline**: Old color values enable fast rewind without recalculation
+- **Compression**: Grouping by color transitions provides significant space savings when many pixels change to the same colors
 
 ### Timelapse Playback
 1. **Forward**: Apply chunks and pixel changes up to target tick
@@ -95,7 +98,8 @@ Incremental updates for individual pixels.
 2. Every 5 seconds, process queued chunks:
    - Load existing tile (if exists)
    - Compare new chunk pixels with current tile state  
-   - Generate pixel change records for differences
+   - Group pixel differences by color transition
+   - Generate compressed pixel change records
    - Append new data to tile file (never modify existing)
 ```
 
