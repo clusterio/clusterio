@@ -420,7 +420,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		existingTile: Buffer,
 		offset: number
 	): { success: boolean, newOffset: number } {
-		if (offset + 6 > existingTile.length) {
+		if (offset + 10 > existingTile.length) {
 			this.logger.error(`Invalid tile data: insufficient pixel header data at offset ${offset}`);
 			return { success: false, newOffset: offset };
 		}
@@ -428,8 +428,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		const tick = existingTile.readUInt32BE(offset);
 		offset += 4;
 		const pixelCount = existingTile.readUInt16BE(offset);
-		offset += 2;
-		const pixelDataLength = pixelCount * 6;
+		offset += 2 + 2 + 2; // Skip newColor and oldColor
+		const pixelDataLength = pixelCount * 2;
 
 		if (offset + pixelDataLength > existingTile.length) {
 			this.logger.error(`Invalid tile data: insufficient pixel data at offset ${offset}`);
