@@ -12,12 +12,12 @@ export class WebPlugin extends BaseWebPlugin {
 		this.pages = [
 			{
 				path: "/minimap",
-				sidebarName: "Minimap", 
+				sidebarName: "Minimap",
 				permission: "minimap.view",
 				content: <CanvasMinimapPage />,
 			},
 		];
-		
+
 		// Handle tile update events from the controller
 		this.control.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
 		this.control.handle(ChartTagDataEvent, this.handleChartTagDataEvent.bind(this));
@@ -79,4 +79,4 @@ export class WebPlugin extends BaseWebPlugin {
 		}
 		this.recipeUpdateCallbacks.splice(index, 1);
 	}
-} 
+}

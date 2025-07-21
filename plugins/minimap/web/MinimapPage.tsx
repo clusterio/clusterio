@@ -38,21 +38,16 @@ export default function MinimapPage() {
 	}, []);
 
 	const loadSurfaceForceData = async () => {
-		try {
-			const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
-			console.log(response);
-			const data = await response.json();
-			setSurfaceForceData(data);
-			
-			// Set default selections if available
-			if (data.surfaces.length > 0 && !selectedSurface) {
-				setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
-			}
-			if (data.forces.length > 0 && !selectedForce) {
-				setSelectedForce(data.forces.includes("player") ? "player" : data.forces[0]);
-			}
-		} catch (err) {
-			console.error("Failed to load surface/force data:", err);
+		const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
+		const data = await response.json();
+		setSurfaceForceData(data);
+
+		// Set default selections if available
+		if (data.surfaces.length > 0 && !selectedSurface) {
+			setSelectedSurface(data.surfaces.includes("nauvis") ? "nauvis" : data.surfaces[0]);
+		}
+		if (data.forces.length > 0 && !selectedForce) {
+			setSelectedForce(data.forces.includes("player") ? "player" : data.forces[0]);
 		}
 	};
 
@@ -66,8 +61,8 @@ export default function MinimapPage() {
 		<div style={{ padding: "20px" }}>
 			<Row gutter={[16, 16]}>
 				<Col span={24}>
-					<Card 
-						title="Factorio Instance Minimap" 
+					<Card
+						title="Factorio Instance Minimap"
 						extra={
 							<Space wrap>
 								<Select
@@ -78,7 +73,7 @@ export default function MinimapPage() {
 									loading={loading}
 									options={[...instances.values()].map(instance => ({
 										value: instance.id,
-										label: instance.name
+										label: instance.name,
 									}))}
 								/>
 								<Select
@@ -109,10 +104,10 @@ export default function MinimapPage() {
 						}
 					>
 						{selectedInstance && mapBounds ? (
-							<div 
-								style={{ 
-									height: "700px", 
-									width: "100%"
+							<div
+								style={{
+									height: "700px",
+									width: "100%",
 								}}
 								className="minimap-container"
 							>
@@ -137,6 +132,7 @@ export default function MinimapPage() {
 								>
 									{/* Chart layer with surface and force data */}
 									<TileLayer
+										// eslint-disable-next-line max-len
 										url={`${window.location.origin}/api/minimap/chart/${selectedInstance}/${selectedSurface}/${selectedForce}/{z}/{x}/{y}.png?refresh=${refreshTiles}`}
 										maxNativeZoom={10}
 										minNativeZoom={10}
@@ -146,11 +142,11 @@ export default function MinimapPage() {
 								</MapContainer>
 							</div>
 						) : (
-							<div 
-								style={{ 
-									height: "400px", 
-									display: "flex", 
-									alignItems: "center", 
+							<div
+								style={{
+									height: "400px",
+									display: "flex",
+									alignItems: "center",
 									justifyContent: "center",
 									backgroundColor: "#f5f5f5",
 									border: "1px dashed #d9d9d9",
@@ -168,4 +164,4 @@ export default function MinimapPage() {
 			</Row>
 		</div>
 	);
-} 
+}
