@@ -2,8 +2,9 @@ import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Static } from "@sinclair/typebox";
 
-import { Button, Form, FormInstance, Input, Modal,
-    Radio, Upload, UploadProps,
+import {
+	Button, Form, FormInstance, Input, Modal,
+	Radio, Upload, UploadProps
 } from "antd";
 
 import { InboxOutlined } from "@ant-design/icons";
@@ -313,7 +314,7 @@ function BulkUserActionButton() {
 	const [formAction, setFormAction] = useState<string | undefined>(undefined);
 	const [form] = Form.useForm();
 
-	function onValuesChange({ action } : { action?: string }) {
+	function onValuesChange({ action }: { action?: string }) {
 		if (action) {
 			setFormAction(action);
 		}
@@ -340,7 +341,7 @@ function BulkUserActionButton() {
 			title="Bulk Actions"
 			okText="Apply"
 			open={open}
-			okButtonProps={{disabled: formAction === undefined}}
+			okButtonProps={{ disabled: formAction === undefined }}
 			onOk={() => { onOk().catch(notifyErrorHandler(`Error running ${formAction}`)); }}
 			onCancel={() => { setOpen(false); }}
 			destroyOnClose
@@ -356,9 +357,9 @@ function BulkUserActionButton() {
 							? <Radio.Button value="restore">Restore</Radio.Button> : undefined}
 					</Radio.Group>
 				</Form.Item>
-				{formAction === "import" ? <UserBulkActionImport {...{setApplyAction, form}}/> : undefined}
-				{formAction === "export" ? <UserBulkActionExport {...{setApplyAction, form}}/> : undefined}
-				{formAction === "restore" ? <UserBulkActionImport restore {...{setApplyAction, form}}/> : undefined}
+				{formAction === "import" ? <UserBulkActionImport {...{ setApplyAction, form }} /> : undefined}
+				{formAction === "export" ? <UserBulkActionExport {...{ setApplyAction, form }} /> : undefined}
+				{formAction === "restore" ? <UserBulkActionImport restore {...{ setApplyAction, form }} /> : undefined}
 			</Form>
 		</Modal>
 	</>;
