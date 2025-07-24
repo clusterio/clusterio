@@ -4,7 +4,7 @@ import { Static } from "@sinclair/typebox";
 
 import {
 	Button, Form, FormInstance, Input, Modal,
-	Radio, Upload, UploadProps
+	Radio, Upload, UploadProps,
 } from "antd";
 
 import { InboxOutlined } from "@ant-design/icons";
