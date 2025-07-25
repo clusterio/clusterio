@@ -1,4 +1,5 @@
 local clusterio_api = require("modules/clusterio/api")
+local compat = require("modules/clusterio/compat")
 
 minimap = {}
 
@@ -530,25 +531,31 @@ end
 minimap.dump_chunk_chart = dump_chunk_chart
 
 minimap.events = {}
-minimap.events[clusterio_api.events.on_server_startup] = init
-minimap.events[defines.events.on_tick] = on_tick
-minimap.events[defines.events.on_chunk_charted] = on_chunk_charted
-minimap.events[defines.events.on_built_entity] = on_entity_built
-minimap.events[defines.events.on_robot_built_entity] = on_entity_built
-minimap.events[defines.events.on_entity_died] = on_entity_removed
-minimap.events[defines.events.on_player_mined_entity] = on_entity_removed
-minimap.events[defines.events.on_robot_mined_entity] = on_entity_removed
-minimap.events[defines.events.on_player_built_tile] = on_tile_changed
-minimap.events[defines.events.on_robot_built_tile] = on_tile_changed
-minimap.events[defines.events.on_player_mined_tile] = on_tile_changed
-minimap.events[defines.events.on_robot_mined_tile] = on_tile_changed
-minimap.events[defines.events.script_raised_set_tiles] = on_tile_changed
-minimap.events[defines.events.on_chart_tag_added] = on_chart_tag_added
-minimap.events[defines.events.on_chart_tag_modified] = on_chart_tag_modified
-minimap.events[defines.events.on_chart_tag_removed] = on_chart_tag_removed
-minimap.events[defines.events.on_entity_settings_pasted] = on_entity_settings_pasted
-minimap.events[defines.events.on_gui_closed] = on_gui_closed
-minimap.events[defines.events.on_player_joined_game] = on_player_joined_game
-minimap.events[defines.events.on_player_left_game] = on_player_left_game
+
+-- Ensure this module only loads on Factorio 2.0 or later
+if not compat.version_ge("2.0") then
+	log("[minimap] Minimap plugin disabled - requires Factorio 2.0 or later, current version: " .. (script.active_mods and script.active_mods.base or "unknown"))
+else
+	minimap.events[clusterio_api.events.on_server_startup] = init
+	minimap.events[defines.events.on_tick] = on_tick
+	minimap.events[defines.events.on_chunk_charted] = on_chunk_charted
+	minimap.events[defines.events.on_built_entity] = on_entity_built
+	minimap.events[defines.events.on_robot_built_entity] = on_entity_built
+	minimap.events[defines.events.on_entity_died] = on_entity_removed
+	minimap.events[defines.events.on_player_mined_entity] = on_entity_removed
+	minimap.events[defines.events.on_robot_mined_entity] = on_entity_removed
+	minimap.events[defines.events.on_player_built_tile] = on_tile_changed
+	minimap.events[defines.events.on_robot_built_tile] = on_tile_changed
+	minimap.events[defines.events.on_player_mined_tile] = on_tile_changed
+	minimap.events[defines.events.on_robot_mined_tile] = on_tile_changed
+	minimap.events[defines.events.script_raised_set_tiles] = on_tile_changed
+	minimap.events[defines.events.on_chart_tag_added] = on_chart_tag_added
+	minimap.events[defines.events.on_chart_tag_modified] = on_chart_tag_modified
+	minimap.events[defines.events.on_chart_tag_removed] = on_chart_tag_removed
+	minimap.events[defines.events.on_entity_settings_pasted] = on_entity_settings_pasted
+	minimap.events[defines.events.on_gui_closed] = on_gui_closed
+	minimap.events[defines.events.on_player_joined_game] = on_player_joined_game
+	minimap.events[defines.events.on_player_left_game] = on_player_left_game
+end
 
 return minimap
