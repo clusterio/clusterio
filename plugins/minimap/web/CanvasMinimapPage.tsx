@@ -934,12 +934,41 @@ export default function CanvasMinimapPage() {
 
 	// Set up keyboard and mouse event listeners (one-time setup)
 	useEffect(() => {
+		const isTypingInInput = (): boolean => {
+			const activeElement = document.activeElement;
+			if (!activeElement) return false;
+			
+			const tagName = activeElement.tagName.toLowerCase();
+			const inputTypes = ['input', 'textarea', 'select'];
+			const isContentEditable = activeElement.getAttribute('contenteditable') === 'true';
+			
+			// Check if it's an input field or contenteditable element
+			if (inputTypes.includes(tagName) || isContentEditable) {
+				return true;
+			}
+			
+			// Check if it's an Ant Design Select dropdown (they use divs with specific classes)
+			if (activeElement.closest('.ant-select-dropdown') || 
+				activeElement.closest('.ant-select-selector') ||
+				activeElement.classList.contains('ant-select-selection-search-input')) {
+				return true;
+			}
+			
+			return false;
+		};
+
 		const handleKeyDown = (e: KeyboardEvent) => {
+			// Don't handle keyboard shortcuts if user is typing in an input field
+			if (isTypingInInput()) {
+				return;
+			}
+
 			const key = e.key.toLowerCase();
 
 			// Track movement keys for smooth animation
 			if (["w", "a", "s", "d"].includes(key)) {
 				keysPressed.current.add(key);
+				e.preventDefault(); // Prevent default behavior (scrolling, etc.)
 				return;
 			}
 
@@ -980,6 +1009,11 @@ export default function CanvasMinimapPage() {
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
+			// Don't handle keyboard shortcuts if user is typing in an input field
+			if (isTypingInInput()) {
+				return;
+			}
+
 			const key = e.key.toLowerCase();
 
 			// Remove movement keys when released
@@ -2141,88 +2175,242 @@ export default function CanvasMinimapPage() {
 			<Row gutter={[16, 16]}>
 				<Col span={24}>
 					<Card
-						title="Factorio Instance Minimap"
-						extra={
-							<Space wrap>
-								<Select
-									style={{ width: 200 }}
-									placeholder="Select instance"
-									value={selectedInstance}
-									onChange={setSelectedInstance}
-									loading={loading}
-									options={[...instances.values()].map(instance => ({
-										value: instance.id,
-										label: instance.name,
-									}))}
-								/>
-								<Select
-									style={{ width: 150 }}
-									placeholder="Select surface"
-									value={selectedSurface}
-									onChange={setSelectedSurface}
-								>
-									{surfaceForceData.surfaces.map(surface => (
-										<Select.Option key={surface} value={surface}>
-											{surface}
-										</Select.Option>
-									))}
-								</Select>
-								<Select
-									style={{ width: 150 }}
-									placeholder="Select force"
-									value={selectedForce}
-									onChange={setSelectedForce}
-								>
-									{surfaceForceData.forces.map(force => (
-										<Select.Option key={force} value={force}>
-											{force}
-										</Select.Option>
-									))}
-								</Select>
-								<Space direction="vertical" size="small">
-									<Space>
-										<Text strong>Timelapse:</Text>
-										<Switch
-											checked={isTimelapseMode}
-											onChange={toggleTimelapseMode}
-											loading={loading}
-										/>
-										{isTimelapseMode && (
-											<Text type="secondary">
-												{availableTicks.length} snapshots
-											</Text>
-										)}
-									</Space>
-									<Space>
-										<Text strong>Chart Tags:</Text>
-										<Switch
-											checked={showChartTags}
-											onChange={setShowChartTags}
-										/>
-										{showChartTags && (
-											<Text type="secondary">
-												{getVisibleChartTags().length} visible
-											</Text>
-										)}
-									</Space>
-									<Space>
-										<Text strong>Recipes:</Text>
-										<Switch checked={showRecipes} onChange={setShowRecipes} />
-										{showRecipes && (
-											<Text type="secondary">{recipeCache.current.size} active</Text>
-										)}
-									</Space>
-									<Space>
-										<Text strong>Players:</Text>
-										<Switch checked={showPlayerPositions} onChange={setShowPlayerPositions} />
-										{showPlayerPositions && (
-											<Text type="secondary">{playerPositions.size} online</Text>
-										)}
-									</Space>
-								</Space>
+						title={
+							<Space>
+								<span>Factorio Instance Minimap</span>
+								{selectedInstance && (
+									<Text type="secondary" style={{ fontSize: "14px" }}>
+										• {instances.get(selectedInstance)?.name || "Unknown Instance"}
+									</Text>
+								)}
 							</Space>
 						}
+						styles={{
+							header: { padding: "16px 24px" },
+							body: { padding: "16px 24px" },
+						}}
 					>
+						{/* Control Panel */}
+						<div style={{ 
+							marginBottom: "16px",
+							padding: "16px",
+							border: "1px solid rgb(48, 48, 48)",
+							borderRadius: "8px",
+						}}>
+							<Row gutter={[24, 16]}>
+								{/* Instance Selection */}
+								<Col xs={24} md={8}>
+									<Space direction="vertical" style={{ width: "100%" }} size="small">
+										<Text strong style={{ fontSize: "12px", color: "#666" }}>INSTANCE</Text>
+										<Select
+											style={{ width: "100%" }}
+											placeholder="Select instance"
+											value={selectedInstance}
+											onChange={(value) => {
+												setSelectedInstance(value);
+												// Return focus to canvas after selection
+												setTimeout(() => {
+													if (canvasRef.current) {
+														canvasRef.current.focus();
+													}
+												}, 100);
+											}}
+											loading={loading}
+											options={[...instances.values()].map(instance => ({
+												value: instance.id,
+												label: instance.name,
+											}))}
+											suffixIcon={selectedInstance ? undefined : <span style={{ color: "#ff4d4f" }}>Required</span>}
+										/>
+									</Space>
+								</Col>
+
+								{/* Surface & Force Selection */}
+								<Col xs={24} md={8}>
+									<Space direction="vertical" style={{ width: "100%" }} size="small">
+										<Text strong style={{ fontSize: "12px", color: "#666" }}>WORLD FILTERS</Text>
+										<Space.Compact style={{ width: "100%" }}>
+											<Select
+												style={{ width: "50%" }}
+												placeholder="Surface"
+												value={selectedSurface}
+												onChange={(value) => {
+													setSelectedSurface(value);
+													// Return focus to canvas after selection
+													setTimeout(() => {
+														if (canvasRef.current) {
+															canvasRef.current.focus();
+														}
+													}, 100);
+												}}
+												disabled={!selectedInstance}
+											>
+												{surfaceForceData.surfaces.map(surface => (
+													<Select.Option key={surface} value={surface}>
+														{surface}
+													</Select.Option>
+												))}
+											</Select>
+											<Select
+												style={{ width: "50%" }}
+												placeholder="Force"
+												value={selectedForce}
+												onChange={(value) => {
+													setSelectedForce(value);
+													// Return focus to canvas after selection
+													setTimeout(() => {
+														if (canvasRef.current) {
+															canvasRef.current.focus();
+														}
+													}, 100);
+												}}
+												disabled={!selectedInstance}
+											>
+												{surfaceForceData.forces.map(force => (
+													<Select.Option key={force} value={force}>
+														{force}
+													</Select.Option>
+												))}
+											</Select>
+										</Space.Compact>
+									</Space>
+								</Col>
+
+								{/* Display Options */}
+								<Col xs={24} md={8}>
+									<Space direction="vertical" style={{ width: "100%" }} size="small">
+										<Text strong style={{ fontSize: "12px", color: "#666" }}>DISPLAY OPTIONS</Text>
+										<div style={{ 
+											display: "grid", 
+											gridTemplateColumns: "repeat(2, 1fr)", 
+											gap: "8px",
+											padding: "4px 0",
+										}}>
+											{/* Timelapse Toggle */}
+											<div style={{ 
+												display: "flex", 
+												alignItems: "center", 
+												justifyContent: "space-between",
+												minHeight: "24px",
+											}}>
+												<Text style={{ fontSize: "13px" }}>Timelapse</Text>
+												<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+													<Switch
+														size="small"
+														checked={isTimelapseMode}
+														onChange={(checked) => {
+															toggleTimelapseMode(checked);
+														}}
+														loading={loading}
+														disabled={!selectedInstance}
+													/>
+													<Text 
+														type="secondary" 
+														style={{ 
+															fontSize: "11px", 
+															width: "50px",
+															textAlign: "right",
+														}}
+													>
+														{isTimelapseMode ? `${availableTicks.length} snaps` : "Live"}
+													</Text>
+												</div>
+											</div>
+
+											{/* Chart Tags Toggle */}
+											<div style={{ 
+												display: "flex", 
+												alignItems: "center", 
+												justifyContent: "space-between",
+												minHeight: "24px",
+											}}>
+												<Text style={{ fontSize: "13px" }}>Chart Tags</Text>
+												<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+													<Switch
+														size="small"
+														checked={showChartTags}
+														onChange={(checked) => {
+															setShowChartTags(checked);
+														}}
+														disabled={!selectedInstance}
+													/>
+													<Text 
+														type="secondary" 
+														style={{ 
+															fontSize: "11px", 
+															width: "50px",
+															textAlign: "right",
+														}}
+													>
+														{showChartTags ? `${getVisibleChartTags().length} shown` : "Hidden"}
+													</Text>
+												</div>
+											</div>
+
+											{/* Recipes Toggle */}
+											<div style={{ 
+												display: "flex", 
+												alignItems: "center", 
+												justifyContent: "space-between",
+												minHeight: "24px",
+											}}>
+												<Text style={{ fontSize: "13px" }}>Recipes</Text>
+												<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+													<Switch
+														size="small"
+														checked={showRecipes}
+														onChange={(checked) => {
+															setShowRecipes(checked);
+														}}
+														disabled={!selectedInstance}
+													/>
+													<Text 
+														type="secondary" 
+														style={{ 
+															fontSize: "11px", 
+															width: "50px",
+															textAlign: "right",
+														}}
+													>
+														{showRecipes ? `${recipeCache.current.size} active` : "Hidden"}
+													</Text>
+												</div>
+											</div>
+
+											{/* Players Toggle */}
+											<div style={{ 
+												display: "flex", 
+												alignItems: "center", 
+												justifyContent: "space-between",
+												minHeight: "24px",
+											}}>
+												<Text style={{ fontSize: "13px" }}>Players</Text>
+												<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+													<Switch
+														size="small"
+														checked={showPlayerPositions}
+														onChange={(checked) => {
+															setShowPlayerPositions(checked);
+														}}
+														disabled={!selectedInstance}
+													/>
+													<Text 
+														type="secondary" 
+														style={{ 
+															fontSize: "11px", 
+															width: "50px",
+															textAlign: "right",
+														}}
+													>
+														{showPlayerPositions ? `${playerPositions.size} online` : "Hidden"}
+													</Text>
+												</div>
+											</div>
+										</div>
+									</Space>
+								</Col>
+							</Row>
+						</div>
 						{selectedInstance ? (
 							<div>
 								{isTimelapseMode && availableTicks.length > 0 && (
@@ -2317,10 +2505,10 @@ export default function CanvasMinimapPage() {
 								<div
 									ref={containerRef}
 									style={{
-										height: "calc(100vh - 300px)", // Dynamic height based on viewport
+										height: "calc(100vh - 400px)",
 										minHeight: "500px",
 										width: "100%",
-										border: "1px solid #d9d9d9",
+										border: "1px solid rgb(48, 48, 48)",
 										borderRadius: "6px",
 										overflow: "hidden",
 										position: "relative",
@@ -2333,6 +2521,7 @@ export default function CanvasMinimapPage() {
 											cursor: "grab", // Initial cursor, updated by updateCursor helper
 											width: "100%",
 											height: "100%",
+											outline: "none", // Remove focus outline
 										}}
 										tabIndex={0}
 									/>
