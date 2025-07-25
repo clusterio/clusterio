@@ -39,6 +39,7 @@ describe("Clusterio Instance", function() {
 
 		for (const plugin of [
 			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth", "inventory_sync",
+			"minimap",
 		]) {
 			await execCtl(`instance config set ${instName} ${plugin}.load_plugin false`);
 		}
