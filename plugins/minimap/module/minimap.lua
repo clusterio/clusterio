@@ -36,6 +36,105 @@ local function send_recipe_data(recipe_data)
 	clusterio_api.send_json("minimap:recipe_data", recipe_data)
 end
 
+-- Send player position data to plugin
+local function send_player_position_data(player_data)
+	clusterio_api.send_json("minimap:player_position", player_data)
+end
+
+-- Check if a position has moved significantly (≥1 tile)
+local function has_moved_significantly(old_pos, new_pos)
+	if not old_pos then
+		return true
+	end
+	local dx = math.abs(new_pos.x - old_pos.x)
+	local dy = math.abs(new_pos.y - old_pos.y)
+	return dx >= 1 or dy >= 1
+end
+
+-- Process and send player position updates
+local function process_player_positions()
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	for _, player in pairs(game.connected_players) do
+		if player.valid and player.character and player.character.valid then
+			local surface = player.character.surface
+			local position = player.character.position
+			local player_key = player.index
+
+			-- Initialize player tracking data if needed
+			if not storage.minimap.player_positions then
+				storage.minimap.player_positions = {}
+			end
+
+			local last_position = storage.minimap.player_positions[player_key]
+			local current_sec = math.floor(game.tick / 60)
+
+			-- Check if position changed significantly or timeout elapsed
+			local should_update = false
+			if has_moved_significantly(last_position and last_position.position or nil, position) then
+				should_update = true
+			elseif last_position and (current_sec - last_position.last_update_sec) >= 5 then
+				-- Send update every 5 seconds even if not moving (for timeout)
+				should_update = true
+			elseif not last_position then
+				-- First position for this player
+				should_update = true
+			end
+
+			if should_update then
+				local player_data = {
+					player_name = player.name,
+					surface = surface.name,
+					x = position.x,
+					y = position.y,
+					sec = current_sec,
+				}
+
+				send_player_position_data(player_data)
+
+				-- Update tracking data
+				storage.minimap.player_positions[player_key] = {
+					position = { x = position.x, y = position.y },
+					last_update_sec = current_sec,
+				}
+			end
+		end
+	end
+end
+
+-- Handle player session start
+local function on_player_joined_game(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	local player = game.get_player(event.player_index)
+	if not player or not player.valid then
+		return
+	end
+
+	-- Clear any existing position data for this player to ensure fresh tracking
+	if storage.minimap.player_positions then
+		storage.minimap.player_positions[player.index] = nil
+	end
+
+	-- The next position update will be sent when the player moves or in process_player_positions
+end
+
+-- Handle player session end
+local function on_player_left_game(event)
+	if not storage.minimap or not storage.minimap.enabled then
+		return
+	end
+
+	-- Clean up position tracking data
+	if storage.minimap.player_positions then
+		storage.minimap.player_positions[event.player_index] = nil
+	end
+end
+
 -- Helper for creating and sending recipe start/stop events
 local function update_entity_recipe(entity)
 	if not entity or not entity.valid then
@@ -327,7 +426,8 @@ local function init()
 		storage.minimap = {
 			enabled = true,
 			chunk_update_queue = {},
-			recipe_cache = {}
+			recipe_cache = {},
+			player_positions = {}
 		}
 	end
 
@@ -419,6 +519,11 @@ local function on_tick(event)
 		local chunk_position = table.remove(storage.minimap.chunk_update_queue, 1)
 		dump_chunk_chart(chunk_position)
 	end
+
+	-- Process player position updates every 250ms (15 ticks at 60 UPS)
+	if game.tick % 15 == 0 then
+		process_player_positions()
+	end
 end
 
 -- Export functions
@@ -443,5 +548,7 @@ minimap.events[defines.events.on_chart_tag_modified] = on_chart_tag_modified
 minimap.events[defines.events.on_chart_tag_removed] = on_chart_tag_removed
 minimap.events[defines.events.on_entity_settings_pasted] = on_entity_settings_pasted
 minimap.events[defines.events.on_gui_closed] = on_gui_closed
+minimap.events[defines.events.on_player_joined_game] = on_player_joined_game
+minimap.events[defines.events.on_player_left_game] = on_player_left_game
 
 return minimap

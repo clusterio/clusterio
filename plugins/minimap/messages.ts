@@ -46,6 +46,53 @@ export const RecipeDataSchema = Type.Object({
 
 export type RecipeData = Static<typeof RecipeDataSchema>;
 
+export const PlayerDataSchema = Type.Object({
+	player_name: Type.String(),
+	surface: Type.String(),
+	x: Type.Number(), // tiles
+	y: Type.Number(), // tiles
+	sec: Type.Number(), // seconds since map started (⌊tick / 60⌋)
+});
+
+export type PlayerData = Static<typeof PlayerDataSchema>;
+
+/**
+ * PlayerPositionEvent: Used for both Factorio Instance -> Controller and Controller -> Web Clients
+ *
+ * Contains real-time player position data for live tracking and movement visualization.
+ * When sent from instance to controller: triggers storage in compressed binary format.
+ * When sent from controller to web clients: enables real-time player position updates.
+ *
+ * Data flow:
+ * - Lua module -> Instance plugin -> Controller plugin (for persistence)
+ * - Controller plugin -> Web UI plugin -> Canvas renderer (for live updates)
+ */
+export class PlayerPositionEvent {
+	declare ["constructor"]: typeof PlayerPositionEvent;
+	static type = "event" as const;
+	static src = ["instance", "controller"] as const;
+	static dst = ["controller", "control"] as const;
+	static plugin = "minimap" as const;
+	static permission = null;
+
+	constructor(
+		public instance_id: number,
+		public player_data: PlayerData,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"player_data": PlayerDataSchema,
+	});
+
+	static fromJSON(json: Static<typeof PlayerPositionEvent.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.player_data
+		);
+	}
+}
+
 /**
  * TileDataEvent: Used for both Factorio Instance -> Controller and Controller -> Web Clients
  *
@@ -144,9 +191,9 @@ export class RecipeDataEvent {
 	static permission = null;
 
 	constructor(
-        public instance_id: number,
-        public recipe_data: RecipeData,
-	) {}
+		public instance_id: number,
+		public recipe_data: RecipeData,
+	) { }
 
 	static jsonSchema = Type.Object({
 		"instance_id": Type.Number(),
@@ -257,13 +304,13 @@ export class GetRawRecipeTileRequest {
 	static permission = "minimap.view";
 
 	constructor(
-        public instance_id: number,
-        public surface: string,
-        public force: string,
-        public tile_x: number,
-        public tile_y: number,
-        public tick?: number,
-	) {}
+		public instance_id: number,
+		public surface: string,
+		public force: string,
+		public tile_x: number,
+		public tile_y: number,
+		public tick?: number,
+	) { }
 
 	static jsonSchema = Type.Object({
 		"instance_id": Type.Number(),
@@ -287,5 +334,44 @@ export class GetRawRecipeTileRequest {
 
 	static Response = lib.plainJson(Type.Object({
 		"recipe_tile": Type.Union([Type.String(), Type.Null()]),
+	}));
+}
+
+/**
+ * GetPlayerPathRequest: Request compressed historical player path data from controller storage
+ *
+ * Returns binary compressed player position data for timeline playback.
+ * Used to load player movement history when opening timeline or specific player tracking.
+ */
+export class GetPlayerPathRequest {
+	declare ["constructor"]: typeof GetPlayerPathRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "minimap" as const;
+	static permission = "minimap.view";
+
+	constructor(
+		public instance_id: number,
+		public player_name: string,
+		public surface: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"player_name": Type.String(),
+		"surface": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof GetPlayerPathRequest.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.player_name,
+			json.surface,
+		);
+	}
+
+	static Response = lib.plainJson(Type.Object({
+		"positions": Type.Optional(Type.String()),
 	}));
 }

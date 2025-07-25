@@ -3,8 +3,10 @@ import * as lib from "@clusterio/lib";
 import {
 	TileDataEvent,
 	ChartTagDataEvent,
+	PlayerPositionEvent,
 	GetRawTileRequest,
 	GetChartTagsRequest,
+	GetPlayerPathRequest,
 	RecipeDataEvent,
 	GetRawRecipeTileRequest,
 } from "./messages";
@@ -28,9 +30,11 @@ export const plugin: lib.PluginDeclaration = {
 	messages: [
 		TileDataEvent,
 		ChartTagDataEvent,
+		PlayerPositionEvent,
 		RecipeDataEvent,
 		GetRawTileRequest,
 		GetChartTagsRequest,
+		GetPlayerPathRequest,
 		GetRawRecipeTileRequest,
 	],
 	routes: ["/minimap"],
