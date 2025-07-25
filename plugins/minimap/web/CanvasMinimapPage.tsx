@@ -5,11 +5,14 @@ import {
 	GetRawTileRequest,
 	GetChartTagsRequest,
 	GetRawRecipeTileRequest,
+	GetPlayerPathRequest,
 	TileDataEvent,
 	ChartTagData,
 	ChartTagDataEvent,
 	SignalID,
 	RecipeDataEvent,
+	PlayerPositionEvent,
+	PlayerData,
 } from "../messages";
 import * as zlib from "zlib";
 import {
@@ -59,6 +62,8 @@ interface TileState {
 	parsedData: ParsedTileData;
 	imageData: ImageData;
 }
+
+interface ParsedPlayerPos { name: string; x: number; y: number; sec: number; }
 
 const CHUNK_SIZE = 32; // 32x32 pixels per chunk
 const TILE_SIZE = 256; // 256x256 pixels per tile (8x8 chunks)
@@ -124,6 +129,10 @@ export default function CanvasMinimapPage() {
 	const [rawChartTags, setRawChartTags] = useState<ChartTagDataWithInstance[]>([]);
 	const [mergedChartTags, setMergedChartTags] = useState<MergedChartTag[]>([]);
 
+	// Player position states
+	const [showPlayerPositions, setShowPlayerPositions] = useState(true);
+	const [playerPositions, setPlayerPositions] = useState<Map<string, PlayerData>>(new Map());
+
 	// Display state for zoom level (throttled updates to avoid excessive re-renders)
 	const [displayZoom, setDisplayZoom] = useState(1);
 
@@ -150,9 +159,13 @@ export default function CanvasMinimapPage() {
 	const tileStateCache = useRef<Map<string, TileState>>(new Map());
 	const chunkCache = useRef<Map<string, ImageData>>(new Map());
 	const loadingTiles = useRef<Map<string, Promise<ImageData | null>>>(new Map());
+	const playerPathBufRef = useRef<Uint8Array | null>(null);
 
 	// Cache for recipes currently active
 	const recipeCache = useRef<Map<string, string>>(new Map());
+
+	// Cache for deduplicated player positions
+	const deduplicatedPlayerPositions = useRef<Map<number, ParsedPlayerPos[]>>(new Map());
 
 	// Animation frame ref
 	const animationFrameRef = useRef<number>();
@@ -170,8 +183,10 @@ export default function CanvasMinimapPage() {
 		availableTicks: [] as number[],
 		showChartTags: true,
 		showRecipes: true,
+		showPlayerPositions: true,
 		mergedChartTags: [] as MergedChartTag[],
 		chartTagTimestamps: 0,
+		playerPositions: new Map<string, PlayerData>(playerPositions),
 	});
 
 	const control = useContext(ControlContext);
@@ -361,8 +376,10 @@ export default function CanvasMinimapPage() {
 			availableTicks,
 			showChartTags,
 			showRecipes,
+			showPlayerPositions,
 			mergedChartTags,
 			chartTagTimestamps,
+			playerPositions: new Map<string, PlayerData>(currentStateRef.current.playerPositions),
 		};
 	}, [
 		selectedInstance,
@@ -372,9 +389,11 @@ export default function CanvasMinimapPage() {
 		currentTick,
 		availableTicks,
 		showChartTags,
+		showRecipes,
+		showPlayerPositions,
 		mergedChartTags,
 		chartTagTimestamps,
-		showRecipes,
+		playerPositions,
 	]);
 
 	// Define pixel-perfect zoom levels to eliminate seaming issues
@@ -559,6 +578,139 @@ export default function CanvasMinimapPage() {
 		return recipeTicksAdded;
 	};
 
+	const fetchPlayerPathBuffer = async (): Promise<Uint8Array | null> => {
+		if (!selectedInstance) { return null; }
+		if (playerPathBufRef.current) { return playerPathBufRef.current; }
+		try {
+			const resp = await control.send(new GetPlayerPathRequest(
+				selectedInstance,
+				"*",
+				selectedSurface,
+			));
+			if (!resp.positions) { return null; }
+			const binStr = atob(resp.positions);
+			const buf = new Uint8Array(binStr.length);
+			for (let i=0; i<binStr.length; i++) { buf[i] = binStr.charCodeAt(i); }
+			playerPathBufRef.current = buf;
+
+			// Parse and deduplicate positions immediately after loading
+			parseAndDeduplicatePlayerPositions(buf);
+
+			return buf;
+		} catch (_e) { return null; }
+	};
+
+	const parseAndDeduplicatePlayerPositions = (buf: Uint8Array) => {
+		const idToName = new Map<number, string>();
+		const playerTimelines = new Map<number, ParsedPlayerPos[]>();
+
+		const readCoord = (arr: Uint8Array, offset: number): number => {
+			// Read a signed 24-bit coordinate in big-endian format
+			const raw = (arr[offset] << 16) | (arr[offset + 1] << 8) | arr[offset + 2];
+			// Sign-extend from 24 to 32 bits
+			const signed = (raw & 0x800000) ? (raw | 0xFF000000) : raw;
+			return signed;
+		};
+
+		let o = 0;
+		while (o < buf.length) {
+			const type = buf[o]; o += 1;
+			if (type === 0) {
+				if (o + 16 > buf.length) { break; }
+				o += 4; // t_sec epoch not used
+				const sec = (buf[o] << 24) | (buf[o + 1] << 16) | (buf[o + 2] << 8) | buf[o + 3];
+				o += 4;
+				const x = readCoord(buf, o); o += 3;
+				const y = readCoord(buf, o); o += 3;
+				const id = (buf[o] << 8) | buf[o + 1]; o += 2;
+
+				if (idToName.has(id)) {
+					const name = idToName.get(id)!;
+					if (!playerTimelines.has(id)) {
+						playerTimelines.set(id, []);
+					}
+					playerTimelines.get(id)!.push({ name, x, y, sec });
+				}
+			} else if (type === 1) {
+				if (o + 6 > buf.length) { break; }
+				o += 4; // t_ms
+				const id = (buf[o] << 8) | buf[o + 1]; o += 2;
+				const len = buf[o]; o += 1;
+				if (o + len > buf.length) { break; }
+				const name = new TextDecoder().decode(buf.subarray(o, o + len));
+				o += len;
+				idToName.set(id, name);
+			} else if (type === 2) {
+				if (o + 6 > buf.length) { break; }
+				o += 4; // t_ms
+				const id = (buf[o] << 8) | buf[o + 1]; o += 2;
+				// Player disconnect - mark end of timeline for this player
+				if (playerTimelines.has(id)) {
+					// Add a disconnect marker or handle as needed
+				}
+			} else {
+				break;
+			}
+		}
+
+		// Deduplicate consecutive identical positions for each player
+		const deduplicatedTimelines = new Map<number, ParsedPlayerPos[]>();
+
+		for (const [playerId, timeline] of playerTimelines) {
+			if (timeline.length === 0) { continue; }
+
+			const deduplicated: ParsedPlayerPos[] = [];
+			let lastPos = timeline[0];
+			deduplicated.push(lastPos);
+
+			for (let i = 1; i < timeline.length; i++) {
+				const currentPos = timeline[i];
+
+				// Check if position changed (with small tolerance for floating point)
+				const deltaX = Math.abs(currentPos.x - lastPos.x);
+				const deltaY = Math.abs(currentPos.y - lastPos.y);
+
+				if (deltaX > 4 || deltaY > 4) {
+					// Position changed significantly, keep this point
+					deduplicated.push(currentPos);
+					lastPos = currentPos;
+				}
+				// If position is the same, skip this point (deduplication)
+			}
+
+			// Always keep the last position to ensure timeline ends correctly
+			if (timeline.length > 1 && deduplicated[deduplicated.length - 1] !== timeline[timeline.length - 1]) {
+				deduplicated.push(timeline[timeline.length - 1]);
+			}
+
+			deduplicatedTimelines.set(playerId, deduplicated);
+		}
+
+		// Store deduplicated data in cache
+		deduplicatedPlayerPositions.current = deduplicatedTimelines;
+	};
+
+	const loadPlayerTimestamps = async (
+		allTicks: Set<number>
+	): Promise<number> => {
+		if (!selectedInstance) { return 0; }
+		let added = 0;
+		const buf = await fetchPlayerPathBuffer();
+		if (buf) {
+			// Extract ticks from deduplicated positions instead of raw buffer
+			for (const timeline of deduplicatedPlayerPositions.current.values()) {
+				for (const pos of timeline) {
+					const tick = pos.sec * 60;
+					if (!allTicks.has(tick)) {
+						allTicks.add(tick);
+						added += 1;
+					}
+				}
+			}
+		}
+		return added;
+	};
+
 	// Timelapse functions
 	const loadAvailableTicks = async () => {
 		if (!selectedInstance) {
@@ -581,6 +733,9 @@ export default function CanvasMinimapPage() {
 
 		// Load recipe timestamps
 		await loadRecipeTimestamps(leftTile, topTile, rightTile, bottomTile, allTicks);
+
+		// Load player position timestamps
+		await loadPlayerTimestamps(allTicks);
 
 		const sortedTicks = Array.from(allTicks).sort((a, b) => a - b);
 		setAvailableTicks(sortedTicks);
@@ -612,6 +767,7 @@ export default function CanvasMinimapPage() {
 		chunkCache.current.clear();
 		loadingTiles.current.clear();
 		recipeCache.current.clear();
+		setPlayerPositions(new Map());
 	};
 
 	const stepToTick = async (tickIndex: number) => {
@@ -693,6 +849,9 @@ export default function CanvasMinimapPage() {
 
 			// Wait for all tile updates to complete
 			await Promise.all(updatePromises);
+
+			// update player positions for this tick
+			await updatePlayerPositionsForTick(newTick);
 
 			setCurrentTick(newTick);
 		}
@@ -1493,6 +1652,67 @@ export default function CanvasMinimapPage() {
 			}
 			ctx.restore();
 		}
+
+		// Render player positions
+		if (currentState.showPlayerPositions) {
+			ctx.save();
+			ctx.textAlign = "center";
+			ctx.textBaseline = "bottom";
+			ctx.font = `${Math.max(10, 12 / scale)}px Arial`;
+
+			for (const [playerKey, playerData] of currentState.playerPositions) {
+				// Convert world coordinates to screen coordinates
+				const screenX = Math.round((playerData.x - worldLeft) * scale);
+				const screenY = Math.round((playerData.y - worldTop) * scale);
+
+				// Skip if player is outside visible area
+				if (screenX < -50 || screenX > width + 50 || screenY < -50 || screenY > height + 50) {
+					continue;
+				}
+
+				// Draw player dot
+				const playerSize = Math.min(4, Math.max(2, 6 * scale));
+				ctx.fillStyle = "#FF6B6B"; // Red color for players
+				ctx.beginPath();
+				ctx.arc(screenX, screenY, playerSize, 0, 2 * Math.PI);
+				ctx.fill();
+
+				// Draw white border
+				ctx.strokeStyle = "#FFFFFF";
+				ctx.lineWidth = 2;
+				ctx.stroke();
+
+				// Draw player name if zoom level is high enough
+				if (scale > 0.75 && playerData.player_name) {
+					const fontSize = Math.max(10, 12 / scale);
+					ctx.font = `${fontSize}px Arial`;
+
+					// Position text above the player dot
+					const textX = screenX;
+					const textY = screenY - playerSize - 4; // 4px padding above dot
+
+					// Draw text background
+					const textMetrics = ctx.measureText(playerData.player_name);
+					const textWidth = textMetrics.width;
+					const textHeight = fontSize;
+					const textPadding = 2;
+
+					ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+					ctx.fillRect(
+						textX - textWidth / 2 - textPadding,
+						textY - textHeight - textPadding,
+						textWidth + textPadding * 2,
+						textHeight + textPadding * 2
+					);
+
+					// Draw text
+					ctx.fillStyle = "#FFFFFF";
+					ctx.fillText(playerData.player_name, textX, textY);
+				}
+			}
+
+			ctx.restore();
+		}
 	};
 
 	// Handle canvas resize (one-time setup)
@@ -1567,8 +1787,20 @@ export default function CanvasMinimapPage() {
 			chunkCache.current.clear();
 			loadingTiles.current.clear();
 			recipeCache.current.clear();
+			playerPathBufRef.current = null;
+			deduplicatedPlayerPositions.current.clear();
+			setPlayerPositions(new Map());
 		}
 	}, [selectedInstance]);
+
+	// Clear player cache when surface changes
+	useEffect(() => {
+		if (selectedSurface) {
+			playerPathBufRef.current = null;
+			deduplicatedPlayerPositions.current.clear();
+			setPlayerPositions(new Map());
+		}
+	}, [selectedSurface]);
 
 	// Reload ticks when instance, surface, force changes or timelapse mode toggles
 	useEffect(() => {
@@ -1592,6 +1824,7 @@ export default function CanvasMinimapPage() {
 		} else {
 			// Clear chart tags if no valid selection
 			setRawChartTags([]);
+			setPlayerPositions(new Map());
 		}
 	}, [selectedInstance, selectedSurface, selectedForce]);
 
@@ -1706,13 +1939,36 @@ export default function CanvasMinimapPage() {
 			}
 		};
 
+		const handlePlayerPositionUpdate = (event: PlayerPositionEvent) => {
+			const currentState = currentStateRef.current;
+			// Ignore live updates during timelapse playback – the timeline renderer
+			// will supply historical positions instead.
+			if (currentState.isTimelapseMode) { return; }
+
+			// Only process updates for the currently selected instance/surface
+			if (event.instance_id === currentState.selectedInstance
+				&& event.player_data.surface === currentState.selectedSurface) {
+				setPlayerPositions(prevPositions => {
+					const newPositions = new Map(prevPositions);
+					const playerKey = `${event.player_data.player_name}_${event.instance_id}`;
+					newPositions.set(playerKey, event.player_data);
+
+					// Immediately expose to render loop
+					currentStateRef.current.playerPositions = newPositions;
+					return newPositions;
+				});
+			}
+		};
+
 		// Subscribe to update events through the plugin
 		plugin.onTileUpdate(handleChunkUpdate);
 		plugin.onChartTagUpdate(handleChartTagUpdate);
+		plugin.onPlayerPositionUpdate(handlePlayerPositionUpdate);
 
 		return () => {
 			plugin.offTileUpdate(handleChunkUpdate);
 			plugin.offChartTagUpdate(handleChartTagUpdate);
+			plugin.offPlayerPositionUpdate(handlePlayerPositionUpdate);
 		};
 	}, [updateChunk, control]);
 
@@ -1829,6 +2085,57 @@ export default function CanvasMinimapPage() {
 		}
 	}, [currentTick, isTimelapseMode, showRecipes]);
 
+	const updatePlayerPositionsForTick = async (tick: number) => {
+		const buf = await fetchPlayerPathBuffer();
+		if (!buf) { setPlayerPositions(new Map()); return; }
+		const secTarget = Math.floor(tick / 60);
+		const parsed = parsePositionsAtTick(buf, secTarget);
+		const map = new Map<string, PlayerData>();
+		for (const p of parsed) {
+			map.set(`${p.name}_${selectedInstance ?? 0}`, {
+				player_name: p.name,
+				surface: selectedSurface,
+				x: p.x,
+				y: p.y,
+				sec: p.sec,
+			});
+		}
+		setPlayerPositions(map);
+		currentStateRef.current.playerPositions = map;
+	};
+
+	// Function to parse positions at a specific tick using deduplicated cache
+	const parsePositionsAtTick = (buf: Uint8Array, targetSec: number): ParsedPlayerPos[] => {
+		// Use deduplicated cached data instead of parsing from scratch
+		const result: ParsedPlayerPos[] = [];
+
+		for (const timeline of deduplicatedPlayerPositions.current.values()) {
+			// Find the most recent position for this player at or before targetSec
+			let mostRecentPos: ParsedPlayerPos | null = null;
+
+			for (const pos of timeline) {
+				if (pos.sec <= targetSec) {
+					mostRecentPos = pos;
+				} else {
+					break; // Timeline is sorted by sec, so we can break early
+				}
+			}
+
+			if (mostRecentPos) {
+				result.push(mostRecentPos);
+			}
+		}
+
+		return result;
+	};
+
+	// Load player positions when timelapse tick changes
+	useEffect(() => {
+		if (isTimelapseMode && currentTick !== null) {
+			updatePlayerPositionsForTick(currentTick);
+		}
+	}, [isTimelapseMode, currentTick]);
+
 	return (
 		<div style={{ padding: "20px" }}>
 			<Row gutter={[16, 16]}>
@@ -1903,6 +2210,13 @@ export default function CanvasMinimapPage() {
 										<Switch checked={showRecipes} onChange={setShowRecipes} />
 										{showRecipes && (
 											<Text type="secondary">{recipeCache.current.size} active</Text>
+										)}
+									</Space>
+									<Space>
+										<Text strong>Players:</Text>
+										<Switch checked={showPlayerPositions} onChange={setShowPlayerPositions} />
+										{showPlayerPositions && (
+											<Text type="secondary">{playerPositions.size} online</Text>
 										)}
 									</Space>
 								</Space>

@@ -8,8 +8,10 @@ import {
 	ChartTagDataEvent,
 	ChartTagData,
 	RecipeDataEvent,
-	RecipeData,
 	GetRawRecipeTileRequest,
+	PlayerPositionEvent,
+	PlayerData,
+	GetPlayerPathRequest,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -39,9 +41,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
 	private chartTagsPath: string = "";
 	private recipeTilesPath: string = "";
+	private playerPositionsPath: string = "";
 	private chunkSavingQueue = new Map<string, Map<string, { data: ChartData, tick: number }>>();
 	private chartTagQueues = new Map<string, ChartTagData[]>();
 	private recipeSavingQueue = new Map<string, Buffer[]>();
+	private playerPositionQueues = new Map<string, PlayerData[]>();
+	// Player session tracking per surface file
+	// fileKey -> playerName -> playerId
+	private playerSessions = new Map<string, Map<string, number>>();
+	// fileKey -> nextId
+	private nextPlayerIds = new Map<string, number>();
+	// fileKey -> Set of active player names
+	private activePlayerSessions = new Map<string, Set<string>>();
 	// Keep per-tile dictionary of recipe -> uint16 index as well as next free index
 	private recipeDictionaries = new Map<string, Map<string, number>>();
 	private nextRecipeIndex = new Map<string, number>();
@@ -58,6 +69,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private savingChartTags = new Set<string>();
 	private saveInterval: NodeJS.Timeout | null = null;
 	private saveRecipeTilesInProgress: boolean = false;
+	private savePlayerPositionsInProgress: boolean = false;
 
 	async init() {
 		this.tilesPath = path.resolve(
@@ -72,9 +84,14 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			this.controller.config.get("controller.database_directory"),
 			"minimap_recipe_tiles"
 		);
+		this.playerPositionsPath = path.resolve(
+			this.controller.config.get("controller.database_directory"),
+			"minimap_player_positions"
+		);
 		await fs.ensureDir(this.tilesPath);
 		await fs.ensureDir(this.chartTagsPath);
 		await fs.ensureDir(this.recipeTilesPath);
+		await fs.ensureDir(this.playerPositionsPath);
 
 		this.controller.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
 		this.controller.handle(ChartTagDataEvent, this.handleChartTagDataEvent.bind(this));
@@ -82,6 +99,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(GetChartTagsRequest, this.handleGetChartTagsRequest.bind(this));
 		this.controller.handle(RecipeDataEvent, this.handleRecipeDataEvent.bind(this));
 		this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
+		this.controller.handle(PlayerPositionEvent, this.handlePlayerPositionEvent.bind(this));
+		this.controller.handle(GetPlayerPathRequest, this.handleGetPlayerPathRequest.bind(this));
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
@@ -95,6 +114,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
 			this.saveChartTags().catch(err => this.logger.error(`Error saving chart tags: ${err}`));
 			this.saveRecipeTiles().catch(err => this.logger.error(`Error saving recipe tiles: ${err}`));
+			this.savePlayerPositions().catch(err => this.logger.error(`Error saving player positions: ${err}`));
 		}, 5000);
 	}
 
@@ -108,6 +128,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		await this.saveTiles();
 		await this.saveChartTags();
 		await this.saveRecipeTiles();
+		await this.savePlayerPositions();
 	}
 
 	// Compare two pixel arrays and return changes
@@ -857,6 +878,81 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 	}
 
+	async savePlayerPositions() {
+		if (this.savePlayerPositionsInProgress) {
+			return;
+		}
+
+		if (this.playerPositionQueues.size === 0) {
+			return;
+		}
+
+		this.savePlayerPositionsInProgress = true;
+		const queue = this.playerPositionQueues;
+		this.playerPositionQueues = new Map();
+
+		try {
+			const promises: Promise<void>[] = [];
+			for (const [fileKey, positions] of queue) {
+				const promise = (async () => {
+					const filePath = path.join(this.playerPositionsPath, `${fileKey}.positions`);
+
+					// Convert position data to binary format
+					const buffers: Buffer[] = [];
+
+					for (const position of positions) {
+						// Position record (type 0): 1 + 4 + 4 + 3 + 3 + 2 = 17 bytes
+						const buffer = Buffer.alloc(17);
+						let offset = 0;
+
+						// Type (1 byte): 0 = Position
+						buffer.writeUInt8(0, offset);
+						offset += 1;
+
+						// t_sec (4 bytes): Current timestamp in seconds since epoch
+						buffer.writeUInt32BE(Math.floor(Date.now() / 1000), offset);
+						offset += 4;
+
+						// sec (4 bytes): Game seconds (already calculated in Lua)
+						buffer.writeUInt32BE(position.sec, offset);
+						offset += 4;
+
+						// x_tiles (3 bytes): X coordinate as 24-bit signed integer
+						const x_int24 = Math.round(position.x) & 0xFFFFFF;
+						buffer.writeUInt8((x_int24 >> 16) & 0xFF, offset);
+						buffer.writeUInt8((x_int24 >> 8) & 0xFF, offset + 1);
+						buffer.writeUInt8(x_int24 & 0xFF, offset + 2);
+						offset += 3;
+
+						// y_tiles (3 bytes): Y coordinate as 24-bit signed integer
+						const y_int24 = Math.round(position.y) & 0xFFFFFF;
+						buffer.writeUInt8((y_int24 >> 16) & 0xFF, offset);
+						buffer.writeUInt8((y_int24 >> 8) & 0xFF, offset + 1);
+						buffer.writeUInt8(y_int24 & 0xFF, offset + 2);
+						offset += 3;
+
+						// player_id (2 bytes): Use the assigned player ID
+						const playerId = (position as any)._playerId || 0;
+						buffer.writeUInt16BE(playerId & 0xFFFF, offset);
+
+						buffers.push(buffer);
+					}
+
+					if (buffers.length > 0) {
+						const concatenated = Buffer.concat(buffers);
+						await fs.appendFile(filePath, concatenated);
+					}
+				})();
+				promises.push(promise);
+			}
+			await Promise.all(promises);
+		} catch (err) {
+			this.logger.error(`Error saving player positions: ${err}`);
+		} finally {
+			this.savePlayerPositionsInProgress = false;
+		}
+	}
+
 	async handleRecipeDataEvent(event: RecipeDataEvent) {
 		try {
 			const { instance_id, recipe_data } = event;
@@ -930,6 +1026,52 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		} catch (err) {
 			this.logger.error(`Error reading recipe tile: ${err}`);
 			return { recipe_tile: null };
+		}
+	}
+
+	async handlePlayerPositionEvent(event: PlayerPositionEvent) {
+		try {
+			const { instance_id, player_data } = event;
+
+			// Create file key based on instance and surface
+			const fileKey = `${instance_id}_${player_data.surface}`;
+
+			// Initialize queue if it doesn't exist
+			if (!this.playerPositionQueues.has(fileKey)) {
+				this.playerPositionQueues.set(fileKey, []);
+			}
+
+			// Queue for batch saving
+			this.playerPositionQueues.get(fileKey)!.push(player_data);
+
+			// Send live update to connected web clients
+			const updateEvent = new PlayerPositionEvent(instance_id, player_data);
+
+			// Broadcast to web clients
+			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
+
+		} catch (err) {
+			this.logger.error(`Error processing player position data: ${err}`);
+		}
+	}
+
+	async handleGetPlayerPathRequest(request: GetPlayerPathRequest) {
+		const { instance_id, surface } = request;
+
+		const fileName = `${instance_id}_${surface}.positions`;
+		const filePath = path.join(this.playerPositionsPath, fileName);
+
+		if (!await fs.pathExists(filePath)) {
+			return { positions: null };
+		}
+
+		try {
+			const data = await fs.readFile(filePath);
+			const base64Data = data.toString("base64");
+			return { positions: base64Data };
+		} catch (err) {
+			this.logger.error(`Error reading player positions file: ${err}`);
+			return { positions: null };
 		}
 	}
 }

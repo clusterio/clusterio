@@ -1,6 +1,15 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
-import { TileDataEvent, ChartData, ChartTagDataEvent, ChartTagData, RecipeDataEvent, RecipeData } from "./messages";
+import {
+	TileDataEvent,
+	ChartData,
+	ChartTagDataEvent,
+	ChartTagData,
+	RecipeDataEvent,
+	RecipeData,
+	PlayerPositionEvent,
+	PlayerData,
+} from "./messages";
 
 interface TileDataIpc {
 	type: "chart";
@@ -32,6 +41,14 @@ interface RecipeDataIpc {
 	icon?: { type?: string, name?: string, quality?: string }
 }
 
+interface PlayerPositionIpc {
+	player_name: string;
+	surface: string;
+	x: number;
+	y: number;
+	sec: number;
+}
+
 export class InstancePlugin extends BaseInstancePlugin {
 	pendingTileUpdates = new Map<string, Set<[number, number, [number, number, number, number]]>>();
 
@@ -58,6 +75,13 @@ export class InstancePlugin extends BaseInstancePlugin {
 		this.instance.server.on("ipc-minimap:recipe_data", (data: RecipeDataIpc) => {
 			this.handleRecipeDataFromLua(data).catch(err => this.logger.error(
 				`Error handling recipe data from Lua:\n${err}`
+			));
+		});
+
+		// Listen for player position data from Lua module
+		this.instance.server.on("ipc-minimap:player_position", (data: PlayerPositionIpc) => {
+			this.handlePlayerPositionFromLua(data).catch(err => this.logger.error(
+				`Error handling player position data from Lua:\n${err}`
 			));
 		});
 	}
@@ -136,6 +160,33 @@ export class InstancePlugin extends BaseInstancePlugin {
 			this.instance.sendTo("controller", event);
 		} catch (err: unknown) {
 			this.logger.error(`Failed to process recipe data from Lua: ${err}`);
+		}
+	}
+
+	async handlePlayerPositionFromLua(data: PlayerPositionIpc) {
+		try {
+			if (!data) {
+				this.logger.error("Invalid player position data received");
+				return;
+			}
+
+			const playerData: PlayerData = {
+				player_name: data.player_name,
+				surface: data.surface,
+				x: data.x,
+				y: data.y,
+				sec: data.sec,
+			};
+
+			const event = new PlayerPositionEvent(
+				this.instance.config.get("instance.id"),
+				playerData
+			);
+			this.logger.info(`MM: got Lua pos for ${data.player_name} ` +
+				`(${data.x},${data.y}) – forwarding`);
+			this.instance.sendTo("controller", event);
+		} catch (err: unknown) {
+			this.logger.error(`Failed to process player position data from Lua: ${err}`);
 		}
 	}
 
