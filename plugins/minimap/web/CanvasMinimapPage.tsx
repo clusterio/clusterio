@@ -590,7 +590,7 @@ export default function CanvasMinimapPage() {
 			if (!resp.positions) { return null; }
 			const binStr = atob(resp.positions);
 			const buf = new Uint8Array(binStr.length);
-			for (let i=0; i<binStr.length; i++) { buf[i] = binStr.charCodeAt(i); }
+			for (let i = 0; i < binStr.length; i++) { buf[i] = binStr.charCodeAt(i); }
 			playerPathBufRef.current = buf;
 
 			// Parse and deduplicate positions immediately after loading
@@ -936,24 +936,24 @@ export default function CanvasMinimapPage() {
 	useEffect(() => {
 		const isTypingInInput = (): boolean => {
 			const activeElement = document.activeElement;
-			if (!activeElement) return false;
-			
+			if (!activeElement) { return false; }
+
 			const tagName = activeElement.tagName.toLowerCase();
-			const inputTypes = ['input', 'textarea', 'select'];
-			const isContentEditable = activeElement.getAttribute('contenteditable') === 'true';
-			
+			const inputTypes = ["input", "textarea", "select"];
+			const isContentEditable = activeElement.getAttribute("contenteditable") === "true";
+
 			// Check if it's an input field or contenteditable element
 			if (inputTypes.includes(tagName) || isContentEditable) {
 				return true;
 			}
-			
+
 			// Check if it's an Ant Design Select dropdown (they use divs with specific classes)
-			if (activeElement.closest('.ant-select-dropdown') || 
-				activeElement.closest('.ant-select-selector') ||
-				activeElement.classList.contains('ant-select-selection-search-input')) {
+			if (activeElement.closest(".ant-select-dropdown")
+				|| activeElement.closest(".ant-select-selector")
+				|| activeElement.classList.contains("ant-select-selection-search-input")) {
 				return true;
 			}
-			
+
 			return false;
 		};
 
@@ -2191,7 +2191,7 @@ export default function CanvasMinimapPage() {
 						}}
 					>
 						{/* Control Panel */}
-						<div style={{ 
+						<div style={{
 							marginBottom: "16px",
 							padding: "16px",
 							border: "1px solid rgb(48, 48, 48)",
@@ -2220,7 +2220,9 @@ export default function CanvasMinimapPage() {
 												value: instance.id,
 												label: instance.name,
 											}))}
-											suffixIcon={selectedInstance ? undefined : <span style={{ color: "#ff4d4f" }}>Required</span>}
+											suffixIcon={selectedInstance
+												? undefined
+												: <span style={{ color: "#ff4d4f" }}>Required</span>}
 										/>
 									</Space>
 								</Col>
@@ -2280,16 +2282,16 @@ export default function CanvasMinimapPage() {
 								<Col xs={24} md={8}>
 									<Space direction="vertical" style={{ width: "100%" }} size="small">
 										<Text strong style={{ fontSize: "12px", color: "#666" }}>DISPLAY OPTIONS</Text>
-										<div style={{ 
-											display: "grid", 
-											gridTemplateColumns: "repeat(2, 1fr)", 
+										<div style={{
+											display: "grid",
+											gridTemplateColumns: "repeat(2, 1fr)",
 											gap: "8px",
 											padding: "4px 0",
 										}}>
 											{/* Timelapse Toggle */}
-											<div style={{ 
-												display: "flex", 
-												alignItems: "center", 
+											<div style={{
+												display: "flex",
+												alignItems: "center",
 												justifyContent: "space-between",
 												minHeight: "24px",
 											}}>
@@ -2304,10 +2306,10 @@ export default function CanvasMinimapPage() {
 														loading={loading}
 														disabled={!selectedInstance}
 													/>
-													<Text 
-														type="secondary" 
-														style={{ 
-															fontSize: "11px", 
+													<Text
+														type="secondary"
+														style={{
+															fontSize: "11px",
 															width: "50px",
 															textAlign: "right",
 														}}
@@ -2318,9 +2320,9 @@ export default function CanvasMinimapPage() {
 											</div>
 
 											{/* Chart Tags Toggle */}
-											<div style={{ 
-												display: "flex", 
-												alignItems: "center", 
+											<div style={{
+												display: "flex",
+												alignItems: "center",
 												justifyContent: "space-between",
 												minHeight: "24px",
 											}}>
@@ -2334,23 +2336,25 @@ export default function CanvasMinimapPage() {
 														}}
 														disabled={!selectedInstance}
 													/>
-													<Text 
-														type="secondary" 
-														style={{ 
-															fontSize: "11px", 
+													<Text
+														type="secondary"
+														style={{
+															fontSize: "11px",
 															width: "50px",
 															textAlign: "right",
 														}}
 													>
-														{showChartTags ? `${getVisibleChartTags().length} shown` : "Hidden"}
+														{showChartTags
+															? `${getVisibleChartTags().length} shown`
+															: "Hidden"}
 													</Text>
 												</div>
 											</div>
 
 											{/* Recipes Toggle */}
-											<div style={{ 
-												display: "flex", 
-												alignItems: "center", 
+											<div style={{
+												display: "flex",
+												alignItems: "center",
 												justifyContent: "space-between",
 												minHeight: "24px",
 											}}>
@@ -2364,10 +2368,10 @@ export default function CanvasMinimapPage() {
 														}}
 														disabled={!selectedInstance}
 													/>
-													<Text 
-														type="secondary" 
-														style={{ 
-															fontSize: "11px", 
+													<Text
+														type="secondary"
+														style={{
+															fontSize: "11px",
 															width: "50px",
 															textAlign: "right",
 														}}
@@ -2378,9 +2382,9 @@ export default function CanvasMinimapPage() {
 											</div>
 
 											{/* Players Toggle */}
-											<div style={{ 
-												display: "flex", 
-												alignItems: "center", 
+											<div style={{
+												display: "flex",
+												alignItems: "center",
 												justifyContent: "space-between",
 												minHeight: "24px",
 											}}>
@@ -2394,15 +2398,17 @@ export default function CanvasMinimapPage() {
 														}}
 														disabled={!selectedInstance}
 													/>
-													<Text 
-														type="secondary" 
-														style={{ 
-															fontSize: "11px", 
+													<Text
+														type="secondary"
+														style={{
+															fontSize: "11px",
 															width: "50px",
 															textAlign: "right",
 														}}
 													>
-														{showPlayerPositions ? `${playerPositions.size} online` : "Hidden"}
+														{showPlayerPositions
+															? `${playerPositions.size} online`
+															: "Hidden"}
 													</Text>
 												</div>
 											</div>
