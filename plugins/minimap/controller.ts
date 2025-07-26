@@ -37,6 +37,10 @@ interface PixelChange {
 	oldColor: number;
 }
 
+interface EnrichedPlayerData extends PlayerData {
+	_playerId: number;
+}
+
 export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
 	private chartTagsPath: string = "";
@@ -45,7 +49,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private chunkSavingQueue = new Map<string, Map<string, { data: ChartData, tick: number }>>();
 	private chartTagQueues = new Map<string, ChartTagData[]>();
 	private recipeSavingQueue = new Map<string, Buffer[]>();
-	private playerPositionQueues = new Map<string, PlayerData[]>();
+	private playerPositionQueues = new Map<string, EnrichedPlayerData[]>();
 	// Player session tracking per surface file
 	// fileKey -> playerName -> playerId
 	private playerSessions = new Map<string, Map<string, number>>();
@@ -932,7 +936,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 						offset += 3;
 
 						// player_id (2 bytes): Use the assigned player ID
-						const playerId = (position as any)._playerId || 0;
+						const playerId = position._playerId ?? 0;
 						buffer.writeUInt16BE(playerId & 0xFFFF, offset);
 
 						buffers.push(buffer);
@@ -1036,13 +1040,39 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			// Create file key based on instance and surface
 			const fileKey = `${instance_id}_${player_data.surface}`;
 
+			// Initialize player session tracking for this file key if needed
+			if (!this.playerSessions.has(fileKey)) {
+				this.playerSessions.set(fileKey, new Map());
+				this.nextPlayerIds.set(fileKey, 1); // Start from 1, reserve 0 for unknown
+				this.activePlayerSessions.set(fileKey, new Set());
+			}
+
+			const sessions = this.playerSessions.get(fileKey)!;
+			const activeSessions = this.activePlayerSessions.get(fileKey)!;
+
+			// Assign player ID if this player doesn't have one yet
+			let playerId: number;
+			if (!sessions.has(player_data.player_name)) {
+				playerId = this.nextPlayerIds.get(fileKey)!;
+				sessions.set(player_data.player_name, playerId);
+				this.nextPlayerIds.set(fileKey, playerId + 1);
+			} else {
+				playerId = sessions.get(player_data.player_name)!;
+			}
+
+			// Track active player session
+			activeSessions.add(player_data.player_name);
+
+			// Add the player ID to the data for saving (without modifying the original schema)
+			const enrichedPlayerData = { ...player_data, _playerId: playerId };
+
 			// Initialize queue if it doesn't exist
 			if (!this.playerPositionQueues.has(fileKey)) {
 				this.playerPositionQueues.set(fileKey, []);
 			}
 
 			// Queue for batch saving
-			this.playerPositionQueues.get(fileKey)!.push(player_data);
+			this.playerPositionQueues.get(fileKey)!.push(enrichedPlayerData);
 
 			// Send live update to connected web clients
 			const updateEvent = new PlayerPositionEvent(instance_id, player_data);
