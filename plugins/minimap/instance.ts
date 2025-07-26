@@ -182,8 +182,6 @@ export class InstancePlugin extends BaseInstancePlugin {
 				this.instance.config.get("instance.id"),
 				playerData
 			);
-			this.logger.info(`MM: got Lua pos for ${data.player_name} ` +
-				`(${data.x},${data.y}) – forwarding`);
 			this.instance.sendTo("controller", event);
 		} catch (err: unknown) {
 			this.logger.error(`Failed to process player position data from Lua: ${err}`);
