@@ -1,46 +1,5 @@
+import { BinaryData, sliceData, readUInt8, readUInt16LE, readUInt16BE, readUInt32BE, isNode } from "./parsing-utils";
 import * as zlib from "zlib";
-
-// Environment detection
-const isNode = typeof Buffer !== "undefined" && typeof process !== "undefined" && process.versions?.node;
-
-// Cross-platform type for binary data
-type BinaryData = Buffer | Uint8Array;
-
-// Cross-platform helper functions for reading integers
-function readUInt8(data: BinaryData, offset: number): number {
-	if (isNode && data instanceof Buffer) {
-		return data.readUInt8(offset);
-	}
-	return (data as Uint8Array)[offset];
-}
-
-function readUInt16LE(data: BinaryData, offset: number): number {
-	if (isNode && data instanceof Buffer) {
-		return data.readUInt16LE(offset);
-	}
-	const bytes = data as Uint8Array;
-	return bytes[offset] | (bytes[offset + 1] << 8);
-}
-
-function readUInt16BE(data: BinaryData, offset: number): number {
-	if (isNode && data instanceof Buffer) {
-		return data.readUInt16BE(offset);
-	}
-	const bytes = data as Uint8Array;
-	return (bytes[offset] << 8) | bytes[offset + 1];
-}
-
-function readUInt32BE(data: BinaryData, offset: number): number {
-	if (isNode && data instanceof Buffer) {
-		return data.readUInt32BE(offset);
-	}
-	const bytes = data as Uint8Array;
-	return (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
-}
-
-function sliceData(data: BinaryData, start: number, end: number): BinaryData {
-	return data.slice(start, end);
-}
 
 // Cross-platform decompression
 async function inflateData(data: BinaryData): Promise<Buffer | Uint8Array> {
