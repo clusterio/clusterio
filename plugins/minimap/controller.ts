@@ -25,7 +25,8 @@ import {
 	pixelsToRGBA,
 	parseRecipeTileBinary,
 	ParsedRecipeTile,
-} from "./tile-utils";
+} from "./utils/tile-utils";
+import { parsePlayerPositionsBinary } from "./utils/player-utils";
 
 const CHUNK_SIZE = 32;
 const inflateAsync = promisify(zlib.inflate);
@@ -113,6 +114,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		await this.loadExistingTagContent();
 		// Load existing recipe data for deduplication
 		await this.loadExistingRecipeContent();
+		// Load existing player sessions from disk to maintain ID consistency
+		await this.loadExistingPlayerSessions();
 
 		this.saveInterval = setInterval(() => {
 			this.saveTiles().catch(err => this.logger.error(`Error saving tiles: ${err}`));
@@ -1050,17 +1053,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const sessions = this.playerSessions.get(fileKey)!;
 			const activeSessions = this.activePlayerSessions.get(fileKey)!;
 
-			// Assign player ID if this player doesn't have one yet
+			// Assign player ID if this player doesn't have one yet, or reopen their session
 			let playerId: number;
 			if (!sessions.has(player_data.player_name)) {
 				playerId = this.nextPlayerIds.get(fileKey)!;
 				sessions.set(player_data.player_name, playerId);
 				this.nextPlayerIds.set(fileKey, playerId + 1);
+				this.logger.verbose(`Assigned new player ID ${playerId} to ${player_data.player_name} on ${fileKey}`);
 			} else {
 				playerId = sessions.get(player_data.player_name)!;
 			}
 
-			// Track active player session
+			// Reopen/track active player session (handles session reopening after controller restart)
 			activeSessions.add(player_data.player_name);
 
 			// Add the player ID to the data for saving (without modifying the original schema)
@@ -1102,6 +1106,55 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		} catch (err) {
 			this.logger.error(`Error reading player positions file: ${err}`);
 			return { positions: null };
+		}
+	}
+
+	private async loadExistingPlayerSessions() {
+		try {
+			if (!await fs.pathExists(this.playerPositionsPath)) {
+				return;
+			}
+
+			const files = await fs.readdir(this.playerPositionsPath);
+			const positionFiles = files.filter(file => file.endsWith(".positions"));
+
+			for (const file of positionFiles) {
+				const fileKey = file.replace(".positions", "");
+				const filePath = path.join(this.playerPositionsPath, file);
+
+				if (!this.playerSessions.has(fileKey)) {
+					this.playerSessions.set(fileKey, new Map());
+					this.nextPlayerIds.set(fileKey, 1); // Start from 1, reserve 0 for unknown
+					// Start with no active sessions - they will be reopened when players send new positions
+					this.activePlayerSessions.set(fileKey, new Set());
+				}
+
+				const sessions = this.playerSessions.get(fileKey)!;
+
+				try {
+					const data = await fs.readFile(filePath);
+
+					// Use shared parsing function
+					const parsed = parsePlayerPositionsBinary(data);
+
+					// Restore the player name -> ID mappings from SessionStart records
+					for (const [playerName, playerId] of parsed.playerSessions) {
+						sessions.set(playerName, playerId);
+					}
+
+					// Set next player ID to be higher than any existing ID
+					if (parsed.maxPlayerId > 0) {
+						this.nextPlayerIds.set(fileKey, parsed.maxPlayerId + 1);
+					}
+
+					// eslint-disable-next-line max-len
+					this.logger.info(`Loaded ${sessions.size} player sessions for ${fileKey}, next ID will be ${this.nextPlayerIds.get(fileKey)}`);
+				} catch (readErr) {
+					this.logger.error(`Failed to read player positions file ${file}: ${readErr}`);
+				}
+			}
+		} catch (err) {
+			this.logger.error(`Error loading existing player sessions: ${err}`);
 		}
 	}
 }

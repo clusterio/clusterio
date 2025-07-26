@@ -24,7 +24,8 @@ import {
 	renderTileIncremental,
 	ParsedTileData,
 	parseRecipeTileBinary,
-} from "../tile-utils";
+} from "../utils/tile-utils";
+import { parseAndDeduplicatePlayerPositions, ParsedPlayerPos } from "../utils/player-utils";
 
 const { Text } = Typography;
 
@@ -63,7 +64,6 @@ interface TileState {
 	imageData: ImageData;
 }
 
-interface ParsedPlayerPos { name: string; x: number; y: number; sec: number; }
 
 const CHUNK_SIZE = 32; // 32x32 pixels per chunk
 const TILE_SIZE = 256; // 256x256 pixels per tile (8x8 chunks)
@@ -590,104 +590,19 @@ export default function CanvasMinimapPage() {
 			if (!resp.positions) { return null; }
 			const binStr = atob(resp.positions);
 			const buf = new Uint8Array(binStr.length);
-			for (let i = 0; i < binStr.length; i++) { buf[i] = binStr.charCodeAt(i); }
+			for (let i = 0; i < binStr.length; i++) {
+				buf[i] = binStr.charCodeAt(i);
+			}
 			playerPathBufRef.current = buf;
 
-			// Parse and deduplicate positions immediately after loading
-			parseAndDeduplicatePlayerPositions(buf);
+			// Use the utility function to parse and deduplicate player positions
+			const deduplicatedTimelines = parseAndDeduplicatePlayerPositions(buf);
+
+			// Store deduplicated data in cache
+			deduplicatedPlayerPositions.current = deduplicatedTimelines;
 
 			return buf;
 		} catch (_e) { return null; }
-	};
-
-	const parseAndDeduplicatePlayerPositions = (buf: Uint8Array) => {
-		const idToName = new Map<number, string>();
-		const playerTimelines = new Map<number, ParsedPlayerPos[]>();
-
-		const readCoord = (arr: Uint8Array, offset: number): number => {
-			// Read a signed 24-bit coordinate in big-endian format
-			const raw = (arr[offset] << 16) | (arr[offset + 1] << 8) | arr[offset + 2];
-			// Sign-extend from 24 to 32 bits
-			const signed = (raw & 0x800000) ? (raw | 0xFF000000) : raw;
-			return signed;
-		};
-
-		let o = 0;
-		while (o < buf.length) {
-			const type = buf[o]; o += 1;
-			if (type === 0) {
-				if (o + 16 > buf.length) { break; }
-				o += 4; // t_sec epoch not used
-				const sec = (buf[o] << 24) | (buf[o + 1] << 16) | (buf[o + 2] << 8) | buf[o + 3];
-				o += 4;
-				const x = readCoord(buf, o); o += 3;
-				const y = readCoord(buf, o); o += 3;
-				const id = (buf[o] << 8) | buf[o + 1]; o += 2;
-
-				if (idToName.has(id)) {
-					const name = idToName.get(id)!;
-					if (!playerTimelines.has(id)) {
-						playerTimelines.set(id, []);
-					}
-					playerTimelines.get(id)!.push({ name, x, y, sec });
-				}
-			} else if (type === 1) {
-				if (o + 6 > buf.length) { break; }
-				o += 4; // t_ms
-				const id = (buf[o] << 8) | buf[o + 1]; o += 2;
-				const len = buf[o]; o += 1;
-				if (o + len > buf.length) { break; }
-				const name = new TextDecoder().decode(buf.subarray(o, o + len));
-				o += len;
-				idToName.set(id, name);
-			} else if (type === 2) {
-				if (o + 6 > buf.length) { break; }
-				o += 4; // t_ms
-				const id = (buf[o] << 8) | buf[o + 1]; o += 2;
-				// Player disconnect - mark end of timeline for this player
-				if (playerTimelines.has(id)) {
-					// Add a disconnect marker or handle as needed
-				}
-			} else {
-				break;
-			}
-		}
-
-		// Deduplicate consecutive identical positions for each player
-		const deduplicatedTimelines = new Map<number, ParsedPlayerPos[]>();
-
-		for (const [playerId, timeline] of playerTimelines) {
-			if (timeline.length === 0) { continue; }
-
-			const deduplicated: ParsedPlayerPos[] = [];
-			let lastPos = timeline[0];
-			deduplicated.push(lastPos);
-
-			for (let i = 1; i < timeline.length; i++) {
-				const currentPos = timeline[i];
-
-				// Check if position changed (with small tolerance for floating point)
-				const deltaX = Math.abs(currentPos.x - lastPos.x);
-				const deltaY = Math.abs(currentPos.y - lastPos.y);
-
-				if (deltaX > 4 || deltaY > 4) {
-					// Position changed significantly, keep this point
-					deduplicated.push(currentPos);
-					lastPos = currentPos;
-				}
-				// If position is the same, skip this point (deduplication)
-			}
-
-			// Always keep the last position to ensure timeline ends correctly
-			if (timeline.length > 1 && deduplicated[deduplicated.length - 1] !== timeline[timeline.length - 1]) {
-				deduplicated.push(timeline[timeline.length - 1]);
-			}
-
-			deduplicatedTimelines.set(playerId, deduplicated);
-		}
-
-		// Store deduplicated data in cache
-		deduplicatedPlayerPositions.current = deduplicatedTimelines;
 	};
 
 	const loadPlayerTimestamps = async (
