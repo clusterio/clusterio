@@ -6,7 +6,9 @@
 	"include": [
 		"web/**/*",
 		"messages.ts",
-		"tile-utils.ts"
+		"utils/tile-utils.ts",
+		"utils/player-utils.ts",
+		"utils/parsing-utils.ts"
 	],
 	"exclude": [
 		"dist/**/*"
