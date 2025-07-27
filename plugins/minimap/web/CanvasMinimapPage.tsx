@@ -584,7 +584,6 @@ export default function CanvasMinimapPage() {
 		try {
 			const resp = await control.send(new GetPlayerPathRequest(
 				selectedInstance,
-				"*",
 				selectedSurface,
 			));
 			if (!resp.positions) { return null; }

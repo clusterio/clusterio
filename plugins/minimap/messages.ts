@@ -353,20 +353,17 @@ export class GetPlayerPathRequest {
 
 	constructor(
 		public instance_id: number,
-		public player_name: string,
 		public surface: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"instance_id": Type.Number(),
-		"player_name": Type.String(),
 		"surface": Type.String(),
 	});
 
 	static fromJSON(json: Static<typeof GetPlayerPathRequest.jsonSchema>) {
 		return new this(
 			json.instance_id,
-			json.player_name,
 			json.surface,
 		);
 	}
