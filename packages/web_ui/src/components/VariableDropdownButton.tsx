@@ -9,7 +9,7 @@ export type VariableDropdownButtonProps = DropdownButtonProps & {
 };
 
 export default function VariableDropdownButton(props: VariableDropdownButtonProps) {
-	const menuActions = props.actions;
+	const menuActions = [...props.actions];
 	const mainAction = menuActions.shift();
 	if (!mainAction) {
 		return <></>;
