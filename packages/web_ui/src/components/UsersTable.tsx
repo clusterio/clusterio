@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { Table, Tag, Space, Input, InputRef } from "antd";
+import type { FilterDropdownProps } from "antd/es/table/interface";
 import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -78,7 +79,12 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			filterDropdownProps: {
 				onOpenChange: (open: boolean) => open && setTimeout(() => searchInput.current?.select(), 100),
 			},
-			filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }: any) => (
+			filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }: {
+				selectedKeys: string[],
+				setSelectedKeys: (keys: string[]) => void,
+				confirm: FilterDropdownProps["confirm"],
+				clearFilters: FilterDropdownProps["clearFilters"],
+			}) => (
 				<div style={{ padding: 4 }} onKeyDown={(e) => e.stopPropagation()}>
 					<Input.Search
 						allowClear
@@ -86,8 +92,11 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 						placeholder={"Search username"}
 						value={selectedKeys[0]}
 						onChange={(e) => setSelectedKeys([e.target.value])}
-						onClear={() => clearFilters && clearFilters({ confirm: true, closeDropdown: true })}
-						onSearch={() => confirm({ closeDropdown: true })}
+						onSearch={() => confirm({ closeDropdown: false })}
+						onClear={() => {
+							clearFilters?.({ closeDropdown: false });
+							confirm({ closeDropdown: true });
+						}}
 					/>
 				</div>
 			),

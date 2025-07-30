@@ -20,7 +20,12 @@ export default function OnlinePlayersList({ instanceId }: OnlinePlayersListProps
 	return (
 		<div style={{ marginTop: 16 }}>
 			<h4>Online Players ({onlineUsers.length})</h4>
-			<UsersTable instanceId={instanceId} onlyOnline size="small" pagination={false} />
+			<UsersTable instanceId={instanceId} onlyOnline size="small" pagination={{
+				defaultPageSize: 10,
+				showSizeChanger: true,
+				pageSizeOptions: ["10", "20", "50", "100", "200"],
+				showTotal: (total: number) => `${total} Users`,
+			}} />
 		</div>
 	);
 }
