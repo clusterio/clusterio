@@ -8,7 +8,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useAccount } from "../model/account";
 import { useHosts } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
-import StartStopInstanceButton from "./StartStopInstanceButton";
+import InstanceControlButton, { InstanceControlButtonPermissions } from "./InstanceControlButton";
 import * as lib from "@clusterio/lib";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
@@ -98,13 +98,10 @@ export default function InstanceList(props: InstanceListProps) {
 		},
 	];
 
-	if (account.hasAnyPermission("core.instance.start", "core.instance.stop")) {
+	if (account.hasAnyPermission(...InstanceControlButtonPermissions)) {
 		columns.push({
 			key: "action",
-			render: (_, instance) => <StartStopInstanceButton
-				buttonProps={{ size: "small" }}
-				instance={instance}
-			/>,
+			render: (_, instance) => <InstanceControlButton size="small" instance={instance} />,
 			responsive: ["sm"],
 			align: "right",
 			width: 100,

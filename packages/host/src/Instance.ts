@@ -289,6 +289,7 @@ export default class Instance extends lib.Link {
 		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
 		this.handle(lib.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
+		this.handle(lib.InstanceRestartRequest, this.handleInstanceRestartRequest.bind(this));
 		this.handle(lib.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
 		this.handle(lib.InstanceKillRequest, this.handleInstanceKillRequest.bind(this));
 		this.handle(lib.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
@@ -1298,6 +1299,14 @@ end`.replace(/\r?\n/g, " ");
 		} finally {
 			this.notifyExit();
 		}
+	}
+
+	async handleInstanceRestartRequest(request: lib.InstanceRestartRequest) {
+		await this.stop();
+		// Stopping invalidates this instance object, a new one must be created by the host
+		// To do this we simulate a waking an instance and sending a start request
+		const instanceConnection = await this._host._connectInstance(this.id);
+		await instanceConnection.instance.handleInstanceStartRequest(new lib.InstanceStartRequest(request.save));
 	}
 
 	async handleInstanceStopRequest() {

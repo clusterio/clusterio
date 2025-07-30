@@ -4,7 +4,7 @@ const lib = require("@clusterio/lib");
 
 const { Host } = require("@clusterio/host");
 
-describe("messages/controller", function() {
+describe("messages/host", function() {
 	/** @type {Host} */
 	let host;
 

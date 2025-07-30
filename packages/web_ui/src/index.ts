@@ -22,7 +22,7 @@ export { default as AssignInstanceModal } from "./components/AssignInstanceModal
 export { default as InstanceList } from "./components/InstanceList";
 export { default as InstanceRcon } from "./components/InstanceRcon";
 export { default as InstanceStatusTag, statusColors } from "./components/InstanceStatusTag";
-export { default as StartStopInstanceButton } from "./components/StartStopInstanceButton";
+export { default as InstanceControlButton, InstanceControlButtonPermissions } from "./components/InstanceControlButton";
 
 export { default as PageHeader } from "./components/PageHeader";
 export { default as PageLayout } from "./components/PageLayout";

@@ -308,6 +308,11 @@ definePermission({
 	description: "Start instances.",
 });
 definePermission({
+	name: "core.instance.restart",
+	title: "Restart instance",
+	description: "Restart instances.",
+});
+definePermission({
 	name: "core.instance.load_scenario",
 	title: "Load scenario",
 	description: "Start instances by loading a scenario.",

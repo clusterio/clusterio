@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Form, Input, Modal, Select, Tooltip } from "antd";
+import { Button, Form, Input, Modal, Select, Space, Tooltip } from "antd";
 
 import * as lib from "@clusterio/lib";
 
@@ -82,7 +82,7 @@ export default function InstancesPage() {
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
 			title="Instances"
-			extra={<>
+			extra={<Space>
 				{account.hasPermission("core.instance.create") && <CreateInstanceButton instances={instances}/>}
 				{account.hasPermission("core.instance.start")
 					&& <Button onClick={e => instances.forEach(instance => {
@@ -108,7 +108,7 @@ export default function InstancesPage() {
 					}>
 						Stop all
 					</Button>}
-			</>}
+			</Space>}
 		/>
 
 		<InstanceList instances={instances} />
