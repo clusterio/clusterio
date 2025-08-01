@@ -291,7 +291,7 @@ export default class ModPack {
 			const sizeBytes = uint32Bytes(entries.length);
 			const itemBytes = entries.flatMap(([key, item]) => [
 				immutableStringBytes(key),
-				// eslint-disable-next-line no-use-before-define
+
 				propertyTreeBytes(item),
 			]);
 			return Buffer.concat([

@@ -40,7 +40,7 @@ const plugin = {
 
 //%endif
 //%if controller
-controllerEntrypoint: "./dist/node/controller",
+	controllerEntrypoint: "./dist/node/controller",
 //%endif
 //%if controller & config
 	controllerConfigFields: {

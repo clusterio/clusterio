@@ -137,8 +137,8 @@ export abstract class Datastore<
 	V extends DatastoreValue,
 	U = V,
 > extends EventEmitter<{
-	"update": [ updates: U[] ],
-}> {
+		"update": [ updates: U[] ],
+	}> {
 	private dirty = false;
 
 	constructor(

@@ -226,7 +226,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	</>;
 }
 
-// eslint-disable-next-line complexity
+
 function computeTreeData(
 	control: Control,
 	form: FormInstance<any>,

@@ -816,24 +816,24 @@ describe("lib/ModStore", function () {
 				assert.equal(
 					typeof firstMod.latest_release.version,
 					"string",
-					"latest_release version should be string" // eslint-disable-line max-len
+					"latest_release version should be string"
 				);
 				assert.equal(
 					typeof firstMod.latest_release.sha1,
 					"string",
-					"latest_release should have a sha1 string" // eslint-disable-line max-len
+					"latest_release should have a sha1 string"
 				);
 				assert.ok(firstMod.latest_release.info_json, "latest_release should have info_json");
 				assert.equal(
 					typeof firstMod.latest_release.info_json.factorio_version,
 					"string",
-					"info_json should have factorio_version string" // eslint-disable-line max-len
+					"info_json should have factorio_version string"
 				);
 				// Check for an expected field from the user example
 				assert.equal(
 					typeof firstMod.downloads_count,
 					"number",
-					"First mod should have downloads_count number" // eslint-disable-line max-len
+					"First mod should have downloads_count number"
 				);
 			} else {
 				// This should not happen for v1.1 but handles edge cases

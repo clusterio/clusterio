@@ -35,9 +35,9 @@ function MyTemplatePage() {
 
 	return <PageLayout nav={[{ name: "__plugin_name__" }]}>
 		<PageHeader title="__plugin_name__" />
-//%if controller // Subscribing requires web content and the controller
+		//%if controller // Subscribing requires web content and the controller
 		Synced: {String(synced)} Data: {JSON.stringify([...subscribableData.values()])}
-//%endif
+		//%endif
 	</PageLayout>;
 }
 

@@ -46,7 +46,7 @@ describe("lib/plugin_loader", function() {
 		it("should reject on broken plugin", async function() {
 			let brokenMessage;
 			try {
-				// eslint-disable-next-line node/global-require
+
 				require(path.resolve(brokenPlugin));
 			} catch (err) {
 				brokenMessage = err.message;

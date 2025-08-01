@@ -50,7 +50,7 @@ function escapeArg(arg) {
 	// For all other platforms the command is /bin/sh -c <command arg arg ...>
 	// The command and its arguments are passed as a single argument to the shell.
 	// See https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02
-	// eslint-disable-next-line no-lonely-if
+
 	if (!/[|&;<>()$`\\"' \t*?\[#~=%]/.test(arg)) {
 		return arg;
 	}

@@ -11,7 +11,7 @@ async function exec(file, args) {
 	const { stdout, stderr } = await execFile(
 		file,
 		args.map(escapeArg),
-		// eslint-disable-next-line node/no-process-env
+
 		{ shell: true, cwd: __dirname, env: { ...process.env, pct: "%"} }
 	);
 	return { stdout: JSON.parse(stdout), stderr };

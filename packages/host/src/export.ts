@@ -221,7 +221,7 @@ async function loadLayeredIcon(
 			iconLayer.scale(realScale);
 		}
 
-		// eslint-disable-next-line no-loop-func
+
 		iconLayer.scan(0, 0, iconLayer.bitmap.width, iconLayer.bitmap.height, (x, y, sidx) => {
 			x += xs;
 			y += ys;
