@@ -161,7 +161,7 @@ export default class ModPack {
 		if (json.name) { modPack.name = json.name; }
 		if (json.description) { modPack.description = json.description; }
 		if (json.factorio_version) { modPack.factorioVersion = json.factorio_version; }
-		if (json.mods) { modPack.mods = new Map(json.mods.map(m => [m.name, m])); }
+		if (json.mods) { modPack.mods = new Map(json.mods.map((m: ModRecord) => [m.name, m])); }
 		if (json.settings) {
 			modPack.settings = {
 				"startup": new Map(Object.entries(json.settings["startup"])),
