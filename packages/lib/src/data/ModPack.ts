@@ -218,7 +218,7 @@ export default class ModPack {
 		let buf = Buffer.from(modPackString, "base64");
 		try {
 			// eslint-disable-next-line node/no-sync
-			buf = zlib.inflateSync(buf);
+			buf = Buffer.from(zlib.inflateSync(buf));
 		} catch (err: any) {
 			if (err.code.startsWith("Z_")) {
 				throw new Error("Malformed mod pack string: zlib inflate failed");
