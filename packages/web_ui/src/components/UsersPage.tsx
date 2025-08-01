@@ -1,31 +1,24 @@
-import React, { useEffect, useContext, useState, useRef } from "react";
+import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Static } from "@sinclair/typebox";
 
 import {
-	Button, Form, FormInstance, Input, InputRef, Modal,
-	Radio, Space, Table, Tag, Upload, UploadProps,
+	Button, Form, FormInstance, Input, Modal,
+	Radio, Upload, UploadProps,
 } from "antd";
 
-import {
-	InboxOutlined, SearchOutlined,
-} from "@ant-design/icons";
+import { InboxOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 
-import { useRoles } from "../model/roles";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
-import { formatDuration } from "../util/time_format";
 import { saveJson } from "../util/save_file";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUsers } from "../model/user";
-import Link from "./Link";
-
-const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+import UsersTable from "./UsersTable";
 
 function CreateUserButton() {
 	let control = useContext(ControlContext);
@@ -321,7 +314,7 @@ function BulkUserActionButton() {
 	const [formAction, setFormAction] = useState<string | undefined>(undefined);
 	const [form] = Form.useForm();
 
-	function onValuesChange({ action } : { action?: string }) {
+	function onValuesChange({ action }: { action?: string }) {
 		if (action) {
 			setFormAction(action);
 		}
@@ -348,7 +341,7 @@ function BulkUserActionButton() {
 			title="Bulk Actions"
 			okText="Apply"
 			open={open}
-			okButtonProps={{disabled: formAction === undefined}}
+			okButtonProps={{ disabled: formAction === undefined }}
 			onOk={() => { onOk().catch(notifyErrorHandler(`Error running ${formAction}`)); }}
 			onCancel={() => { setOpen(false); }}
 			destroyOnClose
@@ -364,9 +357,9 @@ function BulkUserActionButton() {
 							? <Radio.Button value="restore">Restore</Radio.Button> : undefined}
 					</Radio.Group>
 				</Form.Item>
-				{formAction === "import" ? <UserBulkActionImport {...{setApplyAction, form}}/> : undefined}
-				{formAction === "export" ? <UserBulkActionExport {...{setApplyAction, form}}/> : undefined}
-				{formAction === "restore" ? <UserBulkActionImport restore {...{setApplyAction, form}}/> : undefined}
+				{formAction === "import" ? <UserBulkActionImport {...{ setApplyAction, form }} /> : undefined}
+				{formAction === "export" ? <UserBulkActionExport {...{ setApplyAction, form }} /> : undefined}
+				{formAction === "restore" ? <UserBulkActionImport restore {...{ setApplyAction, form }} /> : undefined}
 			</Form>
 		</Modal>
 	</>;
@@ -374,10 +367,6 @@ function BulkUserActionButton() {
 
 export default function UsersPage() {
 	let account = useAccount();
-	let navigate = useNavigate();
-	let [users] = useUsers();
-	const [roles] = useRoles();
-	const searchInput = useRef<InputRef>(null);
 
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
@@ -388,87 +377,7 @@ export default function UsersPage() {
 					? <BulkUserActionButton /> : undefined}
 			</Space>}
 		/>
-		<Table
-			columns={[
-				{
-					title: "Name",
-					key: "name",
-					render: (_, user) => <Space>
-						{user.name}
-						<span>
-							{user.isAdmin && <Tag color="gold">Admin</Tag>}
-							{user.isWhitelisted && <Tag>Whitelisted</Tag>}
-							{user.isBanned && <Tag color="red">Banned</Tag>}
-						</span>
-					</Space>,
-					defaultSortOrder: "ascend",
-					sorter: (a, b) => strcmp(a.name, b.name),
-					filterIcon: (filtered) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
-					onFilter: (value, record) => record.name.toLowerCase().includes((value as string).toLowerCase()),
-					filterDropdownProps: {
-						onOpenChange: open => open && setTimeout(() => searchInput.current?.select(), 100),
-					},
-					filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }) => (
-						<div style={{ padding: 4 }} onKeyDown={(e) => e.stopPropagation()}>
-							<Input.Search
-								allowClear
-								ref={searchInput}
-								placeholder={"Search username"}
-								value={selectedKeys[0]}
-								onChange={(e) => setSelectedKeys([e.target.value])}
-								onClear={() => clearFilters && clearFilters({ confirm: true, closeDropdown: true })}
-								onSearch={() => confirm({ closeDropdown: true })}
-							/>
-						</div>
-					),
-				},
-				{
-					title: "Roles",
-					key: "roles",
-					render: (_, user) => (
-						[...user.roleIds]
-							.map(id => <Link key={id} to={`/roles/${id}/view`} onClick={e => e.stopPropagation()}>
-								<Tag>{(roles.get(id) || { name: id }).name}</Tag>
-							</Link>)
-					),
-				},
-				{
-					title: "Online time",
-					key: "onlineTime",
-					render: (_, user) => (user.playerStats?.onlineTimeMs
-						? formatDuration(user.playerStats.onlineTimeMs) : null),
-					sorter: (a, b) => (a.playerStats?.onlineTimeMs ?? 0) -
-						(b.playerStats?.onlineTimeMs ?? 0),
-					responsive: ["lg"],
-				},
-				{
-					title: "First seen",
-					key: "firstSeen",
-					render: (_, user) => formatFirstSeen(user),
-					sorter: (a, b) => sortFirstSeen(a, b),
-				},
-				{
-					title: "Last seen",
-					key: "lastSeen",
-					render: (_, user) => formatLastSeen(user),
-					sorter: (a, b) => sortLastSeen(a, b),
-					responsive: ["lg"],
-				},
-			]}
-			dataSource={[...users.values()]}
-			pagination={{
-				defaultPageSize: 50,
-				showSizeChanger: true,
-				pageSizeOptions: ["10", "20", "50", "100", "200"],
-				showTotal: total => `${total} Users`,
-			}}
-			rowKey={user => user.name}
-			onRow={(user, rowIndex) => ({
-				onClick: event => {
-					navigate(`/users/${user.name}/view`);
-				},
-			})}
-		/>
+		<UsersTable />
 		<PluginExtra component="UsersPage" />
 	</PageLayout>;
 }

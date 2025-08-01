@@ -18,6 +18,7 @@ import AssignInstanceModal from "./AssignInstanceModal";
 import InstanceControlButton, { InstanceControlButtonPermissions } from "./InstanceControlButton";
 import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
+import OnlinePlayersList from "./OnlinePlayersList";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useHost } from "../model/host";
@@ -210,6 +211,8 @@ export default function InstanceViewPage() {
 			extra={<InstanceButtons instance={instance} />}
 		/>
 		<InstanceDescription host={host} instance={instance} />
+
+		{account.hasPermission("core.user.list") && <OnlinePlayersList instanceId={instanceId} />}
 
 		{
 			account.hasAllPermission("core.instance.save.list", "core.instance.save.subscribe")
