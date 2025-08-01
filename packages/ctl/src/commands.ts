@@ -1066,6 +1066,61 @@ instanceCommands.add(new lib.Command({
 }));
 
 instanceCommands.add(new lib.Command({
+	definition: ["start-all", "Start all stopped instances (respects exclude_from_start_all setting)", (yargs) => {
+		yargs.options({
+			"force": {
+				describe: "Start instances even if they have exclude_from_start_all set",
+				nargs: 0,
+				type: "boolean",
+				default: false,
+			},
+		});
+	}],
+	handler: async function(args: { force: boolean }, control: Control) {
+		// Get all instances
+		const instances = await control.send(new lib.InstanceDetailsListRequest());
+
+		// Filter instances that should be started
+		const instancesToStart = instances.filter((instance: lib.InstanceDetails) => {
+			// Only start instances that are currently stopped
+			if (instance.status !== "stopped") {
+				return false;
+			}
+
+			// Respect exclude_from_start_all setting unless --force is used
+			if (!args.force && instance.excludeFromStartAll) {
+				return false;
+			}
+
+			return true;
+		});
+
+		if (instancesToStart.length === 0) {
+			print("No instances to start.");
+			return;
+		}
+
+		print(`Starting ${instancesToStart.length} instance(s):`);
+		for (const instance of instancesToStart) {
+			print(`  - ${instance.name} (ID: ${instance.id})`);
+		}
+
+		// Start all filtered instances
+		const startPromises = instancesToStart.map(async (instance: lib.InstanceDetails) => {
+			try {
+				await control.sendTo({ instanceId: instance.id }, new lib.InstanceStartRequest());
+				print(`✓ Started ${instance.name}`);
+			} catch (error) {
+				print(`✗ Failed to start ${instance.name}: ${error}`);
+			}
+		});
+
+		await Promise.all(startPromises);
+		print("Start all operation completed.");
+	},
+}));
+
+instanceCommands.add(new lib.Command({
 	definition: ["load-scenario <instance> <scenario>", "Start instance by loading a scenario", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to start", type: "string" });
 		yargs.positional("scenario", { describe: "Scenario to load", type: "string" });
@@ -1107,6 +1162,41 @@ instanceCommands.add(new lib.Command({
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		await control.sendTo({ instanceId }, new lib.InstanceStopRequest());
+	},
+}));
+
+instanceCommands.add(new lib.Command({
+	definition: ["stop-all", "Stop all running instances", () => {}],
+	handler: async function(_args, control: Control) {
+		// Get all instances
+		const instances = await control.send(new lib.InstanceDetailsListRequest());
+
+		// Filter instances that should be stopped
+		const instancesToStop = instances
+			.filter((instance: lib.InstanceDetails) => ["starting", "running"].includes(instance.status));
+
+		if (instancesToStop.length === 0) {
+			print("No instances to stop.");
+			return;
+		}
+
+		print(`Stopping ${instancesToStop.length} instance(s):`);
+		for (const instance of instancesToStop) {
+			print(`  - ${instance.name} (ID: ${instance.id})`);
+		}
+
+		// Stop all filtered instances
+		const stopPromises = instancesToStop.map(async (instance: lib.InstanceDetails) => {
+			try {
+				await control.sendTo({ instanceId: instance.id }, new lib.InstanceStopRequest());
+				print(`✓ Stopped ${instance.name}`);
+			} catch (error) {
+				print(`✗ Failed to stop ${instance.name}: ${error}`);
+			}
+		});
+
+		await Promise.all(stopPromises);
+		print("Stop all operation completed.");
 	},
 }));
 
