@@ -5,7 +5,7 @@
  * @module ctl/ctl
  */
 import fs from "fs-extra";
-import yargs from "yargs";
+import yargs, { type Argv } from "yargs";
 import path from "path";
 import { version } from "./package.json";
 import setBlocking from "set-blocking";
@@ -156,7 +156,17 @@ export async function initialize(
 	ctlPlugins?: Map<string, BaseCtlPlugin>,
 	noLoggerTransport?: boolean,
 ): Promise<InitializeParameters> {
-	yargs
+	// Build a fresh, isolated yargs parser each time this function is called.
+	// If the currently loaded yargs object supports .reset() we use that (older versions),
+	// otherwise we fall back to creating a brand-new parser instance by invoking the
+	// yargs factory function directly with an empty argv array.  This avoids Mocha’s
+	// own CLI flags (or anything else that touched yargs earlier in the same process)
+	// from leaking into subsequent parses inside the test runner.
+	const parser: Argv = typeof (yargs as any).reset === "function"
+		? (yargs as any).reset()
+		: (yargs as any)([]);
+
+	parser
 		.scriptName("clusterioctl")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
@@ -181,13 +191,13 @@ export async function initialize(
 		})
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("control-config", "Manage Control config", lib.configCommand)
-		.wrap(yargs.terminalWidth())
+		.wrap(parser.terminalWidth())
 		.help(false) // Disable help to avoid triggering it on the first parse.
 	;
 
 	// Parse the args first to get the configured plugin list.
 	// eslint-disable-next-line node/no-sync
-	let args = yargs.parseSync(argv) as CtlArguments;
+	let args = parser.parseSync(argv) as CtlArguments;
 
 	// Log stream for the ctl session. Skipped in testing.
 	if (!noLoggerTransport) {
@@ -217,8 +227,8 @@ export async function initialize(
 	}
 
 	// Add all commands including from plugins and reparse with help and strict checking.
-	const rootCommands = await commands.registerCommands(ctlPlugins, yargs);
-	args = yargs
+	const rootCommands = await commands.registerCommands(ctlPlugins, parser);
+	args = parser
 		.help()
 		.strict()
 		.parse(argv) as CtlArguments
@@ -241,8 +251,8 @@ export async function initialize(
 	}
 
 	if (args._.length === 0) {
-		yargs.showHelp();
-		yargs.exit(1, undefined as unknown as Error); // Type definition file is wrong.
+		parser.showHelp();
+		parser.exit(1, undefined as unknown as Error); // Type definition file is wrong.
 	}
 
 	// Handle the control-config command before trying to connect.

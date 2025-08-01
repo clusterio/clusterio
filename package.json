@@ -1,7 +1,6 @@
 {
 	"name": "root",
 	"private": true,
-	"type": "module",
 	"files": [],
 	"scripts": {
 		"build": "tsc --build",
