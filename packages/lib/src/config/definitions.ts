@@ -398,6 +398,7 @@ export interface InstanceConfigFields {
 	"instance.id": number;
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
+	"instance.exclude_from_start_all": boolean;
 
 	"factorio.version": string;
 	"factorio.executable_path": string | null;
@@ -462,6 +463,11 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		},
 		"instance.auto_start": {
 			description: "Automatically start this instance when the host hosting it is started up",
+			type: "boolean",
+			initialValue: false,
+		},
+		"instance.exclude_from_start_all": {
+			description: "Exclude this instance from the 'Start all' button operation",
 			type: "boolean",
 			initialValue: false,
 		},

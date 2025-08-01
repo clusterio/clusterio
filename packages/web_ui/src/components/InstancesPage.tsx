@@ -86,7 +86,7 @@ export default function InstancesPage() {
 				{account.hasPermission("core.instance.create") && <CreateInstanceButton instances={instances}/>}
 				{account.hasPermission("core.instance.start")
 					&& <Button onClick={e => instances.forEach(instance => {
-						if (instance.status === "stopped") {
+						if (instance.status === "stopped" && !instance.excludeFromStartAll) {
 							control.sendTo(
 								{ instanceId: instance.id },
 								new lib.InstanceStartRequest(undefined),

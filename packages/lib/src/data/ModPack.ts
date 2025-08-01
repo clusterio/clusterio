@@ -161,7 +161,7 @@ export default class ModPack {
 		if (json.name) { modPack.name = json.name; }
 		if (json.description) { modPack.description = json.description; }
 		if (json.factorio_version) { modPack.factorioVersion = json.factorio_version; }
-		if (json.mods) { modPack.mods = new Map(json.mods.map(m => [m.name, m])); }
+		if (json.mods) { modPack.mods = new Map(json.mods.map((m: ModRecord) => [m.name, m])); }
 		if (json.settings) {
 			modPack.settings = {
 				"startup": new Map(Object.entries(json.settings["startup"])),
@@ -218,7 +218,7 @@ export default class ModPack {
 		let buf = Buffer.from(modPackString, "base64");
 		try {
 			// eslint-disable-next-line node/no-sync
-			buf = zlib.inflateSync(buf);
+			buf = Buffer.from(zlib.inflateSync(buf));
 		} catch (err: any) {
 			if (err.code.startsWith("Z_")) {
 				throw new Error("Malformed mod pack string: zlib inflate failed");

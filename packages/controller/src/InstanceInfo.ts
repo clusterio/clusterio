@@ -45,6 +45,7 @@ export default class InstanceInfo {
 			this.status,
 			this.factorioVersion,
 			this.updatedAtMs,
+			this.config.get("instance.exclude_from_start_all"),
 		);
 	}
 
