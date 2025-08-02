@@ -303,7 +303,7 @@ describe("lib/data/ModPack", function() {
 						Buffer.from(str),
 					];
 				}
-				/* eslint-disable indent */
+				/* eslint-disable @stylistic/indent */
 				assert.deepEqual(
 					pack.toModSettingsDat(),
 					Buffer.concat([
@@ -373,7 +373,6 @@ describe("lib/data/ModPack", function() {
 										new Uint8Array(Float64Array.from([1]).buffer),
 					])
 				);
-				/* eslint-enable indent */
 			});
 		});
 		describe("defaultModPacks", function() {

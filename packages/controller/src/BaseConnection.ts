@@ -16,7 +16,7 @@ import * as routes from "./routes";
  * @alias module:controller/src/BaseConnection
  */
 export default class BaseConnection extends lib.Link {
-	declare ["connector"]: WsServerConnector;
+	declare "connector": WsServerConnector;
 
 	constructor(
 		connector: lib.WebSocketBaseConnector,

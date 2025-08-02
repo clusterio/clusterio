@@ -747,7 +747,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		this._rconClient.on("authenticated", () => {
 			this._rconReady = true;
 			this.emit("rcon-ready");
-		 });
+		});
 		this._rconClient.on("end", () => {
 			this._rconClient = null;
 			if (!this._rconReady) {

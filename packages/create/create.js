@@ -114,7 +114,7 @@ async function execFile(cmd, args) {
 			escaped,
 			{
 				shell: true,
-				// eslint-disable-next-line node/no-process-env
+
 				env: process.platform === "win32" ? { ...process.env, pct: "%" } : undefined,
 			},
 			(err, stdout, stderr) => {
@@ -396,7 +396,7 @@ async function installClusterio(mode, plugins) {
 		}
 		for (let plugin of plugins) {
 			if (!pluginList.has(plugin)) {
-				// eslint-disable-next-line node/global-require
+
 				let pluginInfo = require(require.resolve(plugin, { paths: [process.cwd()] })).plugin;
 				pluginList.set(pluginInfo.name, plugin);
 			}

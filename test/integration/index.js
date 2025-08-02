@@ -120,7 +120,7 @@ class TestHostConnector extends lib.WebSocketClientConnector {
 // Mark that this test takes a lot of time, or depeneds on a test
 // that takes a lot of time.
 function slowTest(test) {
-	// eslint-disable-next-line node/no-process-env
+
 	if (process.env.FAST_TEST) {
 		test.skip();
 	}
@@ -221,7 +221,7 @@ function getControl() {
 }
 
 function spawn(name, cmd, waitFor) {
-	// eslint-disable-next-line node/no-process-env
+
 	const silent = process.env.SILENT_TEST;
 	const bootstrap = !controllerProcess || !hostProcess;
 	function log(...args) {
@@ -264,7 +264,7 @@ async function spawnNode(name, cmd, waitFor) {
 before(async function() {
 	this.timeout(40000);
 
-	// eslint-disable-next-line node/no-process-env
+
 	const silent = process.env.SILENT_TEST;
 	if (silent) {
 		console.log("SILENT_TEST is present in env, loggers after bootstrap will be muted.");
@@ -278,7 +278,7 @@ before(async function() {
 	}));
 
 	// If fast test is enabled then output that it is
-	// eslint-disable-next-line node/no-process-env
+
 	if (process.env.FAST_TEST) {
 		console.log("FAST_TEST is present in env, slow tests will be skipped.");
 	}

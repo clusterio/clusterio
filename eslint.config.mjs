@@ -1,118 +1,47 @@
-"use strict";
-module.exports = {
-	"plugins": [
-		"@typescript-eslint",
-		"node",
-	],
-	"root": true,
-	"env": {
-		"node": true,
-		"commonjs": true,
-		"es2022": true,
+import {
+	defineConfig,
+	globalIgnores,
+} from "eslint/config";
+
+import typescriptEslint from "@typescript-eslint/eslint-plugin";
+import node from "eslint-plugin-node";
+import globals from "globals";
+import tsParser from "@typescript-eslint/parser";
+import js from "@eslint/js";
+import stylistic from "@stylistic/eslint-plugin";
+
+import {
+	FlatCompat,
+} from "@eslint/eslintrc";
+
+const compat = new FlatCompat({
+	baseDirectory: import.meta.dirname,
+	recommendedConfig: js.configs.recommended,
+	allConfig: js.configs.all,
+});
+
+export default defineConfig([{
+	plugins: {
+		"@typescript-eslint": typescriptEslint,
+		"@stylistic": stylistic,
+		node,
 	},
 
-	"overrides": [
-		{
-			"files": ["{packages,plugins}/**/*.ts?(x)"],
-			"parser": "@typescript-eslint/parser",
-			"extends": [
-				"plugin:@typescript-eslint/recommended",
-			],
-			"rules": {
-				"@typescript-eslint/no-explicit-any": "off",
-				"@typescript-eslint/no-useless-constructor": "error",
-				"@typescript-eslint/no-unused-vars": "off",
-				"@typescript-eslint/triple-slash-reference": "off",
-				"@typescript-eslint/no-shadow": ["error", { "allow": ["Event", "Request", "yargs"] }],
-				"prefer-const": "off",
-				"no-shadow": "off",
-			},
+	languageOptions: {
+		globals: {
+			...globals.node,
+			...globals.commonjs,
 		},
-		{
-			"files": ["test/**/*.js", "plugins/*/test/**/*.js"],
-			"env": {
-				"mocha": "true",
-			},
-			"parserOptions": { sourceType: "commonjs" },
-			"rules": {
-				"prefer-arrow-callback": "off",
-				"no-invalid-this": "off",
-				"valid-jsdoc": "off",
-				"node/no-unpublished-import": "off",
-				"node/no-unpublished-require": "off",
-			},
-		},
-		{
-			"files": [
-				"packages/web_ui/src/**/*.ts?(x)",
-				"packages/lib/browser.ts",
-				"packages/create/templates/*/web/**/*.{t,j}s?(x)",
-				"{packages,plugins}/*/web/**/*.ts?(x)",
-			],
-			"env": {
-				"browser": true,
-			},
-			"parserOptions": {
-				"sourceType": "module",
-				"ecmaFeatures": {
-					"jsx": true,
-				},
-			},
-			"rules": {
-				"node/callback-return": "off",
-				"node/exports-style": "off",
-				"node/file-extension-in-import": "off",
-				"node/global-require": "off",
-				"node/handle-callback-err": "off",
-				"node/no-callback-literal": "off",
-				"node/no-deprecated-api": "off",
-				"node/no-exports-assign": "off",
-				"node/no-extraneous-import": "off",
-				"node/no-extraneous-require": "off",
-				"node/no-missing-import": "off",
-				"node/no-missing-require": "off",
-				"node/no-mixed-requires": "off",
-				"node/no-new-require": "off",
-				"node/no-path-concat": "off",
-				"node/no-process-env": "off",
-				"node/no-process-exit": "off",
-				"node/no-restricted-require": "off",
-				"node/no-sync": "off",
-				"node/no-unpublished-bin": "off",
-				"node/no-unpublished-import": "off",
-				"node/no-unpublished-require": "off",
-				"node/no-unsupported-features/es-builtins": "off",
-				"node/no-unsupported-features/es-syntax": "off",
-				"node/no-unsupported-features/node-builtins": "off",
-				"node/prefer-global/buffer": "off",
-				"node/prefer-global/console": "off",
-				"node/prefer-global/process": "off",
-				"node/prefer-global/text-decoder": "off",
-				"node/prefer-global/text-encoder": "off",
-				"node/prefer-global/url-search-params": "off",
-				"node/prefer-global/url": "off",
-				"node/prefer-promises/dns": "off",
-				"node/prefer-promises/fs": "off",
-				"node/process-exit-as-throw": "off",
-				"node/shebang": "off",
-			},
-		},
-		{
-			"files": [
-				"packages/create/templates/**/*.{t,j}s?(x)",
-			],
-			"rules": {
-				"node/no-missing-require": "off",
-				"node/no-missing-import": "off",
-				"spaced-comment": "off",
-				"comma-spacing": "off",
-				"max-len": "off",
-				"indent": "off",
-			},
-		},
-	],
+	},
 
 	"rules": {
+		"@stylistic/indent": ["error", "tab", {
+			"ignoredNodes": [
+				"JSXFragment", // TODO: Linter crashes if this is removed
+			],
+			"ignoreComments": true,
+			"SwitchCase": 1, // Indent case statements one level from switch
+		}],
 		"accessor-pairs": "error",
 		"array-bracket-newline": "off",
 		"array-bracket-spacing": ["error", "never"],
@@ -120,26 +49,34 @@ module.exports = {
 		"array-element-newline": "off",
 		"arrow-body-style": "error",
 		"arrow-parens": "off",
-		"arrow-spacing": ["error", { "after": true, "before": true }],
+
+		"arrow-spacing": ["error", {
+			"after": true,
+			"before": true,
+		}],
+
 		"block-scoped-var": "error",
 		"block-spacing": "error",
-		"brace-style": ["error", "1tbs", { "allowSingleLine": true }],
+
+		"brace-style": ["error", "1tbs", {
+			"allowSingleLine": true,
+		}],
+
 		"camelcase": "off",
 		"capitalized-comments": "off",
 		"class-methods-use-this": "off",
-		"comma-dangle": [
-			"error",
-			{
-				"arrays": "always-multiline",
-				"objects": "always-multiline",
-				"imports": "always-multiline",
-				"exports": "always-multiline",
-				"functions": "only-multiline",
-			},
-		],
+
+		"comma-dangle": ["error", {
+			"arrays": "always-multiline",
+			"objects": "always-multiline",
+			"imports": "always-multiline",
+			"exports": "always-multiline",
+			"functions": "only-multiline",
+		}],
+
 		"comma-spacing": "error",
 		"comma-style": ["error", "last"],
-		"complexity": "error",
+		"complexity": ["error", { "max": 25 }],
 		"computed-property-spacing": ["error", "never"],
 		"consistent-return": "error",
 		"consistent-this": "error",
@@ -148,27 +85,36 @@ module.exports = {
 		"default-case-last": "error",
 		"default-param-last": "off",
 		"dot-location": ["error", "property"],
-		"dot-notation": ["error", { "allowPattern": "^[a-z]+(_[a-z]+)*$" }],
+
+		"dot-notation": ["error", {
+			"allowPattern": "^[a-z]+(_[a-z]+)*$",
+		}],
+
 		"eol-last": "error",
 		"eqeqeq": "error",
 		"func-call-spacing": "error",
 		"func-name-matching": "error",
 		"func-names": "off",
+
 		"func-style": ["error", "declaration", {
-			// Allow arrow functions as it better expresses referencing this
-			// of the containing scope, which is unweilding in plain functions.
 			"allowArrowFunctions": true,
 		}],
+
 		"function-call-argument-newline": "off",
 		"function-paren-newline": "off",
-		"generator-star-spacing": ["error", { "before": false, "after": true }],
+
+		"generator-star-spacing": ["error", {
+			"before": false,
+			"after": true,
+		}],
+
 		"grouped-accessor-pairs": "error",
 		"guard-for-in": "error",
 		"id-blacklist": "error",
 		"id-length": "off",
 		"id-match": "error",
 		"implicit-arrow-linebreak": "error",
-		"indent": ["error", "tab", { "SwitchCase": 1 }],
+
 		"indent-legacy": "off",
 		"init-declarations": "off",
 		"jsx-quotes": "error",
@@ -178,10 +124,18 @@ module.exports = {
 		"linebreak-style": ["error", "unix"],
 		"lines-around-comment": "off",
 		"lines-around-directive": "off",
-		"lines-between-class-members": ["error", "always", { "exceptAfterSingleLine": true }],
+
+		"lines-between-class-members": ["error", "always", {
+			"exceptAfterSingleLine": true,
+		}],
+
 		"max-classes-per-file": "off",
 		"max-depth": "error",
-		"max-len": ["error", { "code": 120 }],
+
+		"max-len": ["error", {
+			"code": 120,
+		}],
+
 		"max-lines": "off",
 		"max-lines-per-function": "off",
 		"max-nested-callbacks": "error",
@@ -190,10 +144,12 @@ module.exports = {
 		"max-statements-per-line": "off",
 		"multiline-comment-style": ["error", "separate-lines"],
 		"multiline-ternary": "off",
+
 		"new-cap": ["error", {
 			"capIsNewExceptions": ["StringEnum", "StringKey"],
 			"capIsNewExceptionPattern": "^Type\\.",
 		}],
+
 		"new-parens": "error",
 		"newline-after-var": "off",
 		"newline-before-return": "off",
@@ -207,7 +163,11 @@ module.exports = {
 		"no-catch-shadow": "off",
 		"no-confusing-arrow": "error",
 		"no-console": "error",
-		"no-constant-condition": ["error", { "checkLoops": false }],
+
+		"no-constant-condition": ["error", {
+			"checkLoops": false,
+		}],
+
 		"no-constructor-return": "error",
 		"no-continue": "off",
 		"no-div-regex": "error",
@@ -232,16 +192,15 @@ module.exports = {
 		"no-lonely-if": "error",
 		"no-loop-func": "error",
 		"no-magic-numbers": "off",
-		"no-mixed-operators": [
-			"error",
-			{
-				"groups": [
-					["&", "|", "^", "~", "<<", ">>", ">>>"],
-					["==", "!=", "===", "!==", ">", ">=", "<", "<="],
-					["in", "instanceof"],
-				],
-			},
-		],
+
+		"no-mixed-operators": ["error", {
+			"groups": [
+				["&", "|", "^", "~", "<<", ">>", ">>>"],
+				["==", "!=", "===", "!==", ">", ">=", "<", "<="],
+				["in", "instanceof"],
+			],
+		}],
+
 		"no-multi-assign": "error",
 		"no-multi-spaces": "error",
 		"no-multi-str": "error",
@@ -256,7 +215,11 @@ module.exports = {
 		"no-new-wrappers": "error",
 		"no-octal-escape": "error",
 		"no-param-reassign": "off",
-		"no-plusplus": ["error", { "allowForLoopAfterthoughts": true }],
+
+		"no-plusplus": ["error", {
+			"allowForLoopAfterthoughts": true,
+		}],
+
 		"no-proto": "error",
 		"no-restricted-exports": "error",
 		"no-restricted-globals": "error",
@@ -268,9 +231,15 @@ module.exports = {
 		"no-script-url": "error",
 		"no-self-compare": "error",
 		"no-sequences": "error",
-		"no-shadow": ["error", { "allow": ["Event", "Request", "yargs"] }],
+
+		"no-shadow": ["error", {
+			"allow": ["Event", "Request", "yargs"],
+		}],
+
 		"no-spaced-func": "error",
-		"no-tabs": ["error", { "allowIndentationTabs": true }],
+
+		"no-tabs": "off",
+
 		"no-template-curly-in-string": "error",
 		"no-ternary": "off",
 		"no-throw-literal": "error",
@@ -289,7 +258,11 @@ module.exports = {
 		"no-useless-rename": "error",
 		"no-useless-return": "error",
 		"no-var": "error",
-		"no-void": ["error", { "allowAsStatement": true }],
+
+		"no-void": ["error", {
+			"allowAsStatement": true,
+		}],
+
 		"no-warning-comments": "off",
 		"no-whitespace-before-property": "error",
 		"nonblock-statement-body-position": "error",
@@ -299,6 +272,7 @@ module.exports = {
 		"one-var": "off",
 		"one-var-declaration-per-line": "error",
 		"operator-assignment": "off",
+
 		"operator-linebreak": ["error", "after", {
 			"overrides": {
 				"?": "before",
@@ -308,6 +282,7 @@ module.exports = {
 				"??": "before",
 			},
 		}],
+
 		"padded-blocks": "off",
 		"padding-line-between-statements": "error",
 		"prefer-arrow-callback": "error",
@@ -324,9 +299,13 @@ module.exports = {
 		"prefer-spread": "error",
 		"prefer-template": "error",
 		"quote-props": "off",
-		"quotes": ["error", "double", { "avoidEscape": true }],
+
+		"quotes": ["error", "double", {
+			"avoidEscape": true,
+		}],
+
 		"radix": ["error", "always"],
-		"require-atomic-updates": "off", // XXX Not sure why this triggers on process.title = ...
+		"require-atomic-updates": "off",
 		"require-await": "off",
 		"require-jsdoc": "off",
 		"require-unicode-regexp": "off",
@@ -342,73 +321,182 @@ module.exports = {
 		"space-in-parens": ["error", "never"],
 		"space-infix-ops": "off",
 		"space-unary-ops": "error",
+
 		"spaced-comment": ["error", "always", {
 			"line": {
 				"markers": ["/"],
 			},
 		}],
-		"strict": "error",
+
 		"switch-colon-spacing": "error",
 		"symbol-description": "error",
 		"template-curly-spacing": ["error", "never"],
 		"template-tag-spacing": "error",
 		"unicode-bom": ["error", "never"],
-		"valid-jsdoc": ["error", {
-			"requireReturn": false,
-			"requireReturnType": false,
-			"requireParamType": false,
-		}],
+
 		"vars-on-top": "error",
 		"wrap-iife": "error",
 		"wrap-regex": "off",
 		"yield-star-spacing": "error",
-		"yoda": ["error", "never", { "exceptRange": true }],
+
+		"yoda": ["error", "never", {
+			"exceptRange": true,
+		}],
 
 		"node/callback-return": "off",
 		"node/exports-style": "off",
 		"node/file-extension-in-import": "off",
 		"node/global-require": "off",
-		// Node.js callback passing style of (err, value) is not used in this project
 		"node/handle-callback-err": "off",
 		"node/no-callback-literal": "off",
-		"node/no-deprecated-api": "error",
-		"node/no-exports-assign": "error",
+		"node/no-deprecated-api": "off",
+		"node/no-exports-assign": "off",
 		"node/no-extraneous-import": "off",
 		"node/no-extraneous-require": "off",
-		"node/no-missing-import": ["error", {
-			"tryExtensions": [".js", ".ts"],
-		}],
-		"node/no-missing-require": "error",
-		"node/no-mixed-requires": "error",
-		"node/no-new-require": "error",
-		"node/no-path-concat": "error",
-		"node/no-process-env": "error",
-		"node/no-process-exit": "error",
+
+		"node/no-missing-import": "off",
+
+		"node/no-missing-require": "off",
+		"node/no-mixed-requires": "off",
+		"node/no-new-require": "off",
+		"node/no-path-concat": "off",
+		"node/no-process-env": "off",
+		"node/no-process-exit": "off",
 		"node/no-restricted-require": "off",
 		"node/no-sync": "error",
-		"node/no-unpublished-bin": "error",
-		"node/no-unpublished-import": "error",
-		"node/no-unpublished-require": [
-			"error",
-			{ "allowModules": ["webpack", "webpack-merge", "webpack-dev-middleware"] },
-		],
+		"node/no-unpublished-bin": "off",
+		"node/no-unpublished-import": "off",
+
+		"node/no-unpublished-require": "off",
+
 		"node/no-unsupported-features/es-builtins": "off",
 		"node/no-unsupported-features/es-syntax": "off",
 		"node/no-unsupported-features/node-builtins": "off",
-		"node/prefer-global/buffer": "error",
-		"node/prefer-global/console": "error",
-		"node/prefer-global/process": "error",
-		"node/prefer-global/text-decoder": "error",
-		"node/prefer-global/text-encoder": "error",
-		"node/prefer-global/url-search-params": "error",
-		"node/prefer-global/url": "error",
+		"node/prefer-global/buffer": "off",
+		"node/prefer-global/console": "off",
+		"node/prefer-global/process": "off",
+		"node/prefer-global/text-decoder": "off",
+		"node/prefer-global/text-encoder": "off",
+		"node/prefer-global/url-search-params": "off",
+		"node/prefer-global/url": "off",
 		"node/prefer-promises/dns": "off",
 		"node/prefer-promises/fs": "off",
-		"node/process-exit-as-throw": "error",
-		"node/shebang": ["error", {
-			"convertPath": {
-				"*.ts": ["^(.+)\\.ts$", "dist/node/$1.js"],
-			},
-		}],
+		"node/process-exit-as-throw": "off",
+
+		"node/shebang": "off",
 	},
-};
+}, {
+	files: ["{packages,plugins}/**/*.ts?(x)"],
+
+	languageOptions: {
+		parser: tsParser,
+	},
+
+	extends: compat.extends("plugin:@typescript-eslint/recommended"),
+
+	"rules": {
+		"@typescript-eslint/no-explicit-any": "off",
+		"@typescript-eslint/no-useless-constructor": "error",
+		"@typescript-eslint/no-unused-vars": "off",
+		"@typescript-eslint/triple-slash-reference": "off",
+
+		"@typescript-eslint/no-shadow": ["error", {
+			"allow": ["Event", "Request", "yargs"],
+		}],
+
+		// Allow require imports where necessary (dynamic loading, webpack configs, etc.)
+		"@typescript-eslint/no-require-imports": "off",
+
+		"prefer-const": "off",
+		"no-shadow": "off",
+	},
+}, {
+	files: ["test/**/*.js", "plugins/*/test/**/*.js"],
+
+	languageOptions: {
+		globals: {
+			...globals.mocha,
+		},
+
+		sourceType: "commonjs",
+		parserOptions: {},
+	},
+
+	"rules": {
+		"prefer-arrow-callback": "off",
+		"no-invalid-this": "off",
+		"node/no-unpublished-import": "off",
+		"node/no-unpublished-require": "off",
+	},
+}, {
+	files: [
+		"packages/web_ui/src/**/*.ts?(x)",
+		"packages/lib/browser.ts",
+		"packages/create/templates/*/web/**/*.{t,j}s?(x)",
+		"{packages,plugins}/*/web/**/*.ts?(x)",
+	],
+
+	languageOptions: {
+		globals: {
+			...globals.browser,
+		},
+
+		"sourceType": "module",
+
+		parserOptions: {
+			"ecmaFeatures": {
+				"jsx": true,
+			},
+		},
+	},
+
+	"rules": {
+		"node/callback-return": "off",
+		"node/exports-style": "off",
+		"node/file-extension-in-import": "off",
+		"node/global-require": "off",
+		"node/handle-callback-err": "off",
+		"node/no-callback-literal": "off",
+		"node/no-deprecated-api": "off",
+		"node/no-exports-assign": "off",
+		"node/no-extraneous-import": "off",
+		"node/no-extraneous-require": "off",
+		"node/no-missing-import": "off",
+		"node/no-missing-require": "off",
+		"node/no-mixed-requires": "off",
+		"node/no-new-require": "off",
+		"node/no-path-concat": "off",
+		"node/no-process-env": "off",
+		"node/no-process-exit": "off",
+		"node/no-restricted-require": "off",
+		"node/no-sync": "error",
+		"node/no-unpublished-bin": "off",
+		"node/no-unpublished-import": "off",
+		"node/no-unpublished-require": "off",
+		"node/no-unsupported-features/es-builtins": "off",
+		"node/no-unsupported-features/es-syntax": "off",
+		"node/no-unsupported-features/node-builtins": "off",
+		"node/prefer-global/buffer": "off",
+		"node/prefer-global/console": "off",
+		"node/prefer-global/process": "off",
+		"node/prefer-global/text-decoder": "off",
+		"node/prefer-global/text-encoder": "off",
+		"node/prefer-global/url-search-params": "off",
+		"node/prefer-global/url": "off",
+		"node/prefer-promises/dns": "off",
+		"node/prefer-promises/fs": "off",
+		"node/process-exit-as-throw": "off",
+		"node/shebang": "off",
+	},
+}, {
+	files: ["packages/create/templates/**/*.{t,j}s?(x)"],
+
+	"rules": {
+		"node/no-missing-require": "off",
+		"node/no-missing-import": "off",
+		"spaced-comment": "off",
+		"comma-spacing": "off",
+		"max-len": "off",
+		"indent": "off",
+	},
+}, globalIgnores(["**/dist/", "dist/"])]);

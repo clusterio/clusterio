@@ -399,13 +399,13 @@ export default class Controller {
 
 	async _startDevServer(args: ControllerArgs) {
 		logger.warn("Webpack development mode enabled");
-		/* eslint-disable @typescript-eslint/no-var-requires, node/no-unpublished-require */
+
 		const webpack = require("webpack");
 		const webpackDevMiddleware = require("webpack-dev-middleware");
 		const webpackConfigs = [];
 
 		if (args.dev) {
-			// eslint-disable-next-line node/no-missing-require
+
 			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
 		}
 		if (args.devPlugin) {
@@ -421,7 +421,7 @@ export default class Controller {
 			}
 			this.app.locals.devPlugins = devPlugins;
 		}
-		/* eslint-enable @typescript-eslint/no-var-requires, node/no-unpublished-require */
+
 
 		const compiler = webpack(webpackConfigs);
 		this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });

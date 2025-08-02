@@ -47,7 +47,7 @@ export default class HostConnection extends BaseConnection {
 		this._checkPluginVersions();
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
-			// eslint-disable-next-line no-loop-func
+
 			this.connector.on(event, () => {
 				for (let plugin of this._controller.plugins.values()) {
 					plugin.onHostConnectionEvent(this, event);

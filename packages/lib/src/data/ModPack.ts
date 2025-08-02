@@ -218,7 +218,7 @@ export default class ModPack {
 		let buf = Buffer.from(modPackString, "base64");
 		try {
 			// eslint-disable-next-line node/no-sync
-			buf = zlib.inflateSync(buf);
+			buf = Buffer.from(zlib.inflateSync(buf));
 		} catch (err: any) {
 			if (err.code.startsWith("Z_")) {
 				throw new Error("Malformed mod pack string: zlib inflate failed");
@@ -291,7 +291,7 @@ export default class ModPack {
 			const sizeBytes = uint32Bytes(entries.length);
 			const itemBytes = entries.flatMap(([key, item]) => [
 				immutableStringBytes(key),
-				// eslint-disable-next-line no-use-before-define
+
 				propertyTreeBytes(item),
 			]);
 			return Buffer.concat([

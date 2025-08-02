@@ -271,7 +271,7 @@ export abstract class WebSocketBaseConnector<
 		this._check("connected");
 		if (Date.now() - this._lastHeartbeatMs! > 2000 * this._heartbeatInterval!) {
 			logger.verbose("Connector | closing after heartbeat timed out");
-			// eslint-disable-next-line node/no-process-env
+
 			if (process.env.APP_ENV === "browser") {
 				this._socket!.close(ConnectionClosed.Timeout, "Heartbeat timeout");
 			} else {
@@ -544,7 +544,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 		// Open WebSocket to controller
 		logger.verbose(`Connector | connecting to ${url}`);
 
-		// eslint-disable-next-line node/no-process-env
+
 		if (process.env.APP_ENV === "browser") {
 			this._socket = new WebSocket(url) as WebSocketClusterio;
 

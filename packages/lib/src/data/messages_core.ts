@@ -1,6 +1,6 @@
 // Note: Run compile_validator script after making changes to this file.
 import { TSchema, Type, Static } from "@sinclair/typebox";
-// eslint-disable-next-line node/no-missing-import
+
 import messageValidate from "./message_validate"; // generated file
 import { StringEnum } from "./composites";
 
@@ -154,7 +154,7 @@ export class Message {
 	static validate = messageValidate;
 
 	static fromJSON(json: any) {
-		/* eslint-disable no-use-before-define */
+
 		if (json.type === "hello") { return MessageHello.fromJSON(json); }
 		if (json.type === "registerHost") { return MessageRegisterHost.fromJSON(json); }
 		if (json.type === "registerControl") { return MessageRegisterControl.fromJSON(json); }
@@ -168,7 +168,7 @@ export class Message {
 		if (json.type === "responseError") { return MessageResponseError.fromJSON(json); }
 		if (json.type === "event") { return MessageEvent.fromJSON(json); }
 		if (json.type === "disconnect") { return MessageDisconnect.fromJSON(json); }
-		/* eslint-enable no-use-before-define */
+
 		throw new Error(`Unrecognized message type ${json.type}`);
 	}
 }

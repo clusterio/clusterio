@@ -61,13 +61,13 @@ export function dose(
 	let inp1 = [numreq, instore_adj, store_last_tick / numreq, dole, carry]; // 0..4
 	let inp2 = [
 		prev_req / numreq,
-				 numreq / numreq_total_adj,
-				 store_last_tick / numreq_total_adj,
-				 prev_req/instore_adj,
-				 b,
-				 numreq_total_adj,
-				 store_last_tick,
-				 debt,
+		numreq / numreq_total_adj,
+		store_last_tick / numreq_total_adj,
+		prev_req/instore_adj,
+		b,
+		numreq_total_adj,
+		store_last_tick,
+		debt,
 	]; // 5..12
 	let inputs = inp1.concat(inp2);
 	let outputs = [0, 0, 0, 0];
