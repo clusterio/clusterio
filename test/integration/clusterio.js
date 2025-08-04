@@ -1055,13 +1055,13 @@ describe("Integration of Clusterio", function() {
 		describe("instance save transfer", function() {
 			before(async function() {
 				slowTest(this);
-				await execCtl("instance create spam --id 66");
-				await execCtl("instance assign spam 4");
-				await execCtl("instance create unassign --id 77");
+				await execCtlProcess("instance create spam --id 66");
+				await execCtlProcess("instance assign spam 4");
+				await execCtlProcess("instance create unassign --id 77");
 			});
 			after(async function() {
 				try {
-					await execCtl("instance delete spam");
+					await execCtlProcess("instance delete spam");
 				} catch (err) {
 					// Ignore
 				}
@@ -1075,14 +1075,15 @@ describe("Integration of Clusterio", function() {
 					: path.join("temp", "test", "instances", "spam", "saves")
 				;
 				describe(remote ? "remote" : "local", function() {
+					this.timeout(10000);
 					if (remote) {
 						let hostProcess;
 						before(async function() {
 							slowTest(this);
 
 							hostProcess = await startAltHost();
-							await execCtl("instance create save-test --id 88");
-							await execCtl("instance assign save-test 5");
+							await execCtlProcess("instance create save-test --id 88");
+							await execCtlProcess("instance assign save-test 5");
 						});
 						after(async function() {
 							await stopAltHost(hostProcess);
@@ -1090,14 +1091,14 @@ describe("Integration of Clusterio", function() {
 					}
 					it("should transfers a save", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
-						await execCtl(`instance save transfer ${pri} transfer.zip ${sec}`);
+						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec}`);
 						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
 						assert(await fs.pathExists(path.join(secSaves, "transfer.zip")), "save not at sec");
 						await deleteSave(sec, "transfer.zip");
 					});
 					it("should support rename", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
-						await execCtl(`instance save transfer ${pri} transfer.zip ${sec} rename.zip`);
+						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec} rename.zip`);
 						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
 						assert(await fs.pathExists(path.join(secSaves, "rename.zip")), "save not at sec");
 						await deleteSave(sec, "rename.zip");
@@ -1105,7 +1106,7 @@ describe("Integration of Clusterio", function() {
 					it("should auto-rename if target exists", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
 						await uploadSave(sec, "transfer.zip", "transfer.zip");
-						await execCtl(`instance save transfer ${pri} transfer.zip ${sec}`);
+						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec}`);
 						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
 						assert(await fs.pathExists(path.join(secSaves, "transfer-2.zip")), "save not at sec");
 						await deleteSave(sec, "transfer.zip");
@@ -1113,7 +1114,7 @@ describe("Integration of Clusterio", function() {
 					});
 					it("should copy when using --copy", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
-						await execCtl(`instance save transfer ${pri} transfer.zip ${sec} --copy`);
+						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec} --copy`);
 						assert(await fs.pathExists(path.join(priSaves, "transfer.zip")), "save not at pri");
 						assert(await fs.pathExists(path.join(secSaves, "transfer.zip")), "save not at sec");
 						await deleteSave(pri, "transfer.zip");

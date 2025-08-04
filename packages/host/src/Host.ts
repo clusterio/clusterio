@@ -250,7 +250,7 @@ export class HostRouter {
  * Connects to the controller over the WebSocket and manages intsances.
  */
 export default class Host extends lib.Link {
-	declare ["connector"]: HostConnector;
+	declare "connector": HostConnector;
 
 	router = new HostRouter(this);
 	/**
@@ -1201,7 +1201,7 @@ export default class Host extends lib.Link {
 +------------------------------------------------------------+
 ${err.stack}`
 			);
-			// eslint-disable-next-line node/no-process-exit
+
 			process.exit(1);
 		}
 	}

@@ -422,7 +422,7 @@ async function startup() {
 		if (secondSigint) {
 			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
-			// eslint-disable-next-line node/no-process-exit
+
 			process.exit(1);
 		}
 
@@ -435,7 +435,7 @@ async function startup() {
 		if (secondSigterm) {
 			setBlocking(true);
 			logger.fatal("Caught second termination, terminating immediately");
-			// eslint-disable-next-line node/no-process-exit
+
 			process.exit(1);
 		}
 

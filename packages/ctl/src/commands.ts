@@ -2062,7 +2062,7 @@ userCommands.add(new lib.Command({
 			exportType = "whitelist";
 		}
 
-		fs.writeJSON(args.filepath, await control.send(
+		await fs.writeJSON(args.filepath, await control.send(
 			new lib.UserBulkExportRequest(exportType)
 		), { spaces: 2 });
 		print(`Exported ${exportType} to ${args.filepath}`);

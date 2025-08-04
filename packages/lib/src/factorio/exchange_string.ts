@@ -414,7 +414,7 @@ export function readMapExchangeString(exchangeString: string) {
 	let buf = Buffer.from(exchangeString.slice(3, -3), "base64");
 	try {
 		// eslint-disable-next-line node/no-sync
-		buf = zlib.inflateSync(buf);
+		buf = Buffer.from(zlib.inflateSync(buf));
 	} catch (err: any) {
 		if (err.code.startsWith("Z_")) {
 			throw new Error("Malformed map exchange string: zlib inflate failed");
