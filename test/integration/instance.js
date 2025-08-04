@@ -34,6 +34,8 @@ describe("Clusterio Instance", function() {
 		await execCtlProcess(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instName} 4`);
+		// Exclude main test instance from start-all to prevent interference
+		await execCtl(`instance config set ${instName} instance.exclude_from_start_all true`);
 
 		for (const plugin of [
 			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth", "inventory_sync",
@@ -47,6 +49,8 @@ describe("Clusterio Instance", function() {
 		await execCtlProcess(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
 		await execCtl(`instance assign ${instAltName} 4`);
+		// Exclude alt test instance from start-all to prevent interference
+		await execCtl(`instance config set ${instAltName} instance.exclude_from_start_all true`);
 		await execCtl(`instance start ${instAltName}`);
 		await sendRcon(instAltId, "/sc disable achievements");
 	});
@@ -161,4 +165,149 @@ describe("Clusterio Instance", function() {
 			});
 		});
 	}
+});
+describe("start-all and stop-all commands", function() {
+	// Test instance IDs for start-all/stop-all tests
+	const testInstId1 = 50;
+	const testInstId2 = 51;
+	const testInstId3 = 52;
+	const testInstName1 = "StartAllTest1";
+	const testInstName2 = "StartAllTest2";
+	const testInstName3 = "StartAllTest3";
+
+	before(async function() {
+		this.timeout(30000);
+
+		// Create test instances for start-all/stop-all testing
+		await execCtl(`instance create ${testInstName1} --id ${testInstId1}`);
+		await execCtl(`instance create ${testInstName2} --id ${testInstId2}`);
+		await execCtl(`instance create ${testInstName3} --id ${testInstId3}`);
+
+		// Configure instances
+		await execCtl(`instance assign ${testInstName1} 4`);
+		await execCtl(`instance assign ${testInstName2} 4`);
+		await execCtl(`instance assign ${testInstName3} 4`);
+
+		// Exclude testInstName3 from start-all by default
+		await execCtl(`instance config set ${testInstName3} instance.exclude_from_start_all true`);
+
+		// Disable plugins to speed up testing
+		for (const instanceName of [testInstName1, testInstName2, testInstName3]) {
+			for (const plugin of [
+				"global_chat", "research_sync", "statistics_exporter",
+				"subspace_storage", "player_auth", "inventory_sync",
+			]) {
+				await execCtl(`instance config set ${instanceName} ${plugin}.load_plugin false`);
+			}
+		}
+	});
+
+	after(async function() {
+		this.timeout(30000);
+		// Clean up test instances - ensure they are stopped first
+		await execCtl(`instance stop ${testInstName1}`).catch(() => {});
+		await execCtl(`instance stop ${testInstName2}`).catch(() => {});
+		await execCtl(`instance stop ${testInstName3}`).catch(() => {});
+
+		await execCtl(`instance delete ${testInstName1}`).catch(() => {});
+		await execCtl(`instance delete ${testInstName2}`).catch(() => {});
+		await execCtl(`instance delete ${testInstName3}`).catch(() => {});
+	});
+
+	async function getInstanceStatus(id) {
+		const instances = await getControl().send(new lib.InstanceDetailsListRequest());
+		const instanceMap = new Map(instances.map(instance => [instance.id, instance]));
+		return instanceMap.get(id)?.status;
+	}
+
+	describe("start-all command", function() {
+		beforeEach(async function() {
+			this.timeout(15000);
+			// Ensure all test instances are stopped before each test
+			await execCtl(`instance stop ${testInstName1}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName2}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName3}`).catch(() => {});
+		});
+
+		afterEach(async function() {
+			this.timeout(15000);
+			// Clean up: stop any instances that were started during tests
+			await execCtl(`instance stop ${testInstName1}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName2}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName3}`).catch(() => {});
+		});
+
+		it("starts only stopped instances that are not excluded by default", async function() {
+			this.timeout(20000);
+			// Start one instance to verify it's not started again
+			await execCtl(`instance start ${testInstName2}`);
+
+			// Verify initial state
+			assert.equal(await getInstanceStatus(testInstId1), "stopped");
+			assert.equal(await getInstanceStatus(testInstId2), "running");
+			assert.equal(await getInstanceStatus(testInstId3), "stopped");
+
+			// Run start-all without force
+			await execCtl("instance start-all");
+
+			// Verify results - only testInstName1 should be started
+			// testInstName2 was already running, testInstName3 is excluded
+			assert.equal(await getInstanceStatus(testInstId1), "running");
+			assert.equal(await getInstanceStatus(testInstId2), "running");
+			assert.equal(await getInstanceStatus(testInstId3), "stopped");
+		});
+
+		it("starts excluded instances when --force flag is provided", async function() {
+			this.timeout(20000);
+			// Verify initial state - all stopped
+			assert.equal(await getInstanceStatus(testInstId1), "stopped");
+			assert.equal(await getInstanceStatus(testInstId2), "stopped");
+			assert.equal(await getInstanceStatus(testInstId3), "stopped");
+
+			// Run start-all with force
+			await execCtl("instance start-all --force");
+
+			// Verify results - all instances should be started including excluded one
+			assert.equal(await getInstanceStatus(testInstId1), "running");
+			assert.equal(await getInstanceStatus(testInstId2), "running");
+			assert.equal(await getInstanceStatus(testInstId3), "running");
+		});
+	});
+
+	describe("stop-all command", function() {
+		beforeEach(async function() {
+			this.timeout(15000);
+			// Ensure a known state before each test
+			await execCtl(`instance stop ${testInstName1}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName2}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName3}`).catch(() => {});
+		});
+
+		afterEach(async function() {
+			this.timeout(15000);
+			// Clean up: stop any instances that were started during tests
+			await execCtl(`instance stop ${testInstName1}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName2}`).catch(() => {});
+			await execCtl(`instance stop ${testInstName3}`).catch(() => {});
+		});
+
+		it("stops only running or starting instances", async function() {
+			this.timeout(20000);
+			// Start some instances to test stop-all
+			await execCtl(`instance start ${testInstName1}`);
+			await execCtl(`instance start ${testInstName3}`);
+
+			// Verify initial state
+			assert.equal(await getInstanceStatus(testInstId1), "running");
+			assert.equal(await getInstanceStatus(testInstId2), "stopped");
+			assert.equal(await getInstanceStatus(testInstId3), "running");
+
+			await execCtl("instance stop-all");
+
+			// Verify results - running instances should be stopped, stopped ones unchanged
+			assert.equal(await getInstanceStatus(testInstId1), "stopped");
+			assert.equal(await getInstanceStatus(testInstId2), "stopped");
+			assert.equal(await getInstanceStatus(testInstId3), "stopped");
+		});
+	});
 });
