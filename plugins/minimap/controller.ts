@@ -98,6 +98,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		await fs.ensureDir(this.recipeTilesPath);
 		await fs.ensureDir(this.playerPositionsPath);
 
+		// Handle incoming events from instances
 		this.controller.handle(TileDataEvent, this.handleTileDataEvent.bind(this));
 		this.controller.handle(ChartTagDataEvent, this.handleChartTagDataEvent.bind(this));
 		this.controller.handle(GetRawTileRequest, this.handleGetRawTileRequest.bind(this));
@@ -106,6 +107,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
 		this.controller.handle(PlayerPositionEvent, this.handlePlayerPositionEvent.bind(this));
 		this.controller.handle(GetPlayerPathRequest, this.handleGetPlayerPathRequest.bind(this));
+
+		// Register events as subscribable for web clients
+		this.controller.subscriptions.handle(TileDataEvent);
+		this.controller.subscriptions.handle(ChartTagDataEvent);
+		this.controller.subscriptions.handle(RecipeDataEvent);
+		this.controller.subscriptions.handle(PlayerPositionEvent);
 
 		// Set up HTTP routes for serving tiles
 		this.setupTileRoutes();
@@ -750,11 +757,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			// Queue for batch saving
 			this.chartTagQueues.get(fileKey)!.push(enrichedTagData);
 
-			// Send live update to connected web clients
 			const updateEvent = new ChartTagDataEvent(instance_id, tag_data);
 
-			// Broadcast to web clients
-			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
+			// Broadcast to subscribed web clients only
+			this.controller.subscriptions.broadcast(updateEvent);
 
 		} catch (err) {
 			this.logger.error(`Error processing chart tag data: ${err}`);
@@ -780,7 +786,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 			this.chunkSavingQueue.get(tileName)!.set(chunkName, { data: chunk, tick });
 
-			// Send live update to connected web clients
 			const updateEvent = new TileDataEvent(
 				instance_id,
 				surface,
@@ -791,8 +796,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				chunk
 			);
 
-			// Broadcast to web clients
-			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
+			// Broadcast to subscribed web clients only
+			this.controller.subscriptions.broadcast(updateEvent);
 
 		} catch (err) {
 			this.logger.error(`Error processing tile data: ${err}`);
@@ -1009,8 +1014,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 			this.recipeSavingQueue.get(tileKey)!.push(...buffersToWrite);
 
-			// broadcast live update
-			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), event);
+			// Broadcast live update to subscribed web clients only
+			this.controller.subscriptions.broadcast(event);
 
 		} catch (err) {
 			this.logger.error(`Error processing recipe data: ${err}`);
@@ -1078,11 +1083,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			// Queue for batch saving
 			this.playerPositionQueues.get(fileKey)!.push(enrichedPlayerData);
 
-			// Send live update to connected web clients
 			const updateEvent = new PlayerPositionEvent(instance_id, player_data);
 
-			// Broadcast to web clients
-			this.controller.sendTo(new lib.Address(lib.Address.broadcast, lib.Address.control), updateEvent);
+			// Broadcast to subscribed web clients only
+			this.controller.subscriptions.broadcast(updateEvent);
 
 		} catch (err) {
 			this.logger.error(`Error processing player position data: ${err}`);
