@@ -144,7 +144,7 @@ describe("Clusterio Instance", function() {
 				it("should respond to a player whitelist add and remove event", async function() {
 					await execCtl(`instance config set ${instName} factorio.sync_whitelist bidirectional`);
 					await sendRcon(instId, "/whitelist add WhitelistPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
+					await lib.wait(30); // Propagation time, had issues with 15ms in ci so i made it 30ms
 					const userAdded = await getUser("WhitelistPlayer");
 					assert(userAdded.isWhitelisted, "Player is not whitelisted");
 					const isAltAdded = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
@@ -154,7 +154,7 @@ describe("Clusterio Instance", function() {
 					);
 
 					await sendRcon(instId, "/whitelist remove WhitelistPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
+					await lib.wait(30); // Propagation time, had issues with 15ms in ci so i made it 30ms
 					const userRemoved = await getUser("WhitelistPlayer");
 					assert(!userRemoved.isWhitelisted, "Player is not unwhitelisted");
 					const isAltRemoved = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
