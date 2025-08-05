@@ -69,12 +69,18 @@ const CHUNK_SIZE = 32; // 32x32 pixels per chunk
 const TILE_SIZE = 256; // 256x256 pixels per tile (8x8 chunks)
 const CHUNKS_PER_TILE = 8;
 
+const inflateAsync = (data: Uint8Array): Promise<Uint8Array> => new Promise((resolve, reject) => {
+	zlib.inflate(data, (err, result) => {
+		if (err) { reject(err); }
+		resolve(result);
+	});
+});
 
 // Convert raw chart data to ImageData
 async function chartDataToImageData(chartData: string): Promise<ImageData> {
 	// Decode base64 and decompress
 	const compressedData = Buffer.from(chartData, "base64");
-	const decompressed = zlib.inflateSync(compressedData);
+	const decompressed = Buffer.from(await inflateAsync(compressedData));
 
 	// Create RGBA image data (32x32 pixels)
 	const imageData = new Uint8ClampedArray(32 * 32 * 4);
