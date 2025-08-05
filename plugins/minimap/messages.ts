@@ -369,6 +369,6 @@ export class GetPlayerPathRequest {
 	}
 
 	static Response = lib.plainJson(Type.Object({
-		"positions": Type.Optional(Type.String()),
+		"positions": Type.Union([Type.String(), Type.Null()]),
 	}));
 }
