@@ -5,31 +5,31 @@ import { BinaryData, sliceData, readUInt8, readUInt16BE, readUInt32BE, isNode } 
  */
 export interface ParsedPlayerPositions {
     /** Player name -> player ID mappings from SessionStart records */
-    playerSessions: Map<string, number>;
+	playerSessions: Map<string, number>;
     /** Maximum player ID found in the file */
-    maxPlayerId: number;
+	maxPlayerId: number;
     /** All position records in the file */
-    positions: PlayerPositionRecord[];
+	positions: PlayerPositionRecord[];
 }
 
 export interface PlayerPositionRecord {
-    type: number;
-    playerId: number;
+	type: number;
+	playerId: number;
     // Position record fields
-    tSec?: number;
-    sec?: number;
-    xTiles?: number;
-    yTiles?: number;
+	tSec?: number;
+	sec?: number;
+	xTiles?: number;
+	yTiles?: number;
     // Session record fields
-    tMs?: number;
-    playerName?: string;
+	tMs?: number;
+	playerName?: string;
 }
 
 export interface ParsedPlayerPos {
-    name: string;
-    x: number;
-    y: number;
-    sec: number;
+	name: string;
+	x: number;
+	y: number;
+	sec: number;
 }
 
 /**
@@ -121,13 +121,13 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
  * @returns Processing result with position data and new offset
  */
 function parsePositionRecord(buf: BinaryData, offset: number): {
-    success: boolean;
-    newOffset: number;
-    playerId: number;
-    tSec: number;
-    sec: number;
-    xTiles: number;
-    yTiles: number;
+	success: boolean;
+	newOffset: number;
+	playerId: number;
+	tSec: number;
+	sec: number;
+	xTiles: number;
+	yTiles: number;
 } {
 	// Position record: 4 + 4 + 3 + 3 + 2 = 16 bytes
 	if (offset + 16 > buf.length) {
@@ -248,12 +248,12 @@ export function parseAndDeduplicatePlayerPositions(buf: BinaryData): Map<number,
 				const x = record.xTiles * 32;
 				const y = record.yTiles * 32;
 
-                playerTimelines.get(record.playerId)!.push({
-                	name,
-                	x,
-                	y,
-                	sec: record.sec,
-                });
+				playerTimelines.get(record.playerId)!.push({
+					name,
+					x,
+					y,
+					sec: record.sec,
+				});
 			}
 		}
 	}
