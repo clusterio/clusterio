@@ -15,7 +15,7 @@
 		"node": "__node_version__"
 	},
 	"peerDependencies": {
-		"@clusterio/lib": "__clusterio_version__"
+		"@clusterio/lib": "^__clusterio_version__"
 	},
 	"devDependencies": {
 //%// Typescript and type declarations
@@ -36,9 +36,9 @@
 		"webpack": "^5.88.2",
 		"webpack-cli": "^5.1.4",
 		"webpack-merge": "^5.9.0",
-		"@clusterio/web_ui": "__clusterio_version__",
+		"@clusterio/web_ui": "^__clusterio_version__",
 //%endif
-		"@clusterio/lib": "__clusterio_version__"
+		"@clusterio/lib": "^__clusterio_version__"
 	},
 	"dependencies": {
 		"@sinclair/typebox": "^0.30.4"
