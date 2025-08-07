@@ -12,10 +12,10 @@
 		"prepare": "__prepare__"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": "__node_version__"
 	},
 	"peerDependencies": {
-		"@clusterio/lib": "workspace:*"
+		"@clusterio/lib": "__clusterio_version__"
 	},
 	"devDependencies": {
 //%// Typescript and type declarations
@@ -32,13 +32,13 @@
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 //%endif
-//%if web | controller // The controller uses webpack even when there is no plugin code
+//%if webpack
 		"webpack": "^5.88.2",
 		"webpack-cli": "^5.1.4",
 		"webpack-merge": "^5.9.0",
-		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/web_ui": "__clusterio_version__",
 //%endif
-		"@clusterio/lib": "workspace:*"
+		"@clusterio/lib": "__clusterio_version__"
 	},
 	"dependencies": {
 		"@sinclair/typebox": "^0.30.4"
