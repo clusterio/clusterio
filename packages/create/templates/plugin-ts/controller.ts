@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin, InstanceInfo } from "@clusterio/controller";
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 
 import {
 	PluginExampleEvent, PluginExampleRequest,
@@ -8,7 +8,7 @@ import {
 //%if controller & web // Subscribing requires web content and the controller
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 } from "./messages";
 //%endif
 
@@ -25,7 +25,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 //%endif
 //%if controller & web // Subscribing requires web content and the controller
 		this.controller.subscriptions.handle(ExampleSubscribableUpdate, this.handleExampleSubscription.bind(this));
-		this.exampleDatabase = new Map(); // If needed, replace with loading from database file
+		this.exampleDatabase = new Map(); // If needed, replace with loading from database file such as lib.Datastore
 //%endif
 //%if multi_context // Subscribing requires multi context
 	}

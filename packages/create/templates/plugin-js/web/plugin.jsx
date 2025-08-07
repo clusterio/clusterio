@@ -12,7 +12,7 @@ import React, {
 import {
 	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext, notifyErrorHandler,
 } from "@clusterio/web_ui";
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 
 import {
 	PluginExampleEvent, PluginExampleRequest,
@@ -20,7 +20,7 @@ import {
 //%if controller // Subscribing requires web content and the controller
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 } from "../messages";
 //%endif
 

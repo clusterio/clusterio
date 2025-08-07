@@ -42,7 +42,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		this.logger.info(`onPlayerEvent::onPlayerEvent ${JSON.stringify(event)}`);
 //%if module
 		if (this.instance.status === "running") {
-			this.sendRcon("/sc __plugin_name__.foo()");
+			await this.sendRcon("/sc __plugin_name__.foo()");
 		}
 //%endif
 	}

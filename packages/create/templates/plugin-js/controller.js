@@ -1,7 +1,7 @@
 "use strict";
 const lib = require("@clusterio/lib");
 const { BaseControllerPlugin } = require("@clusterio/controller");
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 
 const {
 	PluginExampleEvent, PluginExampleRequest,
@@ -9,7 +9,7 @@ const {
 //%if controller & web // Subscribing requires web content and the controller
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 } = require("./messages");
 //%endif
 
