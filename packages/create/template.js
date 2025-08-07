@@ -104,6 +104,7 @@ async function copyPluginTemplates(pluginName, templates) {
 		prepare.push("tsc --build");
 		files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
 		files.set("tsconfig.node.json", path.join(templatePath, "tsconfig.node.json"));
+		files.set("tsconfig.base.json", path.join(templatePath, "tsconfig.base.json"));
 		if (webpack) {
 			files.set("tsconfig.browser.json", path.join(templatePath, "tsconfig.browser.json"));
 		}
@@ -175,7 +176,7 @@ async function copyPluginTemplates(pluginName, templates) {
 		module: templates.includes("module"),
 		ctl: templates.includes("ctl"),
 		web: templates.includes("web"),
-		// Macro flags for context requirements 
+		// Macro flags for context requirements
 		webpack: webpack,
 		config: config,
 		// String values for package json

@@ -26,7 +26,8 @@ class ControllerPlugin extends BaseControllerPlugin {
 //%endif
 //%if controller & web // Subscribing requires web content and the controller
 		this.controller.subscriptions.handle(ExampleSubscribableUpdate, this.handleExampleSubscription.bind(this));
-		this.exampleDatabase = new Map(); // If needed, replace with loading from database file
+		// If needed, replace with loading from database file such as lib.Datastore
+		this.exampleDatabase = new Map([["foo", new ExampleSubscribableValue("foo", 0, false)]]);
 //%endif
 //%if multi_context // Subscribing requires multi context
 	}
@@ -70,6 +71,7 @@ class ControllerPlugin extends BaseControllerPlugin {
 //%if controller & web // Subscribing requires web content and the controller
 
 	async handleExampleSubscription(request) {
+		this.logger.info(JSON.stringify(request));
 		const values = [...this.exampleDatabase.values()].filter(
 			value => value.updatedAtMs > request.lastRequestTimeMs,
 		);

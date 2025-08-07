@@ -4,3 +4,5 @@ packages:
   - "external_plugins/*"
   - "external_plugins/*/*"
   - "test/"
+
+linkWorkspacePackages: true

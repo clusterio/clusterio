@@ -6,12 +6,14 @@ lib.definePermission({
 	name: "__plugin_name__.example.permission.event",
 	title: "Example permission event",
 	description: "Example Description. Event. Change me in index.ts",
+	grantByDefault: true,
 });
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.request",
 	title: "Example permission request",
 	description: "Example Description. Request. Change me in index.ts",
+	grantByDefault: true,
 });
 //%endif
 //%if controller & web // Subscribing requires web content and the controller
@@ -20,6 +22,7 @@ lib.definePermission({
 	name: "__plugin_name__.example.permission.subscribe",
 	title: "Example permission subscribe",
 	description: "Example Description. Subscribe. Change me in index.ts",
+	grantByDefault: true,
 });
 //%endif
 //%if web
@@ -28,6 +31,7 @@ lib.definePermission({
 	name: "__plugin_name__.page.view",
 	title: "Example page view permission",
 	description: "Example Description. View. Change me in index.ts",
+	grantByDefault: true,
 });
 //%endif
 //%if config
