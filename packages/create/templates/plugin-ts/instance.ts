@@ -31,18 +31,25 @@ export class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async onStart() {
+		// Called once rcon becomes available
 		this.logger.info("instance::onStart");
 	}
 
 	async onStop() {
+		// Called during normal exits before rcon becomes unavailable
 		this.logger.info("instance::onStop");
+	}
+
+	onExit() {
+		// Called during all exits, including crashes and init failures, rcon is not available
+		this.logger.info("instance::onExit");
 	}
 
 	async onPlayerEvent(event: lib.PlayerEvent) {
 		this.logger.info(`onPlayerEvent::onPlayerEvent ${JSON.stringify(event)}`);
 //%if module
 		if (this.instance.status === "running") {
-			this.sendRcon("/sc __plugin_name__.foo()");
+			await this.sendRcon("/sc __plugin_name__.foo()");
 		}
 //%endif
 	}

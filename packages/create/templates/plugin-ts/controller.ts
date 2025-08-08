@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin, InstanceInfo } from "@clusterio/controller";
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 
 import {
 	PluginExampleEvent, PluginExampleRequest,
@@ -8,7 +8,7 @@ import {
 //%if controller & web // Subscribing requires web content and the controller
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 } from "./messages";
 //%endif
 
@@ -25,7 +25,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 //%endif
 //%if controller & web // Subscribing requires web content and the controller
 		this.controller.subscriptions.handle(ExampleSubscribableUpdate, this.handleExampleSubscription.bind(this));
-		this.exampleDatabase = new Map(); // If needed, replace with loading from database file
+		// If needed, replace with loading from database file such as lib.Datastore
+		this.exampleDatabase = new Map([["foo", new ExampleSubscribableValue("foo", 0, false)]]);
 //%endif
 //%if multi_context // Subscribing requires multi context
 	}
@@ -69,6 +70,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 //%if controller & web // Subscribing requires web content and the controller
 
 	async handleExampleSubscription(request: lib.SubscriptionRequest) {
+		this.logger.info(JSON.stringify(request));
 		const values = [...this.exampleDatabase.values()].filter(
 			value => value.updatedAtMs > request.lastRequestTimeMs,
 		);

@@ -1,8 +1,13 @@
 {
-	"extends": "../../tsconfig.node.json",
-	"references": [
-		{ "path": "../../packages/lib/tsconfig.node.json" },
-	],
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["es2023"],
+		"module": "node16",
+		"moduleResolution": "node16",
+		"target": "es2022",
+		"forceConsistentCasingInFileNames": true,
+		"outDir": "${configDir}/dist/node"
+	},
 	"include": ["./**/*.ts"],
 	"exclude": ["test/*", "./dist/*"],
 }

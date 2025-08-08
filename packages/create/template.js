@@ -3,6 +3,8 @@ const { logger } = require("./logging");
 const fs = require("fs-extra");
 const path = require("path");
 
+const _package = require("./package.json");
+
 async function copyTemplateFile(src, dst, properties) {
 	logger.verbose(`Writing ${dst} from template ${src}`);
 
@@ -102,6 +104,7 @@ async function copyPluginTemplates(pluginName, templates) {
 		prepare.push("tsc --build");
 		files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
 		files.set("tsconfig.node.json", path.join(templatePath, "tsconfig.node.json"));
+		files.set("tsconfig.base.json", path.join(templatePath, "tsconfig.base.json"));
 		if (webpack) {
 			files.set("tsconfig.browser.json", path.join(templatePath, "tsconfig.browser.json"));
 		}
@@ -139,7 +142,6 @@ async function copyPluginTemplates(pluginName, templates) {
 
 	// Files for lua modules
 	if (templates.includes("module")) {
-		files.set(".luacheckrc", path.join(commonPath, ".luacheckrc"));
 		files.set("module/module.json", path.join(commonPath, "module/module.json"));
 		files.set("module/control.lua", path.join(commonPath, "module/control.lua"));
 		files.set("module/module_exports.lua", path.join(commonPath, "module/module_exports.lua"));
@@ -147,7 +149,6 @@ async function copyPluginTemplates(pluginName, templates) {
 			files.set("module/globals.lua", path.join(commonPath, "module/globals.lua"));
 		} else {
 			files.set(`instance.${ext}`, path.join(templatePath, `instance_empty.${ext}`));
-			pluginContexts += 1;
 		}
 	}
 
@@ -164,18 +165,25 @@ async function copyPluginTemplates(pluginName, templates) {
 
 	// Properties that will control the replacements in the templates
 	const properties = {
-		config: config,
+		// Weather this is ts or js
 		typescript: !javascriptOnly,
+		ext: ext,
+		// Which templates where requested
+		multi_context: pluginContexts > 1,
 		controller: templates.includes("controller"),
 		host: templates.includes("host"),
 		instance: templates.includes("instance"),
 		module: templates.includes("module"),
 		ctl: templates.includes("ctl"),
 		web: templates.includes("web"),
-		multi_context: pluginContexts > 1,
-		plugin_name: pluginName,
+		// Macro flags for context requirements
+		webpack: webpack,
+		config: config,
+		// String values for package json
+		clusterio_version: _package.version,
+		node_version: _package.engines.node,
 		prepare: prepare.join(" && "),
-		ext: ext,
+		plugin_name: pluginName,
 	};
 
 	// Write all the template files
