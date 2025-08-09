@@ -852,6 +852,13 @@ export default function CanvasMinimapPage() {
 		loadSurfaceForceData();
 	}, []);
 
+	// Keep the minimap subscription filters in sync with current selection
+	useEffect(() => {
+		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
+		if (!plugin) { return; }
+		plugin.setInstanceSurfaceFilter(selectedInstance, selectedSurface || null);
+	}, [control, selectedInstance, selectedSurface]);
+
 	// Set up keyboard and mouse event listeners (one-time setup)
 	useEffect(() => {
 		const isTypingInInput = (): boolean => {

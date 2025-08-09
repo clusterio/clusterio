@@ -759,8 +759,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			const updateEvent = new ChartTagDataEvent(instance_id, tag_data);
 
-			// Broadcast to subscribed web clients only
-			this.controller.subscriptions.broadcast(updateEvent);
+			// Broadcast to subscribed web clients only with instance/surface filter
+			this.controller.subscriptions.broadcast(updateEvent, `${instance_id}:${tag_data.surface}`);
 
 		} catch (err) {
 			this.logger.error(`Error processing chart tag data: ${err}`);
@@ -796,8 +796,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				chunk
 			);
 
-			// Broadcast to subscribed web clients only
-			this.controller.subscriptions.broadcast(updateEvent);
+			// Broadcast to subscribed web clients only with instance/surface filter
+			this.controller.subscriptions.broadcast(updateEvent, `${instance_id}:${surface}`);
 
 		} catch (err) {
 			this.logger.error(`Error processing tile data: ${err}`);
@@ -1014,8 +1014,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 			this.recipeSavingQueue.get(tileKey)!.push(...buffersToWrite);
 
-			// Broadcast live update to subscribed web clients only
-			this.controller.subscriptions.broadcast(event);
+			// Broadcast live update to subscribed web clients only with instance/surface filter
+			this.controller.subscriptions.broadcast(event, `${instance_id}:${event.recipe_data.surface}`);
 
 		} catch (err) {
 			this.logger.error(`Error processing recipe data: ${err}`);
@@ -1085,8 +1085,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			const updateEvent = new PlayerPositionEvent(instance_id, player_data);
 
-			// Broadcast to subscribed web clients only
-			this.controller.subscriptions.broadcast(updateEvent);
+			// Broadcast to subscribed web clients only with instance/surface filter
+			this.controller.subscriptions.broadcast(updateEvent, `${instance_id}:${player_data.surface}`);
 
 		} catch (err) {
 			this.logger.error(`Error processing player position data: ${err}`);

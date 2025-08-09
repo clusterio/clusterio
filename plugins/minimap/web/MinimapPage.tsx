@@ -37,6 +37,13 @@ export default function MinimapPage() {
 		loadSurfaceForceData();
 	}, []);
 
+	// Keep subscription filters in sync with selection even on the legacy page
+	useEffect(() => {
+		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
+		if (!plugin) { return; }
+		plugin.setInstanceSurfaceFilter(selectedInstance, selectedSurface || null);
+	}, [control, selectedInstance, selectedSurface]);
+
 	const loadSurfaceForceData = async () => {
 		const response = await fetch(`${window.location.origin}/api/minimap/surfaces`);
 		const data = await response.json();

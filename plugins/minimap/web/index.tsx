@@ -13,6 +13,7 @@ export class WebPlugin extends BaseWebPlugin {
 
 	// Track subscription state
 	private subscribed = false;
+	private currentFilters: string[] | undefined = undefined;
 
 	async init() {
 		this.pages = [
@@ -32,8 +33,42 @@ export class WebPlugin extends BaseWebPlugin {
 	}
 
 	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
-		if (event === "connect") {
+		if (event === "connect" || event === "resume") {
 			this.updateSubscriptions();
+		}
+	}
+
+	// Update instance/surface filter used for subscriptions.
+	async setInstanceSurfaceFilter(instanceId: number | null, surface: string | null) {
+		const newFilters = (instanceId !== null && surface) ? [`${instanceId}:${surface}`] : undefined;
+
+		// No change
+		const prev = this.currentFilters;
+		const same = (
+			(prev === undefined && newFilters === undefined)
+			|| (Array.isArray(prev) && Array.isArray(newFilters)
+				&& prev.length === newFilters.length
+				&& prev.every((v, i) => v === newFilters[i]))
+		);
+		if (same) { return; }
+
+		// If we had previous filters and callbacks active, remove those filters first
+		if (this.hasActiveCallbacks() && prev && prev.length > 0) {
+			try {
+				await this.control.send(new lib.SubscriptionRequest("minimap:TileDataEvent", false, 0, prev));
+				await this.control.send(new lib.SubscriptionRequest("minimap:ChartTagDataEvent", false, 0, prev));
+				await this.control.send(new lib.SubscriptionRequest("minimap:RecipeDataEvent", false, 0, prev));
+				await this.control.send(new lib.SubscriptionRequest("minimap:PlayerPositionEvent", false, 0, prev));
+			} catch (err) {
+				this.logger.error(`Failed to remove previous minimap filters: ${err}`);
+			}
+		}
+
+		this.currentFilters = newFilters;
+
+		// Apply new filters if we have active callbacks
+		if (this.hasActiveCallbacks()) {
+			await this.updateSubscriptions();
 		}
 	}
 
@@ -44,18 +79,20 @@ export class WebPlugin extends BaseWebPlugin {
 
 		const shouldSubscribe = this.hasActiveCallbacks();
 
-		if (shouldSubscribe && !this.subscribed) {
-			// Subscribe to all minimap events
+		// Only subscribe if we both have active callbacks and a specific filter set
+		if (shouldSubscribe && this.currentFilters && this.currentFilters.length > 0) {
+			// Always (re)send with current filters when we have active callbacks
+			const filters = this.currentFilters;
 			try {
-				await this.control.send(new lib.SubscriptionRequest("minimap:TileDataEvent", true));
-				await this.control.send(new lib.SubscriptionRequest("minimap:ChartTagDataEvent", true));
-				await this.control.send(new lib.SubscriptionRequest("minimap:RecipeDataEvent", true));
-				await this.control.send(new lib.SubscriptionRequest("minimap:PlayerPositionEvent", true));
+				await this.control.send(new lib.SubscriptionRequest("minimap:TileDataEvent", true, 0, filters));
+				await this.control.send(new lib.SubscriptionRequest("minimap:ChartTagDataEvent", true, 0, filters));
+				await this.control.send(new lib.SubscriptionRequest("minimap:RecipeDataEvent", true, 0, filters));
+				await this.control.send(new lib.SubscriptionRequest("minimap:PlayerPositionEvent", true, 0, filters));
 				this.subscribed = true;
 			} catch (err) {
 				this.logger.error(`Failed to subscribe to minimap events: ${err}`);
 			}
-		} else if (!shouldSubscribe && this.subscribed) {
+		} else if ((!shouldSubscribe || !this.currentFilters || this.currentFilters.length === 0) && this.subscribed) {
 			// Unsubscribe from all minimap events
 			try {
 				await this.control.send(new lib.SubscriptionRequest("minimap:TileDataEvent", false));
