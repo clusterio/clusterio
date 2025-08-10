@@ -90,6 +90,7 @@ export default function HostViewPage() {
 	const system = systems.get(hostId);
 	const [host, synced] = useHost(hostId);
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
+	const canShowNpm = hasNpmButtonPermission(false);
 	const hostInstances = new Map([...instances].filter(([_id, instance]) => instance.assignedHost === hostId));
 
 	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host?.name ?? String(hostId) }];
@@ -124,10 +125,9 @@ export default function HostViewPage() {
 				</Button>
 			</Popconfirm>
 		}
-		{
-			hasNpmButtonPermission(false)
-			&& <NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
-		}
+		{canShowNpm && (
+			<NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
+		)}
 	</Space>;
 
 	return <PageLayout nav={nav}>

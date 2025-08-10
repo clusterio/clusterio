@@ -81,6 +81,7 @@ export default function ControllerPage() {
 	const [systems] = useSystems();
 	const system = systems.get("controller");
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
+	const canShowNpm = hasNpmButtonPermission(true);
 
 	return <PageLayout nav={[{ name: "Controller" }]}>
 		<PageHeader
@@ -88,7 +89,7 @@ export default function ControllerPage() {
 			extra={<Space>
 				<ControllerControlButton canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
 				{
-					hasNpmButtonPermission(true)
+					canShowNpm
 					&& <NpmButton target="controller" canRestart={system?.canRestart}/>
 				}
 			</Space>}
