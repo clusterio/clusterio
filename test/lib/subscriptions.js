@@ -88,6 +88,22 @@ describe("lib/subscriptions", function() {
 			assert.deepEqual(reconstructed, request);
 		});
 
+		it("should be round trip json serialisable with a single filter", function() {
+			const request = new lib.SubscriptionRequest(RegisteredEvent.name, true, 456, "foo");
+			const json = JSON.stringify(request);
+			assert.equal(typeof json, "string");
+			const reconstructed = lib.SubscriptionRequest.fromJSON(JSON.parse(json));
+			assert.deepEqual(reconstructed, request);
+		});
+
+		it("should be round trip json serialisable with multiple filters", function() {
+			const request = new lib.SubscriptionRequest(RegisteredEvent.name, true, 789, ["foo", "bar"]);
+			const json = JSON.stringify(request);
+			assert.equal(typeof json, "string");
+			const reconstructed = lib.SubscriptionRequest.fromJSON(JSON.parse(json));
+			assert.deepEqual(reconstructed, request);
+		});
+
 		it("should throw when given an unregistered event", function() {
 			assert.throws(
 				() => new lib.SubscriptionRequest(UnregisteredEvent.name, true),
@@ -313,6 +329,155 @@ describe("lib/subscriptions", function() {
 				);
 				await new Promise(resolve => setImmediate(resolve));
 				assertNoEvent(0);
+			});
+
+			describe("filters()", function() {
+				it("should notify only subscribers matching the broadcast filter", async function() {
+					const reqFoo = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), reqFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+					const reqBar = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "bar");
+					await subscriptions.handleRequest(
+						getLink(1), reqBar, connectorSetupDate[1].dst, connectorSetupDate[1].src
+					);
+
+					const before0 = getLink(0).connector.sentMessages.length;
+					const before1 = getLink(1).connector.sentMessages.length;
+
+					subscriptions.broadcast(new RegisteredEvent(), "foo");
+					await onceConnectorSend(0);
+					assert.equal(getLink(1).connector.sentMessages.length, before1);
+
+					subscriptions.broadcast(new RegisteredEvent(), "bar");
+					await onceConnectorSend(1);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 1);
+
+					const beforeBaz0 = getLink(0).connector.sentMessages.length;
+					const beforeBaz1 = getLink(1).connector.sentMessages.length;
+					subscriptions.broadcast(new RegisteredEvent(), "baz");
+					await new Promise(resolve => setImmediate(resolve));
+					assert.equal(getLink(0).connector.sentMessages.length, beforeBaz0);
+					assert.equal(getLink(1).connector.sentMessages.length, beforeBaz1);
+				});
+
+				it("should notify subscribers with no filters for any broadcast filter", async function() {
+					const reqAll = new lib.SubscriptionRequest(RegisteredEvent.name, true);
+					await subscriptions.handleRequest(
+						getLink(0), reqAll, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+					const reqBaz = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "baz");
+					await subscriptions.handleRequest(
+						getLink(1), reqBaz, connectorSetupDate[1].dst, connectorSetupDate[1].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent(), "foo");
+					await onceConnectorSend(0);
+					assertNoEvent(1);
+
+					subscriptions.broadcast(new RegisteredEvent(), "baz");
+					await Promise.all([onceConnectorSend(0), onceConnectorSend(1)]);
+				});
+
+				it("should merge multiple filter subscriptions for the same subscriber", async function() {
+					const reqFoo = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "alpha");
+					await subscriptions.handleRequest(
+						getLink(0), reqFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+					const reqBar = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "beta");
+					await subscriptions.handleRequest(
+						getLink(0), reqBar, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent(), "alpha");
+					await onceConnectorSend(0);
+					const before = getLink(0).connector.sentMessages.length;
+					subscriptions.broadcast(new RegisteredEvent(), "beta");
+					await onceConnectorSend(0);
+					subscriptions.broadcast(new RegisteredEvent(), "gamma");
+					await new Promise(resolve => setImmediate(resolve));
+					assert.equal(getLink(0).connector.sentMessages.length, before + 1);
+				});
+
+				it("should reset to all when subscribing with no filters after having filters", async function() {
+					const reqFoo = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), reqFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+					const reqAll = new lib.SubscriptionRequest(RegisteredEvent.name, true);
+					await subscriptions.handleRequest(
+						getLink(0), reqAll, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent(), "baz");
+					await onceConnectorSend(0);
+				});
+
+				it("should remove only specified filters on unsubscribe with filters", async function() {
+					const reqFilters = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, ["foo", "bar"]);
+					await subscriptions.handleRequest(
+						getLink(0), reqFilters, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					const unsubFoo = new lib.SubscriptionRequest(RegisteredEvent.name, false, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), unsubFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent(), "foo");
+					await new Promise(resolve => setImmediate(resolve));
+					const before = getLink(0).connector.sentMessages.length;
+					subscriptions.broadcast(new RegisteredEvent(), "bar");
+					await onceConnectorSend(0);
+					assert.equal(getLink(0).connector.sentMessages.length, before + 1);
+				});
+
+				it("should remove entire subscription when last filter is unsubscribed", async function() {
+					const reqFoo = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), reqFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					const unsubFoo = new lib.SubscriptionRequest(RegisteredEvent.name, false, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), unsubFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent(), "foo");
+					await new Promise(resolve => setImmediate(resolve));
+					assertNoEvent(0);
+				});
+
+				// eslint-disable-next-line max-len
+				it("should remove entire subscription when unsubscribing any filter from an all-subscription", async function() {
+					const reqAll = new lib.SubscriptionRequest(RegisteredEvent.name, true);
+					await subscriptions.handleRequest(
+						getLink(0), reqAll, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+					const unsubAny = new lib.SubscriptionRequest(RegisteredEvent.name, false, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), unsubAny, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent());
+					await new Promise(resolve => setImmediate(resolve));
+					assertNoEvent(0);
+				});
+
+				it("should match any of multiple broadcast filters", async function() {
+					const reqFoo = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "foo");
+					await subscriptions.handleRequest(
+						getLink(0), reqFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
+					);
+					const reqBar = new lib.SubscriptionRequest(RegisteredEvent.name, true, 0, "bar");
+					await subscriptions.handleRequest(
+						getLink(1), reqBar, connectorSetupDate[1].dst, connectorSetupDate[1].src
+					);
+
+					subscriptions.broadcast(new RegisteredEvent(), ["bar", "baz"]);
+					await onceConnectorSend(1);
+					assertNoEvent(0);
+				});
 			});
 		});
 	});
