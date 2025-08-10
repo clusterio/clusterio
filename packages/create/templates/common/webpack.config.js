@@ -18,9 +18,7 @@ module.exports = (env = {}) => merge(common(env), {
 			exposes: {
 				"./": "./index.__ext__",
 				"./package.json": "./package.json",
-//%if web
 				"./web": "./web/index.__ext__x",
-//%endif
 			},
 			shared: {
 				"@clusterio/lib": { import: false },

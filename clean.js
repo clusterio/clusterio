@@ -81,7 +81,7 @@ async function removeExecutionArtifacts() {
  * Main function for this script
  */
 async function main() {
-	await yargs
+	await yargs(process.argv.slice(2))
 		.scriptName("clean")
 		.usage("$0 <command> [options]")
 		.option("dry", {
