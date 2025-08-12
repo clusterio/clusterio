@@ -347,11 +347,13 @@ describe("lib/subscriptions", function() {
 
 					subscriptions.broadcast(new RegisteredEvent(), "foo");
 					await onceConnectorSend(0);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 1);
 					assert.equal(getLink(1).connector.sentMessages.length, before1);
 
 					subscriptions.broadcast(new RegisteredEvent(), "bar");
 					await onceConnectorSend(1);
 					assert.equal(getLink(0).connector.sentMessages.length, before0 + 1);
+					assert.equal(getLink(1).connector.sentMessages.length, before1 + 1);
 
 					const beforeBaz0 = getLink(0).connector.sentMessages.length;
 					const beforeBaz1 = getLink(1).connector.sentMessages.length;
@@ -371,12 +373,18 @@ describe("lib/subscriptions", function() {
 						getLink(1), reqBaz, connectorSetupDate[1].dst, connectorSetupDate[1].src
 					);
 
+					const before0 = getLink(0).connector.sentMessages.length;
+					const before1 = getLink(1).connector.sentMessages.length;
+
 					subscriptions.broadcast(new RegisteredEvent(), "foo");
 					await onceConnectorSend(0);
-					assertNoEvent(1);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 1);
+					assert.equal(getLink(1).connector.sentMessages.length, before1);
 
 					subscriptions.broadcast(new RegisteredEvent(), "baz");
 					await Promise.all([onceConnectorSend(0), onceConnectorSend(1)]);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 2);
+					assert.equal(getLink(1).connector.sentMessages.length, before1 + 1);
 				});
 
 				it("should merge multiple filter subscriptions for the same subscriber", async function() {
@@ -389,14 +397,19 @@ describe("lib/subscriptions", function() {
 						getLink(0), reqBar, connectorSetupDate[0].dst, connectorSetupDate[0].src
 					);
 
+					const before0 = getLink(0).connector.sentMessages.length;
+
 					subscriptions.broadcast(new RegisteredEvent(), "alpha");
 					await onceConnectorSend(0);
-					const before = getLink(0).connector.sentMessages.length;
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 1);
+
 					subscriptions.broadcast(new RegisteredEvent(), "beta");
 					await onceConnectorSend(0);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 2);
+
 					subscriptions.broadcast(new RegisteredEvent(), "gamma");
 					await new Promise(resolve => setImmediate(resolve));
-					assert.equal(getLink(0).connector.sentMessages.length, before + 1);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 2);
 				});
 
 				it("should reset to all when subscribing with no filters after having filters", async function() {
@@ -424,12 +437,15 @@ describe("lib/subscriptions", function() {
 						getLink(0), unsubFoo, connectorSetupDate[0].dst, connectorSetupDate[0].src
 					);
 
+					const before0 = getLink(0).connector.sentMessages.length;
+
 					subscriptions.broadcast(new RegisteredEvent(), "foo");
 					await new Promise(resolve => setImmediate(resolve));
-					const before = getLink(0).connector.sentMessages.length;
+					assert.equal(getLink(0).connector.sentMessages.length, before0);
+
 					subscriptions.broadcast(new RegisteredEvent(), "bar");
 					await onceConnectorSend(0);
-					assert.equal(getLink(0).connector.sentMessages.length, before + 1);
+					assert.equal(getLink(0).connector.sentMessages.length, before0 + 1);
 				});
 
 				it("should remove entire subscription when last filter is unsubscribed", async function() {
