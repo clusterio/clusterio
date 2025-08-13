@@ -39,30 +39,45 @@ export class SubscriptionRequest {
 		public eventName: string,
 		public subscribe: boolean,
 		public lastRequestTimeMs: number = 0,
+		public filters: string | string[] | undefined = undefined,
 	) {
 		if (!Link._eventsByName.has(eventName)) {
 			throw new Error(`Unregistered Event class ${eventName}`);
 		}
 	}
 
-	static jsonSchema = Type.Tuple([
-		Type.String(),
-		Type.Boolean(),
-		Type.Number(),
+	static jsonSchema = Type.Union([
+		Type.Tuple([
+			Type.String(),
+			Type.Boolean(),
+			Type.Number(),
+		]),
+		Type.Tuple([
+			Type.String(),
+			Type.Boolean(),
+			Type.Number(),
+			Type.Union([Type.String(), Type.Array(Type.String())]),
+		]),
 	]);
 
 	toJSON() {
+		if (this.filters !== undefined) {
+			return [this.eventName, this.subscribe, this.lastRequestTimeMs, this.filters];
+		}
 		return [this.eventName, this.subscribe, this.lastRequestTimeMs];
 	}
 
 	static fromJSON(json: Static<typeof SubscriptionRequest.jsonSchema>): SubscriptionRequest {
-		return new this(...json);
+		const [eventName, subscribe, lastRequestTimeMs, filters] = json;
+		return new this(eventName, subscribe, lastRequestTimeMs, filters);
 	}
 }
 
 type Subscriber = {
 	link: Link,
 	dst: Address,
+	/** Optional filters this subscriber is interested in. Undefined means all events */
+	filters?: string[],
 }
 
 type EventData = {
@@ -76,6 +91,13 @@ type EventData = {
  */
 export class SubscriptionController {
 	_events = new Map<string, EventData>();
+
+	private static normalizeFilters(value?: string | string[]): string[] | undefined {
+		if (value === undefined) {
+			return undefined;
+		}
+		return Array.isArray(value) ? value : [value];
+	}
 
 	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
@@ -102,7 +124,7 @@ export class SubscriptionController {
 	 * Broadcast an event to all subscribers of that event
 	 * @param event - Event to broadcast.
 	 */
-	broadcast<T>(event: Event<T>) {
+	broadcast<T>(event: Event<T>, filter?: string | string[]) {
 		const entry = Link._eventsByClass.get(event.constructor);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${event.constructor.name}`);
@@ -112,10 +134,19 @@ export class SubscriptionController {
 			throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
 		const toRemove: Subscriber[] = [];
+		const filtersToMatch = SubscriptionController.normalizeFilters(filter);
+
 		for (const subscriber of eventData.subscriptions) {
 			if ((subscriber.link.connector as WebSocketBaseConnector).closing) {
 				toRemove.push(subscriber);
-			} else {
+				continue;
+			}
+
+			if (
+				filtersToMatch === undefined
+				|| subscriber.filters === undefined
+				|| subscriber.filters.some(f => filtersToMatch.includes(f))
+			) {
 				subscriber.link.sendTo(subscriber.dst, event);
 			}
 		}
@@ -164,13 +195,37 @@ export class SubscriptionController {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
 		if (event.subscribe === false) {
-			const index = eventData.subscriptions.findLastIndex(subscriber => subscriber.dst.addressedTo(src));
-			if (index >= 0) {
-				eventData.subscriptions.splice(index, 1);
+			// Unsubscribe logic
+			const subscriber = eventData.subscriptions.find(sub => sub.dst.addressedTo(src));
+			if (!subscriber) {
+				return false;
+			}
+			if (event.filters === undefined || subscriber.filters === undefined) {
+				// Remove entire subscription for this address
+				eventData.subscriptions = eventData.subscriptions.filter(sub => !sub.dst.addressedTo(src));
+			} else {
+				const filtersToRemove = Array.isArray(event.filters) ? event.filters : [event.filters];
+				subscriber.filters = subscriber.filters.filter(f => !filtersToRemove.includes(f));
+				if (subscriber.filters.length === 0) {
+					// No filters left, remove subscription
+					eventData.subscriptions = eventData.subscriptions.filter(sub => sub !== subscriber);
+				}
 			}
 		} else {
-			if (!eventData.subscriptions.some(subscriber => subscriber.dst.addressedTo(src))) {
-				eventData.subscriptions.push({ link: link, dst: src });
+			// Subscribe logic
+			let subscriber = eventData.subscriptions.find(sub => sub.dst.addressedTo(src));
+			const newFilters = SubscriptionController.normalizeFilters(event.filters);
+			if (!subscriber) {
+				eventData.subscriptions.push({ link: link, dst: src, filters: newFilters });
+			} else if (subscriber.filters === undefined || newFilters === undefined) {
+				// Either was already subscribed to all or new request wants all
+				subscriber.filters = undefined;
+			} else {
+				for (const f of newFilters) {
+					if (!subscriber.filters.includes(f)) {
+						subscriber.filters.push(f);
+					}
+				}
 			}
 			if (eventData.subscriptionUpdate) {
 				const eventReplay = await eventData.subscriptionUpdate(event, src, dst);
