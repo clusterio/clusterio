@@ -138,9 +138,7 @@ module.exports = (env = {}) => ({
 		moduleIds: "deterministic",
 		minimizer: [
 			new TerserPlugin({
-				// TerserPlugin.swcMinify spams log with "false" after bump to @swc/core@1.11.1
-				// https://github.com/clusterio/clusterio/issues/737
-				// minify: TerserPlugin.swcMinify,
+				minify: TerserPlugin.swcMinify,
 				terserOptions: {
 					compress: {
 						keep_classnames: true,
