@@ -4,9 +4,10 @@ const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const { WebpackManifestPlugin } = require("webpack-manifest-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 
-module.exports = (env = {}) => ({
-	mode: env.production ? "production" : "development",
-	devtool: env.production ? "source-map" : "eval-source-map",
+module.exports = (env = {}, argv = {}) => ({
+	mode: argv.mode ?? "development",
+	devtool: argv.mode === "production" ? "source-map" : "eval-source-map",
+	cache: { type: "filesystem" },
 	performance: {
 		maxAssetSize: 2**21,
 		maxEntrypointSize: 2**21,
@@ -34,7 +35,7 @@ module.exports = (env = {}) => ({
 		new webpack.NormalModuleReplacementPlugin(
 			/@ant-design\/icons\/[A-Z]/,
 			resource => {
-				resource.request = resource.request.replace(/@ant-design\/icons/, "$&/es/icons");
+				resource.request = resource.request.replace("@ant-design\/icons", "$&/es/icons");
 			}
 		),
 	],
@@ -60,7 +61,7 @@ module.exports = (env = {}) => ({
 					{
 						loader: require.resolve("css-loader"),
 						options: {
-							sourceMap: !env.production,
+							sourceMap: argv.mode !== "production",
 						},
 					},
 				],
@@ -138,9 +139,7 @@ module.exports = (env = {}) => ({
 		moduleIds: "deterministic",
 		minimizer: [
 			new TerserPlugin({
-				// TerserPlugin.swcMinify spams log with "false" after bump to @swc/core@1.11.1
-				// https://github.com/clusterio/clusterio/issues/737
-				// minify: TerserPlugin.swcMinify,
+				minify: TerserPlugin.swcMinify,
 				terserOptions: {
 					compress: {
 						keep_classnames: true,

@@ -112,7 +112,7 @@ async function copyPluginTemplates(pluginName, templates) {
 
 	// Files and dependences to support webpack
 	if (webpack) {
-		prepare.push("webpack-cli --env production");
+		prepare.push("webpack-cli --mode production");
 		files.set("webpack.config.js", path.join(commonPath, "webpack.config.js"));
 		if (templates.includes("web")) {
 			files.set(`web/index.${ext}x`, path.join(templatePath, `web/plugin.${ext}x`));

@@ -5,7 +5,7 @@ const { merge } = require("webpack-merge");
 
 const common = require("@clusterio/web_ui/webpack.common");
 
-module.exports = (env = {}) => merge(common(env), {
+module.exports = (env = {}, argv = {}) => merge(common(env, argv), {
 	context: __dirname,
 	entry: "./web/index.tsx",
 	devServer: {
