@@ -7,6 +7,7 @@ const TerserPlugin = require("terser-webpack-plugin");
 module.exports = (env = {}, argv = {}) => ({
 	mode: argv.mode ?? "development",
 	devtool: argv.mode === "production" ? "source-map" : "eval-source-map",
+	cache: { type: "filesystem" },
 	performance: {
 		maxAssetSize: 2**21,
 		maxEntrypointSize: 2**21,
@@ -34,7 +35,7 @@ module.exports = (env = {}, argv = {}) => ({
 		new webpack.NormalModuleReplacementPlugin(
 			/@ant-design\/icons\/[A-Z]/,
 			resource => {
-				resource.request = resource.request.replace(/@ant-design\/icons/, "$&/es/icons");
+				resource.request = resource.request.replace("@ant-design\/icons", "$&/es/icons");
 			}
 		),
 	],
