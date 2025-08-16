@@ -405,7 +405,6 @@ export default class Controller {
 		const webpackConfigs = [];
 
 		if (args.dev) {
-
 			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
 		}
 		if (args.devPlugin) {

@@ -4,9 +4,9 @@ const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const { WebpackManifestPlugin } = require("webpack-manifest-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 
-module.exports = (env = {}) => ({
-	mode: env.production ? "production" : "development",
-	devtool: env.production ? "source-map" : "eval-source-map",
+module.exports = (env = {}, argv = {}) => ({
+	mode: argv.mode ?? "development",
+	devtool: argv.mode === "production" ? "source-map" : "eval-source-map",
 	performance: {
 		maxAssetSize: 2**21,
 		maxEntrypointSize: 2**21,
@@ -60,7 +60,7 @@ module.exports = (env = {}) => ({
 					{
 						loader: require.resolve("css-loader"),
 						options: {
-							sourceMap: !env.production,
+							sourceMap: argv.mode !== "production",
 						},
 					},
 				],

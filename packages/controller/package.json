@@ -6,7 +6,7 @@
 	"version": "2.0.0-alpha.21",
 	"main": "dist/node/index.js",
 	"scripts": {
-		"prepare": "tsc --build && webpack-cli --env production",
+		"prepare": "tsc --build && webpack-cli --mode production",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
