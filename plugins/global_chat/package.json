@@ -13,7 +13,7 @@
 		"factorio"
 	],
 	"scripts": {
-		"prepare": "tsc --build && webpack-cli --env production",
+		"prepare": "tsc --build && webpack-cli --mode production",
 		"test": "echo \"Error: run tests from root\" && exit 1"
 	},
 	"bugs": {
