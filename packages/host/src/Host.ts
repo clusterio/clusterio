@@ -805,19 +805,44 @@ export default class Host extends lib.Link {
 	}
 
 	async handleSystemInfoRequest() {
-		if (!this.config.restartRequired) {
-			// If a restart isn't already required, then test if a new version is installed
-			try {
-				const runningVersion = this.config.get("host.version");
-				const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
-				if (runningVersion !== packageJson.version) {
-					this.config.restartRequired = true;
-				}
-			} catch (err: any) {
-				logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
-			}
+		const restartRequired = await this.checkRestartRequired();
+		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, restartRequired);
+	}
+
+	async checkRestartRequired() {
+		if (this.config.restartRequired) {
+			return true;
 		}
-		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, this.config.restartRequired);
+
+		try {
+			// First check the clusterio version
+			const runningVersion = this.config.get("host.version");
+			const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
+			if (runningVersion !== packageJson.version) {
+				this.config.restartRequired = true;
+				return true;
+			}
+
+			// Second check plugin versions
+			for (const pluginInfo of this.pluginInfos) {
+				if (
+					!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
+					|| !this.config.get(`${pluginInfo.name}.load_plugin`)
+				) {
+					continue;
+				}
+
+				const pluginPackageJson = await fs.readJSON(path.join(pluginInfo.requirePath, "package.json"));
+				if (pluginInfo.version !== pluginPackageJson.version) {
+					this.config.restartRequired = true;
+					return true;
+				}
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
+		}
+
+		return false;
 	}
 
 	async handleHostMetricsRequest() {
