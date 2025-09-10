@@ -1127,7 +1127,7 @@ export default class Controller {
 				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
 			}
 
-			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields)) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin`)) {
 				continue;
 			}
 

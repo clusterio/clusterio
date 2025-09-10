@@ -410,7 +410,7 @@ export default class Host extends lib.Link {
 		for (let pluginInfo of this.pluginInfos) {
 			if (
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
-				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)
+				|| !this.config.get(`${pluginInfo.name}.load_plugin`)
 			) {
 				continue;
 			}
@@ -1087,7 +1087,7 @@ export default class Host extends lib.Link {
 		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
 			pluginInfo,
 			this.plugins.has(pluginInfo.name),
-			this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields) as boolean,
+			this.config.get(`${pluginInfo.name}.load_plugin`),
 		));
 	}
 

@@ -651,7 +651,7 @@ end`.replace(/\r?\n/g, " ");
 			if (
 				!pluginInfo.instanceEntrypoint
 				|| !this._host.serverPlugins.has(pluginInfo.name)
-				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.InstanceConfigFields)
+				|| !this.config.get(`${pluginInfo.name}.load_plugin`)
 			) {
 				continue;
 			}
