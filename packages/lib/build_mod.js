@@ -115,9 +115,21 @@ async function main() {
 			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
 			"build": { describe: "Build mod(s)", type: "boolean", default: true },
 			"pack": { describe: "Pack into zip file", type: "boolean", default: true },
-			"source-dir": { describe: "Path to mod source files", nargs: 1, type: "string", demandOption: true },
-			"output-dir": { describe: "Path to output built mod(s)", nargs: 1, type: "string", default: "dist" },
 			"factorio-version": { describe: "Override factorio_version", type: "string" },
+			"source-dir": {
+				describe: "Path to mod source files",
+				type: "string",
+				nargs: 1,
+				normalize: true,
+				demandOption: true,
+			},
+			"output-dir": {
+				describe: "Path to output built mod(s)",
+				type: "string",
+				nargs: 1,
+				normalize: true,
+				default: "dist/factorio",
+			},
 		})
 		.strict()
 		.argv
