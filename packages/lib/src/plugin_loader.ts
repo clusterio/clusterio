@@ -31,17 +31,13 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		try {
 			require.resolve(pluginPath);
 		} catch {
-			let err = `Plugin path ${pluginPath} does not exist`;
+			let errMsg = `Plugin path ${pluginPath} does not exist`;
 			try {
-				const index = path.join(pluginPath, "index.js");
 				await fs.access(pluginPath, fs.constants.F_OK);
-				err = `Plugin path ${index} does not exist`;
-				await fs.access(index, fs.constants.F_OK);
-				err = `Plugin path ${index} is not readable`;
-				await fs.access(index, fs.constants.R_OK);
-				err = `Plugin path ${index} has an unknown error`;
-			} catch { }
-			logger.error(`${err}, not loading ${pluginName}`);
+				const indexPath = path.join(pluginPath, "index.js");
+				errMsg = `Plugin path ${indexPath} does not exist`;
+			} catch {}
+			logger.error(`${errMsg}, not loading ${pluginName}`);
 			pluginList.delete(pluginName);
 			continue;
 		}

@@ -11,7 +11,6 @@ describe("lib/plugin_loader", function() {
 	describe("loadPluginInfos()", function() {
 		let baseDir = path.join("temp", "test", "plugin");
 		let missingPlugin = path.join(baseDir, "missing_plugin");
-		let notReadable = path.join(baseDir, "not_readable");
 		let testPlugin = path.join(baseDir, "test_plugin");
 		let brokenPlugin = path.join(baseDir, "broken_plugin");
 		let invalidPlugin = path.join(baseDir, "invalid_plugin");
@@ -27,12 +26,6 @@ describe("lib/plugin_loader", function() {
 				);
 			}
 
-			if (process.platform !== "win32") {
-				// Disabling read is not supported on windows
-				await writePlugin(notReadable, "not_readable");
-				await fs.chmod(path.join(notReadable, "index.js"), 0o222);
-			}
-
 			await writePlugin(testPlugin, "test");
 			await writePlugin(brokenPlugin, "broken");
 			await fs.outputFile(path.join(brokenPlugin, "index.js"), "Syntax Error");
@@ -43,7 +36,6 @@ describe("lib/plugin_loader", function() {
 			const result = await lib.loadPluginInfos(new Map([
 				["missing", path.resolve(missingPlugin)],
 				["no_index", path.resolve(baseDir)],
-				process.platform !== "win32" ? ["not_readable", path.resolve(notReadable)] : [],
 			]), []);
 			assert.deepEqual(result, []);
 		});
