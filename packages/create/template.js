@@ -94,8 +94,8 @@ async function copyPluginTemplates(pluginName, templates) {
 	const commonPath = path.resolve(__dirname, "./templates/common");
 
 	// Files included in all templates
-	files.set(".gitignore", path.join(commonPath, ".gitignore"));
-	files.set(".npmignore", path.join(commonPath, ".npmignore"));
+	files.set(".gitignore", path.join(commonPath, "template.gitignore"));
+	files.set(".npmignore", path.join(commonPath, "template.npmignore"));
 	files.set("package.json", path.join(commonPath, "package.json"));
 	files.set(`index.${ext}`, path.join(templatePath, `index.${ext}`));
 
