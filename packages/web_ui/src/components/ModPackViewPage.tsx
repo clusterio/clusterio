@@ -303,6 +303,16 @@ function ModsTable(props: ModsTableProps) {
 	for (const mod of mods) {
 		if (mod.enabled && mod.info) {
 			mod.warning = mod.info.checkDependencySatisfaction(mods.filter(m => m.enabled));
+			try {
+				const packFactorioVersion = lib.normaliseApiVersion(props.modPack.factorioVersion);
+				const modFactorioVersion = lib.normaliseApiVersion(mod.info.factorioVersion);
+				if (packFactorioVersion !== modFactorioVersion) {
+					mod.warning = "wrong_factorio_version";
+				}
+			} catch {
+				// Hit if the mod or mod pack version is not a valid api version
+				mod.warning = "wrong_factorio_version";
+			}
 		}
 	}
 
@@ -391,6 +401,9 @@ function ModsTable(props: ModsTableProps) {
 							<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
 						</Tooltip>}
 						{mod.warning === "wrong_version" && <Tooltip title="Mod has wrong dependency version added.">
+							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+						</Tooltip>}
+						{mod.warning === "wrong_factorio_version" && <Tooltip title="Mod has wrong factorio version.">
 							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
 						</Tooltip>}
 						{mod.info?.title || mod.name}

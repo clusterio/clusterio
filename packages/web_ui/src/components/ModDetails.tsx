@@ -69,7 +69,14 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 		{Boolean(mod.homepage) && <Descriptions.Item label="Homepage" span={2}>{mod.homepage}</Descriptions.Item>}
 		<Descriptions.Item label="Internal&nbsp;Name" span={mod.factorioVersion ? 1 : 2}>{mod.name}</Descriptions.Item>
 		{Boolean(mod.factorioVersion)
-			&& <Descriptions.Item label="Factorio&nbsp;Version">{mod.factorioVersion}</Descriptions.Item>
+			&& <Descriptions.Item label="Factorio&nbsp;Version">
+				<Space>
+					{mod.warning === "wrong_factorio_version" && <Tooltip title="Wrong factorio version.">
+						<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+					</Tooltip>}
+					{mod.factorioVersion}
+				</Space>
+			</Descriptions.Item>
 		}
 		{Boolean(mod.filename) && <Descriptions.Item label="Filename">{mod.filename}</Descriptions.Item>}
 		{mod.size !== undefined

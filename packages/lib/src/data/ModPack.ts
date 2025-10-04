@@ -52,7 +52,7 @@ export interface ModRecord {
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
 	error?: "missing" | "bad_checksum",
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an warning type. */
-	warning?: ModDependencyUnsatisfiedReason,
+	warning?: ModDependencyUnsatisfiedReason | "wrong_factorio_version",
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx when there is no error. */
 	info?: ModInfo,
 }
