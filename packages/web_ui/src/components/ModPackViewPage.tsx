@@ -14,6 +14,7 @@ import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
 import FileSyncOutlined from "@ant-design/icons/FileSyncOutlined";
 import CloseOutlined from "@ant-design/icons/CloseOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
+import ToolOutlined from "@ant-design/icons/ToolOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 
 import * as lib from "@clusterio/lib";
@@ -253,6 +254,7 @@ type ModsTableProps = {
 	builtInModNames: string[];
 };
 function ModsTable(props: ModsTableProps) {
+	const control = useContext(ControlContext);
 	const [showAddMods, setShowAddMods] = useState(false);
 	const [modInfos] = useMods();
 
@@ -316,6 +318,60 @@ function ModsTable(props: ModsTableProps) {
 		}
 	}
 
+	async function fixDependencyIssues(mod: lib.ModRecord) {
+		if (!mod.info) {
+			throw new Error("Mod record has no info"); // Should be unreachable
+		}
+		if (mod.info.factorioVersion === "0.12") {
+			throw new Error("Factorio version 0.12 not supported by api");
+		}
+
+		let hasFailure = false;
+		const enabledMods = mods.filter(m => m.enabled);
+		for (const dependency of mod.info.dependencies) {
+			const reason = dependency.checkUnsatisfiedReason(enabledMods);
+			if (reason === undefined) {
+				continue; // No issues for this dependency
+			}
+
+			if (reason === "incompatible") {
+				// Disable the incompatible mod
+				props.onChange({
+					type: "mods.set",
+					name: dependency.name,
+					value: { ...props.modPack.mods.get(dependency.name)!, enabled: false },
+				});
+				continue;
+			}
+
+			// Find a suitable version to add, priorities the latest version due to sorting on server side
+			const results = await control.send(new lib.ModSearchRequest(dependency.name, mod.info.factorioVersion, 1));
+			const candidate = results.results.find(r => r.name === dependency.name);
+			if (candidate) {
+				let candidateVersion: lib.ModInfo | undefined = candidate.versions[0];
+				if (dependency.version) {
+					candidateVersion = candidate.versions.find(c => dependency.version!.testVersion(c.version));
+				}
+				if (candidateVersion) {
+					props.onChange({
+						type: "mods.set",
+						name: candidateVersion.name,
+						value: {
+							name: candidateVersion.name,
+							version: candidateVersion.version,
+							sha1: candidateVersion.sha1,
+							enabled: true,
+						},
+					});
+				} else {
+					hasFailure = true;
+				}
+			}
+		}
+
+		return hasFailure;
+	}
+
 	function actions(mod: lib.ModRecord) {
 		return <Space>
 			{!deletedMods.has(mod.name) && !props.builtInModNames.includes(mod.name) && <Typography.Link
@@ -337,6 +393,13 @@ function ModsTable(props: ModsTableProps) {
 					});
 				}}
 			>revert</Typography.Link>}
+			{(mod.warning && mod.warning !== "wrong_factorio_version") && <Typography.Link
+				onClick={async () => {
+					if (await fixDependencyIssues(mod)) {
+						notify("Failed to automatically fix all issues", "warning");
+					}
+				}}
+			>fix issues</Typography.Link>}
 		</Space>;
 	}
 
@@ -344,6 +407,19 @@ function ModsTable(props: ModsTableProps) {
 		<SectionHeader
 			title="Mods"
 			extra={<Space>
+				<Button
+					icon={<ToolOutlined />}
+					disabled={!mods.some(m => m.enabled && m.warning && m.warning !== "wrong_factorio_version")}
+					onClick={async () => {
+						const hasFailure = await Promise.all(mods
+							.filter(m => m.enabled && m.warning && m.warning !== "wrong_factorio_version")
+							.map(m => fixDependencyIssues(m))
+						);
+						if (hasFailure.some(v => v)) {
+							notify("Failed to automatically fix all issues", "warning");
+						}
+					}}
+				>Fix Issues</Button>
 				<Button icon={<PlusOutlined />} onClick={() => setShowAddMods(true)}>Add</Button>
 			</Space>}
 		/>
