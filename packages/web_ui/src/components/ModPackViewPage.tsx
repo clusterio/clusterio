@@ -34,10 +34,15 @@ const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 
 type ModChange =
 	{
-		type: "name" | "description" | "factorioVersion",
+		type: "name" | "description"
 		name?: never,
 		scope?: never,
 		value: string,
+	} | {
+		type: "factorioVersion",
+		name?: never,
+		scope?: never,
+		value: lib.PartialVersion,
 	} | {
 		type: "settings.set" | "settings.delete",
 		name: string,
@@ -72,7 +77,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 	const [modResultCount, setModResultCount] = useState<number>(2);
 	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string, number>>(new Map());
 
-	const factorioVersion = props.modPack.factorioVersion.split(".").slice(0, 2).join(".");
+	const factorioVersion = lib.normaliseApiVersion(props.modPack.factorioVersion);
 
 	useEffect(() => {
 		let canceled = false;

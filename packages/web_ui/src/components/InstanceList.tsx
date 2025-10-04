@@ -34,10 +34,10 @@ export default function InstanceList(props: InstanceListProps) {
 	}
 
 	function integerFactorioVersionOrDefault(instance: lib.InstanceDetails) {
-		if (instance.factorioVersion === undefined) {
+		if (instance.factorioVersion === undefined || instance.factorioVersion === "latest") {
 			return -1;
 		}
-		return lib.integerFactorioVersion(instance.factorioVersion);
+		return lib.integerPartialVersion(instance.factorioVersion);
 	}
 
 	let columns: ColumnsType<lib.InstanceDetails> = [

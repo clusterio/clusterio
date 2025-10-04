@@ -5,8 +5,12 @@ import * as libSchema from "../schema";
 import * as libLuaTools from "../lua_tools";
 
 import ExportManifest from "./ExportManifest";
-import { integerFactorioVersion } from "./version";
 import type { Logger } from "../logging";
+
+import {
+	PartialVersion, PartialVersionSchema, integerPartialVersion,
+	FullVersion, FullVersionSchema, normaliseFullVersion,
+} from "./version";
 
 
 export const ModSettingColor = Type.Object({
@@ -40,7 +44,7 @@ export interface ModRecord {
 	/** if mod is to be loaded. */
 	enabled: boolean,
 	/** version of the mod. */
-	version: string,
+	version: FullVersion,
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
@@ -50,7 +54,7 @@ export interface ModRecord {
 const ModRecordJsonSchema = Type.Object({
 	"name": Type.String(),
 	"enabled": Type.Boolean(),
-	"version": Type.String(),
+	"version": FullVersionSchema,
 	"sha1": Type.Optional(Type.String()),
 });
 
@@ -82,13 +86,13 @@ export default class ModPack {
 	/**
 	 * Version of Factorio this mod pack is for
 	 */
-	factorioVersion = "1.1.0";
+	factorioVersion = "1.1.0" as PartialVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
 	 */
 	get integerFactorioVersion() {
-		return integerFactorioVersion(this.factorioVersion);
+		return integerPartialVersion(this.factorioVersion);
 	}
 
 	/**
@@ -136,7 +140,7 @@ export default class ModPack {
 		"id": Type.Optional(Type.Integer()),
 		"name": Type.String(),
 		"description": Type.String(),
-		"factorio_version": Type.String(),
+		"factorio_version": PartialVersionSchema,
 		"mods": Type.Array(ModRecordJsonSchema),
 		"settings": Type.Object({
 			"startup": ModSettingsJsonSchema,
@@ -385,21 +389,21 @@ export default class ModPack {
 
 	/** Array of default mod packs which should exist on a newly installed cluster */
 	static defaultModPacks = [
-		...["0.17", "0.18", "1.0", "1.1", "2.0"]
+		...(["0.17", "0.18", "1.0", "1.1", "2.0"] as const)
 			.map(version => this.fromJSON({
 				name: `Base Game ${version}`,
 				description: `Factorio ${version} with no extra mods.`,
 				factorio_version: version,
 			} as any)),
-		...["2.0"]
+		...(["2.0"] as const)
 			.map(version => this.fromJSON({
 				name: `Space Age ${version}`,
 				description: `Factorio ${version} with Space Age expansion.`,
 				factorio_version: version,
 				mods: [
-					{ name: "elevated-rails", enabled: true, version },
-					{ name: "quality", enabled: true, version },
-					{ name: "space-age", enabled: true, version },
+					{ name: "elevated-rails", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "quality", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "space-age", enabled: true, version: normaliseFullVersion(version) },
 				],
 			} as any)),
 	];
@@ -410,14 +414,15 @@ export default class ModPack {
 	 * @param factorioVersion - Factorio version to get the default mods for
 	 * @return Built in mods for the given version
 	 */
-	static getBuiltinMods(factorioVersion: string) {
+	static getBuiltinMods(factorioVersion: PartialVersion) {
+		factorioVersion = normaliseFullVersion(factorioVersion);
 		let defaultMods: ModRecord[] = [
 			// "core" not included because core cannot be disabled
 			{ name: "base", enabled: true, version: factorioVersion },
 		];
 
-		const integerVersion = integerFactorioVersion(factorioVersion);
-		if (integerVersion >= integerFactorioVersion("1.2")) {
+		const integerVersion = integerPartialVersion(factorioVersion);
+		if (integerVersion >= integerPartialVersion("1.2")) {
 			defaultMods = defaultMods.concat([
 				{ name: "elevated-rails", enabled: false, version: factorioVersion },
 				{ name: "quality", enabled: false, version: factorioVersion },
@@ -428,7 +433,7 @@ export default class ModPack {
 		return defaultMods;
 	}
 
-	static getBuiltinModNames(factorioVersion: string) {
+	static getBuiltinModNames(factorioVersion: PartialVersion) {
 		return this.getBuiltinMods(factorioVersion).map(builtinMod => builtinMod.name);
 	}
 }

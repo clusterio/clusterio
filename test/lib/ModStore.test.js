@@ -148,7 +148,7 @@ describe("lib/ModStore", function () {
 			assert.equal(modInfo.name, modName);
 			assert.equal(modInfo.version, modVersion);
 			// Check if the dependency was updated (indicating re-read)
-			assert(modInfo.dependencies.includes("? updated-dep"));
+			assert(modInfo.dependencySpecifications.includes("? updated-dep"));
 		});
 
 		it("should handle corrupted zip files gracefully", async function () {
@@ -394,49 +394,6 @@ describe("lib/ModStore", function () {
 			assert(postCall, "POST call to API should have happened");
 			const requestedMods = (postCall.options.body.get("namelist") || "").split(",");
 			assert.deepEqual(requestedMods, ["another-new-mod"], "Only non-builtin mod should be in the namelist");
-		});
-
-		it("should handle Factorio version formatting (e.g., 1.1.100 -> 1.1)", async function () {
-			const modsToDownload = new Map([["version-test-mod", "1.0.0"]]);
-			let capturedApiUrl = null;
-
-			// Define fetch mock specific to this test
-			const testFetch = async (url, options) => {
-				const urlString = url.toString();
-				if (urlString.startsWith("https://mods.factorio.com/api/mods") && options?.method === "POST") {
-					capturedApiUrl = urlString; // Capture URL
-					const body = options.body;
-					let requestedModNames = [];
-					if (body instanceof URLSearchParams) {
-						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
-					}
-					const results = requestedModNames.map(name => {
-						const requestedVersion = modsToDownload.get(name);
-						if (!requestedVersion) {
-							throw new Error(`[Test Mock ERROR] No version for ${name}`);
-						}
-						return {
-							name: name,
-							latest_release: {
-								download_url: `/download/${name}/${requestedVersion}`,
-								file_name: `${name}_${requestedVersion}.zip`,
-								info_json: { factorio_version: factorioVersion },
-								version: requestedVersion,
-								sha1: `sha1_${name}_${requestedVersion}`,
-							},
-						};
-					});
-					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
-				}
-				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
-			};
-			global.fetch = testFetch;
-
-			await modStore.downloadMods(modsToDownload, username, token, "1.1.100"); // Use full version
-
-			assert(capturedApiUrl, "Fetch to API mods should have been called");
-			const apiUrlParams = new URL(capturedApiUrl).searchParams;
-			assert.equal(apiUrlParams.get("version"), "1.1", "Factorio version should be truncated in API call");
 		});
 
 		it("should handle API error during mod info fetch", async function () {

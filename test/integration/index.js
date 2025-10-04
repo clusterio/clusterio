@@ -196,7 +196,9 @@ async function execCtlProcess(...args) {
 	return await exec(...args);
 }
 
+let inExecCtl = false;
 async function execCtl(command) {
+	inExecCtl = true;
 	process.chdir("temp/test");
 	try {
 		const initArgs = await initializeCtl(command, control.plugins, true);
@@ -209,8 +211,16 @@ async function execCtl(command) {
 		await targetCommand.run(initArgs.args, control);
 	} finally {
 		process.chdir("../..");
+		inExecCtl = false;
 	}
 }
+
+afterEach(function() {
+	if (inExecCtl) {
+		// This is needed in case a test times out and never runs the finally block
+		process.chdir("../..");
+	}
+});
 
 async function sendRcon(instanceId, command) {
 	return await control.sendTo({ instanceId }, new lib.InstanceSendRconRequest(command));

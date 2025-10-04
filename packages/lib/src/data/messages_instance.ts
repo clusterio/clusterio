@@ -5,6 +5,7 @@ import { InstanceConfig } from "../config";
 import type { IControllerUser } from "./User";
 import type { MessageRequest } from "./messages_core";
 import { CollectorResultSerialized } from "../prometheus";
+import { TargetVersion, TargetVersionSchema, PartialVersion, PartialVersionSchema } from "./version";
 
 
 export const InstanceStatus = StringEnum([
@@ -42,7 +43,7 @@ export class InstanceDetails {
 		public assignedHost: number | undefined,
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
-		public factorioVersion: string | undefined,
+		public factorioVersion: TargetVersion | undefined,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs = 0,
 		public excludeFromStartAll = false,
@@ -57,7 +58,7 @@ export class InstanceDetails {
 			"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 			"creating_save", "exporting_data", "deleted",
 		]),
-		"factorioVersion": Type.Optional(Type.String()),
+		"factorioVersion": Type.Optional(TargetVersionSchema),
 		"updatedAtMs": Type.Optional(Type.Number()),
 		"excludeFromStartAll": Type.Optional(Type.Boolean()),
 	});
@@ -744,8 +745,8 @@ export class HostInstanceUpdate {
 	constructor(
 		public config: Static<typeof InstanceConfig.jsonSchema>,
 		public status: InstanceStatus,
-		public gamePort: undefined | number,
-		public factorioVersion: undefined | string,
+		public gamePort: number | undefined,
+		public factorioVersion: PartialVersion | undefined,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -754,7 +755,7 @@ export class HostInstanceUpdate {
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
 		"gamePort": Type.Optional(Type.Number()),
-		"factorioVersion": Type.Optional(Type.String()),
+		"factorioVersion": Type.Optional(PartialVersionSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -852,7 +853,7 @@ export class InstanceStatusChangedEvent {
 		public instanceId: number,
 		public status: InstanceStatus,
 		public gamePort?: number,
-		public factorioVersion?: string,
+		public factorioVersion?: TargetVersion,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -861,7 +862,7 @@ export class InstanceStatusChangedEvent {
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
 		"gamePort": Type.Optional(Type.Integer()),
-		"factorioVersion": Type.Optional(Type.String()),
+		"factorioVersion": Type.Optional(TargetVersionSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {

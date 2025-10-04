@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import ModInfo from "./ModInfo";
 import ModPack from "./ModPack";
 import { JsonString, jsonArray } from "./composites";
+import { FullVersion, FullVersionSchema, ApiVersion, ApiVersionSchema } from "./version";
 
 
 export class ModPackGetRequest {
@@ -113,13 +114,13 @@ export class ModGetRequest {
 
 	constructor(
 		public name: string,
-		public version: string,
+		public version: FullVersion,
 		public sha1?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": Type.String(),
+		"version": FullVersionSchema,
 		"sha1": Type.Optional(Type.String()),
 	});
 
@@ -148,7 +149,7 @@ export class ModSearchRequest {
 
 	constructor(
 		public query: string,
-		public factorioVersion: string,
+		public factorioVersion: ApiVersion,
 		public page: number,
 		public pageSize?: number,
 		public sort?: string,
@@ -157,7 +158,7 @@ export class ModSearchRequest {
 
 	static jsonSchema = Type.Object({
 		"query": Type.String(),
-		"factorioVersion": Type.String(),
+		"factorioVersion": ApiVersionSchema,
 		"page": Type.Integer(),
 		"pageSize": Type.Optional(Type.Integer()),
 		"sort": Type.Optional(Type.String()),
@@ -199,9 +200,9 @@ export class ModSearchRequest {
 
 // Define the structure for the latest release info from the portal
 export const ModPortalReleaseSchema = Type.Object({
-	version: Type.String(),
+	version: FullVersionSchema,
 	// Match the structure from ModStore's ModRelease/ModDetails
-	info_json: Type.Object({ factorio_version: Type.String() }),
+	info_json: Type.Object({ factorio_version: ApiVersionSchema }),
 	released_at: Type.String(), // ISO 8601 date string
 	download_url: Type.String(),
 	file_name: Type.String(),
@@ -229,20 +230,13 @@ export class ModPortalGetAllRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.search_portal" as const;
 
-	// Define allowed Factorio versions
-	static allowedVersions = [
-		Type.Literal("0.13"), Type.Literal("0.14"), Type.Literal("0.15"),
-		Type.Literal("0.16"), Type.Literal("0.17"), Type.Literal("0.18"),
-		Type.Literal("1.0"), Type.Literal("1.1"), Type.Literal("2.0"),
-	] as const;
-
 	constructor(
-		public factorioVersion: Static<typeof ModPortalGetAllRequest.allowedVersions[number]>,
+		public factorioVersion: ApiVersion,
 		public hide_deprecated?: boolean,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"factorioVersion": Type.Union([...this.allowedVersions]), // Use Union for validation
+		"factorioVersion": ApiVersionSchema,
 		"hide_deprecated": Type.Optional(Type.Boolean()),
 	});
 
@@ -277,13 +271,13 @@ export class ModDownloadRequest {
 
 	constructor(
 		public name: string,
-		public version: string,
+		public version: FullVersion,
 		public sha1?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": Type.String(),
+		"version": FullVersionSchema,
 		"sha1": Type.Optional(Type.String()),
 	});
 
@@ -303,12 +297,12 @@ export class ModDeleteRequest {
 
 	constructor(
 		public name: string,
-		public version: string,
+		public version: FullVersion,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": Type.String(),
+		"version": FullVersionSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -377,14 +371,14 @@ export class ModPortalDownloadRequest {
 
 	constructor(
 		public name: string,
-		public version: string,
-		public factorioVersion: string,
+		public version: FullVersion,
+		public factorioVersion: ApiVersion,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": Type.String(),
-		"factorioVersion": Type.String(),
+		"version": FullVersionSchema,
+		"factorioVersion": ApiVersionSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {

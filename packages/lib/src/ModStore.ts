@@ -3,7 +3,7 @@ import path from "path";
 import events from "events";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
-import { ModInfo, ModPack } from "./data";
+import { ModInfo, ModPack, FullVersion, ApiVersion } from "./data";
 import { safeOutputFile } from "./file_ops";
 import { Writable } from "stream";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema } from "./data/messages_mod";
@@ -45,7 +45,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		super();
 	}
 
-	getMod(name: string, version: string, sha1?: string) {
+	getMod(name: string, version: FullVersion, sha1?: string) {
 		const mod = this.files.get(ModInfo.filename(name, version));
 		if (!mod || sha1 && sha1 !== mod.sha1) {
 			return undefined;
@@ -87,11 +87,11 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		this.emit("change", modInfo);
 	}
 
-	async loadMod(name: string, version: string) {
+	async loadMod(name: string, version: FullVersion) {
 		return await this.loadFile(ModInfo.filename(name, version));
 	}
 
-	async deleteMod(name: string, version: string) {
+	async deleteMod(name: string, version: FullVersion) {
 		return await this.deleteFile(ModInfo.filename(name, version));
 	}
 
@@ -155,7 +155,8 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		return new this(modsDirectory, files);
 	}
 
-	private async downloadModFromReleases(releases: Array<Static<typeof ModPortalReleaseSchema>>, version: string,
+	private async downloadModFromReleases(
+		releases: Array<Static<typeof ModPortalReleaseSchema>>, version: FullVersion,
 		username: string, token: string
 	) {
 		const selectedRelease = releases.find(release => release.version === version);
@@ -191,7 +192,9 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	}
 
 	private async downloadModsChunk(
-		modNames: string[], modVersions: string[], username: string, token: string, factorioVersion: string
+		modNames: string[], modVersions: FullVersion[],
+		username: string, token: string,
+		factorioVersion: ApiVersion,
 	) {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
@@ -228,16 +231,12 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	 * @param factorioVersion factorio version to filter for (mods are not guaranteed to work between Middle versions)
 	 *
 	 */
-	async downloadMods(modMap: Map<string, string>, username: string, token: string, factorioVersion: string = "1.1") {
+	async downloadMods(
+		modMap: Map<string, FullVersion>, username: string, token: string, factorioVersion: ApiVersion = "1.1"
+	) {
 		const chunkSize = 500;
 		let futures: Promise<void>[] = [];
 		modMap = new Map(modMap);
-
-		// Truncate factorioVersion to major.minor (e.g., "1.1.100" -> "1.1") for API/builtin checks
-		const versionParts = factorioVersion.split(".");
-		if (versionParts.length > 2) {
-			factorioVersion = versionParts.slice(0, 2).join(".");
-		}
 
 		const builtInMods = new Set(ModPack.getBuiltinModNames(factorioVersion));
 

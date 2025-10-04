@@ -951,7 +951,7 @@ describe("Integration of Clusterio", function() {
 
 				await execCtl("instance start 44");
 				const instance = (await getInstances()).get(44);
-				const isV2 = lib.integerFactorioVersion(instance.factorioVersion) > lib.integerFactorioVersion("2.0.0");
+				const isV2 = lib.integerPartialVersion(instance.factorioVersion) > lib.integerPartialVersion("2.0");
 				const exchangeString = (isV2 ? testStrings.modified_v2 : testStrings.modified).replace(/[\n\r]+/g, "");
 				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
 				await execCtl("instance stop 44");

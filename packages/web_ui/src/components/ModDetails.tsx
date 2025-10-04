@@ -62,8 +62,8 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 		{mod.dependencies && mod.dependencies.length
 			&& <Descriptions.Item label="Dependencies" span={2}>
 				{mod.dependencies
-					.filter(e => !e.startsWith("(?)"))
-					.map((e, i) => <Fragment key={i}>{e}<br/></Fragment>)
+					.filter(e => e.type !== "hidden")
+					.map((e, i) => <Fragment key={i}>{e.specification}<br/></Fragment>)
 				}
 			</Descriptions.Item>
 		}

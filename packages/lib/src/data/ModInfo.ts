@@ -6,8 +6,74 @@ import * as libHash from "../hash";
 import * as libSchema from "../schema";
 import { findRoot } from "../zip_ops";
 
-import { integerModVersion, integerFactorioVersion, modVersionRegExp } from "./version";
+import {
+	ApiVersion,
+	ApiVersionSchema,
+	FullVersion, FullVersionSchema, integerFullVersion,
+	integerPartialVersion,
+	ModVersionEquality,
+} from "./version";
 
+type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required";
+
+export class ModDependency {
+	public type: ModDependencyType;
+	public name: string;
+	public version: ModVersionEquality | undefined;
+
+	static getTypeFromPrefix(prefix: string): ModDependencyType {
+		switch (prefix) {
+			case "!":
+				return "incompatible";
+			case "?":
+				return "optional";
+			case "(?)":
+				return "hidden";
+			case "~":
+				return "unordered";
+			case "":
+				return "required";
+			default:
+				throw new Error(`Invalid dependency prefix: ${prefix}`);
+		}
+	}
+
+	constructor (
+		public specification: string,
+	) {
+		const parts = specification.split(" ");
+		switch (parts.length) {
+			case 1:
+				this.type = "required";
+				this.name = parts[0];
+				break;
+			case 2:
+				this.type = ModDependency.getTypeFromPrefix(parts[0]);
+				this.name = parts[1];
+				break;
+			case 3:
+				this.type = "required";
+				this.name = parts[0];
+				this.version = ModVersionEquality.fromParts(parts[1], parts[2]);
+				break;
+			case 4:
+				this.type = ModDependency.getTypeFromPrefix(parts[0]);
+				this.name = parts[1];
+				this.version = ModVersionEquality.fromParts(parts[2], parts[3]);
+				break;
+			default:
+				throw new Error(`Invalid dependency specification: ${specification}`);
+		}
+	}
+
+	isSatisfied(mods: ModInfo[]) {
+		const mod = mods.find(m => m.name === this.name);
+		if (mod === undefined) {
+			return ["incompatible", "optional", "hidden"].includes(this.type);
+		}
+		return this.type !== "incompatible" && (!this.version || this.version.testVersion(mod.version));
+	}
+}
 
 /**
  * Info about a mod available on the controller.
@@ -35,13 +101,13 @@ export default class ModInfo {
 	 * Version of the mod.
 	 * Sourced from info.json.
 	 */
-	version = "";
+	version = "0.0.0" as FullVersion;
 
 	/**
 	 * Integer representation of the version
 	 */
 	get integerVersion() {
-		return integerModVersion(this.version);
+		return integerFullVersion(this.version);
 	}
 
 	/**
@@ -78,21 +144,29 @@ export default class ModInfo {
 	 * Major version of Factorio this mod supports.
 	 * Sourced from info.json.
 	 */
-	factorioVersion = "0.12";
+	factorioVersion = "0.12" as "0.12" | ApiVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		return integerFactorioVersion(this.factorioVersion);
+		return integerPartialVersion(this.factorioVersion);
 	}
 
 	/**
-	 * Dependiences for this mod.
+	 * Dependencies for this mod.
 	 * Sourced from info.json.
 	 */
-	dependencies = ["base"];
+	dependencies = [new ModDependency("base")];
+
+	/**
+	 * Dependencies for this mod.
+	 * As they would be represented in info.json.
+	 */
+	get dependencySpecifications() {
+		return this.dependencies.map(d => d.specification);
+	}
 
 	/**
 	 * Expected name of zip file containing this mod.
@@ -107,7 +181,7 @@ export default class ModInfo {
 	 * @param version - Mod's version
 	 * @returns string containing {name}_{version}.zip
 	 */
-	static filename(name: string, version: string) {
+	static filename(name: string, version: FullVersion) {
 		return `${name}_${version}.zip`;
 	}
 
@@ -137,13 +211,13 @@ export default class ModInfo {
 	// Content of info.json found in mod files
 	static infoJsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": Type.String(),
+		"version": FullVersionSchema,
 		"title": Type.String(),
 		"author": Type.String(),
 		"contact": Type.Optional(Type.String()),
 		"homepage": Type.Optional(Type.String()),
 		"description": Type.Optional(Type.String()),
-		"factorio_version": Type.Optional(Type.String()),
+		"factorio_version": Type.Optional(ApiVersionSchema),
 		"dependencies": Type.Optional(Type.Array(Type.String())),
 	});
 
@@ -172,7 +246,7 @@ export default class ModInfo {
 		if (json.homepage) { modInfo.homepage = json.homepage; }
 		if (json.description) { modInfo.description = json.description; }
 		if (json.factorio_version) { modInfo.factorioVersion = json.factorio_version; }
-		if (json.dependencies) { modInfo.dependencies = json.dependencies; }
+		if (json.dependencies) { modInfo.dependencies = json.dependencies.map(d => new ModDependency(d)); }
 
 		// Additional data
 		if (json.size) { modInfo.size = json.size; }
@@ -195,8 +269,8 @@ export default class ModInfo {
 		if (this.homepage) { json.homepage = this.homepage; }
 		if (this.description) { json.description = this.description; }
 		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion; }
-		if (this.dependencies.length !== 1 || this.dependencies[0] !== "base") {
-			json.dependencies = this.dependencies;
+		if (this.dependencies.length !== 1 || this.dependencies[0].name !== "base") {
+			json.dependencies = this.dependencySpecifications;
 		}
 		if (this.size) { json.size = this.size; }
 		if (this.mtimeMs) { json.mtime_ms = this.mtimeMs; }
@@ -225,10 +299,6 @@ export default class ModInfo {
 		let valid = this.validateInfo(modInfo);
 		if (!valid) {
 			throw new Error("Mod's info.json is not valid");
-		}
-
-		if (!modVersionRegExp.test(modInfo.version)) {
-			throw new Error(`Mod's version (${modInfo.version}) is invalid`);
 		}
 
 		const stat = await fs.stat(modPath);
