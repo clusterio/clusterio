@@ -11,6 +11,7 @@ import type { SorterResult, FilterValue, TableCurrentDataSource } from "antd/es/
 import ExportOutlined from "@ant-design/icons/ExportOutlined";
 import FileUnknownOutlined from "@ant-design/icons/FileUnknownOutlined";
 import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
+import FileSyncOutlined from "@ant-design/icons/FileSyncOutlined";
 import CloseOutlined from "@ant-design/icons/CloseOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
@@ -52,7 +53,7 @@ type ModChange =
 		type: "mods.set" | "mods.delete",
 		name: string,
 		scope?: never,
-		value: lib.ModRecord | lib.ModInfo,
+		value: lib.ModRecord,
 	}
 ;
 
@@ -249,14 +250,14 @@ type ModsTableProps = {
 	changes: ModChange[];
 	onChange: (change: ModChange) => void;
 	onRevert: (change: ModChange) => void;
-	builtInMods: string[];
+	builtInModNames: string[];
 };
 function ModsTable(props: ModsTableProps) {
 	const [showAddMods, setShowAddMods] = useState(false);
-	const [modsMap] = useMods();
+	const [modInfos] = useMods();
 
-	const deletedMods: Map<string, lib.ModRecord|lib.ModInfo> = new Map();
-	const changedMods: Map<string, lib.ModRecord|lib.ModInfo> = new Map();
+	const deletedMods: Map<string, lib.ModRecord> = new Map();
+	const changedMods: Map<string, lib.ModRecord> = new Map();
 	for (let change of props.changes) {
 		if (change.name) {
 			if (props.modPack.mods.has(change.name)) {
@@ -270,34 +271,44 @@ function ModsTable(props: ModsTableProps) {
 	}
 
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
-		(mod: lib.ModRecord|lib.ModInfo): lib.ModInfo|lib.ModRecord => {
-			if (props.builtInMods.includes(mod.name)) {
+		(mod: lib.ModRecord): lib.ModRecord => {
+			if (props.builtInModNames.includes(mod.name)) {
 				return {
 					...mod,
-					enabled: (mod as any).enabled ?? false,
+					enabled: mod.enabled ?? false,
 				};
 			}
-			const candidate = modsMap.get(`${mod.name}_${mod.version}`);
-			if (!candidate) {
+			const modInfo = modInfos.get(`${mod.name}_${mod.version}`);
+			if (!modInfo) {
 				return {
 					...mod,
-					enabled: (mod as any).enabled ?? false,
+					enabled: mod.enabled ?? false,
 					error: "missing",
 				};
-			} else if (mod.sha1 && candidate.sha1 !== mod.sha1) {
+			} else if (mod.sha1 && modInfo.sha1 !== mod.sha1) {
 				return {
 					...mod,
-					enabled: (mod as any).enabled ?? false,
+					enabled: mod.enabled ?? false,
 					error: "bad_checksum",
 				};
 			}
-			return candidate;
+			return {
+				...mod,
+				enabled: mod.enabled ?? false,
+				info: modInfo,
+			};
 		}
 	);
 
-	function actions(mod: lib.ModRecord|lib.ModInfo) {
+	for (const mod of mods) {
+		if (mod.enabled && mod.info) {
+			mod.warning = mod.info.checkDependencySatisfaction(mods.filter(m => m.enabled));
+		}
+	}
+
+	function actions(mod: lib.ModRecord) {
 		return <Space>
-			{!deletedMods.has(mod.name) && !props.builtInMods.includes(mod.name) && <Typography.Link
+			{!deletedMods.has(mod.name) && !props.builtInModNames.includes(mod.name) && <Typography.Link
 				type="danger"
 				onClick={() => {
 					props.onChange({
@@ -366,14 +377,23 @@ function ModsTable(props: ModsTableProps) {
 				{
 					title: "Name",
 					key: "name",
-					render: (_, mod: any) => <>
+					render: (_, mod: lib.ModRecord) => <>
 						{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
 							<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
 						</Tooltip>}
-						{mod.error === "bad_checksum" && <Tooltip title="Mod checksum missmatch.">
+						{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
 							<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
 						</Tooltip>}
-						{mod.title || mod.name}
+						{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
+							<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
+						</Tooltip>}
+						{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
+							<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
+						</Tooltip>}
+						{mod.warning === "wrong_version" && <Tooltip title="Mod has wrong dependency version added.">
+							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+						</Tooltip>}
+						{mod.info?.title || mod.name}
 					</>,
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
@@ -391,7 +411,7 @@ function ModsTable(props: ModsTableProps) {
 				},
 			]}
 			expandable={{
-				expandedRowRender: mod => <ModDetails mod={mod} actions={actions} />,
+				expandedRowRender: mod => <ModDetails mod={mod} mods={mods.filter(m => m.enabled)} actions={actions} />,
 				expandedRowClassName: () => "no-expanded-padding",
 			}}
 			dataSource={mods}
@@ -913,9 +933,7 @@ export default function ModPackViewPage() {
 				changes={changes}
 				onChange={pushChange}
 				onRevert={revertChange}
-				builtInMods={
-					lib.ModPack.getBuiltinMods(modifiedModPack.factorioVersion).map(builtinMod => builtinMod.name)
-				}
+				builtInModNames={lib.ModPack.getBuiltinModNames(modifiedModPack.factorioVersion)}
 			/>
 			<SettingsTable
 				modPack={modifiedModPack}

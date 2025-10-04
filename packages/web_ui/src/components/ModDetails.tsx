@@ -1,6 +1,9 @@
 import React, { Fragment } from "react";
-import { Descriptions, Grid, Typography } from "antd";
+import { Descriptions, Grid, Tooltip, Typography, Space } from "antd";
 import ExclamationCircleOutlined from "@ant-design/icons/ExclamationCircleOutlined";
+import FileUnknownOutlined from "@ant-design/icons/FileUnknownOutlined";
+import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
+import FileSyncOutlined from "@ant-design/icons/FileSyncOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -8,11 +11,25 @@ const { useBreakpoint } = Grid;
 
 type ModDetailsProps<T> = {
 	mod: T;
+	mods?: lib.ModRecord[];
 	actions?: (mod: T) => React.JSX.Element;
 };
+
 export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props: ModDetailsProps<T>) {
 	let screens = useBreakpoint();
-	const mod: Partial<lib.ModInfo> & Partial<lib.ModRecord> = props.mod;
+	let mod: Partial<lib.ModInfo> & Partial<lib.ModRecord> = props.mod;
+
+	if ("info" in mod) {
+		// Add the mod info if present in a mod record
+		mod = { ...mod, ...mod.info };
+	}
+
+	const depWarnings = new Map<string, lib.ModRecord["warning"]>();
+	if (mod.dependencies && props.mods) {
+		for (const dependency of mod.dependencies) {
+			depWarnings.set(dependency.name, dependency.checkUnsatisfiedReason(props.mods));
+		}
+	}
 
 	return <Descriptions
 		className="borderless"
@@ -63,7 +80,21 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 			&& <Descriptions.Item label="Dependencies" span={2}>
 				{mod.dependencies
 					.filter(e => e.type !== "hidden")
-					.map((e, i) => <Fragment key={i}>{e.specification}<br/></Fragment>)
+					.map((e, i) => <Fragment key={i}>
+						<Space>
+							{depWarnings.get(e.name) === "incompatible" && <Tooltip title="Incompatible mod added.">
+								<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{depWarnings.get(e.name) === "missing_dependency" && <Tooltip title="Dependency missing.">
+								<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{depWarnings.get(e.name) === "wrong_version" && <Tooltip title="Wrong version added.">
+								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{e.specification}
+						</Space>
+						<br/>
+					</Fragment>)
 				}
 			</Descriptions.Item>
 		}

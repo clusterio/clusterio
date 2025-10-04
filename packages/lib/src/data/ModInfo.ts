@@ -5,6 +5,7 @@ import { Type, Static } from "@sinclair/typebox";
 import * as libHash from "../hash";
 import * as libSchema from "../schema";
 import { findRoot } from "../zip_ops";
+import { ModRecord } from "./ModPack";
 
 import {
 	ApiVersion,
@@ -15,6 +16,11 @@ import {
 } from "./version";
 
 type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required";
+
+export type ModDependencyUnsatisfiedReason = "incompatible" | "missing_dependency" | "wrong_version";
+const UnsatisfiedSeverity: Record<ModDependencyUnsatisfiedReason, number> = {
+	"incompatible": 1, "missing_dependency": 2, "wrong_version": 3,
+};
 
 export class ModDependency {
 	public type: ModDependencyType;
@@ -66,12 +72,20 @@ export class ModDependency {
 		}
 	}
 
-	isSatisfied(mods: ModInfo[]) {
+	checkUnsatisfiedReason(mods: (ModInfo | ModRecord)[]): ModDependencyUnsatisfiedReason | undefined {
 		const mod = mods.find(m => m.name === this.name);
 		if (mod === undefined) {
-			return ["incompatible", "optional", "hidden"].includes(this.type);
+			return ["unordered", "required"].includes(this.type) ? "missing_dependency" : undefined;
+		} else if (this.type === "incompatible") {
+			return "incompatible";
+		} else if (this.version && !this.version.testVersion(mod.version)) {
+			return "wrong_version";
 		}
-		return this.type !== "incompatible" && (!this.version || this.version.testVersion(mod.version));
+		return undefined;
+	}
+
+	isSatisfied(mods: (ModInfo | ModRecord)[]) {
+		return this.checkUnsatisfiedReason(mods) === undefined;
 	}
 }
 
@@ -166,6 +180,15 @@ export default class ModInfo {
 	 */
 	get dependencySpecifications() {
 		return this.dependencies.map(d => d.specification);
+	}
+
+	checkDependencySatisfaction(mods: (ModInfo | ModRecord)[]) {
+		return this.dependencies
+			.map(d => d.checkUnsatisfiedReason(mods))
+			.filter((v): v is ModDependencyUnsatisfiedReason => Boolean(v))
+			.reduce<ModDependencyUnsatisfiedReason | undefined>((max, current) => (
+				!max || UnsatisfiedSeverity[max] > UnsatisfiedSeverity[current] ? current : max
+			), undefined);
 	}
 
 	/**

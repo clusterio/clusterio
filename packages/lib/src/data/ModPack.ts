@@ -7,6 +7,8 @@ import * as libLuaTools from "../lua_tools";
 import ExportManifest from "./ExportManifest";
 import type { Logger } from "../logging";
 
+import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
+
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
 	FullVersion, FullVersionSchema, normaliseFullVersion,
@@ -48,7 +50,11 @@ export interface ModRecord {
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
-	error?: "missing"|"bad_checksum",
+	error?: "missing" | "bad_checksum",
+	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an warning type. */
+	warning?: ModDependencyUnsatisfiedReason,
+	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx when there is no error. */
+	info?: ModInfo,
 }
 
 const ModRecordJsonSchema = Type.Object({
@@ -409,7 +415,7 @@ export default class ModPack {
 	];
 
 	/**
-	 * Returns an array of ModInfo containing all mods included in factorio
+	 * Returns an array of ModRecord containing all mods included in factorio
 	 *
 	 * @param factorioVersion - Factorio version to get the default mods for
 	 * @return Built in mods for the given version

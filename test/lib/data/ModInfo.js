@@ -61,6 +61,55 @@ describe("lib/data/ModInfo", function() {
 				assert.throws(() => new ModDependency("? my mod >= 1.2.3"));
 			});
 		});
+		describe("checkUnsatisfiedReason()", function() {
+			const mods = [
+				ModInfo.fromJSON({ name: "my-mod", version: "1.0.0" }),
+			];
+			it("should be undefined for incompatible being missing", function() {
+				const dependency = new ModDependency("! not-present");
+				assert.equal(dependency.checkUnsatisfiedReason(mods), undefined);
+			});
+			it("should give reason for incompatible being present", function() {
+				const dependency = new ModDependency("! my-mod");
+				assert.equal(dependency.checkUnsatisfiedReason(mods), "incompatible");
+			});
+			it("should undefined for optional / hidden being missing", function() {
+				const dependencyOptional = new ModDependency("? not-present");
+				assert.equal(dependencyOptional.checkUnsatisfiedReason(mods), undefined);
+				const dependencyHidden = new ModDependency("(?) not-present");
+				assert.equal(dependencyHidden.checkUnsatisfiedReason(mods), undefined);
+			});
+			it("should undefined for optional / hidden being present", function() {
+				const dependencyOptional = new ModDependency("? my-mod");
+				assert.equal(dependencyOptional.checkUnsatisfiedReason(mods), undefined);
+				const dependencyHidden = new ModDependency("(?) my-mod");
+				assert.equal(dependencyHidden.checkUnsatisfiedReason(mods), undefined);
+			});
+			it("should give reason for optional / hidden being present but wrong version", function() {
+				const dependencyOptional = new ModDependency("? my-mod > 2.0.0");
+				assert.equal(dependencyOptional.checkUnsatisfiedReason(mods), "wrong_version");
+				const dependencyHidden = new ModDependency("(?) my-mod > 2.0.0");
+				assert.equal(dependencyHidden.checkUnsatisfiedReason(mods), "wrong_version");
+			});
+			it("should undefined for unordered / required being present", function() {
+				const dependencyOptional = new ModDependency("~ my-mod");
+				assert.equal(dependencyOptional.checkUnsatisfiedReason(mods), undefined);
+				const dependencyHidden = new ModDependency("my-mod");
+				assert.equal(dependencyHidden.checkUnsatisfiedReason(mods), undefined);
+			});
+			it("should give reason for unordered / required being present but wrong version", function() {
+				const dependencyOptional = new ModDependency("~ my-mod > 2.0.0");
+				assert.equal(dependencyOptional.checkUnsatisfiedReason(mods), "wrong_version");
+				const dependencyHidden = new ModDependency("my-mod > 2.0.0");
+				assert.equal(dependencyHidden.checkUnsatisfiedReason(mods), "wrong_version");
+			});
+			it("should give reason for unordered / required being missing", function() {
+				const dependencyOptional = new ModDependency("~ not-present");
+				assert.equal(dependencyOptional.checkUnsatisfiedReason(mods), "missing_dependency");
+				const dependencyHidden = new ModDependency("not-present");
+				assert.equal(dependencyHidden.checkUnsatisfiedReason(mods), "missing_dependency");
+			});
+		});
 		describe("isSatisfied()", function() {
 			const mods = [
 				ModInfo.fromJSON({ name: "my-mod", version: "1.0.0" }),
@@ -182,7 +231,6 @@ describe("lib/data/ModInfo", function() {
 				["UltraMod", "SuperLib >= 1.00", "! bad-mod"].map(dep => new ModDependency(dep))
 			);
 		});
-
 		it("should load from a mod zip file", async function() {
 			await libBuildMod.build({
 				build: true,
@@ -211,6 +259,24 @@ describe("lib/data/ModInfo", function() {
 					sha1: hash,
 				})
 			);
+		});
+		describe("checkDependencySatisfaction()", function() {
+			it("should return undefined when satisfied", function() {
+				const mod = ModInfo.fromJSON({ dependencies: ["! a", "b = 1.0.0", "? c = 2.0.0"] });
+				assert.equal(mod.checkDependencySatisfaction([{ name: "b", version: "1.0.0" }]), undefined);
+			});
+			it("should return incompatible when there is an incompatibility", function() {
+				const mod = ModInfo.fromJSON({ dependencies: ["! a", "b = 1.0.0", "? c = 2.0.0"] });
+				assert.equal(mod.checkDependencySatisfaction([{ name: "a", version: "1.0.0" }]), "incompatible");
+			});
+			it("should return missing dependency when missing but no incompatibly", function() {
+				const mod = ModInfo.fromJSON({ dependencies: ["! a", "b = 1.0.0", "? c = 2.0.0"] });
+				assert.equal(mod.checkDependencySatisfaction([{ name: "c", version: "1.0.0" }]), "missing_dependency");
+			});
+			it("should return wrong version when wrong but not missing or incompatible", function() {
+				const mod = ModInfo.fromJSON({ dependencies: ["! a", "b = 1.0.0", "? c = 2.0.0"] });
+				assert.equal(mod.checkDependencySatisfaction([{ name: "b", version: "2.0.0" }]), "wrong_version");
+			});
 		});
 	});
 });
