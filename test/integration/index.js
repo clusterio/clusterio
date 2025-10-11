@@ -117,15 +117,14 @@ class TestHostConnector extends lib.WebSocketClientConnector {
 	}
 }
 
-// Mark that this test takes a lot of time, or depeneds on a test
-// that takes a lot of time.
+// Mark that this test takes a lot of time, or depends on a test that takes a lot of time.
 function slowTest(test) {
 
 	if (process.env.FAST_TEST) {
 		test.skip();
 	}
 
-	test.timeout(20000);
+	test.timeout(30000);
 }
 
 async function get(urlPath) {

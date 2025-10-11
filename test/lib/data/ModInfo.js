@@ -7,6 +7,7 @@ const lib = require("@clusterio/lib");
 const libBuildMod = require("@clusterio/lib/build_mod");
 const { ModInfo, ModDependency } = lib;
 
+const { testMatrix, testRoundTripJsonSerialisable } = require("../../common");
 
 describe("lib/data/ModInfo", function() {
 	describe("class ModDependency", function() {
@@ -56,9 +57,36 @@ describe("lib/data/ModInfo", function() {
 				assert.throws(() => new ModDependency("? my-mod 1.2.3"));
 			});
 			it("should throw if name contains spaces", function() {
+				// Apparently there are some legacy mods which include spaces
+				// Such as https://mods.factorio.com/mod/Explosive%20Excavation
+				this.skip();
 				assert.throws(() => new ModDependency("my mod"));
 				assert.throws(() => new ModDependency("? my mod"));
 				assert.throws(() => new ModDependency("? my mod >= 1.2.3"));
+			});
+			it("should not error when the name contains spaces", function() {
+				const dependencyReq = new ModDependency("my mod");
+				assert.equal(dependencyReq.name, "my mod");
+				assert.equal(dependencyReq.type, "required");
+
+				const dependencyOpt = new ModDependency("? my mod");
+				assert.equal(dependencyOpt.name, "my mod");
+				assert.equal(dependencyOpt.type, "optional");
+
+				const dependencyVer = new ModDependency("my mod >= 1.2.3");
+				assert.equal(dependencyVer.name, "my mod");
+				assert.equal(dependencyVer.type, "required");
+				assert.equal(dependencyVer.version.version, "1.2.3");
+
+				const dependencyOptVer = new ModDependency("? my mod >= 1.2.3");
+				assert.equal(dependencyOptVer.name, "my mod");
+				assert.equal(dependencyOptVer.type, "optional");
+				assert.equal(dependencyOptVer.version.version, "1.2.3");
+			});
+			it("should be round trip json serialisable", function() {
+				testRoundTripJsonSerialisable(ModDependency, testMatrix(
+					["my-mod", "? my-mod", "! my-mod", "my-mod > 1.0.0", "~ my-mod <= 2.0.0"], // Specification
+				));
 			});
 		});
 		describe("checkUnsatisfiedReason()", function() {
@@ -157,6 +185,40 @@ describe("lib/data/ModInfo", function() {
 				assert.equal(dependencyOptional.isSatisfied(mods), false);
 				const dependencyHidden = new ModDependency("not-present");
 				assert.equal(dependencyHidden.isSatisfied(mods), false);
+			});
+		});
+		describe("incompatible", function() {
+			it("should return true iff the type is incompatible", function() {
+				const dependencyIncompatible = new ModDependency("! my-mod");
+				assert.equal(dependencyIncompatible.incompatible, true);
+				for (const test of ["my-mod", "? my-mod", "(?) my-mod", "~ my-mod"]) {
+					const dependency = new ModDependency(test);
+					assert.equal(dependency.incompatible, false, test);
+				}
+			});
+		});
+		describe("required", function() {
+			it("should return true iff the dependency is required", function() {
+				for (const test of ["my-mod", "~ my-mod"]) {
+					const dependency = new ModDependency(test);
+					assert.equal(dependency.required, true, test);
+				}
+				for (const test of ["! my-mod", "? my-mod", "(?) my-mod"]) {
+					const dependency = new ModDependency(test);
+					assert.equal(dependency.required, false, test);
+				}
+			});
+		});
+		describe("optional", function() {
+			it("should return true iff the dependency is optional", function() {
+				for (const test of ["? my-mod", "(?) my-mod"]) {
+					const dependency = new ModDependency(test);
+					assert.equal(dependency.optional, true, test);
+				}
+				for (const test of ["! my-mod", "my-mod", "~ my-mod"]) {
+					const dependency = new ModDependency(test);
+					assert.equal(dependency.optional, false, test);
+				}
 			});
 		});
 	});

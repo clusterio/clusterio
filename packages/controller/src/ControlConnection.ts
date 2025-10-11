@@ -100,6 +100,8 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ModListRequest, this.handleModListRequest.bind(this));
 		this.handle(lib.ModSearchRequest, this.handleModSearchRequest.bind(this));
 		this.handle(lib.ModPortalGetAllRequest, this.handleModPortalGetAllRequest.bind(this));
+		this.handle(lib.ModPortalDownloadRequest, this.handleModPortalDownloadRequest.bind(this));
+		this.handle(lib.ModDependencyResolveRequest, this.handleModDependencyResolveRequest.bind(this));
 		this.handle(lib.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
 		this.handle(lib.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
 		this.handle(lib.LogQueryRequest, this.handleLogQueryRequest.bind(this));
@@ -124,7 +126,6 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
-		this.handle(lib.ModPortalDownloadRequest, this.handleModPortalDownloadRequest.bind(this));
 	}
 
 	validateIngress(message: lib.MessageRequest | lib.MessageEvent) {
@@ -564,52 +565,169 @@ export default class ControlConnection extends BaseConnection {
 	 * Handle request to download a mod from the Factorio Mod Portal to the controller.
 	 * @param request - Request object with mod name, version, and factorioVersion.
 	 */
-	async handleModPortalDownloadRequest(request: lib.ModPortalDownloadRequest): Promise<lib.ModInfo> {
-		const { name, version, factorioVersion } = request;
-		const filename = lib.ModInfo.filename(name, version);
+	async handleModPortalDownloadRequest(request: lib.ModPortalDownloadRequest) {
+		const factorioVersion = request.factorioVersion;
+		const toDownload = this._controller.modStore.filterInstalled(request.mods, false);
 
-		// Check if mod already exists
-		if (this._controller.modStore.files.has(filename)) {
-			logger.verbose(`Mod ${filename} already exists, skipping download.`);
-			return this._controller.modStore.files.get(filename)!;
-		}
+		if (toDownload.length > 0) {
+			// Get Factorio credentials from config
+			const username = this._controller.config.get("controller.factorio_username");
+			const token = this._controller.config.get("controller.factorio_token");
 
-		// Get Factorio credentials from config
-		const username = this._controller.config.get("controller.factorio_username");
-		const token = this._controller.config.get("controller.factorio_token");
-
-		if (!username || !token) {
-			throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
-		}
-
-		try {
-			logger.info(`Downloading mod ${filename} for Factorio ${factorioVersion} from portal.`);
-			const modMap = new Map([[name, version]]);
-			await this._controller.modStore.downloadMods(modMap, username || "", token || "", factorioVersion);
-
-			// Verify download and return ModInfo
-			const downloadedMod = this._controller.modStore.files.get(filename);
-			if (!downloadedMod) {
-				throw new lib.RequestError(`Failed to find mod ${filename} in store after download attempt.`);
+			if (!username || username === "" || !token || token === "") {
+				throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
 			}
-			logger.info(`Successfully downloaded mod ${filename}.`);
-			return downloadedMod;
 
-		} catch (error: any) {
-			logger.error(`Error downloading mod ${filename} from portal: ${error.message}`);
-			// Improve error message clarity
-			let errorMessage = `Mod portal download failed for ${name} v${version}`;
-			if (error instanceof lib.RequestError) {
-				errorMessage += `: ${error.message}`;
-			} else if (error.message.includes("401") || error.message.includes("Unauthorized")) {
-				errorMessage += ": Authentication failed. Check Factorio username/token in controller config.";
-			} else if (error.message.includes("404") || error.message.includes("Not Found")) {
-				errorMessage += ": Mod version not found on the portal.";
+			try {
+				logger.info(`Downloading ${toDownload.length} mods for Factorio ${factorioVersion} from portal.`);
+				await this._controller.modStore.downloadMods(toDownload, username, token, factorioVersion);
+
+			} catch (error: any) {
+				logger.error(`Error downloading mods from portal: ${error.message}`);
+				// Improve error message clarity
+				let errorMessage = "Mod portal download failed";
+				if (error instanceof lib.RequestError) {
+					errorMessage += `: ${error.message}`;
+				} else if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+					errorMessage += ": Authentication failed. Check Factorio username/token in controller config.";
+				} else if (error.message.includes("404") || error.message.includes("Not Found")) {
+					errorMessage += ": Mod version not found on the portal.";
+				} else {
+					errorMessage += `: ${error.message}`;
+				}
+				throw new lib.RequestError(errorMessage);
+			}
+		}
+
+		// Verify all mods are present
+		const modInfos = [];
+		const installedMods = [...this._controller.modStore.mods()];
+		for (const mod of request.mods) {
+			const modInfo = installedMods.find(m => m.name === mod.name && mod.version.testVersion(m.version));
+			if (!modInfo) {
+				throw new lib.RequestError(`Failed to find mod ${mod.name} in store after download attempt.`);
+			}
+			modInfos.push(modInfo);
+		}
+
+		return modInfos;
+	}
+
+	async handleModDependencyResolveRequest(request: lib.ModDependencyResolveRequest) {
+		const searchQueue = [...request.mods];
+		const factorioVersion = request.factorioVersion;
+		const builtInModNames = lib.ModPack.getBuiltinModNames(factorioVersion);
+		const localInfos = [...this._controller.modStore.mods()];
+
+		type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
+		type ModPortalReleaseType = NonNullable<ModPortalModType["releases"]>[number];
+		const dependencyRequirements = new Map<string, lib.ModVersionRange>();
+		const optionalRequirements = new Map<string, lib.ModVersionRange>();
+		const modPortalReleases = new Map<string, ModPortalModType | null>();
+		const candidateReleases = new Map<string, lib.ModInfo>();
+		const incompatible = new Set<string>();
+
+		while (searchQueue.length > 0) {
+			const mod = searchQueue.shift()!;
+			if (builtInModNames.includes(mod.name)) {
+				continue;
+			} else if (mod.incompatible) {
+				incompatible.add(mod.name);
+				continue;
+			}
+
+			// Get the current version range
+			let versionRange = dependencyRequirements.get(mod.name);
+			if (!versionRange) {
+				versionRange = optionalRequirements.get(mod.name) ?? new lib.ModVersionRange();
+				if (mod.required) {
+					dependencyRequirements.set(mod.name, versionRange);
+					optionalRequirements.delete(mod.name);
+				} else {
+					optionalRequirements.set(mod.name, versionRange);
+				}
+			}
+
+			// Update the version range if needed
+			if (mod.version) {
+				versionRange.combineVersion(mod.version);
+				if (!versionRange.valid) {
+					candidateReleases.delete(mod.name);
+				}
+			}
+
+			// Do not add dependencies for invalid ranges, optionals, or valid candidates
+			const existingCandidate = candidateReleases.get(mod.name);
+			if (!versionRange.valid || optionalRequirements.has(mod.name) || (
+				existingCandidate && versionRange.testVersion(existingCandidate.version)
+			)) {
+				continue;
+			}
+
+			// Delete the existing candidate as it is no longer valid
+			candidateReleases.delete(mod.name);
+
+			// Check if a local version fits the requirements
+			let candidate = localInfos
+				.filter(info => (info.name === mod.name && versionRange.testVersion(info.version)))
+				.reduce<lib.ModInfo | undefined>((max, cur) => (
+					max && max.integerVersion > cur.integerVersion ? max : cur
+				), undefined);
+
+			// Check if a mod poral version fits the requirements
+			if (!candidate) {
+				// Check if we need to fetch the release info from the mod portal
+				let modReleases = modPortalReleases.get(mod.name);
+				if (modReleases === undefined) {
+					try {
+						modReleases = await lib.ModStore.fetchModReleases(mod.name);
+					} catch (error: any) {
+						if (!error.message.includes("404") && !error.message.includes("Not Found")) {
+							logger.error(`Error fetching mod from portal: ${error.message}`);
+							throw new lib.RequestError(`Dependency resolution failed: ${error.message}`);
+						}
+					}
+				}
+
+				// If the mod has releases then check for a candidate
+				modPortalReleases.set(mod.name, modReleases ?? null);
+				if (modReleases && modReleases.releases) {
+					const release = modReleases.releases
+						.filter(info => (
+							info.info_json.factorio_version === factorioVersion
+							&& versionRange.testVersion(info.version)
+						))
+						.reduce<ModPortalReleaseType | undefined>((max, cur) => (
+							max && lib.integerFullVersion(max.version) > lib.integerFullVersion(cur.version) ? max : cur
+						), undefined);
+
+					candidate = release && lib.ModInfo.fromJSON({
+						...release.info_json, // Also includes dependences
+						sha1: release.sha1,
+						version: release.version,
+						name: modReleases.name,
+						author: modReleases.owner,
+						title: modReleases.title,
+					});
+				}
+			}
+
+			// Queue the dependencies of the new candidate
+			if (candidate) {
+				candidateReleases.set(mod.name, candidate);
+				for (const dep of candidate.dependencies) {
+					searchQueue.push(dep);
+				}
 			} else {
-				errorMessage += `: ${error.message}`;
+				versionRange.invalidate();
 			}
-			throw new lib.RequestError(errorMessage);
 		}
+
+		return new lib.ModDependencyResolveRequest.Response(
+			[...candidateReleases.values()],
+			[...incompatible.values()].filter(mod => candidateReleases.has(mod)),
+			[...dependencyRequirements.keys()].filter(mod => !candidateReleases.has(mod)),
+		);
 	}
 
 	async handleModDeleteRequest(request: lib.ModDeleteRequest) {

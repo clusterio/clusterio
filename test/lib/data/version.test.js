@@ -2,6 +2,8 @@
 const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
 
+const { testMatrix, testRoundTripJsonSerialisable } = require("../../common");
+
 describe("lib/data/version", function() {
 	describe("isVersionEquality()", function() {
 		it("should correctly validate input strings", function() {
@@ -103,7 +105,7 @@ describe("lib/data/version", function() {
 			assert.deepEqual(unsortedVersions, sortedVersions);
 		});
 	});
-	describe("isTargetVersion", function() {
+	describe("isTargetVersion()", function() {
 		it("should correctly validate input strings", function() {
 			const valid = [
 				"0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0",
@@ -119,40 +121,51 @@ describe("lib/data/version", function() {
 		});
 	});
 	describe("class ModVersionEquality", function() {
+		const tests = testMatrix(
+			["<", "<=", "=", ">=", ">"],
+			["0.18", "1.0", "1.0.0", "1.1.1"],
+		);
 		describe("constructor", function() {
+			it("should be round trip json serialisable", function() {
+				testRoundTripJsonSerialisable(lib.ModVersionEquality, tests);
+			});
 			it("should be constructible", function() {
-				const version = new lib.ModVersionEquality("=", 100);
-				assert.equal(version.equality, "=");
-				assert.equal(version.integerVersion, 100);
+				for (const [eq, ver] of tests) {
+					const test = `${eq} ${ver}`;
+					const version = new lib.ModVersionEquality(eq, ver);
+					assert.equal(version.equality, eq, test);
+					assert.equal(version.version, ver, test);
+					assert.equal(version.integerVersion, lib.integerPartialVersion(ver), test);
+				}
 			});
 		});
 		describe("testIntegerVersion()", function() {
 			it("should test for less than", function() {
-				const version = new lib.ModVersionEquality("<", 100);
+				const version = new lib.ModVersionEquality("<", "0.0.100");
 				assert.equal(version.testIntegerVersion(90), true);
 				assert.equal(version.testIntegerVersion(100), false);
 				assert.equal(version.testIntegerVersion(110), false);
 			});
 			it("should test for less than equal", function() {
-				const version = new lib.ModVersionEquality("<=", 100);
+				const version = new lib.ModVersionEquality("<=", "0.0.100");
 				assert.equal(version.testIntegerVersion(90), true);
 				assert.equal(version.testIntegerVersion(100), true);
 				assert.equal(version.testIntegerVersion(110), false);
 			});
 			it("should test for equal", function() {
-				const version = new lib.ModVersionEquality("=", 100);
+				const version = new lib.ModVersionEquality("=", "0.0.100");
 				assert.equal(version.testIntegerVersion(90), false);
 				assert.equal(version.testIntegerVersion(100), true);
 				assert.equal(version.testIntegerVersion(110), false);
 			});
 			it("should test for greater than equal", function() {
-				const version = new lib.ModVersionEquality(">=", 100);
+				const version = new lib.ModVersionEquality(">=", "0.0.100");
 				assert.equal(version.testIntegerVersion(90), false);
 				assert.equal(version.testIntegerVersion(100), true);
 				assert.equal(version.testIntegerVersion(110), true);
 			});
 			it("should test for greater than", function() {
-				const version = new lib.ModVersionEquality(">", 100);
+				const version = new lib.ModVersionEquality(">", "0.0.100");
 				assert.equal(version.testIntegerVersion(90), false);
 				assert.equal(version.testIntegerVersion(100), false);
 				assert.equal(version.testIntegerVersion(110), true);
@@ -160,7 +173,7 @@ describe("lib/data/version", function() {
 		});
 		describe("testVersion()", function() {
 			it("should test for less than", function() {
-				const version = new lib.ModVersionEquality("<", lib.integerFullVersion("1.1.1"));
+				const version = new lib.ModVersionEquality("<", "1.1.1");
 				assert.equal(version.testVersion("1.0"), true);
 				assert.equal(version.testVersion("1.1"), true);
 				assert.equal(version.testVersion("1.1.1"), false);
@@ -168,7 +181,7 @@ describe("lib/data/version", function() {
 				assert.equal(version.testVersion("1.2"), false);
 			});
 			it("should test for less than equal", function() {
-				const version = new lib.ModVersionEquality("<=", lib.integerFullVersion("1.1.1"));
+				const version = new lib.ModVersionEquality("<=", "1.1.1");
 				assert.equal(version.testVersion("1.0"), true);
 				assert.equal(version.testVersion("1.1"), true);
 				assert.equal(version.testVersion("1.1.1"), true);
@@ -176,7 +189,7 @@ describe("lib/data/version", function() {
 				assert.equal(version.testVersion("1.2"), false);
 			});
 			it("should test for equal", function() {
-				const version = new lib.ModVersionEquality("=", lib.integerFullVersion("1.1.1"));
+				const version = new lib.ModVersionEquality("=", "1.1.1");
 				assert.equal(version.testVersion("1.0"), false);
 				assert.equal(version.testVersion("1.1"), false);
 				assert.equal(version.testVersion("1.1.1"), true);
@@ -184,7 +197,7 @@ describe("lib/data/version", function() {
 				assert.equal(version.testVersion("1.2"), false);
 			});
 			it("should test for greater than equal", function() {
-				const version = new lib.ModVersionEquality(">=", lib.integerFullVersion("1.1.1"));
+				const version = new lib.ModVersionEquality(">=", "1.1.1");
 				assert.equal(version.testVersion("1.0"), false);
 				assert.equal(version.testVersion("1.1"), false);
 				assert.equal(version.testVersion("1.1.1"), true);
@@ -192,7 +205,7 @@ describe("lib/data/version", function() {
 				assert.equal(version.testVersion("1.2"), true);
 			});
 			it("should test for greater than", function() {
-				const version = new lib.ModVersionEquality(">", lib.integerFullVersion("1.1.1"));
+				const version = new lib.ModVersionEquality(">", "1.1.1");
 				assert.equal(version.testVersion("1.0"), false);
 				assert.equal(version.testVersion("1.1"), false);
 				assert.equal(version.testVersion("1.1.1"), false);
@@ -200,22 +213,22 @@ describe("lib/data/version", function() {
 				assert.equal(version.testVersion("1.2"), true);
 			});
 		});
-		describe("fromString()", function() {
-			it("should would for all equalities", function() {
-				const equalities = ["<", "<=", "=", ">=", ">"];
-				for (const eq of equalities) {
-					const test = `${eq} 1.0.0`;
-					const version = lib.ModVersionEquality.fromString(test);
-					assert.equal(version.equality, eq, test);
-					assert.equal(version.integerVersion, lib.integerFullVersion("1.0.0"), test);
+		describe("toString()", function() {
+			it("should be convertible to string", function() {
+				for (const [eq, ver] of tests) {
+					const expected = `${eq} ${ver}`;
+					const version = new lib.ModVersionEquality(eq, ver);
+					assert.equal(version.toString(), expected);
 				}
 			});
-			it("should would for all version types", function() {
-				const versions = ["0.18", "1.0", "1.0.0", "1.1.1"];
-				for (const ver of versions) {
-					const test = `= ${ver}`;
+		});
+		describe("fromString()", function() {
+			it("should be constructable from string", function() {
+				for (const [eq, ver] of tests) {
+					const test = `${eq} ${ver}`;
 					const version = lib.ModVersionEquality.fromString(test);
-					assert.equal(version.equality, "=", test);
+					assert.equal(version.equality, eq, test);
+					assert.equal(version.version, ver, test);
 					assert.equal(version.integerVersion, lib.integerPartialVersion(ver), test);
 				}
 			});
@@ -235,20 +248,13 @@ describe("lib/data/version", function() {
 			});
 		});
 		describe("fromParts()", function() {
-			it("should would for all equalities", function() {
-				const equalities = ["<", "<=", "=", ">=", ">"];
-				for (const eq of equalities) {
-					const version = lib.ModVersionEquality.fromParts(eq, "1.0.0");
-					assert.equal(version.equality, eq, eq);
-					assert.equal(version.integerVersion, lib.integerFullVersion("1.0.0"), eq);
-				}
-			});
-			it("should would for all version types", function() {
-				const versions = ["0.18", "1.0", "1.0.0", "1.1.1"];
-				for (const ver of versions) {
-					const version = lib.ModVersionEquality.fromParts("=", ver);
-					assert.equal(version.equality, "=", ver);
-					assert.equal(version.integerVersion, lib.integerPartialVersion(ver), ver);
+			it("should be constructable from parts", function() {
+				for (const [eq, ver] of tests) {
+					const test = `${eq} ${ver}`;
+					const version = lib.ModVersionEquality.fromParts(eq, ver);
+					assert.equal(version.equality, eq, test);
+					assert.equal(version.version, ver, test);
+					assert.equal(version.integerVersion, lib.integerPartialVersion(ver), test);
 				}
 			});
 			it("should error for invalid equalities", function() {
@@ -262,6 +268,222 @@ describe("lib/data/version", function() {
 				for (const ver of versions) {
 					assert.throws(() => lib.ModVersionEquality.fromParts("=", ver), undefined, ver);
 				}
+			});
+		});
+	});
+	describe("class ModVersionRange", function() {
+		describe("constructor", function() {
+			it("should be constructable", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+				assert.equal(range.minVersion.equality, ">=");
+				assert.equal(range.minVersion.version, "1.0.0");
+				assert.equal(range.maxVersion.equality, "<");
+				assert.equal(range.maxVersion.version, "2.0.0");
+			});
+			it("should be default constructable", function() {
+				const range = new lib.ModVersionRange();
+				assert.equal(range.minVersion.equality, ">=");
+				assert.equal(range.minVersion.version, "0.0.0");
+				assert.equal(range.maxVersion.equality, "<=");
+				assert.equal(range.maxVersion.version, "65535.65535.65535");
+			});
+			it("should throw if invalid equality is given for min version", function() {
+				assert.throws(() => new lib.ModVersionRange(
+					new lib.ModVersionEquality("<", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				));
+				assert.throws(() => new lib.ModVersionRange(
+					new lib.ModVersionEquality("<=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				));
+			});
+			it("should throw if invalid equality is given for max version", function() {
+				assert.throws(() => new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality(">", "2.0.0"),
+				));
+				assert.throws(() => new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality(">=", "2.0.0"),
+				));
+			});
+		});
+		describe("valid", function() {
+			it("should be true for valid ranges", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+				assert.equal(range.valid, true);
+
+				const defaultRange = new lib.ModVersionRange();
+				assert.equal(defaultRange.valid, true);
+			});
+			it("should be false for invalid ranges", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "2.0.0"),
+					new lib.ModVersionEquality("<", "1.0.0"),
+				);
+				assert.equal(range.valid, false);
+
+				const rangeImpossible = new lib.ModVersionRange(
+					new lib.ModVersionEquality("=", "1.0.0"),
+					new lib.ModVersionEquality("=", "2.0.0"),
+				);
+				assert.equal(rangeImpossible.valid, false);
+			});
+		});
+		describe("invalidate()", function() {
+			it("should result in the range becoming invalid", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+				range.invalidate();
+				assert.equal(range.valid, false);
+
+				const defaultRange = new lib.ModVersionRange();
+				defaultRange.invalidate();
+				assert.equal(defaultRange.valid, false);
+			});
+		});
+		describe("testIntegerVersion()", function() {
+			it("should return true when in range", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "0.0.100"),
+					new lib.ModVersionEquality("<", "0.0.200"),
+				);
+				assert.equal(range.testIntegerVersion(100), true);
+				assert.equal(range.testIntegerVersion(199), true);
+			});
+			it("should return false when out of range", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "0.0.100"),
+					new lib.ModVersionEquality("<", "0.0.200"),
+				);
+				assert.equal(range.testIntegerVersion(99), false);
+				assert.equal(range.testIntegerVersion(200), false);
+			});
+			it("should handle exact matches", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality("=", "0.0.100"),
+					new lib.ModVersionEquality("=", "0.0.100"),
+				);
+				assert.equal(range.testIntegerVersion(99), false);
+				assert.equal(range.testIntegerVersion(100), true);
+				assert.equal(range.testIntegerVersion(101), false);
+			});
+		});
+		describe("testVersion()", function() {
+			it("should return true when in range", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+				assert.equal(range.testVersion("1.0.0"), true);
+				assert.equal(range.testVersion("1.9.9"), true);
+			});
+			it("should return false when out of range", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+				assert.equal(range.testVersion("0.9.9"), false);
+				assert.equal(range.testVersion("2.0.0"), false);
+			});
+			it("should handle exact matches", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality("=", "1.0.0"),
+					new lib.ModVersionEquality("=", "1.0.0"),
+				);
+				assert.equal(range.testVersion("0.9.9"), false);
+				assert.equal(range.testVersion("1.0.0"), true);
+				assert.equal(range.testVersion("1.0.1"), false);
+			});
+		});
+		describe("combineVersion()", function() {
+			it("should handle merge with less than", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+
+				assert.equal(range.testVersion("1.1"), true);
+				assert.equal(range.testVersion("1.5"), true);
+				range.combineVersion(new lib.ModVersionEquality("<", "1.2"));
+				assert.equal(range.testVersion("1.1"), true);
+				assert.equal(range.testVersion("1.5"), false);
+
+				assert.equal(range.valid, true);
+				range.combineVersion(new lib.ModVersionEquality("<", "0.5"));
+				assert.equal(range.valid, false);
+			});
+			it("should handle merge with less than equal", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+
+				assert.equal(range.testVersion("1.2"), true);
+				assert.equal(range.testVersion("1.5"), true);
+				range.combineVersion(new lib.ModVersionEquality("<=", "1.2"));
+				assert.equal(range.testVersion("1.2"), true);
+				assert.equal(range.testVersion("1.5"), false);
+
+				assert.equal(range.valid, true);
+				range.combineVersion(new lib.ModVersionEquality("<=", "0.5"));
+				assert.equal(range.valid, false);
+			});
+			it("should handle merge with equal", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+
+				assert.equal(range.testVersion("1.2"), true);
+				assert.equal(range.testVersion("1.5"), true);
+				range.combineVersion(new lib.ModVersionEquality("=", "1.2"));
+				assert.equal(range.testVersion("1.2"), true);
+				assert.equal(range.testVersion("1.5"), false);
+
+				assert.equal(range.valid, true);
+				range.combineVersion(new lib.ModVersionEquality("=", "0.5"));
+				assert.equal(range.valid, false);
+			});
+			it("should handle merge with greater than equal", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+
+				assert.equal(range.testVersion("1.1"), true);
+				assert.equal(range.testVersion("1.5"), true);
+				range.combineVersion(new lib.ModVersionEquality(">=", "1.2"));
+				assert.equal(range.testVersion("1.1"), false);
+				assert.equal(range.testVersion("1.5"), true);
+
+				assert.equal(range.valid, true);
+				range.combineVersion(new lib.ModVersionEquality(">=", "2.5"));
+				assert.equal(range.valid, false);
+			});
+			it("should handle merge with greater than", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+
+				assert.equal(range.testVersion("1.2"), true);
+				assert.equal(range.testVersion("1.5"), true);
+				range.combineVersion(new lib.ModVersionEquality(">", "1.2"));
+				assert.equal(range.testVersion("1.2"), false);
+				assert.equal(range.testVersion("1.5"), true);
+
+				assert.equal(range.valid, true);
+				range.combineVersion(new lib.ModVersionEquality(">", "2.5"));
+				assert.equal(range.valid, false);
 			});
 		});
 	});

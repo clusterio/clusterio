@@ -22,6 +22,8 @@ const UnsatisfiedSeverity: Record<ModDependencyUnsatisfiedReason, number> = {
 	"incompatible": 1, "missing_dependency": 2, "wrong_version": 3,
 };
 
+const lettersRegex = /^[a-zA-Z]+$/;
+
 export class ModDependency {
 	public type: ModDependencyType;
 	public name: string;
@@ -48,6 +50,21 @@ export class ModDependency {
 		public specification: string,
 	) {
 		const parts = specification.split(" ");
+
+		// Fix mods which include spaces in their name, joins consecutive words together
+		let index = 0;
+		while (index < parts.length - 1) {
+			const current = parts[index];
+			const next = parts[index + 1];
+			if (lettersRegex.test(current) && lettersRegex.test(next)) {
+				parts[index] = `${current} ${next}`;
+				parts.splice(index + 1, 1);
+			} else {
+				index += 1;
+			}
+		}
+
+		// Parse the dependency specification
 		switch (parts.length) {
 			case 1:
 				this.type = "required";
@@ -86,6 +103,28 @@ export class ModDependency {
 
 	isSatisfied(mods: (ModInfo | ModRecord)[]) {
 		return this.checkUnsatisfiedReason(mods) === undefined;
+	}
+
+	get incompatible() {
+		return this.type === "incompatible";
+	}
+
+	get required() {
+		return this.type === "unordered" || this.type === "required";
+	}
+
+	get optional() {
+		return this.type === "hidden" || this.type === "optional";
+	}
+
+	static jsonSchema = Type.String();
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json);
+	}
+
+	toJSON() {
+		return this.specification;
 	}
 }
 

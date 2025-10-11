@@ -3,10 +3,10 @@ import path from "path";
 import events from "events";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
-import { ModInfo, ModPack, FullVersion, ApiVersion } from "./data";
 import { safeOutputFile } from "./file_ops";
 import { Writable } from "stream";
-import { ModPortalReleaseSchema, ModPortalDetailsSchema } from "./data/messages_mod";
+import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
+import { ModInfo, ModPack, FullVersion, ApiVersion, ModVersionEquality } from "./data";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -155,11 +155,46 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		return new this(modsDirectory, files);
 	}
 
+	/**
+	 * Stream a url's content into a file.
+	 *
+	 * @param url - Web path to stream from.
+	 * @param filePath - File path to stream to.
+	 */
+	private static async downloadFile(url: string | URL, filePath: string) {
+		try {
+			const response = await fetch(url);
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+			}
+
+			if (!response.body) {
+				throw new Error("Response body is missing.");
+			}
+
+			const fileStream = fs.createWriteStream(filePath);
+			const writer = Writable.toWeb(fileStream);
+			await response.body.pipeTo(writer);
+		} catch (error) {
+			logger.error("Error downloading file:", error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Download a matching version from a selection of available versions.
+	 *
+	 * @param releases - Array of mod releases taken from the mod portal.
+	 * @param version - The required version to install.
+	 * @param username - Factorio username to download using.
+	 * @param token - Factorio token to download using.
+	 */
 	private async downloadModFromReleases(
-		releases: Array<Static<typeof ModPortalReleaseSchema>>, version: FullVersion,
+		releases: Array<Static<typeof ModPortalReleaseSchema>>, version: ModVersionEquality,
 		username: string, token: string
 	) {
-		const selectedRelease = releases.find(release => release.version === version);
+		const selectedRelease = releases.find(release => version.testVersion(release.version));
 
 		if (selectedRelease === undefined) {
 			logger.warn(`Mod release matching version ${version} not found.`);
@@ -191,8 +226,16 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		}
 	}
 
+	/**
+	 * Downloads all provided mods, does not perform chunking or filtering of builtins
+	 *
+	 * @param mods - An array of mods to download
+	 * @param username - Factorio username used for auth to download mods
+	 * @param token - Factorio token used for auth to download mods
+	 * @param factorioVersion - Factorio version to filter for (mods are not guaranteed to work between Middle versions)
+	 */
 	private async downloadModsChunk(
-		modNames: string[], modVersions: FullVersion[],
+		mods: ModNameVersionPair[],
 		username: string, token: string,
 		factorioVersion: ApiVersion,
 	) {
@@ -201,84 +244,65 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		url.searchParams.set("version", factorioVersion);
 		const response = await fetch(url, {
 			method: "POST",
-			body: new URLSearchParams({ namelist: modNames.join(",") }),
+			body: new URLSearchParams({ namelist: mods.map(m => m.name).join(",") }),
 		});
+
 		if (response.status !== 200) {
 			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
 		}
-		const mods = (await response.json() as ModsInfoResponse).results;
 
-		await Promise.all(mods.map((mod) => {
+		const modReleases = (await response.json() as ModsInfoResponse).results;
+		await Promise.all(modReleases.map((mod) => {
+			const modVersion = mods.find(m => m.name === mod.name)!.version;
 			if (mod.releases) {
-				return this.downloadModFromReleases(mod.releases,
-					modVersions[modNames.indexOf(mod.name)], username, token);
+				return this.downloadModFromReleases(mod.releases, modVersion, username, token);
 			} else if (mod.latest_release) {
-				return this.downloadModFromReleases([mod.latest_release],
-					modVersions[modNames.indexOf(mod.name)], username, token);
+				return this.downloadModFromReleases([mod.latest_release], modVersion, username, token);
 			}
 			throw new Error(`Mod ${mod.name} has no releases or latest_release`);
 		}));
 	}
 
-
 	/**
+	 * Downloads all provided mods to the mod dir.
 	 *
-	 * downloads mods to the mod dir, will not download mods for which are already in the mod directory
+	 * Handles chunking to prevent errors due to URL length.
+	 * Will re-download if mod is already present, if this is undesired use filterInstalled first.
 	 *
-	 * @param modMap a map of what mods to download and what version to download
-	 * @param username factorio username used for auth to download mods
-	 * @param token factorio token used for auth to download mods
-	 * @param factorioVersion factorio version to filter for (mods are not guaranteed to work between Middle versions)
-	 *
+	 * @param mods - An array of mods to download.
+	 * @param username - Factorio username used for auth to download mods.
+	 * @param token - Factorio token used for auth to download mods.
+	 * @param factorioVersion - Factorio version to filter for (mods are not guaranteed to work between Middle versions)
 	 */
 	async downloadMods(
-		modMap: Map<string, FullVersion>, username: string, token: string, factorioVersion: ApiVersion = "1.1"
+		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: ApiVersion = "1.1"
 	) {
 		const chunkSize = 500;
-		let futures: Promise<void>[] = [];
-		modMap = new Map(modMap);
-
+		const futures: Promise<void>[] = [];
 		const builtInMods = new Set(ModPack.getBuiltinModNames(factorioVersion));
+		mods = mods.filter(mod => !(builtInMods.has(mod.name) || mod.name === "core"));
 
-		// get rid of mods already downloaded, built-in, or core
-		modMap.forEach((modVersion, modName, map) => {
-			const filename = `${modName}_${modVersion}.zip`;
-			// Filter existing, built-in from getBuiltinModNames, and explicitly filter "core"
-			if (this.files.has(filename) || builtInMods.has(modName) || modName === "core") {
-				map.delete(modName);
-			}
-		});
-
-		const modNames = Array.from(modMap.keys());
-		const modVersions = Array.from(modMap.values());
-		for (let i = 0; i < modMap.size; i += chunkSize) {
+		for (let i = 0; i < mods.length; i += chunkSize) {
 			futures.push(
-				this.downloadModsChunk(modNames.slice(i, i + chunkSize), modVersions.slice(i, i + chunkSize),
-					username, token, factorioVersion)
+				this.downloadModsChunk(mods.slice(i, i + chunkSize), username, token, factorioVersion)
 			);
 		}
+
 		await Promise.all(futures);
 	}
 
-	static async downloadFile(url: string | URL, filePath: string) {
-		try {
-			const response = await fetch(url);
-
-			if (!response.ok) {
-				throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
-			}
-
-			if (!response.body) {
-				throw new Error("Response body is missing.");
-			}
-
-			const fileStream = fs.createWriteStream(filePath);
-			const writer = Writable.toWeb(fileStream);
-			await response.body.pipeTo(writer);
-		} catch (error) {
-			logger.error("Error downloading file:", error);
-			throw error;
-		}
+	/**
+	 * Filter an array of mods based on if they are installed.
+	 *
+	 * @param mods - Array of mods to filer.
+	 * @param installed - `true` to keep installed mods, `false` to keep uninstalled mods.
+	 * @returns Filtered array of mods based on install state.
+	 */
+	filterInstalled(mods: ModNameVersionPair[], installed: boolean) {
+		const installedMods = Array.from(this.mods());
+		return mods.filter(mod => (
+			installed === installedMods.some(m => mod.name === m.name && mod.version.testVersion(m.version))
+		));
 	}
 
 	/**
@@ -330,5 +354,20 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		}
 		logger.info(`Successfully fetched ${allMods.length} mods for Factorio version ${factorioVersion}.`);
 		return allMods;
+	}
+
+	/**
+	 * Fetch the full release list for a mod including dependencies.
+	 *
+	 * @param modName - Name of the mod to fetch the releases of
+	 * @returns Mod portal response
+	 */
+	static async fetchModReleases(modName: string) {
+		const url = `https://mods.factorio.com/api/mods/${modName}/full`;
+		const response = await fetch(url);
+		if (!response.ok) {
+			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
+		}
+		return await response.json() as ModsInfoResponse["results"][number];
 	}
 }

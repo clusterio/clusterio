@@ -1,8 +1,13 @@
 import { Type, Static } from "@sinclair/typebox";
-import ModInfo from "./ModInfo";
+import ModInfo, { ModDependency } from "./ModInfo";
 import ModPack from "./ModPack";
 import { JsonString, jsonArray } from "./composites";
-import { FullVersion, FullVersionSchema, ApiVersion, ApiVersionSchema } from "./version";
+
+import {
+	FullVersion, FullVersionSchema,
+	ApiVersion, ApiVersionSchema, normaliseApiVersion,
+	ModVersionEquality,
+} from "./version";
 
 
 export class ModPackGetRequest {
@@ -350,6 +355,16 @@ export class ModUpdatesEvent {
 	}
 }
 
+export interface ModNameVersionPair {
+	name: string,
+	version: ModVersionEquality,
+}
+
+export const ModNameVersionPairSchema = Type.Object({
+	"name": Type.String(),
+	"version": ModVersionEquality.jsonSchema,
+});
+
 /**
  * Request mods to be downloaded from the Factorio mod portal to the controller.
  *
@@ -357,8 +372,7 @@ export class ModUpdatesEvent {
  * Requires Factorio credentials to be configured on the controller if the portal
  * requires authentication for downloads.
  *
- * @param name - Name of the mod to download.
- * @param version - Version of the mod to download.
+ * @param mods - Array of mods to be downloaded.
  * @param factorioVersion - Factorio version context for the download.
  */
 export class ModPortalDownloadRequest {
@@ -367,21 +381,87 @@ export class ModPortalDownloadRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.mod.download_from_portal" as const;
-	static Response = ModInfo;
+	static Response = jsonArray(ModInfo);
 
 	constructor(
-		public name: string,
-		public version: FullVersion,
+		public mods: ModNameVersionPair[],
 		public factorioVersion: ApiVersion,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"name": Type.String(),
-		"version": FullVersionSchema,
+		"mods": Type.Array(ModNameVersionPairSchema),
 		"factorioVersion": ApiVersionSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.version, json.factorioVersion);
+		return new this(
+			json.mods.map(mod => ({
+				name: mod.name, version: ModVersionEquality.fromJSON(mod.version),
+			})),
+			json.factorioVersion,
+		);
 	}
+}
+
+/**
+ * Request mods dependencies to be resolved using the Factorio mod portal.
+ *
+ * @param mods - Array of dependencies to resolve.
+ * @param factorioVersion - Factorio version context for resolution.
+ */
+export class ModDependencyResolveRequest {
+	declare ["constructor"]: typeof ModDependencyResolveRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.search_portal" as const;
+
+	constructor(
+		public mods: ModDependency[],
+		public factorioVersion: ApiVersion,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"mods": Type.Array(ModDependency.jsonSchema),
+		"factorioVersion": ApiVersionSchema,
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.mods.map(spec => new ModDependency(spec)), json.factorioVersion);
+	}
+
+	static fromModPack(modPack: ModPack) {
+		return new this(
+			[...modPack.mods.values()]
+				.map(mod => new ModDependency(`${mod.name} = ${mod.version}`)),
+			normaliseApiVersion(modPack.factorioVersion),
+		);
+	}
+
+	static fromModPackEnabled(modPack: ModPack) {
+		return new this(
+			[...modPack.mods.values()]
+				.filter(mod => mod.enabled)
+				.map(mod => new ModDependency(`${mod.name} = ${mod.version}`)),
+			normaliseApiVersion(modPack.factorioVersion),
+		);
+	}
+
+	static Response = class ModDependencyResolveResponse {
+		constructor(
+			public dependencies: ModInfo[],
+			public incompatible: string[],
+			public missing: string[],
+		) {}
+
+		static jsonSchema = Type.Object({
+			"dependencies": Type.Array(ModInfo.jsonSchema),
+			"incompatible": Type.Array(Type.String()),
+			"missing": Type.Array(Type.String()),
+		});
+
+		static fromJSON(json: Static<typeof this.jsonSchema>) {
+			return new this(json.dependencies.map(d => ModInfo.fromJSON(d)), json.incompatible, json.missing);
+		}
+	};
 }

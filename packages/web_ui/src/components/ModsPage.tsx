@@ -164,16 +164,15 @@ function SearchModsButton() {
 		if (modVersion) {
 			control.send(
 				new lib.ModPortalDownloadRequest(
-					modName,
-					modVersion,
+					[{ name: modName, version: new lib.ModVersionEquality("=", modVersion)}],
 					portalFactorioVersion
 				)
 			).then(() => {
 				notification.success({
-					message: "Download started",
+					message: "Download complete",
 					description: `${modTitle || modName} v${
 						modVersion
-					} is being downloaded to the controller.`,
+					} has been downloaded to the controller.`,
 				});
 			}).catch(
 				notifyErrorHandler("Error starting mod download")

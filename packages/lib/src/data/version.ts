@@ -40,7 +40,7 @@ export function normaliseApiVersion(version: PartialVersion) {
 	const parts = version.split(".");
 	const apiVersion = `${parts[0]}.${parts[1]}`;
 	if (!isApiVersion(apiVersion)) {
-		throw new Error(`Version is not accepted by factorio api: ${version}`);
+		throw new Error(`Factorio version not supported by mod portal: ${apiVersion}`);
 	}
 	return apiVersion;
 }
@@ -49,8 +49,10 @@ export function normaliseApiVersion(version: PartialVersion) {
  * Matches valid mod versions, where all parts are specified.
  */
 const fullVersionRegExp = /^\d+\.\d+\.\d+$/;
-export type FullVersion = Static<typeof FullVersionSchema>;
-export const FullVersionSchema = Type.TemplateLiteral("${number}.${number}.${number}");
+export type FullVersion = `${number}.${number}.${number}`;
+export const FullVersionSchema = Type.Unsafe<FullVersion>(
+	Type.String({ pattern: fullVersionRegExp.source })
+);
 
 export function isFullVersion(input: string): input is FullVersion {
 	return fullVersionRegExp.test(input);
@@ -71,11 +73,10 @@ export function normaliseFullVersion(version: PartialVersion) {
  * Matches valid factorio versions and mod dependencies specifications where 2 or 3 parts are specified.
  */
 const partialVersionRegExp = /^\d+\.\d+(?:\.\d+)?$/;
-export type PartialVersion = Static<typeof PartialVersionSchema>;
-export const PartialVersionSchema = Type.Union([
-	Type.TemplateLiteral("${number}.${number}.${number}"),
-	Type.TemplateLiteral("${number}.${number}"),
-]);
+export type PartialVersion = FullVersion | `${number}.${number}`;
+export const PartialVersionSchema = Type.Unsafe<PartialVersion>(
+	Type.String({ pattern: partialVersionRegExp.source })
+);
 
 export function isPartialVersion(input: string): input is PartialVersion {
 	return partialVersionRegExp.test(input);
@@ -90,10 +91,9 @@ export function integerPartialVersion(version: PartialVersion) {
 /**
  * Matches valid factorio target versions, this is the same as partial but also accepts "latest".
  */
-export type TargetVersion = Static<typeof TargetVersionSchema>;
+export type TargetVersion = PartialVersion | "latest";
 export const TargetVersionSchema = Type.Union([
-	Type.TemplateLiteral("${number}.${number}.${number}"),
-	Type.TemplateLiteral("${number}.${number}"),
+	PartialVersionSchema,
 	Type.Literal("latest"),
 ]);
 
@@ -105,10 +105,14 @@ export function isTargetVersion(input: string): input is TargetVersion {
  * Represents a mod version paired with an equality which can be tested against
  */
 export class ModVersionEquality {
+	public integerVersion: IntegerVersion;
+
 	constructor(
 		public equality: VersionEquality,
-		public integerVersion: IntegerVersion,
-	) { }
+		public version: PartialVersion,
+	) {
+		this.integerVersion = integerPartialVersion(version);
+	}
 
 	testIntegerVersion(other: IntegerVersion) {
 		switch (this.equality) {
@@ -131,6 +135,10 @@ export class ModVersionEquality {
 		return this.testIntegerVersion(integerPartialVersion(version));
 	}
 
+	toString() {
+		return `${this.equality} ${this.version}`;
+	}
+
 	static fromString(version: string) {
 		const parts = version.split(" ");
 		return parts.length === 1 ? this.fromParts("=", parts[0]) : this.fromParts(parts[0], parts[1]);
@@ -143,6 +151,86 @@ export class ModVersionEquality {
 		if (!isPartialVersion(version)) {
 			throw new Error(`Malformed version string: ${version}`);
 		}
-		return new this(equality, integerPartialVersion(version));
+		return new this(equality, version);
+	}
+
+	static jsonSchema = Type.String();
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return this.fromString(json);
+	}
+
+	toJSON() {
+		return this.toString();
+	}
+}
+
+/**
+ * Represents a range of mod versions which can be tested against
+ */
+export class ModVersionRange {
+	constructor(
+		public minVersion = new ModVersionEquality(">=", "0.0.0"),
+		public maxVersion = new ModVersionEquality("<=", "65535.65535.65535"),
+	) {
+		if (minVersion.equality === "<" || minVersion.equality === "<=") {
+			throw new Error("Minimum version can not use < or <=");
+		}
+		if (maxVersion.equality === ">" || maxVersion.equality === ">=") {
+			throw new Error("Maximum version can not use > or >=");
+		}
+	}
+
+	get valid() {
+		return this.minVersion.testIntegerVersion(this.maxVersion.integerVersion)
+			&& this.maxVersion.testIntegerVersion(this.minVersion.integerVersion);
+	}
+
+	invalidate() {
+		this.maxVersion = new ModVersionEquality(">", "0.0.0");
+	}
+
+	testIntegerVersion(other: IntegerVersion) {
+		return this.minVersion.testIntegerVersion(other) && this.maxVersion.testIntegerVersion(other);
+	}
+
+	testVersion(version: PartialVersion) {
+		return this.testIntegerVersion(integerPartialVersion(version));
+	}
+
+	combineVersion(other: ModVersionEquality) {
+		switch (other.equality) {
+			case "<":
+				if (other.integerVersion <= this.maxVersion.integerVersion) {
+					this.maxVersion = other;
+				}
+				break;
+			case "<=":
+				if (other.integerVersion < this.maxVersion.integerVersion) {
+					this.maxVersion = other;
+				}
+				break;
+			case "=":
+				if (this.testIntegerVersion(other.integerVersion)) {
+					this.minVersion = other;
+					this.maxVersion = other;
+				} else {
+					// Make invalid as it could not be satisfied
+					this.invalidate();
+				}
+				break;
+			case ">=":
+				if (other.integerVersion > this.minVersion.integerVersion) {
+					this.minVersion = other;
+				}
+				break;
+			case ">":
+				if (other.integerVersion >= this.minVersion.integerVersion) {
+					this.minVersion = other;
+				}
+				break;
+			default:
+				throw new Error("unreachable");
+		}
 	}
 }

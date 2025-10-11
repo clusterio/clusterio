@@ -1,21 +1,19 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { FieldData } from "rc-field-form/lib/interface";
+
 import {
 	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
-	TablePaginationConfig,
+	TablePaginationConfig, Alert, notification,
 } from "antd";
-import { FieldData } from "rc-field-form/lib/interface";
+
+import {
+	ExportOutlined, FileUnknownOutlined, FileExclamationOutlined, FileSyncOutlined,
+	DownloadOutlined, CloseOutlined, DeleteOutlined, ToolOutlined, PlusOutlined,
+} from "@ant-design/icons";
 
 import type { SorterResult, FilterValue, TableCurrentDataSource } from "antd/es/table/interface";
-import ExportOutlined from "@ant-design/icons/ExportOutlined";
-import FileUnknownOutlined from "@ant-design/icons/FileUnknownOutlined";
-import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
-import FileSyncOutlined from "@ant-design/icons/FileSyncOutlined";
-import CloseOutlined from "@ant-design/icons/CloseOutlined";
-import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
-import ToolOutlined from "@ant-design/icons/ToolOutlined";
-import PlusOutlined from "@ant-design/icons/PlusOutlined";
 
 import * as lib from "@clusterio/lib";
 import ControlContext from "./ControlContext";
@@ -30,9 +28,8 @@ import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 
 const { logger } = lib;
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
-
 
 type ModChange =
 	{
@@ -78,28 +75,38 @@ function SearchModsTable(props: SearchModsTableProps) {
 	const [modResultPageSize, setModResultPageSize] = useState<number>(10);
 	const [modResultCount, setModResultCount] = useState<number>(2);
 	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string, number>>(new Map());
+	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
 
-	const factorioVersion = lib.normaliseApiVersion(props.modPack.factorioVersion);
+	// Get a valid factorio version
+	useEffect(() => {
+		try {
+			setFactorioVersion(lib.normaliseApiVersion(props.modPack.factorioVersion));
+		} catch (err) {
+			setFactorioVersion(null);
+		}
+	}, [props.modPack.factorioVersion]);
 
 	useEffect(() => {
 		let canceled = false;
-		control.send(new lib.ModSearchRequest(
-			searchText,
-			factorioVersion,
-			modResultPage,
-			modResultPageSize,
-			modResultSort,
-			modResultSortOrder,
-		)).then(response => {
-			if (canceled) {
-				return;
-			}
-			// In React < v18 this causes 3 renders and a partial state necessitating the use
-			// of || 0 on modResultSelectedVersion.get() calls. Remove when updating React.
-			setModResults(response.results);
-			setModResultSelectedVersion(new Map(response.results.map(({ name, versions }) => [name, 0])));
-			setModResultCount(response.resultCount);
-		});
+		if (factorioVersion) {
+			control.send(new lib.ModSearchRequest(
+				searchText,
+				factorioVersion,
+				modResultPage,
+				modResultPageSize,
+				modResultSort,
+				modResultSortOrder,
+			)).then(response => {
+				if (canceled) {
+					return;
+				}
+				// In React < v18 this causes 3 renders and a partial state necessitating the use
+				// of || 0 on modResultSelectedVersion.get() calls. Remove when updating React.
+				setModResults(response.results);
+				setModResultSelectedVersion(new Map(response.results.map(({ name, versions }) => [name, 0])));
+				setModResultCount(response.resultCount);
+			});
+		}
 
 		return () => {
 			canceled = true;
@@ -246,6 +253,213 @@ function SearchModsTable(props: SearchModsTableProps) {
 	</>;
 }
 
+type DownloadDependenciesProps = {
+	disabled?: boolean;
+	modPack: lib.ModPack;
+	mods: lib.ModRecord[];
+	onChange: (change: ModChange) => void;
+	builtInModNames: string[];
+}
+function DownloadDependenciesButton(props: DownloadDependenciesProps) {
+	const control = useContext(ControlContext);
+	const [modInfos] = useMods();
+
+	// State for the modal and dependencies
+	const [open, setOpen] = useState(false);
+	const [missing, setMissing] = useState<string[]>([]);
+	const [incompatible, setIncompatible] = useState<string[]>([]);
+	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
+
+	// State for all mods fetched from backend
+	const [error, setError] = useState<Error | null>(null);
+	const [loading, setLoading] = useState<boolean>(false);
+	const [allMods, setAllMods] = useState<lib.ModInfo[]>([]);
+	const [mods, setMods] = useState<lib.ModInfo[]>([]);
+
+	// Get a valid factorio version
+	useEffect(() => {
+		try {
+			setFactorioVersion(lib.normaliseApiVersion(props.modPack.factorioVersion));
+		} catch (err) {
+			setError(new Error(`Invalid factorio version: ${props.modPack.factorioVersion}`));
+			setFactorioVersion(null);
+		}
+	}, [props.modPack.factorioVersion]);
+
+	// Fetch all mods from backend when modal opens or version changes
+	useEffect(() => {
+		if (!open || !factorioVersion) {
+			// Clear if closed or no version
+			setMods([]);
+			setAllMods([]);
+			setMissing([]);
+			setIncompatible([]);
+			return;
+		}
+
+		setLoading(true);
+		setError(null);
+		let canceled = false;
+
+		control.send(
+			lib.ModDependencyResolveRequest.fromModPackEnabled(props.modPack)
+		).then(response => {
+			if (canceled) { return; }
+			setMods(response.dependencies.filter(dep => !modInfos.has(`${dep.name}_${dep.version}`)));
+			setIncompatible(response.incompatible);
+			setAllMods(response.dependencies);
+			setMissing(response.missing);
+			setLoading(false);
+		}).catch(err => {
+			if (canceled) { return; }
+			notifyErrorHandler("Error fetching mods dependencies")(err);
+			setError(err);
+			setMods([]);
+			setAllMods([]);
+			setMissing([]);
+			setIncompatible([]);
+			setLoading(false);
+		});
+
+		// eslint-disable-next-line consistent-return
+		return () => {
+			canceled = true;
+		};
+		// Re-fetch when modal opens or factorio version changes
+	}, [open, factorioVersion, control]);
+
+	// Function to handle download from Mod Portal to Controller
+	function handleControllerDownload() {
+		if (!factorioVersion || !mods) {
+			return;
+		}
+
+		// Add all dependencies to the mod pack
+		for (const mod of allMods) {
+			props.onChange({
+				type: "mods.set",
+				name: mod.name,
+				value: {
+					name: mod.name,
+					version: mod.version,
+					sha1: mod.sha1,
+					enabled: true,
+				},
+			});
+		}
+
+		// Download the missing dependencies
+		control.send(
+			new lib.ModPortalDownloadRequest(
+				mods.map(mod => ({
+					name: mod.name, version: new lib.ModVersionEquality("=", mod.version),
+				})),
+				factorioVersion,
+			)
+		).then(() => {
+			notification.success({
+				message: "Download complete",
+				description: `${mods.length} mods have been downloaded to the controller.`,
+			});
+		}).catch(
+			notifyErrorHandler("Error starting mod download")
+		);
+	};
+
+	return <>
+		<Button
+			disabled={props.disabled}
+			icon={<DownloadOutlined />}
+			onClick={() => { setOpen(true); }}
+		>Download Dependencies</Button>
+		<Modal
+			title="Download Dependencies"
+			open={open}
+			onCancel={() => { setOpen(false); }}
+			width={1000}
+			footer={[
+				<Button key="close" onClick={() => { setOpen(false); }}>
+					Close
+				</Button>,
+				<Button
+					key="start"
+					type="primary"
+					disabled={loading}
+					onClick={() => { setOpen(false); handleControllerDownload(); }}
+				>Start Download</Button>,
+			]}
+		>
+			{/* Display error message if fetching failed */}
+			{error && <Alert
+				message="Error Fetching Mods"
+				description={error.message}
+				type="error"
+				showIcon
+				style={{ marginBottom: 16 }}
+			/>}
+
+			{/* Display warning message if dependencies could not be found */}
+			{!loading && missing.length > 0 && <Alert
+				message="Failed to Find Dependencies:"
+				description={<ul>
+					{missing.map(name => <li>{name}</li>)}
+				</ul>}
+				type="warning"
+				showIcon
+				style={{ marginBottom: 16 }}
+			/>}
+
+			{/* Display warning message if dependencies are incompatible */}
+			{!loading && missing.length > 0 && <Alert
+				message="Incompatible Dependencies Found:"
+				description={<ul>
+					{incompatible.map(name => <li>{name}</li>)}
+				</ul>}
+				type="warning"
+				showIcon
+				style={{ marginBottom: 16 }}
+			/>}
+
+			<Table
+				dataSource={mods}
+				rowKey={record => record.name}
+				loading={loading}
+				pagination={{
+					defaultPageSize: 10,
+					showSizeChanger: true,
+					pageSizeOptions: ["10", "20", "50", "100"],
+					showTotal: (total: number) => `${total} Missing Dependencies`,
+				}}
+				columns={[
+					{
+						title: "Name",
+						dataIndex: "name",
+						key: "name",
+						sorter: true,
+					},
+					{
+						title: "Title",
+						dataIndex: "title",
+						key: "title",
+						sorter: true,
+					},
+					{
+						title: "Author",
+						dataIndex: "author",
+						key: "author",
+						sorter: true,
+					},
+					{
+						title: "Selected Version",
+						dataIndex: "version",
+						key: "version",
+					},
+				]}
+			/>
+		</Modal>
+	</>;
+}
+
 type ModsTableProps = {
 	modPack: lib.ModPack;
 	changes: ModChange[];
@@ -255,8 +469,10 @@ type ModsTableProps = {
 };
 function ModsTable(props: ModsTableProps) {
 	const control = useContext(ControlContext);
-	const [showAddMods, setShowAddMods] = useState(false);
+	const account = useAccount();
 	const [modInfos] = useMods();
+
+	const [showAddMods, setShowAddMods] = useState(false);
 
 	const deletedMods: Map<string, lib.ModRecord> = new Map();
 	const changedMods: Map<string, lib.ModRecord> = new Map();
@@ -323,7 +539,7 @@ function ModsTable(props: ModsTableProps) {
 			throw new Error("Mod record has no info"); // Should be unreachable
 		}
 		if (mod.info.factorioVersion === "0.12") {
-			throw new Error("Factorio version 0.12 not supported by api");
+			throw new Error("Factorio version 0.12 not supported by mod portal");
 		}
 
 		let hasFailure = false;
@@ -420,6 +636,16 @@ function ModsTable(props: ModsTableProps) {
 						}
 					}}
 				>Fix Issues</Button>
+				{account.hasAllPermission("core.mod.search_portal", "core.mod.download_from_portal")
+					&& <DownloadDependenciesButton
+						mods={mods}
+						modPack={props.modPack}
+						onChange={props.onChange}
+						builtInModNames={props.builtInModNames}
+						disabled={!mods.some(
+							m => m.enabled && m.warning && ["wrong_version", "missing_dependency"].includes(m.warning)
+						)}
+					/>}
 				<Button icon={<PlusOutlined />} onClick={() => setShowAddMods(true)}>Add</Button>
 			</Space>}
 		/>
