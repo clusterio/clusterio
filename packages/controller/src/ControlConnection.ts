@@ -614,29 +614,49 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleModDependencyResolveRequest(request: lib.ModDependencyResolveRequest) {
+		const {factorioVersion, checkForUpdates} = request;
 		const searchQueue = [...request.mods];
-		const factorioVersion = request.factorioVersion;
-		const builtInModNames = lib.ModPack.getBuiltinModNames(factorioVersion);
 		const localInfos = [...this._controller.modStore.mods()];
+
+		const _builtInModNames = lib.ModPack.getBuiltinModNames(factorioVersion);
+		const builtInModNames = new Set(_builtInModNames);
+		const skipSearch = new Set(_builtInModNames);
 
 		type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
 		type ModPortalReleaseType = NonNullable<ModPortalModType["releases"]>[number];
 		const dependencyRequirements = new Map<string, lib.ModVersionRange>();
 		const optionalRequirements = new Map<string, lib.ModVersionRange>();
-		const modPortalReleases = new Map<string, ModPortalModType | null>();
 		const candidateReleases = new Map<string, lib.ModInfo>();
 		const incompatible = new Set<string>();
+		const invalid = new Set<string>();
+
+		const _modPortalReleases = new Map<string, ModPortalModType | null>();
+		async function fetchModReleases(modName: string) {
+			let releases = _modPortalReleases.get(modName);
+			if (releases === undefined) {
+				try {
+					releases = await lib.ModStore.fetchModReleases(modName);
+				} catch (error: any) {
+					if (!error.message.includes("404") && !error.message.includes("Not Found")) {
+						logger.error(`Error fetching mod from portal: ${error.message}`);
+						throw new lib.RequestError(`Dependency resolution failed: ${error.message}`);
+					} else {
+						releases = null;
+					}
+				}
+			}
+			_modPortalReleases.set(modName, releases);
+			return releases;
+		}
 
 		while (searchQueue.length > 0) {
 			const mod = searchQueue.shift()!;
-			if (builtInModNames.includes(mod.name)) {
-				continue;
-			} else if (mod.incompatible) {
+			if (mod.incompatible) {
 				incompatible.add(mod.name);
 				continue;
 			}
 
-			// Get the current version range
+			// Get the current version range (optionals are tracked in case they become required)
 			let versionRange = dependencyRequirements.get(mod.name);
 			if (!versionRange) {
 				versionRange = optionalRequirements.get(mod.name) ?? new lib.ModVersionRange();
@@ -653,19 +673,17 @@ export default class ControlConnection extends BaseConnection {
 				versionRange.combineVersion(mod.version);
 				if (!versionRange.valid) {
 					candidateReleases.delete(mod.name);
+					invalid.add(mod.name);
 				}
 			}
 
-			// Do not add dependencies for invalid ranges, optionals, or valid candidates
+			// Do not add dependencies for invalids, optionals, skips, or valid candidates
 			const existingCandidate = candidateReleases.get(mod.name);
-			if (!versionRange.valid || optionalRequirements.has(mod.name) || (
+			if (invalid.has(mod.name) || optionalRequirements.has(mod.name) || skipSearch.has(mod.name) || (
 				existingCandidate && versionRange.testVersion(existingCandidate.version)
 			)) {
 				continue;
 			}
-
-			// Delete the existing candidate as it is no longer valid
-			candidateReleases.delete(mod.name);
 
 			// Check if a local version fits the requirements
 			let candidate = localInfos
@@ -675,22 +693,8 @@ export default class ControlConnection extends BaseConnection {
 				), undefined);
 
 			// Check if a mod poral version fits the requirements
-			if (!candidate) {
-				// Check if we need to fetch the release info from the mod portal
-				let modReleases = modPortalReleases.get(mod.name);
-				if (modReleases === undefined) {
-					try {
-						modReleases = await lib.ModStore.fetchModReleases(mod.name);
-					} catch (error: any) {
-						if (!error.message.includes("404") && !error.message.includes("Not Found")) {
-							logger.error(`Error fetching mod from portal: ${error.message}`);
-							throw new lib.RequestError(`Dependency resolution failed: ${error.message}`);
-						}
-					}
-				}
-
-				// If the mod has releases then check for a candidate
-				modPortalReleases.set(mod.name, modReleases ?? null);
+			if (!candidate || checkForUpdates) {
+				const modReleases = await fetchModReleases(mod.name);
 				if (modReleases && modReleases.releases) {
 					const release = modReleases.releases
 						.filter(info => (
@@ -701,14 +705,17 @@ export default class ControlConnection extends BaseConnection {
 							max && lib.integerFullVersion(max.version) > lib.integerFullVersion(cur.version) ? max : cur
 						), undefined);
 
-					candidate = release && lib.ModInfo.fromJSON({
-						...release.info_json, // Also includes dependences
-						sha1: release.sha1,
-						version: release.version,
-						name: modReleases.name,
-						author: modReleases.owner,
-						title: modReleases.title,
-					});
+					// We only select the mod portal release if it is more recent than the local candidate
+					if (release && (!candidate || lib.integerFullVersion(release.version) > candidate.integerVersion)) {
+						candidate = lib.ModInfo.fromJSON({
+							...release.info_json, // Also includes dependences
+							sha1: release.sha1,
+							version: release.version,
+							name: modReleases.name,
+							author: modReleases.owner,
+							title: modReleases.title,
+						});
+					}
 				}
 			}
 
@@ -719,14 +726,19 @@ export default class ControlConnection extends BaseConnection {
 					searchQueue.push(dep);
 				}
 			} else {
-				versionRange.invalidate();
+				candidateReleases.delete(mod.name);
+				skipSearch.add(mod.name);
 			}
 		}
 
 		return new lib.ModDependencyResolveRequest.Response(
 			[...candidateReleases.values()],
-			[...incompatible.values()].filter(mod => candidateReleases.has(mod)),
-			[...dependencyRequirements.keys()].filter(mod => !candidateReleases.has(mod)),
+			[...invalid.values(), ...[...incompatible.values()].filter(mod => (
+				candidateReleases.has(mod) || builtInModNames.has(mod)
+			))],
+			[...dependencyRequirements.keys()].filter(mod => (
+				!candidateReleases.has(mod) && !incompatible.has(mod) && !invalid.has(mod)
+			)),
 		);
 	}
 

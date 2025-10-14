@@ -72,14 +72,16 @@ describe("messages/mod", function() {
 					[new ModDependency("? foo"), new ModDependency("bar > 2.0.5")],
 				],
 				factorioVersions, // factorioVersion
+				[undefined, true, false],
 			);
 			it("should be round trip json serialisable", function() {
 				testRoundTripJsonSerialisable(ModDependencyResolveRequest, tests);
 			});
 			it("should be construable", function() {
-				for (const [mods, factorioVersion] of tests) {
-					const request = new ModDependencyResolveRequest(mods, factorioVersion);
+				for (const [mods, factorioVersion, checkForUpdates] of tests) {
+					const request = new ModDependencyResolveRequest(mods, factorioVersion, checkForUpdates);
 					assert.equal(request.factorioVersion, factorioVersion);
+					assert.equal(request.checkForUpdates, checkForUpdates ?? false);
 					assert.equal(request.mods, mods);
 				}
 			});
@@ -114,6 +116,41 @@ describe("messages/mod", function() {
 						request.mods.length, [...modPack.mods.values()].filter(m => m.enabled).length, factorioVersion);
 					assert.deepEqual(
 						request.mods.find(m => m.name === "foo"), new ModDependency("foo = 1.0.0"), factorioVersion);
+					assert.deepEqual(
+						request.mods.find(m => m.name === "bar"), undefined, factorioVersion);
+				}
+			});
+			it("should be constructed from a ModPack (check for updates)", function() {
+				for (const factorioVersion of factorioVersions) {
+					const mods = [
+						{ name: "foo", version: "1.0.0", enabled: true },
+						{ name: "bar", version: "2.0.0", enabled: false },
+					];
+					const modPack = lib.ModPack.fromJSON({ mods: mods, factorio_version: factorioVersion });
+					const request = ModDependencyResolveRequest.fromModPack(modPack, true);
+
+					assert.equal(request.factorioVersion, factorioVersion, factorioVersion);
+					assert.equal(request.mods.length, modPack.mods.size, factorioVersion);
+					assert.deepEqual(
+						request.mods.find(m => m.name === "foo"), new ModDependency("foo >= 1.0.0"), factorioVersion);
+					assert.deepEqual(
+						request.mods.find(m => m.name === "bar"), new ModDependency("bar >= 2.0.0"), factorioVersion);
+				}
+			});
+			it("should be constructed from a ModPack (enabled only) (check for updates)", function() {
+				for (const factorioVersion of factorioVersions) {
+					const mods = [
+						{ name: "foo", version: "1.0.0", enabled: true },
+						{ name: "bar", version: "2.0.0", enabled: false },
+					];
+					const modPack = lib.ModPack.fromJSON({ mods: mods, factorio_version: factorioVersion });
+					const request = ModDependencyResolveRequest.fromModPackEnabled(modPack, true);
+
+					assert.equal(request.factorioVersion, factorioVersion);
+					assert.equal(
+						request.mods.length, [...modPack.mods.values()].filter(m => m.enabled).length, factorioVersion);
+					assert.deepEqual(
+						request.mods.find(m => m.name === "foo"), new ModDependency("foo >= 1.0.0"), factorioVersion);
 					assert.deepEqual(
 						request.mods.find(m => m.name === "bar"), undefined, factorioVersion);
 				}
@@ -167,7 +204,7 @@ describe("messages/mod", function() {
 						)
 					);
 
-					assert.deepEqual(result.missing, []);
+					assert.deepEqual(result.missing, ["base"]);
 					assert.deepEqual(result.incompatible, []);
 
 					const expectedIds = [
@@ -191,7 +228,7 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["bar"]);
+					assert.deepEqual(result.missing, ["base", "bar"]);
 					assert.deepEqual(result.incompatible, []);
 
 					assert.equal(result.dependencies.length, 1);
@@ -206,7 +243,7 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["foo"]);
+					assert.deepEqual(result.missing, ["base", "foo"]);
 					assert.deepEqual(result.incompatible, []);
 
 					assert.equal(result.dependencies.length, 1);
@@ -223,10 +260,53 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, []);
+					assert.deepEqual(result.missing, ["base"]);
 					assert.deepEqual(result.incompatible, ["foo-dep"]);
 
 					const expectedIds = ["root_1.0.0", "foo_1.0.0", "foo-dep_1.0.0"];
+
+					const depIds = new Set(result.dependencies.map(mod => mod.id));
+					assert.equal(depIds.size, expectedIds.length);
+					for (const modId of expectedIds) {
+						assert(depIds.has(modId), `Missing ${modId}`);
+					}
+				}
+			});
+			it("highlights dependencies with conflicting versions", async function() {
+				for (const factorioVersion of factorioVersions) {
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo", "bar"]);
+					setPortalModRelease("foo", "1.0.0", factorioVersion, ["dep > 2.0.0"]);
+					setPortalModRelease("bar", "1.0.0", factorioVersion, ["dep < 1.5.0"]);
+
+					const result = await controlConnection.handleModDependencyResolveRequest(
+						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
+					);
+
+					assert.deepEqual(result.missing, ["base"]);
+					assert.deepEqual(result.incompatible, ["dep"]);
+
+					const expectedIds = ["root_1.0.0", "foo_1.0.0", "bar_1.0.0"];
+
+					const depIds = new Set(result.dependencies.map(mod => mod.id));
+					assert.equal(depIds.size, expectedIds.length);
+					for (const modId of expectedIds) {
+						assert(depIds.has(modId), `Missing ${modId}`);
+					}
+				}
+			});
+			it("highlights incompatible builtin mods", async function() {
+				for (const factorioVersion of factorioVersions) {
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo"]);
+					setPortalModRelease("foo", "1.0.0", factorioVersion, ["! base"]);
+
+					const result = await controlConnection.handleModDependencyResolveRequest(
+						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
+					);
+
+					assert.deepEqual(result.missing, []);
+					assert.deepEqual(result.incompatible, ["base"]);
+
+					const expectedIds = ["root_1.0.0", "foo_1.0.0"];
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
 					assert.equal(depIds.size, expectedIds.length);
@@ -245,7 +325,7 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, []);
+					assert.deepEqual(result.missing, ["base"]);
 					assert.deepEqual(result.incompatible, []);
 
 					const expectedIds = ["root_1.0.0", "foo_1.0.0", "baz_1.0.0"];
@@ -257,7 +337,7 @@ describe("messages/mod", function() {
 					}
 				}
 			});
-			it("prefers the locally installed version when suitable", async function() {
+			it("prefers the locally installed version if matching", async function() {
 				controller.modStore.addMod(lib.ModInfo.fromJSON({ name: "foo", version: "1.0.0" }));
 				for (const factorioVersion of factorioVersions) {
 					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo"]);
@@ -267,7 +347,7 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, []);
+					assert.deepEqual(result.missing, ["base"]);
 					assert.deepEqual(result.incompatible, []);
 
 					const expectedIds = ["root_1.0.0", "foo_1.0.0"];
@@ -279,7 +359,29 @@ describe("messages/mod", function() {
 					}
 				}
 			});
-			it("prefers the latest mod portal version when suitable", async function() {
+			it("prefers the mod portal version when checking for updates", async function() {
+				controller.modStore.addMod(lib.ModInfo.fromJSON({ name: "foo", version: "1.0.0" }));
+				for (const factorioVersion of factorioVersions) {
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo"]);
+					setPortalModRelease("foo", "2.0.0", factorioVersion, []);
+
+					const result = await controlConnection.handleModDependencyResolveRequest(
+						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion, true)
+					);
+
+					assert.deepEqual(result.missing, ["base"]);
+					assert.deepEqual(result.incompatible, []);
+
+					const expectedIds = ["root_1.0.0", "foo_2.0.0"];
+
+					const depIds = new Set(result.dependencies.map(mod => mod.id));
+					assert.equal(depIds.size, expectedIds.length);
+					for (const modId of expectedIds) {
+						assert(depIds.has(modId), `Missing ${modId}`);
+					}
+				}
+			});
+			it("prefers the latest mod portal version when using the mod portal", async function() {
 				for (const factorioVersion of factorioVersions) {
 					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo", "bar < 2.0.0"]);
 
@@ -307,7 +409,7 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, []);
+					assert.deepEqual(result.missing, ["base"]);
 					assert.deepEqual(result.incompatible, []);
 
 					const expectedIds = ["root_1.0.0", "foo_2.0.0", "bar_1.5.0"];
@@ -338,8 +440,8 @@ describe("messages/mod", function() {
 					new lib.ModDependencyResolveRequest([new ModDependency("pymodpack = 3.0.0")], "2.0")
 				);
 
-				assert.deepEqual(result.missing, []);
-				assert.deepEqual(result.incompatible, []);
+				assert.deepEqual(result.missing, ["base"]);
+				assert.deepEqual(result.incompatible, ["space-age"]);
 
 				const expectedNames = [ // Can't use ids as the versions may change
 					"pymodpack", "pypostprocessing", "pyalternativeenergy", "pyalternativeenergygraphics",

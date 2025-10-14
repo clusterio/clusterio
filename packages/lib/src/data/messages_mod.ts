@@ -419,31 +419,37 @@ export class ModDependencyResolveRequest {
 	constructor(
 		public mods: ModDependency[],
 		public factorioVersion: ApiVersion,
+		public checkForUpdates: boolean = false,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"mods": Type.Array(ModDependency.jsonSchema),
 		"factorioVersion": ApiVersionSchema,
+		"checkForUpdates": Type.Boolean(),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.mods.map(spec => new ModDependency(spec)), json.factorioVersion);
+		return new this(json.mods.map(spec => new ModDependency(spec)), json.factorioVersion, json.checkForUpdates);
 	}
 
-	static fromModPack(modPack: ModPack) {
+	static fromModPack(modPack: ModPack, checkForUpdates?: boolean) {
+		const equality = checkForUpdates ? ">=" : "=";
 		return new this(
 			[...modPack.mods.values()]
-				.map(mod => new ModDependency(`${mod.name} = ${mod.version}`)),
+				.map(mod => new ModDependency(`${mod.name} ${equality} ${mod.version}`)),
 			normaliseApiVersion(modPack.factorioVersion),
+			checkForUpdates,
 		);
 	}
 
-	static fromModPackEnabled(modPack: ModPack) {
+	static fromModPackEnabled(modPack: ModPack, checkForUpdates?: boolean) {
+		const equality = checkForUpdates ? ">=" : "=";
 		return new this(
 			[...modPack.mods.values()]
 				.filter(mod => mod.enabled)
-				.map(mod => new ModDependency(`${mod.name} = ${mod.version}`)),
+				.map(mod => new ModDependency(`${mod.name} ${equality} ${mod.version}`)),
 			normaliseApiVersion(modPack.factorioVersion),
+			checkForUpdates,
 		);
 	}
 

@@ -10,7 +10,7 @@ import {
 
 import {
 	ExportOutlined, FileUnknownOutlined, FileExclamationOutlined, FileSyncOutlined,
-	DownloadOutlined, CloseOutlined, DeleteOutlined, ToolOutlined, PlusOutlined,
+	CloseOutlined, DeleteOutlined, ToolOutlined, PlusOutlined, CloudSyncOutlined, CloudDownloadOutlined,
 } from "@ant-design/icons";
 
 import type { SorterResult, FilterValue, TableCurrentDataSource } from "antd/es/table/interface";
@@ -255,6 +255,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 
 type DownloadDependenciesProps = {
 	disabled?: boolean;
+	checkForUpdates?: boolean;
 	modPack: lib.ModPack;
 	mods: lib.ModRecord[];
 	onChange: (change: ModChange) => void;
@@ -267,6 +268,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	// State for the modal and dependencies
 	const [open, setOpen] = useState(false);
 	const [missing, setMissing] = useState<string[]>([]);
+	const [builtins, setBuiltins] = useState<string[]>([]);
 	const [incompatible, setIncompatible] = useState<string[]>([]);
 	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
 
@@ -293,6 +295,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			setMods([]);
 			setAllMods([]);
 			setMissing([]);
+			setBuiltins([]);
 			setIncompatible([]);
 			return;
 		}
@@ -302,13 +305,14 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 		let canceled = false;
 
 		control.send(
-			lib.ModDependencyResolveRequest.fromModPackEnabled(props.modPack)
+			lib.ModDependencyResolveRequest.fromModPackEnabled(props.modPack, props.checkForUpdates)
 		).then(response => {
 			if (canceled) { return; }
 			setMods(response.dependencies.filter(dep => !modInfos.has(`${dep.name}_${dep.version}`)));
 			setIncompatible(response.incompatible);
 			setAllMods(response.dependencies);
-			setMissing(response.missing);
+			setMissing(response.missing.filter(name => !props.builtInModNames.includes(name)));
+			setBuiltins(response.missing.filter(name => props.builtInModNames.includes(name)));
 			setLoading(false);
 		}).catch(err => {
 			if (canceled) { return; }
@@ -317,6 +321,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			setMods([]);
 			setAllMods([]);
 			setMissing([]);
+			setBuiltins([]);
 			setIncompatible([]);
 			setLoading(false);
 		});
@@ -332,6 +337,27 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	function handleControllerDownload() {
 		if (!factorioVersion || !mods) {
 			return;
+		}
+
+		// Enable any required builtins
+		for (const name of builtins) {
+			props.onChange({
+				type: "mods.set",
+				name: name,
+				value: { ...props.modPack.mods.get(name)!, enabled: true },
+			});
+		}
+
+		// Disable any incompatible mods present
+		for (const name of incompatible) {
+			const modRecord = props.modPack.mods.get(name);
+			if (modRecord) {
+				props.onChange({
+					type: "mods.set",
+					name: name,
+					value: { ...modRecord, enabled: false },
+				});
+			}
 		}
 
 		// Add all dependencies to the mod pack
@@ -367,13 +393,17 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	};
 
 	return <>
-		<Button
+		{props.checkForUpdates && <Button
 			disabled={props.disabled}
-			icon={<DownloadOutlined />}
+			icon={<CloudSyncOutlined />}
 			onClick={() => { setOpen(true); }}
-		>Download Dependencies</Button>
+		>Check for Updates</Button> || <Button
+			disabled={props.disabled}
+			icon={<CloudDownloadOutlined />}
+			onClick={() => { setOpen(true); }}
+		>Download Dependencies</Button>}
 		<Modal
-			title="Download Dependencies"
+			title={props.checkForUpdates ? "Download Updates" : "Download Dependencies"}
 			open={open}
 			onCancel={() => { setOpen(false); }}
 			width={1000}
@@ -384,7 +414,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 				<Button
 					key="start"
 					type="primary"
-					disabled={loading}
+					disabled={loading || mods.length === 0}
 					onClick={() => { setOpen(false); handleControllerDownload(); }}
 				>Start Download</Button>,
 			]}
@@ -428,7 +458,9 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 					defaultPageSize: 10,
 					showSizeChanger: true,
 					pageSizeOptions: ["10", "20", "50", "100"],
-					showTotal: (total: number) => `${total} Missing Dependencies`,
+					showTotal: (total: number) => (
+						props.checkForUpdates ? `${total} Updates` : `${total} Missing Dependencies`
+					),
 				}}
 				columns={[
 					{
@@ -468,7 +500,6 @@ type ModsTableProps = {
 	builtInModNames: string[];
 };
 function ModsTable(props: ModsTableProps) {
-	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [modInfos] = useMods();
 
@@ -544,6 +575,7 @@ function ModsTable(props: ModsTableProps) {
 
 		let hasFailure = false;
 		const enabledMods = mods.filter(m => m.enabled);
+		const modInfoArray = [...modInfos.values()];
 		for (const dependency of mod.info.dependencies) {
 			const reason = dependency.checkUnsatisfiedReason(enabledMods);
 			if (reason === undefined) {
@@ -560,28 +592,38 @@ function ModsTable(props: ModsTableProps) {
 				continue;
 			}
 
-			// Find a suitable version to add, priorities the latest version due to sorting on server side
-			const results = await control.send(new lib.ModSearchRequest(dependency.name, mod.info.factorioVersion, 1));
-			const candidate = results.results.find(r => r.name === dependency.name);
+			if (props.builtInModNames.includes(dependency.name)) {
+				// If builtin mod then enable it
+				props.onChange({
+					type: "mods.set",
+					name: dependency.name,
+					value: { ...props.modPack.mods.get(dependency.name)!, enabled: true },
+				});
+				continue;
+			}
+
+			// Find a suitable version to add
+			const candidate = modInfoArray
+				.filter(info => (info.name === dependency.name && info.factorioVersion === mod.info!.factorioVersion
+					&& (!dependency.version || dependency.version.testVersion(info.version))
+				))
+				.reduce<lib.ModInfo | undefined>((max, cur) => (
+					max && max.integerVersion > cur.integerVersion ? max : cur
+				), undefined);
+
 			if (candidate) {
-				let candidateVersion: lib.ModInfo | undefined = candidate.versions[0];
-				if (dependency.version) {
-					candidateVersion = candidate.versions.find(c => dependency.version!.testVersion(c.version));
-				}
-				if (candidateVersion) {
-					props.onChange({
-						type: "mods.set",
-						name: candidateVersion.name,
-						value: {
-							name: candidateVersion.name,
-							version: candidateVersion.version,
-							sha1: candidateVersion.sha1,
-							enabled: true,
-						},
-					});
-				} else {
-					hasFailure = true;
-				}
+				props.onChange({
+					type: "mods.set",
+					name: candidate.name,
+					value: {
+						name: candidate.name,
+						version: candidate.version,
+						sha1: candidate.sha1,
+						enabled: true,
+					},
+				});
+			} else {
+				hasFailure = true;
 			}
 		}
 
@@ -643,8 +685,17 @@ function ModsTable(props: ModsTableProps) {
 						onChange={props.onChange}
 						builtInModNames={props.builtInModNames}
 						disabled={!mods.some(
-							m => m.enabled && m.warning && ["wrong_version", "missing_dependency"].includes(m.warning)
+							m => m.enabled
+							&& (m.error || m.warning && ["wrong_version", "missing_dependency"].includes(m.warning))
 						)}
+					/>}
+				{account.hasAllPermission("core.mod.search_portal", "core.mod.download_from_portal")
+					&& <DownloadDependenciesButton
+						mods={mods}
+						modPack={props.modPack}
+						onChange={props.onChange}
+						builtInModNames={props.builtInModNames}
+						checkForUpdates
 					/>}
 				<Button icon={<PlusOutlined />} onClick={() => setShowAddMods(true)}>Add</Button>
 			</Space>}
