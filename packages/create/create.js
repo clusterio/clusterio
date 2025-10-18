@@ -689,6 +689,7 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (["standalone", "controller", "host"].includes(answers.mode)) {
+		if (args.hasOwnProperty("remoteNpm")) { answers.remoteNpm = args.remoteNpm; }
 		answers = await inquirer.prompt([
 			{
 				type: "confirm",
