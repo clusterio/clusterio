@@ -3,7 +3,7 @@
 	"description": "Installer for clusterio",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.21",
+	"version": "2.0.0-alpha.21b",
 	"main": "create.js",
 	"bin": {
 		"clusteriocreate": "./create.js"
