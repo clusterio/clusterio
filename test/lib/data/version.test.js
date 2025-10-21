@@ -138,6 +138,12 @@ describe("lib/data/version", function() {
 					assert.equal(version.integerVersion, lib.integerPartialVersion(ver), test);
 				}
 			});
+			it("should throw when given an invalid equality", function() {
+				assert.throws(() => new lib.ModVersionEquality("==", "1.0.0"));
+			});
+			it("should throw when given an invalid version", function() {
+				assert.throws(() => new lib.ModVersionEquality("=", "1.0.0.0"));
+			});
 		});
 		describe("testIntegerVersion()", function() {
 			it("should test for less than", function() {
@@ -169,6 +175,11 @@ describe("lib/data/version", function() {
 				assert.equal(version.testIntegerVersion(90), false);
 				assert.equal(version.testIntegerVersion(100), false);
 				assert.equal(version.testIntegerVersion(110), true);
+			});
+			it("should throw if the equality is invalid (unreachable)", function() {
+				const version = new lib.ModVersionEquality(">", "0.0.100");
+				version.equality = "==";
+				assert.throws(() => version.testIntegerVersion(100));
 			});
 		});
 		describe("testVersion()", function() {
@@ -211,6 +222,11 @@ describe("lib/data/version", function() {
 				assert.equal(version.testVersion("1.1.1"), false);
 				assert.equal(version.testVersion("1.1.2"), true);
 				assert.equal(version.testVersion("1.2"), true);
+			});
+			it("should throw if the equality is invalid (unreachable)", function() {
+				const version = new lib.ModVersionEquality(">", "1.1.1");
+				version.equality = "==";
+				assert.throws(() => version.testInteger("1.0.0"));
 			});
 		});
 		describe("toString()", function() {

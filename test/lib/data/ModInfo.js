@@ -56,6 +56,9 @@ describe("lib/data/ModInfo", function() {
 				assert.throws(() => new ModDependency("my-mod 1.2.3"));
 				assert.throws(() => new ModDependency("? my-mod 1.2.3"));
 			});
+			it("should throw if invalid specification given", function() {
+				assert.throws(() => new ModDependency("? ? my-mod = 1.2.3"));
+			});
 			it("should throw if name contains spaces", function() {
 				// Apparently there are some legacy mods which include spaces
 				// Such as https://mods.factorio.com/mod/Explosive%20Excavation

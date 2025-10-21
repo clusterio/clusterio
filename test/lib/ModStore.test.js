@@ -344,6 +344,27 @@ describe("lib/ModStore", function () {
 			assert(await fs.pathExists(path.join(MODS_DIR, "multi-mod-a_1.0.0.zip")));
 			assert(await fs.pathExists(path.join(MODS_DIR, "multi-mod-b_2.0.0.zip")));
 		});
+		it("should throw when no releases available", async function () {
+			const modsToDownload = [{ name: "download-mod-1", version: ModVersionEquality.fromString("1.1.0") }];
+
+			// Define fetch mock specific to this test
+			global.fetch = async (url, options) => {
+				const urlString = url.toString();
+				if (urlString.startsWith("https://mods.factorio.com/api/mods") && options?.method === "POST") {
+					const body = options.body;
+					let requestedModNames = [];
+					if (body instanceof URLSearchParams) {
+						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
+					}
+					const results = requestedModNames.map(name => ({ name: name }));
+					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
+				}
+				// Fallback for unhandled fetches in this test
+				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
+			};
+
+			await assert.rejects(modStore.downloadMods(modsToDownload, username, token, factorioVersion));
+		});
 
 		it("should skip built-in mods", async function () {
 			const modsToDownload = [

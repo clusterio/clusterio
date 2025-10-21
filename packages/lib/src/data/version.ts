@@ -1,4 +1,3 @@
-/* eslint-disable no-template-curly-in-string */
 // Helper functions for dealing with factorio version numbers
 
 import { Static, Type } from "@sinclair/typebox";
@@ -112,6 +111,12 @@ export class ModVersionEquality {
 		public version: PartialVersion,
 	) {
 		this.integerVersion = integerPartialVersion(version);
+		if (!isVersionEquality(this.equality)) {
+			throw new Error("Invalid equality");
+		}
+		if (!isPartialVersion(this.version)) {
+			throw new Error("Invalid version");
+		}
 	}
 
 	testIntegerVersion(other: IntegerVersion) {
