@@ -501,6 +501,15 @@ describe("lib/data/version", function() {
 				range.combineVersion(new lib.ModVersionEquality(">", "2.5"));
 				assert.equal(range.valid, false);
 			});
+			it("should throw if the equality is invalid (unreachable)", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("<", "2.0.0"),
+				);
+				const version = new lib.ModVersionEquality(">", "1.2");
+				version.equality = "==";
+				assert.throws(() => range.combineVersion(version));
+			});
 		});
 	});
 });
