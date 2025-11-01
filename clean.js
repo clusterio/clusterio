@@ -86,8 +86,8 @@ async function removeExecutionArtifacts() {
 async function main() {
 	await yargs(process.argv.slice(2))
 		.scriptName("clean")
-		.usage("$0 <command> [options]")
-		.option("dry", {
+		.option("dry-run", {
+			alias: "dry",
 			nargs: 0,
 			describe: "Will not delete any files",
 			default: false,
@@ -108,7 +108,7 @@ async function main() {
 			DRY = argv.dry;
 			removeBuildArtifacts();
 		})
-		.demandCommand(1, "You need to specify a command to run")
+		.demandCommand(1, "A command must be specified")
 		.strict()
 		.parse();
 }

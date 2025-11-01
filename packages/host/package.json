@@ -7,6 +7,7 @@
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
+		"build-mod": "node ../lib/build_mod.js --source-dir ./lua/clusterio_lib",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
