@@ -34,8 +34,7 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 			let errMsg = `Plugin path ${pluginPath} does not exist`;
 			try {
 				await fs.access(pluginPath, fs.constants.F_OK);
-				const indexPath = path.join(pluginPath, "index.js");
-				errMsg = `Plugin path ${indexPath} does not exist`;
+				errMsg = `Plugin path ${pluginPath} missing index or main file`;
 			} catch {}
 			logger.error(`${errMsg}, not loading ${pluginName}`);
 			pluginList.delete(pluginName);
