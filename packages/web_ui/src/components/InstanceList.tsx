@@ -1,12 +1,14 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { message, Button, Table } from "antd";
+import { message, Button, Table, Space } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
 import type { ColumnsType } from "antd/es/table";
 
 import { useAccount } from "../model/account";
+import { useSystems } from "../model/system";
 import { useHosts } from "../model/host";
+import { RestartRequired } from "./system_metrics";
 import InstanceStatusTag from "./InstanceStatusTag";
 import InstanceControlButton, { InstanceControlButtonPermissions } from "./InstanceControlButton";
 import * as lib from "@clusterio/lib";
@@ -25,6 +27,7 @@ export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
 	let navigate = useNavigate();
 	let [hosts] = useHosts();
+	const [systems] = useSystems();
 
 	function hostName(hostId?: number) {
 		if (hostId === undefined) {
@@ -50,12 +53,15 @@ export default function InstanceList(props: InstanceListProps) {
 		{
 			title: "Assigned Host",
 			key: "assignedHost",
-			render: (_, instance) => <Link
-				to={`/hosts/${instance.assignedHost}/view`}
-				onClick={e => e.stopPropagation()}
-			>
-				{hostName(instance.assignedHost)}
-			</Link>,
+			render: (_, instance) => <Space>
+				<Link
+					to={`/hosts/${instance.assignedHost}/view`}
+					onClick={e => e.stopPropagation()}
+				>
+					{hostName(instance.assignedHost)}
+				</Link>
+				<RestartRequired system={instance.assignedHost ? systems.get(instance.assignedHost) : undefined}/>
+			</Space>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
 			responsive: ["sm"],
 		},

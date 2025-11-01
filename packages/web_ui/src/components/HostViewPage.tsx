@@ -37,9 +37,10 @@ function HostControlButton({ hostId, canRestart, restartRequired }: HostControlB
 		actions.push({
 			key: "restart",
 			label: (
-				<Tooltip title={restartRequired ? "Restart Required" : null}>
-					Restart {restartRequired ? <ExclamationCircleOutlined style={{ color: "yellow" }}/> : undefined}
-				</Tooltip>
+				!restartRequired ? "Restart" : <Tooltip title={"Restart Required"}><Space>
+					<ExclamationCircleOutlined style={{ color: "yellow" }}/>
+					Restart
+				</Space></Tooltip>
 			),
 			onClick: () => {
 				control.sendTo(

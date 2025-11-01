@@ -549,19 +549,8 @@ export default class Controller {
 				}
 				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
-			if (!this.config.restartRequired) {
-				// If a restart isn't already required, then test if a new version is installed
-				try {
-					const runningVersion = this.config.get("controller.version");
-					const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
-					if (runningVersion !== packageJson.version) {
-						this.config.restartRequired = true;
-					}
-				} catch (err: any) {
-					logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
-				}
-			}
-			requests.push(lib.gatherSystemInfo("controller", this.canRestart, this.config.restartRequired));
+			const restartRequired = await this.checkRestartRequired();
+			requests.push(lib.gatherSystemInfo("controller", this.canRestart, restartRequired));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
 				this.systems.set(metric);
@@ -569,6 +558,44 @@ export default class Controller {
 		} catch (err: any) {
 			logger.error(`Unexpected error updating system infos:\n${err.stack ?? err.message}`);
 		}
+	}
+
+	async checkRestartRequired() {
+		if (this.config.restartRequired) {
+			return true;
+		}
+
+		let packageName = "@clusterio/controller";
+		try {
+			// First check the clusterio version
+			const runningVersion = this.config.get("controller.version");
+			const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
+			if (runningVersion !== packageJson.version) {
+				this.config.restartRequired = true;
+				return true;
+			}
+
+			// Second check plugin versions
+			for (const pluginInfo of this.pluginInfos) {
+				if (
+					!pluginInfo.controllerEntrypoint && !pluginInfo.webEntrypoint
+					|| !this.config.get(`${pluginInfo.name}.load_plugin`)
+				) {
+					continue;
+				}
+
+				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
+				const pluginPackageJson = await fs.readJSON(path.join(pluginInfo.requirePath, "package.json"));
+				if (pluginInfo.version !== pluginPackageJson.version) {
+					this.config.restartRequired = true;
+					return true;
+				}
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+		}
+
+		return false;
 	}
 
 	onAutosaveIntervalChanged() {
@@ -1127,7 +1154,7 @@ export default class Controller {
 				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
 			}
 
-			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields)) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin`)) {
 				continue;
 			}
 
