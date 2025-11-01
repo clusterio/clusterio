@@ -89,7 +89,7 @@ async function publishMods(dir) {
 		const [file, name] = mod;
 		const releases = await requestModReleases(name);
 		if (!releases.some(release => release.file_name === file)) {
-			toUpload.push(uploadModRelease(file, name));
+			uploading.push(uploadModRelease(file, name));
 		} else {
 			// eslint-disable-next-line no-console
 			console.log(`Skipped ${file}`);
