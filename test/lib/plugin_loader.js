@@ -5,7 +5,6 @@ const path = require("path");
 
 const lib = require("@clusterio/lib");
 const { BaseControllerPlugin } = require("@clusterio/controller");
-const { escapeRegExp } = lib;
 
 
 describe("lib/plugin_loader", function() {
@@ -34,7 +33,10 @@ describe("lib/plugin_loader", function() {
 		});
 
 		it("should ignore missing plugins", async function() {
-			const result = await lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []);
+			const result = await lib.loadPluginInfos(new Map([
+				["missing", path.resolve(missingPlugin)],
+				["no_index", path.resolve(baseDir)],
+			]), []);
 			assert.deepEqual(result, []);
 		});
 		it("should load test plugin", async function() {
@@ -46,7 +48,6 @@ describe("lib/plugin_loader", function() {
 		it("should reject on broken plugin", async function() {
 			let brokenMessage;
 			try {
-
 				require(path.resolve(brokenPlugin));
 			} catch (err) {
 				brokenMessage = err.message;

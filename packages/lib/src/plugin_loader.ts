@@ -4,6 +4,7 @@
  * @module lib/plugin_loader
  */
 import path from "path";
+import fs from "fs/promises";
 import * as libErrors from "./errors";
 import * as libPlugin from "./plugin";
 import { logger } from "./logging";
@@ -29,8 +30,13 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		// Check if plugin path exists, otherwise remove it
 		try {
 			require.resolve(pluginPath);
-		} catch (err) {
-			logger.error(`Plugin path ${pluginPath} does not exist, not loading ${pluginName}`);
+		} catch {
+			let errMsg = `Plugin path ${pluginPath} does not exist`;
+			try {
+				await fs.access(pluginPath, fs.constants.F_OK);
+				errMsg = `Plugin path ${pluginPath} missing index or main file`;
+			} catch {}
+			logger.error(`${errMsg}, not loading ${pluginName}`);
 			pluginList.delete(pluginName);
 			continue;
 		}
