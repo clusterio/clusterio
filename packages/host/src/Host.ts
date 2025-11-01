@@ -814,6 +814,7 @@ export default class Host extends lib.Link {
 			return true;
 		}
 
+		let packageName = "@clusterio/host";
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("host.version");
@@ -832,6 +833,7 @@ export default class Host extends lib.Link {
 					continue;
 				}
 
+				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
 				const pluginPackageJson = await fs.readJSON(path.join(pluginInfo.requirePath, "package.json"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
@@ -839,7 +841,7 @@ export default class Host extends lib.Link {
 				}
 			}
 		} catch (err: any) {
-			logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
+			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
 		}
 
 		return false;

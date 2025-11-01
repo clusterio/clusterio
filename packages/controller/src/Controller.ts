@@ -565,6 +565,7 @@ export default class Controller {
 			return true;
 		}
 
+		let packageName = "@clusterio/controller";
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("controller.version");
@@ -583,6 +584,7 @@ export default class Controller {
 					continue;
 				}
 
+				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
 				const pluginPackageJson = await fs.readJSON(path.join(pluginInfo.requirePath, "package.json"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
@@ -590,7 +592,7 @@ export default class Controller {
 				}
 			}
 		} catch (err: any) {
-			logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
+			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
 		}
 
 		return false;
