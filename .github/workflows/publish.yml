@@ -20,7 +20,7 @@ jobs:
           node-version: 22.x
           registry-url: https://registry.npmjs.org
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm -r --filter='./{plugins,packages}/*' publish
+      - run: pnpm -r --filter='./{plugins,packages}/*' publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: $${{ secrets.NPM_TOKEN }}
       - uses: softprops/action-gh-release@v2
