@@ -570,7 +570,8 @@ export default class Controller {
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("controller.version");
-			const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
+			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJson = await fs.readJSON(packageJsonPath);
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
 				return true;
@@ -586,7 +587,8 @@ export default class Controller {
 				}
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
-				const pluginPackageJson = await fs.readJSON(path.join(pluginInfo.requirePath, "package.json"));
+				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
+				const pluginPackageJson = await fs.readJSON(pluginPackageJsonPath);
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;
