@@ -187,7 +187,7 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 				{
 					formAction !== undefined
 					&& account.hasPermission(`core.${props.target === "controller" ? "controller" : "host"}.restart`)
-					&& <Form.Item label="Restart on completion" name="restart">
+					&& <Form.Item label="Restart on completion" name="restart" valuePropName="checked">
 						<Checkbox disabled={props.canRestart === false}/>
 					</Form.Item>
 				}

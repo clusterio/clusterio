@@ -6,7 +6,7 @@ import { RequestError } from "./errors";
 import { PluginNodeEnvInfo } from "./plugin";
 const execAsync = util.promisify(exec);
 
-async function isDev() {
+function isDev() {
 	//  dev:                 <devRoot>/packages/lib/dist/src/rce_ops.js
 	// prod: <prodRoot>/node_modules/@clusterio/lib/dist/src/rce_ops.js
 	return __dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"

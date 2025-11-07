@@ -1188,7 +1188,7 @@ export default class ControlConnection extends BaseConnection {
 		if (!this._controller.config.get("controller.allow_remote_updates")) {
 			throw new lib.RequestError("Remote updates are disabled on this machine");
 		}
-		return lib.updatePackage("@clusterio/controller");
+		return await lib.updatePackage("@clusterio/controller");
 	}
 
 	async handlePluginUpdateRequest(request: lib.PluginUpdateRequest) {
