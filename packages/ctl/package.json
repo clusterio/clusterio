@@ -3,7 +3,7 @@
 	"description": "Clusterio command line management tool",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.21",
+	"version": "2.0.0-alpha.22",
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
