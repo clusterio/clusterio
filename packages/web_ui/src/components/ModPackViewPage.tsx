@@ -440,7 +440,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			/>}
 
 			{/* Display warning message if dependencies are incompatible */}
-			{!loading && missing.length > 0 && <Alert
+			{!loading && incompatible.length > 0 && <Alert
 				message="Incompatible Dependencies Found:"
 				description={<ul>
 					{incompatible.map(name => <li>{name}</li>)}
