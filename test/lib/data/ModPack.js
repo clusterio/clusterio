@@ -397,16 +397,16 @@ describe("lib/data/ModPack", function() {
 			it("should work with versions before 2.0", function() {
 				const builtinMods = ModPack.getBuiltinMods("1.1");
 				assert.deepEqual(builtinMods, [
-					{ name: "base", enabled: true, version: "1.1" },
+					{ name: "base", enabled: true, version: "1.1.0" },
 				]);
 			});
 			it("should work with versions after 2.0", function() {
 				const builtinMods = ModPack.getBuiltinMods("2.0");
 				assert.deepEqual(builtinMods, [
-					{ name: "base", enabled: true, version: "2.0" },
-					{ name: "elevated-rails", enabled: false, version: "2.0" },
-					{ name: "quality", enabled: false, version: "2.0" },
-					{ name: "space-age", enabled: false, version: "2.0" },
+					{ name: "base", enabled: true, version: "2.0.0" },
+					{ name: "elevated-rails", enabled: false, version: "2.0.0" },
+					{ name: "quality", enabled: false, version: "2.0.0" },
+					{ name: "space-age", enabled: false, version: "2.0.0" },
 				]);
 			});
 		});

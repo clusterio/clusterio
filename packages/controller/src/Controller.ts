@@ -135,7 +135,8 @@ export default class Controller {
 
 		const modPacks = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "mod-packs.json"),
-			lib.ModPack.fromJSON.bind(lib.ModPack)
+			lib.ModPack.fromJSON.bind(lib.ModPack),
+			this.migrateModPacks,
 		).bootstrap());
 
 		const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
@@ -698,6 +699,17 @@ export default class Controller {
 			instance.updatedAtMs = Date.now();
 		}
 		return instance;
+	}
+
+	static migrateModPacks(rawJson: unknown[]): Static<typeof lib.ModPack.jsonSchema>[] {
+		const serialized = rawJson as Static<typeof lib.ModPack.jsonSchema>[];
+		return serialized.map(json => {
+			for (const mod of json.mods) {
+				// migrate: 2.0.0.alpha.22 - json schema now enforces X.Y.Z for mod version, builtins would use X.Y only
+				mod.version = lib.normaliseFullVersion(mod.version);
+			}
+			return json;
+		});
 	}
 
 	static migrateRoles(rawJson: unknown[]): Static<typeof lib.Role.jsonSchema>[] {

@@ -11,7 +11,7 @@ export default class InstanceInfo {
 		public config: lib.InstanceConfig,
 		public status: lib.InstanceStatus,
 		public gamePort?: number,
-		public factorioVersion?: string,
+		public factorioVersion?: lib.TargetVersion,
 		public updatedAtMs = 0,
 	) {
 		this.config = config;
@@ -23,7 +23,7 @@ export default class InstanceInfo {
 		"status": lib.InstanceStatus,
 		"gamePort": Type.Optional(Type.Number()),
 		"updatedAtMs": Type.Optional(Type.Number()),
-		"factorioVersion": Type.Optional(Type.String()),
+		"factorioVersion": Type.Optional(lib.TargetVersionSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>, location: lib.ConfigLocation) {

@@ -210,7 +210,8 @@ export default class Instance extends lib.Link {
 
 		let serverOptions = {
 			logger: this.logger,
-			version: this.config.get("factorio.version"),
+			// TODO: factorio.version is not validated
+			version: this.config.get("factorio.version") as lib.TargetVersion,
 			executablePath: this.config.get("factorio.executable_path") ?? undefined,
 			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
 			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
@@ -553,7 +554,8 @@ end`.replace(/\r?\n/g, " ");
 				this.id,
 				status,
 				this.server.gamePort,
-				status === "running"? this.server.version : this.config.get("factorio.version"),
+				// TODO: factorio.version is not validated
+				status === "running" ? this.server.version : this.config.get("factorio.version") as lib.TargetVersion,
 			),
 		);
 	}

@@ -79,7 +79,7 @@ function versionOrder(a: string, b: string) {
  * @returns Array with path to data dir and version found.
  * @internal
  */
-async function findVersion(factorioDir: string, targetVersion: string) {
+async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion) {
 
 	// There are two supported setups: having the factorio dir be the actual
 	// install directory, and having the factorio dir be a folder containing
@@ -423,7 +423,7 @@ export interface FactorioServerOptions {
 	 * Version of Factorio to use.  Can also be the string "latest" to use
 	 * the latest version found in `factorioDir`.
 	 */
-	version?: string,
+	version?: lib.TargetVersion,
 	/** Path to executable to invoke when starting the server */
 	executablePath?: string;
 	/** UDP port to host game on. */
@@ -523,7 +523,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	_writeDir: string;
 
 	// Resolved in init
-	_version: string | null = null;
+	_version: lib.FullVersion | null = null;
 	_dataDir: string | null = null;
 
 	// Due to inconsistencies in the factorio api, we must manually watch the whitelist
@@ -532,7 +532,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	_whitelist = new Set<string>();
 
 	_logger: lib.Logger;
-	_targetVersion: string;
+	_targetVersion: lib.TargetVersion;
 	_state: "new" | "init" | "create" | "running" | "stopping" = "new";
 	_server: child_process.ChildProcessWithoutNullStreams | null = null;
 	_rconClient: Rcon | null= null;
@@ -866,7 +866,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 * "latest" (the default) was specified as `factorioVersion` to the constructor.
 	 * This will be undefined before the server is initialized, or if init failed.
 	 */
-	get version(): string | undefined {
+	get version(): lib.FullVersion | undefined {
 		return this._version ?? undefined;
 	}
 

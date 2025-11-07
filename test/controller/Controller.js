@@ -2,8 +2,12 @@
 const path = require("node:path");
 const assert = require("assert").strict;
 const { Controller, HostInfo, InstanceInfo } = require("@clusterio/controller");
-const { ControllerConfig, Address, RequestError, InstanceConfig, SystemInfo, Role } = require("@clusterio/lib");
 const { EventEmitter } = require("stream");
+
+const {
+	ControllerConfig, Address, RequestError,
+	InstanceConfig, SystemInfo, Role, ModPack,
+} = require("@clusterio/lib");
 
 class MockEvent {}
 
@@ -370,6 +374,48 @@ describe("controller/src/Controller", function() {
 				]);
 				assert.deepEqual(result, [
 					instanceInfoJsonCopy, instanceInfoJsonCopy, instanceInfoJsonCopy,
+				]);
+			});
+		});
+		describe("ModPack", function() {
+			it("migrates builtin mod versions to X.Y.Z", function() {
+				const modPacks = Controller.migrateModPacks([{
+					id: 0,
+					name: "name",
+					factorio_version: "2.0",
+					mods: [
+						{ name: "base", version: "2.0" },
+						{ name: "my-mod", version: "1.0.0" },
+					],
+				}]);
+				assert.deepEqual(modPacks, [{
+					id: 0,
+					name: "name",
+					factorio_version: "2.0",
+					mods: [
+						{ name: "base", version: "2.0.0" },
+						{ name: "my-mod", version: "1.0.0" },
+					],
+				}]);
+			});
+			it("does nothing for upto date data", function() {
+				const modPack = ModPack.fromJSON({
+					id: 0,
+					name: "name",
+					factorio_version: "2.0",
+					mods: [
+						{ name: "base", version: "2.0.0" },
+						{ name: "my-mod", version: "1.0.0" },
+					],
+				});
+				const jsonString = JSON.stringify(modPack);
+				const modPackJson = JSON.parse(jsonString);
+				const modPackJsonCopy = JSON.parse(jsonString);
+				const result = Controller.migrateModPacks([
+					modPackJson, modPackJson, modPackJson,
+				]);
+				assert.deepEqual(result, [
+					modPackJsonCopy, modPackJsonCopy, modPackJsonCopy,
 				]);
 			});
 		});

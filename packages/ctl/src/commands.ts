@@ -1362,7 +1362,7 @@ function setModPackMods(modPack: lib.ModPack, mods: string[] | undefined) {
 		if (!version) {
 			throw new lib.CommandError("Added mod must be formatted as name:version or name:version:sha1");
 		}
-		if (!/^\d+\.\d+\.\d+$/.test(version)) {
+		if (!lib.isFullVersion(version)) {
 			throw new lib.CommandError("version must match the format digit.digit.digit");
 		}
 		if (sha1 && !/^[0-9a-f]{40}$/.test(sha1)) {
@@ -1415,8 +1415,8 @@ modPackCommands.add(new lib.Command({
 		modPack.name = args.name;
 		if (args.description) { modPack.description = args.description; }
 		if (args.factorioVersion) {
-			if (!/^\d+\.\d+\.\d+?$/.test(args.factorioVersion)) {
-				throw new lib.CommandError("factorio-version must match the format digit.digit.digit");
+			if (!lib.isPartialVersion(args.factorioVersion)) {
+				throw new lib.CommandError("factorio-version must match the format digit.digit[.digit]");
 			}
 			modPack.factorioVersion = args.factorioVersion;
 		}
@@ -1496,8 +1496,8 @@ modPackCommands.add(new lib.Command({
 		if (args.name) { modPack.name = args.name; }
 		if (args.description) { modPack.description = args.description; }
 		if (args.factorioVersion) {
-			if (!/^\d+\.\d+\.\d+?$/.test(args.factorioVersion)) {
-				throw new lib.CommandError("factorio-version must match the format digit.digit.digit");
+			if (!lib.isPartialVersion(args.factorioVersion)) {
+				throw new lib.CommandError("factorio-version must match the format digit.digit[.digit]");
 			}
 			modPack.factorioVersion = args.factorioVersion;
 		}
@@ -1551,6 +1551,9 @@ modCommands.add(new lib.Command({
 		yargs.positional("mod-version", { describe: "Version of the mod", type: "string" });
 	}],
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
+		if (!lib.isFullVersion(args.modVersion)) {
+			throw new lib.CommandError("mod-version must match format digit.digit.digit");
+		}
 		let modInfo = await control.send(new lib.ModGetRequest(args.name, args.modVersion));
 		for (let [field, value] of Object.entries(modInfo)) {
 			if (value instanceof Array) {
@@ -1638,7 +1641,7 @@ modCommands.add(new lib.Command({
 	) {
 		let response = await control.send(new lib.ModSearchRequest(
 			args.query,
-			args.factorioVersion,
+			lib.normaliseApiVersion(args.factorioVersion as any),
 			args.page,
 			args.pageSize,
 			args.sort,
@@ -1717,6 +1720,9 @@ modCommands.add(new lib.Command({
 		yargs.positional("mod-version", { describe: "Version of mod to download", type: "string" });
 	}],
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
+		if (!lib.isFullVersion(args.modVersion)) {
+			throw new lib.CommandError("mod-version must match format digit.digit.digit");
+		}
 		let streamId = await control.send(new lib.ModDownloadRequest(args.name, args.modVersion));
 
 		let url = new URL(control.config.get("control.controller_url")!);
@@ -1757,6 +1763,9 @@ modCommands.add(new lib.Command({
 		yargs.positional("mod-version", { describe: "Version of mod to delete", type: "string" });
 	}],
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
+		if (!lib.isFullVersion(args.modVersion)) {
+			throw new lib.CommandError("mod-version must match format digit.digit.digit");
+		}
 		await control.send(new lib.ModDeleteRequest(args.name, args.modVersion));
 	},
 }));

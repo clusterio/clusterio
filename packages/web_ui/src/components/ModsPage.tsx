@@ -6,7 +6,6 @@ import {
 import {
 	ImportOutlined, PlusOutlined, SearchOutlined, DownloadOutlined,
 } from "@ant-design/icons";
-import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
@@ -24,9 +23,6 @@ import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
-
-// Define the allowed Factorio versions based on the lib schema
-type FactorioVersion = Static<(typeof lib.ModPortalGetAllRequest)["allowedVersions"][number]>;
 
 // Type alias for the mod structure derived from the library response
 type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
@@ -145,7 +141,7 @@ function SearchModsButton() {
 	const [open, setOpen] = useState(false);
 	const [form] = Form.useForm();
 	const [searchText, setSearchText] = useState("");
-	const [factorioVersion, setFactorioVersion] = useState<FactorioVersion>("2.0");
+	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion>("2.0");
 
 	// State for all mods fetched from backend
 	const [allMods, setAllMods] = useState<ModPortalModType[]>([]);
@@ -162,22 +158,21 @@ function SearchModsButton() {
 	const handleControllerDownload = (
 		modName: string,
 		modTitle: string | undefined,
-		modVersion: string | undefined,
-		portalFactorioVersion: FactorioVersion,
+		modVersion: lib.FullVersion | undefined,
+		portalFactorioVersion: lib.ApiVersion,
 	) => {
 		if (modVersion) {
 			control.send(
 				new lib.ModPortalDownloadRequest(
-					modName,
-					modVersion,
+					[{ name: modName, version: new lib.ModVersionEquality("=", modVersion)}],
 					portalFactorioVersion
 				)
 			).then(() => {
 				notification.success({
-					message: "Download started",
+					message: "Download complete",
 					description: `${modTitle || modName} v${
 						modVersion
-					} is being downloaded to the controller.`,
+					} has been downloaded to the controller.`,
 				});
 			}).catch(
 				notifyErrorHandler("Error starting mod download")
@@ -270,7 +265,7 @@ function SearchModsButton() {
 	// Update search text and factorio version from form
 	const handleSearch = (changedValues: any, allValues: any) => {
 		const nameValue = allValues.name;
-		const versionValue = allValues.factorioVersion as FactorioVersion | undefined;
+		const versionValue = allValues.factorioVersion as lib.ApiVersion | undefined;
 
 		// Only trigger state updates if values actually changed
 		if (nameValue !== searchText) {
@@ -351,12 +346,9 @@ function SearchModsButton() {
 					label="Factorio Version"
 				>
 					<Select>
-						{lib.ModPortalGetAllRequest.allowedVersions.map((literalSchema: any) => (
-							<Select.Option
-								key={literalSchema.const}
-								value={literalSchema.const}
-							>
-								{literalSchema.const}
+						{lib.ApiVersions.map(version => (
+							<Select.Option key={version} value={version}>
+								{version}
 							</Select.Option>
 						)).reverse()}
 					</Select>

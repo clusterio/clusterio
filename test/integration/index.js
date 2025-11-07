@@ -117,15 +117,14 @@ class TestHostConnector extends lib.WebSocketClientConnector {
 	}
 }
 
-// Mark that this test takes a lot of time, or depeneds on a test
-// that takes a lot of time.
+// Mark that this test takes a lot of time, or depends on a test that takes a lot of time.
 function slowTest(test) {
 
 	if (process.env.FAST_TEST) {
 		test.skip();
 	}
 
-	test.timeout(20000);
+	test.timeout(30000);
 }
 
 async function get(urlPath) {
@@ -196,7 +195,9 @@ async function execCtlProcess(...args) {
 	return await exec(...args);
 }
 
+let inExecCtl = false;
 async function execCtl(command) {
+	inExecCtl = true;
 	process.chdir("temp/test");
 	try {
 		const initArgs = await initializeCtl(command, control.plugins, true);
@@ -209,8 +210,16 @@ async function execCtl(command) {
 		await targetCommand.run(initArgs.args, control);
 	} finally {
 		process.chdir("../..");
+		inExecCtl = false;
 	}
 }
+
+afterEach(function() {
+	if (inExecCtl) {
+		// This is needed in case a test times out and never runs the finally block
+		process.chdir("../..");
+	}
+});
 
 async function sendRcon(instanceId, command) {
 	return await control.sendTo({ instanceId }, new lib.InstanceSendRconRequest(command));

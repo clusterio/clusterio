@@ -693,7 +693,8 @@ export default class Host extends lib.Link {
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection
 					? instanceConnection.instance.server.version
-					: instanceInfo.config.get("factorio.version"),
+					// TODO: factorio.version is not validated
+					: instanceInfo.config.get("factorio.version") as lib.TargetVersion,
 			)
 		);
 

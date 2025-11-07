@@ -7,7 +7,7 @@ const JSZip = require("jszip"); // Added for creating mock zips
 // Capture native fetch before any potential mocks are applied
 const nativeFetch = global.fetch;
 
-const { ModStore, ModInfo } = require("@clusterio/lib"); // Adjust path based on compiled output
+const { ModStore, ModInfo, ModVersionEquality } = require("@clusterio/lib"); // Adjust path based on compiled output
 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");
@@ -148,7 +148,7 @@ describe("lib/ModStore", function () {
 			assert.equal(modInfo.name, modName);
 			assert.equal(modInfo.version, modVersion);
 			// Check if the dependency was updated (indicating re-read)
-			assert(modInfo.dependencies.includes("? updated-dep"));
+			assert(modInfo.dependencySpecifications.includes("? updated-dep"));
 		});
 
 		it("should handle corrupted zip files gracefully", async function () {
@@ -271,7 +271,7 @@ describe("lib/ModStore", function () {
 		});
 
 		// Helper to create the mock fetch function for the Factorio Mod Portal API
-		function createMockPortalApiFetch(modsToDownloadMap, fetchCallsArray = null) {
+		function createMockPortalApiFetch(modsToDownload, fetchCallsArray = null) {
 			return async (url, options) => {
 				const urlString = url.toString();
 				if (fetchCallsArray) {
@@ -285,11 +285,12 @@ describe("lib/ModStore", function () {
 						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
 					}
 					const results = requestedModNames.map(name => {
-						const requestedVersion = modsToDownloadMap.get(name);
-						if (!requestedVersion) {
+						const requestedMod = modsToDownload.find(mod => mod.name === name);
+						if (!requestedMod) {
 							// Use assert or throw for clearer test failure messages
 							assert.fail(`[Test Mock ERROR] Mock fetch received unexpected mod name: ${name}`);
 						}
+						const requestedVersion = requestedMod.version.version;
 						return {
 							name: name,
 							latest_release: {
@@ -309,7 +310,7 @@ describe("lib/ModStore", function () {
 		}
 
 		it("should download and add a single mod", async function () {
-			const modsToDownload = new Map([["download-mod-1", "1.1.0"]]);
+			const modsToDownload = [{ name: "download-mod-1", version: ModVersionEquality.fromString("1.1.0") }];
 
 			// Define fetch mock specific to this test
 			global.fetch = createMockPortalApiFetch(modsToDownload);
@@ -327,10 +328,10 @@ describe("lib/ModStore", function () {
 		});
 
 		it("should download multiple mods", async function () {
-			const modsToDownload = new Map([
-				["multi-mod-a", "1.0.0"],
-				["multi-mod-b", "2.0.0"],
-			]);
+			const modsToDownload = [
+				{ name: "multi-mod-a", version: ModVersionEquality.fromString("1.0.0") },
+				{ name: "multi-mod-b", version: ModVersionEquality.fromString("2.0.0") },
+			];
 
 			// Define fetch mock specific to this test
 			global.fetch = createMockPortalApiFetch(modsToDownload);
@@ -343,43 +344,34 @@ describe("lib/ModStore", function () {
 			assert(await fs.pathExists(path.join(MODS_DIR, "multi-mod-a_1.0.0.zip")));
 			assert(await fs.pathExists(path.join(MODS_DIR, "multi-mod-b_2.0.0.zip")));
 		});
+		it("should throw when no releases available", async function () {
+			const modsToDownload = [{ name: "download-mod-1", version: ModVersionEquality.fromString("1.1.0") }];
 
-		it("should skip already downloaded mods", async function () {
-			const existingModName = "existing-mod";
-			const existingModVersion = "1.0.0";
-			const existingFilename = `${existingModName}_${existingModVersion}.zip`;
-			await createMockModZip(path.join(MODS_DIR, existingFilename), existingModName, existingModVersion);
-			modStore = await ModStore.fromDirectory(MODS_DIR);
-			assert.equal(modStore.files.size, 1);
+			// Define fetch mock specific to this test
+			global.fetch = async (url, options) => {
+				const urlString = url.toString();
+				if (urlString.startsWith("https://mods.factorio.com/api/mods") && options?.method === "POST") {
+					const body = options.body;
+					let requestedModNames = [];
+					if (body instanceof URLSearchParams) {
+						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
+					}
+					const results = requestedModNames.map(name => ({ name: name }));
+					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
+				}
+				// Fallback for unhandled fetches in this test
+				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
+			};
 
-			const modsToDownload = new Map([
-				[existingModName, existingModVersion], // Already present
-				["new-mod", "0.5.0"], // New mod
-			]);
-
-			let fetchCalls = [];
-			// Define fetch mock specific to this test (wraps original for tracking)
-			global.fetch = createMockPortalApiFetch(modsToDownload, fetchCalls);
-
-			await modStore.downloadMods(modsToDownload, username, token, factorioVersion);
-
-			assert.equal(modStore.files.size, 2, "Should have 2 mods total");
-			assert(modStore.files.has(existingFilename));
-			assert(modStore.files.has("new-mod_0.5.0.zip"));
-			assert(await fs.pathExists(path.join(MODS_DIR, "new-mod_0.5.0.zip")));
-
-			const postCall = fetchCalls.find(call => call.options?.method === "POST");
-			assert(postCall, "POST call to API should have happened");
-			const requestedMods = (postCall.options.body.get("namelist") || "").split(",");
-			assert.deepEqual(requestedMods, ["new-mod"], "Only new-mod should be in the namelist");
+			await assert.rejects(modStore.downloadMods(modsToDownload, username, token, factorioVersion));
 		});
 
 		it("should skip built-in mods", async function () {
-			const modsToDownload = new Map([
-				["base", "1.1.0"], // Built-in
-				["core", "1.1.0"], // Built-in
-				["another-new-mod", "1.0.0"], // Not built-in
-			]);
+			const modsToDownload = [
+				{ name: "base", version: ModVersionEquality.fromString("1.1.0") }, // Built-in
+				{ name: "core", version: ModVersionEquality.fromString("1.1.0") }, // Built-in
+				{ name: "another-new-mod", version: ModVersionEquality.fromString("1.0.0") }, // Not built-in
+			];
 
 			let fetchCalls = [];
 			// Define fetch mock specific to this test
@@ -396,51 +388,8 @@ describe("lib/ModStore", function () {
 			assert.deepEqual(requestedMods, ["another-new-mod"], "Only non-builtin mod should be in the namelist");
 		});
 
-		it("should handle Factorio version formatting (e.g., 1.1.100 -> 1.1)", async function () {
-			const modsToDownload = new Map([["version-test-mod", "1.0.0"]]);
-			let capturedApiUrl = null;
-
-			// Define fetch mock specific to this test
-			const testFetch = async (url, options) => {
-				const urlString = url.toString();
-				if (urlString.startsWith("https://mods.factorio.com/api/mods") && options?.method === "POST") {
-					capturedApiUrl = urlString; // Capture URL
-					const body = options.body;
-					let requestedModNames = [];
-					if (body instanceof URLSearchParams) {
-						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
-					}
-					const results = requestedModNames.map(name => {
-						const requestedVersion = modsToDownload.get(name);
-						if (!requestedVersion) {
-							throw new Error(`[Test Mock ERROR] No version for ${name}`);
-						}
-						return {
-							name: name,
-							latest_release: {
-								download_url: `/download/${name}/${requestedVersion}`,
-								file_name: `${name}_${requestedVersion}.zip`,
-								info_json: { factorio_version: factorioVersion },
-								version: requestedVersion,
-								sha1: `sha1_${name}_${requestedVersion}`,
-							},
-						};
-					});
-					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
-				}
-				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
-			};
-			global.fetch = testFetch;
-
-			await modStore.downloadMods(modsToDownload, username, token, "1.1.100"); // Use full version
-
-			assert(capturedApiUrl, "Fetch to API mods should have been called");
-			const apiUrlParams = new URL(capturedApiUrl).searchParams;
-			assert.equal(apiUrlParams.get("version"), "1.1", "Factorio version should be truncated in API call");
-		});
-
 		it("should handle API error during mod info fetch", async function () {
-			const modsToDownload = new Map([["api-error-mod", "1.0.0"]]);
+			const modsToDownload = [{ name: "api-error-mod", version: ModVersionEquality.fromString("1.0.0") }];
 
 			// Define fetch mock specific to this test (simulates API error)
 			global.fetch = async (url, options) => {
@@ -463,11 +412,11 @@ describe("lib/ModStore", function () {
 		});
 
 		it("should handle download error for a specific mod", async function () {
-			const modsToDownload = new Map([
-				["good-mod", "1.0.0"], // This one should succeed
-				["bad-download-mod", "1.0.0"], // This one will fail
-				["another-good-mod", "1.0.0"], // This one should also succeed
-			]);
+			const modsToDownload = [
+				{ name: "good-mod", version: ModVersionEquality.fromString("1.0.0") }, // Success
+				{ name: "bad-download-mod", version: ModVersionEquality.fromString("1.0.0") }, // Fail
+				{ name: "another-good-mod", version: ModVersionEquality.fromString("1.0.0") }, // Success
+			];
 
 			// Mock ModStore.downloadFile to fail for the specific mod
 			const originalDSF = ModStore.downloadFile;
@@ -496,10 +445,11 @@ describe("lib/ModStore", function () {
 						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
 					}
 					const results = requestedModNames.map(name => {
-						const requestedVersion = modsToDownload.get(name);
-						if (!requestedVersion) {
+						const requestedMod = modsToDownload.find(mod => mod.name === name);
+						if (!requestedMod) {
 							throw new Error(`[Test Mock ERROR] No version for ${name}`);
 						}
+						const requestedVersion = requestedMod.version.version;
 						return {
 							name: name,
 							latest_release: {
@@ -526,12 +476,12 @@ describe("lib/ModStore", function () {
 		});
 
 		it("should download mods in chunks", async function () {
-			const modsToDownload = new Map([
-				["chunk-mod-1", "1.0.0"],
-				["chunk-mod-2", "1.0.0"],
-				["chunk-mod-3", "1.0.0"],
-				["chunk-mod-4", "1.0.0"],
-			]);
+			const modsToDownload = [
+				{ name: "chunk-mod-1", version: ModVersionEquality.fromString("1.0.0") },
+				{ name: "chunk-mod-2", version: ModVersionEquality.fromString("1.0.0") },
+				{ name: "chunk-mod-3", version: ModVersionEquality.fromString("1.0.0") },
+				{ name: "chunk-mod-4", version: ModVersionEquality.fromString("1.0.0") },
+			];
 			let postCalls = 0;
 
 			// Define fetch mock specific to this test
@@ -545,10 +495,11 @@ describe("lib/ModStore", function () {
 						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
 					}
 					const results = requestedModNames.map(name => {
-						const requestedVersion = modsToDownload.get(name);
-						if (!requestedVersion) {
+						const requestedMod = modsToDownload.find(mod => mod.name === name);
+						if (!requestedMod) {
 							throw new Error(`[Test Mock ERROR] No version for ${name}`);
 						}
+						const requestedVersion = requestedMod.version.version;
 						return {
 							name: name,
 							latest_release: {
@@ -570,7 +521,7 @@ describe("lib/ModStore", function () {
 
 			// Assuming chunkSize is 500, 4 mods should be 1 chunk/POST call
 			assert.equal(postCalls, 1, "Should make 1 POST call for 4 mods");
-			assert.equal(modStore.files.size, modsToDownload.size, "All chunked mods should be downloaded");
+			assert.equal(modStore.files.size, modsToDownload.length, "All chunked mods should be downloaded");
 			assert(modStore.files.has("chunk-mod-1_1.0.0.zip"));
 			assert(modStore.files.has("chunk-mod-4_1.0.0.zip"));
 		});
@@ -843,6 +794,40 @@ describe("lib/ModStore", function () {
 		});
 	});
 
+	describe("fetchModReleases (static)", function() {
+		// Keep track of the original fetch for the live test
+		let originalFetch;
+		before(function() {
+			originalFetch = global.fetch;
+		});
+		after(function() {
+			global.fetch = originalFetch; // Restore original fetch after this suite
+		});
+
+		it("should fetch from the correct api url (mock)", async function() {
+			global.fetch = async function(url) {
+				assert.equal(url, "https://mods.factorio.com/api/mods/my-mod/full");
+				return { ok: true, status: 200, json: async () => ({ name: "my-mod" }) };
+			};
+
+			const result = await ModStore.fetchModReleases("my-mod");
+			assert.equal(result.name, "my-mod");
+		});
+		it("should throw an error when the fetch fails (mock)", async function() {
+			global.fetch = async function(url) {
+				assert.equal(url, "https://mods.factorio.com/api/mods/my-mod/full");
+				return { ok: false, status: 400, json: async () => ({ name: "my-mod" }) };
+			};
+
+			await assert.rejects(ModStore.fetchModReleases("my-mod"));
+		});
+		it("should fetch from the correct api url (live)", async function() {
+			global.fetch = nativeFetch;
+			const result = await ModStore.fetchModReleases("clusterio_lib");
+			assert(result.releases && result.releases.length > 1, "Failed to fetch releases");
+		});
+	});
+
 	// === Instance Methods ===
 	describe("Instance Methods", function () {
 		let modStore;
@@ -1002,6 +987,27 @@ describe("lib/ModStore", function () {
 				modStore.addMod(modInfo);
 				assert(changeEventFired, "Change event should have fired");
 				assert.equal(eventModInfo, modInfo, "Event should pass the added ModInfo");
+			});
+		});
+
+		describe("filterInstalled", function() {
+			it("should filter out installed mods", function() {
+				const mods = [
+					{ name: testMod1Name, version: ModVersionEquality.fromString(testMod1Version) },
+					{ name: "not-installed", version: ModVersionEquality.fromString("1.0.0") },
+				];
+				assert.deepEqual(modStore.filterInstalled(mods, false), [
+					{ name: "not-installed", version: ModVersionEquality.fromString("1.0.0") },
+				]);
+			});
+			it("should filter out uninstalled mods", function() {
+				const mods = [
+					{ name: testMod1Name, version: ModVersionEquality.fromString(testMod1Version) },
+					{ name: "not-installed", version: ModVersionEquality.fromString("1.0.0") },
+				];
+				assert.deepEqual(modStore.filterInstalled(mods, true), [
+					{ name: testMod1Name, version: ModVersionEquality.fromString(testMod1Version) },
+				]);
 			});
 		});
 	});

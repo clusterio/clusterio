@@ -78,7 +78,7 @@ export default class BaseConnection extends lib.Link {
 		return modPack;
 	}
 
-	getMod(mod: { name: string, version: string, sha1?: string }) {
+	getMod(mod: { name: string, version: lib.FullVersion, sha1?: string }) {
 		let filename = lib.ModInfo.filename(mod.name, mod.version);
 		let modInfo = this._controller.modStore.files.get(filename);
 		if (!modInfo) {
