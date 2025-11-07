@@ -1,7 +1,7 @@
 {
 	"name": "@clusterio/lib",
 	"description": "Shared library for Clusterio",
-	"version": "2.0.0-alpha.22",
+	"version": "2.0.0-alpha.22b",
 	"repository": "https://github.com/clusterio/clusterio",
 	"license": "MIT",
 	"scripts": {

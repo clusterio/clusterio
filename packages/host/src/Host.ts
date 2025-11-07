@@ -1096,7 +1096,7 @@ export default class Host extends lib.Link {
 		if (!this.config.get("host.allow_remote_updates")) {
 			throw new lib.RequestError("Remote updates are disabled on this machine");
 		}
-		return lib.updatePackage("@clusterio/host");
+		return await lib.updatePackage("@clusterio/host");
 	}
 
 	async handlePluginUpdateRequest(request: lib.PluginUpdateRequest) {

@@ -3,7 +3,7 @@
 	"description": "Implementation of Clusterio host server",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.22",
+	"version": "2.0.0-alpha.22b",
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",

@@ -64,6 +64,7 @@ Many thanks to the following for contributing to this release:
 - Fixed "rendered more hooks" error when refreshing hosts page. [#769](https://github.com/clusterio/clusterio/issues/769)
 - Fixed inventory combinator time signal not always updating [#610](https://github.com/clusterio/clusterio/issues/610)
 - Renamed templates for `.gitignore` and `.npmignore` that caused `create --plugin-template` to fail. [#800](https://github.com/clusterio/clusterio/pull/800)
+- Fixed npm update button failing to apply update and restart.
 
 ### Breaking changes
 
