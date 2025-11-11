@@ -70,7 +70,6 @@ function serialize.serialize_equipment_grid(grid)
 					if equipment.to_be_removed then
 						entry.t = equipment.to_be_removed
 					end
-					log(entry)
 					table.insert(serialized, entry)
 				end
 			end
