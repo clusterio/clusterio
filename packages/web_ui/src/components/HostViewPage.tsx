@@ -106,7 +106,7 @@ export default function HostViewPage() {
 		</PageLayout>;
 	}
 
-	let hostButtons = <Space>
+	let hostButtons = <Space wrap>
 		<HostControlButton hostId={hostId} canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
 		{
 			account.hasPermission("core.host.revoke_token")

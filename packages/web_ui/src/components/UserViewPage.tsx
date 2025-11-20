@@ -106,7 +106,7 @@ export default function UserViewPage() {
 					{user.isBanned && <Tag color="red">Banned</Tag>}
 				</span>
 			</Space>}
-			extra={<>
+			extra={<Space wrap>
 				{account.hasPermission("core.user.revoke_token") && (
 					account.name === userName || account.hasPermission("core.user.revoke_other_token")
 				) && <Button
@@ -146,7 +146,7 @@ export default function UserViewPage() {
 						<DeleteOutlined />
 					</Button>
 				</Popconfirm>}
-			</>}
+			</Space>}
 		/>
 		<Form
 			form={form}
