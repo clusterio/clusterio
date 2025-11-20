@@ -664,7 +664,7 @@ function ModsTable(props: ModsTableProps) {
 	return <>
 		<SectionHeader
 			title="Mods"
-			extra={<Space>
+			extra={<Space wrap>
 				<Button
 					icon={<ToolOutlined />}
 					disabled={!mods.some(m => m.enabled && m.warning && m.warning !== "wrong_factorio_version")}
