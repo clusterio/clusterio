@@ -561,7 +561,7 @@ export default function ModsPage() {
 		<PageHeader title="Mods" />
 		<SectionHeader
 			title="Mod Packs"
-			extra={<Space>
+			extra={<Space wrap>
 				{account.hasPermission("core.mod_pack.create") && <ImportModPackButton />}
 				{account.hasPermission("core.mod_pack.create") && <CreateModPackButton />}
 			</Space>}
@@ -594,7 +594,7 @@ export default function ModsPage() {
 				},
 			})}
 		/>
-		<SectionHeader title="Stored Mods" extra={<Space>
+		<SectionHeader title="Stored Mods" extra={<Space wrap>
 			<SearchModsButton />
 			{uploadButton}
 		</Space>} />

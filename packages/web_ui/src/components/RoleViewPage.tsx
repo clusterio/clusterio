@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Checkbox, Form, Input, Popconfirm, Spin } from "antd";
+import { Button, Checkbox, Form, Input, Popconfirm, Space, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import * as lib from "@clusterio/lib";
@@ -71,7 +71,7 @@ export default function RoleViewPage() {
 		>
 			<PageHeader
 				title={role.name}
-				extra={<>
+				extra={<Space wrap>
 					{canUpdate && <Button type={edited ? "primary" : "default"} htmlType="submit">Apply</Button>}
 					{account.hasPermission("core.role.delete") && <Popconfirm
 						title="Delete role?"
@@ -90,7 +90,7 @@ export default function RoleViewPage() {
 							<DeleteOutlined />
 						</Button>
 					</Popconfirm>}
-				</>}
+				</Space>}
 			/>
 			<Form.Item name="name" label="Name">
 				<Input disabled={!canUpdate}/>

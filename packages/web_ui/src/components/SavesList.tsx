@@ -345,7 +345,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	};
 
 	return <div>
-		<SectionHeader title="Saves" extra={<Space>
+		<SectionHeader title="Saves" extra={<Space wrap>
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
 				<UploadButton disabled={hostOffline}>
 					Upload save
