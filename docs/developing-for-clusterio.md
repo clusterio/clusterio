@@ -120,7 +120,7 @@ There's also the `add_libraries` function exported by event_handler, which accep
 ## Communicating with Clusterio
 
 Clusterio uses a homebrew protocol based on sending JSON payloads over a WebSocket connection.
-See [socket.md](socket.md) for the implementation details of it.
+See [protocol.md](devs/protocol.md) for the implementation details of it.
 
 It's also possible to write a plugin for Clusterio that exposes a custom interface over HTTP, WebSocket or any other technology supported by Node.js.
 
