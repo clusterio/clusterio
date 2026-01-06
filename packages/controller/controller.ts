@@ -281,6 +281,7 @@ async function initialize(): Promise<InitializeParameters> {
 				type: "boolean", nargs: 0, default: false,
 				describe: "Start the controller in recovery mode with all plugins disabled and hosts disconnected",
 			});
+			yargs.option("check-user-count", { hidden: true, type: "boolean", nargs: 0, default: true });
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
 			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
@@ -416,6 +417,14 @@ async function startup() {
 		Boolean(args.recovery),
 		...await Controller.bootstrap(controllerConfig)
 	);
+
+	// Refuse to start if there are no users loaded
+	if (args.checkUserCount && controller.userManager.users.size === 0) {
+		logger.fatal(
+			"Cannot start controller, no users loaded.\n" +
+			"Try `npx clusteriocontroller bootstrap create-admin <username>`");
+		process.exit(1);
+	}
 
 	let secondSigint = false;
 	process.on("SIGINT", () => {
