@@ -173,26 +173,26 @@ let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 let hostConfigPath = path.join("temp", "test", "config-host.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
-async function exec(command, options = {}) {
+function exec(command, options = {}) {
 	// Uncomment to show commands run in tests
 	// console.log(command);
 	options = { cwd: path.join("temp", "test"), ...options };
-	return await util.promisify(child_process.exec)(command, options);
+	return util.promisify(child_process.exec)(command, options);
 }
 
-async function execController(...args) {
+function execController(...args) {
 	args[0] = `node --enable-source-maps ../../packages/controller ${args[0]}`;
-	return await exec(...args);
+	return exec(...args);
 }
 
-async function execHost(...args) {
+function execHost(...args) {
 	args[0] = `node --enable-source-maps ../../packages/host ${args[0]}`;
-	return await exec(...args);
+	return exec(...args);
 }
 
-async function execCtlProcess(...args) {
+function execCtlProcess(...args) {
 	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
-	return await exec(...args);
+	return exec(...args);
 }
 
 let inExecCtl = false;
@@ -394,6 +394,7 @@ module.exports = {
 	TestControl,
 	TestControlConnector,
 	TestHostConnector,
+	execController,
 	execCtlProcess,
 	slowTest,
 	get,

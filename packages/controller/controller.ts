@@ -127,7 +127,8 @@ void new lib.Gauge(
 
 async function handleBootstrapCommand(
 	args: any,
-	controllerConfig: lib.ControllerConfig
+	controllerConfig: lib.ControllerConfig,
+	controllerConfigLock: lib.LockFile,
 ): Promise<void> {
 	let subCommand = args._[1];
 
@@ -141,6 +142,8 @@ async function handleBootstrapCommand(
 	await userManager.load(path.join(databaseDirectory, "users.json"));
 
 	if (subCommand === "create-admin") {
+		await controllerConfigLock.acquire(); // Also needed to write to the database files
+
 		if (!args.name) {
 			logger.error("name cannot be blank");
 			process.exitCode = 1;
@@ -156,6 +159,7 @@ async function handleBootstrapCommand(
 		admin.roleIds.add(adminRole.id);
 		admin.isAdmin = true;
 		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
+		await controllerConfigLock.release();
 
 	} else if (subCommand === "generate-user-token") {
 		let user = userManager.getByName(args.name);
@@ -353,6 +357,7 @@ async function initialize(): Promise<InitializeParameters> {
 
 	let controllerConfig;
 	const controllerConfigPath = args.config;
+	const controllerConfigLock = new lib.LockFile(`${controllerConfigPath}.lock`);
 	logger.info(`Loading config from ${controllerConfigPath}`);
 	try {
 		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);
@@ -378,10 +383,11 @@ async function initialize(): Promise<InitializeParameters> {
 	}
 
 	if (command === "config") {
-		await lib.handleConfigCommand(args, controllerConfig);
-
+		await lib.handleConfigCommand(args, controllerConfig, controllerConfigLock);
 	} else if (command === "bootstrap") {
-		await handleBootstrapCommand(args, controllerConfig);
+		await handleBootstrapCommand(args, controllerConfig, controllerConfigLock);
+	} else if (shouldRun) {
+		await controllerConfigLock.acquire(); // Hold the lock until process exit
 	}
 
 	return {

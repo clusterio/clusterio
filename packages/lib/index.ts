@@ -31,6 +31,7 @@ export * from "./src/subscriptions";
 export * from "./src/datastore";
 export * from "./src/load_plugin_list";
 export * from "./src/rce_ops";
+export * from "./src/LockFile";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as ModStore } from "./src/ModStore";

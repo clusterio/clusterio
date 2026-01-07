@@ -236,6 +236,7 @@ export async function initialize(
 
 	let controlConfig;
 	const controlConfigPath = args.config;
+	const controlConfigLock = new lib.LockFile(`${controlConfigPath}.lock`);
 	logger.verbose(`Loading config from ${controlConfigPath}`);
 	try {
 		controlConfig = await lib.ControlConfig.fromFile("control", controlConfigPath);
@@ -257,7 +258,7 @@ export async function initialize(
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await lib.handleConfigCommand(args, controlConfig);
+		await lib.handleConfigCommand(args, controlConfig, controlConfigLock);
 		return { args, controlConfig, ctlPlugins, rootCommands, shouldRun: false };
 	}
 

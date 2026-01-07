@@ -169,6 +169,7 @@ async function startHost() {
 
 	let hostConfig;
 	const hostConfigPath = args.config;
+	const hostConfigLock = new lib.LockFile(`${hostConfigPath}.lock`);
 	logger.info(`Loading config from ${hostConfigPath}`);
 	try {
 		hostConfig = await lib.HostConfig.fromFile("host", hostConfigPath);
@@ -186,9 +187,12 @@ async function startHost() {
 	hostConfig.set("host.version", version); // Allows tracking last loaded version
 
 	if (command === "config") {
-		await lib.handleConfigCommand(args, hostConfig);
+		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);
 		return;
 	}
+
+	// From this point on the host should run
+	await hostConfigLock.acquire();
 
 	// If we get here the command was run
 	await fs.ensureDir(hostConfig.get("host.instances_directory"));

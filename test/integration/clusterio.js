@@ -13,7 +13,7 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	exec, execCtl, execCtlProcess, execHost, sendRcon, getControl,
+	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir,
 } = require("./index");
 
@@ -109,12 +109,31 @@ describe("Integration of Clusterio", function() {
 	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
 			it("work for existing user", async function() {
-				await exec("node ../../packages/controller bootstrap generate-user-token test");
+				await execController("bootstrap generate-user-token test");
 			});
 
 			it("fails if user does not exist", async function() {
 				await assert.rejects(
-					exec("node ../../packages/controller bootstrap generate-user-token invalid")
+					execController("bootstrap generate-user-token invalid")
+				);
+			});
+		});
+
+		describe("bootstrap create-admin", function() {
+			it("refuses to modify the database files", async function() {
+				await assert.rejects(
+					execController("bootstrap create-admin BootstrapAdminTest")
+				);
+			});
+		});
+
+		describe("config", function() {
+			it("can read the config file", async function() {
+				await execController("config list");
+			});
+			it("refuses to modify the config files", async function() {
+				await assert.rejects(
+					execController("confit set controller.name ConfigEditTest")
 				);
 			});
 		});
@@ -142,6 +161,9 @@ describe("Integration of Clusterio", function() {
 				connectorB._doConnect();
 				await events.once(connectorB, "resume");
 				await connectorB.close(1000, "");
+			});
+			it("refuses to start a second process", async function() {
+				await assert.rejects(execController("run"));
 			});
 		});
 
@@ -244,6 +266,19 @@ describe("Integration of Clusterio", function() {
 			} finally {
 				await stopAltHost(hostProcess);
 			}
+		});
+		describe("config", function() {
+			it("can read the config file", async function() {
+				await execHost("config list");
+			});
+			it("refuses to modify the config files", async function() {
+				await assert.rejects(
+					execHost("confit set host.name ConfigEditTest")
+				);
+			});
+		});
+		it("refuses to start a second process", async function() {
+			await assert.rejects(execHost("run"));
 		});
 	});
 
