@@ -113,6 +113,7 @@ async function startHost() {
 			default: "plugin-list.json",
 			type: "string",
 		})
+		.option("bypass-lock-file", { hidden: true, type: "boolean", nargs: 0, default: false })
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("config", "Manage Host config", lib.configCommand)
 		.command("run", "Run host", yargs => {
@@ -167,9 +168,14 @@ async function startHost() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	let hostConfig;
 	const hostConfigPath = args.config;
-	const hostConfigLock = new lib.LockFile(`${hostConfigPath}.lock`);
+	const hostConfigLockPath = `${hostConfigPath}.lock`;
+	if (args.bypassLockFile) {
+		await fs.unlink(hostConfigLockPath).catch(() => {}); // ignore error, file might not exist
+	}
+
+	let hostConfig;
+	const hostConfigLock = new lib.LockFile(hostConfigLockPath);
 	logger.info(`Loading config from ${hostConfigPath}`);
 	try {
 		hostConfig = await lib.HostConfig.fromFile("host", hostConfigPath);

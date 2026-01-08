@@ -229,7 +229,8 @@ function getControl() {
 	return control;
 }
 
-function spawn(name, cmd, waitFor) {
+/** @returns {Promise<child_process.ChildProcess>} */
+function spawn(name, cmd, waitFor, options = {}) {
 
 	const silent = process.env.SILENT_TEST;
 	const bootstrap = !controllerProcess || !hostProcess;
@@ -242,7 +243,7 @@ function spawn(name, cmd, waitFor) {
 	return new Promise((resolve, reject) => {
 		log(cmd);
 		let parts = cmd.split(" ");
-		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
+		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test"), ...options });
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		let stderr = new LineSplitter({ readableObjectMode: true });
 		let onDataOut = line => {
@@ -266,8 +267,8 @@ function spawn(name, cmd, waitFor) {
 	});
 }
 
-async function spawnNode(name, cmd, waitFor) {
-	return await spawn(name, `node --enable-source-maps ${cmd}`, waitFor);
+function spawnNode(name, cmd, waitFor, options) {
+	return spawn(name, `node --enable-source-maps ${cmd}`, waitFor, options);
 }
 
 before(async function() {

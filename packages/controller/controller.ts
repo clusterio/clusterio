@@ -255,6 +255,7 @@ async function initialize(): Promise<InitializeParameters> {
 			default: "plugin-list.json",
 			type: "string",
 		})
+		.option("bypass-lock-file", { hidden: true, type: "boolean", nargs: 0, default: false })
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("config", "Manage Controller config", lib.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
@@ -355,9 +356,14 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	let controllerConfig;
 	const controllerConfigPath = args.config;
-	const controllerConfigLock = new lib.LockFile(`${controllerConfigPath}.lock`);
+	const controllerConfigLockPath = `${controllerConfigPath}.lock`;
+	if (args.bypassLockFile) {
+		await fs.unlink(controllerConfigLockPath).catch(() => {}); // ignore error, file might not exist
+	}
+
+	let controllerConfig;
+	const controllerConfigLock = new lib.LockFile(controllerConfigLockPath);
 	logger.info(`Loading config from ${controllerConfigPath}`);
 	try {
 		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);

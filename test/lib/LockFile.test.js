@@ -79,6 +79,13 @@ describe("class LockFile", function () {
 			const held = await lock.isHeld();
 			assert.equal(held, false);
 		});
+
+		it("should return false if lock file was deleted while held", async function() {
+			await lock.acquire();
+			await fs.unlink(filePath);
+			const held = await lock.isHeld();
+			assert.equal(held, false);
+		});
 	});
 
 	describe("isStale()", function () {
