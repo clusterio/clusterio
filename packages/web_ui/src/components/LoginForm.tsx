@@ -1,7 +1,8 @@
-import React, { Fragment, useContext } from "react";
+import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Button, Card, Divider, Form, Image, Input, Space, Typography } from "antd";
 import LockOutlined from "@ant-design/icons/LockOutlined";
 
+import notify from "../util/notify";
 import logo from "../images/logo.png";
 import ControlContext from "./ControlContext";
 
@@ -36,6 +37,23 @@ function TokenAuth(props: SetTokenProps) {
 
 export default function LoginForm(props: SetTokenProps) {
 	let plugins = useContext(ControlContext).plugins;
+	const [clusterName, setClusterName] = useState<string>("Clusterio");
+
+	useEffect(() => {
+		(async () => {
+			try {
+				let response = await fetch(`${webRoot}api/cluster-name`);
+				if (response.ok) {
+					let data = await response.json();
+					if (data.name) {
+						setClusterName(data.name);
+					}
+				}
+			} catch (err) {
+				notify("Failed to load cluster name");
+			}
+		})();
+	}, []);
 
 	let loginForms = [];
 	for (let plugin of plugins.values()) {
@@ -50,7 +68,7 @@ export default function LoginForm(props: SetTokenProps) {
 
 	return <Card style={{ maxWidth: "30em" }}>
 		<Space style={{ width: "100%" }} direction="vertical" align="center">
-			<h1>Clusterio</h1>
+			<h1>{clusterName}</h1>
 			<Image width={128} height={123} src={logo} />
 			Log in to the cluster using one of the methods below.
 		</Space>
@@ -60,4 +78,3 @@ export default function LoginForm(props: SetTokenProps) {
 		</Fragment>)}
 	</Card>;
 }
-
