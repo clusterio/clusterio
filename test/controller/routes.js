@@ -74,6 +74,19 @@ describe("controller/src/routes", function() {
 			assert.equal(await responses[1].text(), "test content");
 		});
 	});
+	describe("/api/cluster-name", function() {
+		let endpoint;
+		beforeEach(function() {
+			endpoint = `http://localhost:${port}/api/cluster-name`;
+		});
+		it("should return the cluster name from config", async function() {
+			controller.mockConfigEntries.set("controller.name", "Test Cluster");
+			let response = await fetch(endpoint);
+			assert.equal(response.status, 200);
+			let data = await response.json();
+			assert.deepEqual(data, { name: "Test Cluster" });
+		});
+	});
 	describe("/api/upload-save", function() {
 		let endpoint;
 		beforeEach(function() {
