@@ -134,6 +134,12 @@ function getPlugins(req: Request, res: Response) {
 	res.send(plugins);
 }
 
+function getClusterName(req: Request, res: Response) {
+	const controller: Controller = req.app.locals.controller;
+	const clusterName = controller.config.get("controller.name");
+	res.json({ name: clusterName });
+}
+
 function validateHostToken(req: Request, res: Response, next: any) {
 	let token = req.header("x-access-token");
 	if (!token) {
@@ -662,6 +668,7 @@ async function uploadMod(req: Request, res: Response) {
 export function addRouteHandlers(app: Application) {
 	app.get("/metrics", (req:Request, res:Response, next:any) => getMetrics(req, res, next).catch(next));
 	app.get("/api/plugins", getPlugins);
+	app.get("/api/cluster-name", getClusterName);
 	app.put("/api/upload-export",
 		validateHostToken,
 		(req:Request, res:Response, next:any) => uploadExport(req, res).catch(next)
