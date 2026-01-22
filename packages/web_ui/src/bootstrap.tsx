@@ -9,6 +9,7 @@ import App from "./components/App";
 import BaseWebPlugin, { InputComponent } from "./BaseWebPlugin";
 import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
+import InputTargetVersion from "./components/InputTargetVersion";
 import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
@@ -111,6 +112,7 @@ function inputComponentsFromPlugins(plugins: Map<string, BaseWebPlugin>) {
 	const inputComponents: Record<string, InputComponent> = {
 		"mod_pack": InputModPack,
 		"role": InputRole,
+		"target_version": InputTargetVersion,
 	};
 	for (let [pluginName, plugin] of plugins) {
 		for (const [name, Component] of Object.entries(plugin.inputComponents)) {
