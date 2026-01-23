@@ -30,6 +30,9 @@ dist/
 node_modules
 
 Factorio*
+!*Factorio*.ts
+!*Factorio*.tsx
+!*Factorio*.js
 /factorio
 !/test/file/factorio
 !/test/lib/factorio
