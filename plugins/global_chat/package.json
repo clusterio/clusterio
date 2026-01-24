@@ -23,11 +23,16 @@
 		"node": ">=18"
 	},
 	"peerDependencies": {
+		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
+		"@clusterio/ctl": "workspace:*",
 		"@clusterio/lib": "workspace:*"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "workspace:*",
 		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
+		"@clusterio/ctl": "workspace:*",
+		"@clusterio/lib": "workspace:*",
 		"@types/node": "^20.17.19",
 		"@types/react": "^18.3.18",
 		"typescript": "^5.7.3",

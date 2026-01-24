@@ -23,6 +23,9 @@
 		"node": ">=18"
 	},
 	"peerDependencies": {
+		"@clusterio/controller": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*"
 	},
 	"dependencies": {
@@ -30,8 +33,10 @@
 		"fs-extra": "^8.1.0"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "workspace:*",
+		"@clusterio/controller": "workspace:*",
 		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
+		"@clusterio/lib": "workspace:*",
 		"@types/fs-extra": "^11.0.1",
 		"@types/node": "^20.17.19",
 		"@types/react": "^18.3.18",
