@@ -6,6 +6,7 @@
 		"./src/api.ts",
 		"./src/config/*.ts",
 		"./src/data/*.ts",
+		"./src/external/*.ts",
 		"./src/datastore.ts",
 		"./src/errors.ts",
 		"./src/factorio/exchange_string.ts",
@@ -25,6 +26,7 @@
 		"./src/ExponentialBackoff.ts",
 		"./src/RateLimiter.ts",
 		"./src/TypedEventEmitter.ts",
+		"./src/ValueCache.ts",
 	],
 	"compilerOptions": {
 		"rootDir": ".",

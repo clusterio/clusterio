@@ -10,6 +10,7 @@ import BaseWebPlugin, { InputComponent } from "./BaseWebPlugin";
 import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
 import InputTargetVersion from "./components/InputTargetVersion";
+import InputPartialVersion from "./components/InputPartialVersion";
 import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
@@ -110,9 +111,10 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 
 function inputComponentsFromPlugins(plugins: Map<string, BaseWebPlugin>) {
 	const inputComponents: Record<string, InputComponent> = {
+		"partial_version": InputPartialVersion,
+		"target_version": InputTargetVersion,
 		"mod_pack": InputModPack,
 		"role": InputRole,
-		"target_version": InputTargetVersion,
 	};
 	for (let [pluginName, plugin] of plugins) {
 		for (const [name, Component] of Object.entries(plugin.inputComponents)) {

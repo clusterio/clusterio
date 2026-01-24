@@ -1,15 +1,18 @@
-import { FullVersion, isFullVersion } from "../data";
+import { Static, Type } from "@sinclair/typebox";
+import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data";
 
 const ARCHIVE_URL = "https://factorio.com/download/archive";
 
 /**
  * Represents the parsed result of a factorio version
  */
-export type ExternalFactorioVersion = {
-	stable: boolean;
-	version: FullVersion;
-	downloadUrl: string;
-};
+export const ExternalFactorioVersionSchema = Type.Object({
+	stable: Type.Boolean(),
+	version: FullVersionSchema,
+	headlessUrl: Type.String(),
+});
+
+export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>
 
 /**
  * Fetch all factorio versions that support headless
@@ -48,15 +51,16 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 	const anchorRegex = /<a[^>]*class="[^"]*version-button-(?<kind>stable|experimental)[^"]*"[^>]*href="[^"]*\/download\/archive\/(?<version>\d+\.\d+.\d+)"[^>]*>/g;
 
 	let match: RegExpExecArray | null;
+	const minimumMultiplayerVersion = integerFullVersion("0.12.35");
 	while ((match = anchorRegex.exec(html)) !== null) {
 		const kind = match.groups?.kind;
 		const version = match.groups?.version;
 
-		if (kind && version && isFullVersion(version)) {
+		if (kind && version && isFullVersion(version) && integerFullVersion(version) >= minimumMultiplayerVersion) {
 			versions.set(version, {
 				version: version,
 				stable: kind === "stable",
-				downloadUrl: `${ARCHIVE_URL}/${version}`,
+				headlessUrl: `www.factorio.com/get-download/${version}/headless/linux64`,
 			});
 		}
 	}

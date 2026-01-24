@@ -568,3 +568,9 @@ definePermission({
 	title: "Dump WebSocket",
 	description: "Dump all WebSocket communicatation from the controller.",
 });
+
+definePermission({
+	name: "core.external.get_factorio_versions",
+	title: "Get factorio versions",
+	description: "Get list of all factorio versions from Wube",
+});

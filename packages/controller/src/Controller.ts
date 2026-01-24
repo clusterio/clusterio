@@ -105,6 +105,8 @@ export default class Controller {
 
 	// Cache for mod portal requests
 	modPortalCache = new Map<string, { timestamp: number, data: any[] }>();
+	// Cache for factorio versions
+	factorioVersions = new lib.ValueCache(lib.fetchFactorioVersions);
 
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");

@@ -35,6 +35,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.SystemInfoUpdateEvent,
 	controller.DebugDumpWsRequest,
 	controller.DebugWsMessageEvent,
+	controller.FactorioVersionsRequest,
 
 	subscriptions.SubscriptionRequest,
 
