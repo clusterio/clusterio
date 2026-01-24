@@ -1289,11 +1289,11 @@ export default function ModPackViewPage() {
 							message: "Must be an a.b or a.b.c version number.",
 						}]}
 					>
-					<InputPartialVersion
-						value={form.getFieldValue("factorioVersion")}
-						onChange={(value) => form.setFieldValue("factorioVersion", value)}
-						className={hasChange(changes, { type: "factorioVersion" }) ? "changed" : ""}
-					/>
+						<InputPartialVersion
+							value={form.getFieldValue("factorioVersion")}
+							onChange={(value: any) => form.setFieldValue("factorioVersion", value)}
+							className={hasChange(changes, { type: "factorioVersion" }) ? "changed" : ""}
+						/>
 					</Form.Item>
 				</Descriptions.Item>
 			</Descriptions>
