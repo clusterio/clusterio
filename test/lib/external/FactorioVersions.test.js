@@ -51,8 +51,16 @@ describe("FactorioVersions", function() {
 
 			const versions = await fetchFactorioVersions();
 			assert.deepEqual(versions, [
-				{ stable: false, version: "2.0.73", downloadUrl: "https://factorio.com/download/archive/2.0.73" },
-				{ stable: true, version: "2.0.72", downloadUrl: "https://factorio.com/download/archive/2.0.72" },
+				{
+					stable: false,
+					version: "2.0.73",
+					headlessUrl: "www.factorio.com/get-download/2.0.73/headless/linux64",
+				},
+				{
+					stable: true,
+					version: "2.0.72",
+					headlessUrl: "www.factorio.com/get-download/2.0.72/headless/linux64",
+				},
 			]);
 		});
 		it("deduplicates versions by last occurrence", async function() {
@@ -79,7 +87,11 @@ describe("FactorioVersions", function() {
 
 			const versions = await fetchFactorioVersions();
 			assert.deepEqual(versions, [
-				{ stable: true, version: "2.0.73", downloadUrl: "https://factorio.com/download/archive/2.0.73" },
+				{
+					stable: true,
+					version: "2.0.73",
+					headlessUrl: "www.factorio.com/get-download/2.0.73/headless/linux64",
+				},
 			]);
 		});
 		it("thorws on HTTP error status", async function() {
@@ -105,18 +117,18 @@ describe("FactorioVersions", function() {
 			mockFetch(await readFile("test/file/html/factorio-download-archive.html"));
 
 			const versions = await fetchFactorioVersions();
-			assert.equal(versions.length, 111);
-			assert.equal(versions.filter(v => v.stable).length, 53);
-			assert.equal(versions.filter(v => !v.stable).length, 58);
+			assert.equal(versions.length, 105);
+			assert.equal(versions.filter(v => v.stable).length, 48);
+			assert.equal(versions.filter(v => !v.stable).length, 57);
 		});
 		it("parses versions from live api", async function() {
 			slowTest(this);
 			global.fetch = originalFetch;
 
 			const versions = await fetchFactorioVersions();
-			assert.ok(versions.length >= 111);
-			assert.ok(versions.filter(v => v.stable).length >= 53);
-			assert.ok(versions.filter(v => !v.stable).length >= 58);
+			assert.ok(versions.length >= 105);
+			assert.ok(versions.filter(v => v.stable).length >= 48);
+			assert.ok(versions.filter(v => !v.stable).length >= 57);
 		});
 	});
 });
