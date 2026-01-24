@@ -35,6 +35,7 @@ Factorio*
 !*Factorio*.js
 /factorio
 !/test/file/factorio
+!/test/file/html/*.html
 !/test/lib/factorio
 !/packages/lib/src/factorio
 /instances
