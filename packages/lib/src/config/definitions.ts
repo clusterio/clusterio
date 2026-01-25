@@ -479,6 +479,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "string",
 			initialValue: "latest",
+			inputComponent: "target_version",
 		},
 		"factorio.executable_path": {
 			description:

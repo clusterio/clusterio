@@ -21,6 +21,7 @@ import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
+import InputPartialVersion from "./InputPartialVersion";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -128,7 +129,10 @@ function CreateModPackButton() {
 						message: "Must be an a.b or a.b.c version number.",
 					}]}
 				>
-					<Input />
+					<InputPartialVersion
+						value={form.getFieldValue("factorioVersion")}
+						onChange={(value) => form.setFieldValue("factorioVersion", value)}
+					/>
 				</Form.Item>
 			</Form>
 		</Modal>
