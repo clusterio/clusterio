@@ -20,7 +20,7 @@
 		"url": "https://github.com/clusterio/clusterio/issues"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"peerDependencies": {
 		"@clusterio/controller": "workspace:*",
