@@ -548,12 +548,13 @@ end`.replace(/\r?\n/g, " ");
 
 	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
+		const publicPort = this.config.get("factorio.proxy_port") ?? this.server.gamePort;
 		this.sendTo(
 			"controller",
 			new lib.InstanceStatusChangedEvent(
 				this.id,
 				status,
-				this.server.gamePort,
+				publicPort,
 				// TODO: factorio.version is not validated
 				status === "running" ? this.server.version : this.config.get("factorio.version") as lib.TargetVersion,
 			),

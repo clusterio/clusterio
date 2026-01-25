@@ -407,6 +407,7 @@ export interface InstanceConfigFields {
 	"factorio.executable_path": string | null;
 	"factorio.shutdown_timeout": number;
 	"factorio.game_port": number | null;
+	"factorio.proxy_port": number | null;
 	"factorio.host_assigned_game_port": number | null;
 	"factorio.rcon_port": number | null;
 	"factorio.rcon_password": string | null;
@@ -499,6 +500,13 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		"factorio.game_port": {
 			description: "UDP port to run game on, uses a port in host.factorio_port_range if null",
 			restartRequired: true,
+			type: "number",
+			optional: true,
+		},
+		"factorio.proxy_port": {
+			description:
+				"UDP port to accept client connections on. When set, the host will proxy traffic to " +
+				"the instance game port and start the instance on first packet.",
 			type: "number",
 			optional: true,
 		},
