@@ -232,7 +232,7 @@ Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), thi
 
 ## Running Clusterio
 
-After completing the installation start up the controller and at least one host separately.
+After completing the installation and creating your admin user, start up the controller and at least one host separately.
 The installer provides the `run-controller` and `run-host` scripts to make this simple.
 Once the controller process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
 

@@ -173,26 +173,26 @@ let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 let hostConfigPath = path.join("temp", "test", "config-host.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
-async function exec(command, options = {}) {
+function exec(command, options = {}) {
 	// Uncomment to show commands run in tests
 	// console.log(command);
 	options = { cwd: path.join("temp", "test"), ...options };
-	return await util.promisify(child_process.exec)(command, options);
+	return util.promisify(child_process.exec)(command, options);
 }
 
-async function execController(...args) {
+function execController(...args) {
 	args[0] = `node --enable-source-maps ../../packages/controller ${args[0]}`;
-	return await exec(...args);
+	return exec(...args);
 }
 
-async function execHost(...args) {
+function execHost(...args) {
 	args[0] = `node --enable-source-maps ../../packages/host ${args[0]}`;
-	return await exec(...args);
+	return exec(...args);
 }
 
-async function execCtlProcess(...args) {
+function execCtlProcess(...args) {
 	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
-	return await exec(...args);
+	return exec(...args);
 }
 
 let inExecCtl = false;
@@ -229,7 +229,8 @@ function getControl() {
 	return control;
 }
 
-function spawn(name, cmd, waitFor) {
+/** @returns {Promise<child_process.ChildProcess>} */
+function spawn(name, cmd, waitFor, options = {}) {
 
 	const silent = process.env.SILENT_TEST;
 	const bootstrap = !controllerProcess || !hostProcess;
@@ -242,7 +243,7 @@ function spawn(name, cmd, waitFor) {
 	return new Promise((resolve, reject) => {
 		log(cmd);
 		let parts = cmd.split(" ");
-		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
+		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test"), ...options });
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		let stderr = new LineSplitter({ readableObjectMode: true });
 		let onDataOut = line => {
@@ -266,8 +267,8 @@ function spawn(name, cmd, waitFor) {
 	});
 }
 
-async function spawnNode(name, cmd, waitFor) {
-	return await spawn(name, `node --enable-source-maps ${cmd}`, waitFor);
+function spawnNode(name, cmd, waitFor, options) {
+	return spawn(name, `node --enable-source-maps ${cmd}`, waitFor, options);
 }
 
 before(async function() {
@@ -394,6 +395,7 @@ module.exports = {
 	TestControl,
 	TestControlConnector,
 	TestHostConnector,
+	execController,
 	execCtlProcess,
 	slowTest,
 	get,
