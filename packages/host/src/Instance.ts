@@ -428,6 +428,13 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
+		const hostId = this.config.get("instance.assigned_host");
+		if (hostId !== null) {
+			this.sendTo(
+				"controller",
+				new lib.InstancePlayerRouteUpdateEvent(name, this.id, hostId, this.server.gamePort, Date.now()),
+			);
+		}
 		this.hooks.playerEvent.invoke(event);
 	}
 
