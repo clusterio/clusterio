@@ -2,12 +2,14 @@
 const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
 
+const { testMatrix } = require("../common");
 const {
 	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
 } = require("./index");
 
 const instId = 48;
 const instName = "Integration";
+const instSetConfig = `instance config set ${instName}`;
 const instAltId = 49;
 const instAltName = "IntegrationAlt";
 
@@ -52,7 +54,6 @@ describe("Clusterio Instance", function() {
 		// Exclude alt test instance from start-all to prevent interference
 		await execCtl(`instance config set ${instAltName} instance.exclude_from_start_all true`);
 		await execCtl(`instance start ${instAltName}`);
-		await sendRcon(instAltId, "/sc disable achievements");
 	});
 	after(async function() {
 		this.timeout(20000);
@@ -61,25 +62,42 @@ describe("Clusterio Instance", function() {
 		await execCtl(`instance stop ${instAltName}`);
 		await execCtl(`instance delete ${instAltName}`);
 	});
-	for (const savePatchingEnabled of [true, false]) {
-		describe(`Integration ${savePatchingEnabled ? "with" : "without"} save patching`, function() {
+	for (const [savePatchingEnabled, scriptCommandsEnabled] of testMatrix([true, false], [true, false])) {
+		const strSavePatching = `save patching: ${savePatchingEnabled ? "Enabled" : "Disabled"}`;
+		const strScriptCommands = `script commands: ${scriptCommandsEnabled ? "Enabled" : "Disabled"}`;
+		async function allowSendingScriptCommands() {
+			if (!scriptCommandsEnabled) {
+				// Enable command to prevent "Attempted to use script command when disabled"
+				// This works because we only disable achievements on startup, this will break if we make it live update
+				await execCtl(`${instSetConfig} factorio.enable_script_commands true`);
+			}
+		}
+		describe(`Integration - ${strSavePatching}, ${strScriptCommands}`, function() {
 			before(async function() {
 				this.timeout(20000);
 				// Create and start a patched save
-				await execCtl(`instance config set ${instName} factorio.enable_save_patching ${savePatchingEnabled}`);
-				await execCtl(`instance save create ${instName} ${savePatchingEnabled ? "patched" : "unpatched"}`);
-				await execCtl(`instance start ${instName} --save ${savePatchingEnabled ? "patched" : "unpatched"}.zip`);
-				await sendRcon(instId, "/sc disable achievements");
+				await execCtl(`${instSetConfig} factorio.enable_save_patching ${savePatchingEnabled}`);
+				await execCtl(`${instSetConfig} factorio.enable_script_commands ${scriptCommandsEnabled}`);
+				await execCtl(`instance save create ${instName}`);
+				await execCtl(`instance start ${instName}`);
 			});
 			after(async function() {
 				// Stop the instance
 				await execCtl(`instance stop ${instName}`);
 			});
-			describe("player event", function() {
+			describe("Disable achievements", function() {
+				it("should only disable achievements when script commands are enabled", async function() {
+					await allowSendingScriptCommands();
+					const res = await sendRcon(instId, "/sc rcon.print('Disabled')");
+					assert.equal(res === "Disabled\n", scriptCommandsEnabled);
+				});
+			});
+			describe("Player events", function() {
 				if (savePatchingEnabled) {
 					// IPC expects save patching to be enabled
 					it("should do nothing for an unknown type", async function() {
 						await assert.rejects(getUser("DoesNotExist"), "User should not exist");
+						await allowSendingScriptCommands();
 						await sendRcon(instId,
 							`/sc ${requireApi} api.send_json("player_event",` +
 							"{ type='invalid type', name='DoesNotExist' })"
@@ -87,6 +105,7 @@ describe("Clusterio Instance", function() {
 						await assert.rejects(getUser("DoesNotExist"), "User was created");
 					});
 					it("should respond to a player join and leave event", async function() {
+						await allowSendingScriptCommands();
 						await sendRcon(instId,
 							`/sc ${requireApi} api.send_json("player_event",` +
 							"{ type='join', name='JoiningPlayer' })"
@@ -102,7 +121,7 @@ describe("Clusterio Instance", function() {
 					});
 				}
 				it("should respond to a player ban and unban event", async function() {
-					await execCtl(`instance config set ${instName} factorio.sync_banlist bidirectional`);
+					await execCtl(`${instSetConfig} factorio.sync_banlist bidirectional`);
 					await sendRcon(instId, "/ban BannedPlayer");
 					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userBanned = await getUser("BannedPlayer");
@@ -119,7 +138,7 @@ describe("Clusterio Instance", function() {
 				});
 				it("should respond to a player promote and demote event", async function() {
 					// Because there is no admin list command this test will be different to the other two
-					await execCtl(`instance config set ${instName} factorio.sync_adminlist bidirectional`);
+					await execCtl(`${instSetConfig} factorio.sync_adminlist bidirectional`);
 					await sendRcon(instId, "/promote AdminPlayer");
 					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userPromote = await getUser("AdminPlayer");
@@ -141,7 +160,7 @@ describe("Clusterio Instance", function() {
 					);
 				});
 				it("should respond to a player whitelist add and remove event", async function() {
-					await execCtl(`instance config set ${instName} factorio.sync_whitelist bidirectional`);
+					await execCtl(`${instSetConfig} factorio.sync_whitelist bidirectional`);
 					await sendRcon(instId, "/whitelist add WhitelistPlayer");
 					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
 					const userAdded = await getUser("WhitelistPlayer");

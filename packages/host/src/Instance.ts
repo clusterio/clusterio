@@ -962,10 +962,15 @@ end`.replace(/\r?\n/g, " ");
 		this._loadedSave = saveName;
 		await this.server.start(saveName);
 
-		if (this.config.get("factorio.enable_save_patching") && this.config.get("factorio.enable_script_commands")) {
+		if (this.config.get("factorio.enable_script_commands")) {
 			await this.server.disableAchievements();
-			await this.updateInstanceData();
+		}
+
+		if (this.config.get("factorio.enable_save_patching")) {
 			this._watchPlayerPromote();
+			if (this.config.get("factorio.enable_script_commands")) {
+				await this.updateInstanceData();
+			}
 		} else {
 			this._watchServerLogActions();
 		}
