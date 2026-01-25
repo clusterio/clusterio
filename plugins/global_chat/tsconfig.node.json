@@ -2,6 +2,8 @@
 	"extends": "../../tsconfig.node.json",
 	"references": [
 		{ "path": "../../packages/lib/tsconfig.node.json" },
+		{ "path": "../../packages/host/tsconfig.node.json" },
+		{ "path": "../../packages/ctl/tsconfig.node.json" },
 	],
 	"include": ["./**/*.ts"],
 	"exclude": ["test/*", "./dist/*"],

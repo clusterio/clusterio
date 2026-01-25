@@ -17,25 +17,25 @@
 		"factorio"
 	],
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
+		"set-blocking": "catalog:",
+		"fs-extra": "catalog:",
+		"winston": "catalog:",
+		"phin": "catalog:",
 		"as-table": "^1.0.55",
-		"fs-extra": "^11.3.0",
-		"phin": "^3.7.0",
-		"set-blocking": "^2.0.0",
-		"winston": "^3.17.0",
 		"yargs": "^17.7.2"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"devDependencies": {
-		"@types/fs-extra": "^11.0.1",
-		"@types/node": "^20.17.19",
-		"@types/set-blocking": "^2.0.0",
+		"@types/fs-extra": "catalog:",
+		"@types/node": "catalog:",
+		"@types/set-blocking": "catalog:",
 		"@types/yargs": "^17.0.33",
-		"typescript": "^5.7.3"
+		"typescript": "catalog:"
 	}
 }
