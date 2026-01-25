@@ -16,8 +16,8 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"chalk": "^4.1.2",
-		"fs-extra": "^11.3.0",
+		"chalk": "catalog:",
+		"fs-extra": "catalog:",
 		"inquirer": "^8.2.4",
 		"yargs": "^17.7.2"
 	},

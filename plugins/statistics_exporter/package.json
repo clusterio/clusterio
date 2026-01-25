@@ -31,12 +31,12 @@
 		"@clusterio/web_ui": "workspace:*",
 		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*",
-		"@types/node": "^20.17.19",
-		"@types/react": "^18.3.18",
-		"typescript": "^5.7.3",
-		"webpack": "^5.98.0",
-		"webpack-cli": "^5.1.4",
-		"webpack-merge": "^5.9.0"
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"typescript": "catalog:",
+		"webpack": "catalog:",
+		"webpack-cli": "catalog:",
+		"webpack-merge": "catalog:"
 	},
 	"publishConfig": {
 		"access": "public"
