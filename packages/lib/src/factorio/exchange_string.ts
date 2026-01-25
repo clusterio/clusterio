@@ -145,7 +145,7 @@ function readMapPosition(state: MapReaderState) {
 		y = state.last_position.y + y_diff;
 	}
 	state.last_position.x = x;
-	state.last_position.x = y;
+	state.last_position.y = y;
 	return { x, y };
 }
 
