@@ -18,15 +18,16 @@ export default function InputTargetVersion (
 	const [versions, setVersions] = useState<readonly lib.TargetVersion[]>(lib.ApiVersions);
 	const control = useContext(ControlContext);
 	const account = useAccount();
+	const hasPermission = account.hasPermission("core.external.get_factorio_versions");
 
 	useEffect(() => {
 		(async () => {
-			if (account.hasPermission("core.external.get_factorio_versions")) {
+			if (hasPermission) {
 				const res = await control.factorioVersions.get(5 * 60 * 1000);
 				setVersions(res.map(v => v.version));
 			}
 		})();
-	}, [control]);
+	}, [control, hasPermission]);
 
 	// Split the versions into groups based on major minor
 	const groups = new Map<lib.TargetVersion, lib.TargetVersion[]>();
@@ -42,18 +43,20 @@ export default function InputTargetVersion (
 	}
 
 	// Construct the tree to be disabled
-	const tree = [...groups.entries()].map(([majorMinor, patchVersions]) => (
-		{
+	const tree = [...groups.entries()].map(([majorMinor, patchVersions]) => {
+		const groupKey = `group-${majorMinor}`;
+
+		return {
 			title: majorMinor,
-			value: majorMinor,
-			key: majorMinor,
+			value: groupKey,
+			key: groupKey,
 			children: patchVersions.map((v) => ({
 				title: v,
 				value: v,
 				key: v,
 			})),
-		}
-	));
+		};
+	});
 
 	// Add "latest" option for TargetVersion
 	tree.unshift({ title: "latest", value: "latest", key: "latest", children: [] });
