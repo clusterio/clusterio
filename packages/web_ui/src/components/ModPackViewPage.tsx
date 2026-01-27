@@ -442,9 +442,25 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			{/* Display warning message if dependencies are incompatible */}
 			{!loading && incompatible.length > 0 && <Alert
 				message="Incompatible Dependencies Found:"
-				description={<ul>
-					{incompatible.map(name => <li>{name}</li>)}
-				</ul>}
+				description={<>
+					<ul>
+						{incompatible.map(name => <li key={name}>{name}</li>)}
+					</ul>
+					{incompatible.some(name => ["space-age", "elevated-rails", "quality"].includes(name)) && (
+						<p style={{ marginTop: 8, fontWeight: "bold" }}>
+							Note: Space Age DLC mods (space-age, elevated-rails, quality) are only available
+							in Factorio 2.0+. If you're using Factorio 1.1, these mods cannot be used.
+							Either upgrade to Factorio 2.0 or remove mods that depend on the Space Age DLC.
+						</p>
+					)}
+					{incompatible.includes("base") && (
+						<p style={{ marginTop: 8, fontWeight: "bold" }}>
+							Warning: One or more mods are marked as incompatible with the base game.
+							This usually indicates a Factorio version mismatch. Check that your modpack's
+							Factorio version matches your instance's Factorio version.
+						</p>
+					)}
+				</>}
 				type="warning"
 				showIcon
 				style={{ marginBottom: 16 }}
@@ -654,7 +670,11 @@ function ModsTable(props: ModsTableProps) {
 			{(mod.warning && mod.warning !== "wrong_factorio_version") && <Typography.Link
 				onClick={async () => {
 					if (await fixDependencyIssues(mod)) {
-						notify("Failed to automatically fix all issues", "warning");
+						notify(
+							"Failed to automatically fix all issues. Some dependencies may not be uploaded to the controller. " +
+							"Try using 'Download Dependencies' to fetch missing mods from the mod portal.",
+							"warning"
+						);
 					}
 				}}
 			>fix issues</Typography.Link>}
@@ -674,7 +694,11 @@ function ModsTable(props: ModsTableProps) {
 							.map(m => fixDependencyIssues(m))
 						);
 						if (hasFailure.some(v => v)) {
-							notify("Failed to automatically fix all issues", "warning");
+							notify(
+								"Failed to automatically fix all issues. Some dependencies may not be uploaded to the controller. " +
+								"Try using 'Download Dependencies' to fetch missing mods from the mod portal.",
+								"warning"
+							);
 						}
 					}}
 				>Fix Issues</Button>

@@ -43,6 +43,8 @@ After creating a directory for your plugin, the boilerplate can be generated aut
 To add it to `plugin-list.json` so that it gets loaded use the `plugin add <path>` sub-command to either clusteriocontroller, clusteriohost or clusterioctl.
 Note that it's important that the path starts with ./ or ../ (use .\ or ..\ on Windows).
 
+> **Note:** For efficient plugin development with hot reloading, see the **[Save Patching and Hot Loading Guide](save-patching-and-hot-loading.md)**. It covers using the `external_plugins/` directory, the `--dev-plugin` flag for web UI hot reload, and the complete development workflow.
+
 For a plugin to be recognised by Clusterio it needs to export an entry named `plugin` from its main entrypoint.
 By default the main entrypoint is the `index.js` file, but this may be changed by setting the `"main"` entry to a different file in `package.json`.
 Here's an example of `index.js`:
@@ -255,6 +257,8 @@ async init() {
 
 ## Communicating with Factorio
 
+> **Note:** For a detailed explanation of how the bidirectional communication system works (stdout parsing, RCON, "IPC", concurrency, etc.), see [Communication Architecture](communication-architecture.md).
+
 For pushing data into Factorio there's RCON, which lets you send arbitrary Lua commands to invoke whatever code you want in the game.
 This is done by calling the `sendRcon` method on the plugin object.
 For example:
@@ -271,6 +275,8 @@ async onStart() {
 
 Because data into Factorio is streamed at a rate of 3-6 kB/s by default, it is recommended to avoid sending large commands as much as possible, and to strip down the data on the ones you send to only what's strictly necessary.
 You can have lua code injected into the game via the module system and call that from RCON to avoid having to send code through the commands.
+
+> **Note:** For detailed information about save patching, the module system, and when to use save-patched modules vs clusterio_lib as a regular mod dependency, see [Save Patching and Hot Loading Guide](save-patching-and-hot-loading.md).
 
 For getting data out from Factorio there's both RCON and the `send_json` API of the Clusterio module.
 Returning data via RCON is prefered if the action is initiated from the Node.js side.
