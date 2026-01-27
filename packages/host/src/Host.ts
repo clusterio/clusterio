@@ -410,7 +410,7 @@ export default class Host extends lib.Link {
 		for (let pluginInfo of this.pluginInfos) {
 			if (
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
-				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)
+				|| !this.config.get(`${pluginInfo.name}.load_plugin`)
 			) {
 				continue;
 			}
@@ -693,7 +693,8 @@ export default class Host extends lib.Link {
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection
 					? instanceConnection.instance.server.version
-					: instanceInfo.config.get("factorio.version"),
+					// TODO: factorio.version is not validated
+					: instanceInfo.config.get("factorio.version") as lib.TargetVersion,
 			)
 		);
 
@@ -805,19 +806,48 @@ export default class Host extends lib.Link {
 	}
 
 	async handleSystemInfoRequest() {
-		if (!this.config.restartRequired) {
-			// If a restart isn't already required, then test if a new version is installed
-			try {
-				const runningVersion = this.config.get("host.version");
-				const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
-				if (runningVersion !== packageJson.version) {
-					this.config.restartRequired = true;
-				}
-			} catch (err: any) {
-				logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
-			}
+		const restartRequired = await this.checkRestartRequired();
+		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, restartRequired);
+	}
+
+	async checkRestartRequired() {
+		if (this.config.restartRequired) {
+			return true;
 		}
-		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, this.config.restartRequired);
+
+		let packageName = "@clusterio/host";
+		try {
+			// First check the clusterio version
+			const runningVersion = this.config.get("host.version");
+			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJson = await fs.readJSON(packageJsonPath);
+			if (runningVersion !== packageJson.version) {
+				this.config.restartRequired = true;
+				return true;
+			}
+
+			// Second check plugin versions
+			for (const pluginInfo of this.pluginInfos) {
+				if (
+					!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
+					|| !this.config.get(`${pluginInfo.name}.load_plugin`)
+				) {
+					continue;
+				}
+
+				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
+				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
+				const pluginPackageJson = await fs.readJSON(pluginPackageJsonPath);
+				if (pluginInfo.version !== pluginPackageJson.version) {
+					this.config.restartRequired = true;
+					return true;
+				}
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+		}
+
+		return false;
 	}
 
 	async handleHostMetricsRequest() {
@@ -1066,7 +1096,7 @@ export default class Host extends lib.Link {
 		if (!this.config.get("host.allow_remote_updates")) {
 			throw new lib.RequestError("Remote updates are disabled on this machine");
 		}
-		return lib.updatePackage("@clusterio/host");
+		return await lib.updatePackage("@clusterio/host");
 	}
 
 	async handlePluginUpdateRequest(request: lib.PluginUpdateRequest) {
@@ -1087,7 +1117,7 @@ export default class Host extends lib.Link {
 		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
 			pluginInfo,
 			this.plugins.has(pluginInfo.name),
-			this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields) as boolean,
+			this.config.get(`${pluginInfo.name}.load_plugin`),
 		));
 	}
 

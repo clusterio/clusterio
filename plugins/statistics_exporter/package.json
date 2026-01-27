@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-statistics_exporter",
-	"version": "2.0.0-alpha.21",
+	"version": "2.0.0-alpha.22b",
 	"description": "Clusterio plugin for gathering statistics from Factorio servers",
 	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
@@ -13,27 +13,30 @@
 		"factorio"
 	],
 	"scripts": {
-		"prepare": "tsc --build && webpack-cli --env production",
+		"prepare": "tsc --build && webpack-cli --mode production",
 		"test": "echo \"Error: run tests from root\" && exit 1"
 	},
 	"bugs": {
 		"url": "https://github.com/clusterio/clusterio/issues"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"peerDependencies": {
+		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "workspace:*",
 		"@clusterio/web_ui": "workspace:*",
-		"@types/node": "^20.17.19",
-		"@types/react": "^18.3.18",
-		"typescript": "^5.7.3",
-		"webpack": "^5.98.0",
-		"webpack-cli": "^5.1.4",
-		"webpack-merge": "^5.9.0"
+		"@clusterio/host": "workspace:*",
+		"@clusterio/lib": "workspace:*",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"typescript": "catalog:",
+		"webpack": "catalog:",
+		"webpack-cli": "catalog:",
+		"webpack-merge": "catalog:"
 	},
 	"publishConfig": {
 		"access": "public"

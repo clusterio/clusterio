@@ -189,6 +189,7 @@ export async function initialize(
 			default: "plugin-list.json",
 			type: "string",
 		})
+		.option("bypass-lock-file", { hidden: true, type: "boolean", nargs: 0, default: false })
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("control-config", "Manage Control config", lib.configCommand)
 		.wrap(parser.terminalWidth())
@@ -234,8 +235,14 @@ export async function initialize(
 		.parse(argv) as CtlArguments
 	;
 
-	let controlConfig;
 	const controlConfigPath = args.config;
+	const controlConfigLockPath = `${controlConfigPath}.lock`;
+	if (args.bypassLockFile) {
+		await fs.unlink(controlConfigLockPath).catch(() => {}); // ignore error, file might not exist
+	}
+
+	let controlConfig;
+	const controlConfigLock = new lib.LockFile(controlConfigLockPath);
 	logger.verbose(`Loading config from ${controlConfigPath}`);
 	try {
 		controlConfig = await lib.ControlConfig.fromFile("control", controlConfigPath);
@@ -257,7 +264,7 @@ export async function initialize(
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await lib.handleConfigCommand(args, controlConfig);
+		await lib.handleConfigCommand(args, controlConfig, controlConfigLock);
 		return { args, controlConfig, ctlPlugins, rootCommands, shouldRun: false };
 	}
 

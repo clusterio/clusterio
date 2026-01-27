@@ -105,6 +105,8 @@ export default class Controller {
 
 	// Cache for mod portal requests
 	modPortalCache = new Map<string, { timestamp: number, data: any[] }>();
+	// Cache for factorio versions
+	factorioVersions = new lib.ValueCache(lib.fetchFactorioVersions);
 
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
@@ -135,7 +137,8 @@ export default class Controller {
 
 		const modPacks = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "mod-packs.json"),
-			lib.ModPack.fromJSON.bind(lib.ModPack)
+			lib.ModPack.fromJSON.bind(lib.ModPack),
+			this.migrateModPacks,
 		).bootstrap());
 
 		const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
@@ -405,7 +408,6 @@ export default class Controller {
 		const webpackConfigs = [];
 
 		if (args.dev) {
-
 			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
 		}
 		if (args.devPlugin) {
@@ -550,19 +552,8 @@ export default class Controller {
 				}
 				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
-			if (!this.config.restartRequired) {
-				// If a restart isn't already required, then test if a new version is installed
-				try {
-					const runningVersion = this.config.get("controller.version");
-					const packageJson = await fs.readJSON(path.join(__dirname, "..", "package.json"));
-					if (runningVersion !== packageJson.version) {
-						this.config.restartRequired = true;
-					}
-				} catch (err: any) {
-					logger.warn(`Failed to read package json:\n${err.stack ?? err.message}`);
-				}
-			}
-			requests.push(lib.gatherSystemInfo("controller", this.canRestart, this.config.restartRequired));
+			const restartRequired = await this.checkRestartRequired();
+			requests.push(lib.gatherSystemInfo("controller", this.canRestart, restartRequired));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
 				this.systems.set(metric);
@@ -570,6 +561,46 @@ export default class Controller {
 		} catch (err: any) {
 			logger.error(`Unexpected error updating system infos:\n${err.stack ?? err.message}`);
 		}
+	}
+
+	async checkRestartRequired() {
+		if (this.config.restartRequired) {
+			return true;
+		}
+
+		let packageName = "@clusterio/controller";
+		try {
+			// First check the clusterio version
+			const runningVersion = this.config.get("controller.version");
+			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJson = await fs.readJSON(packageJsonPath);
+			if (runningVersion !== packageJson.version) {
+				this.config.restartRequired = true;
+				return true;
+			}
+
+			// Second check plugin versions
+			for (const pluginInfo of this.pluginInfos) {
+				if (
+					!pluginInfo.controllerEntrypoint && !pluginInfo.webEntrypoint
+					|| !this.config.get(`${pluginInfo.name}.load_plugin`)
+				) {
+					continue;
+				}
+
+				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
+				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
+				const pluginPackageJson = await fs.readJSON(pluginPackageJsonPath);
+				if (pluginInfo.version !== pluginPackageJson.version) {
+					this.config.restartRequired = true;
+					return true;
+				}
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+		}
+
+		return false;
 	}
 
 	onAutosaveIntervalChanged() {
@@ -672,6 +703,17 @@ export default class Controller {
 			instance.updatedAtMs = Date.now();
 		}
 		return instance;
+	}
+
+	static migrateModPacks(rawJson: unknown[]): Static<typeof lib.ModPack.jsonSchema>[] {
+		const serialized = rawJson as Static<typeof lib.ModPack.jsonSchema>[];
+		return serialized.map(json => {
+			for (const mod of json.mods) {
+				// migrate: 2.0.0.alpha.22 - json schema now enforces X.Y.Z for mod version, builtins would use X.Y only
+				mod.version = lib.normaliseFullVersion(mod.version);
+			}
+			return json;
+		});
 	}
 
 	static migrateRoles(rawJson: unknown[]): Static<typeof lib.Role.jsonSchema>[] {
@@ -1128,7 +1170,7 @@ export default class Controller {
 				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
 			}
 
-			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields)) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin`)) {
 				continue;
 			}
 

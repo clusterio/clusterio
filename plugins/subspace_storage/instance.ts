@@ -14,6 +14,8 @@ type IpcItems = [name: string, count: number, quality: string][];
 export class InstancePlugin extends BaseInstancePlugin {
 	pendingTasks!: Set<any>;
 	pingId?: ReturnType<typeof setTimeout>;
+	timeUpdateId?: ReturnType<typeof setInterval>;
+	cachedInventoryItems: Item[] = [];
 
 	unexpectedError(err: Error) {
 		this.logger.error(`Unexpected error:\n${err.stack}`);
@@ -54,18 +56,37 @@ export class InstancePlugin extends BaseInstancePlugin {
 		}, 5000);
 
 		let items = await this.instance.sendTo("controller", new GetStorageRequest());
-		// TODO Diff with dump of invdata produce minimal command to sync
-		let itemsJson = lib.escapeString(JSON.stringify(items));
-		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
+
+        // Cache items for periodic time updates
+		this.cachedInventoryItems = items;
+
+        // Ensure a payload with updated time is sent every second
+		this.timeUpdateId = setInterval(() => {
+			if (this.instance.status !== "running") {
+				return;
+			}
+
+			const payloadItems = [
+				...this.cachedInventoryItems,
+				new Item("signal-unixtime", Math.floor(Date.now() / 1000), "normal"),
+			];
+			const payloadJson = lib.escapeString(JSON.stringify(payloadItems));
+			const task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${payloadJson}")`, true)
+				.catch(err => this.unexpectedError(err));
+			this.pendingTasks.add(task);
+			task.finally(() => { this.pendingTasks.delete(task); });
+		}, 1000);
 	}
 
 	async onStop() {
 		clearInterval(this.pingId);
+		clearInterval(this.timeUpdateId);
 		await Promise.all(this.pendingTasks);
 	}
 
 	onExit() {
 		clearInterval(this.pingId);
+		clearInterval(this.timeUpdateId);
 	}
 
 	// provide items --------------------------------------------------------------
@@ -114,14 +135,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		if (this.instance.status !== "running") {
 			return;
 		}
-		let items = event.items;
-
-		// XXX this should be moved to instance/clusterio api
-		items.push(new Item("signal-unixtime", Math.floor(Date.now()/1000), "normal"));
-
-		let itemsJson = lib.escapeString(JSON.stringify(items));
-		let task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
-		this.pendingTasks.add(task);
-		await task.finally(() => { this.pendingTasks.delete(task); });
+        // Cache latest inventory from controller
+		this.cachedInventoryItems = event.items;
 	}
 }

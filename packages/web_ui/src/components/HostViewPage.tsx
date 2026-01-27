@@ -37,9 +37,10 @@ function HostControlButton({ hostId, canRestart, restartRequired }: HostControlB
 		actions.push({
 			key: "restart",
 			label: (
-				<Tooltip title={restartRequired ? "Restart Required" : null}>
-					Restart {restartRequired ? <ExclamationCircleOutlined style={{ color: "yellow" }}/> : undefined}
-				</Tooltip>
+				!restartRequired ? "Restart" : <Tooltip title={"Restart Required"}><Space>
+					<ExclamationCircleOutlined style={{ color: "yellow" }}/>
+					Restart
+				</Space></Tooltip>
 			),
 			onClick: () => {
 				control.sendTo(
@@ -90,6 +91,7 @@ export default function HostViewPage() {
 	const system = systems.get(hostId);
 	const [host, synced] = useHost(hostId);
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
+	const canShowNpm = hasNpmButtonPermission(false);
 	const hostInstances = new Map([...instances].filter(([_id, instance]) => instance.assignedHost === hostId));
 
 	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host?.name ?? String(hostId) }];
@@ -104,7 +106,7 @@ export default function HostViewPage() {
 		</PageLayout>;
 	}
 
-	let hostButtons = <Space>
+	let hostButtons = <Space wrap>
 		<HostControlButton hostId={hostId} canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
 		{
 			account.hasPermission("core.host.revoke_token")
@@ -124,10 +126,9 @@ export default function HostViewPage() {
 				</Button>
 			</Popconfirm>
 		}
-		{
-			hasNpmButtonPermission(false)
-			&& <NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
-		}
+		{canShowNpm && (
+			<NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
+		)}
 	</Space>;
 
 	return <PageLayout nav={nav}>

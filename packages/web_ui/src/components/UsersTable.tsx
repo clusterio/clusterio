@@ -249,6 +249,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			rowKey={(user) => user.name}
 			pagination={defaultPagination}
 			size={size}
+			scroll={{ x: "max-content" }}
 			onRow={(user) => ({
 				onClick: (event) => {
 					if ((event.target as HTMLElement).closest("a")) {

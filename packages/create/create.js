@@ -689,6 +689,7 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (["standalone", "controller", "host"].includes(answers.mode)) {
+		if (args.hasOwnProperty("remoteNpm")) { answers.remoteNpm = args.remoteNpm; }
 		answers = await inquirer.prompt([
 			{
 				type: "confirm",
@@ -753,8 +754,8 @@ async function inquirerMissingArgs(args) {
 async function downloadLinuxServer() {
 	let res = await fetch("https://factorio.com/get-download/stable/headless/linux64");
 
-	const url = new URL(res.headers.location);
 	// get the filename of the latest factorio archive from redirected url
+	const url = new URL(res.url); // The res is redirects, need final url
 	const filename = path.posix.basename(url.pathname);
 	const match = filename.match(/(?<=factorio_headless_x64_|factorio-headless_linux_)\d+\.\d+\.\d+(?=\.tar\.xz)/);
 	if (!match || !match.length) {
@@ -771,10 +772,7 @@ async function downloadLinuxServer() {
 	if (await fs.pathExists(factorioDir)) {
 		logger.warn(`setting downloadDir to ${factorioDir}, but not downloading because already existing`);
 	} else {
-		await fs.ensureDir(tmpDir);
-
-		// follow the redirect
-		res = await fetch(url.href);
+		await fs.emptyDir(tmpDir);
 
 		logger.info("Downloading latest Factorio server release. This may take a while.");
 		const writeStream = fs.createWriteStream(tmpArchivePath);
@@ -793,8 +791,10 @@ async function downloadLinuxServer() {
 			throw e;
 		}
 
-		await fs.unlink(archivePath);
+		await fs.ensureDir("factorio");
 		await fs.rename(tmpFactorioDir, factorioDir);
+		await fs.unlink(archivePath);
+		await fs.rm(tmpDir);
 	}
 }
 
@@ -819,6 +819,10 @@ async function main() {
 		})
 		.option("http-port", {
 			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
+		})
+		.option("download-headless", {
+			describe: "Download the latest headless release [standalone/controller] [linux only]",
+			type: "boolean", nargs: 0,
 		})
 		.option("host-name", {
 			nargs: 1, describe: "Host name [host]", type: "string",

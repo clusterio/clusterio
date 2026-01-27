@@ -34,4 +34,44 @@ describe("messages/controller", function() {
 			);
 		});
 	});
+
+	describe("External", function() {
+		it("runs", async function() {
+			let callCount = 0;
+			const versions = [
+				{ version: "1.2.3", stable: true, headlessUrl: "path/to/download" },
+				{ version: "1.2.4", stable: false, headlessUrl: "path/to/download" },
+			];
+
+			// Mock the cache to avoid needless fetches
+			controller.factorioVersions = new lib.ValueCache(async () => {
+				callCount += 1;
+				return versions;
+			});
+
+			// First call should result in a fetch
+			const versions1 = await controlConnection.handleFactorioVersionsRequest(
+				new lib.FactorioVersionsRequest()
+			);
+
+			assert.deepEqual(versions1, versions);
+			assert.equal(callCount, 1);
+
+			// Second call should not fetch due to default maxAgeMs being greater than 0
+			const versions2 = await controlConnection.handleFactorioVersionsRequest(
+				new lib.FactorioVersionsRequest()
+			);
+
+			assert.deepEqual(versions2, versions);
+			assert.equal(callCount, 1);
+
+			// Setting maxAgeMs to 0 should result in a new fetch
+			const versions3 = await controlConnection.handleFactorioVersionsRequest(
+				new lib.FactorioVersionsRequest(0)
+			);
+
+			assert.deepEqual(versions3, versions);
+			assert.equal(callCount, 2);
+		});
+	});
 });

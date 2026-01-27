@@ -4,3 +4,37 @@ packages:
   - "external_plugins/*"
   - "external_plugins/*/*"
   - "test/"
+
+catalog:
+  "@types/node": ^20.17.19
+  "@types/fs-extra": ^11.0.1
+  "@types/express": ^4.17.17
+  "@types/finalhandler": ^1.2.0
+  "@types/jsonwebtoken": ^9.0.9
+  "@types/set-blocking": ^2.0.0
+  "@types/react": ^18.3.18
+  "@types/ws": ^8.5.14
+  "@sinclair/typebox": ^0.30.4
+  "@swc/core": ^1.13.3
+  "antd": ^5.24.2
+  "react": ^18.2.0
+  "react-dom": ^18.2.0
+  "react-router-dom": ^6.29.0
+  "typescript": ^5.7.3
+  "webpack": ^5.98.0
+  "webpack-cli": ^5.1.4
+  "webpack-merge": ^5.9.0
+  "fs-extra": ^8.1.0
+  "express": ^5.1.0
+  "winston": ^3.17.0
+  "winston-transport": ^4.9.0
+  "winston-daily-rotate-file": ^4.7.1
+  "jsonwebtoken": ^9.0.2
+  "set-blocking": ^2.0.0
+  "jszip": ^3.10.1
+  "chalk": ^4.1.2
+  "phin": ^3.7.0
+  "ws": ^8.18.1
+
+catalogMode: strict
+linkWorkspacePackages: true

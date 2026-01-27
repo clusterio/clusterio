@@ -141,7 +141,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			}
 		},
 	};
-	return <Space>
+	return <Space wrap>
 		{
 			account.hasAnyPermission(...InstanceControlButtonPermissions)
 			&& <InstanceControlButton instance={instance} />

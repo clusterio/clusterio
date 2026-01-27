@@ -195,25 +195,19 @@ export class SubscriptionController {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
 		if (event.subscribe === false) {
-			// Unsubscribe logic
 			const subscriber = eventData.subscriptions.find(sub => sub.dst.addressedTo(src));
 			if (!subscriber) {
 				return false;
 			}
-			if (event.filters === undefined) {
+			if (event.filters === undefined || subscriber.filters === undefined) {
 				// Remove entire subscription for this address
 				eventData.subscriptions = eventData.subscriptions.filter(sub => !sub.dst.addressedTo(src));
 			} else {
 				const filtersToRemove = Array.isArray(event.filters) ? event.filters : [event.filters];
-				if (subscriber.filters === undefined) {
-					// Was subscribed to all, remove subscription entirely
-					eventData.subscriptions = eventData.subscriptions.filter(sub => !sub.dst.addressedTo(src));
-				} else {
-					subscriber.filters = subscriber.filters.filter(f => !filtersToRemove.includes(f));
-					if (subscriber.filters.length === 0) {
-						// No filters left, remove subscription
-						eventData.subscriptions = eventData.subscriptions.filter(sub => sub !== subscriber);
-					}
+				subscriber.filters = subscriber.filters.filter(f => !filtersToRemove.includes(f));
+				if (subscriber.filters.length === 0) {
+					// No filters left, remove subscription
+					eventData.subscriptions = eventData.subscriptions.filter(sub => sub !== subscriber);
 				}
 			}
 		} else {

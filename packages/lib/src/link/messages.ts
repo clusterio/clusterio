@@ -35,6 +35,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.SystemInfoUpdateEvent,
 	controller.DebugDumpWsRequest,
 	controller.DebugWsMessageEvent,
+	controller.FactorioVersionsRequest,
 
 	subscriptions.SubscriptionRequest,
 
@@ -108,6 +109,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	mod.ModPackUpdatesEvent,
 	mod.ModUpdatesEvent,
 	mod.ModPortalDownloadRequest,
+	mod.ModDependencyResolveRequest,
 
 	role.PermissionListRequest,
 	role.RoleListRequest,

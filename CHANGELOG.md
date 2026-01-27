@@ -31,6 +31,51 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.22
+
+### Major Features
+
+- Added a download dependencies button which downloads missing dependencies. [#726](https://github.com/clusterio/clusterio/issues/726)
+- Added an update mod button which downloads the latest compatible version of a mod. [#725](https://github.com/clusterio/clusterio/issues/725)
+
+### Features
+
+- Added online player list to instance details page. [#666](https://github.com/clusterio/clusterio/issues/666)
+- Added ability to restart instances as a single action. [#779](https://github.com/clusterio/clusterio/issues/779)
+- Added ability to exclude instances from the 'Start all' web UI button. [#451](https://github.com/clusterio/clusterio/issues/451)
+- Added plugin update detection for restart required [#759](https://github.com/clusterio/clusterio/issues/759)
+- Added detection for mismatched mod and mod pack factorio version. [#727](https://github.com/clusterio/clusterio/issues/727)
+- Added detection for dependency issues such as incompatible or wrong version. [#727](https://github.com/clusterio/clusterio/issues/727)
+- Added a quick fix button for resolving detected dependency issues. [#801](https://github.com/clusterio/clusterio/issues/801)
+
+### Changes
+
+- Restart host / controller is now the default action with stop moved to a dropdown. [#780](https://github.com/clusterio/clusterio/issues/780)
+- Restart host / controller no longer shows unless it is enabled for that machine. [#780](https://github.com/clusterio/clusterio/issues/780)
+- Plugin templates no longer depend on a dev install of Clusterio. [#786](https://github.com/clusterio/clusterio/issues/786)
+- Better error message for when a plugin is missing an index file. [#799](https://github.com/clusterio/clusterio/pull/799)
+- `ModStore.downloadMods` no longer checks if the mod is already downloaded. [#801](https://github.com/clusterio/clusterio/issues/801
+- Mod version for buildins will always be fully qualified, matching the requirement enforced on other mods. [#801](https://github.com/clusterio/clusterio/issues/801))
+- Subscriptions can now be filtered. [#788](https://github.com/clusterio/clusterio/pull/788)
+
+### Fixes
+
+- Fixed the missing space between action buttons on the users and hosts list. [#780](https://github.com/clusterio/clusterio/issues/780)
+- Fixed "rendered more hooks" error when refreshing hosts page. [#769](https://github.com/clusterio/clusterio/issues/769)
+- Fixed inventory combinator time signal not always updating [#610](https://github.com/clusterio/clusterio/issues/610)
+- Renamed templates for `.gitignore` and `.npmignore` that caused `create --plugin-template` to fail. [#800](https://github.com/clusterio/clusterio/pull/800)
+- Fixed npm update button failing to apply update and restart.
+
+### Breaking changes
+
+- `ModPortalDownloadRequest` now requires an array of mod version pairs rather than a single mod name and version. [#801](https://github.com/clusterio/clusterio/issues/801)
+- Version strings (e.g. `1.0`, `1.0.0`) now have stricter typing and validation, passing unchecked strings to functions will error. [#801](https://github.com/clusterio/clusterio/issues/801)
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
+[@Hornwitser](https://github.com/Hornwitser)
+
 ## Version 2.0.0-alpha.21
 
 ### Major Features

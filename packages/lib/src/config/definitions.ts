@@ -35,6 +35,7 @@ export interface ControllerConfigFields {
 	"controller.allow_remote_updates": boolean;
 	"controller.allow_plugin_updates": boolean;
 	"controller.allow_plugin_install": boolean;
+	[key: `${string}.load_plugin`]: boolean;
 }
 
 /**
@@ -267,6 +268,7 @@ export interface HostConfigFields {
 	"host.allow_remote_updates": boolean;
 	"host.allow_plugin_updates": boolean;
 	"host.allow_plugin_install": boolean;
+	[key: `${string}.load_plugin`]: boolean;
 }
 
 /**
@@ -399,6 +401,7 @@ export interface InstanceConfigFields {
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
 	"instance.exclude_from_start_all": boolean;
+	[key: `${string}.load_plugin`]: boolean;
 
 	"factorio.version": string;
 	"factorio.executable_path": string | null;
@@ -476,6 +479,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "string",
 			initialValue: "latest",
+			inputComponent: "target_version",
 		},
 		"factorio.executable_path": {
 			description:

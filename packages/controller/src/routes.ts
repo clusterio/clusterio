@@ -109,9 +109,7 @@ function getPlugins(req: Request, res: Response) {
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.controller.plugins.has(name);
-		let enabled = loaded && req.app.locals.controller.config.get(
-			`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields,
-		) as unknown as boolean;
+		let enabled = loaded && req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
 		// Note: Cast through unknown is needed because load_plugin is
 		// defined at runtime and no other fields in the controller config
 		// currently have the boolean type.
@@ -134,6 +132,12 @@ function getPlugins(req: Request, res: Response) {
 		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web, npmPackage: pluginInfo.npmPackage });
 	}
 	res.send(plugins);
+}
+
+function getClusterName(req: Request, res: Response) {
+	const controller: Controller = req.app.locals.controller;
+	const clusterName = controller.config.get("controller.name");
+	res.json({ name: clusterName });
 }
 
 function validateHostToken(req: Request, res: Response, next: any) {
@@ -664,6 +668,7 @@ async function uploadMod(req: Request, res: Response) {
 export function addRouteHandlers(app: Application) {
 	app.get("/metrics", (req:Request, res:Response, next:any) => getMetrics(req, res, next).catch(next));
 	app.get("/api/plugins", getPlugins);
+	app.get("/api/cluster-name", getClusterName);
 	app.put("/api/upload-export",
 		validateHostToken,
 		(req:Request, res:Response, next:any) => uploadExport(req, res).catch(next)

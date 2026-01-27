@@ -5,9 +5,128 @@ import { Type, Static } from "@sinclair/typebox";
 import * as libHash from "../hash";
 import * as libSchema from "../schema";
 import { findRoot } from "../zip_ops";
+import { ModRecord } from "./ModPack";
 
-import { integerModVersion, integerFactorioVersion, modVersionRegExp } from "./version";
+import {
+	ApiVersion,
+	ApiVersionSchema,
+	FullVersion, FullVersionSchema, integerFullVersion,
+	integerPartialVersion,
+	ModVersionEquality,
+} from "./version";
 
+type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required";
+
+export type ModDependencyUnsatisfiedReason = "incompatible" | "missing_dependency" | "wrong_version";
+const UnsatisfiedSeverity: Record<ModDependencyUnsatisfiedReason, number> = {
+	"incompatible": 1, "missing_dependency": 2, "wrong_version": 3,
+};
+
+const lettersRegex = /^[a-zA-Z]+$/;
+
+export class ModDependency {
+	public type: ModDependencyType;
+	public name: string;
+	public version: ModVersionEquality | undefined;
+
+	static getTypeFromPrefix(prefix: string): ModDependencyType {
+		switch (prefix) {
+			case "!":
+				return "incompatible";
+			case "?":
+				return "optional";
+			case "(?)":
+				return "hidden";
+			case "~":
+				return "unordered";
+			case "":
+				return "required";
+			default:
+				throw new Error(`Invalid dependency prefix: ${prefix}`);
+		}
+	}
+
+	constructor (
+		public specification: string,
+	) {
+		const parts = specification.split(" ");
+
+		// Fix mods which include spaces in their name, joins consecutive words together
+		let index = 0;
+		while (index < parts.length - 1) {
+			const current = parts[index];
+			const next = parts[index + 1];
+			if (lettersRegex.test(current) && lettersRegex.test(next)) {
+				parts[index] = `${current} ${next}`;
+				parts.splice(index + 1, 1);
+			} else {
+				index += 1;
+			}
+		}
+
+		// Parse the dependency specification
+		switch (parts.length) {
+			case 1:
+				this.type = "required";
+				this.name = parts[0];
+				break;
+			case 2:
+				this.type = ModDependency.getTypeFromPrefix(parts[0]);
+				this.name = parts[1];
+				break;
+			case 3:
+				this.type = "required";
+				this.name = parts[0];
+				this.version = ModVersionEquality.fromParts(parts[1], parts[2]);
+				break;
+			case 4:
+				this.type = ModDependency.getTypeFromPrefix(parts[0]);
+				this.name = parts[1];
+				this.version = ModVersionEquality.fromParts(parts[2], parts[3]);
+				break;
+			default:
+				throw new Error(`Invalid dependency specification: ${specification}`);
+		}
+	}
+
+	checkUnsatisfiedReason(mods: (ModInfo | ModRecord)[]): ModDependencyUnsatisfiedReason | undefined {
+		const mod = mods.find(m => m.name === this.name);
+		if (mod === undefined) {
+			return ["unordered", "required"].includes(this.type) ? "missing_dependency" : undefined;
+		} else if (this.type === "incompatible") {
+			return "incompatible";
+		} else if (this.version && !this.version.testVersion(mod.version)) {
+			return "wrong_version";
+		}
+		return undefined;
+	}
+
+	isSatisfied(mods: (ModInfo | ModRecord)[]) {
+		return this.checkUnsatisfiedReason(mods) === undefined;
+	}
+
+	get incompatible() {
+		return this.type === "incompatible";
+	}
+
+	get required() {
+		return this.type === "unordered" || this.type === "required";
+	}
+
+	get optional() {
+		return this.type === "hidden" || this.type === "optional";
+	}
+
+	static jsonSchema = Type.String();
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json);
+	}
+
+	toJSON() {
+		return this.specification;
+	}
+}
 
 /**
  * Info about a mod available on the controller.
@@ -35,13 +154,13 @@ export default class ModInfo {
 	 * Version of the mod.
 	 * Sourced from info.json.
 	 */
-	version = "";
+	version = "0.0.0" as FullVersion;
 
 	/**
 	 * Integer representation of the version
 	 */
 	get integerVersion() {
-		return integerModVersion(this.version);
+		return integerFullVersion(this.version);
 	}
 
 	/**
@@ -78,21 +197,38 @@ export default class ModInfo {
 	 * Major version of Factorio this mod supports.
 	 * Sourced from info.json.
 	 */
-	factorioVersion = "0.12";
+	factorioVersion = "0.12" as "0.12" | ApiVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		return integerFactorioVersion(this.factorioVersion);
+		return integerPartialVersion(this.factorioVersion);
 	}
 
 	/**
-	 * Dependiences for this mod.
+	 * Dependencies for this mod.
 	 * Sourced from info.json.
 	 */
-	dependencies = ["base"];
+	dependencies = [new ModDependency("base")];
+
+	/**
+	 * Dependencies for this mod.
+	 * As they would be represented in info.json.
+	 */
+	get dependencySpecifications() {
+		return this.dependencies.map(d => d.specification);
+	}
+
+	checkDependencySatisfaction(mods: (ModInfo | ModRecord)[]) {
+		return this.dependencies
+			.map(d => d.checkUnsatisfiedReason(mods))
+			.filter((v): v is ModDependencyUnsatisfiedReason => Boolean(v))
+			.reduce<ModDependencyUnsatisfiedReason | undefined>((max, current) => (
+				!max || UnsatisfiedSeverity[max] > UnsatisfiedSeverity[current] ? current : max
+			), undefined);
+	}
 
 	/**
 	 * Expected name of zip file containing this mod.
@@ -107,7 +243,7 @@ export default class ModInfo {
 	 * @param version - Mod's version
 	 * @returns string containing {name}_{version}.zip
 	 */
-	static filename(name: string, version: string) {
+	static filename(name: string, version: FullVersion) {
 		return `${name}_${version}.zip`;
 	}
 
@@ -137,13 +273,13 @@ export default class ModInfo {
 	// Content of info.json found in mod files
 	static infoJsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": Type.String(),
+		"version": FullVersionSchema,
 		"title": Type.String(),
 		"author": Type.String(),
 		"contact": Type.Optional(Type.String()),
 		"homepage": Type.Optional(Type.String()),
 		"description": Type.Optional(Type.String()),
-		"factorio_version": Type.Optional(Type.String()),
+		"factorio_version": Type.Optional(ApiVersionSchema),
 		"dependencies": Type.Optional(Type.Array(Type.String())),
 	});
 
@@ -172,7 +308,7 @@ export default class ModInfo {
 		if (json.homepage) { modInfo.homepage = json.homepage; }
 		if (json.description) { modInfo.description = json.description; }
 		if (json.factorio_version) { modInfo.factorioVersion = json.factorio_version; }
-		if (json.dependencies) { modInfo.dependencies = json.dependencies; }
+		if (json.dependencies) { modInfo.dependencies = json.dependencies.map(d => new ModDependency(d)); }
 
 		// Additional data
 		if (json.size) { modInfo.size = json.size; }
@@ -195,8 +331,8 @@ export default class ModInfo {
 		if (this.homepage) { json.homepage = this.homepage; }
 		if (this.description) { json.description = this.description; }
 		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion; }
-		if (this.dependencies.length !== 1 || this.dependencies[0] !== "base") {
-			json.dependencies = this.dependencies;
+		if (this.dependencies.length !== 1 || this.dependencies[0].name !== "base") {
+			json.dependencies = this.dependencySpecifications;
 		}
 		if (this.size) { json.size = this.size; }
 		if (this.mtimeMs) { json.mtime_ms = this.mtimeMs; }
@@ -225,10 +361,6 @@ export default class ModInfo {
 		let valid = this.validateInfo(modInfo);
 		if (!valid) {
 			throw new Error("Mod's info.json is not valid");
-		}
-
-		if (!modVersionRegExp.test(modInfo.version)) {
-			throw new Error(`Mod's version (${modInfo.version}) is invalid`);
 		}
 
 		const stat = await fs.stat(modPath);

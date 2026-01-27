@@ -34,9 +34,10 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 		actions.push({
 			key: "restart",
 			label: (
-				<Tooltip title={restartRequired ? "Restart Required" : null}>
-					Restart {restartRequired ? <ExclamationCircleOutlined style={{ color: "yellow" }}/> : undefined}
-				</Tooltip>
+				!restartRequired ? "Restart" : <Tooltip title={"Restart Required"}><Space>
+					<ExclamationCircleOutlined style={{ color: "yellow" }}/>
+					Restart
+				</Space></Tooltip>
 			),
 			onClick: () => {
 				control.send(
@@ -81,6 +82,7 @@ export default function ControllerPage() {
 	const [systems] = useSystems();
 	const system = systems.get("controller");
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
+	const canShowNpm = hasNpmButtonPermission(true);
 
 	return <PageLayout nav={[{ name: "Controller" }]}>
 		<PageHeader
@@ -88,7 +90,7 @@ export default function ControllerPage() {
 			extra={<Space>
 				<ControllerControlButton canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
 				{
-					hasNpmButtonPermission(true)
+					canShowNpm
 					&& <NpmButton target="controller" canRestart={system?.canRestart}/>
 				}
 			</Space>}

@@ -20,8 +20,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
-      with:
-        version: 8
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
@@ -48,11 +46,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
-      with:
-        version: 8
     - uses: actions/setup-node@v4
       with:
-        node-version: 18.x
+        node-version: 20.x
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
 
@@ -61,11 +57,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
-      with:
-        version: 8
     - uses: actions/setup-node@v4
       with:
-        node-version: 18.x
+        node-version: 20.x
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run build-mod
     # Upload build to artifacts

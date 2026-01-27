@@ -2,10 +2,11 @@
 	"name": "root",
 	"private": true,
 	"files": [],
+	"packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316",
 	"scripts": {
 		"build": "tsc --build",
 		"watch": "tsc --build --watch",
-		"build-mod": "node ./packages/lib/build_mod.js --source-dir ./packages/host/lua/clusterio_lib",
+		"build-mod": "pnpm run -r build-mod --output-dir ../../dist",
 		"test": "pnpm run build && mocha --enable-source-maps --check-leaks -R spec --recursive test \"plugins/*/test/**\" --exclude \"test/manual/**\"",
 		"silent-test": "SILENT_TEST=y pnpm test",
 		"fast-test": "FAST_TEST=y pnpm test",
@@ -27,7 +28,7 @@
 		]
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"workspaces": [
 		"packages/*",

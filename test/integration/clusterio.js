@@ -13,8 +13,8 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	exec, execCtl, execCtlProcess, execHost, sendRcon, getControl,
-	spawnNode, instancesDir, factorioDir,
+	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
+	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 } = require("./index");
 
 
@@ -109,13 +109,56 @@ describe("Integration of Clusterio", function() {
 	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
 			it("work for existing user", async function() {
-				await exec("node ../../packages/controller bootstrap generate-user-token test");
+				await execController("bootstrap generate-user-token test");
 			});
 
 			it("fails if user does not exist", async function() {
 				await assert.rejects(
-					exec("node ../../packages/controller bootstrap generate-user-token invalid")
+					execController("bootstrap generate-user-token invalid")
 				);
+			});
+		});
+
+		describe("bootstrap create-admin", function() {
+			it("should refuse to modify the database files when locked", async function() {
+				await assert.rejects(
+					execController("bootstrap create-admin BootstrapAdminTest")
+				);
+			});
+			it("should modify the database files when locked if bypass option is given", async function() {
+				const lockFilePath = `${controllerConfigPath}.lock`;
+				await fs.copyFile(lockFilePath, "temp.lock");
+				try {
+					await execController("bootstrap create-admin BootstrapAdminTest2 --bypass-lock-file");
+				} finally {
+					await fs.move("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
+				}
+
+				const json = await fs.readJSON(path.join(databaseDir, "users.json"));
+				assert.equal(Object.values(json).some(user => user.name === "BootstrapAdminTest2"), true);
+			});
+		});
+
+		describe("config", function() {
+			it("can read the config file", async function() {
+				await execController("config list");
+			});
+			it("should refuse to modify the config file while locked", async function() {
+				await assert.rejects(
+					execController("config set controller.name ConfigEditTest")
+				);
+			});
+			it("should modify the config file while locked if bypass option is given", async function() {
+				const lockFilePath = `${controllerConfigPath}.lock`;
+				await fs.copyFile(lockFilePath, "temp.lock");
+				try {
+					await execController("config set controller.name ConfigEditTest2 --bypass-lock-file");
+				} finally {
+					await fs.move("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
+				}
+
+				const json = await fs.readJSON(path.join(controllerConfigPath));
+				assert.equal(json["controller.name"], "ConfigEditTest2");
 			});
 		});
 
@@ -142,6 +185,38 @@ describe("Integration of Clusterio", function() {
 				connectorB._doConnect();
 				await events.once(connectorB, "resume");
 				await connectorB.close(1000, "");
+			});
+			it("should refuse to start a second process while locked", async function() {
+				await assert.rejects(execController("run"));
+			});
+			it("should start a second process while locked if bypass option is given", async function() {
+				slowTest(this);
+				const lockFilePath = `${controllerConfigPath}.lock`;
+				await fs.copyFile(lockFilePath, "temp.lock");
+				try {
+					await execController("run --bypass-lock-file");
+				} catch (err) {
+					assert.equal(/Error: Server listening failed/.test(err.stderr), true);
+				}
+				await fs.move("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
+			});
+			it("should refuse to start when no users are loaded", async function() {
+				const dir = path.join("temp", "test", "empty_controller");
+				await fs.emptyDir(dir);
+				await assert.rejects(execController("run", { cwd: dir }));
+			});
+			it("should start when no users are loaded if bypass option given", async function() {
+				slowTest(this);
+				const dir = path.join("temp", "test", "empty_controller");
+				await fs.emptyDir(dir);
+				const child = await spawnNode(
+					"altController",
+					"../../../packages/controller run --no-check-user-count",
+					/Started controller/,
+					{ cwd: dir },
+				);
+				assert.ok(child.kill());
+				assert.equal(child.killed, true);
 			});
 		});
 
@@ -244,6 +319,67 @@ describe("Integration of Clusterio", function() {
 			} finally {
 				await stopAltHost(hostProcess);
 			}
+		});
+		describe("config", function() {
+			it("can read the config file", async function() {
+				await execHost("config list");
+			});
+			it("should refuse to modify the config file while locked", async function() {
+				slowTest(this);
+				let hostProcess; // Alt host used since the process could get killed
+				const config = "alt-host-config.json";
+				try {
+					hostProcess = await startAltHost();
+					await assert.rejects(
+						execHost(`--config ${config} config set host.name ConfigEditTest`)
+					);
+				} finally {
+					await stopAltHost(hostProcess);
+				}
+			});
+			it("should modify the config file while locked if bypass option is given", async function() {
+				slowTest(this);
+				let hostProcess; // Alt host used since the process could get killed
+				const config = "alt-host-config.json";
+				try {
+					hostProcess = await startAltHost();
+					await execHost(`--config ${config} config set host.name ConfigEditTest2 --bypass-lock-file`);
+				} finally {
+					await stopAltHost(hostProcess);
+				}
+
+				const json = await fs.readJSON(path.join("temp", "test", config));
+				assert.equal(json["host.name"], "ConfigEditTest2");
+			});
+		});
+		describe("run", function() {
+			it("should refuse to start a second process while locked", async function() {
+				slowTest(this);
+				let hostProcess; // Alt host used since the process could get killed
+				const config = "alt-host-config.json";
+				try {
+					hostProcess = await startAltHost();
+					await assert.rejects(
+						execHost(`--config ${config} run`)
+					);
+				} finally {
+					await stopAltHost(hostProcess);
+				}
+			});
+			it("should start a second process while locked if bypass option is given", async function() {
+				slowTest(this);
+				let hostProcessA, hostProcessB; // Alt host used since the process could get killed
+				const config = "alt-host-config.json";
+				try {
+					hostProcessA = await startAltHost();
+					hostProcessB = await spawnNode(
+						"alt-host-b:", `../../packages/host run --config ${config} --bypass-lock-file`, /Started host/
+					);
+				} finally {
+					await stopAltHost(hostProcessA);
+					await stopAltHost(hostProcessB);
+				}
+			});
 		});
 	});
 
@@ -951,7 +1087,7 @@ describe("Integration of Clusterio", function() {
 
 				await execCtl("instance start 44");
 				const instance = (await getInstances()).get(44);
-				const isV2 = lib.integerFactorioVersion(instance.factorioVersion) > lib.integerFactorioVersion("2.0.0");
+				const isV2 = lib.integerPartialVersion(instance.factorioVersion) > lib.integerPartialVersion("2.0");
 				const exchangeString = (isV2 ? testStrings.modified_v2 : testStrings.modified).replace(/[\n\r]+/g, "");
 				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
 				await execCtl("instance stop 44");

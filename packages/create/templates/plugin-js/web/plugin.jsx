@@ -12,7 +12,7 @@ import React, {
 import {
 	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext, notifyErrorHandler,
 } from "@clusterio/web_ui";
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 
 import {
 	PluginExampleEvent, PluginExampleRequest,
@@ -20,7 +20,7 @@ import {
 //%if controller // Subscribing requires web content and the controller
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
-//%if multi_context // Subscribing requires multi context
+//%if multi_context // Messages requires multi context
 } from "../messages";
 //%endif
 
@@ -35,9 +35,9 @@ function MyTemplatePage() {
 
 	return <PageLayout nav={[{ name: "__plugin_name__" }]}>
 		<PageHeader title="__plugin_name__" />
-		//%if controller // Subscribing requires web content and the controller
+//%if controller // Subscribing requires web content and the controller
 		Synced: {String(synced)} Data: {JSON.stringify([...subscribableData.values()])}
-		//%endif
+//%endif
 	</PageLayout>;
 }
 
@@ -57,7 +57,7 @@ export class WebPlugin extends BaseWebPlugin {
 				permission: "__plugin_name__.example.permission.subscribe",
 //%endif
 //%if !controller
-				permission: undefined, // "__plugin_name__.example.permission.request",
+				permission: "__plugin_name__.example.permission.view",
 //%endif
 				content: <MyTemplatePage/>,
 			},

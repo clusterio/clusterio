@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-player_auth",
-	"version": "2.0.0-alpha.21",
+	"version": "2.0.0-alpha.22b",
 	"description": "Clusterio plugin authenticating logged in players to the web interface",
 	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
@@ -13,37 +13,42 @@
 		"factorio"
 	],
 	"scripts": {
-		"prepare": "tsc --build && webpack-cli --env production",
+		"prepare": "tsc --build && webpack-cli --mode production",
 		"test": "echo \"Error: run tests from root\" && exit 1"
 	},
 	"bugs": {
 		"url": "https://github.com/clusterio/clusterio/issues"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"peerDependencies": {
+		"@clusterio/controller": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*"
 	},
 	"dependencies": {
-		"@sinclair/typebox": "^0.30.4",
-		"express": "^4.21.2",
-		"jsonwebtoken": "^9.0.1"
+		"@sinclair/typebox": "catalog:",
+		"jsonwebtoken": "catalog:",
+		"express": "catalog:"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "workspace:*",
+		"@clusterio/controller": "workspace:*",
 		"@clusterio/web_ui": "workspace:*",
-		"@types/express": "^4.17.17",
-		"@types/jsonwebtoken": "^9.0.9",
-		"@types/node": "^20.17.19",
-		"@types/react": "^18.3.18",
-		"antd": "^5.24.2",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
-		"typescript": "^5.7.3",
-		"webpack": "^5.98.0",
-		"webpack-cli": "^5.1.4",
-		"webpack-merge": "^5.9.0"
+		"@clusterio/host": "workspace:*",
+		"@clusterio/lib": "workspace:*",
+		"@types/express": "catalog:",
+		"@types/jsonwebtoken": "catalog:",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"antd": "catalog:",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"typescript": "catalog:",
+		"webpack": "catalog:",
+		"webpack-cli": "catalog:",
+		"webpack-merge": "catalog:"
 	},
 	"publishConfig": {
 		"access": "public"

@@ -210,7 +210,8 @@ export default class Instance extends lib.Link {
 
 		let serverOptions = {
 			logger: this.logger,
-			version: this.config.get("factorio.version"),
+			// TODO: factorio.version is not validated
+			version: this.config.get("factorio.version") as lib.TargetVersion,
 			executablePath: this.config.get("factorio.executable_path") ?? undefined,
 			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
 			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
@@ -553,7 +554,8 @@ end`.replace(/\r?\n/g, " ");
 				this.id,
 				status,
 				this.server.gamePort,
-				status === "running"? this.server.version : this.config.get("factorio.version"),
+				// TODO: factorio.version is not validated
+				status === "running" ? this.server.version : this.config.get("factorio.version") as lib.TargetVersion,
 			),
 		);
 	}
@@ -651,7 +653,7 @@ end`.replace(/\r?\n/g, " ");
 			if (
 				!pluginInfo.instanceEntrypoint
 				|| !this._host.serverPlugins.has(pluginInfo.name)
-				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.InstanceConfigFields)
+				|| !this.config.get(`${pluginInfo.name}.load_plugin`)
 			) {
 				continue;
 			}
@@ -960,10 +962,15 @@ end`.replace(/\r?\n/g, " ");
 		this._loadedSave = saveName;
 		await this.server.start(saveName);
 
-		if (this.config.get("factorio.enable_save_patching") && this.config.get("factorio.enable_script_commands")) {
+		if (this.config.get("factorio.enable_script_commands")) {
 			await this.server.disableAchievements();
-			await this.updateInstanceData();
+		}
+
+		if (this.config.get("factorio.enable_save_patching")) {
 			this._watchPlayerPromote();
+			if (this.config.get("factorio.enable_script_commands")) {
+				await this.updateInstanceData();
+			}
 		} else {
 			this._watchServerLogActions();
 		}

@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { JsonString, StringEnum, StringKey, plainJson } from "./composites";
 import { levels } from "../logging";
 import { ControllerConfig, HostConfig } from "../config";
+import { ExternalFactorioVersionSchema } from "../external";
 
 export class ControllerStopRequest {
 	declare ["constructor"]: typeof ControllerStopRequest;
@@ -390,4 +391,26 @@ export class DebugWsMessageEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.direction, json.content);
 	}
+}
+
+export class FactorioVersionsRequest {
+	declare ["constructor"]: typeof FactorioVersionsRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.external.get_factorio_versions" as const;
+
+	constructor(
+		public maxAgeMs: number = 5 * 60 * 1000, // Default 5 minutes
+	) {}
+
+	static jsonSchema = Type.Object({
+		"maxAgeMs": Type.Number(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.maxAgeMs);
+	}
+
+	static Response = plainJson(Type.Array(ExternalFactorioVersionSchema));
 }

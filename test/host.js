@@ -6,6 +6,7 @@ const lib = require("@clusterio/lib");
 const Host = require("@clusterio/host/dist/node/src/Host").default;
 const Instance = require("@clusterio/host/dist/node/src/Instance").default;
 const { _discoverInstances } = require("@clusterio/host/dist/node/src/Host");
+const { HostConnector } = require("@clusterio/host/dist/node/host");
 
 describe("Host testing", function() {
 	describe("discoverInstances()", function() {
@@ -113,6 +114,64 @@ describe("Host testing", function() {
 				assert.deepEqual(mockHost.broadcasts, [
 					new lib.InstanceBanlistUpdateEvent("badie2", false, ""),
 				]);
+			});
+		});
+		describe(".checkRestartRequired()", function() {
+			let host;
+			beforeEach(function() {
+				// This can be used more generally, but i did not want to interfere with handleSyncUserListsEvent
+				const hostVersion = require("@clusterio/host/package.json").version;
+				const pluginInfos = [{
+					name: "global_chat",
+					requirePath: path.dirname(require.resolve("@clusterio/host/package.json")),
+					version: hostVersion,
+				}];
+				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
+				const hostConnector = new HostConnector(hostConfig, undefined, pluginInfos);
+				host = new Host(hostConnector, hostConfig, undefined, pluginInfos);
+			});
+			it("returns false when no changes are present", async function() {
+				host.pluginInfos[0].hostEntrypoint = true;
+				host.pluginInfos[0].instanceEntrypoint = true;
+				const result = await host.checkRestartRequired();
+				assert.equal(result, false);
+				assert.equal(host.config.restartRequired, false);
+			});
+			it("returns false when an unloaded plugin version changes", async function() {
+				host.pluginInfos[0].version = "0.0.0";
+				host.pluginInfos[0].hostEntrypoint = true;
+				host.pluginInfos[0].instanceEntrypoint = true;
+				host.config.set("global_chat.load_plugin", false);
+				host.config.restartRequired = false; // Setting load_plugin requires a restart
+				const result = await host.checkRestartRequired();
+				assert.equal(result, false);
+				assert.equal(host.config.restartRequired, false);
+			});
+			it("returns true when the config flag is set", async function() {
+				host.config.restartRequired = true;
+				const result = await host.checkRestartRequired();
+				assert.equal(result, true);
+				assert.equal(host.config.restartRequired, true);
+			});
+			it("returns true when clusterio version changes", async function() {
+				host.config.set("host.version", "0.0.0");
+				const result = await host.checkRestartRequired();
+				assert.equal(result, true);
+				assert.equal(host.config.restartRequired, true);
+			});
+			it("returns true when a host plugin version changes", async function() {
+				host.pluginInfos[0].version = "0.0.0";
+				host.pluginInfos[0].hostEntrypoint = true;
+				const result = await host.checkRestartRequired();
+				assert.equal(result, true);
+				assert.equal(host.config.restartRequired, true);
+			});
+			it("returns true when an instance plugin version changes", async function() {
+				host.pluginInfos[0].version = "0.0.0";
+				host.pluginInfos[0].instanceEntrypoint = true;
+				const result = await host.checkRestartRequired();
+				assert.equal(result, true);
+				assert.equal(host.config.restartRequired, true);
 			});
 		});
 	});

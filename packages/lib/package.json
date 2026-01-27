@@ -1,7 +1,7 @@
 {
 	"name": "@clusterio/lib",
 	"description": "Shared library for Clusterio",
-	"version": "2.0.0-alpha.21",
+	"version": "2.0.0-alpha.22b",
 	"repository": "https://github.com/clusterio/clusterio",
 	"license": "MIT",
 	"scripts": {
@@ -18,30 +18,30 @@
 		"node": ">=12"
 	},
 	"dependencies": {
-		"@sinclair/typebox": "^0.30.4",
-		"ajv": "^8.17.1",
-		"chalk": "^4.1.2",
+		"@sinclair/typebox": "catalog:",
+		"set-blocking": "catalog:",
+		"fs-extra": "catalog:",
+		"jszip": "catalog:",
+		"chalk": "catalog:",
+		"ws": "catalog:",
+		"winston": "catalog:",
+		"winston-transport": "catalog:",
 		"fast-deep-equal": "^3.1.3",
-		"fs-extra": "^11.3.0",
-		"jszip": "^3.10.1",
-		"klaw": "^4.1.0",
-		"set-blocking": "^2.0.0",
 		"triple-beam": "^1.4.1",
-		"winston": "^3.17.0",
-		"winston-transport": "^4.9.0",
-		"ws": "^8.18.1",
+		"ajv": "^8.17.1",
+		"klaw": "^4.1.0",
 		"yargs": "^17.7.2"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"devDependencies": {
-		"@types/fs-extra": "^11.0.1",
-		"@types/node": "^20.17.19",
-		"@types/set-blocking": "^2.0.0",
+		"@types/fs-extra": "catalog:",
+		"@types/node": "catalog:",
+		"@types/ws": "catalog:",
+		"@types/set-blocking": "catalog:",
 		"@types/triple-beam": "^1.3.2",
-		"@types/ws": "^8.5.14",
 		"@types/yargs": "^17.0.33",
-		"typescript": "^5.7.3"
+		"typescript": "catalog:"
 	}
 }

@@ -494,6 +494,7 @@ export default defineConfig([{
 	"rules": {
 		"node/no-missing-require": "off",
 		"node/no-missing-import": "off",
+		"@stylistic/indent": "off",
 		"spaced-comment": "off",
 		"comma-spacing": "off",
 		"max-len": "off",
