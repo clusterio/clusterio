@@ -271,17 +271,64 @@ function labelsToKey(labels: LabelValues, metricLabels: string[]) {
 
 function keyToLabels(key: string) {
 	let labels = new Map<string, string>();
+	let index = 0;
 
-	if (key !== "") {
-		for (let pair of key.split(",")) {
-			let [name, value] = pair.split("=", 2);
-			labels.set(name, value
-				.slice(1, -1)
-				.replace(/\\"/g, "\"")
-				.replace(/\\n/g, "\n")
-				.replace(/\\\\/g, "\\")
-			);
+	while (index < key.length) {
+		let equal = key.indexOf("=", index);
+		if (equal === -1) {
+			throw new Error(`Malformed label key '${key}'`);
 		}
+
+		let name = key.slice(index, equal);
+		let cursor = equal + 1;
+		if (key[cursor] !== "\"") {
+			throw new Error(`Malformed label key '${key}'`);
+		}
+
+		cursor += 1;
+		let valueParts: string[] = [];
+		while (cursor < key.length) {
+			let char = key[cursor];
+			if (char === "\"") {
+				break;
+			}
+
+			if (char === "\\") {
+				cursor += 1;
+				if (cursor >= key.length) {
+					throw new Error(`Malformed escape in label value for '${name}'`);
+				}
+				char = key[cursor];
+				if (char === "n") {
+					valueParts.push("\n");
+				} else if (char === "\\") {
+					valueParts.push("\\");
+				} else if (char === "\"") {
+					valueParts.push("\"");
+				} else {
+					valueParts.push(char);
+				}
+			} else {
+				valueParts.push(char);
+			}
+			cursor += 1;
+		}
+
+		if (cursor >= key.length || key[cursor] !== "\"") {
+			throw new Error(`Missing closing quote for label '${name}'`);
+		}
+
+		labels.set(name, valueParts.join(""));
+		cursor += 1;
+
+		if (cursor >= key.length) {
+			break;
+		}
+
+		if (key[cursor] !== ",") {
+			throw new Error(`Malformed label key '${key}'`);
+		}
+		index = cursor + 1;
 	}
 
 	return labels;

@@ -9,6 +9,8 @@ import {
 	GetPlayerPathRequest,
 	RecipeDataEvent,
 	GetRawRecipeTileRequest,
+	ClearMinimapSurfaceDataRequest,
+	ClearMinimapDataRequest,
 } from "./messages";
 
 // Define permissions
@@ -41,6 +43,8 @@ export const plugin: lib.PluginDeclaration = {
 		GetChartTagsRequest,
 		GetPlayerPathRequest,
 		GetRawRecipeTileRequest,
+		ClearMinimapSurfaceDataRequest,
+		ClearMinimapDataRequest,
 	],
 	routes: ["/minimap"],
 };
