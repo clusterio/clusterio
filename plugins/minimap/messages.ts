@@ -256,6 +256,58 @@ export class GetRawTileRequest {
 	}));
 }
 
+export class ClearMinimapSurfaceDataRequest {
+	declare ["constructor"]: typeof ClearMinimapSurfaceDataRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "minimap" as const;
+	static permission = "minimap.manage";
+
+	constructor(
+		public instance_id: number,
+		public surface: string,
+		public force?: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"surface": Type.String(),
+		"force": Type.Optional(Type.String()),
+	});
+
+	static fromJSON(json: Static<typeof ClearMinimapSurfaceDataRequest.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.surface,
+			json.force
+		);
+	}
+
+	static Response = lib.plainJson(Type.Object({
+		"success": Type.Boolean(),
+	}));
+}
+
+export class ClearMinimapDataRequest {
+	declare ["constructor"]: typeof ClearMinimapDataRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "minimap" as const;
+	static permission = "minimap.manage";
+
+	static jsonSchema = Type.Object({});
+
+	static fromJSON(_: Static<typeof ClearMinimapDataRequest.jsonSchema>) {
+		return new this();
+	}
+
+	static Response = lib.plainJson(Type.Object({
+		"success": Type.Boolean(),
+	}));
+}
+
 /**
  * GetChartTagsRequest: Request existing chart tags from controller storage
  *

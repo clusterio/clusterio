@@ -4,14 +4,16 @@ import {
 	TileDataEvent,
 	GetRawTileRequest,
 	GetChartTagsRequest,
-	ChartData,
+	type ChartData,
 	ChartTagDataEvent,
-	ChartTagData,
+	type ChartTagData,
 	RecipeDataEvent,
 	GetRawRecipeTileRequest,
 	PlayerPositionEvent,
-	PlayerData,
+	type PlayerData,
 	GetPlayerPathRequest,
+	ClearMinimapSurfaceDataRequest,
+	ClearMinimapDataRequest,
 } from "./messages";
 import * as fs from "fs-extra";
 import * as path from "path";
@@ -24,12 +26,21 @@ import {
 	renderTileToPixels,
 	pixelsToRGBA,
 	parseRecipeTileBinary,
-	ParsedRecipeTile,
+	type ParsedRecipeTile,
 } from "./utils/tile-utils";
 import { parsePlayerPositionsBinary } from "./utils/player-utils";
 
-const CHUNK_SIZE = 32;
-const inflateAsync = promisify(zlib.inflate);
+interface TileMetadata {
+	instanceId: number;
+	surface: string;
+	force: string;
+}
+
+interface ChartTagMetadata {
+	instanceId: number;
+	surface: string;
+	force: string;
+}
 
 interface PixelChange {
 	x: number;
@@ -107,6 +118,14 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
 		this.controller.handle(PlayerPositionEvent, this.handlePlayerPositionEvent.bind(this));
 		this.controller.handle(GetPlayerPathRequest, this.handleGetPlayerPathRequest.bind(this));
+		this.controller.handle(
+			ClearMinimapSurfaceDataRequest,
+			this.handleClearMinimapSurfaceDataRequest.bind(this)
+		);
+		this.controller.handle(
+			ClearMinimapDataRequest,
+			this.handleClearAllMinimapDataRequest.bind(this)
+		);
 
 		// Register events as subscribable for web clients
 		this.controller.subscriptions.handle(TileDataEvent);
@@ -131,6 +150,199 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			this.savePlayerPositions().catch(err => this.logger.error(`Error saving player positions: ${err}`));
 		}, 5000);
 	}
+
+	private parseTileKey(name: string): TileMetadata | null {
+		const trimmed = name.replace(/(\.bin|\.recipes)$/, "");
+		const parts = trimmed.split("_");
+		if (parts.length < 5) {
+			return null;
+		}
+
+		parts.pop(); // tileY
+		parts.pop(); // tileX
+		const force = parts.pop()!;
+		const instancePart = parts.shift();
+		if (!instancePart) {
+			return null;
+		}
+
+		const surface = parts.join("_");
+		const instanceId = Number.parseInt(instancePart, 10);
+		if (!Number.isFinite(instanceId)) {
+			return null;
+		}
+
+		return { instanceId, surface, force };
+	}
+
+	private parseChartTagMetadata(name: string): ChartTagMetadata | null {
+		const suffix = "_chart_tags.json";
+		if (!name.endsWith(suffix)) {
+			return null;
+		}
+
+		const trimmed = name.slice(0, -suffix.length);
+		const parts = trimmed.split("_");
+		if (parts.length < 3) {
+			return null;
+		}
+
+		const force = parts.pop()!;
+		const instancePart = parts.shift();
+		if (!instancePart) {
+			return null;
+		}
+
+		const surface = parts.join("_");
+		const instanceId = Number.parseInt(instancePart, 10);
+		if (!Number.isFinite(instanceId)) {
+			return null;
+		}
+
+		return { instanceId, surface, force };
+	}
+
+	private matchesSurfaceForce(
+		meta: TileMetadata | null,
+		instanceId: number,
+		surface: string,
+		force?: string
+	): meta is TileMetadata {
+		if (!meta) {
+			return false;
+		}
+
+		if (meta.instanceId !== instanceId || meta.surface !== surface) {
+			return false;
+		}
+		if (force && meta.force !== force) {
+			return false;
+		}
+
+		return true;
+	}
+
+	private matchesChartTag(
+		meta: ChartTagMetadata | null,
+		instanceId: number,
+		surface: string,
+		force?: string
+	): meta is ChartTagMetadata {
+		if (!meta) {
+			return false;
+		}
+		if (meta.instanceId !== instanceId || meta.surface !== surface) {
+			return false;
+		}
+		if (force && meta.force !== force) {
+			return false;
+		}
+		return true;
+	}
+
+	private async deleteFilesMatching(dir: string, predicate: (file: string) => boolean) {
+		const files = await fs.readdir(dir);
+		for (const file of files) {
+			if (predicate(file)) {
+				await fs.remove(path.join(dir, file));
+			}
+		}
+	}
+
+	private removeSurfaceQueueEntries(instanceId: number, surface: string, force?: string) {
+		for (const tileName of Array.from(this.chunkSavingQueue.keys())) {
+			if (this.matchesSurfaceForce(this.parseTileKey(tileName), instanceId, surface, force)) {
+				this.chunkSavingQueue.delete(tileName);
+			}
+		}
+		for (const tileName of Array.from(this.recipeSavingQueue.keys())) {
+			if (this.matchesSurfaceForce(this.parseTileKey(tileName), instanceId, surface, force)) {
+				this.recipeSavingQueue.delete(tileName);
+			}
+		}
+		for (const key of Array.from(this.chartTagQueues.keys())) {
+			if (this.matchesChartTag(this.parseChartTagMetadata(key), instanceId, surface, force)) {
+				this.chartTagQueues.delete(key);
+			}
+		}
+		for (const key of Array.from(this.playerPositionQueues.keys())) {
+			if (key === `${instanceId}_${surface}`) {
+				this.playerPositionQueues.delete(key);
+			}
+		}
+	}
+
+	private removeSurfaceCaches(instanceId: number, surface: string, force?: string) {
+		for (const key of Array.from(this.lastSeenTagContent.keys())) {
+			if (this.matchesChartTag(this.parseChartTagMetadata(key), instanceId, surface, force)) {
+				this.lastSeenTagContent.delete(key);
+			}
+		}
+		for (const key of Array.from(this.lastSeenRecipeContent.keys())) {
+			if (this.matchesSurfaceForce(this.parseTileKey(key), instanceId, surface, force)) {
+				this.lastSeenRecipeContent.delete(key);
+				this.recipeDictionaries.delete(key);
+				this.nextRecipeIndex.delete(key);
+			}
+		}
+
+		const playerKey = `${instanceId}_${surface}`;
+		this.playerSessions.delete(playerKey);
+		this.nextPlayerIds.delete(playerKey);
+		this.activePlayerSessions.delete(playerKey);
+	}
+
+	private async clearSurfaceData(instanceId: number, surface: string, force?: string) {
+		const matchesTile = (file: string) => this.matchesSurfaceForce(
+			this.parseTileKey(file),
+			instanceId,
+			surface,
+			force
+		);
+
+		await this.deleteFilesMatching(this.tilesPath, matchesTile);
+		await this.deleteFilesMatching(this.recipeTilesPath, matchesTile);
+
+		await this.deleteFilesMatching(this.chartTagsPath, (file) => (
+			this.matchesChartTag(this.parseChartTagMetadata(file), instanceId, surface, force)
+		));
+
+		if (!force) {
+			const positionsFile = `${instanceId}_${surface}.positions`;
+			await fs.remove(path.join(this.playerPositionsPath, positionsFile));
+		}
+
+		this.removeSurfaceQueueEntries(instanceId, surface, force);
+		this.removeSurfaceCaches(instanceId, surface, force);
+
+		this.logger.info(`Cleared minimap data: ${instanceId}, surface ${surface}${force ? `, force ${force}` : ""}`);
+	}
+
+	private async clearAllMinimapData() {
+		await Promise.all([
+			fs.emptyDir(this.tilesPath),
+			fs.emptyDir(this.chartTagsPath),
+			fs.emptyDir(this.recipeTilesPath),
+			fs.emptyDir(this.playerPositionsPath),
+		]);
+
+		this.chunkSavingQueue.clear();
+		this.chartTagQueues.clear();
+		this.recipeSavingQueue.clear();
+		this.playerPositionQueues.clear();
+
+		this.lastSeenTagContent.clear();
+		this.lastSeenRecipeContent.clear();
+		this.recipeDictionaries.clear();
+		this.nextRecipeIndex.clear();
+
+		this.playerSessions.clear();
+		this.nextPlayerIds.clear();
+		this.activePlayerSessions.clear();
+
+		this.logger.info("Cleared all minimap data");
+	}
+
 
 	async onShutdown() {
 		if (this.saveInterval) {
@@ -1111,6 +1323,16 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			this.logger.error(`Error reading player positions file: ${err}`);
 			return { positions: null };
 		}
+	}
+
+	async handleClearMinimapSurfaceDataRequest(request: ClearMinimapSurfaceDataRequest) {
+		await this.clearSurfaceData(request.instance_id, request.surface, request.force);
+		return { success: true };
+	}
+
+	async handleClearAllMinimapDataRequest(_request: ClearMinimapDataRequest) {
+		await this.clearAllMinimapData();
+		return { success: true };
 	}
 
 	private async loadExistingPlayerSessions() {

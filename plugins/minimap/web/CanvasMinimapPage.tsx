@@ -1,18 +1,34 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { Row, Col, Button, Card, Space, Select, Switch, Slider, Typography } from "antd";
-import { ControlContext, useInstances, useItemMetadata } from "@clusterio/web_ui";
+import {
+	Row,
+	Col,
+	Button,
+	Card,
+	Space,
+	Select,
+	Switch,
+	Slider,
+	Typography,
+	Dropdown,
+	Tooltip,
+	type MenuProps,
+} from "antd";
+import { EllipsisOutlined } from "@ant-design/icons";
+import { ControlContext, useInstances, useItemMetadata, useAccount, notify } from "@clusterio/web_ui";
 import {
 	GetRawTileRequest,
 	GetChartTagsRequest,
 	GetRawRecipeTileRequest,
 	GetPlayerPathRequest,
-	TileDataEvent,
-	ChartTagData,
-	ChartTagDataEvent,
-	SignalID,
-	RecipeDataEvent,
-	PlayerPositionEvent,
-	PlayerData,
+	ClearMinimapSurfaceDataRequest,
+	ClearMinimapDataRequest,
+	type TileDataEvent,
+	type ChartTagData,
+	type ChartTagDataEvent,
+	type SignalID,
+	type RecipeDataEvent,
+	type PlayerPositionEvent,
+	type PlayerData,
 } from "../messages";
 import * as zlib from "zlib";
 import {
@@ -22,10 +38,10 @@ import {
 	extractAvailableTicks,
 	parseTileData,
 	renderTileIncremental,
-	ParsedTileData,
+	type ParsedTileData,
 	parseRecipeTileBinary,
 } from "../utils/tile-utils";
-import { parseAndDeduplicatePlayerPositions, ParsedPlayerPos } from "../utils/player-utils";
+import { parseAndDeduplicatePlayerPositions, type ParsedPlayerPos } from "../utils/player-utils";
 
 const { Text } = Typography;
 
@@ -119,7 +135,10 @@ export default function CanvasMinimapPage() {
 	const [selectedSurface, setSelectedSurface] = useState<string>("nauvis");
 	const [selectedForce, setSelectedForce] = useState<string>("player");
 	const [surfaceForceData, setSurfaceForceData] = useState<SurfaceForceData>({ surfaces: [], forces: [] });
-	const [loading, setLoading] = useState(false);
+	const account = useAccount();
+	const canManageMinimap = account.hasPermission("minimap.manage") === true;
+	const [isClearingSurface, setIsClearingSurface] = useState(false);
+	const [isClearingAll, setIsClearingAll] = useState(false);
 
 	// Timelapse UI states (these need React re-renders for UI)
 	const [isTimelapseMode, setIsTimelapseMode] = useState(false);
@@ -178,6 +197,82 @@ export default function CanvasMinimapPage() {
 
 	// Timelapse playback timer ref
 	const playbackTimerRef = useRef<NodeJS.Timeout>();
+
+	const resetViewerState = () => {
+		virtualTiles.current.clear();
+		tileStateCache.current.clear();
+		chunkCache.current.clear();
+		loadingTiles.current.clear();
+		recipeCache.current.clear();
+		playerPathBufRef.current = null;
+		deduplicatedPlayerPositions.current.clear();
+		setPlayerPositions(new Map());
+		setRawChartTags([]);
+		setMergedChartTags([]);
+		setAvailableTicks([]);
+		setCurrentTick(null);
+		setChartTagTimestamps(0);
+		setIsPlaying(false);
+		setIsTimelapseMode(false);
+	};
+
+	const handleClearSurfaceData = async () => {
+		if (!canManageMinimap) {
+			return;
+		}
+		if (!selectedInstance || !selectedSurface) {
+			notify("Select an instance and surface before clearing minimap data", "warning");
+			return;
+		}
+
+		setIsClearingSurface(true);
+		try {
+			await control.send(new ClearMinimapSurfaceDataRequest(
+				selectedInstance,
+				selectedSurface,
+				selectedForce || undefined
+			));
+
+			notify("Cleared minimap surface data", "success");
+			resetViewerState();
+		} catch (err: any) {
+			notify(err instanceof Error ? err : new Error("Failed to clear minimap surface data"), "error");
+		} finally {
+			setIsClearingSurface(false);
+		}
+	};
+
+	const handleClearAllData = async () => {
+		if (!canManageMinimap) {
+			return;
+		}
+
+		setIsClearingAll(true);
+		try {
+			await control.send(new ClearMinimapDataRequest());
+			notify("Cleared all minimap data", "success");
+			resetViewerState();
+		} catch (err: any) {
+			notify(err instanceof Error ? err : new Error("Failed to clear minimap data"), "error");
+		} finally {
+			setIsClearingAll(false);
+		}
+	};
+
+	const handleManageDropdownClick: MenuProps["onClick"] = ({ key }) => {
+		if (key === "clear_all") {
+			void handleClearAllData();
+		}
+	};
+
+	const manageDropdownItems: MenuProps["items"] = [
+		{
+			key: "clear_all",
+			label: "Clear all minimap data",
+			danger: true,
+			disabled: !canManageMinimap || isClearingAll,
+		},
+	];
 
 	// Refs for current state access in event handlers
 	const currentStateRef = useRef({
@@ -2112,6 +2207,42 @@ export default function CanvasMinimapPage() {
 								)}
 							</Space>
 						}
+						extra={
+							<Space>
+								<Button
+									size="small"
+									loading={isClearingSurface}
+									onClick={handleClearSurfaceData}
+									disabled={
+										!canManageMinimap || !selectedInstance || !selectedSurface
+									}
+								>
+									Clear surface data
+								</Button>
+								<Dropdown
+									menu={{
+										items: manageDropdownItems,
+										onClick: handleManageDropdownClick,
+									}}
+									trigger={["click"]}
+								>
+									<Tooltip
+										title={
+											canManageMinimap
+												? "Danger zone"
+												: "Requires minimap.manage permission"
+										}
+									>
+										<Button
+											size="small"
+											icon={<EllipsisOutlined />}
+											loading={isClearingAll}
+											disabled={!canManageMinimap}
+										/>
+									</Tooltip>
+								</Dropdown>
+							</Space>
+						}
 						styles={{
 							header: { padding: "16px 24px" },
 							body: { padding: "16px 24px" },
@@ -2142,7 +2273,6 @@ export default function CanvasMinimapPage() {
 													}
 												}, 100);
 											}}
-											loading={loading}
 											options={[...instances.values()].map(instance => ({
 												value: instance.id,
 												label: instance.name,
@@ -2230,7 +2360,6 @@ export default function CanvasMinimapPage() {
 														onChange={(checked) => {
 															toggleTimelapseMode(checked);
 														}}
-														loading={loading}
 														disabled={!selectedInstance}
 													/>
 													<Text

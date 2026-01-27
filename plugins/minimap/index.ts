@@ -18,6 +18,11 @@ lib.definePermission({
 	description: "View the interactive minimap of Factorio instances.",
 	grantByDefault: true,
 });
+lib.definePermission({
+	name: "minimap.manage",
+	title: "Manage Minimap Data",
+	description: "Delete cached minimap data through the web interface.",
+});
 
 export const plugin: lib.PluginDeclaration = {
 	name: "minimap",
