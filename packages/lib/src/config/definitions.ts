@@ -24,6 +24,8 @@ export interface ControllerConfigFields {
 	"controller.metrics_timeout": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
+	"controller.player_proxy_port": number | null;
+	"controller.player_proxy_default_instance_id": number | null;
 	"controller.factorio_username": string | null;
 	"controller.factorio_token": string | null;
 	"controller.share_factorio_credentials_with_hosts": boolean;
@@ -175,6 +177,20 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			description: "Timeout in seconds for proxy streams to start flowing.",
 			type: "number",
 			initialValue: 15,
+		},
+		"controller.player_proxy_port": {
+			title: "Player Proxy Port",
+			description: "UDP port to accept player connections for the controller proxy, set to null to disable.",
+			restartRequired: true,
+			type: "number",
+			optional: true,
+			initialValue: 34197,
+		},
+		"controller.player_proxy_default_instance_id": {
+			title: "Player Proxy Default Instance",
+			description: "Instance ID to route players to when no routing history is available.",
+			type: "number",
+			optional: true,
 		},
 		"controller.factorio_username": {
 			title: "Factorio Username",

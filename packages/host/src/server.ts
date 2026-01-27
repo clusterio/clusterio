@@ -96,6 +96,30 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 		);
 	}
 
+	const binEntries = ["factorio-run", "factorio-run.exe", "factorio", "factorio.exe"];
+	const binChecks = await Promise.all(
+		binEntries.map(entry => fs.pathExists(path.join(factorioDir, entry)))
+	);
+	if (binChecks.some(Boolean)) {
+		const dataCandidates = [
+			path.resolve(factorioDir, "..", "..", "data"),
+			path.resolve(factorioDir, "..", "data"),
+		];
+		for (let dataDir of dataCandidates) {
+			let version = await getVersion(path.join(dataDir, "changelog.txt"));
+			if (version === null) {
+				continue;
+			}
+			if (version === targetVersion || targetVersion === "latest") {
+				return [dataDir, version];
+			}
+
+			throw new Error(
+				`Factorio version ${targetVersion} was requested, but install directory contains ${version}`
+			);
+		}
+	}
+
 	let versions = new Map();
 	for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
 		if (!entry.isDirectory()) {
@@ -1353,7 +1377,40 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		if (process.platform === "darwin") {
 			return this.dataPath("..", "MacOS", "factorio");
 		}
-		return this.dataPath("..", "bin", "x64", "factorio");
+		const binDir = this.dataPath("..", "bin", "x64");
+		const runPath = path.join(binDir, "factorio-run");
+		if (fs.existsSync(runPath)) {
+			return runPath;
+		}
+		const runPathExe = `${runPath}.exe`;
+		if (fs.existsSync(runPathExe)) {
+			return runPathExe;
+		}
+		const factorioPath = path.join(binDir, "factorio");
+		if (fs.existsSync(factorioPath)) {
+			return factorioPath;
+		}
+		const factorioPathExe = `${factorioPath}.exe`;
+		if (fs.existsSync(factorioPathExe)) {
+			return factorioPathExe;
+		}
+		const directRunPath = path.join(this._factorioDir, "factorio-run");
+		if (fs.existsSync(directRunPath)) {
+			return directRunPath;
+		}
+		const directRunPathExe = `${directRunPath}.exe`;
+		if (fs.existsSync(directRunPathExe)) {
+			return directRunPathExe;
+		}
+		const directFactorioPath = path.join(this._factorioDir, "factorio");
+		if (fs.existsSync(directFactorioPath)) {
+			return directFactorioPath;
+		}
+		const directFactorioPathExe = `${directFactorioPath}.exe`;
+		if (fs.existsSync(directFactorioPathExe)) {
+			return directFactorioPathExe;
+		}
+		return factorioPath;
 	}
 
 	/**

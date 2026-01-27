@@ -72,6 +72,7 @@ export default class HostConnection extends BaseConnection {
 
 			this.info.connected = false;
 			this._controller.hosts.set(this.info);
+			this._controller.playerRoutingStore.dropHost(this.id);
 		});
 
 		this.handle(lib.GetFactorioCredentialsRequest, this.handleGetFactorioCredentialsRequest.bind(this));
@@ -81,6 +82,7 @@ export default class HostConnection extends BaseConnection {
 		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
+		this.handle(lib.InstancePlayerRouteUpdateEvent, this.handleInstancePlayerRouteUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.snoopInstanceAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.snoopInstanceBanlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceWhitelistUpdateEvent, this.snoopInstanceWhitelistUpdateEvent.bind(this));
@@ -352,6 +354,30 @@ export default class HostConnection extends BaseConnection {
 			reason: event.reason,
 			stats: event.stats,
 		});
+	}
+
+	async handleInstancePlayerRouteUpdateEvent(event: lib.InstancePlayerRouteUpdateEvent, src: lib.Address) {
+		const instanceId = src.id;
+		if (event.instanceId !== instanceId) {
+			logger.warn(
+				`Received route update for instance ${event.instanceId} from ${instanceId}, ignoring mismatched id`
+			);
+			return;
+		}
+		if (event.hostId !== this.id) {
+			logger.warn(
+				`Received route update for host ${event.hostId} from ${this.id}, ignoring mismatched host`
+			);
+			return;
+		}
+
+		this._controller.playerRoutingStore.update(
+			event.name,
+			instanceId,
+			this.id,
+			event.gamePort,
+			event.timestampMs,
+		);
 	}
 
 	async snoopInstanceAdminlistUpdateEvent(event: lib.InstanceAdminlistUpdateEvent, src: lib.Address) {

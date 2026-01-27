@@ -398,6 +398,13 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
+		const hostId = this.config.get("instance.assigned_host");
+		if (hostId !== null) {
+			this.sendTo(
+				"controller",
+				new lib.InstancePlayerRouteUpdateEvent(name, this.id, hostId, this.server.gamePort, Date.now()),
+			);
+		}
 		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -548,7 +555,7 @@ end`.replace(/\r?\n/g, " ");
 
 	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
-		const publicPort = this.config.get("factorio.proxy_port") ?? this.server.gamePort;
+		const publicPort = this.server.gamePort;
 		this.sendTo(
 			"controller",
 			new lib.InstanceStatusChangedEvent(

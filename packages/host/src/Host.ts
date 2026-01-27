@@ -694,7 +694,7 @@ export default class Host extends lib.Link {
 				instanceId,
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection
-					? instanceConnection.instance.config.get("factorio.proxy_port") ?? instanceConnection.instance.server.gamePort
+					? instanceConnection.instance.server.gamePort
 					: this.publicGamePort(instanceId, instanceInfo),
 				instanceConnection
 					? instanceConnection.instance.server.version
@@ -749,16 +749,12 @@ export default class Host extends lib.Link {
 	/**
 	 * Retrieved public port for clients to connect to for the given instance.
 	 * @param instanceId - ID of the instance to get the port for.
-	 * @returns Proxy port if configured, otherwise the game port.
+	 * @returns Game port for the instance.
 	 */
 	publicGamePort(instanceId: number, instanceInfo?: { config: lib.InstanceConfig }) {
 		instanceInfo = instanceInfo ?? this.discoveredInstanceInfos.get(instanceId);
 		if (!instanceInfo) {
 			return undefined;
-		}
-		const proxyPort = instanceInfo.config.get("factorio.proxy_port");
-		if (proxyPort !== null && proxyPort !== undefined) {
-			return proxyPort;
 		}
 		return (
 			instanceInfo.config.get("factorio.game_port")
@@ -857,66 +853,6 @@ export default class Host extends lib.Link {
 
 		this._proxyStartPromises.set(instanceId, promise);
 		return promise;
-	}
-
-	private async _ensureFactorioProxy(instanceId: number, instanceInfo: { config: lib.InstanceConfig }) {
-		const proxyPort = instanceInfo.config.get("factorio.proxy_port");
-		const existingProxy = this.factorioProxies.get(instanceId);
-		if (proxyPort === null) {
-			if (existingProxy) {
-				await existingProxy.stop();
-				this.factorioProxies.delete(instanceId);
-			}
-			return;
-		}
-
-		const beforeAssigned = instanceInfo.config.get("factorio.host_assigned_game_port");
-		const gamePort = this.ensureGamePortAssigned(instanceId, instanceInfo);
-		if (beforeAssigned === null && instanceInfo.config.get("factorio.host_assigned_game_port") !== null) {
-			await instanceInfo.config.save();
-		}
-
-		if (proxyPort === gamePort) {
-			logger.warn(
-				`Proxy port ${proxyPort} matches game port for instance, proxy disabled.`,
-				this.instanceLogMeta(instanceId, instanceInfo),
-			);
-			if (existingProxy) {
-				await existingProxy.stop();
-				this.factorioProxies.delete(instanceId);
-			}
-			return;
-		}
-
-		if (existingProxy) {
-			await existingProxy.updatePorts(proxyPort, gamePort);
-			return;
-		}
-
-		const proxyLogger = logger.child(this.instanceLogMeta(instanceId, instanceInfo));
-		const proxy = new FactorioProxy(this, instanceId, proxyPort, gamePort, proxyLogger);
-		this.factorioProxies.set(instanceId, proxy);
-		try {
-			await proxy.start();
-		} catch (err: any) {
-			logger.error(
-				`Failed to start proxy on UDP ${proxyPort}: ${err.message ?? err}`,
-				this.instanceLogMeta(instanceId, instanceInfo),
-			);
-			this.factorioProxies.delete(instanceId);
-		}
-	}
-
-	private async _syncFactorioProxies() {
-		for (const [instanceId] of this.factorioProxies) {
-			if (!this.instanceInfos.has(instanceId)) {
-				await this.factorioProxies.get(instanceId)!.stop();
-				this.factorioProxies.delete(instanceId);
-			}
-		}
-		for (const [instanceId, instanceInfo] of this.instanceInfos) {
-			await this._ensureFactorioProxy(instanceId, instanceInfo);
-		}
 	}
 
 	/**
@@ -1287,7 +1223,7 @@ export default class Host extends lib.Link {
 				instanceInfo.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection
-					? instanceConnection.instance.config.get("factorio.proxy_port") ?? instanceConnection.instance.server.gamePort
+					? instanceConnection.instance.server.gamePort
 					: this.publicGamePort(instanceId, instanceInfo),
 				instanceConnection ? instanceConnection.instance.server.version : undefined,
 			));
@@ -1317,7 +1253,6 @@ export default class Host extends lib.Link {
 			}
 		}
 
-		await this._syncFactorioProxies();
 	}
 
 	async prepareDisconnect() {

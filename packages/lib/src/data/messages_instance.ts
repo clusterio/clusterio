@@ -976,3 +976,30 @@ export class InstancePlayerUpdateEvent {
 		return new this(json.type, json.name, PlayerStats.fromJSON(json.stats), json.reason);
 	}
 }
+
+export class InstancePlayerRouteUpdateEvent {
+	declare ["constructor"]: typeof InstancePlayerRouteUpdateEvent;
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+
+	constructor(
+		public name: string,
+		public instanceId: number,
+		public hostId: number,
+		public gamePort: number,
+		public timestampMs: number,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"instanceId": Type.Integer(),
+		"hostId": Type.Integer(),
+		"gamePort": Type.Integer(),
+		"timestampMs": Type.Number(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.name, json.instanceId, json.hostId, json.gamePort, json.timestampMs);
+	}
+}
