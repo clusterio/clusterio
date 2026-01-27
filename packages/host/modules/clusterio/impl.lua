@@ -6,6 +6,15 @@ local compat = require("modules/clusterio/compat")
 local function check_patch()
 	if compat.script_data.clusterio_patch_number ~= clusterio_patch_number then
 		compat.script_data.clusterio_patch_number = clusterio_patch_number
+		-- Initialize clusterio table synchronously BEFORE raising async event
+		-- This prevents race condition where update_instance() accesses the table
+		-- before the on_server_startup event handler has run
+		if not compat.script_data.clusterio then
+			compat.script_data.clusterio = {
+				instance_id = nil,
+				instance_name = nil,
+			}
+		end
 		script.raise_event(api.events.on_server_startup, {
 			name = api.events.on_server_startup, tick = game.tick
 		})
