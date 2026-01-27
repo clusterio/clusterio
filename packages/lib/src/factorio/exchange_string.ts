@@ -1,10 +1,13 @@
 import zlib from "zlib";
 
+type FactorioVersion = [number, number, number, number];
+
 class MapReaderState {
 	pos = 0;
 	last_position = { x: 0, y: 0 };
 	/** True when a version greater than 2.0.0 is detected */
 	v2 = false;
+	version: FactorioVersion | null = null;
 	constructor(
 		public buf: Buffer
 	) { }
@@ -110,12 +113,30 @@ function readDict<K, V>(
 	return mapping;
 }
 
-function readVersion(state: MapReaderState) {
+function readVersion(state: MapReaderState): FactorioVersion {
 	let major = readUInt16(state);
 	let minor = readUInt16(state);
 	let patch = readUInt16(state);
 	let developer = readUInt16(state);
 	return [major, minor, patch, developer];
+}
+
+function isVersionAtLeast(state: MapReaderState, major: number, minor: number, patch: number, developer: number) {
+	if (!state.version) {
+		return false;
+	}
+
+	const [vMajor, vMinor, vPatch, vDeveloper] = state.version;
+	if (vMajor !== major) {
+		return vMajor > major;
+	}
+	if (vMinor !== minor) {
+		return vMinor > minor;
+	}
+	if (vPatch !== patch) {
+		return vPatch > patch;
+	}
+	return vDeveloper >= developer;
 }
 
 function readFrequencySizeRichness(state: MapReaderState) {
@@ -262,7 +283,8 @@ function readEnemyEvolution(state: MapReaderState) {
 }
 
 function readEnemyExpansion(state: MapReaderState) {
-	return {
+	let evolutionGroupSizeFactor: number | null | undefined;
+	const settings = {
 		enabled: readOptional(state, readBool),
 		max_expansion_distance: readOptional(state, readUInt32),
 		friendly_base_influence_radius: readOptional(state, readUInt32),
@@ -274,9 +296,36 @@ function readEnemyExpansion(state: MapReaderState) {
 		max_colliding_tiles_coefficient: readOptional(state, readDouble),
 		settler_group_min_size: readOptional(state, readUInt32),
 		settler_group_max_size: readOptional(state, readUInt32),
-		min_expansion_cooldown: readOptional(state, readUInt32),
-		max_expansion_cooldown: readOptional(state, readUInt32),
+		min_expansion_cooldown: null,
+		max_expansion_cooldown: null,
+	} as {
+		enabled: boolean | null;
+		max_expansion_distance: number | null;
+		friendly_base_influence_radius: number | null;
+		enemy_building_influence_radius: number | null;
+		building_coefficient: number | null;
+		other_base_coefficient: number | null;
+		neighbouring_chunk_coefficient: number | null;
+		neighbouring_base_chunk_coefficient: number | null;
+		max_colliding_tiles_coefficient: number | null;
+		settler_group_min_size: number | null;
+		settler_group_max_size: number | null;
+		min_expansion_cooldown: number | null;
+		max_expansion_cooldown: number | null;
+		evolution_group_size_factor?: number;
 	};
+
+	if (isVersionAtLeast(state, 2, 1, 0, 0)) {
+		evolutionGroupSizeFactor = readOptional(state, readDouble);
+	}
+	settings.min_expansion_cooldown = readOptional(state, readUInt32);
+	settings.max_expansion_cooldown = readOptional(state, readUInt32);
+
+	if (evolutionGroupSizeFactor !== undefined) {
+		settings.evolution_group_size_factor = evolutionGroupSizeFactor ?? 4.0;
+	}
+
+	return settings;
 }
 
 function readUnitGroup(state: MapReaderState) {
@@ -427,6 +476,7 @@ export function readMapExchangeString(exchangeString: string) {
 	try {
 		const version = readVersion(state);
 		state.v2 = version[0] >= 2;
+		state.version = version;
 		data = {
 			version: version,
 			unknown: readUInt8(state),
