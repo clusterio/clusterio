@@ -15,6 +15,18 @@
 		"node": "__node_version__"
 	},
 	"peerDependencies": {
+//%if controller
+		"@clusterio/controller": "^__clusterio_version__",
+//%endif
+//%if webpack
+		"@clusterio/web_ui": "^__clusterio_version__",
+//%endif
+//%if host
+		"@clusterio/host": "^__clusterio_version__",
+//%endif
+//%if ctl
+		"@clusterio/ctl": "^__clusterio_version__",
+//%endif
 		"@clusterio/lib": "^__clusterio_version__"
 	},
 	"devDependencies": {
@@ -36,7 +48,18 @@
 		"webpack": "^5.88.2",
 		"webpack-cli": "^5.1.4",
 		"webpack-merge": "^5.9.0",
+//%endif
+//%if controller
+		"@clusterio/controller": "^__clusterio_version__",
+//%endif
+//%if webpack
 		"@clusterio/web_ui": "^__clusterio_version__",
+//%endif
+//%if host
+		"@clusterio/host": "^__clusterio_version__",
+//%endif
+//%if ctl
+		"@clusterio/ctl": "^__clusterio_version__",
 //%endif
 		"@clusterio/lib": "^__clusterio_version__"
 	},

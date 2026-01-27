@@ -79,7 +79,7 @@ function versionOrder(a: string, b: string) {
  * @returns Array with path to data dir and version found.
  * @internal
  */
-async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion) {
+async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion): Promise<[string, lib.FullVersion]> {
 
 	// There are two supported setups: having the factorio dir be the actual
 	// install directory, and having the factorio dir be a folder containing
@@ -87,8 +87,10 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 
 	let simpleVersion = await getVersion(path.join(factorioDir, "data", "changelog.txt"));
 	if (simpleVersion !== null) {
-		if (simpleVersion === targetVersion || targetVersion === "latest") {
-			return [path.join(factorioDir, "data"), simpleVersion];
+		if (simpleVersion === targetVersion || simpleVersion.startsWith(targetVersion) || targetVersion === "latest") {
+			if (lib.isFullVersion(simpleVersion)) {
+				return [path.join(factorioDir, "data"), simpleVersion];
+			}
 		}
 
 		throw new Error(
@@ -96,38 +98,14 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 		);
 	}
 
-	const binEntries = ["factorio-run", "factorio-run.exe", "factorio", "factorio.exe"];
-	const binChecks = await Promise.all(
-		binEntries.map(entry => fs.pathExists(path.join(factorioDir, entry)))
-	);
-	if (binChecks.some(Boolean)) {
-		const dataCandidates = [
-			path.resolve(factorioDir, "..", "..", "data"),
-			path.resolve(factorioDir, "..", "data"),
-		];
-		for (let dataDir of dataCandidates) {
-			let version = await getVersion(path.join(dataDir, "changelog.txt"));
-			if (version === null) {
-				continue;
-			}
-			if (version === targetVersion || targetVersion === "latest") {
-				return [dataDir, version];
-			}
-
-			throw new Error(
-				`Factorio version ${targetVersion} was requested, but install directory contains ${version}`
-			);
-		}
-	}
-
-	let versions = new Map();
+	let versions = new Map<lib.FullVersion, string>();
 	for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
 		if (!entry.isDirectory()) {
 			continue;
 		}
 
 		let version = await getVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"));
-		if (version === null) {
+		if (version === null || !lib.isFullVersion(version)) {
 			continue;
 		}
 
@@ -142,9 +120,17 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 		throw new Error(`Unable to find any Factorio install in ${factorioDir}`);
 	}
 
+	if (lib.isPartialVersion(targetVersion)) {
+		const sorted = [...versions.keys()].sort(versionOrder);
+		const latest = sorted.find(version => version.startsWith(targetVersion));
+		if (latest) {
+			return [path.join(factorioDir, versions.get(latest)!, "data"), latest];
+		}
+	}
+
 	if (targetVersion === "latest") {
-		let latest = [...versions.keys()].sort(versionOrder)[0];
-		return [path.join(factorioDir, versions.get(latest), "data"), latest];
+		const latest = [...versions.keys()].sort(versionOrder)[0];
+		return [path.join(factorioDir, versions.get(latest)!, "data"), latest];
 	}
 
 	throw new Error(`Unable to find Factorio version ${targetVersion}`);

@@ -127,7 +127,8 @@ void new lib.Gauge(
 
 async function handleBootstrapCommand(
 	args: any,
-	controllerConfig: lib.ControllerConfig
+	controllerConfig: lib.ControllerConfig,
+	controllerConfigLock: lib.LockFile,
 ): Promise<void> {
 	let subCommand = args._[1];
 
@@ -141,6 +142,8 @@ async function handleBootstrapCommand(
 	await userManager.load(path.join(databaseDirectory, "users.json"));
 
 	if (subCommand === "create-admin") {
+		await controllerConfigLock.acquire(); // Also needed to write to the database files
+
 		if (!args.name) {
 			logger.error("name cannot be blank");
 			process.exitCode = 1;
@@ -156,6 +159,7 @@ async function handleBootstrapCommand(
 		admin.roleIds.add(adminRole.id);
 		admin.isAdmin = true;
 		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
+		await controllerConfigLock.release();
 
 	} else if (subCommand === "generate-user-token") {
 		let user = userManager.getByName(args.name);
@@ -251,6 +255,7 @@ async function initialize(): Promise<InitializeParameters> {
 			default: "plugin-list.json",
 			type: "string",
 		})
+		.option("bypass-lock-file", { hidden: true, type: "boolean", nargs: 0, default: false })
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("config", "Manage Controller config", lib.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
@@ -281,6 +286,7 @@ async function initialize(): Promise<InitializeParameters> {
 				type: "boolean", nargs: 0, default: false,
 				describe: "Start the controller in recovery mode with all plugins disabled and hosts disconnected",
 			});
+			yargs.option("check-user-count", { hidden: true, type: "boolean", nargs: 0, default: true });
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
 			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
@@ -350,8 +356,14 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	let controllerConfig;
 	const controllerConfigPath = args.config;
+	const controllerConfigLockPath = `${controllerConfigPath}.lock`;
+	if (args.bypassLockFile) {
+		await fs.unlink(controllerConfigLockPath).catch(() => {}); // ignore error, file might not exist
+	}
+
+	let controllerConfig;
+	const controllerConfigLock = new lib.LockFile(controllerConfigLockPath);
 	logger.info(`Loading config from ${controllerConfigPath}`);
 	try {
 		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);
@@ -377,10 +389,11 @@ async function initialize(): Promise<InitializeParameters> {
 	}
 
 	if (command === "config") {
-		await lib.handleConfigCommand(args, controllerConfig);
-
+		await lib.handleConfigCommand(args, controllerConfig, controllerConfigLock);
 	} else if (command === "bootstrap") {
-		await handleBootstrapCommand(args, controllerConfig);
+		await handleBootstrapCommand(args, controllerConfig, controllerConfigLock);
+	} else if (shouldRun) {
+		await controllerConfigLock.acquire(); // Hold the lock until process exit
 	}
 
 	return {
@@ -416,6 +429,14 @@ async function startup() {
 		Boolean(args.recovery),
 		...await Controller.bootstrap(controllerConfig)
 	);
+
+	// Refuse to start if there are no users loaded
+	if (args.checkUserCount && controller.userManager.users.size === 0) {
+		logger.fatal(
+			"Cannot start controller, no users loaded.\n" +
+			"Try `npx clusteriocontroller bootstrap create-admin <username>`");
+		process.exit(1);
+	}
 
 	let secondSigint = false;
 	process.on("SIGINT", () => {

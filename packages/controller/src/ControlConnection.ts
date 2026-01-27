@@ -126,6 +126,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
+		this.handle(lib.FactorioVersionsRequest, this.handleFactorioVersionsRequest.bind(this));
 	}
 
 	validateIngress(message: lib.MessageRequest | lib.MessageEvent) {
@@ -1221,6 +1222,10 @@ export default class ControlConnection extends BaseConnection {
 		};
 		this.connector._socket!.clusterio_ignore_dump = true;
 		this._controller.debugEvents.on("message", this.ws_dumper);
+	}
+
+	async handleFactorioVersionsRequest(request: lib.FactorioVersionsRequest) {
+		return await this._controller.factorioVersions.get(request.maxAgeMs);
 	}
 }
 

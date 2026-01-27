@@ -8,6 +8,7 @@ import * as libConfig from "./config";
 import * as libFileOps from "./file_ops";
 import { logger } from "./logging";
 import * as libHelpers from "./helpers";
+import { LockFile } from "./LockFile";
 
 
 function print(...content: any[]) {
@@ -130,11 +131,12 @@ export function configCommand(yargs: any) {
  *
  * @param args - yargs args object.
  * @param instance - Config instance.
- * @param configPath - Path to configuration file.
+ * @param lockFile - Lockfile required if attempting to write
  */
 export async function handleConfigCommand(
 	args: Record<string, unknown>,
 	instance: libConfig.Config<any>,
+	lockFile: LockFile,
 ) {
 	let command = (args._ as string[])[1];
 
@@ -155,6 +157,8 @@ export async function handleConfigCommand(
 		}
 
 	} else if (command === "set") {
+		await lockFile.acquire();
+
 		if (args.stdin) {
 			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 
@@ -172,5 +176,7 @@ export async function handleConfigCommand(
 				throw err;
 			}
 		}
+
+		await lockFile.release();
 	}
 }

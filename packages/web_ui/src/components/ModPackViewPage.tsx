@@ -26,6 +26,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
+import InputPartialVersion from "./InputPartialVersion";
 
 const { logger } = lib;
 const { Text } = Typography;
@@ -1288,7 +1289,9 @@ export default function ModPackViewPage() {
 							message: "Must be an a.b or a.b.c version number.",
 						}]}
 					>
-						<Input
+						<InputPartialVersion
+							value={form.getFieldValue("factorioVersion")}
+							onChange={(value: any) => form.setFieldValue("factorioVersion", value)}
 							className={hasChange(changes, { type: "factorioVersion" }) ? "changed" : ""}
 						/>
 					</Form.Item>

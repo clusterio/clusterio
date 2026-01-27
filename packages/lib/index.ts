@@ -9,6 +9,7 @@ export * from "./src/config";
 export * from "./src/data";
 export * from "./src/database";
 export * from "./src/errors";
+export * from "./src/external";
 export * from "./src/factorio";
 export * from "./src/file_ops";
 export * from "./src/hash";
@@ -31,7 +32,9 @@ export * from "./src/subscriptions";
 export * from "./src/datastore";
 export * from "./src/load_plugin_list";
 export * from "./src/rce_ops";
+export * from "./src/LockFile";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as ModStore } from "./src/ModStore";
 export { default as RateLimiter } from "./src/RateLimiter";
+export { default as ValueCache } from "./src/ValueCache";

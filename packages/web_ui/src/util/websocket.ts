@@ -69,6 +69,9 @@ export class Control extends lib.Link {
 	users = new lib.EventSubscriber(lib.UserUpdatesEvent, this);
 	roles = new lib.EventSubscriber(lib.RoleUpdatesEvent, this);
 
+	/** Cache for factorio versions to avoid repeat calls to the controller */
+	factorioVersions = new lib.ValueCache(this.requestFactorioVersions.bind(this));
+
 	declare connector: ControlConnector;
 
 	constructor(
@@ -103,6 +106,10 @@ export class Control extends lib.Link {
 		this.handle(lib.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
+	}
+
+	requestFactorioVersions() {
+		return this.send(new lib.FactorioVersionsRequest());
 	}
 
 	async handleAccountUpdateEvent(event: lib.AccountUpdateEvent) {
