@@ -275,6 +275,9 @@ function keyToLabels(key: string) {
 	if (key !== "") {
 		for (let pair of key.split(",")) {
 			let [name, value] = pair.split("=", 2);
+			if (!name || value === undefined) {
+				continue;
+			}
 			labels.set(name, value
 				.slice(1, -1)
 				.replace(/\\"/g, "\"")
