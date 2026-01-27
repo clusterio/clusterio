@@ -47,6 +47,7 @@
 		"access": "public"
 	},
 	"dependencies": {
+		"@ant-design/icons": "catalog:",
 		"@sinclair/typebox": "^0.30.4",
 		"fs-extra": "^11.2.0",
 		"react": "^18.2.0",
