@@ -48,7 +48,7 @@ export default function InputPartialVersion (
 
 		return {
 			title: majorMinor,
-			value: groupKey,
+			value: majorMinor,
 			key: groupKey,
 			children: patchVersions.map((v) => ({
 				title: v,

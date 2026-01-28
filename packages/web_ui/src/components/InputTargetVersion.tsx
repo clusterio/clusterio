@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { TreeSelect } from "antd";
 
 import * as lib from "@clusterio/lib";
-import { InputComponentProps } from "../BaseWebPlugin";
+import type { InputComponentProps } from "../BaseWebPlugin";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 
@@ -48,7 +48,7 @@ export default function InputTargetVersion (
 
 		return {
 			title: majorMinor,
-			value: groupKey,
+			value: majorMinor,
 			key: groupKey,
 			children: patchVersions.map((v) => ({
 				title: v,
