@@ -76,6 +76,12 @@ end
 --   min
 --   max
 function serialize.serialize_personal_logistic_slots(player)
+	-- Check if logistics technology is researched
+	local force = player.force
+	if not force.technologies["logistic-robotics"] or not force.technologies["logistic-robotics"].researched then
+		return nil
+	end
+
 	if v2_logistic_api then
 		local logistic_point = player.get_requester_point()
 		if logistic_point == nil then
@@ -129,9 +135,18 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 		return
 	end
 
+	-- Check if logistics technology is researched
+	local force = player.force
+	if not force.technologies["logistic-robotics"] or not force.technologies["logistic-robotics"].researched then
+		return
+	end
+
 	-- Load personal logistic slots
 	if v2_logistic_api then
 		local logistic_point = player.get_requester_point()
+		if logistic_point == nil then
+			return
+		end
 
 		-- Remove old sections up to section_count
 		for i = logistic_point.sections_count, 1, -1 do
