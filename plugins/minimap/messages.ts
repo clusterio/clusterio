@@ -56,6 +56,13 @@ export const PlayerDataSchema = Type.Object({
 
 export type PlayerData = Static<typeof PlayerDataSchema>;
 
+export const PlayerSessionEndDataSchema = Type.Object({
+	player_name: Type.String(),
+	surface: Type.String(),
+});
+
+export type PlayerSessionEndData = Static<typeof PlayerSessionEndDataSchema>;
+
 /**
  * PlayerPositionEvent: Used for both Factorio Instance -> Controller and Controller -> Web Clients
  *
@@ -89,6 +96,37 @@ export class PlayerPositionEvent {
 		return new this(
 			json.instance_id,
 			json.player_data
+		);
+	}
+}
+
+/**
+ * PlayerSessionEndEvent: Instance -> Controller
+ *
+ * Notifies controller that a player session has ended (disconnect).
+ */
+export class PlayerSessionEndEvent {
+	declare ["constructor"]: typeof PlayerSessionEndEvent;
+	static type = "event" as const;
+	static src = ["instance"] as const;
+	static dst = ["controller"] as const;
+	static plugin = "minimap" as const;
+	static permission = null;
+
+	constructor(
+		public instance_id: number,
+		public session_data: PlayerSessionEndData,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instance_id": Type.Number(),
+		"session_data": PlayerSessionEndDataSchema,
+	});
+
+	static fromJSON(json: Static<typeof PlayerSessionEndEvent.jsonSchema>) {
+		return new this(
+			json.instance_id,
+			json.session_data
 		);
 	}
 }

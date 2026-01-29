@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { BaseControllerPlugin } from "@clusterio/controller";
+import { BaseControllerPlugin, type InstanceInfo } from "@clusterio/controller";
 import {
 	TileDataEvent,
 	GetRawTileRequest,
@@ -10,6 +10,7 @@ import {
 	RecipeDataEvent,
 	GetRawRecipeTileRequest,
 	PlayerPositionEvent,
+	PlayerSessionEndEvent,
 	type PlayerData,
 	GetPlayerPathRequest,
 	ClearMinimapSurfaceDataRequest,
@@ -53,6 +54,17 @@ interface EnrichedPlayerData extends PlayerData {
 	_playerId: number;
 }
 
+interface QueuedPlayerSessionStart {
+	playerId: number;
+	playerName: string;
+	tMs: number;
+}
+
+interface QueuedPlayerSessionEnd {
+	playerId: number;
+	tMs: number;
+}
+
 export class ControllerPlugin extends BaseControllerPlugin {
 	private tilesPath: string = "";
 	private chartTagsPath: string = "";
@@ -62,6 +74,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	private chartTagQueues = new Map<string, ChartTagData[]>();
 	private recipeSavingQueue = new Map<string, Buffer[]>();
 	private playerPositionQueues = new Map<string, EnrichedPlayerData[]>();
+	private playerSessionStartQueues = new Map<string, QueuedPlayerSessionStart[]>();
+	private playerSessionEndQueues = new Map<string, QueuedPlayerSessionEnd[]>();
 	// Player session tracking per surface file
 	// fileKey -> playerName -> playerId
 	private playerSessions = new Map<string, Map<string, number>>();
@@ -117,6 +131,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(RecipeDataEvent, this.handleRecipeDataEvent.bind(this));
 		this.controller.handle(GetRawRecipeTileRequest, this.handleGetRawRecipeTileRequest.bind(this));
 		this.controller.handle(PlayerPositionEvent, this.handlePlayerPositionEvent.bind(this));
+		this.controller.handle(PlayerSessionEndEvent, this.handlePlayerSessionEndEvent.bind(this));
 		this.controller.handle(GetPlayerPathRequest, this.handleGetPlayerPathRequest.bind(this));
 		this.controller.handle(
 			ClearMinimapSurfaceDataRequest,
@@ -270,6 +285,16 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				this.playerPositionQueues.delete(key);
 			}
 		}
+		for (const key of Array.from(this.playerSessionStartQueues.keys())) {
+			if (key === `${instanceId}_${surface}`) {
+				this.playerSessionStartQueues.delete(key);
+			}
+		}
+		for (const key of Array.from(this.playerSessionEndQueues.keys())) {
+			if (key === `${instanceId}_${surface}`) {
+				this.playerSessionEndQueues.delete(key);
+			}
+		}
 	}
 
 	private removeSurfaceCaches(instanceId: number, surface: string, force?: string) {
@@ -330,6 +355,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.chartTagQueues.clear();
 		this.recipeSavingQueue.clear();
 		this.playerPositionQueues.clear();
+		this.playerSessionStartQueues.clear();
+		this.playerSessionEndQueues.clear();
 
 		this.lastSeenTagContent.clear();
 		this.lastSeenRecipeContent.clear();
@@ -343,6 +370,45 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.logger.info("Cleared all minimap data");
 	}
 
+	async onInstanceStatusChanged(instance: InstanceInfo) {
+		if (instance.status === "running") {
+			return;
+		}
+
+		const now = Date.now();
+		let queued = false;
+
+		for (const [fileKey, activeSessions] of this.activePlayerSessions) {
+			if (!fileKey.startsWith(`${instance.id}_`)) {
+				continue;
+			}
+
+			if (activeSessions.size === 0) {
+				continue;
+			}
+
+			const sessions = this.playerSessions.get(fileKey);
+			if (!sessions) {
+				activeSessions.clear();
+				continue;
+			}
+
+			for (const playerName of activeSessions) {
+				const playerId = sessions.get(playerName);
+				if (playerId === undefined) {
+					continue;
+				}
+				this.queuePlayerSessionEnd(fileKey, playerId, now);
+				queued = true;
+			}
+
+			activeSessions.clear();
+		}
+
+		if (queued) {
+			this.savePlayerPositions().catch(err => this.logger.error(`Error saving player positions: ${err}`));
+		}
+	}
 
 	async onShutdown() {
 		if (this.saveInterval) {
@@ -1102,27 +1168,90 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 	}
 
+	private queuePlayerSessionStart(fileKey: string, playerId: number, playerName: string, tMs: number) {
+		if (!this.playerSessionStartQueues.has(fileKey)) {
+			this.playerSessionStartQueues.set(fileKey, []);
+		}
+		this.playerSessionStartQueues.get(fileKey)!.push({
+			playerId,
+			playerName,
+			tMs,
+		});
+	}
+
+	private queuePlayerSessionEnd(fileKey: string, playerId: number, tMs: number) {
+		if (!this.playerSessionEndQueues.has(fileKey)) {
+			this.playerSessionEndQueues.set(fileKey, []);
+		}
+		this.playerSessionEndQueues.get(fileKey)!.push({
+			playerId,
+			tMs,
+		});
+	}
+
 	async savePlayerPositions() {
 		if (this.savePlayerPositionsInProgress) {
 			return;
 		}
 
-		if (this.playerPositionQueues.size === 0) {
+		if (
+			this.playerPositionQueues.size === 0
+			&& this.playerSessionStartQueues.size === 0
+			&& this.playerSessionEndQueues.size === 0
+		) {
 			return;
 		}
 
 		this.savePlayerPositionsInProgress = true;
 		const queue = this.playerPositionQueues;
 		this.playerPositionQueues = new Map();
+		const sessionStartQueue = this.playerSessionStartQueues;
+		this.playerSessionStartQueues = new Map();
+		const sessionEndQueue = this.playerSessionEndQueues;
+		this.playerSessionEndQueues = new Map();
 
 		try {
 			const promises: Promise<void>[] = [];
-			for (const [fileKey, positions] of queue) {
+			const fileKeys = new Set([
+				...queue.keys(),
+				...sessionStartQueue.keys(),
+				...sessionEndQueue.keys(),
+			]);
+			for (const fileKey of fileKeys) {
+				const positions = queue.get(fileKey) ?? [];
+				const sessionStarts = sessionStartQueue.get(fileKey) ?? [];
+				const sessionEnds = sessionEndQueue.get(fileKey) ?? [];
 				const promise = (async () => {
 					const filePath = path.join(this.playerPositionsPath, `${fileKey}.positions`);
 
 					// Convert position data to binary format
 					const buffers: Buffer[] = [];
+
+					for (const sessionStart of sessionStarts) {
+						const nameBytes = Buffer.from(sessionStart.playerName, "utf8");
+						const buffer = Buffer.alloc(1 + 4 + 2 + 1 + nameBytes.length);
+						let offset = 0;
+
+						// Type (1 byte): 1 = SessionStart
+						buffer.writeUInt8(1, offset);
+						offset += 1;
+
+						// t_ms (4 bytes): Current timestamp in milliseconds (uint32 wrap)
+						const tMs = Math.floor(sessionStart.tMs) >>> 0;
+						buffer.writeUInt32BE(tMs, offset);
+						offset += 4;
+
+						// player_id (2 bytes)
+						buffer.writeUInt16BE(sessionStart.playerId & 0xFFFF, offset);
+						offset += 2;
+
+						// name_len (1 byte) + name bytes
+						buffer.writeUInt8(nameBytes.length & 0xFF, offset);
+						offset += 1;
+						nameBytes.copy(buffer, offset);
+
+						buffers.push(buffer);
+					}
 
 					for (const position of positions) {
 						// Position record (type 0): 1 + 4 + 4 + 3 + 3 + 2 = 17 bytes
@@ -1158,6 +1287,25 @@ export class ControllerPlugin extends BaseControllerPlugin {
 						// player_id (2 bytes): Use the assigned player ID
 						const playerId = position._playerId ?? 0;
 						buffer.writeUInt16BE(playerId & 0xFFFF, offset);
+
+						buffers.push(buffer);
+					}
+
+					for (const sessionEnd of sessionEnds) {
+						const buffer = Buffer.alloc(1 + 4 + 2);
+						let offset = 0;
+
+						// Type (1 byte): 2 = SessionEnd
+						buffer.writeUInt8(2, offset);
+						offset += 1;
+
+						// t_ms (4 bytes): Current timestamp in milliseconds (uint32 wrap)
+						const tMs = Math.floor(sessionEnd.tMs) >>> 0;
+						buffer.writeUInt32BE(tMs, offset);
+						offset += 4;
+
+						// player_id (2 bytes)
+						buffer.writeUInt16BE(sessionEnd.playerId & 0xFFFF, offset);
 
 						buffers.push(buffer);
 					}
@@ -1272,17 +1420,26 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			// Assign player ID if this player doesn't have one yet, or reopen their session
 			let playerId: number;
+			let shouldWriteSessionStart = false;
 			if (!sessions.has(player_data.player_name)) {
 				playerId = this.nextPlayerIds.get(fileKey)!;
 				sessions.set(player_data.player_name, playerId);
 				this.nextPlayerIds.set(fileKey, playerId + 1);
 				this.logger.verbose(`Assigned new player ID ${playerId} to ${player_data.player_name} on ${fileKey}`);
+				shouldWriteSessionStart = true;
 			} else {
 				playerId = sessions.get(player_data.player_name)!;
 			}
 
 			// Reopen/track active player session (handles session reopening after controller restart)
+			if (!activeSessions.has(player_data.player_name)) {
+				shouldWriteSessionStart = true;
+			}
 			activeSessions.add(player_data.player_name);
+
+			if (shouldWriteSessionStart) {
+				this.queuePlayerSessionStart(fileKey, playerId, player_data.player_name, Date.now());
+			}
 
 			// Add the player ID to the data for saving (without modifying the original schema)
 			const enrichedPlayerData = { ...player_data, _playerId: playerId };
@@ -1302,6 +1459,46 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		} catch (err) {
 			this.logger.error(`Error processing player position data: ${err}`);
+		}
+	}
+
+	async handlePlayerSessionEndEvent(event: PlayerSessionEndEvent) {
+		try {
+			const { instance_id, session_data } = event;
+			const fileKey = `${instance_id}_${session_data.surface}`;
+
+			if (!this.playerSessions.has(fileKey)) {
+				this.playerSessions.set(fileKey, new Map());
+				this.nextPlayerIds.set(fileKey, 1); // Start from 1, reserve 0 for unknown
+				this.activePlayerSessions.set(fileKey, new Set());
+			}
+
+			const sessions = this.playerSessions.get(fileKey)!;
+			const activeSessions = this.activePlayerSessions.get(fileKey)!;
+
+			let playerId = sessions.get(session_data.player_name);
+			let shouldWriteSessionStart = false;
+			if (playerId === undefined) {
+				playerId = this.nextPlayerIds.get(fileKey)!;
+				sessions.set(session_data.player_name, playerId);
+				this.nextPlayerIds.set(fileKey, playerId + 1);
+				shouldWriteSessionStart = true;
+			}
+
+			if (!activeSessions.has(session_data.player_name)) {
+				shouldWriteSessionStart = true;
+			}
+
+			const now = Date.now();
+
+			if (shouldWriteSessionStart) {
+				this.queuePlayerSessionStart(fileKey, playerId, session_data.player_name, now);
+			}
+
+			this.queuePlayerSessionEnd(fileKey, playerId, now);
+			activeSessions.delete(session_data.player_name);
+		} catch (err) {
+			this.logger.error(`Error processing player session end data: ${err}`);
 		}
 	}
 

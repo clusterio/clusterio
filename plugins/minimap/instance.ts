@@ -9,6 +9,7 @@ import {
 	RecipeData,
 	PlayerPositionEvent,
 	PlayerData,
+	PlayerSessionEndEvent,
 } from "./messages";
 
 interface TileDataIpc {
@@ -49,6 +50,11 @@ interface PlayerPositionIpc {
 	sec: number;
 }
 
+interface PlayerSessionEndIpc {
+	player_name: string;
+	surface: string;
+}
+
 export class InstancePlugin extends BaseInstancePlugin {
 	pendingTileUpdates = new Map<string, Set<[number, number, [number, number, number, number]]>>();
 
@@ -82,6 +88,13 @@ export class InstancePlugin extends BaseInstancePlugin {
 		this.instance.server.on("ipc-minimap:player_position", (data: PlayerPositionIpc) => {
 			this.handlePlayerPositionFromLua(data).catch(err => this.logger.error(
 				`Error handling player position data from Lua:\n${err}`
+			));
+		});
+
+		// Listen for player session end data from Lua module
+		this.instance.server.on("ipc-minimap:player_session_end", (data: PlayerSessionEndIpc) => {
+			this.handlePlayerSessionEndFromLua(data).catch(err => this.logger.error(
+				`Error handling player session end data from Lua:\n${err}`
 			));
 		});
 	}
@@ -185,6 +198,26 @@ export class InstancePlugin extends BaseInstancePlugin {
 			this.instance.sendTo("controller", event);
 		} catch (err: unknown) {
 			this.logger.error(`Failed to process player position data from Lua: ${err}`);
+		}
+	}
+
+	async handlePlayerSessionEndFromLua(data: PlayerSessionEndIpc) {
+		try {
+			if (!data) {
+				this.logger.error("Invalid player session end data received");
+				return;
+			}
+
+			const event = new PlayerSessionEndEvent(
+				this.instance.config.get("instance.id"),
+				{
+					player_name: data.player_name,
+					surface: data.surface,
+				}
+			);
+			this.instance.sendTo("controller", event);
+		} catch (err: unknown) {
+			this.logger.error(`Failed to process player session end data from Lua: ${err}`);
 		}
 	}
 

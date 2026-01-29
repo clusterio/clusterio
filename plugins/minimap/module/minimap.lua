@@ -42,6 +42,11 @@ local function send_player_position_data(player_data)
 	clusterio_api.send_json("minimap:player_position", player_data)
 end
 
+-- Send player session end data to plugin
+local function send_player_session_end(session_data)
+	clusterio_api.send_json("minimap:player_session_end", session_data)
+end
+
 -- Check if a position has moved significantly (≥1 tile)
 local function has_moved_significantly(old_pos, new_pos)
 	if not old_pos then
@@ -129,6 +134,16 @@ local function on_player_left_game(event)
 	if not storage.minimap or not storage.minimap.enabled then
 		return
 	end
+
+	local player = game.get_player(event.player_index)
+	if not player or not player.valid then
+		return
+	end
+
+	send_player_session_end({
+		player_name = player.name,
+		surface = player.surface.name,
+	})
 
 	-- Clean up position tracking data
 	if storage.minimap.player_positions then
