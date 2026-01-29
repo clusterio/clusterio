@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from "react";
 import {
 	Row,
 	Col,
@@ -16,20 +16,17 @@ import {
 import { EllipsisOutlined } from "@ant-design/icons";
 import { ControlContext, useInstances, useItemMetadata, useAccount, notify } from "@clusterio/web_ui";
 import {
-	GetRawTileRequest,
-	GetChartTagsRequest,
-	GetRawRecipeTileRequest,
-	GetPlayerPathRequest,
 	ClearMinimapSurfaceDataRequest,
 	ClearMinimapDataRequest,
 	type TileDataEvent,
-	type ChartTagData,
 	type ChartTagDataEvent,
 	type SignalID,
 	type RecipeDataEvent,
 	type PlayerPositionEvent,
 	type PlayerData,
 } from "../messages";
+import type { ChartTagDataWithInstance, MinimapDataSource } from "./minimap-data-source";
+import { SingleInstanceDataSource } from "./dataSources/SingleInstanceDataSource";
 import * as zlib from "zlib";
 import {
 	renderTileToPixels,
@@ -45,8 +42,11 @@ import { parseAndDeduplicatePlayerPositions, type ParsedPlayerPos } from "../uti
 
 const { Text } = Typography;
 
-interface ChartTagDataWithInstance extends ChartTagData {
-	instance_id: number;
+interface CanvasMinimapPageProps {
+	dataSource?: MinimapDataSource;
+	title?: string;
+	showInstanceSelector?: boolean;
+	showManageActions?: boolean;
 }
 
 interface MergedChartTag {
@@ -60,6 +60,10 @@ interface MergedChartTag {
 	icon?: SignalID;
 	last_user?: string;
 	instance_id: number;
+}
+
+interface ParsedPlayerPosWithInstance extends ParsedPlayerPos {
+	instanceId: number;
 }
 
 interface SurfaceForceData {
@@ -128,7 +132,13 @@ async function chartDataToImageData(chartData: string): Promise<ImageData> {
 	return new ImageData(imageData, 32, 32);
 }
 
-export default function CanvasMinimapPage() {
+/* eslint-disable complexity */
+export default function CanvasMinimapPage({
+	dataSource: externalDataSource,
+	title = "Factorio Instance Minimap",
+	showInstanceSelector = true,
+	showManageActions = true,
+}: CanvasMinimapPageProps) {
 	// UI-related states (these need React re-renders)
 	const [instances] = useInstances();
 	const [selectedInstance, setSelectedInstance] = useState<number | null>(null);
@@ -153,6 +163,7 @@ export default function CanvasMinimapPage() {
 	const [showRecipes, setShowRecipes] = useState(true);
 	const [rawChartTags, setRawChartTags] = useState<ChartTagDataWithInstance[]>([]);
 	const [mergedChartTags, setMergedChartTags] = useState<MergedChartTag[]>([]);
+	const [activeViewKey, setActiveViewKey] = useState(0);
 
 	// Player position states
 	const [showPlayerPositions, setShowPlayerPositions] = useState(true);
@@ -184,13 +195,13 @@ export default function CanvasMinimapPage() {
 	const tileStateCache = useRef<Map<string, TileState>>(new Map());
 	const chunkCache = useRef<Map<string, ImageData>>(new Map());
 	const loadingTiles = useRef<Map<string, Promise<ImageData | null>>>(new Map());
-	const playerPathBufRef = useRef<Uint8Array | null>(null);
+	const playerPathBufRef = useRef<Map<number, Uint8Array> | null>(null);
 
 	// Cache for recipes currently active
 	const recipeCache = useRef<Map<string, string>>(new Map());
 
 	// Cache for deduplicated player positions
-	const deduplicatedPlayerPositions = useRef<Map<number, ParsedPlayerPos[]>>(new Map());
+	const deduplicatedPlayerPositions = useRef<Map<number, ParsedPlayerPosWithInstance[]>>(new Map());
 
 	// Animation frame ref
 	const animationFrameRef = useRef<number>();
@@ -279,6 +290,7 @@ export default function CanvasMinimapPage() {
 		selectedInstance: null as number | null,
 		selectedSurface: "nauvis",
 		selectedForce: "player",
+		isReady: false,
 		isTimelapseMode: false,
 		currentTick: null as number | null,
 		availableTicks: [] as number[],
@@ -291,6 +303,22 @@ export default function CanvasMinimapPage() {
 	});
 
 	const control = useContext(ControlContext);
+	const dataSource = useMemo(
+		() => externalDataSource ?? new SingleInstanceDataSource(control),
+		[control, externalDataSource],
+	);
+	const isReady = dataSource.isReady();
+	const controlsDisabled = showInstanceSelector ? !selectedInstance : !isReady;
+
+	useEffect(() => {
+		if (dataSource.setInstance) {
+			dataSource.setInstance(selectedInstance);
+		}
+	}, [dataSource, selectedInstance]);
+
+	useEffect(() => {
+		dataSource.setSurfaceForce(selectedSurface, selectedForce);
+	}, [dataSource, selectedSurface, selectedForce]);
 	const itemMetadata = useItemMetadata();
 
 	// Keep latest metadata in a ref so long-living callbacks (render loop) can access fresh data
@@ -472,6 +500,7 @@ export default function CanvasMinimapPage() {
 			selectedInstance,
 			selectedSurface,
 			selectedForce,
+			isReady,
 			isTimelapseMode,
 			currentTick,
 			availableTicks,
@@ -495,6 +524,8 @@ export default function CanvasMinimapPage() {
 		mergedChartTags,
 		chartTagTimestamps,
 		playerPositions,
+		dataSource,
+		isReady,
 	]);
 
 	// Define pixel-perfect zoom levels to eliminate seaming issues
@@ -588,29 +619,16 @@ export default function CanvasMinimapPage() {
 
 		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
 			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
-				const response = await control.send(new GetRawTileRequest(
-					selectedInstance!,
-					selectedSurface,
-					selectedForce,
-					tileX,
-					tileY
-				));
-
 				tilesChecked += 1;
+				const tileData = await dataSource.getTileData(tileX, tileY, null);
+				if (!tileData) {
+					continue;
+				}
 
-				if (response.tile_data) {
-					const binaryString = atob(response.tile_data);
-					const tileData = new Uint8Array(binaryString.length);
-					for (let i = 0; i < binaryString.length; i += 1) {
-						tileData[i] = binaryString.charCodeAt(i);
-					}
-
-					const ticks = extractAvailableTicks(tileData);
-
-					if (ticks.length > 0) {
-						tilesWithData += 1;
-						ticks.forEach(tick => allTicks.add(tick));
-					}
+				const ticks = extractAvailableTicks(tileData);
+				if (ticks.length > 0) {
+					tilesWithData += 1;
+					ticks.forEach(tick => allTicks.add(tick));
 				}
 			}
 		}
@@ -654,24 +672,14 @@ export default function CanvasMinimapPage() {
 
 		for (let tileY = topTile; tileY <= bottomTile; tileY++) {
 			for (let tileX = leftTile; tileX <= rightTile; tileX++) {
-				const recipeResp = await control.send(new GetRawRecipeTileRequest(
-					selectedInstance!,
-					selectedSurface,
-					selectedForce,
-					tileX,
-					tileY
-				));
-				if (recipeResp.recipe_tile) {
-					const binStr = atob(recipeResp.recipe_tile);
-					const buf = new Uint8Array(binStr.length);
-					for (let i = 0; i < binStr.length; i += 1) {
-						buf[i] = binStr.charCodeAt(i);
-					}
-					const parsed = parseRecipeTileBinary(tileX, tileY, buf, null);
-					for (const t of parsed.ticks) {
-						allTicks.add(t);
-						recipeTicksAdded += 1;
-					}
+				const recipeData = await dataSource.getRecipeTileData(tileX, tileY, null);
+				if (!recipeData) {
+					continue;
+				}
+				const parsed = parseRecipeTileBinary(tileX, tileY, recipeData, null);
+				for (const t of parsed.ticks) {
+					allTicks.add(t);
+					recipeTicksAdded += 1;
 				}
 			}
 		}
@@ -679,47 +687,47 @@ export default function CanvasMinimapPage() {
 		return recipeTicksAdded;
 	};
 
-	const fetchPlayerPathBuffer = async (): Promise<Uint8Array | null> => {
-		if (!selectedInstance) { return null; }
-		if (playerPathBufRef.current) { return playerPathBufRef.current; }
+	const fetchPlayerPaths = async (): Promise<boolean> => {
+		if (!dataSource.isReady()) { return false; }
+		if (playerPathBufRef.current) { return true; }
 		try {
-			const resp = await control.send(new GetPlayerPathRequest(
-				selectedInstance,
-				selectedSurface,
-			));
-			if (!resp.positions) { return null; }
-			const binStr = atob(resp.positions);
-			const buf = new Uint8Array(binStr.length);
-			for (let i = 0; i < binStr.length; i++) {
-				buf[i] = binStr.charCodeAt(i);
+			const responses = await dataSource.getPlayerPaths();
+			if (responses.length === 0) { return false; }
+			const bufferMap = new Map<number, Uint8Array>();
+			const deduplicatedTimelines = new Map<number, ParsedPlayerPosWithInstance[]>();
+			const instanceOffset = 1_000_000;
+			for (const response of responses) {
+				bufferMap.set(response.instanceId, response.data);
+				const perInstance = parseAndDeduplicatePlayerPositions(response.data);
+				for (const [playerId, timeline] of perInstance) {
+					const key = response.instanceId * instanceOffset + playerId;
+					deduplicatedTimelines.set(
+						key,
+						timeline.map(pos => ({ ...pos, instanceId: response.instanceId })),
+					);
+				}
 			}
-			playerPathBufRef.current = buf;
-
-			// Use the utility function to parse and deduplicate player positions
-			const deduplicatedTimelines = parseAndDeduplicatePlayerPositions(buf);
-
-			// Store deduplicated data in cache
+			playerPathBufRef.current = bufferMap;
 			deduplicatedPlayerPositions.current = deduplicatedTimelines;
-
-			return buf;
-		} catch (_e) { return null; }
+			return true;
+		} catch (_e) {
+			return false;
+		}
 	};
 
 	const loadPlayerTimestamps = async (
 		allTicks: Set<number>
 	): Promise<number> => {
-		if (!selectedInstance) { return 0; }
 		let added = 0;
-		const buf = await fetchPlayerPathBuffer();
-		if (buf) {
-			// Extract ticks from deduplicated positions instead of raw buffer
-			for (const timeline of deduplicatedPlayerPositions.current.values()) {
-				for (const pos of timeline) {
-					const tick = pos.sec * 60;
-					if (!allTicks.has(tick)) {
-						allTicks.add(tick);
-						added += 1;
-					}
+		const loaded = await fetchPlayerPaths();
+		if (!loaded) { return 0; }
+		// Extract ticks from deduplicated positions instead of raw buffer
+		for (const timeline of deduplicatedPlayerPositions.current.values()) {
+			for (const pos of timeline) {
+				const tick = pos.sec * 60;
+				if (!allTicks.has(tick)) {
+					allTicks.add(tick);
+					added += 1;
 				}
 			}
 		}
@@ -728,7 +736,7 @@ export default function CanvasMinimapPage() {
 
 	// Timelapse functions
 	const loadAvailableTicks = async () => {
-		if (!selectedInstance) {
+		if (!dataSource.isReady()) {
 			return;
 		}
 
@@ -767,7 +775,7 @@ export default function CanvasMinimapPage() {
 
 		if (enabled) {
 			// Ensure chart tags are loaded before getting available ticks
-			if (selectedInstance && selectedSurface && selectedForce) {
+			if (dataSource.isReady()) {
 				await loadExistingChartTags();
 			}
 			await loadAvailableTicks();
@@ -934,25 +942,19 @@ export default function CanvasMinimapPage() {
 
 	// Set default instance when instances become available
 	useEffect(() => {
+		if (!showInstanceSelector) { return; }
 		if (instances.size > 0 && !selectedInstance) {
 			const firstInstance = instances.values().next().value;
 			if (firstInstance) {
 				setSelectedInstance(firstInstance.id);
 			}
 		}
-	}, [instances, selectedInstance]);
+	}, [instances, selectedInstance, showInstanceSelector]);
 
 	// Load surface and force data on component mount
 	useEffect(() => {
 		loadSurfaceForceData();
 	}, []);
-
-	// Keep the minimap subscription filters in sync with current selection
-	useEffect(() => {
-		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
-		if (!plugin) { return; }
-		plugin.setInstanceSurfaceFilter(selectedInstance, selectedSurface || null);
-	}, [control, selectedInstance, selectedSurface]);
 
 	// Set up keyboard and mouse event listeners (one-time setup)
 	useEffect(() => {
@@ -1178,29 +1180,12 @@ export default function CanvasMinimapPage() {
 
 	// Load existing chart tags from disk
 	const loadExistingChartTags = async () => {
-		if (!selectedInstance || !selectedSurface || !selectedForce) {
+		if (!dataSource.isReady()) {
 			return;
 		}
 
-		const response = await control.send(new GetChartTagsRequest(
-			selectedInstance,
-			selectedSurface,
-			selectedForce
-		));
-
-		if (response.chart_tags && response.chart_tags.length > 0) {
-			// Convert to ChartTagDataWithInstance format
-			const existingTags: ChartTagDataWithInstance[] = response.chart_tags.map((tag: ChartTagData) => ({
-				...tag,
-				instance_id: selectedInstance,
-			}));
-
-			// Replace existing tags with loaded ones
-			setRawChartTags(existingTags);
-		} else {
-			// Clear tags if no existing data
-			setRawChartTags([]);
-		}
+		const existingTags = await dataSource.getChartTags();
+		setRawChartTags(existingTags);
 	};
 
 	// Load a tile from the server using raw tile data
@@ -1208,8 +1193,8 @@ export default function CanvasMinimapPage() {
 		// Get current state from ref
 		const currentState = currentStateRef.current;
 
-		// Early return if no instance is selected
-		if (!currentState.selectedInstance) {
+		// Early return if data source is not ready
+		if (!currentState.isReady) {
 			return null;
 		}
 
@@ -1246,24 +1231,14 @@ export default function CanvasMinimapPage() {
 		const loadPromise = (async () => {
 			try {
 				// Load the raw tile data from server
-				const response = await control.send(new GetRawTileRequest(
-					currentState.selectedInstance!, // We already checked for null above
-					currentState.selectedSurface,
-					currentState.selectedForce,
+				const tileData = await dataSource.getTileData(
 					tileX,
 					tileY,
-					currentState.isTimelapseMode ? currentState.currentTick || undefined : undefined
-				));
+					currentState.isTimelapseMode ? currentState.currentTick : null,
+				);
 
-				if (!response.tile_data) {
+				if (!tileData) {
 					return null;
-				}
-
-				// Decode base64 tile data
-				const binaryString = atob(response.tile_data);
-				const tileData = new Uint8Array(binaryString.length);
-				for (let i = 0; i < binaryString.length; i++) {
-					tileData[i] = binaryString.charCodeAt(i);
 				}
 
 				// Parse the tile data into structured change records
@@ -1379,9 +1354,9 @@ export default function CanvasMinimapPage() {
 		// Get current state from ref
 		const currentState = currentStateRef.current;
 
-		// Don't create virtual tiles if no instance is selected
-		if (!currentState.selectedInstance) {
-			throw new Error("Cannot create virtual tile: no instance selected");
+		// Don't create virtual tiles if data source is not ready
+		if (!currentState.isReady) {
+			throw new Error("Cannot create virtual tile: data source not ready");
 		}
 
 		const tileKey = `${tileX},${tileY}`;
@@ -1567,13 +1542,13 @@ export default function CanvasMinimapPage() {
 		ctx.fillRect(clippedX, clippedY, clippedWidth, clippedHeight);
 
 		// Start loading the tile in the background (but don't wait for it)
-		// Only attempt to load if we have all required parameters
-		if (currentState.selectedInstance && currentState.selectedSurface && currentState.selectedForce) {
+		// Only attempt to load if data source is ready
+		if (currentState.isReady) {
 			getVirtualTile(tileX, tileY).then(() => {
 				// When tile loads, trigger a re-render
 				// But only if we're still looking at the same area
 				const latestState = currentStateRef.current;
-				if (latestState.selectedInstance && latestState.selectedSurface && latestState.selectedForce) {
+				if (latestState.isReady) {
 					// Use a small delay to batch multiple tile loads
 					setTimeout(() => {
 						if (animationFrameRef.current) {
@@ -1586,7 +1561,6 @@ export default function CanvasMinimapPage() {
 	};
 
 	// Render the canvas
-	// eslint-disable-next-line complexity
 	const renderCanvas = () => {
 		const canvas = canvasRef.current;
 		if (!canvas) { return; }
@@ -1594,8 +1568,8 @@ export default function CanvasMinimapPage() {
 		// Get current state from ref to ensure consistency
 		const currentState = currentStateRef.current;
 
-		// Early return if no instance selected
-		if (!currentState.selectedInstance) {
+		// Early return if data source not ready
+		if (!currentState.isReady) {
 			// Draw dark background and return
 			const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 			ctx.fillStyle = "#1a1a1a";
@@ -1616,6 +1590,15 @@ export default function CanvasMinimapPage() {
 		// Calculate visible tiles using shared function
 		const visibleTiles = calculateVisibleTiles();
 		if (!visibleTiles) { return; }
+		const viewUpdate = dataSource.setActiveView({
+			worldLeft: visibleTiles.worldLeft,
+			worldTop: visibleTiles.worldTop,
+			worldRight: visibleTiles.worldRight,
+			worldBottom: visibleTiles.worldBottom,
+		});
+		if (viewUpdate.changed) {
+			setActiveViewKey(prev => prev + 1);
+		}
 
 		// Render all visible tiles
 		renderVisibleTiles(ctx, visibleTiles, currentState);
@@ -1815,7 +1798,7 @@ export default function CanvasMinimapPage() {
 
 	// Ensure proper canvas sizing when instance selection changes
 	useEffect(() => {
-		if (selectedInstance) {
+		if (isReady) {
 			// Force a resize check when instance becomes available
 			const canvas = canvasRef.current;
 			const container = containerRef.current;
@@ -1825,11 +1808,11 @@ export default function CanvasMinimapPage() {
 				canvas.height = rect.height;
 			}
 		}
-	}, [selectedInstance]);
+	}, [isReady]);
 
 	// Reset view when instance changes and snap to pixel-perfect zoom
 	useEffect(() => {
-		if (selectedInstance) {
+		if (isReady) {
 			// Reset to center view with default zoom when switching instances
 			updateViewState({
 				centerX: 0,
@@ -1847,20 +1830,22 @@ export default function CanvasMinimapPage() {
 			deduplicatedPlayerPositions.current.clear();
 			setPlayerPositions(new Map());
 		}
-	}, [selectedInstance]);
+	}, [isReady, selectedInstance, dataSource]);
 
-	// Clear player cache when surface changes
+	// Clear player cache when surface or active view changes
 	useEffect(() => {
-		if (selectedSurface) {
-			playerPathBufRef.current = null;
-			deduplicatedPlayerPositions.current.clear();
-			setPlayerPositions(new Map());
+		if (!isReady) { return; }
+		playerPathBufRef.current = null;
+		deduplicatedPlayerPositions.current.clear();
+		setPlayerPositions(new Map());
+		if (isTimelapseMode && currentTick !== null) {
+			updatePlayerPositionsForTick(currentTick).catch(() => undefined);
 		}
-	}, [selectedSurface]);
+	}, [selectedSurface, activeViewKey, isReady, isTimelapseMode, currentTick]);
 
 	// Reload ticks when instance, surface, force changes or timelapse mode toggles
 	useEffect(() => {
-		if (isTimelapseMode && selectedInstance && selectedSurface && selectedForce) {
+		if (isTimelapseMode && isReady) {
 			// Debounce the reload to avoid too many requests during navigation
 			const timeoutId = setTimeout(async () => {
 				// Ensure chart tags are loaded before getting available ticks
@@ -1871,18 +1856,18 @@ export default function CanvasMinimapPage() {
 			return () => clearTimeout(timeoutId);
 		}
 		return () => { };
-	}, [selectedInstance, selectedSurface, selectedForce, isTimelapseMode]);
+	}, [selectedSurface, selectedForce, isTimelapseMode, activeViewKey, isReady, dataSource]);
 
 	// Load existing chart tags when instance/surface/force selection changes
 	useEffect(() => {
-		if (selectedInstance && selectedSurface && selectedForce) {
+		if (isReady) {
 			loadExistingChartTags();
 		} else {
 			// Clear chart tags if no valid selection
 			setRawChartTags([]);
 			setPlayerPositions(new Map());
 		}
-	}, [selectedInstance, selectedSurface, selectedForce]);
+	}, [selectedSurface, selectedForce, activeViewKey, isReady, dataSource]);
 
 	// Snap current zoom level to nearest pixel-perfect level on mount
 	useEffect(() => {
@@ -1903,14 +1888,13 @@ export default function CanvasMinimapPage() {
 		// Use the same ref state that the render function uses for consistency
 		const currentState = currentStateRef.current;
 
-		if (!currentState.selectedInstance || !currentState.showChartTags) {
+		if (!currentState.isReady || !currentState.showChartTags) {
 			return [];
 		}
 
 		return currentState.mergedChartTags.filter((tag: MergedChartTag) => {
-			// Filter by instance, surface, and force
-			if (tag.instance_id !== currentState.selectedInstance
-				|| tag.surface !== currentState.selectedSurface
+			// Filter by surface and force
+			if (tag.surface !== currentState.selectedSurface
 				|| tag.force !== currentState.selectedForce) {
 				return false;
 			}
@@ -1936,15 +1920,10 @@ export default function CanvasMinimapPage() {
 
 	// Set up live chunk update listener (only in live mode)
 	useEffect(() => {
-		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
-		if (!plugin) {
-			return () => { };
-		}
-
 		const handleChunkUpdate = (event: TileDataEvent) => {
 			const currentState = currentStateRef.current;
-			// Only process updates for the currently selected instance/surface/force
-			if (event.instance_id === currentState.selectedInstance
+			// Only process updates for the current surface/force
+			if (currentState.isReady
 				&& event.surface === currentState.selectedSurface
 				&& event.force === currentState.selectedForce
 				&& !currentState.isTimelapseMode) {
@@ -1963,8 +1942,8 @@ export default function CanvasMinimapPage() {
 
 		const handleChartTagUpdate = (event: ChartTagDataEvent) => {
 			const currentState = currentStateRef.current;
-			// Only process updates for the currently selected instance/surface/force
-			if (event.instance_id === currentState.selectedInstance
+			// Only process updates for the current surface/force
+			if (currentState.isReady
 				&& event.tag_data.surface === currentState.selectedSurface
 				&& event.tag_data.force === currentState.selectedForce) {
 
@@ -2001,9 +1980,8 @@ export default function CanvasMinimapPage() {
 			// will supply historical positions instead.
 			if (currentState.isTimelapseMode) { return; }
 
-			// Only process updates for the currently selected instance/surface
-			if (event.instance_id === currentState.selectedInstance
-				&& event.player_data.surface === currentState.selectedSurface) {
+			// Only process updates for the current surface
+			if (currentState.isReady && event.player_data.surface === currentState.selectedSurface) {
 				setPlayerPositions(prevPositions => {
 					const newPositions = new Map(prevPositions);
 					const playerKey = `${event.player_data.player_name}_${event.instance_id}`;
@@ -2016,17 +1994,17 @@ export default function CanvasMinimapPage() {
 			}
 		};
 
-		// Subscribe to update events through the plugin
-		plugin.onTileUpdate(handleChunkUpdate);
-		plugin.onChartTagUpdate(handleChartTagUpdate);
-		plugin.onPlayerPositionUpdate(handlePlayerPositionUpdate);
+		// Subscribe to update events through the data source
+		const unsubTile = dataSource.onTileUpdate(handleChunkUpdate);
+		const unsubTags = dataSource.onChartTagUpdate(handleChartTagUpdate);
+		const unsubPlayers = dataSource.onPlayerPositionUpdate(handlePlayerPositionUpdate);
 
 		return () => {
-			plugin.offTileUpdate(handleChunkUpdate);
-			plugin.offChartTagUpdate(handleChartTagUpdate);
-			plugin.offPlayerPositionUpdate(handlePlayerPositionUpdate);
+			unsubTile();
+			unsubTags();
+			unsubPlayers();
 		};
-	}, [updateChunk, control]);
+	}, [dataSource, updateChunk]);
 
 	// Helper to draw recipe icon (placeholder)
 	type IconSpace = "screen" | "world"; // screen = constant pixel size, world = scales with zoom
@@ -2069,16 +2047,10 @@ export default function CanvasMinimapPage() {
 	// Function to load recipe tile
 	const loadRecipeTile = async (tileX: number, tileY: number) => {
 		const cs = currentStateRef.current;
-		if (!cs.selectedInstance) { return; }
-		const resp = await control.send(new GetRawRecipeTileRequest(
-			cs.selectedInstance, cs.selectedSurface, cs.selectedForce, tileX, tileY
-		));
-		if (!resp.recipe_tile) { return; }
-		const binStr = atob(resp.recipe_tile);
-		const buf = new Uint8Array(binStr.length);
-		for (let i = 0; i < binStr.length; i++) { buf[i] = binStr.charCodeAt(i); }
-
-		const parsed = parseRecipeTileBinary(tileX, tileY, buf, cs.isTimelapseMode ? cs.currentTick : null);
+		if (!cs.isReady) { return; }
+		const recipeData = await dataSource.getRecipeTileData(tileX, tileY, cs.isTimelapseMode ? cs.currentTick : null);
+		if (!recipeData) { return; }
+		const parsed = parseRecipeTileBinary(tileX, tileY, recipeData, cs.isTimelapseMode ? cs.currentTick : null);
 
 		// Apply parsed active recipes to cache
 		for (const [coord, recName] of parsed.activeRecipes) {
@@ -2087,12 +2059,11 @@ export default function CanvasMinimapPage() {
 	};
 
 	// Live recipe update handler
-	const handleRecipeUpdate = (event: RecipeDataEvent) => {
+	const handleRecipeUpdate = useCallback((event: RecipeDataEvent) => {
 		const cs = currentStateRef.current;
-		const isWrongInstance = event.instance_id !== cs.selectedInstance;
 		const isWrongSurface = event.recipe_data.surface !== cs.selectedSurface;
 		const isWrongForce = event.recipe_data.force !== cs.selectedForce;
-		if (isWrongInstance || isWrongSurface || isWrongForce) {
+		if (!cs.isReady || isWrongSurface || isWrongForce) {
 			return;
 		}
 		// Handle recipe end events: remove icon if recipe interval finished
@@ -2110,22 +2081,14 @@ export default function CanvasMinimapPage() {
 			iconKey = `item-${event.recipe_data.recipe ?? "unknown"}`;
 		}
 		recipeCache.current.set(key, iconKey);
-	};
+	}, []);
 
-	// Subscribe to updates (tile, tag, recipe) once plugin is available
-	useEffect(() => {
-		const plugin = control.plugins.get("minimap") as import("./index").WebPlugin;
-		if (!plugin) {
-			return () => { };
-		}
-
-		plugin.onRecipeUpdate(handleRecipeUpdate);
-		return () => { plugin.offRecipeUpdate(handleRecipeUpdate); };
-	}, [control]);
+	// Subscribe to recipe updates
+	useEffect(() => dataSource.onRecipeUpdate(handleRecipeUpdate), [dataSource, handleRecipeUpdate]);
 
 	// Reload recipe overlay when timeline tick changes
 	useEffect(() => {
-		if (isTimelapseMode && currentTick !== null && showRecipes) {
+		if (isTimelapseMode && currentTick !== null && showRecipes && isReady) {
 			// Clear existing icons
 			recipeCache.current.clear();
 
@@ -2139,16 +2102,16 @@ export default function CanvasMinimapPage() {
 				}
 			}
 		}
-	}, [currentTick, isTimelapseMode, showRecipes]);
+	}, [currentTick, isTimelapseMode, showRecipes, activeViewKey, isReady]);
 
 	const updatePlayerPositionsForTick = async (tick: number) => {
-		const buf = await fetchPlayerPathBuffer();
-		if (!buf) { setPlayerPositions(new Map()); return; }
+		const loaded = await fetchPlayerPaths();
+		if (!loaded) { setPlayerPositions(new Map()); return; }
 		const secTarget = Math.floor(tick / 60);
-		const parsed = parsePositionsAtTick(buf, secTarget);
+		const parsed = parsePositionsAtTick(secTarget);
 		const map = new Map<string, PlayerData>();
 		for (const p of parsed) {
-			map.set(`${p.name}_${selectedInstance ?? 0}`, {
+			map.set(`${p.name}_${p.instanceId}`, {
 				player_name: p.name,
 				surface: selectedSurface,
 				x: p.x,
@@ -2161,13 +2124,13 @@ export default function CanvasMinimapPage() {
 	};
 
 	// Function to parse positions at a specific tick using deduplicated cache
-	const parsePositionsAtTick = (buf: Uint8Array, targetSec: number): ParsedPlayerPos[] => {
+	const parsePositionsAtTick = (targetSec: number): ParsedPlayerPosWithInstance[] => {
 		// Use deduplicated cached data instead of parsing from scratch
-		const result: ParsedPlayerPos[] = [];
+		const result: ParsedPlayerPosWithInstance[] = [];
 
 		for (const timeline of deduplicatedPlayerPositions.current.values()) {
 			// Find the most recent position for this player at or before targetSec
-			let mostRecentPos: ParsedPlayerPos | null = null;
+			let mostRecentPos: ParsedPlayerPosWithInstance | null = null;
 
 			for (const pos of timeline) {
 				if (pos.sec <= targetSec) {
@@ -2199,15 +2162,15 @@ export default function CanvasMinimapPage() {
 					<Card
 						title={
 							<Space>
-								<span>Factorio Instance Minimap</span>
-								{selectedInstance && (
+								<span>{title}</span>
+								{showInstanceSelector && selectedInstance && (
 									<Text type="secondary" style={{ fontSize: "14px" }}>
 										• {instances.get(selectedInstance)?.name || "Unknown Instance"}
 									</Text>
 								)}
 							</Space>
 						}
-						extra={
+						extra={showManageActions ? (
 							<Space>
 								<Button
 									size="small"
@@ -2242,7 +2205,7 @@ export default function CanvasMinimapPage() {
 									</Tooltip>
 								</Dropdown>
 							</Space>
-						}
+						) : undefined}
 						styles={{
 							header: { padding: "16px 24px" },
 							body: { padding: "16px 24px" },
@@ -2257,32 +2220,34 @@ export default function CanvasMinimapPage() {
 						}}>
 							<Row gutter={[24, 16]}>
 								{/* Instance Selection */}
-								<Col xs={24} md={8}>
-									<Space direction="vertical" style={{ width: "100%" }} size="small">
-										<Text strong style={{ fontSize: "12px", color: "#666" }}>INSTANCE</Text>
-										<Select
-											style={{ width: "100%" }}
-											placeholder="Select instance"
-											value={selectedInstance}
-											onChange={(value) => {
-												setSelectedInstance(value);
-												// Return focus to canvas after selection
-												setTimeout(() => {
-													if (canvasRef.current) {
-														canvasRef.current.focus();
-													}
-												}, 100);
-											}}
-											options={[...instances.values()].map(instance => ({
-												value: instance.id,
-												label: instance.name,
-											}))}
-											suffixIcon={selectedInstance
-												? undefined
-												: <span style={{ color: "#ff4d4f" }}>Required</span>}
-										/>
-									</Space>
-								</Col>
+								{showInstanceSelector && (
+									<Col xs={24} md={8}>
+										<Space direction="vertical" style={{ width: "100%" }} size="small">
+											<Text strong style={{ fontSize: "12px", color: "#666" }}>INSTANCE</Text>
+											<Select
+												style={{ width: "100%" }}
+												placeholder="Select instance"
+												value={selectedInstance}
+												onChange={(value) => {
+													setSelectedInstance(value);
+														// Return focus to canvas after selection
+													setTimeout(() => {
+														if (canvasRef.current) {
+															canvasRef.current.focus();
+														}
+													}, 100);
+												}}
+												options={[...instances.values()].map(instance => ({
+													value: instance.id,
+													label: instance.name,
+												}))}
+												suffixIcon={selectedInstance
+													? undefined
+													: <span style={{ color: "#ff4d4f" }}>Required</span>}
+											/>
+										</Space>
+									</Col>
+								)}
 
 								{/* Surface & Force Selection */}
 								<Col xs={24} md={8}>
@@ -2302,7 +2267,7 @@ export default function CanvasMinimapPage() {
 														}
 													}, 100);
 												}}
-												disabled={!selectedInstance}
+												disabled={controlsDisabled}
 											>
 												{surfaceForceData.surfaces.map(surface => (
 													<Select.Option key={surface} value={surface}>
@@ -2323,7 +2288,7 @@ export default function CanvasMinimapPage() {
 														}
 													}, 100);
 												}}
-												disabled={!selectedInstance}
+												disabled={controlsDisabled}
 											>
 												{surfaceForceData.forces.map(force => (
 													<Select.Option key={force} value={force}>
@@ -2360,7 +2325,7 @@ export default function CanvasMinimapPage() {
 														onChange={(checked) => {
 															toggleTimelapseMode(checked);
 														}}
-														disabled={!selectedInstance}
+														disabled={controlsDisabled}
 													/>
 													<Text
 														type="secondary"
@@ -2390,7 +2355,7 @@ export default function CanvasMinimapPage() {
 														onChange={(checked) => {
 															setShowChartTags(checked);
 														}}
-														disabled={!selectedInstance}
+														disabled={controlsDisabled}
 													/>
 													<Text
 														type="secondary"
@@ -2422,7 +2387,7 @@ export default function CanvasMinimapPage() {
 														onChange={(checked) => {
 															setShowRecipes(checked);
 														}}
-														disabled={!selectedInstance}
+														disabled={controlsDisabled}
 													/>
 													<Text
 														type="secondary"
@@ -2452,7 +2417,7 @@ export default function CanvasMinimapPage() {
 														onChange={(checked) => {
 															setShowPlayerPositions(checked);
 														}}
-														disabled={!selectedInstance}
+														disabled={controlsDisabled}
 													/>
 													<Text
 														type="secondary"
@@ -2473,7 +2438,7 @@ export default function CanvasMinimapPage() {
 								</Col>
 							</Row>
 						</div>
-						{selectedInstance ? (
+						{isReady ? (
 							<div>
 								{isTimelapseMode && availableTicks.length > 0 && (
 									<div
@@ -2602,8 +2567,12 @@ export default function CanvasMinimapPage() {
 								}}
 							>
 								<div style={{ textAlign: "center" }}>
-									<h3>No Instance Selected</h3>
-									<p>Select a running instance to view its minimap</p>
+									<h3>{showInstanceSelector ? "No Instance Selected" : "Map Not Ready"}</h3>
+									<p>
+										{showInstanceSelector
+											? "Select a running instance to view its minimap"
+											: "Waiting for map data to load"}
+									</p>
 								</div>
 							</div>
 						)}

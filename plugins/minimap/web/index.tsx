@@ -2,6 +2,20 @@ import React from "react";
 import { BaseWebPlugin } from "@clusterio/web_ui";
 import * as lib from "@clusterio/lib";
 import CanvasMinimapPage from "./CanvasMinimapPage";
+export { default as CanvasMinimapPage } from "./CanvasMinimapPage";
+export { SingleInstanceDataSource } from "./dataSources/SingleInstanceDataSource";
+export type {
+	ChartTagDataWithInstance,
+	MinimapActiveView,
+	MinimapDataSource,
+	MinimapViewBounds,
+} from "./minimap-data-source";
+export {
+	GetRawTileRequest,
+	GetRawRecipeTileRequest,
+	GetChartTagsRequest,
+	GetPlayerPathRequest,
+} from "../messages";
 import { TileDataEvent, ChartTagDataEvent, RecipeDataEvent, PlayerPositionEvent } from "../messages";
 
 export class WebPlugin extends BaseWebPlugin {
@@ -38,9 +52,11 @@ export class WebPlugin extends BaseWebPlugin {
 		}
 	}
 
-	// Update instance/surface filter used for subscriptions.
-	async setInstanceSurfaceFilter(instanceId: number | null, surface: string | null) {
-		const newFilters = (instanceId !== null && surface) ? [`${instanceId}:${surface}`] : undefined;
+	// Update instance/surface filters used for subscriptions.
+	async setInstanceSurfaceFilters(filters: Array<{ instanceId: number; surface: string }> | null) {
+		const newFilters = filters && filters.length > 0
+			? filters.map(filter => `${filter.instanceId}:${filter.surface}`)
+			: undefined;
 
 		// No change
 		const prev = this.currentFilters;
@@ -70,6 +86,15 @@ export class WebPlugin extends BaseWebPlugin {
 		if (this.hasActiveCallbacks()) {
 			await this.updateSubscriptions();
 		}
+	}
+
+	// Update instance/surface filter used for subscriptions.
+	async setInstanceSurfaceFilter(instanceId: number | null, surface: string | null) {
+		await this.setInstanceSurfaceFilters(
+			instanceId !== null && surface
+				? [{ instanceId, surface }]
+				: null,
+		);
 	}
 
 	private async updateSubscriptions() {
