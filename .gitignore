@@ -34,9 +34,8 @@ node_modules
 /mods
 /database
 /plugin-list.json
-/config-controller.json
-/config-control.json
-/config-host.json
+/config-*.json
+/config-*.json.lock
 pnpm-lock.yaml
 mod_cache.json
 /static/
