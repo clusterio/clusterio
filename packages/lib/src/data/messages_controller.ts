@@ -260,6 +260,8 @@ export class SystemInfo {
 		public diskAvailable: number,
 		public canRestart: boolean,
 		public restartRequired: boolean,
+		public systemStartedAtMs: number,
+		public processStartedAtMs: number,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs: number,
 		public isDeleted: boolean,
@@ -279,6 +281,8 @@ export class SystemInfo {
 		"diskAvailable": Type.Number(),
 		"canRestart": Type.Boolean(),
 		"restartRequired": Type.Boolean(),
+		"systemStartedAtMs": Type.Number(),
+		"processStartedAtMs": Type.Number(),
 		"updatedAtMs": Type.Number(),
 		"isDeleted": Type.Boolean(),
 	});
@@ -298,6 +302,8 @@ export class SystemInfo {
 			json.diskAvailable,
 			json.canRestart,
 			json.restartRequired,
+			json.systemStartedAtMs,
+			json.processStartedAtMs,
 			json.updatedAtMs,
 			json.isDeleted,
 		);

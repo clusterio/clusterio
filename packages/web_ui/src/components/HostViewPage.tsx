@@ -17,7 +17,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
-	MetricDiskUsed, MetricDiskRatio,
+	MetricDiskUsed, MetricDiskRatio, MetricRelativeDate,
 } from "./system_metrics";
 import { formatTimestamp } from "../util/time_format";
 import { useSystems } from "../model/system";
@@ -147,8 +147,14 @@ export default function HostViewPage() {
 			<Descriptions.Item label="Node.js">{system?.node}</Descriptions.Item>
 			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
 			<Descriptions.Item label="Machine">{system?.machine}</Descriptions.Item>
-			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
-			<Descriptions.Item label="Connected From" span={2}>{host.remoteAddress}</Descriptions.Item>
+			<Descriptions.Item label="System Uptime">
+				<MetricRelativeDate timeMs={system?.systemStartedAtMs}/>
+			</Descriptions.Item>
+			<Descriptions.Item label="Process Uptime">
+				<MetricRelativeDate timeMs={system?.processStartedAtMs}/>
+			</Descriptions.Item>
+			<Descriptions.Item label="Hostname">{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="Connected From">{host.remoteAddress}</Descriptions.Item>
 			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
 			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>

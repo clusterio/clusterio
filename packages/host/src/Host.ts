@@ -278,6 +278,8 @@ export default class Host extends lib.Link {
 	_disconnecting = false;
 	_shuttingDown = false;
 
+	startedAtMs = Date.now();
+
 	static instanceConfigWarning = {
 		"_warning": "Changes to this file will be overwritten by the controller's copy.",
 	};
@@ -807,7 +809,7 @@ export default class Host extends lib.Link {
 
 	async handleSystemInfoRequest() {
 		const restartRequired = await this.checkRestartRequired();
-		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, restartRequired);
+		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, restartRequired, this.startedAtMs);
 	}
 
 	async checkRestartRequired() {

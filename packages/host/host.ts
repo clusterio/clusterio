@@ -291,6 +291,7 @@ async function startHost() {
 	});
 
 	await hostConnector.connect();
+	host.startedAtMs = Date.now();
 	logger.info("Started host");
 }
 

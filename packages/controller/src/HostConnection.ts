@@ -207,6 +207,11 @@ export default class HostConnection extends BaseConnection {
 
 		let prev = instance.status;
 		instance.status = request.status;
+		// If the instance has transitioned to running then updated the started at time
+		if (request.status === "running" && prev === "starting") {
+			instance.startedAtMs = Date.now();
+		}
+
 		instance.gamePort = request.gamePort;
 		instance.factorioVersion = request.factorioVersion;
 		this._controller.instances.set(instance);
@@ -246,6 +251,9 @@ export default class HostConnection extends BaseConnection {
 					controllerInstance.status = instanceData.status;
 					controllerInstance.gamePort = instanceData.gamePort;
 					controllerInstance.factorioVersion = instanceData.factorioVersion;
+					if (instanceData.status === "running" && prev === "starting") {
+						controllerInstance.startedAtMs = Date.now();
+					}
 					instanceUpdates.push(controllerInstance);
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
 					await lib.invokeHook(
@@ -261,6 +269,7 @@ export default class HostConnection extends BaseConnection {
 				instanceData.status,
 				instanceData.gamePort,
 				instanceData.factorioVersion,
+				0,
 				Date.now(),
 			);
 			instanceUpdates.push(newInstance);

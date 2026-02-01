@@ -25,6 +25,7 @@ import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
@@ -41,6 +42,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 	return <Descriptions
 		bordered
 		size="small"
+		column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
 	>
 		<Descriptions.Item label="Host">
 			{!assigned
@@ -64,7 +66,12 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Version">
 			{instance.factorioVersion ?? "unknown"}
 		</Descriptions.Item>
-		<Descriptions.Item label="Status"><InstanceStatusTag status={instance.status!} /></Descriptions.Item>
+		<Descriptions.Item label="Status">
+			<InstanceStatusTag status={instance.status!} />
+		</Descriptions.Item>
+		<Descriptions.Item label="Start Time">
+			<MetricRelativeDate timeMs={instance.startedAtMs}/>
+		</Descriptions.Item>
 	</Descriptions>;
 }
 
