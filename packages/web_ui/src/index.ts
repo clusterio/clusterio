@@ -21,7 +21,7 @@ export { default as LogConsole } from "./components/LogConsole";
 export { default as AssignInstanceModal } from "./components/AssignInstanceModal";
 export { default as InstanceList } from "./components/InstanceList";
 export { default as InstanceRcon } from "./components/InstanceRcon";
-export { default as InstanceStatusTag, statusColors } from "./components/InstanceStatusTag";
+export { default as InstanceStatusTag } from "./components/InstanceStatusTag";
 export { default as InstanceControlButton, InstanceControlButtonPermissions } from "./components/InstanceControlButton";
 
 export { default as PageHeader } from "./components/PageHeader";

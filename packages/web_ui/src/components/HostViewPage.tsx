@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Descriptions, Spin, Tag, Typography, Button, Space, Modal, Popconfirm, Flex, Tooltip } from "antd";
+import { Descriptions, Spin, Typography, Button, Space, Popconfirm, Flex, Tooltip } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 
@@ -7,6 +7,7 @@ import * as lib from "@clusterio/lib";
 import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import HostConfigTree from "./HostConfigTree";
+import HostStatusTag from "./HostStatusTag";
 import InstanceList from "./InstanceList";
 import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import { useAccount } from "../model/account";
@@ -134,15 +135,10 @@ export default function HostViewPage() {
 	return <PageLayout nav={nav}>
 		<PageHeader
 			title={host.name || String(hostId)}
+			status={<HostStatusTag connected={host["connected"]}/>}
 			extra={hostButtons}
 		/>
 		<Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}>
-			<Descriptions.Item label="Name">{host["name"]}</Descriptions.Item>
-			<Descriptions.Item label="Connected">
-				<Tag color={host["connected"] ? "#389e0d" : "#cf1322"}>
-					{host["connected"] ? "Connected" : "Disconnected"}
-				</Tag>
-			</Descriptions.Item>
 			<Descriptions.Item label="Version">{host.version}</Descriptions.Item>
 			<Descriptions.Item label="Node.js">{system?.node}</Descriptions.Item>
 			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
