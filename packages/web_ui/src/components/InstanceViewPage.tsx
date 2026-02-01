@@ -66,7 +66,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Version">
 			{instance.factorioVersion ?? "unknown"}
 		</Descriptions.Item>
-		<Descriptions.Item label="Start Time">
+		<Descriptions.Item label="Last Start Time">
 			<MetricRelativeDate timeMs={instance.startedAtMs}/>
 		</Descriptions.Item>
 	</Descriptions>;
