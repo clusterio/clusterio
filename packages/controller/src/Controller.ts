@@ -665,10 +665,10 @@ export default class Controller {
 			if (!json.restartRequired) { // Added in 2.0.0.alpha.21
 				json.restartRequired = false;
 			}
-			if (!json.systemStartedAtMs) { // Added in 2.0.0.alpha.23
+			if (json.systemStartedAtMs === undefined) { // Added in 2.0.0.alpha.23
 				json.systemStartedAtMs = Date.now();
 			}
-			if (!json.processStartedAtMs) { // Added in 2.0.0.alpha.23
+			if (json.processStartedAtMs === undefined) { // Added in 2.0.0.alpha.23
 				json.processStartedAtMs = Date.now();
 			}
 			return json;
