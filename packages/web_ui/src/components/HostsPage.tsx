@@ -56,7 +56,7 @@ function GenerateHostTokenButton() {
 
 		let newToken = await control.send(new lib.HostGenerateTokenRequest(id));
 		setToken(newToken);
-		setHostId(id??null);
+		setHostId(id ?? null);
 	}
 
 	// Generate a new random
@@ -89,13 +89,24 @@ function GenerateHostTokenButton() {
 					}} />
 				</Form.Item>
 			</Form>
+			<Typography.Paragraph>
+				Host IDs are randomly generated and unique, leave blank to use a new ID,
+				 otherwise the ID of an existing host can be found using:
+			</Typography.Paragraph>
+			<div className="codeblock">
+				<CopyButton
+					message="Copied get host id to clipboard"
+					text="npx clusteriohost config get host.id"
+				/>
+				npx clusteriohost config get host.id
+			</div>
 			{token !== null && <>
 				<Typography.Paragraph>
 					Host auth token:
 				</Typography.Paragraph>
 				<div className="codeblock">
 					<CopyButton
-						message={"Copied auth token to clipboard"}
+						message="Copied host token to clipboard"
 						text={token}
 					/>
 					{token}
@@ -105,15 +116,13 @@ function GenerateHostTokenButton() {
 				</Typography.Paragraph>
 				<div className="codeblock">
 					<CopyButton
-						message={"Copied configuration commands to clipboard"}
-						text={`npx clusteriohost config set host.controller_token ${token}
-							   npx clusteriohost config set host.id ${hostId}`}
+						message="Copied set host id to clipboard"
+						text={`npx clusteriohost config set host.id ${token}`}
 					/>
-					<p>npx clusteriohost config set host.controller_token &lt;token&gt;</p>
-					<p>npx clusteriohost config set host.id &lt;hostId&gt;</p>
+					npx clusteriohost config set host.id {token}
 				</div>
 				<Typography.Paragraph>
-					Example host setup commands:
+					A new host can be setup using the following commands:
 				</Typography.Paragraph>
 				<div className="codeblock">
 					<CopyButton
@@ -122,7 +131,7 @@ function GenerateHostTokenButton() {
 mkdir clusterio
 cd clusterio
 npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless \
---controller-url ${document.location.origin}/ --host-name "Host ${hostId || "?"}" \
+--controller-url ${document.location.origin}/ --host-name "${hostId ? `Host ${hostId}` : "Host"}" \
 --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
 						}/>
 					<p>&gt; mkdir clusterio</p>
@@ -133,7 +142,7 @@ npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-he
 						--mode "host"
 						--download-headless
 						--controller-url <span className="highlight">{document.location.origin}/ </span>
-						--host-name <span className="highlight">"Host {hostId || "?"}" </span>
+						--host-name <span className="highlight">{hostId ? `Host ${hostId}` : "Host"} </span>
 						--public-address <span className="highlight">localhost </span>
 						{pluginString.length ? "--plugins" : ""} <span className="highlight">{pluginString}</span>
 					</p>
