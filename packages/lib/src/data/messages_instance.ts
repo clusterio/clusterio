@@ -44,6 +44,7 @@ export class InstanceDetails {
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
 		public factorioVersion: TargetVersion | undefined,
+		public startedAtMs = 0,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs = 0,
 		public excludeFromStartAll = false,
@@ -59,6 +60,7 @@ export class InstanceDetails {
 			"creating_save", "exporting_data", "deleted",
 		]),
 		"factorioVersion": Type.Optional(TargetVersionSchema),
+		"startedAtMs": Type.Optional(Type.Number()),
 		"updatedAtMs": Type.Optional(Type.Number()),
 		"excludeFromStartAll": Type.Optional(Type.Boolean()),
 	});
@@ -71,6 +73,7 @@ export class InstanceDetails {
 			json.gamePort,
 			json.status,
 			json.factorioVersion,
+			json.startedAtMs,
 			json.updatedAtMs,
 			json.excludeFromStartAll,
 		);

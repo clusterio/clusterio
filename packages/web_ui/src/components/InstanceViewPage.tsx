@@ -25,6 +25,7 @@ import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
@@ -41,6 +42,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 	return <Descriptions
 		bordered
 		size="small"
+		column={{ xs: 1, md: 3, lg: 3, xl: 3, xxl: 3 }}
 	>
 		<Descriptions.Item label="Host">
 			{!assigned
@@ -64,7 +66,9 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Version">
 			{instance.factorioVersion ?? "unknown"}
 		</Descriptions.Item>
-		<Descriptions.Item label="Status"><InstanceStatusTag status={instance.status!} /></Descriptions.Item>
+		<Descriptions.Item label="Last Start Time">
+			<MetricRelativeDate timeMs={instance.startedAtMs}/>
+		</Descriptions.Item>
 	</Descriptions>;
 }
 
@@ -97,7 +101,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			instanceButtonMenuItems.push({ type: "divider" });
 		}
 		instanceButtonMenuItems.push({
-			disabled: !["unknown", "unassigned", "stopped"].includes(instance.status!),
+			disabled: !["unknown", "unassigned", "stopped"].includes(instance.status),
 			danger: true,
 			key: "delete",
 			icon: <DeleteOutlined />,
@@ -208,6 +212,7 @@ export default function InstanceViewPage() {
 	return <PageLayout nav={nav}>
 		<PageHeader
 			title={instance.name ?? ""}
+			status={<InstanceStatusTag status={instance.status} />}
 			extra={<InstanceButtons instance={instance} />}
 		/>
 		<InstanceDescription host={host} instance={instance} />

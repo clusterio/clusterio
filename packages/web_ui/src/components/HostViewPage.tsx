@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Descriptions, Spin, Tag, Typography, Button, Space, Modal, Popconfirm, Flex, Tooltip } from "antd";
+import { Descriptions, Spin, Typography, Button, Space, Popconfirm, Flex, Tooltip } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 import { useParams } from "react-router-dom";
 
@@ -7,6 +7,7 @@ import * as lib from "@clusterio/lib";
 import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import HostConfigTree from "./HostConfigTree";
+import HostStatusTag from "./HostStatusTag";
 import InstanceList from "./InstanceList";
 import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import { useAccount } from "../model/account";
@@ -17,7 +18,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
-	MetricDiskUsed, MetricDiskRatio,
+	MetricDiskUsed, MetricDiskRatio, MetricRelativeDate,
 } from "./system_metrics";
 import { formatTimestamp } from "../util/time_format";
 import { useSystems } from "../model/system";
@@ -134,21 +135,22 @@ export default function HostViewPage() {
 	return <PageLayout nav={nav}>
 		<PageHeader
 			title={host.name || String(hostId)}
+			status={<HostStatusTag connected={host["connected"]}/>}
 			extra={hostButtons}
 		/>
 		<Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}>
-			<Descriptions.Item label="Name">{host["name"]}</Descriptions.Item>
-			<Descriptions.Item label="Connected">
-				<Tag color={host["connected"] ? "#389e0d" : "#cf1322"}>
-					{host["connected"] ? "Connected" : "Disconnected"}
-				</Tag>
-			</Descriptions.Item>
 			<Descriptions.Item label="Version">{host.version}</Descriptions.Item>
 			<Descriptions.Item label="Node.js">{system?.node}</Descriptions.Item>
 			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
 			<Descriptions.Item label="Machine">{system?.machine}</Descriptions.Item>
-			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
-			<Descriptions.Item label="Connected From" span={2}>{host.remoteAddress}</Descriptions.Item>
+			<Descriptions.Item label="System Uptime">
+				<MetricRelativeDate timeMs={system?.systemStartedAtMs}/>
+			</Descriptions.Item>
+			<Descriptions.Item label="Process Uptime">
+				<MetricRelativeDate timeMs={system?.processStartedAtMs}/>
+			</Descriptions.Item>
+			<Descriptions.Item label="Hostname">{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="Connected From">{host.remoteAddress}</Descriptions.Item>
 			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
 			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>

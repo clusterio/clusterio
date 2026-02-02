@@ -12,6 +12,7 @@ export default class InstanceInfo {
 		public status: lib.InstanceStatus,
 		public gamePort?: number,
 		public factorioVersion?: lib.TargetVersion,
+		public startedAtMs = 0,
 		public updatedAtMs = 0,
 	) {
 		this.config = config;
@@ -22,6 +23,7 @@ export default class InstanceInfo {
 		"config": lib.InstanceConfig.jsonSchema,
 		"status": lib.InstanceStatus,
 		"gamePort": Type.Optional(Type.Number()),
+		"startedAtMs": Type.Optional(Type.Number()),
 		"updatedAtMs": Type.Optional(Type.Number()),
 		"factorioVersion": Type.Optional(lib.TargetVersionSchema),
 	});
@@ -32,6 +34,7 @@ export default class InstanceInfo {
 			json.status,
 			json.gamePort,
 			json.factorioVersion,
+			json.startedAtMs,
 			json.updatedAtMs,
 		);
 	}
@@ -44,6 +47,7 @@ export default class InstanceInfo {
 			this.gamePort,
 			this.status,
 			this.factorioVersion,
+			this.startedAtMs,
 			this.updatedAtMs,
 			this.config.get("instance.exclude_from_start_all"),
 		);

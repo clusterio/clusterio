@@ -1,6 +1,6 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Flex, Form, InputNumber, Modal, Progress, Space, Switch, Table, Tag, Tooltip, Typography } from "antd";
+import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -11,6 +11,7 @@ import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import HostStatusTag from "./HostStatusTag";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio,
@@ -287,11 +288,7 @@ export default function HostsPage() {
 					title: "Connected",
 					key: "connected",
 					render: (_, host) => <>
-						<Tag
-							color={host.connected ? "#389e0d" : "#cf1322"}
-						>
-							{host.connected ? "Connected" : "Disconnected"}
-						</Tag>
+						<HostStatusTag connected={host["connected"]}/>
 						<RestartRequired system={systems.get(host.id)}/>
 					</>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),

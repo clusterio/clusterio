@@ -96,6 +96,7 @@ export default class Controller {
 
 	devMiddleware: any | null = null;
 
+	startedAtMs = Date.now();
 	autosaveInterval?: ReturnType<typeof setInterval>;
 	systemMetricsInterval?: ReturnType<typeof setInterval>;
 
@@ -397,6 +398,7 @@ export default class Controller {
 		this.onSystemMetricsIntervalChanged();
 
 		logger.info("Started controller");
+		this.startedAtMs = Date.now();
 		this._state = "running";
 	}
 
@@ -553,7 +555,7 @@ export default class Controller {
 				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
 			const restartRequired = await this.checkRestartRequired();
-			requests.push(lib.gatherSystemInfo("controller", this.canRestart, restartRequired));
+			requests.push(lib.gatherSystemInfo("controller", this.canRestart, restartRequired, this.startedAtMs));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
 				this.systems.set(metric);
@@ -662,6 +664,12 @@ export default class Controller {
 			}
 			if (!json.restartRequired) { // Added in 2.0.0.alpha.21
 				json.restartRequired = false;
+			}
+			if (json.systemStartedAtMs === undefined) { // Added in 2.0.0.alpha.23
+				json.systemStartedAtMs = Date.now();
+			}
+			if (json.processStartedAtMs === undefined) { // Added in 2.0.0.alpha.23
+				json.processStartedAtMs = Date.now();
 			}
 			return json;
 		});

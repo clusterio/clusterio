@@ -315,9 +315,29 @@ describe("controller/src/Controller", function() {
 				assert.equal(result[1].restartRequired, true);
 				assert.equal(result[2].restartRequired, false);
 			});
+			it("migrates 'systemStartedAtMs' from undefined to Date.now", function() { // Alpha 23
+				const result = Controller.migrateSystems([
+					{}, { systemStartedAtMs: 0 }, { systemStartedAtMs: 500 },
+				]);
+				const now = Date.now();
+				const r0 = result[0].systemStartedAtMs;
+				assert.ok(r0 > now - 100 && r0 <= now);
+				assert.equal(result[1].systemStartedAtMs, 0);
+				assert.equal(result[2].systemStartedAtMs, 500);
+			});
+			it("migrates 'processStartedAtMs' from undefined to Date.now", function() { // Alpha 23
+				const result = Controller.migrateSystems([
+					{}, { processStartedAtMs: 0 }, { processStartedAtMs: 500 },
+				]);
+				const now = Date.now();
+				const r0 = result[0].processStartedAtMs;
+				assert.ok(r0 > now - 100 && r0 <= now);
+				assert.equal(result[1].processStartedAtMs, 0);
+				assert.equal(result[2].processStartedAtMs, 500);
+			});
 			it("does nothing for upto date data", function() {
 				const systemInfo = new SystemInfo(
-					1, "name", "n", "k", "m", "cm", "cr", "mc", "ma", "dc", "da", false, false, 0, false
+					1, "name", "n", "k", "m", "cm", "cr", "mc", "ma", "dc", "da", false, false, 0, 0, 0, false
 				);
 				const jsonString = JSON.stringify(systemInfo);
 				const systemInfoJson = JSON.parse(jsonString);
