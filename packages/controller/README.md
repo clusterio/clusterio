@@ -18,6 +18,15 @@ Common options:
    Defaults to `config-controller.json` and will be created if it does not exist.
    See the `config` command for inspecting and modifying the configuration.
 
+ * `--log-level <level>` Log level to print to stdout.
+   Defaults to `info`.
+   Available levels: `none`, `fatal`, `error`, `warn`, `audit`, `info`, `verbose`.
+   Use `none` to suppress all console output (useful for setup scripts), or `error` to show only errors and warnings.
+
+ * `--log-directory <directory>` Directory to place log files in.
+   Defaults to `logs`.
+   Logs are stored in JSON format and rotated daily.
+
 
 ### `plugin <command>`
 
