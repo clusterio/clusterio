@@ -331,6 +331,9 @@ body {
 .codeblock {
 	background-color: black;
 	padding: 8px;
+	padding-right: 5em;
+	margin-bottom: 1em;
+	min-height: 2.5em;
 	line-height: 18px;
 	font-family: Courier;
 	position: relative;
