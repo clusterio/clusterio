@@ -533,13 +533,17 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				const forces = new Set<string>();
 
 				for (const file of files) {
-					if (file.endsWith(".bin")) {
-						const parts = file.split("_");
-						if (parts.length === 5) {
-							surfaces.add(parts[1]);
-							forces.add(parts[2]);
-						}
+					if (!file.endsWith(".bin")) {
+						continue;
 					}
+
+					const meta = this.parseTileKey(file);
+					if (!meta) {
+						continue;
+					}
+
+					surfaces.add(meta.surface);
+					forces.add(meta.force);
 				}
 
 				res.json({
