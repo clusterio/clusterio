@@ -14,11 +14,11 @@ import * as lib from "@clusterio/lib";
  * Determines the version of Factorio the datadir is pointing to by
  * reading the changelog.txt in it.
  *
- * @param changelogPath - Path to changelog.txt.
- * @internal
+ * @param factorioDir - Path factorio dir containing data/changelog.txt.
  */
-async function getVersion(changelogPath: string) {
+export async function getFactorioVersion(factorioDir: string) {
 	let changelog;
+	const changelogPath = path.join(factorioDir, "data", "changelog.txt");
 	try {
 		changelog = await fs.readFile(changelogPath, "utf-8");
 	} catch (err: any) {
@@ -28,10 +28,10 @@ async function getVersion(changelogPath: string) {
 		throw err;
 	}
 
-	for (let line of changelog.split(/[\r\n]+/)) {
-		let index = line.indexOf(":");
+	for (const line of changelog.split(/[\r\n]+/)) {
+		const index = line.indexOf(":");
 		if (index !== -1) {
-			let name = line.slice(0, index).trim();
+			const name = line.slice(0, index).trim();
 			if (name.toLowerCase() === "version") {
 				return line.slice(index + 1).trim();
 			}
@@ -80,40 +80,29 @@ function versionOrder(a: string, b: string) {
  * @internal
  */
 async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion): Promise<[string, lib.FullVersion]> {
-
-	// There are two supported setups: having the factorio dir be the actual
-	// install directory, and having the factorio dir be a folder containing
-	// multiple install directories
-
-	let simpleVersion = await getVersion(path.join(factorioDir, "data", "changelog.txt"));
-	if (simpleVersion !== null) {
-		if (simpleVersion === targetVersion || simpleVersion.startsWith(targetVersion) || targetVersion === "latest") {
-			if (lib.isFullVersion(simpleVersion)) {
-				return [path.join(factorioDir, "data"), simpleVersion];
+	const versions = new Map<lib.FullVersion, string>();
+	for (const name of await fs.readdir(factorioDir)) {
+		// We do not use withFileTypes or lstat because we want to follow symlinks
+		const fullPath = path.join(factorioDir, name);
+		try {
+			const stats = await fs.stat(fullPath);
+			if (!stats.isDirectory()) {
+				continue;
 			}
-		}
-
-		throw new Error(
-			`Factorio version ${targetVersion} was requested, but install directory contains ${simpleVersion}`
-		);
-	}
-
-	let versions = new Map<lib.FullVersion, string>();
-	for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
-		if (!entry.isDirectory()) {
+		} catch {
 			continue;
 		}
 
-		let version = await getVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"));
+		const version = await getFactorioVersion(fullPath);
 		if (version === null || !lib.isFullVersion(version)) {
 			continue;
 		}
 
 		if (version === targetVersion) {
-			return [path.join(factorioDir, entry.name, "data"), version];
+			return [path.join(factorioDir, name, "data"), version];
 		}
 
-		versions.set(version, entry.name);
+		versions.set(version, name);
 	}
 
 	if (!versions.size) {
@@ -1421,7 +1410,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 
 // For testing only
-export const _getVersion = getVersion;
 export const _versionOrder = versionOrder;
 export const _findVersion = findVersion;
 export const _randomDynamicPort = randomDynamicPort;

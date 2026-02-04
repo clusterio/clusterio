@@ -25,6 +25,7 @@ import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import Host from "./src/Host";
+import { getFactorioVersion } from "./src/server";
 
 let host: Host | undefined;
 
@@ -234,6 +235,31 @@ async function startHost() {
 	let tlsCaPath = hostConfig.get("host.tls_ca");
 	if (tlsCaPath) {
 		tlsCa = await fs.readFile(tlsCaPath, "utf8");
+	}
+
+	// Migrate from single factorio version to multiple
+	const factorioDir = hostConfig.get("host.factorio_directory");
+	const singleFactorioVersion = await getFactorioVersion(factorioDir);
+	if (singleFactorioVersion !== null) {
+		const dst = path.join(factorioDir, singleFactorioVersion);
+		logger.info(`Found single factorio version in ${factorioDir} moving to ${dst}`);
+		const stats = await fs.lstat(factorioDir);
+		if (stats.isSymbolicLink()) {
+			// For symlinks we want to move the file, but cant move it into itself so need a tmp move
+			const tmpPath = `${factorioDir}.tmp`;
+			await fs.move(factorioDir, tmpPath);
+			await fs.ensureDir(factorioDir);
+			await fs.move(tmpPath, dst);
+		} else {
+			// It is a directory here, otherwise no version would have been found
+			// We will only move known files in case a version was incorrectly installed in the dir
+			await fs.ensureDir(dst);
+			await Promise.all(
+				["bin", "data", "config-path.cfg"].map(name => (
+					fs.move(path.join(factorioDir, name), path.join(dst, name))
+				))
+			);
+		}
 	}
 
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);

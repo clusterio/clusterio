@@ -5,14 +5,14 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
-const { FactorioServer, _getVersion } = require("@clusterio/host/dist/node/src/server");
+const { FactorioServer, getFactorioVersion } = require("@clusterio/host/dist/node/src/server");
 const { logger } = lib;
 
 const { slowTest, factorioDir } = require("./index");
 
 
 describe("Integration of host/src/server", function() {
-	describe("_getVersion()", function() {
+	describe("getFactorioVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
 			function checkVersion(version) {
 				if (!/^\d+\.\d+\.\d+$/.test(version)) {
@@ -20,7 +20,7 @@ describe("Integration of host/src/server", function() {
 				}
 			}
 
-			let version = await _getVersion(path.join(factorioDir, "data", "changelog.txt"));
+			let version = await getFactorioVersion(factorioDir);
 			if (version !== null) {
 				checkVersion(version);
 			} else {
@@ -30,7 +30,7 @@ describe("Integration of host/src/server", function() {
 					}
 
 					checkVersion(
-						await _getVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"))
+						await getFactorioVersion(path.join(factorioDir, entry.name))
 					);
 				}
 			}
