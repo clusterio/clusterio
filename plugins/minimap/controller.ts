@@ -71,6 +71,7 @@ interface PixelChange {
 
 interface EnrichedPlayerData extends PlayerData {
 	_playerId: number;
+	_tMs: number;
 }
 
 interface QueuedPlayerSessionStart {
@@ -1307,74 +1308,111 @@ export class ControllerPlugin extends BaseControllerPlugin {
 						return;
 					}
 
-					// Convert position data to binary format
-					const buffers: Buffer[] = [];
+					// Convert queued data to binary format.
+					//
+					// Session events and positions can be queued in the same save interval
+					// (e.g. host drop + reconnect).
+					// Emit records in receive-time order so SessionEnd can't be written after a new SessionStart.
+					type QueuedRecord =
+						| { kind: "sessionStart"; tMs: number; playerId: number; playerName: string }
+						| { kind: "position"; tMs: number; position: EnrichedPlayerData }
+						| { kind: "sessionEnd"; tMs: number; playerId: number };
 
+					const kindOrder: Record<QueuedRecord["kind"], number> = {
+						sessionEnd: 0,
+						sessionStart: 1,
+						position: 2,
+					};
+
+					const records: QueuedRecord[] = [];
 					for (const sessionStart of sessionStarts) {
-						const nameBytes = Buffer.from(sessionStart.playerName, "utf8");
-						const buffer = Buffer.alloc(1 + 4 + 2 + 1 + nameBytes.length);
-						let offset = 0;
-
-						// Type (1 byte): 1 = SessionStart
-						buffer.writeUInt8(1, offset);
-						offset += 1;
-
-						// t_ms (4 bytes): Current timestamp in milliseconds (uint32 wrap)
-						const tMs = Math.floor(sessionStart.tMs) >>> 0;
-						buffer.writeUInt32BE(tMs, offset);
-						offset += 4;
-
-						// player_id (2 bytes)
-						buffer.writeUInt16BE(sessionStart.playerId & 0xFFFF, offset);
-						offset += 2;
-
-						// name_len (1 byte) + name bytes
-						buffer.writeUInt8(nameBytes.length & 0xFF, offset);
-						offset += 1;
-						nameBytes.copy(buffer, offset);
-
-						buffers.push(buffer);
+						records.push({
+							kind: "sessionStart",
+							tMs: sessionStart.tMs,
+							playerId: sessionStart.playerId,
+							playerName: sessionStart.playerName,
+						});
 					}
-
 					for (const position of positions) {
-						// Position record (type 0): 1 + 4 + 4 + 3 + 3 + 2 = 17 bytes
-						const buffer = Buffer.alloc(17);
-						let offset = 0;
-
-						// Type (1 byte): 0 = Position
-						buffer.writeUInt8(0, offset);
-						offset += 1;
-
-						// t_sec (4 bytes): Current timestamp in seconds since epoch
-						buffer.writeUInt32BE(Math.floor(Date.now() / 1000), offset);
-						offset += 4;
-
-						// sec (4 bytes): Game seconds (already calculated in Lua)
-						buffer.writeUInt32BE(position.sec, offset);
-						offset += 4;
-
-						// x_tiles (3 bytes): X coordinate as 24-bit signed integer
-						const x_int24 = Math.round(position.x) & 0xFFFFFF;
-						buffer.writeUInt8((x_int24 >> 16) & 0xFF, offset);
-						buffer.writeUInt8((x_int24 >> 8) & 0xFF, offset + 1);
-						buffer.writeUInt8(x_int24 & 0xFF, offset + 2);
-						offset += 3;
-
-						// y_tiles (3 bytes): Y coordinate as 24-bit signed integer
-						const y_int24 = Math.round(position.y) & 0xFFFFFF;
-						buffer.writeUInt8((y_int24 >> 16) & 0xFF, offset);
-						buffer.writeUInt8((y_int24 >> 8) & 0xFF, offset + 1);
-						buffer.writeUInt8(y_int24 & 0xFF, offset + 2);
-						offset += 3;
-
-						// player_id (2 bytes): Use the assigned player ID
-						const playerId = position._playerId ?? 0;
-						buffer.writeUInt16BE(playerId & 0xFFFF, offset);
-
-						buffers.push(buffer);
+						records.push({ kind: "position", tMs: position._tMs, position });
+					}
+					for (const sessionEnd of sessionEnds) {
+						records.push({ kind: "sessionEnd", tMs: sessionEnd.tMs, playerId: sessionEnd.playerId });
 					}
 
-					for (const sessionEnd of sessionEnds) {
+					records.sort((a, b) => (
+						a.tMs - b.tMs
+						|| kindOrder[a.kind] - kindOrder[b.kind]
+					));
+
+					const buffers: Buffer[] = [];
+					for (const record of records) {
+						if (record.kind === "sessionStart") {
+							const nameBytes = Buffer.from(record.playerName, "utf8");
+							// SessionStart record (type 1): 1 + 4 + 2 + 1 + nameLen bytes
+							const buffer = Buffer.alloc(1 + 4 + 2 + 1 + nameBytes.length);
+							let offset = 0;
+
+							// Type (1 byte): 1 = SessionStart
+							buffer.writeUInt8(1, offset);
+							offset += 1;
+
+							// t_ms (4 bytes): Current timestamp in milliseconds (uint32 wrap)
+							buffer.writeUInt32BE(Math.floor(record.tMs) >>> 0, offset);
+							offset += 4;
+
+							// player_id (2 bytes)
+							buffer.writeUInt16BE(record.playerId & 0xFFFF, offset);
+							offset += 2;
+
+							// name_len (1 byte) + name bytes
+							buffer.writeUInt8(nameBytes.length & 0xFF, offset);
+							offset += 1;
+							nameBytes.copy(buffer, offset);
+							buffers.push(buffer);
+							continue;
+						}
+
+						if (record.kind === "position") {
+							const position = record.position;
+							// Position record (type 0): 1 + 4 + 4 + 3 + 3 + 2 = 17 bytes
+							const buffer = Buffer.alloc(17);
+							let offset = 0;
+
+							// Type (1 byte): 0 = Position
+							buffer.writeUInt8(0, offset);
+							offset += 1;
+
+							// t_sec (4 bytes): Current timestamp in seconds since epoch
+							buffer.writeUInt32BE(Math.floor(record.tMs / 1000) >>> 0, offset);
+							offset += 4;
+
+							// sec (4 bytes): Game seconds (already calculated in Lua)
+							buffer.writeUInt32BE(position.sec, offset);
+							offset += 4;
+
+							// x_tiles (3 bytes): X coordinate as 24-bit signed integer
+							const x_int24 = Math.round(position.x) & 0xFFFFFF;
+							buffer.writeUInt8((x_int24 >> 16) & 0xFF, offset);
+							buffer.writeUInt8((x_int24 >> 8) & 0xFF, offset + 1);
+							buffer.writeUInt8(x_int24 & 0xFF, offset + 2);
+							offset += 3;
+
+							// y_tiles (3 bytes): Y coordinate as 24-bit signed integer
+							const y_int24 = Math.round(position.y) & 0xFFFFFF;
+							buffer.writeUInt8((y_int24 >> 16) & 0xFF, offset);
+							buffer.writeUInt8((y_int24 >> 8) & 0xFF, offset + 1);
+							buffer.writeUInt8(y_int24 & 0xFF, offset + 2);
+							offset += 3;
+
+							// player_id (2 bytes): Use the assigned player ID
+							buffer.writeUInt16BE((position._playerId ?? 0) & 0xFFFF, offset);
+							buffers.push(buffer);
+							continue;
+						}
+
+						// record.kind === "sessionEnd"
+						// SessionEnd record (type 2): 1 + 4 + 2 bytes
 						const buffer = Buffer.alloc(1 + 4 + 2);
 						let offset = 0;
 
@@ -1383,13 +1421,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 						offset += 1;
 
 						// t_ms (4 bytes): Current timestamp in milliseconds (uint32 wrap)
-						const tMs = Math.floor(sessionEnd.tMs) >>> 0;
-						buffer.writeUInt32BE(tMs, offset);
+						buffer.writeUInt32BE(Math.floor(record.tMs) >>> 0, offset);
 						offset += 4;
 
 						// player_id (2 bytes)
-						buffer.writeUInt16BE(sessionEnd.playerId & 0xFFFF, offset);
-
+						buffer.writeUInt16BE(record.playerId & 0xFFFF, offset);
 						buffers.push(buffer);
 					}
 
@@ -1529,7 +1565,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 
 			// Add the player ID to the data for saving (without modifying the original schema)
-			const enrichedPlayerData = { ...player_data, _playerId: playerId };
+			const enrichedPlayerData = { ...player_data, _playerId: playerId, _tMs: Date.now() };
 
 			// Initialize queue if it doesn't exist
 			if (!this.playerPositionQueues.has(fileKey)) {
