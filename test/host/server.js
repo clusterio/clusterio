@@ -11,17 +11,17 @@ const { testLines } = require("../lib/factorio/lines");
 
 
 describe("host/server", function() {
-	describe("getFactorioVersion()", function() {
+	describe("_getFactorioVersion()", function() {
 		it("should get the version from a changelog", async function() {
-			let version = await hostServer.getFactorioVersion(path.join("test", "file", "changelogs", "good"));
+			let version = await hostServer._getFactorioVersion(path.join("test", "file", "changelogs", "good"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should return null if unable to find the version", async function() {
-			let version = await hostServer.getFactorioVersion(path.join("test", "file", "changelogs", "bad"));
+			let version = await hostServer._getFactorioVersion(path.join("test", "file", "changelogs", "bad"));
 			assert.equal(version, null);
 		});
 		it("should return null if file does not exist", async function() {
-			let version = await hostServer.getFactorioVersion(path.join("test", "file", "changelogs", "not-exists"));
+			let version = await hostServer._getFactorioVersion(path.join("test", "file", "changelogs", "not-exists"));
 			assert.equal(version, null);
 		});
 	});
@@ -38,30 +38,59 @@ describe("host/server", function() {
 	});
 
 	describe("_findVersion()", function() {
-		it("should search given directory for latest Factorio install", async function() {
-			const installDir = path.join("test", "file", "factorio");
-			const [dir, version] = await hostServer._findVersion(installDir, "latest");
-			assert.equal(dir, path.join(installDir, "0.1.2", "data"));
-			assert.equal(version, "0.1.2");
+		describe("direct install", function() {
+			it("should search given directory for latest Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio", "0.1.2");
+				const [dir, version] = await hostServer._findVersion(installDir, "latest");
+				assert.equal(dir, path.join(installDir, "data"));
+				assert.equal(version, "0.1.2");
+			});
+			it("should search given directory for given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio", "0.1.1");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
+				assert.equal(dir, path.join(installDir, "data"));
+				assert.equal(version, "0.1.1");
+			});
+			it("should search given directory for partly given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio", "0.1.2");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1");
+				assert.equal(dir, path.join(installDir, "data"));
+				assert.equal(version, "0.1.2");
+			});
+			it("should search given directory for latest Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio");
+				const [dir, version] = await hostServer._findVersion(installDir, "latest");
+				assert.equal(dir, path.join(installDir, "0.1.2", "data"));
+				assert.equal(version, "0.1.2");
+			});
 		});
-		it("should search given directory for given Factorio install", async function() {
-			const installDir = path.join("test", "file", "factorio");
-			const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
-			assert.equal(dir, path.join(installDir, "0.1.1", "data"));
-			assert.equal(version, "0.1.1");
-		});
-		it("should search given directory for partly given Factorio install", async function() {
-			const installDir = path.join("test", "file", "factorio");
-			const [dir, version] = await hostServer._findVersion(installDir, "0.1");
-			assert.equal(dir, path.join(installDir, "0.1.2", "data"));
-			assert.equal(version, "0.1.2");
-		});
-		it("should reject if no factorio install with the given version was found", async function() {
-			let installDir = path.join("test", "file", "factorio");
-			await assert.rejects(
-				hostServer._findVersion(installDir, "0.1.3"),
-				new Error("Unable to find Factorio version 0.1.3")
-			);
+		describe("mutli install", function() {
+			it("should reject if no factorio install with the given version was found", async function() {
+				let installDir = path.join("test", "file", "factorio");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.1.3"),
+					new Error("Unable to find Factorio version 0.1.3")
+				);
+			});
+			it("should search given directory for given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
+				assert.equal(dir, path.join(installDir, "0.1.1", "data"));
+				assert.equal(version, "0.1.1");
+			});
+			it("should search given directory for partly given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1");
+				assert.equal(dir, path.join(installDir, "0.1.2", "data"));
+				assert.equal(version, "0.1.2");
+			});
+			it("should reject if no factorio install with the given version was found", async function() {
+				let installDir = path.join("test", "file", "factorio");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.1.3"),
+					new Error("Unable to find Factorio version 0.1.3")
+				);
+			});
 		});
 		it("should reject if no factorio install was found", async function() {
 			let installDir = path.join("test", "file");
@@ -73,10 +102,21 @@ describe("host/server", function() {
 	});
 
 	describe("_listFactorioVersions()", function() {
+		it("should list the version in a direct install", async function() {
+			const installDir = path.join("test", "file", "factorio", "0.1.1");
+			const installedVersions = await hostServer._listFactorioVersions(installDir);
+			assert.deepEqual(installedVersions, {
+				direct: true,
+				versions: new Set(["0.1.1"]),
+			});
+		});
 		it("should list all versions in a directory", async function() {
 			const installDir = path.join("test", "file", "factorio");
 			const installedVersions = await hostServer._listFactorioVersions(installDir);
-			assert.deepEqual(installedVersions, new Set(["0.1.1", "0.1.2"]));
+			assert.deepEqual(installedVersions, {
+				direct: false,
+				versions: new Set(["0.1.1", "0.1.2"]),
+			});
 		});
 	});
 

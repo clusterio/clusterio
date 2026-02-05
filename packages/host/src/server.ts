@@ -18,7 +18,7 @@ const execFileAsync = util.promisify(child_process.execFile);
  *
  * @param factorioDir - Path factorio dir containing data/changelog.txt.
  */
-export async function getFactorioVersion(factorioDir: string) {
+async function getFactorioVersion(factorioDir: string) {
 	let changelog;
 	const changelogPath = path.join(factorioDir, "data", "changelog.txt");
 	try {
@@ -35,7 +35,8 @@ export async function getFactorioVersion(factorioDir: string) {
 		if (index !== -1) {
 			const name = line.slice(0, index).trim();
 			if (name.toLowerCase() === "version") {
-				return line.slice(index + 1).trim();
+				const version = line.slice(index + 1).trim();
+				return lib.isFullVersion(version) ? version : null;
 			}
 		}
 	}
@@ -77,6 +78,12 @@ function versionOrder(a: string, b: string) {
 async function listFactorioVersions(factorioDir: string) {
 	const versions = new Set<lib.FullVersion>();
 
+	const directVersion = await getFactorioVersion(factorioDir);
+	if (directVersion !== null) {
+		versions.add(directVersion);
+		return { direct: true, versions };
+	}
+
 	for (const name of await fs.readdir(factorioDir)) {
 		// We do not use withFileTypes or lstat because we want to follow symlinks
 		const fullPath = path.join(factorioDir, name);
@@ -90,14 +97,14 @@ async function listFactorioVersions(factorioDir: string) {
 		}
 
 		const version = await getFactorioVersion(fullPath);
-		if (version === null || !lib.isFullVersion(version)) {
+		if (version === null) {
 			continue;
 		}
 
 		versions.add(version);
 	}
 
-	return versions;
+	return { direct: false, versions };
 }
 
 /**
@@ -178,6 +185,16 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
  * @internal
  */
 async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion): Promise<[string, lib.FullVersion]> {
+	// Check if this is a direct installation dir
+	const directVersion = await getFactorioVersion(factorioDir);
+	if (directVersion !== null) {
+		if (targetVersion === "latest" || directVersion === targetVersion || directVersion.startsWith(targetVersion)) {
+			return [path.join(factorioDir, "data"), directVersion];
+		}
+		throw new Error(`Unable to find Factorio version ${targetVersion}`);
+	}
+
+	// Otherwise assume it is a directory of multiple versions
 	const versions = new Map<lib.FullVersion, string>();
 	for (const name of await fs.readdir(factorioDir)) {
 		// We do not use withFileTypes or lstat because we want to follow symlinks
@@ -192,7 +209,7 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 		}
 
 		const version = await getFactorioVersion(fullPath);
-		if (version === null || !lib.isFullVersion(version)) {
+		if (version === null) {
 			continue;
 		}
 
@@ -973,16 +990,18 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			[0];
 
 		const installedVersions = await listFactorioVersions(this._factorioDir);
-		if (!installedVersions.has(latestVersion.version)) {
-			// Download the newer version
+		if (!installedVersions.versions.has(latestVersion.version)) {
 			const v = latestVersion.version;
-			if (process.platform === "linux") {
-				this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
-				const dst = path.join(this._factorioDir, latestVersion.version);
-				await downloadAndExtractTar(latestVersion.headlessUrl, dst);
-			} else {
+			// Can't download if not linux or this is a direct install
+			if (installedVersions.direct || process.platform !== "linux") {
 				this._logger.info(`A newer version of factorio is available (${v}) but must be manually downloaded`);
 			}
+
+			// Download the newer version
+			this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
+			const dst = path.join(this._factorioDir, latestVersion.version);
+			await downloadAndExtractTar(latestVersion.headlessUrl, dst);
+			this._logger.info(`Downloaded factorio version ${v}`);
 		}
 	}
 
@@ -1536,6 +1555,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 
 // For testing only
+export const _getFactorioVersion = getFactorioVersion;
 export const _versionOrder = versionOrder;
 export const _findVersion = findVersion;
 export const _listFactorioVersions = listFactorioVersions;
