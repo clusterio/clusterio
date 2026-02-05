@@ -607,6 +607,7 @@ describe("host/server", function() {
 
 				server._factorioDir = path.join("test", "file", "factorioDownload");
 				server._targetVersion = "latest";
+				global.fetch = _fetch;
 				await fs.emptyDir(server._factorioDir);
 				await server.checkForUpdates([{
 					stable: true,
