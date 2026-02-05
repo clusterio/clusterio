@@ -139,7 +139,7 @@ async function downloadAndExtractZip(url: string, targetDir: string) {
  * @param targetDir - Directory to extract the ZIP into
  * @throws Network error if status of request is not ok
  */
-async function downloadAndExtractTarGz(url: string, targetDir: string) {
+async function downloadAndExtractTar(url: string, targetDir: string) {
 	const res = await fetch(url);
 	if (!res.ok) {
 		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
@@ -152,7 +152,7 @@ async function downloadAndExtractTarGz(url: string, targetDir: string) {
 
 	// Execute tar CLI to extract
 	try {
-		await execFileAsync("tar", ["-xzf", tmpFilePath, "-C", targetDir, "--strip-components", "1"]);
+		await execFileAsync("tar", ["-xf", tmpFilePath, "-C", targetDir, "--strip-components", "1"]);
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			throw new Error("error executing tar command, do you have 'xz-utils' installed?");
@@ -979,7 +979,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			if (process.platform === "linux") {
 				this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
 				const dst = path.join(this._factorioDir, latestVersion.version);
-				await downloadAndExtractTarGz(latestVersion.headlessUrl, dst);
+				await downloadAndExtractTar(latestVersion.headlessUrl, dst);
 			} else {
 				this._logger.info(`A newer version of factorio is available (${v}) but must be manually downloaded`);
 			}
