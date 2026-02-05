@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { TreeSelect } from "antd";
 
 import * as lib from "@clusterio/lib";
-import { InputComponentProps } from "../BaseWebPlugin";
+import type { InputComponentProps } from "../BaseWebPlugin";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 
