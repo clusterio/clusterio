@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-minimap",
-	"version": "2.0.0-alpha.1",
+	"version": "2.0.0-alpha.22b",
 	"description": "Clusterio plugin for displaying interactive minimaps of Factorio instances",
 	"author": "Clusterio Team",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
@@ -23,35 +23,40 @@
 		"url": "https://github.com/clusterio/clusterio/issues"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"peerDependencies": {
+		"@clusterio/controller": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*"
 	},
 	"devDependencies": {
+		"@clusterio/controller": "workspace:*",
 		"@clusterio/lib": "workspace:*",
+		"@clusterio/host": "workspace:*",
 		"@clusterio/web_ui": "workspace:*",
-		"@types/fs-extra": "^11.0.4",
+		"@types/fs-extra": "catalog:",
 		"@types/leaflet": "^1.9.8",
-		"@types/node": "^20.17.19",
-		"@types/react": "^18.3.18",
-		"antd": "^5.26.4",
+		"@types/node": "catalog:",
+		"@types/react": "catalog:",
+		"antd": "catalog:",
 		"leaflet": "^1.9.4",
+		"react": "catalog:",
+		"react-dom": "catalog:",
 		"react-leaflet": "^4.2.1",
-		"typescript": "^5.7.3",
-		"webpack": "^5.98.0",
-		"webpack-cli": "^5.1.4",
-		"webpack-merge": "^5.9.0"
+		"typescript": "catalog:",
+		"webpack": "catalog:",
+		"webpack-cli": "catalog:",
+		"webpack-merge": "catalog:"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"dependencies": {
 		"@ant-design/icons": "catalog:",
-		"@sinclair/typebox": "^0.30.4",
-		"fs-extra": "^11.2.0",
-		"react": "^18.2.0",
-		"react-dom": "^18.2.0",
+		"@sinclair/typebox": "catalog:",
+		"fs-extra": "catalog:",
 		"sharp": "^0.33.5"
 	}
 }
