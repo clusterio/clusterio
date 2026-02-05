@@ -503,12 +503,23 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		app.get("/api/minimap/tile/:instanceId/:surface/:force/:z/:x/:y.png", async (req, res) => {
 			try {
-				const { instanceId, surface, force, z, x, y } = req.params;
-				const tileX = parseInt(x, 10);
-				const tileY = parseInt(y, 10);
+				const { instanceId, surface, force, x, y } = req.params;
+				const tileX = Number.parseInt(x, 10);
+				const tileY = Number.parseInt(y, 10);
+				if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+					res.status(400).send("Invalid tile coordinates");
+					return;
+				}
 
 				const tileName = `${instanceId}_${surface}_${force}_${tileX}_${tileY}.bin`;
-				const tilePath = path.join(this.tilesPath, tileName);
+
+				const baseDir = path.resolve(this.tilesPath);
+				const basePrefix = baseDir.endsWith(path.sep) ? baseDir : `${baseDir}${path.sep}`;
+				const tilePath = path.resolve(baseDir, tileName);
+				if (!tilePath.toLowerCase().startsWith(basePrefix.toLowerCase())) {
+					res.status(400).send("Invalid tile path");
+					return;
+				}
 
 				if (!await fs.pathExists(tilePath)) {
 					res.status(404).send("Tile not found");
