@@ -41,8 +41,8 @@ describe("host/server", function() {
 		it("should search given directory for latest Factorio install", async function() {
 			const installDir = path.join("test", "file", "factorio");
 			const [dir, version] = await hostServer._findVersion(installDir, "latest");
-			assert.equal(dir, path.join(installDir, "0.1.1", "data"));
-			assert.equal(version, "0.1.1");
+			assert.equal(dir, path.join(installDir, "0.1.2", "data"));
+			assert.equal(version, "0.1.2");
 		});
 		it("should search given directory for given Factorio install", async function() {
 			const installDir = path.join("test", "file", "factorio");
@@ -53,14 +53,14 @@ describe("host/server", function() {
 		it("should search given directory for partly given Factorio install", async function() {
 			const installDir = path.join("test", "file", "factorio");
 			const [dir, version] = await hostServer._findVersion(installDir, "0.1");
-			assert.equal(dir, path.join(installDir, "0.1.1", "data"));
-			assert.equal(version, "0.1.1");
+			assert.equal(dir, path.join(installDir, "0.1.2", "data"));
+			assert.equal(version, "0.1.2");
 		});
 		it("should reject if no factorio install with the given version was found", async function() {
 			let installDir = path.join("test", "file", "factorio");
 			await assert.rejects(
-				hostServer._findVersion(installDir, "0.1.2"),
-				new Error("Unable to find Factorio version 0.1.2")
+				hostServer._findVersion(installDir, "0.1.3"),
+				new Error("Unable to find Factorio version 0.1.3")
 			);
 		});
 		it("should reject if no factorio install was found", async function() {
@@ -69,6 +69,14 @@ describe("host/server", function() {
 				hostServer._findVersion(installDir, "latest"),
 				new Error(`Unable to find any Factorio install in ${installDir}`)
 			);
+		});
+	});
+
+	describe("_listFactorioVersions()", function() {
+		it("should list all versions in a directory", async function() {
+			const installDir = path.join("test", "file", "factorio");
+			const installedVersions = await hostServer._listFactorioVersions(installDir);
+			assert.deepEqual(installedVersions, new Set(["0.1.1", "0.1.2"]));
 		});
 	});
 
@@ -144,7 +152,7 @@ describe("host/server", function() {
 
 		describe(".version", function() {
 			it("should return the version detected", function() {
-				assert.equal(server.version, "0.1.1");
+				assert.equal(server.version, "0.1.2");
 			});
 		});
 

@@ -54,12 +54,12 @@ describe("FactorioVersions", function() {
 				{
 					stable: false,
 					version: "2.0.73",
-					headlessUrl: "www.factorio.com/get-download/2.0.73/headless/linux64",
+					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
 				},
 				{
 					stable: true,
 					version: "2.0.72",
-					headlessUrl: "www.factorio.com/get-download/2.0.72/headless/linux64",
+					headlessUrl: "https://www.factorio.com/get-download/2.0.72/headless/linux64",
 				},
 			]);
 		});
@@ -90,7 +90,7 @@ describe("FactorioVersions", function() {
 				{
 					stable: true,
 					version: "2.0.73",
-					headlessUrl: "www.factorio.com/get-download/2.0.73/headless/linux64",
+					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
 				},
 			]);
 		});
