@@ -159,6 +159,9 @@ async function processChunkData(
 		offset += 1;
 		const length = readUInt16BE(tileData, offset);
 		offset += 2;
+		if (offset + length > tileData.length) {
+			return { success: false, newOffset: offset };
+		}
 		offset += length; // Skip chunk data
 		return { success: true, newOffset: offset };
 	}
@@ -327,6 +330,9 @@ export function extractAvailableTicks(tileData: BinaryData): number[] {
 			offset += 1;
 			const length = readUInt16BE(tileData, offset);
 			offset += 2;
+			if (offset + length > tileData.length) {
+				break;
+			}
 			offset += length; // Skip chunk data
 		} else if (type === 2) { // Pixels
 			if (offset + 10 > tileData.length) {

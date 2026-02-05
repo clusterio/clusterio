@@ -31,6 +31,25 @@ import {
 } from "./utils/tile-utils";
 import { parsePlayerPositionsBinary } from "./utils/player-utils";
 
+function resolveFileInDir(baseDir: string, fileName: string): string | null {
+	if (fileName.includes("\0") || /[\\/]/.test(fileName)) {
+		return null;
+	}
+
+	const resolvedBaseDir = path.resolve(baseDir);
+	const resolvedPath = path.resolve(resolvedBaseDir, fileName);
+	const relative = path.relative(resolvedBaseDir, resolvedPath);
+	if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+		return resolvedPath;
+	}
+
+	return null;
+}
+
+function isENOENT(err: any): boolean {
+	return err && err.code === "ENOENT";
+}
+
 interface TileMetadata {
 	instanceId: number;
 	surface: string;
@@ -334,7 +353,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		if (!force) {
 			const positionsFile = `${instanceId}_${surface}.positions`;
-			await fs.remove(path.join(this.playerPositionsPath, positionsFile));
+			const positionsPath = resolveFileInDir(this.playerPositionsPath, positionsFile);
+			if (positionsPath) {
+				await fs.remove(positionsPath);
+			} else {
+				this.logger.warn(`Refusing to clear player positions with invalid path: ${positionsFile}`);
+			}
 		}
 
 		this.removeSurfaceQueueEntries(instanceId, surface, force);
@@ -512,21 +536,22 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				}
 
 				const tileName = `${instanceId}_${surface}_${force}_${tileX}_${tileY}.bin`;
-
-				const baseDir = path.resolve(this.tilesPath);
-				const basePrefix = baseDir.endsWith(path.sep) ? baseDir : `${baseDir}${path.sep}`;
-				const tilePath = path.resolve(baseDir, tileName);
-				if (!tilePath.toLowerCase().startsWith(basePrefix.toLowerCase())) {
+				const tilePath = resolveFileInDir(this.tilesPath, tileName);
+				if (!tilePath) {
 					res.status(400).send("Invalid tile path");
 					return;
 				}
 
-				if (!await fs.pathExists(tilePath)) {
-					res.status(404).send("Tile not found");
-					return;
+				let tileData: Buffer;
+				try {
+					tileData = await fs.readFile(tilePath);
+				} catch (err) {
+					if (isENOENT(err)) {
+						res.status(404).send("Tile not found");
+						return;
+					}
+					throw err;
 				}
-
-				const tileData = await fs.readFile(tilePath);
 				const image = await this.renderTile(tileData);
 				res.setHeader("Content-Type", "image/png");
 				res.send(image);
@@ -600,10 +625,19 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const savePromises = [];
 			for (const [tileName, chunks] of queue) {
 				const promise = (async () => {
-					const tilePath = path.join(this.tilesPath, tileName);
+					const tilePath = resolveFileInDir(this.tilesPath, tileName);
+					if (!tilePath) {
+						this.logger.error(`Refusing to save tile with invalid path: ${tileName}`);
+						return;
+					}
+
 					let existingTile = Buffer.alloc(0);
-					if (await fs.pathExists(tilePath)) {
+					try {
 						existingTile = await fs.readFile(tilePath);
+					} catch (err) {
+						if (!isENOENT(err)) {
+							throw err;
+						}
 					}
 					const newTile = await this.updateTile(existingTile, chunks);
 					if (newTile && newTile.length > 0) {
@@ -634,6 +668,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				break;
 			}
 
+			// type (1 byte): 1 = Chunk, 2 = Pixels
 			const type = existingTile.readUInt8(offset);
 			offset += 1;
 
@@ -722,10 +757,13 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			return { success: false, newOffset: offset };
 		}
 
+		// tick_sec (4 bytes): game second (uint32)
 		const tick = existingTile.readUInt32BE(offset);
 		offset += 4;
+		// chunk_coords (1 byte): packed nibble coords (x<<4 | y)
 		const chunkCoordsByte = existingTile.readUInt8(offset);
 		offset += 1;
+		// length (2 bytes): number of chunk bytes that follow (uint16)
 		const length = existingTile.readUInt16BE(offset);
 		offset += 2;
 
@@ -737,6 +775,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		const chunkX = chunkCoordsByte >> 4;
 		const chunkY = chunkCoordsByte & 0x0F;
 		const chunkName = `${chunkX}_${chunkY}`;
+		// data (length bytes): compressed chunk bytes
 		const data = existingTile.slice(offset, offset + length);
 		offset += length;
 		existingChunks.set(chunkName, { tick, data });
@@ -753,10 +792,16 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			return { success: false, newOffset: offset };
 		}
 
+		// tick_sec (4 bytes): game second (uint32)
 		const tick = existingTile.readUInt32BE(offset);
 		offset += 4;
+		// pixel_count (2 bytes): number of pixel coords that follow (uint16)
 		const pixelCount = existingTile.readUInt16BE(offset);
-		offset += 2 + 2 + 2; // Skip newColor and oldColor
+		offset += 2;
+		// new_color (2 bytes): RGB565 (uint16)
+		// old_color (2 bytes): RGB565 (uint16)
+		offset += 2 + 2;
+		void tick; // parsed for validation/advancing offset; not needed here
 		const pixelDataLength = pixelCount * 2;
 
 		if (offset + pixelDataLength > existingTile.length) {
@@ -764,7 +809,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			return { success: false, newOffset: offset };
 		}
 
-		// Skip pixel data since we're not rebuilding the file
+		// pixel_data (pixelCount * 2 bytes): x (1 byte), y (1 byte) pairs
+		// Skip payload since we only need offsets for chunk discovery.
 		offset += pixelDataLength;
 
 		return { success: true, newOffset: offset };
@@ -955,7 +1001,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				tags.length = 0; // Clear the queue
 
 				try {
-					const filePath = path.join(this.chartTagsPath, `${fileKey}_chart_tags.json`);
+					const fileName = `${fileKey}_chart_tags.json`;
+					const filePath = resolveFileInDir(this.chartTagsPath, fileName);
+					if (!filePath) {
+						this.logger.error(`Refusing to save chart tags with invalid path: ${fileName}`);
+						return;
+					}
 
 					// Convert chart tags to newline-delimited JSON format
 					const jsonLines = tagsToSave.map(tag => JSON.stringify(tag)).join("\n");
@@ -1101,9 +1152,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		const { instance_id, surface, force, tile_x, tile_y, tick } = request;
 
 		const tileName = `${instance_id}_${surface}_${force}_${tile_x}_${tile_y}.bin`;
-		const tilePath = path.join(this.tilesPath, tileName);
-
-		if (!await fs.pathExists(tilePath)) {
+		const tilePath = resolveFileInDir(this.tilesPath, tileName);
+		if (!tilePath) {
+			this.logger.warn(`Refusing to read tile with invalid path: ${tileName}`);
 			return { tile_data: null, tick: tick || 0 };
 		}
 
@@ -1116,6 +1167,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				tile_data: base64Data,
 			};
 		} catch (err) {
+			if (isENOENT(err)) {
+				return { tile_data: null, tick: tick || 0 };
+			}
 			this.logger.error(`Error reading tile file: ${err}`);
 			return { tile_data: null };
 		}
@@ -1125,9 +1179,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		const { instance_id, surface, force } = request;
 
 		const fileKey = `${instance_id}_${surface}_${force}`;
-		const filePath = path.join(this.chartTagsPath, `${fileKey}_chart_tags.json`);
-
-		if (!await fs.pathExists(filePath)) {
+		const fileName = `${fileKey}_chart_tags.json`;
+		const filePath = resolveFileInDir(this.chartTagsPath, fileName);
+		if (!filePath) {
+			this.logger.warn(`Refusing to read chart tags with invalid path: ${fileName}`);
 			return { chart_tags: [] };
 		}
 
@@ -1147,6 +1202,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			return { chart_tags: chartTags };
 		} catch (err) {
+			if (isENOENT(err)) {
+				return { chart_tags: [] };
+			}
 			this.logger.error(`Error reading chart tag file: ${err}`);
 			return { chart_tags: [] };
 		}
@@ -1169,7 +1227,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const promises: Promise<void>[] = [];
 			for (const [tileName, buffers] of queue) {
 				const promise = (async () => {
-					const tilePath = path.join(this.recipeTilesPath, `${tileName}.recipes`);
+					const fileName = `${tileName}.recipes`;
+					const tilePath = resolveFileInDir(this.recipeTilesPath, fileName);
+					if (!tilePath) {
+						this.logger.error(`Refusing to save recipe tile with invalid path: ${fileName}`);
+						return;
+					}
 					const concat = Buffer.concat(buffers);
 					await fs.appendFile(tilePath, concat);
 				})();
@@ -1237,7 +1300,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				const sessionStarts = sessionStartQueue.get(fileKey) ?? [];
 				const sessionEnds = sessionEndQueue.get(fileKey) ?? [];
 				const promise = (async () => {
-					const filePath = path.join(this.playerPositionsPath, `${fileKey}.positions`);
+					const fileName = `${fileKey}.positions`;
+					const filePath = resolveFileInDir(this.playerPositionsPath, fileName);
+					if (!filePath) {
+						this.logger.error(`Refusing to save player positions with invalid path: ${fileName}`);
+						return;
+					}
 
 					// Convert position data to binary format
 					const buffers: Buffer[] = [];
@@ -1400,9 +1468,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	async handleGetRawRecipeTileRequest(request: GetRawRecipeTileRequest) {
 		const { instance_id, surface, force, tile_x, tile_y } = request;
 		const tileKey = `${instance_id}_${surface}_${force}_${tile_x}_${tile_y}`;
-		const filePath = path.join(this.recipeTilesPath, `${tileKey}.recipes`);
-
-		if (!await fs.pathExists(filePath)) {
+		const fileName = `${tileKey}.recipes`;
+		const filePath = resolveFileInDir(this.recipeTilesPath, fileName);
+		if (!filePath) {
+			this.logger.warn(`Refusing to read recipe tile with invalid path: ${fileName}`);
 			return { recipe_tile: null };
 		}
 
@@ -1411,6 +1480,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const base64 = data.toString("base64");
 			return { recipe_tile: base64 };
 		} catch (err) {
+			if (isENOENT(err)) {
+				return { recipe_tile: null };
+			}
 			this.logger.error(`Error reading recipe tile: ${err}`);
 			return { recipe_tile: null };
 		}
@@ -1521,9 +1593,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		const { instance_id, surface } = request;
 
 		const fileName = `${instance_id}_${surface}.positions`;
-		const filePath = path.join(this.playerPositionsPath, fileName);
-
-		if (!await fs.pathExists(filePath)) {
+		const filePath = resolveFileInDir(this.playerPositionsPath, fileName);
+		if (!filePath) {
+			this.logger.warn(`Refusing to read player positions with invalid path: ${fileName}`);
 			return { positions: null };
 		}
 
@@ -1532,6 +1604,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			const base64Data = data.toString("base64");
 			return { positions: base64Data };
 		} catch (err) {
+			if (isENOENT(err)) {
+				return { positions: null };
+			}
 			this.logger.error(`Error reading player positions file: ${err}`);
 			return { positions: null };
 		}
