@@ -8,6 +8,7 @@ const hostServer = require("@clusterio/host/dist/node/src/server");
 const lib = require("@clusterio/lib");
 const { wait } = lib;
 const { testLines } = require("../lib/factorio/lines");
+const { slowTest } = require("../integration");
 
 
 describe("host/server", function() {
@@ -57,11 +58,12 @@ describe("host/server", function() {
 				assert.equal(dir, path.join(installDir, "data"));
 				assert.equal(version, "0.1.2");
 			});
-			it("should search given directory for latest Factorio install", async function() {
-				const installDir = path.join("test", "file", "factorio");
-				const [dir, version] = await hostServer._findVersion(installDir, "latest");
-				assert.equal(dir, path.join(installDir, "0.1.2", "data"));
-				assert.equal(version, "0.1.2");
+			it("should reject if the version does not match", async function() {
+				let installDir = path.join("test", "file", "0.1.1");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.1.2"),
+					new Error("Unable to find Factorio version 0.1.2")
+				);
 			});
 		});
 		describe("mutli install", function() {
@@ -91,13 +93,13 @@ describe("host/server", function() {
 					new Error("Unable to find Factorio version 0.1.3")
 				);
 			});
-		});
-		it("should reject if no factorio install was found", async function() {
-			let installDir = path.join("test", "file");
-			await assert.rejects(
-				hostServer._findVersion(installDir, "latest"),
-				new Error(`Unable to find any Factorio install in ${installDir}`)
-			);
+			it("should reject if no factorio install was found", async function() {
+				let installDir = path.join("test", "file");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.0.0"),
+					new Error(`Unable to find any Factorio install in ${installDir}`)
+				);
+			});
 		});
 	});
 
@@ -117,6 +119,50 @@ describe("host/server", function() {
 				direct: false,
 				versions: new Set(["0.1.1", "0.1.2"]),
 			});
+		});
+	});
+
+	describe("downloadAndExtractZip", function() {
+		let _fetch;
+		beforeEach(function() {
+			_fetch = global.fetch;
+		});
+		afterEach(function() {
+			global.fetch = _fetch;
+		});
+
+		it("works", async function() {
+			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.zip";
+			const downloads = path.join("temp", "test", "downloads");
+			await fs.emptyDir(downloads);
+			await hostServer._downloadAndExtractZip(url, path.join(downloads, "zip"));
+			assert.ok(await fs.exists(path.join(downloads, "zip", "packages", "controller", "package.json")));
+		});
+		it("errors and bad status", async function() {
+			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
+			await assert.rejects(hostServer._downloadAndExtractZip("url does not matter"), /-1 Fetch called/);
+		});
+	});
+
+	describe("downloadAndExtractTar", function() {
+		let _fetch;
+		beforeEach(function() {
+			_fetch = global.fetch;
+		});
+		afterEach(function() {
+			global.fetch = _fetch;
+		});
+
+		it("works", async function() {
+			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.tar.gz";
+			const downloads = path.join("temp", "test", "downloads");
+			await fs.emptyDir(downloads);
+			await hostServer._downloadAndExtractTar(url, path.join(downloads, "tar"));
+			assert.ok(await fs.exists(path.join(downloads, "tar", "packages", "controller", "package.json")));
+		});
+		it("errors and bad status", async function() {
+			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
+			await assert.rejects(hostServer._downloadAndExtractZip("url does not matter"), /-1 Fetch called/);
 		});
 	});
 
@@ -289,6 +335,7 @@ describe("host/server", function() {
 			});
 			afterEach(function() {
 				global.fetch = _fetch;
+				server._factorioDir = path.join("test", "file", "factorio");
 				Object.defineProperty(process, "platform", {
 					value: _platform,
 				});
@@ -551,6 +598,20 @@ describe("host/server", function() {
 					assert.ok(logLine !== null);
 					assert.ok(logLine.endsWith("starting download..."));
 				});
+			});
+			it("should download a version correctly (live api)", async function() {
+				slowTest(this);
+				if (_platform !== "linux") {
+					this.skip();
+				}
+
+				server._factorioDir = path.join("test", "file", "factorioDownload");
+				server._targetVersion = "latest";
+				await server.checkForUpdates([{
+					stable: true,
+					version: "2.0.73",
+					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
+				}]);
 			});
 		});
 	});

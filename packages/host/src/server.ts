@@ -128,7 +128,13 @@ async function downloadAndExtractZip(url: string, targetDir: string) {
 	await fs.ensureDir(targetDir);
 	await Promise.all(
 		Object.values(zip.files).map(async (entry) => {
-			const entryPath = path.join(targetDir, entry.name);
+			const parts = entry.name.split("/").filter(Boolean);
+			const strippedPath = parts.slice(1).join("/");
+			if (!strippedPath) {
+				return; // This copies the behaviour of tar --strip-components 1
+			}
+
+			const entryPath = path.join(targetDir, strippedPath);
 			if (entry.dir) {
 				await fs.ensureDir(entryPath);
 			} else {
@@ -156,6 +162,7 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 	const tmpFilePath = `${targetDir}.tmp`;
 	const buffer = Buffer.from(await res.arrayBuffer());
 	await fs.writeFile(tmpFilePath, buffer);
+	await fs.ensureDir(targetDir);
 
 	// Execute tar CLI to extract
 	try {
@@ -1560,6 +1567,8 @@ export const _getFactorioVersion = getFactorioVersion;
 export const _versionOrder = versionOrder;
 export const _findVersion = findVersion;
 export const _listFactorioVersions = listFactorioVersions;
+export const _downloadAndExtractZip = downloadAndExtractZip;
+export const _downloadAndExtractTar = downloadAndExtractTar;
 export const _randomDynamicPort = randomDynamicPort;
 export const _generatePassword = generatePassword;
 export const _parseOutput = parseOutput;
