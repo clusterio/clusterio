@@ -270,5 +270,288 @@ describe("host/server", function() {
 				await wait(21); // Wait until after shutdown timeout
 			});
 		});
+
+		describe(".checkForUpdates()", function() {
+			let _fetch;
+			let fetchCalledWith;
+			let _platform = process.platform;
+			beforeEach(function() {
+				_fetch = global.fetch;
+				fetchCalledWith = null;
+				global.fetch = async function(url) {
+					fetchCalledWith = url;
+					return {
+						ok: false,
+						status: -1,
+						statusText: "Fetch called",
+					};
+				};
+			});
+			afterEach(function() {
+				global.fetch = _fetch;
+				Object.defineProperty(process, "platform", {
+					value: _platform,
+				});
+			});
+
+			describe("full version", function() {
+				it("should do nothing when there is no newer version", async function() {
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing for direct installs", async function() {
+					server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
+					server._targetVersion = "0.1.5";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing when on windows", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "win32" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1.5";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("but must be manually downloaded"));
+				});
+				it("should do attempt to download on linux", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "linux" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1.5";
+					await assert.rejects(server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]), new Error("Failed to fetch test1: -1 Fetch called"));
+
+					assert.equal(fetchCalledWith, "test1");
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("starting download..."));
+				});
+			});
+			describe("partial version", function() {
+				it("should do nothing when there is no newer version", async function() {
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing for direct installs", async function() {
+					server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
+					server._targetVersion = "0.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing when on windows", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "win32" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("but must be manually downloaded"));
+				});
+				it("should do attempt to download on linux", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "linux" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1";
+					await assert.rejects(server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]), new Error("Failed to fetch test1: -1 Fetch called"));
+
+					assert.equal(fetchCalledWith, "test1");
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("starting download..."));
+				});
+			});
+			describe("latest version", function() {
+				it("should do nothing when there is no newer version", async function() {
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "latest";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing for direct installs", async function() {
+					server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
+					server._targetVersion = "latest";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing when on windows", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "win32" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "latest";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("but must be manually downloaded"));
+				});
+				it("should do attempt to download on linux", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "linux" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "latest";
+					await assert.rejects(server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]), new Error("Failed to fetch test1: -1 Fetch called"));
+
+					assert.equal(fetchCalledWith, "test1");
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("starting download..."));
+				});
+			});
+		});
 	});
 });

@@ -995,6 +995,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			// Can't download if not linux or this is a direct install
 			if (installedVersions.direct || process.platform !== "linux") {
 				this._logger.info(`A newer version of factorio is available (${v}) but must be manually downloaded`);
+				return;
 			}
 
 			// Download the newer version
