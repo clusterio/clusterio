@@ -59,7 +59,7 @@ describe("host/server", function() {
 				assert.equal(version, "0.1.2");
 			});
 			it("should reject if the version does not match", async function() {
-				let installDir = path.join("test", "file", "0.1.1");
+				let installDir = path.join("test", "file", "factorio", "0.1.1");
 				await assert.rejects(
 					hostServer._findVersion(installDir, "0.1.2"),
 					new Error("Unable to find Factorio version 0.1.2")
@@ -607,6 +607,7 @@ describe("host/server", function() {
 
 				server._factorioDir = path.join("test", "file", "factorioDownload");
 				server._targetVersion = "latest";
+				await fs.emptyDir(server._factorioDir);
 				await server.checkForUpdates([{
 					stable: true,
 					version: "2.0.73",
