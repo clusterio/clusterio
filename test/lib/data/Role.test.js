@@ -12,7 +12,6 @@ describe("lib/data/Role", function() {
 	});
 
 	describe("class Role", function() {
-
 		describe("JSON serialization", function() {
 			it("should round trip serialize with default optional values", function() {
 				const role = new lib.Role(11, "Role", "My Role");
@@ -39,7 +38,7 @@ describe("lib/data/Role", function() {
 			});
 		});
 
-		describe("grantDefaultPermissions()", function() {
+		describe(".grantDefaultPermissions()", function() {
 			it("should only grant permissions marked grantByDefault", function() {
 				const role = new lib.Role(20, "Defaults", "Defaults");
 				role.grantDefaultPermissions();
@@ -60,7 +59,7 @@ describe("lib/data/Role", function() {
 			});
 		});
 
-		describe("grantAdminPermissions()", function() {
+		describe(".grantAdminPermissions()", function() {
 			it("should grant core.admin permission", function() {
 				const role = new lib.Role(1, "Admin", "Admin role");
 				role.grantAdminPermissions();
@@ -68,7 +67,7 @@ describe("lib/data/Role", function() {
 			});
 		});
 
-		describe("ensureDefaultPlayerRole()", function() {
+		describe("static ensureDefaultPlayerRole()", function() {
 			it("should create player role if missing", function() {
 				let storedRole;
 
@@ -92,7 +91,6 @@ describe("lib/data/Role", function() {
 					"Granted default permissions does not match"
 				);
 			});
-
 			it("should reuse existing player role", function() {
 				const storedRole = new lib.Role(
 					lib.Role.DefaultPlayerRoleId,
@@ -117,7 +115,7 @@ describe("lib/data/Role", function() {
 			});
 		});
 
-		describe("ensureDefaultAdminRole()", function() {
+		describe("static ensureDefaultAdminRole()", function() {
 			it("should create admin role if missing", function() {
 				let storedRole;
 
@@ -138,7 +136,6 @@ describe("lib/data/Role", function() {
 				assert.equal(storedRole.name, "Cluster Admin");
 				assert(storedRole.permissions.has("core.admin"));
 			});
-
 			it("should reuse existing admin role", function() {
 				const existing = new lib.Role(
 					lib.Role.DefaultAdminRoleId,
