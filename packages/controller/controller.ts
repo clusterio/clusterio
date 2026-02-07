@@ -155,9 +155,8 @@ async function handleBootstrapCommand(
 			admin = userManager.createUser(args.name);
 		}
 
-		let adminRole = lib.ensureDefaultAdminRole(roles);
-		admin.roleIds.add(adminRole.id);
 		admin.isAdmin = true;
+		admin.roleIds.add(lib.Role.DefaultAdminRoleId);
 		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
 		await controllerConfigLock.release();
 
