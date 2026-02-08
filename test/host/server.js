@@ -132,6 +132,7 @@ describe("host/server", function() {
 		});
 
 		it("works", async function() {
+			slowTest(this);
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.zip";
 			const downloads = path.join("temp", "test", "downloads");
 			await fs.emptyDir(downloads);
@@ -162,7 +163,7 @@ describe("host/server", function() {
 		});
 		it("errors and bad status", async function() {
 			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
-			await assert.rejects(hostServer._downloadAndExtractZip("url does not matter"), /-1 Fetch called/);
+			await assert.rejects(hostServer._downloadAndExtractTar("url does not matter"), /-1 Fetch called/);
 		});
 	});
 
