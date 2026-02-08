@@ -708,14 +708,21 @@ export default class ControlConnection extends BaseConnection {
 
 					// We only select the mod portal release if it is more recent than the local candidate
 					if (release && (!candidate || lib.integerFullVersion(release.version) > candidate.integerVersion)) {
-						candidate = lib.ModInfo.fromJSON({
-							...release.info_json, // Also includes dependences
-							sha1: release.sha1,
-							version: release.version,
-							name: modReleases.name,
-							author: modReleases.owner,
-							title: modReleases.title,
-						});
+						// eslint-disable-next-line max-depth
+						try {
+							candidate = lib.ModInfo.fromJSON({
+								...release.info_json, // Also includes dependencies
+								sha1: release.sha1,
+								version: release.version,
+								name: modReleases.name,
+								author: modReleases.owner,
+								title: modReleases.title,
+							});
+						} catch {
+							// Can error with invalid dependencies, in which case we highlight it as invalid
+							// We modify the name to expose the error to the user.
+							invalid.add(`${modReleases.name} (Has invalid dependency)`);
+						}
 					}
 				}
 			}

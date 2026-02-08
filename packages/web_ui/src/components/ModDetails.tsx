@@ -98,7 +98,7 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 							{depWarnings.get(e.name) === "wrong_version" && <Tooltip title="Wrong version added.">
 								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
 							</Tooltip>}
-							{e.specification}
+							{e.spec}
 						</Space>
 						<br/>
 					</Fragment>)
