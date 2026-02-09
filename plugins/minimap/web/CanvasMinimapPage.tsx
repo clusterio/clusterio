@@ -1846,34 +1846,34 @@ export default function CanvasMinimapPage({
 		return () => { };
 	}, [selectedSurface, selectedForce, isTimelapseMode, activeViewKey, isReady, dataSource]);
 
-	// Load existing chart tags when instance/surface/force selection changes
+		// Load existing chart tags when instance/surface/force selection changes
 	useEffect(() => {
 		if (isReady) {
 			loadExistingChartTags();
 		} else {
-			// Clear chart tags if no valid selection
+				// Clear chart tags if no valid selection
 			setRawChartTags([]);
 			setPlayerPositions(new Map());
 		}
 	}, [selectedSurface, selectedForce, activeViewKey, isReady, dataSource]);
 
-	// Snap current zoom level to nearest pixel-perfect level on mount
+		// Snap current zoom level to nearest pixel-perfect level on mount
 	useEffect(() => {
 		updateViewState({
 			zoomLevel: getClosestZoomLevel(viewStateRef.current.zoomLevel),
 		});
 
-		// Cleanup throttled zoom update on unmount
+			// Cleanup debounced zoom update on unmount
 		return () => {
-			if (throttledZoomUpdate.current) {
-				clearTimeout(throttledZoomUpdate.current);
+			if (debouncedZoomUpdate.current) {
+				clearTimeout(debouncedZoomUpdate.current);
 			}
 		};
 	}, []);
 
-	// Get visible chart tags based on current state
+		// Get visible chart tags based on current state
 	const getVisibleChartTags = useCallback(() => {
-		// Use the same ref state that the render function uses for consistency
+			// Use the same ref state that the render function uses for consistency
 		const currentState = currentStateRef.current;
 
 		if (!currentState.isReady || !currentState.showChartTags) {
