@@ -268,16 +268,28 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 
 	// State for the modal and dependencies
 	const [open, setOpen] = useState(false);
-	const [missing, setMissing] = useState<string[]>([]);
-	const [builtins, setBuiltins] = useState<string[]>([]);
-	const [incompatible, setIncompatible] = useState<string[]>([]);
-	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
-
-	// State for all mods fetched from backend
 	const [error, setError] = useState<Error | null>(null);
 	const [loading, setLoading] = useState<boolean>(false);
-	const [allMods, setAllMods] = useState<lib.ModInfo[]>([]);
-	const [mods, setMods] = useState<lib.ModInfo[]>([]);
+	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
+
+	const [mods, setMods] = useState<lib.ModInfo[]>([]); // All resolved mods and dependencies
+	const [missing, setMissing] = useState<lib.ModInfo[]>([]); // Missing mods and dependencies, excluding builtin
+
+	const [modErrors, setModErrors] = useState({
+		notFound: new Array<string>(), // Mods which were not found on the mod portal, can include builtins
+		incompatible: new Array<string>(), // Mods which are required, but are marked incompatible by another
+		unsatisfiable: new Array<string>(), // Mods which can not have their version range satisfied
+		invalidDependency: new Array<string>(), // Mods with invalid dependency specs
+	});
+
+	function resetModErrors() {
+		setModErrors({
+			notFound: [],
+			incompatible: [],
+			unsatisfiable: [],
+			invalidDependency: [],
+		});
+	}
 
 	// Get a valid factorio version
 	useEffect(() => {
@@ -294,10 +306,8 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 		if (!open || !factorioVersion) {
 			// Clear if closed or no version
 			setMods([]);
-			setAllMods([]);
 			setMissing([]);
-			setBuiltins([]);
-			setIncompatible([]);
+			resetModErrors();
 			return;
 		}
 
@@ -309,21 +319,29 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			lib.ModDependencyResolveRequest.fromModPackEnabled(props.modPack, props.checkForUpdates)
 		).then(response => {
 			if (canceled) { return; }
-			setMods(response.dependencies.filter(dep => !modInfos.has(`${dep.name}_${dep.version}`)));
-			setIncompatible(response.incompatible);
-			setAllMods(response.dependencies);
-			setMissing(response.missing.filter(name => !props.builtInModNames.includes(name)));
-			setBuiltins(response.missing.filter(name => props.builtInModNames.includes(name)));
+
+			const newModErrors = [...response.errors.entries()]
+				.reduce<typeof modErrors>((acc, [modName, modError]) => {
+					acc[modError].push(modName);
+					return acc;
+				}, {
+					notFound: [],
+					incompatible: [],
+					unsatisfiable: [],
+					invalidDependency: [],
+				});
+
+			setModErrors(newModErrors);
+			setMods(response.dependencies);
+			setMissing(response.dependencies.filter(dep => !modInfos.has(`${dep.name}_${dep.version}`)));
 			setLoading(false);
 		}).catch(err => {
 			if (canceled) { return; }
 			notifyErrorHandler("Error fetching mods dependencies")(err);
 			setError(err);
 			setMods([]);
-			setAllMods([]);
 			setMissing([]);
-			setBuiltins([]);
-			setIncompatible([]);
+			resetModErrors();
 			setLoading(false);
 		});
 
@@ -334,51 +352,56 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 		// Re-fetch when modal opens or factorio version changes
 	}, [open, factorioVersion, control]);
 
-	// Function to handle download from Mod Portal to Controller
-	function handleControllerDownload() {
-		if (!factorioVersion || !mods) {
+	// Fix any mod errors found after resolving dependencies
+	function fixModErrors() {
+		if (!factorioVersion) {
 			return;
 		}
 
-		// Enable any required builtins
-		for (const name of builtins) {
-			props.onChange({
-				type: "mods.set",
-				name: name,
-				value: { ...props.modPack.mods.get(name)!, enabled: true },
-			});
+		// Enable any required builtins, they will be within the not found list
+		for (const modName of modErrors.notFound) {
+			if (props.builtInModNames.includes(modName)) {
+				props.onChange({
+					type: "mods.set",
+					name: modName,
+					value: { ...props.modPack.mods.get(modName)!, enabled: true },
+				});
+			}
 		}
 
-		// Disable any incompatible mods present
-		for (const name of incompatible) {
-			const modRecord = props.modPack.mods.get(name);
+		// Disable any incompatible mods
+		for (const modName of modErrors.incompatible) {
+			const modRecord = props.modPack.mods.get(modName);
 			if (modRecord) {
 				props.onChange({
 					type: "mods.set",
-					name: name,
+					name: modName,
 					value: { ...modRecord, enabled: false },
 				});
 			}
 		}
 
 		// Add all dependencies to the mod pack
-		for (const mod of allMods) {
-			props.onChange({
-				type: "mods.set",
-				name: mod.name,
-				value: {
+		for (const mod of mods) {
+			const existingMod = props.modPack.mods.get(mod.name);
+			if (!existingMod || existingMod.version !== mod.version) {
+				props.onChange({
+					type: "mods.set",
 					name: mod.name,
-					version: mod.version,
-					sha1: mod.sha1,
-					enabled: true,
-				},
-			});
+					value: {
+						name: mod.name,
+						version: mod.version,
+						sha1: mod.sha1,
+						enabled: true,
+					},
+				});
+			}
 		}
 
-		// Download the missing dependencies
+		// Download any missing mods
 		control.send(
 			new lib.ModPortalDownloadRequest(
-				mods.map(mod => ({
+				missing.map(mod => ({
 					name: mod.name, version: new lib.ModVersionEquality("=", mod.version),
 				})),
 				factorioVersion,
@@ -386,12 +409,12 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 		).then(() => {
 			notification.success({
 				message: "Download complete",
-				description: `${mods.length} mods have been downloaded to the controller.`,
+				description: `${missing.length} mods have been downloaded to the controller.`,
 			});
 		}).catch(
 			notifyErrorHandler("Error starting mod download")
 		);
-	};
+	}
 
 	return <>
 		{props.checkForUpdates && <Button
@@ -415,8 +438,11 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 				<Button
 					key="start"
 					type="primary"
-					disabled={loading || mods.length === 0}
-					onClick={() => { setOpen(false); handleControllerDownload(); }}
+					disabled={loading || missing.length === 0}
+					onClick={() => {
+						setOpen(false);
+						fixModErrors();
+					}}
 				>Start Download</Button>,
 			]}
 		>
@@ -429,30 +455,26 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 				style={{ marginBottom: 16 }}
 			/>}
 
-			{/* Display warning message if dependencies could not be found */}
-			{!loading && missing.length > 0 && <Alert
-				message="Failed to Find Dependencies:"
-				description={<ul>
-					{missing.map(name => <li>{name}</li>)}
-				</ul>}
-				type="warning"
-				showIcon
-				style={{ marginBottom: 16 }}
-			/>}
+			{/* Display warning message for mod errors */}
+			{([
+				["notFound", "Failed to find dependencies:"],
+				["incompatible", "Dependencies are incompatible:"],
+				["unsatisfiable", "Dependencies could not be satisfied:"],
+				["invalidDependency", "Dependencies has invalid specifications:"],
+			] as const).map(([prop, message]) => {
+				const modNames = modErrors[prop];
+				return modNames.length === 0 ? null : <Alert
+					showIcon
+					type="warning"
+					message={message}
+					description={<ul>{modNames.map(name => <li>{name}</li>)}</ul>}
+					style={{ marginBottom: 14 }}
+				/>;
+			})}
 
-			{/* Display warning message if dependencies are incompatible */}
-			{!loading && incompatible.length > 0 && <Alert
-				message="Incompatible Dependencies Found:"
-				description={<ul>
-					{incompatible.map(name => <li>{name}</li>)}
-				</ul>}
-				type="warning"
-				showIcon
-				style={{ marginBottom: 16 }}
-			/>}
-
+			{/* Display a table of the missing mods that need to be downloaded */}
 			<Table
-				dataSource={mods}
+				dataSource={missing}
 				rowKey={record => record.name}
 				loading={loading}
 				pagination={{
