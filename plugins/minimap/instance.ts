@@ -224,26 +224,4 @@ export class InstancePlugin extends BaseInstancePlugin {
 			this.logger.error(`Failed to process player session end data from Lua: ${err}`);
 		}
 	}
-
-	async onStart() {
-		// Ensure minimap storage exists in case the module wasn't loaded on startup
-		try {
-			await this.sendRcon(`/sc
-				if not storage.minimap then
-					storage.minimap = {
-						enabled = true,
-						chunk_update_queue = {},
-						recipe_cache = {},
-						player_positions = {},
-					}
-				end
-				if storage.minimap.enabled == nil then storage.minimap.enabled = true end
-				if not storage.minimap.chunk_update_queue then storage.minimap.chunk_update_queue = {} end
-				if not storage.minimap.recipe_cache then storage.minimap.recipe_cache = {} end
-				if not storage.minimap.player_positions then storage.minimap.player_positions = {} end
-			`);
-		} catch (err) {
-			this.logger.error(`Failed to initialize minimap on instance: ${err}`);
-		}
-	}
 }
