@@ -1,7 +1,7 @@
 local clusterio_api = require("modules/clusterio/api")
 local compat = require("modules/clusterio/compat")
 
-minimap = {}
+local minimap = {}
 
 -- Convert RGB565 to RGB888 values
 local function rgb565_to_rgb888(rgb565_value)
@@ -79,13 +79,13 @@ local function process_player_positions()
 
 			-- Check if position changed significantly or timeout elapsed
 			local should_update = false
-			if has_moved_significantly(last_position and last_position.position or nil, position) then
-				should_update = true
-			elseif last_position and (current_sec - last_position.last_update_sec) >= 5 then
-				-- Send update every 5 seconds even if not moving (for timeout)
-				should_update = true
-			elseif not last_position then
+			if not last_position then
 				-- First position for this player
+				should_update = true
+			elseif has_moved_significantly(last_position.position, position) then
+				should_update = true
+			elseif (current_sec - last_position.last_update_sec) >= 5 then
+				-- Send update every 5 seconds even if not moving (for timeout)
 				should_update = true
 			end
 

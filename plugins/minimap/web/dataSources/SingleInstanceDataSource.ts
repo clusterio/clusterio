@@ -46,6 +46,11 @@ export class SingleInstanceDataSource implements MinimapDataSource {
 	private force = "player";
 	private activeInstances: number[] = [];
 
+	/**
+	 * Data source for the canvas renderer that reads minimap data for a single selected instance.
+	 *
+	 * This bridges selection state to the minimap web plugin and keeps subscription filters in sync.
+	 */
 	constructor(control: Control) {
 		this.control = control;
 		this.plugin = control.plugins.get("minimap") as MinimapWebPlugin | undefined ?? null;
@@ -182,6 +187,7 @@ export class SingleInstanceDataSource implements MinimapDataSource {
 			return;
 		}
 		const filters = [{ instanceId: this.instanceId, surface: this.surface }];
+		// Support both the newer multi-filter API and the legacy single-filter API.
 		if (this.plugin.setInstanceSurfaceFilters) {
 			this.plugin.setInstanceSurfaceFilters(filters);
 		} else if (this.plugin.setInstanceSurfaceFilter) {

@@ -132,20 +132,24 @@ export class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async handleChartTagDataFromLua(data: ChartTagDataIpc) {
-		// Validate the chart tag data
-		if (!data || typeof data.tag_number !== "number") {
-			this.logger.error("Invalid chart tag data received");
-			return;
+		try {
+			// Validate the chart tag data
+			if (!data || typeof data.tag_number !== "number") {
+				this.logger.error("Invalid chart tag data received");
+				return;
+			}
+
+			// Create chart tag data event
+			const chartTagEvent = new ChartTagDataEvent(
+				this.instance.config.get("instance.id"),
+				data as ChartTagData
+			);
+
+			// Send to controller
+			this.instance.sendTo("controller", chartTagEvent);
+		} catch (err) {
+			this.logger.error(`Failed to process chart tag data from Lua: ${err}`);
 		}
-
-		// Create chart tag data event
-		const chartTagEvent = new ChartTagDataEvent(
-			this.instance.config.get("instance.id"),
-			data as ChartTagData
-		);
-
-		// Send to controller
-		this.instance.sendTo("controller", chartTagEvent);
 	}
 
 	async handleRecipeDataFromLua(data: RecipeDataIpc) {
@@ -222,28 +226,24 @@ export class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async onStart() {
-		// Initialize the Lua module when the instance starts
+		// Ensure minimap storage exists in case the module wasn't loaded on startup
 		try {
-			await this.sendRcon("/sc if not storage.minimap then storage.minimap = {} end");
-
-			// Set up periodic tile updates every 30 seconds
-			await this.sendRcon(`/sc 
-				if not storage.minimap.update_timer then
-					storage.minimap.update_timer = 0
-					storage.minimap.update_interval = 1800 -- 30 seconds at 60 UPS
+			await this.sendRcon(`/sc
+				if not storage.minimap then
+					storage.minimap = {
+						enabled = true,
+						chunk_update_queue = {},
+						recipe_cache = {},
+						player_positions = {},
+					}
 				end
+				if storage.minimap.enabled == nil then storage.minimap.enabled = true end
+				if not storage.minimap.chunk_update_queue then storage.minimap.chunk_update_queue = {} end
+				if not storage.minimap.recipe_cache then storage.minimap.recipe_cache = {} end
+				if not storage.minimap.player_positions then storage.minimap.player_positions = {} end
 			`);
-
-			this.logger.info("Minimap plugin initialized on instance");
 		} catch (err) {
 			this.logger.error(`Failed to initialize minimap on instance: ${err}`);
-		}
-	}
-
-	async onOutput(output: lib.ParsedFactorioOutput) {
-		// Handle any special output parsing if needed for tile data
-		if (output.type === "action" && output.action === "CUSTOM") {
-			// Could handle custom factorio output here if the Lua module sends special messages
 		}
 	}
 }

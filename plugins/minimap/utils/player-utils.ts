@@ -229,32 +229,39 @@ export function parseAndDeduplicatePlayerPositions(buf: BinaryData): Map<number,
 
 	// Build player timelines from the parsed data
 	const playerTimelines = new Map<number, ParsedPlayerPos[]>();
+	const playerNameById = new Map<number, string>();
+	for (const [name, id] of parsed.playerSessions) {
+		playerNameById.set(id, name);
+	}
 
 	// Process all records in order
 	for (const record of parsed.positions) {
-		if (record.type === 0
-            && record.sec !== undefined
-            && record.xTiles !== undefined
-            && record.yTiles !== undefined
+		if (
+			record.type === 0
+			&& record.sec !== undefined
+			&& record.xTiles !== undefined
+			&& record.yTiles !== undefined
 		) {
 			// Position record - convert tile coordinates to world coordinates
-			const name = [...parsed.playerSessions.entries()].find(([, id]) => id === record.playerId)?.[0];
-			if (name) {
-				if (!playerTimelines.has(record.playerId)) {
-					playerTimelines.set(record.playerId, []);
-				}
-
-				// Convert from tiles to world coordinates (tiles are 32x32 world coordinates)
-				const x = record.xTiles * 32;
-				const y = record.yTiles * 32;
-
-				playerTimelines.get(record.playerId)!.push({
-					name,
-					x,
-					y,
-					sec: record.sec,
-				});
+			const name = playerNameById.get(record.playerId);
+			if (!name) {
+				continue;
 			}
+
+			if (!playerTimelines.has(record.playerId)) {
+				playerTimelines.set(record.playerId, []);
+			}
+
+			// Convert from tiles to world coordinates (tiles are 32x32 world coordinates)
+			const x = record.xTiles * 32;
+			const y = record.yTiles * 32;
+
+			playerTimelines.get(record.playerId)!.push({
+				name,
+				x,
+				y,
+				sec: record.sec,
+			});
 		}
 	}
 

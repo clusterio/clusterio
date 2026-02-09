@@ -544,19 +544,19 @@ export default function CanvasMinimapPage({
 
 	};
 
-	// Throttled zoom display update to avoid excessive re-renders
-	const throttledZoomUpdate = useRef<NodeJS.Timeout>();
+	// Debounced zoom display update to avoid excessive re-renders
+	const debouncedZoomUpdate = useRef<NodeJS.Timeout>();
 
 	// Helper to update view state without React re-render
 	const updateViewState = (updates: Partial<ViewState>) => {
 		Object.assign(viewStateRef.current, updates);
 
-		// Update display zoom if zoom changed (throttled)
+		// Update display zoom if zoom changed (debounced)
 		if (updates.zoomLevel !== undefined) {
-			if (throttledZoomUpdate.current) {
-				clearTimeout(throttledZoomUpdate.current);
+			if (debouncedZoomUpdate.current) {
+				clearTimeout(debouncedZoomUpdate.current);
 			}
-			throttledZoomUpdate.current = setTimeout(() => {
+			debouncedZoomUpdate.current = setTimeout(() => {
 				setDisplayZoom(viewStateRef.current.zoomLevel);
 			}, 100); // Update display every 100ms max
 		}
@@ -1544,19 +1544,7 @@ export default function CanvasMinimapPage({
 		// Start loading the tile in the background (but don't wait for it)
 		// Only attempt to load if data source is ready
 		if (currentState.isReady) {
-			getVirtualTile(tileX, tileY).then(() => {
-				// When tile loads, trigger a re-render
-				// But only if we're still looking at the same area
-				const latestState = currentStateRef.current;
-				if (latestState.isReady) {
-					// Use a small delay to batch multiple tile loads
-					setTimeout(() => {
-						if (animationFrameRef.current) {
-							// Render will happen on next animation frame anyway
-						}
-					}, 16);
-				}
-			});
+			void getVirtualTile(tileX, tileY).catch(() => {});
 		}
 	};
 

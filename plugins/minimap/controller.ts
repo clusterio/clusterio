@@ -830,6 +830,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				await this.loadTagContentFromFile(file);
 			}
 		} catch (err) {
+			if (isENOENT(err)) {
+				return;
+			}
 			this.logger.error(`Error loading existing tag content: ${err}`);
 		}
 	}
