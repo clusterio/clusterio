@@ -402,7 +402,7 @@ export class DebugWsMessageEvent {
 export class FactorioVersionsRequest {
 	declare ["constructor"]: typeof FactorioVersionsRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "instance"] as const;
 	static dst = "controller" as const;
 	static permission = "core.external.get_factorio_versions" as const;
 

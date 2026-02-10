@@ -2,6 +2,7 @@
 import fs from "fs-extra";
 import child_process from "child_process";
 import path from "path";
+import JSZip from "jszip";
 import events from "events";
 import util from "util";
 import crypto from "crypto";
@@ -9,16 +10,17 @@ import { Rcon } from "rcon-client";
 
 import * as lib from "@clusterio/lib";
 
+const execFileAsync = util.promisify(child_process.execFile);
 
 /**
  * Determines the version of Factorio the datadir is pointing to by
  * reading the changelog.txt in it.
  *
- * @param changelogPath - Path to changelog.txt.
- * @internal
+ * @param factorioDir - Path factorio dir containing data/changelog.txt.
  */
-async function getVersion(changelogPath: string) {
+async function getFactorioVersion(factorioDir: string) {
 	let changelog;
+	const changelogPath = path.join(factorioDir, "data", "changelog.txt");
 	try {
 		changelog = await fs.readFile(changelogPath, "utf-8");
 	} catch (err: any) {
@@ -28,12 +30,13 @@ async function getVersion(changelogPath: string) {
 		throw err;
 	}
 
-	for (let line of changelog.split(/[\r\n]+/)) {
-		let index = line.indexOf(":");
+	for (const line of changelog.split(/[\r\n]+/)) {
+		const index = line.indexOf(":");
 		if (index !== -1) {
-			let name = line.slice(0, index).trim();
+			const name = line.slice(0, index).trim();
 			if (name.toLowerCase() === "version") {
-				return line.slice(index + 1).trim();
+				const version = line.slice(index + 1).trim();
+				return lib.isFullVersion(version) ? version : null;
 			}
 		}
 	}
@@ -67,12 +70,121 @@ function versionOrder(a: string, b: string) {
 }
 
 /**
+ * Find all installed factorio versions and return them as a set
+ *
+ * @param factorioDir - Path to Factorio installation dirs.
+ * @returns Set of installed factorio versions
+ */
+async function listFactorioVersions(factorioDir: string) {
+	const versions = new Set<lib.FullVersion>();
+
+	const directVersion = await getFactorioVersion(factorioDir);
+	if (directVersion !== null) {
+		versions.add(directVersion);
+		return { direct: true, versions };
+	}
+
+	for (const name of await fs.readdir(factorioDir)) {
+		// We do not use withFileTypes or lstat because we want to follow symlinks
+		const fullPath = path.join(factorioDir, name);
+		try {
+			const stats = await fs.stat(fullPath);
+			if (!stats.isDirectory()) {
+				continue;
+			}
+		} catch {
+			continue;
+		}
+
+		const version = await getFactorioVersion(fullPath);
+		if (version === null) {
+			continue;
+		}
+
+		versions.add(version);
+	}
+
+	return { direct: false, versions };
+}
+
+/**
+ * Downloads a ZIP file from a URL using native fetch and extracts it
+ *
+ * @param url - The URL of the ZIP file
+ * @param targetDir - Directory to extract the ZIP into
+ * @throws Network error if status of request is not ok
+ */
+async function downloadAndExtractZip(url: string, targetDir: string) {
+	const res = await fetch(url);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+	}
+
+  	// Load the ZIP with JSZip
+	const buffer = Buffer.from(await res.arrayBuffer());
+	const zip = await JSZip.loadAsync(buffer);
+
+  	// Extract each file/folder
+	await fs.ensureDir(targetDir);
+	await Promise.all(
+		Object.values(zip.files).map(async (entry) => {
+			const parts = entry.name.split("/").filter(Boolean);
+			const strippedPath = parts.slice(1).join("/");
+			if (!strippedPath) {
+				return; // This copies the behaviour of tar --strip-components 1
+			}
+
+			const entryPath = path.join(targetDir, strippedPath);
+			if (entry.dir) {
+				await fs.ensureDir(entryPath);
+			} else {
+				await fs.ensureDir(path.dirname(entryPath));
+				await fs.writeFile(entryPath, await entry.async("nodebuffer"));
+			}
+		})
+	);
+}
+
+/**
+ * Downloads a tar.gz file from a URL using native fetch and extracts it
+ *
+ * @param url - The URL of the ZIP file
+ * @param targetDir - Directory to extract the ZIP into
+ * @throws Network error if status of request is not ok
+ */
+async function downloadAndExtractTar(url: string, targetDir: string) {
+	const res = await fetch(url);
+	if (!res.ok) {
+		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+	}
+
+	// Write the buffer to a temp file
+	const tmpFilePath = `${targetDir}.tmp`;
+	const buffer = Buffer.from(await res.arrayBuffer());
+	await fs.writeFile(tmpFilePath, buffer);
+	await fs.ensureDir(targetDir);
+
+	// Execute tar CLI to extract
+	try {
+		await execFileAsync("tar", ["-xf", tmpFilePath, "-C", targetDir, "--strip-components", "1"]);
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			throw new Error("error executing tar command, do you have 'xz-utils' installed?");
+		}
+		throw err;
+	} finally {
+		// Clean up temp file
+		await fs.remove(tmpFilePath);
+	}
+}
+
+/**
  * Find factorio data directory of the given version
  *
  * Searches the given factorio dir for an installation of Factorio of
  * the target version.
  *
- * @param factorioDir - Path to Factorio installation dir(s).
+ * @param factorioDir - Path to Factorio installation dirs.
  * @param targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
@@ -80,40 +192,39 @@ function versionOrder(a: string, b: string) {
  * @internal
  */
 async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion): Promise<[string, lib.FullVersion]> {
-
-	// There are two supported setups: having the factorio dir be the actual
-	// install directory, and having the factorio dir be a folder containing
-	// multiple install directories
-
-	let simpleVersion = await getVersion(path.join(factorioDir, "data", "changelog.txt"));
-	if (simpleVersion !== null) {
-		if (simpleVersion === targetVersion || simpleVersion.startsWith(targetVersion) || targetVersion === "latest") {
-			if (lib.isFullVersion(simpleVersion)) {
-				return [path.join(factorioDir, "data"), simpleVersion];
-			}
+	// Check if this is a direct installation dir
+	const directVersion = await getFactorioVersion(factorioDir);
+	if (directVersion !== null) {
+		if (targetVersion === "latest" || directVersion === targetVersion || directVersion.startsWith(targetVersion)) {
+			return [path.join(factorioDir, "data"), directVersion];
 		}
-
-		throw new Error(
-			`Factorio version ${targetVersion} was requested, but install directory contains ${simpleVersion}`
-		);
+		throw new Error(`Unable to find Factorio version ${targetVersion}`);
 	}
 
-	let versions = new Map<lib.FullVersion, string>();
-	for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
-		if (!entry.isDirectory()) {
+	// Otherwise assume it is a directory of multiple versions
+	const versions = new Map<lib.FullVersion, string>();
+	for (const name of await fs.readdir(factorioDir)) {
+		// We do not use withFileTypes or lstat because we want to follow symlinks
+		const fullPath = path.join(factorioDir, name);
+		try {
+			const stats = await fs.stat(fullPath);
+			if (!stats.isDirectory()) {
+				continue;
+			}
+		} catch {
 			continue;
 		}
 
-		let version = await getVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"));
-		if (version === null || !lib.isFullVersion(version)) {
+		const version = await getFactorioVersion(fullPath);
+		if (version === null) {
 			continue;
 		}
 
 		if (version === targetVersion) {
-			return [path.join(factorioDir, entry.name, "data"), version];
+			return [path.join(factorioDir, name, "data"), version];
 		}
 
-		versions.set(version, entry.name);
+		versions.set(version, name);
 	}
 
 	if (!versions.size) {
@@ -872,6 +983,37 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	/**
+	 * Check of updated versions to download
+	 *
+	 * Should be called before init for the new version to be detected during init
+	 */
+	async checkForUpdates(availableVersions: lib.ExternalFactorioVersion[]) {
+		const targetVersion = this._targetVersion;
+		const latestVersion = availableVersions
+			.filter(v => (
+				targetVersion === "latest" || v.version === targetVersion || v.version.startsWith(targetVersion)
+			))
+			.sort((v1, v2) => versionOrder(v1.version, v2.version))
+			[0];
+
+		const installedVersions = await listFactorioVersions(this._factorioDir);
+		if (!installedVersions.versions.has(latestVersion.version)) {
+			const v = latestVersion.version;
+			// Can't download if not linux or this is a direct install
+			if (installedVersions.direct || process.platform !== "linux") {
+				this._logger.info(`A newer version of factorio is available (${v}) but must be manually downloaded`);
+				return;
+			}
+
+			// Download the newer version
+			this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
+			const dst = path.join(this._factorioDir, latestVersion.version);
+			await downloadAndExtractTar(latestVersion.headlessUrl, dst);
+			this._logger.info(`Downloaded factorio version ${v}`);
+		}
+	}
+
+	/**
 	 * The version of Factorio in use. This will be the actual version if
 	 * "latest" (the default) was specified as `factorioVersion` to the constructor.
 	 * This will be undefined before the server is initialized, or if init failed.
@@ -1421,9 +1563,12 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 
 // For testing only
-export const _getVersion = getVersion;
+export const _getFactorioVersion = getFactorioVersion;
 export const _versionOrder = versionOrder;
 export const _findVersion = findVersion;
+export const _listFactorioVersions = listFactorioVersions;
+export const _downloadAndExtractZip = downloadAndExtractZip;
+export const _downloadAndExtractTar = downloadAndExtractTar;
 export const _randomDynamicPort = randomDynamicPort;
 export const _generatePassword = generatePassword;
 export const _parseOutput = parseOutput;
