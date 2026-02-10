@@ -168,19 +168,21 @@ describe("messages/mod", function() {
 						ModInfo.fromJSON({ name: "bar", version: "2.0.0" }),
 					],
 				],
-				[[], ["foo-i"], ["foo-i", "bar-i"]], // incompatible
-				[[], ["foo-m"], ["foo-m", "bar-m"]], // missing
+				[ // errors
+					new Map([]),
+					new Map([["foo", "notFound"]]),
+					new Map([["foo", "unsatisfiable"], ["bar", "incompatible"], ["baz", "invalidDependency"]]),
+				],
 			);
 			it("should be round trip json serialisable", function() {
 				testRoundTripJsonSerialisable(ModDependencyResolveRequest.Response, tests);
 			});
 			it("should be construable", function() {
-				for (const [dependencies, incompatible, missing] of tests) {
-					const test = JSON.stringify([dependencies, missing, incompatible]);
-					const request = new ModDependencyResolveRequest.Response(dependencies, incompatible, missing);
+				for (const [dependencies, errors] of tests) {
+					const test = JSON.stringify([dependencies, errors]);
+					const request = new ModDependencyResolveRequest.Response(dependencies, errors);
 					assert.deepEqual(request.dependencies, dependencies, test);
-					assert.deepEqual(request.incompatible, incompatible, test);
-					assert.deepEqual(request.missing, missing, test);
+					assert.deepEqual(request.errors, errors, test);
 				}
 			});
 		});
@@ -204,19 +206,15 @@ describe("messages/mod", function() {
 						)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, []);
-
-					const expectedIds = [
-						"root_1.0.0", "foo_1.0.0", "foo-dep_1.0.0", "bar_1.0.0",
-						"root-2_1.0.0", "bar-2_1.0.0",
-					];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set([
+						"root_1.0.0", "foo_1.0.0", "foo-dep_1.0.0", "bar_1.0.0",
+						"root-2_1.0.0", "bar-2_1.0.0",
+					]));
 				}
 			});
 			it("highlights dependencies with no suitable version", async function() {
@@ -228,8 +226,10 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base", "bar"]);
-					assert.deepEqual(result.incompatible, []);
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+						["bar", "notFound"],
+					]));
 
 					assert.equal(result.dependencies.length, 1);
 					assert.equal(result.dependencies[0].id, "root_1.0.0");
@@ -243,8 +243,10 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base", "foo"]);
-					assert.deepEqual(result.incompatible, []);
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+						["foo", "notFound"],
+					]));
 
 					assert.equal(result.dependencies.length, 1);
 					assert.equal(result.dependencies[0].id, "root_1.0.0");
@@ -260,16 +262,13 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, ["foo-dep"]);
-
-					const expectedIds = ["root_1.0.0", "foo_1.0.0", "foo-dep_1.0.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+						["foo-dep", "incompatible"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0"]));
 				}
 			});
 			it("highlights dependencies with conflicting versions", async function() {
@@ -282,16 +281,13 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, ["dep"]);
-
-					const expectedIds = ["root_1.0.0", "foo_1.0.0", "bar_1.0.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+						["dep", "unsatisfiable"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0", "bar_1.0.0"]));
 				}
 			});
 			it("highlights incompatible builtin mods", async function() {
@@ -303,16 +299,12 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, []);
-					assert.deepEqual(result.incompatible, ["base"]);
-
-					const expectedIds = ["root_1.0.0", "foo_1.0.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "incompatible"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0"]));
 				}
 			});
 			it("does not ignore optional dependencies when required by another", async function() {
@@ -325,16 +317,12 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, []);
-
-					const expectedIds = ["root_1.0.0", "foo_1.0.0", "baz_1.0.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0", "baz_1.0.0"]));
 				}
 			});
 			it("prefers the locally installed version if matching", async function() {
@@ -347,16 +335,12 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, []);
-
-					const expectedIds = ["root_1.0.0", "foo_1.0.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0"]));
 				}
 			});
 			it("prefers the mod portal version when checking for updates", async function() {
@@ -369,16 +353,12 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion, true)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, []);
-
-					const expectedIds = ["root_1.0.0", "foo_2.0.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_2.0.0"]));
 				}
 			});
 			it("prefers the latest mod portal version when using the mod portal", async function() {
@@ -409,16 +389,12 @@ describe("messages/mod", function() {
 						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion)
 					);
 
-					assert.deepEqual(result.missing, ["base"]);
-					assert.deepEqual(result.incompatible, []);
-
-					const expectedIds = ["root_1.0.0", "foo_2.0.0", "bar_1.5.0"];
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
-					assert.equal(depIds.size, expectedIds.length);
-					for (const modId of expectedIds) {
-						assert(depIds.has(modId), `Missing ${modId}`);
-					}
+					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_2.0.0", "bar_1.5.0"]));
 				}
 			});
 			it("rejects when a network error occurs", async function() {
@@ -440,22 +416,18 @@ describe("messages/mod", function() {
 					new lib.ModDependencyResolveRequest([new ModDependency("pymodpack = 3.0.0")], "2.0")
 				);
 
-				assert.deepEqual(result.missing, ["base"]);
-				assert.deepEqual(result.incompatible, ["space-age"]);
+				assert.deepEqual(result.errors, new Map([
+					["base", "notFound"],
+				]));
 
-				const expectedNames = [ // Can't use ids as the versions may change
+				const depNames = new Set(result.dependencies.map(mod => mod.name));
+				assert.deepEqual(depNames, new Set([ // Can't use ids as the versions may change
 					"pymodpack", "pypostprocessing", "pyalternativeenergy", "pyalternativeenergygraphics",
 					"pyalienlife", "pyalienlifegraphics", "pyalienlifegraphics2", "pyalienlifegraphics3",
 					"pycoalprocessing", "pycoalprocessinggraphics", "pyfusionenergy", "pyfusionenergygraphics",
 					"pypetroleumhandling", "pypetroleumhandlinggraphics", "pyrawores", "pyraworesgraphics",
 					"pyhightech", "pyhightechgraphics", "pyindustry", "pyindustrygraphics",
-				];
-
-				const depNames = new Set(result.dependencies.map(mod => mod.name));
-				assert.equal(depNames.size, expectedNames.length);
-				for (const modName of expectedNames) {
-					assert(depNames.has(modName), `Missing ${modName}`);
-				}
+				]));
 			});
 		});
 	});

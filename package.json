@@ -15,9 +15,7 @@
 		"ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
 		"lint": "eslint packages plugins test",
 		"lint-fix": "eslint --fix packages plugins test",
-		"clean": "node ./clean.js fast",
-		"clean-tests": "node ./clean.js tests",
-		"clean-all": "node ./clean.js all",
+		"clean": "node ./clean.js",
 		"docs": "typedoc",
 		"bundle-dependencies": "bundle-dependencies"
 	},

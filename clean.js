@@ -104,7 +104,7 @@ async function main() {
 			removeBuildArtifacts();
 			removeTestArtifacts();
 		})
-		.command("fast", "Remove all build artifacts", () => {}, argv => {
+		.command("$0", "Remove all build artifacts", () => {}, argv => {
 			DRY = argv.dry;
 			removeBuildArtifacts();
 		})

@@ -151,10 +151,10 @@ export class ModVersionEquality {
 
 	static fromParts(equality: string, version: string) {
 		if (!isVersionEquality(equality)) {
-			throw new Error(`Unknown version equality: ${equality}`);
+			throw new Error(`Invalid version equality "${equality}"`);
 		}
 		if (!isPartialVersion(version)) {
-			throw new Error(`Malformed version string: ${version}`);
+			throw new Error(`Invalid version string "${version}"`);
 		}
 		return new this(equality, version);
 	}

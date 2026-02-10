@@ -403,6 +403,10 @@ export class ModPortalDownloadRequest {
 	}
 }
 
+const ModDependencyResolveErrors = ["incompatible", "unsatisfiable", "invalidDependency", "notFound"] as const;
+export const ModDependencyResolveErrorsSchema = Type.Union(ModDependencyResolveErrors.map(v => Type.Literal(v)));
+export type ModDependencyResolveErrors = Static<typeof ModDependencyResolveErrorsSchema>;
+
 /**
  * Request mods dependencies to be resolved using the Factorio mod portal.
  *
@@ -456,18 +460,26 @@ export class ModDependencyResolveRequest {
 	static Response = class ModDependencyResolveResponse {
 		constructor(
 			public dependencies: ModInfo[],
-			public incompatible: string[],
-			public missing: string[],
+			public errors: Map<string, ModDependencyResolveErrors>,
 		) {}
 
 		static jsonSchema = Type.Object({
 			"dependencies": Type.Array(ModInfo.jsonSchema),
-			"incompatible": Type.Array(Type.String()),
-			"missing": Type.Array(Type.String()),
+			"errors": Type.Record(Type.String(), ModDependencyResolveErrorsSchema),
 		});
 
 		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			return new this(json.dependencies.map(d => ModInfo.fromJSON(d)), json.incompatible, json.missing);
+			return new this(
+				json.dependencies.map(d => ModInfo.fromJSON(d)),
+				new Map(Object.entries(json.errors))
+			);
+		}
+
+		toJSON(): Static<typeof ModDependencyResolveResponse.jsonSchema> {
+			return {
+				dependencies: this.dependencies.map(d => d.toJSON()),
+				errors: Object.fromEntries(this.errors),
+			};
 		}
 	};
 }

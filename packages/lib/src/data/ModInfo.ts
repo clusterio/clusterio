@@ -22,11 +22,12 @@ const UnsatisfiedSeverity: Record<ModDependencyUnsatisfiedReason, number> = {
 	"incompatible": 1, "missing_dependency": 2, "wrong_version": 3,
 };
 
-const lettersRegex = /^[a-zA-Z]+$/;
+const depSpecRegex = /^(?:(\?|\(\?\)|!|~|\+) *)?(.+?)(?: *([<>]=?|=) *([0-9.]+))?$/;
 
 export class ModDependency {
-	public type: ModDependencyType;
+	public spec: string;
 	public name: string;
+	public type: ModDependencyType;
 	public version: ModVersionEquality | undefined;
 
 	static getTypeFromPrefix(prefix: string): ModDependencyType {
@@ -42,50 +43,27 @@ export class ModDependency {
 			case "":
 				return "required";
 			default:
-				throw new Error(`Invalid dependency prefix: ${prefix}`);
+				throw new Error(`Invalid dependency prefix "${prefix}"`);
 		}
 	}
 
 	constructor (
-		public specification: string,
+		specification: string,
 	) {
-		const parts = specification.split(" ");
-
-		// Fix mods which include spaces in their name, joins consecutive words together
-		let index = 0;
-		while (index < parts.length - 1) {
-			const current = parts[index];
-			const next = parts[index + 1];
-			if (lettersRegex.test(current) && lettersRegex.test(next)) {
-				parts[index] = `${current} ${next}`;
-				parts.splice(index + 1, 1);
-			} else {
-				index += 1;
-			}
+		const match = depSpecRegex.exec(specification);
+		if (match === null) {
+			throw new Error(`Invalid dependency specification "${specification}"`);
 		}
 
-		// Parse the dependency specification
-		switch (parts.length) {
-			case 1:
-				this.type = "required";
-				this.name = parts[0];
-				break;
-			case 2:
-				this.type = ModDependency.getTypeFromPrefix(parts[0]);
-				this.name = parts[1];
-				break;
-			case 3:
-				this.type = "required";
-				this.name = parts[0];
-				this.version = ModVersionEquality.fromParts(parts[1], parts[2]);
-				break;
-			case 4:
-				this.type = ModDependency.getTypeFromPrefix(parts[0]);
-				this.name = parts[1];
-				this.version = ModVersionEquality.fromParts(parts[2], parts[3]);
-				break;
-			default:
-				throw new Error(`Invalid dependency specification: ${specification}`);
+		// Expand the match to the different parts
+		const [spec, type, name, equality, version] = match;
+		this.type = ModDependency.getTypeFromPrefix(type ?? "");
+		this.spec = spec;
+		this.name = name;
+
+		// Parse the equality and version
+		if ((equality || version) && !this.incompatible) {
+			this.version = ModVersionEquality.fromParts(equality, version);
 		}
 	}
 
@@ -124,7 +102,7 @@ export class ModDependency {
 	}
 
 	toJSON() {
-		return this.specification;
+		return this.spec;
 	}
 }
 
@@ -218,7 +196,7 @@ export default class ModInfo {
 	 * As they would be represented in info.json.
 	 */
 	get dependencySpecifications() {
-		return this.dependencies.map(d => d.specification);
+		return this.dependencies.map(d => d.spec);
 	}
 
 	checkDependencySatisfaction(mods: (ModInfo | ModRecord)[]) {
@@ -308,7 +286,13 @@ export default class ModInfo {
 		if (json.homepage) { modInfo.homepage = json.homepage; }
 		if (json.description) { modInfo.description = json.description; }
 		if (json.factorio_version) { modInfo.factorioVersion = json.factorio_version; }
-		if (json.dependencies) { modInfo.dependencies = json.dependencies.map(d => new ModDependency(d)); }
+
+		// Parse the dependencies
+		try {
+			if (json.dependencies) { modInfo.dependencies = json.dependencies.map(d => new ModDependency(d)); }
+		} catch (err: any) {
+			throw new Error(`Failed for parse dependencies for ${json.name}: ${err}`);
+		}
 
 		// Additional data
 		if (json.size) { modInfo.size = json.size; }

@@ -52,20 +52,46 @@ describe("lib/data/ModInfo", function() {
 				assert.equal(dependency.version.equality, ">=");
 				assert.equal(dependency.version.integerVersion, lib.integerFullVersion("1.2.3"));
 			});
+			it("should ignore the version for incompatible dependencies", function() {
+				const dependency = new ModDependency("! my-mod >= 1.2.3");
+				assert.equal(dependency.name, "my-mod");
+				assert.equal(dependency.type, "incompatible");
+				assert.equal(dependency.version, undefined);
+			});
+			it("should throw on an empty string", function() {
+				assert.throws(() => new ModDependency(""));
+			});
 			it("should throw if no version equality is given", function() {
+				this.skip(); // For alignment with factorio, this should be parsed as the mod name
 				assert.throws(() => new ModDependency("my-mod 1.2.3"));
 				assert.throws(() => new ModDependency("? my-mod 1.2.3"));
 			});
+			it("should parse no version equality as the mod name", function() {
+				const dependencyReq = new ModDependency("my-mod 1.2.3");
+				assert.equal(dependencyReq.name, "my-mod 1.2.3");
+				assert.equal(dependencyReq.type, "required");
+				assert.equal(dependencyReq.version, undefined);
+
+				const dependencyOpt = new ModDependency("? my-mod 1.2.3");
+				assert.equal(dependencyOpt.name, "my-mod 1.2.3");
+				assert.equal(dependencyOpt.type, "optional");
+				assert.equal(dependencyOpt.version, undefined);
+			});
 			it("should throw if invalid specification given", function() {
+				this.skip(); // For alignment with factorio, this should be parsed as the mod name
+				assert.throws(() => new ModDependency("& my-mod = 1.2.3"));
 				assert.throws(() => new ModDependency("? ? my-mod = 1.2.3"));
 			});
-			it("should throw if name contains spaces", function() {
-				// Apparently there are some legacy mods which include spaces
-				// Such as https://mods.factorio.com/mod/Explosive%20Excavation
-				this.skip();
-				assert.throws(() => new ModDependency("my mod"));
-				assert.throws(() => new ModDependency("? my mod"));
-				assert.throws(() => new ModDependency("? my mod >= 1.2.3"));
+			it("should parse invalid prefix as the mod name", function() {
+				const dependencyInvalid = new ModDependency("& my-mod = 1.2.3");
+				assert.equal(dependencyInvalid.name, "& my-mod");
+				assert.equal(dependencyInvalid.type, "required");
+				assert.equal(dependencyInvalid.version.version, "1.2.3");
+
+				const dependencyDupe = new ModDependency("? ? my-mod = 1.2.3");
+				assert.equal(dependencyDupe.name, "? my-mod");
+				assert.equal(dependencyDupe.type, "optional");
+				assert.equal(dependencyDupe.version.version, "1.2.3");
 			});
 			it("should not error when the name contains spaces", function() {
 				const dependencyReq = new ModDependency("my mod");
@@ -83,6 +109,44 @@ describe("lib/data/ModInfo", function() {
 
 				const dependencyOptVer = new ModDependency("? my mod >= 1.2.3");
 				assert.equal(dependencyOptVer.name, "my mod");
+				assert.equal(dependencyOptVer.type, "optional");
+				assert.equal(dependencyOptVer.version.version, "1.2.3");
+			});
+			it("should not error when the extra spaces are present", function() {
+				const dependencyReq = new ModDependency("  my mod  ");
+				assert.equal(dependencyReq.name, "  my mod  ");
+				assert.equal(dependencyReq.type, "required");
+
+				const dependencyOpt = new ModDependency("?   my mod  ");
+				assert.equal(dependencyOpt.name, "my mod  ");
+				assert.equal(dependencyOpt.type, "optional");
+
+				const dependencyVer = new ModDependency("my mod   >=   1.2.3");
+				assert.equal(dependencyVer.name, "my mod");
+				assert.equal(dependencyVer.type, "required");
+				assert.equal(dependencyVer.version.version, "1.2.3");
+
+				const dependencyOptVer = new ModDependency("?   my mod   >=   1.2.3");
+				assert.equal(dependencyOptVer.name, "my mod");
+				assert.equal(dependencyOptVer.type, "optional");
+				assert.equal(dependencyOptVer.version.version, "1.2.3");
+			});
+			it("should not error when there are no spaces present", function() {
+				const dependencyReq = new ModDependency("my-mod");
+				assert.equal(dependencyReq.name, "my-mod");
+				assert.equal(dependencyReq.type, "required");
+
+				const dependencyOpt = new ModDependency("?my-mod");
+				assert.equal(dependencyOpt.name, "my-mod");
+				assert.equal(dependencyOpt.type, "optional");
+
+				const dependencyVer = new ModDependency("my-mod>=1.2.3");
+				assert.equal(dependencyVer.name, "my-mod");
+				assert.equal(dependencyVer.type, "required");
+				assert.equal(dependencyVer.version.version, "1.2.3");
+
+				const dependencyOptVer = new ModDependency("?my-mod>=1.2.3");
+				assert.equal(dependencyOptVer.name, "my-mod");
 				assert.equal(dependencyOptVer.type, "optional");
 				assert.equal(dependencyOptVer.version.version, "1.2.3");
 			});
@@ -271,7 +335,12 @@ describe("lib/data/ModInfo", function() {
 				is_deleted: true,
 			}));
 		});
-
+		it("should throw an error if given invalid dependencies", function() {
+			assert.throws(() => ModInfo.fromJSON({
+				name: "my-mod",
+				dependencies: ["base", ""],
+			}), /my-mod/); // check the mod name is included in the error message
+		});
 		it("should sort integer mod versions lexicographically", function() {
 			let unsortedVersions = ["1.0.0", "1.1.0", "0.1.0", "3.0.0", "1.2.0", "0.3.1", "0.3.3", "2.1.1", "0.0.1"];
 			let sortedVersions = ["0.0.1", "0.1.0", "0.3.1", "0.3.3", "1.0.0", "1.1.0", "1.2.0", "2.1.1", "3.0.0"];
