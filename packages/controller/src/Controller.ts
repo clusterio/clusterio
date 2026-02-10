@@ -161,8 +161,8 @@ export default class Controller {
 		}
 
 		// Add default roles
-		lib.ensureDefaultAdminRole(roles);
-		lib.ensureDefaultPlayerRole(roles);
+		lib.Role.ensureDefaultAdminRole(roles);
+		lib.Role.ensureDefaultPlayerRole(roles);
 
 		return [
 			systems,
