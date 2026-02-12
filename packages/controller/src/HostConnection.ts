@@ -290,7 +290,7 @@ export default class HostConnection extends BaseConnection {
 		let banlist: Map<string, string> = new Map();
 		let whitelist: Set<string> = new Set();
 
-		for (let user of this._controller.userManager.users.values()) {
+		for (let user of this._controller.users.values()) {
 			if (user.isAdmin) {
 				adminlist.add(user.id);
 			}
@@ -339,15 +339,12 @@ export default class HostConnection extends BaseConnection {
 
 	async handleInstancePlayerUpdateEvent(event: lib.InstancePlayerUpdateEvent, src: lib.Address) {
 		let instanceId = src.id;
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
+		const user = this._controller.users.getOrCreateUser(event.name);
 
 		if (event.type === "join") {
-			this._controller.userManager.notifyJoin(user, instanceId);
+			user.notifyJoin(instanceId);
 		} else if (event.type === "leave") {
-			this._controller.userManager.notifyLeave(user, instanceId);
+			user.notifyLeave(instanceId);
 		}
 
 		user.instanceStats.set(instanceId, event.stats);
@@ -373,13 +370,9 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
+		const user = this._controller.users.getOrCreateUser(event.name);
+		user.set("isAdmin", event.admin);
 
-		user.isAdmin = event.admin;
-		this._controller.usersUpdated([user]);
 		const instance = this._controller.instances.get(src.id)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.admin ? "promote" : "demote" as lib.PlayerEvent["type"],
@@ -393,14 +386,11 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
-
+		const user = this._controller.users.getOrCreateUser(event.name);
 		user.isBanned = event.banned;
 		user.banReason = event.reason;
-		this._controller.usersUpdated([user]);
+		user.saveRecord();
+
 		const instance = this._controller.instances.get(src.id)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.banned ? "ban" : "unban" as lib.PlayerEvent["type"],
@@ -415,13 +405,9 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
+		const user = this._controller.users.getOrCreateUser(event.name);
+		user.set("isWhitelisted", event.whitelisted);
 
-		user.isWhitelisted = event.whitelisted;
-		this._controller.usersUpdated([user]);
 		const instance = this._controller.instances.get(src.id)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.whitelisted ? "whitelisted" : "unwhitelisted" as lib.PlayerEvent["type"],

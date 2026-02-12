@@ -53,7 +53,7 @@ export class JsonDatastoreProvider<
 		private filePath: string,
 		private fromJson: (json: J) => V = v => v as any as V,
 		private migrations: (rawJson: Record<string, unknown>) => Record<string, J> = v => v as Record<string, J>,
-		private finalise: (obj: V) => V = v => v,
+		private finalise: (obj: V, map: Map<string, V>) => V = v => v,
 	) {
 		super();
 	}
@@ -82,7 +82,24 @@ export class JsonDatastoreProvider<
 		const serialized = this.migrations(rawJson);
 
 		// Convert to data class objects
-		return new Map(Object.entries(serialized).map(([k, v]) => [k, this.finalise(this.fromJson(v))]));
+		let serializedCount = 0;
+		const result = new Map<string, V>();
+		for (const [key, raw] of Object.entries(serialized)) {
+			const final = this.finalise(this.fromJson(raw), result);
+			result.set(key, final);
+			serializedCount += 1;
+		}
+
+		// Save a backup if the map does not contain all values (happens where there are duplicates)
+		if (result.size < serializedCount) {
+			const backupPath = `${this.filePath}.${Date.now()}.bak`;
+			logger.warn(
+				`Duplicates detected in ${this.filePath}, a backup was written to: ${backupPath}`
+			);
+			await safeOutputFile(backupPath, JSON.stringify(rawJson, null, "\t"));
+		}
+
+		return result;
 	}
 }
 
@@ -95,7 +112,7 @@ export class JsonIdDatastoreProvider<
 		private filePath: string,
 		private fromJson: (json: J) => V = v => v as any as V,
 		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as Array<J>,
-		private finalise: (obj: V) => V = v => v,
+		private finalise: (obj: V, map: Map<V["id"], V>) => V = v => v,
 	) {
 		super();
 	}
@@ -124,10 +141,24 @@ export class JsonIdDatastoreProvider<
 		const serialized = this.migrations(rawJson);
 
 		// Convert to data class objects
-		return new Map(serialized.map((e) => {
-			const v = this.finalise(this.fromJson(e));
-			return [v.id, v];
-		}));
+		let serializedCount = 0;
+		const result = new Map<V["id"], V>();
+		for (const raw of serialized) {
+			const final = this.finalise(this.fromJson(raw), result);
+			result.set(final.id, final);
+			serializedCount += 1;
+		}
+
+		// Save a backup if the map does not contain all values (happens where there are duplicates)
+		if (result.size < serializedCount) {
+			const backupPath = `${this.filePath}.${Date.now()}.bak`;
+			logger.warn(
+				`Duplicates detected in ${this.filePath}, a backup was written to: ${backupPath}`
+			);
+			await safeOutputFile(backupPath, JSON.stringify(rawJson, null, "\t"));
+		}
+
+		return result;
 	}
 }
 

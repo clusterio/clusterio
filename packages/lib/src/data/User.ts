@@ -186,7 +186,11 @@ export default class User {
 	}
 }
 
-export interface IControllerUser extends User {
+/**
+ * This interface is implemented by UserView on the controller.
+ * It is exposed here to allow message definitions to create permission methods.
+ */
+export interface IUserView extends User {
 	/**
 	 * Check if a given permission is granted
 	 *

@@ -3,65 +3,44 @@ import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";
 
-import ControllerUser from "./ControllerUser";
+import UserView, { UserRecord } from "./UserView";
 
 /**
- * Manages users and roles
+ * Access layer for users on the controller.
+ *
+ * In performance critical paths the raw records can be accessed directly.
+ * Otherwise this class will wrap data in a view class with a set and save method.
+ *
  * @alias module:controller/src/UserManager
  */
 export default class UserManager {
-	users: Map<ControllerUser["id"], ControllerUser> = new Map();
-	dirty = false;
-
-	/**
-	 * Set of users currently online in the cluster.
-	 */
-	onlineUsers = new Set<ControllerUser>();
-
 	constructor(
-		private _config: lib.ControllerConfig,
-		private _roles: lib.SubscribableDatastore<lib.Role>,
+		public records: lib.SubscribableDatastore<UserRecord>,
+		private _controllerRoles: lib.SubscribableDatastore<lib.Role>,
+		private _controllerConfig: lib.ControllerConfig,
 	) {
 	}
 
-	getByName(name: string) {
-		return this.users.get(name.toLowerCase());
-	}
-
-	async load(filePath: string): Promise<void> {
+	/**
+	 * Prior to 2.0.0-alpha.22 users and roles were stored in a single file.
+	 * This migration separates them so they can be loaded by datastore.
+	 *
+	 * @param usersFilePath The src and dst file path for the users json file
+	 * @param rolesFilePath The dst for the roles json file
+	 */
+	static async attemptMigrateLegacyUsersFile(usersFilePath: string, rolesFilePath: string) {
 		try {
-			let content = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
-			if ("roles" in content) { // Split file format after 2.0.0-alpha.22
-				this._roles.setMany(content.roles.map((serializedRole: any) => lib.Role.fromJSON(serializedRole)));
-				await this._roles.save(); // Force a save to prevent data loss
-				content = content.users;
+			const combinedJson = JSON.parse(await fs.readFile(usersFilePath, { encoding: "utf8" }));
+			if (!("roles" in combinedJson)) {
+				return; // Files are already split, no action required
+			}
+			if (!("users" in combinedJson)) {
+				throw new Error("Legacy users json does not contain users property");
 			}
 
-			let duplicates = 0;
-			for (const serializedUser of content) {
-				const user = ControllerUser.fromJSON(serializedUser, this._roles);
-				const existingUser = this.users.get(user.id);
-				if (existingUser) {
-					// Required migration to all lowercase ids in alpha 19
-					duplicates += 1;
-					// We assume the user with the lower online time is the duplicate
-					if (user.playerStats.onlineTimeMs <= existingUser.playerStats.onlineTimeMs) {
-						existingUser.merge(user);
-						continue; // Skip users.set
-					}
-					user.merge(existingUser);
-				}
-				this.users.set(user.id, user);
-			}
-
-			if (duplicates) {
-				const backupPath = `${filePath}.${Date.now()}.bak`;
-				lib.logger.warn(
-					`A total of ${duplicates} users were merged, a backup was written to: ${backupPath}`
-				);
-				await lib.safeOutputFile(backupPath, JSON.stringify(content, null, "\t"));
-			}
-
+			// We intentionally write the roles first because if it fails then the old user file will still contain them
+			await lib.safeOutputFile(rolesFilePath, JSON.stringify(combinedJson.roles));
+			await lib.safeOutputFile(usersFilePath, JSON.stringify(combinedJson.users));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
@@ -69,11 +48,44 @@ export default class UserManager {
 		}
 	}
 
-	async save(filePath: string): Promise<void> {
-		this.dirty = false;
-		await lib.safeOutputFile(filePath,
-			JSON.stringify([...this.users.values()].map(user => user.toJSON(true)), null, "\t")
+	getByIdMutable(id: UserRecord["id"]) {
+		const userRecord = this.records.getMutable(id);
+		if (!userRecord) {
+			return undefined;
+		}
+
+		return UserView.fromUserRecord(
+			this.records,
+			this._controllerRoles,
+			userRecord,
 		);
+	}
+
+	getById(id: UserRecord["id"]): Readonly<UserView> | undefined {
+		return this.getByIdMutable(id);
+	}
+
+	getByNameMutable(name: UserRecord["name"]) {
+		return this.getByIdMutable(name.toLowerCase());
+	}
+
+	getByName(name: UserRecord["name"]) {
+		return this.getById(name.toLowerCase());
+	}
+
+	valuesMutable(): IterableIterator<UserView> {
+		const roles = this._controllerRoles;
+		const users = this.records;
+
+		return (function* () {
+			for (const record of users.values()) {
+				yield UserView.fromUserRecord(users, roles, record);
+			}
+		}());
+	}
+
+	values(): IterableIterator<Readonly<UserView>> {
+		return this.valuesMutable();
 	}
 
 	/**
@@ -81,21 +93,34 @@ export default class UserManager {
 	 * @param name - Name of the user to create.
 	 * @returns The created user.
 	 */
-	createUser(name: string): ControllerUser {
+	createUser(name: string): UserView {
 		if (this.getByName(name)) {
 			throw new Error(`User '${name}' already exists`);
 		}
 
 		let roles = new Set<number>();
-		let defaultRoleId = this._config.get("controller.default_role_id");
-		if (defaultRoleId !== null && this._roles.has(defaultRoleId)) {
+		let defaultRoleId = this._controllerConfig.get("controller.default_role_id");
+		if (defaultRoleId !== null && this._controllerRoles.has(defaultRoleId)) {
 			roles.add(defaultRoleId);
 		}
 
-		let user = new ControllerUser(this._roles, 0, name, roles);
-		this.users.set(user.id, user);
-		this.dirty = true;
+		const user = new UserView(this.records, this._controllerRoles, 0, name, roles);
+		this.records.set(user);
 		return user;
+	}
+
+	/** Get or create a user with a given name. */
+	getOrCreateUser(name: string): UserView {
+		return this.getByNameMutable(name) ?? this.createUser(name);
+	}
+
+	/**
+	 * Deletes an existing user
+	 *
+	 * @param user - user to delete
+	 */
+	deleteUser(user: UserRecord) {
+		return this.records.delete(user);
 	}
 
 	/**
@@ -104,31 +129,17 @@ export default class UserManager {
 	 * @param user - user to sign token for
 	 * @returns JWT access token for the user.
 	 */
-	signUserToken(user: ControllerUser): string {
+	signUserToken(user: UserRecord): string {
 		return jwt.sign(
 			{ aud: "user", user: user.id },
-			Buffer.from(this._config.get("controller.auth_secret"), "base64")
+			Buffer.from(this._controllerConfig.get("controller.auth_secret"), "base64")
 		);
 	}
 
-	notifyJoin(user: ControllerUser, instance_id: number) {
-		user.instances.add(instance_id);
-		this.onlineUsers.add(user);
-	}
-
-	notifyLeave(user: ControllerUser, instance_id: number) {
-		user.instances.delete(instance_id);
-		if (!user.instances.size) {
-			this.onlineUsers.delete(user);
-		}
-	}
-
+	/** Clear all player stats for specific instance */
 	clearStatsOfInstance(instanceId: number) {
-		for (const user of this.users.values()) {
-			this.notifyLeave(user, instanceId);
-			user.instanceStats.delete(instanceId);
-			user.recalculatePlayerStats();
+		for (const user of this.values()) {
+			user.clearInstanceStats(instanceId);
 		}
-		this.dirty = true;
 	}
 }

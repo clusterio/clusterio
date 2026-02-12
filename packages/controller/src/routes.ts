@@ -189,7 +189,7 @@ function validateUserToken(req: Request, res: Response, next: any) {
 		if (typeof tokenPayload === "string") {
 			throw new Error("unexpected JsonWebToken type");
 		}
-		let user = req.app.locals.controller.userManager.getByName(tokenPayload.user);
+		let user = req.app.locals.controller.users.getByName(tokenPayload.user);
 		if (!user) {
 			throw new Error("invalid user");
 		}

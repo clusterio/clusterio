@@ -33,6 +33,7 @@ const { ConsoleTransport, levels, logger } = lib;
 import Controller from "./src/Controller";
 import UserManager from "./src/UserManager";
 import { version } from "./package.json";
+import { UserRecord } from "./src/UserView";
 
 // globals
 let controller: Controller;
@@ -133,13 +134,22 @@ async function handleBootstrapCommand(
 	let subCommand = args._[1];
 
 	const databaseDirectory = controllerConfig.get("controller.database_directory");
+	await UserManager.attemptMigrateLegacyUsersFile(
+		path.join(databaseDirectory, "users.json"),
+		path.join(databaseDirectory, "roles.json"),
+	);
+
 	const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 		path.join(databaseDirectory, "roles.json"),
 		lib.Role.fromJSON.bind(lib.Role),
 	).bootstrap());
 
-	const userManager = new UserManager(controllerConfig, roles);
-	await userManager.load(path.join(databaseDirectory, "users.json"));
+	const users = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		path.join(databaseDirectory, "users.json"),
+		UserRecord.fromJSON.bind(UserRecord),
+	).bootstrap());
+
+	const userManager = new UserManager(users, roles, controllerConfig);
 
 	if (subCommand === "create-admin") {
 		await controllerConfigLock.acquire(); // Also needed to write to the database files
@@ -150,14 +160,14 @@ async function handleBootstrapCommand(
 			return;
 		}
 
-		let admin = userManager.getByName(args.name);
+		let admin = userManager.getByNameMutable(args.name);
 		if (!admin) {
 			admin = userManager.createUser(args.name);
 		}
 
 		admin.isAdmin = true;
-		admin.roleIds.add(lib.Role.DefaultAdminRoleId);
-		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
+		admin.addRole(lib.Role.DefaultAdminRoleId);
+		await userManager.records.save();
 		await controllerConfigLock.release();
 
 	} else if (subCommand === "generate-user-token") {
@@ -430,7 +440,7 @@ async function startup() {
 	);
 
 	// Refuse to start if there are no users loaded
-	if (args.checkUserCount && controller.userManager.users.size === 0) {
+	if (args.checkUserCount && controller.users.records.size === 0) {
 		logger.fatal(
 			"Cannot start controller, no users loaded.\n" +
 			"Try `npx clusteriocontroller bootstrap create-admin <username>`");

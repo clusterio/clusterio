@@ -21,7 +21,7 @@ import HttpCloser from "./HttpCloser";
 import InstanceInfo from "./InstanceInfo";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
-import ControllerUser from "./ControllerUser";
+import UserView, { UserRecord } from "./UserView";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
 import HostConnection from "./HostConnection";
@@ -79,6 +79,8 @@ export default class Controller {
 
 	/** Event subscription controller */
 	subscriptions = new lib.SubscriptionController();
+	/** User manager for the cluster, also contains access to the user records */
+	users: UserManager;
 
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -112,6 +114,12 @@ export default class Controller {
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
+
+		// Migrate combined user and role file from 2.0.0-alpha.22
+		await UserManager.attemptMigrateLegacyUsersFile(
+			path.join(databaseDirectory, "users.json"),
+			path.join(databaseDirectory, "roles.json"),
+		);
 
 		const systems = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "systems.json"),
@@ -148,8 +156,11 @@ export default class Controller {
 			this.migrateRoles,
 		).bootstrap());
 
-		const userManager = new UserManager(config, roles);
-		await userManager.load(path.join(databaseDirectory, "users.json"));
+		const users = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "users.json"),
+			UserRecord.fromJSON.bind(UserRecord),
+			undefined, this.finaliseUsers,
+		).bootstrap());
 
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.ensureDir(modsDirectory);
@@ -172,7 +183,7 @@ export default class Controller {
 			modPacks,
 			modStore,
 			roles,
-			userManager,
+			users,
 		] as const;
 	}
 
@@ -204,8 +215,8 @@ export default class Controller {
 		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
 		/** Mapping of mod pack id to mod pack */
 		public roles = new lib.SubscribableDatastore<lib.Role>(),
-		/** User and roles manager for the cluster */
-		public userManager = new UserManager(config, roles),
+		/** Mapping of user id to user record */
+		users = new lib.SubscribableDatastore<UserRecord>(),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -217,6 +228,8 @@ export default class Controller {
 
 		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
+
+		this.users = new UserManager(users, roles, config);
 
 		this.modStore.on("change", mod => {
 			this.modsUpdated([mod]);
@@ -241,6 +254,7 @@ export default class Controller {
 		this.saves.on("update", this.savesUpdated.bind(this));
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
 		this.roles.on("update", this.rolesUpdated.bind(this));
+		this.users.records.on("update", this.usersUpdated.bind(this));
 	}
 
 	async start(args: ControllerArgs) {
@@ -647,11 +661,8 @@ export default class Controller {
 			this.saves.save(),
 			this.modPacks.save(),
 			this.roles.save(),
+			this.users.records.save(),
 		]);
-
-		if (this.userManager.dirty) {
-			await this.userManager.save(path.join(this.config.get("controller.database_directory"), "users.json"));
-		}
 
 		await lib.invokeHook(this.plugins, "onSaveData");
 	}
@@ -736,6 +747,20 @@ export default class Controller {
 			});
 			return json;
 		});
+	}
+
+	static finaliseUsers(user: UserRecord, users: Map<UserRecord["id"], UserRecord>): UserRecord {
+		const existingUser = users.get(user.id);
+		if (existingUser) {
+			// All lowercase ids in 2.0.0.alpha.19
+			if (user.playerStats.onlineTimeMs <= existingUser.playerStats.onlineTimeMs) {
+				// We assume the user with the lower online time is the duplicate
+				existingUser.merge(user);
+				return existingUser;
+			}
+			user.merge(existingUser);
+		}
+		return user;
 	}
 
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
@@ -1019,7 +1044,7 @@ export default class Controller {
 		this.instances.delete(instance);
 
 		this.clearSavesOfInstance(instanceId);
-		this.userManager.clearStatsOfInstance(instanceId);
+		this.users.clearStatsOfInstance(instanceId);
 
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
@@ -1106,17 +1131,12 @@ export default class Controller {
 		return mods.length ? new lib.ModUpdatesEvent(mods) : null;
 	}
 
-	usersUpdated(users: ControllerUser[]) {
-		const now = Date.now();
-		for (const user of users) {
-			user.updatedAtMs = now;
-		}
-		this.userManager.dirty = true;
+	usersUpdated(users: UserRecord[]) {
 		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
 	}
 
 	async handleUserSubscription(request: lib.SubscriptionRequest) {
-		const users = [...this.userManager.users.values()].filter(
+		const users = [...this.users.records.values()].filter(
 			user => user.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return users.length ? new lib.UserUpdatesEvent(users) : null;
@@ -1127,7 +1147,7 @@ export default class Controller {
 	 * permissions for this user may have changed.
 	 * @param user - User permisions updated for.
 	 */
-	userPermissionsUpdated(user: ControllerUser) {
+	userPermissionsUpdated(user: Readonly<UserView>) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
 				controlConnection.send(

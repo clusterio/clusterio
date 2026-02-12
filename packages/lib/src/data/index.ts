@@ -13,7 +13,7 @@ export { default as Permission } from "./Permission";
 export { default as PlayerStats } from "./PlayerStats";
 export { default as Role } from "./Role";
 export { default as User } from "./User";
-export type { IControllerUser } from "./User";
+export type { IUserView } from "./User";
 export * from "./composites";
 export * from "./messages_core";
 export * from "./messages_controller";

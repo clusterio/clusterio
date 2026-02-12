@@ -1,5 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import User, { IControllerUser } from "./User";
+import User, { IUserView } from "./User";
 import { StringEnum, jsonArray, plainJson } from "./composites";
 import { MessageRequest } from "./messages_core";
 
@@ -250,7 +250,7 @@ export class UserBulkImportRequest {
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission(user: IControllerUser, message: MessageRequest) {
+	static permission(user: IUserView, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
 			const data = message.data as Static<typeof UserBulkImportRequest.jsonSchema>;
 			// Check if this is a restore or import request

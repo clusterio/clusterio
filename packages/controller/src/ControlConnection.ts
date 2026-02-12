@@ -6,7 +6,7 @@ import * as lib from "@clusterio/lib";
 const { logFilter, logger } = lib;
 
 import BaseConnection from "./BaseConnection";
-import ControllerUser from "./ControllerUser";
+import UserView, { UserRecord } from "./UserView";
 import * as routes from "./routes";
 import Controller from "./Controller";
 
@@ -40,7 +40,7 @@ export default class ControlConnection extends BaseConnection {
 		registerData: { version: string },
 		connector: WsServerConnector,
 		controller: Controller,
-		public user: ControllerUser, // The user making this connection.
+		public user: UserView, // The user making this connection.
 		public id: number
 	) {
 		super(connector, controller);
@@ -870,9 +870,8 @@ export default class ControlConnection extends BaseConnection {
 		}
 		this._controller.roles.delete(role);
 
-		this._controller.userManager.dirty = true;
-		for (let user of this._controller.userManager.users.values()) {
-			if (user.roleIds.delete(id)) {
+		for (const user of this._controller.users.values()) {
+			if (user.removeRole(id)) {
 				this._controller.userPermissionsUpdated(user);
 			}
 		}
@@ -880,7 +879,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserGetRequest(request: lib.UserGetRequest): Promise<lib.User> {
 		let name = request.name;
-		let user = this._controller.userManager.getByName(name);
+		let user = this._controller.users.getByName(name);
 		if (!user) {
 			throw new lib.RequestError(`User ${name} does not exist`);
 		}
@@ -889,16 +888,15 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleUserListRequest(): Promise<lib.User[]> {
-		return [...this._controller.userManager.users.values()];
+		return [...this._controller.users.records.values()];
 	}
 
 	async handleUserCreateRequest(request: lib.UserCreateRequest) {
-		let user = this._controller.userManager.createUser(request.name);
-		this._controller.usersUpdated([user]);
+		this._controller.users.createUser(request.name);
 	}
 
 	async handleUserRevokeTokenRequest(request: lib.UserRevokeTokenRequest) {
-		let user = this._controller.userManager.getByName(request.name);
+		let user = this._controller.users.getByName(request.name);
 		if (!user) {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
 		}
@@ -912,11 +910,10 @@ export default class ControlConnection extends BaseConnection {
 				controlConnection.connector.terminate();
 			}
 		}
-		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserUpdateRolesRequest(request: lib.UserUpdateRolesRequest) {
-		let user = this._controller.userManager.getByName(request.name);
+		let user = this._controller.users.getByName(request.name);
 		if (!user) {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
 		}
@@ -927,35 +924,33 @@ export default class ControlConnection extends BaseConnection {
 			}
 		}
 
-		user.roleIds = new Set(request.roles);
+		user.set("roleIds", new Set(request.roles));
 		this._controller.userPermissionsUpdated(user);
-		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserSetAdminRequest(request: lib.UserSetAdminRequest) {
 		let { name, create, admin } = request;
-		let user = this._controller.userManager.getByName(name);
+		let user = this._controller.users.getByName(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
-				user = this._controller.userManager.createUser(name);
+				user = this._controller.users.createUser(name);
 			} else {
 				throw new lib.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
-		user.isAdmin = admin;
-		this._controller.usersUpdated([user]);
+		user.set("isAdmin", admin);
 		this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, admin));
 	}
 
 	async handleUserSetBannedRequest(request: lib.UserSetBannedRequest) {
 		let { name, create, banned, reason } = request;
-		let user = this._controller.userManager.getByName(name);
+		let user = this._controller.users.getByNameMutable(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
-				user = this._controller.userManager.createUser(name);
+				user = this._controller.users.createUser(name);
 			} else {
 				throw new lib.RequestError(`User '${name}' does not exist`);
 			}
@@ -963,37 +958,34 @@ export default class ControlConnection extends BaseConnection {
 
 		user.isBanned = banned;
 		user.banReason = reason;
-		this._controller.usersUpdated([user]);
+		user.saveRecord();
 		this._controller.sendTo("allInstances", new lib.InstanceBanlistUpdateEvent(name, banned, reason));
 	}
 
 	async handleUserSetWhitelistedRequest(request: lib.UserSetWhitelistedRequest) {
 		let { name, create, whitelisted } = request;
-		let user = this._controller.userManager.getByName(name);
+		let user = this._controller.users.getByName(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
-				user = this._controller.userManager.createUser(name);
+				user = this._controller.users.createUser(name);
 			} else {
 				throw new lib.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
-		user.isWhitelisted = whitelisted;
-		this._controller.usersUpdated([user]);
+		user.set("isWhitelisted", whitelisted);
 		this._controller.sendTo("allInstances", new lib.InstanceWhitelistUpdateEvent(name, whitelisted));
 	}
 
 	async handleUserDeleteRequest(request: lib.UserDeleteRequest) {
 		let name = request.name;
-		let user = this._controller.userManager.getByName(name);
+		let user = this._controller.users.getByName(name);
 		if (!user) {
 			throw new lib.RequestError(`User '${name}' does not exist`);
 		}
 
-		user.isDeleted = true;
-		this._controller.userManager.users.delete(name);
-		this._controller.usersUpdated([user]);
+		this._controller.users.deleteUser(user);
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));
@@ -1006,14 +998,14 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleUserBulkRestoreRequest(request: lib.UserBulkImportRequest, updated: Map<string, ControllerUser>) {
+	async handleUserBulkRestoreRequest(request: lib.UserBulkImportRequest, updated: Map<string, UserRecord>) {
 		if (request.importType === "users") {
 			// Update all fields for all users
 			const users = request.users as Extract<typeof request.users, { username: string }[]>;
 			const admin = new Set(users.filter(u => u.is_admin).map(u => u.username.toLowerCase()));
 			const banned = new Set(users.filter(u => u.is_banned).map(u => u.username.toLowerCase()));
 			const whitelist = new Set(users.filter(u => u.is_whitelisted).map(u => u.username.toLowerCase()));
-			for (const user of this._controller.userManager.users.values()) {
+			for (const user of this._controller.users.valuesMutable()) {
 				if (user.isAdmin && !admin.has(user.name)) {
 					user.isAdmin = false;
 					updated.set(user.id, user);
@@ -1034,7 +1026,7 @@ export default class ControlConnection extends BaseConnection {
 			const expected = new Set(
 				users.map(u => (typeof u === "string" ? u.toLowerCase() : u.username.toLowerCase()))
 			);
-			for (const user of this._controller.userManager.users.values()) {
+			for (const user of this._controller.users.valuesMutable()) {
 				if (user.isBanned && !expected.has(user.name)) {
 					user.isBanned = false;
 					user.banReason = "";
@@ -1046,7 +1038,7 @@ export default class ControlConnection extends BaseConnection {
 			const users = request.users as string[];
 			const expected = new Set(users.map(u => u.toLowerCase()));
 			const prop = request.importType === "admins" ? "isAdmin" : "isWhitelisted";
-			for (const user of this._controller.userManager.users.values()) {
+			for (const user of this._controller.users.valuesMutable()) {
 				if (user[prop] && !expected.has(user.name)) {
 					user[prop] = false;
 					updated.set(user.id, user);
@@ -1059,7 +1051,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserBulkImportRequest(request: lib.UserBulkImportRequest) {
 		let backup: undefined | Awaited<ReturnType<ControlConnection["handleUserBulkExportRequest"]>>;
-		const updated = new Map<ControllerUser["id"], ControllerUser>();
+		const updated = new Map<UserView["id"], UserView>();
 		if (request.restore) {
 			// Unban / Demote / Unwhitelist players not on the list
 			backup = await this.handleUserBulkExportRequest(new lib.UserBulkExportRequest(request.importType));
@@ -1068,10 +1060,10 @@ export default class ControlConnection extends BaseConnection {
 
 		// Will get a user or attempt to create one
 		const getUserOrCreate = (username: string) => {
-			const user = this._controller.userManager.getByName(username);
+			const user = this._controller.users.getByNameMutable(username);
 			if (user) { return user; }
 			this.user.checkPermission("core.user.create");
-			return this._controller.userManager.createUser(username);
+			return this._controller.users.createUser(username);
 		};
 
 		// Merge the imported data with existing data, this is strictly additive
@@ -1136,7 +1128,7 @@ export default class ControlConnection extends BaseConnection {
 		const banlist: Map<string, string> = new Map();
 		const whitelist: Set<string> = new Set();
 
-		for (let user of this._controller.userManager.users.values()) {
+		for (let user of this._controller.users.values()) {
 			if (user.isAdmin) {
 				adminlist.add(user.id);
 			}
@@ -1160,7 +1152,7 @@ export default class ControlConnection extends BaseConnection {
 		if (request.exportType === "users") {
 			// Send a full user export
 			const usersToSend = [] as lib.ClusterioUserExport["users"];
-			for (const user of this._controller.userManager.users.values()) {
+			for (const user of this._controller.users.values()) {
 				let send = false;
 				const userToSend = { username: user.name } as typeof usersToSend[0];
 				if (user.isBanned) {
@@ -1186,7 +1178,7 @@ export default class ControlConnection extends BaseConnection {
 		} else if (request.exportType === "bans") {
 			// Bans have extra logic to handle ban reason
 			const usersToSend = [] as Array<string | { username: string, reason: string }>;
-			for (const user of this._controller.userManager.users.values()) {
+			for (const user of this._controller.users.values()) {
 				if (user.isBanned) {
 					if (user.banReason && user.banReason !== "") {
 						usersToSend.push({ username: user.name, reason: user.banReason });
@@ -1201,7 +1193,7 @@ export default class ControlConnection extends BaseConnection {
 		// This is a whitelist or admins export
 		const usersToSend = [] as string[];
 		const prop = request.exportType === "admins" ? "isAdmin" : "isWhitelisted";
-		for (const user of this._controller.userManager.users.values()) {
+		for (const user of this._controller.users.values()) {
 			if (user[prop]) {
 				usersToSend.push(user.name);
 			}
