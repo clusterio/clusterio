@@ -6,7 +6,8 @@ import * as lib from "@clusterio/lib";
 const { logFilter, logger } = lib;
 
 import BaseConnection from "./BaseConnection";
-import UserView, { UserRecord } from "./UserView";
+import User from "./User";
+import UserRecord from "./UserRecord";
 import * as routes from "./routes";
 import Controller from "./Controller";
 
@@ -40,7 +41,7 @@ export default class ControlConnection extends BaseConnection {
 		registerData: { version: string },
 		connector: WsServerConnector,
 		controller: Controller,
-		public user: UserView, // The user making this connection.
+		public user: User, // The user making this connection.
 		public id: number
 	) {
 		super(connector, controller);
@@ -877,18 +878,18 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleUserGetRequest(request: lib.UserGetRequest): Promise<lib.User> {
+	async handleUserGetRequest(request: lib.UserGetRequest): Promise<lib.UserDetails> {
 		let name = request.name;
 		let user = this._controller.users.getByName(name);
 		if (!user) {
 			throw new lib.RequestError(`User ${name} does not exist`);
 		}
 
-		return user;
+		return user.toUserDetails();
 	}
 
-	async handleUserListRequest(): Promise<lib.User[]> {
-		return [...this._controller.users.records.values()];
+	async handleUserListRequest(): Promise<lib.UserDetails[]> {
+		return [...this._controller.users.records.values()].map(user => user.toUserDetails());
 	}
 
 	async handleUserCreateRequest(request: lib.UserCreateRequest) {
@@ -1051,7 +1052,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserBulkImportRequest(request: lib.UserBulkImportRequest) {
 		let backup: undefined | Awaited<ReturnType<ControlConnection["handleUserBulkExportRequest"]>>;
-		const updated = new Map<UserView["id"], UserView>();
+		const updated = new Map<User["id"], User>();
 		if (request.restore) {
 			// Unban / Demote / Unwhitelist players not on the list
 			backup = await this.handleUserBulkExportRequest(new lib.UserBulkExportRequest(request.importType));

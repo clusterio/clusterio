@@ -1,51 +1,10 @@
-import { Static, Type } from "@sinclair/typebox";
 
 import {
-	IUserView, PermissionError, PlayerStats,
-	Role, SubscribableDatastore, User, permissions,
+	IUser, Role, SubscribableDatastore,
+	PermissionError, permissions,
 } from "@clusterio/lib";
 
-/** Underlying data class for the user on the controller */
-export class UserRecord extends User {
-	constructor(
-		/** Unix time in seconds the user token must be issued after to be valid.  */
-		public tokenValidAfter = 0,
-		...args: ConstructorParameters<typeof User>
-	) {
-		super(...args);
-	}
-
-	static jsonSchema = Type.Object({
-		...User.jsonSchema.properties,
-		token_valid_after: Type.Optional(Type.Number()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		const instanceStats = new Map(
-			(json.instance_stats ?? []).map(([id, stats]) => [id, PlayerStats.fromJSON(stats)])
-		);
-		return new this(
-			json.token_valid_after,
-			json.name,
-			new Set(json.roles),
-			new Set(json.instances),
-			json.is_admin,
-			json.is_banned,
-			json.is_whitelisted,
-			json.ban_reason,
-			json.updated_at_ms,
-			json.is_deleted,
-			User._calculatePlayerStats(instanceStats),
-			instanceStats,
-		);
-	}
-
-	toJSON(): Static<typeof UserRecord.jsonSchema> {
-		const json: Static<typeof UserRecord.jsonSchema> = super.toJSON();
-		json.token_valid_after = this.tokenValidAfter;
-		return json;
-	}
-}
+import UserRecord from "./UserRecord";
 
 /**
  * Represents a user as viewed from the controller.
@@ -53,7 +12,7 @@ export class UserRecord extends User {
  * All methods are safe to use when readonly.
  * Only use mutable when needing to change multiple values.
  */
-export default class UserView extends UserRecord implements IUserView {
+export default class User extends UserRecord implements IUser {
 	constructor(
 		private _controllerUsers: SubscribableDatastore<UserRecord>,
 		private _controllerRoles: SubscribableDatastore<Role>,
@@ -66,7 +25,7 @@ export default class UserView extends UserRecord implements IUserView {
 		_controllerUsers: SubscribableDatastore<UserRecord>,
 		_controllerRoles: SubscribableDatastore<Role>,
 		userRecord: UserRecord,
-	): UserView {
+	): User {
 		return new this(
 			_controllerUsers,
 			_controllerRoles,

@@ -10,7 +10,7 @@ type instanceHandler = (instanceDetails: lib.InstanceDetails) => void;
 type saveListHandler = (saveListEvent: lib.SaveDetails) => void;
 type modPackHandler = (modPack: lib.ModPack) => void;
 type modInfoHandler = (modInfo: lib.ModInfo) => void;
-type userHandler = (rawUser: lib.User) => void;
+type userHandler = (rawUser: lib.UserDetails) => void;
 type logHandler = (info: { level: keyof typeof lib.levels, message: string }) => void;
 
 /**

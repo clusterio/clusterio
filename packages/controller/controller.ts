@@ -32,8 +32,8 @@ const { ConsoleTransport, levels, logger } = lib;
 
 import Controller from "./src/Controller";
 import UserManager from "./src/UserManager";
+import UserRecord from "./src/UserRecord";
 import { version } from "./package.json";
-import { UserRecord } from "./src/UserView";
 
 // globals
 let controller: Controller;

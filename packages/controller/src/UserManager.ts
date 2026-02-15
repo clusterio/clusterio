@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";
 
-import UserView, { UserRecord } from "./UserView";
+import User from "./User";
+import UserRecord from "./UserRecord";
 
 /**
  * Access layer for users on the controller.
@@ -54,14 +55,14 @@ export default class UserManager {
 			return undefined;
 		}
 
-		return UserView.fromUserRecord(
+		return User.fromUserRecord(
 			this.records,
 			this._controllerRoles,
 			userRecord,
 		);
 	}
 
-	getById(id: UserRecord["id"]): Readonly<UserView> | undefined {
+	getById(id: UserRecord["id"]): Readonly<User> | undefined {
 		return this.getByIdMutable(id);
 	}
 
@@ -73,18 +74,18 @@ export default class UserManager {
 		return this.getById(name.toLowerCase());
 	}
 
-	valuesMutable(): IterableIterator<UserView> {
+	valuesMutable(): IterableIterator<User> {
 		const roles = this._controllerRoles;
 		const users = this.records;
 
 		return (function* () {
 			for (const record of users.values()) {
-				yield UserView.fromUserRecord(users, roles, record);
+				yield User.fromUserRecord(users, roles, record);
 			}
 		}());
 	}
 
-	values(): IterableIterator<Readonly<UserView>> {
+	values(): IterableIterator<Readonly<User>> {
 		return this.valuesMutable();
 	}
 
@@ -93,7 +94,7 @@ export default class UserManager {
 	 * @param name - Name of the user to create.
 	 * @returns The created user.
 	 */
-	createUser(name: string): UserView {
+	createUser(name: string): User {
 		if (this.getByName(name)) {
 			throw new Error(`User '${name}' already exists`);
 		}
@@ -104,13 +105,13 @@ export default class UserManager {
 			roles.add(defaultRoleId);
 		}
 
-		const user = new UserView(this.records, this._controllerRoles, 0, name, roles);
+		const user = new User(this.records, this._controllerRoles, 0, name, roles);
 		this.records.set(user);
 		return user;
 	}
 
 	/** Get or create a user with a given name. */
-	getOrCreateUser(name: string): UserView {
+	getOrCreateUser(name: string): User {
 		return this.getByNameMutable(name) ?? this.createUser(name);
 	}
 

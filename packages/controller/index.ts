@@ -7,7 +7,8 @@ export { default as InstanceInfo } from "./src/InstanceInfo";
 export { default as HostInfo } from "./src/HostInfo";
 export { default as BaseControllerPlugin } from "./src/BaseControllerPlugin";
 export { default as UserManager } from "./src/UserManager";
-export { default as UserView } from "./src/UserView";
+export { default as UserRecord } from "./src/UserRecord";
+export { default as User } from "./src/User";
 export { default as WsServer } from "./src/WsServer";
 
 if (module === require.main) {

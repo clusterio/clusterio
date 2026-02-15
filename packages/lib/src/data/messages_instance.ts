@@ -2,7 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import PlayerStats from "./PlayerStats";
 import { JsonString, StringEnum, jsonArray, plainJson } from "./composites";
 import { InstanceConfig } from "../config";
-import type { IUserView } from "./User";
+import type { IUser } from "./UserDetails";
 import type { MessageRequest } from "./messages_core";
 import { CollectorResultSerialized } from "../prometheus";
 import { TargetVersion, TargetVersionSchema, PartialVersion, PartialVersionSchema } from "./version";
@@ -539,7 +539,7 @@ export class InstanceTransferSaveRequest {
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
 	static dst = ["controller", "host"] as const;
-	static permission(user: IUserView, message: MessageRequest) {
+	static permission(user: IUser, message: MessageRequest) {
 		user.checkPermission("core.instance.save.transfer");
 		if (typeof message.data === "object" && message.data !== null) {
 			const data = message.data as { copy: boolean, sourceName: string, targetName: string };

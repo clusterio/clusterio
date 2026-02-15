@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUserView, plainJson, JsonBoolean } from "./data";
+import { Address, MessageRequest, IUser, plainJson, JsonBoolean } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
 import { RequestError, SessionLost } from "./errors";
 import { logger } from "./logging";
@@ -18,7 +18,7 @@ export class SubscriptionRequest {
 	static type = "request" as const;
 	static src = ["control", "host", "instance"] as const;
 	static dst = "controller" as const;
-	static permission(user: IUserView, message: MessageRequest) {
+	static permission(user: IUser, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
 			const data = message.data as Static<typeof SubscriptionRequest.jsonSchema>;
 			const entry = Link._eventsByName.get(data[0]);

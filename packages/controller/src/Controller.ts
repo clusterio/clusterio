@@ -21,7 +21,8 @@ import HttpCloser from "./HttpCloser";
 import InstanceInfo from "./InstanceInfo";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
-import UserView, { UserRecord } from "./UserView";
+import User from "./User";
+import UserRecord from "./UserRecord";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
 import HostConnection from "./HostConnection";
@@ -1147,7 +1148,7 @@ export default class Controller {
 	 * permissions for this user may have changed.
 	 * @param user - User permisions updated for.
 	 */
-	userPermissionsUpdated(user: Readonly<UserView>) {
+	userPermissionsUpdated(user: Readonly<User>) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
 				controlConnection.send(

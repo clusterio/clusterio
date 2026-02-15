@@ -8,7 +8,7 @@ import { BaseConnector, WebSocketBaseConnector } from "./connectors";
 import { strict as assert } from "assert";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import type {
-	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUserView,
+	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUser,
 } from "../data";
 
 export interface Request<Req, Res> {
@@ -18,7 +18,7 @@ export interface Request<Req, Res> {
 		type: "request";
 		src: AddressType | readonly AddressType[];
 		dst: AddressType | readonly AddressType[];
-		permission?: null | string | ((user: IUserView, message: MessageRequest) => void);
+		permission?: null | string | ((user: IUser, message: MessageRequest) => void);
 		plugin?: string;
 		Response?: JSONDeserialisable<Res>,
 	}
@@ -32,7 +32,7 @@ export interface Event<T> {
 		type: "event";
 		src: AddressType | readonly AddressType[];
 		dst: AddressType | readonly AddressType[];
-		permission?: null | string | ((user: IUserView, message: MessageEvent) => void);
+		permission?: null | string | ((user: IUser, message: MessageEvent) => void);
 		plugin?: string;
 	}
 }

@@ -7,10 +7,10 @@ describe("lib/data/User", function() {
 	describe("class User", function() {
 		it("should round trip serialize", function() {
 			function test_roundtrip(serialized) {
-				let user = lib.User.fromJSON(serialized);
+				let user = lib.UserDetails.fromJSON(serialized);
 				let user_serialized = user.toJSON();
 				assert.deepEqual(user_serialized, serialized);
-				let user_deserialized = lib.User.fromJSON(user_serialized);
+				let user_deserialized = lib.UserDetails.fromJSON(user_serialized);
 				assert.deepEqual(user_deserialized, user);
 			}
 
@@ -20,11 +20,11 @@ describe("lib/data/User", function() {
 			test_roundtrip({ name: "user", instance_stats: [[1, { join_count: 1 }]]});
 		});
 		it("should keep invalid roles", function() {
-			let user = lib.User.fromJSON({ name: "test", roles: [1, 4, 55] });
+			let user = lib.UserDetails.fromJSON({ name: "test", roles: [1, 4, 55] });
 			assert.equal(user.roleIds.size, 3, "Unexpected count of roles");
 		});
 		it("should calculate playerStats", function() {
-			let user = lib.User.fromJSON({ name: "test", roles: [1], instance_stats: [
+			let user = lib.UserDetails.fromJSON({ name: "test", roles: [1], instance_stats: [
 				[1, {
 					join_count: 1,
 					online_time_ms: 60e3,
