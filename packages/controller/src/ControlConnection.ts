@@ -1048,8 +1048,6 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
-	// A large number of small if statements are unavoidable when reducing the number of updates sent
-
 	async handleUserBulkImportRequest(request: lib.UserBulkImportRequest) {
 		let backup: undefined | Awaited<ReturnType<ControlConnection["handleUserBulkExportRequest"]>>;
 		const updated = new Map<User["id"], User>();

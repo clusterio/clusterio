@@ -53,10 +53,7 @@ function connectInstance(controller, host, instanceId) {
 function connectControl(controller, controlId) {
 	const [controllerSide, controlSide] = lib.VirtualConnector.makePair(addr("controller"), addr({ controlId }));
 	const registerData = new lib.RegisterControlData("", "0.0.0");
-	let user = controller.userManager.getByName("test");
-	if (!user) {
-		user = controller.userManager.createUser("test");
-	}
+	const user = controller.users.getOrCreateUser("test");
 	const controlConnection = new ControlConnection(registerData, controllerSide, controller, user, controlId);
 	controller.wsServer.controlConnections.set(controlId, controlConnection);
 	return new Control(controlSide);

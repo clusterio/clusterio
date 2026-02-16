@@ -160,13 +160,11 @@ async function handleBootstrapCommand(
 			return;
 		}
 
-		let admin = userManager.getByNameMutable(args.name);
-		if (!admin) {
-			admin = userManager.createUser(args.name);
-		}
+		const user = userManager.getOrCreateUser(args.name);
+		user.roleIds.add(lib.Role.DefaultAdminRoleId);
+		user.isAdmin = true;
+		user.saveRecord();
 
-		admin.isAdmin = true;
-		admin.addRole(lib.Role.DefaultAdminRoleId);
 		await userManager.records.save();
 		await controllerConfigLock.release();
 

@@ -4,9 +4,7 @@ const http = require("http");
 const express = require("express");
 
 const lib = require("@clusterio/lib");
-
-const UserManager = require("@clusterio/controller/dist/node/src/UserManager").default;
-const ControllerUser = require("@clusterio/controller/dist/node/src/ControllerUser").default;
+const { User, UserManager, UserRecord } = require("@clusterio/controller");
 
 const addr = lib.Address.fromShorthand;
 
@@ -179,13 +177,17 @@ class MockController {
 		]));
 
 		this.roles = new lib.SubscribableDatastore(roleProvider, roleProvider.value);
-		this.roles.get(1).grantDefaultPermissions();
+		this.roles.get(1).grantDefaultPermissions(); // Todo replace "core.admin" above with grantAdminPermissions
 
-		this.userManager = new UserManager(this.config, this.roles);
-		this.userManager.users = new Map([
-			["test", ControllerUser.fromJSON({ name: "test", roles: [0, 1] }, this.roles)],
-			["player", ControllerUser.fromJSON({ name: "player", roles: [1] }, this.roles)],
-		]);
+		const userProvider = new lib.MemoryDatastoreProvider(new Map([
+			["test", UserRecord.fromJSON({ name: "test", roles: [0, 1] })],
+			["player", UserRecord.fromJSON({ name: "player", roles: [1] })],
+		]));
+
+		this.users = new UserManager(
+			new lib.SubscribableDatastore(userProvider, userProvider.value),
+			this.roles, this.config
+		);
 
 		this.instances = new lib.KeyValueDatastore();
 		this.hosts = new lib.KeyValueDatastore();

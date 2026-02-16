@@ -5,6 +5,7 @@ import {
 } from "@clusterio/lib";
 
 import UserRecord from "./UserRecord";
+import { Static } from "@sinclair/typebox";
 
 /**
  * Represents a user as viewed from the controller.
@@ -21,10 +22,22 @@ export default class User extends UserRecord implements IUser {
 		super(...args);
 	}
 
-	static fromUserRecord(
+	static fromJSON(
+		json: Static<typeof this.jsonSchema>,
 		_controllerUsers: SubscribableDatastore<UserRecord>,
 		_controllerRoles: SubscribableDatastore<Role>,
+	) {
+		return this.fromUserRecord(
+			UserRecord.fromJSON(json),
+			_controllerUsers,
+			_controllerRoles,
+		);
+	}
+
+	static fromUserRecord(
 		userRecord: UserRecord,
+		_controllerUsers: SubscribableDatastore<UserRecord>,
+		_controllerRoles: SubscribableDatastore<Role>,
 	): User {
 		return new this(
 			_controllerUsers,

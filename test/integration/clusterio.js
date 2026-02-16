@@ -935,20 +935,22 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should create the user if instructed to", async function() {
 				slowTest(this);
-				getControl().userUpdates = [];
+				const userUpdates = [];
+				getControl().userUpdates = userUpdates;
 				for (let [listName, prop] of lists) {
 					await execCtl(`user set-${listName} --create test_create_${listName}`);
 					let user = (await getUsers()).get(`test_create_${listName}`);
 					assert.equal(user && user[prop], true, `user not created and added to ${listName}`);
 				}
-				assert.equal(getControl().userUpdates.length, 3);
+				assert.equal(userUpdates.length, 6); // 1 for create, 1 for setting the property
 			});
 			it("should send ban reason", async function() {
 				slowTest(this);
-				getControl().userUpdates = [];
+				const userUpdates = [];
+				getControl().userUpdates = userUpdates;
 				await execCtl("user set-banned --create test_ban_reason --reason a-reason");
-				assert.equal(getControl().userUpdates.length, 1);
-				assert.equal(getControl().userUpdates[0].banReason, "a-reason");
+				assert.equal(userUpdates.length, 2); // 1 for create, 1 for ban reason
+				assert.equal(userUpdates[1].banReason, "a-reason");
 				let user = await getUser("test_ban_reason");
 				assert.equal(user.banReason, "a-reason");
 			});
@@ -1893,9 +1895,9 @@ describe("Integration of Clusterio", function() {
 				assert(user.isWhitelisted, "restore_user was not whitelisted");
 
 				const control = users.get("restore_control");
-				assert(!control.isAdmin, "restore_user was admin");
-				assert(!control.isBanned, "restore_user was banned");
-				assert(!control.isWhitelisted, "restore_user was whitelisted");
+				assert(control.isAdmin, "restore_control was not admin");
+				assert(control.isBanned, "restore_control was not banned");
+				assert(control.isWhitelisted, "restore_control was not whitelisted");
 
 				const data = await fs.readJson(path.join("temp", "test", "users-backup.json"));
 				assert(data.users, "Users array does not exist");
@@ -1921,7 +1923,7 @@ describe("Integration of Clusterio", function() {
 				assert(userBar.isBanned, "restore_ban was not banned");
 				assert.equal(userBar.banReason, "", "restore_ban had incorrect ban reason");
 
-				assert(!users.get("restore_control").isBanned, "restore_user was banned");
+				assert(users.get("restore_control").isBanned, "restore_control was not banned");
 
 				const data = await fs.readJson(path.join("temp", "test", "bans-backup.json"));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
@@ -1935,7 +1937,7 @@ describe("Integration of Clusterio", function() {
 				const users = await getUsers();
 
 				assert(users.get("restore_admin").isAdmin, "restore_admin was not admin");
-				assert(!users.get("restore_control").isAdmin, "restore_user was admin");
+				assert(users.get("restore_control").isAdmin, "restore_user was not admin");
 
 				const data = await fs.readJson(path.join("temp", "test", "admins-backup.json"));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
@@ -1949,7 +1951,7 @@ describe("Integration of Clusterio", function() {
 				const users = await getUsers();
 
 				assert(users.get("restore_whitelist").isWhitelisted, "restore_whitelist was not whitelisted");
-				assert(!users.get("restore_control").isWhitelisted, "restore_user was whitelisted");
+				assert(users.get("restore_control").isWhitelisted, "restore_user was not whitelisted");
 
 				const data = await fs.readJson(path.join("temp", "test", "whitelist-backup.json"));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");

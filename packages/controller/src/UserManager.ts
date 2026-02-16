@@ -56,9 +56,9 @@ export default class UserManager {
 		}
 
 		return User.fromUserRecord(
+			userRecord,
 			this.records,
 			this._controllerRoles,
-			userRecord,
 		);
 	}
 
@@ -80,7 +80,7 @@ export default class UserManager {
 
 		return (function* () {
 			for (const record of users.values()) {
-				yield User.fromUserRecord(users, roles, record);
+				yield User.fromUserRecord(record, users, roles);
 			}
 		}());
 	}

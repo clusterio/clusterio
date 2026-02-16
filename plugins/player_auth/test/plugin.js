@@ -286,8 +286,8 @@ describe("player_auth", function() {
 						new SetVerifyCodeRequest("test", verify_code)
 					);
 
-					const user = controllerPlugin.controller.userManager.getByName("test");
-					const token = controllerPlugin.controller.userManager.signUserToken(user);
+					const user = controllerPlugin.controller.users.getByName("test");
+					const token = controllerPlugin.controller.users.signUserToken(user);
 					const verifyResult = await postJSON(
 						`${controllerUrl}/api/player_auth/verify`,
 						{ player_code: playerCode, verify_code, verify_token }

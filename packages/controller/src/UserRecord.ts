@@ -16,7 +16,8 @@ export default class UserRecord extends UserDetails {
 		...UserDetails.jsonSchema.properties,
 	});
 
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
+	// _a and _b are a ts workaround for allowing User to have extra arguments
+	static fromJSON(json: Static<typeof this.jsonSchema>, _a?: any, _b?: any) {
 		return this.fromUserDetails(
 			UserDetails.fromJSON(json),
 			json.token_valid_after,
@@ -24,10 +25,13 @@ export default class UserRecord extends UserDetails {
 	}
 
 	toJSON() {
-		return {
-			...super.toJSON(),
-			token_valid_after: this.tokenValidAfter,
-		};
+		const json = super.toJSON() as Static<typeof UserRecord.jsonSchema>;
+
+		if (this.tokenValidAfter > 0) {
+			json.token_valid_after = this.tokenValidAfter;
+		}
+
+		return json;
 	}
 
 	static fromUserDetails(
