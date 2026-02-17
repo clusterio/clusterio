@@ -4,6 +4,8 @@ import PlayerStats from "./PlayerStats";
 
 /** Represents a user in the cluster */
 export default class UserDetails {
+	public playerStats: PlayerStats;
+
 	constructor(
 		/** Factorio user name.  */
 		public name: string,
@@ -23,11 +25,10 @@ export default class UserDetails {
 		public updatedAtMs = 0,
 		/** True if this user object has been removed from the cluster.  */
 		public isDeleted = false,
-		/** Combined statistics for the player this user account is tied to.  */
-		public playerStats = new PlayerStats(),
 		/** Per instance statistics for the player this user account is tied to.  */
 		public instanceStats = new Map<number, PlayerStats>(),
 	) {
+		this.playerStats = UserDetails._calculatePlayerStats(this.instanceStats);
 	}
 
 	/** Name of the user, used by event subscriptions and to ensure case insensitivity */
@@ -66,7 +67,6 @@ export default class UserDetails {
 			json.ban_reason,
 			json.updated_at_ms,
 			json.is_deleted,
-			UserDetails._calculatePlayerStats(instanceStats),
 			instanceStats,
 		);
 	}

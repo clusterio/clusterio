@@ -49,7 +49,6 @@ export default class UserRecord extends UserDetails {
 			userDetails.banReason,
 			userDetails.updatedAtMs,
 			userDetails.isDeleted,
-			userDetails.playerStats,
 			userDetails.instanceStats,
 		);
 	}
@@ -65,7 +64,6 @@ export default class UserRecord extends UserDetails {
 			this.banReason,
 			this.updatedAtMs,
 			this.isDeleted,
-			this.playerStats,
 			this.instanceStats,
 		);
 	}
@@ -84,7 +82,7 @@ export default class UserRecord extends UserDetails {
 		this.instances = new Set([...this.instances, ...otherUser.instances]);
 		this.isAdmin = this.isAdmin && otherUser.isAdmin; // More secure to use && rather ||
 		this.isBanned = this.isBanned || otherUser.isBanned;
-		this.isBanned = this.isWhitelisted || otherUser.isWhitelisted;
+		this.isWhitelisted = this.isWhitelisted || otherUser.isWhitelisted;
 		this.banReason = this.updatedAtMs > otherUser.updatedAtMs ? this.banReason : otherUser.banReason;
 		this.updatedAtMs = Date.now();
 

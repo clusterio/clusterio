@@ -52,7 +52,6 @@ export default class User extends UserRecord implements IUser {
 			userRecord.banReason,
 			userRecord.updatedAtMs,
 			userRecord.isDeleted,
-			userRecord.playerStats,
 			userRecord.instanceStats,
 		);
 	}
