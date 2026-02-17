@@ -26,8 +26,8 @@ describe("controller/User", function () {
 	describe("get roles", function () {
 		it("should return roles from _controllerRoles", function () {
 			const roleSet = user.roles;
-			assert.strictEqual(roleSet.size, 1);
-			assert.strictEqual([...roleSet][0].id, 1);
+			assert.equal(roleSet.size, 1);
+			assert.equal([...roleSet][0].id, 1);
 		});
 	});
 
@@ -43,7 +43,7 @@ describe("controller/User", function () {
 		it("should update updatedAtMs", function () {
 			const prev = user.updatedAtMs;
 			user.set("isAdmin", true);
-			assert.strictEqual(user.isAdmin, true);
+			assert.equal(user.isAdmin, true);
 			assert(user.updatedAtMs > prev);
 		});
 	});
@@ -85,7 +85,7 @@ describe("controller/User", function () {
 		it("should return false if role was not assigned", function () {
 			const prev = user.updatedAtMs;
 			const result = user.removeRole(999);
-			assert.strictEqual(result, false);
+			assert.equal(result, false);
 			assert(user.updatedAtMs === prev); // unchanged
 		});
 	});

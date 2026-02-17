@@ -39,8 +39,8 @@ describe("lib/controller/UserManager", function () {
 		});
 
 		it("should return undefined when user does not exist", function () {
-			assert.strictEqual(userManager.getById("nonexistent"), undefined);
-			assert.strictEqual(userManager.getByName("nonexistent"), undefined);
+			assert.equal(userManager.getById("nonexistent"), undefined);
+			assert.equal(userManager.getByName("nonexistent"), undefined);
 		});
 	});
 
@@ -96,7 +96,7 @@ describe("lib/controller/UserManager", function () {
 			const user = userManager.createUser("Heidi");
 			assert(userManager.getByName("Heidi"));
 			userManager.deleteUser(user);
-			assert.strictEqual(userManager.getByName("Heidi"), undefined);
+			assert.equal(userManager.getByName("Heidi"), undefined);
 		});
 	});
 
@@ -109,7 +109,7 @@ describe("lib/controller/UserManager", function () {
 				Buffer.from(config.get("controller.auth_secret"), "base64")
 			);
 			const { iat, ...rest } = payload;
-			assert.strictEqual(typeof iat, "number");
+			assert.equal(typeof iat, "number");
 			assert.deepEqual(rest, { aud: "user", user: user.id });
 		});
 	});

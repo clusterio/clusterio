@@ -1,7 +1,7 @@
 "use strict";
 const path = require("node:path");
 const assert = require("assert").strict;
-const { Controller, HostInfo, InstanceInfo } = require("@clusterio/controller");
+const { Controller, HostInfo, InstanceInfo, UserRecord } = require("@clusterio/controller");
 const { EventEmitter } = require("stream");
 
 const {
@@ -196,50 +196,6 @@ describe("controller/src/Controller", function() {
 				assert(controller.instances.dirty === true, "dirty flag was not set");
 			});
 		});
-		describe(".finaliseHosts()", function() {
-			it("resets the connected state to false", function() {
-				const hostInfo = new HostInfo(1, "", "", new Map(), true);
-				Controller.finaliseHosts(hostInfo);
-				assert.equal(hostInfo.connected, false);
-				assert(hostInfo.updatedAtMs > 0, "updatedAtMs not incremented");
-			});
-			it("does not increment updatedAtMs when there are no changes", function() {
-				const hostInfo = new HostInfo(1, "", "", new Map(), false);
-				Controller.finaliseHosts(hostInfo);
-				assert.equal(hostInfo.connected, false);
-				assert(hostInfo.updatedAtMs === 0, "updatedAtMs incremented");
-			});
-		});
-		describe(".finaliseInstances()", function() {
-			it("resets the stats for assigned instances", function() {
-				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
-				const instanceInfo = new InstanceInfo(instanceConfig, "running");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unknown");
-				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
-			});
-			it("resets the status for unassigned instances", function() {
-				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
-				const instanceInfo = new InstanceInfo(instanceConfig, "running");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unassigned");
-				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
-			});
-			it("does not update updatedAtMs when there are no changes (assigned)", function() {
-				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
-				const instanceInfo = new InstanceInfo(instanceConfig, "unknown");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unknown");
-				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
-			});
-			it("does not update updatedAtMs when there are no changes (unassigned)", function() {
-				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
-				const instanceInfo = new InstanceInfo(instanceConfig, "unassigned");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unassigned");
-				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
-			});
-		});
 		describe(".checkRestartRequired()", function() {
 			beforeEach(function() {
 				// Would not be needed if controller setup was beforeEach
@@ -297,8 +253,117 @@ describe("controller/src/Controller", function() {
 			});
 		});
 	});
+	describe("finalise", function() {
+		describe(".finaliseHosts()", function() {
+			it("resets the connected state to false", function() {
+				const hostInfo = new HostInfo(1, "", "", new Map(), true);
+				Controller.finaliseHosts(hostInfo);
+				assert.equal(hostInfo.connected, false);
+				assert(hostInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+			});
+			it("does not increment updatedAtMs when there are no changes", function() {
+				const hostInfo = new HostInfo(1, "", "", new Map(), false);
+				Controller.finaliseHosts(hostInfo);
+				assert.equal(hostInfo.connected, false);
+				assert(hostInfo.updatedAtMs === 0, "updatedAtMs incremented");
+			});
+		});
+		describe(".finaliseInstances()", function() {
+			it("resets the stats for assigned instances", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
+				const instanceInfo = new InstanceInfo(instanceConfig, "running");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unknown");
+				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+			});
+			it("resets the status for unassigned instances", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
+				const instanceInfo = new InstanceInfo(instanceConfig, "running");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unassigned");
+				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+			});
+			it("does not update updatedAtMs when there are no changes (assigned)", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
+				const instanceInfo = new InstanceInfo(instanceConfig, "unknown");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unknown");
+				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
+			});
+			it("does not update updatedAtMs when there are no changes (unassigned)", function() {
+				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
+				const instanceInfo = new InstanceInfo(instanceConfig, "unassigned");
+				Controller.finaliseInstances(instanceInfo);
+				assert.equal(instanceInfo.status, "unassigned");
+				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
+			});
+		});
+		describe(".finaliseUsers()", function() {
+			it("returns the user when there is no existing user", function() {
+				const user = new UserRecord(0, "TestUser", new Set([1]));
+				user.playerStats.onlineTimeMs = 100;
+
+				const users = new Map();
+				const result = Controller.finaliseUsers(user, users);
+				assert.equal(users.size, 0);
+				assert.equal(result, user);
+			});
+			it("does not merge users with different ids", function() {
+				const existingUser = new UserRecord(0, "UserOne", new Set([1]));
+				existingUser.playerStats.onlineTimeMs = 100;
+
+				const otherUser = new UserRecord(0, "UserTwo", new Set([2]));
+				otherUser.playerStats.onlineTimeMs = 50;
+
+				const users = new Map([[existingUser.id, existingUser]]);
+				const result = Controller.finaliseUsers(otherUser, users);
+				assert.equal(users.size, 1);
+				assert.equal(result, otherUser);
+				assert(!result.roleIds.has(1), "users were merged");
+			});
+			it("merges into existing user when onlineTimeMs is lower", function() {
+				const existingUser = new UserRecord(0, "TestUser", new Set([1]));
+				existingUser.playerStats.onlineTimeMs = 100;
+
+				const user = new UserRecord(0, "TestUser", new Set([2]));
+				user.playerStats.onlineTimeMs = 50;
+
+				const users = new Map([[existingUser.id, existingUser]]);
+				const result = Controller.finaliseUsers(user, users);
+				assert.equal(users.size, 1);
+				assert.equal(result, existingUser);
+				assert(result.roleIds.has(2), "other user not merged");
+			});
+			it("merges into existing user when onlineTimeMs is equal", function() {
+				const existingUser = new UserRecord(0, "TestUser", new Set([1]));
+				existingUser.playerStats.onlineTimeMs = 100;
+
+				const user = new UserRecord(0, "TestUser", new Set([2]));
+				user.playerStats.onlineTimeMs = 100;
+
+				const users = new Map([[existingUser.id, existingUser]]);
+				const result = Controller.finaliseUsers(user, users);
+				assert.equal(users.size, 1);
+				assert.equal(result, existingUser);
+				assert(result.roleIds.has(2), "other user not merged");
+			});
+			it("merges existing user into new user when onlineTimeMs is higher", function() {
+				const existingUser = new UserRecord(0, "TestUser", new Set([1]));
+				existingUser.playerStats.onlineTimeMs = 50;
+
+				const user = new UserRecord(0, "TestUser", new Set([2]));
+				user.playerStats.onlineTimeMs = 100;
+
+				const users = new Map([[existingUser.id, existingUser]]);
+				const result = Controller.finaliseUsers(user, users);
+				assert.equal(users.size, 1);
+				assert.equal(result, user);
+				assert(result.roleIds.has(1), "existing user not merged");
+			});
+		});
+	});
 	describe("migrations", function() {
-		describe("SystemInfo", function() {
+		describe(".migrateSystems()", function() {
 			it("migrates 'canRestart' from undefined to false", function() { // Alpha 17
 				const result = Controller.migrateSystems([
 					{}, { canRestart: true }, { canRestart: false },
@@ -350,7 +415,7 @@ describe("controller/src/Controller", function() {
 				]);
 			});
 		});
-		describe("HostInfo", function() {
+		describe(".migrateHosts()", function() {
 			it("migrates to the new format", function() { // Alpha 19
 				const result = Controller.migrateHosts([
 					["", "foo"], ["", "bar"], ["", "baz"],
@@ -372,7 +437,7 @@ describe("controller/src/Controller", function() {
 				]);
 			});
 		});
-		describe("InstanceInfo", function() {
+		describe(".migrateInstances()", function() {
 			it("migrates to the new format", function() { // Alpha 14
 				const result = Controller.migrateInstances([
 					{ name: "foo" }, { name: "bar" }, { name: "baz" },
@@ -397,7 +462,7 @@ describe("controller/src/Controller", function() {
 				]);
 			});
 		});
-		describe("ModPack", function() {
+		describe(".migrateModPacks()", function() {
 			it("migrates builtin mod versions to X.Y.Z", function() {
 				const modPacks = Controller.migrateModPacks([{
 					id: 0,
@@ -439,7 +504,7 @@ describe("controller/src/Controller", function() {
 				]);
 			});
 		});
-		describe("Role", function() {
+		describe(".migrateRoles()", function() {
 			it("migrates renamed permissions", function() { // Alpha 17
 				const result = Controller.migrateRoles([
 					{ permissions: ["foo", "bar", "core.instance.save.list.subscribe"] },

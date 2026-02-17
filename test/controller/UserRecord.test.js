@@ -89,7 +89,7 @@ describe("controller/UserRecord", function () {
 
 			assert(details instanceof UserDetails);
 			assert.equal(details.name, record.name);
-			assert.strictEqual(details.tokenValidAfter, undefined);
+			assert.equal(details.tokenValidAfter, undefined);
 		});
 	});
 
@@ -140,9 +140,9 @@ describe("controller/UserRecord", function () {
 			a.merge(b);
 
 			assert.equal(a.instanceStats.has(1), true);
-			assert.strictEqual(a.instanceStats.get(1).joinCount, 4);
+			assert.equal(a.instanceStats.get(1).joinCount, 4);
 			assert.equal(a.instanceStats.has(2), true);
-			assert.strictEqual(a.instanceStats.get(2).joinCount, 5);
+			assert.equal(a.instanceStats.get(2).joinCount, 5);
 		});
 	});
 });
