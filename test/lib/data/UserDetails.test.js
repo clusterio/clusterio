@@ -62,7 +62,7 @@ describe("lib/data/UserDetails", function () {
 		});
 	});
 
-	describe("get id", function () {
+	describe("get .id", function () {
 		it("should return lowercase name", function () {
 			const user = new UserDetails("AdMiN");
 			assert.equal(user.id, "admin");
