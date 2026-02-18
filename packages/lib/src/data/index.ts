@@ -12,6 +12,7 @@ export { default as ModuleInfo } from "./ModuleInfo";
 export { default as Permission } from "./Permission";
 export { default as PlayerStats } from "./PlayerStats";
 export { default as Role } from "./Role";
+export { default as HostDetails } from "./HostDetails";
 export { default as UserDetails } from "./UserDetails";
 export type { IUser } from "./UserDetails";
 export * from "./composites";

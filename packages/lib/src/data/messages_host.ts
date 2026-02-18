@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { jsonArray, plainJson, StringEnum } from "./composites";
 import { CollectorResultSerialized } from "../prometheus";
 import { HostConfig } from "../config/definitions";
+import HostDetails from "./HostDetails";
 
 export class HostStopRequest {
 	declare ["constructor"]: typeof HostStopRequest;
@@ -79,47 +80,6 @@ export class HostConfigSetPropRequest {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.field, json.prop, json.value);
-	}
-}
-
-export class HostDetails {
-	constructor(
-		public version: string,
-		public name: string,
-		public id: number,
-		public connected: boolean,
-		public remoteAddress = "",
-		public publicAddress: string = "",
-		public tokenValidAfter: number = 0,
-		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAtMs = 0,
-		public isDeleted = false,
-	) { }
-
-	static jsonSchema = Type.Object({
-		"version": Type.String(),
-		"name": Type.String(),
-		"id": Type.Integer(),
-		"connected": Type.Boolean(),
-		"remoteAddress": Type.Optional(Type.String()),
-		"publicAddress": Type.Optional(Type.String()),
-		"tokenValidAfter": Type.Optional(Type.Number()),
-		"updatedAtMs": Type.Optional(Type.Number()),
-		"isDeleted": Type.Optional(Type.Boolean()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(
-			json.version,
-			json.name,
-			json.id,
-			json.connected,
-			json.remoteAddress,
-			json.publicAddress,
-			json.tokenValidAfter,
-			json.updatedAtMs,
-			json.isDeleted,
-		);
 	}
 }
 

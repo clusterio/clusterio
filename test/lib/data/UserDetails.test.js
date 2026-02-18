@@ -76,14 +76,13 @@ describe("lib/data/UserDetails", function () {
 	});
 
 	describe(".toJSON()", function () {
-		it("should only include name when all fields are default", function () {
+		it("should only include required fields when optional fields are not given", function () {
 			const user = new UserDetails("Test");
 			assert.deepEqual(user.toJSON(), { name: "Test" });
 		});
 
 		it("should include all optional fields when set", function () {
 			const stats = new PlayerStats({ join_count: 1 });
-
 			const user = new UserDetails(
 				"Test", new Set([1, 2]), new Set([10]),
 				true, true, true, "reason",
@@ -105,7 +104,7 @@ describe("lib/data/UserDetails", function () {
 			});
 		});
 
-		it("should omit empty sets and falsy flags", function () {
+		it("should omit optional fields when equal to defaults", function () {
 			const user = new UserDetails(
 				"Test", new Set(), new Set(),
 				false, false, false, "",
@@ -122,8 +121,42 @@ describe("lib/data/UserDetails", function () {
 			const user = UserDetails.fromJSON({ name: "Test" });
 
 			assert.equal(user.name, "Test");
-			assert.equal(user.roleIds.size, 0);
-			assert.equal(user.instances.size, 0);
+			assert.deepEqual(user.roleIds, new Set());
+			assert.deepEqual(user.instances, new Set());
+			assert.deepEqual(user.isAdmin, false);
+			assert.equal(user.isBanned, false);
+			assert.equal(user.isWhitelisted, false);
+			assert.equal(user.banReason, "");
+			assert.equal(user.updatedAtMs, 0);
+			assert.equal(user.isDeleted, false);
+			assert.deepEqual(user.instanceStats, new Map());
+		});
+
+		it("should preserve optional fields exactly when provided", function () {
+			const stats = new PlayerStats({ join_count: 1 });
+			const user = UserDetails.fromJSON({
+				name: "Test",
+				roles: [1, 2],
+				instances: [10],
+				is_admin: true,
+				is_banned: true,
+				is_whitelisted: true,
+				ban_reason: "reason",
+				updated_at_ms: 123,
+				is_deleted: true,
+				instance_stats: [[1, stats.toJSON()]],
+			});
+
+			assert.equal(user.name, "Test");
+			assert.deepEqual(user.roleIds, new Set([1, 2]));
+			assert.deepEqual(user.instances, new Set([10]));
+			assert.deepEqual(user.isAdmin, true);
+			assert.equal(user.isBanned, true);
+			assert.equal(user.isWhitelisted, true);
+			assert.equal(user.banReason, "reason");
+			assert.equal(user.updatedAtMs, 123);
+			assert.equal(user.isDeleted, true);
+			assert.deepEqual(user.instanceStats, new Map([[1, stats]]));
 		});
 
 		it("should preserve roles exactly (including invalid ones)", function () {
