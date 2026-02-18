@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { BaseControllerPlugin, InstanceInfo } from "@clusterio/controller";
+import { BaseControllerPlugin, InstanceRecord } from "@clusterio/controller";
 //%if multi_context // Messages requires multi context
 
 import {
@@ -37,7 +37,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	}
 //%if instance
 
-	async onInstanceConfigFieldChanged(instance: InstanceInfo, field: string, curr: unknown, prev: unknown) {
+	async onInstanceConfigFieldChanged(instance: InstanceRecord, field: string, curr: unknown, prev: unknown) {
 		this.logger.info(`controller::onInstanceConfigFieldChanged ${instance.id} ${field}`);
 	}
 //%endif
@@ -50,7 +50,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.logger.info("controller::onShutdown");
 	}
 
-	async onPlayerEvent(instance: InstanceInfo, event: lib.PlayerEvent) {
+	async onPlayerEvent(instance: InstanceRecord, event: lib.PlayerEvent) {
 		this.logger.info(`controller::onPlayerEvent ${instance.id} ${JSON.stringify(event)}`);
 	}
 //%if multi_context

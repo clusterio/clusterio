@@ -5,7 +5,7 @@ import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
-import InstanceInfo from "./InstanceInfo";
+import InstanceRecord from "./InstanceRecord";
 import HostRecord from "./HostRecord";
 
 
@@ -57,7 +57,7 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
-			const instances: InstanceInfo[] = [];
+			const instances: InstanceRecord[] = [];
 			for (let instance of this._controller.instances.valuesMutable()) {
 				if (instance.config.get("instance.assigned_host") !== this.id) {
 					continue;
@@ -231,7 +231,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		// Assign instances the host has but controller does not
-		const instanceUpdates: InstanceInfo[] = [];
+		const instanceUpdates: InstanceRecord[] = [];
 		for (let instanceData of request.instances) {
 			const instanceConfig = new lib.InstanceConfig("controller");
 			instanceConfig.update(instanceData.config, false, "host");
@@ -265,7 +265,7 @@ export default class HostConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_host", this.id);
-			let newInstance = new InstanceInfo(
+			let newInstance = new InstanceRecord(
 				instanceConfig,
 				instanceData.status,
 				instanceData.gamePort,

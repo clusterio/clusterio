@@ -18,7 +18,7 @@ import * as lib from "@clusterio/lib";
 const { logger, Summary, Gauge } = lib;
 
 import HttpCloser from "./HttpCloser";
-import InstanceInfo from "./InstanceInfo";
+import InstanceRecord from "./InstanceRecord";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
 import User from "./User";
@@ -136,7 +136,7 @@ export default class Controller {
 
 		const instances = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "instances.json"),
-			json => InstanceInfo.fromJSON(json, "controller"),
+			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
 		).bootstrap());
 
@@ -207,7 +207,7 @@ export default class Controller {
 		/** Mapping of host id to host info */
 		public hosts = new lib.SubscribableDatastore<HostRecord>(),
 		/** Mapping of instance id to instance info */
-		public instances = new lib.SubscribableDatastore<InstanceInfo>(),
+		public instances = new lib.SubscribableDatastore<InstanceRecord>(),
 		/** Mapping of save id to save details */
 		public saves = new lib.SubscribableDatastore<lib.SaveDetails>(),
 		/** Mapping of mod pack id to mod pack */
@@ -706,8 +706,8 @@ export default class Controller {
 		return host;
 	}
 
-	static migrateInstances(rawJson: unknown[]): Static<typeof InstanceInfo.jsonSchema>[] {
-		const serialized = rawJson as Static<typeof InstanceInfo.jsonSchema>[];
+	static migrateInstances(rawJson: unknown[]): Static<typeof InstanceRecord.jsonSchema>[] {
+		const serialized = rawJson as Static<typeof InstanceRecord.jsonSchema>[];
 		return serialized.map(json => {
 			if (!json.config) { // New format 2.0.0.alpha.14
 				return { config: json as any, status: "running" }; // Use running to force updatedAtMs
@@ -716,7 +716,7 @@ export default class Controller {
 		});
 	}
 
-	static finaliseInstances(instance: InstanceInfo): InstanceInfo {
+	static finaliseInstances(instance: InstanceRecord): InstanceRecord {
 		const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 		if (instance.status !== status) {
 			instance.status = status;
@@ -901,7 +901,7 @@ export default class Controller {
 	 * @returns Info for the given instance if it exists
 	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
-	getRequestInstance(instanceId:number): InstanceInfo {
+	getRequestInstance(instanceId:number): InstanceRecord {
 		let instance = this.instances.get(instanceId);
 		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -925,7 +925,7 @@ export default class Controller {
 	 *     Config to base newly created instance on.
 	 * @returns The created instance
 	 */
-	async instanceCreate(instanceConfig: lib.InstanceConfig): Promise<InstanceInfo> {
+	async instanceCreate(instanceConfig: lib.InstanceConfig): Promise<InstanceRecord> {
 		let instanceId = instanceConfig.get("instance.id");
 		if (this.instances.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
@@ -956,7 +956,7 @@ export default class Controller {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, undefined, Date.now());
+		let instance = new InstanceRecord(instanceConfig, "unassigned", undefined, undefined, Date.now());
 		this.instances.set(instance);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
@@ -1059,7 +1059,7 @@ export default class Controller {
 	 * @param instance -
 	 *     Instance to nodify the config updated.
 	 */
-	async instanceConfigUpdated(instance: InstanceInfo) {
+	async instanceConfigUpdated(instance: InstanceRecord) {
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId !== null) {
 			let connection = this.wsServer.hostConnections.get(hostId);
@@ -1071,7 +1071,7 @@ export default class Controller {
 		}
 	}
 
-	addInstanceHooks(instance: InstanceInfo) {
+	addInstanceHooks(instance: InstanceRecord) {
 		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
 			instance.updatedAtMs = Date.now();
 			this.instances.set(instance); // Trigger update logic
@@ -1080,7 +1080,7 @@ export default class Controller {
 		});
 	}
 
-	instanceDetailsUpdated(instances: InstanceInfo[]) {
+	instanceDetailsUpdated(instances: InstanceRecord[]) {
 		for (const instance of instances) {
 			if (instance.status === "stopped") {
 				this.subscriptions.unsubscribeAddress(lib.Address.fromShorthand({instanceId: instance.id}));

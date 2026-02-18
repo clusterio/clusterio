@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 
 const lib = require("@clusterio/lib");
 const { Host, Instance, InstanceConnection } = require("@clusterio/host");
-const { ControlConnection, Controller, HostConnection, InstanceInfo } = require("@clusterio/controller");
+const { ControlConnection, Controller, HostConnection, InstanceRecord } = require("@clusterio/controller");
 
 // Although there are no imports, the file has side-effects such as "before" which can effect tests
 require("./index");
@@ -38,8 +38,8 @@ function connectInstance(controller, host, instanceId) {
 	const instanceConfig = new lib.InstanceConfig("host");
 	instanceConfig.set("instance.id", instanceId);
 	instanceConfig.set("instance.assigned_host", host.config.get("host.id"));
-	host.instanceInfos.set(instanceId, { path: "invalid", config: instanceConfig });
-	controller.instances.set(new InstanceInfo(instanceConfig, "stopped"));
+	host.assignedInstances.set(instanceId, { path: "invalid", config: instanceConfig });
+	controller.instances.set(new InstanceRecord(instanceConfig, "stopped"));
 	const instance = new Instance(host, instanceSide, "invalid", "invalid", instanceConfig);
 	const instanceConnection = new InstanceConnection(hostSide, host, instance);
 	host.instanceConnections.set(instanceId, instanceConnection);

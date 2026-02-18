@@ -1,7 +1,7 @@
 "use strict";
 const path = require("node:path");
 const assert = require("assert").strict;
-const { Controller, HostRecord, InstanceInfo, UserRecord } = require("@clusterio/controller");
+const { Controller, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
 const { EventEmitter } = require("stream");
 
 const {
@@ -271,31 +271,31 @@ describe("controller/src/Controller", function() {
 		describe(".finaliseInstances()", function() {
 			it("resets the stats for assigned instances", function() {
 				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
-				const instanceInfo = new InstanceInfo(instanceConfig, "running");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unknown");
-				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+				const instanceRecord = new InstanceRecord(instanceConfig, "running");
+				Controller.finaliseInstances(instanceRecord);
+				assert.equal(instanceRecord.status, "unknown");
+				assert(instanceRecord.updatedAtMs > 0, "updatedAtMs not incremented");
 			});
 			it("resets the status for unassigned instances", function() {
 				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
-				const instanceInfo = new InstanceInfo(instanceConfig, "running");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unassigned");
-				assert(instanceInfo.updatedAtMs > 0, "updatedAtMs not incremented");
+				const instanceRecord = new InstanceRecord(instanceConfig, "running");
+				Controller.finaliseInstances(instanceRecord);
+				assert.equal(instanceRecord.status, "unassigned");
+				assert(instanceRecord.updatedAtMs > 0, "updatedAtMs not incremented");
 			});
 			it("does not update updatedAtMs when there are no changes (assigned)", function() {
 				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": 1 });
-				const instanceInfo = new InstanceInfo(instanceConfig, "unknown");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unknown");
-				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
+				const instanceRecord = new InstanceRecord(instanceConfig, "unknown");
+				Controller.finaliseInstances(instanceRecord);
+				assert.equal(instanceRecord.status, "unknown");
+				assert(instanceRecord.updatedAtMs === 0, "updatedAtMs incremented");
 			});
 			it("does not update updatedAtMs when there are no changes (unassigned)", function() {
 				const instanceConfig = new InstanceConfig("controller", { "instance.assigned_host": null });
-				const instanceInfo = new InstanceInfo(instanceConfig, "unassigned");
-				Controller.finaliseInstances(instanceInfo);
-				assert.equal(instanceInfo.status, "unassigned");
-				assert(instanceInfo.updatedAtMs === 0, "updatedAtMs incremented");
+				const instanceRecord = new InstanceRecord(instanceConfig, "unassigned");
+				Controller.finaliseInstances(instanceRecord);
+				assert.equal(instanceRecord.status, "unassigned");
+				assert(instanceRecord.updatedAtMs === 0, "updatedAtMs incremented");
 			});
 		});
 		describe(".finaliseUsers()", function() {
@@ -450,15 +450,15 @@ describe("controller/src/Controller", function() {
 			});
 			it("does nothing for upto date data", function() {
 				const instanceConfig = new InstanceConfig("controller");
-				const instanceInfo = new InstanceInfo(instanceConfig, "unknown");
-				const jsonString = JSON.stringify(instanceInfo);
-				const instanceInfoJson = JSON.parse(jsonString);
-				const instanceInfoJsonCopy = JSON.parse(jsonString);
+				const instanceRecord = new InstanceRecord(instanceConfig, "unknown");
+				const jsonString = JSON.stringify(instanceRecord);
+				const instanceRecordJson = JSON.parse(jsonString);
+				const instanceRecordJsonCopy = JSON.parse(jsonString);
 				const result = Controller.migrateInstances([
-					instanceInfoJson, instanceInfoJson, instanceInfoJson,
+					instanceRecordJson, instanceRecordJson, instanceRecordJson,
 				]);
 				assert.deepEqual(result, [
-					instanceInfoJsonCopy, instanceInfoJsonCopy, instanceInfoJsonCopy,
+					instanceRecordJsonCopy, instanceRecordJsonCopy, instanceRecordJsonCopy,
 				]);
 			});
 		});
