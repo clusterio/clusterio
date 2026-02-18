@@ -1,7 +1,7 @@
 "use strict";
 const path = require("node:path");
 const assert = require("assert").strict;
-const { Controller, HostInfo, InstanceInfo, UserRecord } = require("@clusterio/controller");
+const { Controller, HostRecord, InstanceInfo, UserRecord } = require("@clusterio/controller");
 const { EventEmitter } = require("stream");
 
 const {
@@ -256,13 +256,13 @@ describe("controller/src/Controller", function() {
 	describe("finalise", function() {
 		describe(".finaliseHosts()", function() {
 			it("resets the connected state to false", function() {
-				const hostInfo = new HostInfo(1, "", "", new Map(), true);
+				const hostInfo = new HostRecord(1, "", "", new Map(), true);
 				Controller.finaliseHosts(hostInfo);
 				assert.equal(hostInfo.connected, false);
 				assert(hostInfo.updatedAtMs > 0, "updatedAtMs not incremented");
 			});
 			it("does not increment updatedAtMs when there are no changes", function() {
-				const hostInfo = new HostInfo(1, "", "", new Map(), false);
+				const hostInfo = new HostRecord(1, "", "", new Map(), false);
 				Controller.finaliseHosts(hostInfo);
 				assert.equal(hostInfo.connected, false);
 				assert(hostInfo.updatedAtMs === 0, "updatedAtMs incremented");
@@ -425,7 +425,7 @@ describe("controller/src/Controller", function() {
 				]);
 			});
 			it("does nothing for upto date data", function() {
-				const hostInfo = new HostInfo(1, "", "", new Map());
+				const hostInfo = new HostRecord(1, "", "", new Map());
 				const jsonString = JSON.stringify(hostInfo);
 				const hostInfoJson = JSON.parse(jsonString);
 				const hostInfoJsonCopy = JSON.parse(jsonString);

@@ -6,7 +6,7 @@ const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
 import InstanceInfo from "./InstanceInfo";
-import HostInfo from "./HostInfo";
+import HostRecord from "./HostRecord";
 
 
 /**
@@ -16,7 +16,7 @@ import HostInfo from "./HostInfo";
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	private info: HostInfo;
+	private info: HostRecord;
 	plugins: Map<string, string>;
 
 	constructor(
@@ -30,7 +30,7 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 
 		const previousHostInfo = this._controller.hosts.get(registerData.id);
-		this.info = new HostInfo(
+		this.info = new HostRecord(
 			registerData.id,
 			previousHostInfo?.name ?? "",
 			registerData.version,

@@ -26,7 +26,7 @@ import UserRecord from "./UserRecord";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
 import HostConnection from "./HostConnection";
-import HostInfo from "./HostInfo";
+import HostRecord from "./HostRecord";
 import BaseControllerPlugin from "./BaseControllerPlugin";
 import ControllerRouter from "./ControllerRouter";
 
@@ -130,7 +130,7 @@ export default class Controller {
 
 		const hosts = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "hosts.json"),
-			HostInfo.fromJSON.bind(HostInfo),
+			HostRecord.fromJSON.bind(HostRecord),
 			this.migrateHosts, this.finaliseHosts,
 		).bootstrap());
 
@@ -205,7 +205,7 @@ export default class Controller {
 		public recoveryMode: boolean = false,
 		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
 		/** Mapping of host id to host info */
-		public hosts = new lib.SubscribableDatastore<HostInfo>(),
+		public hosts = new lib.SubscribableDatastore<HostRecord>(),
 		/** Mapping of instance id to instance info */
 		public instances = new lib.SubscribableDatastore<InstanceInfo>(),
 		/** Mapping of save id to save details */
@@ -687,7 +687,7 @@ export default class Controller {
 		});
 	}
 
-	static migrateHosts(rawJson: unknown[]): Static<typeof HostInfo.jsonSchema>[] {
+	static migrateHosts(rawJson: unknown[]): Static<typeof HostRecord.jsonSchema>[] {
 		let serialized = rawJson as any;
 
 		// New format 2.0.0.alpha.19
@@ -698,7 +698,7 @@ export default class Controller {
 		return serialized;
 	}
 
-	static finaliseHosts(host: HostInfo): HostInfo {
+	static finaliseHosts(host: HostRecord): HostRecord {
 		if (host.connected) {
 			host.connected = false;
 			host.updatedAtMs = Date.now();
@@ -882,7 +882,7 @@ export default class Controller {
 		);
 	}
 
-	hostsUpdated(hosts: HostInfo[]) {
+	hostsUpdated(hosts: HostRecord[]) {
 		let updates = hosts.map(host => host.toHostDetails());
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
 	}

@@ -37,8 +37,8 @@ describe("lib/data/HostDetails", function () {
 
 		it("should accept all constructor parameters", function () {
 			const host = new HostDetails(
-				"2.0.0", "FullHost", 42, false,
-				"10.1.1.1", "198.51.100.5",
+				"2.0.0", "FullHost", 42,
+				false, "10.1.1.1", "198.51.100.5",
 				123, 999, true
 			);
 
@@ -68,8 +68,8 @@ describe("lib/data/HostDetails", function () {
 
 		it("should include all optional fields when set", function () {
 			const host = new HostDetails(
-				"2.0.0", "FullHost", 99, true,
-				"10.0.0.5", "203.0.113.5",
+				"2.0.0", "FullHost", 99,
+				true, "10.0.0.5", "203.0.113.5",
 				500, 1000, true
 			);
 
