@@ -6,9 +6,7 @@
  * @author Hornwitser
  * @module lib/users
  */
-import { Permission, Role } from "./data";
-import { SubscribableDatastore } from "./datastore";
-
+import { Permission } from "./data";
 
 export const permissions = new Map<string, Permission>();
 
@@ -57,54 +55,6 @@ export function definePermission({
 
 	permissions.set(name, new Permission(name, title, description, grantByDefault));
 }
-
-
-/**
- * Ensure the default admin role has full access
- *
- * Ensures the role with id 0 exisits and has the core.admin permission.
- *
- * @param roles - role storage to modify.
- * @returns the default admin role
- */
-export function ensureDefaultAdminRole(roles: SubscribableDatastore<Role>) {
-	let admin = roles.get(0);
-	if (!admin) {
-		admin = Role.fromJSON({
-			id: 0,
-			name: "Cluster Admin",
-			description: "Cluster wide administrator.",
-			permissions: [],
-		});
-	}
-	admin.permissions.add("core.admin");
-	roles.set(admin);
-	return admin;
-}
-
-/**
- * Ensure the default player role has default accesses
- *
- * Ensures the role with id 1 exists and has all the permissions that are
- * assigned by default.  Note that this may not be the same role as the one
- * that is assigned to new users by default.
- *
- * @param roles - role storage to modify.
- */
-export function ensureDefaultPlayerRole(roles: SubscribableDatastore<Role>) {
-	let player = roles.get(1);
-	if (!player) {
-		player = Role.fromJSON({
-			id: 1,
-			name: "Player",
-			description: "Default player role.",
-			permissions: [],
-		});
-	}
-	player.grantDefaultPermissions();
-	roles.set(player);
-}
-
 
 // Definitions for the built in permissions used in Clusterio.
 // description should answer "this permission allows you to ___"
