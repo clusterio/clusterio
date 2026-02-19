@@ -60,7 +60,7 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 			versions.set(version, {
 				version: version,
 				stable: kind === "stable",
-				headlessUrl: `www.factorio.com/get-download/${version}/headless/linux64`,
+				headlessUrl: `https://www.factorio.com/get-download/${version}/headless/linux64`,
 			});
 		}
 	}

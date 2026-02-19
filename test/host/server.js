@@ -8,20 +8,21 @@ const hostServer = require("@clusterio/host/dist/node/src/server");
 const lib = require("@clusterio/lib");
 const { wait } = lib;
 const { testLines } = require("../lib/factorio/lines");
+const { slowTest } = require("../integration");
 
 
 describe("host/server", function() {
-	describe("_getVersion()", function() {
+	describe("_getFactorioVersion()", function() {
 		it("should get the version from a changelog", async function() {
-			let version = await hostServer._getVersion(path.join("test", "file", "changelog-test.txt"));
+			let version = await hostServer._getFactorioVersion(path.join("test", "file", "changelogs", "good"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should return null if unable to find the version", async function() {
-			let version = await hostServer._getVersion(path.join("test", "file", "changelog-bad.txt"));
+			let version = await hostServer._getFactorioVersion(path.join("test", "file", "changelogs", "bad"));
 			assert.equal(version, null);
 		});
 		it("should return null if file does not exist", async function() {
-			let version = await hostServer._getVersion(path.join("test", "file", "does-not-exist.txt"));
+			let version = await hostServer._getFactorioVersion(path.join("test", "file", "changelogs", "not-exists"));
 			assert.equal(version, null);
 		});
 	});
@@ -38,50 +39,131 @@ describe("host/server", function() {
 	});
 
 	describe("_findVersion()", function() {
-		it("should find a given install dir with latest as target", async function() {
-			let installDir = path.join("test", "file", "factorio");
-			let [dir, version] = await hostServer._findVersion(installDir, "latest");
-			assert.equal(dir, path.join(installDir, "data"));
-			assert.equal(version, "0.1.1");
+		describe("direct install", function() {
+			it("should search given directory for latest Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio", "0.1.2");
+				const [dir, version] = await hostServer._findVersion(installDir, "latest");
+				assert.equal(dir, path.join(installDir, "data"));
+				assert.equal(version, "0.1.2");
+			});
+			it("should search given directory for given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio", "0.1.1");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
+				assert.equal(dir, path.join(installDir, "data"));
+				assert.equal(version, "0.1.1");
+			});
+			it("should search given directory for partly given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio", "0.1.2");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1");
+				assert.equal(dir, path.join(installDir, "data"));
+				assert.equal(version, "0.1.2");
+			});
+			it("should reject if the version does not match", async function() {
+				let installDir = path.join("test", "file", "factorio", "0.1.1");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.1.2"),
+					new Error("Unable to find Factorio version 0.1.2")
+				);
+			});
 		});
-		it("should find a given install dir with correct version as target", async function() {
-			let installDir = path.join("test", "file", "factorio");
-			let [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
-			assert.equal(dir, path.join(installDir, "data"));
-			assert.equal(version, "0.1.1");
+		describe("mutli install", function() {
+			it("should reject if no factorio install with the given version was found", async function() {
+				let installDir = path.join("test", "file", "factorio");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.1.3"),
+					new Error("Unable to find Factorio version 0.1.3")
+				);
+			});
+			it("should search given directory for given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
+				assert.equal(dir, path.join(installDir, "0.1.1", "data"));
+				assert.equal(version, "0.1.1");
+			});
+			it("should search given directory for partly given Factorio install", async function() {
+				const installDir = path.join("test", "file", "factorio");
+				const [dir, version] = await hostServer._findVersion(installDir, "0.1");
+				assert.equal(dir, path.join(installDir, "0.1.2", "data"));
+				assert.equal(version, "0.1.2");
+			});
+			it("should reject if no factorio install with the given version was found", async function() {
+				let installDir = path.join("test", "file", "factorio");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.1.3"),
+					new Error("Unable to find Factorio version 0.1.3")
+				);
+			});
+			it("should reject if no factorio install was found", async function() {
+				let installDir = path.join("test", "file");
+				await assert.rejects(
+					hostServer._findVersion(installDir, "0.0.0"),
+					new Error(`Unable to find any Factorio install in ${installDir}`)
+				);
+			});
 		});
-		it("should reject if the install dir version does not match target version", async function() {
-			let installDir = path.join("test", "file", "factorio");
-			await assert.rejects(
-				hostServer._findVersion(installDir, "0.1.2"),
-				new Error("Factorio version 0.1.2 was requested, but install directory contains 0.1.1")
-			);
+	});
+
+	describe("_listFactorioVersions()", function() {
+		it("should list the version in a direct install", async function() {
+			const installDir = path.join("test", "file", "factorio", "0.1.1");
+			const installedVersions = await hostServer._listFactorioVersions(installDir);
+			assert.deepEqual(installedVersions, {
+				direct: true,
+				versions: new Set(["0.1.1"]),
+			});
 		});
-		it("should search given directory for latest Factorio install", async function() {
-			let installDir = path.join("test", "file");
-			let [dir, version] = await hostServer._findVersion(installDir, "latest");
-			assert.equal(dir, path.join(installDir, "factorio", "data"));
-			assert.equal(version, "0.1.1");
+		it("should list all versions in a directory", async function() {
+			const installDir = path.join("test", "file", "factorio");
+			const installedVersions = await hostServer._listFactorioVersions(installDir);
+			assert.deepEqual(installedVersions, {
+				direct: false,
+				versions: new Set(["0.1.1", "0.1.2"]),
+			});
 		});
-		it("should search given directory for given Factorio install", async function() {
-			let installDir = path.join("test", "file");
-			let [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
-			assert.equal(dir, path.join(installDir, "factorio", "data"));
-			assert.equal(version, "0.1.1");
+	});
+
+	describe("downloadAndExtractZip", function() {
+		let _fetch;
+		beforeEach(function() {
+			_fetch = global.fetch;
 		});
-		it("should reject if no factorio install with the given version was found", async function() {
-			let installDir = path.join("test", "file");
-			await assert.rejects(
-				hostServer._findVersion(installDir, "0.1.2"),
-				new Error("Unable to find Factorio version 0.1.2")
-			);
+		afterEach(function() {
+			global.fetch = _fetch;
 		});
-		it("should reject if no factorio install was found", async function() {
-			let installDir = path.join("test", "file", "instances");
-			await assert.rejects(
-				hostServer._findVersion(installDir, "latest"),
-				new Error(`Unable to find any Factorio install in ${installDir}`)
-			);
+
+		it("works", async function() {
+			slowTest(this);
+			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.zip";
+			const downloads = path.join("temp", "test", "downloads");
+			await fs.emptyDir(downloads);
+			await hostServer._downloadAndExtractZip(url, path.join(downloads, "zip"));
+			assert.ok(await fs.exists(path.join(downloads, "zip", "packages", "controller", "package.json")));
+		});
+		it("errors and bad status", async function() {
+			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
+			await assert.rejects(hostServer._downloadAndExtractZip("url does not matter"), /-1 Fetch called/);
+		});
+	});
+
+	describe("downloadAndExtractTar", function() {
+		let _fetch;
+		beforeEach(function() {
+			_fetch = global.fetch;
+		});
+		afterEach(function() {
+			global.fetch = _fetch;
+		});
+
+		it("works", async function() {
+			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.tar.gz";
+			const downloads = path.join("temp", "test", "downloads");
+			await fs.emptyDir(downloads);
+			await hostServer._downloadAndExtractTar(url, path.join(downloads, "tar"));
+			assert.ok(await fs.exists(path.join(downloads, "tar", "packages", "controller", "package.json")));
+		});
+		it("errors and bad status", async function() {
+			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
+			await assert.rejects(hostServer._downloadAndExtractTar("url does not matter"), /-1 Fetch called/);
 		});
 	});
 
@@ -157,7 +239,7 @@ describe("host/server", function() {
 
 		describe(".version", function() {
 			it("should return the version detected", function() {
-				assert.equal(server.version, "0.1.1");
+				assert.equal(server.version, "0.1.2");
 			});
 		});
 
@@ -233,6 +315,306 @@ describe("host/server", function() {
 
 				await stop;
 				await wait(21); // Wait until after shutdown timeout
+			});
+		});
+
+		describe(".checkForUpdates()", function() {
+			let _fetch;
+			let fetchCalledWith;
+			let _platform = process.platform;
+			beforeEach(function() {
+				_fetch = global.fetch;
+				fetchCalledWith = null;
+				global.fetch = async function(url) {
+					fetchCalledWith = url;
+					return {
+						ok: false,
+						status: -1,
+						statusText: "Fetch called",
+					};
+				};
+			});
+			afterEach(function() {
+				global.fetch = _fetch;
+				server._factorioDir = path.join("test", "file", "factorio");
+				Object.defineProperty(process, "platform", {
+					value: _platform,
+				});
+			});
+
+			describe("full version", function() {
+				it("should do nothing when there is no newer version", async function() {
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing for direct installs", async function() {
+					server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
+					server._targetVersion = "0.1.5";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing when on windows", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "win32" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1.5";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("but must be manually downloaded"));
+				});
+				it("should do attempt to download on linux", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "linux" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1.5";
+					await assert.rejects(server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]), new Error("Failed to fetch test1: -1 Fetch called"));
+
+					assert.equal(fetchCalledWith, "test1");
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("starting download..."));
+				});
+			});
+			describe("partial version", function() {
+				it("should do nothing when there is no newer version", async function() {
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing for direct installs", async function() {
+					server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
+					server._targetVersion = "0.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing when on windows", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "win32" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("but must be manually downloaded"));
+				});
+				it("should do attempt to download on linux", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "linux" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "0.1";
+					await assert.rejects(server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]), new Error("Failed to fetch test1: -1 Fetch called"));
+
+					assert.equal(fetchCalledWith, "test1");
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("starting download..."));
+				});
+			});
+			describe("latest version", function() {
+				it("should do nothing when there is no newer version", async function() {
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "latest";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing for direct installs", async function() {
+					server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
+					server._targetVersion = "latest";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test1",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test2",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should do nothing when on windows", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "win32" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "latest";
+					await server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]);
+
+					assert.equal(fetchCalledWith, null);
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("but must be manually downloaded"));
+				});
+				it("should do attempt to download on linux", async function() {
+					let logLine = null;
+					server._logger = { info: line => { logLine = line; } };
+					Object.defineProperty(process, "platform", { value: "linux" });
+
+					server._factorioDir = path.join("test", "file", "factorio");
+					server._targetVersion = "latest";
+					await assert.rejects(server.checkForUpdates([{
+						stable: true,
+						version: "0.1.5",
+						headlessUrl: "test1",
+					}, {
+						stable: true,
+						version: "0.1.1",
+						headlessUrl: "test2",
+					}, {
+						stable: false,
+						version: "0.1.0",
+						headlessUrl: "test3",
+					}]), new Error("Failed to fetch test1: -1 Fetch called"));
+
+					assert.equal(fetchCalledWith, "test1");
+					assert.ok(logLine !== null);
+					assert.ok(logLine.endsWith("starting download..."));
+				});
+			});
+			it("should download a version correctly (live api)", async function() {
+				slowTest(this);
+				if (_platform !== "linux") {
+					this.skip();
+				}
+
+				server._factorioDir = path.join("test", "file", "factorioDownload");
+				server._targetVersion = "latest";
+				global.fetch = _fetch;
+				await fs.emptyDir(server._factorioDir);
+				await server.checkForUpdates([{
+					stable: true,
+					version: "2.0.73",
+					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
+				}]);
 			});
 		});
 	});

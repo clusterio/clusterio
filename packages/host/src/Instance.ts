@@ -639,8 +639,10 @@ end`.replace(/\r?\n/g, " ");
 
 	async init(pluginInfos: lib.PluginNodeEnvInfo[]) {
 		this.notifyStatus("starting");
+		const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 		try {
 			await this._loadStats();
+			await this.server.checkForUpdates(factorioVersions);
 			await this.server.init();
 		} catch (err) {
 			this.notifyExit();
