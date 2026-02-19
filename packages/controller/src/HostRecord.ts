@@ -31,12 +31,12 @@ export default class HostRecord {
 		"name": Type.String(),
 		"version": Type.String(),
 		"plugins": Type.Record(Type.String(), Type.String()),
-		"connected": Type.Boolean(),
-		"remote_address": Type.String(),
-		"public_address": Type.String(),
-		"token_valid_after": Type.Number(),
-		"updated_at_ms": Type.Number(),
-		"is_deleted": Type.Boolean(),
+		"connected": Type.Optional(Type.Boolean()),
+		"remote_address": Type.Optional(Type.String()),
+		"public_address": Type.Optional(Type.String()),
+		"token_valid_after": Type.Optional(Type.Number()),
+		"updated_at_ms": Type.Optional(Type.Number()),
+		"is_deleted": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
