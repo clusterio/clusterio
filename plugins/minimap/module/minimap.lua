@@ -1,13 +1,18 @@
 local clusterio_api = require("modules/clusterio/api")
 local compat = require("modules/clusterio/compat")
 
+-- Hot-loop local references for performance
+local math_floor = math.floor
+local bit32_rshift = bit32.rshift
+local table_insert = table.insert
+
 local minimap = {}
 
 -- Convert RGB565 to RGB888 values
 local function rgb565_to_rgb888(rgb565_value)
-	local r = math.floor(bit32.rshift(rgb565_value, 11) * 255 / 31)
-	local g = math.floor(bit32.rshift(bit32.band(rgb565_value, 0x07E0), 5) * 255 / 63)
-	local b = math.floor(bit32.band(rgb565_value, 0x001F) * 255 / 31)
+	local r = math_floor(bit32_rshift(rgb565_value, 11) * 255 / 31)
+	local g = math_floor(bit32_rshift(bit32.band(rgb565_value, 0x07E0), 5) * 255 / 63)
+	local b = math_floor(bit32.band(rgb565_value, 0x001F) * 255 / 31)
 	return r, g, b
 end
 
@@ -74,8 +79,8 @@ local function process_player_positions()
 				storage.minimap.player_positions = {}
 			end
 
-			local last_position = storage.minimap.player_positions[player_key]
-			local current_sec = math.floor(game.tick / 60)
+		local last_position = storage.minimap.player_positions[player_key]
+		local current_sec = math_floor(game.tick / 60)
 
 			-- Check if position changed significantly or timeout elapsed
 			local should_update = false
@@ -174,10 +179,9 @@ local function update_entity_recipe(entity)
 			recipe = rec_obj.name
 		end
 	elseif entity.type == "furnace" then
-		-- Furnaces often idle with get_recipe() = nil; fall back to previous_recipe
 		local prev = entity.previous_recipe
 		if prev and prev.name then
-			recipe = prev.name.name -- Recipe prototype name
+			recipe = prev.name
 		end
 	end
 
@@ -209,8 +213,7 @@ local function update_entity_recipe(entity)
 			position = data_common.position,
 			surface = data_common.surface,
 			force = data_common.force,
-			start_tick = nil,
-			end_tick = game.tick,
+			tick = game.tick,
 			recipe = nil,
 		}
 		send_recipe_data(end_data)
@@ -227,8 +230,7 @@ local function update_entity_recipe(entity)
 			position = data_common.position,
 			surface = data_common.surface,
 			force = data_common.force,
-			start_tick = game.tick,
-			end_tick = nil,
+			tick = game.tick,
 			recipe = recipe,
 			icon = icon_signal,
 		}
@@ -241,11 +243,10 @@ local function update_entity_recipe(entity)
 end
 
 -- Create tag data structure
-local function create_tag_data(tag, start_tick, end_tick)
+local function create_chart_tag_data(tag, tick)
 	return {
 		tag_number = tag.tag_number,
-		start_tick = start_tick,
-		end_tick = end_tick,
+		tick = tick,
 		force = tag.force.name,
 		surface = tag.surface.name,
 		position = {tag.position.x, tag.position.y},
@@ -265,7 +266,7 @@ local function dump_chunk_chart(chunk_position)
 			if chart_data then
 				-- Use Factorio's built-in deflate compression and base64 encoding
 				local encoded_data = helpers.encode_string(chart_data)
-				table.insert(data, {surface = surface.name, force = force.name, chart_data = encoded_data})
+				table_insert(data, {surface = surface.name, force = force.name, chart_data = encoded_data})
 			end
 		end
 	end
@@ -294,8 +295,7 @@ local function on_chart_tag_added(event)
 		return
 	end
 
-	local start_tick = game.tick
-	local tag_data = create_tag_data(tag, start_tick, nil)
+	local tag_data = create_chart_tag_data(tag, game.tick)
 
 	-- Send to plugin
 	send_chart_tag_data(tag_data)
@@ -311,16 +311,8 @@ local function on_chart_tag_modified(event)
 		return
 	end
 
-	-- End the old version at current tick
-	local end_tick = game.tick
-	local old_tag_data = create_tag_data(tag, nil, end_tick)
-	send_chart_tag_data(old_tag_data)
-
-	-- Create new tag entry starting at next tick
-	local start_tick = game.tick + 1
-	local tag_data = create_tag_data(tag, start_tick, nil)
-
-	-- Send to plugin
+	-- Emit updated tag at current tick
+	local tag_data = create_chart_tag_data(tag, game.tick)
 	send_chart_tag_data(tag_data)
 end
 
@@ -334,9 +326,8 @@ local function on_chart_tag_removed(event)
 		return
 	end
 
-	-- End the tag
-	local end_tick = game.tick
-	local tag_data = create_tag_data(tag, nil, end_tick)
+	-- Emit final state at removal tick
+	local tag_data = create_chart_tag_data(tag, game.tick)
 	send_chart_tag_data(tag_data)
 end
 
@@ -347,8 +338,8 @@ local function on_chunk_charted(event)
 	end
 
 	-- Convert area to chunk position
-	local chunk_x = math.floor(event.area.left_top.x / 32)
-	local chunk_y = math.floor(event.area.left_top.y / 32)
+	local chunk_x = math_floor(event.area.left_top.x / 32)
+	local chunk_y = math_floor(event.area.left_top.y / 32)
 
 	queue_chunk_for_update({x = chunk_x, y = chunk_y})
 end
@@ -361,8 +352,8 @@ local function on_entity_built(event)
 	if event.created_entity and event.created_entity.valid then
 		local entity = event.created_entity
 		local position = entity.position
-		local chunk_x = math.floor(position.x / 32)
-		local chunk_y = math.floor(position.y / 32)
+		local chunk_x = math_floor(position.x / 32)
+		local chunk_y = math_floor(position.y / 32)
 
 		queue_chunk_for_update({x = chunk_x, y = chunk_y})
 		-- Track recipe for newly built crafting entities
@@ -378,8 +369,8 @@ local function on_entity_removed(event)
 	if event.entity and event.entity.position then
 		local entity = event.entity
 		local position = entity.position
-		local chunk_x = math.floor(position.x / 32)
-		local chunk_y = math.floor(position.y / 32)
+		local chunk_x = math_floor(position.x / 32)
+		local chunk_y = math_floor(position.y / 32)
 
 		queue_chunk_for_update({x = chunk_x, y = chunk_y})
 		-- End recipe interval for removed entity
@@ -395,8 +386,8 @@ local function on_tile_changed(event)
 	-- Get unique chunks that were affected
 	local affected_chunks = {}
 	for _, tile in pairs(event.tiles) do
-		local chunk_x = math.floor(tile.position.x / 32)
-		local chunk_y = math.floor(tile.position.y / 32)
+		local chunk_x = math_floor(tile.position.x / 32)
+		local chunk_y = math_floor(tile.position.y / 32)
 		local chunk_key = chunk_x .. "," .. chunk_y
 
 		if not affected_chunks[chunk_key] then
@@ -465,7 +456,7 @@ local function init()
 
 				-- Check if this chunk is charted for this force
 				if force.is_chunk_charted(surface, chunk_position) then
-					table.insert(storage.minimap.chunk_update_queue, chunk_position)
+					table_insert(storage.minimap.chunk_update_queue, chunk_position)
 					chunks_queued = chunks_queued + 1
 				end
 			end
@@ -473,8 +464,7 @@ local function init()
 			-- Initialize existing chart tags
 			local existing_tags = force.find_chart_tags(surface)
 			for _, tag in pairs(existing_tags) do
-				local start_tick = game.tick
-				local tag_data = create_tag_data(tag, start_tick, nil)
+				local tag_data = create_chart_tag_data(tag, game.tick)
 
 				-- Send to plugin
 				send_chart_tag_data(tag_data)
@@ -495,24 +485,23 @@ local function init()
 					elseif entity.type == "furnace" then
 						local prev = entity.previous_recipe
 						if prev and prev.name then
-							recipe = { name = prev.name.name }
+							recipe = { name = prev.name }
 						end
 					end
 					if recipe then
+						local recipe_proto = prototypes.recipe[recipe.name]
+						local icon_signal = nil
+						if recipe_proto and recipe_proto.main_product then
+							icon_signal = { type = recipe_proto.main_product.type, name = recipe_proto.main_product.name }
+						end
+						
 						local data = {
 							position = { entity.position.x, entity.position.y },
 							surface = surface.name,
 							force = force.name,
-							start_tick = game.tick,
-							end_tick = nil,
+							tick = game.tick,
 							recipe = recipe.name,
-							icon = (function()
-								local rp = prototypes.recipe[recipe.name]
-								if rp and rp.main_product then
-									return { type = rp.main_product.type, name = rp.main_product.name }
-								end
-								return nil
-							end)()
+							icon = icon_signal,
 						}
 						send_recipe_data(data)
 
