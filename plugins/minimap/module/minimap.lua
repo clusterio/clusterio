@@ -70,8 +70,9 @@ local function process_player_positions()
 
 	for _, player in pairs(game.connected_players) do
 		if player.valid and player.character and player.character.valid then
-			local surface = player.character.surface
-			local position = player.character.position
+			-- Use physical controller position for accurate tracking when in vehicles/remotes
+			local surface = player.physical_surface
+			local position = player.physical_position
 			local player_key = player.index
 
 			-- Initialize player tracking data if needed
@@ -126,12 +127,19 @@ local function on_player_joined_game(event)
 		return
 	end
 
+	-- Emit session start immediately when player joins
+	local surface = player.physical_surface or player.surface
+	local player_data = {
+		player_name = player.name,
+		surface = surface.name,
+		sec = math_floor(game.tick / 60),
+	}
+	clusterio_api.send_json("minimap:player_session_start", player_data)
+
 	-- Clear any existing position data for this player to ensure fresh tracking
 	if storage.minimap.player_positions then
 		storage.minimap.player_positions[player.index] = nil
 	end
-
-	-- The next position update will be sent when the player moves or in process_player_positions
 end
 
 -- Handle player session end
@@ -162,13 +170,8 @@ local function update_entity_recipe(entity)
 		return
 	end
 
-	-- Ensure storage.minimap exists
-	if not storage.minimap then
-		storage.minimap = { enabled = true, chunk_update_queue = {}, recipe_cache = {} }
-	end
-
-	if not storage.minimap.recipe_cache then
-		storage.minimap.recipe_cache = {}
+	if not storage.minimap or not storage.minimap.enabled then
+		return
 	end
 
 	-- Only consider entities that can have recipes
@@ -186,10 +189,6 @@ local function update_entity_recipe(entity)
 	end
 
 	local cache = storage.minimap.recipe_cache
-	if not cache then
-		cache = {}
-		storage.minimap.recipe_cache = cache
-	end
 	local unit_number = entity.unit_number
 	if not unit_number then
 		return -- Cannot track entities without persistent ID
@@ -453,7 +452,18 @@ local function init()
 		return
 	end
 
-	-- Remove previous queue
+	-- Ensure all required fields exist
+	if not storage.minimap.chunk_update_queue then
+		storage.minimap.chunk_update_queue = {}
+	end
+	if not storage.minimap.recipe_cache then
+		storage.minimap.recipe_cache = {}
+	end
+	if not storage.minimap.player_positions then
+		storage.minimap.player_positions = {}
+	end
+
+	-- Clear chunk queue before rebuilding
 	storage.minimap.chunk_update_queue = {}
 
 	-- Queue all existing charted chunks for update
