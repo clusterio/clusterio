@@ -839,7 +839,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	private async loadTagContentFromFile(file: string) {
 		const fileKey = file.replace("_chart_tags.json", "");
-		const filePath = path.join(this.chartTagsPath, file);
+		const filePath = resolveFileInDir(this.chartTagsPath, file);
+		if (filePath === null) {
+			this.logger.warn(`Invalid chart tag file path: ${file}`);
+			return;
+		}
 
 		if (!this.lastSeenTagContent.has(fileKey)) {
 			this.lastSeenTagContent.set(fileKey, new Map());
@@ -897,7 +901,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			for (const file of recipeFiles) {
 				const tileKey = file.replace(".recipes", "");
-				const filePath = path.join(this.recipeTilesPath, file);
+				const filePath = resolveFileInDir(this.recipeTilesPath, file);
+				if (filePath === null) {
+					this.logger.warn(`Invalid recipe file path: ${file}`);
+					continue;
+				}
 
 				// Initialise structures
 				this.lastSeenRecipeContent.set(tileKey, new Map());
@@ -1672,7 +1680,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			for (const file of positionFiles) {
 				const fileKey = file.replace(".positions", "");
-				const filePath = path.join(this.playerPositionsPath, file);
+				const filePath = resolveFileInDir(this.playerPositionsPath, file);
+				if (filePath === null) {
+					this.logger.warn(`Invalid player positions file path: ${file}`);
+					continue;
+				}
 
 				if (!this.playerSessions.has(fileKey)) {
 					this.playerSessions.set(fileKey, new Map());
