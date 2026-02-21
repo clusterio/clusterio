@@ -187,7 +187,8 @@ local function update_entity_recipe(entity)
 	elseif entity.type == "furnace" then
 		local prev = entity.previous_recipe
 		if prev and prev.name then
-			recipe = prev.name
+			-- Factorio furnaces expose previous_recipe with the id nested at previous_recipe.name.name.
+			recipe = prev.name.name
 		end
 	end
 
@@ -510,7 +511,7 @@ local function init()
 					elseif entity.type == "furnace" then
 						local prev = entity.previous_recipe
 						if prev and prev.name then
-							recipe = { name = prev.name }
+							recipe = { name = prev.name.name }
 						end
 					end
 					if recipe then
