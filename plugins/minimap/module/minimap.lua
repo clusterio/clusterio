@@ -127,14 +127,17 @@ local function on_player_joined_game(event)
 		return
 	end
 
-	-- Emit session start immediately when player joins
+	-- Emit session start immediately when player joins using existing player_position channel
 	local surface = player.physical_surface or player.surface
+	local position = player.physical_position or player.position
 	local player_data = {
 		player_name = player.name,
 		surface = surface.name,
+		x = position.x,
+		y = position.y,
 		sec = math_floor(game.tick / 60),
 	}
-	clusterio_api.send_json("minimap:player_session_start", player_data)
+	send_player_position_data(player_data)
 
 	-- Clear any existing position data for this player to ensure fresh tracking
 	if storage.minimap.player_positions then
