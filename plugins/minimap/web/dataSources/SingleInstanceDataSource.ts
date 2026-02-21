@@ -17,6 +17,8 @@ import type {
 } from "../minimap-data-source";
 
 interface MinimapWebPlugin {
+	// Dual filter API: plural version accepts array (flexible), singular version is a convenience wrapper.
+	// Both exist for backward compatibility with different plugin implementations (check plural first, then singular).
 	setInstanceSurfaceFilters?(filters: Array<{ instanceId: number; surface: string }> | null): Promise<void> | void;
 	setInstanceSurfaceFilter?(instanceId: number | null, surface: string | null): Promise<void> | void;
 	onTileUpdate(callback: (event: TileDataEvent) => void): void;
