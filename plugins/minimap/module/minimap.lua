@@ -243,10 +243,11 @@ local function update_entity_recipe(entity)
 end
 
 -- Create tag data structure
-local function create_chart_tag_data(tag, tick)
+local function create_tag_data(tag, start_tick, end_tick)
 	return {
 		tag_number = tag.tag_number,
-		tick = tick,
+		start_tick = start_tick,
+		end_tick = end_tick,
 		force = tag.force.name,
 		surface = tag.surface.name,
 		position = {tag.position.x, tag.position.y},
@@ -295,7 +296,8 @@ local function on_chart_tag_added(event)
 		return
 	end
 
-	local tag_data = create_chart_tag_data(tag, game.tick)
+	local start_tick = game.tick
+	local tag_data = create_tag_data(tag, start_tick, nil)
 
 	-- Send to plugin
 	send_chart_tag_data(tag_data)
@@ -311,8 +313,16 @@ local function on_chart_tag_modified(event)
 		return
 	end
 
-	-- Emit updated tag at current tick
-	local tag_data = create_chart_tag_data(tag, game.tick)
+	-- End the old version at current tick
+	local end_tick = game.tick
+	local old_tag_data = create_tag_data(tag, nil, end_tick)
+	send_chart_tag_data(old_tag_data)
+
+	-- Create new tag entry starting at next tick
+	local start_tick = game.tick + 1
+	local tag_data = create_tag_data(tag, start_tick, nil)
+
+	-- Send to plugin
 	send_chart_tag_data(tag_data)
 end
 
@@ -326,8 +336,9 @@ local function on_chart_tag_removed(event)
 		return
 	end
 
-	-- Emit final state at removal tick
-	local tag_data = create_chart_tag_data(tag, game.tick)
+	-- End the tag
+	local end_tick = game.tick
+	local tag_data = create_tag_data(tag, nil, end_tick)
 	send_chart_tag_data(tag_data)
 end
 
@@ -461,14 +472,15 @@ local function init()
 				end
 			end
 
-			-- Initialize existing chart tags
-			local existing_tags = force.find_chart_tags(surface)
-			for _, tag in pairs(existing_tags) do
-				local tag_data = create_chart_tag_data(tag, game.tick)
+		-- Initialize existing chart tags
+		local existing_tags = force.find_chart_tags(surface)
+		for _, tag in pairs(existing_tags) do
+			local start_tick = game.tick
+			local tag_data = create_tag_data(tag, start_tick, nil)
 
-				-- Send to plugin
-				send_chart_tag_data(tag_data)
-			end
+			-- Send to plugin
+			send_chart_tag_data(tag_data)
+		end
 
 			-- Initialize existing crafting recipes on this surface and force
 			local crafting_entities = surface.find_entities_filtered{
