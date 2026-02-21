@@ -12,17 +12,31 @@ export interface ParsedPlayerPositions {
 	positions: PlayerPositionRecord[];
 }
 
-export interface PlayerPositionRecord {
-	type: number;
+export type PlayerPositionRecord =
+	| PlayerPositionRecordType0
+	| PlayerPositionRecordType1
+	| PlayerPositionRecordType2;
+
+export interface PlayerPositionRecordType0 {
+	type: 0;
 	playerId: number;
-    // Position record fields
-	tSec?: number;
-	sec?: number;
-	xTiles?: number;
-	yTiles?: number;
-    // Session record fields
-	tMs?: number;
-	playerName?: string;
+	tSec: number;
+	sec: number;
+	xTiles: number;
+	yTiles: number;
+}
+
+export interface PlayerPositionRecordType1 {
+	type: 1;
+	playerId: number;
+	tMs: number;
+	playerName: string;
+}
+
+export interface PlayerPositionRecordType2 {
+	type: 2;
+	playerId: number;
+	tMs: number;
 }
 
 export interface ParsedPlayerPos {
@@ -30,6 +44,17 @@ export interface ParsedPlayerPos {
 	x: number;
 	y: number;
 	sec: number;
+}
+
+/**
+ * Read a signed 24-bit big-endian integer from binary data
+ * @param buf The binary data buffer
+ * @param offset Offset in the buffer to read from
+ * @returns Signed 24-bit integer value
+ */
+function readSignedInt24(buf: BinaryData, offset: number): number {
+	const unsigned = (readUInt8(buf, offset) << 16) | (readUInt8(buf, offset + 1) << 8) | readUInt8(buf, offset + 2);
+	return unsigned > 0x7FFFFF ? unsigned - 0x1000000 : unsigned;
 }
 
 /**
@@ -54,7 +79,7 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 			const result = parsePositionRecord(buf, offset);
 			if (!result.success) { break; }
 
-			const record: PlayerPositionRecord = {
+			const record: PlayerPositionRecordType0 = {
 				type: 0,
 				playerId: result.playerId,
 				tSec: result.tSec,
@@ -74,7 +99,7 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 			const result = parseSessionStartRecord(buf, offset);
 			if (!result.success) { break; }
 
-			const record: PlayerPositionRecord = {
+			const record: PlayerPositionRecordType1 = {
 				type: 1,
 				playerId: result.playerId,
 				tMs: result.tMs,
@@ -93,7 +118,7 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 			const result = parseSessionEndRecord(buf, offset);
 			if (!result.success) { break; }
 
-			const record: PlayerPositionRecord = {
+			const record: PlayerPositionRecordType2 = {
 				type: 2,
 				playerId: result.playerId,
 				tMs: result.tMs,
@@ -139,14 +164,10 @@ function parsePositionRecord(buf: BinaryData, offset: number): {
 	const sec = readUInt32BE(buf, offset);
 	offset += 4;
 
-	// Read x_tiles (3 bytes, signed 24-bit)
-	const xBytes = (readUInt8(buf, offset) << 16) | (readUInt8(buf, offset + 1) << 8) | readUInt8(buf, offset + 2);
-	const xTiles = xBytes > 0x7FFFFF ? xBytes - 0x1000000 : xBytes; // Convert to signed
+	const xTiles = readSignedInt24(buf, offset);
 	offset += 3;
 
-	// Read y_tiles (3 bytes, signed 24-bit)
-	const yBytes = (readUInt8(buf, offset) << 16) | (readUInt8(buf, offset + 1) << 8) | readUInt8(buf, offset + 2);
-	const yTiles = yBytes > 0x7FFFFF ? yBytes - 0x1000000 : yBytes; // Convert to signed
+	const yTiles = readSignedInt24(buf, offset);
 	offset += 3;
 
 	const playerId = readUInt16BE(buf, offset);
