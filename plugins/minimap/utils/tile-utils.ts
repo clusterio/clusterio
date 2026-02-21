@@ -433,6 +433,90 @@ export function parseTileData(tileData: BinaryData): ParsedTileData {
 	};
 }
 
+export interface ParsedChunkDataRecord {
+	tick: number;
+	chunkX: number;
+	chunkY: number;
+	data: BinaryData;
+}
+
+export interface ParsedPixelDataRecord {
+	tick: number;
+	pixelCount: number;
+	newColor: number;
+	oldColor: number;
+	pixelDataOffset: number;
+}
+
+export type ParseRecordResult<T> =
+	| { success: false; newOffset: number }
+	| { success: true; newOffset: number; record: T };
+
+export function parseChunkDataRecord(
+	tileData: BinaryData,
+	offset: number
+): ParseRecordResult<ParsedChunkDataRecord> {
+	if (offset + 7 > tileData.length) {
+		return { success: false, newOffset: offset };
+	}
+
+	const tick = readUInt32BE(tileData, offset);
+	offset += 4;
+	const chunkCoordsByte = readUInt8(tileData, offset);
+	offset += 1;
+	const length = readUInt16BE(tileData, offset);
+	offset += 2;
+
+	if (offset + length > tileData.length) {
+		return { success: false, newOffset: offset };
+	}
+
+	const chunkX = chunkCoordsByte >> 4;
+	const chunkY = chunkCoordsByte & 0x0F;
+	const data = sliceData(tileData, offset, offset + length);
+
+	return {
+		success: true,
+		newOffset: offset + length,
+		record: { tick, chunkX, chunkY, data },
+	};
+}
+
+export function parsePixelDataRecord(
+	tileData: BinaryData,
+	offset: number
+): ParseRecordResult<ParsedPixelDataRecord> {
+	if (offset + 10 > tileData.length) {
+		return { success: false, newOffset: offset };
+	}
+
+	const tick = readUInt32BE(tileData, offset);
+	offset += 4;
+	const pixelCount = readUInt16BE(tileData, offset);
+	offset += 2;
+	const newColor = readUInt16BE(tileData, offset);
+	offset += 2;
+	const oldColor = readUInt16BE(tileData, offset);
+	offset += 2;
+
+	const pixelDataLength = pixelCount * 2;
+	if (offset + pixelDataLength > tileData.length) {
+		return { success: false, newOffset: offset };
+	}
+
+	return {
+		success: true,
+		newOffset: offset + pixelDataLength,
+		record: {
+			tick,
+			pixelCount,
+			newColor,
+			oldColor,
+			pixelDataOffset: offset,
+		},
+	};
+}
+
 /**
  * Parse chunk record from tile data
  * @param tileData The binary tile data being processed
@@ -447,35 +531,22 @@ function parseChunkRecord(
 	chunks: ChunkRecord[],
 	ticks: Set<number>
 ): { success: boolean; newOffset: number } {
-	if (offset + 7 > tileData.length) {
-		return { success: false, newOffset: offset };
+	const parsed = parseChunkDataRecord(tileData, offset);
+	if (!parsed.success) {
+		return parsed;
 	}
 
-	const tick = readUInt32BE(tileData, offset) * 60; // Convert back to actual tick
+	const tick = parsed.record.tick * 60; // Convert back to actual tick
 	ticks.add(tick);
-	offset += 4;
-
-	const chunkCoordsByte = readUInt8(tileData, offset);
-	offset += 1;
-	const length = readUInt16BE(tileData, offset);
-	offset += 2;
-
-	if (offset + length > tileData.length) {
-		return { success: false, newOffset: offset };
-	}
-
-	const chunkX = chunkCoordsByte >> 4;
-	const chunkY = chunkCoordsByte & 0x0F;
-	const data = sliceData(tileData, offset, offset + length);
 
 	chunks.push({
 		tick,
-		chunkX,
-		chunkY,
-		data,
+		chunkX: parsed.record.chunkX,
+		chunkY: parsed.record.chunkY,
+		data: parsed.record.data,
 	});
 
-	return { success: true, newOffset: offset + length };
+	return { success: true, newOffset: parsed.newOffset };
 }
 
 /**
@@ -492,35 +563,24 @@ function parsePixelChangeRecord(
 	pixelChanges: PixelChangeRecord[],
 	ticks: Set<number>
 ): { success: boolean; newOffset: number } {
-	if (offset + 10 > tileData.length) {
-		return { success: false, newOffset: offset };
+	const parsed = parsePixelDataRecord(tileData, offset);
+	if (!parsed.success) {
+		return parsed;
 	}
 
-	const tick = readUInt32BE(tileData, offset) * 60; // Convert back to actual tick
+	const tick = parsed.record.tick * 60; // Convert back to actual tick
 	ticks.add(tick);
-	offset += 4;
-	const pixelCount = readUInt16BE(tileData, offset);
-	offset += 2;
-	const newColor = readUInt16BE(tileData, offset);
-	offset += 2;
-	const oldColor = readUInt16BE(tileData, offset);
-	offset += 2;
-
-	const expectedDataLength = pixelCount * 2;
-	if (offset + expectedDataLength > tileData.length) {
-		return { success: false, newOffset: offset };
-	}
 
 	const changes: PixelChange[] = [];
-	for (let i = 0; i < pixelCount; i++) {
-		const pixelOffset = offset + i * 2;
+	for (let i = 0; i < parsed.record.pixelCount; i++) {
+		const pixelOffset = parsed.record.pixelDataOffset + i * 2;
 		const x = readUInt8(tileData, pixelOffset);
 		const y = readUInt8(tileData, pixelOffset + 1);
-		changes.push({ x, y, newColor, oldColor });
+		changes.push({ x, y, newColor: parsed.record.newColor, oldColor: parsed.record.oldColor });
 	}
 
 	pixelChanges.push({ tick, changes });
-	return { success: true, newOffset: offset + expectedDataLength };
+	return { success: true, newOffset: parsed.newOffset };
 }
 
 /**

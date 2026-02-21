@@ -26,6 +26,8 @@ import {
 	extractChunkFromTile,
 	renderTileToPixels,
 	pixelsToRGBA,
+	parseChunkDataRecord,
+	parsePixelDataRecord,
 	parseRecipeTileBinary,
 	type ParsedRecipeTile,
 } from "./utils/tile-utils";
@@ -277,11 +279,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	private async deleteFilesMatching(dir: string, predicate: (file: string) => boolean) {
 		const files = await fs.readdir(dir);
-		for (const file of files) {
-			if (predicate(file)) {
-				await fs.remove(path.join(dir, file));
-			}
-		}
+		const matches = files.filter(file => predicate(file));
+		await Promise.all(matches.map(file => fs.remove(path.join(dir, file))));
 	}
 
 	private removeSurfaceQueueEntries(instanceId: number, surface: string, force?: string) {
@@ -659,7 +658,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		existingTile: Buffer,
 		newChunks: Map<string, { data: ChartData, tick: number }>
 	): Promise<Buffer | undefined> {
-		const existingChunks = new Map<string, { tick: number, data: Buffer }>();
+		const existingChunks = new Map<string, { tick: number, data: Buffer | Uint8Array }>();
 
 		// Parse existing tile data to find existing chunks
 		let offset = 0;
@@ -674,14 +673,20 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			offset += 1;
 
 			if (type === 1) { // Chunk
-				const parseResult = this.parseChunkData(existingTile, offset, existingChunks);
+				const parseResult = parseChunkDataRecord(existingTile, offset);
 				if (!parseResult.success) {
+					this.logger.error(`Invalid tile data: insufficient chunk data at offset ${parseResult.newOffset}`);
 					break;
 				}
+				existingChunks.set(
+					`${parseResult.record.chunkX}_${parseResult.record.chunkY}`,
+					{ tick: parseResult.record.tick, data: parseResult.record.data }
+				);
 				offset = parseResult.newOffset;
 			} else if (type === 2) { // Pixels
-				const parseResult = this.parsePixelData(existingTile, offset);
+				const parseResult = parsePixelDataRecord(existingTile, offset);
 				if (!parseResult.success) {
+					this.logger.error(`Invalid tile data: insufficient pixel data at offset ${parseResult.newOffset}`);
 					break;
 				}
 				offset = parseResult.newOffset;
@@ -746,75 +751,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		// Append new data to existing tile (never modify existing data)
 		return Buffer.concat([existingTile, ...appendBuffers]);
-	}
-
-	private parseChunkData(
-		existingTile: Buffer,
-		offset: number,
-		existingChunks: Map<string, { tick: number, data: Buffer }>
-	): { success: boolean, newOffset: number } {
-		if (offset + 7 > existingTile.length) {
-			this.logger.error(`Invalid tile data: insufficient chunk header data at offset ${offset}`);
-			return { success: false, newOffset: offset };
-		}
-
-		// tick_sec (4 bytes): game second (uint32)
-		const tick = existingTile.readUInt32BE(offset);
-		offset += 4;
-		// chunk_coords (1 byte): packed nibble coords (x<<4 | y)
-		const chunkCoordsByte = existingTile.readUInt8(offset);
-		offset += 1;
-		// length (2 bytes): number of chunk bytes that follow (uint16)
-		const length = existingTile.readUInt16BE(offset);
-		offset += 2;
-
-		if (offset + length > existingTile.length) {
-			this.logger.error(`Invalid tile data: insufficient chunk data at offset ${offset}`);
-			return { success: false, newOffset: offset };
-		}
-
-		const chunkX = chunkCoordsByte >> 4;
-		const chunkY = chunkCoordsByte & 0x0F;
-		const chunkName = `${chunkX}_${chunkY}`;
-		// data (length bytes): compressed chunk bytes
-		const data = existingTile.slice(offset, offset + length);
-		offset += length;
-		existingChunks.set(chunkName, { tick, data });
-
-		return { success: true, newOffset: offset };
-	}
-
-	private parsePixelData(
-		existingTile: Buffer,
-		offset: number
-	): { success: boolean, newOffset: number } {
-		if (offset + 10 > existingTile.length) {
-			this.logger.error(`Invalid tile data: insufficient pixel header data at offset ${offset}`);
-			return { success: false, newOffset: offset };
-		}
-
-		// tick_sec (4 bytes): game second (uint32)
-		const tick = existingTile.readUInt32BE(offset);
-		offset += 4;
-		// pixel_count (2 bytes): number of pixel coords that follow (uint16)
-		const pixelCount = existingTile.readUInt16BE(offset);
-		offset += 2;
-		// new_color (2 bytes): RGB565 (uint16)
-		// old_color (2 bytes): RGB565 (uint16)
-		offset += 2 + 2;
-		void tick; // parsed for validation/advancing offset; not needed here
-		const pixelDataLength = pixelCount * 2;
-
-		if (offset + pixelDataLength > existingTile.length) {
-			this.logger.error(`Invalid tile data: insufficient pixel data at offset ${offset}`);
-			return { success: false, newOffset: offset };
-		}
-
-		// pixel_data (pixelCount * 2 bytes): x (1 byte), y (1 byte) pairs
-		// Skip payload since we only need offsets for chunk discovery.
-		offset += pixelDataLength;
-
-		return { success: true, newOffset: offset };
 	}
 
 	async loadExistingTagContent() {
