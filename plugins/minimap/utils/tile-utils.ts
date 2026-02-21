@@ -63,6 +63,8 @@ export async function renderChunkToPixels(chunkData: BinaryData): Promise<Uint16
 
 		return pixels;
 	} catch (decompressError) {
+		// Log warning before falling back to black pixels
+		console.warn(`Failed to decompress chunk data: ${decompressError}`);
 		// Return black pixels on error
 		return new Uint16Array(32 * 32);
 	}
@@ -153,17 +155,9 @@ async function processChunkData(
 	const tick = readUInt32BE(tileData, offset) * 60; // Convert back to actual tick
 	offset += 4;
 
-	// Skip this chunk if it's beyond our target tick
+	// Break early if this record is beyond our target tick (append-only optimization)
 	if (maxTick !== undefined && tick > maxTick) {
-		const chunkCoordsByte = readUInt8(tileData, offset);
-		offset += 1;
-		const length = readUInt16BE(tileData, offset);
-		offset += 2;
-		if (offset + length > tileData.length) {
-			return { success: false, newOffset: offset };
-		}
-		offset += length; // Skip chunk data
-		return { success: true, newOffset: offset };
+		return { success: false, newOffset: offset - 4 };
 	}
 
 	const chunkCoordsByte = readUInt8(tileData, offset);
@@ -223,9 +217,9 @@ function processPixelData(
 		return { success: false, newOffset: offset };
 	}
 
-	// Skip if beyond target tick
+	// Break early if this record is beyond our target tick (append-only optimization)
 	if (maxTick !== undefined && tick > maxTick) {
-		return { success: true, newOffset: offset + expectedDataLength };
+		return { success: false, newOffset: offset - 4 };
 	}
 
 	for (let i = 0; i < pixelCount; i++) {

@@ -819,7 +819,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async loadExistingTagContent() {
 		try {
-			if (!await fs.pathExists(this.chartTagsPath)) {
+			// Use existsSync for synchronous directory existence check
+			if (!fs.existsSync(this.chartTagsPath)) {
 				return;
 			}
 
