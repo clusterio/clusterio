@@ -328,9 +328,8 @@ inventory_sync.events[defines.events.on_player_joined_game] = function(event)
 	local player = assert(game.get_player(event.player_index))
 	local script_data = get_script_data()
 
-	-- It's possible Factorio doesn't invoke the on_player_created event when loading a save in single player
-	if not script_data.players[player.name] then
-		create_player(player, false)
+	if not game.is_multiplayer() then
+		return player.print("Inventory sync deactivated: game is single player")
 	end
 
 	-- Send acquire request even if an active download is currently in progress
