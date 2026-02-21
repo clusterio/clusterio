@@ -81,16 +81,12 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 
 			const record: PlayerPositionRecordType0 = {
 				type: 0,
-				playerId: result.playerId,
-				tSec: result.tSec,
-				sec: result.sec,
-				xTiles: result.xTiles,
-				yTiles: result.yTiles,
+				...result.record,
 			};
 
 			positions.push(record);
-			if (result.playerId > maxPlayerId) {
-				maxPlayerId = result.playerId;
+			if (result.record.playerId > maxPlayerId) {
+				maxPlayerId = result.record.playerId;
 			}
 			offset = result.newOffset;
 
@@ -101,15 +97,13 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 
 			const record: PlayerPositionRecordType1 = {
 				type: 1,
-				playerId: result.playerId,
-				tMs: result.tMs,
-				playerName: result.playerName,
+				...result.record,
 			};
 
 			positions.push(record);
-			playerSessions.set(result.playerName, result.playerId);
-			if (result.playerId > maxPlayerId) {
-				maxPlayerId = result.playerId;
+			playerSessions.set(result.record.playerName, result.record.playerId);
+			if (result.record.playerId > maxPlayerId) {
+				maxPlayerId = result.record.playerId;
 			}
 			offset = result.newOffset;
 
@@ -120,13 +114,12 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 
 			const record: PlayerPositionRecordType2 = {
 				type: 2,
-				playerId: result.playerId,
-				tMs: result.tMs,
+				...result.record,
 			};
 
 			positions.push(record);
-			if (result.playerId > maxPlayerId) {
-				maxPlayerId = result.playerId;
+			if (result.record.playerId > maxPlayerId) {
+				maxPlayerId = result.record.playerId;
 			}
 			offset = result.newOffset;
 
@@ -139,24 +132,20 @@ export function parsePlayerPositionsBinary(buf: BinaryData): ParsedPlayerPositio
 	return { playerSessions, maxPlayerId, positions };
 }
 
+type PositionRecordParseResult =
+	| { success: false; newOffset: number }
+	| { success: true; newOffset: number; record: Omit<PlayerPositionRecordType0, "type"> };
+
 /**
  * Parse position record from player position file
  * @param buf The binary player position data
  * @param offset Current offset in the data
  * @returns Processing result with position data and new offset
  */
-function parsePositionRecord(buf: BinaryData, offset: number): {
-	success: boolean;
-	newOffset: number;
-	playerId: number;
-	tSec: number;
-	sec: number;
-	xTiles: number;
-	yTiles: number;
-} {
+function parsePositionRecord(buf: BinaryData, offset: number): PositionRecordParseResult {
 	// Position record: 4 + 4 + 3 + 3 + 2 = 16 bytes
 	if (offset + 16 > buf.length) {
-		return { success: false, newOffset: offset, playerId: 0, tSec: 0, sec: 0, xTiles: 0, yTiles: 0 };
+		return { success: false, newOffset: offset };
 	}
 
 	const tSec = readUInt32BE(buf, offset);
@@ -173,8 +162,12 @@ function parsePositionRecord(buf: BinaryData, offset: number): {
 	const playerId = readUInt16BE(buf, offset);
 	offset += 2;
 
-	return { success: true, newOffset: offset, playerId, tSec, sec, xTiles, yTiles };
+	return { success: true, newOffset: offset, record: { playerId, tSec, sec, xTiles, yTiles } };
 }
+
+type SessionStartRecordParseResult =
+	| { success: false; newOffset: number }
+	| { success: true; newOffset: number; record: Omit<PlayerPositionRecordType1, "type"> };
 
 /**
  * Parse SessionStart record from player position file
@@ -185,10 +178,10 @@ function parsePositionRecord(buf: BinaryData, offset: number): {
 function parseSessionStartRecord(
 	buf: BinaryData,
 	offset: number
-): { success: boolean; newOffset: number; playerId: number; tMs: number; playerName: string } {
+): SessionStartRecordParseResult {
 	// SessionStart record: 4 + 2 + 1 + n = 7 + n bytes minimum
 	if (offset + 7 > buf.length) {
-		return { success: false, newOffset: offset, playerId: 0, tMs: 0, playerName: "" };
+		return { success: false, newOffset: offset };
 	}
 
 	const tMs = readUInt32BE(buf, offset);
@@ -199,7 +192,7 @@ function parseSessionStartRecord(
 	offset += 1;
 
 	if (offset + nameLen > buf.length) {
-		return { success: false, newOffset: offset, playerId, tMs, playerName: "" };
+		return { success: false, newOffset: offset };
 	}
 
 	const nameBytes = sliceData(buf, offset, offset + nameLen);
@@ -213,8 +206,12 @@ function parseSessionStartRecord(
 		playerName = new TextDecoder().decode(nameBytes as Uint8Array);
 	}
 
-	return { success: true, newOffset: offset, playerId, tMs, playerName };
+	return { success: true, newOffset: offset, record: { playerId, tMs, playerName } };
 }
+
+type SessionEndRecordParseResult =
+	| { success: false; newOffset: number }
+	| { success: true; newOffset: number; record: Omit<PlayerPositionRecordType2, "type"> };
 
 /**
  * Parse SessionEnd record from player position file
@@ -225,10 +222,10 @@ function parseSessionStartRecord(
 function parseSessionEndRecord(
 	buf: BinaryData,
 	offset: number
-): { success: boolean; newOffset: number; playerId: number; tMs: number } {
+): SessionEndRecordParseResult {
 	// SessionEnd record: 4 + 2 = 6 bytes
 	if (offset + 6 > buf.length) {
-		return { success: false, newOffset: offset, playerId: 0, tMs: 0 };
+		return { success: false, newOffset: offset };
 	}
 
 	const tMs = readUInt32BE(buf, offset);
@@ -236,7 +233,7 @@ function parseSessionEndRecord(
 	const playerId = readUInt16BE(buf, offset);
 	offset += 2;
 
-	return { success: true, newOffset: offset, playerId, tMs };
+	return { success: true, newOffset: offset, record: { playerId, tMs } };
 }
 
 /**
@@ -257,12 +254,7 @@ export function parseAndDeduplicatePlayerPositions(buf: BinaryData): Map<number,
 
 	// Process all records in order
 	for (const record of parsed.positions) {
-		if (
-			record.type === 0
-			&& record.sec !== undefined
-			&& record.xTiles !== undefined
-			&& record.yTiles !== undefined
-		) {
+		if (record.type === 0) {
 			// Position record - convert tile coordinates to world coordinates
 			const name = playerNameById.get(record.playerId);
 			if (!name) {
