@@ -251,7 +251,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {
-		return this._controller.getRequestInstance(request.instanceId).toInstanceDetails();
+		return this._controller.instances.getForRequest(request.instanceId).toInstanceDetails();
 	}
 
 	async handleInstanceDetailsListRequest() {
@@ -269,20 +269,20 @@ export default class ControlConnection extends BaseConnection {
 			instanceConfig.set("instance.assigned_host", null); // New instances are unassigned
 		}
 		instanceConfig.update(request.config, false, "control");
-		await this._controller.instanceCreate(instanceConfig);
+		await this._controller.instances.createInstance(instanceConfig);
 	}
 
 	async handleInstanceDeleteRequest(request: lib.InstanceDeleteRequest) {
-		await this._controller.instanceDelete(request.instanceId);
+		await this._controller.instances.deleteInstance(request.instanceId);
 	}
 
 	async handleInstanceConfigGetRequest(request: lib.InstanceConfigGetRequest) {
-		let instance = this._controller.getRequestInstance(request.instanceId);
+		let instance = this._controller.instances.getForRequest(request.instanceId);
 		return instance.config.toRemote("control");
 	}
 
 	async handleInstanceConfigSetFieldRequest(request: lib.InstanceConfigSetFieldRequest) {
-		let instance = this._controller.getRequestInstance(request.instanceId);
+		let instance = this._controller.instances.getForRequest(request.instanceId);
 		if (request.field === "instance.assigned_host") {
 			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
 		}
@@ -297,14 +297,14 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceConfigSetPropRequest(request: lib.InstanceConfigSetPropRequest) {
-		let instance = this._controller.getRequestInstance(request.instanceId);
+		let instance = this._controller.instances.getForRequest(request.instanceId);
 		let { field, prop, value } = request;
 		instance.config.setProp(field as keyof lib.InstanceConfigFields, prop, value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
-		await this._controller.instanceAssign(request.instanceId, request.hostId);
+		await this._controller.instances.assignInstance(request.instanceId, request.hostId);
 	}
 
 	async handleInstanceSaveDetailsListRequest() {
@@ -338,8 +338,8 @@ export default class ControlConnection extends BaseConnection {
 		if (request.sourceInstanceId === request.targetInstanceId) {
 			throw new lib.RequestError("Source and target instance may not be the same");
 		}
-		let sourceInstance = this._controller.getRequestInstance(request.sourceInstanceId);
-		let targetInstance = this._controller.getRequestInstance(request.targetInstanceId);
+		let sourceInstance = this._controller.instances.getForRequest(request.sourceInstanceId);
+		let targetInstance = this._controller.instances.getForRequest(request.targetInstanceId);
 		let sourceHostId = sourceInstance.config.get("instance.assigned_host");
 		let targetHostId = targetInstance.config.get("instance.assigned_host");
 		if (sourceHostId === null) {

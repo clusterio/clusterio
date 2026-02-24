@@ -68,7 +68,7 @@ export default class HostConnection extends BaseConnection {
 				instance.status = "unknown";
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
-			this._controller.instances.setMany(instances);
+			this._controller.instances.records.setMany(instances);
 
 			this.info.connected = false;
 			this._controller.hosts.set(this.info);
@@ -215,7 +215,7 @@ export default class HostConnection extends BaseConnection {
 
 		instance.gamePort = request.gamePort;
 		instance.factorioVersion = request.factorioVersion;
-		this._controller.instances.set(instance);
+		this._controller.instances.records.set(instance);
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
@@ -265,25 +265,23 @@ export default class HostConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_host", this.id);
-			let newInstance = new InstanceRecord(
-				instanceConfig,
-				instanceData.status,
-				instanceData.gamePort,
-				instanceData.factorioVersion,
-				0,
-				Date.now(),
-			);
+			const newInstance = await this._controller.instances.createInstance(instanceConfig, true);
+			newInstance.factorioVersion = instanceData.factorioVersion;
+			newInstance.gamePort = instanceData.gamePort;
+			newInstance.status = instanceData.status;
 			instanceUpdates.push(newInstance);
-			this._controller.addInstanceHooks(newInstance);
-			await this.send(
-				new lib.InstanceAssignInternalRequest(
-					instanceConfig.get("instance.id"), instanceConfig.toRemote("host")
-				)
-			);
-			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 
-		this._controller.instances.setMany(instanceUpdates);
+		// We suppress the changes made by createInstance so we must manually make them here
+		this._controller.instances.records.setMany(instanceUpdates);
+		await Promise.all(instanceUpdates.flatMap(newInstance => [
+			lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance),
+			this.send(
+				new lib.InstanceAssignInternalRequest(
+					newInstance.config.get("instance.id"), newInstance.config.toRemote("host")
+				)
+			),
+		]));
 
 		// Push lists to make sure they are in sync.
 		let adminlist: Set<string> = new Set();

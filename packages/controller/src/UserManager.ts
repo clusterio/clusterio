@@ -49,7 +49,15 @@ export default class UserManager {
 		}
 	}
 
-	getByIdMutable(id: UserRecord["id"]) {
+	/* ------------------------------------------------------------------------- */
+	/* Basic Accessors                                                           */
+	/* ------------------------------------------------------------------------- */
+
+	has(id: UserRecord["id"]) {
+		return this.records.has(id);
+	}
+
+	getMutable(id: UserRecord["id"]) {
 		const userRecord = this.records.getMutable(id);
 		if (!userRecord) {
 			return undefined;
@@ -62,16 +70,20 @@ export default class UserManager {
 		);
 	}
 
-	getById(id: UserRecord["id"]): Readonly<User> | undefined {
-		return this.getByIdMutable(id);
+	get(id: UserRecord["id"]): Readonly<User> | undefined {
+		return this.getMutable(id);
+	}
+
+	hasName(name: UserRecord["name"]) {
+		return this.has(name.toLowerCase());
 	}
 
 	getByNameMutable(name: UserRecord["name"]) {
-		return this.getByIdMutable(name.toLowerCase());
+		return this.getMutable(name.toLowerCase());
 	}
 
 	getByName(name: UserRecord["name"]) {
-		return this.getById(name.toLowerCase());
+		return this.get(name.toLowerCase());
 	}
 
 	valuesMutable(): IterableIterator<User> {
@@ -88,6 +100,10 @@ export default class UserManager {
 	values(): IterableIterator<Readonly<User>> {
 		return this.valuesMutable();
 	}
+
+	/* ------------------------------------------------------------------------- */
+	/* Lifecycle                                                                 */
+	/* ------------------------------------------------------------------------- */
 
 	/**
 	 * Creates a new user and add it to the user database.
@@ -123,6 +139,10 @@ export default class UserManager {
 	deleteUser(user: UserRecord) {
 		return this.records.delete(user);
 	}
+
+	/* ------------------------------------------------------------------------- */
+	/* Helpers                                                                   */
+	/* ------------------------------------------------------------------------- */
 
 	/**
 	 * Sign access token for the given user

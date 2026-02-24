@@ -8,7 +8,7 @@ const { UserRecord, UserManager } = require("@clusterio/controller");
 
 const TEMP_DIR = path.join("temp", "test", "UserManager");
 
-describe("lib/controller/UserManager", function () {
+describe("controller/UserManager", function () {
 	/** @type {SubscribableDatastore<UserRecord>} */
 	let records;
 	/** @type {SubscribableDatastore<Role>} */
@@ -29,17 +29,21 @@ describe("lib/controller/UserManager", function () {
 		await fs.emptyDir(TEMP_DIR);
 	});
 
-	describe(".getById() / .getByIdMutable() / .getByName() / .getByNameMutable()", function () {
+	describe(".has() / .get() / .getMutable() / .hasName() / .getByName() / .getByNameMutable()", function () {
 		it("should return user when exists", function () {
 			const user = userManager.createUser("Alice");
-			assert.deepEqual(userManager.getById(user.id), user);
-			assert.deepEqual(userManager.getByIdMutable(user.id), user);
+			assert.deepEqual(userManager.has(user.id), true);
+			assert.deepEqual(userManager.get(user.id), user);
+			assert.deepEqual(userManager.getMutable(user.id), user);
+			assert.deepEqual(userManager.hasName("Alice"), true);
 			assert.deepEqual(userManager.getByName("Alice"), user);
 			assert.deepEqual(userManager.getByNameMutable("Alice"), user);
 		});
 
 		it("should return undefined when user does not exist", function () {
-			assert.equal(userManager.getById("nonexistent"), undefined);
+			assert.equal(userManager.has("nonexistent"), false);
+			assert.equal(userManager.get("nonexistent"), undefined);
+			assert.equal(userManager.hasName("nonexistent"), false);
 			assert.equal(userManager.getByName("nonexistent"), undefined);
 		});
 	});

@@ -4,6 +4,7 @@ export { default as ControllerRouter } from "./src/ControllerRouter";
 export { default as ControlConnection } from "./src/ControlConnection";
 export { default as HostConnection } from "./src/HostConnection";
 export { default as InstanceRecord } from "./src/InstanceRecord";
+export { default as InstanceManager } from "./src/InstanceManager";
 export { default as HostRecord } from "./src/HostRecord";
 export { default as BaseControllerPlugin } from "./src/BaseControllerPlugin";
 export { default as UserManager } from "./src/UserManager";

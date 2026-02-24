@@ -4,7 +4,7 @@ const http = require("http");
 const express = require("express");
 
 const lib = require("@clusterio/lib");
-const { User, UserManager, UserRecord } = require("@clusterio/controller");
+const { User, UserManager, UserRecord, InstanceManager } = require("@clusterio/controller");
 
 const addr = lib.Address.fromShorthand;
 
@@ -189,7 +189,8 @@ class MockController {
 			this.roles, this.config
 		);
 
-		this.instances = new lib.KeyValueDatastore();
+		this.instances = new InstanceManager(new lib.KeyValueDatastore(), this);
+
 		this.hosts = new lib.KeyValueDatastore();
 		this.handles = new Map();
 	}

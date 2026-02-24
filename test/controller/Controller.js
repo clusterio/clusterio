@@ -39,7 +39,7 @@ describe("controller/src/Controller", function() {
 			mockInstanceConfig = new MockInstanceConfig(new Map([
 				["instance.id", 100], ["instance.name", "test"], ["factorio.settings", []],
 			]));
-			await controller.instanceCreate(mockInstanceConfig);
+			await controller.instances.createInstance(mockInstanceConfig);
 		});
 		function check(list, ip, present = true) {
 			if (present === false) {
@@ -191,9 +191,9 @@ describe("controller/src/Controller", function() {
 
 		describe(".instances", function() {
 			it("should set the dirty flag if the config is updated", function() {
-				controller.instances.dirty = false;
+				controller.instances.records.dirty = false;
 				mockInstanceConfig.set("instance.assigned_host", null);
-				assert(controller.instances.dirty === true, "dirty flag was not set");
+				assert(controller.instances.records.dirty === true, "dirty flag was not set");
 			});
 		});
 		describe(".checkRestartRequired()", function() {

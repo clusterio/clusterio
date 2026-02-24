@@ -109,10 +109,12 @@ describe("Integration of Clusterio", function() {
 	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
 			it("work for existing user", async function() {
+				slowTest(this);
 				await execController("bootstrap generate-user-token test");
 			});
 
 			it("fails if user does not exist", async function() {
+				slowTest(this);
 				await assert.rejects(
 					execController("bootstrap generate-user-token invalid")
 				);

@@ -39,7 +39,7 @@ function connectInstance(controller, host, instanceId) {
 	instanceConfig.set("instance.id", instanceId);
 	instanceConfig.set("instance.assigned_host", host.config.get("host.id"));
 	host.assignedInstances.set(instanceId, { path: "invalid", config: instanceConfig });
-	controller.instances.set(new InstanceRecord(instanceConfig, "stopped"));
+	controller.instances.records.set(new InstanceRecord(instanceConfig, "stopped"));
 	const instance = new Instance(host, instanceSide, "invalid", "invalid", instanceConfig);
 	const instanceConnection = new InstanceConnection(hostSide, host, instance);
 	host.instanceConnections.set(instanceId, instanceConnection);
