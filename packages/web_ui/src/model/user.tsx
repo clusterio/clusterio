@@ -49,13 +49,23 @@ export function formatLastSeen(user: lib.UserDetails, instanceId?: number) {
 	return new Date(lastSeen).toLocaleString();
 }
 
-export function sortFirstSeen(userA: lib.UserDetails, userB: lib.UserDetails, instanceIdA?: number, instanceIdB?: number) {
+export function sortFirstSeen(
+	userA: lib.UserDetails,
+	userB: lib.UserDetails,
+	instanceIdA?: number,
+	instanceIdB?: number
+) {
 	const firstSeenA = calculateFirstSeen(userA, instanceIdA) || 0;
 	const firstSeenB = calculateFirstSeen(userB, instanceIdB) || 0;
 	return firstSeenA - firstSeenB;
 }
 
-export function sortLastSeen(userA: lib.UserDetails, userB: lib.UserDetails, instanceIdA?: number, instanceIdB?: number) {
+export function sortLastSeen(
+	userA: lib.UserDetails,
+	userB: lib.UserDetails,
+	instanceIdA?: number,
+	instanceIdB?: number
+) {
 	function epoch(user: lib.UserDetails, instanceId?: number) {
 		return user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId);
 	}

@@ -106,7 +106,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			key: "roles",
 			filters: roleFilters,
 			filterMultiple: true,
-			onFilter: (value: string | number | boolean, record: lib.UserDetails) => record.roleIds.has(value as number),
+			onFilter: (value: string | number | boolean, record: lib.UserDetails) => (
+				record.roleIds.has(value as number)
+			),
 			render: (_: any, user: lib.UserDetails) => (
 				[...user.roleIds].map((id) => (
 					<Link key={id} to={`/roles/${id}/view`} onClick={(e) => e.stopPropagation()}>
