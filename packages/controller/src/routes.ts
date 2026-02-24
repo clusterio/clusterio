@@ -240,9 +240,23 @@ async function uploadExport(req: Request, res: Response) {
 	let exportFiles = [
 		"export/settings.json",
 		"export/prototypes.json",
+		"export/locale.json",
 		"export/item-spritesheet.png",
 		"export/item-metadata.json",
-		"export/locale.json",
+		"export/recipe-spritesheet.png",
+		"export/recipe-metadata.json",
+		"export/signal-spritesheet.png",
+		"export/signal-metadata.json",
+		"export/technology-spritesheet.png",
+		"export/technology-metadata.json",
+		"export/planet-spritesheet.png",
+		"export/planet-metadata.json",
+		"export/quality-spritesheet.png",
+		"export/quality-metadata.json",
+		"export/entity-spritesheet.png",
+		"export/entity-metadata.json",
+		"export/static-spritesheet.png",
+		"export/static-metadata.json",
 	];
 
 	let assets: any = {};
@@ -701,5 +715,6 @@ export const webRoutes = [
 	"/roles/:id/view",
 	"/plugins",
 	"/plugins/:name/view",
+	"/icon-reference",
 	"/error",
 ];
