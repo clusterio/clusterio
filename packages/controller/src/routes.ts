@@ -277,7 +277,8 @@ async function uploadExport(req: Request, res: Response) {
 		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
 
-	modPack.exportManifest = new lib.ExportManifest(assets);
+	const instanceName = typeof req.query.instance_name === "string" ? req.query.instance_name : undefined;
+	modPack.exportManifest = new lib.ExportManifest(assets, modPack.name, instanceName, new Date().toISOString());
 	modPack.fillDefaultSettings(settingPrototypes, logger);
 	res.app.locals.controller.modPacks.set(modPack);
 

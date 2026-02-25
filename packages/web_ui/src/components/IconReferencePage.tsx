@@ -11,6 +11,7 @@ import {
 	useEntityMetadata,
 	useStaticMetadata,
 } from "../model/item_metadata";
+import { useExportManifest } from "../model/export_manifest";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 
@@ -163,10 +164,30 @@ export default function IconReferencePage() {
 		},
 	];
 
+	const manifest = useExportManifest();
+
 	return (
 		<PageLayout nav={[{ name: "Icon Reference" }]}>
 			<PageHeader title="Icon Reference" />
-			<Card style={{ width: "60%", margin: "0 auto" }}>
+			<div style={{ width: "80%", margin: "0 auto" }}>
+				{manifest && (manifest.modPackName || manifest.instanceName || manifest.exportedAt) && (
+					<div style={{ marginBottom: 12, fontSize: 12, lineHeight: 1.8 }}>
+						{manifest.modPackName && (
+							<div><Text type="secondary">Mod Pack: </Text><Text>{manifest.modPackName}</Text></div>
+						)}
+						{manifest.instanceName && (
+							<div><Text type="secondary">Instance: </Text><Text>{manifest.instanceName}</Text></div>
+						)}
+						{manifest.exportedAt && (
+							<div><Text type="secondary">Exported: </Text><Text>{new Date(manifest.exportedAt).toLocaleString()}</Text></div>
+						)}
+						<div>
+							<Text type="secondary">Icons: </Text>
+							<Text>{totalCount}</Text>
+						</div>
+					</div>
+				)}
+			<Card>
 				<Space style={{ marginBottom: 16, display: "flex", alignItems: "center" }}>
 					<Input
 						placeholder="Filter by name or class…"
@@ -223,6 +244,7 @@ export default function IconReferencePage() {
 					);
 				})}
 			</Card>
+			</div>
 		</PageLayout>
 	);
 }

@@ -1292,6 +1292,7 @@ end`.replace(/\r?\n/g, " ");
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", String(this.activeModPack.id));
+			url.searchParams.set("instance_name", this.name);
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
