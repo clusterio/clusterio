@@ -219,7 +219,7 @@ export default class InstanceManager {
 		this._controller.clearSavesOfInstance(instanceId);
 		instance.config.set("instance.assigned_host", hostId ?? null);
 
-		if (hostId !== undefined && newHostConnection) {
+		if (newHostConnection !== undefined) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host")),
 			);

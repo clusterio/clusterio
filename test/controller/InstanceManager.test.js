@@ -249,9 +249,16 @@ describe("controller/InstanceManager", function () {
 	});
 
 	describe(".unassignInstance()", function () {
-		it("should delegate to assignInstance", async function () {
+		it("should unassign an instance", async function () {
+			controller.wsServer.hostConnections.set(5, {
+				send: async () => {},
+				connector: { closing: true },
+			});
+
+			await instances.assignInstance(instance.id, 5);
 			await instances.unassignInstance(instance.id);
 			assert.equal(instance.config.get("instance.assigned_host"), null);
+			assert.equal(instance.status, "unassigned");
 		});
 	});
 

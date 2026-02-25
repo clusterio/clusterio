@@ -135,6 +135,11 @@ describe("controller/User", function () {
 			assert.doesNotThrow(() => adminUser.checkPermission("core.admin"));
 		});
 
+		it("should not error if user has invalid role", function () {
+			user.roleIds.add("99");
+			assert.doesNotThrow(() => user.checkPermission("core.control.connect"));
+		});
+
 		it("should throw if permission not granted", function () {
 			assert.throws(() => user.checkPermission("core.admin"), /Permission denied/);
 		});

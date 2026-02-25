@@ -348,7 +348,7 @@ export default class HostConnection extends BaseConnection {
 		user.instanceStats.set(instanceId, event.stats);
 
 		user.recalculatePlayerStats();
-		this._controller.usersUpdated([user]);
+		user.saveRecord();
 
 		let instance = this._controller.instances.get(instanceId)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {

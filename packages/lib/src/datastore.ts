@@ -53,7 +53,7 @@ export class JsonDatastoreProvider<
 		private filePath: string,
 		private fromJson: (json: J) => V = v => v as any as V,
 		private migrations: (rawJson: Record<string, unknown>) => Record<string, J> = v => v as Record<string, J>,
-		private finalise: (obj: V, map: Map<string, V>) => V = v => v,
+		private finalise: (obj: V, map: Map<string, V>) => V | undefined = v => v,
 	) {
 		super();
 	}
@@ -86,7 +86,7 @@ export class JsonDatastoreProvider<
 		const result = new Map<string, V>();
 		for (const [key, raw] of Object.entries(serialized)) {
 			const final = this.finalise(this.fromJson(raw), result);
-			result.set(key, final);
+			if (final !== undefined) { result.set(key, final); }
 			serializedCount += 1;
 		}
 
@@ -112,7 +112,7 @@ export class JsonIdDatastoreProvider<
 		private filePath: string,
 		private fromJson: (json: J) => V = v => v as any as V,
 		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as Array<J>,
-		private finalise: (obj: V, map: Map<V["id"], V>) => V = v => v,
+		private finalise: (obj: V, map: Map<V["id"], V>) => V | undefined = v => v,
 	) {
 		super();
 	}
@@ -145,7 +145,7 @@ export class JsonIdDatastoreProvider<
 		const result = new Map<V["id"], V>();
 		for (const raw of serialized) {
 			const final = this.finalise(this.fromJson(raw), result);
-			result.set(final.id, final);
+			if (final !== undefined) { result.set(final.id, final); }
 			serializedCount += 1;
 		}
 

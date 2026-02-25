@@ -180,6 +180,21 @@ describe("lib/datastore", function() {
 				await fs.copy(path.join(testFiles, "json", "invalid.json"), dataPath);
 				await assert.rejects(() => datastoreProvider.load(dataPath));
 			});
+			it("writes a backup if size changes after load", async function() {
+				datastoreProvider = new lib.JsonDatastoreProvider(
+					dataPath,
+					json => json, // Nop
+					rawJson => rawJson, // Nop
+					() => undefined, // Throw away all data
+				);
+
+				const entriesBefore = await fs.readdir(baseDir);
+				const loadedData = await datastoreProvider.load();
+				const entriesAfter = await fs.readdir(baseDir);
+
+				assert.equal(entriesAfter.length, entriesBefore.length + 1, "Backup was not created");
+				assert.equal(loadedData.size, 0);
+			});
 		});
 	});
 
@@ -259,6 +274,21 @@ describe("lib/datastore", function() {
 			it("throws for invalid file contents", async function() {
 				await fs.copy(path.join(testFiles, "json", "invalid.json"), dataPath);
 				await assert.rejects(() => datastoreProvider.load(dataPath));
+			});
+			it("writes a backup if size changes after load", async function() {
+				datastoreProvider = new lib.JsonIdDatastoreProvider(
+					dataPath,
+					json => json, // Nop
+					rawJson => rawJson, // Nop
+					() => undefined, // Throw away all data
+				);
+
+				const entriesBefore = await fs.readdir(baseDir);
+				const loadedData = await datastoreProvider.load();
+				const entriesAfter = await fs.readdir(baseDir);
+
+				assert.equal(entriesAfter.length, entriesBefore.length + 1, "Backup was not created");
+				assert.equal(loadedData.size, 0);
 			});
 		});
 	});

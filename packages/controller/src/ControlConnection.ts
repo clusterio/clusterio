@@ -999,6 +999,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
+	/** This does not do a full restore, rather it demotes / unbanns / unwhitelistes users */
 	async handleUserBulkRestoreRequest(request: lib.UserBulkImportRequest, updated: Map<string, UserRecord>) {
 		if (request.importType === "users") {
 			// Update all fields for all users
@@ -1058,9 +1059,10 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		// Will get a user or attempt to create one
+		// UserManager.getOrCreateUser not used due to inclusion of checkPermission
 		const getUserOrCreate = (username: string) => {
 			const user = this._controller.users.getByNameMutable(username);
-			if (user) { return user; }
+			if (user) { return updated.get(user.id) ?? user; }
 			this.user.checkPermission("core.user.create");
 			return this._controller.users.createUser(username);
 		};
@@ -1120,7 +1122,7 @@ export default class ControlConnection extends BaseConnection {
 
 		// Send the necessary update events
 		const updatedUsers = [...updated.values()];
-		this._controller.usersUpdated(updatedUsers);
+		this._controller.users.records.setMany(updatedUsers);
 
 		// Resync the host user lists
 		const adminlist: Set<string> = new Set();
