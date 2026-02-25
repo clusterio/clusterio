@@ -177,6 +177,21 @@ describe("controller/InstanceManager", function () {
 			);
 		});
 
+		it("should do nothing if the host would not change", async function () {
+			let assignRequest;
+			controller.wsServer.hostConnections.set(5, {
+				send: async (request) => {
+					assignRequest = request;
+				},
+				connector: { closing: false },
+			});
+
+			instance.config.set("instance.assigned_host", 5);
+
+			await instances.assignInstance(1, 5);
+			assert.equal(assignRequest, undefined);
+		});
+
 		it("should not unassign if new host is not connected", async function () {
 			let unassignRequest;
 			controller.wsServer.hostConnections.set(5, {
@@ -275,6 +290,17 @@ describe("controller/InstanceManager", function () {
 			await instances.unassignInstance(instance.id);
 			assert.equal(instance.config.get("instance.assigned_host"), null);
 			assert.equal(instance.status, "unassigned");
+		});
+		it("should do nothing if the host would not change", async function () {
+			instance.config.set("instance.assigned_host", null);
+
+			let fieldChanged;
+			instance.config.on("fieldChanged", name => {
+				fieldChanged = name;
+			});
+
+			await instances.unassignInstance(1);
+			assert.equal(fieldChanged, undefined);
 		});
 	});
 
