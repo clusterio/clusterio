@@ -150,7 +150,7 @@ export default function IconReferencePage() {
 			key: "usage",
 			render: (cssClass: string) => (
 				<Text code style={{ fontSize: 11, color: "#90ee90" }}>
-					{"<div className=\"" + cssClass + "\" />"}
+					{"<div class=\"" + cssClass + "\" />"}
 				</Text>
 			),
 		},
