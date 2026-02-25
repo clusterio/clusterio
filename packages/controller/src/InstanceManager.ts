@@ -189,25 +189,25 @@ export default class InstanceManager {
 	 */
 	async assignInstance(
 		instanceId: number,
-		hostId?: number,
+		hostId: number | null,
 	): Promise<void> {
 		const instance = this.getForRequest(instanceId);
 		const hostConnections = this._controller.wsServer.hostConnections;
 
 		const currentAssignedHost = instance.config.get("instance.assigned_host");
-		if ((currentAssignedHost ?? undefined) === hostId) {
+		if (currentAssignedHost === hostId) {
 			return;
 		}
 
 		let newHostConnection: HostConnection | undefined;
-		if (hostId !== undefined) {
+		if (hostId) {
 			newHostConnection = hostConnections.get(hostId);
 			if (!newHostConnection) {
 				throw new lib.RequestError("Target host is not connected to the controller");
 			}
 		}
 
-		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
+		if (currentAssignedHost) {
 			const oldHostConnection = hostConnections.get(currentAssignedHost);
 			if (oldHostConnection && !oldHostConnection.connector.closing) {
 				await oldHostConnection.send(
@@ -217,9 +217,9 @@ export default class InstanceManager {
 		}
 
 		this._controller.clearSavesOfInstance(instanceId);
-		instance.config.set("instance.assigned_host", hostId ?? null);
+		instance.config.set("instance.assigned_host", hostId);
 
-		if (newHostConnection !== undefined) {
+		if (newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host")),
 			);
@@ -239,7 +239,7 @@ export default class InstanceManager {
 	 * @param instanceId - ID of instance to unassign.
 	 */
 	async unassignInstance(instanceId: number): Promise<void> {
-		return this.assignInstance(instanceId, undefined);
+		return this.assignInstance(instanceId, null);
 	}
 
 	/**

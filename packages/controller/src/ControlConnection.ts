@@ -304,7 +304,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
-		await this._controller.instances.assignInstance(request.instanceId, request.hostId);
+		await this._controller.instances.assignInstance(request.instanceId, request.hostId ?? null);
 	}
 
 	async handleInstanceSaveDetailsListRequest() {

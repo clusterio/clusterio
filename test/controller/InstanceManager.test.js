@@ -177,6 +177,25 @@ describe("controller/InstanceManager", function () {
 			);
 		});
 
+		it("should not unassign if new host is not connected", async function () {
+			let unassignRequest;
+			controller.wsServer.hostConnections.set(5, {
+				send: async (request) => {
+					unassignRequest = request;
+				},
+				connector: { closing: false },
+			});
+
+			instance.config.set("instance.assigned_host", 5);
+
+			await assert.rejects(
+				() => instances.assignInstance(1, 6),
+				lib.RequestError
+			);
+
+			assert.equal(unassignRequest, undefined);
+		});
+
 		it("should assign to connected host", async function () {
 			let assignRequest;
 			controller.wsServer.hostConnections.set(5, {
@@ -202,8 +221,6 @@ describe("controller/InstanceManager", function () {
 				connector: { closing: false },
 			});
 
-			await instances.assignInstance(1, 5);
-
 			let assignRequest;
 			controller.wsServer.hostConnections.set(6, {
 				send: async (request) => {
@@ -212,6 +229,7 @@ describe("controller/InstanceManager", function () {
 				connector: { closing: false },
 			});
 
+			instance.config.set("instance.assigned_host", 5);
 			await instances.assignInstance(1, 6);
 
 			assert(unassignRequest instanceof lib.InstanceUnassignInternalRequest);
@@ -229,8 +247,6 @@ describe("controller/InstanceManager", function () {
 				connector: { closing: true },
 			});
 
-			await instances.assignInstance(1, 5);
-
 			let assignRequest;
 			controller.wsServer.hostConnections.set(6, {
 				send: async (request) => {
@@ -239,7 +255,7 @@ describe("controller/InstanceManager", function () {
 				connector: { closing: false },
 			});
 
-			unassignRequest = undefined;
+			instance.config.set("instance.assigned_host", 5);
 			await instances.assignInstance(1, 6);
 
 			assert.equal(unassignRequest, undefined);

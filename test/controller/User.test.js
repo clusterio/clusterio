@@ -136,7 +136,12 @@ describe("controller/User", function () {
 		});
 
 		it("should not error if user has invalid role", function () {
-			user.roleIds.add("99");
+			user.roleIds = {
+				[Symbol.iterator]: function* () {
+					// We need the invalid id (99) to be before the valid id (1)
+					for (const roleId of [99, 1]) { yield roleId; }
+				},
+			};
 			assert.doesNotThrow(() => user.checkPermission("core.control.connect"));
 		});
 
