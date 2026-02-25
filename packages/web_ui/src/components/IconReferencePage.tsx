@@ -9,6 +9,7 @@ import {
 	usePlanetMetadata,
 	useQualityMetadata,
 	useEntityMetadata,
+	useStaticMetadata,
 } from "../model/item_metadata";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
@@ -21,46 +22,14 @@ type IconEntry = {
 	name: string;
 	cssClass: string;
 	size: number;
+	path?: string;
 };
 
-const STATIC_ALERT_NAMES = [
-	"alert-ammo-icon-red",
-	"alert-asteroid-collector-path-blocked-icon",
-	"alert-danger-icon",
-	"alert-destination-full-icon",
-	"alert-destroyed-icon",
-	"alert-electricity-icon-red",
-	"alert-electricity-icon-unplugged",
-	"alert-endangered-by-lightning",
-	"alert-endangered-by-lightning-red",
-	"alert-fluid-icon-red",
-	"alert-food-icon-red",
-	"alert-frozen-icon",
-	"alert-fuel-icon-red",
-	"alert-item-to-be-delivered-symbol",
-	"alert-no-building-material-icon",
-	"alert-no-path-icon",
-	"alert-no-platform-storage-space-icon",
-	"alert-no-roboport-storage-space-icon",
-	"alert-no-storage-space-icon",
-	"alert-not-enough-construction-robots-icon",
-	"alert-not-enough-repair-packs-icon",
-	"alert-nutrients-icon-red",
-	"alert-pipeline-disabled-icon",
-	"alert-recharge-icon",
-	"alert-resources-depleted-icon",
-	"alert-too-far-from-roboport-icon",
-	"alert-unclaimed-cargo-icon",
-	"alert-warning-icon",
-];
-
-const DYNAMIC_CATEGORIES = [
-	"item", "recipe", "signal", "technology", "planet", "quality", "entity",
+const CATEGORIES = [
+	"item", "recipe", "signal", "technology", "planet", "quality", "entity", "static",
 ] as const;
 
-const ALL_CATEGORIES = [...DYNAMIC_CATEGORIES, "static"] as const;
-
-type Category = typeof ALL_CATEGORIES[number];
+type Category = typeof CATEGORIES[number];
 
 const CATEGORY_LABELS: Record<Category, string> = {
 	item: "Item",
@@ -81,16 +50,16 @@ function useAllIconEntries() {
 	const planet = usePlanetMetadata();
 	const quality = useQualityMetadata();
 	const entity = useEntityMetadata();
+	const staticIcons = useStaticMetadata();
 
-	const byCategory: Record<typeof DYNAMIC_CATEGORIES[number], Map<string, { size: number }>> = {
-		item, recipe, signal, technology, planet, quality, entity,
+	const byCategory: Record<Category, Map<string, { size: number; path?: string }>> = {
+		item, recipe, signal, technology, planet, quality, entity, static: staticIcons,
 	};
 
 	return useMemo(() => {
 		const entries: IconEntry[] = [];
 
-		// Dynamic categories from spritesheet metadata
-		for (const category of DYNAMIC_CATEGORIES) {
+		for (const category of CATEGORIES) {
 			const names = [...byCategory[category].keys()].sort();
 			for (const name of names) {
 				const meta = byCategory[category].get(name)!;
@@ -100,24 +69,14 @@ function useAllIconEntries() {
 					name,
 					cssClass: `${category}-${CSS.escape(name)}`,
 					size: meta.size,
+					path: meta.path,
 				});
 			}
 		}
 
-		// Static alerts — hardcoded, size 32
-		for (const name of STATIC_ALERT_NAMES) {
-			entries.push({
-				key: `static:${name}`,
-				category: "static",
-				name,
-				cssClass: `static-${CSS.escape(name)}`,
-				size: 32,
-			});
-		}
-
 		return entries;
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [item, recipe, signal, technology, planet, quality, entity]);
+	}, [item, recipe, signal, technology, planet, quality, entity, staticIcons]);
 }
 
 export default function IconReferencePage() {
@@ -137,13 +96,13 @@ export default function IconReferencePage() {
 
 	const groups = useMemo(() => {
 		const map = new Map<string, IconEntry[]>();
-		for (const cat of ALL_CATEGORIES) {
+		for (const cat of CATEGORIES) {
 			map.set(cat, []);
 		}
 		for (const entry of filtered) {
 			map.get(entry.category)!.push(entry);
 		}
-		return ALL_CATEGORIES.map(cat => ({ category: cat, entries: map.get(cat)! }))
+		return CATEGORIES.map(cat => ({ category: cat, entries: map.get(cat)! }))
 			.filter(g => g.entries.length > 0);
 	}, [filtered]);
 
@@ -193,6 +152,14 @@ export default function IconReferencePage() {
 					{"<div className=\"" + cssClass + "\" />"}
 				</Text>
 			),
+		},
+		{
+			title: "Path",
+			dataIndex: "path",
+			key: "path",
+			render: (p: string | undefined) => p
+				? <Text type="secondary" style={{ fontSize: 11 }}>{p}</Text>
+				: null,
 		},
 	];
 

@@ -8,6 +8,7 @@ type Metadata = {
 	y: number;
 	size: number;
 	localised_name?: any[];
+	path?: string;
 };
 
 const metadataCaches = new Map<string, Map<string, Metadata>>();

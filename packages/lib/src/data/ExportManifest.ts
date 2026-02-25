@@ -26,10 +26,11 @@ export default class ExportManifest {
 		 * - quality-spritesheet / quality-metadata: quality prototypes.
 		 * - entity-spritesheet / entity-metadata: all entity prototype types with icons.
 		 * - static-spritesheet / static-metadata: non-prototype UI icons (tooltips, alerts,
-		 *   crafting categories, arrow signals, shapes, toolbar shortcuts).
+		 *   and individual loose graphics from core/).
 		 *
-		 * Keys for static-metadata use the pattern `{dir}-{basename}`, e.g.
-		 * `tooltip-category-electricity`, `alert-no-fuel`, `arrow-signal-left`.
+		 * Keys for static-metadata use the pattern `{prefix}-{basename}` for directory scans
+		 * (e.g. `tooltip-category-electricity`, `alert-no-fuel`) or a short name for
+		 * individual files (e.g. `add`, `cancel`, `clock`, `rename`).
 		 */
 		public assets: Record<string, string>
 	) { }
