@@ -76,7 +76,6 @@ function useAllIconEntries() {
 		}
 
 		return entries;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [item, recipe, signal, technology, planet, quality, entity, staticIcons]);
 }
 
@@ -90,8 +89,7 @@ export default function IconReferencePage() {
 		if (!q) {
 			return allEntries;
 		}
-		return allEntries.filter(e =>
-			e.name.toLowerCase().includes(q) || e.cssClass.toLowerCase().includes(q)
+		return allEntries.filter(e => e.name.toLowerCase().includes(q) || e.cssClass.toLowerCase().includes(q)
 		);
 	}, [allEntries, filter]);
 
@@ -111,8 +109,7 @@ export default function IconReferencePage() {
 	const totalCount = allEntries.length;
 	const autoExpand = visibleCount <= 20;
 
-	const isExpanded = (category: string) =>
-		autoExpand || expandedGroups.has(category);
+	const isExpanded = (category: string) => autoExpand || expandedGroups.has(category);
 
 	const toggleGroup = (category: string) => {
 		setExpandedGroups(prev => {
@@ -150,7 +147,7 @@ export default function IconReferencePage() {
 			key: "usage",
 			render: (cssClass: string) => (
 				<Text code style={{ fontSize: 11, color: "#90ee90" }}>
-					{"<div class=\"" + cssClass + "\" />"}
+					{`<div class="${cssClass}" />`}
 				</Text>
 			),
 		},
@@ -158,9 +155,9 @@ export default function IconReferencePage() {
 			title: "Path",
 			dataIndex: "path",
 			key: "path",
-			render: (p: string | undefined) => p
+			render: (p: string | undefined) => (p
 				? <Text type="secondary" style={{ fontSize: 11 }}>{p}</Text>
-				: null,
+				: null),
 		},
 	];
 
@@ -173,7 +170,10 @@ export default function IconReferencePage() {
 				{manifest && manifest.exportedAt && (
 					<div style={{ marginBottom: 12, fontSize: 12, lineHeight: 1.8 }}>
 						{manifest.exportedAt && (
-							<div><Text type="secondary">Exported: </Text><Text>{new Date(manifest.exportedAt).toLocaleString()}</Text></div>
+							<div>
+								<Text type="secondary">Exported: </Text>
+								<Text>{new Date(manifest.exportedAt).toLocaleString()}</Text>
+							</div>
 						)}
 						<div>
 							<Text type="secondary">Icons: </Text>
@@ -181,63 +181,63 @@ export default function IconReferencePage() {
 						</div>
 					</div>
 				)}
-			<Card>
-				<Space style={{ marginBottom: 16, display: "flex", alignItems: "center" }}>
-					<Input
-						placeholder="Filter by name or class…"
-						value={filter}
-						onChange={e => setFilter(e.target.value)}
-						allowClear
-						style={{ width: 320 }}
-					/>
-					<Text type="secondary" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-						{visibleCount === totalCount
-							? `${totalCount} icons`
-							: `${visibleCount} / ${totalCount} icons`}
-					</Text>
-				</Space>
-				{groups.map(({ category, entries }) => {
-					const label = CATEGORY_LABELS[category as Category] ?? category;
-					const expanded = isExpanded(category);
-					return (
-						<div key={category} style={{ marginBottom: 8 }}>
-							<div
-								onClick={() => toggleGroup(category)}
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: 8,
-									padding: "6px 12px",
-									background: "#1d1d1d",
-									border: "1px solid #333",
-									borderRadius: expanded ? "4px 4px 0 0" : 4,
-									cursor: "pointer",
-									userSelect: "none",
-								}}
-							>
-								<span style={{ fontSize: 10, color: "#888", width: 12 }}>
-									{expanded ? "▾" : "►"}
-								</span>
-								<Tag style={{ margin: 0 }}>{label}</Tag>
-								<Text type="secondary" style={{ fontSize: 12 }}>
-									{entries.length}
-								</Text>
+				<Card>
+					<Space style={{ marginBottom: 16, display: "flex", alignItems: "center" }}>
+						<Input
+							placeholder="Filter by name or class…"
+							value={filter}
+							onChange={e => setFilter(e.target.value)}
+							allowClear
+							style={{ width: 320 }}
+						/>
+						<Text type="secondary" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+							{visibleCount === totalCount
+								? `${totalCount} icons`
+								: `${visibleCount} / ${totalCount} icons`}
+						</Text>
+					</Space>
+					{groups.map(({ category, entries }) => {
+						const label = CATEGORY_LABELS[category as Category] ?? category;
+						const expanded = isExpanded(category);
+						return (
+							<div key={category} style={{ marginBottom: 8 }}>
+								<div
+									onClick={() => toggleGroup(category)}
+									style={{
+										display: "flex",
+										alignItems: "center",
+										gap: 8,
+										padding: "6px 12px",
+										background: "#1d1d1d",
+										border: "1px solid #333",
+										borderRadius: expanded ? "4px 4px 0 0" : 4,
+										cursor: "pointer",
+										userSelect: "none",
+									}}
+								>
+									<span style={{ fontSize: 10, color: "#888", width: 12 }}>
+										{expanded ? "▾" : "►"}
+									</span>
+									<Tag style={{ margin: 0 }}>{label}</Tag>
+									<Text type="secondary" style={{ fontSize: 12 }}>
+										{entries.length}
+									</Text>
+								</div>
+								{expanded && (
+									<Table<IconEntry>
+										columns={columns}
+										dataSource={entries}
+										rowKey="key"
+										size="small"
+										showHeader={false}
+										pagination={false}
+										style={{ borderTop: "none" }}
+									/>
+								)}
 							</div>
-							{expanded && (
-								<Table<IconEntry>
-									columns={columns}
-									dataSource={entries}
-									rowKey="key"
-									size="small"
-									showHeader={false}
-									pagination={false}
-									style={{ borderTop: "none" }}
-								/>
-							)}
-						</div>
-					);
-				})}
-			</Card>
+						);
+					})}
+				</Card>
 			</div>
 		</PageLayout>
 	);

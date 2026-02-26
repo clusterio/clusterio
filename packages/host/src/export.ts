@@ -332,7 +332,7 @@ const entityTypes = new Set([
 //           category (doesn't exist in any builtin mod)
 // Note: alerts live in core/graphics/icons/alerts/, tooltips split across base/ and space-age/
 const staticIconDirs: Record<string, string> = {
-	"alerts":   "alert",
+	"alerts": "alert",
 };
 
 // Individual icon files outside the standard graphics/icons/ tree.
@@ -588,13 +588,13 @@ export async function exportData(server: FactorioServer) {
 	}
 
 	const categories: { name: string, types: Set<string> }[] = [
-		{ name: "item",       types: itemTypes },
-		{ name: "recipe",     types: recipeTypes },
-		{ name: "signal",     types: signalTypes },
+		{ name: "item", types: itemTypes },
+		{ name: "recipe", types: recipeTypes },
+		{ name: "signal", types: signalTypes },
 		{ name: "technology", types: technologyTypes },
-		{ name: "planet",     types: planetTypes },
-		{ name: "quality",    types: qualityTypes },
-		{ name: "entity",     types: entityTypes },
+		{ name: "planet", types: planetTypes },
+		{ name: "quality", types: qualityTypes },
+		{ name: "entity", types: entityTypes },
 	];
 
 	let locale = await exportLocale(server, modVersions, modOrder, "en");
