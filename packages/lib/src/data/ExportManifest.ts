@@ -33,22 +33,16 @@ export default class ExportManifest {
 		 * individual files (e.g. `add`, `cancel`, `clock`, `rename`).
 		 */
 		public assets: Record<string, string>,
-		/** Name of the mod pack used for this export. */
-		public modPackName?: string,
-		/** Name of the instance that triggered this export. */
-		public instanceName?: string,
 		/** ISO 8601 timestamp of when the export was uploaded. */
 		public exportedAt?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"assets": Type.Record(Type.String(), Type.String()),
-		"modPackName": Type.Optional(Type.String()),
-		"instanceName": Type.Optional(Type.String()),
 		"exportedAt": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof ExportManifest.jsonSchema>) {
-		return new this(json.assets, json.modPackName, json.instanceName, json.exportedAt);
+		return new this(json.assets, json.exportedAt);
 	}
 }

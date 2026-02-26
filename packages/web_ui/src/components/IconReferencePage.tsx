@@ -170,14 +170,8 @@ export default function IconReferencePage() {
 		<PageLayout nav={[{ name: "Icon Reference" }]}>
 			<PageHeader title="Icon Reference" />
 			<div style={{ width: "80%", margin: "0 auto" }}>
-				{manifest && (manifest.modPackName || manifest.instanceName || manifest.exportedAt) && (
+				{manifest && manifest.exportedAt && (
 					<div style={{ marginBottom: 12, fontSize: 12, lineHeight: 1.8 }}>
-						{manifest.modPackName && (
-							<div><Text type="secondary">Mod Pack: </Text><Text>{manifest.modPackName}</Text></div>
-						)}
-						{manifest.instanceName && (
-							<div><Text type="secondary">Instance: </Text><Text>{manifest.instanceName}</Text></div>
-						)}
 						{manifest.exportedAt && (
 							<div><Text type="secondary">Exported: </Text><Text>{new Date(manifest.exportedAt).toLocaleString()}</Text></div>
 						)}

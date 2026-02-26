@@ -143,9 +143,6 @@ async function loadIcon(
 	iconMipmaps: number,
 	iconCache: IconCache,
 ) {
-	if (typeof iconPath !== "string") {
-		return null;
-	}
 	let icon = iconCache.get(iconPath);
 	if (icon === undefined) {
 		let fileContent = await loadFile(server, modVersions, iconPath);
@@ -261,6 +258,14 @@ function fixIcons(item: ItemPrototype) {
 	return item;
 }
 
+/** Get the primary icon path from a prototype (first layer for layered, .icon for simple). */
+function getPrimaryIconPath(item: ItemPrototype): string | undefined {
+	if (item.icons) {
+		return (item as LayeredIconSpecification).icons[0]?.icon;
+	}
+	return (item as SimpleIconSpecification).icon;
+}
+
 const itemTypes = new Set([
 	"item",
 	"ammo",
@@ -320,7 +325,7 @@ const entityTypes = new Set([
 	"agricultural-tower", "market", "lane-splitter",
 ]);
 
-// Non-prototype icon directories to scan for static UI assets.
+// Non-prototype icon directories to scan across builtin mods (core + DLC) for static UI assets.
 // Only include directories with small, reasonably square icons suitable for compositing.
 // Keys: directory name relative to graphics/icons/ → prefix used in metadata keys
 // Excluded: arrows (120x64), shapes (120x64), shortcut-toolbar (36x24/84x56 duplicates),
@@ -396,7 +401,7 @@ async function exportItems(server: FactorioServer, modVersions: Map<string, stri
 	let simpleIcons = new Map();
 	for (let item of items) {
 		// Skip prototypes with no icon data at all
-		if (!item.icons && typeof item.icon !== "string") {
+		if (!item.icons && !item.icon) {
 			continue;
 		}
 
@@ -418,16 +423,14 @@ async function exportItems(server: FactorioServer, modVersions: Map<string, stri
 		}
 
 		if (iconPos !== undefined) {
-			const iconPath = item.icons
-				? (item as LayeredIconSpecification).icons[0]?.icon
-				: (item as SimpleIconSpecification).icon;
+			const iconPath = getPrimaryIconPath(item);
 			itemData.set(item.name, {
 				x: iconPos * size % width,
 				y: Math.floor(iconPos / (width / size)) * size,
 				size,
 				localised_name: item.localised_name,
 				localised_description: item.localised_description,
-				...(typeof iconPath === "string" ? { path: iconPath } : {}),
+				...(iconPath ? { path: iconPath } : {}),
 			});
 		}
 
@@ -607,41 +610,38 @@ export async function exportData(server: FactorioServer) {
 	// Build a spritesheet and metadata file for each prototype category.
 	// Track all __mod__/paths already packed so exportStaticIcons can skip them.
 	const exportedIconPaths = new Set<string>();
-	for (const cat of categories) {
-		let items = filterPrototypes(prototypes, cat.types);
+	for (const category of categories) {
+		let categoryItems = filterPrototypes(prototypes, category.types);
 
 		// Deduplicate entities: skip any prototype whose primary icon path
 		// was already exported by a prior category (items, recipes, signals,
 		// etc.), and skip internal prefixed entities (dummy-, hidden-).
-		if (cat.name === "entity") {
-			items = items.filter(item => {
+		if (category.name === "entity") {
+			categoryItems = categoryItems.filter(item => {
 				if (item.name.startsWith("dummy-") || item.name.startsWith("hidden-")) {
 					return false;
 				}
-				const iconPath = item.icons
-					? (item as LayeredIconSpecification).icons[0]?.icon
-					: (item as SimpleIconSpecification).icon;
-				return typeof iconPath !== "string" || !exportedIconPaths.has(iconPath);
+				const iconPath = getPrimaryIconPath(item);
+				return !iconPath || !exportedIconPaths.has(iconPath);
 			});
 		}
 
-		if (items.length === 0) {
+		if (categoryItems.length === 0) {
 			continue;
 		}
-		const { iconSheet, itemData } = await exportItems(server, modVersions, items);
+		const { iconSheet, itemData } = await exportItems(server, modVersions, categoryItems);
+		server._logger.info(`Exported ${itemData.size} ${category.name} icons`);
 		// Record every icon path used so the static pass can deduplicate.
-		for (const item of items) {
-			if (typeof item.icon === "string") {
-				exportedIconPaths.add(item.icon);
+		for (const item of categoryItems) {
+			if (item.icon) {
+				exportedIconPaths.add(item.icon as string);
 			}
 			for (const layer of (Array.isArray(item.icons) ? item.icons as IconLayer[] : [])) {
-				if (typeof layer.icon === "string") {
-					exportedIconPaths.add(layer.icon);
-				}
+				exportedIconPaths.add(layer.icon);
 			}
 		}
-		zip.file(`export/${cat.name}-spritesheet.png`, await iconSheet.getBufferAsync(Jimp.MIME_PNG));
-		zip.file(`export/${cat.name}-metadata.json`, JSON.stringify([...itemData.entries()]));
+		zip.file(`export/${category.name}-spritesheet.png`, await iconSheet.getBufferAsync(Jimp.MIME_PNG));
+		zip.file(`export/${category.name}-metadata.json`, JSON.stringify([...itemData.entries()]));
 	}
 
 	// Export static UI icons (tooltips, alerts, etc.) that aren't referenced by any prototype.
@@ -650,21 +650,8 @@ export async function exportData(server: FactorioServer) {
 	if (staticData.size > 0) {
 		zip.file("export/static-spritesheet.png", await staticSheet.getBufferAsync(Jimp.MIME_PNG));
 		zip.file("export/static-metadata.json", JSON.stringify([...staticData.entries()]));
+		server._logger.info(`Exported ${staticData.size} static icons`);
 	}
-
-	const categoryLines = categories
-		.map(cat => {
-			const count = filterPrototypes(prototypes, cat.types).filter(
-				i => i.icons || typeof i.icon === "string"
-			).length;
-			return count > 0 ? `${cat.name}=${count}` : null;
-		})
-		.filter(Boolean)
-		.join(", ");
-	server._logger.info(
-		`Export complete: ${categoryLines}` +
-		(staticData.size > 0 ? `, static=${staticData.size}` : "")
-	);
 
 	return zip;
 }
@@ -686,7 +673,7 @@ async function exportStaticIcons(
 	modVersions: Map<string, string>,
 	alreadyExported: Set<string>,
 ) {
-	const builtinMods = ["core", "base", "space-age", "elevated-rails", "quality"];
+	const builtinModNames = ["core", ...lib.ModPack.getBuiltinModNames(server.version!)];
 	const iconCache: IconCache = new Map();
 	const iconSheet = await Jimp.create(1024, 32); // grows dynamically
 	const itemData = new Map<string, { x: number, y: number, size: number, path?: string }>();
@@ -744,7 +731,7 @@ async function exportStaticIcons(
 	}
 
 	// Scan known icon subdirectories across all builtin mods
-	for (const mod of builtinMods) {
+	for (const mod of builtinModNames) {
 		for (const [subdir, prefix] of Object.entries(staticIconDirs)) {
 			const dirPath = server.dataPath(mod, "graphics", "icons", subdir);
 			let entries: string[];
