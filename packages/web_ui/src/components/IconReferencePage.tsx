@@ -167,7 +167,14 @@ export default function IconReferencePage() {
 		<PageLayout nav={[{ name: "Icon Reference" }]}>
 			<PageHeader title="Icon Reference" />
 			<div style={{ width: "80%", margin: "0 auto" }}>
-				{manifest && manifest.exportedAt && (
+				{!manifest && (
+				<Card>
+					<Text type="secondary">
+						No export data available. Run export-data on an instance to generate icons.
+					</Text>
+				</Card>
+			)}
+			{manifest && manifest.exportedAt && (
 					<div style={{ marginBottom: 12, fontSize: 12, lineHeight: 1.8 }}>
 						{manifest.exportedAt && (
 							<div>
