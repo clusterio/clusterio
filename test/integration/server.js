@@ -24,14 +24,12 @@ describe("Integration of host/src/server", function() {
 			if (version !== null) {
 				checkVersion(version);
 			} else {
-				for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
-					if (!entry.isDirectory()) {
-						continue;
+				for (let name of await fs.readdir(factorioDir)) {
+					// Avoid any fancy directory detection in order to follow symlinks
+					version = await _getFactorioVersion(path.join(factorioDir, name));
+					if (version !== null) {
+						checkVersion(version);
 					}
-
-					checkVersion(
-						await _getFactorioVersion(path.join(factorioDir, entry.name))
-					);
 				}
 			}
 		});
