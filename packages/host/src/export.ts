@@ -325,9 +325,9 @@ const entityTypes = new Set([
 	"agricultural-tower", "market", "lane-splitter",
 ]);
 
-function filterPrototypes(prototypes: Prototypes, types: Set<string>): ItemPrototype[] {
+function filterPrototypes(prototypes: Prototypes, allowedTypes: Set<string>): ItemPrototype[] {
 	return Object.entries(prototypes)
-		.filter(([type]) => types.has(type))
+		.filter(([type]) => allowedTypes.has(type))
 		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes) as ItemPrototype[])
 		.map(fixIcons);
 }
