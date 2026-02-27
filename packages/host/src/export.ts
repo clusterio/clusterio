@@ -325,44 +325,6 @@ const entityTypes = new Set([
 	"agricultural-tower", "market", "lane-splitter",
 ]);
 
-// Non-prototype icon directories to scan across builtin mods (core + DLC) for static UI assets.
-// Only include directories with small, reasonably square icons suitable for compositing.
-// Keys: directory name relative to graphics/icons/ → prefix used in metadata keys
-// Excluded: arrows (120x64), shapes (120x64), shortcut-toolbar (36x24/84x56 duplicates),
-//           category (doesn't exist in any builtin mod)
-// Note: alerts live in core/graphics/icons/alerts/, tooltips split across base/ and space-age/
-const staticIconDirs: Record<string, string> = {
-	"alerts": "alert",
-};
-
-// Individual icon files outside the standard graphics/icons/ tree.
-// These are loose PNGs in core/graphics/ or other non-standard locations
-// that are useful for web UI but aren't referenced by any prototype.
-// Format: [mod, path relative to mod root, metadata key]
-const staticIconFiles: [string, string, string][] = [
-	["core", "graphics/add-icon.png", "add"],
-	["core", "graphics/add-icon-white.png", "add-white"],
-	["core", "graphics/and-or-icon.png", "and-or"],
-	["core", "graphics/bonus-icon.png", "bonus"],
-	["core", "graphics/cancel.png", "cancel"],
-	["core", "graphics/clock-icon.png", "clock"],
-	["core", "graphics/clone-icon.png", "clone"],
-	["core", "graphics/enter-icon.png", "enter"],
-	["core", "graphics/export.png", "export"],
-	["core", "graphics/favourite.png", "favourite"],
-	["core", "graphics/filter-blacklist.png", "filter-blacklist"],
-	["core", "graphics/goto-icon.png", "goto"],
-	["core", "graphics/import.png", "import"],
-	["core", "graphics/no-recipe.png", "no-recipe"],
-	["core", "graphics/questionmark.png", "questionmark"],
-	["core", "graphics/rename-icon.png", "rename"],
-	["core", "graphics/too-far.png", "too-far"],
-	["core", "graphics/multiplayer-waiting-icon.png", "multiplayer-waiting"],
-	["core", "graphics/player-force-icon.png", "player-force"],
-	["core", "graphics/green-circle.png", "green-circle"],
-	["core", "graphics/green-dot.png", "green-dot"],
-];
-
 function filterPrototypes(prototypes: Prototypes, types: Set<string>): ItemPrototype[] {
 	return Object.entries(prototypes)
 		.filter(([type]) => types.has(type))
@@ -370,35 +332,58 @@ function filterPrototypes(prototypes: Prototypes, types: Set<string>): ItemProto
 		.map(fixIcons);
 }
 
+/** Shared state for building a unified spritesheet across all categories. */
+interface SheetState {
+	sheet: Jimp;
+	metadata: Map<string, { x: number, y: number, size: number, category: string, path?: string }>;
+	iconCache: IconCache;
+	simpleIcons: Map<string, number>;
+	pos: number;
+}
+
+const SHEET_ICON_SIZE = 32;
+const SHEET_WIDTH = 1024;
+
+async function createSheetState(): Promise<SheetState> {
+	return {
+		sheet: await Jimp.create(SHEET_WIDTH, SHEET_ICON_SIZE),
+		metadata: new Map(),
+		iconCache: new Map(),
+		simpleIcons: new Map(),
+		pos: 0,
+	};
+}
+
+/** Grow the spritesheet vertically if needed to fit another row. */
+async function growSheet(state: SheetState) {
+	const row = Math.floor(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
+	const neededHeight = (row + 1) * SHEET_ICON_SIZE;
+	if (neededHeight > state.sheet.bitmap.height) {
+		const extended = await Jimp.create(SHEET_WIDTH, neededHeight);
+		extended.composite(state.sheet, 0, 0);
+		(state.sheet as any).bitmap = (extended as any).bitmap;
+	}
+}
+
 /**
- * Export item icons and data
+ * Export item icons for a single category onto the shared spritesheet.
  *
- * Assembles and packs the icons for the item prototypes given into a single
- * spritesheet and json file with meta data.
- *
- * @param server -
- *     The server to generate the export mod for.
- * @param modVersions -
- *     Mapping of mod name to versions to get icons from.
- * @param items - Array of item prototypes.
- * @return Item spritesheet and metadata.
+ * @param server - The server to load icons from.
+ * @param modVersions - Mapping of mod name to version.
+ * @param items - Array of item prototypes to export.
+ * @param category - Category name for metadata.
+ * @param state - Shared spritesheet state (mutated in place).
+ * @returns Number of icons exported for this category.
  * @internal
  */
-async function exportItems(server: FactorioServer, modVersions: Map<string, string>, items: ItemPrototype[]) {
-
-	// Size to render icons at
-	let size = 32;
-
-	// Width of spritesheet
-	let width = 1024;
-
-	let rows = Math.ceil(items.length / (width / size));
-	let iconSheet = await Jimp.create(width, rows * size);
-	let itemData = new Map();
-	let pos = 0;
-
-	let iconCache: IconCache = new Map();
-	let simpleIcons = new Map();
+async function exportItems(
+	server: FactorioServer,
+	modVersions: Map<string, string>,
+	items: ItemPrototype[],
+	category: string,
+	state: SheetState,
+) {
+	let count = 0;
 	for (let item of items) {
 		// Skip prototypes with no icon data at all
 		if (!item.icons && !item.icon) {
@@ -408,41 +393,48 @@ async function exportItems(server: FactorioServer, modVersions: Map<string, stri
 		let icon: Jimp | null = null;
 		let iconPos: number | undefined;
 		if (item.icons) {
-			icon = await loadLayeredIcon(server, modVersions, item as LayeredIconSpecification, size, iconCache);
-			iconPos = pos;
+			icon = await loadLayeredIcon(
+				server, modVersions, item as LayeredIconSpecification, SHEET_ICON_SIZE, state.iconCache,
+			);
+			iconPos = state.pos;
 
 		} else {
-			iconPos = simpleIcons.get(item.icon);
+			iconPos = state.simpleIcons.get(item.icon as string);
 			if (iconPos === undefined) {
-				icon = await loadSimpleIcon(server, modVersions, item as SimpleIconSpecification, size, iconCache);
+				icon = await loadSimpleIcon(
+					server, modVersions, item as SimpleIconSpecification, SHEET_ICON_SIZE, state.iconCache,
+				);
 				if (icon) {
-					iconPos = pos;
-					simpleIcons.set(item.icon, pos);
+					iconPos = state.pos;
+					state.simpleIcons.set(item.icon as string, state.pos);
 				}
 			}
 		}
 
 		if (iconPos !== undefined) {
 			const iconPath = getPrimaryIconPath(item);
-			itemData.set(item.name, {
-				x: iconPos * size % width,
-				y: Math.floor(iconPos / (width / size)) * size,
-				size,
-				localised_name: item.localised_name,
-				localised_description: item.localised_description,
+			state.metadata.set(item.name, {
+				x: iconPos * SHEET_ICON_SIZE % SHEET_WIDTH,
+				y: Math.floor(iconPos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
+				size: SHEET_ICON_SIZE,
+				category,
 				...(iconPath ? { path: iconPath } : {}),
 			});
 		}
 
 		if (icon) {
-			iconSheet.composite(icon, pos * size % width, Math.floor(pos / (width / size)) * size);
-			pos += 1;
+			await growSheet(state);
+			state.sheet.composite(
+				icon,
+				state.pos * SHEET_ICON_SIZE % SHEET_WIDTH,
+				Math.floor(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
+			);
+			state.pos += 1;
+			count += 1;
 		}
 	}
 
-	iconSheet.crop(0, 0, width, Math.ceil(pos / (width / size)) * size);
-
-	return { iconSheet, itemData };
+	return count;
 }
 
 /**
@@ -607,8 +599,9 @@ export async function exportData(server: FactorioServer) {
 	zip.file("export/prototypes.json", JSON.stringify(prototypes));
 	zip.file("export/locale.json", JSON.stringify([...locale.entries()]));
 
-	// Build a spritesheet and metadata file for each prototype category.
-	// Track all __mod__/paths already packed so exportStaticIcons can skip them.
+	// Build a single unified spritesheet across all prototype categories + static icons.
+	// Track all __mod__/paths already packed so later categories can deduplicate.
+	const state = await createSheetState();
 	const exportedIconPaths = new Set<string>();
 	for (const category of categories) {
 		let categoryItems = filterPrototypes(prototypes, category.types);
@@ -629,9 +622,9 @@ export async function exportData(server: FactorioServer) {
 		if (categoryItems.length === 0) {
 			continue;
 		}
-		const { iconSheet, itemData } = await exportItems(server, modVersions, categoryItems);
-		server._logger.info(`Exported ${itemData.size} ${category.name} icons`);
-		// Record every icon path used so the static pass can deduplicate.
+		const count = await exportItems(server, modVersions, categoryItems, category.name, state);
+		server._logger.info(`Exported ${count} ${category.name} icons`);
+		// Record every icon path used so later categories can deduplicate.
 		for (const item of categoryItems) {
 			if (item.icon) {
 				exportedIconPaths.add(item.icon as string);
@@ -640,128 +633,17 @@ export async function exportData(server: FactorioServer) {
 				exportedIconPaths.add(layer.icon);
 			}
 		}
-		zip.file(`export/${category.name}-spritesheet.png`, await iconSheet.getBufferAsync(Jimp.MIME_PNG));
-		zip.file(`export/${category.name}-metadata.json`, JSON.stringify([...itemData.entries()]));
 	}
 
-	// Export static UI icons (tooltips, alerts, etc.) that aren't referenced by any prototype.
-	const { iconSheet: staticSheet, itemData: staticData } =
-		await exportStaticIcons(server, modVersions, exportedIconPaths);
-	if (staticData.size > 0) {
-		zip.file("export/static-spritesheet.png", await staticSheet.getBufferAsync(Jimp.MIME_PNG));
-		zip.file("export/static-metadata.json", JSON.stringify([...staticData.entries()]));
-		server._logger.info(`Exported ${staticData.size} static icons`);
-	}
+	// Crop sheet to actual used height and write single spritesheet + metadata.
+	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
+	state.sheet.crop(0, 0, SHEET_WIDTH, Math.max(usedRows * SHEET_ICON_SIZE, 1));
+	zip.file("export/spritesheet.png", await state.sheet.getBufferAsync(Jimp.MIME_PNG));
+	zip.file("export/metadata.json", JSON.stringify([...state.metadata.entries()]));
+
+	server._logger.info(`Export complete: ${state.metadata.size} icons on ${usedRows} row(s)`);
 
 	return zip;
-}
-
-/**
- * Export static UI icons that exist on disk but are not referenced by any prototype.
- * Scans known icon subdirectories (tooltips, alerts, category, arrows, shapes,
- * shortcut-toolbar) for each builtin mod and packs them into a single spritesheet.
- * Icons whose path was already packed by a prototype category are skipped.
- *
- * @param server - The server to load assets from.
- * @param modVersions - Mapping of mod name to version.
- * @param alreadyExported - Set of __mod__/path strings already packed.
- * @returns Spritesheet and metadata (may be empty if nothing found).
- * @internal
- */
-async function exportStaticIcons(
-	server: FactorioServer,
-	modVersions: Map<string, string>,
-	alreadyExported: Set<string>,
-) {
-	const builtinModNames = ["core", ...lib.ModPack.getBuiltinModNames(server.version!)];
-	const iconCache: IconCache = new Map();
-	const iconSheet = await Jimp.create(1024, 32); // grows dynamically
-	const itemData = new Map<string, { x: number, y: number, size: number, path?: string }>();
-	const size = 32;
-	const width = 1024;
-	let pos = 0;
-
-	/** Load a single icon file, resize it, pack it onto the spritesheet, and record its metadata. */
-	async function packIcon(modPath: string, key: string) {
-		if (alreadyExported.has(modPath)) {
-			return;
-		}
-
-		const iconBuf = await loadFile(server, modVersions, modPath);
-		if (!iconBuf) {
-			return;
-		}
-
-		let icon: Jimp | null = null;
-		try {
-			icon = await Jimp.read(iconBuf);
-			// Fit within size×size preserving aspect ratio, then center on transparent canvas
-			const scale = Math.min(size / icon.bitmap.width, size / icon.bitmap.height);
-			const fitW = Math.round(icon.bitmap.width * scale);
-			const fitH = Math.round(icon.bitmap.height * scale);
-			icon.resize(fitW, fitH);
-			if (fitW !== size || fitH !== size) {
-				const canvas = await Jimp.create(size, size, 0x00000000);
-				canvas.composite(icon, Math.floor((size - fitW) / 2), Math.floor((size - fitH) / 2));
-				icon = canvas;
-			}
-		} catch {
-			server._logger.warn(`Static icon failed to load: ${modPath}`);
-			return;
-		}
-		iconCache.set(modPath, icon);
-
-		// Grow the sheet vertically if needed
-		const row = Math.floor(pos / (width / size));
-		const neededHeight = (row + 1) * size;
-		if (neededHeight > iconSheet.bitmap.height) {
-			const extended = await Jimp.create(width, neededHeight);
-			extended.composite(iconSheet, 0, 0);
-			(iconSheet as any).bitmap = (extended as any).bitmap;
-		}
-
-		iconSheet.composite(icon, (pos * size) % width, row * size);
-		itemData.set(key, {
-			x: (pos * size) % width,
-			y: row * size,
-			size,
-			path: modPath,
-		});
-		pos += 1;
-	}
-
-	// Scan known icon subdirectories across all builtin mods
-	for (const mod of builtinModNames) {
-		for (const [subdir, prefix] of Object.entries(staticIconDirs)) {
-			const dirPath = server.dataPath(mod, "graphics", "icons", subdir);
-			let entries: string[];
-			try {
-				entries = await fs.readdir(dirPath);
-			} catch {
-				continue; // directory doesn't exist in this mod
-			}
-
-			for (const entry of entries) {
-				if (!entry.endsWith(".png")) {
-					continue;
-				}
-				const modPath = `__${mod}__/graphics/icons/${subdir}/${entry}`;
-				const baseName = entry.replace(/\.png$/, "");
-				await packIcon(modPath, `${prefix}-${baseName}`);
-			}
-		}
-	}
-
-	// Individual loose icon files
-	for (const [mod, filePath, key] of staticIconFiles) {
-		await packIcon(`__${mod}__/${filePath}`, key);
-	}
-
-	// Crop sheet to actual used height
-	const usedRows = Math.ceil(pos / (width / size));
-	iconSheet.crop(0, 0, width, Math.max(usedRows * size, 1));
-
-	return { iconSheet, itemData };
 }
 
 

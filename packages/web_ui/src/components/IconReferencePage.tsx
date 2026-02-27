@@ -9,7 +9,6 @@ import {
 	usePlanetMetadata,
 	useQualityMetadata,
 	useEntityMetadata,
-	useStaticMetadata,
 } from "../model/item_metadata";
 import { useExportManifest } from "../model/export_manifest";
 import PageHeader from "./PageHeader";
@@ -27,7 +26,7 @@ type IconEntry = {
 };
 
 const CATEGORIES = [
-	"item", "recipe", "signal", "technology", "planet", "quality", "entity", "static",
+	"item", "recipe", "signal", "technology", "planet", "quality", "entity",
 ] as const;
 
 type Category = typeof CATEGORIES[number];
@@ -40,7 +39,6 @@ const CATEGORY_LABELS: Record<Category, string> = {
 	planet: "Planet",
 	quality: "Quality",
 	entity: "Entity",
-	static: "Static",
 };
 
 function useAllIconEntries() {
@@ -51,10 +49,9 @@ function useAllIconEntries() {
 	const planet = usePlanetMetadata();
 	const quality = useQualityMetadata();
 	const entity = useEntityMetadata();
-	const staticIcons = useStaticMetadata();
 
 	const byCategory: Record<Category, Map<string, { size: number; path?: string }>> = {
-		item, recipe, signal, technology, planet, quality, entity, static: staticIcons,
+		item, recipe, signal, technology, planet, quality, entity,
 	};
 
 	return useMemo(() => {
@@ -76,7 +73,7 @@ function useAllIconEntries() {
 		}
 
 		return entries;
-	}, [item, recipe, signal, technology, planet, quality, entity, staticIcons]);
+	}, [item, recipe, signal, technology, planet, quality, entity]);
 }
 
 export default function IconReferencePage() {

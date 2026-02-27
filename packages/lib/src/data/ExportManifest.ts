@@ -15,22 +15,10 @@ export default class ExportManifest {
 		 * - settings: JSON of mod settings prototypes.
 		 * - prototypes: JSON of all game prototypes except settings.
 		 * - locale: JSON of flattened Map entries of en locale strings from the game.
-		 *
-		 * Spritesheets — each `{category}-spritesheet` has a matching `{category}-metadata`
-		 * containing a JSON array of [name, {x, y, size}] entries describing sprite coordinates:
-		 * - item-spritesheet / item-metadata: items, fluids, ammo, armor, modules, tools, etc.
-		 * - recipe-spritesheet / recipe-metadata: recipe prototypes with explicit icons.
-		 * - signal-spritesheet / signal-metadata: virtual-signal prototypes.
-		 * - technology-spritesheet / technology-metadata: technology prototypes.
-		 * - planet-spritesheet / planet-metadata: planet and space-location prototypes.
-		 * - quality-spritesheet / quality-metadata: quality prototypes.
-		 * - entity-spritesheet / entity-metadata: all entity prototype types with icons.
-		 * - static-spritesheet / static-metadata: non-prototype UI icons (tooltips, alerts,
-		 *   and individual loose graphics from core/).
-		 *
-		 * Keys for static-metadata use the pattern `{prefix}-{basename}` for directory scans
-		 * (e.g. `tooltip-category-electricity`, `alert-no-fuel`) or a short name for
-		 * individual files (e.g. `add`, `cancel`, `clock`, `rename`).
+		 * - spritesheet: Single PNG spritesheet containing all icon categories.
+		 * - metadata: JSON array of [name, {x, y, size, category, path?}] entries
+		 *   describing sprite coordinates and category membership. Categories:
+		 *   item, recipe, signal, technology, planet, quality, entity, static.
 		 */
 		public assets: Record<string, string>,
 		/** ISO 8601 timestamp of when the export was uploaded. */
