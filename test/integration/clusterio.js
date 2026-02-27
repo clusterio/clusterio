@@ -15,6 +15,7 @@ const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
 	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
+	requiresFactorio, hasFactorio,
 } = require("./index");
 
 
@@ -274,6 +275,7 @@ describe("Integration of Clusterio", function() {
 		});
 		it("should download mods from controller", async function() {
 			slowTest(this);
+			requiresFactorio(this);
 			await runWithAltHost(async () => {
 				// Use the latest vesion in /dist instead of a hardcoded version
 				async function checkModDownloaded() {
@@ -289,6 +291,7 @@ describe("Integration of Clusterio", function() {
 		});
 		it("should auto start instances with auto_start enabled", async function() {
 			slowTest(this);
+			requiresFactorio(this);
 			this.timeout(30000); // Need an even longer timeout for this test
 
 			let hostProcess;
@@ -622,6 +625,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance save create", function() {
 			it("creates a save", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				getControl().saveUpdates = [];
 				await execCtl("instance save create test");
 				await checkInstanceStatus(44, "stopped");
@@ -631,6 +635,7 @@ describe("Integration of Clusterio", function() {
 		describe("InstanceSaveDetailsUpdatesEvent", function() {
 			it("should have triggered for the created save", function() {
 				slowTest(this);
+				requiresFactorio(this);
 				assert.equal(getControl().saveUpdates.slice(-1)[0].updates[0].name, "world.zip");
 			});
 		});
@@ -638,6 +643,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance save list", function() {
 			it("lists the created save", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				let result = await execCtlProcess("instance save list test");
 				assert(/world\.zip/.test(result.stdout), "world.zip not present in list save output");
 			});
@@ -646,6 +652,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				let exportPath = path.join("temp", "test", "static");
 				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
@@ -667,12 +674,16 @@ describe("Integration of Clusterio", function() {
 
 		for (let cmd of ["start", "restart"]) {
 			describe(`instance ${cmd}`, function() {
+				requiresFactorio(this);
 				async function prepareToStart() {
 					if (cmd === "restart") {
 						await execCtl("instance start test");
 					}
 				}
 				after(async function() {
+					if (!hasFactorio()) {
+						return;
+					}
 					// It is expected that after these tests the instance is running, I dislike this dependency
 					// So this is here to make sure the other tests can continue any of these ones fail
 					const instances = await getInstances();
@@ -753,6 +764,7 @@ describe("Integration of Clusterio", function() {
 		}
 
 		describe("instance send-rcon", function() {
+			requiresFactorio(this);
 			this.afterAll(async function() {
 				// Prevents cascading failure where enable_script_commands is expected to be true
 				await execCtl("instance config set test factorio.enable_script_commands true");
@@ -801,6 +813,7 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance config set-prop", function() {
+			requiresFactorio(this);
 			it("applies factorio settings while running", async function() {
 				slowTest(this);
 
@@ -954,6 +967,7 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should send ban list commands to running instances", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				// Check that both names are not on the list
 				const preCommandStateLower = await sendRcon(44, "/banlist get test_rcon_ban");
 				const preCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
@@ -981,6 +995,7 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should send whitelist commands to running instances", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				// Check that both names are not on the list
 				const preCommandStateLower = await sendRcon(44, "/whitelist get test_rcon_whitelist");
 				const preCommandStateUpper = await sendRcon(44, "/whitelist get test_RCON_whitelist");
@@ -1015,6 +1030,7 @@ describe("Integration of Clusterio", function() {
 			it("should send admin list commands to running instances", async function() {
 				// Because there is no admin list command this test will be different to the other two above
 				slowTest(this);
+				requiresFactorio(this);
 				// Check that both names are not on the list
 				const preCommandStateLower = await sendRcon(44, "/demote test_rcon_admin");
 				const preCommandStateUpper = await sendRcon(44, "/demote test_RCON_admin");
@@ -1063,6 +1079,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance extract-players", function() {
 			it("runs", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance extract-players test");
 			});
 		});
@@ -1070,6 +1087,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance stop", function() {
 			it("stops the instance", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance stop test");
 				await checkInstanceStatus(44, "stopped");
 			});
@@ -1078,6 +1096,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance load-scenario", function() {
 			it("starts the instance with the given settings", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance config set 44 factorio.enable_save_patching false");
 				await execCtl("instance config set 44 player_auth.load_plugin false");
 				await execCtl("instance config set 44 research_sync.load_plugin false");
@@ -1113,6 +1132,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance kill", function() {
 			it("kills the instance", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance kill test");
 				await checkInstanceStatus(44, "stopped");
 			});
@@ -1341,6 +1361,7 @@ describe("Integration of Clusterio", function() {
 		describe("instanceUpdateEventHandler()", function() {
 			it("should have triggered for the previous instance status updates", function() {
 				slowTest(this);
+				requiresFactorio(this);
 				let statusesToCheck = new Set([
 					"unassigned", "stopped", "creating_save", "exporting_data",
 					"starting", "running", "stopping", "deleted", "unknown",

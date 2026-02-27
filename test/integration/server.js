@@ -8,10 +8,11 @@ const lib = require("@clusterio/lib");
 const { FactorioServer, _getFactorioVersion } = require("@clusterio/host/dist/node/src/server");
 const { logger } = lib;
 
-const { slowTest, factorioDir } = require("./index");
+const { slowTest, factorioDir, requiresFactorio } = require("./index");
 
 
 describe("Integration of host/src/server", function() {
+	requiresFactorio(this);
 	describe("getFactorioVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
 			function checkVersion(version) {
