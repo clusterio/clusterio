@@ -413,7 +413,7 @@ async function exportItems(
 
 		if (iconPos !== undefined) {
 			const iconPath = getPrimaryIconPath(item);
-			state.metadata.set(item.name, {
+			state.metadata.set(`${category}.${item.name}`, {
 				x: iconPos * SHEET_ICON_SIZE % SHEET_WIDTH,
 				y: Math.floor(iconPos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
 				size: SHEET_ICON_SIZE,
@@ -599,40 +599,16 @@ export async function exportData(server: FactorioServer) {
 	zip.file("export/prototypes.json", JSON.stringify(prototypes));
 	zip.file("export/locale.json", JSON.stringify([...locale.entries()]));
 
-	// Build a single unified spritesheet across all prototype categories + static icons.
-	// Track all __mod__/paths already packed so later categories can deduplicate.
+	// Build a single unified spritesheet across all prototype categories.
 	const state = await createSheetState();
-	const exportedIconPaths = new Set<string>();
 	for (const category of categories) {
-		let categoryItems = filterPrototypes(prototypes, category.types);
-
-		// Deduplicate entities: skip any prototype whose primary icon path
-		// was already exported by a prior category (items, recipes, signals,
-		// etc.), and skip internal prefixed entities (dummy-, hidden-).
-		if (category.name === "entity") {
-			categoryItems = categoryItems.filter(item => {
-				if (item.name.startsWith("dummy-") || item.name.startsWith("hidden-")) {
-					return false;
-				}
-				const iconPath = getPrimaryIconPath(item);
-				return !iconPath || !exportedIconPaths.has(iconPath);
-			});
-		}
+		const categoryItems = filterPrototypes(prototypes, category.types);
 
 		if (categoryItems.length === 0) {
 			continue;
 		}
 		const count = await exportItems(server, modVersions, categoryItems, category.name, state);
 		server._logger.info(`Exported ${count} ${category.name} icons`);
-		// Record every icon path used so later categories can deduplicate.
-		for (const item of categoryItems) {
-			if (item.icon) {
-				exportedIconPaths.add(item.icon as string);
-			}
-			for (const layer of (Array.isArray(item.icons) ? item.icons as IconLayer[] : [])) {
-				exportedIconPaths.add(layer.icon);
-			}
-		}
 	}
 
 	// Crop sheet to actual used height and write single spritesheet + metadata.

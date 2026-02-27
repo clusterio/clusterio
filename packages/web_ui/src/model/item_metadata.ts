@@ -47,7 +47,8 @@ function useSpriteMetadata(category: string): Map<string, Metadata> {
 				const sheetUrl = `${staticRoot}static/${exportManifest.assets["spritesheet"]}`;
 				const style = document.createElement("style");
 				document.head.appendChild(style);
-				for (const [name, meta] of data) {
+				for (const [key, meta] of data) {
+					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
 					style.sheet!.insertRule(`\
 .${meta.category}-${CSS.escape(name)} {
 	background-image: url("${sheetUrl}");
@@ -62,8 +63,9 @@ function useSpriteMetadata(category: string): Map<string, Metadata> {
 			}
 
 			const cache = new Map<string, Metadata>();
-			for (const [name, meta] of data) {
+			for (const [key, meta] of data) {
 				if (meta.category === category) {
+					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
 					cache.set(name, meta);
 				}
 			}
