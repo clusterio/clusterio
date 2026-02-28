@@ -652,7 +652,7 @@ describe("Integration of Clusterio", function() {
 				let modPack = await getControl().send(new lib.ModPackGetDefaultRequest());
 				let assets = modPack.exportManifest.assets;
 				assert(Object.keys(assets).length > 1, "Export assets is empty");
-				for (let key of ["settings", "prototypes", "item-metadata", "item-spritesheet", "locale"]) {
+				for (let key of ["settings", "prototypes", "metadata", "spritesheet", "locale"]) {
 					assert(assets[key], `Missing ${key} from assets`);
 					assert(
 						await fs.exists(path.join(exportPath, assets[key])),
