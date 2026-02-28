@@ -24,7 +24,7 @@ async function getFactorioVersion(factorioDir: string) {
 	try {
 		changelog = await fs.readFile(changelogPath, "utf-8");
 	} catch (err: any) {
-		if (err.code === "ENOENT") {
+		if (err.code === "ENOENT" || err.code === "ENOTDIR") {
 			return null;
 		}
 		throw err;
