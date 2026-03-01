@@ -227,6 +227,28 @@ describe("controller/InstanceManager", function () {
 			assert.equal(assignRequest.instanceId, 1);
 		});
 
+		it("should not fail when host has id of 0", async function () {
+			let lastEvent;
+			controller.wsServer.hostConnections.set(0, {
+				send: async (request) => {
+					lastEvent = request;
+				},
+				connector: { closing: false },
+			});
+
+			await instances.assignInstance(1, 0);
+
+			assert.equal(instance.config.get("instance.assigned_host"), 0);
+			assert(lastEvent instanceof lib.InstanceAssignInternalRequest);
+			assert.equal(lastEvent.instanceId, 1);
+
+			await instances.assignInstance(1, null);
+
+			assert.equal(instance.config.get("instance.assigned_host"), null);
+			assert(lastEvent instanceof lib.InstanceUnassignInternalRequest);
+			assert.equal(lastEvent.instanceId, 1);
+		});
+
 		it("should unassign old host if connected", async function () {
 			let unassignRequest;
 			controller.wsServer.hostConnections.set(5, {

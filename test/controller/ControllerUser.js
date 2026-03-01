@@ -11,7 +11,7 @@ describe("controller/src/User", function() {
 		]);
 
 		it("should round trip serialize", function() {
-			function test_round_trip(serialized) {
+			function testRoundTrip(serialized) {
 				let user = User.fromJSON(serialized, {}, roles);
 				let user_serialized = user.toJSON();
 				assert.deepEqual(user_serialized, serialized);
@@ -19,11 +19,11 @@ describe("controller/src/User", function() {
 				assert.deepEqual(user_deserialized, user);
 			}
 
-			test_round_trip({ name: "admin", roles: [1] });
-			test_round_trip({ name: "user", roles: [2], token_valid_after: 12345 });
-			test_round_trip({ name: "user", is_admin: true, is_whitelisted: true });
-			test_round_trip({ name: "user", is_banned: true, ban_reason: "Bad user" });
-			test_round_trip({ name: "user", instance_stats: [[1, { join_count: 1 }]]});
+			testRoundTrip({ name: "admin", roles: [1] });
+			testRoundTrip({ name: "user", roles: [2], token_valid_after: 12345 });
+			testRoundTrip({ name: "user", is_admin: true, is_whitelisted: true });
+			testRoundTrip({ name: "user", is_banned: true, ban_reason: "Bad user" });
+			testRoundTrip({ name: "user", instance_stats: [[1, { join_count: 1 }]]});
 		});
 		describe(".checkPermission()", function() {
 			it("should correctly resolve permissions", function() {

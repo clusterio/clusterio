@@ -200,14 +200,14 @@ export default class InstanceManager {
 		}
 
 		let newHostConnection: HostConnection | undefined;
-		if (hostId) {
+		if (hostId !== null) {
 			newHostConnection = hostConnections.get(hostId);
 			if (!newHostConnection) {
 				throw new lib.RequestError("Target host is not connected to the controller");
 			}
 		}
 
-		if (currentAssignedHost) {
+		if (currentAssignedHost !== null) {
 			const oldHostConnection = hostConnections.get(currentAssignedHost);
 			if (oldHostConnection && !oldHostConnection.connector.closing) {
 				await oldHostConnection.send(

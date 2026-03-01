@@ -206,9 +206,9 @@ export default class Controller {
 		 */
 		public recoveryMode: boolean = false,
 		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
-		/** Mapping of host id to host info */
+		/** Mapping of host id to host record */
 		public hosts = new lib.SubscribableDatastore<HostRecord>(),
-		/** Mapping of instance id to instance info */
+		/** Mapping of instance id to instance record */
 		instances = new lib.SubscribableDatastore<InstanceRecord>(),
 		/** Mapping of save id to save details */
 		public saves = new lib.SubscribableDatastore<lib.SaveDetails>(),
