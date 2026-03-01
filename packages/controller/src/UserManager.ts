@@ -86,15 +86,13 @@ export default class UserManager {
 		return this.get(name.toLowerCase());
 	}
 
-	valuesMutable(): IterableIterator<User> {
+	*valuesMutable(): IterableIterator<User> {
 		const roles = this._controllerRoles;
 		const users = this.records;
 
-		return (function* () {
-			for (const record of users.values()) {
-				yield User.fromUserRecord(record, users, roles);
-			}
-		}());
+		for (const record of users.values()) {
+			yield User.fromUserRecord(record, users, roles);
+		}
 	}
 
 	values(): IterableIterator<Readonly<User>> {
