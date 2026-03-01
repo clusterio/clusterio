@@ -1,0 +1,4 @@
+{
+	"name": "minimap",
+	"load": ["minimap.lua"]
+} 

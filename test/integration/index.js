@@ -16,10 +16,12 @@ const { _listFactorioVersions } = require("@clusterio/host/dist/node/src/server"
 
 // Make sure permissions from plugins are loaded
 require("../../plugins/global_chat/dist/node/index");
+require("../../plugins/minimap/dist/node/index");
 require("../../plugins/player_auth/dist/node/index");
 require("../../plugins/research_sync/dist/node/index");
 require("../../plugins/statistics_exporter/dist/node/index");
 require("../../plugins/subspace_storage/dist/node/index");
+require("../../plugins/inventory_sync/dist/node/index");
 
 class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
@@ -350,6 +352,7 @@ before(async function() {
 	await execCtlProcess("plugin add ../../plugins/subspace_storage");
 	await execCtlProcess("plugin add ../../plugins/inventory_sync");
 	await execCtlProcess("plugin add ../../plugins/player_auth");
+	await execCtlProcess("plugin add ../../plugins/minimap");
 
 	console.log("Bootstrapping");
 	await execController("bootstrap create-admin test");

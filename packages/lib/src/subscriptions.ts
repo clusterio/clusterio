@@ -195,7 +195,6 @@ export class SubscriptionController {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
 		if (event.subscribe === false) {
-			// Unsubscribe logic
 			const subscriber = eventData.subscriptions.find(sub => sub.dst.addressedTo(src));
 			if (!subscriber) {
 				return false;
