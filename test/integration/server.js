@@ -9,10 +9,11 @@ const { InstanceManager } = require("@clusterio/controller");
 const { FactorioServer, _getFactorioVersion } = require("@clusterio/host/dist/node/src/server");
 const { logger } = lib;
 
-const { slowTest, factorioDir } = require("./index");
+const { slowTest, factorioDir, requiresFactorio } = require("./index");
 
 
 describe("Integration of host/src/server", function() {
+	requiresFactorio(this);
 	describe("getFactorioVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
 			function checkVersion(version) {
@@ -25,14 +26,12 @@ describe("Integration of host/src/server", function() {
 			if (version !== null) {
 				checkVersion(version);
 			} else {
-				for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
-					if (!entry.isDirectory()) {
-						continue;
+				for (let name of await fs.readdir(factorioDir)) {
+					// Avoid any fancy directory detection in order to follow symlinks
+					version = await _getFactorioVersion(path.join(factorioDir, name));
+					if (version !== null) {
+						checkVersion(version);
 					}
-
-					checkVersion(
-						await _getFactorioVersion(path.join(factorioDir, entry.name))
-					);
 				}
 			}
 		});

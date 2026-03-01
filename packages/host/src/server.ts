@@ -24,7 +24,7 @@ async function getFactorioVersion(factorioDir: string) {
 	try {
 		changelog = await fs.readFile(changelogPath, "utf-8");
 	} catch (err: any) {
-		if (err.code === "ENOENT") {
+		if (err.code === "ENOENT" || err.code === "ENOTDIR") {
 			return null;
 		}
 		throw err;
@@ -85,17 +85,8 @@ async function listFactorioVersions(factorioDir: string) {
 	}
 
 	for (const name of await fs.readdir(factorioDir)) {
-		// We do not use withFileTypes or lstat because we want to follow symlinks
+		// Avoid any fancy directory detection in order to follow symlinks
 		const fullPath = path.join(factorioDir, name);
-		try {
-			const stats = await fs.stat(fullPath);
-			if (!stats.isDirectory()) {
-				continue;
-			}
-		} catch {
-			continue;
-		}
-
 		const version = await getFactorioVersion(fullPath);
 		if (version === null) {
 			continue;
@@ -204,17 +195,8 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 	// Otherwise assume it is a directory of multiple versions
 	const versions = new Map<lib.FullVersion, string>();
 	for (const name of await fs.readdir(factorioDir)) {
-		// We do not use withFileTypes or lstat because we want to follow symlinks
+		// Avoid any fancy directory detection in order to follow symlinks
 		const fullPath = path.join(factorioDir, name);
-		try {
-			const stats = await fs.stat(fullPath);
-			if (!stats.isDirectory()) {
-				continue;
-			}
-		} catch {
-			continue;
-		}
-
 		const version = await getFactorioVersion(fullPath);
 		if (version === null) {
 			continue;

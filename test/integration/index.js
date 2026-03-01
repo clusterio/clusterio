@@ -12,6 +12,7 @@ const lib = require("@clusterio/lib");
 const { LineSplitter, ConsoleTransport, logger } = lib;
 
 const { selectTargetCommand, initialize: initializeCtl } = require("@clusterio/ctl");
+const { _listFactorioVersions } = require("@clusterio/host/dist/node/src/server");
 
 // Make sure permissions from plugins are loaded
 require("../../plugins/global_chat/dist/node/index");
@@ -127,6 +128,25 @@ function slowTest(test) {
 	test.timeout(30000);
 }
 
+// Mark that this test or suite of tests requires a factorio install to run.
+function requiresFactorio(testOrSuite) {
+	if (testOrSuite.skip) {
+		if (!haveFactorioInstall) {
+			testOrSuite.skip();
+		}
+	} else {
+		before(function() {
+			if (!haveFactorioInstall) {
+				this.skip();
+			}
+		});
+	}
+}
+
+function hasFactorio() {
+	return haveFactorioInstall;
+}
+
 async function get(urlPath) {
 	let res = await phin({
 		method: "GET",
@@ -159,6 +179,7 @@ function getFactorioDir(hostConfig) {
 let controllerProcess;
 let hostProcess;
 let control;
+let haveFactorioInstall;
 
 const baseHostConfig = loadJSON("config-host.json");
 
@@ -337,6 +358,7 @@ before(async function() {
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
+	haveFactorioInstall = (await _listFactorioVersions(factorioDir)).versions.size > 0;
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
@@ -382,6 +404,9 @@ after(async function() {
 	if (control) {
 		await control.connector.close();
 	}
+	if (haveFactorioInstall === false) {
+		console.warn("Many tests may have been skipped due to no factorio install being detected");
+	}
 });
 
 // Ensure the test processes are stopped.
@@ -398,6 +423,7 @@ module.exports = {
 	execController,
 	execCtlProcess,
 	slowTest,
+	requiresFactorio,
 	get,
 	exec,
 	execCtl,
@@ -413,6 +439,7 @@ module.exports = {
 	modsDir,
 	databaseDir,
 	factorioDir,
+	hasFactorio,
 	controllerConfigPath,
 	hostConfigPath,
 	controlConfigPath,
