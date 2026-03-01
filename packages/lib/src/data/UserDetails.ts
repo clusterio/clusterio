@@ -2,12 +2,10 @@ import { Static, Type } from "@sinclair/typebox";
 
 import PlayerStats from "./PlayerStats";
 
-/**
- * Represeents a user in the cluster
- *
- * Holds data about a Factorio user in the cluster.
- */
-export default class User {
+/** Represents a user in the cluster */
+export default class UserDetails {
+	public playerStats: PlayerStats;
+
 	constructor(
 		/** Factorio user name.  */
 		public name: string,
@@ -27,11 +25,15 @@ export default class User {
 		public updatedAtMs = 0,
 		/** True if this user object has been removed from the cluster.  */
 		public isDeleted = false,
-		/** Combined statistics for the player this user account is tied to.  */
-		public playerStats = new PlayerStats(),
 		/** Per instance statistics for the player this user account is tied to.  */
 		public instanceStats = new Map<number, PlayerStats>(),
 	) {
+		this.playerStats = UserDetails._calculatePlayerStats(this.instanceStats);
+	}
+
+	/** Name of the user, used by event subscriptions and to ensure case insensitivity */
+	get id() {
+		return this.name.toLowerCase();
 	}
 
 	static jsonSchema = Type.Object({
@@ -51,17 +53,13 @@ export default class User {
 		),
 	});
 
-	static fromJSON(json: Static<typeof this.jsonSchema>, _hack?: any) {
-		const roleIds = new Set<number>(json.roles ?? []);
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		const instanceStats = new Map(
-			(json.instance_stats ?? []).map(
-				([id, stats]) => [id, PlayerStats.fromJSON(stats)]
-			)
+			(json.instance_stats ?? []).map(([id, stats]) => [id, PlayerStats.fromJSON(stats)])
 		);
-		const playerStats = User._calculatePlayerStats(instanceStats);
 		return new this(
 			json.name,
-			roleIds,
+			new Set<number>(json.roles),
 			new Set(json.instances),
 			json.is_admin,
 			json.is_banned,
@@ -69,13 +67,12 @@ export default class User {
 			json.ban_reason,
 			json.updated_at_ms,
 			json.is_deleted,
-			playerStats,
 			instanceStats,
 		);
 	}
 
 	toJSON() {
-		let json: Static<typeof User.jsonSchema> = {
+		let json: Static<typeof UserDetails.jsonSchema> = {
 			name: this.name,
 		};
 
@@ -119,7 +116,7 @@ export default class User {
 	}
 
 	recalculatePlayerStats() {
-		this.playerStats = User._calculatePlayerStats(this.instanceStats);
+		this.playerStats = UserDetails._calculatePlayerStats(this.instanceStats);
 	}
 
 	static _calculatePlayerStats(instanceStatsMap: Map<number, PlayerStats>) {
@@ -149,44 +146,13 @@ export default class User {
 		}
 		return playerStats;
 	}
-
-	/**
-	 * Merge another user into this one, must have matching ids, user is not deleted
-	 * @param otherUser - User who's details are merged from
-	*/
-	merge(otherUser: User) {
-		if (this.id !== otherUser.id) {
-			throw new Error("Cannot merge users with different ids");
-		}
-
-		// Merge properties
-		this.roleIds = new Set([...this.roleIds, ...otherUser.roleIds]);
-		this.instances = new Set([...this.instances, ...otherUser.instances]);
-		this.isAdmin = this.isAdmin && otherUser.isAdmin; // More secure to use && rather ||
-		this.isBanned = this.isBanned || otherUser.isBanned;
-		this.isBanned = this.isWhitelisted || otherUser.isWhitelisted;
-		this.banReason = this.updatedAtMs > otherUser.updatedAtMs ? this.banReason : otherUser.banReason;
-		this.updatedAtMs = Date.now();
-
-		// Merge instance stats
-		const thisInstanceStats = this.instanceStats;
-		for (const [instanceId, instanceStats] of otherUser.instanceStats.entries()) {
-			if (thisInstanceStats.has(instanceId)) {
-				thisInstanceStats.get(instanceId)!.merge(instanceStats);
-			} else {
-				thisInstanceStats.set(instanceId, instanceStats);
-			}
-		}
-		this.recalculatePlayerStats();
-	}
-
-	/** Name of the user, used by event subscriptions and to ensure case insensitivity */
-	get id() {
-		return this.name.toLowerCase();
-	}
 }
 
-export interface IControllerUser extends User {
+/**
+ * This interface is implemented by User on the controller.
+ * It is exposed here to allow message definitions to create permission methods.
+ */
+export interface IUser extends UserDetails {
 	/**
 	 * Check if a given permission is granted
 	 *

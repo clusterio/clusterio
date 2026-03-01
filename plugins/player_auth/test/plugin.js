@@ -61,7 +61,7 @@ describe("player_auth", function() {
 			describe("/api/player_auth/servers", function() {
 				it("should return a list of running servers with player_auth loaded", async function() {
 					function addInstance(id, status, load, name) {
-						controllerPlugin.controller.instances.set(id, {
+						controllerPlugin.controller.instances.records.set(id, {
 							config: {
 								get(field) {
 									if (field === "player_auth.load_plugin") {
@@ -85,7 +85,7 @@ describe("player_auth", function() {
 					const result = await fetch(`${controllerUrl}/api/player_auth/servers`);
 					assert.deepEqual(await result.json(), ["running loaded", "unnamed server"]);
 					for (let id of [1, 2, 3, 4, 5]) {
-						controllerPlugin.controller.instances.delete(id);
+						controllerPlugin.controller.instances.records.delete(id);
 					}
 				});
 			});
@@ -286,8 +286,8 @@ describe("player_auth", function() {
 						new SetVerifyCodeRequest("test", verify_code)
 					);
 
-					const user = controllerPlugin.controller.userManager.getByName("test");
-					const token = controllerPlugin.controller.userManager.signUserToken(user);
+					const user = controllerPlugin.controller.users.getByName("test");
+					const token = controllerPlugin.controller.users.signUserToken(user);
 					const verifyResult = await postJSON(
 						`${controllerUrl}/api/player_auth/verify`,
 						{ player_code: playerCode, verify_code, verify_token }

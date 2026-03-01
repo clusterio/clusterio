@@ -18,16 +18,17 @@ import * as lib from "@clusterio/lib";
 const { logger, Summary, Gauge } = lib;
 
 import HttpCloser from "./HttpCloser";
-import InstanceInfo from "./InstanceInfo";
+import InstanceRecord from "./InstanceRecord";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
-import ControllerUser from "./ControllerUser";
+import User from "./User";
+import UserRecord from "./UserRecord";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
-import HostConnection from "./HostConnection";
-import HostInfo from "./HostInfo";
+import HostRecord from "./HostRecord";
 import BaseControllerPlugin from "./BaseControllerPlugin";
 import ControllerRouter from "./ControllerRouter";
+import InstanceManager from "./InstanceManager";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -79,6 +80,10 @@ export default class Controller {
 
 	/** Event subscription controller */
 	subscriptions = new lib.SubscriptionController();
+	/** User manager for the cluster, also contains access to the user records */
+	users: UserManager;
+	/** Instance manager for the cluster, also contains access to the user records */
+	instances: InstanceManager;
 
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -113,6 +118,12 @@ export default class Controller {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
+		// Migrate combined user and role file from 2.0.0-alpha.22
+		await UserManager.attemptMigrateLegacyUsersFile(
+			path.join(databaseDirectory, "users.json"),
+			path.join(databaseDirectory, "roles.json"),
+		);
+
 		const systems = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "systems.json"),
 			lib.SystemInfo.fromJSON.bind(lib.SystemInfo),
@@ -121,13 +132,13 @@ export default class Controller {
 
 		const hosts = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "hosts.json"),
-			HostInfo.fromJSON.bind(HostInfo),
+			HostRecord.fromJSON.bind(HostRecord),
 			this.migrateHosts, this.finaliseHosts,
 		).bootstrap());
 
 		const instances = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "instances.json"),
-			json => InstanceInfo.fromJSON(json, "controller"),
+			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
 		).bootstrap());
 
@@ -148,8 +159,11 @@ export default class Controller {
 			this.migrateRoles,
 		).bootstrap());
 
-		const userManager = new UserManager(config, roles);
-		await userManager.load(path.join(databaseDirectory, "users.json"));
+		const users = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "users.json"),
+			UserRecord.fromJSON.bind(UserRecord),
+			undefined, this.finaliseUsers,
+		).bootstrap());
 
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.ensureDir(modsDirectory);
@@ -172,7 +186,7 @@ export default class Controller {
 			modPacks,
 			modStore,
 			roles,
-			userManager,
+			users,
 		] as const;
 	}
 
@@ -192,10 +206,10 @@ export default class Controller {
 		 */
 		public recoveryMode: boolean = false,
 		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
-		/** Mapping of host id to host info */
-		public hosts = new lib.SubscribableDatastore<HostInfo>(),
-		/** Mapping of instance id to instance info */
-		public instances = new lib.SubscribableDatastore<InstanceInfo>(),
+		/** Mapping of host id to host record */
+		public hosts = new lib.SubscribableDatastore<HostRecord>(),
+		/** Mapping of instance id to instance record */
+		instances = new lib.SubscribableDatastore<InstanceRecord>(),
 		/** Mapping of save id to save details */
 		public saves = new lib.SubscribableDatastore<lib.SaveDetails>(),
 		/** Mapping of mod pack id to mod pack */
@@ -204,8 +218,8 @@ export default class Controller {
 		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
 		/** Mapping of mod pack id to mod pack */
 		public roles = new lib.SubscribableDatastore<lib.Role>(),
-		/** User and roles manager for the cluster */
-		public userManager = new UserManager(config, roles),
+		/** Mapping of user id to user record */
+		users = new lib.SubscribableDatastore<UserRecord>(),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -217,6 +231,9 @@ export default class Controller {
 
 		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
+
+		this.users = new UserManager(users, roles, config);
+		this.instances = new InstanceManager(instances, this);
 
 		this.modStore.on("change", mod => {
 			this.modsUpdated([mod]);
@@ -237,10 +254,11 @@ export default class Controller {
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
 		this.hosts.on("update", this.hostsUpdated.bind(this));
-		this.instances.on("update", this.instanceDetailsUpdated.bind(this));
+		this.instances.records.on("update", this.instanceUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
 		this.roles.on("update", this.rolesUpdated.bind(this));
+		this.users.records.on("update", this.usersUpdated.bind(this));
 	}
 
 	async start(args: ControllerArgs) {
@@ -305,9 +323,6 @@ export default class Controller {
 			}
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
 		});
-		for (let instance of this.instances.values()) {
-			this.addInstanceHooks(instance);
-		}
 
 		// Make sure we're actually going to listen on a port
 		let httpPort = this.config.get("controller.http_port");
@@ -643,15 +658,12 @@ export default class Controller {
 			this.config.save(),
 			this.systems.save(),
 			this.hosts.save(),
-			this.instances.save(),
+			this.instances.records.save(),
 			this.saves.save(),
 			this.modPacks.save(),
 			this.roles.save(),
+			this.users.records.save(),
 		]);
-
-		if (this.userManager.dirty) {
-			await this.userManager.save(path.join(this.config.get("controller.database_directory"), "users.json"));
-		}
 
 		await lib.invokeHook(this.plugins, "onSaveData");
 	}
@@ -675,7 +687,7 @@ export default class Controller {
 		});
 	}
 
-	static migrateHosts(rawJson: unknown[]): Static<typeof HostInfo.jsonSchema>[] {
+	static migrateHosts(rawJson: unknown[]): Static<typeof HostRecord.jsonSchema>[] {
 		let serialized = rawJson as any;
 
 		// New format 2.0.0.alpha.19
@@ -686,7 +698,7 @@ export default class Controller {
 		return serialized;
 	}
 
-	static finaliseHosts(host: HostInfo): HostInfo {
+	static finaliseHosts(host: HostRecord): HostRecord {
 		if (host.connected) {
 			host.connected = false;
 			host.updatedAtMs = Date.now();
@@ -694,8 +706,8 @@ export default class Controller {
 		return host;
 	}
 
-	static migrateInstances(rawJson: unknown[]): Static<typeof InstanceInfo.jsonSchema>[] {
-		const serialized = rawJson as Static<typeof InstanceInfo.jsonSchema>[];
+	static migrateInstances(rawJson: unknown[]): Static<typeof InstanceRecord.jsonSchema>[] {
+		const serialized = rawJson as Static<typeof InstanceRecord.jsonSchema>[];
 		return serialized.map(json => {
 			if (!json.config) { // New format 2.0.0.alpha.14
 				return { config: json as any, status: "running" }; // Use running to force updatedAtMs
@@ -704,7 +716,7 @@ export default class Controller {
 		});
 	}
 
-	static finaliseInstances(instance: InstanceInfo): InstanceInfo {
+	static finaliseInstances(instance: InstanceRecord): InstanceRecord {
 		const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 		if (instance.status !== status) {
 			instance.status = status;
@@ -736,6 +748,20 @@ export default class Controller {
 			});
 			return json;
 		});
+	}
+
+	static finaliseUsers(user: UserRecord, users: Map<UserRecord["id"], UserRecord>): UserRecord {
+		const existingUser = users.get(user.id);
+		if (existingUser) {
+			// All lowercase ids in 2.0.0.alpha.19
+			if (user.playerStats.onlineTimeMs <= existingUser.playerStats.onlineTimeMs) {
+				// We assume the user with the lower online time is the duplicate
+				existingUser.merge(user);
+				return existingUser;
+			}
+			user.merge(existingUser);
+		}
+		return user;
 	}
 
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
@@ -856,7 +882,7 @@ export default class Controller {
 		);
 	}
 
-	hostsUpdated(hosts: HostInfo[]) {
+	hostsUpdated(hosts: HostRecord[]) {
 		let updates = hosts.map(host => host.toHostDetails());
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
 	}
@@ -869,159 +895,12 @@ export default class Controller {
 	}
 
 	/**
-	 * Get instance by ID for a request
-	 *
-	 * @param instanceId - ID of instance to get.
-	 * @returns Info for the given instance if it exists
-	 * @throws {module:lib.RequestError} if the instance does not exist.
-	 */
-	getRequestInstance(instanceId:number): InstanceInfo {
-		let instance = this.instances.get(instanceId);
-		if (!instance) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
-		}
-		return instance;
-	}
-
-	/**
-	 * Create a new instance
-	 *
-	 * Adds common Factorio settings to the provided instance config then
-	 * creates an instance using that config in the cluster.
-	 *
-	 * @example
-	 * let instanceConfig = new lib.InstanceConfig("controller");
-	 * instanceConfig.set("instance.name", "My instance");
-	 * let instance = await controller.instanceAssign(instanceConfig);
-	 * await controller.instanceAssign(instance.id, hostId);
-	 *
-	 * @param instanceConfig -
-	 *     Config to base newly created instance on.
-	 * @returns The created instance
-	 */
-	async instanceCreate(instanceConfig: lib.InstanceConfig): Promise<InstanceInfo> {
-		let instanceId = instanceConfig.get("instance.id");
-		if (this.instances.has(instanceId)) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
-		}
-
-		// Add common settings for the Factorio server
-		let settings = {
-			"name": `${this.config.get("controller.name")} - ${instanceConfig.get("instance.name")}`,
-			"description": `Clusterio instance for ${this.config.get("controller.name")}`,
-			"tags": ["clusterio"],
-			"max_players": 0,
-			"visibility": { "public": true, "lan": true },
-			"game_password": "",
-			"require_user_verification": true,
-			"max_upload_in_kilobytes_per_second": 0,
-			"max_upload_slots": 5,
-			"ignore_player_limit_for_returning_players": false,
-			"allow_commands": "admins-only",
-			"autosave_interval": 10,
-			"autosave_slots": 5,
-			"afk_autokick_interval": 0,
-			"auto_pause": false,
-			"only_admins_can_pause_the_game": true,
-			"autosave_only_on_server": true,
-			"non_blocking_saving": false,
-
-			...instanceConfig.get("factorio.settings"),
-		};
-		instanceConfig.set("factorio.settings", settings);
-
-		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, undefined, Date.now());
-		this.instances.set(instance);
-		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
-		this.addInstanceHooks(instance);
-		return instance;
-	}
-
-	/**
 	 * Removes all saves currently stored for the given instance, if any
 	 * @param instanceId - Id of Instance to clear saves for.
 	 * @internal
 	 */
 	clearSavesOfInstance(instanceId: number) {
 		this.saves.deleteMany([...this.saves.values()].filter(save => save.instanceId === instanceId));
-	}
-
-	/**
-	 * Change assigned host of an instance
-	 *
-	 * Unassigns instance from existing host if already assigned to one and
-	 * then assigns it to the given host.  This is the only supported way of
-	 * changing the instance.assigned_host config entry.
-	 *
-	 * Note: this will not transfer any files or saves stored on the host
-	 * the instance was previously assgined to the new one.
-	 *
-	 * @param instanceId - ID of Instance to assign.
-	 * @param hostId - ID of host to assign instance to.
-	 */
-	async instanceAssign(instanceId: number, hostId?: number) {
-		let instance = this.getRequestInstance(instanceId);
-
-		// Check if target host is connected
-		let newHostConnection: HostConnection | undefined;
-		if (hostId !== undefined) {
-			newHostConnection = this.wsServer.hostConnections.get(hostId);
-			if (!newHostConnection) {
-				// The case of the host not getting the assign instance message
-				// still have to be handled, so it's not a requirement that the
-				// target host be connected to the controller while doing the
-				// assignment, but it is IMHO a better user experience if this
-				// is the case.
-				throw new lib.RequestError("Target host is not connected to the controller");
-			}
-		}
-
-		// Unassign from currently assigned host if it is connected.
-		let currentAssignedHost = instance.config.get("instance.assigned_host");
-		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
-			let oldHostConnection = this.wsServer.hostConnections.get(currentAssignedHost);
-			if (oldHostConnection && !oldHostConnection.connector.closing) {
-				await oldHostConnection.send(new lib.InstanceUnassignInternalRequest(instanceId));
-			}
-		}
-
-		// Remove saves recorded from currently assigned host if any
-		this.clearSavesOfInstance(instanceId);
-
-		// Assign to target
-		instance.config.set("instance.assigned_host", hostId ?? null);
-		if (hostId !== undefined && newHostConnection) {
-			await newHostConnection.send(
-				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host"))
-			);
-		} else {
-			instance.status = "unassigned";
-		}
-		this.instances.set(instance);
-	}
-
-	/**
-	 * Delete an instance
-	 *
-	 * Permanently deletes the instance from its assigned host (if assigned)
-	 * and the controller.  This action cannot be undone.
-	 *
-	 * @param instanceId - ID of instance to delete.
-	 */
-	async instanceDelete(instanceId: number) {
-		let instance = this.getRequestInstance(instanceId);
-		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId !== null) {
-			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
-		}
-
-		let prev = instance.status;
-		this.instances.delete(instance);
-
-		this.clearSavesOfInstance(instanceId);
-		this.userManager.clearStatsOfInstance(instanceId);
-
-		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	/**
@@ -1033,7 +912,7 @@ export default class Controller {
 	 * @param instance -
 	 *     Instance to nodify the config updated.
 	 */
-	async instanceConfigUpdated(instance: InstanceInfo) {
+	async instanceConfigUpdated(instance: InstanceRecord) {
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId !== null) {
 			let connection = this.wsServer.hostConnections.get(hostId);
@@ -1045,16 +924,7 @@ export default class Controller {
 		}
 	}
 
-	addInstanceHooks(instance: InstanceInfo) {
-		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
-			instance.updatedAtMs = Date.now();
-			this.instances.set(instance); // Trigger update logic
-
-			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, field, curr, prev);
-		});
-	}
-
-	instanceDetailsUpdated(instances: InstanceInfo[]) {
+	instanceUpdated(instances: InstanceRecord[]) {
 		for (const instance of instances) {
 			if (instance.status === "stopped") {
 				this.subscriptions.unsubscribeAddress(lib.Address.fromShorthand({instanceId: instance.id}));
@@ -1106,17 +976,12 @@ export default class Controller {
 		return mods.length ? new lib.ModUpdatesEvent(mods) : null;
 	}
 
-	usersUpdated(users: ControllerUser[]) {
-		const now = Date.now();
-		for (const user of users) {
-			user.updatedAtMs = now;
-		}
-		this.userManager.dirty = true;
+	usersUpdated(users: UserRecord[]) {
 		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
 	}
 
 	async handleUserSubscription(request: lib.SubscriptionRequest) {
-		const users = [...this.userManager.users.values()].filter(
+		const users = [...this.users.records.values()].filter(
 			user => user.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return users.length ? new lib.UserUpdatesEvent(users) : null;
@@ -1127,7 +992,7 @@ export default class Controller {
 	 * permissions for this user may have changed.
 	 * @param user - User permisions updated for.
 	 */
-	userPermissionsUpdated(user: ControllerUser) {
+	userPermissionsUpdated(user: Readonly<User>) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
 				controlConnection.send(
@@ -1386,7 +1251,7 @@ export default class Controller {
 			}
 
 		} else if (dst.type === lib.Address.instance) {
-			let instance = this.getRequestInstance(dst.id);
+			const instance = this.instances.getForRequest(dst.id);
 			let hostId = instance.config.get("instance.assigned_host");
 			if (hostId === null) {
 				throw new lib.RequestError("Instance is not assigned to a host");
@@ -1421,7 +1286,7 @@ export default class Controller {
 			}
 
 		} else if (dst.type === lib.Address.instance) {
-			let instance = this.instances.get(dst.id);
+			const instance = this.instances.get(dst.id);
 			if (!instance) {
 				throw new Error(`Instance with ID ${dst.id} does not exist`);
 			}
@@ -1480,7 +1345,7 @@ export default class Controller {
 	}
 
 	async sendRequestToHostByInstanceId<Req extends InstanceId, Res>(request: Req & lib.Request<Req, Res>) {
-		let instance = this.getRequestInstance(request.instanceId);
+		let instance = this.instances.getForRequest(request.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
 			throw new lib.RequestError("Instance is not assigned to a host");
@@ -1493,7 +1358,7 @@ export default class Controller {
 	}
 
 	sendEventToHostByInstanceId<T extends { instanceId: number }>(event: T & lib.Event<T>) {
-		let instance = this.getRequestInstance(event.instanceId);
+		let instance = this.instances.getForRequest(event.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
 			return;

@@ -5,6 +5,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
+const { InstanceManager } = require("@clusterio/controller");
 const { FactorioServer, _getFactorioVersion } = require("@clusterio/host/dist/node/src/server");
 const { logger } = lib;
 
@@ -78,20 +79,16 @@ describe("Integration of host/src/server", function() {
 				assert(typeof settings === "object");
 			});
 
-			it("contains the settings used by Clusterio", async function() {
-				let keysUsed = new Set([
-					"name", "description", "tags", "visibility", "username", "token",
-					"game_password", "require_user_verification", "allow_commands",
-					"auto_pause",
-				]);
+			it("aligns with the default settings in Clusterio", async function() {
+				const unusedDefaultKeys = new Set(Object.keys(InstanceManager.DefaultFactorioSettings));
 
-				for (let key of Object.keys(settings)) {
-					keysUsed.delete(key);
+				for (const key of Object.keys(settings)) {
+					unusedDefaultKeys.delete(key);
 				}
 
 				assert(
-					keysUsed.size === 0,
-					`Factorio's server-settings.example.json does not contain the key(s) ${[...keysUsed]}`
+					unusedDefaultKeys.size === 0,
+					`Factorio's server-settings.example.json does not contain the key(s) ${[...unusedDefaultKeys]}`
 				);
 			});
 		});

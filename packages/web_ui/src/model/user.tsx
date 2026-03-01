@@ -4,19 +4,19 @@ import ControlContext from "../components/ControlContext";
 
 import * as lib from "@clusterio/lib";
 
-function getInstanceStats(user: lib.User, instanceId?: number) {
+function getInstanceStats(user: lib.UserDetails, instanceId?: number) {
 	if (instanceId === undefined) {
 		return user.playerStats;
 	}
 	return user.instanceStats.get(instanceId);
 }
 
-function calculateFirstSeen(user: lib.User, instanceId?: number) {
+function calculateFirstSeen(user: lib.UserDetails, instanceId?: number) {
 	const stats = getInstanceStats(user, instanceId);
 	return stats?.firstJoinAt?.getTime();
 }
 
-function calculateLastSeen(user: lib.User, instanceId?: number) {
+function calculateLastSeen(user: lib.UserDetails, instanceId?: number) {
 	const stats = getInstanceStats(user, instanceId);
 	if (!stats) {
 		return undefined;
@@ -30,7 +30,7 @@ function calculateLastSeen(user: lib.User, instanceId?: number) {
 	return undefined;
 }
 
-export function formatFirstSeen(user: lib.User, instanceId?: number) {
+export function formatFirstSeen(user: lib.UserDetails, instanceId?: number) {
 	const firstSeen = calculateFirstSeen(user, instanceId);
 	if (firstSeen === undefined) {
 		return undefined;
@@ -38,7 +38,7 @@ export function formatFirstSeen(user: lib.User, instanceId?: number) {
 	return new Date(firstSeen).toLocaleString();
 }
 
-export function formatLastSeen(user: lib.User, instanceId?: number) {
+export function formatLastSeen(user: lib.UserDetails, instanceId?: number) {
 	if (user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId)) {
 		return <Tag color="green">Online</Tag>;
 	}
@@ -49,14 +49,24 @@ export function formatLastSeen(user: lib.User, instanceId?: number) {
 	return new Date(lastSeen).toLocaleString();
 }
 
-export function sortFirstSeen(userA: lib.User, userB: lib.User, instanceIdA?: number, instanceIdB?: number) {
+export function sortFirstSeen(
+	userA: lib.UserDetails,
+	userB: lib.UserDetails,
+	instanceIdA?: number,
+	instanceIdB?: number
+) {
 	const firstSeenA = calculateFirstSeen(userA, instanceIdA) || 0;
 	const firstSeenB = calculateFirstSeen(userB, instanceIdB) || 0;
 	return firstSeenA - firstSeenB;
 }
 
-export function sortLastSeen(userA: lib.User, userB: lib.User, instanceIdA?: number, instanceIdB?: number) {
-	function epoch(user: lib.User, instanceId?: number) {
+export function sortLastSeen(
+	userA: lib.UserDetails,
+	userB: lib.UserDetails,
+	instanceIdA?: number,
+	instanceIdB?: number
+) {
+	function epoch(user: lib.UserDetails, instanceId?: number) {
 		return user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId);
 	}
 

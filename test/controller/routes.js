@@ -2,7 +2,6 @@
 const assert = require("assert").strict;
 const events = require("events");
 const FormData = require("form-data");
-const jwt = require("jsonwebtoken");
 const http = require("http");
 
 const { wait } = require("@clusterio/lib");
@@ -88,9 +87,10 @@ describe("controller/src/routes", function() {
 		});
 	});
 	describe("/api/upload-save", function() {
-		let endpoint;
+		let endpoint, testToken;
 		beforeEach(function() {
 			endpoint = `http://localhost:${port}/api/upload-save`;
+			testToken = controller.users.signUserToken({ id: "test" });
 		});
 		it("should respond with 401 with invalid token", async function() {
 			let response;
@@ -113,21 +113,19 @@ describe("controller/src/routes", function() {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
-					"X-Access-Token": jwt.sign(
-						{ aud: "user", user: "invalid" }, Buffer.from("TestSecretDoNotUse", "base64")
-					),
+					"X-Access-Token": controller.users.signUserToken({ id: "invalid" }),
 				},
 				body: "totally a zip file",
 			});
 			assert.equal(response.status, 401);
-			controller.userManager.getByName("test").tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
+			const user = controller.users.getOrCreateUser("test");
+			user.tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
+			user.saveRecord();
 			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
-					"X-Access-Token": jwt.sign(
-						{ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64")
-					),
+					"X-Access-Token": testToken,
 				},
 				body: "totally a zip file",
 			});
@@ -135,20 +133,18 @@ describe("controller/src/routes", function() {
 		});
 
 		it("should respond with 403 when user has insufficient permission", async function() {
+			const user = controller.users.getOrCreateUser("player");
 			let response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
-					"X-Access-Token": jwt.sign(
-						{ aud: "user", user: "player" }, Buffer.from("TestSecretDoNotUse", "base64")
-					),
+					"X-Access-Token": controller.users.signUserToken(user),
 				},
 				body: "totally a zip file",
 			});
 			assert.equal(response.status, 403);
 		});
 
-		let testToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 		it("should respond with 415 if content type is missing or invalid", async function() {
 			let response;
 			response = await fetch(`${endpoint}?instance_id=123&filename=file.zip`, {

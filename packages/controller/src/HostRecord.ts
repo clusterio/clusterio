@@ -1,10 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
 import { HostDetails } from "@clusterio/lib";
 
-/**
- * Info about a host known to the controller.
- */
-export default class HostInfo {
+/** Underlying data class for hosts on the controller */
+export default class HostRecord {
 	constructor(
 		/** Id of this host */
 		public id: number,
@@ -33,12 +31,12 @@ export default class HostInfo {
 		"name": Type.String(),
 		"version": Type.String(),
 		"plugins": Type.Record(Type.String(), Type.String()),
-		"connected": Type.Boolean(),
-		"remote_address": Type.String(),
-		"public_address": Type.String(),
-		"token_valid_after": Type.Number(),
-		"updated_at_ms": Type.Number(),
-		"is_deleted": Type.Boolean(),
+		"connected": Type.Optional(Type.Boolean()),
+		"remote_address": Type.Optional(Type.String()),
+		"public_address": Type.Optional(Type.String()),
+		"token_valid_after": Type.Optional(Type.Number()),
+		"updated_at_ms": Type.Optional(Type.Number()),
+		"is_deleted": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -56,19 +54,50 @@ export default class HostInfo {
 		);
 	}
 
-	toJSON(): Static<typeof HostInfo.jsonSchema> {
-		return {
+	toJSON() {
+		const json = {
 			id: this.id,
 			name: this.name,
 			version: this.version,
 			plugins: Object.fromEntries(this.plugins),
-			connected: this.connected,
-			remote_address: this.remoteAddress,
-			public_address: this.publicAddress,
-			token_valid_after: this.tokenValidAfter,
-			updated_at_ms: this.updatedAtMs,
-			is_deleted: this.isDeleted,
-		};
+		} as Static<typeof HostRecord.jsonSchema>;
+
+		if (this.connected !== false) {
+			json.connected = this.connected;
+		}
+		if (this.remoteAddress !== "") {
+			json.remote_address = this.remoteAddress;
+		}
+		if (this.publicAddress !== "") {
+			json.public_address = this.publicAddress;
+		}
+		if (this.tokenValidAfter !== 0) {
+			json.token_valid_after = this.tokenValidAfter;
+		}
+		if (this.updatedAtMs !== 0) {
+			json.updated_at_ms = this.updatedAtMs;
+		}
+		if (this.isDeleted !== false) {
+			json.is_deleted = this.isDeleted;
+		}
+
+		return json;
+	}
+
+
+	static fromHostDetails(details: HostDetails, plugins: Map<string, string>) {
+		return new HostRecord(
+			details.id,
+			details.name,
+			details.version,
+			plugins,
+			details.connected,
+			details.remoteAddress,
+			details.publicAddress,
+			details.tokenValidAfter,
+			details.updatedAtMs,
+			details.isDeleted,
+		);
 	}
 
 	toHostDetails() {
@@ -85,4 +114,3 @@ export default class HostInfo {
 		);
 	}
 }
-

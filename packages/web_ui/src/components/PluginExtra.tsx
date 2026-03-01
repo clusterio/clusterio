@@ -9,7 +9,7 @@ import BaseWebPlugin from "../BaseWebPlugin";
 type PluginExtraProps = {
 	component: string;
 	instance?: lib.InstanceDetails;
-	user?: lib.User;
+	user?: lib.UserDetails;
 	host?: lib.HostDetails;
 	role?: lib.Role;
 };
