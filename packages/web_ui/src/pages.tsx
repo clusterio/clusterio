@@ -16,6 +16,7 @@ import RoleViewPage from "./components/RoleViewPage";
 import PluginsPage from "./components/PluginsPage";
 import PluginViewPage from "./components/PluginViewPage";
 import ErrorPage from "./components/ErrorPage";
+import IconReferencePage from "./components/IconReferencePage";
 
 export const pages: PluginPage[] = [
 	{
@@ -87,6 +88,10 @@ export const pages: PluginPage[] = [
 		path: "/plugins/:name/view",
 		sidebarPath: "/plugins",
 		content: <PluginViewPage />,
+	},
+	{
+		path: "/icon-reference",
+		content: <IconReferencePage />,
 	},
 	{
 		path: "/error",

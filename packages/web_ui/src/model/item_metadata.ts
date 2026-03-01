@@ -7,31 +7,51 @@ type Metadata = {
 	x: number;
 	y: number;
 	size: number;
+	category: string;
 	localised_name?: any[];
+	path?: string;
 };
-let itemMetadataCache: Map<string, Metadata> | null = null;
-export function useItemMetadata() {
-	let exportManifest = useExportManifest();
-	let [itemMetadata, setItemMetadata] = useState<Map<string, Metadata>>(itemMetadataCache || new Map());
+
+const metadataCaches = new Map<string, Map<string, Metadata>>();
+let cssInjected = false;
+
+/**
+ * Load the unified spritesheet metadata and inject CSS rules for every icon.
+ * CSS class name: `.{category}-{CSS.escape(name)}`
+ * e.g. `.item-iron-plate`, `.recipe-iron-plate`, `.signal-signal-red`, `.planet-nauvis`
+ */
+function useSpriteMetadata(category: string): Map<string, Metadata> {
+	const exportManifest = useExportManifest();
+	const [metadata, setMetadata] = useState<Map<string, Metadata>>(
+		metadataCaches.get(category) ?? new Map()
+	);
+
 	useEffect(() => {
 		async function load() {
 			if (
 				!exportManifest
-				|| !exportManifest.assets["item-metadata"]
-				|| !exportManifest.assets["item-spritesheet"]
+				|| !exportManifest.assets["metadata"]
+				|| !exportManifest.assets["spritesheet"]
 			) {
 				return;
 			}
-			let response = await fetch(`${staticRoot}static/${exportManifest.assets["item-metadata"]}`);
-			if (response.ok) {
-				let data = await response.json();
-				itemMetadataCache = new Map(data);
-				let style = document.createElement("style");
+
+			const response = await fetch(`${staticRoot}static/${exportManifest.assets["metadata"]}`);
+			if (!response.ok) {
+				return;
+			}
+
+			const data: [string, Metadata][] = await response.json();
+
+			if (!cssInjected) {
+				const sheetUrl = `${staticRoot}static/${exportManifest.assets["spritesheet"]}`;
+				const style = document.createElement("style");
 				document.head.appendChild(style);
-				for (let [name, meta] of itemMetadataCache) {
+				for (const [key, meta] of data) {
+					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
 					style.sheet!.insertRule(`\
-.item-${CSS.escape(name)} {
-	background-image: url("${staticRoot}static/${exportManifest.assets["item-spritesheet"]}");
+.${meta.category}-${CSS.escape(name)} {
+	background-image: url("${sheetUrl}");
 	background-repeat: no-repeat;
 	background-position: -${meta.x}px -${meta.y}px;
 	height: ${meta.size}px;
@@ -39,14 +59,32 @@ export function useItemMetadata() {
 }`
 					);
 				}
-				setItemMetadata(itemMetadataCache);
+				cssInjected = true;
 			}
+
+			const cache = new Map<string, Metadata>();
+			for (const [key, meta] of data) {
+				if (meta.category === category) {
+					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
+					cache.set(name, meta);
+				}
+			}
+			metadataCaches.set(category, cache);
+			setMetadata(cache);
 		}
 
-		if (!itemMetadataCache) {
+		if (!metadataCaches.has(category)) {
 			load();
 		}
 	}, [exportManifest]);
 
-	return itemMetadata;
+	return metadata;
 }
+
+export function useItemMetadata() { return useSpriteMetadata("item"); }
+export function useRecipeMetadata() { return useSpriteMetadata("recipe"); }
+export function useSignalMetadata() { return useSpriteMetadata("signal"); }
+export function useTechnologyMetadata() { return useSpriteMetadata("technology"); }
+export function usePlanetMetadata() { return useSpriteMetadata("planet"); }
+export function useQualityMetadata() { return useSpriteMetadata("quality"); }
+export function useEntityMetadata() { return useSpriteMetadata("entity"); }

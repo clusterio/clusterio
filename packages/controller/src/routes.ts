@@ -240,9 +240,9 @@ async function uploadExport(req: Request, res: Response) {
 	let exportFiles = [
 		"export/settings.json",
 		"export/prototypes.json",
-		"export/item-spritesheet.png",
-		"export/item-metadata.json",
 		"export/locale.json",
+		"export/spritesheet.png",
+		"export/metadata.json",
 	];
 
 	let assets: any = {};
@@ -263,7 +263,7 @@ async function uploadExport(req: Request, res: Response) {
 		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
 
-	modPack.exportManifest = new lib.ExportManifest(assets);
+	modPack.exportManifest = new lib.ExportManifest(assets, new Date().toISOString());
 	modPack.fillDefaultSettings(settingPrototypes, logger);
 	res.app.locals.controller.modPacks.set(modPack);
 
@@ -701,5 +701,6 @@ export const webRoutes = [
 	"/roles/:id/view",
 	"/plugins",
 	"/plugins/:name/view",
+	"/icon-reference",
 	"/error",
 ];
