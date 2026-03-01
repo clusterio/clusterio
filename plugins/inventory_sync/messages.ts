@@ -18,6 +18,7 @@ export type IpcPlayerData = {
 	hotbar?: string[],
 	personal_logistic_slots?: {name:string, min:number, max:number}[],
 	crafting_queue?: any,
+	recipe_notifications?: string[],
 }
 
 const jsonPlayerData = Type.Object({
