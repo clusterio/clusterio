@@ -86,7 +86,7 @@ export default class UserManager {
 		return this.get(name.toLowerCase());
 	}
 
-	*valuesMutable(): IterableIterator<User> {
+	* valuesMutable(): IterableIterator<User> {
 		const roles = this._controllerRoles;
 		const users = this.records;
 
