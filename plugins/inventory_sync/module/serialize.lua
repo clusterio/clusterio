@@ -343,6 +343,50 @@ function serialize.deserialize_crafting_queue(player, serialized)
 	player.crafting_queue_progress = serialized.crafting_queue_progress
 end
 
+---@param player LuaPlayer
+---@return string?
+function serialize.serialize_crafting_notifications(player)
+	-- Get all unlocked recipes
+	local recipes = {}
+	for _, recipe in pairs(player.force.recipes) do
+		if recipe.enabled and not recipe.hidden then
+			recipes[recipe.name] = true
+		end
+	end
+
+	-- Remove those with notifications
+	for _, recipe in pairs(player.get_recipe_notifications()) do
+		recipes[recipe.name] = nil
+	end
+
+	-- Convert to a list of names
+	local index = 1
+	local recipe_names = {}
+	for name in pairs(recipes) do
+		recipe_names[index] = name
+		index = index + 1
+	end
+
+	-- Do no return if length is zero as this breaks with table_to_json
+	if index > 1 then
+		return helpers.encode_string(helpers.table_to_json(recipe_names))
+	end
+
+	return nil
+end
+
+--- @param player LuaPlayer
+--- @param serialized string
+function serialize.deserialize_crafting_notifications(player, serialized)
+	-- Decode the recipe name strings
+	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(serialized)))
+	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
+	local clear_notification = player.clear_recipe_notification
+	for _, recipe_name in pairs(recipe_names) do
+		clear_notification(recipe_name)
+	end
+end
+
 local controller_to_name = {}
 for name, value in pairs(defines.controllers) do
 	controller_to_name[value] = name
@@ -363,7 +407,7 @@ end
 --- @field hotbar table<string, string>?
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
---- @field recipe_notifications string[]?
+--- @field recipe_notifications string?
 
 --- @param player LuaPlayer
 --- @return SerializedPlayerData
@@ -425,14 +469,7 @@ function serialize.serialize_player(player)
 
 	-- Serialize recipe notifications
 	if recipe_notifications_api then
-		local recipe_notifications = {}
-		for i, recipe in ipairs(player.get_recipe_notifications()) do
-			recipe_notifications[i] = recipe.name
-		end
-		if #recipe_notifications > 0 then
-			-- Do no add if length is zero as this breaks with table_to_json
-			serialized.recipe_notifications = recipe_notifications
-		end
+		serialized.recipe_notifications = serialize.serialize_crafting_notifications(player)
 	end
 
 	return serialized
@@ -522,11 +559,7 @@ function serialize.deserialize_player(player, serialized)
 
 	-- Deserialize recipe notifications
 	if recipe_notifications_api and serialized.recipe_notifications then
-		player.clear_recipe_notifications()
-		local add_notification = player.add_recipe_notification
-		for _, recipe_name in ipairs(serialized.recipe_notifications) do
-			add_notification(recipe_name)
-		end
+		serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
 	end
 end
 
