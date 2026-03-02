@@ -426,9 +426,12 @@ function serialize.serialize_player(player)
 	-- Serialize recipe notifications
 	if recipe_notifications_api then
 		local recipe_notifications = {}
-		serialized.recipe_notifications = recipe_notifications
 		for i, recipe in ipairs(player.get_recipe_notifications()) do
 			recipe_notifications[i] = recipe.name
+		end
+		if #recipe_notifications > 0 then
+			-- Do no add if length is zero as this breaks with table_to_json
+			serialized.recipe_notifications = recipe_notifications
 		end
 	end
 
