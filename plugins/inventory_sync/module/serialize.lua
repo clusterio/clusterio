@@ -6,6 +6,7 @@ local serialize = {}
 
 local v2_logistic_api = compat.version_ge("2.0.0")
 local v2_storage_api = compat.version_ge("2.0.0")
+local recipe_notifications_api = compat.version_ge("2.0.67")
 
 function serialize.serialize_inventories(source, inventories)
 	local serialized = {}
@@ -347,22 +348,27 @@ for name, value in pairs(defines.controllers) do
 	controller_to_name[value] = name
 end
 
--- Players are serialized into a table with the following fields:
---   name
---   controller: may not be cutscene or editor
---   color
---   chat_color
---   tag
---   force
---   cheat_mod
---   flashlight
---   ticks_to_respawn (optional)
---   character (optional)
---   inventories: non-character inventories
---   hotbar: table of string indexes to names (optional)
---   personal_logistic_slots (optional)
---   crafting_queue (optional)
+--- @class SerializedPlayerData
+--- @field name string
+--- @field controller string
+--- @field color Color
+--- @field chat_color Color
+--- @field tag string
+--- @field force string
+--- @field cheat_mode boolean
+--- @field flashlight boolean
+--- @field ticks_to_respawn number
+--- @field character table<string, any>?
+--- @field inventories table<string, table>?
+--- @field hotbar table<string, string>?
+--- @field personal_logistic_slots table?
+--- @field crafting_queue table?
+--- @field recipe_notifications string[]?
+
+--- @param player LuaPlayer
+--- @return SerializedPlayerData
 function serialize.serialize_player(player)
+	--- @type SerializedPlayerData
 	local serialized = {
 		controller = controller_to_name[player.controller_type],
 		name = player.name,
@@ -385,7 +391,9 @@ function serialize.serialize_player(player)
 		-- Go back to waiting for respawn
 		local character = player.character
 		player.ticks_to_respawn = serialized.ticks_to_respawn
-		character.destroy()
+		if character and character.valid then
+			character.destroy()
+		end
 	end
 
 	-- Serialize character
@@ -406,7 +414,7 @@ function serialize.serialize_player(player)
 			if not serialized.hotbar then
 				serialized.hotbar = {}
 			end
-			serialized.hotbar[tostring(i)] = slot.name
+			serialized.hotbar[tostring(i)] = slot.name --[[@as string]]
 		end
 	end
 
@@ -415,9 +423,20 @@ function serialize.serialize_player(player)
 		serialized.crafting_queue = serialize.serialize_crafting_queue(player)
 	end
 
+	-- Serialize recipe notifications
+	if recipe_notifications_api then
+		local recipe_notifications = {}
+		serialized.recipe_notifications = recipe_notifications
+		for i, recipe in ipairs(player.get_recipe_notifications()) do
+			recipe_notifications[i] = recipe.name
+		end
+	end
+
 	return serialized
 end
 
+--- @param player LuaPlayer
+--- @param serialized SerializedPlayerData
 function serialize.deserialize_player(player, serialized)
 	if player.controller_type ~= defines.controllers[serialized.controller] or serialized.controller == "ghost" then
 		-- If targeting the character or ghost controller then create a character
@@ -443,7 +462,9 @@ function serialize.deserialize_player(player, serialized)
 					player.set_controller({ type = defines.controllers.god })
 					player.set_controller({ type = defines.controllers.ghost })
 				end
-				character.destroy()
+				if character and character.valid then
+					character.destroy()
+				end
 			end
 
 		else
@@ -496,6 +517,14 @@ function serialize.deserialize_player(player, serialized)
 		serialize.deserialize_crafting_queue(player, serialized.crafting_queue)
 	end
 
+	-- Deserialize recipe notifications
+	if recipe_notifications_api and serialized.recipe_notifications then
+		player.clear_recipe_notifications()
+		local add_notification = player.add_recipe_notification
+		for _, recipe_name in ipairs(serialized.recipe_notifications) do
+			add_notification(recipe_name)
+		end
+	end
 end
 
 return serialize
