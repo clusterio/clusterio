@@ -490,7 +490,7 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startup().catch(err => {
-		if (err instanceof lib.StartupError) {
+		if (err instanceof lib.StartupError || err.code === "InstallationError") {
 			logger.fatal(`
 +-------------------------------+
 | Unable to to start controller |

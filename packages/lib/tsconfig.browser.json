@@ -7,6 +7,7 @@
 		"./src/config/*.ts",
 		"./src/data/*.ts",
 		"./src/external/*.ts",
+		"./src/check_singleton_import.ts",
 		"./src/datastore.ts",
 		"./src/errors.ts",
 		"./src/factorio/exchange_string.ts",
