@@ -530,12 +530,13 @@ export class Config<
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
+
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
 		if (remote !== this.location) {
 			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
 		}
 
-		// Empty strings are treates as null
+		// Empty strings are treat as null
 		if (value === "") {
 			value = null;
 		}
@@ -574,6 +575,14 @@ export class Config<
 
 		} else if (basicType(value) !== def.type) {
 			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
+		}
+
+		if (def.extendedValidation) {
+			try {
+				def.extendedValidation(value, this);
+			} catch (err: any) {
+				throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+			}
 		}
 
 		this._set(name, value);

@@ -1,7 +1,9 @@
 // Core definitions for the configuration system
 import * as classes from "./classes";
+import * as validate from "./validators";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import { Static } from "@sinclair/typebox";
+import { isTargetVersion } from "../data";
 
 type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;
 type configFromFile<T> = (...args: Parameters<typeof classes.Config.fromFile>) => Promise<T>;
@@ -73,18 +75,21 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			restartRequired: true,
 			type: "string",
 			initialValue: "mods",
+			extendedValidation: validate.filePath,
 		},
 		"controller.database_directory": {
 			title: "Database directory",
 			description: "Directory where item and configuration data is stored.",
 			type: "string",
 			initialValue: "database",
+			extendedValidation: validate.filePath,
 		},
 		"controller.autosave_interval": {
 			title: "Autosave Interval",
 			description: "Interval in seconds to autosave data in memory to disk.",
 			type: "number",
 			initialValue: 60,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.http_port": {
 			title: "HTTP Port",
@@ -93,6 +98,10 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			optional: true,
 			initialValue: 8080,
+			extendedValidation: validate.optional(validate.all(
+				validate.integer,
+				validate.greaterThanZero
+			)),
 		},
 		"controller.https_port": {
 			title: "HTTPS Port",
@@ -100,6 +109,10 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			restartRequired: true,
 			type: "number",
 			optional: true,
+			extendedValidation: validate.optional(validate.all(
+				validate.integer,
+				validate.greaterThanZero
+			)),
 		},
 		"controller.bind_address": {
 			title: "Bind Address",
@@ -107,6 +120,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			restartRequired: true,
 			type: "string",
 			optional: true,
+			// TODO extendedValidation, valid addresses including IPV4, IPV6, and localhost
 		},
 		"controller.trusted_proxies": {
 			title: "Trusted Proxies",
@@ -114,12 +128,14 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 				"Comma separated list of IP addresses and/or CIDR blocks to trust the X-Forwarded-For header on",
 			type: "string",
 			optional: true,
+			// TODO extendedValidation, see parseTrustedProxies
 		},
 		"controller.public_url": {
 			title: "Public URL",
 			description: "Public facing URL the controller is hosted on, including the protocol.",
 			type: "string",
 			optional: true,
+			// TODO extendedValidation, valid url including the protocol
 		},
 		"controller.tls_certificate": {
 			title: "TLS Certificate",
@@ -127,6 +143,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			restartRequired: true,
 			type: "string",
 			optional: true,
+			extendedValidation: validate.optional(validate.filePath),
 		},
 		"controller.tls_private_key": {
 			title: "TLS Private Key",
@@ -134,6 +151,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			restartRequired: true,
 			type: "string",
 			optional: true,
+			extendedValidation: validate.optional(validate.filePath),
 		},
 		"controller.auth_secret": {
 			access: ["controller"],
@@ -151,30 +169,35 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			description: "Interval heartbeats are sent out on WebSocket connections.",
 			type: "number",
 			initialValue: 15,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.session_timeout": {
 			title: "Session Timeout",
 			description: "Time in seconds before giving up resuming a dropped WebSocket session.",
 			type: "number",
 			initialValue: 60,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.metrics_timeout": {
 			title: "Metrics Timeout",
 			description: "Timeout in seconds for metrics gathering from hosts.",
 			type: "number",
 			initialValue: 8,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.system_metrics_interval": {
 			title: "System Metrics Interval",
 			description: "Interval in seconds to collect and update system metrics for the Web UI",
 			type: "number",
 			initialValue: 10,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.proxy_stream_timeout": {
 			title: "Proxy Stream Timeout",
 			description: "Timeout in seconds for proxy streams to start flowing.",
 			type: "number",
 			initialValue: 15,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.factorio_username": {
 			title: "Factorio Username",
@@ -190,6 +213,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			credential: ["controller"],
 			optional: true,
+			// TODO extendedValidation, lowercase hex characters, maybe length? cannot be set without username
 		},
 		"controller.share_factorio_credentials_with_hosts": {
 			title: "Share Factorio credentials with Hosts",
@@ -219,12 +243,14 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			description: "Duration in minutes to cache mod portal API responses.",
 			type: "number",
 			initialValue: 30,
+			extendedValidation: validate.greaterThanEqualZero, // Zero is allowed here to disable cache
 		},
 		"controller.mod_portal_page_size": {
 			title: "Mod Portal Page Size",
 			description: "Maximum number of results per page when querying the Factorio mod portal API.",
 			type: "number",
 			initialValue: 1000,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"controller.allow_remote_updates": {
 			description: "When true, allows a remote event to trigger a clusterio update via npm",
@@ -300,6 +326,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			description: "Path to directory to look for factorio installs",
 			type: "string",
 			initialValue: "factorio",
+			extendedValidation: validate.filePath,
 		},
 		"host.mods_directory": {
 			title: "Mods Directory",
@@ -307,18 +334,21 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			restartRequired: true,
 			type: "string",
 			initialValue: "mods",
+			extendedValidation: validate.filePath,
 		},
 		"host.instances_directory": {
 			description: "Path to directory to store instances in.",
 			restartRequired: true,
 			type: "string",
 			initialValue: "instances",
+			extendedValidation: validate.filePath,
 		},
 		"host.controller_url": {
 			description: "URL to connect to the controller at",
 			restartRequired: true,
 			type: "string",
 			initialValue: "http://localhost:8080/",
+			// TODO extendedValidation, valid url including the protocol
 		},
 		"host.controller_token": {
 			access: ["host"],
@@ -326,12 +356,14 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			restartRequired: true,
 			type: "string",
 			initialValue: "enter token here",
+			// TODO extendedValidation, valid JWT with matching host id
 		},
 		"host.tls_ca": {
 			description: "Path to Certificate Authority to validate TLS connection to controller against.",
 			restartRequired: true,
 			type: "string",
 			optional: true,
+			extendedValidation: validate.optional(validate.filePath),
 		},
 		"host.public_address": {
 			description: "Public facing address players should connect to in order to join instances on this host",
@@ -345,6 +377,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 				"ranges separated with a dash.",
 			type: "string",
 			initialValue: "34100-34199",
+			// TODO extendedValidation, port range
 		},
 		"host.factorio_username": {
 			title: "Factorio Username",
@@ -364,12 +397,14 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			type: "string",
 			credential: ["host"],
 			optional: true,
+			// TODO extendedValidation, lowercase hex characters, maybe length? cannot be set without username
 		},
 		"host.max_reconnect_delay": {
 			title: "Max Reconnect Delay",
 			description: "Maximum delay to wait before attempting to reconnect WebSocket",
 			type: "number",
 			initialValue: 60,
+			extendedValidation: validate.greaterThanZero,
 		},
 		"host.allow_remote_updates": {
 			description: "When true, allows a remote event to trigger a clusterio update via npm",
@@ -463,6 +498,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			type: "number",
 			optional: true,
 			hidden: true,
+			// Internal value, extendedValidation not used
 		},
 		"instance.auto_start": {
 			description: "Automatically start this instance when the host hosting it is started up",
@@ -480,6 +516,11 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			type: "string",
 			initialValue: "latest",
 			inputComponent: "target_version",
+			extendedValidation: function(value) {
+				if (!isTargetVersion(value)) {
+					throw new Error("Value must be be 'latest', or match X.Y, or match X.Y.Z");
+				}
+			},
 		},
 		"factorio.executable_path": {
 			description:
@@ -488,6 +529,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "string",
 			optional: true,
+			extendedValidation: validate.optional(validate.filePath),
 		},
 		"factorio.shutdown_timeout": {
 			description:
@@ -495,23 +537,27 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 				"the process. Set to 0 to disable.",
 			type: "number",
 			initialValue: 300,
+			extendedValidation: validate.greaterThanEqualZero,
 		},
 		"factorio.game_port": {
 			description: "UDP port to run game on, uses a port in host.factorio_port_range if null",
 			restartRequired: true,
 			type: "number",
 			optional: true,
+			extendedValidation: validate.optional(validate.greaterThanZero),
 		},
 		"factorio.host_assigned_game_port": {
 			access: ["host"],
 			type: "number",
 			optional: true,
+			// Internal value, extendedValidation not used
 		},
 		"factorio.rcon_port": {
 			description: "TCP port to run RCON on, uses a random port if null",
 			restartRequired: true,
 			type: "number",
 			optional: true,
+			extendedValidation: validate.optional(validate.greaterThanZero),
 		},
 		"factorio.rcon_password": {
 			credential: ["host", "controller"],
@@ -526,6 +572,13 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 				"autosave pool with this many slots. Requires autosaves to be enabled to work. Set to 0 to disable.",
 			type: "number",
 			initialValue: 5,
+			extendedValidation: function(value, config) {
+				const factorioSettings = config.get("factorio.settings");
+				const autosaveSlots = factorioSettings.autosave_slot;
+				if (typeof autosaveSlots === "number" && value < autosaveSlots) {
+					throw new Error("Value cannot be less than the number of autosave slots");
+				}
+			},
 		},
 		"factorio.mod_pack_id": {
 			title: "Mod Pack",
@@ -574,6 +627,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			],
 			type: "object",
 			initialValue: {}, // See create instance handler in controller.
+			// TODO extendedValidation, we could check keys and types here if we wanted
 		},
 		"factorio.verbose_logging": {
 			description: "Enable verbose logging on the Factorio server",
@@ -616,6 +670,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "number",
 			initialValue: 5,
+			extendedValidation: validate.greaterThanZero,
 		},
 	};
 }
@@ -650,18 +705,20 @@ export class ControlConfig extends classes.Config<ControlConfigFields> {
 			description: "Path to Certificate Authority to validate TLS connection to controller against.",
 			type: "string",
 			optional: true,
+			extendedValidation: validate.optional(validate.filePath),
 		},
 		"control.max_reconnect_delay": {
 			title: "Max Reconnect Delay",
 			description: "Maximum delay to wait before attempting to reconnect WebSocket",
 			type: "number",
 			initialValue: 60,
+			extendedValidation: validate.greaterThanEqualZero,
 		},
 	};
 }
 
 
-function validateFields(
+function validateFieldNames(
 	pluginName: string,
 	fields: Record<string, classes.FieldDefinition>,
 ) {
@@ -694,7 +751,7 @@ export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginW
 
 		const fields = pluginInfo[kind];
 		if (fields) {
-			validateFields(pluginInfo.name, fields);
+			validateFieldNames(pluginInfo.name, fields);
 			Object.assign(Config.fieldDefinitions, fields);
 		}
 	}
