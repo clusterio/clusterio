@@ -144,7 +144,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 				"Do not share this.",
 			restartRequired: true,
 			type: "string",
-			optional: true,
+			initialValue: "",
 		},
 		"controller.heartbeat_interval": {
 			title: "Heartbeat Interval",
@@ -495,7 +495,6 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 				"the process. Set to 0 to disable.",
 			type: "number",
 			initialValue: 300,
-			optional: true,
 		},
 		"factorio.game_port": {
 			description: "UDP port to run game on, uses a port in host.factorio_port_range if null",

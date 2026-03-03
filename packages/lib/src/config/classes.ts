@@ -63,14 +63,24 @@ export const ConfigSchema = Type.Record(Type.String(), Type.Union([
 ]));
 export type ConfigSchema = Static<typeof ConfigSchema>;
 
-type FieldType = "boolean" | "string" | "number" | "object";
 type FieldValue = null | boolean | string | number | object;
-export interface FieldDefinition {
+
+type FieldType<T extends FieldValue> =
+	T extends boolean ? "boolean" :
+		T extends string ? "string" :
+			T extends number ? "number" :
+				T extends object ? "object" :
+					never;
+
+export interface FieldDefinition<
+	Type extends FieldValue = any,
+	Fields extends Record<keyof Fields, FieldValue> = any,
+> {
 	/**
 	 * string declaring the type of the config value, supports boolean,
 	 * string, number and object.
 	 */
-	type: FieldType;
+	type: FieldType<Type>;
 	/**
 	 * Text used to identify the config field in user interfaces.
 	 */
@@ -79,6 +89,11 @@ export interface FieldDefinition {
 	 * Text used to describe the config field in user interfaces.
 	 */
 	description?: string;
+	/**
+	 * Validation function ran to confirm the value is consistent with other config values.
+	 * Should throw an error if the value in invalid / inconsistent
+	 */
+	extendedValidation?: (value: Type, config: Config<Fields>) => void;
 	/**
 	 * Value to use for the autocomplete attribute in the Web UI's input element.
 	 * Useful for making browsers behave properly with credential inputs.
@@ -93,7 +108,7 @@ export interface FieldDefinition {
 	/**
 	 * True if this field can be set to null.  Defaults to false.
 	 */
-	optional?: boolean;
+	optional?: Type extends null ? true : false;
 	/**
 	 * Value this config field should take in a newly initialized config.
 	 * This can also be an function returning the value to use.
@@ -137,8 +152,10 @@ export interface FieldDefinition {
 	hidden?: boolean;
 }
 
-export type ConfigDefs<Fields> = {
-	[Prop in keyof Fields]: FieldDefinition;
+export type ConfigDefs<
+	Fields extends Record<keyof Fields, FieldValue>
+> = {
+	[Prop in keyof Fields]: FieldDefinition<Fields[Prop], Fields>;
 }
 
 function defaultValue(def: FieldDefinition) {
@@ -177,7 +194,7 @@ export enum ConfigAccess {
  * @extends events.EventEmitter
  */
 export class Config<
-	Fields extends { [Field in keyof Fields]: FieldValue },
+	Fields extends Record<keyof Fields, FieldValue>
 > extends events.EventEmitter<ConfigEvents> {
 	/**
 	 * Mapping of config name to field meta data
