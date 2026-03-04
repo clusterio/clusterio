@@ -536,7 +536,7 @@ export class Config<
 			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
 		}
 
-		// Empty strings are treat as null
+		// Empty strings are treated as null
 		if (value === "") {
 			value = null;
 		}

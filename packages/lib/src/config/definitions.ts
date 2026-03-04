@@ -20,7 +20,7 @@ export interface ControllerConfigFields {
 	"controller.public_url": string | null;
 	"controller.tls_certificate": string | null;
 	"controller.tls_private_key": string | null;
-	"controller.auth_secret": string;
+	"controller.auth_secret": string | null;
 	"controller.heartbeat_interval": number;
 	"controller.session_timeout": number;
 	"controller.metrics_timeout": number;
@@ -162,7 +162,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 				"Do not share this.",
 			restartRequired: true,
 			type: "string",
-			initialValue: "",
+			optional: true,
 		},
 		"controller.heartbeat_interval": {
 			title: "Heartbeat Interval",

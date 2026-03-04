@@ -148,12 +148,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		const tokenPayload = jwt.verify(
-			token,
-			Buffer.from(req.app.locals.controller.config.get("controller.auth_secret"), "base64"),
-			{ audience: "host" }
-		);
-
+		const tokenPayload = jwt.verify(token, req.app.locals.controller.authSecret, { audience: "host" });
 		if (typeof tokenPayload === "string") {
 			throw new Error("unexpected JsonWebToken type");
 		}
@@ -180,12 +175,7 @@ function validateUserToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		let tokenPayload = jwt.verify(
-			token,
-			Buffer.from(req.app.locals.controller.config.get("controller.auth_secret"), "base64"),
-			{ audience: "user" }
-		);
-
+		const tokenPayload = jwt.verify(token, req.app.locals.controller.authSecret, { audience: "user" });
 		if (typeof tokenPayload === "string") {
 			throw new Error("unexpected JsonWebToken type");
 		}

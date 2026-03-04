@@ -182,7 +182,8 @@ async function handleBootstrapCommand(
 		// eslint-disable-next-line no-console
 		console.log(jwt.sign(
 			{ aud: "host", host: args.id },
-			Buffer.from(controllerConfig.get("controller.auth_secret"), "base64")
+			// Auth secret is never null after startup
+			Buffer.from(controllerConfig.get("controller.auth_secret")!, "base64")
 		));
 
 	} else if (subCommand === "create-ctl-config") {
@@ -387,7 +388,7 @@ async function initialize(): Promise<InitializeParameters> {
 
 	controllerConfig.set("controller.version", version); // Allows tracking last loaded version
 
-	if (controllerConfig.get("controller.auth_secret") === "") {
+	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
