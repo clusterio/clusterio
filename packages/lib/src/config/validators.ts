@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from "path";
 
 /** Combine multiple validators into a single one. */
 export function all<V, C> (

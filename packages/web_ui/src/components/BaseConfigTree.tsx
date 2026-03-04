@@ -391,6 +391,18 @@ function computeTreeData(
 					help={errorFields.get(fieldName)}
 					tooltip={def.description}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
+					rules={[{
+						validator: function(_, fieldValue) {
+							if (def.extendedValidation) {
+								try {
+									def.extendedValidation(fieldValue, config);
+								} catch (err: any) {
+									return Promise.reject(err);
+								}
+							}
+							return Promise.resolve();
+						},
+					}]}
 				>
 					{renderInput(control.inputComponents, def, !canWrite)}
 				</Form.Item>;

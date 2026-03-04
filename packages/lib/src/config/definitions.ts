@@ -3,7 +3,7 @@ import * as classes from "./classes";
 import * as validate from "./validators";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import { Static } from "@sinclair/typebox";
-import { isTargetVersion } from "../data";
+import { isTargetVersion } from "../data/version";
 
 type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;
 type configFromFile<T> = (...args: Parameters<typeof classes.Config.fromFile>) => Promise<T>;
@@ -574,7 +574,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: 5,
 			extendedValidation: function(value, config) {
 				const factorioSettings = config.get("factorio.settings");
-				const autosaveSlots = factorioSettings.autosave_slot;
+				const autosaveSlots = factorioSettings.autosave_slots;
 				if (typeof autosaveSlots === "number" && value < autosaveSlots) {
 					throw new Error("Value cannot be less than the number of autosave slots");
 				}
