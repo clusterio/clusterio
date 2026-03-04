@@ -392,15 +392,10 @@ function computeTreeData(
 					tooltip={def.description}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
 					rules={[{
-						validator: function(_, fieldValue) {
+						validator: async (_, fieldValue) => {
 							if (def.extendedValidation) {
-								try {
-									def.extendedValidation(fieldValue, config);
-								} catch (err: any) {
-									return Promise.reject(err);
-								}
+								def.extendedValidation(fieldValue, config);
 							}
-							return Promise.resolve();
 						},
 					}]}
 				>
