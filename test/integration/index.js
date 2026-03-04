@@ -194,11 +194,23 @@ let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 let hostConfigPath = path.join("temp", "test", "config-host.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
+function childOptions(options) {
+	return {
+		cwd: path.join("temp", "test"),
+		env: {
+			...process.env,
+			NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS
+				? path.resolve(process.env.NODE_EXTRA_CA_CERTS)
+				: undefined,
+		},
+		...options,
+	};
+}
+
 function exec(command, options = {}) {
 	// Uncomment to show commands run in tests
 	// console.log(command);
-	options = { cwd: path.join("temp", "test"), ...options };
-	return util.promisify(child_process.exec)(command, options);
+	return util.promisify(child_process.exec)(command, childOptions(options));
 }
 
 function execController(...args) {
@@ -264,7 +276,7 @@ function spawn(name, cmd, waitFor, options = {}) {
 	return new Promise((resolve, reject) => {
 		log(cmd);
 		let parts = cmd.split(" ");
-		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test"), ...options });
+		let process = child_process.spawn(parts[0], parts.slice(1), childOptions(options));
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		let stderr = new LineSplitter({ readableObjectMode: true });
 		let onDataOut = line => {
@@ -354,7 +366,6 @@ before(async function() {
 	console.log("Bootstrapping");
 	await execController("bootstrap create-admin test");
 	await execController("bootstrap create-ctl-config test");
-	await execCtlProcess("control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
@@ -362,12 +373,10 @@ before(async function() {
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
-	await execHost("config set host.tls_ca ../../test/file/tls/cert.pem");
 
 	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
 
-	const tlsCa = await fs.readFile("test/file/tls/cert.pem");
-	const controlConnector = new TestControlConnector(url, 2, tlsCa);
+	const controlConnector = new TestControlConnector(url, 2);
 	controlConnector.token = controlToken;
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
@@ -375,7 +384,6 @@ before(async function() {
 	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} control-config list`, undefined, true);
 	control.config = initArgs.controlConfig;
 	control.plugins = initArgs.ctlPlugins;
-	control.tlsCa = tlsCa;
 
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;

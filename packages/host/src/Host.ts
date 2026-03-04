@@ -259,10 +259,6 @@ export default class Host extends lib.Link {
 	declare "connector": HostConnector;
 
 	router = new HostRouter(this);
-	/**
-	 * Certificate authority used to validate TLS connections to the controller.
-	 */
-	tlsCa?: string;
 	pluginInfos: lib.PluginNodeEnvInfo[];
 	config: lib.HostConfig;
 
@@ -304,7 +300,6 @@ export default class Host extends lib.Link {
 	constructor(
 		connector: HostConnector,
 		hostConfig: lib.HostConfig,
-		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[],
 		/**
 		 * If true indicates that there is a process monitor present that
@@ -319,7 +314,6 @@ export default class Host extends lib.Link {
 		public modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
 	) {
 		super(connector);
-		this.tlsCa = tlsCa;
 
 		this.pluginInfos = pluginInfos;
 		this.config = hostConfig;
@@ -593,7 +587,6 @@ export default class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: this.tlsCa } as object,
 			stream: true,
 		});
 
@@ -1027,7 +1020,6 @@ export default class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: this.tlsCa } as object,
 			stream: true,
 		});
 
@@ -1082,7 +1074,6 @@ export default class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		phin({
 			url, method: "PUT",
-			core: { ca: this.tlsCa } as object,
 			data: content,
 		}).catch(err => {
 			logger.error(`Error pushing save to controller:\n${err.stack}`, this.instanceLogMeta(instanceId));

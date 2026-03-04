@@ -127,8 +127,8 @@ describe("Host testing", function() {
 					version: hostVersion,
 				}];
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
-				const hostConnector = new HostConnector(hostConfig, undefined, pluginInfos);
-				host = new Host(hostConnector, hostConfig, undefined, pluginInfos);
+				const hostConnector = new HostConnector(hostConfig, pluginInfos);
+				host = new Host(hostConnector, hostConfig, pluginInfos);
 			});
 			it("returns false when no changes are present", async function() {
 				host.pluginInfos[0].hostEntrypoint = true;

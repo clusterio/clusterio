@@ -27,8 +27,8 @@ import BaseCtlPlugin from "./src/BaseCtlPlugin";
 class ControlConnector extends lib.WebSocketClientConnector {
 	private _token: string;
 
-	constructor(url: string, maxReconnectDelay: number, tlsCa: string | undefined, token: string) {
-		super(url, maxReconnectDelay, tlsCa);
+	constructor(url: string, maxReconnectDelay: number, token: string) {
+		super(url, maxReconnectDelay);
 		this._token = token;
 	}
 
@@ -54,8 +54,6 @@ class ControlConnector extends lib.WebSocketClientConnector {
 export class Control extends lib.Link {
 	/** Control config used for connecting to the controller. */
 	config: lib.ControlConfig;
-	/** Certificate authority used to validate TLS connections to the controller. */
-	tlsCa?: string;
 	/** Mapping of plugin names to their instance for loaded plugins. */
 	plugins: Map<string, BaseCtlPlugin>;
 	/** Keep the control connection alive after the command completes. */
@@ -64,12 +62,10 @@ export class Control extends lib.Link {
 	constructor(
 		connector: ControlConnector,
 		controlConfig: lib.ControlConfig,
-		tlsCa: string | undefined,
 		ctlPlugins: Map<string, BaseCtlPlugin>
 	) {
 		super(connector);
 		this.config = controlConfig;
-		this.tlsCa = tlsCa;
 		this.plugins = ctlPlugins;
 
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
@@ -299,20 +295,13 @@ async function startControl() {
 		return;
 	}
 
-	let tlsCa: string | undefined;
-	let tlsCaPath = controlConfig.get("control.tls_ca");
-	if (tlsCaPath) {
-		tlsCa = await fs.readFile(tlsCaPath, "utf8");
-	}
-
 	let controlConnector = new ControlConnector(
 		controlConfig.get("control.controller_url")!,
 		controlConfig.get("control.max_reconnect_delay"),
-		tlsCa,
 		controlConfig.get("control.controller_token")!,
 	);
 
-	let control = new Control(controlConnector, controlConfig, tlsCa, ctlPlugins);
+	let control = new Control(controlConnector, controlConfig, ctlPlugins);
 	try {
 		await controlConnector.connect();
 	} catch (err) {

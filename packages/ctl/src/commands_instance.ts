@@ -345,7 +345,6 @@ instanceSaveCommands.add(new lib.Command({
 				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa } as object,
 			data: content,
 			parse: "json",
 		});
@@ -420,7 +419,6 @@ instanceSaveCommands.add(new lib.Command({
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: control.tlsCa } as object,
 			stream: true,
 		});
 
