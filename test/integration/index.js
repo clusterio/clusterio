@@ -197,12 +197,7 @@ let controlConfigPath = path.join("temp", "test", "config-control.json");
 function childOptions(options) {
 	return {
 		cwd: path.join("temp", "test"),
-		env: {
-			...process.env,
-			NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS
-				? path.resolve(process.env.NODE_EXTRA_CA_CERTS)
-				: undefined,
-		},
+		env: { ...process.env },
 		...options,
 	};
 }
