@@ -8,6 +8,7 @@ import { basicType } from "../helpers";
 import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
 import { safeOutputFile } from "../file_ops";
+import * as validators from "./validators";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -202,6 +203,9 @@ export class Config<
 	 */
 	declare static fieldDefinitions: ConfigDefs<any>;
 	declare ["constructor"]: typeof Config;
+
+	/** A set of common validators and validator factories */
+	static validators = validators;
 
 	/**
 	 * Handle migration between clusterio versions
