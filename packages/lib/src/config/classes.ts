@@ -94,7 +94,7 @@ export interface FieldDefinition<
 	 * Validation function ran to confirm the value is consistent with other config values.
 	 * Should throw an error if the value in invalid / inconsistent
 	 */
-	extendedValidation?: (value: Type, config: Config<Fields>) => void;
+	validator?: (value: Type, config: Config<Fields>) => void;
 	/**
 	 * Value to use for the autocomplete attribute in the Web UI's input element.
 	 * Useful for making browsers behave properly with credential inputs.
@@ -581,9 +581,9 @@ export class Config<
 			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
 		}
 
-		if (def.extendedValidation) {
+		if (def.validator) {
 			try {
-				def.extendedValidation(value, this);
+				def.validator(value, this);
 			} catch (err: any) {
 				throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
 			}
