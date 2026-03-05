@@ -182,14 +182,6 @@ You can generate an access token with `clusterioctl host generate-token --id <ho
 Defaults to "enter token here".
 
 
-### host.tls_ca
-
-Path to certificate in PEM format to use for validating a TLS connection to the controller.
-If you have a self signed certificate on the controller you will need to copy the certificate to your hosts and set it as the certificate authority with this option.
-
-Defaults to null meaning use Node.js's default set of trusted certificate authorities.
-
-
 ### host.public_address
 
 External address instances hosted on this host can be accessed on.
@@ -411,14 +403,6 @@ Access token used for authenticating with the controller.
 You can generate an access token with `clusteriocontroller bootstrap generate-user-token <username>`, or use the `clusteriocontroller bootstrap create-ctl-config <username>` to create a new ctl config with the correct url and token in it.
 
 Defaults to null meaning complain about it not being set and exit.
-
-
-### control.tls_ca
-
-Path to certificate in PEM format to use for validating a TLS connection to the controller.
-If you have a self signed certificate on the controller you will need to copy the certificate to the computer you run clusterctl from and set it as the certificate authority with this option.
-
-Defaults to null meaning use Node.js's default set of trusted certificate authorities.
 
 
 ### control.max_reconnect_delay

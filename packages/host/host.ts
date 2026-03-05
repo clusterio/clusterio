@@ -51,13 +51,11 @@ void new lib.Gauge(
 export class HostConnector extends lib.WebSocketClientConnector {
 	constructor(
 		public hostConfig: lib.HostConfig,
-		tlsCa: string | undefined,
 		public pluginInfos: lib.PluginNodeEnvInfo[]
 	) {
 		super(
 			hostConfig.get("host.controller_url"),
 			hostConfig.get("host.max_reconnect_delay"),
-			tlsCa
 		);
 	}
 
@@ -230,17 +228,10 @@ async function startHost() {
 		return;
 	}
 
-	let tlsCa: string | undefined;
-	let tlsCaPath = hostConfig.get("host.tls_ca");
-	if (tlsCaPath) {
-		tlsCa = await fs.readFile(tlsCaPath, "utf8");
-	}
-
-	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
+	let hostConnector = new HostConnector(hostConfig, pluginInfos);
 	host = new Host(
 		hostConnector,
 		hostConfig,
-		tlsCa,
 		pluginInfos,
 		Boolean(args.canRestart),
 		Boolean(args.recovery),

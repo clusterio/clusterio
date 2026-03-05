@@ -28,7 +28,7 @@ describe("messages/plugin", function() {
 			lib.Address.fromShorthand({ hostId: 1 }),
 			lib.Address.fromShorthand("controller"),
 		);
-		host = new Host(hostConnector, hostConfig, undefined, []);
+		host = new Host(hostConnector, hostConfig, []);
 	});
 
 	describe("PluginDetails", function() {

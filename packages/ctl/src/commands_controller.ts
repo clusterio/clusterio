@@ -169,7 +169,6 @@ controllerPluginCommands.add(new lib.Command({
 		let response = await phin<[]>({
 			url,
 			parse: "json",
-			core: { ca: control.tlsCa } as object,
 		});
 		print(asTable(response.body));
 	},

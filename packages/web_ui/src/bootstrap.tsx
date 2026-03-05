@@ -137,7 +137,7 @@ export default async function bootstrap() {
 	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);
-	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);
+	let controlConnector = new ControlConnector(wsUrl.href, 120);
 	let control = new Control(controlConnector, new Map(pluginInfos.map(p => [p.name, p])));
 	control.plugins = await loadPlugins(pluginInfos, control);
 	control.inputComponents = inputComponentsFromPlugins(control.plugins);
