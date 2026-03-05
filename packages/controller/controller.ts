@@ -182,7 +182,8 @@ async function handleBootstrapCommand(
 		// eslint-disable-next-line no-console
 		console.log(jwt.sign(
 			{ aud: "host", host: args.id },
-			Buffer.from(controllerConfig.get("controller.auth_secret"), "base64")
+			// Auth secret is never null after startup
+			Buffer.from(controllerConfig.get("controller.auth_secret")!, "base64")
 		));
 
 	} else if (subCommand === "create-ctl-config") {

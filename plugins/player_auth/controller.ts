@@ -90,7 +90,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		for (let entry of this.players.values()) {
 			if (entry.playerCode === playerCode && entry.expiresMs > Date.now()) {
 				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length"));
-				let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 				let verifyToken = jwt.sign(
 					{
 						aud: "player_auth.verify_code",
@@ -98,7 +97,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 						verify_code: verifyCode,
 						player_code: playerCode,
 					},
-					secret
+					this.controller.authSecret
 				);
 
 				res.send({ verify_code: verifyCode, verify_token: verifyToken });
@@ -133,9 +132,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			return;
 		}
 
-		let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 		try {
-			let payload = jwt.verify(verifyToken, secret, { audience: "player_auth.verify_code" }) as jwt.JwtPayload;
+			let payload = jwt.verify(
+				verifyToken, this.controller.authSecret, { audience: "player_auth.verify_code" }
+			) as jwt.JwtPayload;
+
 			if (payload.verify_code !== verifyCode) {
 				throw new Error("invalid verify_code");
 			}

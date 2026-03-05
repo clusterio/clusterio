@@ -151,7 +151,8 @@ export default class UserManager {
 	signUserToken(user: UserRecord): string {
 		return jwt.sign(
 			{ aud: "user", user: user.id },
-			Buffer.from(this._controllerConfig.get("controller.auth_secret"), "base64")
+			// auth secret is never null after startup
+			Buffer.from(this._controllerConfig.get("controller.auth_secret")!, "base64")
 		);
 	}
 

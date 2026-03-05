@@ -8,6 +8,7 @@ import { basicType } from "../helpers";
 import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
 import { safeOutputFile } from "../file_ops";
+import * as validators from "./validators";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -63,14 +64,24 @@ export const ConfigSchema = Type.Record(Type.String(), Type.Union([
 ]));
 export type ConfigSchema = Static<typeof ConfigSchema>;
 
-type FieldType = "boolean" | "string" | "number" | "object";
 type FieldValue = null | boolean | string | number | object;
-export interface FieldDefinition {
+
+type FieldType<T extends FieldValue> =
+	T extends boolean ? "boolean" :
+		T extends string ? "string" :
+			T extends number ? "number" :
+				T extends object ? "object" :
+					never;
+
+export interface FieldDefinition<
+	Type extends FieldValue = any,
+	Fields extends Record<keyof Fields, FieldValue> = any,
+> {
 	/**
 	 * string declaring the type of the config value, supports boolean,
 	 * string, number and object.
 	 */
-	type: FieldType;
+	type: FieldType<Type>;
 	/**
 	 * Text used to identify the config field in user interfaces.
 	 */
@@ -79,6 +90,16 @@ export interface FieldDefinition {
 	 * Text used to describe the config field in user interfaces.
 	 */
 	description?: string;
+	/**
+	 * Validation function ran to confirm the value is consistent with other config values.
+	 * Should throw an error if the value in invalid / inconsistent
+	 */
+	validator?: (value: Type, config: Config<Fields>) => void;
+	/**
+	 * Names the config fields that the validator depends on.
+	 * This will ensure it is checked when these fields are changed.
+	 */
+	dependsOn?: string[];
 	/**
 	 * Value to use for the autocomplete attribute in the Web UI's input element.
 	 * Useful for making browsers behave properly with credential inputs.
@@ -93,7 +114,7 @@ export interface FieldDefinition {
 	/**
 	 * True if this field can be set to null.  Defaults to false.
 	 */
-	optional?: boolean;
+	optional?: Type extends null ? true : false;
 	/**
 	 * Value this config field should take in a newly initialized config.
 	 * This can also be an function returning the value to use.
@@ -137,8 +158,10 @@ export interface FieldDefinition {
 	hidden?: boolean;
 }
 
-export type ConfigDefs<Fields> = {
-	[Prop in keyof Fields]: FieldDefinition;
+export type ConfigDefs<
+	Fields extends Record<keyof Fields, FieldValue>
+> = {
+	[Prop in keyof Fields]: FieldDefinition<Fields[Prop], Fields>;
 }
 
 function defaultValue(def: FieldDefinition) {
@@ -177,7 +200,7 @@ export enum ConfigAccess {
  * @extends events.EventEmitter
  */
 export class Config<
-	Fields extends { [Field in keyof Fields]: FieldValue },
+	Fields extends Record<keyof Fields, FieldValue>
 > extends events.EventEmitter<ConfigEvents> {
 	/**
 	 * Mapping of config name to field meta data
@@ -185,6 +208,9 @@ export class Config<
 	 */
 	declare static fieldDefinitions: ConfigDefs<any>;
 	declare ["constructor"]: typeof Config;
+
+	/** A set of common validators and validator factories */
+	static validators = validators;
 
 	/**
 	 * Handle migration between clusterio versions
@@ -244,6 +270,46 @@ export class Config<
 		}
 	}
 
+	// TODO add stage, stageProp, revertStaging, and commitStaging
+	/** Staging is invalided when _set is called, so a new one is made with the new state */
+	private _staging?: this;
+	get staging(): typeof this {
+		if (this._staging) { return this._staging; }
+		this._staging = new this.constructor(this.location, this.fields) as this;
+		return this._staging;
+	}
+
+	private static _fieldDependents: Map<string, {
+		name: string,
+		def: FieldDefinition & { validator: NonNullable<FieldDefinition["validator"]> }
+	}[]>;
+
+	/** Map of all fields whose validators depend on the given field */
+	static get fieldDependents(): typeof this._fieldDependents {
+		if (this._fieldDependents) {
+			return this._fieldDependents;
+		}
+
+		const dependents = new Map<string, { name: string, def: FieldDefinition }[]>();
+
+		for (const [name, def] of Object.entries(this.fieldDefinitions)) {
+			if (!def.validator || !def.dependsOn) { continue; }
+
+			for (const otherName of def.dependsOn) {
+				const fieldDependents = dependents.get(otherName);
+				if (fieldDependents) {
+					fieldDependents.push({name, def});
+				} else {
+					dependents.set(otherName, [{name, def}]);
+				}
+			}
+		}
+
+		// The type is correct because of "!def.validator", not clear why this doesn't infer
+		this._fieldDependents = dependents as any;
+		return this._fieldDependents;
+	}
+
 	/**
 	 * Check access for a field
 	 *
@@ -288,6 +354,7 @@ export class Config<
 	 * @param notify - False to skip setting dirty flags and emitting events
 	 */
 	_set(name: keyof Fields & string, value: FieldValue, notify: boolean = true) {
+		this._staging = undefined;
 		const prev = this.fields[name];
 		this.fields[name] = value as any;
 		if (notify && !isDeepStrictEqual(value, prev)) {
@@ -513,12 +580,13 @@ export class Config<
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
+
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
 		if (remote !== this.location) {
 			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
 		}
 
-		// Empty strings are treates as null
+		// Empty strings are treated as null
 		if (value === "") {
 			value = null;
 		}
@@ -559,6 +627,26 @@ export class Config<
 			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
 		}
 
+		if (def.validator) {
+			try {
+				def.validator(value, this);
+			} catch (err: any) {
+				throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+			}
+		}
+
+		const dependents = this.constructor.fieldDependents.get(name);
+		if (dependents) {
+			// this.staging.stage(name, value, remote); // TODO need stage to avoid self reference
+			for (const dependent of dependents) {
+				try {
+					dependent.def.validator(this.get(dependent.name as keyof Fields & string, remote), this.staging);
+				} catch (err: any) {
+					throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+				}
+			}
+		}
+
 		this._set(name, value);
 	}
 
@@ -585,6 +673,7 @@ export class Config<
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
+
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
 		if (remote !== this.location) {
 			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
@@ -601,6 +690,26 @@ export class Config<
 			updated[prop] = value;
 		} else {
 			delete updated[prop];
+		}
+
+		if (def.validator) {
+			try {
+				def.validator(updated, this);
+			} catch (err: any) {
+				throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+			}
+		}
+
+		const dependents = this.constructor.fieldDependents.get(name);
+		if (dependents) {
+			// this.staging.setProp(name, prop, value, remote); // TODO need stageProp to avoid self reference
+			for (const dependent of dependents) {
+				try {
+					dependent.def.validator(this.get(dependent.name as keyof Fields & string, remote), this.staging);
+				} catch (err: any) {
+					throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+				}
+			}
 		}
 
 		this._set(name, updated);
