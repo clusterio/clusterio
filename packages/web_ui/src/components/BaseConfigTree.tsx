@@ -161,7 +161,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 							let value = form.getFieldValue(field);
 							let request;
 							if (propsMap.has(field)) {
-								let [fieldName, prop] = propsMap.get(field);
+								let [fieldName, prop] = propsMap.get(field)!;
 								request = props.setProp(fieldName, prop, value);
 
 							} else {
@@ -254,7 +254,7 @@ function computeTreeData(
 	};
 
 	let treeData = [];
-	let propsMap = new Map();
+	const propsMap = new Map<string, [fieldName: string, prop: string]>();
 	const groups = new Map<string, { [name: string]: lib.FieldDefinition }>();
 	for (let [fieldName, def] of Object.entries(ConfigClass.fieldDefinitions)) {
 		const [groupName, field] = lib.splitOn(".", fieldName);
@@ -312,17 +312,40 @@ function computeTreeData(
 								{`"${prop}"`}
 								{restart && restartTip}
 							</>}
-							rules={[{ validator: (_, fieldValue) => {
+							dependencies={def.dependsOn}
+							rules={[({getFieldValue}) => ({ validator: async (_, fieldValue) => {
 								if (!fieldValue.length) {
-									return Promise.reject(new Error("Will be removed"));
+									throw new Error("Will be removed");
 								}
+
 								try {
-									JSON.parse(fieldValue);
+									fieldValue = JSON.parse(fieldValue);
 								} catch (err) {
-									return Promise.reject(new Error("Must be valid json"));
+									throw new Error("Must be valid json");
 								}
-								return Promise.resolve();
-							}}]}
+
+								if (!def.validator) { return; }
+
+								// TODO this needs to use stage and stageProp to avoid deadlocks
+								const staging = config.staging;
+								staging.setProp(fieldName, prop, fieldValue);
+
+								for (const dependsOn of def.dependsOn ?? []) {
+									const dependsOnDef = ConfigClass.fieldDefinitions[dependsOn as any] as typeof def;
+									try {
+										if (propsMap.has(dependsOn)) {
+											const [name, otherProp] = propsMap.get(dependsOn)!;
+											staging.setProp(name, otherProp, JSON.parse(getFieldValue(dependsOn)));
+										} else if (dependsOnDef.type !== "object") {
+											staging.set(dependsOn, getFieldValue(dependsOn));
+										}
+									} catch (err) {
+										throw new Error(`Failed to fetch field: ${dependsOn}`);
+									}
+								}
+
+								def.validator(fieldValue, staging);
+							}})]}
 						>
 							<Input className="json-input" disabled={!canWrite} />
 						</Form.Item>,
@@ -390,14 +413,33 @@ function computeTreeData(
 					validateStatus={errorFields.has(fieldName) ? "error" : undefined}
 					help={errorFields.get(fieldName)}
 					tooltip={def.description}
+					dependencies={def.dependsOn}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
-					rules={[{
+					rules={[({getFieldValue}) => ({
 						validator: async (_, fieldValue) => {
-							if (def.extendedValidation) {
-								def.extendedValidation(fieldValue, config);
+							if (!def.validator) { return; }
+
+							// TODO this needs to use stage and stageProp to avoid deadlocks
+							const staging = config.staging;
+							staging.set(fieldName, fieldValue);
+
+							for (const dependsOn of def.dependsOn ?? []) {
+								const dependsOnDef = ConfigClass.fieldDefinitions[dependsOn as any] as typeof def;
+								try {
+									if (propsMap.has(dependsOn)) {
+										const [name, prop] = propsMap.get(dependsOn)!;
+										staging.setProp(name, prop, JSON.parse(getFieldValue(dependsOn)));
+									} else if (dependsOnDef.type !== "object") {
+										staging.set(dependsOn, getFieldValue(dependsOn));
+									}
+								} catch (err) {
+									throw new Error(`Failed to fetch field: ${dependsOn}`);
+								}
 							}
+
+							def.validator(fieldValue, staging);
 						},
-					}]}
+					})]}
 				>
 					{renderInput(control.inputComponents, def, !canWrite)}
 				</Form.Item>;

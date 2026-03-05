@@ -572,6 +572,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 				"autosave pool with this many slots. Requires autosaves to be enabled to work. Set to 0 to disable.",
 			type: "number",
 			initialValue: 5,
+			dependsOn: ["factorio.settings", "factorio.settings.autosave_slots"],
 			validator: function(value, config) {
 				const factorioSettings = config.get("factorio.settings");
 				const autosaveSlots = factorioSettings.autosave_slots;
