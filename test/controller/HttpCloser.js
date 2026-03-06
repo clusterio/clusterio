@@ -4,8 +4,7 @@ const fs = require("fs-extra");
 const http = require("http");
 const https = require("https");
 const util = require("util");
-
-const phin = require("phin");
+const events = require("node:events");
 
 const HttpCloser = require("@clusterio/controller/dist/node/src/HttpCloser").default;
 
@@ -38,8 +37,16 @@ function serverSuite(proto) {
 	}
 
 	async function get(url, options = {}) {
-		let core = { ...clientOptions, ...(options.core || {}) };
-		return await phin({ ...options, url, core });
+		const request = api.request(url, { ...clientOptions, ...options });
+		request.end();
+		const [response] = await events.once(request, "response");
+		response.body = await new Promise((resolve, reject) => {
+			const chunks = [];
+			response.on("data", chunk => { chunks.push(chunk); });
+			response.on("error", err => { reject(err); });
+			response.on("end", () => { resolve(Buffer.concat(chunks)); });
+		});
+		return response;
 	}
 
 	before(async function() {
@@ -101,7 +108,7 @@ function serverSuite(proto) {
 		});
 
 		let agent = new api.Agent({ keepAlive: true });
-		let request = catched(get(addr, { core: { agent }}));
+		let request = catched(get(addr, { agent }));
 		await waitForStage1;
 		stage2();
 		await closer.close();
@@ -121,7 +128,7 @@ function serverSuite(proto) {
 		});
 
 		let agent = new api.Agent({ keepAlive: true });
-		let request = catched(get(addr, { core: { agent }}));
+		let request = catched(get(addr, { agent }));
 		await waitForStage1;
 		await closer.close();
 
@@ -145,7 +152,7 @@ function serverSuite(proto) {
 		let close = catched(closer.close());
 
 		let agent = new api.Agent({ keepAlive: true });
-		await assert.rejects(get(addr, { core: { agent }}), { code: "ECONNREFUSED" });
+		await assert.rejects(get(addr, { agent }), { code: "ECONNREFUSED" });
 
 		let response = await request;
 		assert.equal(response.statusCode, 200, "non-200 response status code");
@@ -165,7 +172,7 @@ function serverSuite(proto) {
 		});
 
 		let agent = new api.Agent({ keepAlive: true });
-		let request = catched(get(addr, { core: { agent }}));
+		let request = catched(get(addr, { agent }));
 		await waitForStage1;
 		stage2();
 		await closer.close();
@@ -186,8 +193,8 @@ function serverSuite(proto) {
 		});
 
 		let agent = new api.Agent({ keepAlive: true, maxSockets: 1 });
-		let request = catched(get(addr, { core: { agent }}));
-		let droppedRequest = catched(get(addr, { core: { agent }}));
+		let request = catched(get(addr, { agent }));
+		let droppedRequest = catched(get(addr, { agent }));
 		await waitForStage1;
 		stage2();
 		await closer.close();
@@ -212,10 +219,7 @@ function serverSuite(proto) {
 		await closer.close(tick*2);
 		stage2();
 
-		// Due to a bug in phin [https://github.com/ethanent/phin/issues/59]
-		// the request Promise never settles.
-		// TODO: uncomment when bug is fixed in phin.
-		// await assert.rejects(request);
+		await assert.rejects(request);
 	});
 }
 

@@ -4,7 +4,6 @@ const path = require("path");
 const fs = require("fs-extra");
 const child_process = require("child_process");
 const jwt = require("jsonwebtoken");
-const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
@@ -148,13 +147,12 @@ function hasFactorio() {
 }
 
 async function get(urlPath) {
-	let res = await phin({
-		method: "GET",
-		url: `https://localhost:4443${urlPath}`,
-		core: { rejectUnauthorized: false },
-	});
-	if (res.statusCode !== 200) {
-		throw new Error(`Got response code ${res.statusCode}, content: ${res.body}`);
+	const url = new URL("https://localhost:4443");
+	url.pathname = urlPath;
+	let res = await fetch(url);
+	if (res.status !== 200) {
+		const body = Buffer.from(await res.arrayBuffer());
+		throw new Error(`Got response code ${res.status}, content: ${body.toString()}`);
 	}
 	return res;
 }

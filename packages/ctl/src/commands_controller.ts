@@ -1,7 +1,6 @@
 import fs from "fs-extra";
 import asTableModule from "as-table";
 import events from "events";
-import phin from "phin";
 import os from "os";
 import child_process from "child_process";
 
@@ -166,11 +165,8 @@ controllerPluginCommands.add(new lib.Command({
 	handler: async function(args: object, control: Control) {
 		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += "api/plugins";
-		let response = await phin<[]>({
-			url,
-			parse: "json",
-		});
-		print(asTable(response.body));
+		let response = await fetch(url);
+		print(asTable(await response.json() as []));
 	},
 }));
 controllerPluginCommands.add(new lib.Command({
