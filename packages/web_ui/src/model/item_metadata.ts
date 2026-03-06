@@ -1,18 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { useExportManifest } from "./export_manifest";
+import { ExportMetadataEntry } from "@clusterio/lib";
 
 
-type Metadata = {
-	x: number;
-	y: number;
-	size: number;
-	category: string;
-	localised_name?: any[];
-	path?: string;
-};
-
-const metadataCaches = new Map<string, Map<string, Metadata>>();
+const metadataCaches = new Map<string, Map<string, ExportMetadataEntry>>();
 let cssInjected = false;
 
 /**
@@ -20,9 +12,9 @@ let cssInjected = false;
  * CSS class name: `.{category}-{CSS.escape(name)}`
  * e.g. `.item-iron-plate`, `.recipe-iron-plate`, `.signal-signal-red`, `.planet-nauvis`
  */
-function useSpriteMetadata(category: string): Map<string, Metadata> {
+function useSpriteMetadata(category: string): Map<string, ExportMetadataEntry> {
 	const exportManifest = useExportManifest();
-	const [metadata, setMetadata] = useState<Map<string, Metadata>>(
+	const [metadata, setMetadata] = useState<Map<string, ExportMetadataEntry>>(
 		metadataCaches.get(category) ?? new Map()
 	);
 
@@ -41,7 +33,7 @@ function useSpriteMetadata(category: string): Map<string, Metadata> {
 				return;
 			}
 
-			const data: [string, Metadata][] = await response.json();
+			const data: [string, ExportMetadataEntry][] = await response.json();
 
 			if (!cssInjected) {
 				const sheetUrl = `${staticRoot}static/${exportManifest.assets["spritesheet"]}`;
@@ -62,7 +54,7 @@ function useSpriteMetadata(category: string): Map<string, Metadata> {
 				cssInjected = true;
 			}
 
-			const cache = new Map<string, Metadata>();
+			const cache = new Map<string, ExportMetadataEntry>();
 			for (const [key, meta] of data) {
 				if (meta.category === category) {
 					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;

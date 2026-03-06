@@ -2,6 +2,7 @@ export * from "./src/api";
 export * from "./src/config";
 export * from "./src/data";
 export * from "./src/errors";
+export * from "./src/export";
 export * from "./src/factorio/exchange_string";
 export * from "./src/helpers";
 export * from "./src/ini";

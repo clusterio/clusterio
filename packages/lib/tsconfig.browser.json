@@ -10,6 +10,7 @@
 		"./src/check_singleton_import.ts",
 		"./src/datastore.ts",
 		"./src/errors.ts",
+		"./src/export.ts",
 		"./src/factorio/exchange_string.ts",
 		"./src/helpers.ts",
 		"./src/hash.ts",

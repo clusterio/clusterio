@@ -8,11 +8,6 @@ import * as lib from "@clusterio/lib";
 import * as libBuildMod from "@clusterio/lib/dist/node/build_mod";
 import type { FactorioServer } from "./server";
 
-interface Prototype {
-	[index: string]: unknown,
-	type: string,
-	name: string,
-}
 interface SimpleIconSpecification {
 	icons?: never;
 	icon: string;
@@ -33,10 +28,8 @@ interface LayeredIconSpecification {
 	icon_mipmaps?: number;
 }
 type IconSpecification = LayeredIconSpecification | SimpleIconSpecification;
-type ItemPrototype = Prototype & IconSpecification;
+type ItemPrototype = lib.FactorioPrototypeBase & IconSpecification;
 
-
-type Prototypes = Record<string, Record<string, Prototype>>
 
 /**
  * Generate the export mod needed for exportData
@@ -326,7 +319,7 @@ const entityTypes = new Set([
 	"agricultural-tower", "market", "lane-splitter",
 ]);
 
-function filterPrototypes(prototypes: Prototypes, allowedTypes: Set<string>): ItemPrototype[] {
+function filterPrototypes(prototypes: lib.FactorioPrototypes, allowedTypes: Set<string>): ItemPrototype[] {
 	return Object.entries(prototypes)
 		.filter(([type]) => allowedTypes.has(type))
 		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes) as ItemPrototype[])
@@ -336,7 +329,7 @@ function filterPrototypes(prototypes: Prototypes, allowedTypes: Set<string>): It
 /** Shared state for building a unified spritesheet across all categories. */
 interface SheetState {
 	sheet: Jimp;
-	metadata: Map<string, { x: number, y: number, size: number, category: string, path?: string }>;
+	metadata: Map<string, lib.ExportMetadataEntry>;
 	iconCache: IconCache;
 	simpleIcons: Map<string, number>;
 	pos: number;
@@ -514,12 +507,12 @@ async function exportLocale(
 export async function exportData(server: FactorioServer) {
 	await generateExportMod(server);
 
-	let settings: Prototypes = {};
-	let prototypes: Prototypes = {};
+	let settings: lib.ExportSettings = {};
+	let prototypes: lib.ExportPrototypes = {};
 	let modVersions = new Map();
 	let modOrder: string[] = [];
 
-	function add(obj: Prototypes, prototype: Prototype) {
+	function add(obj: lib.FactorioPrototypes, prototype: lib.FactorioPrototypeBase) {
 		if (!Object.prototype.hasOwnProperty.call(obj, prototype.type)) {
 			obj[prototype.type] = {};
 		}
@@ -598,7 +591,7 @@ export async function exportData(server: FactorioServer) {
 	let zip = new JSZip();
 	zip.file("export/settings.json", JSON.stringify(settings));
 	zip.file("export/prototypes.json", JSON.stringify(prototypes));
-	zip.file("export/locale.json", JSON.stringify([...locale.entries()]));
+	zip.file("export/locale.json", JSON.stringify([...locale.entries()] satisfies lib.ExportLocale));
 
 	// Build a single unified spritesheet across all prototype categories.
 	const state = await createSheetState();
@@ -616,7 +609,7 @@ export async function exportData(server: FactorioServer) {
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
 	state.sheet.crop(0, 0, SHEET_WIDTH, Math.max(usedRows * SHEET_ICON_SIZE, 1));
 	zip.file("export/spritesheet.png", await state.sheet.getBufferAsync(Jimp.MIME_PNG));
-	zip.file("export/metadata.json", JSON.stringify([...state.metadata.entries()]));
+	zip.file("export/metadata.json", JSON.stringify([...state.metadata.entries()] satisfies lib.ExportMetadata));
 
 	server._logger.info(`Export complete: ${state.metadata.size} icons on ${usedRows} row(s)`);
 

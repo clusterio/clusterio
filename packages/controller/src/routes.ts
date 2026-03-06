@@ -246,7 +246,7 @@ async function uploadExport(req: Request, res: Response) {
 	];
 
 	let assets: any = {};
-	let settingPrototypes = {};
+	let settingPrototypes: lib.ExportSettings = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
 		if (!file) {

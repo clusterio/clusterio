@@ -41,9 +41,9 @@ function StoragePage() {
 	function getLocaleName(itemName: string) {
 		let localeName = itemName;
 		let meta = itemMetadata.get(itemName);
-		if (meta && meta.localised_name) {
+		if (meta && (meta as any).localised_name) {
 			// TODO: implement the locale to name conversion.
-			localeName = locale.get(meta.localised_name[0])!;
+			localeName = locale.get((meta as any).localised_name[0])!;
 		} else {
 			for (let section of ["item-name", "entity-name", "fluid-name", "equipment-name"]) {
 				let name = locale.get(`${section}.${itemName}`);

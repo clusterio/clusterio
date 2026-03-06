@@ -5,6 +5,7 @@ import * as libSchema from "../schema";
 import * as libLuaTools from "../lua_tools";
 
 import ExportManifest from "./ExportManifest";
+import type { ExportSettings } from "../export";
 import type { Logger } from "../logging";
 
 import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
@@ -357,7 +358,7 @@ export default class ModPack {
 	 *     Setting prototypes exported from the game.
 	 * @param logger - Logger used to report warnings on.
 	 */
-	fillDefaultSettings(settingPrototypes: Record<string, object>, logger: Logger) {
+	fillDefaultSettings(settingPrototypes: ExportSettings, logger: Logger) {
 		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting", "color-setting"];
 		let prototypes = Object.entries(settingPrototypes)
 			.filter(([type, _]) => knownTypes.includes(type))
@@ -370,7 +371,7 @@ export default class ModPack {
 				logger.warn(`Ignoring ${prototype.name} with unknown setting_type ${settingType}`);
 				continue;
 			}
-			if (prototype.default_value === undefined) {
+			if ((prototype as any).default_value === undefined) {
 				logger.warn(`Ignoring ${prototype.name} with missing default_value`);
 				continue;
 			}
@@ -389,7 +390,7 @@ export default class ModPack {
 			if (type === "color-setting") {
 				value = libLuaTools.normalizeColor(value as object);
 			}
-			this.settings[settingType].set(prototype.name, { value });
+			this.settings[settingType].set(prototype.name, { value } as ModSetting);
 		}
 	}
 

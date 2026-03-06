@@ -9,6 +9,7 @@ export * from "./src/config";
 export * from "./src/data";
 export * from "./src/database";
 export * from "./src/errors";
+export * from "./src/export";
 export * from "./src/external";
 export * from "./src/factorio";
 export * from "./src/file_ops";
