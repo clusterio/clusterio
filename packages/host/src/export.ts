@@ -14,6 +14,7 @@ interface Prototype {
 	name: string,
 }
 interface SimpleIconSpecification {
+	icons?: never;
 	icon: string;
 	icon_size?: number;
 	icon_mipmaps?: number;
@@ -261,9 +262,9 @@ function fixIcons(item: ItemPrototype) {
 /** Get the primary icon path from a prototype (first layer for layered, .icon for simple). */
 function getPrimaryIconPath(item: ItemPrototype): string | undefined {
 	if (item.icons) {
-		return (item as LayeredIconSpecification).icons[0]?.icon;
+		return item.icons[0]?.icon;
 	}
-	return (item as SimpleIconSpecification).icon;
+	return item.icon;
 }
 
 const itemTypes = new Set([
@@ -394,7 +395,7 @@ async function exportItems(
 		let iconPos: number | undefined;
 		if (item.icons) {
 			icon = await loadLayeredIcon(
-				server, modVersions, item as LayeredIconSpecification, SHEET_ICON_SIZE, state.iconCache,
+				server, modVersions, item, SHEET_ICON_SIZE, state.iconCache,
 			);
 			iconPos = state.pos;
 
@@ -402,7 +403,7 @@ async function exportItems(
 			iconPos = state.simpleIcons.get(item.icon as string);
 			if (iconPos === undefined) {
 				icon = await loadSimpleIcon(
-					server, modVersions, item as SimpleIconSpecification, SHEET_ICON_SIZE, state.iconCache,
+					server, modVersions, item, SHEET_ICON_SIZE, state.iconCache,
 				);
 				if (icon) {
 					iconPos = state.pos;
