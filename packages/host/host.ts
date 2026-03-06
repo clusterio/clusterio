@@ -299,7 +299,7 @@ I           version of clusterio.  Expect things to break. I
 		if (err instanceof lib.WebSocketError) {
 			// Already handled by connector.on("error") within Host
 
-		} else if (err instanceof lib.StartupError) {
+		} else if (err instanceof lib.StartupError || err.code === "InstallationError") {
 			logger.fatal(`
 +----------------------------------+
 | Unable to to start clusteriohost |

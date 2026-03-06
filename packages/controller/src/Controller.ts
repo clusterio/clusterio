@@ -1068,6 +1068,9 @@ export default class Controller {
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
 			} catch (err: any) {
+				if (err.code === "InstallationError") {
+					throw err;
+				}
 				throw new lib.PluginError(pluginInfo.name, err);
 			}
 

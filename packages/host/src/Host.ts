@@ -440,6 +440,9 @@ export default class Host extends lib.Link {
 				this.plugins.set(pluginInfo.name, hostPlugin);
 
 			} catch (err: any) {
+				if (err.code === "InstallationError") {
+					throw err;
+				}
 				throw new lib.PluginError(pluginInfo.name, err);
 			}
 

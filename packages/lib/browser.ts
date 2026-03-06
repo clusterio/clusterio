@@ -16,3 +16,6 @@ export * from "./src/subscriptions";
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as RateLimiter } from "./src/RateLimiter";
 export { default as ValueCache } from "./src/ValueCache";
+
+import { checkSingletonImport } from "./src/check_singleton_import";
+checkSingletonImport(import.meta.url);
