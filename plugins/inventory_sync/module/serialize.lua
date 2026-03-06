@@ -377,10 +377,35 @@ function serialize.deserialize_crafting_notifications(player, serialized)
 	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(serialized)))
 	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
 	local clear_notification = player.clear_recipe_notification
-	local valid_recipes = compat.prototypes.recipe
+	local add_notification = player.add_recipe_notification
+	local notifications = {}
+
+	-- Assume all recipes need a notification
+	for _, recipe in pairs(player.force.recipes) do
+		if recipe.enabled and not recipe.hidden then
+			notifications[recipe.name] = true
+		end
+	end
+
+	-- Remove recipes the player has cleared
 	for _, recipe_name in pairs(recipe_names) do
-		if valid_recipes[recipe_name] then
-			clear_notification(recipe_name)
+		if notifications[recipe_name] then
+			notifications[recipe_name] = false
+		end
+	end
+
+	-- Clear ones which are ones which are not required
+	for _, recipe in pairs(player.get_recipe_notifications()) do
+		if notifications[recipe.name] == false then
+			clear_notification(recipe.name)
+		end
+		notifications[recipe.name] = nil -- Prevents double add below
+	end
+
+	-- Add any which the player did not have
+	for recipe_name, should_add in pairs(notifications) do
+		if should_add then
+			add_notification(recipe_name)
 		end
 	end
 end
