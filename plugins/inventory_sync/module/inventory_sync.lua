@@ -73,7 +73,8 @@ function inventory_sync.serialize_player(player, player_record)
 		end
 	end
 
-	local serialized_player = serialize.serialize_player(player)
+	local failed_deserialization = get_script_data().failed_deserialization[player.name] or {}
+	local serialized_player = serialize.serialize_player(player, failed_deserialization)
 	serialized_player.generation = player_record.generation
 
 	return serialized_player
@@ -106,7 +107,8 @@ function inventory_sync.deserialize_player(player, finished_record)
 
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
-	serialize.deserialize_player(player, serialized_player)
+	assert(type(serialized_player) == "table", "wrong type for serialized_player")
+	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
@@ -385,6 +387,7 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		player.print("ERROR: Serializing player data failed: " .. result)
 		return
 	end
+	script_data.failed_deserialization[player.name] = nil
 	script_data.active_uploads[player.name] = {
 		serialized = result,
 		last_attempt = game.ticks_played,
