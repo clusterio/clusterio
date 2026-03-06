@@ -23,26 +23,26 @@
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
 		"@sinclair/typebox": "catalog:",
-		"set-blocking": "catalog:",
 		"fs-extra": "catalog:",
+		"jimp": "^1.6.0",
 		"jszip": "catalog:",
-		"winston": "catalog:",
-		"winston-daily-rotate-file": "catalog:",
-		"jimp": "^0.22.8",
 		"pidusage": "^3.0.2",
 		"rcon-client": "^4.2.5",
 		"semver": "^7.7.1",
+		"set-blocking": "catalog:",
+		"winston": "catalog:",
+		"winston-daily-rotate-file": "catalog:",
 		"yargs": "^17.7.2"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"devDependencies": {
-		"@types/node": "catalog:",
 		"@types/fs-extra": "catalog:",
-		"@types/set-blocking": "catalog:",
+		"@types/node": "catalog:",
 		"@types/pidusage": "^2.0.2",
 		"@types/semver": "^7.5.0",
+		"@types/set-blocking": "catalog:",
 		"@types/yargs": "^17.0.33",
 		"typescript": "catalog:"
 	}

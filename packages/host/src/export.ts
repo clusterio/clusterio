@@ -1,7 +1,7 @@
 // Export of item icons and locale
 import fs from "fs-extra";
 import path from "path";
-import Jimp from "jimp";
+import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
@@ -63,7 +63,7 @@ async function generateExportMod(server: FactorioServer) {
 	});
 }
 
-let zipCache = new Map();
+let zipCache = new Map<string, JSZip>();
 async function loadZip(server: FactorioServer, modVersions: Map<string, string>, mod: string) {
 	let modVersion = modVersions.get(mod);
 	if (!modVersion) {
@@ -77,7 +77,7 @@ async function loadZip(server: FactorioServer, modVersions: Map<string, string>,
 		zipCache.set(zipPath, zip);
 	}
 
-	return zip.folder(lib.findRoot(zip));
+	return zip.folder(lib.findRoot(zip))!;
 }
 
 /**
@@ -128,7 +128,8 @@ async function loadFile(server: FactorioServer, modVersions: Map<string, string>
 	return await file.async("nodebuffer");
 }
 
-type IconCache = Map<string, Jimp | null>;
+type Image = JimpInstance;
+type IconCache = Map<string, Image | null>;
 async function loadIcon(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
@@ -141,8 +142,8 @@ async function loadIcon(
 	if (icon === undefined) {
 		let fileContent = await loadFile(server, modVersions, iconPath);
 		if (fileContent) {
-			icon = await Jimp.read(fileContent);
-			icon.crop(0, 0, iconSize, iconSize);
+			icon = await Jimp.fromBuffer(fileContent) as Image;
+			icon.crop({ x: 0, y: 0, w: iconSize, h: iconSize });
 			iconCache.set(iconPath, icon);
 		} else {
 			icon = null;
@@ -178,7 +179,7 @@ async function loadLayeredIcon(
 	iconCache: IconCache,
 ) {
 	let baseLayerSize = (item.icons[0].icon_size || item.icon_size) ?? 64;
-	let icon = await Jimp.create(size, size);
+	let icon = new Jimp({ width: size, height: size });
 
 	// The scaling factor of the base layer
 	let baseLayerScale = item.icons[0].scale || 32 / baseLayerSize;
@@ -328,7 +329,7 @@ function filterPrototypes(prototypes: lib.FactorioPrototypes, allowedTypes: Set<
 
 /** Shared state for building a unified spritesheet across all categories. */
 interface SheetState {
-	sheet: Jimp;
+	sheet: Image;
 	metadata: Map<string, lib.ExportMetadataEntry>;
 	iconCache: IconCache;
 	simpleIcons: Map<string, number>;
@@ -340,7 +341,7 @@ const SHEET_WIDTH = 1024;
 
 async function createSheetState(): Promise<SheetState> {
 	return {
-		sheet: await Jimp.create(SHEET_WIDTH, SHEET_ICON_SIZE),
+		sheet: new Jimp({ width: SHEET_WIDTH, height: SHEET_ICON_SIZE }),
 		metadata: new Map(),
 		iconCache: new Map(),
 		simpleIcons: new Map(),
@@ -353,7 +354,7 @@ async function growSheet(state: SheetState) {
 	const row = Math.floor(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
 	const neededHeight = (row + 1) * SHEET_ICON_SIZE;
 	if (neededHeight > state.sheet.bitmap.height) {
-		const extended = await Jimp.create(SHEET_WIDTH, neededHeight);
+		const extended = new Jimp({ width: SHEET_WIDTH, height: neededHeight });
 		extended.composite(state.sheet, 0, 0);
 		(state.sheet as any).bitmap = (extended as any).bitmap;
 	}
@@ -384,7 +385,7 @@ async function exportItems(
 			continue;
 		}
 
-		let icon: Jimp | null = null;
+		let icon: Image | null = null;
 		let iconPos: number | undefined;
 		if (item.icons) {
 			icon = await loadLayeredIcon(
@@ -608,8 +609,8 @@ export async function exportData(server: FactorioServer) {
 
 	// Crop sheet to actual used height and write single spritesheet + metadata.
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
-	state.sheet.crop(0, 0, SHEET_WIDTH, Math.max(usedRows * SHEET_ICON_SIZE, 1));
-	zip.file("export/spritesheet.png", await state.sheet.getBufferAsync(Jimp.MIME_PNG));
+	state.sheet.crop({ x: 0, y: 0, w: SHEET_WIDTH, h: Math.max(usedRows * SHEET_ICON_SIZE, 1) });
+	zip.file("export/spritesheet.png", await state.sheet.getBuffer(JimpMime.png));
 	zip.file("export/metadata.json", JSON.stringify([...state.metadata.entries()] satisfies lib.ExportMetadata));
 
 	server._logger.info(`Export complete: ${state.metadata.size} icons on ${usedRows} row(s)`);
