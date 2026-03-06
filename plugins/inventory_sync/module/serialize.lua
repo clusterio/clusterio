@@ -367,12 +367,7 @@ function serialize.serialize_crafting_notifications(player)
 		index = index + 1
 	end
 
-	-- Do no return if length is zero as this breaks with table_to_json
-	if index > 1 then
-		return helpers.encode_string(helpers.table_to_json(recipe_names))
-	end
-
-	return nil
+	return helpers.encode_string(helpers.table_to_json(recipe_names))
 end
 
 --- @param player LuaPlayer
@@ -382,8 +377,11 @@ function serialize.deserialize_crafting_notifications(player, serialized)
 	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(serialized)))
 	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
 	local clear_notification = player.clear_recipe_notification
+	local valid_recipes = compat.prototypes.recipe
 	for _, recipe_name in pairs(recipe_names) do
-		clear_notification(recipe_name)
+		if valid_recipes[recipe_name] then
+			clear_notification(recipe_name)
+		end
 	end
 end
 
