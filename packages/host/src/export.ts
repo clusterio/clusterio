@@ -411,6 +411,7 @@ async function exportItems(
 				x: iconPos * SHEET_ICON_SIZE % SHEET_WIDTH,
 				y: Math.floor(iconPos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
 				size: SHEET_ICON_SIZE,
+				localised_name: item.localised_name,
 				category,
 				...(iconPath ? { path: iconPath } : {}),
 			});

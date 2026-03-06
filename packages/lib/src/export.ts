@@ -113,6 +113,7 @@ export interface ExportMetadataEntry {
 	x: number,
 	y: number,
 	size: number,
+	localised_name?: FactorioLocalisedString,
 	category: string,
 	path?: string,
 }
