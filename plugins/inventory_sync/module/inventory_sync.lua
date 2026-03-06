@@ -36,6 +36,7 @@ local function remove_player(player)
 	local script_data = get_script_data()
 	script_data.players_waiting_for_acquire[player.name] = nil
 	script_data.players_in_cutscene_to_sync[player.name] = nil
+	script_data.failed_deserialization[player.name] = nil
 	script_data.active_downloads[player.name] = nil
 	script_data.finished_downloads[player.name] = nil
 	script_data.active_uploads[player.name] = nil
@@ -387,7 +388,6 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		player.print("ERROR: Serializing player data failed: " .. result)
 		return
 	end
-	script_data.failed_deserialization[player.name] = nil
 	script_data.active_uploads[player.name] = {
 		serialized = result,
 		last_attempt = game.ticks_played,
