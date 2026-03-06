@@ -4,7 +4,6 @@ const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
-const phin = require("phin");
 
 const lib = require("@clusterio/lib");
 const libBuildMod = require("@clusterio/lib/build_mod");
@@ -79,16 +78,15 @@ async function runWithAltHost(callback) {
 }
 
 async function uploadSave(instanceId, name, content) {
-	return await phin({
-		url: `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`,
+	const uploadUrl = `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`;
+	return await fetch(uploadUrl, {
 		method: "POST",
-		core: { rejectUnauthorized: false },
 		headers: {
 			"X-Access-Token": controlToken,
 			"Content-Type": "application/zip",
 			"Content-Length": String(content.length),
 		},
-		data: content,
+		body: content,
 	});
 }
 
