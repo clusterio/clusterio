@@ -23,15 +23,12 @@ export default function InstanceRcon(props: InstanceRconProps) {
 
 	// Flash the output box whenever the output state changes.
 	useEffect(() => {
-		let el = resultRef.current;
-		if (!el || !output) {
+		if (!resultRef.current || !output) {
 			return;
 		}
-		let codeEl = el.querySelector("code");
-		if (codeEl) {
-			codeEl.style.animation = "none";
-			void codeEl.offsetWidth; // Force reflow to restart animation
-			codeEl.style.animation = "rcon-highlight 1s ease-out";
+		const animation = resultRef.current.children[0]?.getAnimations()[0];
+		if (animation) {
+			animation.currentTime = 0;
 		}
 	}, [output]);
 
@@ -59,9 +56,7 @@ export default function InstanceRcon(props: InstanceRconProps) {
 	return <>
 		{output && <>
 			<Title level={5}>Rcon result</Title>
-			<div ref={resultRef}>
-				<Paragraph code className="rcon-result">{output.data}</Paragraph>
-			</div>
+			<Paragraph ref={resultRef} code className="rcon-result">{output.data}</Paragraph>
 		</>}
 		<Input.Search
 			disabled={props.disabled}
