@@ -33,8 +33,8 @@ catalog:
   "set-blocking": ^2.0.0
   "jszip": ^3.10.1
   "chalk": ^4.1.2
-  "phin": ^3.7.0
   "ws": ^8.18.1
 
 catalogMode: strict
 linkWorkspacePackages: true
+shellEmulator: true

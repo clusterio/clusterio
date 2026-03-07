@@ -36,6 +36,7 @@ local function remove_player(player)
 	local script_data = get_script_data()
 	script_data.players_waiting_for_acquire[player.name] = nil
 	script_data.players_in_cutscene_to_sync[player.name] = nil
+	script_data.failed_deserialization[player.name] = nil
 	script_data.active_downloads[player.name] = nil
 	script_data.finished_downloads[player.name] = nil
 	script_data.active_uploads[player.name] = nil
@@ -73,7 +74,8 @@ function inventory_sync.serialize_player(player, player_record)
 		end
 	end
 
-	local serialized_player = serialize.serialize_player(player)
+	local failed_deserialization = get_script_data().failed_deserialization[player.name] or {}
+	local serialized_player = serialize.serialize_player(player, failed_deserialization)
 	serialized_player.generation = player_record.generation
 
 	return serialized_player
@@ -106,7 +108,8 @@ function inventory_sync.deserialize_player(player, finished_record)
 
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
-	serialize.deserialize_player(player, serialized_player)
+	assert(type(serialized_player) == "table", "wrong type for serialized_player")
+	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
@@ -328,9 +331,8 @@ inventory_sync.events[defines.events.on_player_joined_game] = function(event)
 	local player = assert(game.get_player(event.player_index))
 	local script_data = get_script_data()
 
-	-- It's possible Factorio doesn't invoke the on_player_created event when loading a save in single player
-	if not script_data.players[player.name] then
-		create_player(player, false)
+	if not game.is_multiplayer() then
+		return player.print("Inventory sync deactivated: game is single player")
 	end
 
 	-- Send acquire request even if an active download is currently in progress

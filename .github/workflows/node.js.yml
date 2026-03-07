@@ -40,6 +40,12 @@ jobs:
       with:
         files: ./coverage/lcov.info
         token: ${{ secrets.CODECOV_TOKEN }}
+    - name: Upload test logs for debugging
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ matrix.node-version }}-${{ matrix.factorio-version }}
+        path: temp/test/logs
 
   lint:
     runs-on: ubuntu-latest

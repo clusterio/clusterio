@@ -4,10 +4,10 @@ import * as lib from "@clusterio/lib";
 import ControlContext from "../components/ControlContext";
 
 let exportManifestCache: lib.ExportManifest|null = null;
-let emptyCache = { assets: {} };
+let loaded = false;
 export function useExportManifest(): lib.ExportManifest|null {
 	const control = useContext(ControlContext);
-	let [exportManifest, setExportManifest] = useState<lib.ExportManifest|null>(exportManifestCache || emptyCache);
+	let [exportManifest, setExportManifest] = useState<lib.ExportManifest|null>(exportManifestCache);
 	useEffect(() => {
 		async function load() {
 			let modPack = await control.send(new lib.ModPackGetDefaultRequest());
@@ -15,9 +15,10 @@ export function useExportManifest(): lib.ExportManifest|null {
 				exportManifestCache = modPack.exportManifest;
 				setExportManifest(exportManifestCache);
 			}
+			loaded = true;
 		}
 
-		if (!exportManifestCache) {
+		if (!loaded) {
 			load();
 		}
 	}, []);

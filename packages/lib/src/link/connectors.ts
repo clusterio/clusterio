@@ -431,7 +431,6 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 	constructor(
 		protected _url: string,
 		maxReconnectDelay: number,
-		protected _tlsCa: string | undefined,
 	) {
 		super(undefined as any, new libData.Address(libData.Address.controller, 0));
 		this._backoff = new ExponentialBackoff({ max: maxReconnectDelay });
@@ -543,17 +542,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 
 		// Open WebSocket to controller
 		logger.verbose(`Connector | connecting to ${url}`);
-
-
-		if (process.env.APP_ENV === "browser") {
-			this._socket = new WebSocket(url) as WebSocketClusterio;
-
-		} else {
-			let options: { ca?: string } = {};
-			if (this._tlsCa) { options.ca = this._tlsCa; }
-			this._socket = new WebSocket(url, options) as WebSocketClusterio;
-		}
-
+		this._socket = new WebSocket(url) as WebSocketClusterio;
 		this._attachSocketHandlers();
 	}
 

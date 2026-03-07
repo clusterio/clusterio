@@ -2,7 +2,7 @@
 const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
 
-const { Controller, ControlConnection, ControllerUser } = require("@clusterio/controller");
+const { Controller, ControlConnection } = require("@clusterio/controller");
 
 describe("messages/controller", function() {
 	/** @type {Controller} */
@@ -17,7 +17,7 @@ describe("messages/controller", function() {
 			lib.Address.fromShorthand({ controlId: 1 }),
 		);
 		controller = new Controller(lib.logger, [], controllerConfig);
-		const user = new ControllerUser(controller.userManager, undefined, "test");
+		const user = controller.users.getOrCreateUser("test");
 		controlConnection = new ControlConnection({ version: "2.0.0" }, connection, controller, user, 1);
 	});
 

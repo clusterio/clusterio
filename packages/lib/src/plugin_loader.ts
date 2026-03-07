@@ -45,6 +45,9 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 			pluginInfo = require(pluginPath).plugin;
 			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
 		} catch (err: any) {
+			if (err.code === "InstallationError") {
+				throw err;
+			}
 			throw new libErrors.PluginError(pluginName, err);
 		}
 

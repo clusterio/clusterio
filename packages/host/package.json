@@ -26,7 +26,6 @@
 		"set-blocking": "catalog:",
 		"fs-extra": "catalog:",
 		"jszip": "catalog:",
-		"phin": "catalog:",
 		"winston": "catalog:",
 		"winston-daily-rotate-file": "catalog:",
 		"jimp": "^0.22.8",

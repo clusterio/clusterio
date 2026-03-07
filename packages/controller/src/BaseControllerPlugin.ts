@@ -3,7 +3,7 @@ import type {
 	ModPack, ModInfo, PlayerEvent, PluginNodeEnvInfo,
 } from "@clusterio/lib";
 import type Controller from "./Controller";
-import type InstanceInfo from "./InstanceInfo";
+import type InstanceRecord from "./InstanceRecord";
 import type ControlConnection from "./ControlConnection";
 import type HostConnection from "./HostConnection";
 
@@ -91,7 +91,7 @@ export default class BaseControllerPlugin {
 	 *     The instance that changed.
 	 * @param prev - the previous status of the instance.
 	 */
-	async onInstanceStatusChanged(instance: InstanceInfo, prev?: InstanceStatus) { }
+	async onInstanceStatusChanged(instance: InstanceRecord, prev?: InstanceStatus) { }
 
 	/**
 	 * Called when the value of a controller config field changed.
@@ -117,7 +117,7 @@ export default class BaseControllerPlugin {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onInstanceConfigFieldChanged(instance: InstanceInfo, field: string, curr: unknown, prev: unknown) { }
+	async onInstanceConfigFieldChanged(instance: InstanceRecord, field: string, curr: unknown, prev: unknown) { }
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -261,7 +261,7 @@ export default class BaseControllerPlugin {
 	 *     The instance it occured on.
 	 * @param event - Information about the event.
 	 */
-	async onPlayerEvent(instance: InstanceInfo, event: PlayerEvent) { }
+	async onPlayerEvent(instance: InstanceRecord, event: PlayerEvent) { }
 
 	/**
 	 * Broadcast event to all connected hosts

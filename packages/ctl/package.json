@@ -24,7 +24,6 @@
 		"set-blocking": "catalog:",
 		"fs-extra": "catalog:",
 		"winston": "catalog:",
-		"phin": "catalog:",
 		"as-table": "^1.0.55",
 		"yargs": "^17.7.2"
 	},

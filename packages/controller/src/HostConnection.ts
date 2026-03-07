@@ -5,8 +5,8 @@ import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
-import InstanceInfo from "./InstanceInfo";
-import HostInfo from "./HostInfo";
+import InstanceRecord from "./InstanceRecord";
+import HostRecord from "./HostRecord";
 
 
 /**
@@ -16,7 +16,7 @@ import HostInfo from "./HostInfo";
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	private info: HostInfo;
+	private info: HostRecord;
 	plugins: Map<string, string>;
 
 	constructor(
@@ -30,7 +30,7 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 
 		const previousHostInfo = this._controller.hosts.get(registerData.id);
-		this.info = new HostInfo(
+		this.info = new HostRecord(
 			registerData.id,
 			previousHostInfo?.name ?? "",
 			registerData.version,
@@ -57,7 +57,7 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
-			const instances: InstanceInfo[] = [];
+			const instances: InstanceRecord[] = [];
 			for (let instance of this._controller.instances.valuesMutable()) {
 				if (instance.config.get("instance.assigned_host") !== this.id) {
 					continue;
@@ -68,7 +68,7 @@ export default class HostConnection extends BaseConnection {
 				instance.status = "unknown";
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
-			this._controller.instances.setMany(instances);
+			this._controller.instances.records.setMany(instances);
 
 			this.info.connected = false;
 			this._controller.hosts.set(this.info);
@@ -215,7 +215,7 @@ export default class HostConnection extends BaseConnection {
 
 		instance.gamePort = request.gamePort;
 		instance.factorioVersion = request.factorioVersion;
-		this._controller.instances.set(instance);
+		this._controller.instances.records.set(instance);
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
@@ -231,7 +231,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		// Assign instances the host has but controller does not
-		const instanceUpdates: InstanceInfo[] = [];
+		const instanceUpdates: InstanceRecord[] = [];
 		for (let instanceData of request.instances) {
 			const instanceConfig = new lib.InstanceConfig("controller");
 			instanceConfig.update(instanceData.config, false, "host");
@@ -265,32 +265,30 @@ export default class HostConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_host", this.id);
-			let newInstance = new InstanceInfo(
-				instanceConfig,
-				instanceData.status,
-				instanceData.gamePort,
-				instanceData.factorioVersion,
-				0,
-				Date.now(),
-			);
+			const newInstance = await this._controller.instances.createInstance(instanceConfig, true);
+			newInstance.factorioVersion = instanceData.factorioVersion;
+			newInstance.gamePort = instanceData.gamePort;
+			newInstance.status = instanceData.status;
 			instanceUpdates.push(newInstance);
-			this._controller.addInstanceHooks(newInstance);
-			await this.send(
-				new lib.InstanceAssignInternalRequest(
-					instanceConfig.get("instance.id"), instanceConfig.toRemote("host")
-				)
-			);
-			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 
-		this._controller.instances.setMany(instanceUpdates);
+		// We suppress the changes made by createInstance so we must manually make them here
+		this._controller.instances.records.setMany(instanceUpdates);
+		await Promise.all(instanceUpdates.flatMap(newInstance => [
+			lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance),
+			this.send(
+				new lib.InstanceAssignInternalRequest(
+					newInstance.config.get("instance.id"), newInstance.config.toRemote("host")
+				)
+			),
+		]));
 
 		// Push lists to make sure they are in sync.
 		let adminlist: Set<string> = new Set();
 		let banlist: Map<string, string> = new Map();
 		let whitelist: Set<string> = new Set();
 
-		for (let user of this._controller.userManager.users.values()) {
+		for (let user of this._controller.users.values()) {
 			if (user.isAdmin) {
 				adminlist.add(user.id);
 			}
@@ -339,21 +337,18 @@ export default class HostConnection extends BaseConnection {
 
 	async handleInstancePlayerUpdateEvent(event: lib.InstancePlayerUpdateEvent, src: lib.Address) {
 		let instanceId = src.id;
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
+		const user = this._controller.users.getOrCreateUser(event.name);
 
 		if (event.type === "join") {
-			this._controller.userManager.notifyJoin(user, instanceId);
+			user.notifyJoin(instanceId);
 		} else if (event.type === "leave") {
-			this._controller.userManager.notifyLeave(user, instanceId);
+			user.notifyLeave(instanceId);
 		}
 
 		user.instanceStats.set(instanceId, event.stats);
 
 		user.recalculatePlayerStats();
-		this._controller.usersUpdated([user]);
+		user.saveRecord();
 
 		let instance = this._controller.instances.get(instanceId)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
@@ -373,13 +368,9 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
+		const user = this._controller.users.getOrCreateUser(event.name);
+		user.set("isAdmin", event.admin);
 
-		user.isAdmin = event.admin;
-		this._controller.usersUpdated([user]);
 		const instance = this._controller.instances.get(src.id)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.admin ? "promote" : "demote" as lib.PlayerEvent["type"],
@@ -393,14 +384,11 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
-
+		const user = this._controller.users.getOrCreateUser(event.name);
 		user.isBanned = event.banned;
 		user.banReason = event.reason;
-		this._controller.usersUpdated([user]);
+		user.saveRecord();
+
 		const instance = this._controller.instances.get(src.id)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.banned ? "ban" : "unban" as lib.PlayerEvent["type"],
@@ -415,13 +403,9 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let user = this._controller.userManager.getByName(event.name);
-		if (!user) {
-			user = this._controller.userManager.createUser(event.name);
-		}
+		const user = this._controller.users.getOrCreateUser(event.name);
+		user.set("isWhitelisted", event.whitelisted);
 
-		user.isWhitelisted = event.whitelisted;
-		this._controller.usersUpdated([user]);
 		const instance = this._controller.instances.get(src.id)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.whitelisted ? "whitelisted" : "unwhitelisted" as lib.PlayerEvent["type"],

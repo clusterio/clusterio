@@ -335,7 +335,7 @@ async function migrateRename(args) {
 		let mode = "standalone";
 		if (!hasRunSlave) { mode = "controller"; }
 		if (!hasRunMaster) { mode = "host"; }
-		await writeScripts(mode);
+		await writeScripts(mode, "");
 	}
 
 	logger.info(
@@ -420,7 +420,7 @@ async function groupIdToName(gid) {
 	}
 }
 
-async function writeScripts(mode) {
+async function writeScripts(mode, selfSignedCert) {
 	if (["standalone", "controller"].includes(mode)) {
 		if (process.platform === "win32") {
 			await safeOutputFile(
@@ -474,12 +474,13 @@ WantedBy=multi-user.target
 
 	if (["standalone", "host"].includes(mode)) {
 		if (process.platform === "win32") {
+			let extraCaCertsLine = selfSignedCert ? `set "NODE_EXTRA_CA_CERTS=${selfSignedCert}"\n` : "";
 			await safeOutputFile(
 				"run-host.cmd",
 				`\
 @echo off
 set "NODE_OPTIONS=--enable-source-maps %NODE_OPTIONS%"
-:restart
+${extraCaCertsLine}:restart
 call .\\node_modules\\.bin\\clusteriohost.cmd run --can-restart
 if %errorlevel% equ 0 exit /b
 if %errorlevel% equ 8 exit /b
@@ -487,18 +488,20 @@ goto restart
 `
 			);
 		} else {
+			let extraCaCertsLine = selfSignedCert ? `export "NODE_EXTRA_CA_CERTS=${selfSignedCert}"\n` : "";
 			await safeOutputFile(
 				"run-host.sh",
 				`\
 #!/bin/bash
 export "NODE_OPTIONS=--enable-source-maps $NODE_OPTIONS"
-while true; do
+${extraCaCertsLine}while true; do
 	./node_modules/.bin/clusteriohost run --can-restart
 	if [[ $? -eq 0 || $? -eq 8 ]]; then exit $?; fi
 done
 `,
 				{ mode: 0o755 },
 			);
+			extraCaCertsLine = selfSignedCert ? `Environment=NODE_EXTRA_CA_CERTS=${selfSignedCert}\n` : "";
 			await safeOutputFile(
 				"systemd/clusteriohost.service",
 				`\
@@ -512,7 +515,7 @@ WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
 Environment=NODE_OPTIONS=--enable-source-maps
-ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn --can-restart
+${extraCaCertsLine}ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn --can-restart
 Restart=on-failure
 RestartPreventExitStatus=8
 
@@ -839,6 +842,9 @@ async function main() {
 		.option("factorio-dir", {
 			nargs: 1, describe: "Path to Factorio installation [standalone/host]", type: "string",
 		})
+		.option("self-signed-cert", {
+			nargs: 1, describe: "Path to self-signed certificate of the controller [standalone/host]", type: "string",
+		})
 		.option("remote-npm", {
 			nargs: 0, description: "Allow remote updates via npm [standalone/controller/host]", type: "boolean",
 		})
@@ -947,7 +953,7 @@ async function main() {
 
 	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
 		logger.info("Writing run scripts");
-		await writeScripts(answers.mode);
+		await writeScripts(answers.mode, args.selfSignedCert);
 	}
 
 	if (answers.mode === "ctl") {

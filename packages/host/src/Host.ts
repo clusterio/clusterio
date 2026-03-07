@@ -3,7 +3,6 @@ import path from "path";
 import events from "events";
 import pidusage from "pidusage";
 import setBlocking from "set-blocking";
-import phin from "phin";
 import stream from "stream";
 import util from "util";
 
@@ -32,7 +31,7 @@ function checkRequestSaveName(name: string) {
  *
  * Looks through all sub-dirs of the provided directory for valid
  * instance definitions and return a mapping of instance id to
- * instanceInfo objects.
+ * instance configs and the root instance paths.
  *
  * @param instancesDir - Directory containing instances
  * @returns
@@ -40,7 +39,7 @@ function checkRequestSaveName(name: string) {
  * @internal
  */
 async function discoverInstances(instancesDir: string) {
-	let instanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
+	const instances = new Map<number, UnloadedInstance>();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
 			let instanceConfig = new lib.InstanceConfig("host", Host.instanceConfigWarning);
@@ -60,19 +59,19 @@ async function discoverInstances(instancesDir: string) {
 				continue;
 			}
 
-			if (instanceInfos.has(instanceConfig.get("instance.id"))) {
+			if (instances.has(instanceConfig.get("instance.id"))) {
 				logger.warn(`Ignoring instance with duplicate id in folder ${entry.name}`);
 				continue;
 			}
 
 			logger.verbose(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
-			instanceInfos.set(instanceConfig.get("instance.id"), {
+			instances.set(instanceConfig.get("instance.id"), {
 				path: instancePath,
 				config: instanceConfig,
 			});
 		}
 	}
-	return instanceInfos;
+	return instances;
 }
 
 const instanceStartingMessages = new Set([
@@ -114,10 +113,10 @@ export class HostRouter {
 			dst.type === lib.Address.controller
 			|| dst.type === lib.Address.control
 			|| dst.type === lib.Address.host && dst.id !== this.host.config.get("host.id")
-			|| dst.type === lib.Address.instance && !this.host.instanceInfos.has(dst.id)
+			|| dst.type === lib.Address.instance && !this.host.assignedInstances.has(dst.id)
 		) {
 			nextHop = this.host;
-		} else if (dst.type === lib.Address.instance && this.host.instanceInfos.has(dst.id)) {
+		} else if (dst.type === lib.Address.instance && this.host.assignedInstances.has(dst.id)) {
 			nextHop = this.host.instanceConnections.get(dst.id)!;
 		}
 
@@ -244,6 +243,12 @@ export class HostRouter {
 	}
 }
 
+// Instance information required to location and load an instance
+type UnloadedInstance = {
+	path: string,
+	config: lib.InstanceConfig,
+};
+
 /**
  * Handles running the host
  *
@@ -253,19 +258,18 @@ export default class Host extends lib.Link {
 	declare "connector": HostConnector;
 
 	router = new HostRouter(this);
-	/**
-	 * Certificate authority used to validate TLS connections to the controller.
-	 */
-	tlsCa?: string;
 	pluginInfos: lib.PluginNodeEnvInfo[];
 	config: lib.HostConfig;
 
 	/** Mapping of plugin name to loaded plugin */
 	plugins: Map<string, BaseHostPlugin> = new Map();
 
+	/** A map from instance id to instance connection. Only present when instance is running. */
 	instanceConnections = new Map<number, InstanceConnection>();
-	discoveredInstanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
-	instanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
+	/** A map of instances that exist in the instance directory of the host */
+	discoveredInstances = new Map<number, UnloadedInstance>();
+	/** A map of instances that are assigned to this host */
+	assignedInstances = new Map<number, UnloadedInstance>();
 
 	adminlist = new Set<string>();
 	banlist = new Map<string, string>();
@@ -295,7 +299,6 @@ export default class Host extends lib.Link {
 	constructor(
 		connector: HostConnector,
 		hostConfig: lib.HostConfig,
-		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[],
 		/**
 		 * If true indicates that there is a process monitor present that
@@ -310,7 +313,6 @@ export default class Host extends lib.Link {
 		public modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
 	) {
 		super(connector);
-		this.tlsCa = tlsCa;
 
 		this.pluginInfos = pluginInfos;
 		this.config = hostConfig;
@@ -438,6 +440,9 @@ export default class Host extends lib.Link {
 				this.plugins.set(pluginInfo.name, hostPlugin);
 
 			} catch (err: any) {
+				if (err.code === "InstallationError") {
+					throw err;
+				}
 				throw new lib.PluginError(pluginInfo.name, err);
 			}
 
@@ -582,18 +587,17 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		let response = await phin({
-			url, method: "GET",
-			core: { ca: this.tlsCa } as object,
-			stream: true,
-		});
+		let response = await fetch(url);
+		if (!response.body) {
+			throw new Error(`Empty body downloading stream ${streamId} from controller`);
+		}
 
 		const file = lib.ModInfo.filename(mod.name, mod.version);
 		const filePath = path.join(this.modStore.modsDirectory, file);
 		const tempFilePath = filePath.replace(/(\.zip)?$/, ".tmp.zip");
 		const writeStream = fs.createWriteStream(tempFilePath, { flags: "w" });
 		await events.once(writeStream, "open");
-		response.pipe(writeStream);
+		stream.Readable.fromWeb(response.body).pipe(writeStream);
 		await finished(writeStream);
 		await fs.rename(tempFilePath, filePath);
 
@@ -652,16 +656,16 @@ export default class Host extends lib.Link {
 
 	async handleInstanceAssignInternalRequest(request: lib.InstanceAssignInternalRequest) {
 		let { instanceId, config } = request;
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (instanceInfo) {
-			instanceInfo.config.update(config, true, "controller");
-			logger.verbose(`Updated config for ${instanceInfo.path}`, this.instanceLogMeta(instanceId, instanceInfo));
+		let instance = this.assignedInstances.get(instanceId);
+		if (instance) {
+			instance.config.update(config, true, "controller");
+			logger.verbose(`Updated config for ${instance.path}`, this.instanceLogMeta(instanceId, instance));
 
 		} else {
-			instanceInfo = this.discoveredInstanceInfos.get(instanceId);
-			if (instanceInfo) {
-				await Instance.populate_folders(instanceInfo.path);
-				instanceInfo.config.update(config, true, "controller");
+			instance = this.discoveredInstances.get(instanceId);
+			if (instance) {
+				await Instance.populate_folders(instance.path);
+				instance.config.update(config, true, "controller");
 
 			} else {
 				let instanceConfig = new lib.InstanceConfig("host", Host.instanceConfigWarning);
@@ -672,16 +676,16 @@ export default class Host extends lib.Link {
 
 				logger.info(`Creating ${instanceDir}`);
 				await Instance.populate_folders(instanceDir);
-				instanceInfo = {
+				instance = {
 					path: instanceDir,
 					config: instanceConfig,
 				};
 
-				this.discoveredInstanceInfos.set(instanceId, instanceInfo);
+				this.discoveredInstances.set(instanceId, instance);
 			}
 
-			this.instanceInfos.set(instanceId, instanceInfo);
-			logger.verbose(`assigned instance ${instanceInfo.config.get("instance.name")}`);
+			this.assignedInstances.set(instanceId, instance);
+			logger.verbose(`assigned instance ${instance.config.get("instance.name")}`);
 		}
 
 		// Somewhat hacky, but in the event of a lost session the status is
@@ -696,45 +700,45 @@ export default class Host extends lib.Link {
 				instanceConnection
 					? instanceConnection.instance.server.version
 					// TODO: factorio.version is not validated
-					: instanceInfo.config.get("factorio.version") as lib.TargetVersion,
+					: instance.config.get("factorio.version") as lib.TargetVersion,
 			)
 		);
 
 		// Send the new list of saves for this assigned instance to the controller.
-		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(instanceId, path.join(instance.path, "saves"));
 
 		// save a copy of the instance config
-		await instanceInfo.config.save();
+		await instance.config.save();
 	}
 
 	async handleInstanceUnassignInternalRequest(request: lib.InstanceUnassignInternalRequest) {
 		let instanceId = request.instanceId;
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (instanceInfo) {
+		let instance = this.assignedInstances.get(instanceId);
+		if (instance) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			if (instanceConnection && ["starting", "running"].includes(instanceConnection.instance.status)) {
 				await instanceConnection.send(new lib.InstanceStopRequest());
 			}
 
-			this.instanceInfos.delete(instanceId);
-			logger.verbose(`unassigned instance ${instanceInfo.config.get("instance.name")}`);
+			this.assignedInstances.delete(instanceId);
+			logger.verbose(`unassigned instance ${instance.config.get("instance.name")}`);
 		}
 	}
 
-	instanceLogMeta(instanceId: number, instanceInfo?: { config: lib.InstanceConfig }) {
-		instanceInfo = instanceInfo || this.instanceInfos.get(instanceId);
-		if (!instanceInfo) {
+	instanceLogMeta(instanceId: number, instance?: { config: lib.InstanceConfig }) {
+		instance = instance || this.assignedInstances.get(instanceId);
+		if (!instance) {
 			return { instance_id: instanceId, instance_name: String(instanceId) };
 		}
-		return { instance_id: instanceId, instance_name: instanceInfo.config.get("instance.name") };
+		return { instance_id: instanceId, instance_name: instance.config.get("instance.name") };
 	}
 
-	getRequestInstanceInfo(instanceId: number) {
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (!instanceInfo) {
+	getRequestInstance(instanceId: number) {
+		let instance = this.assignedInstances.get(instanceId);
+		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
-		return instanceInfo;
+		return instance;
 	}
 
 	/**
@@ -743,7 +747,7 @@ export default class Host extends lib.Link {
 	 * @returns Assigned game port or undefined if it does not exist.
 	 */
 	gamePort(instanceId: number) {
-		const instance = this.discoveredInstanceInfos.get(instanceId);
+		const instance = this.discoveredInstances.get(instanceId);
 		if (!instance) {
 			return undefined;
 		}
@@ -756,7 +760,7 @@ export default class Host extends lib.Link {
 
 	assignGamePort(instanceId: number) {
 		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
-		for (const [id, instance] of this.instanceInfos) {
+		for (const [id, instance] of this.assignedInstances) {
 			if (id === instanceId) {
 				continue;
 			}
@@ -768,7 +772,7 @@ export default class Host extends lib.Link {
 				availablePorts.delete(port);
 			}
 		}
-		const instanceToAssign = this.instanceInfos.get(instanceId)!;
+		const instanceToAssign = this.assignedInstances.get(instanceId)!;
 		const assignedPort = instanceToAssign.config.get("factorio.host_assigned_game_port");
 		if (assignedPort !== null && availablePorts.has(assignedPort)) {
 			return assignedPort;
@@ -788,7 +792,7 @@ export default class Host extends lib.Link {
 	 * @returns connection to instance.
 	 */
 	async _connectInstance(instanceId: number) {
-		let instanceInfo = this.getRequestInstanceInfo(instanceId);
+		let unloadedInstance = this.getRequestInstance(instanceId);
 		if (this.instanceConnections.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
 		}
@@ -797,7 +801,9 @@ export default class Host extends lib.Link {
 		let instanceAddress = new lib.Address(lib.Address.instance, instanceId);
 		let [connectionClient, connectionServer] = lib.VirtualConnector.makePair(instanceAddress, hostAddress);
 		let instance = new Instance(
-			this, connectionClient, instanceInfo.path, this.config.get("host.factorio_directory"), instanceInfo.config
+			this, connectionClient,
+			unloadedInstance.path, this.config.get("host.factorio_directory"),
+			unloadedInstance.config
 		);
 		let instanceConnection = new InstanceConnection(connectionServer, this, instance);
 
@@ -896,19 +902,19 @@ export default class Host extends lib.Link {
 		src: lib.Address,
 		dst: lib.Address
 	) {
-		let instanceInfo = this.getRequestInstanceInfo(dst.id);
-		return await Instance.listSaves(dst.id, path.join(instanceInfo.path, "saves"), null);
+		let instance = this.getRequestInstance(dst.id);
+		return await Instance.listSaves(dst.id, path.join(instance.path, "saves"), null);
 	}
 
 	async handleInstanceRenameSaveRequest(request: lib.InstanceRenameSaveRequest) {
 		let { instanceId, oldName, newName } = request;
 		checkRequestSaveName(oldName);
 		checkRequestSaveName(newName);
-		let instanceInfo = this.getRequestInstanceInfo(instanceId);
+		let instance = this.getRequestInstance(instanceId);
 		try {
 			await fs.move(
-				path.join(instanceInfo.path, "saves", oldName),
-				path.join(instanceInfo.path, "saves", newName),
+				path.join(instance.path, "saves", oldName),
+				path.join(instance.path, "saves", newName),
 				{ overwrite: false },
 			);
 		} catch (err: any) {
@@ -917,18 +923,18 @@ export default class Host extends lib.Link {
 			}
 			throw err;
 		}
-		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(instanceId, path.join(instance.path, "saves"));
 	}
 
 	async handleInstanceCopySaveRequest(request: lib.InstanceCopySaveRequest) {
 		let { instanceId, source, destination } = request;
 		checkRequestSaveName(source);
 		checkRequestSaveName(destination);
-		let instanceInfo = this.getRequestInstanceInfo(instanceId);
+		let instance = this.getRequestInstance(instanceId);
 		try {
 			await fs.copy(
-				path.join(instanceInfo.path, "saves", source),
-				path.join(instanceInfo.path, "saves", destination),
+				path.join(instance.path, "saves", source),
+				path.join(instance.path, "saves", destination),
 				{ overwrite: false, errorOnExist: true },
 			);
 		} catch (err: any) {
@@ -937,33 +943,33 @@ export default class Host extends lib.Link {
 			}
 			throw err;
 		}
-		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(instanceId, path.join(instance.path, "saves"));
 	}
 
 	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
 		let { sourceName, targetName, copy, sourceInstanceId, targetInstanceId } = request;
 		checkRequestSaveName(sourceName);
 		checkRequestSaveName(targetName);
-		let sourceInstanceInfo = this.getRequestInstanceInfo(sourceInstanceId);
-		let targetInstanceInfo = this.getRequestInstanceInfo(targetInstanceId);
+		let sourceInstance = this.getRequestInstance(sourceInstanceId);
+		let targetInstance = this.getRequestInstance(targetInstanceId);
 
 		// For consistency with remote transfer initiated through pullSave the
 		// target is renamed if it already exists.
 		targetName = await lib.findUnusedName(
-			path.join(targetInstanceInfo.path, "saves"), targetName, ".zip"
+			path.join(targetInstance.path, "saves"), targetName, ".zip"
 		);
 
 		try {
 			if (copy) {
 				await fs.copy(
-					path.join(sourceInstanceInfo.path, "saves", sourceName),
-					path.join(targetInstanceInfo.path, "saves", targetName),
+					path.join(sourceInstance.path, "saves", sourceName),
+					path.join(targetInstance.path, "saves", targetName),
 					{ overwrite: true },
 				);
 			} else {
 				await fs.move(
-					path.join(sourceInstanceInfo.path, "saves", sourceName),
-					path.join(targetInstanceInfo.path, "saves", targetName),
+					path.join(sourceInstance.path, "saves", sourceName),
+					path.join(targetInstance.path, "saves", targetName),
 					{ overwrite: true },
 				);
 			}
@@ -973,8 +979,8 @@ export default class Host extends lib.Link {
 			}
 			throw err;
 		}
-		await this.sendSaveListUpdate(sourceInstanceId, path.join(sourceInstanceInfo.path, "saves"));
-		await this.sendSaveListUpdate(targetInstanceId, path.join(targetInstanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(sourceInstanceId, path.join(sourceInstance.path, "saves"));
+		await this.sendSaveListUpdate(targetInstanceId, path.join(targetInstance.path, "saves"));
 
 		return targetName;
 	}
@@ -994,38 +1000,34 @@ export default class Host extends lib.Link {
 	async handleInstanceDeleteSaveRequest(request: lib.InstanceDeleteSaveRequest) {
 		let { instanceId, name } = request;
 		checkRequestSaveName(name);
-		let instanceInfo = this.getRequestInstanceInfo(instanceId);
+		let instance = this.getRequestInstance(instanceId);
 
 		try {
-			await fs.unlink(path.join(instanceInfo.path, "saves", name));
+			await fs.unlink(path.join(instance.path, "saves", name));
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${name} does not exist`);
 			}
 			throw err;
 		}
-		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(instanceId, path.join(instance.path, "saves"));
 	}
 
 	async handleInstancePullSaveRequest(request: lib.InstancePullSaveRequest) {
 		let { instanceId, streamId, name } = request;
 		checkRequestSaveName(name);
-		let instanceInfo = this.getRequestInstanceInfo(instanceId);
+		let instance = this.getRequestInstance(instanceId);
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		let response = await phin({
-			url, method: "GET",
-			core: { ca: this.tlsCa } as object,
-			stream: true,
-		});
+		let response = await fetch(url);
 
-		if (response.statusCode !== 200) {
-			let content = await lib.readStream(response);
-			throw new lib.RequestError(`Stream returned ${response.statusCode}: ${content.toString()}`);
+		if (response.status !== 200 || !response.body) {
+			let body = Buffer.from(await response.arrayBuffer());
+			throw new lib.RequestError(`Stream returned ${response.status}: ${body.toString()}`);
 		}
 
-		let savesDir = path.join(instanceInfo.path, "saves");
+		let savesDir = path.join(instance.path, "saves");
 		let tempFilename = name.replace(/(\.zip)?$/, ".tmp.zip");
 		let writeStream: NodeJS.WritableStream;
 		while (true) {
@@ -1041,7 +1043,7 @@ export default class Host extends lib.Link {
 				}
 			}
 		}
-		response.pipe(writeStream);
+		stream.Readable.fromWeb(response.body).pipe(writeStream);
 		await finished(writeStream);
 
 		name = await lib.findUnusedName(savesDir, name, ".zip");
@@ -1054,12 +1056,13 @@ export default class Host extends lib.Link {
 	async handleInstancePushSaveRequest(request: lib.InstancePushSaveRequest) {
 		let { instanceId, streamId, name } = request;
 		checkRequestSaveName(name);
-		let instanceInfo = this.getRequestInstanceInfo(instanceId);
+		let instance = this.getRequestInstance(instanceId);
 
-		let content: Buffer;
+		let content = fs.createReadStream(path.join(instance.path, "saves", name));
 		try {
-			// phin doesn't support streaming requests :(
-			content = await fs.readFile(path.join(instanceInfo.path, "saves", name));
+			// TODO: Due to a bug in fs-extra the ready event is not emitted here. Replace
+			// "open" with "ready" when fs-extra is replaced with node's fs module.
+			await events.once(content, "open");
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${name} does not exist`);
@@ -1069,10 +1072,10 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		phin({
-			url, method: "PUT",
-			core: { ca: this.tlsCa } as object,
-			data: content,
+		fetch(url, {
+			method: "PUT",
+			body: content,
+			duplex: "half",
 		}).catch(err => {
 			logger.error(`Error pushing save to controller:\n${err.stack}`, this.instanceLogMeta(instanceId));
 		});
@@ -1084,14 +1087,14 @@ export default class Host extends lib.Link {
 			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
-		let instanceInfo = this.discoveredInstanceInfos.get(instanceId);
-		if (!instanceInfo) {
+		let instance = this.discoveredInstances.get(instanceId);
+		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
-		this.discoveredInstanceInfos.delete(instanceId);
-		this.instanceInfos.delete(instanceId);
-		await fs.remove(instanceInfo.path);
+		this.discoveredInstances.delete(instanceId);
+		this.assignedInstances.delete(instanceId);
+		await fs.remove(instance.path);
 	}
 
 	async handleHostUpdateRequest(request: lib.HostUpdateRequest) {
@@ -1141,12 +1144,12 @@ export default class Host extends lib.Link {
 	 * the host and controller with the new list of instances.
 	 */
 	async updateInstances() {
-		this.discoveredInstanceInfos = await discoverInstances(this.config.get("host.instances_directory"));
+		this.discoveredInstances = await discoverInstances(this.config.get("host.instances_directory"));
 		let list = [];
-		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
+		for (let [instanceId, instance] of this.discoveredInstances) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push(new lib.HostInstanceUpdate(
-				instanceInfo.config.toRemote("controller"),
+				instance.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection ? instanceConnection.instance.server.version : undefined,
@@ -1158,10 +1161,10 @@ export default class Host extends lib.Link {
 		if (this._startup) {
 			this._startup = false;
 
-			for (let [instanceId, instanceInfo] of this.instanceInfos) {
-				if (instanceInfo.config.get("instance.auto_start")) {
+			for (let [instanceId, instance] of this.assignedInstances) {
+				if (instance.config.get("instance.auto_start")) {
 					if (this.recoveryMode) {
-						logger.warn(`Recovery | skipping auto startup for ${instanceInfo.config.get("instance.name")}`);
+						logger.warn(`Recovery | skipping auto startup for ${instance.config.get("instance.name")}`);
 						continue;
 					}
 					try {
@@ -1169,8 +1172,8 @@ export default class Host extends lib.Link {
 						await instanceConnection.instance.handleInstanceStartRequest(new lib.InstanceStartRequest());
 					} catch (err: any) {
 						logger.error(
-							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`,
-							this.instanceLogMeta(instanceId, instanceInfo)
+							`Error during auto startup for ${instance.config.get("instance.name")}:\n${err.stack}`,
+							this.instanceLogMeta(instanceId, instance)
 						);
 					}
 				}
@@ -1218,7 +1221,7 @@ export default class Host extends lib.Link {
 		await this.config.save();
 		// Save host side in case host_assigned_game_port changed in the config.
 		await Promise.all(
-			[...this.instanceInfos.values()].map(instanceInfo => instanceInfo.config.save())
+			[...this.assignedInstances.values()].map(instance => instance.config.save())
 		);
 
 		try {

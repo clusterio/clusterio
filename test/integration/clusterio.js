@@ -4,7 +4,6 @@ const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
-const phin = require("phin");
 
 const lib = require("@clusterio/lib");
 const libBuildMod = require("@clusterio/lib/build_mod");
@@ -15,6 +14,7 @@ const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
 	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
+	requiresFactorio, hasFactorio,
 } = require("./index");
 
 
@@ -40,7 +40,6 @@ async function startAltHost() {
 	await fs.remove(path.join("temp", "test", "alt-instances"));
 	await fs.remove(path.join("temp", "test", "alt-mods"));
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
-	await execHost(`--config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
 	await execHost(`--config ${config} config set host.instances_directory alt-instances`);
 	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execHost(`--config ${config} config set host.factorio_directory ${dir}`);
@@ -79,16 +78,15 @@ async function runWithAltHost(callback) {
 }
 
 async function uploadSave(instanceId, name, content) {
-	return await phin({
-		url: `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`,
+	const uploadUrl = `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`;
+	return await fetch(uploadUrl, {
 		method: "POST",
-		core: { rejectUnauthorized: false },
 		headers: {
 			"X-Access-Token": controlToken,
 			"Content-Type": "application/zip",
 			"Content-Length": String(content.length),
 		},
-		data: content,
+		body: content,
 	});
 }
 
@@ -109,10 +107,12 @@ describe("Integration of Clusterio", function() {
 	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
 			it("work for existing user", async function() {
+				slowTest(this);
 				await execController("bootstrap generate-user-token test");
 			});
 
 			it("fails if user does not exist", async function() {
+				slowTest(this);
 				await assert.rejects(
 					execController("bootstrap generate-user-token invalid")
 				);
@@ -165,8 +165,7 @@ describe("Integration of Clusterio", function() {
 		describe("run", function() {
 			it("should handle resume of an active connection", async function() {
 				slowTest(this);
-				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-				let connectorA = new TestControlConnector(url, 2, tlsCa);
+				let connectorA = new TestControlConnector(url, 2);
 				connectorA.token = controlToken;
 				let controlA = new TestControl(connectorA);
 				await connectorA.connect();
@@ -174,7 +173,7 @@ describe("Integration of Clusterio", function() {
 				connectorA.stopHeartbeat();
 				connectorA.on("error", () => {});
 
-				let connectorB = new TestControlConnector(url, 2, tlsCa);
+				let connectorB = new TestControlConnector(url, 2);
 				connectorB.token = controlToken;
 				connectorB.src = connectorA.src;
 				let controlB = new TestControl(connectorB);
@@ -274,6 +273,7 @@ describe("Integration of Clusterio", function() {
 		});
 		it("should download mods from controller", async function() {
 			slowTest(this);
+			requiresFactorio(this);
 			await runWithAltHost(async () => {
 				// Use the latest vesion in /dist instead of a hardcoded version
 				async function checkModDownloaded() {
@@ -289,6 +289,7 @@ describe("Integration of Clusterio", function() {
 		});
 		it("should auto start instances with auto_start enabled", async function() {
 			slowTest(this);
+			requiresFactorio(this);
 			this.timeout(30000); // Need an even longer timeout for this test
 
 			let hostProcess;
@@ -622,6 +623,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance save create", function() {
 			it("creates a save", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				getControl().saveUpdates = [];
 				await execCtl("instance save create test");
 				await checkInstanceStatus(44, "stopped");
@@ -631,6 +633,7 @@ describe("Integration of Clusterio", function() {
 		describe("InstanceSaveDetailsUpdatesEvent", function() {
 			it("should have triggered for the created save", function() {
 				slowTest(this);
+				requiresFactorio(this);
 				assert.equal(getControl().saveUpdates.slice(-1)[0].updates[0].name, "world.zip");
 			});
 		});
@@ -638,6 +641,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance save list", function() {
 			it("lists the created save", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				let result = await execCtlProcess("instance save list test");
 				assert(/world\.zip/.test(result.stdout), "world.zip not present in list save output");
 			});
@@ -646,13 +650,14 @@ describe("Integration of Clusterio", function() {
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				let exportPath = path.join("temp", "test", "static");
 				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
 				let modPack = await getControl().send(new lib.ModPackGetDefaultRequest());
 				let assets = modPack.exportManifest.assets;
 				assert(Object.keys(assets).length > 1, "Export assets is empty");
-				for (let key of ["settings", "prototypes", "item-metadata", "item-spritesheet", "locale"]) {
+				for (let key of ["settings", "prototypes", "metadata", "spritesheet", "locale"]) {
 					assert(assets[key], `Missing ${key} from assets`);
 					assert(
 						await fs.exists(path.join(exportPath, assets[key])),
@@ -667,12 +672,16 @@ describe("Integration of Clusterio", function() {
 
 		for (let cmd of ["start", "restart"]) {
 			describe(`instance ${cmd}`, function() {
+				requiresFactorio(this);
 				async function prepareToStart() {
 					if (cmd === "restart") {
 						await execCtl("instance start test");
 					}
 				}
 				after(async function() {
+					if (!hasFactorio()) {
+						return;
+					}
 					// It is expected that after these tests the instance is running, I dislike this dependency
 					// So this is here to make sure the other tests can continue any of these ones fail
 					const instances = await getInstances();
@@ -753,6 +762,7 @@ describe("Integration of Clusterio", function() {
 		}
 
 		describe("instance send-rcon", function() {
+			requiresFactorio(this);
 			this.afterAll(async function() {
 				// Prevents cascading failure where enable_script_commands is expected to be true
 				await execCtl("instance config set test factorio.enable_script_commands true");
@@ -801,6 +811,7 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance config set-prop", function() {
+			requiresFactorio(this);
 			it("applies factorio settings while running", async function() {
 				slowTest(this);
 
@@ -935,25 +946,28 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should create the user if instructed to", async function() {
 				slowTest(this);
-				getControl().userUpdates = [];
+				const userUpdates = [];
+				getControl().userUpdates = userUpdates;
 				for (let [listName, prop] of lists) {
 					await execCtl(`user set-${listName} --create test_create_${listName}`);
 					let user = (await getUsers()).get(`test_create_${listName}`);
 					assert.equal(user && user[prop], true, `user not created and added to ${listName}`);
 				}
-				assert.equal(getControl().userUpdates.length, 3);
+				assert.equal(userUpdates.length, 6); // 1 for create, 1 for setting the property
 			});
 			it("should send ban reason", async function() {
 				slowTest(this);
-				getControl().userUpdates = [];
+				const userUpdates = [];
+				getControl().userUpdates = userUpdates;
 				await execCtl("user set-banned --create test_ban_reason --reason a-reason");
-				assert.equal(getControl().userUpdates.length, 1);
-				assert.equal(getControl().userUpdates[0].banReason, "a-reason");
+				assert.equal(userUpdates.length, 2); // 1 for create, 1 for ban reason
+				assert.equal(userUpdates[1].banReason, "a-reason");
 				let user = await getUser("test_ban_reason");
 				assert.equal(user.banReason, "a-reason");
 			});
 			it("should send ban list commands to running instances", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				// Check that both names are not on the list
 				const preCommandStateLower = await sendRcon(44, "/banlist get test_rcon_ban");
 				const preCommandStateUpper = await sendRcon(44, "/banlist get test_RCON_ban");
@@ -981,6 +995,7 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should send whitelist commands to running instances", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				// Check that both names are not on the list
 				const preCommandStateLower = await sendRcon(44, "/whitelist get test_rcon_whitelist");
 				const preCommandStateUpper = await sendRcon(44, "/whitelist get test_RCON_whitelist");
@@ -1015,6 +1030,7 @@ describe("Integration of Clusterio", function() {
 			it("should send admin list commands to running instances", async function() {
 				// Because there is no admin list command this test will be different to the other two above
 				slowTest(this);
+				requiresFactorio(this);
 				// Check that both names are not on the list
 				const preCommandStateLower = await sendRcon(44, "/demote test_rcon_admin");
 				const preCommandStateUpper = await sendRcon(44, "/demote test_RCON_admin");
@@ -1063,6 +1079,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance extract-players", function() {
 			it("runs", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance extract-players test");
 			});
 		});
@@ -1070,6 +1087,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance stop", function() {
 			it("stops the instance", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance stop test");
 				await checkInstanceStatus(44, "stopped");
 			});
@@ -1078,6 +1096,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance load-scenario", function() {
 			it("starts the instance with the given settings", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance config set 44 factorio.enable_save_patching false");
 				await execCtl("instance config set 44 player_auth.load_plugin false");
 				await execCtl("instance config set 44 research_sync.load_plugin false");
@@ -1113,6 +1132,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance kill", function() {
 			it("kills the instance", async function() {
 				slowTest(this);
+				requiresFactorio(this);
 				await execCtl("instance kill test");
 				await checkInstanceStatus(44, "stopped");
 			});
@@ -1341,6 +1361,7 @@ describe("Integration of Clusterio", function() {
 		describe("instanceUpdateEventHandler()", function() {
 			it("should have triggered for the previous instance status updates", function() {
 				slowTest(this);
+				requiresFactorio(this);
 				let statusesToCheck = new Set([
 					"unassigned", "stopped", "creating_save", "exporting_data",
 					"starting", "running", "stopping", "deleted", "unknown",
@@ -1654,8 +1675,7 @@ describe("Integration of Clusterio", function() {
 			it("should kick existing sessions for the user", async function() {
 				slowTest(this);
 				await getControl().send(new lib.UserCreateRequest("revokee"));
-				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-				let connector = new TestControlConnector(url, 2, tlsCa);
+				let connector = new TestControlConnector(url, 2);
 				connector.token = jwt.sign(
 					{ aud: "user", user: "revokee" }, Buffer.from("TestSecretDoNotUse", "base64")
 				);
@@ -1684,8 +1704,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-roles temp Player");
 				let tempControl;
 				try {
-					let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-					let connector = new TestControlConnector(url, 2, tlsCa);
+					let connector = new TestControlConnector(url, 2);
 					connector.token = jwt.sign(
 						{ aud: "user", user: "temp" }, Buffer.from("TestSecretDoNotUse", "base64")
 					);
@@ -1719,6 +1738,12 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("user import", function() {
+			beforeEach(async function() {
+				slowTest(this);
+				await execCtl("user set-admin import_control --revoke --create");
+				await execCtl("user set-banned import_control --pardon");
+				await execCtl("user set-whitelisted import_control --remove");
+			});
 			it("should import users", async function() {
 				await fs.writeJSON(path.join("temp", "test", "import-users.json"), {
 					export_version: "2.0.0.alpha20",
@@ -1728,12 +1753,14 @@ describe("Integration of Clusterio", function() {
 						{ username: "import_user_ban_reason", is_banned: true, ban_reason: "banned" },
 						{ username: "import_user_whitelist", is_whitelisted: true },
 						{ username: "import_user_none" },
+						{ username: "import_control", is_admin: true },
 					],
 				});
 
 				await execCtl("user import --users import-users.json");
 
 				const users = await getUsers();
+				assert(users.get("import_control").isAdmin, "import_control was not admin");
 				assert(users.get("import_user_admin").isAdmin, "import_user_admin was not admin");
 				assert(users.get("import_user_banned").isBanned, "import_user_banned was not banned");
 				assert(
@@ -1765,6 +1792,7 @@ describe("Integration of Clusterio", function() {
 				await fs.writeJSON(path.join("temp", "test", "import-bans.json"), [
 					{ username: "import_ban_reason", reason: "banned" },
 					"import_ban",
+					"import_control",
 				]);
 
 				await execCtl("user import --bans import-bans.json");
@@ -1778,6 +1806,8 @@ describe("Integration of Clusterio", function() {
 				const userBar = users.get("import_ban");
 				assert(userBar.isBanned, "import_ban was not banned");
 				assert.equal(userBar.banReason, "", "import_ban had incorrect ban reason");
+
+				assert(users.get("import_control").isBanned, "import_control was not banned");
 			});
 			it("should import bans by filename", async function() {
 				await fs.writeJSON(path.join("temp", "test", "import-bans.json"), [
@@ -1789,11 +1819,13 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should import admins", async function() {
 				await fs.writeJSON(path.join("temp", "test", "import-admins.json"), [
-					"import_admin",
+					"import_admin", "import_control",
 				]);
 
 				await execCtl("user import --admins import-admins.json");
-				assert((await getUsers()).get("import_admin").isAdmin, "import_admin was not admin");
+				const users = await getUsers();
+				assert(users.get("import_admin").isAdmin, "import_admin was not admin");
+				assert(users.get("import_control").isAdmin, "import_control was not admin");
 			});
 			it("should import admins by filename", async function() {
 				await fs.writeJSON(path.join("temp", "test", "import-admins.json"), [
@@ -1805,14 +1837,13 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should import whitelist", async function() {
 				await fs.writeJSON(path.join("temp", "test", "import-whitelist.json"), [
-					"import_whitelist",
+					"import_whitelist", "import_control",
 				]);
 
 				await execCtl("user import --whitelist import-whitelist.json");
-				assert(
-					(await getUsers()).get("import_whitelist").isWhitelisted,
-					"import_whitelist was not whitelisted"
-				);
+				const users = await getUsers();
+				assert(users.get("import_whitelist").isWhitelisted, "import_whitelist was not whitelisted");
+				assert(users.get("import_control").isWhitelisted, "import_control was not whitelisted");
 			});
 			it("should import whitelist by filename", async function() {
 				await fs.writeJSON(path.join("temp", "test", "import-whitelist.json"), [
@@ -1882,7 +1913,10 @@ describe("Integration of Clusterio", function() {
 			it("should restore users", async function() {
 				await fs.writeJSON(path.join("temp", "test", "restore-users.json"), {
 					export_version: "2.0.0.alpha20",
-					users: [{ username: "restore_user", is_admin: true, is_whitelisted: true }],
+					users: [
+						{ username: "restore_user", is_admin: true, is_whitelisted: true },
+						{ username: "restore_user_two", is_banned: true, ban_reason: "Test" },
+					],
 				});
 
 				await execCtl("user restore restore-users.json");
@@ -1892,10 +1926,14 @@ describe("Integration of Clusterio", function() {
 				assert(user.isAdmin, "restore_user was not admin");
 				assert(user.isWhitelisted, "restore_user was not whitelisted");
 
+				const user2 = users.get("restore_user_two");
+				assert(user2.isBanned, "restore_user_two was not banned");
+				assert.equal(user2.banReason, "Test");
+
 				const control = users.get("restore_control");
-				assert(!control.isAdmin, "restore_user was admin");
-				assert(!control.isBanned, "restore_user was banned");
-				assert(!control.isWhitelisted, "restore_user was whitelisted");
+				assert(!control.isAdmin, "restore_control was admin");
+				assert(!control.isBanned, "restore_control was banned");
+				assert(!control.isWhitelisted, "restore_control was whitelisted");
 
 				const data = await fs.readJson(path.join("temp", "test", "users-backup.json"));
 				assert(data.users, "Users array does not exist");
@@ -1921,7 +1959,7 @@ describe("Integration of Clusterio", function() {
 				assert(userBar.isBanned, "restore_ban was not banned");
 				assert.equal(userBar.banReason, "", "restore_ban had incorrect ban reason");
 
-				assert(!users.get("restore_control").isBanned, "restore_user was banned");
+				assert(!users.get("restore_control").isBanned, "restore_control was banned");
 
 				const data = await fs.readJson(path.join("temp", "test", "bans-backup.json"));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
@@ -1935,7 +1973,7 @@ describe("Integration of Clusterio", function() {
 				const users = await getUsers();
 
 				assert(users.get("restore_admin").isAdmin, "restore_admin was not admin");
-				assert(!users.get("restore_control").isAdmin, "restore_user was admin");
+				assert(!users.get("restore_control").isAdmin, "restore_control was admin");
 
 				const data = await fs.readJson(path.join("temp", "test", "admins-backup.json"));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
@@ -1949,7 +1987,7 @@ describe("Integration of Clusterio", function() {
 				const users = await getUsers();
 
 				assert(users.get("restore_whitelist").isWhitelisted, "restore_whitelist was not whitelisted");
-				assert(!users.get("restore_control").isWhitelisted, "restore_user was whitelisted");
+				assert(!users.get("restore_control").isWhitelisted, "restore_control was whitelisted");
 
 				const data = await fs.readJson(path.join("temp", "test", "whitelist-backup.json"));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");

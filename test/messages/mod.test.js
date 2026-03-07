@@ -6,7 +6,7 @@ const { ModDependencyResolveRequest, ModDependency, ModInfo } = lib;
 
 const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
 
-const { Controller, ControlConnection, ControllerUser } = require("@clusterio/controller");
+const { Controller, ControlConnection } = require("@clusterio/controller");
 const { slowTest } = require("../integration");
 
 describe("messages/mod", function() {
@@ -58,7 +58,7 @@ describe("messages/mod", function() {
 			lib.Address.fromShorthand({ controlId: 1 }),
 		);
 		controller = new Controller(lib.logger, [], controllerConfig);
-		const user = new ControllerUser(controller.userManager, undefined, "test");
+		const user = controller.users.getOrCreateUser("test");
 		controlConnection = new ControlConnection({ version: "2.0.0" }, connection, controller, user, 1);
 	});
 
