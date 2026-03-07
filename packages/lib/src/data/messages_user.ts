@@ -1,5 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import User, { IControllerUser } from "./User";
+import UserDetails, { IUser } from "./UserDetails";
 import { StringEnum, jsonArray, plainJson } from "./composites";
 import { MessageRequest } from "./messages_core";
 
@@ -22,7 +22,7 @@ export class UserGetRequest {
 		return new this(json.name);
 	}
 
-	static Response = User;
+	static Response = UserDetails;
 }
 
 export class UserListRequest {
@@ -31,7 +31,7 @@ export class UserListRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.user.list" as const;
-	static Response = jsonArray(User);
+	static Response = jsonArray(UserDetails);
 }
 
 export class UserCreateRequest {
@@ -198,15 +198,15 @@ export class UserUpdatesEvent {
 	static permission = "core.user.subscribe" as const;
 
 	constructor(
-		public updates: User[],
+		public updates: UserDetails[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"updates": Type.Array(User.jsonSchema),
+		"updates": Type.Array(UserDetails.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.updates.map(update => User.fromJSON(update)));
+		return new this(json.updates.map(update => UserDetails.fromJSON(update)));
 	}
 }
 
@@ -250,7 +250,7 @@ export class UserBulkImportRequest {
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission(user: IControllerUser, message: MessageRequest) {
+	static permission(user: IUser, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
 			const data = message.data as Static<typeof UserBulkImportRequest.jsonSchema>;
 			// Check if this is a restore or import request

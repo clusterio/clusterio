@@ -5,13 +5,15 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
+const { InstanceManager } = require("@clusterio/controller");
 const { FactorioServer, _getFactorioVersion } = require("@clusterio/host/dist/node/src/server");
 const { logger } = lib;
 
-const { slowTest, factorioDir } = require("./index");
+const { slowTest, factorioDir, requiresFactorio } = require("./index");
 
 
 describe("Integration of host/src/server", function() {
+	requiresFactorio(this);
 	describe("getFactorioVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
 			function checkVersion(version) {
@@ -24,14 +26,12 @@ describe("Integration of host/src/server", function() {
 			if (version !== null) {
 				checkVersion(version);
 			} else {
-				for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
-					if (!entry.isDirectory()) {
-						continue;
+				for (let name of await fs.readdir(factorioDir)) {
+					// Avoid any fancy directory detection in order to follow symlinks
+					version = await _getFactorioVersion(path.join(factorioDir, name));
+					if (version !== null) {
+						checkVersion(version);
 					}
-
-					checkVersion(
-						await _getFactorioVersion(path.join(factorioDir, entry.name))
-					);
 				}
 			}
 		});
@@ -78,20 +78,16 @@ describe("Integration of host/src/server", function() {
 				assert(typeof settings === "object");
 			});
 
-			it("contains the settings used by Clusterio", async function() {
-				let keysUsed = new Set([
-					"name", "description", "tags", "visibility", "username", "token",
-					"game_password", "require_user_verification", "allow_commands",
-					"auto_pause",
-				]);
+			it("aligns with the default settings in Clusterio", async function() {
+				const unusedDefaultKeys = new Set(Object.keys(InstanceManager.DefaultFactorioSettings));
 
-				for (let key of Object.keys(settings)) {
-					keysUsed.delete(key);
+				for (const key of Object.keys(settings)) {
+					unusedDefaultKeys.delete(key);
 				}
 
 				assert(
-					keysUsed.size === 0,
-					`Factorio's server-settings.example.json does not contain the key(s) ${[...keysUsed]}`
+					unusedDefaultKeys.size === 0,
+					`Factorio's server-settings.example.json does not contain the key(s) ${[...unusedDefaultKeys]}`
 				);
 			});
 		});

@@ -11,18 +11,14 @@ let token = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNot
 let tokenHost = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 describe("Integration of lib/link", function() {
-	let tlsCa;
 	let control;
 	let controlConnector;
 	let hostConnector;
-	before(async function() {
-		tlsCa = await fs.readFile("test/file/tls/cert.pem");
-	});
 	beforeEach(async function() {
-		controlConnector = new TestControlConnector(url, 0.2, tlsCa);
+		controlConnector = new TestControlConnector(url, 0.2);
 		controlConnector.token = token;
 		control = new TestControl(controlConnector, false);
-		hostConnector = new TestHostConnector(url, 0.2, tlsCa);
+		hostConnector = new TestHostConnector(url, 0.2);
 		hostConnector.token = tokenHost;
 		hostConnector.hostId = 0;
 	});
@@ -123,7 +119,7 @@ describe("Integration of lib/link", function() {
 
 	it("should close old connections from the same address", async function() {
 		slowTest(this);
-		const hostConnectorFirst = new TestHostConnector(url, 0.2, tlsCa);
+		const hostConnectorFirst = new TestHostConnector(url, 0.2);
 		hostConnectorFirst.token = hostConnector.token;
 		hostConnectorFirst.hostId = hostConnector.hostId;
 		const onceClose = events.once(hostConnectorFirst, "close");

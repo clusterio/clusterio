@@ -44,7 +44,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 	const data = [...users.values()];
 
 	// Determine online predicate based on instanceId
-	const isUserOnline = (user: lib.User) => {
+	const isUserOnline = (user: lib.UserDetails) => {
 		if (instanceId !== undefined) {
 			return user.instances && user.instances.has(instanceId);
 		}
@@ -58,7 +58,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 		{
 			title: "Name",
 			key: "name",
-			render: (_: any, user: lib.User) => (
+			render: (_: any, user: lib.UserDetails) => (
 				<Space>
 					{user.name}
 					<span>
@@ -69,11 +69,11 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				</Space>
 			),
 			defaultSortOrder: "ascend",
-			sorter: (a: lib.User, b: lib.User) => strcmp(a.name, b.name),
+			sorter: (a: lib.UserDetails, b: lib.UserDetails) => strcmp(a.name, b.name),
 			filterIcon: (filtered: boolean) => (
 				<SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
 			),
-			onFilter: (value: string | number | boolean, record: lib.User) => record.name
+			onFilter: (value: string | number | boolean, record: lib.UserDetails) => record.name
 				.toLowerCase()
 				.includes((value as string).toLowerCase()),
 			filterDropdownProps: {
@@ -106,8 +106,10 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			key: "roles",
 			filters: roleFilters,
 			filterMultiple: true,
-			onFilter: (value: string | number | boolean, record: lib.User) => record.roleIds.has(value as number),
-			render: (_: any, user: lib.User) => (
+			onFilter: (value: string | number | boolean, record: lib.UserDetails) => (
+				record.roleIds.has(value as number)
+			),
+			render: (_: any, user: lib.UserDetails) => (
 				[...user.roleIds].map((id) => (
 					<Link key={id} to={`/roles/${id}/view`} onClick={(e) => e.stopPropagation()}>
 						<Tag>{(roles.get(id) || { name: id }).name}</Tag>
@@ -119,7 +121,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 
 
 	// Helper to get last seen timestamp
-	function getLastSeenTimestamp(user: lib.User): number | undefined {
+	function getLastSeenTimestamp(user: lib.UserDetails): number | undefined {
 		const stats = instanceId !== undefined ? user.instanceStats.get(instanceId) : user.playerStats;
 		if (!stats) { return undefined; }
 		if (stats.lastLeaveAt && stats.lastLeaveAt.getTime() > (stats.lastJoinAt?.getTime() ?? 0)) {
@@ -136,11 +138,11 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			{
 				title: "Play Time",
 				key: "playTime",
-				render: (_: any, user: lib.User) => {
+				render: (_: any, user: lib.UserDetails) => {
 					const instanceStats = user.instanceStats.get(instanceId);
 					return instanceStats?.onlineTimeMs ? formatDuration(instanceStats.onlineTimeMs) : "-";
 				},
-				sorter: (a: lib.User, b: lib.User) => {
+				sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
 					const statsA = a.instanceStats.get(instanceId);
 					const statsB = b.instanceStats.get(instanceId);
 					return (statsA?.onlineTimeMs ?? 0) - (statsB?.onlineTimeMs ?? 0);
@@ -149,11 +151,11 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			{
 				title: "Join Count",
 				key: "joinCount",
-				render: (_: any, user: lib.User) => {
+				render: (_: any, user: lib.UserDetails) => {
 					const instanceStats = user.instanceStats.get(instanceId);
 					return instanceStats?.joinCount ?? 0;
 				},
-				sorter: (a: lib.User, b: lib.User) => {
+				sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
 					const statsA = a.instanceStats.get(instanceId);
 					const statsB = b.instanceStats.get(instanceId);
 					return (statsA?.joinCount ?? 0) - (statsB?.joinCount ?? 0);
@@ -162,8 +164,8 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			{
 				title: "First Seen",
 				key: "firstSeen",
-				render: (_: any, user: lib.User) => formatFirstSeen(user, instanceId),
-				sorter: (a: lib.User, b: lib.User) => {
+				render: (_: any, user: lib.UserDetails) => formatFirstSeen(user, instanceId),
+				sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
 					const statsA = a.instanceStats.get(instanceId);
 					const statsB = b.instanceStats.get(instanceId);
 					const firstSeenA = statsA?.firstJoinAt?.getTime() ?? 0;
@@ -177,18 +179,18 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			{
 				title: "Online time",
 				key: "onlineTime",
-				render: (_: any, user: lib.User) => (user.playerStats?.onlineTimeMs
+				render: (_: any, user: lib.UserDetails) => (user.playerStats?.onlineTimeMs
 					? formatDuration(user.playerStats.onlineTimeMs)
 					: null),
 				// eslint-disable-next-line max-len
-				sorter: (a: lib.User, b: lib.User) => (a.playerStats?.onlineTimeMs ?? 0) - (b.playerStats?.onlineTimeMs ?? 0),
+				sorter: (a: lib.UserDetails, b: lib.UserDetails) => (a.playerStats?.onlineTimeMs ?? 0) - (b.playerStats?.onlineTimeMs ?? 0),
 				responsive: ["lg"],
 			},
 			{
 				title: "First seen",
 				key: "firstSeen",
-				render: (_: any, user: lib.User) => formatFirstSeen(user),
-				sorter: (a: lib.User, b: lib.User) => sortFirstSeen(a, b),
+				render: (_: any, user: lib.UserDetails) => formatFirstSeen(user),
+				sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortFirstSeen(a, b),
 			},
 		);
 	}
@@ -204,7 +206,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				{ text: "7d", value: "7d" },
 				{ text: "30d", value: "30d" },
 			],
-			onFilter: (value: string | number | boolean, record: lib.User) => {
+			onFilter: (value: string | number | boolean, record: lib.UserDetails) => {
 				const online = isUserOnline(record);
 				if (value === "online") {
 					return online;
@@ -227,8 +229,8 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 						return false;
 				}
 			},
-			sorter: (a: lib.User, b: lib.User) => sortLastSeen(a, b, instanceId, instanceId),
-			render: (_: any, user: lib.User) => formatLastSeen(user, instanceId),
+			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortLastSeen(a, b, instanceId, instanceId),
+			render: (_: any, user: lib.UserDetails) => formatLastSeen(user, instanceId),
 			responsive: ["lg"],
 		},
 	);

@@ -12,7 +12,7 @@ describe("Host testing", function() {
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
 			const instancePath = path.join("test", "file", "instances");
-			const instanceInfos = await _discoverInstances(instancePath);
+			const instances = await _discoverInstances(instancePath);
 
 			const configPath = path.join(instancePath, "test", "instance.json");
 			const referenceConfig = new lib.InstanceConfig("host", {
@@ -21,7 +21,7 @@ describe("Host testing", function() {
 				"instance.name": "test",
 			}, configPath);
 
-			assert.deepEqual(instanceInfos, new Map([
+			assert.deepEqual(instances, new Map([
 				[1, {
 					config: referenceConfig,
 					path: path.join(instancePath, "test"),
@@ -127,8 +127,8 @@ describe("Host testing", function() {
 					version: hostVersion,
 				}];
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
-				const hostConnector = new HostConnector(hostConfig, undefined, pluginInfos);
-				host = new Host(hostConnector, hostConfig, undefined, pluginInfos);
+				const hostConnector = new HostConnector(hostConfig, pluginInfos);
+				host = new Host(hostConnector, hostConfig, pluginInfos);
 			});
 			it("returns false when no changes are present", async function() {
 				host.pluginInfos[0].hostEntrypoint = true;

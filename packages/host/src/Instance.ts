@@ -1,7 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
 import pidusage from "pidusage";
-import phin from "phin";
 import util from "util";
 import type { Static } from "@sinclair/typebox";
 import { exec } from "child_process";
@@ -1292,17 +1291,18 @@ end`.replace(/\r?\n/g, " ");
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", String(this.activeModPack.id));
-			let response = await phin({
-				url, method: "PUT",
-				data: content,
-				core: { ca: this._host.tlsCa } as object,
+			let response = await fetch(url, {
+				method: "PUT",
+				body: content,
+				duplex: "half",
 				headers: {
 					"Content-Type": "application/zip",
 					"x-access-token": this._host.config.get("host.controller_token"),
 				},
 			});
-			if (response.statusCode !== 200) {
-				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`);
+			if (response.status !== 200) {
+				const body = Buffer.from(await response.arrayBuffer());
+				throw Error(`Upload failed: ${response.status} ${response.statusText}: ${body.toString()}`);
 			}
 
 		} finally {

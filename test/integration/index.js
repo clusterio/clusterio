@@ -4,7 +4,6 @@ const path = require("path");
 const fs = require("fs-extra");
 const child_process = require("child_process");
 const jwt = require("jsonwebtoken");
-const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
@@ -12,6 +11,7 @@ const lib = require("@clusterio/lib");
 const { LineSplitter, ConsoleTransport, logger } = lib;
 
 const { selectTargetCommand, initialize: initializeCtl } = require("@clusterio/ctl");
+const { _listFactorioVersions } = require("@clusterio/host/dist/node/src/server");
 
 // Make sure permissions from plugins are loaded
 require("../../plugins/global_chat/dist/node/index");
@@ -127,14 +127,32 @@ function slowTest(test) {
 	test.timeout(30000);
 }
 
+// Mark that this test or suite of tests requires a factorio install to run.
+function requiresFactorio(testOrSuite) {
+	if (testOrSuite.skip) {
+		if (!haveFactorioInstall) {
+			testOrSuite.skip();
+		}
+	} else {
+		before(function() {
+			if (!haveFactorioInstall) {
+				this.skip();
+			}
+		});
+	}
+}
+
+function hasFactorio() {
+	return haveFactorioInstall;
+}
+
 async function get(urlPath) {
-	let res = await phin({
-		method: "GET",
-		url: `https://localhost:4443${urlPath}`,
-		core: { rejectUnauthorized: false },
-	});
-	if (res.statusCode !== 200) {
-		throw new Error(`Got response code ${res.statusCode}, content: ${res.body}`);
+	const url = new URL("https://localhost:4443");
+	url.pathname = urlPath;
+	let res = await fetch(url);
+	if (res.status !== 200) {
+		const body = Buffer.from(await res.arrayBuffer());
+		throw new Error(`Got response code ${res.status}, content: ${body.toString()}`);
 	}
 	return res;
 }
@@ -159,6 +177,7 @@ function getFactorioDir(hostConfig) {
 let controllerProcess;
 let hostProcess;
 let control;
+let haveFactorioInstall;
 
 const baseHostConfig = loadJSON("config-host.json");
 
@@ -173,11 +192,18 @@ let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 let hostConfigPath = path.join("temp", "test", "config-host.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
+function childOptions(options) {
+	return {
+		cwd: path.join("temp", "test"),
+		env: { ...process.env },
+		...options,
+	};
+}
+
 function exec(command, options = {}) {
 	// Uncomment to show commands run in tests
 	// console.log(command);
-	options = { cwd: path.join("temp", "test"), ...options };
-	return util.promisify(child_process.exec)(command, options);
+	return util.promisify(child_process.exec)(command, childOptions(options));
 }
 
 function execController(...args) {
@@ -243,7 +269,7 @@ function spawn(name, cmd, waitFor, options = {}) {
 	return new Promise((resolve, reject) => {
 		log(cmd);
 		let parts = cmd.split(" ");
-		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test"), ...options });
+		let process = child_process.spawn(parts[0], parts.slice(1), childOptions(options));
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		let stderr = new LineSplitter({ readableObjectMode: true });
 		let onDataOut = line => {
@@ -333,19 +359,17 @@ before(async function() {
 	console.log("Bootstrapping");
 	await execController("bootstrap create-admin test");
 	await execController("bootstrap create-ctl-config test");
-	await execCtlProcess("control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
+	haveFactorioInstall = (await _listFactorioVersions(factorioDir)).versions.size > 0;
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
-	await execHost("config set host.tls_ca ../../test/file/tls/cert.pem");
 
 	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
 
-	const tlsCa = await fs.readFile("test/file/tls/cert.pem");
-	const controlConnector = new TestControlConnector(url, 2, tlsCa);
+	const controlConnector = new TestControlConnector(url, 2);
 	controlConnector.token = controlToken;
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
@@ -353,7 +377,6 @@ before(async function() {
 	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} control-config list`, undefined, true);
 	control.config = initArgs.controlConfig;
 	control.plugins = initArgs.ctlPlugins;
-	control.tlsCa = tlsCa;
 
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
@@ -382,6 +405,9 @@ after(async function() {
 	if (control) {
 		await control.connector.close();
 	}
+	if (haveFactorioInstall === false) {
+		console.warn("Many tests may have been skipped due to no factorio install being detected");
+	}
 });
 
 // Ensure the test processes are stopped.
@@ -398,6 +424,7 @@ module.exports = {
 	execController,
 	execCtlProcess,
 	slowTest,
+	requiresFactorio,
 	get,
 	exec,
 	execCtl,
@@ -413,6 +440,7 @@ module.exports = {
 	modsDir,
 	databaseDir,
 	factorioDir,
+	hasFactorio,
 	controllerConfigPath,
 	hostConfigPath,
 	controlConfigPath,

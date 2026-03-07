@@ -1,4 +1,4 @@
-import { BaseControllerPlugin, type InstanceInfo } from "@clusterio/controller";
+import { BaseControllerPlugin, type InstanceRecord } from "@clusterio/controller";
 import type { IpcPlayerData } from "./messages";
 
 import fs from "fs-extra";
@@ -51,7 +51,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(msg.DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
 	}
 
-	async onInstanceStatusChanged(instance: InstanceInfo) {
+	async onInstanceStatusChanged(instance: InstanceRecord) {
 		let instanceId = instance.id;
 		if (["unassigned", "deleted"].includes(instance.status)) {
 			for (let [playerName, acquisitionRecord] of this.acquiredPlayers) {

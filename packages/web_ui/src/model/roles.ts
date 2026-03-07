@@ -3,7 +3,7 @@ import ControlContext from "../components/ControlContext";
 
 import * as lib from "@clusterio/lib";
 
-export function useRolesOfUser(user?: lib.User) {
+export function useRolesOfUser(user?: lib.UserDetails) {
 	const [roles, synced] = useRoles();
 	return [
 		user !== undefined ? new Map([...user.roleIds].map(roleId => [roleId, roles.get(roleId)])) : new Map(),

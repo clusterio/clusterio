@@ -5,6 +5,7 @@ const lib = require("@clusterio/lib");
 const { testMatrix } = require("../common");
 const {
 	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
+	requiresFactorio, hasFactorio,
 } = require("./index");
 
 const instId = 48;
@@ -24,6 +25,7 @@ function getUser(name) {
 }
 
 describe("Clusterio Instance", function() {
+	requiresFactorio(this);
 	before(async function() {
 		this.timeout(20000);
 		const visibility = JSON.stringify({ lan: true, public: false }).replace(
@@ -56,6 +58,9 @@ describe("Clusterio Instance", function() {
 		await execCtl(`instance start ${instAltName}`);
 	});
 	after(async function() {
+		if (!hasFactorio()) {
+			return;
+		}
 		this.timeout(20000);
 		// Delete the instances
 		await execCtl(`instance delete ${instName}`);
@@ -186,6 +191,7 @@ describe("Clusterio Instance", function() {
 	}
 });
 describe("start-all and stop-all commands", function() {
+	requiresFactorio(this);
 	// Test instance IDs for start-all/stop-all tests
 	const testInstId1 = 50;
 	const testInstId2 = 51;
