@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Input, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -8,6 +8,7 @@ import { notifyErrorHandler } from "../util/notify";
 
 const { Title, Paragraph } = Typography;
 
+type RconOutput = { data: string; id: number } | null;
 
 type InstanceRconProps = {
 	id: number;
@@ -15,8 +16,24 @@ type InstanceRconProps = {
 };
 export default function InstanceRcon(props: InstanceRconProps) {
 	let control = useContext(ControlContext);
-	let [output, setOutput] = useState<string|null>(null);
+	let [output, setOutput] = useState<RconOutput>(null);
 	let [running, setRunning] = useState(false);
+	let resultRef = useRef<HTMLDivElement>(null);
+	let outputIdRef = useRef(0);
+
+	// Flash the output box whenever the output state changes.
+	useEffect(() => {
+		let el = resultRef.current;
+		if (!el || !output) {
+			return;
+		}
+		let codeEl = el.querySelector("code");
+		if (codeEl) {
+			codeEl.style.animation = "none";
+			void codeEl.offsetWidth; // Force reflow to restart animation
+			codeEl.style.animation = "rcon-highlight 1s ease-out";
+		}
+	}, [output]);
 
 	async function sendCommand(command: string) {
 		if (!command) {
@@ -30,7 +47,10 @@ export default function InstanceRcon(props: InstanceRconProps) {
 				{ instanceId: props.id },
 				new lib.InstanceSendRconRequest(command),
 			);
-			setOutput(result);
+			// Wrap in object with unique id so React always sees a new
+			// state value, even when the result string is identical.
+			outputIdRef.current += 1;
+			setOutput({ data: result, id: outputIdRef.current });
 		} finally {
 			setRunning(false);
 		}
@@ -39,7 +59,9 @@ export default function InstanceRcon(props: InstanceRconProps) {
 	return <>
 		{output && <>
 			<Title level={5}>Rcon result</Title>
-			<Paragraph code className="rcon-result">{output}</Paragraph>
+			<div ref={resultRef}>
+				<Paragraph code className="rcon-result">{output.data}</Paragraph>
+			</div>
 		</>}
 		<Input.Search
 			disabled={props.disabled}

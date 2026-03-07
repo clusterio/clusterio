@@ -206,6 +206,11 @@ body {
 	white-space: pre-wrap;
 }
 
+@keyframes rcon-highlight {
+	0%   { box-shadow: 0 0 0 3px #1668dc, inset 0 0 20px rgba(22, 104, 220, 0.3); }
+	100% { box-shadow: 0 0 0 3px transparent, inset 0 0 20px transparent; }
+}
+
 /* see https://blog.eqrion.net/pin-to-bottom/ for how scroll anchors works */
 .instance-console code * {
 	overflow-anchor: none;
