@@ -8,6 +8,7 @@ import { notifyErrorHandler } from "../util/notify";
 
 const { Title, Paragraph } = Typography;
 
+
 type InstanceRconProps = {
 	id: number;
 	disabled: boolean;
