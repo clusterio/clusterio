@@ -204,15 +204,12 @@ body {
 	max-height: 200px;
 	overflow-y: auto;
 	white-space: pre-wrap;
+	animation: rcon-highlight 1s ease-out forwards;
 }
 
 @keyframes rcon-highlight {
 	0%   { outline: 3px solid #1668dc; }
 	100% { outline: 3px solid transparent; }
-}
-
-.rcon-result code {
-	animation: rcon-highlight 1s ease-out forwards;
 }
 
 /* see https://blog.eqrion.net/pin-to-bottom/ for how scroll anchors works */

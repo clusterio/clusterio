@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useRef, useState } from "react";
 import { Input, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -8,29 +8,15 @@ import { notifyErrorHandler } from "../util/notify";
 
 const { Title, Paragraph } = Typography;
 
-type RconOutput = { data: string; id: number } | null;
-
 type InstanceRconProps = {
 	id: number;
 	disabled: boolean;
 };
 export default function InstanceRcon(props: InstanceRconProps) {
 	let control = useContext(ControlContext);
-	let [output, setOutput] = useState<RconOutput>(null);
+	let [output, setOutput] = useState<string|null>(null);
 	let [running, setRunning] = useState(false);
 	let resultRef = useRef<HTMLDivElement>(null);
-	let outputIdRef = useRef(0);
-
-	// Flash the output box whenever the output state changes.
-	useEffect(() => {
-		if (!resultRef.current || !output) {
-			return;
-		}
-		const animation = resultRef.current.children[0]?.getAnimations()[0];
-		if (animation) {
-			animation.currentTime = 0;
-		}
-	}, [output]);
 
 	async function sendCommand(command: string) {
 		if (!command) {
@@ -44,19 +30,18 @@ export default function InstanceRcon(props: InstanceRconProps) {
 				{ instanceId: props.id },
 				new lib.InstanceSendRconRequest(command),
 			);
-			// Wrap in object with unique id so React always sees a new
-			// state value, even when the result string is identical.
-			outputIdRef.current += 1;
-			setOutput({ data: result, id: outputIdRef.current });
+			setOutput(result);
+			const animation = resultRef.current?.children[0]?.getAnimations()[0];
+			if (animation) { animation.currentTime = 0; }
 		} finally {
 			setRunning(false);
 		}
 	}
 
 	return <>
-		{output && <>
+		{output !== null && <>
 			<Title level={5}>Rcon result</Title>
-			<Paragraph ref={resultRef} code className="rcon-result">{output.data}</Paragraph>
+			<Paragraph ref={resultRef} code className="rcon-result">{output}</Paragraph>
 		</>}
 		<Input.Search
 			disabled={props.disabled}
