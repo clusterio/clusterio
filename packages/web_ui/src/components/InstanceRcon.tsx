@@ -39,7 +39,7 @@ export default function InstanceRcon(props: InstanceRconProps) {
 	}
 
 	return <>
-		{output !== null && <>
+		{output && <>
 			<Title level={5}>Rcon result</Title>
 			<Paragraph ref={resultRef} code className="rcon-result">{output}</Paragraph>
 		</>}
