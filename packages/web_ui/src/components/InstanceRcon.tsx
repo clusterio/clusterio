@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useRef, useState } from "react";
 import { Input, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -17,6 +17,7 @@ export default function InstanceRcon(props: InstanceRconProps) {
 	let control = useContext(ControlContext);
 	let [output, setOutput] = useState<string|null>(null);
 	let [running, setRunning] = useState(false);
+	let resultRef = useRef<HTMLDivElement>(null);
 
 	async function sendCommand(command: string) {
 		if (!command) {
@@ -31,6 +32,8 @@ export default function InstanceRcon(props: InstanceRconProps) {
 				new lib.InstanceSendRconRequest(command),
 			);
 			setOutput(result);
+			const animation = resultRef.current?.children[0]?.getAnimations()[0];
+			if (animation) { animation.currentTime = 0; }
 		} finally {
 			setRunning(false);
 		}
@@ -39,7 +42,7 @@ export default function InstanceRcon(props: InstanceRconProps) {
 	return <>
 		{output && <>
 			<Title level={5}>Rcon result</Title>
-			<Paragraph code className="rcon-result">{output}</Paragraph>
+			<Paragraph ref={resultRef} code className="rcon-result">{output}</Paragraph>
 		</>}
 		<Input.Search
 			disabled={props.disabled}
