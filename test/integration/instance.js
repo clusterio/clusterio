@@ -1,11 +1,13 @@
 "use strict";
+const path = require("path");
 const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
+const fs = require("fs-extra");
 
 const { testMatrix } = require("../common");
 const {
 	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
-	requiresFactorio, hasFactorio,
+	requiresFactorio, hasFactorio, instancesDir,
 } = require("./index");
 
 const instId = 48;
@@ -67,6 +69,32 @@ describe("Clusterio Instance", function() {
 		await execCtl(`instance stop ${instAltName}`);
 		await execCtl(`instance delete ${instAltName}`);
 	});
+	describe("whitelist creation", function() {
+		const whitelistPath = path.join(instancesDir, instName, "server-whitelist.json");
+		before(async function() {
+			this.timeout(20000);
+			await execCtl(`${instSetConfig} factorio.sync_whitelist disabled`);
+			await execCtl(`${instSetConfig} factorio.enable_whitelist false`);
+		});
+		afterEach(async function() {
+			this.timeout(20000);
+			await execCtl(`instance stop ${instName}`);
+		});
+		it("should always create a whitelist json even if unused", async function() {
+			slowTest(this);
+			await fs.remove(whitelistPath);
+			await execCtl(`instance start ${instName}`);
+			const whitelist = await fs.readJSON(whitelistPath);
+			assert.deepEqual(whitelist, []);
+		});
+		it("should not overwrite the existing whitelist if sync is disabled", async function() {
+			slowTest(this);
+			await fs.writeJSON(whitelistPath, ["test_user"]);
+			await execCtl(`instance start ${instName}`);
+			const whitelist = await fs.readJSON(whitelistPath);
+			assert.deepEqual(whitelist, ["test_user"]);
+		});
+	});
 	for (const [savePatchingEnabled, scriptCommandsEnabled] of testMatrix([true, false], [true, false])) {
 		const strSavePatching = `save patching: ${savePatchingEnabled ? "Enabled" : "Disabled"}`;
 		const strScriptCommands = `script commands: ${scriptCommandsEnabled ? "Enabled" : "Disabled"}`;
@@ -81,6 +109,7 @@ describe("Clusterio Instance", function() {
 			before(async function() {
 				this.timeout(20000);
 				// Create and start a patched save
+				await execCtl(`${instSetConfig} factorio.enable_whitelist true`);
 				await execCtl(`${instSetConfig} factorio.enable_save_patching ${savePatchingEnabled}`);
 				await execCtl(`${instSetConfig} factorio.enable_script_commands ${scriptCommandsEnabled}`);
 				await execCtl(`instance save create ${instName}`);

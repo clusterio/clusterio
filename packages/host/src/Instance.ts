@@ -866,6 +866,17 @@ end`.replace(/\r?\n/g, " ");
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._host.whitelist], null, "\t")
 			);
+		} else {
+			// Always create the whitelist even if unused
+			// This allows it to be watched for changes without a server restart
+			try {
+				// wx will throw an error if the file already exists to prevent overwrite
+				await fs.writeFile(this.server.writePath("server-whitelist.json"), "\n[]\n", { flag: "wx" });
+			} catch (err: any) {
+				if (err.code !== "EEXIST") {
+					throw err;
+				}
+			}
 		}
 
 		await this.syncMods();
