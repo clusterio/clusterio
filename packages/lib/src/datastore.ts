@@ -290,18 +290,50 @@ export class KeyValueDatastore<
 export class SubscribableDatastore<
 	V extends SubscribableValue,
 > extends Datastore<V["id"], V> {
+	/** Last time an update occurred */
+	lastUpdatedAtMs: number = 0;
+
+	private static maxUpdatedAtMs(values: Iterable<SubscribableValue>) {
+		let max = 0;
+		for (const value of values) {
+			// Prevent one NaN, undefined, +Inf or similar from breaking the datastore.
+			if (Number.isFinite(value.updatedAtMs)) {
+				max = Math.max(max, value.updatedAtMs);
+			}
+		}
+		return max;
+	}
+
+	private incrementLastUpdatedMs() {
+		this.lastUpdatedAtMs = Math.max(Date.now(), this.lastUpdatedAtMs + 1);
+	}
+
+	constructor(
+		provider: DatastoreProvider<V["id"], V> = new MemoryDatastoreProvider(),
+		data = new Map<V["id"], V>(),
+	) {
+		super(provider, data);
+		this.lastUpdatedAtMs = SubscribableDatastore.maxUpdatedAtMs(this.data.values());
+	}
+
+	async load() {
+		await super.load();
+		this.lastUpdatedAtMs = SubscribableDatastore.maxUpdatedAtMs(this.data.values());
+	}
+
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(value: V) {
+		this.incrementLastUpdatedMs();
 		this.data.set(value.id, value);
-		value.updatedAtMs = Date.now();
+		value.updatedAtMs = this.lastUpdatedAtMs;
 		this.touch([value]);
 	}
 
 	// Set many values at once from an array of key value pairs
 	setMany(values: V[]) {
-		const nowMs = Date.now();
+		this.incrementLastUpdatedMs();
 		for (const value of values) {
-			value.updatedAtMs = nowMs;
+			value.updatedAtMs = this.lastUpdatedAtMs;
 			this.data.set(value.id, value);
 		}
 		this.touch(values);
@@ -309,18 +341,19 @@ export class SubscribableDatastore<
 
 	// Delete a value in the datastore
 	delete(value: V) {
+		this.incrementLastUpdatedMs();
 		this.data.delete(value.id);
-		value.updatedAtMs = Date.now();
+		value.updatedAtMs = this.lastUpdatedAtMs;
 		value.isDeleted = true;
 		this.touch([value]);
 	}
 
 	// Delete many values at once from an array of values
 	deleteMany(values: V[]) {
-		const nowMs = Date.now();
+		this.incrementLastUpdatedMs();
 		for (const value of values) {
 			value.isDeleted = true;
-			value.updatedAtMs = nowMs;
+			value.updatedAtMs = this.lastUpdatedAtMs;
 			this.data.delete(value.id);
 		}
 		this.touch(values);
