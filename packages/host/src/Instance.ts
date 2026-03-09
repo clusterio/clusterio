@@ -637,9 +637,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async init(pluginInfos: lib.PluginNodeEnvInfo[]) {
+		// After changing the status this function is responsible for calling notifyExit if it throws.
 		this.notifyStatus("starting");
-		const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 		try {
+			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 			await this._loadStats();
 			await this.server.checkForUpdates(factorioVersions);
 			await this.server.init();

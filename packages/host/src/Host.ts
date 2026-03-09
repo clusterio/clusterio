@@ -74,6 +74,7 @@ async function discoverInstances(instancesDir: string) {
 	return instances;
 }
 
+// Requests that wake up the instance is responsible for updating the instance state in case of errors.
 const instanceStartingMessages = new Set([
 	lib.InstanceStartRequest.name,
 	lib.InstanceLoadScenarioRequest.name,
