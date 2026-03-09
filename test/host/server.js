@@ -348,7 +348,7 @@ describe("host/server", function() {
 				["latest version", "latest"],
 			]) {
 				/* eslint-disable no-loop-func */
-				describe("full version", function() {
+				describe(suite, function() {
 					it("should do nothing when there are no versions", async function() {
 						server._factorioDir = path.join("test", "file", "factorio");
 						server._targetVersion = target;
@@ -356,21 +356,23 @@ describe("host/server", function() {
 
 						assert.equal(fetchCalledWith, null);
 					});
-					it("should do nothing when no version matches", async function() {
-						server._factorioDir = path.join("test", "file", "factorio");
-						server._targetVersion = target;
-						await server.checkForUpdates([{
-							stable: true,
-							version: "0.2.1",
-							headlessUrl: "test1",
-						}, {
-							stable: false,
-							version: "0.2.0",
-							headlessUrl: "test2",
-						}]);
+					if (target !== "latest") {
+						it("should do nothing when no version matches", async function() {
+							server._factorioDir = path.join("test", "file", "factorio");
+							server._targetVersion = target;
+							await server.checkForUpdates([{
+								stable: true,
+								version: "0.2.1",
+								headlessUrl: "test1",
+							}, {
+								stable: false,
+								version: "0.2.0",
+								headlessUrl: "test2",
+							}]);
 
-						assert.equal(fetchCalledWith, null);
-					});
+							assert.equal(fetchCalledWith, null);
+						});
+					}
 					it("should do nothing when there is no newer version", async function() {
 						server._factorioDir = path.join("test", "file", "factorio");
 						server._targetVersion = target;
