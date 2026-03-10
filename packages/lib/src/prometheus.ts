@@ -276,13 +276,16 @@ function keyToLabels(key: string) {
 	let matchLabel = /([^=]+)="(([^\\"]|\\["n\\])+)"/y;
 	while (pos < key.length) {
 		if (pos !== 0) {
+			/* istanbul ignore if */
 			if (key[pos] !== ",") {
+				// Should be unreachable
 				throw Error(`Expected , at pos ${pos} in "${key}"`);
 			}
 			pos += 1;
 		}
 		matchLabel.lastIndex = pos;
 		const match = matchLabel.exec(key);
+		/* istanbul ignore else */
 		if (match) {
 			let [, name, value] = match;
 			labels.set(name, value
@@ -292,6 +295,7 @@ function keyToLabels(key: string) {
 			);
 			pos += match[0].length;
 		} else {
+			// Should be unreachable
 			throw new Error(`Failed to parse label at pos ${pos} in "${key}"`);
 		}
 	}
