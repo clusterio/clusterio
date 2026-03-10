@@ -9,6 +9,7 @@ import * as lib from "@clusterio/lib";
 import ControlContext from "./ControlContext";
 import { InputComponent, InputComponentProps } from "../BaseWebPlugin";
 import type { Control } from "../util/websocket";
+import { notifyErrorHandler } from "../util/notify";
 
 const { Title } = Typography;
 
@@ -67,8 +68,7 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 type BaseConfigTreeProps = {
 	ConfigClass: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig;
 	retrieveConfig: () => Promise<lib.ConfigSchema>;
-	setField: (field:string, value:any) => Promise<void>;
-	setProp: (field:string, prop:string, value:any) => Promise<void>;
+	setConfig: (fields: Record<string, string | Record<string, string>>) => Promise<void>;
 	id?: number;
 	onApply?: () => void;
 	available?: boolean;
@@ -157,32 +157,25 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 					loading={applying}
 					onClick={async () => {
 						setApplying(true);
-						for (let field of changedFields) {
-							let value = form.getFieldValue(field);
-							let request;
+						const fields: Record<string, string | Record<string, string>> = {};
+						for (const field of changedFields) {
+							const value = form.getFieldValue(field);
 							if (propsMap.has(field)) {
-								let [fieldName, prop] = propsMap.get(field)!;
-								request = props.setProp(fieldName, prop, value);
+								const [fieldName, prop] = propsMap.get(field)!;
+								const fieldValue = (fields[fieldName] ?? {}) as Record<string, string>;
+								fields[fieldName] = fieldValue;
+								fieldValue[prop] = value ? JSON.parse(value) : undefined;
 
 							} else {
-								request = props.setField(field, value === null ? "" : String(value));
+								fields[field] = value === null ? "" : String(value);
 							}
+						}
 
-							try {
-								await request;
-								setChangedFields(changed => {
-									let newChanged = new Set(changed);
-									newChanged.delete(field);
-									return newChanged;
-								});
-
-							} catch (err: any) {
-								setErrorFields(errors => {
-									let newErrors = new Map(errors);
-									newErrors.set(field, err.message);
-									return newErrors;
-								});
-							}
+						try {
+							await props.setConfig(fields);
+							setChangedFields(new Set());
+						} catch (err: any) {
+							notifyErrorHandler(err.message);
 						}
 
 						await updateConfig();
@@ -325,26 +318,23 @@ function computeTreeData(
 								}
 
 								if (!def.validator) { return; }
-
-								// TODO this needs to use stage and stageProp to avoid deadlocks
-								const staging = config.staging;
-								staging.setProp(fieldName, prop, fieldValue);
+								config.stageProp(fieldName, prop, fieldValue);
 
 								for (const dependsOn of def.dependsOn ?? []) {
 									const dependsOnDef = ConfigClass.fieldDefinitions[dependsOn as any] as typeof def;
 									try {
 										if (propsMap.has(dependsOn)) {
 											const [name, otherProp] = propsMap.get(dependsOn)!;
-											staging.setProp(name, otherProp, JSON.parse(getFieldValue(dependsOn)));
+											config.stageProp(name, otherProp, JSON.parse(getFieldValue(dependsOn)));
 										} else if (dependsOnDef.type !== "object") {
-											staging.set(dependsOn, getFieldValue(dependsOn));
+											config.stage(dependsOn, getFieldValue(dependsOn));
 										}
 									} catch (err) {
 										throw new Error(`Failed to fetch field: ${dependsOn}`);
 									}
 								}
 
-								def.validator(fieldValue, staging);
+								def.validator(fieldValue, config.staging);
 							}})]}
 						>
 							<Input className="json-input" disabled={!canWrite} />
@@ -418,26 +408,23 @@ function computeTreeData(
 					rules={[({getFieldValue}) => ({
 						validator: async (_, fieldValue) => {
 							if (!def.validator) { return; }
-
-							// TODO this needs to use stage and stageProp to avoid deadlocks
-							const staging = config.staging;
-							staging.set(fieldName, fieldValue);
+							config.stage(fieldName, fieldValue);
 
 							for (const dependsOn of def.dependsOn ?? []) {
 								const dependsOnDef = ConfigClass.fieldDefinitions[dependsOn as any] as typeof def;
 								try {
 									if (propsMap.has(dependsOn)) {
 										const [name, prop] = propsMap.get(dependsOn)!;
-										staging.setProp(name, prop, JSON.parse(getFieldValue(dependsOn)));
+										config.stageProp(name, prop, JSON.parse(getFieldValue(dependsOn)));
 									} else if (dependsOnDef.type !== "object") {
-										staging.set(dependsOn, getFieldValue(dependsOn));
+										config.stage(dependsOn, getFieldValue(dependsOn));
 									}
 								} catch (err) {
 									throw new Error(`Failed to fetch field: ${dependsOn}`);
 								}
 							}
 
-							def.validator(fieldValue, staging);
+							def.validator(fieldValue, config.staging);
 						},
 					})]}
 				>

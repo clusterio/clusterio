@@ -13,28 +13,14 @@ export default function HostConfigTree(props: { id: number, available: boolean }
 		return await control.sendTo({ hostId: props.id }, new lib.HostConfigGetRequest());
 	}
 
-	async function setField(field: string, value: any) {
-		await control.sendTo({ hostId: props.id }, new lib.HostConfigSetFieldRequest(field, value));
-	}
-
-	async function setProp(field: string, prop: string, value: any) {
-		if (value) {
-			try {
-				value = JSON.parse(value);
-			} catch (err) {
-				return;
-			}
-		} else {
-			value = undefined;
-		}
-		await control.sendTo({ hostId: props.id }, new lib.HostConfigSetPropRequest(field, prop, value));
+	async function setConfig(fields: Record<string, string | Record<string, string>>) {
+		await control.send(new lib.HostConfigSetRequest(fields));
 	}
 
 	return <BaseConfigTree
 		ConfigClass={lib.HostConfig}
 		retrieveConfig={retrieveConfig}
-		setField={setField}
-		setProp={setProp}
+		setConfig={setConfig}
 		id={props.id}
 		available={props.available}
 	/>;
