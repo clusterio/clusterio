@@ -9,6 +9,7 @@ import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
 import { safeOutputFile } from "../file_ops";
 import * as validators from "./validators";
+import { string } from "yargs";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -270,13 +271,17 @@ export class Config<
 		}
 	}
 
-	// TODO add stage, stageProp, revertStaging, and commitStaging
-	/** Staging is invalided when _set is called, so a new one is made with the new state */
-	private _staging?: this;
-	get staging(): typeof this {
-		if (this._staging) { return this._staging; }
-		this._staging = new this.constructor(this.location, this.fields) as this;
-		return this._staging;
+	/** A staging version of the config with changes tracked, invalided by revertStaging */
+	private _staging?: { config: Config<Fields>, changes: Set<keyof Fields & string> };
+
+	/** Get the latest version of staging */
+	get staging(): Config<Fields> {
+		if (this._staging) { return this._staging.config; }
+		const config = new this.constructor(this.location, this.fields) as this;
+		const changes = new Set<keyof Fields & string>();
+		config.on("fieldChanged", name => changes.add(name as keyof Fields & string));
+		this._staging = { config, changes };
+		return config;
 	}
 
 	private static _fieldDependents: Map<string, {
@@ -308,6 +313,65 @@ export class Config<
 		// The type is correct because of "!def.validator", not clear why this doesn't infer
 		this._fieldDependents = dependents as any;
 		return this._fieldDependents;
+	}
+
+	/**
+	 * Coerce and validate a value according to a field definition.
+	 *
+	 * @param name - Name of the field being validated.
+	 * @param def - Definition describing the field type and constraints.
+	 * @param value - Value to validate and coerce.
+	 * @throws {InvalidValue} if the value cannot be coerced to the correct type
+	 * @returns The validated and coerced value.
+	 * @private
+	 */
+	static _coerceValue<T extends FieldDefinition>(name: string, def: T, value: unknown) {
+		// Empty strings are treated as null
+		if (value === "") {
+			value = null;
+		}
+
+		// If def is an enum then it must be a value within it
+		if (def.enum && !def.enum.includes(value)) {
+			throw new InvalidValue(`Expected one of [${def.enum.join(", ")}], not ${value}`);
+		}
+
+		// If it is a string, then attempt to coerce it
+		if (typeof value === "string") {
+			if (def.type === "boolean") {
+				if (value === "true") {
+					value = true;
+				} else if (value === "false") {
+					value = false;
+				}
+
+			} else if (def.type === "number") {
+				const numberRegExp = /^[+-]?(Infinity|\d+\.(\d+)?([eE][+-]?\d+)?|\.?\d+([eE][+-]?\d+)?)$/;
+				if (numberRegExp.test(value.trim())) {
+					value = Number.parseFloat(value);
+				}
+
+			} else if (def.type === "object") {
+				try {
+					value = JSON.parse(value);
+				} catch (err: any) {
+					throw new InvalidValue(`Error parsing value for ${name}: ${err.message}`);
+				}
+			}
+		}
+
+		// Check if it is allowed to be null
+		if (value === null) {
+			if (!def.optional) {
+				throw new InvalidValue(`Field ${name} cannot be null`);
+			}
+
+		// Check if is the correct type
+		} else if (basicType(value) !== def.type) {
+			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
+		}
+
+		return value as FieldType<T["type"]>;
 	}
 
 	/**
@@ -354,9 +418,9 @@ export class Config<
 	 * @param notify - False to skip setting dirty flags and emitting events
 	 */
 	_set(name: keyof Fields & string, value: FieldValue, notify: boolean = true) {
-		this._staging = undefined;
 		const prev = this.fields[name];
 		this.fields[name] = value as any;
+		this.revertStaging();
 		if (notify && !isDeepStrictEqual(value, prev)) {
 			const def = this.constructor.fieldDefinitions[name];
 			if (def.restartRequired) {
@@ -575,8 +639,7 @@ export class Config<
 	 * @throws {InvalidValue} if value is not allowed for the field.
 	 */
 	set<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], remote = this.location) {
-		let value: FieldValue = newValue;
-		let def = this.constructor.fieldDefinitions[name];
+		const def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
@@ -586,46 +649,7 @@ export class Config<
 			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
 		}
 
-		// Empty strings are treated as null
-		if (value === "") {
-			value = null;
-		}
-
-		if (def.enum && !def.enum.includes(value)) {
-			throw new InvalidValue(`Expected one of [${def.enum.join(", ")}], not ${value}`);
-		}
-
-		if (typeof value === "string") {
-			if (def.type === "boolean") {
-				if (value === "true") {
-					value = true;
-				} else if (value === "false") {
-					value = false;
-				}
-
-			} else if (def.type === "number") {
-				let numberRegExp = /^[+-]?(Infinity|\d+\.(\d+)?([eE][+-]?\d+)?|\.?\d+([eE][+-]?\d+)?)$/;
-				if (numberRegExp.test(value.trim())) {
-					value = Number.parseFloat(value);
-				}
-
-			} else if (def.type === "object") {
-				try {
-					value = JSON.parse(value);
-				} catch (err: any) {
-					throw new InvalidValue(`Error parsing value for ${name}: ${err.message}`);
-				}
-			}
-		}
-
-		if (value === null) {
-			if (!def.optional) {
-				throw new InvalidValue(`Field ${name} cannot be null`);
-			}
-
-		} else if (basicType(value) !== def.type) {
-			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
-		}
+		const value = Config._coerceValue(name, def, newValue);
 
 		if (def.validator) {
 			try {
@@ -637,7 +661,7 @@ export class Config<
 
 		const dependents = this.constructor.fieldDependents.get(name);
 		if (dependents) {
-			// this.staging.stage(name, value, remote); // TODO need stage to avoid self reference
+			this.staging._set(name, value);
 			for (const dependent of dependents) {
 				try {
 					dependent.def.validator(this.get(dependent.name as keyof Fields & string, remote), this.staging);
@@ -702,7 +726,7 @@ export class Config<
 
 		const dependents = this.constructor.fieldDependents.get(name);
 		if (dependents) {
-			// this.staging.setProp(name, prop, value, remote); // TODO need stageProp to avoid self reference
+			this.staging._set(name, updated);
 			for (const dependent of dependents) {
 				try {
 					dependent.def.validator(this.get(dependent.name as keyof Fields & string, remote), this.staging);
@@ -713,5 +737,107 @@ export class Config<
 		}
 
 		this._set(name, updated);
+	}
+
+	/**
+	 * Similar to set but only validates the field type and not other constraints.
+	 * The value is stored in staging and must be committed for the change to take effect.
+	 *
+	 * @param name - Name of field to set.
+	 * @param newValue - Value to set for field.
+	 * @param remote - Location this field is being set from.
+	 * @throws {InvalidField} if field is not defined.
+	 * @throws {InvalidValue} if value is not allowed for the field.
+	 */
+	stage<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], remote = this.location) {
+		const def = this.constructor.fieldDefinitions[name];
+		if (!def) {
+			throw new InvalidField(`No field named '${name}'`);
+		}
+
+		this._checkAccess(name, def, remote, ConfigAccess.write, true);
+		if (remote !== this.location) {
+			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
+		}
+
+		const value = Config._coerceValue(name, def, newValue);
+		this.staging._set(name, value);
+	}
+
+	/**
+	 * Similar to setProp but only validates the field type and not other constraints.
+	 * The value is stored in staging and must be committed for the change to take effect.
+	 *
+	 * @param name - Name of field to set property on.
+	 * @param prop - Name of property to set on field.
+	 * @param value - the value to set the property to.
+	 * @param remote - Location this property is being set from
+	 * @throws {InvalidField} if field is not defined.
+	 * @throws {InvalidValue} if field is not an object.
+	 */
+	stageProp<Field extends keyof Fields & string>(
+		name: Field,
+		prop: string,
+		value?: unknown,
+		remote = this.location,
+	) {
+		const def = this.constructor.fieldDefinitions[name];
+		if (!def) {
+			throw new InvalidField(`No field named '${name}'`);
+		}
+
+		this._checkAccess(name, def, remote, ConfigAccess.write, true);
+		if (remote !== this.location) {
+			this._checkAccess(name, def, this.location, ConfigAccess.write, true);
+		}
+
+		if (def.type !== "object") {
+			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);
+		}
+
+		const prev = this.fields[name] as Record<string, unknown>;
+		const updated = {...prev || {}};
+
+		if (value !== undefined) {
+			updated[prop] = value;
+		} else {
+			delete updated[prop];
+		}
+
+		this.staging._set(name, updated);
+	}
+
+	/**
+	 * Commit all changes in stating after they have been validated.
+	 *
+	 * @throws {InvalidValue} if a value is not allowed for its field.
+	 */
+	commitStaging() {
+		const staging = this._staging;
+		if (!staging) {
+			return; // Nothing to commit
+		}
+
+		// Validate all fields using the current state of staging
+		const config = staging.config;
+		for (const [fieldName, fieldDef] of Object.entries(this.constructor.fieldDefinitions)) {
+			if (fieldDef.validator) {
+				try {
+					fieldDef.validator(config.fields[fieldName as keyof Fields], config);
+				} catch (err: any) {
+					throw new InvalidValue(`Failed validation of ${fieldName}: ${err.message}`);
+				}
+			}
+		}
+
+		// Validation success, set all values which have changed
+		for (const fieldName of staging.changes) {
+			this._set(fieldName, config.fields[fieldName]);
+		}
+	}
+
+	/** Revert all changes in staging */
+	revertStaging() {
+		this._staging = undefined;
 	}
 }
