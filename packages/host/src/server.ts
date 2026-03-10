@@ -887,7 +887,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		try {
 			this._whitelistWatcher = fs.watch(filePath);
 		} catch (err: any) {
-			this._logger.error(`Unable to watch whitelist, bidirectional sync will not be available:\n${err}`);
+			this._logger.warn(`Unable to watch whitelist, bidirectional sync will not be available:\n${err}`);
 			return;
 		}
 
