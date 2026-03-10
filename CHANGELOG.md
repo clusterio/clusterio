@@ -31,6 +31,66 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.23
+
+### Major Features
+
+- Added automatic headless download and update on linux. [#330](https://github.com/clusterio/clusterio/issues/330)
+- Added recipe notification sync to inventory sync. [#506](https://github.com/clusterio/clusterio/issues/506)
+
+### Features
+
+- Added config lock files to prevent process duplication. [#815](https://github.com/clusterio/clusterio/issues/815)
+- Added process and system start times to system metrics. [#826](https://github.com/clusterio/clusterio/issues/826)
+- Added icons to status tags for host and instances. [#827](https://github.com/clusterio/clusterio/issues/827)
+- Extended export-data to produce separate spritesheets for recipes, signals, technologies, planets, qualities, entities, and static UI icons. [#838](https://github.com/clusterio/clusterio/pull/838)
+- Added Icon Reference page to web interface at `/icon-reference` for browsing all exported icons. [#838](https://github.com/clusterio/clusterio/pull/838)
+- Added visual flash to RCON result box to confirm command execution, even when the output is identical to the previous result. [#793](https://github.com/clusterio/clusterio/issues/793)
+
+### Changes
+
+- Login screen now displays the cluster name. [#818](https://github.com/clusterio/clusterio/issues/818)
+- Instance versions can now be set using Major.Minor without specifing a patch version. [#820](https://github.com/clusterio/clusterio/issues/820)
+- Versions for factorio and modpacks can now be selected using a drop down menu. [#820](https://github.com/clusterio/clusterio/issues/820)
+- The controller will now refuse to start if no users were loaded from file. [#814](https://github.com/clusterio/clusterio/issues/814)
+- Improved wording and display of the generate host token modal. [#828](https://github.com/clusterio/clusterio/issues/828)
+- Installations where muliple conflicting clusterio/lib packages have been installed will now fail with an error [#863](https://github.com/clusterio/clusterio/issues/863).
+- Export completion now logs per-category icon counts. [#838](https://github.com/clusterio/clusterio/pull/838)
+
+### Fixes
+
+- Removed debug log statement from equipment grid serialization. [#XXX](https://github.com/clusterio/clusterio/pull/XXX)
+- Fix that the documentation had a dead link to details of the message passing protocol (#812)
+- Fixed case where achievements were not disabled. [#817](https://github.com/clusterio/clusterio/pull/817)
+- Fix headless download on linux install. [#815](https://github.com/clusterio/clusterio/issues/816)
+- Fix option `--no-download-headless` being ignored. [#815](https://github.com/clusterio/clusterio/issues/816)
+- Fixed action buttons overflowing on narrow screens across the web interface. [#810](https://github.com/clusterio/clusterio/issues/810)
+- Fixed player logistics failing to load on servers without unlocked logistics networks. [#1234](https://github.com/clusterio/clusterio/issues/1234)
+- Fixed mod dependency parser breaking with inconsistent spaces. [#834](https://github.com/clusterio/clusterio/issues/834)
+- No longer attempts to sync inventory in single player. [#835](https://github.com/clusterio/clusterio/issues/835)
+- Fixed tests failing when the configured factorio_directory contains stuff other than Factorio installs [#540](https://github.com/clusterio/clusterio/issues/540).
+- Always create a whitelist file so it can be watched for changes. [#865](https://github.com/clusterio/clusterio/issues/865)
+- Added missing await statements which could cause an instance to start with an outdated admin/ban/whitelist. [#869](https://github.com/clusterio/clusterio/issues/869)
+- Fixed metrics breaking when labels contain comma or equal signs [#861](https://github.com/clusterio/clusterio/issues/861)
+- Fixed Host page show repeated errors when viewing an offline local host [#848](https://github.com/clusterio/clusterio/issues/848)
+- Fixed bad mod paths in icon specifications crashing the export. [#841](https://github.com/clusterio/clusterio/issues/841)
+- Fixed prototypes with no icon data causing errors during export. [#841](https://github.com/clusterio/clusterio/issues/841)
+
+### Breaking Changes
+
+- Custom permission methods should use `IUser` rather than `IControllerUser` [#837](https://github.com/clusterio/clusterio/pull/837)
+- `controller.userManager` has been refactored, see PR for details. [#837](https://github.com/clusterio/clusterio/pull/837)
+- `controller.instances` has been refactored, see PR for details. [#837](https://github.com/clusterio/clusterio/pull/837)
+- `User/Instance/HostInfo` renamed to `User/Instance/HostRecord` [#837](https://github.com/clusterio/clusterio/pull/837)
+- Removed `host.tls_ca` and `control.tls_ca` config options, see [section on self signed certificates](https://github.com/clusterio/clusterio/blob/master/docs/setting-up-tls.md#creating-and-using-a-self-signed-certificate) for the replacement for this option [#857](https://github.com/clusterio/clusterio/issues/857)
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Daniel](https://github.com/Danielv123)
+[@Double](https://github.com/DoubleThoughtTheProgrammer)
+[@Hornwitser](https://github.com/Hornwitser)
+[@Ryan Walker](https://github.com/solarcloud7)
+
 ## Version 2.0.0-alpha.22
 
 ### Major Features
