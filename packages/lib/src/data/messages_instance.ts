@@ -102,6 +102,30 @@ export class InstanceConfigGetRequest {
 	}
 }
 
+export class InstanceConfigSetRequest {
+	declare ["constructor"]: typeof InstanceConfigSetRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.update_config" as const;
+
+	constructor(
+		public instanceId: number,
+		public fields: Record<string, string | Record<string, string>>,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instanceId": Type.Integer(),
+		"fields": Type.Record(Type.String(), Type.Union([
+			Type.String(), Type.Record(Type.String(), Type.String()),
+		])),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.instanceId, json.fields);
+	}
+}
+
 export class InstanceConfigSetFieldRequest {
 	declare ["constructor"]: typeof InstanceConfigSetFieldRequest;
 	static type = "request" as const;

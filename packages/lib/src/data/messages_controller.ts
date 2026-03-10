@@ -37,6 +37,28 @@ export class ControllerConfigGetRequest {
 	static Response = plainJson(ControllerConfig.jsonSchema);
 }
 
+export class ControllerConfigSetRequest {
+	declare ["constructor"]: typeof ControllerConfigSetRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.update_config" as const;
+
+	constructor(
+		public fields: Record<string, string | Record<string, string>>,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"fields": Type.Record(Type.String(), Type.Union([
+			Type.String(), Type.Record(Type.String(), Type.String()),
+		])),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.fields);
+	}
+}
+
 export class ControllerConfigSetFieldRequest {
 	declare ["constructor"]: typeof ControllerConfigSetFieldRequest;
 	static type = "request" as const;
