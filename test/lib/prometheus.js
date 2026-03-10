@@ -653,12 +653,11 @@ describe("lib/prometheus", function() {
 				);
 
 				let labelValue = "";
+				// Include every ASCII codepoint
 				for (let i = 0; i < 128; i++) {
-					const char = String.fromCodePoint(i);
-					if (!/[1-9B-Zb-z]/.test(char)) { // exclude boring characters
-						labelValue += char;
-					}
+					labelValue += String.fromCodePoint(i);
 				}
+				// Include Unicode codepoints from the basic and supplementary planes.
 				labelValue += "©💣";
 
 				gauge.labels(labelValue, "2");
