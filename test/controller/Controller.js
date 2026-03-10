@@ -252,6 +252,28 @@ describe("controller/src/Controller", function() {
 				assert.equal(controller.config.restartRequired, true);
 			});
 		});
+
+		describe(".factorioVersions", function() {
+			const _fetch = global.fetch;
+			const fetchCalls = [];
+			before(function() {
+				global.fetch = async (url) => {
+					fetchCalls.push(url);
+					return { ok: false, status: 503, statusText: "Service Unavailable" };
+				};
+			});
+			it("should handle fetch failure", async function() {
+				await assert.deepEqual(
+					await controller.factorioVersions.get(0),
+					[],
+				);
+				assert(fetchCalls.length === 1, "expected one fetch call");
+				assert(fetchCalls[0].indexOf("/download") !== -1, "fetch call to be to a URL with /download in it");
+			});
+			after(function() {
+				global.fetch = _fetch;
+			});
+		});
 	});
 	describe("finalise", function() {
 		describe(".finaliseHosts()", function() {
