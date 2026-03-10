@@ -844,7 +844,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_adminlist") !== "disabled") {
 			this.logger.verbose("Writing server-adminlist.json");
-			lib.safeOutputFile(
+			await lib.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._host.adminlist], null, "\t")
 			);
@@ -852,7 +852,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_banlist") !== "disabled") {
 			this.logger.verbose("Writing server-banlist.json");
-			lib.safeOutputFile(
+			await lib.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._host.banlist].map(
 					([username, reason]) => ({ username, reason })
@@ -862,7 +862,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_whitelist") !== "disabled") {
 			this.logger.verbose("Writing server-whitelist.json");
-			lib.safeOutputFile(
+			await lib.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._host.whitelist], null, "\t")
 			);
