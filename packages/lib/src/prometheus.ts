@@ -272,18 +272,31 @@ function labelsToKey(labels: LabelValues, metricLabels: string[]) {
 function keyToLabels(key: string) {
 	let labels = new Map<string, string>();
 
-	if (key !== "") {
-		for (let pair of key.split(",")) {
-			let [name, value] = pair.split("=", 2);
-			if (!name || value === undefined) {
-				continue;
+	let pos = 0;
+	let matchLabel = /([^=]+)="(([^\\"]|\\["n\\])+)"/y;
+	while (pos < key.length) {
+		if (pos !== 0) {
+			/* istanbul ignore if */
+			if (key[pos] !== ",") {
+				// Should be unreachable
+				throw Error(`Expected , at pos ${pos} in "${key}"`);
 			}
+			pos += 1;
+		}
+		matchLabel.lastIndex = pos;
+		const match = matchLabel.exec(key);
+		/* istanbul ignore else */
+		if (match) {
+			let [, name, value] = match;
 			labels.set(name, value
-				.slice(1, -1)
 				.replace(/\\"/g, "\"")
 				.replace(/\\n/g, "\n")
 				.replace(/\\\\/g, "\\")
 			);
+			pos += match[0].length;
+		} else {
+			// Should be unreachable
+			throw new Error(`Failed to parse label at pos ${pos} in "${key}"`);
 		}
 	}
 

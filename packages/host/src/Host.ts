@@ -74,6 +74,10 @@ async function discoverInstances(instancesDir: string) {
 	return instances;
 }
 
+// Requests that wake up instances are responsible for making sure the
+// instance status is correctly updated even if they fail with an error. This
+// means they should typically use try catch on anything that can throw
+// and call notifyExit upon any errors.
 const instanceStartingMessages = new Set([
 	lib.InstanceStartRequest.name,
 	lib.InstanceLoadScenarioRequest.name,

@@ -1,7 +1,7 @@
 import { Static, Type } from "@sinclair/typebox";
-import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data";
+import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data/version";
 
-const ARCHIVE_URL = "https://factorio.com/download/archive";
+const ARCHIVE_URL = "https://factorio.com/download/archive/";
 
 /**
  * Represents the parsed result of a factorio version

@@ -81,7 +81,6 @@ export default class HostConnection extends BaseConnection {
 		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
-		this.handle(lib.FactorioVersionsRequest, this.handleFactorioVersionsRequest.bind(this));
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.snoopInstanceAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.snoopInstanceBanlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceWhitelistUpdateEvent, this.snoopInstanceWhitelistUpdateEvent.bind(this));
@@ -357,10 +356,6 @@ export default class HostConnection extends BaseConnection {
 			reason: event.reason,
 			stats: event.stats,
 		});
-	}
-
-	async handleFactorioVersionsRequest(request: lib.FactorioVersionsRequest) {
-		return await this._controller.factorioVersions.get(request.maxAgeMs);
 	}
 
 	async snoopInstanceAdminlistUpdateEvent(event: lib.InstanceAdminlistUpdateEvent, src: lib.Address) {

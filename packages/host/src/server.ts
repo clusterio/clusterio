@@ -978,6 +978,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			.sort((v1, v2) => versionOrder(v1.version, v2.version))
 			[0];
 
+		if (!latestVersion) {
+			return;
+		}
+
 		const installedVersions = await listFactorioVersions(this._factorioDir);
 		if (!installedVersions.versions.has(latestVersion.version)) {
 			const v = latestVersion.version;
