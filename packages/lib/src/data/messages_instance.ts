@@ -111,13 +111,13 @@ export class InstanceConfigSetRequest {
 
 	constructor(
 		public instanceId: number,
-		public fields: Record<string, string | Record<string, string>>,
+		public fields: Record<string, string | Record<string, unknown>>,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
 		"fields": Type.Record(Type.String(), Type.Union([
-			Type.String(), Type.Record(Type.String(), Type.String()),
+			Type.String(), Type.Record(Type.String(), Type.Unknown()),
 		])),
 	});
 

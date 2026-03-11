@@ -45,12 +45,12 @@ export class ControllerConfigSetRequest {
 	static permission = "core.controller.update_config" as const;
 
 	constructor(
-		public fields: Record<string, string | Record<string, string>>,
+		public fields: Record<string, string | Record<string, unknown>>,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"fields": Type.Record(Type.String(), Type.Union([
-			Type.String(), Type.Record(Type.String(), Type.String()),
+			Type.String(), Type.Record(Type.String(), Type.Unknown()),
 		])),
 	});
 

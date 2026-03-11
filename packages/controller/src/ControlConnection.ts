@@ -315,23 +315,24 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceConfigSetRequest(request: lib.InstanceConfigSetRequest) {
+		const instance = this._controller.instances.getForRequest(request.instanceId);
 		try {
 			for (const [fieldName, fieldValue] of Object.entries(request.fields)) {
 				ControlConnection.validateInstanceConfigSetField(fieldName);
 				if (typeof fieldValue === "object") {
 					for (const [propName, propValue] of Object.entries(fieldValue)) {
-						this._controller.config.stageProp(
-							fieldName as keyof lib.ControllerConfigFields, propName, propValue, "control"
+						instance.config.stageProp(
+							fieldName as keyof lib.InstanceConfigFields, propName, propValue, "control"
 						);
 					}
 				} else {
-					this._controller.config.stage(fieldName as keyof lib.ControllerConfigFields, fieldValue, "control");
+					instance.config.stage(fieldName as keyof lib.InstanceConfigFields, fieldValue, "control");
 				}
 			}
 
-			this._controller.config.commitStaging();
+			instance.config.commitStaging();
 		} finally {
-			this._controller.config.revertStaging();
+			instance.config.revertStaging();
 		}
 	}
 

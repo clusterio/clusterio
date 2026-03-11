@@ -9,7 +9,6 @@ import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
 import { safeOutputFile } from "../file_ops";
 import * as validators from "./validators";
-import { string } from "yargs";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -208,7 +207,7 @@ export class Config<
 	 * Note that mutating this object will lead to unexpected behaviour.
 	 */
 	declare static fieldDefinitions: ConfigDefs<any>;
-	declare ["constructor"]: typeof Config;
+	declare ["constructor"]: typeof Config<Fields>;
 
 	/** A set of common validators and validator factories */
 	static validators = validators;
@@ -272,14 +271,14 @@ export class Config<
 	}
 
 	/** A staging version of the config with changes tracked, invalided by revertStaging */
-	private _staging?: { config: Config<Fields>, changes: Set<keyof Fields & string> };
+	private _staging?: { config: Config<Fields>, changes: Set<string>};
 
 	/** Get the latest version of staging */
 	get staging(): Config<Fields> {
 		if (this._staging) { return this._staging.config; }
-		const config = new this.constructor(this.location, this.fields) as this;
-		const changes = new Set<keyof Fields & string>();
-		config.on("fieldChanged", name => changes.add(name as keyof Fields & string));
+		const config = new this.constructor(this.location, this.fields);
+		const changes = new Set<string>();
+		config.on("fieldChanged", name => changes.add(name));
 		this._staging = { config, changes };
 		return config;
 	}
@@ -832,7 +831,8 @@ export class Config<
 
 		// Validation success, set all values which have changed
 		for (const fieldName of staging.changes) {
-			this._set(fieldName, config.fields[fieldName]);
+			const field = fieldName as keyof Fields & string;
+			this._set(field, config.fields[field]);
 		}
 	}
 

@@ -164,7 +164,15 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 								const [fieldName, prop] = propsMap.get(field)!;
 								const fieldValue = (fields[fieldName] ?? {}) as Record<string, string>;
 								fields[fieldName] = fieldValue;
-								fieldValue[prop] = value ? JSON.parse(value) : undefined;
+								try {
+									fieldValue[prop] = value ? JSON.parse(value) : undefined;
+								} catch (err: any) {
+									setErrorFields(errors => {
+										const newErrors = new Map(errors);
+										newErrors.set(fieldName, err.message);
+										return newErrors;
+									});
+								}
 
 							} else {
 								fields[field] = value === null ? "" : String(value);
