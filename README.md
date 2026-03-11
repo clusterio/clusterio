@@ -146,7 +146,7 @@ Your instances (save files etc) will be stored there.
 
     Make sure to note down the admin authentication token it provides at the end as you will need it later.
 
-3.  If you chose to use local factorio directory for the Factorio installation, download the Windows 64-bit zip package from https://www.factorio.com/download and extract it to the `factorio` folder in your clusterio installation folder.
+3.  If you chose to use the local `factorio` directory for the Factorio installation, you can let the installer download the latest headless release automatically, or manually download the Windows 64-bit zip package from https://www.factorio.com/download and extract it to the `factorio` folder in your clusterio installation folder.
 
 
 ### MacOS Setup
