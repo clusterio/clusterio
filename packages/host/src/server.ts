@@ -19,7 +19,7 @@ const execFileAsync = util.promisify(child_process.execFile);
  * @param factorioDir - Path factorio dir containing data/changelog.txt.
  */
 async function getFactorioVersion(factorioDir: string) {
-	let changelog;
+	let changelog: string;
 	const changelogPath = path.join(factorioDir, "data", "changelog.txt");
 	try {
 		changelog = await fs.readFile(changelogPath, "utf-8");
@@ -106,34 +106,40 @@ async function listFactorioVersions(factorioDir: string) {
  * @throws Network error if status of request is not ok
  */
 async function downloadAndExtractZip(url: string, targetDir: string) {
-	const res = await fetch(url);
-	if (!res.ok) {
-		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
-	}
+	const res = await fetchDownload(url);
 
-  	// Load the ZIP with JSZip
+	// Load the ZIP with JSZip
 	const buffer = Buffer.from(await res.arrayBuffer());
 	const zip = await JSZip.loadAsync(buffer);
+	const tmpTargetDir = `${targetDir}.tmp-extract`;
+	const stripRootDir = hasSingleArchiveRoot(Object.values(zip.files));
 
-  	// Extract each file/folder
-	await fs.ensureDir(targetDir);
-	await Promise.all(
-		Object.values(zip.files).map(async (entry) => {
-			const parts = entry.name.split("/").filter(Boolean);
-			const strippedPath = parts.slice(1).join("/");
-			if (!strippedPath) {
-				return; // This copies the behaviour of tar --strip-components 1
-			}
+	await fs.remove(tmpTargetDir);
+	await fs.ensureDir(tmpTargetDir);
+	try {
+		await Promise.all(
+			Object.values(zip.files).map(async (entry) => {
+				const parts = entry.name.split("/").filter(Boolean);
+				const strippedParts = stripRootDir ? parts.slice(1) : parts;
+				if (!strippedParts.length) {
+					return;
+				}
 
-			const entryPath = path.join(targetDir, strippedPath);
-			if (entry.dir) {
-				await fs.ensureDir(entryPath);
-			} else {
-				await fs.ensureDir(path.dirname(entryPath));
-				await fs.writeFile(entryPath, await entry.async("nodebuffer"));
-			}
-		})
-	);
+				const entryPath = validatedExtractPath(tmpTargetDir, strippedParts);
+				if (entry.dir) {
+					await fs.ensureDir(entryPath);
+				} else {
+					await fs.ensureDir(path.dirname(entryPath));
+					await fs.writeFile(entryPath, await entry.async("nodebuffer"));
+				}
+			})
+		);
+		await fs.remove(targetDir);
+		await fs.rename(tmpTargetDir, targetDir);
+	} catch (err) {
+		await fs.remove(tmpTargetDir);
+		throw err;
+	}
 }
 
 /**
@@ -144,10 +150,7 @@ async function downloadAndExtractZip(url: string, targetDir: string) {
  * @throws Network error if status of request is not ok
  */
 async function downloadAndExtractTar(url: string, targetDir: string) {
-	const res = await fetch(url);
-	if (!res.ok) {
-		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
-	}
+	const res = await fetchDownload(url);
 
 	// Write the buffer to a temp file
 	const tmpFilePath = `${targetDir}.tmp`;
@@ -157,7 +160,9 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 
 	// Execute tar CLI to extract
 	try {
-		await execFileAsync("tar", ["-xf", tmpFilePath, "-C", targetDir, "--strip-components", "1"]);
+		await execFileAsync("tar", [
+			"-xf", tarPath(tmpFilePath), "-C", tarPath(targetDir), "--strip-components", "1",
+		]);
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			throw new Error("error executing tar command, do you have 'xz-utils' installed?");
@@ -167,6 +172,57 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 		// Clean up temp file
 		await fs.remove(tmpFilePath);
 	}
+}
+
+async function fetchDownload(url: string) {
+	const res = await fetch(url);
+	if (res.status === 202) {
+		let detail = "";
+		try {
+			detail = await res.text();
+		} catch {
+		}
+		throw new Error(`Download is not ready yet for ${url}${detail ? `: ${detail}` : ""}`);
+	}
+	if (!res.ok) {
+		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+	}
+	return res;
+}
+
+function tarPath(filePath: string) {
+	if (process.platform === "win32") {
+		return filePath.replace(/\\/g, "/");
+	}
+	return filePath;
+}
+
+function hasSingleArchiveRoot(entries: JSZip.JSZipObject[]) {
+	const rootNames = new Set(
+		entries
+			.map(entry => entry.name.split("/").filter(Boolean)[0])
+			.filter((value): value is string => Boolean(value))
+	);
+	return rootNames.size === 1;
+}
+
+function validatedExtractPath(rootDir: string, parts: string[]) {
+	const entryPath = path.resolve(rootDir, ...parts);
+	const relative = path.relative(rootDir, entryPath);
+	if (relative.startsWith("..") || path.isAbsolute(relative)) {
+		throw new Error(`Refusing to extract unsafe ZIP entry ${parts.join("/")}`);
+	}
+	return entryPath;
+}
+
+function getHeadlessDownload(version: lib.ExternalFactorioVersion) {
+	if (process.platform === "linux") {
+		return { url: version.headlessUrl, extract: downloadAndExtractTar };
+	}
+	if (process.platform === "win32" && version.windowsHeadlessUrl) {
+		return { url: version.windowsHeadlessUrl, extract: downloadAndExtractZip };
+	}
+	return null;
 }
 
 /**
@@ -749,7 +805,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		;
 
 		let type = line.subarray(channelEnd + 1, channelEnd + 2).toString("utf-8");
-		let content;
+		let content: unknown;
 		if (type === "j") {
 			try {
 				content = JSON.parse(line.subarray(channelEnd + 2).toString("utf-8"));
@@ -905,7 +961,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 				return;
 			}
 
-			let newWhitelistJson;
+			let newWhitelistJson: unknown;
 			try {
 				newWhitelistJson = await fs.readJSON(filePath);
 			} catch (err: any) {
@@ -985,8 +1041,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		const installedVersions = await listFactorioVersions(this._factorioDir);
 		if (!installedVersions.versions.has(latestVersion.version)) {
 			const v = latestVersion.version;
-			// Can't download if not linux or this is a direct install
-			if (installedVersions.direct || process.platform !== "linux") {
+			const download = getHeadlessDownload(latestVersion);
+			if (installedVersions.direct || !download) {
 				this._logger.info(`A newer version of factorio is available (${v}) but must be manually downloaded`);
 				return;
 			}
@@ -994,8 +1050,18 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			// Download the newer version
 			this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
 			const dst = path.join(this._factorioDir, latestVersion.version);
-			await downloadAndExtractTar(latestVersion.headlessUrl, dst);
-			this._logger.info(`Downloaded factorio version ${v}`);
+			try {
+				await download.extract(download.url, dst);
+				this._logger.info(`Downloaded factorio version ${v}`);
+			} catch (err: unknown) {
+				if (installedVersions.versions.size > 0) {
+					this._logger.warn(
+						`Failed to download factorio version ${v}, continuing with installed versions: ${err}`
+					);
+					return;
+				}
+				throw err;
+			}
 		}
 	}
 
@@ -1051,7 +1117,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 					}
 
 				} else if (this._unexpected.length === 0) {
-					let msg;
+					let msg: string;
 					if (code !== null) {
 						msg = `Factorio server unexpectedly shut down with code ${code}`;
 					} else {

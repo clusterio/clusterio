@@ -2,6 +2,7 @@ import { Static, Type } from "@sinclair/typebox";
 import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data/version";
 
 const ARCHIVE_URL = "https://factorio.com/download/archive/";
+const WINDOWS_HEADLESS_BASE_URL = "https://factorio-repackager.fly.dev/get-download";
 
 /**
  * Represents the parsed result of a factorio version
@@ -10,9 +11,10 @@ export const ExternalFactorioVersionSchema = Type.Object({
 	stable: Type.Boolean(),
 	version: FullVersionSchema,
 	headlessUrl: Type.String(),
+	windowsHeadlessUrl: Type.Optional(Type.String()),
 });
 
-export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>
+export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>;
 
 /**
  * Fetch all factorio versions that support headless
@@ -21,7 +23,7 @@ export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchem
  * @throws Network errors and non-ok status responses
  */
 export async function fetchFactorioVersions(): Promise<ExternalFactorioVersion[]> {
-	let res;
+	let res: Response;
 
 	try {
 		res = await fetch(ARCHIVE_URL);
@@ -48,11 +50,11 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 
 	// Match <a class=" slot-button-inline version-button-stable " href="/download/archive/2.0.72">2.0.72</a>
 	// eslint-disable-next-line max-len
-	const anchorRegex = /<a[^>]*class="[^"]*version-button-(?<kind>stable|experimental)[^"]*"[^>]*href="[^"]*\/download\/archive\/(?<version>\d+\.\d+.\d+)"[^>]*>/g;
+	const anchorRegex = /<a[^>]*class="[^"]*version-button-(?<kind>stable|experimental)[^"]*"[^>]*href="[^"]*\/download\/archive\/(?<version>\d+\.\d+\.\d+)"[^>]*>/g;
 
-	let match: RegExpExecArray | null;
+	let match = anchorRegex.exec(html);
 	const minimumMultiplayerVersion = integerFullVersion("0.12.35");
-	while ((match = anchorRegex.exec(html)) !== null) {
+	while (match !== null) {
 		const kind = match.groups?.kind;
 		const version = match.groups?.version;
 
@@ -61,8 +63,10 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 				version: version,
 				stable: kind === "stable",
 				headlessUrl: `https://www.factorio.com/get-download/${version}/headless/linux64`,
+				windowsHeadlessUrl: `${WINDOWS_HEADLESS_BASE_URL}/${version}/headless/win64`,
 			});
 		}
+		match = anchorRegex.exec(html);
 	}
 
 	return [...versions.values()];
