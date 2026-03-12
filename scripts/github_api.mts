@@ -72,8 +72,8 @@ export async function githubFetchJsonPaginated<T>(
 	return data;
 }
 
-// Minimal types that include only what used and is useful for our scripts.  See
-// https://docs.github.com/en/rest?apiVersion=2022-11-28 for complete reference.
+// Minimal types that include only what is used and useful for our scripts.  See
+// https://docs.github.com/en/rest for complete reference.
 export interface PullRequest {
 	number: number,
 	url: string,

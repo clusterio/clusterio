@@ -45,7 +45,7 @@ function skipToLine(
 	pattern: RegExp
 ) {
 	for (; parser.pos < parser.lines.length; parser.pos++) {
-		if (pattern.test(parser.lines[parser.pos])) {
+		if (pattern.test(currentLine(parser))) {
 			return success;
 		}
 	}
@@ -53,7 +53,7 @@ function skipToLine(
 }
 
 function skipEmptyLines(parser: ParserState) {
-	while (parser.pos < parser.lines.length && /^ *$/.test(parser.lines[parser.pos])) {
+	while (parser.pos < parser.lines.length && /^ *$/.test(currentLine(parser))) {
 		parser.pos += 1;
 	}
 }
@@ -87,12 +87,12 @@ function extractPullRequestChangelog(
 	return [success, parser.lines.slice(blockStartPos, parser.pos)];
 }
 
-function parseChangelog(parser: ParserState, issues: Issue[]): [Changelog, string[]] {
+function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Changelog, string[]] {
 	let section: string | undefined;
 	let changelog: Changelog = Object.create(null);
 	let warnings: string[] = [];
 	while (!atEnd(parser)) {
-		const line = parser.lines[parser.pos];
+		const line = currentLine(parser);
 		parser.pos += 1;
 		if (line.trim() === "") {
 			continue;
@@ -100,13 +100,15 @@ function parseChangelog(parser: ParserState, issues: Issue[]): [Changelog, strin
 		if (line.startsWith("###")) {
 			section = line.slice(4).trim();
 			if (!changelogSections.includes(section)) {
-				warnings.push(`Unrecognised changelog section ${section} at line ${parser.pos}`);
+				warnings.push(
+					`Changelog section ${section} on line ${parser.pos} is not one of ${changelogSections.join(", ")}`
+				);
 			}
 			changelog[section] = changelog[section] ?? [];
 			continue;
 		}
 		if (!section) {
-			warnings.push(`Unexpected content "${line}" outside changelog section at line ${parser.pos}`);
+			warnings.push(`Unexpected content "${line}" outside of a changelog section on line ${parser.pos}`);
 			continue;
 		}
 		if (line.startsWith("- ")) {
@@ -118,17 +120,26 @@ function parseChangelog(parser: ParserState, issues: Issue[]): [Changelog, strin
 			for (const ref of entry.matchAll(/#(\d+)/g)) {
 				hasRef = true;
 				const id = Number.parseInt(ref[1], 10);
-				if (!issues.some(issue => issue.number === id)) {
-					warnings.push(`Unrecognised issue reference ${ref[0]} at line ${parser.pos}`);
+				const refIssue = issues.find(issue => issue.number === id);
+				if (!refIssue) {
+					warnings.push(
+						`Issue reference ${ref[0]} on line ${parser.pos} does not exist ` +
+						"or has not been updated since the last release"
+					);
+				} else if (refIssue.pull_request && refIssue.number !== pr.number) {
+					warnings.push(
+						`Pull request reference ${ref[0]} on line ${parser.pos} is to a ` +
+						"different Pull request than this one."
+					);
 				}
 			}
 			if (!hasRef) {
-				warnings.push(`Changelog entry does not reference an issue line ${parser.pos}`);
+				warnings.push(`Changelog entry on line ${parser.pos} does not reference an issue`);
 			}
 			changelog[section].push(entry);
 			continue;
 		}
-		warnings.push(`Unrecognised changelog entry at line ${parser.pos}`);
+		warnings.push(`Unexpected content "${line}" on line ${parser.pos}`);
 	}
 	return [changelog, warnings];
 }
@@ -145,7 +156,7 @@ function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 			console.error(`Failed to extract changelog in ${pr.html_url}: ${changelogFailReason}`)
 			continue;
 		}
-		const [changelog, warnings] = parseChangelog(createParser(changelogLines), issues);
+		const [changelog, warnings] = parseChangelog(createParser(changelogLines), pr, issues);
 		for (const warning of warnings) {
 			console.warn(`Warning in changelog for ${pr.html_url}: ${warning}`)
 		}
@@ -157,6 +168,7 @@ function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 }
 
 async function fetchLastRelease() {
+	// Assumes releases are ordered by their creation or tag time in descending order.
 	const releases = await githubFetchJson<Release[]>("/repos/clusterio/clusterio/releases");
 	const latest = releases.find(r => r.target_commitish === "master");
 	if (!latest) {
@@ -168,7 +180,7 @@ async function fetchLastRelease() {
 async function fetchIssuesUpdatedSince(since: string) {
 	return await githubFetchJsonPaginated<Issue>(
 		"/repos/clusterio/clusterio/issues",
-		{ state: "all", since, sort: "updated", direction: "asc", per_page: "100" },
+		{ state: "all", since, sort: "updated", direction: "asc" },
 	);
 }
 

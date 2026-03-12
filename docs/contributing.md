@@ -137,7 +137,8 @@ You can also pass the `--set-upstream` (or `-u`) flag to make `git push` do the 
 After your feature branch have been merged you should consider it final.
 If there are more changes you want to have merged or mistakes you need to fix you must start a new feature branch and submit a new pull request.
 
-Pull request descriptions should contain a `### Changelog` section with additions for the changelog contained inside a code block, see the [CHANGELOG.md](/CHANGELOG.md) file for the formatting of changelog entries. If there are no changelog entries to add, start the changelog section with the text `None.`, followed by an optional reason for why it is not is needed.
+Pull request descriptions should contain a `### Changelog` section with additions for the changelog contained inside a code block, see the [CHANGELOG.md](/CHANGELOG.md) file for the formatting of changelog entries and possible sections to use.
+If there are no changelog entries to add, remove the code block and start the changelog section with the text `None.`, followed by an optional reason for why it is not is needed.
 
 ### Editing your Feature Branch
 

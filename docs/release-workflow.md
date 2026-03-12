@@ -5,9 +5,9 @@
 - CHANGELOG.md in the repository root
 - The changelog.txt file in mod directories
 
-Pull requests will usually have suggestions for changelog entries. These can be automatically parsed and formatted by running `node scripts/pr_to_changelog.mts`, though you will have to manually sort through which should go in the changelog in the repository root and which should go in changelog the mod directories.
+Pull requests will usually have suggestions for changelog entries. These can be automatically parsed and formatted by running `node scripts/pr_to_changelog.mts`, though you will have to manually sort through which should go in the changelog in the repository root and which should go in the changelogs in mod directories.
 
-If the script fails due to rate limits, you can set the `GH_TOKEN` environment variable to a fine-grained personal access token to get a higher rate limit.
+If the script fails due to GitHub's 60/hour public access rate limit, you can set the `GH_TOKEN` environment variable to a fine-grained personal access token which has a much higher rate limits.
 
 ## Packages
 
