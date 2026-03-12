@@ -4,7 +4,7 @@ import { Input, Table, Typography } from "antd";
 import * as lib from "@clusterio/lib";
 import {
 	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext,
-	notifyErrorHandler, useItemMetadata, useLocale,
+	notifyErrorHandler, useItemMetadata, useFluidMetadata, useLocale,
 } from "@clusterio/web_ui";
 import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages";
 
@@ -34,13 +34,14 @@ function StoragePage() {
 	let control = useContext(ControlContext);
 	let locale = useLocale();
 	let itemMetadata = useItemMetadata();
+	let fluidMetadata = useFluidMetadata();
 	let storage = useStorage(control);
 	type ItemFilter = ([name, item]: [string, Item]) => boolean;
 	let [filter, setFilter] = useState<null | ItemFilter>(null);
 
 	function getLocaleName(itemName: string) {
 		let localeName = itemName;
-		let meta = itemMetadata.get(itemName);
+		let meta = itemMetadata.get(itemName) ?? fluidMetadata.get(itemName);
 		if (meta && meta.localised_name) {
 			// TODO: implement the locale to name conversion.
 			if (typeof meta.localised_name === "string") {
@@ -98,10 +99,21 @@ function StoragePage() {
 					},
 					render: (_, item) => {
 						let localeName = getLocaleName(item[1].name);
-						let hasMeta = itemMetadata.get(item[1].name);
+						let type;
+						let name;
+						if (itemMetadata.has(item[1].name)) {
+							type = "item";
+							name = item[1].name;
+						} else if (fluidMetadata.has(item[1].name)) {
+							type = "fluid";
+							name = item[1].name;
+						} else {
+							type = "item";
+							name = "unknown-item";
+						}
 
 						return <>
-							<span className={`factorio-icon item-${hasMeta ? item[1].name : "unknown-item"}`}/>
+							<span className={`factorio-icon ${type}-${name}`}/>
 							{localeName}
 						</>;
 					},

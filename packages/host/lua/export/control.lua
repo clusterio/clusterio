@@ -9,4 +9,5 @@ script.on_init(function()
 	for name, mod_setting in pairs(mod_settings) do
 		send_json("mod_setting_mod", { name = name, mod = mod_setting.mod })
 	end
+	send_json("defines", defines)
 end)

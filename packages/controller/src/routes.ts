@@ -241,6 +241,7 @@ async function uploadExport(req: Request, res: Response) {
 		"export/settings.json",
 		"export/prototypes.json",
 		"export/locale.json",
+		"export/defines.json",
 		"export/spritesheet.png",
 		"export/metadata.json",
 	];

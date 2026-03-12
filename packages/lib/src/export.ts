@@ -105,16 +105,25 @@ export type FactorioModSettingPrototype =
  * @see [Data.raw](https://lua-api.factorio.com/stable/types/Data.html#raw)
  */
 export type FactorioPrototypes<Prototype = FactorioPrototypeBase> = Record<string, Record<string, Prototype>>
+export type FactorioDefinesValue = number | string | { [index: string]: FactorioDefinesValue };
+export type FactorioDefines = {
+	[index: string]: FactorioDefinesValue,
+	prototypes: Record<string, Record<string, number>>,
+};
 
 export type ExportSettings = FactorioPrototypes<FactorioModSettingPrototype>;
 export type ExportPrototypes = FactorioPrototypes;
 export type ExportLocale = [string, string][];
 export interface ExportMetadataEntry {
-	x: number,
-	y: number,
-	size: number,
+	name: string,
+	type: string,
 	localised_name?: FactorioLocalisedString,
-	category: string,
-	path?: string,
+	icon?: {
+		x: number,
+		y: number,
+		size: number,
+		path?: string,
+	},
 }
-export type ExportMetadata = [string, ExportMetadataEntry][];
+export type ExportMetadata = Record<string, ExportMetadataEntry[]>;
+export type ExportDefines = FactorioDefines;

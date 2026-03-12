@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useExportManifest } from "./export_manifest";
-import { ExportMetadataEntry } from "@clusterio/lib";
+import { ExportMetadata, ExportMetadataEntry } from "@clusterio/lib";
 
 
 const metadataCaches = new Map<string, Map<string, ExportMetadataEntry>>();
@@ -33,33 +33,35 @@ function useSpriteMetadata(category: string): Map<string, ExportMetadataEntry> {
 				return;
 			}
 
-			const data: [string, ExportMetadataEntry][] = await response.json();
+			const data: ExportMetadata = await response.json();
 
 			if (!cssInjected) {
 				const sheetUrl = `${staticRoot}static/${exportManifest.assets["spritesheet"]}`;
 				const style = document.createElement("style");
 				document.head.appendChild(style);
-				for (const [key, meta] of data) {
-					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
-					style.sheet!.insertRule(`\
-.${meta.category}-${CSS.escape(name)} {
+				for (const [baseName, prototypes] of Object.entries(data)) {
+					for (const prototype of prototypes) {
+						const icon = prototype.icon;
+						if (!icon) {
+							continue;
+						}
+						style.sheet!.insertRule(`\
+.${baseName}-${CSS.escape(prototype.name)} {
 	background-image: url("${sheetUrl}");
 	background-repeat: no-repeat;
-	background-position: -${meta.x}px -${meta.y}px;
-	height: ${meta.size}px;
-	width: ${meta.size}px;
+	background-position: -${icon.x}px -${icon.y}px;
+	height: ${icon.size}px;
+	width: ${icon.size}px;
 }`
-					);
+						);
+					}
 				}
 				cssInjected = true;
 			}
 
 			const cache = new Map<string, ExportMetadataEntry>();
-			for (const [key, meta] of data) {
-				if (meta.category === category) {
-					const name = key.includes(".") ? key.slice(key.indexOf(".") + 1) : key;
-					cache.set(name, meta);
-				}
+			for (const prototype of data[category] ?? []) {
+				cache.set(prototype.name, prototype);
 			}
 			metadataCaches.set(category, cache);
 			setMetadata(cache);
@@ -74,9 +76,10 @@ function useSpriteMetadata(category: string): Map<string, ExportMetadataEntry> {
 }
 
 export function useItemMetadata() { return useSpriteMetadata("item"); }
+export function useFluidMetadata() { return useSpriteMetadata("fluid"); }
 export function useRecipeMetadata() { return useSpriteMetadata("recipe"); }
-export function useSignalMetadata() { return useSpriteMetadata("signal"); }
+export function useVirtualSignalMetadata() { return useSpriteMetadata("virtual-signal"); }
 export function useTechnologyMetadata() { return useSpriteMetadata("technology"); }
-export function usePlanetMetadata() { return useSpriteMetadata("planet"); }
+export function useSpaceLocationMetadata() { return useSpriteMetadata("space-location"); }
 export function useQualityMetadata() { return useSpriteMetadata("quality"); }
 export function useEntityMetadata() { return useSpriteMetadata("entity"); }

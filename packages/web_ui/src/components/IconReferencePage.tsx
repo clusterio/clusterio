@@ -4,11 +4,12 @@ import { Card, Input, Space, Table, Tag, Typography } from "antd";
 import {
 	useItemMetadata,
 	useRecipeMetadata,
-	useSignalMetadata,
+	useVirtualSignalMetadata,
 	useTechnologyMetadata,
-	usePlanetMetadata,
+	useSpaceLocationMetadata,
 	useQualityMetadata,
 	useEntityMetadata,
+	useFluidMetadata,
 } from "../model/item_metadata";
 import { useExportManifest } from "../model/export_manifest";
 import PageHeader from "./PageHeader";
@@ -21,37 +22,45 @@ type IconEntry = {
 	category: string;
 	name: string;
 	cssClass: string;
-	size: number;
 	path?: string;
 };
 
 const CATEGORIES = [
-	"item", "recipe", "signal", "technology", "planet", "quality", "entity",
+	"item", "fluid", "recipe", "virtual-signal", "technology", "space-location", "quality", "entity",
 ] as const;
 
 type Category = typeof CATEGORIES[number];
 
 const CATEGORY_LABELS: Record<Category, string> = {
 	item: "Item",
+	fluid: "Fluid",
 	recipe: "Recipe",
-	signal: "Signal",
+	"virtual-signal": "Virtual Signal",
 	technology: "Technology",
-	planet: "Planet",
+	"space-location": "Space Location",
 	quality: "Quality",
 	entity: "Entity",
 };
 
 function useAllIconEntries() {
 	const item = useItemMetadata();
+	const fluid = useFluidMetadata();
 	const recipe = useRecipeMetadata();
-	const signal = useSignalMetadata();
+	const virtualSignal = useVirtualSignalMetadata();
 	const technology = useTechnologyMetadata();
-	const planet = usePlanetMetadata();
+	const spaceLocation = useSpaceLocationMetadata();
 	const quality = useQualityMetadata();
 	const entity = useEntityMetadata();
 
-	const byCategory: Record<Category, Map<string, { size: number; path?: string }>> = {
-		item, recipe, signal, technology, planet, quality, entity,
+	const byCategory: Record<Category, Map<string, { icon?: { path?: string }}>> = {
+		item,
+		fluid,
+		recipe,
+		"virtual-signal": virtualSignal,
+		technology,
+		"space-location": spaceLocation,
+		quality,
+		entity,
 	};
 
 	return useMemo(() => {
@@ -66,14 +75,13 @@ function useAllIconEntries() {
 					category,
 					name,
 					cssClass: `${category}-${CSS.escape(name)}`,
-					size: meta.size,
-					path: meta.path,
+					path: meta.icon?.path,
 				});
 			}
 		}
 
 		return entries;
-	}, [item, recipe, signal, technology, planet, quality, entity]);
+	}, [item, fluid, recipe, virtualSignal, technology, spaceLocation, quality, entity]);
 }
 
 export default function IconReferencePage() {
