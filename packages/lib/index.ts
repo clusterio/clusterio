@@ -39,6 +39,7 @@ export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as ModStore } from "./src/ModStore";
 export { default as RateLimiter } from "./src/RateLimiter";
 export { default as ValueCache } from "./src/ValueCache";
+export { default as isDeepStrictEqual } from "./src/is_deep_strict_equal";
 
 import { checkSingletonImport } from "./src/check_singleton_import";
 checkSingletonImport(__filename);
