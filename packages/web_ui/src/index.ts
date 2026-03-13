@@ -5,17 +5,20 @@ export { default as BaseWebPlugin } from "./BaseWebPlugin";
 export * from "./util/websocket";
 
 export * from "./model/account";
+export * from "./model/export_locale";
+export * from "./model/export_prototype_metadata";
 export * from "./model/host";
 export * from "./model/instance";
 export * from "./model/is_dragging";
-export * from "./model/locale";
-export * from "./model/item_metadata";
 export * from "./model/mod_pack";
 export * from "./model/mods";
 export * from "./model/roles";
 export * from "./model/saves";
 export * from "./model/system";
 export * from "./model/user";
+
+export * from "./store/export_locale_stores";
+export * from "./store/export_prototype_metadata_store";
 
 export { default as ControlContext } from "./components/ControlContext";
 
@@ -37,3 +40,5 @@ export { default as SavesList } from "./components/SavesList";
 export { default as SectionHeader } from "./components/SectionHeader";
 
 export { default as Link } from "./components/Link";
+
+export { default as FactorioIcon } from "./components/FactorioIcon";

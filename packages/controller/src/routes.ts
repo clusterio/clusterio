@@ -696,12 +696,12 @@ export const webRoutes = [
 	"/instances/:id/view",
 	"/mods",
 	"/mods/mod-packs/:id/view",
+	"/mods/mod-packs/:id/icon-reference",
 	"/users",
 	"/users/:id/view",
 	"/roles",
 	"/roles/:id/view",
 	"/plugins",
 	"/plugins/:name/view",
-	"/icon-reference",
 	"/error",
 ];

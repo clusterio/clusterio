@@ -1,10 +1,9 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Input, Table, Typography } from "antd";
 
-import * as lib from "@clusterio/lib";
 import {
-	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext,
-	notifyErrorHandler, useItemMetadata, useFluidMetadata, useLocale,
+	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext, notifyErrorHandler,
+	useExportLocale, useExportPrototypeMetadata, useDefaultModPack, FactorioIcon,
 } from "@clusterio/web_ui";
 import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages";
 
@@ -32,16 +31,18 @@ function useStorage(control: Control) {
 
 function StoragePage() {
 	let control = useContext(ControlContext);
-	let locale = useLocale();
-	let itemMetadata = useItemMetadata();
-	let fluidMetadata = useFluidMetadata();
+	const modPack = useDefaultModPack();
+	let locale = useExportLocale(modPack);
+	const prototypes = useExportPrototypeMetadata(modPack);
+	let itemMetadata = prototypes?.get("item");
+	let fluidMetadata = prototypes?.get("fluid");
 	let storage = useStorage(control);
 	type ItemFilter = ([name, item]: [string, Item]) => boolean;
 	let [filter, setFilter] = useState<null | ItemFilter>(null);
 
 	function getLocaleName(itemName: string) {
 		let localeName = itemName;
-		let meta = itemMetadata.get(itemName) ?? fluidMetadata.get(itemName);
+		let meta = itemMetadata?.get(itemName) ?? fluidMetadata?.get(itemName);
 		if (meta && meta.localised_name) {
 			// TODO: implement the locale to name conversion.
 			if (typeof meta.localised_name === "string") {
@@ -86,6 +87,7 @@ function StoragePage() {
 			/>
 		</Paragraph>
 		<Table
+			className="subspace-storage-storage"
 			columns={[
 				{
 					title: "Resource",
@@ -99,21 +101,11 @@ function StoragePage() {
 					},
 					render: (_, item) => {
 						let localeName = getLocaleName(item[1].name);
-						let type;
-						let name;
-						if (itemMetadata.has(item[1].name)) {
-							type = "item";
-							name = item[1].name;
-						} else if (fluidMetadata.has(item[1].name)) {
-							type = "fluid";
-							name = item[1].name;
-						} else {
-							type = "item";
-							name = "unknown-item";
-						}
+						let name = item[1].name;
+						const prototype = itemMetadata?.get(name) ?? fluidMetadata?.get(name);
 
 						return <>
-							<span className={`factorio-icon ${type}-${name}`}/>
+							<FactorioIcon modPackId={modPack?.id} prototype={prototype} />
 							{localeName}
 						</>;
 					},

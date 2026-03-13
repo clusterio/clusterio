@@ -320,7 +320,14 @@ body {
 	font-family: monospace;
 }
 
-.factorio-icon.item-unknown-item {
+.factorio-icon {
+	display: inline-block;
+	vertical-align: middle;
+	background-repeat: no-repeat;
+}
+
+/* data-mod-pack might not be present, but we need the specificity to win over it if it is */
+.factorio-icon:is([data-mod-pack],*)[data-unknown="true"] {
 	background: url("./images/unknown-item.png");
 	height: 32px;
 	width: 32px;

@@ -1,117 +1,56 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, Input, Space, Table, Tag, Typography } from "antd";
 
-import {
-	useItemMetadata,
-	useRecipeMetadata,
-	useVirtualSignalMetadata,
-	useTechnologyMetadata,
-	useSpaceLocationMetadata,
-	useQualityMetadata,
-	useEntityMetadata,
-	useFluidMetadata,
-} from "../model/item_metadata";
-import { useExportManifest } from "../model/export_manifest";
+import { useExportPrototypeMetadata } from "../model/export_prototype_metadata";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
+import FactorioIcon from "./FactorioIcon";
+import { useParams } from "react-router-dom";
+import { useModPack } from "../model/mod_pack";
+import { PrototypeMetadataEntry } from "../store/export_prototype_metadata_store";
 
 const { Text } = Typography;
 
-type IconEntry = {
-	key: string;
-	category: string;
-	name: string;
-	cssClass: string;
-	path?: string;
-};
+function filterPrototypes(
+	prototypes: Map<string, Map<string, PrototypeMetadataEntry>> | undefined,
+	filter: string
+) {
+	const query = filter.trim().toLowerCase();
+	return new Map(
+		[...prototypes ?? []].map(([baseType, entries]) => [
+			baseType,
+			new Map([...entries.entries()].filter(([name, entry]) => (
+				`${entry.base_type}.${name}`.includes(query)
+				|| `${entry.type}.${name}`.includes(query)
+			))),
+		]),
+	);
+}
 
-const CATEGORIES = [
-	"item", "fluid", "recipe", "virtual-signal", "technology", "space-location", "quality", "entity",
-] as const;
-
-type Category = typeof CATEGORIES[number];
-
-const CATEGORY_LABELS: Record<Category, string> = {
-	item: "Item",
-	fluid: "Fluid",
-	recipe: "Recipe",
-	"virtual-signal": "Virtual Signal",
-	technology: "Technology",
-	"space-location": "Space Location",
-	quality: "Quality",
-	entity: "Entity",
-};
-
-function useAllIconEntries() {
-	const item = useItemMetadata();
-	const fluid = useFluidMetadata();
-	const recipe = useRecipeMetadata();
-	const virtualSignal = useVirtualSignalMetadata();
-	const technology = useTechnologyMetadata();
-	const spaceLocation = useSpaceLocationMetadata();
-	const quality = useQualityMetadata();
-	const entity = useEntityMetadata();
-
-	const byCategory: Record<Category, Map<string, { icon?: { path?: string }}>> = {
-		item,
-		fluid,
-		recipe,
-		"virtual-signal": virtualSignal,
-		technology,
-		"space-location": spaceLocation,
-		quality,
-		entity,
-	};
-
-	return useMemo(() => {
-		const entries: IconEntry[] = [];
-
-		for (const category of CATEGORIES) {
-			const names = [...byCategory[category].keys()].sort();
-			for (const name of names) {
-				const meta = byCategory[category].get(name)!;
-				entries.push({
-					key: `${category}:${name}`,
-					category,
-					name,
-					cssClass: `${category}-${CSS.escape(name)}`,
-					path: meta.icon?.path,
-				});
-			}
-		}
-
-		return entries;
-	}, [item, fluid, recipe, virtualSignal, technology, spaceLocation, quality, entity]);
+function countPrototypes(
+	prototypes: Map<string, Map<string, PrototypeMetadataEntry>> | undefined,
+) {
+	return prototypes ? [...prototypes.values()].reduce((a, e) => a + e.size, 0) : 0;
 }
 
 export default function IconReferencePage() {
+	let params = useParams();
+	let modPackId = Number(params.id);
+
 	const [filter, setFilter] = useState("");
 	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-	const allEntries = useAllIconEntries();
+	const [modPack] = useModPack(modPackId);
+	const manifest = modPack?.exportManifest;
+	const prototypes = useExportPrototypeMetadata(modPack);
+	const filtered = useMemo(() => filterPrototypes(prototypes, filter), [prototypes, filter]);
+	const groups = useMemo(() => (
+		[...filtered]
+			.map(([baseType, entries]) => ({ baseType, entries: [...entries.values()] }))
+			.filter(group => group.entries.length)
+	), [filtered]);
 
-	const filtered = useMemo(() => {
-		const q = filter.trim().toLowerCase();
-		if (!q) {
-			return allEntries;
-		}
-		return allEntries.filter(e => e.name.toLowerCase().includes(q) || e.cssClass.toLowerCase().includes(q)
-		);
-	}, [allEntries, filter]);
-
-	const groups = useMemo(() => {
-		const map = new Map<string, IconEntry[]>();
-		for (const cat of CATEGORIES) {
-			map.set(cat, []);
-		}
-		for (const entry of filtered) {
-			map.get(entry.category)!.push(entry);
-		}
-		return CATEGORIES.map(cat => ({ category: cat, entries: map.get(cat)! }))
-			.filter(g => g.entries.length > 0);
-	}, [filtered]);
-
-	const visibleCount = filtered.length;
-	const totalCount = allEntries.length;
+	const visibleCount = countPrototypes(filtered);
+	const totalCount = countPrototypes(prototypes);
 	const autoExpand = visibleCount <= 20;
 
 	const isExpanded = (category: string) => autoExpand || expandedGroups.has(category);
@@ -131,11 +70,10 @@ export default function IconReferencePage() {
 	const columns = [
 		{
 			title: "Icon",
-			dataIndex: "cssClass",
 			key: "icon",
 			width: 48,
-			render: (_: string, record: IconEntry) => (
-				<div className={record.cssClass} style={{ imageRendering: "pixelated" }} />
+			render: (prototype: PrototypeMetadataEntry) => (
+				<FactorioIcon modPackId={modPackId} prototype={prototype}/>
 			),
 		},
 		{
@@ -147,18 +85,8 @@ export default function IconReferencePage() {
 			),
 		},
 		{
-			title: "Usage",
-			dataIndex: "cssClass",
-			key: "usage",
-			render: (cssClass: string) => (
-				<Text code style={{ fontSize: 11, color: "#90ee90" }}>
-					{`<div class="${cssClass}" />`}
-				</Text>
-			),
-		},
-		{
 			title: "Path",
-			dataIndex: "path",
+			dataIndex: ["icon", "path"],
 			key: "path",
 			render: (p: string | undefined) => (p
 				? <Text type="secondary" style={{ fontSize: 11 }}>{p}</Text>
@@ -166,13 +94,17 @@ export default function IconReferencePage() {
 		},
 	];
 
-	const manifest = useExportManifest();
-
+	let nav = [
+		{ name: "Mods", path: "/mods" },
+		{ name: "Mod Packs" },
+		{ name: modPack?.name ?? String(modPackId), path: `/mods/mod-packs/${modPackId}/view` },
+		{ name: "Icon Reference" },
+	];
 	return (
-		<PageLayout nav={[{ name: "Icon Reference" }]}>
+		<PageLayout nav={nav}>
 			<PageHeader title="Icon Reference" />
 			<div style={{ width: "80%", margin: "0 auto" }}>
-				{!manifest && (
+				{!modPack?.exportManifest && (
 					<Card>
 						<Text type="secondary">
 							No export data available. Run export-data on an instance to generate icons.
@@ -188,7 +120,7 @@ export default function IconReferencePage() {
 							</div>
 						)}
 						<div>
-							<Text type="secondary">Icons: </Text>
+							<Text type="secondary">Prototypes: </Text>
 							<Text>{totalCount}</Text>
 						</div>
 					</div>
@@ -196,7 +128,7 @@ export default function IconReferencePage() {
 				<Card>
 					<Space style={{ marginBottom: 16, display: "flex", alignItems: "center" }}>
 						<Input
-							placeholder="Filter by name or class…"
+							placeholder="Filter by type or name…"
 							value={filter}
 							onChange={e => setFilter(e.target.value)}
 							allowClear
@@ -208,13 +140,12 @@ export default function IconReferencePage() {
 								: `${visibleCount} / ${totalCount} icons`}
 						</Text>
 					</Space>
-					{groups.map(({ category, entries }) => {
-						const label = CATEGORY_LABELS[category as Category] ?? category;
-						const expanded = isExpanded(category);
+					{groups.map(({ baseType, entries }) => {
+						const expanded = isExpanded(baseType);
 						return (
-							<div key={category} style={{ marginBottom: 8 }}>
+							<div key={baseType} style={{ marginBottom: 8 }}>
 								<div
-									onClick={() => toggleGroup(category)}
+									onClick={() => toggleGroup(baseType)}
 									style={{
 										display: "flex",
 										alignItems: "center",
@@ -230,13 +161,13 @@ export default function IconReferencePage() {
 									<span style={{ fontSize: 10, color: "#888", width: 12 }}>
 										{expanded ? "▾" : "►"}
 									</span>
-									<Tag style={{ margin: 0 }}>{label}</Tag>
+									<Tag style={{ margin: 0 }}>{baseType}</Tag>
 									<Text type="secondary" style={{ fontSize: 12 }}>
 										{entries.length}
 									</Text>
 								</div>
 								{expanded && (
-									<Table<IconEntry>
+									<Table<PrototypeMetadataEntry>
 										columns={columns}
 										dataSource={entries}
 										rowKey="key"

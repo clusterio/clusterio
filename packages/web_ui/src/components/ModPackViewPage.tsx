@@ -27,6 +27,7 @@ import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 import InputPartialVersion from "./InputPartialVersion";
+import Link from "./Link";
 
 const { logger } = lib;
 const { Text } = Typography;
@@ -1334,6 +1335,12 @@ export default function ModPackViewPage() {
 				prototypes={prototypes}
 				locale={locale}
 			/>
+			<Typography.Title level={4}>
+				Inspect exported data
+			</Typography.Title>
+			<Link to={`/mods/mod-packs/${modPackId}/icon-reference`}>
+				Icon reference
+			</Link>
 		</Form>
 
 		<div

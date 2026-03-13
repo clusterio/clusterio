@@ -18,6 +18,8 @@ import PluginViewPage from "./components/PluginViewPage";
 import ErrorPage from "./components/ErrorPage";
 import IconReferencePage from "./components/IconReferencePage";
 
+// When adding or editing page paths here the corresponding webRoutes entry
+// in packages/controller/src/routes.ts also needs to be updated.
 export const pages: PluginPage[] = [
 	{
 		path: "/controller",
@@ -58,6 +60,11 @@ export const pages: PluginPage[] = [
 		content: <ModPackViewPage />,
 	},
 	{
+		path: "/mods/mod-packs/:id/icon-reference",
+		sidebarPath: "/mods",
+		content: <IconReferencePage />,
+	},
+	{
 		path: "/users",
 		sidebarName: "Users",
 		permission: "core.user.list",
@@ -88,10 +95,6 @@ export const pages: PluginPage[] = [
 		path: "/plugins/:name/view",
 		sidebarPath: "/plugins",
 		content: <PluginViewPage />,
-	},
-	{
-		path: "/icon-reference",
-		content: <IconReferencePage />,
 	},
 	{
 		path: "/error",
