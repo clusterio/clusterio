@@ -4,11 +4,18 @@ export { default as notify, notifyErrorHandler } from "./util/notify";
 export { default as BaseWebPlugin } from "./BaseWebPlugin";
 export * from "./util/websocket";
 
-export * from "./model/instance";
+export * from "./model/account";
 export * from "./model/host";
+export * from "./model/instance";
+export * from "./model/is_dragging";
 export * from "./model/locale";
 export * from "./model/item_metadata";
-export * from "./model/account";
+export * from "./model/mod_pack";
+export * from "./model/mods";
+export * from "./model/roles";
+export * from "./model/saves";
+export * from "./model/system";
+export * from "./model/user";
 
 export { default as ControlContext } from "./components/ControlContext";
 
