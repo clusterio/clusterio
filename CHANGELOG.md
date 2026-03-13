@@ -60,7 +60,7 @@ Many thanks to the following for contributing to this release:
 ### Fixes
 
 - Removed debug log statement from equipment grid serialization. [#807](https://github.com/clusterio/clusterio/pull/807)
-- Fix that the documentation had a dead link to details of the message passing protocol (#812)
+- Fix that the documentation had a dead link to details of the message passing protocol [#812](https://github.com/clusterio/clusterio/issues/812)
 - Fixed case where achievements were not disabled. [#817](https://github.com/clusterio/clusterio/pull/817)
 - Fix headless download on linux install. [#816](https://github.com/clusterio/clusterio/issues/816)
 - Fix option `--no-download-headless` being ignored. [#816](https://github.com/clusterio/clusterio/issues/816)
