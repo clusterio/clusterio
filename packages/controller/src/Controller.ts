@@ -112,7 +112,14 @@ export default class Controller {
 	// Cache for mod portal requests
 	modPortalCache = new Map<string, { timestamp: number, data: any[] }>();
 	// Cache for factorio versions
-	factorioVersions = new lib.ValueCache(lib.fetchFactorioVersions);
+	factorioVersions = new lib.ValueCache(async () => {
+		try {
+			return await lib.fetchFactorioVersions();
+		} catch (err: any) {
+			logger.warn(`Failed to retrieve Factorio versions ${err.message}`);
+			return [];
+		}
+	});
 
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
@@ -1070,6 +1077,9 @@ export default class Controller {
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
 			} catch (err: any) {
+				if (err.code === "InstallationError") {
+					throw err;
+				}
 				throw new lib.PluginError(pluginInfo.name, err);
 			}
 

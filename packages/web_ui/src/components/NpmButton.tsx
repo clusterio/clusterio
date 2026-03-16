@@ -82,7 +82,11 @@ function NpmPluginInstall({ setApplyAction, form, target }: NpmActionProps) {
 	</>;
 }
 
-export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: boolean, disabled?: boolean }) {
+export function NpmButton(props: {
+	target: "controller" | { hostId: number },
+	canRestart?: boolean,
+	disabled?: boolean
+}) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [open, setOpen] = useState(false);
@@ -93,6 +97,7 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 		remoteUpdates: true, pluginUpdates: true, pluginInstall: true,
 	});
 
+	const hostId = props.target === "controller" ? undefined : props.target.hostId;
 	useEffect(() => {
 		if (props.target === "controller") {
 			if (!account.hasPermission("core.controller.get_config")) {
@@ -121,7 +126,7 @@ export function NpmButton(props: { target: lib.AddressShorthand, canRestart?: bo
 				});
 			}).catch(notifyErrorHandler("Failed to fetch host config for remote updates"));
 		}
-	}, [props.target]);
+	}, [hostId]);
 
 	function onValuesChange({ action } : { action?: string }) {
 		if (action) {

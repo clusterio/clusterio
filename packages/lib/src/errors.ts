@@ -11,6 +11,13 @@ export class CommandError extends Error {
 }
 
 /**
+ * Thrown if the installation is broken, such as when multiple copies of lib is imported
+ */
+export class InstallationError extends Error {
+	code = "InstallationError";
+}
+
+/**
  * Thrown from requests sent when an error occured handling it
  */
 export class RequestError extends Error {

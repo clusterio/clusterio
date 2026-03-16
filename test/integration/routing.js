@@ -23,7 +23,7 @@ function connectHost(controller, hostId, plugins) {
 	controller.wsServer.hostConnections.set(hostId, hostConnection);
 	const hostConfig = new lib.HostConfig("host");
 	hostConfig.set("host.id", hostId);
-	return new Host(hostSide, hostConfig, undefined, []);
+	return new Host(hostSide, hostConfig, []);
 }
 
 /**

@@ -5,13 +5,6 @@ const lib = require("@clusterio/lib");
 const fs = require("fs-extra");
 const path = require("path");
 
-async function incrementDateMs() {
-	const prev = Date.now();
-	do {
-		await lib.wait(1);
-	} while (prev >= Date.now());
-}
-
 class MockDatastoreProvider extends lib.DatastoreProvider {
 	constructor() {
 		super();
@@ -571,12 +564,31 @@ describe("lib/datastore", function() {
 			eventsRaised = [];
 			datastoreProvider = new MockDatastoreProvider();
 			datastoreProvider.value = new Map([
-				["foo", {id: "foo"}], ["bar", {id: "bar"}], ["baz", {id: "baz"}],
+				["foo", {id: "foo", updatedAtMs: 10}], ["bar", {id: "bar"}], ["baz", {id: "baz"}],
 			]);
 			datastore = new lib.SubscribableDatastore(datastoreProvider, datastoreProvider.value);
 			datastore.on("update", updates => eventsRaised.push(updates));
 		});
 
+		function forceFuture() {
+			const future = {id: "future"};
+			for (let i = 1; i < 100; i++) {
+				datastore.set(future);
+			}
+			return future.updatedAtMs;
+		}
+
+		describe("lastUpdateAtMs", function() {
+			it("is set to the highest value after constructing a new instance", function() {
+				assert(datastore.lastUpdatedAtMs === 10, `${datastore.lastUpdatedAtMs} !== 10`);
+			});
+			it("is set to the highest value after loading from a provider", async function() {
+				const future = Date.now() + 2000;
+				datastore.provider.value = ["future", {id: "future", updatedAtMs: future}];
+				await datastore.load();
+				assert(datastore.lastUpdatedAtMs === future, `${datastore.lastUpdatedAtMs} !== ${future}`);
+			});
+		});
 		describe("set", function() {
 			it("can set a value", function() {
 				const value = { id: "test" };
@@ -598,11 +610,20 @@ describe("lib/datastore", function() {
 				const value = { id: "test" };
 				datastore.set(value);
 				assert.notEqual(value.updatedAtMs, undefined);
-				assert(value.updatedAtMs > 0, "updatedAtMs greater than zero");
+				assert(value.updatedAtMs > 0, "updatedAtMs not greater than zero");
+			});
+			it("increments the updatedAtMs property", async function() {
+				const value = { id: "test" };
+				datastore.set(value);
 				const prev = value.updatedAtMs;
-				await incrementDateMs();
 				datastore.set(value);
 				assert(value.updatedAtMs > prev, "updatedAtMs must increase");
+			});
+			it("increments the updatedAtMs property past existing values", async function() {
+				const future = forceFuture();
+				const value = { id: "test" };
+				datastore.set(value);
+				assert(value.updatedAtMs > future, "updatedAtMs must increase");
 			});
 		});
 
@@ -632,11 +653,22 @@ describe("lib/datastore", function() {
 				assert.notEqual(updates[1].updatedAtMs, undefined);
 				assert(updates[0].updatedAtMs > 0, "updatedAtMs greater than zero");
 				assert(updates[1].updatedAtMs > 0, "updatedAtMs greater than zero");
-				const prev = [updates[0].updatedAtMs, updates[1].updatedAtMs];
-				await incrementDateMs();
+			});
+			it("increments the updatedAtMs property", async function() {
+				const value = { id: "test1" };
+				datastore.set(value);
+				const prev = value.updatedAtMs;
+				const updates = [{ id: "test1" }, { id: "test2" }];
 				datastore.setMany(updates);
-				assert(updates[0].updatedAtMs > prev[0], "updatedAtMs must increase");
-				assert(updates[1].updatedAtMs > prev[1], "updatedAtMs must increase");
+				assert(updates[0].updatedAtMs > prev, "updatedAtMs must increase");
+				assert(updates[1].updatedAtMs > prev, "updatedAtMs must increase");
+			});
+			it("increments the updatedAtMs property past existing values", async function() {
+				const future = forceFuture();
+				const updates = [{ id: "test1" }, { id: "test2" }];
+				datastore.setMany(updates);
+				assert(updates[0].updatedAtMs > future, "updatedAtMs must increase");
+				assert(updates[1].updatedAtMs > future, "updatedAtMs must increase");
 			});
 		});
 
@@ -667,7 +699,20 @@ describe("lib/datastore", function() {
 				const value = { id: "test" };
 				datastore.delete(value);
 				assert.notEqual(value.updatedAtMs, undefined);
-				assert(value.updatedAtMs > 0, "updatedAtMs greater than zero");
+				assert(value.updatedAtMs > 0, "updatedAtMs not greater than zero");
+			});
+			it("increments the updatedAtMs property", function() {
+				const value = { id: "test" };
+				datastore.set(value);
+				const prev = value.updatedAtMs;
+				datastore.delete(value);
+				assert(value.updatedAtMs > prev, "updatedAtMs must increase");
+			});
+			it("increments the updatedAtMs property past existing values", function() {
+				const future = forceFuture();
+				const value = { id: "test" };
+				datastore.delete(value);
+				assert(value.updatedAtMs > future, "updatedAtMs must increase");
 			});
 			it("sets the isDeleted property", function() {
 				const value = { id: "test" };
@@ -703,6 +748,22 @@ describe("lib/datastore", function() {
 				assert.notEqual(values[1].updatedAtMs, undefined);
 				assert(values[0].updatedAtMs > 0, "updatedAtMs greater than zero");
 				assert(values[1].updatedAtMs > 0, "updatedAtMs greater than zero");
+			});
+			it("increments the updatedAtMs property", function() {
+				const value = { id: "foo" };
+				datastore.set(value);
+				const prev = value.updatedAtMs;
+				const values = [{id: "foo", updatedAtMs: prev}, {id: "bar", updatedAtMs: prev}];
+				datastore.deleteMany(values);
+				assert(values[0].updatedAtMs > prev, "updatedAtMs must increase");
+				assert(values[1].updatedAtMs > prev, "updatedAtMs must increase");
+			});
+			it("increments the updatedAtMs property past existing values", function() {
+				const future = forceFuture();
+				const values = [{id: "foo"}, {id: "bar"}];
+				datastore.deleteMany(values);
+				assert(values[0].updatedAtMs > future, "updatedAtMs must increase");
+				assert(values[1].updatedAtMs > future, "updatedAtMs must increase");
 			});
 			it("sets the isDeleted property", function() {
 				const values = [{id: "foo"}, {id: "bar"}];

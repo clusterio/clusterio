@@ -11,6 +11,7 @@ return function(no_early_return)
 	inventory_sync.players = inventory_sync.players or {}
 	inventory_sync.players_waiting_for_acquire = inventory_sync.players_waiting_for_acquire or {}
 	inventory_sync.players_in_cutscene_to_sync = inventory_sync.players_in_cutscene_to_sync or {}
+	inventory_sync.failed_deserialization = inventory_sync.failed_deserialization or {}
 
 	inventory_sync.active_downloads = inventory_sync.active_downloads or {}
 	inventory_sync.finished_downloads = inventory_sync.finished_downloads or {}

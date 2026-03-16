@@ -285,7 +285,6 @@ export interface HostConfigFields {
 	"host.instances_directory": string;
 	"host.controller_url": string;
 	"host.controller_token": string;
-	"host.tls_ca": string | null;
 	"host.public_address": string;
 	"host.factorio_port_range": string;
 	"host.factorio_username": string | null,
@@ -357,13 +356,6 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			type: "string",
 			initialValue: "enter token here",
 			// TODO extendedValidation, valid JWT with matching host id
-		},
-		"host.tls_ca": {
-			description: "Path to Certificate Authority to validate TLS connection to controller against.",
-			restartRequired: true,
-			type: "string",
-			optional: true,
-			validator: validators.optional(validators.filePath),
 		},
 		"host.public_address": {
 			description: "Public facing address players should connect to in order to join instances on this host",
@@ -679,7 +671,6 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 export interface ControlConfigFields {
 	"control.controller_url": string | null;
 	"control.controller_token": string | null;
-	"control.tls_ca": string | null;
 	"control.max_reconnect_delay": number;
 }
 
@@ -701,12 +692,6 @@ export class ControlConfig extends classes.Config<ControlConfigFields> {
 			description: "Token to authenticate to controller with.",
 			type: "string",
 			optional: true,
-		},
-		"control.tls_ca": {
-			description: "Path to Certificate Authority to validate TLS connection to controller against.",
-			type: "string",
-			optional: true,
-			validator: validators.optional(validators.filePath),
 		},
 		"control.max_reconnect_delay": {
 			title: "Max Reconnect Delay",

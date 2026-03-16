@@ -2,7 +2,6 @@ import fs from "fs-extra";
 import asTableModule from "as-table";
 import events from "events";
 import path from "path";
-import phin from "phin";
 import os from "os";
 import child_process from "child_process";
 import stream from "stream";
@@ -330,8 +329,6 @@ instanceSaveCommands.add(new lib.Command({
 		if (!filename.endsWith(".zip")) {
 			throw new lib.CommandError("Save name must end with .zip");
 		}
-		// phin doesn't support streaming requests :(
-		let content = await fs.readFile(args.filepath);
 
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let url = new URL(control.config.get("control.controller_url")!);
@@ -339,30 +336,32 @@ instanceSaveCommands.add(new lib.Command({
 		url.searchParams.append("instance_id", String(instanceId));
 		url.searchParams.append("filename", filename);
 
-		let result = await phin<{ errors?: string[], request_errors?: string[], saves?: string[] }>({
-			url, method: "POST",
+		const response = await fetch(url, {
+			method: "POST",
+			body: await fs.createReadStream(args.filepath),
+			duplex: "half",
 			headers: {
-				"X-Access-Token": control.config.get("control.controller_token"),
+				"X-Access-Token": control.config.get("control.controller_token")!,
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa } as object,
-			data: content,
-			parse: "json",
 		});
 
-		for (let error of result.body.errors || []) {
+		type ResponseType = { errors?: string[], request_errors?: string[], saves?: string[] };
+		const result = await response.json() as ResponseType;
+
+		for (let error of result.errors || []) {
 			logger.error(error);
 		}
 
-		for (let requestError of result.body.request_errors || []) {
+		for (let requestError of result.request_errors || []) {
 			logger.error(requestError);
 		}
 
-		if (result.body.saves && result.body.saves.length) {
-			logger.info(`Successfully uploaded as ${result.body.saves[0]}`);
+		if (result.saves && result.saves.length) {
+			logger.info(`Successfully uploaded as ${result.saves[0]}`);
 		}
 
-		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {
+		if ((result.errors || []).length || (result.request_errors || []).length) {
 			throw new lib.CommandError("Uploading save failed");
 		}
 	},
@@ -418,11 +417,10 @@ instanceSaveCommands.add(new lib.Command({
 
 		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
-		let response = await phin({
-			url, method: "GET",
-			core: { ca: control.tlsCa } as object,
-			stream: true,
-		});
+		let response = await fetch(url);
+		if (!response.body) {
+			throw new lib.CommandError("Got empty response from server.");
+		}
 
 		let writeStream;
 		let tempFilename = args.save.replace(/(\.zip)?$/, ".tmp.zip");
@@ -439,7 +437,7 @@ instanceSaveCommands.add(new lib.Command({
 				}
 			}
 		}
-		response.pipe(writeStream);
+		stream.Readable.fromWeb(response.body).pipe(writeStream);
 		await finished(writeStream);
 
 		let filename = await lib.findUnusedName(".", args.save, ".zip");

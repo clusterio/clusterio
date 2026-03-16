@@ -1,7 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
 import pidusage from "pidusage";
-import phin from "phin";
 import util from "util";
 import type { Static } from "@sinclair/typebox";
 import { exec } from "child_process";
@@ -638,9 +637,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async init(pluginInfos: lib.PluginNodeEnvInfo[]) {
+		// After changing the status this function is responsible for calling notifyExit if it throws.
 		this.notifyStatus("starting");
-		const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 		try {
+			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 			await this._loadStats();
 			await this.server.checkForUpdates(factorioVersions);
 			await this.server.init();
@@ -845,7 +845,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_adminlist") !== "disabled") {
 			this.logger.verbose("Writing server-adminlist.json");
-			lib.safeOutputFile(
+			await lib.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._host.adminlist], null, "\t")
 			);
@@ -853,7 +853,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_banlist") !== "disabled") {
 			this.logger.verbose("Writing server-banlist.json");
-			lib.safeOutputFile(
+			await lib.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._host.banlist].map(
 					([username, reason]) => ({ username, reason })
@@ -863,10 +863,21 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_whitelist") !== "disabled") {
 			this.logger.verbose("Writing server-whitelist.json");
-			lib.safeOutputFile(
+			await lib.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._host.whitelist], null, "\t")
 			);
+		} else {
+			// Always create the whitelist even if unused
+			// This allows it to be watched for changes without a server restart
+			try {
+				// wx will throw an error if the file already exists to prevent overwrite
+				await fs.writeFile(this.server.writePath("server-whitelist.json"), "\n[]\n", { flag: "wx" });
+			} catch (err: any) {
+				if (err.code !== "EEXIST") {
+					throw err;
+				}
+			}
 		}
 
 		await this.syncMods();
@@ -1292,17 +1303,18 @@ end`.replace(/\r?\n/g, " ");
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", String(this.activeModPack.id));
-			let response = await phin({
-				url, method: "PUT",
-				data: content,
-				core: { ca: this._host.tlsCa } as object,
+			let response = await fetch(url, {
+				method: "PUT",
+				body: content,
+				duplex: "half",
 				headers: {
 					"Content-Type": "application/zip",
 					"x-access-token": this._host.config.get("host.controller_token"),
 				},
 			});
-			if (response.statusCode !== 200) {
-				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`);
+			if (response.status !== 200) {
+				const body = Buffer.from(await response.arrayBuffer());
+				throw Error(`Upload failed: ${response.status} ${response.statusText}: ${body.toString()}`);
 			}
 
 		} finally {

@@ -651,8 +651,20 @@ describe("lib/prometheus", function() {
 				let gauge = new prometheus.Gauge(
 					"test", "Help", { register: false, labels: ["a", "b"] }
 				);
-				gauge.labels('x\\\\\n\"\"\n\\', "2");
-				gauge.removeAll({ a: 'x\\\\\n\"\"\n\\' });
+
+				let labelValue = "";
+				// Include every ASCII codepoint
+				for (let i = 0; i < 128; i++) {
+					labelValue += String.fromCodePoint(i);
+				}
+				// Include Unicode codepoints from the basic and supplementary planes.
+				labelValue += "©💣";
+
+				gauge.labels(labelValue, "2");
+				gauge.removeAll({ a: labelValue });
+				assert(gauge._values.size === 0, "Matching labels remained");
+				gauge.labels("1", labelValue);
+				gauge.removeAll({ a: "1" });
 				assert(gauge._values.size === 0, "Matching labels remained");
 			});
 		});

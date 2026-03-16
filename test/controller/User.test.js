@@ -37,6 +37,12 @@ describe("controller/User", function () {
 			user.saveRecord();
 			assert(user.updatedAtMs > prev);
 		});
+		it("should always increment updatedAtMs even if called in quick succession", function () {
+			user.saveRecord();
+			let prev = user.updatedAtMs;
+			user.saveRecord();
+			assert(user.updatedAtMs > prev, "updatedAtMs did not increase");
+		});
 	});
 
 	describe(".set()", function () {

@@ -63,10 +63,25 @@ This creates a private key file named `key.pem` and a public certificate file na
     npx clusteriocontroller config set controller.tls_certificate cert.pem
     npx clusteriocontroller config set controller.tls_private_key key.pem
 
-Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as hosts and configure it as the `host.tls_ca` option:
+Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as hosts and configure node to trust it by setting the `NODE_EXTRA_CA_CERTS` environment variable to a path to this file before the host is started. You can do this by passing `--self-signed-cert path/to/cert` to the installer when setting up a host, or manually by editing run-host.cmd, run-host.sh and/or clusteriohost.service by adding the following line next to the one setting `NODE_OPTIONS`: 
 
-    npx clusteriohost config set host.tls_ca cert.pem
+**For run-host.cmd**
 
-You will also need to copy the `cert.pem` file to all of the computers you want to remotely manage the cluster via clusterctl and configure it as `control.tls_ca` option:
+    set "NODE_EXTRA_CA_CERTS=path\to\cert.pem"
 
-    npx clusterioctl control-config set control.tls_ca cert.pem
+**For run-host.sh**
+
+    export "NODE_EXTRA_CA_CERTS=path/to/cert.pem"
+
+**For clusteriohost.service**
+
+    Environment=NODE_EXTRA_CA_CERTS=path/to/cert.pem
+
+You will also need to copy the `cert.pem` file to all of the computers you want to remotely manage the cluster via clusterctl and set the `NODE_EXTRA_CA_CERTS` environment variable as a path to that file before running clusterioctl. For example:
+
+    # On Windows
+    set "NODE_EXTRA_CA_CERTS=path\to\cert.pem"
+    # On Linux
+    export NODE_EXTRA_CA_CERTS="path/to/cert.pem"
+    # You can now use clusterioctl
+    npx clusterioctl instance list

@@ -3,7 +3,6 @@ import path from "path";
 import events from "events";
 import pidusage from "pidusage";
 import setBlocking from "set-blocking";
-import phin from "phin";
 import stream from "stream";
 import util from "util";
 
@@ -75,6 +74,10 @@ async function discoverInstances(instancesDir: string) {
 	return instances;
 }
 
+// Requests that wake up instances are responsible for making sure the
+// instance status is correctly updated even if they fail with an error. This
+// means they should typically use try catch on anything that can throw
+// and call notifyExit upon any errors.
 const instanceStartingMessages = new Set([
 	lib.InstanceStartRequest.name,
 	lib.InstanceLoadScenarioRequest.name,
@@ -259,10 +262,6 @@ export default class Host extends lib.Link {
 	declare "connector": HostConnector;
 
 	router = new HostRouter(this);
-	/**
-	 * Certificate authority used to validate TLS connections to the controller.
-	 */
-	tlsCa?: string;
 	pluginInfos: lib.PluginNodeEnvInfo[];
 	config: lib.HostConfig;
 
@@ -304,7 +303,6 @@ export default class Host extends lib.Link {
 	constructor(
 		connector: HostConnector,
 		hostConfig: lib.HostConfig,
-		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[],
 		/**
 		 * If true indicates that there is a process monitor present that
@@ -319,7 +317,6 @@ export default class Host extends lib.Link {
 		public modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
 	) {
 		super(connector);
-		this.tlsCa = tlsCa;
 
 		this.pluginInfos = pluginInfos;
 		this.config = hostConfig;
@@ -448,6 +445,9 @@ export default class Host extends lib.Link {
 				this.plugins.set(pluginInfo.name, hostPlugin);
 
 			} catch (err: any) {
+				if (err.code === "InstallationError") {
+					throw err;
+				}
 				throw new lib.PluginError(pluginInfo.name, err);
 			}
 
@@ -615,18 +615,17 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		let response = await phin({
-			url, method: "GET",
-			core: { ca: this.tlsCa } as object,
-			stream: true,
-		});
+		let response = await fetch(url);
+		if (!response.body) {
+			throw new Error(`Empty body downloading stream ${streamId} from controller`);
+		}
 
 		const file = lib.ModInfo.filename(mod.name, mod.version);
 		const filePath = path.join(this.modStore.modsDirectory, file);
 		const tempFilePath = filePath.replace(/(\.zip)?$/, ".tmp.zip");
 		const writeStream = fs.createWriteStream(tempFilePath, { flags: "w" });
 		await events.once(writeStream, "open");
-		response.pipe(writeStream);
+		stream.Readable.fromWeb(response.body).pipe(writeStream);
 		await finished(writeStream);
 		await fs.rename(tempFilePath, filePath);
 
@@ -1049,15 +1048,11 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		let response = await phin({
-			url, method: "GET",
-			core: { ca: this.tlsCa } as object,
-			stream: true,
-		});
+		let response = await fetch(url);
 
-		if (response.statusCode !== 200) {
-			let content = await lib.readStream(response);
-			throw new lib.RequestError(`Stream returned ${response.statusCode}: ${content.toString()}`);
+		if (response.status !== 200 || !response.body) {
+			let body = Buffer.from(await response.arrayBuffer());
+			throw new lib.RequestError(`Stream returned ${response.status}: ${body.toString()}`);
 		}
 
 		let savesDir = path.join(instance.path, "saves");
@@ -1076,7 +1071,7 @@ export default class Host extends lib.Link {
 				}
 			}
 		}
-		response.pipe(writeStream);
+		stream.Readable.fromWeb(response.body).pipe(writeStream);
 		await finished(writeStream);
 
 		name = await lib.findUnusedName(savesDir, name, ".zip");
@@ -1091,10 +1086,11 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(name);
 		let instance = this.getRequestInstance(instanceId);
 
-		let content: Buffer;
+		let content = fs.createReadStream(path.join(instance.path, "saves", name));
 		try {
-			// phin doesn't support streaming requests :(
-			content = await fs.readFile(path.join(instance.path, "saves", name));
+			// TODO: Due to a bug in fs-extra the ready event is not emitted here. Replace
+			// "open" with "ready" when fs-extra is replaced with node's fs module.
+			await events.once(content, "open");
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${name} does not exist`);
@@ -1104,10 +1100,10 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		phin({
-			url, method: "PUT",
-			core: { ca: this.tlsCa } as object,
-			data: content,
+		fetch(url, {
+			method: "PUT",
+			body: content,
+			duplex: "half",
 		}).catch(err => {
 			logger.error(`Error pushing save to controller:\n${err.stack}`, this.instanceLogMeta(instanceId));
 		});

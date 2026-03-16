@@ -4,7 +4,6 @@ const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
-const phin = require("phin");
 
 const lib = require("@clusterio/lib");
 const libBuildMod = require("@clusterio/lib/build_mod");
@@ -41,7 +40,6 @@ async function startAltHost() {
 	await fs.remove(path.join("temp", "test", "alt-instances"));
 	await fs.remove(path.join("temp", "test", "alt-mods"));
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
-	await execHost(`--config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
 	await execHost(`--config ${config} config set host.instances_directory alt-instances`);
 	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execHost(`--config ${config} config set host.factorio_directory ${dir}`);
@@ -80,16 +78,15 @@ async function runWithAltHost(callback) {
 }
 
 async function uploadSave(instanceId, name, content) {
-	return await phin({
-		url: `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`,
+	const uploadUrl = `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`;
+	return await fetch(uploadUrl, {
 		method: "POST",
-		core: { rejectUnauthorized: false },
 		headers: {
 			"X-Access-Token": controlToken,
 			"Content-Type": "application/zip",
 			"Content-Length": String(content.length),
 		},
-		data: content,
+		body: content,
 	});
 }
 
@@ -168,8 +165,7 @@ describe("Integration of Clusterio", function() {
 		describe("run", function() {
 			it("should handle resume of an active connection", async function() {
 				slowTest(this);
-				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-				let connectorA = new TestControlConnector(url, 2, tlsCa);
+				let connectorA = new TestControlConnector(url, 2);
 				connectorA.token = controlToken;
 				let controlA = new TestControl(connectorA);
 				await connectorA.connect();
@@ -177,7 +173,7 @@ describe("Integration of Clusterio", function() {
 				connectorA.stopHeartbeat();
 				connectorA.on("error", () => {});
 
-				let connectorB = new TestControlConnector(url, 2, tlsCa);
+				let connectorB = new TestControlConnector(url, 2);
 				connectorB.token = controlToken;
 				connectorB.src = connectorA.src;
 				let controlB = new TestControl(connectorB);
@@ -1679,8 +1675,7 @@ describe("Integration of Clusterio", function() {
 			it("should kick existing sessions for the user", async function() {
 				slowTest(this);
 				await getControl().send(new lib.UserCreateRequest("revokee"));
-				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-				let connector = new TestControlConnector(url, 2, tlsCa);
+				let connector = new TestControlConnector(url, 2);
 				connector.token = jwt.sign(
 					{ aud: "user", user: "revokee" }, Buffer.from("TestSecretDoNotUse", "base64")
 				);
@@ -1709,8 +1704,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-roles temp Player");
 				let tempControl;
 				try {
-					let tlsCa = await fs.readFile("test/file/tls/cert.pem");
-					let connector = new TestControlConnector(url, 2, tlsCa);
+					let connector = new TestControlConnector(url, 2);
 					connector.token = jwt.sign(
 						{ aud: "user", user: "temp" }, Buffer.from("TestSecretDoNotUse", "base64")
 					);

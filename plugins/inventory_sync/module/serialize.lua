@@ -6,6 +6,7 @@ local serialize = {}
 
 local v2_logistic_api = compat.version_ge("2.0.0")
 local v2_storage_api = compat.version_ge("2.0.0")
+local recipe_notifications_api = compat.version_ge("2.0.67")
 
 function serialize.serialize_inventories(source, inventories)
 	local serialized = {}
@@ -342,28 +343,112 @@ function serialize.deserialize_crafting_queue(player, serialized)
 	player.crafting_queue_progress = serialized.crafting_queue_progress
 end
 
+---@param player LuaPlayer
+---@param failed string[]?
+---@return string?
+function serialize.serialize_crafting_notifications(player, failed)
+	-- Get all unlocked recipes
+	local recipes = {}
+	for _, recipe in pairs(player.force.recipes) do
+		if recipe.enabled and not recipe.hidden then
+			recipes[recipe.name] = true
+		end
+	end
+
+	-- Remove those with notifications
+	for _, recipe in pairs(player.get_recipe_notifications()) do
+		recipes[recipe.name] = nil
+	end
+
+	-- Convert to a list of names
+	local recipe_names = failed or {} -- Includes previous recipes if any
+	local index = #recipe_names + 1
+	for name in pairs(recipes) do
+		recipe_names[index] = name
+		index = index + 1
+	end
+
+	return helpers.encode_string(helpers.table_to_json(recipe_names))
+end
+
+--- @param player LuaPlayer
+--- @param serialized string
+--- @return string[]? failed Recipe names that do not exist
+function serialize.deserialize_crafting_notifications(player, serialized)
+	-- Decode the recipe name strings
+	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(serialized)))
+	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
+	local clear_notification = player.clear_recipe_notification
+	local add_notification = player.add_recipe_notification
+	local notifications = {}
+	local failed = {}
+
+	-- Assume all recipes need a notification
+	for _, recipe in pairs(player.force.recipes) do
+		if recipe.enabled and not recipe.hidden then
+			notifications[recipe.name] = true
+		end
+	end
+
+	-- Remove recipes the player has cleared
+	for _, recipe_name in pairs(recipe_names) do
+		if notifications[recipe_name] then
+			notifications[recipe_name] = false
+		else
+			-- Recipe does not exist on this server
+			failed[#failed+1] = recipe_name
+		end
+	end
+
+	-- Clear ones which are ones which are not required
+	for _, recipe in pairs(player.get_recipe_notifications()) do
+		if notifications[recipe.name] == false then
+			clear_notification(recipe.name)
+		end
+		notifications[recipe.name] = nil -- Prevents double add below
+	end
+
+	-- Add any which the player did not have
+	for recipe_name, should_add in pairs(notifications) do
+		if should_add then
+			add_notification(recipe_name)
+		end
+	end
+
+	-- Return failed recipes if any
+	return next(failed) and failed or nil
+end
+
 local controller_to_name = {}
 for name, value in pairs(defines.controllers) do
 	controller_to_name[value] = name
 end
 
--- Players are serialized into a table with the following fields:
---   name
---   controller: may not be cutscene or editor
---   color
---   chat_color
---   tag
---   force
---   cheat_mod
---   flashlight
---   ticks_to_respawn (optional)
---   character (optional)
---   inventories: non-character inventories
---   hotbar: table of string indexes to names (optional)
---   personal_logistic_slots (optional)
---   crafting_queue (optional)
-function serialize.serialize_player(player)
+--- @class SerializedPlayerData
+--- @field generation number
+--- @field name string
+--- @field controller string
+--- @field color Color
+--- @field chat_color Color
+--- @field tag string
+--- @field force string
+--- @field cheat_mode boolean
+--- @field flashlight boolean
+--- @field ticks_to_respawn number
+--- @field character table<string, any>?
+--- @field inventories table<string, table>?
+--- @field hotbar table<string, string>?
+--- @field personal_logistic_slots table?
+--- @field crafting_queue table?
+--- @field recipe_notifications string?
+
+--- @param player LuaPlayer
+--- @param failed_deserialization FailedDeserializationPlayerData
+--- @return SerializedPlayerData
+function serialize.serialize_player(player, failed_deserialization)
+	--- @type SerializedPlayerData
 	local serialized = {
+		generation = 0, -- Gets replaced later
 		controller = controller_to_name[player.controller_type],
 		name = player.name,
 		color = player.color,
@@ -385,7 +470,9 @@ function serialize.serialize_player(player)
 		-- Go back to waiting for respawn
 		local character = player.character
 		player.ticks_to_respawn = serialized.ticks_to_respawn
-		character.destroy()
+		if character and character.valid then
+			character.destroy()
+		end
 	end
 
 	-- Serialize character
@@ -406,7 +493,7 @@ function serialize.serialize_player(player)
 			if not serialized.hotbar then
 				serialized.hotbar = {}
 			end
-			serialized.hotbar[tostring(i)] = slot.name
+			serialized.hotbar[tostring(i)] = slot.name --[[@as string]]
 		end
 	end
 
@@ -415,10 +502,23 @@ function serialize.serialize_player(player)
 		serialized.crafting_queue = serialize.serialize_crafting_queue(player)
 	end
 
+	-- Serialize recipe notifications
+	if recipe_notifications_api then
+		serialized.recipe_notifications = serialize.serialize_crafting_notifications(player, failed_deserialization.recipe_notifications)
+	end
+
 	return serialized
 end
 
+--- @class FailedDeserializationPlayerData
+--- @field recipe_notifications string[]?
+
+--- @param player LuaPlayer
+--- @param serialized SerializedPlayerData
+--- @return FailedDeserializationPlayerData?
 function serialize.deserialize_player(player, serialized)
+	local failed_deserialization = {}
+
 	if player.controller_type ~= defines.controllers[serialized.controller] or serialized.controller == "ghost" then
 		-- If targeting the character or ghost controller then create a character
 		if serialized.controller == "character" or serialized.controller == "ghost" then
@@ -443,7 +543,9 @@ function serialize.deserialize_player(player, serialized)
 					player.set_controller({ type = defines.controllers.god })
 					player.set_controller({ type = defines.controllers.ghost })
 				end
-				character.destroy()
+				if character and character.valid then
+					character.destroy()
+				end
 			end
 
 		else
@@ -496,6 +598,13 @@ function serialize.deserialize_player(player, serialized)
 		serialize.deserialize_crafting_queue(player, serialized.crafting_queue)
 	end
 
+	-- Deserialize recipe notifications
+	if recipe_notifications_api and serialized.recipe_notifications then
+		failed_deserialization.recipe_notifications =
+			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
+	end
+
+	return next(failed_deserialization) and failed_deserialization or nil
 end
 
 return serialize

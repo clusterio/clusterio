@@ -887,7 +887,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		try {
 			this._whitelistWatcher = fs.watch(filePath);
 		} catch (err: any) {
-			this._logger.error(`Unable to watch whitelist, bidirectional sync will not be available:\n${err}`);
+			this._logger.warn(`Unable to watch whitelist, bidirectional sync will not be available:\n${err}`);
 			return;
 		}
 
@@ -977,6 +977,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			))
 			.sort((v1, v2) => versionOrder(v1.version, v2.version))
 			[0];
+
+		if (!latestVersion) {
+			return;
+		}
 
 		const installedVersions = await listFactorioVersions(this._factorioDir);
 		if (!installedVersions.versions.has(latestVersion.version)) {

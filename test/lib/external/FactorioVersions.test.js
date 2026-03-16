@@ -121,6 +121,12 @@ describe("FactorioVersions", function() {
 			assert.equal(versions.filter(v => v.stable).length, 48);
 			assert.equal(versions.filter(v => !v.stable).length, 57);
 		});
+		it("parses versions from empty html file", async function() {
+			mockFetch("");
+
+			const versions = await fetchFactorioVersions();
+			assert.equal(versions.length, 0);
+		});
 		it("parses versions from live api", async function() {
 			slowTest(this);
 			global.fetch = originalFetch;

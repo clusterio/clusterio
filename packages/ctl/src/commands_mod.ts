@@ -2,7 +2,6 @@ import fs from "fs-extra";
 import asTableModule from "as-table";
 import events from "events";
 import path from "path";
-import phin from "phin";
 import stream from "stream";
 import util from "util";
 
@@ -145,40 +144,38 @@ modCommands.add(new lib.Command({
 		if (!filename.endsWith(".zip")) {
 			throw new lib.CommandError("Mod filename must end with .zip");
 		}
-		// phin doesn't support streaming requests :(
-		let content = await fs.readFile(args.file);
 
 		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += "api/upload-mod";
 		url.searchParams.append("filename", filename);
 
-		let result = await phin<
-			{ errors?: [], request_errors?: [], mods: Parameters<typeof lib.ModInfo.fromJSON>[0][]}
-		>({
-			url, method: "POST",
+		let response = await fetch(url, {
+			method: "POST",
+			body: fs.createReadStream(args.file),
+			duplex: "half",
 			headers: {
-				"X-Access-Token": control.config.get("control.controller_token"),
+				"X-Access-Token": control.config.get("control.controller_token")!,
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa } as object,
-			data: content,
-			parse: "json",
 		});
 
-		for (let error of result.body.errors || []) {
+		type ResponseType = { errors?: [], request_errors?: [], mods: Parameters<typeof lib.ModInfo.fromJSON>[0][]};
+		const result = await response.json() as ResponseType;
+
+		for (let error of result.errors || []) {
 			logger.error(error);
 		}
 
-		for (let requestError of result.body.request_errors || []) {
+		for (let requestError of result.request_errors || []) {
 			logger.error(requestError);
 		}
 
-		if (result.body.mods && result.body.mods.length) {
-			const mod = lib.ModInfo.fromJSON(result.body.mods[0]);
+		if (result.mods && result.mods.length) {
+			const mod = lib.ModInfo.fromJSON(result.mods[0]);
 			logger.info(`Successfully uploaded ${mod.filename}`);
 		}
 
-		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {
+		if ((result.errors || []).length || (result.request_errors || []).length) {
 			throw new lib.CommandError("Uploading mod failed");
 		}
 	},
@@ -197,11 +194,10 @@ modCommands.add(new lib.Command({
 
 		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
-		let response = await phin({
-			url, method: "GET",
-			core: { ca: control.tlsCa } as object,
-			stream: true,
-		});
+		let response = await fetch(url);
+		if (!response.body) {
+			throw new lib.CommandError("Got empty response from server");
+		}
 
 		let writeStream;
 		let filename = `${args.name}_${args.modVersion}.zip`;
@@ -219,7 +215,7 @@ modCommands.add(new lib.Command({
 				}
 			}
 		}
-		response.pipe(writeStream);
+		stream.Readable.fromWeb(response.body).pipe(writeStream);
 		await finished(writeStream);
 		await fs.rename(tempFilename, filename);
 
