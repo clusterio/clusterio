@@ -52,7 +52,11 @@ export function integer(value: number) {
 	}
 }
 
-/** Value must be a valid file path, it does not need to exist */
+/**
+ * Value must be a valid file path, it does not need to exist
+ * On posix this will only error for non string values, which isn't very useful
+ * However, this could be expanded in the future to check system OS
+ */
 export function filePath(value: string) {
 	try {
 		path.resolve(value);

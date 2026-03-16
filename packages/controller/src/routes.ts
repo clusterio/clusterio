@@ -1,5 +1,5 @@
 import type { Application, Request, Response } from "express";
-import type Controller from "./Controller";
+import Controller from "./Controller";
 
 import busboy from "busboy";
 import crypto from "crypto";

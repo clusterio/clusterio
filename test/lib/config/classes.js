@@ -41,8 +41,48 @@ describe("lib/config/classes", function() {
 				"test.priv": { access: ["local"], type: "string", optional: true },
 				"test.cred": { credential: ["local"] },
 				"test.rdo": { readonly: ["local"] },
+				"test.base": { type: "number", initialValue: 1 },
+				"test.dependent": {
+					type: "number",
+					initialValue: 1,
+					dependsOn: ["test.base"],
+					validator(value, config) {
+						if (value < config.get("test.base")) {
+							throw new Error("dependent must be >= base");
+						}
+					},
+				},
+				"test.validated": {
+					type: "number",
+					optional: true,
+					validator(value) {
+						if (value !== null && value < 0) {
+							throw new Error("must be positive");
+						}
+					},
+				},
+				"test.objValidated": {
+					type: "object",
+					initialValue: {},
+					validator(value) {
+						if (value && value.bad !== undefined) {
+							throw new Error("bad key");
+						}
+					},
+				},
 			};
 		}
+
+		const testConfigDefault = Object.fromEntries(
+			Object.entries(TestConfig.fieldDefinitions).map(
+				([fieldName, fieldDef]) => ([
+					fieldName,
+					typeof fieldDef.initialValue === "function"
+						? fieldDef.initialValue()
+						: (fieldDef.initialValue ?? null),
+				])
+			)
+		);
 
 		describe("constructor", function() {
 			it("should construct an instance", function() {
@@ -80,41 +120,37 @@ describe("lib/config/classes", function() {
 				const testInstance = new TestConfig("local", undefined, "filepath");
 				assert.equal(testInstance.filepath, "filepath");
 			});
+			it("should throw if a required field has no initialValue", function() {
+				this.skip(); // TODO known bug that was discovered but of of scope for #856
+				class BrokenConfig extends lib.Config {
+					static fieldDefinitions = {
+						"test.required": { type: "string" },
+					};
+				}
+
+				assert.throws(
+					() => new BrokenConfig("local"),
+				);
+			});
 		});
 
 		describe(".toJSON()", function() {
 			it("should serialize a basic config", function() {
-				let testInstance = new TestConfig("local");
-				assert.deepEqual(testInstance.toJSON(), {
-					"alpha.foo": null,
-					"beta.bar": {},
-					"test.enum": "b",
-					"test.test": null,
-					"test.func": 42,
-					"test.bool": false,
-					"test.json": {},
-					"test.rest": {},
-					"test.priv": null,
-					"test.cred": null,
-					"test.rdo": null,
-				});
+				const testInstance = new TestConfig("local");
+				assert.deepEqual(testInstance.toJSON(), testConfigDefault);
 			});
 		});
 
 		describe(".toRemote()", function() {
 			it("should leave out inaccessible fields", function() {
-				let testInstance = new TestConfig("local");
-				assert.deepEqual(testInstance.toRemote("remote"), {
-					"alpha.foo": null,
-					"beta.bar": {},
-					"test.enum": "b",
-					"test.test": null,
-					"test.func": 42,
-					"test.bool": false,
-					"test.json": {},
-					"test.rest": {},
-					"test.rdo": null,
-				});
+				const testInstance = new TestConfig("local");
+				const { "test.cred": _cred, "test.priv": _priv, ...expected } = testConfigDefault;
+				assert.deepEqual(testInstance.toRemote("remote"), expected);
+			});
+			it("should filter fields when filter argument is provided", function() {
+				const testInstance = new TestConfig("local");
+				const filtered = testInstance.toRemote("local", ["alpha.foo"]);
+				assert.deepEqual(filtered, { "alpha.foo": null });
 			});
 		});
 
@@ -165,6 +201,7 @@ describe("lib/config/classes", function() {
 
 			it("should preserve unknown fields when serialized back", function() {
 				let testFields = {
+					...testConfigDefault,
 					"extra.blah": true,
 					"extra.spam": "foobar",
 					"alpha.foo": "true",
@@ -175,10 +212,6 @@ describe("lib/config/classes", function() {
 					"test.bool": false,
 					"test.json": {},
 					"test.rest": {},
-					"test.priv": null,
-					"test.cred": null,
-					"test.rdo": null,
-					"test.alpha": null,
 					"test.beta": "decay",
 					"test.gamma": 99,
 				};
@@ -245,6 +278,7 @@ describe("lib/config/classes", function() {
 			});
 			it("should preserve unknown fields", async function() {
 				const testFields = {
+					...testConfigDefault,
 					"extra.blah": true,
 					"extra.spam": "foobar",
 					"alpha.foo": "true",
@@ -255,10 +289,6 @@ describe("lib/config/classes", function() {
 					"test.bool": false,
 					"test.json": {},
 					"test.rest": {},
-					"test.priv": null,
-					"test.cred": null,
-					"test.rdo": null,
-					"test.alpha": null,
 					"test.beta": "decay",
 					"test.gamma": 99,
 				};
@@ -347,19 +377,10 @@ describe("lib/config/classes", function() {
 					"beta.bar": { value: 30 },
 				}, false);
 				assert.deepEqual(testInstance.toJSON(), {
+					...testConfigDefault,
 					"extra.blah": true,
 					"extra.spam": "baz",
-					"alpha.foo": null,
 					"beta.bar": { value: 30 },
-					"test.bool": false,
-					"test.enum": "b",
-					"test.func": 42,
-					"test.json": {},
-					"test.rest": {},
-					"test.priv": null,
-					"test.cred": null,
-					"test.rdo": null,
-					"test.test": null,
 				});
 			});
 
@@ -709,6 +730,29 @@ describe("lib/config/classes", function() {
 				testInstance.set("test.enum", "b");
 				assert.deepEqual(testInstance.restartRequired, true, "restart required not set");
 			});
+			it("should run field validator successfully", function() {
+				testInstance.set("test.validated", 5);
+				assert.equal(testInstance.get("test.validated"), 5);
+			});
+
+			it("should throw if validator fails", function() {
+				assert.throws(
+					() => testInstance.set("test.validated", -1),
+					new lib.InvalidValue("Failed validation of test.validated: must be positive")
+				);
+			});
+			it("should validate dependent fields", function() {
+				testInstance.set("test.dependent", 10);
+				testInstance.set("test.base", 5);
+				assert.equal(testInstance.get("test.dependent"), 10);
+				assert.equal(testInstance.get("test.base"), 5);
+			});
+			it("should throw if dependent validation fails", function() {
+				assert.throws(
+					() => testInstance.set("test.base", 5),
+					new lib.InvalidValue("Failed validation of dependent test.dependent: dependent must be >= base")
+				);
+			});
 		});
 
 		describe(".setProp()", function() {
@@ -785,6 +829,130 @@ describe("lib/config/classes", function() {
 				assert.deepEqual(testInstance.restartRequired, false, "restart required when no restart field changed");
 				testInstance.setProp("test.rest", "test", true);
 				assert.deepEqual(testInstance.restartRequired, true, "restart required not set");
+			});
+			it("should run validator when setting object property", function() {
+				testInstance.setProp("test.objValidated", "good", true);
+				assert.deepEqual(testInstance.get("test.objValidated"), { good: true });
+			});
+			it("should throw if object validator fails", function() {
+				assert.throws(
+					() => testInstance.setProp("test.objValidated", "bad", true),
+					new lib.InvalidValue("Failed validation of test.objValidated: bad key")
+				);
+			});
+		});
+
+		describe("get .staging", function() {
+			it("should create staging config and reuse it", function() {
+				const testInstance = new TestConfig("local");
+
+				const first = testInstance.staging;
+				const second = testInstance.staging;
+
+				assert.equal(first, second);
+			});
+			it("should return new instance if invalided", function() {
+				const testInstance = new TestConfig("local");
+
+				const first = testInstance.staging;
+				testInstance.set("alpha.foo", "value");
+				const second = testInstance.staging;
+
+				assert.notEqual(first, second);
+			});
+		});
+
+		describe(".stage()", function() {
+			let testInstance;
+			beforeEach(function() {
+				testInstance = new TestConfig("local");
+			});
+
+			it("should stage a value without committing", function() {
+				testInstance.stage("alpha.foo", "value");
+
+				assert.equal(testInstance.get("alpha.foo"), null);
+				assert.equal(testInstance.staging.get("alpha.foo"), "value");
+			});
+			it("should throw if field does not exist", function() {
+				assert.throws(
+					() => testInstance.stage("invalid", "value"),
+					new lib.InvalidField("No field named 'invalid'")
+				);
+			});
+		});
+
+		describe(".stageProp()", function() {
+			let testInstance;
+			beforeEach(function() {
+				testInstance = new TestConfig("local");
+			});
+
+			it("should stage object property change", function() {
+				testInstance.stageProp("test.json", "prop", true);
+
+				assert.deepEqual(testInstance.get("test.json"), {});
+				assert.deepEqual(testInstance.staging.get("test.json"), { prop: true });
+			});
+			it("should delete property when value undefined", function() {
+				testInstance.set("test.json", { a: 1 });
+
+				testInstance.stageProp("test.json", "a", undefined);
+
+				assert.deepEqual(testInstance.staging.get("test.json"), {});
+				assert.deepEqual(testInstance.get("test.json"), { a: 1 });
+			});
+			it("should throw if field is not object", function() {
+				assert.throws(
+					() => testInstance.stageProp("test.enum", "prop", true),
+					new lib.InvalidValue("Cannot set property on non-object field 'test.enum'")
+				);
+			});
+		});
+
+		describe(".commitStaging()", function() {
+			let testInstance;
+			beforeEach(function() {
+				testInstance = new TestConfig("local");
+			});
+
+			it("should do nothing if staging does not exist", function() {
+				testInstance.commitStaging();
+				assert.equal(testInstance.get("alpha.foo"), null);
+			});
+			it("should commit staged values", function() {
+				testInstance.stage("alpha.foo", "value");
+
+				assert.equal(testInstance.get("alpha.foo"), null);
+				testInstance.commitStaging();
+				assert.equal(testInstance.get("alpha.foo"), "value");
+			});
+			it("should throw if staged validation fails", function() {
+				testInstance.stage("test.validated", -1);
+
+				assert.throws(
+					() => testInstance.commitStaging(),
+					new lib.InvalidValue("Failed validation of test.validated: must be positive")
+				);
+			});
+			it("should commit stages values with dependent validation", function() {
+				assert.throws(() => testInstance.set("test.base", 10));
+				testInstance.stage("test.base", 10);
+				testInstance.stage("test.dependent", 15);
+				// The above ordering would error if set was used
+				testInstance.commitStaging();
+				assert.equal(testInstance.get("test.base"), 10);
+				assert.equal(testInstance.get("test.dependent"), 15);
+			});
+		});
+
+		describe(".revertStaging()", function() {
+			it("should discard staged changes", function() {
+				const testInstance = new TestConfig("local");
+				testInstance.stage("alpha.foo", "value");
+				testInstance.revertStaging();
+				assert.equal(testInstance.staging.get("alpha.foo"), null);
+				assert.equal(testInstance.get("alpha.foo"), null);
 			});
 		});
 	});

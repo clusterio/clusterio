@@ -195,6 +195,10 @@ class MockController {
 		this.handles = new Map();
 	}
 
+	get authSecret() {
+		return Buffer.from(this.config.get("controller.auth_secret"), "base64");
+	}
+
 	handle(eventClass, handler) {
 		this.handles.set(eventClass, handler);
 	}
@@ -237,16 +241,15 @@ async function createInstancePlugin(InstancePluginClass, info) {
 	return plugin;
 }
 
-
 module.exports = {
-	MockLogger,
-	MockSocket,
-	MockConnector,
-	MockServer,
-	MockInstance,
-	MockHost,
-	MockControl,
-	MockController,
+	MockLogger: MockLogger,
+	MockSocket: MockSocket,
+	MockConnector: MockConnector,
+	MockServer: MockServer,
+	MockInstance: MockInstance,
+	MockHost: MockHost,
+	MockControl: MockControl,
+	MockController: MockController,
 
 	createControllerPlugin,
 	createInstancePlugin,
