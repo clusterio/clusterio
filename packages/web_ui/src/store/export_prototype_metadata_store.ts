@@ -112,7 +112,10 @@ class ExportPrototypeMetadataStore {
 		}
 		cacheEntry.callbacks.push(callback);
 		return () => {
-			cacheEntry.callbacks.splice(cacheEntry.callbacks.indexOf(callback), 1);
+			const index = cacheEntry.callbacks.indexOf(callback);
+			if (index !== -1) {
+				cacheEntry.callbacks.splice(index, 1);
+			}
 		};
 	}
 

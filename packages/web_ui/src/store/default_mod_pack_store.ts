@@ -35,7 +35,10 @@ class DefaultModPackStore {
 		this.callbacks.push(callback);
 		this.refCount += 1;
 		return () => {
-			this.callbacks.splice(this.callbacks.indexOf(callback), 1);
+			const index = this.callbacks.indexOf(callback);
+			if (index !== -1) {
+				this.callbacks.splice(index, 1);
+			}
 			this.refCount -= 1;
 			if (this.refCount === 0) {
 				clearInterval(this.interval);
