@@ -16,6 +16,16 @@ interface MetadataCacheEntry {
 class ExportPrototypeMetadataStore {
 	cache = new Map<number, MetadataCacheEntry>();
 	async loadMetadata(modPackId: number, cacheEntry: MetadataCacheEntry) {
+		if (!cacheEntry.metadataPath) {
+			// eslint-disable-next-line node/no-sync
+			cacheEntry.styleSheet.replaceSync("");
+			cacheEntry.metadata = new Map();
+			for (const callback of cacheEntry.callbacks) {
+				callback();
+			}
+			return;
+		}
+
 		const response = await fetch(`${staticRoot}static/${cacheEntry.metadataPath}`);
 		if (!response.ok) {
 			notify(

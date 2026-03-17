@@ -13,6 +13,14 @@ class ExportLocaleStore {
 	_emptyMap = new Map();
 
 	async loadLocale(modPackId: number, cacheEntry: ExportLocaleCacheEntry) {
+		if (!cacheEntry.localePath) {
+			cacheEntry.data = new Map();
+			for (const callback of cacheEntry.callbacks) {
+				callback();
+			}
+			return;
+		}
+
 		let response = await fetch(`${staticRoot}static/${cacheEntry.localePath}`);
 		if (response.ok) {
 			cacheEntry.data = new Map(await response.json() as ExportLocale);
