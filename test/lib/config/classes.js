@@ -1,5 +1,6 @@
 "use strict";
 const lib = require("@clusterio/lib");
+const { optional } = require("@clusterio/lib/dist/node/src/config/validators");
 const fs = require("fs-extra");
 const path = require("path");
 const assert = require("assert").strict;
@@ -49,6 +50,16 @@ describe("lib/config/classes", function() {
 					validator(value, config) {
 						if (value < config.get("test.base")) {
 							throw new Error("dependent must be >= base");
+						}
+					},
+				},
+				"test.objDependent": {
+					type: "object",
+					initialValue: {},
+					dependsOn: ["test.base"],
+					validator(value, config) {
+						if (value.base !== undefined && value.base !== config.get("test.base")) {
+							throw new Error("base prop must match test.base");
 						}
 					},
 				},
@@ -592,6 +603,111 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		/**
+		 * @param {typeof lib.Config.prototype.set} set
+		 * @param {typeof lib.Config.prototype.get} get
+		 * @param {(config: lib.Config) => void} replaceConfig
+		 */
+		function testAccessAndCoerce(set, get, replaceConfig) {
+			it("should set the value", function() {
+				set("alpha.foo", "new value");
+				assert.equal(get("alpha.foo"), "new value");
+			});
+			it("should throw if field does not exist", function() {
+				assert.throws(
+					() => set("test.bar", 1),
+					new lib.InvalidField("No field named 'test.bar'")
+				);
+			});
+			it("should throw if field is remotely inaccessible", function() {
+				assert.throws(
+					() => set("test.priv", "bad", "remote"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is locally inaccessible", function() {
+				replaceConfig(new TestConfig("remote"));
+				assert.throws(
+					() => set("test.priv", "bad", "local"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is not in enum", function() {
+				assert.throws(
+					() => set("test.enum", "bar"),
+					new Error("Expected one of [a, b, c], not bar")
+				);
+			});
+			it("should work if field is in enum", function() {
+				set("test.enum", "c");
+				assert.equal(get("test.enum"), "c");
+			});
+			it("should throw if field is not optional", function() {
+				assert.throws(
+					() => set("test.func", null),
+					new Error("Field test.func cannot be null")
+				);
+			});
+			it("should work if field is optional", function() {
+				set("test.test", "spam");
+				assert.equal(get("test.test"), "spam");
+			});
+			it("should throw if field is of wrong type", function() {
+				assert.throws(
+					() => set("test.test", 1),
+					new Error("Expected type of test.test to be string, not number")
+				);
+			});
+			it("should treat empty string as null", function() {
+				set("test.test", "");
+				assert.equal(get("test.test"), null);
+			});
+			it("should auto convert string to boolean if possible", function() {
+				set("test.bool", "true");
+				assert.equal(get("test.bool"), true);
+				set("test.bool", "false");
+				assert.equal(get("test.bool"), false);
+
+				assert.throws(
+					() => set("test.bool", "blah"),
+					new lib.InvalidValue("Expected type of test.bool to be boolean, not string")
+				);
+			});
+			it("should auto convert string to number if possible", function() {
+				for (let s of [
+					"1",
+					"+23",
+					".23e5",
+					"-.1e-2",
+					"100.0001",
+					"Infinity",
+				]) {
+					set("test.func", s);
+					assert.equal(get("test.func"), Number.parseFloat(s));
+				}
+
+				assert.throws(
+					() => set("test.func", "blah"),
+					new lib.InvalidValue("Expected type of test.func to be number, not string")
+				);
+			});
+			it("should auto convert string to object", function() {
+				set("test.json", '{"json": true}');
+				assert.deepEqual(get("test.json"), { json: true });
+
+				let errMsg;
+				try {
+					JSON.parse("blah");
+				} catch (err) {
+					errMsg = err.message;
+				}
+				assert.throws(
+					() => set("test.json", "blah"),
+					new lib.InvalidValue(`Error parsing value for test.json: ${errMsg}`)
+				);
+			});
+		}
+
 		describe(".set()", function() {
 			let testInstance;
 			beforeEach(function() {
@@ -602,114 +718,11 @@ describe("lib/config/classes", function() {
 				});
 			});
 
-			it("should set the value", function() {
-				testInstance.set("alpha.foo", "new value");
-				assert.equal(testInstance.get("alpha.foo"), "new value");
-			});
-
-			it("should throw if field does not exist", function() {
-				assert.throws(
-					() => testInstance.set("test.bar", 1),
-					new lib.InvalidField("No field named 'test.bar'")
-				);
-			});
-
-			it("should throw if field is remotely inaccessible", function() {
-				assert.throws(
-					() => testInstance.set("test.priv", "bad", "remote"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
-				);
-			});
-			it("should throw if field is locally inaccessible", function() {
-				testInstance = new TestConfig("remote");
-				assert.throws(
-					() => testInstance.set("test.priv", "bad", "local"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
-				);
-			});
-
-			it("should throw if field is not in enum", function() {
-				assert.throws(
-					() => testInstance.set("test.enum", "bar"),
-					new Error("Expected one of [a, b, c], not bar")
-				);
-			});
-
-			it("should work if field is in enum", function() {
-				testInstance.set("test.enum", "c");
-				assert.equal(testInstance.get("test.enum"), "c");
-			});
-
-			it("should throw if field is not optional", function() {
-				assert.throws(
-					() => testInstance.set("test.func", null),
-					new Error("Field test.func cannot be null")
-				);
-			});
-
-			it("should work if field is optional", function() {
-				testInstance.set("test.test", "spam");
-				assert.equal(testInstance.get("test.test"), "spam");
-			});
-
-			it("should throw if field is of wrong type", function() {
-				assert.throws(
-					() => testInstance.set("test.test", 1),
-					new Error("Expected type of test.test to be string, not number")
-				);
-			});
-
-			it("should treat empty string as null", function() {
-				testInstance.set("test.test", "");
-				assert.equal(testInstance.get("test.test"), null);
-			});
-
-			it("should auto convert string to boolean if possible", function() {
-				testInstance.set("test.bool", "true");
-				assert.equal(testInstance.get("test.bool"), true);
-				testInstance.set("test.bool", "false");
-				assert.equal(testInstance.get("test.bool"), false);
-
-				assert.throws(
-					() => testInstance.set("test.bool", "blah"),
-					new lib.InvalidValue("Expected type of test.bool to be boolean, not string")
-				);
-			});
-
-			it("should auto convert string to number if possible", function() {
-				for (let s of [
-					"1",
-					"+23",
-					".23e5",
-					"-.1e-2",
-					"100.0001",
-					"Infinity",
-				]) {
-					testInstance.set("test.func", s);
-					assert.equal(testInstance.get("test.func"), Number.parseFloat(s));
-				}
-
-				assert.throws(
-					() => testInstance.set("test.func", "blah"),
-					new lib.InvalidValue("Expected type of test.func to be number, not string")
-				);
-			});
-
-			it("should auto convert string to object", function() {
-				testInstance.set("test.json", '{"json": true}');
-				assert.deepEqual(testInstance.get("test.json"), { json: true });
-
-				let errMsg;
-				try {
-					JSON.parse("blah");
-				} catch (err) {
-					errMsg = err.message;
-				}
-				assert.throws(
-					() => testInstance.set("test.json", "blah"),
-					new lib.InvalidValue(`Error parsing value for test.json: ${errMsg}`)
-				);
-			});
+			testAccessAndCoerce(
+				(...args) => testInstance.set(...args),
+				(...args) => testInstance.get(...args),
+				config => { testInstance = config; },
+			);
 			it("should notify fieldChanged listeners", function() {
 				const changes = [];
 				testInstance.on("fieldChanged", (name, value, prev) => changes.push([name, value, prev]));
@@ -734,7 +747,6 @@ describe("lib/config/classes", function() {
 				testInstance.set("test.validated", 5);
 				assert.equal(testInstance.get("test.validated"), 5);
 			});
-
 			it("should throw if validator fails", function() {
 				assert.throws(
 					() => testInstance.set("test.validated", -1),
@@ -755,6 +767,55 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		/**
+		 * @param {typeof lib.Config.prototype.set} set
+		 * @param {typeof lib.Config.prototype.setProp} setProp
+		 * @param {typeof lib.Config.prototype.get} get
+		 * @param {(config: lib.Config) => void} replaceConfig
+		 */
+		function testAccessAndCoerceProp(set, setProp, get, replaceConfig) {
+			it("should throw if field does not exist", function() {
+				assert.throws(
+					() => setProp("test.bar", 1),
+					new lib.InvalidField("No field named 'test.bar'")
+				);
+			});
+			it("should throw if field is remotely inaccessible", function() {
+				assert.throws(
+					() => setProp("test.priv", "prop", "bad", "remote"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is locally inaccessible", function() {
+				replaceConfig(new TestConfig("remote"));
+				assert.throws(
+					() => setProp("test.priv", "prop", "bad", "local"),
+					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+				);
+			});
+			it("should throw if field is not an object", function() {
+				assert.throws(
+					() => setProp("test.enum", "prop", "a"),
+					new lib.InvalidField("Cannot set property on non-object field 'test.enum'")
+				);
+			});
+			it("should work if field is an object", function() {
+				set("test.json", { prev: 32, test: false });
+				setProp("test.json", "test", true);
+				assert.deepEqual(get("test.json"), { prev: 32, test: true });
+			});
+			it("should handle field being null", function() {
+				set("test.json", null);
+				setProp("test.json", "test", true);
+				assert.deepEqual(get("test.json"), { test: true });
+			});
+			it("should unset field if passed undefined", function() {
+				set("test.json", { test: true, extra: "yes" });
+				setProp("test.json", "extra", undefined);
+				assert.deepEqual(get("test.json"), { test: true });
+			});
+		}
+
 		describe(".setProp()", function() {
 			let testInstance;
 			beforeEach(function() {
@@ -765,51 +826,12 @@ describe("lib/config/classes", function() {
 				});
 			});
 
-			it("should throw if field does not exist", function() {
-				assert.throws(
-					() => testInstance.setProp("test.bar", 1),
-					new lib.InvalidField("No field named 'test.bar'")
-				);
-			});
-
-			it("should throw if field is remotely inaccessible", function() {
-				assert.throws(
-					() => testInstance.setProp("test.priv", "prop", "bad", "remote"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
-				);
-			});
-			it("should throw if field is locally inaccessible", function() {
-				testInstance = new TestConfig("remote");
-				assert.throws(
-					() => testInstance.setProp("test.priv", "prop", "bad", "local"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
-				);
-			});
-
-			it("should throw if field is not an object", function() {
-				assert.throws(
-					() => testInstance.setProp("test.enum", "prop", "a"),
-					new lib.InvalidField("Cannot set property on non-object field 'test.enum'")
-				);
-			});
-
-			it("should work if field is an object", function() {
-				testInstance.set("test.json", { prev: 32, test: false });
-				testInstance.setProp("test.json", "test", true);
-				assert.deepEqual(testInstance.get("test.json"), { prev: 32, test: true });
-			});
-
-			it("should handle field being null", function() {
-				testInstance.set("test.json", null);
-				testInstance.setProp("test.json", "test", true);
-				assert.deepEqual(testInstance.get("test.json"), { test: true });
-			});
-
-			it("should unset field if passed undefined", function() {
-				testInstance.set("test.json", { test: true, extra: "yes" });
-				testInstance.setProp("test.json", "extra", undefined);
-				assert.deepEqual(testInstance.get("test.json"), { test: true });
-			});
+			testAccessAndCoerceProp(
+				(...args) => testInstance.set(...args),
+				(...args) => testInstance.setProp(...args),
+				(...args) => testInstance.get(...args),
+				config => { testInstance = config; },
+			);
 			it("should notify fieldChanged listeners", function() {
 				const changes = [];
 				testInstance.on("fieldChanged", (name, value, prev) => changes.push([name, value, prev]));
@@ -838,6 +860,16 @@ describe("lib/config/classes", function() {
 				assert.throws(
 					() => testInstance.setProp("test.objValidated", "bad", true),
 					new lib.InvalidValue("Failed validation of test.objValidated: bad key")
+				);
+			});
+			it("should validate dependent fields", function() {
+				testInstance.setProp("test.objDependent", "base", 1);
+				assert.deepEqual(testInstance.get("test.objDependent"), { base: 1 });
+			});
+			it("should throw if dependent validation fails", function() {
+				assert.throws(
+					() => testInstance.setProp("test.objDependent", "base", 5),
+					new lib.InvalidValue("Failed validation of test.objDependent: base prop must match test.base")
 				);
 			});
 		});
@@ -874,12 +906,11 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.get("alpha.foo"), null);
 				assert.equal(testInstance.staging.get("alpha.foo"), "value");
 			});
-			it("should throw if field does not exist", function() {
-				assert.throws(
-					() => testInstance.stage("invalid", "value"),
-					new lib.InvalidField("No field named 'invalid'")
-				);
-			});
+			testAccessAndCoerce(
+				(...args) => testInstance.stage(...args),
+				(...args) => testInstance.staging.get(...args),
+				config => { testInstance = config; },
+			);
 		});
 
 		describe(".stageProp()", function() {
@@ -888,6 +919,12 @@ describe("lib/config/classes", function() {
 				testInstance = new TestConfig("local");
 			});
 
+			testAccessAndCoerceProp(
+				(...args) => testInstance.stage(...args),
+				(...args) => testInstance.stageProp(...args),
+				(...args) => testInstance.staging.get(...args),
+				config => { testInstance = config; },
+			);
 			it("should stage object property change", function() {
 				testInstance.stageProp("test.json", "prop", true);
 
@@ -901,12 +938,6 @@ describe("lib/config/classes", function() {
 
 				assert.deepEqual(testInstance.staging.get("test.json"), {});
 				assert.deepEqual(testInstance.get("test.json"), { a: 1 });
-			});
-			it("should throw if field is not object", function() {
-				assert.throws(
-					() => testInstance.stageProp("test.enum", "prop", true),
-					new lib.InvalidValue("Cannot set property on non-object field 'test.enum'")
-				);
 			});
 		});
 
@@ -943,6 +974,32 @@ describe("lib/config/classes", function() {
 				testInstance.commitStaging();
 				assert.equal(testInstance.get("test.base"), 10);
 				assert.equal(testInstance.get("test.dependent"), 15);
+			});
+			it("should notify fieldChanged listeners", function() {
+				const changes = [];
+				testInstance.on("fieldChanged", (name, value, prev) => changes.push([name, value, prev]));
+
+				testInstance.stage("alpha.foo", "foo");
+				testInstance.stage("test.test", "bar");
+				testInstance.commitStaging();
+
+				assert.deepEqual(changes, [
+					["alpha.foo", "foo", null],
+					["test.test", "bar", null],
+				], "fieldChanged emitted incorrectly");
+			});
+			it("should set the dirty flag", function() {
+				testInstance.stage("test.test", "foo");
+				testInstance.commitStaging();
+				assert.deepEqual(testInstance.dirty, true, "dirty flag not set");
+			});
+			it("should set the requires restart flag", function() {
+				testInstance.stage("test.test", "foo");
+				testInstance.commitStaging();
+				assert.deepEqual(testInstance.restartRequired, false, "restart required when no restart field changed");
+				testInstance.stage("test.enum", "a");
+				testInstance.commitStaging();
+				assert.deepEqual(testInstance.restartRequired, true, "restart required not set");
 			});
 		});
 

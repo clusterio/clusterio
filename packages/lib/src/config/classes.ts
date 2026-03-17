@@ -794,7 +794,7 @@ export class Config<
 			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);
 		}
 
-		const prev = this.fields[name] as Record<string, unknown>;
+		const prev = this.staging.get(name) as Record<string, unknown>;
 		const updated = {...prev || {}};
 
 		if (value !== undefined) {
