@@ -27,7 +27,7 @@ class DefaultModPackStore {
 	}
 
 	subscribe(control: Control, callback: () => void) {
-		if (!this.refCount) {
+		if (this.refCount === 0) {
 			const update = () => { this.fetchDefaultModPack(control); };
 			update();
 			this.interval = setInterval(update, 60e3);
@@ -37,7 +37,7 @@ class DefaultModPackStore {
 		return () => {
 			this.callbacks.splice(this.callbacks.indexOf(callback), 1);
 			this.refCount -= 1;
-			if (!this.refCount) {
+			if (this.refCount === 0) {
 				clearInterval(this.interval);
 				this.interval = undefined;
 			}
