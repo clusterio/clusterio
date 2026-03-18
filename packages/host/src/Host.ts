@@ -464,7 +464,7 @@ export default class Host extends lib.Link {
 
 		let instancesDir = this.config.get("host.instances_directory");
 		for (let i = 0; i < 10; i++) { // Limit attempts in case this is somehow an infinite loop
-			let candidateDir = path.join(instancesDir, await lib.findUnusedName(instancesDir, name));
+			let candidateDir = path.join(instancesDir, i === 0 ? name : `${name}-${i + 1}`);
 			try {
 				await fs.mkdir(candidateDir);
 			} catch (err: any) {
@@ -941,6 +941,39 @@ export default class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instance.path, "saves"));
 	}
 
+	async _moveOrCopyFile(sourcePath: string, targetPath: string, copy: boolean) {
+		const {
+			dir: targetDir,
+			name: targetNameWithoutExt,
+			ext: targetExt,
+		} = path.parse(targetPath);
+
+		for (let i = 0; i < 10; i++) {
+			targetPath = path.format({
+				dir: targetDir,
+				name: i === 0 ? targetNameWithoutExt : `${targetNameWithoutExt}-${i + 1}`,
+				ext: targetExt,
+			});
+			try {
+				if (copy) {
+					await fs.copy(
+						sourcePath,
+						targetPath,
+						{ overwrite: false, errorOnExist: true },
+					);
+				} else {
+					await fs.move(sourcePath, targetPath, { overwrite: false });
+				}
+				return path.basename(targetPath);
+			} catch (err: any) {
+				if (err.code !== "EEXIST") {
+					throw err;
+				}
+			}
+		}
+		throw new lib.RequestError("Unable to perform transfer, retry threshold reached");
+	}
+
 	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
 		let { sourceName, targetName, copy, sourceInstanceId, targetInstanceId } = request;
 		checkRequestSaveName(sourceName);
@@ -948,32 +981,21 @@ export default class Host extends lib.Link {
 		let sourceInstance = this.getRequestInstance(sourceInstanceId);
 		let targetInstance = this.getRequestInstance(targetInstanceId);
 
-		// For consistency with remote transfer initiated through pullSave the
-		// target is renamed if it already exists.
-		targetName = await lib.findUnusedName(
-			path.join(targetInstance.path, "saves"), targetName, ".zip"
-		);
-
+		const sourcePath = path.join(sourceInstance.path, "saves", sourceName);
+		const targetPath = path.join(targetInstance.path, "saves", targetName);
 		try {
-			if (copy) {
-				await fs.copy(
-					path.join(sourceInstance.path, "saves", sourceName),
-					path.join(targetInstance.path, "saves", targetName),
-					{ overwrite: true },
-				);
-			} else {
-				await fs.move(
-					path.join(sourceInstance.path, "saves", sourceName),
-					path.join(targetInstance.path, "saves", targetName),
-					{ overwrite: true },
-				);
-			}
+			await fs.access(sourcePath);
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${sourceName} does not exist`);
 			}
 			throw err;
 		}
+
+		// For consistency with remote transfer initiated through pullSave the
+		// target is renamed if it already exists.
+		targetName = await this._moveOrCopyFile(sourcePath, targetPath, copy);
+
 		await this.sendSaveListUpdate(sourceInstanceId, path.join(sourceInstance.path, "saves"));
 		await this.sendSaveListUpdate(targetInstanceId, path.join(targetInstance.path, "saves"));
 
