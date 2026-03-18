@@ -46,10 +46,14 @@ describe("lib/config/classes", function() {
 				"test.dependent": {
 					type: "number",
 					initialValue: 1,
-					dependsOn: ["test.base"],
+					dependsOn: ["test.base", "test.objDependent"],
 					validator(value, config) {
 						if (value < config.get("test.base")) {
 							throw new Error("dependent must be >= base");
+						}
+						const dep = config.get("test.objDependent")?.base;
+						if (dep === 0) {
+							throw new Error("objDependent cannot be 0");
 						}
 					},
 				},
@@ -58,7 +62,7 @@ describe("lib/config/classes", function() {
 					initialValue: {},
 					dependsOn: ["test.base"],
 					validator(value, config) {
-						if (value.base !== undefined && value.base !== config.get("test.base")) {
+						if (value.base && value.base !== config.get("test.base")) {
 							throw new Error("base prop must match test.base");
 						}
 					},
@@ -867,9 +871,10 @@ describe("lib/config/classes", function() {
 				assert.deepEqual(testInstance.get("test.objDependent"), { base: 1 });
 			});
 			it("should throw if dependent validation fails", function() {
+				testInstance.set("test.base", 0);
 				assert.throws(
-					() => testInstance.setProp("test.objDependent", "base", 5),
-					new lib.InvalidValue("Failed validation of test.objDependent: base prop must match test.base")
+					() => testInstance.setProp("test.objDependent", "base", 0),
+					new lib.InvalidValue("Failed validation of dependent test.dependent: objDependent cannot be 0")
 				);
 			});
 		});
