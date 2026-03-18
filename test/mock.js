@@ -241,15 +241,16 @@ async function createInstancePlugin(InstancePluginClass, info) {
 	return plugin;
 }
 
+
 module.exports = {
-	MockLogger: MockLogger,
-	MockSocket: MockSocket,
-	MockConnector: MockConnector,
-	MockServer: MockServer,
-	MockInstance: MockInstance,
-	MockHost: MockHost,
-	MockControl: MockControl,
-	MockController: MockController,
+	MockLogger,
+	MockSocket,
+	MockConnector,
+	MockServer,
+	MockInstance,
+	MockHost,
+	MockControl,
+	MockController,
 
 	createControllerPlugin,
 	createInstancePlugin,
