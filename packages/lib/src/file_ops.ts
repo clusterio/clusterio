@@ -1,9 +1,12 @@
 /**
  * @module lib/file_ops
  */
+import crypto from "crypto";
+import events from "events";
 import fs from "fs-extra";
 import path from "path";
-import crypto from "crypto"; // needed for getTempFile
+import stream from "stream";
+
 
 /**
  * Returns the newest file in a directory
@@ -234,4 +237,98 @@ export function cleanFilename(name: string) {
 	name = name.replace(badEnd, "_");
 
 	return name;
+}
+
+/**
+ * Creates a write stream to a guaranteed newly created temporary file in the
+ * same folder as the target `filePath`.
+ *
+ * @param filePath - The target file to create a temporary stream for.
+ * @returns The path to the temporary file that was opened and the write stream to it.
+ */
+export async function createTempWriteStream(filePath: string): Promise<[string, fs.WriteStream]> {
+	const { dir, name: fileName, ext } = path.parse(filePath);
+	let increment = 1;
+	let writeStream;
+	let tempFilePath = path.format({ dir, name: `${fileName}.tmp`, ext });
+	while (true) {
+		try {
+			writeStream = fs.createWriteStream(tempFilePath, { flags: "wx", flush: true });
+			// replace "open" event with "ready" after removing fs-extra
+			await events.once(writeStream, "open");
+			break;
+		} catch (err: any) {
+			if (err.code === "EEXIST") {
+				increment += 1;
+				tempFilePath = path.format({ dir, name: `${fileName}-${increment}.tmp`, ext });
+			} else {
+				throw err;
+			}
+		}
+	}
+
+	return [tempFilePath, writeStream];
+}
+
+/**
+ * Download a file by fetching the given url and streaming the body content to it.
+ *
+ * @param url - The resource to download
+ * @param filePath - Path to the file store the resource data in.
+ * @param overwriteMode - What to do if the target filePath already exists. Use
+ *     overwrite to clobber it, use rename to write to a differently named file,
+ *     and error to throw an EEXIST error.
+ * @returns file path that was written to. May be different from `filePath` if
+ * overwriteMode is set to rename.
+ */
+export async function downloadFile(
+	url: URL | string,
+	filePath: string,
+	overwriteMode: "overwrite" | "rename" | "error",
+) {
+	// Prepare file to stream content to.
+	let writeStream;
+	let tempFilePath;
+	if (overwriteMode === "error") {
+		tempFilePath = filePath;
+		writeStream = fs.createWriteStream(tempFilePath, { flags: "wx", flush: true });
+		// replace "open" event with "ready" after removing fs-extra
+		await events.once(writeStream, "open");
+	} else {
+		[tempFilePath, writeStream] = await createTempWriteStream(filePath);
+	}
+
+	// Fetch stream bytes
+	const response = await fetch(url);
+	if (!response.ok || !response.body) {
+		writeStream.end();
+		await events.once(writeStream, "close");
+		await fs.unlink(tempFilePath);
+		throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+	}
+	const writer = stream.Writable.toWeb(writeStream);
+	await response.body.pipeTo(writer);
+
+	let targetFilePath = filePath;
+	if (overwriteMode === "overwrite") {
+		await fs.rename(tempFilePath, targetFilePath);
+	} else if (overwriteMode === "rename") {
+		let increment = 1;
+		let { dir, name, ext } = path.parse(targetFilePath);
+		while (true) {
+			try {
+				await fs.writeFile(targetFilePath, Buffer.alloc(0), { flag: "wx" });
+				break;
+			} catch (err: any) {
+				if (err.code === "EEXIST") {
+					increment += 1;
+					targetFilePath = path.format({ dir, name: `${name}-${increment}`, ext });
+				} else {
+					throw err;
+				}
+			}
+		}
+		await fs.rename(tempFilePath, targetFilePath);
+	}
+	return targetFilePath;
 }

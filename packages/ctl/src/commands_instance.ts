@@ -417,31 +417,7 @@ instanceSaveCommands.add(new lib.Command({
 
 		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
-		let response = await fetch(url);
-		if (!response.body) {
-			throw new lib.CommandError("Got empty response from server.");
-		}
-
-		let writeStream;
-		let tempFilename = args.save.replace(/(\.zip)?$/, ".tmp.zip");
-		while (true) {
-			try {
-				writeStream = fs.createWriteStream(tempFilename, { flags: "wx" });
-				await events.once(writeStream, "open");
-				break;
-			} catch (err: any) {
-				if (err.code === "EEXIST") {
-					tempFilename = await lib.findUnusedName(".", tempFilename, ".tmp.zip");
-				} else {
-					throw err;
-				}
-			}
-		}
-		stream.Readable.fromWeb(response.body).pipe(writeStream);
-		await finished(writeStream);
-
-		let filename = await lib.findUnusedName(".", args.save, ".zip");
-		await fs.rename(tempFilename, filename);
+		const filename = await lib.downloadFile(url, args.save, "rename");
 
 		logger.info(`Downloaded ${args.save}${args.save === filename ? "" : ` as ${filename}`}`);
 	},

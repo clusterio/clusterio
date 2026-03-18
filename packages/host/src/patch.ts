@@ -431,15 +431,13 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 	root.file("clusterio.json", JSON.stringify(patchInfo, null, "\t"));
 
 	// Write back the save
-	let tempSavePath = savePath.replace(/(\.zip)?$/, ".tmp.zip");
 	let stream = zip.generateNodeStream({ compression: "DEFLATE" });
-	let fd = await fs.open(tempSavePath, "w");
+	const [tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
 	try {
-		let pipe = stream.pipe(fs.createWriteStream("", { fd, autoClose: false }));
+		let pipe = stream.pipe(writeStream);
 		await events.once(pipe, "finish");
-		await fs.fsync(fd);
 	} finally {
-		await fs.close(fd);
+		writeStream.destroy();
 	}
 	await fs.rename(tempSavePath, savePath);
 }

@@ -3,8 +3,7 @@ import path from "path";
 import events from "events";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
-import { safeOutputFile } from "./file_ops";
-import { Writable } from "stream";
+import { downloadFile, safeOutputFile } from "./file_ops";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
 import { ModInfo, ModPack, FullVersion, ApiVersion, ModVersionEquality } from "./data";
 
@@ -156,33 +155,6 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	}
 
 	/**
-	 * Stream a url's content into a file.
-	 *
-	 * @param url - Web path to stream from.
-	 * @param filePath - File path to stream to.
-	 */
-	private static async downloadFile(url: string | URL, filePath: string) {
-		try {
-			const response = await fetch(url);
-
-			if (!response.ok) {
-				throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
-			}
-
-			if (!response.body) {
-				throw new Error("Response body is missing.");
-			}
-
-			const fileStream = fs.createWriteStream(filePath);
-			const writer = Writable.toWeb(fileStream);
-			await response.body.pipeTo(writer);
-		} catch (error) {
-			logger.error("Error downloading file:", error);
-			throw error;
-		}
-	}
-
-	/**
 	 * Download a matching version from a selection of available versions.
 	 *
 	 * @param releases - Array of mod releases taken from the mod portal.
@@ -202,27 +174,16 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		}
 
 		try {
-			const url = new URL(`https://mods.factorio.com/${selectedRelease.download_url}`);
+			const url = new URL(selectedRelease.download_url, "https://mods.factorio.com/");
 			url.searchParams.set("username", username);
 			url.searchParams.set("token", token);
-			const tempFileName = `${this.modsDirectory}/${selectedRelease.file_name}.tmp`;
-			const finalFileName = `${this.modsDirectory}/${selectedRelease.file_name}`;
+			const filePath = path.join(this.modsDirectory, selectedRelease.file_name);
 
-			await ModStore.downloadFile(url, tempFileName);
-			await fs.rename(tempFileName, finalFileName);
+			await downloadFile(url, filePath, "overwrite");
 			await this.loadFile(selectedRelease.file_name);
 
 		} catch (err: any) {
 			logger.error(`Failed to download or load mod ${selectedRelease.file_name} (${version}): ${err.message}`);
-			// Attempt to clean up temp file if it exists
-			try {
-				const tempFileName = `${this.modsDirectory}/${selectedRelease.file_name}.tmp`;
-				await fs.unlink(tempFileName);
-			} catch (unlinkErr: any) {
-				if (unlinkErr.code !== "ENOENT") { // Ignore if file doesn't exist
-					logger.warn(`Failed to clean up temp file ${selectedRelease.file_name}.tmp: ${unlinkErr.message}`);
-				}
-			}
 		}
 	}
 

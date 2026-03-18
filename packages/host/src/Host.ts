@@ -591,19 +591,10 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		let response = await fetch(url);
-		if (!response.body) {
-			throw new Error(`Empty body downloading stream ${streamId} from controller`);
-		}
 
 		const file = lib.ModInfo.filename(mod.name, mod.version);
 		const filePath = path.join(this.modStore.modsDirectory, file);
-		const tempFilePath = filePath.replace(/(\.zip)?$/, ".tmp.zip");
-		const writeStream = fs.createWriteStream(tempFilePath, { flags: "w" });
-		await events.once(writeStream, "open");
-		stream.Readable.fromWeb(response.body).pipe(writeStream);
-		await finished(writeStream);
-		await fs.rename(tempFilePath, filePath);
+		await lib.downloadFile(url, filePath, "overwrite");
 
 		const modInfo = await this.modStore.loadFile(file);
 		if (mod.sha1 && mod.sha1 !== modInfo.sha1) {
@@ -1024,35 +1015,9 @@ export default class Host extends lib.Link {
 
 		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${streamId}`;
-		let response = await fetch(url);
-
-		if (response.status !== 200 || !response.body) {
-			let body = Buffer.from(await response.arrayBuffer());
-			throw new lib.RequestError(`Stream returned ${response.status}: ${body.toString()}`);
-		}
-
 		let savesDir = path.join(instance.path, "saves");
-		let tempFilename = name.replace(/(\.zip)?$/, ".tmp.zip");
-		let writeStream: NodeJS.WritableStream;
-		while (true) {
-			try {
-				writeStream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
-				await events.once(writeStream, "open");
-				break;
-			} catch (err: any) {
-				if (err.code === "EEXIST") {
-					tempFilename = await lib.findUnusedName(savesDir, tempFilename, ".tmp.zip");
-				} else {
-					throw err;
-				}
-			}
-		}
-		stream.Readable.fromWeb(response.body).pipe(writeStream);
-		await finished(writeStream);
-
-		name = await lib.findUnusedName(savesDir, name, ".zip");
-		await fs.rename(path.join(savesDir, tempFilename), path.join(savesDir, name));
-
+		const savedPath = await lib.downloadFile(url, path.join(savesDir, name), "rename");
+		name = path.basename(savedPath);
 		await this.sendSaveListUpdate(instanceId, savesDir);
 		return name;
 	}

@@ -2,6 +2,7 @@
 const assert = require("assert").strict;
 const path = require("path");
 const fs = require("fs-extra");
+const stream = require("node:stream");
 const JSZip = require("jszip"); // Added for creating mock zips
 
 // Capture native fetch before any potential mocks are applied
@@ -12,8 +13,7 @@ const { ModStore, ModInfo, ModVersionEquality } = require("@clusterio/lib"); // 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");
 
-// Helper function to create a mock mod zip file
-async function createMockModZip(filePath, name, version, factorioVersion = "1.1", dependencies = ["base >= 1.1"]) {
+function createMockModJSZip(name, version, factorioVersion = "1.1", dependencies = ["base >= 1.1"]) {
 	const zip = new JSZip();
 	const infoJson = {
 		name: name,
@@ -27,7 +27,12 @@ async function createMockModZip(filePath, name, version, factorioVersion = "1.1"
 	zip.file(`${name}/info.json`, JSON.stringify(infoJson, null, 4));
 	zip.file(`${name}/dummy.lua`, "-- Mock Lua file");
 
-	await fs.ensureDir(path.dirname(filePath));
+	return zip;
+}
+
+// Helper function to create a mock mod zip file
+async function createMockModZip(filePath, name, version, factorioVersion = "1.1", dependencies = ["base >= 1.1"]) {
+	const zip = createMockModJSZip(name, version, factorioVersion, dependencies);
 	const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 	await fs.writeFile(filePath, buffer);
 }
@@ -174,79 +179,19 @@ describe("lib/ModStore", function () {
 		// - Error handling for corrupt zips
 	});
 
-	describe("downloadFile (static)", function () {
-		const downloadUrl = "http://example.com/download.zip";
-		const downloadPath = path.join(MODS_DIR, "downloaded.zip");
-		const fileContent = "mock file content";
-
-		beforeEach(function () {
-			// Reset fetch mock specifically for downloadFile tests
-			global.fetch = async (url, options) => {
-				if (url.toString() === downloadUrl) {
-					// Simulate a readable stream for the response body
-					const { Readable } = require("stream");
-					const stream = Readable.from(fileContent);
-					return {
-						ok: true,
-						status: 200,
-						statusText: "OK",
-						body: Readable.toWeb(stream), // Convert Node stream to Web ReadableStream
-					};
-				}
-				return {
-					ok: false,
-					status: 404,
-					statusText: "Not Found",
-					body: null,
-				};
-			};
-		});
-
-		it("should download content from URL to the specified file path", async function () {
-			await ModStore.downloadFile(downloadUrl, downloadPath);
-			const writtenContent = await fs.readFile(downloadPath, "utf8");
-			assert.equal(writtenContent, fileContent);
-		});
-
-		it("should throw if fetch response is not ok", async function () {
-			await assert.rejects(
-				ModStore.downloadFile("http://example.com/not-found", downloadPath),
-				/Failed to fetch .* 404 Not Found/
-			);
-		});
-
-		it("should throw if fetch response body is missing", async function () {
-			global.fetch = async (url, options) => ({
-				ok: true,
-				status: 200,
-				statusText: "OK",
-				body: null, // Simulate missing body
-			});
-			await assert.rejects(
-				ModStore.downloadFile(downloadUrl, downloadPath),
-				/Response body is missing/
-			);
-		});
-
-		// Note: Testing the stream piping error handling might require more complex stream mocking.
-	});
-
 	describe("downloadMods", function () {
 		let modStore;
 		const username = "testuser";
 		const token = "testtoken";
 		const factorioVersion = "1.1";
 
-		// Store original downloadFile and fetch, restore them after tests
-		let originalDownloadFile;
+		// Store fetch and restore it after tests
 		let originalFetch;
 		before(function () {
-			originalDownloadFile = ModStore.downloadFile;
 			originalFetch = global.fetch;
 		});
 
 		after(function () {
-			ModStore.downloadFile = originalDownloadFile;
 			global.fetch = originalFetch;
 		});
 
@@ -254,17 +199,6 @@ describe("lib/ModStore", function () {
 			// Start with an empty store for download tests
 			await fs.emptyDir(MODS_DIR); // Clear any existing files in the temp dir
 			modStore = await ModStore.fromDirectory(MODS_DIR); // Initialize using fromDirectory
-
-			// Replace downloadFile with a mock that creates the file directly
-			ModStore.downloadFile = async (url, filePath) => {
-				const finalFilename = path.basename(filePath).replace(/\.tmp$/, "");
-				const match = finalFilename.match(/^(.*)_(\d+\.\d+\.\d+)\.zip$/);
-				if (!match) {
-					throw new Error(`Mock downloadFile could not parse filename: ${finalFilename}`);
-				}
-				const [, name, version] = match;
-				await createMockModZip(filePath, name, version, factorioVersion);
-			};
 
 			// Restore fetch before each test in this suite to avoid pollution
 			global.fetch = originalFetch;
@@ -303,6 +237,21 @@ describe("lib/ModStore", function () {
 						};
 					});
 					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
+				}
+				if (urlString.startsWith("https://mods.factorio.com/download/")) {
+					const [, name, version] = /\/([^\/]+)\/([^\/]+)$/.exec(url.pathname);
+					const requestedMod = modsToDownload.find(mod => (
+						mod.name === name
+						&& mod.version.version === version
+					));
+					if (!requestedMod) {
+						return { ok: false, status: 404, statusText: `Test Mock 404, no such mod: ${urlString}` };
+					}
+					if (name === "bad-download-mod") {
+						return { ok: false, status: 503, statusText: "Test Mock download error" };
+					}
+					const zip = createMockModJSZip(name, version);
+					return { ok: true, status: 200, body: stream.Readable.toWeb(zip.generateNodeStream()) };
 				}
 				// Fallback for unhandled fetches in this test
 				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
@@ -418,56 +367,10 @@ describe("lib/ModStore", function () {
 				{ name: "another-good-mod", version: ModVersionEquality.fromString("1.0.0") }, // Success
 			];
 
-			// Mock ModStore.downloadFile to fail for the specific mod
-			const originalDSF = ModStore.downloadFile;
-			ModStore.downloadFile = async (url, filePath) => {
-				if (filePath.includes("bad-download-mod")) {
-					throw new Error("Simulated download failure");
-				} else {
-					// Use original mock logic for successful downloads
-					const finalFilename = path.basename(filePath).replace(/\.tmp$/, "");
-					const match = finalFilename.match(/^(.*)_(\d+\.\d+\.\d+)\.zip$/);
-					if (!match) {
-						throw new Error(`Mock downloadFile could not parse filename: ${finalFilename}`);
-					}
-					const [, name, version] = match;
-					await createMockModZip(filePath, name, version, factorioVersion);
-				}
-			};
-
 			// Define fetch mock specific to this test (for the API call)
-			global.fetch = async (url, options) => {
-				const urlString = url.toString();
-				if (urlString.startsWith("https://mods.factorio.com/api/mods") && options?.method === "POST") {
-					const body = options.body;
-					let requestedModNames = [];
-					if (body instanceof URLSearchParams) {
-						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
-					}
-					const results = requestedModNames.map(name => {
-						const requestedMod = modsToDownload.find(mod => mod.name === name);
-						if (!requestedMod) {
-							throw new Error(`[Test Mock ERROR] No version for ${name}`);
-						}
-						const requestedVersion = requestedMod.version.version;
-						return {
-							name: name,
-							latest_release: {
-								download_url: `/download/${name}/${requestedVersion}`,
-								file_name: `${name}_${requestedVersion}.zip`,
-								info_json: { factorio_version: factorioVersion },
-								version: requestedVersion,
-								sha1: `sha1_${name}_${requestedVersion}`,
-							},
-						};
-					});
-					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
-				}
-				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
-			};
+			global.fetch = createMockPortalApiFetch(modsToDownload);
 
 			await modStore.downloadMods(modsToDownload, username, token, factorioVersion);
-			ModStore.downloadFile = originalDSF; // Restore downloadFile mock
 
 			assert.equal(modStore.files.size, 2, "Only successfully downloaded mods should be added");
 			assert(modStore.files.has("good-mod_1.0.0.zip"));
@@ -482,42 +385,14 @@ describe("lib/ModStore", function () {
 				{ name: "chunk-mod-3", version: ModVersionEquality.fromString("1.0.0") },
 				{ name: "chunk-mod-4", version: ModVersionEquality.fromString("1.0.0") },
 			];
-			let postCalls = 0;
 
+			let fetchCalls = [];
 			// Define fetch mock specific to this test
-			const testFetch = async (url, options) => {
-				const urlString = url.toString();
-				if (urlString.startsWith("https://mods.factorio.com/api/mods") && options?.method === "POST") {
-					postCalls += 1; // Track POST calls
-					const body = options.body;
-					let requestedModNames = [];
-					if (body instanceof URLSearchParams) {
-						requestedModNames = (body.get("namelist") || "").split(",").filter(Boolean);
-					}
-					const results = requestedModNames.map(name => {
-						const requestedMod = modsToDownload.find(mod => mod.name === name);
-						if (!requestedMod) {
-							throw new Error(`[Test Mock ERROR] No version for ${name}`);
-						}
-						const requestedVersion = requestedMod.version.version;
-						return {
-							name: name,
-							latest_release: {
-								download_url: `/download/${name}/${requestedVersion}`,
-								file_name: `${name}_${requestedVersion}.zip`,
-								info_json: { factorio_version: factorioVersion },
-								version: requestedVersion,
-								sha1: `sha1_${name}_${requestedVersion}`,
-							},
-						};
-					});
-					return { ok: true, status: 200, json: async () => ({ results: results, pagination: {} }) };
-				}
-				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };
-			};
-			global.fetch = testFetch;
+			global.fetch = createMockPortalApiFetch(modsToDownload, fetchCalls);
 
 			await modStore.downloadMods(modsToDownload, username, token, factorioVersion);
+
+			let postCalls = fetchCalls.reduce((a, v) => a + (v.options?.method === "POST"), 0);
 
 			// Assuming chunkSize is 500, 4 mods should be 1 chunk/POST call
 			assert.equal(postCalls, 1, "Should make 1 POST call for 4 mods");
