@@ -3,7 +3,6 @@ import type { Control } from "../util/websocket";
 
 // TODO: replace this super duper expensive method with listening to a default mod pack id event.
 class DefaultModPackStore {
-	refCount = 0;
 	interval: undefined | ReturnType<typeof setInterval>;
 	modPack: undefined | ModPack;
 	callbacks: (() => void)[] = [];
@@ -27,20 +26,18 @@ class DefaultModPackStore {
 	}
 
 	subscribe(control: Control, callback: () => void) {
-		if (this.refCount === 0) {
+		if (this.callbacks.length === 0) {
 			const update = () => { this.fetchDefaultModPack(control); };
 			update();
 			this.interval = setInterval(update, 60e3);
 		}
 		this.callbacks.push(callback);
-		this.refCount += 1;
 		return () => {
 			const index = this.callbacks.indexOf(callback);
 			if (index !== -1) {
 				this.callbacks.splice(index, 1);
 			}
-			this.refCount -= 1;
-			if (this.refCount === 0) {
+			if (this.callbacks.length === 0) {
 				clearInterval(this.interval);
 				this.interval = undefined;
 			}
