@@ -1,19 +1,16 @@
 // Export of item icons and locale
 import fs from "fs-extra";
 import path from "path";
-import Jimp from "jimp";
+import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
 import * as libBuildMod from "@clusterio/lib/dist/node/build_mod";
 import type { FactorioServer } from "./server";
+import { definesPrototypesFallback } from "./export_fallback";
 
-interface Prototype {
-	[index: string]: unknown,
-	type: string,
-	name: string,
-}
 interface SimpleIconSpecification {
+	icons?: never;
 	icon: string;
 	icon_size?: number;
 	icon_mipmaps?: number;
@@ -32,10 +29,8 @@ interface LayeredIconSpecification {
 	icon_mipmaps?: number;
 }
 type IconSpecification = LayeredIconSpecification | SimpleIconSpecification;
-type ItemPrototype = Prototype & IconSpecification;
+type PrototypeWithIcon = lib.FactorioPrototypeBase & IconSpecification;
 
-
-type Prototypes = Record<string, Record<string, Prototype>>
 
 /**
  * Generate the export mod needed for exportData
@@ -69,7 +64,7 @@ async function generateExportMod(server: FactorioServer) {
 	});
 }
 
-let zipCache = new Map();
+let zipCache = new Map<string, JSZip>();
 async function loadZip(server: FactorioServer, modVersions: Map<string, string>, mod: string) {
 	let modVersion = modVersions.get(mod);
 	if (!modVersion) {
@@ -83,7 +78,7 @@ async function loadZip(server: FactorioServer, modVersions: Map<string, string>,
 		zipCache.set(zipPath, zip);
 	}
 
-	return zip.folder(lib.findRoot(zip));
+	return zip.folder(lib.findRoot(zip))!;
 }
 
 /**
@@ -134,7 +129,8 @@ async function loadFile(server: FactorioServer, modVersions: Map<string, string>
 	return await file.async("nodebuffer");
 }
 
-type IconCache = Map<string, Jimp | null>;
+type Image = JimpInstance;
+type IconCache = Map<string, Image | null>;
 async function loadIcon(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
@@ -147,8 +143,8 @@ async function loadIcon(
 	if (icon === undefined) {
 		let fileContent = await loadFile(server, modVersions, iconPath);
 		if (fileContent) {
-			icon = await Jimp.read(fileContent);
-			icon.crop(0, 0, iconSize, iconSize);
+			icon = await Jimp.fromBuffer(fileContent) as Image;
+			icon.crop({ x: 0, y: 0, w: iconSize, h: iconSize });
 			iconCache.set(iconPath, icon);
 		} else {
 			icon = null;
@@ -184,7 +180,7 @@ async function loadLayeredIcon(
 	iconCache: IconCache,
 ) {
 	let baseLayerSize = (item.icons[0].icon_size || item.icon_size) ?? 64;
-	let icon = await Jimp.create(size, size);
+	let icon = new Jimp({ width: size, height: size });
 
 	// The scaling factor of the base layer
 	let baseLayerScale = item.icons[0].scale || 32 / baseLayerSize;
@@ -246,7 +242,7 @@ async function loadLayeredIcon(
 	return icon;
 }
 
-function fixIcons(item: ItemPrototype) {
+function fixIcons(item: PrototypeWithIcon) {
 	const icons = item.icons;
 	if (typeof icons === "object" && !(icons instanceof Array) && icons !== null) {
 		// It's possible to specify icons as an object with arbitrary keys
@@ -258,84 +254,28 @@ function fixIcons(item: ItemPrototype) {
 	return item;
 }
 
-/** Get the primary icon path from a prototype (first layer for layered, .icon for simple). */
-function getPrimaryIconPath(item: ItemPrototype): string | undefined {
-	if (item.icons) {
-		return (item as LayeredIconSpecification).icons[0]?.icon;
-	}
-	return (item as SimpleIconSpecification).icon;
-}
-
-const itemTypes = new Set([
+const prototypesWithIcon = [
 	"item",
-	"ammo",
-	"capsule",
-	"gun",
-	"item-with-entity-data",
-	"item-with-label",
-	"item-with-inventory",
-	"blueprint-book",
-	"item-with-tags",
-	"selection-tool",
-	"blueprint",
-	"copy-paste-tool",
-	"deconstruction-item",
-	"upgrade-item",
-	"module",
-	"rail-planner",
-	"spidertron-remote",
-	"tool",
-	"armor",
-	"mining-tool",
-	"repair-tool",
-	// XXX Bad hack to get icons for fluids. These should be treated as a
-	// separate namespace from items as they may be named the same as items.
 	"fluid",
-]);
+	"recipe",
+	"virtual-signal",
+	"technology",
+	"space-location",
+	"quality",
+	"entity",
+] as const;
 
-const recipeTypes = new Set(["recipe"]);
-const signalTypes = new Set(["virtual-signal"]);
-const technologyTypes = new Set(["technology"]);
-const planetTypes = new Set(["planet", "space-location"]);
-const qualityTypes = new Set(["quality"]);
-
-// Entity types to export. Entities whose name matches an already-exported
-const entityTypes = new Set([
-	"assembling-machine", "furnace", "inserter", "transport-belt", "underground-belt",
-	"splitter", "loader", "loader-1x1", "mining-drill", "container", "logistic-container",
-	"electric-pole", "pipe", "pipe-to-ground", "pump", "storage-tank", "boiler",
-	"generator", "solar-panel", "accumulator", "reactor", "heat-pipe", "lab", "beacon",
-	"roboport", "lamp", "radar", "wall", "gate", "land-mine", "turret", "ammo-turret",
-	"electric-turret", "fluid-turret", "artillery-turret", "rocket-silo", "car",
-	"spider-vehicle", "locomotive", "cargo-wagon", "fluid-wagon", "artillery-wagon",
-	"train-stop", "rail-signal", "rail-chain-signal", "straight-rail", "curved-rail-a",
-	"curved-rail-b", "half-diagonal-rail", "elevated-straight-rail", "elevated-curved-rail-a",
-	"elevated-curved-rail-b", "elevated-half-diagonal-rail", "rail-ramp", "rail-support",
-	"space-platform-hub", "cargo-bay", "asteroid-collector", "thruster", "cargo-pod",
-	"cargo-landing-pad", "asteroid",
-	"construction-robot", "logistic-robot", "combat-robot", "capture-robot",
-	"unit", "unit-spawner", "spider-unit", "segmented-unit",
-	"tree", "plant", "fish", "resource", "cliff", "simple-entity",
-	"simple-entity-with-owner", "simple-entity-with-force",
-	"arithmetic-combinator", "decider-combinator", "constant-combinator",
-	"selector-combinator", "programmable-speaker", "power-switch", "display-panel",
-	"character",
-	"offshore-pump", "valve", "lightning-attractor",
-	"fusion-generator", "fusion-reactor", "burner-generator",
-	"agricultural-tower", "market", "lane-splitter",
-]);
-
-function filterPrototypes(prototypes: Prototypes, allowedTypes: Set<string>): ItemPrototype[] {
+function filterAndFixPrototypesWithIcons(prototypes: lib.FactorioPrototypes, allowedTypes: Set<string>) {
 	return Object.entries(prototypes)
 		.filter(([type]) => allowedTypes.has(type))
-		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes) as ItemPrototype[])
+		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes) as PrototypeWithIcon[])
 		.map(fixIcons);
 }
 
 /** Shared state for building a unified spritesheet across all categories. */
 interface SheetState {
-	sheet: Jimp;
-	metadata: Map<string, { x: number, y: number, size: number, category: string, path?: string }>;
+	sheet: Image;
+	metadata: Record<string, lib.ExportMetadataEntry[]>;
 	iconCache: IconCache;
 	simpleIcons: Map<string, number>;
 	pos: number;
@@ -346,8 +286,8 @@ const SHEET_WIDTH = 1024;
 
 async function createSheetState(): Promise<SheetState> {
 	return {
-		sheet: await Jimp.create(SHEET_WIDTH, SHEET_ICON_SIZE),
-		metadata: new Map(),
+		sheet: new Jimp({ width: SHEET_WIDTH, height: SHEET_ICON_SIZE }),
+		metadata: Object.create(null),
 		iconCache: new Map(),
 		simpleIcons: new Map(),
 		pos: 0,
@@ -359,79 +299,98 @@ async function growSheet(state: SheetState) {
 	const row = Math.floor(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
 	const neededHeight = (row + 1) * SHEET_ICON_SIZE;
 	if (neededHeight > state.sheet.bitmap.height) {
-		const extended = await Jimp.create(SHEET_WIDTH, neededHeight);
+		const extended = new Jimp({ width: SHEET_WIDTH, height: neededHeight });
 		extended.composite(state.sheet, 0, 0);
 		(state.sheet as any).bitmap = (extended as any).bitmap;
 	}
 }
 
+async function exportIcon(
+	server: FactorioServer,
+	modVersions: Map<string, string>,
+	state: SheetState,
+	prototype: PrototypeWithIcon,
+) {
+	let icon: Image | null = null;
+	let iconPos: number | undefined;
+	let iconData: lib.ExportMetadataEntry["icon"];
+	let iconPath: string | undefined;
+
+	if (prototype.icons) {
+		icon = await loadLayeredIcon(
+			server, modVersions, prototype, SHEET_ICON_SIZE, state.iconCache,
+		);
+		iconPos = state.pos;
+		iconPath = prototype.icons[0].icon;
+
+	} else if (prototype.icon) {
+		iconPos = state.simpleIcons.get(prototype.icon);
+		iconPath = prototype.icon;
+		if (iconPos === undefined) {
+			icon = await loadSimpleIcon(
+				server, modVersions, prototype, SHEET_ICON_SIZE, state.iconCache,
+			);
+			if (icon) {
+				iconPos = state.pos;
+				state.simpleIcons.set(prototype.icon, state.pos);
+			}
+		}
+	}
+
+	if (iconPos !== undefined) {
+		iconData = {
+			x: iconPos * SHEET_ICON_SIZE % SHEET_WIDTH,
+			y: Math.floor(iconPos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
+			size: SHEET_ICON_SIZE,
+			path: iconPath,
+		};
+	}
+
+	if (icon) {
+		await growSheet(state);
+		state.sheet.composite(
+			icon,
+			state.pos * SHEET_ICON_SIZE % SHEET_WIDTH,
+			Math.floor(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
+		);
+		state.pos += 1;
+	}
+
+	return iconData;
+}
+
 /**
- * Export item icons for a single category onto the shared spritesheet.
+ * Export prototype icons for a single base prototype onto the shared spritesheet.
  *
  * @param server - The server to load icons from.
  * @param modVersions - Mapping of mod name to version.
- * @param items - Array of item prototypes to export.
- * @param category - Category name for metadata.
+ * @param prototypes - Array of prototypes with icon to export for this base type.
+ * @param baseName - name of base type (used in metadata).
  * @param state - Shared spritesheet state (mutated in place).
- * @returns Number of icons exported for this category.
+ * @returns Number of icons exported for this base type.
  * @internal
  */
-async function exportItems(
+async function exportIcons(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	items: ItemPrototype[],
-	category: string,
+	prototypes: PrototypeWithIcon[],
+	baseName: string,
 	state: SheetState,
 ) {
+	const metadata = state.metadata[baseName] ?? [];
+	state.metadata[baseName] ??= metadata;
 	let count = 0;
-	for (let item of items) {
-		// Skip prototypes with no icon data at all
-		if (!item.icons && !item.icon) {
-			continue;
-		}
-
-		let icon: Jimp | null = null;
-		let iconPos: number | undefined;
-		if (item.icons) {
-			icon = await loadLayeredIcon(
-				server, modVersions, item as LayeredIconSpecification, SHEET_ICON_SIZE, state.iconCache,
-			);
-			iconPos = state.pos;
-
-		} else {
-			iconPos = state.simpleIcons.get(item.icon as string);
-			if (iconPos === undefined) {
-				icon = await loadSimpleIcon(
-					server, modVersions, item as SimpleIconSpecification, SHEET_ICON_SIZE, state.iconCache,
-				);
-				if (icon) {
-					iconPos = state.pos;
-					state.simpleIcons.set(item.icon as string, state.pos);
-				}
-			}
-		}
-
-		if (iconPos !== undefined) {
-			const iconPath = getPrimaryIconPath(item);
-			state.metadata.set(`${category}.${item.name}`, {
-				x: iconPos * SHEET_ICON_SIZE % SHEET_WIDTH,
-				y: Math.floor(iconPos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
-				size: SHEET_ICON_SIZE,
-				category,
-				...(iconPath ? { path: iconPath } : {}),
-			});
-		}
-
+	for (let prototype of prototypes) {
+		const icon = await exportIcon(server, modVersions, state, prototype);
 		if (icon) {
-			await growSheet(state);
-			state.sheet.composite(
-				icon,
-				state.pos * SHEET_ICON_SIZE % SHEET_WIDTH,
-				Math.floor(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE)) * SHEET_ICON_SIZE,
-			);
-			state.pos += 1;
 			count += 1;
 		}
+		metadata.push({
+			name: prototype.name,
+			type: prototype.type,
+			localised_name: prototype.localised_name,
+			icon,
+		});
 	}
 
 	return count;
@@ -505,7 +464,7 @@ async function exportLocale(
 }
 
 /**
- * Export the locale and item icons for the given factorio server
+ * Export locale, icons and metadata for the given factorio server
  *
  * @param server - The server to export the data from.
  * @returns zip file with exported data.
@@ -513,12 +472,13 @@ async function exportLocale(
 export async function exportData(server: FactorioServer) {
 	await generateExportMod(server);
 
-	let settings: Prototypes = {};
-	let prototypes: Prototypes = {};
+	let settings: lib.ExportSettings = {};
+	let prototypes: lib.ExportPrototypes = {};
 	let modVersions = new Map();
 	let modOrder: string[] = [];
+	let defines: lib.FactorioDefines | undefined;
 
-	function add(obj: Prototypes, prototype: Prototype) {
+	function add(obj: lib.FactorioPrototypes, prototype: lib.FactorioPrototypeBase) {
 		if (!Object.prototype.hasOwnProperty.call(obj, prototype.type)) {
 			obj[prototype.type] = {};
 		}
@@ -537,6 +497,7 @@ export async function exportData(server: FactorioServer) {
 		server._logger.error(`Unable to find ${name} in settings prototypes`);
 	});
 	server.on("ipc-mod_list", data => { modVersions = new Map(Object.entries(data)); });
+	server.on("ipc-defines", data => { defines = data; });
 	server.on("output", parsed => {
 		if (parsed.format === "seconds" && parsed.type === "generic") {
 			let match = /^Checksum of (.*): \d+$/.exec(parsed.message);
@@ -555,6 +516,15 @@ export async function exportData(server: FactorioServer) {
 
 	if (!Object.keys(prototypes).length) {
 		throw new Error("No prototypes got exported");
+	}
+
+	if (!defines) {
+		throw new Error("No defines got exported");
+	}
+
+	// compat with versions prior to 1.1.31
+	if (!defines.prototypes) {
+		defines.prototypes = definesPrototypesFallback;
 	}
 
 	// Some mod authors put leading zeros into the versions of their zip files.
@@ -579,45 +549,40 @@ export async function exportData(server: FactorioServer) {
 		}
 	}
 
-	const categories: { name: string, types: Set<string> }[] = [
-		{ name: "item", types: itemTypes },
-		{ name: "recipe", types: recipeTypes },
-		{ name: "signal", types: signalTypes },
-		{ name: "technology", types: technologyTypes },
-		{ name: "planet", types: planetTypes },
-		{ name: "quality", types: qualityTypes },
-		{ name: "entity", types: entityTypes },
-	];
-
 	let locale = await exportLocale(server, modVersions, modOrder, "en");
 
 	// Free up the memory used by zip files loaded during the export.
 	zipCache.clear();
 
 	let zip = new JSZip();
-	zip.file("export/settings.json", JSON.stringify(settings));
-	zip.file("export/prototypes.json", JSON.stringify(prototypes));
-	zip.file("export/locale.json", JSON.stringify([...locale.entries()]));
+	zip.file("export/settings.json", JSON.stringify(settings satisfies lib.ExportSettings));
+	zip.file("export/prototypes.json", JSON.stringify(prototypes satisfies lib.ExportPrototypes));
+	zip.file("export/locale.json", JSON.stringify([...locale.entries()] satisfies lib.ExportLocale));
+	zip.file("export/defines.json", JSON.stringify(defines satisfies lib.ExportDefines));
 
-	// Build a single unified spritesheet across all prototype categories.
+	// Build a single unified spritesheet across all prototypes with icons.
 	const state = await createSheetState();
-	for (const category of categories) {
-		const categoryItems = filterPrototypes(prototypes, category.types);
-
-		if (categoryItems.length === 0) {
+	for (const baseName of prototypesWithIcon) {
+		if (!Object.prototype.hasOwnProperty.call(defines.prototypes, baseName)) {
 			continue;
 		}
-		const count = await exportItems(server, modVersions, categoryItems, category.name, state);
-		server._logger.info(`Exported ${count} ${category.name} icons`);
+		const subTypeNames = new Set(Object.keys(defines.prototypes[baseName]));
+		const prototypesWithIcons = filterAndFixPrototypesWithIcons(prototypes, subTypeNames);
+
+		if (prototypesWithIcons.length === 0) {
+			continue;
+		}
+		const count = await exportIcons(server, modVersions, prototypesWithIcons, baseName, state);
+		server._logger.info(`Exported ${count} ${baseName} icons`);
 	}
 
 	// Crop sheet to actual used height and write single spritesheet + metadata.
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
-	state.sheet.crop(0, 0, SHEET_WIDTH, Math.max(usedRows * SHEET_ICON_SIZE, 1));
-	zip.file("export/spritesheet.png", await state.sheet.getBufferAsync(Jimp.MIME_PNG));
-	zip.file("export/metadata.json", JSON.stringify([...state.metadata.entries()]));
+	state.sheet.crop({ x: 0, y: 0, w: SHEET_WIDTH, h: Math.max(usedRows * SHEET_ICON_SIZE, 1) });
+	zip.file("export/spritesheet.png", await state.sheet.getBuffer(JimpMime.png));
+	zip.file("export/metadata.json", JSON.stringify(state.metadata satisfies lib.ExportMetadata));
 
-	server._logger.info(`Export complete: ${state.metadata.size} icons on ${usedRows} row(s)`);
+	server._logger.info(`Export complete: ${state.pos} icons on ${usedRows} row(s)`);
 
 	return zip;
 }

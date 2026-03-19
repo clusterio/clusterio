@@ -241,12 +241,13 @@ async function uploadExport(req: Request, res: Response) {
 		"export/settings.json",
 		"export/prototypes.json",
 		"export/locale.json",
+		"export/defines.json",
 		"export/spritesheet.png",
 		"export/metadata.json",
 	];
 
 	let assets: any = {};
-	let settingPrototypes = {};
+	let settingPrototypes: lib.ExportSettings = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
 		if (!file) {
@@ -695,12 +696,12 @@ export const webRoutes = [
 	"/instances/:id/view",
 	"/mods",
 	"/mods/mod-packs/:id/view",
+	"/mods/mod-packs/:id/icon-reference",
 	"/users",
 	"/users/:id/view",
 	"/roles",
 	"/roles/:id/view",
 	"/plugins",
 	"/plugins/:name/view",
-	"/icon-reference",
 	"/error",
 ];

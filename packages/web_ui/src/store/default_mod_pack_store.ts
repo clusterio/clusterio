@@ -1,0 +1,51 @@
+import { ModPackGetDefaultRequest, type ModPack, isDeepStrictEqual } from "@clusterio/lib";
+import type { Control } from "../util/websocket";
+
+// TODO: replace this super duper expensive method with listening to a default mod pack id event.
+class DefaultModPackStore {
+	interval: undefined | ReturnType<typeof setInterval>;
+	modPack: undefined | ModPack;
+	callbacks: (() => void)[] = [];
+
+	fetchDefaultModPack(control: Control) {
+		control.send(new ModPackGetDefaultRequest()).then(modPack => {
+			if (!isDeepStrictEqual(this.modPack, modPack)) {
+				this.modPack = modPack;
+				for (const callback of this.callbacks) {
+					callback();
+				}
+			}
+		}).catch(() => {
+			if (this.modPack !== undefined) {
+				this.modPack = undefined;
+				for (const callback of this.callbacks) {
+					callback();
+				}
+			}
+		});
+	}
+
+	subscribe(control: Control, callback: () => void) {
+		if (this.callbacks.length === 0) {
+			const update = () => { this.fetchDefaultModPack(control); };
+			update();
+			this.interval = setInterval(update, 60e3);
+		}
+		this.callbacks.push(callback);
+		return () => {
+			const index = this.callbacks.indexOf(callback);
+			if (index !== -1) {
+				this.callbacks.splice(index, 1);
+			}
+			if (this.callbacks.length === 0) {
+				clearInterval(this.interval);
+				this.interval = undefined;
+			}
+		};
+	}
+
+	getSnapshot() {
+		return this.modPack;
+	}
+};
+export const defaultModPackStore = new DefaultModPackStore();

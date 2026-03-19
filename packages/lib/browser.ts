@@ -2,6 +2,7 @@ export * from "./src/api";
 export * from "./src/config";
 export * from "./src/data";
 export * from "./src/errors";
+export * from "./src/export";
 export * from "./src/factorio/exchange_string";
 export * from "./src/helpers";
 export * from "./src/ini";
@@ -16,6 +17,7 @@ export * from "./src/subscriptions";
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as RateLimiter } from "./src/RateLimiter";
 export { default as ValueCache } from "./src/ValueCache";
+export { default as isDeepStrictEqual } from "./src/is_deep_strict_equal";
 
 import { checkSingletonImport } from "./src/check_singleton_import";
 checkSingletonImport(import.meta.url);
