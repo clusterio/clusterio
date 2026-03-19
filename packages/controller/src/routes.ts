@@ -553,30 +553,16 @@ async function uploadMod(req: Request, res: Response) {
 		}
 
 		const modsDirectory = req.app.locals.controller.config.get("controller.mods_directory");
-		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
+		const filePath = path.join(modsDirectory, filename);
+		const [tempFilePath, writeStream] = await lib.createTempWriteStream(filePath);
 
-		let writeStream;
 		try {
-
-			while (true) {
-				try {
-					writeStream = fs.createWriteStream(path.join(modsDirectory, tempFilename), { flags: "wx" });
-					await events.once(writeStream, "open");
-					break;
-				} catch (err: any) {
-					if (err.code === "EEXIST") {
-						tempFilename = await lib.findUnusedName(modsDirectory, tempFilename, ".tmp.zip");
-					} else {
-						throw err;
-					}
-				}
-			}
 			stream.pipe(writeStream);
 			await finished(writeStream);
 
-			const modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
+			const modInfo = await lib.ModInfo.fromModFile(tempFilePath);
 			checkModName(modInfo.filename);
-			await fs.rename(path.join(modsDirectory, tempFilename), path.join(modsDirectory, modInfo.filename));
+			await fs.rename(tempFilePath, path.join(modsDirectory, modInfo.filename));
 			req.app.locals.controller.modStore.addMod(modInfo);
 			mods.push(modInfo.toJSON());
 
@@ -586,15 +572,13 @@ async function uploadMod(req: Request, res: Response) {
 			stream.resume();
 
 			// Attempt to clean up.
-			if (writeStream) {
-				writeStream.destroy();
-			}
+			writeStream.destroy();
 
 			try {
-				await fs.unlink(path.join(modsDirectory, tempFilename));
+				await fs.unlink(tempFilePath);
 			} catch (unlinkErr: any) {
 				if (unlinkErr.code !== "ENOENT") {
-					logger.error(`Error removing ${tempFilename}: ${unlinkErr.message}`);
+					logger.error(`Error removing ${tempFilePath}: ${unlinkErr.message}`);
 				}
 			}
 		}

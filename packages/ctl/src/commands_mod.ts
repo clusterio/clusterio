@@ -194,30 +194,8 @@ modCommands.add(new lib.Command({
 
 		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
-		let response = await fetch(url);
-		if (!response.body) {
-			throw new lib.CommandError("Got empty response from server");
-		}
-
-		let writeStream;
 		let filename = `${args.name}_${args.modVersion}.zip`;
-		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
-		while (true) {
-			try {
-				writeStream = fs.createWriteStream(tempFilename, { flags: "wx" });
-				await events.once(writeStream, "open");
-				break;
-			} catch (err: any) {
-				if (err.code === "EEXIST") {
-					tempFilename = await lib.findUnusedName(".", tempFilename, ".tmp.zip");
-				} else {
-					throw err;
-				}
-			}
-		}
-		stream.Readable.fromWeb(response.body).pipe(writeStream);
-		await finished(writeStream);
-		await fs.rename(tempFilename, filename);
+		await lib.downloadFile(url, filename, "overwrite");
 
 		logger.info(`Downloaded ${filename}`);
 	},

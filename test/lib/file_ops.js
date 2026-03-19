@@ -1,7 +1,9 @@
 "use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
+const http = require("node:http");
 const path = require("path");
+const util = require("node:util");
 
 const lib = require("@clusterio/lib");
 
@@ -218,4 +220,184 @@ describe("lib/file_ops", function() {
 		});
 	});
 
+	describe("downloadFile()", function () {
+		const baseUrl = new URL("http://localhost/");
+		const downloadDir = path.join("temp", "test", "downloadFile");
+		const fileContent = "mock file content";
+		let onStream;
+		let server;
+
+		before(async function () {
+			await fs.emptyDir(downloadDir);
+			server = http.createServer();
+			server.unref();
+			server.on("request", (req, res) => {
+				if (req.url === "/simple-file") {
+					res.writeHead(200, {
+						"Content-Length": Buffer.byteLength(fileContent),
+						"Content-Type": "text/plain",
+					}).end(fileContent);
+				} else if (req.url === "/empty-file") {
+					res.writeHead(200, {
+						"Content-Length": 0,
+						"Content-Type": "text/plain",
+					}).end();
+				} else if (req.url === "/no-content") {
+					res.writeHead(204).end();
+				} else if (req.url === "/stream") {
+					res.writeHead(200, {
+						"Content-Type": "text/plain",
+					});
+					res.write("streaming\n");
+					onStream(res);
+				} else {
+					const body = "not found";
+					res.writeHead(404, {
+						"Content-Length": Buffer.byteLength(body),
+						"Content-Type": "text/plain",
+					}).end(body);
+				}
+			});
+			await util.promisify(server.listen.bind(server))();
+			baseUrl.port = server.address().port;
+		});
+		after(function() {
+			server.close();
+			server.closeAllConnections();
+		});
+
+		it("should download content from URL to the specified file path", async function () {
+			for (const mode of ["overwrite", "rename", "error"]) {
+				const downloadUrl = new URL("/simple-file", baseUrl);
+				const downloadPath = path.join(downloadDir, `simple-file-${mode}.txt`);
+				const newDownloadPath = await lib.downloadFile(downloadUrl, downloadPath, mode);
+				const writtenContent = await fs.readFile(downloadPath, "utf8");
+				assert.equal(writtenContent, fileContent);
+				assert.equal(downloadPath, newDownloadPath);
+			}
+		});
+
+		it("should throw if fetch response is not ok", async function () {
+			const downloadPath = path.join(downloadDir, "not-found.txt");
+			await assert.rejects(
+				lib.downloadFile(new URL("/not-found", baseUrl), downloadPath, "overwrite"),
+				/Failed to download .* 404 Not Found/
+			);
+			await assert.rejects(
+				fs.readFile(downloadPath),
+				{ code: "ENOENT" },
+			);
+		});
+
+		it("should throw if fetch response body is missing", async function () {
+			const downloadPath = path.join(downloadDir, "not-content.txt");
+			await assert.rejects(
+				lib.downloadFile(new URL("/no-content", baseUrl), downloadPath, "overwrite"),
+				/Failed to download .* 204 No Content/
+			);
+			await assert.rejects(
+				fs.readFile(downloadPath),
+				{ code: "ENOENT" },
+			);
+		});
+
+		it("should throw if file exists and overwriteMode is error", async function () {
+			const downloadPath = path.join(downloadDir, "exists.txt");
+			await fs.outputFile(downloadPath, "");
+			await assert.rejects(
+				lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "error"),
+				{ code: "EEXIST" },
+			);
+		});
+
+		it("should throw if target directory does not exist", async function () {
+			const downloadPath = path.join(downloadDir, "does-not-exist", "simple.txt");
+			for (const mode of ["overwrite", "rename", "error"]) {
+				await assert.rejects(
+					lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, mode),
+					{ code: "ENOENT" },
+				);
+			}
+		});
+
+		it("should write a new file if it exists and overwriteMode is rename", async function () {
+			const downloadPath = path.join(downloadDir, "exists.txt");
+			await fs.outputFile(downloadPath, "");
+			const newDownloadPath = await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "rename");
+			assert.equal(newDownloadPath, path.join(downloadDir, "exists-2.txt"));
+			const writtenContent = await fs.readFile(newDownloadPath, "utf8");
+			assert.equal(writtenContent, fileContent);
+		});
+
+		it("should write a new file if many files exists and overwriteMode is rename", async function () {
+			const downloadPath = path.join(downloadDir, "contended.txt");
+			const additionalPaths = [
+				path.join(downloadDir, "contended-2.txt"),
+				path.join(downloadDir, "contended-3.txt"),
+				path.join(downloadDir, "contended-4.txt"),
+			];
+			await fs.outputFile(downloadPath, "");
+			for (const additionalPath of additionalPaths) {
+				await fs.outputFile(additionalPath, "");
+			}
+			const newDownloadPath = await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "rename");
+			assert.equal(newDownloadPath, path.join(downloadDir, "contended-5.txt"));
+			const writtenContent = await fs.readFile(newDownloadPath, "utf8");
+			assert.equal(writtenContent, fileContent);
+		});
+
+		it("should overwrite existing file if overwriteMode is overwrite", async function () {
+			const downloadPath = path.join(downloadDir, "overwrite.txt");
+			await fs.outputFile(downloadPath, "original content");
+			const newDownloadPath = await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "overwrite");
+			assert.equal(newDownloadPath, downloadPath);
+			const writtenContent = await fs.readFile(newDownloadPath, "utf8");
+			assert.equal(writtenContent, fileContent);
+		});
+
+		it("should not overwrite existing temp files", async function () {
+			const tempPath = path.join(downloadDir, "temp-exists.tmp.txt");
+			await fs.outputFile(tempPath, "original content");
+			const downloadPath = path.join(downloadDir, "temp-exists.txt");
+			await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "overwrite");
+			const writtenContent = await fs.readFile(tempPath, "utf8");
+			assert.equal(writtenContent, "original content");
+		});
+
+		it("should throw if overwriteMode is rename and directory disappeared", async function () {
+			if (process.platform === "win32") {
+				// Can't remove the directory while the stream is running on Windows.
+				this.skip();
+			}
+			function stageWaiter() {
+				let stage;
+				let waitForStage = new Promise(resolve => { stage = resolve; });
+				return [stage, waitForStage];
+			}
+
+			const downloadSubdir = path.join(downloadDir, "subdir");
+			const downloadPath = path.join(downloadSubdir, "test.txt");
+			await fs.ensureDir(downloadSubdir);
+
+			const [stage1, waitForStage1] = stageWaiter();
+			const [stage2, waitForStage2] = stageWaiter();
+
+			onStream = async (res) => {
+				stage1();
+				await waitForStage2;
+				res.end("done");
+			};
+			const download = lib.downloadFile(new URL("/stream", baseUrl), downloadPath, "rename");
+			download.catch(() => {});
+			await waitForStage1;
+
+			await fs.remove(downloadSubdir);
+			stage2();
+
+			await assert.rejects(
+				download,
+				{ code: "ENOENT" },
+			);
+		});
+	});
 });
