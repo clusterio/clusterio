@@ -312,18 +312,12 @@ describe("lib/file_ops", function() {
 
 		it("should throw if target directory does not exist", async function () {
 			const downloadPath = path.join(downloadDir, "does-not-exist", "simple.txt");
-			await assert.rejects(
-				lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "overwrite"),
-				{ code: "ENOENT" },
-			);
-			await assert.rejects(
-				lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "rename"),
-				{ code: "ENOENT" },
-			);
-			await assert.rejects(
-				lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "error"),
-				{ code: "ENOENT" },
-			);
+			for (const mode of ["overwrite", "rename", "error"]) {
+				await assert.rejects(
+					lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, mode),
+					{ code: "ENOENT" },
+				);
+			}
 		});
 
 		it("should write a new file if it exists and overwriteMode is rename", async function () {
