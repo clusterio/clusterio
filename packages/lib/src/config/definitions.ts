@@ -190,7 +190,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			description: "Interval in seconds to collect and update system metrics for the Web UI",
 			type: "number",
 			initialValue: 10,
-			validator: validators.greaterThanZero,
+			validator: validators.greaterThanEqualZero,
 		},
 		"controller.proxy_stream_timeout": {
 			title: "Proxy Stream Timeout",
@@ -213,7 +213,6 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			credential: ["controller"],
 			optional: true,
-			// TODO extendedValidation, lowercase hex characters, maybe length? cannot be set without username
 		},
 		"controller.share_factorio_credentials_with_hosts": {
 			title: "Share Factorio credentials with Hosts",
@@ -389,7 +388,6 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			type: "string",
 			credential: ["host"],
 			optional: true,
-			// TODO extendedValidation, lowercase hex characters, maybe length? cannot be set without username
 		},
 		"host.max_reconnect_delay": {
 			title: "Max Reconnect Delay",
@@ -536,7 +534,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "number",
 			optional: true,
-			validator: validators.optional(validators.greaterThanZero),
+			validator: validators.optional(validators.greaterThanEqualZero),
 		},
 		"factorio.host_assigned_game_port": {
 			access: ["host"],
@@ -549,7 +547,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "number",
 			optional: true,
-			validator: validators.optional(validators.greaterThanZero),
+			validator: validators.optional(validators.greaterThanEqualZero),
 		},
 		"factorio.rcon_password": {
 			credential: ["host", "controller"],
