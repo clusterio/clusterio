@@ -1,5 +1,5 @@
 const assert = require("assert").strict;
-const { readFile } = require("fs-extra");
+const { readFile } = require("node:fs/promises");
 
 const { fetchFactorioVersions } = require("@clusterio/lib");
 const { slowTest } = require("../../integration");

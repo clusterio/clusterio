@@ -23,7 +23,6 @@
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
 		"@sinclair/typebox": "catalog:",
-		"fs-extra": "catalog:",
 		"jimp": "^1.6.0",
 		"jszip": "catalog:",
 		"pidusage": "^3.0.2",
@@ -38,7 +37,6 @@
 		"access": "public"
 	},
 	"devDependencies": {
-		"@types/fs-extra": "catalog:",
 		"@types/node": "catalog:",
 		"@types/pidusage": "^2.0.2",
 		"@types/semver": "^7.5.0",

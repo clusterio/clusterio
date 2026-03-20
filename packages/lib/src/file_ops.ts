@@ -3,7 +3,7 @@
  */
 import crypto from "crypto";
 import events from "events";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import stream from "stream";
 
@@ -46,7 +46,7 @@ export async function getNewestFile(directory: string, filter = (_name: string) 
  * @returns The size in bytes of all files in the directory.
  */
 export async function directorySize(directory: string) {
-	let dirEntries: fs.Dirent[];
+	let dirEntries;
 	try {
 		dirEntries = await fs.readdir(directory, { withFileTypes: true });
 	} catch (err: any) {
@@ -91,8 +91,12 @@ export async function findUnusedName(directory: string, name: string, extension 
 	}
 
 	while (true) {
-		if (!await fs.pathExists(path.join(directory, `${name}${extension}`))) {
-			return `${name}${extension}`;
+		try {
+			await fs.access(path.join(directory, `${name}${extension}`));
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				return `${name}${extension}`;
+			}
 		}
 
 		let match = /^(.*?)(-(\d+))?$/.exec(name)!;
@@ -125,12 +129,13 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
 }
 
 /**
- * Safely write data to a file
+ * Safely overwrite file data
  *
- * Same as fs-extra.outputFile except the data is written to a temporary
- * file that's renamed over the target file.  The name of the temporary file
- * is the same as the target file with the suffix `.tmp` added before the
- * extension.
+ * Writes the passed data to a temporary file and rename it over the target
+ * file.  If the operation fails because the parent directory does not exist, it
+ * attempts to create the directory, including any ancestors and then retries
+ * the operation.  The name of the temporary file is the same as the target file
+ * with the suffix `.tmp` added before the extension.
  *
  * If the operation fails it may leave behind the temporary file.  This
  * should not be too much of an issue as the next time the same file is
@@ -138,25 +143,31 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
  *
  * @param file - Path to file to write.
  * @param data - Content to write.
- * @param options - see fs.writeFile, `flag` must not be set.
+ * @param options - see fs.writeFile, `flag` and `flush` may not be used.
  */
-export async function safeOutputFile(file: string, data: string | Buffer, options: fs.WriteFileOptions ={}) {
+export async function safeOutputFile(
+	file: string,
+	data: string | Buffer,
+	options?: Omit<
+		Extract<Parameters<typeof fs.writeFile>[2], { flush?: boolean }>,
+		"flag" | "flush"
+	>,
+) {
 	let { dir, name, ext } = path.parse(file);
-	if (dir && !await fs.pathExists(dir)) {
-		await fs.mkdirs(dir);
-	}
 	let temporary = path.join(dir, `${name}.tmp${ext}`);
-	let fd = await fs.open(temporary, "w");
 	try {
-		await fs.writeFile(fd, data, options);
-		await fs.fsync(fd);
-	} finally {
-		await fs.close(fd);
+		await fs.writeFile(temporary, data, { ...options, flush: true });
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			// Try creating the folder and then retry the operation.
+			await fs.mkdir(dir, { recursive: true });
+			await fs.writeFile(temporary, data, { ...options, flush: true });
+		} else {
+			throw err;
+		}
 	}
-
 	await fs.rename(temporary, file);
 }
-
 
 // Reserved names by almost all filesystems
 const badNames = [".", ".."];
@@ -246,16 +257,14 @@ export function cleanFilename(name: string) {
  * @param filePath - The target file to create a temporary stream for.
  * @returns The path to the temporary file that was opened and the write stream to it.
  */
-export async function createTempWriteStream(filePath: string): Promise<[string, fs.WriteStream]> {
+export async function createTempWriteStream(filePath: string) {
 	const { dir, name: fileName, ext } = path.parse(filePath);
 	let increment = 1;
 	let writeStream;
 	let tempFilePath = path.format({ dir, name: `${fileName}.tmp`, ext });
 	while (true) {
 		try {
-			writeStream = fs.createWriteStream(tempFilePath, { flags: "wx", flush: true });
-			// replace "open" event with "ready" after removing fs-extra
-			await events.once(writeStream, "open");
+			writeStream = (await fs.open(tempFilePath, "wx")).createWriteStream({ flush: true });
 			break;
 		} catch (err: any) {
 			if (err.code === "EEXIST") {
@@ -267,7 +276,7 @@ export async function createTempWriteStream(filePath: string): Promise<[string, 
 		}
 	}
 
-	return [tempFilePath, writeStream];
+	return [tempFilePath, writeStream] as [typeof tempFilePath, typeof writeStream];
 }
 
 /**
@@ -291,9 +300,7 @@ export async function downloadFile(
 	let tempFilePath;
 	if (overwriteMode === "error") {
 		tempFilePath = filePath;
-		writeStream = fs.createWriteStream(tempFilePath, { flags: "wx", flush: true });
-		// replace "open" event with "ready" after removing fs-extra
-		await events.once(writeStream, "open");
+		writeStream = (await fs.open(tempFilePath, "wx")).createWriteStream({ flush: true });
 	} else {
 		[tempFilePath, writeStream] = await createTempWriteStream(filePath);
 	}

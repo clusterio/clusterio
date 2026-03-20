@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
@@ -36,9 +36,9 @@ async function spawnAltHost(config = "alt-host-config.json") {
 async function startAltHost() {
 	let config = "alt-host-config.json";
 	let configPath = path.join("temp", "test", config);
-	await fs.remove(configPath);
-	await fs.remove(path.join("temp", "test", "alt-instances"));
-	await fs.remove(path.join("temp", "test", "alt-mods"));
+	await fs.rm(configPath, { force: true });
+	await fs.rm(path.join("temp", "test", "alt-instances"), { force: true, recursive: true, maxRetries: 10 });
+	await fs.rm(path.join("temp", "test", "alt-mods"), { force: true, recursive: true, maxRetries: 10 });
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
 	await execHost(`--config ${config} config set host.instances_directory alt-instances`);
 	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
@@ -131,10 +131,10 @@ describe("Integration of Clusterio", function() {
 				try {
 					await execController("bootstrap create-admin BootstrapAdminTest2 --bypass-lock-file");
 				} finally {
-					await fs.move("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
+					await fs.rename("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
 				}
 
-				const json = await fs.readJSON(path.join(databaseDir, "users.json"));
+				const json = JSON.parse(await fs.readFile(path.join(databaseDir, "users.json"), "utf8"));
 				assert.equal(Object.values(json).some(user => user.name === "BootstrapAdminTest2"), true);
 			});
 		});
@@ -154,10 +154,10 @@ describe("Integration of Clusterio", function() {
 				try {
 					await execController("config set controller.name ConfigEditTest2 --bypass-lock-file");
 				} finally {
-					await fs.move("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
+					await fs.rename("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
 				}
 
-				const json = await fs.readJSON(path.join(controllerConfigPath));
+				const json = JSON.parse(await fs.readFile(path.join(controllerConfigPath), "utf8"));
 				assert.equal(json["controller.name"], "ConfigEditTest2");
 			});
 		});
@@ -197,17 +197,19 @@ describe("Integration of Clusterio", function() {
 				} catch (err) {
 					assert.equal(/Error: Server listening failed/.test(err.stderr), true);
 				}
-				await fs.move("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
+				await fs.rename("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
 			});
 			it("should refuse to start when no users are loaded", async function() {
 				const dir = path.join("temp", "test", "empty_controller");
-				await fs.emptyDir(dir);
+				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
+				await fs.mkdir(dir, { recursive: true });
 				await assert.rejects(execController("run", { cwd: dir }));
 			});
 			it("should start when no users are loaded if bypass option given", async function() {
 				slowTest(this);
 				const dir = path.join("temp", "test", "empty_controller");
-				await fs.emptyDir(dir);
+				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
+				await fs.mkdir(dir, { recursive: true });
 				const child = await spawnNode(
 					"altController",
 					"../../../packages/controller run --no-check-user-count",
@@ -349,7 +351,7 @@ describe("Integration of Clusterio", function() {
 					await stopAltHost(hostProcess);
 				}
 
-				const json = await fs.readJSON(path.join("temp", "test", config));
+				const json = JSON.parse(await fs.readFile(path.join("temp", "test", config), "utf8"));
 				assert.equal(json["host.name"], "ConfigEditTest2");
 			});
 		});
@@ -615,7 +617,10 @@ describe("Integration of Clusterio", function() {
 		describe("instance assign", function() {
 			it("creates the instance files", async function() {
 				await execCtl("instance assign test 4");
-				assert(await fs.exists(path.join(instancesDir, "test")), "Instance directory was not created");
+				await assert.doesNotReject(
+					fs.access(path.join(instancesDir, "test")),
+					"Instance directory was not created"
+				);
 				await checkInstanceStatus(44, "stopped");
 			});
 		});
@@ -652,15 +657,15 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				requiresFactorio(this);
 				let exportPath = path.join("temp", "test", "static");
-				await fs.remove(exportPath);
+				await fs.rm(exportPath, { force: true, recursive: true, maxRetries: 10 });
 				await execCtl("instance export-data test");
 				let modPack = await getControl().send(new lib.ModPackGetDefaultRequest());
 				let assets = modPack.exportManifest.assets;
 				assert(Object.keys(assets).length > 1, "Export assets is empty");
 				for (let key of ["settings", "prototypes", "metadata", "spritesheet", "locale"]) {
 					assert(assets[key], `Missing ${key} from assets`);
-					assert(
-						await fs.exists(path.join(exportPath, assets[key])),
+					await assert.doesNotReject(
+						fs.access(path.join(exportPath, assets[key])),
 						`Manifest entry for ${key} was not written to filesystem`
 					);
 				}
@@ -733,7 +738,7 @@ describe("Integration of Clusterio", function() {
 					slowTest(this);
 					await execCtl("instance stop 44");
 					let savesDir = path.join("temp", "test", "instances", "test", "saves");
-					await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
+					await fs.copyFile(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
 					await prepareToStart();
 					await execCtl(`instance ${cmd} test`);
 					let saves = await getControl().sendTo({ instanceId: 44 }, new lib.InstanceSaveDetailsListRequest());
@@ -1140,28 +1145,28 @@ describe("Integration of Clusterio", function() {
 
 		describe("instance save upload", function() {
 			it("should upload a zip file", async function() {
-				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await fs.writeFile(path.join("temp", "test", "upload.zip"), "a test");
 				await execCtl("instance save upload 44 upload.zip");
-				assert(
-					await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
-					"file not uploaded to saves directory"
+				await assert.doesNotReject(
+					fs.access(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
+					"file not uploaded to saves directory",
 				);
 			});
 			it("should reject non-zip files", async function() {
-				await fs.outputFile(path.join("temp", "test", "invalid"), "a test");
+				await fs.writeFile(path.join("temp", "test", "invalid"), "a test");
 				await assert.rejects(execCtl("instance save upload 44 invalid"));
 			});
 			it("should reject path traversal attacks", async function() {
-				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await fs.writeFile(path.join("temp", "test", "upload.zip"), "a test");
 				await assert.rejects(execCtl("instance save upload 44 upload.zip --name ../traversal.zip"));
 			});
 		});
 
 		describe("instance save download", function() {
 			it("should download a save", async function() {
-				await fs.remove(path.join("temp", "test", "upload.zip"));
+				await fs.rm(path.join("temp", "test", "upload.zip"), { force: true });
 				await execCtl("instance save download 44 upload.zip");
-				assert(await fs.pathExists(path.join("temp", "test", "upload.zip")));
+				await fs.access(path.join("temp", "test", "upload.zip"));
 			});
 			it("should error if save does not exist", async function() {
 				await assert.rejects(execCtl("instance save download 44 invalid"));
@@ -1174,7 +1179,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance save copy", function() {
 			it("copy a save file", async function() {
 				await execCtl("instance save copy 44 upload.zip copy.zip");
-				assert(await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "copy.zip")));
+				await fs.access(path.join("temp", "test", "instances", "test", "saves", "copy.zip"));
 			});
 			it("should error if destination exist", async function() {
 				await assert.rejects(execCtl("instance save copy 44 upload.zip copy.zip"));
@@ -1192,8 +1197,8 @@ describe("Integration of Clusterio", function() {
 		describe("instance save rename", function() {
 			it("rename a save file", async function() {
 				await execCtl("instance save rename 44 copy.zip rename.zip");
-				assert(!await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "copy.zip")));
-				assert(await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "rename.zip")));
+				await assert.rejects(fs.access(path.join("temp", "test", "instances", "test", "saves", "copy.zip")));
+				await fs.access(path.join("temp", "test", "instances", "test", "saves", "rename.zip"));
 			});
 			it("should error if new name exist", async function() {
 				await assert.rejects(execCtl("instance save rename 44 upload.zip rename.zip"));
@@ -1248,31 +1253,31 @@ describe("Integration of Clusterio", function() {
 					it("should transfers a save", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
 						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec}`);
-						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
-						assert(await fs.pathExists(path.join(secSaves, "transfer.zip")), "save not at sec");
+						await assert.rejects(fs.access(path.join(priSaves, "transfer.zip")), "save still at pri");
+						await assert.doesNotReject(fs.access(path.join(secSaves, "transfer.zip")), "save not at sec");
 						await deleteSave(sec, "transfer.zip");
 					});
 					it("should support rename", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
 						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec} rename.zip`);
-						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
-						assert(await fs.pathExists(path.join(secSaves, "rename.zip")), "save not at sec");
+						await assert.rejects(fs.access(path.join(priSaves, "transfer.zip")), "save still at pri");
+						assert(await (path.join(secSaves, "rename.zip")), "save not at sec");
 						await deleteSave(sec, "rename.zip");
 					});
 					it("should auto-rename if target exists", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
 						await uploadSave(sec, "transfer.zip", "transfer.zip");
 						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec}`);
-						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
-						assert(await fs.pathExists(path.join(secSaves, "transfer-2.zip")), "save not at sec");
+						await assert.rejects(fs.access(path.join(priSaves, "transfer.zip")), "save still at pri");
+						await assert.doesNotReject(fs.access(path.join(secSaves, "transfer-2.zip")), "save not at sec");
 						await deleteSave(sec, "transfer.zip");
 						await deleteSave(sec, "transfer-2.zip");
 					});
 					it("should copy when using --copy", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
 						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec} --copy`);
-						assert(await fs.pathExists(path.join(priSaves, "transfer.zip")), "save not at pri");
-						assert(await fs.pathExists(path.join(secSaves, "transfer.zip")), "save not at sec");
+						await assert.doesNotReject(fs.access(path.join(priSaves, "transfer.zip")), "save not at pri");
+						await assert.doesNotReject(fs.access(path.join(secSaves, "transfer.zip")), "save not at sec");
 						await deleteSave(pri, "transfer.zip");
 						await deleteSave(sec, "transfer.zip");
 					});
@@ -1328,16 +1333,16 @@ describe("Integration of Clusterio", function() {
 		describe("instance save delete", function() {
 			it("should delete a save", async function() {
 				await execCtl("instance save delete 44 upload.zip");
-				assert(
-					!await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
-					"file not deleted"
+				await assert.rejects(
+					fs.access(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
+					"file not deleted",
 				);
 			});
 			it("should error if save does not exist", async function() {
 				await assert.rejects(execCtl("instance save delete 44 upload.zip"));
 			});
 			it("should error on path traversal attacks", async function() {
-				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await fs.writeFile(path.join("temp", "test", "upload.zip"), "a test");
 				await assert.rejects(execCtl("instance save delete 44 ../../upload.zip"));
 			});
 		});
@@ -1347,7 +1352,7 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				getControl().saveUpdates = [];
 				await execCtl("instance delete test");
-				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance files was not deleted");
+				await assert.rejects(fs.access(path.join(instancesDir, "test")), "Instance files was not deleted");
 				let instances = await getInstances();
 				assert(!instances.has(44), "instance was not deleted from controller");
 
@@ -1481,9 +1486,9 @@ describe("Integration of Clusterio", function() {
 					outputDir: path.join("temp", "test"),
 				});
 				await execCtl("mod upload empty_mod_1.0.0.zip");
-				assert(
-					await fs.pathExists(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
-					"mod not present in mods directory"
+				await assert.doesNotReject(
+					fs.access(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
+					"mod not present in mods directory",
 				);
 			});
 			it("rejects path traversing mods", async function() {
@@ -1494,11 +1499,11 @@ describe("Integration of Clusterio", function() {
 					outputDir: path.join("temp", "test"),
 					modName: "path_traversing_mod_1.0.0",
 				});
-				await fs.remove(path.join("temp", "test", "bad_path_mod_1.0.0.zip"));
+				await fs.rm(path.join("temp", "test", "bad_path_mod_1.0.0.zip"), { force: true });
 				await assert.rejects(execCtl("mod upload path_traversing_mod_1.0.0.zip"));
-				assert(
-					!await fs.pathExists(path.join("temp", "test", "bad_path_mod_1.0.0.zip")),
-					"mod executed a path traversal attack",
+				await assert.rejects(
+					fs.access(path.join("temp", "test", "bad_path_mod_1.0.0.zip")),
+					"mod executed a path traversal attack"
 				);
 			});
 		});
@@ -1546,9 +1551,9 @@ describe("Integration of Clusterio", function() {
 			it("downloads a mod", async function() {
 				await fs.unlink(path.join("temp", "test", "empty_mod_1.0.0.zip"));
 				await execCtl("mod download empty_mod 1.0.0");
-				assert(
-					await fs.pathExists(path.join("temp", "test", "empty_mod_1.0.0.zip")),
-					"mod not downloaded to cwd"
+				await assert.doesNotReject(
+					fs.access(path.join("temp", "test", "empty_mod_1.0.0.zip")),
+					"mod not downloaded to cwd",
 				);
 			});
 		});
@@ -1556,9 +1561,9 @@ describe("Integration of Clusterio", function() {
 		describe("mod delete", function() {
 			it("deletes a mod", async function() {
 				await execCtl("mod delete empty_mod 1.0.0");
-				assert(
-					!await fs.pathExists(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
-					"mod still present in mods dir"
+				await assert.rejects(
+					fs.access(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
+					"mod still present in mods dir",
 				);
 			});
 		});
@@ -1745,7 +1750,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-whitelisted import_control --remove");
 			});
 			it("should import users", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-users.json"), {
+				await fs.writeFile(path.join("temp", "test", "import-users.json"), JSON.stringify({
 					export_version: "2.0.0.alpha20",
 					users: [
 						{ username: "import_user_admin", is_admin: true },
@@ -1755,7 +1760,7 @@ describe("Integration of Clusterio", function() {
 						{ username: "import_user_none" },
 						{ username: "import_control", is_admin: true },
 					],
-				});
+				}));
 
 				await execCtl("user import --users import-users.json");
 
@@ -1778,10 +1783,10 @@ describe("Integration of Clusterio", function() {
 				assert.equal(userBanReason.banReason, "banned", "import_user_ban_reason had incorrect ban reason");
 			});
 			it("should import users by json format", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-users.json"), {
+				await fs.writeFile(path.join("temp", "test", "import-users.json"), JSON.stringify({
 					export_version: "2.0.0.alpha20",
 					users: [{ username: "import_user", is_admin: true, is_whitelisted: true }],
-				});
+				}));
 
 				await execCtl("user import import-users.json");
 				const userFoo = (await getUsers()).get("import_user");
@@ -1789,11 +1794,11 @@ describe("Integration of Clusterio", function() {
 				assert(userFoo.isWhitelisted, "import_user was not whitelisted");
 			});
 			it("should import bans", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-bans.json"), [
+				await fs.writeFile(path.join("temp", "test", "import-bans.json"), JSON.stringify([
 					{ username: "import_ban_reason", reason: "banned" },
 					"import_ban",
 					"import_control",
-				]);
+				]));
 
 				await execCtl("user import --bans import-bans.json");
 
@@ -1810,17 +1815,17 @@ describe("Integration of Clusterio", function() {
 				assert(users.get("import_control").isBanned, "import_control was not banned");
 			});
 			it("should import bans by filename", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-bans.json"), [
+				await fs.writeFile(path.join("temp", "test", "import-bans.json"), JSON.stringify([
 					"import_ban_filename",
-				]);
+				]));
 
 				await execCtl("user import import-bans.json");
 				assert((await getUsers()).get("import_ban_filename").isBanned, "import_ban_filename was not banned");
 			});
 			it("should import admins", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-admins.json"), [
+				await fs.writeFile(path.join("temp", "test", "import-admins.json"), JSON.stringify([
 					"import_admin", "import_control",
-				]);
+				]));
 
 				await execCtl("user import --admins import-admins.json");
 				const users = await getUsers();
@@ -1828,17 +1833,17 @@ describe("Integration of Clusterio", function() {
 				assert(users.get("import_control").isAdmin, "import_control was not admin");
 			});
 			it("should import admins by filename", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-admins.json"), [
+				await fs.writeFile(path.join("temp", "test", "import-admins.json"), JSON.stringify([
 					"import_admin_filename",
-				]);
+				]));
 
 				await execCtl("user import import-admins.json");
 				assert((await getUsers()).get("import_admin_filename").isAdmin, "import_admin_filename was not admin");
 			});
 			it("should import whitelist", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-whitelist.json"), [
+				await fs.writeFile(path.join("temp", "test", "import-whitelist.json"), JSON.stringify([
 					"import_whitelist", "import_control",
-				]);
+				]));
 
 				await execCtl("user import --whitelist import-whitelist.json");
 				const users = await getUsers();
@@ -1846,9 +1851,9 @@ describe("Integration of Clusterio", function() {
 				assert(users.get("import_control").isWhitelisted, "import_control was not whitelisted");
 			});
 			it("should import whitelist by filename", async function() {
-				await fs.writeJSON(path.join("temp", "test", "import-whitelist.json"), [
+				await fs.writeFile(path.join("temp", "test", "import-whitelist.json"), JSON.stringify([
 					"import_whitelist_filename",
-				]);
+				]));
 
 				await execCtl("user import import-whitelist.json");
 				assert(
@@ -1869,7 +1874,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-admin export_user --create");
 				await execCtl("user set-whitelisted export_user");
 				await execCtl("user export --users user-export.json");
-				const data = await fs.readJson(path.join("temp", "test", "user-export.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "user-export.json")));
 				assert(data.users, "Users array does not exist");
 				assert(!data.users.find(u => u.username === "export_control"), "Control user is present");
 				assert.deepEqual(data.users.find(u => u.username === "export_user"), {
@@ -1880,7 +1885,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-banned export_ban --create");
 				await execCtl("user set-banned export_ban_reason --create --reason banned");
 				await execCtl("user export --bans ban-export.json");
-				const data = await fs.readJson(path.join("temp", "test", "ban-export.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "ban-export.json")));
 				assert.equal(data.indexOf("export_control"), -1, "Control user is present");
 				assert(data.indexOf("export_ban") >= 0, "export_ban is missing");
 				assert.deepEqual(data.find(u => typeof u === "object" && u.username === "export_ban_reason"), {
@@ -1890,14 +1895,14 @@ describe("Integration of Clusterio", function() {
 			it("should export admins", async function() {
 				await execCtl("user set-admin export_admin --create");
 				await execCtl("user export --admins admin-export.json");
-				const data = await fs.readJson(path.join("temp", "test", "admin-export.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "admin-export.json")));
 				assert.equal(data.indexOf("export_control"), -1, "Control user is present");
 				assert(data.indexOf("export_admin") >= 0, "export_admin is missing");
 			});
 			it("should export whitelist", async function() {
 				await execCtl("user set-whitelisted export_whitelist --create");
 				await execCtl("user export --whitelist whitelist-export.json");
-				const data = await fs.readJson(path.join("temp", "test", "whitelist-export.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "whitelist-export.json")));
 				assert.equal(data.indexOf("export_control"), -1, "Control user is present");
 				assert(data.indexOf("export_whitelist") >= 0, "export_whitelist is missing");
 			});
@@ -1911,13 +1916,13 @@ describe("Integration of Clusterio", function() {
 				await execCtl("user set-whitelisted restore_control");
 			});
 			it("should restore users", async function() {
-				await fs.writeJSON(path.join("temp", "test", "restore-users.json"), {
+				await fs.writeFile(path.join("temp", "test", "restore-users.json"), JSON.stringify({
 					export_version: "2.0.0.alpha20",
 					users: [
 						{ username: "restore_user", is_admin: true, is_whitelisted: true },
 						{ username: "restore_user_two", is_banned: true, ban_reason: "Test" },
 					],
-				});
+				}));
 
 				await execCtl("user restore restore-users.json");
 				const users = await getUsers();
@@ -1935,17 +1940,17 @@ describe("Integration of Clusterio", function() {
 				assert(!control.isBanned, "restore_control was banned");
 				assert(!control.isWhitelisted, "restore_control was whitelisted");
 
-				const data = await fs.readJson(path.join("temp", "test", "users-backup.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "users-backup.json")));
 				assert(data.users, "Users array does not exist");
 				assert.deepEqual(data.users.find(u => u.username === "restore_control"), {
 					username: "restore_control", is_admin: true, is_banned: true, is_whitelisted: true,
 				});
 			});
 			it("should restore bans", async function() {
-				await fs.writeJSON(path.join("temp", "test", "restore-bans.json"), [
+				await fs.writeFile(path.join("temp", "test", "restore-bans.json"), JSON.stringify([
 					{ username: "restore_ban_reason", reason: "banned" },
 					"restore_ban",
-				]);
+				]));
 
 				await execCtl("user restore --bans restore-bans.json");
 
@@ -1961,13 +1966,13 @@ describe("Integration of Clusterio", function() {
 
 				assert(!users.get("restore_control").isBanned, "restore_control was banned");
 
-				const data = await fs.readJson(path.join("temp", "test", "bans-backup.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "bans-backup.json")));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
 			});
 			it("should restore admins", async function() {
-				await fs.writeJSON(path.join("temp", "test", "restore-admins.json"), [
+				await fs.writeFile(path.join("temp", "test", "restore-admins.json"), JSON.stringify([
 					"restore_admin",
-				]);
+				]));
 
 				await execCtl("user restore --admins restore-admins.json");
 				const users = await getUsers();
@@ -1975,13 +1980,13 @@ describe("Integration of Clusterio", function() {
 				assert(users.get("restore_admin").isAdmin, "restore_admin was not admin");
 				assert(!users.get("restore_control").isAdmin, "restore_control was admin");
 
-				const data = await fs.readJson(path.join("temp", "test", "admins-backup.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "admins-backup.json")));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
 			});
 			it("should restore whitelist", async function() {
-				await fs.writeJSON(path.join("temp", "test", "restore-whitelist.json"), [
+				await fs.writeFile(path.join("temp", "test", "restore-whitelist.json"), JSON.stringify([
 					"restore_whitelist",
-				]);
+				]));
 
 				await execCtl("user restore --whitelist restore-whitelist.json");
 				const users = await getUsers();
@@ -1989,7 +1994,7 @@ describe("Integration of Clusterio", function() {
 				assert(users.get("restore_whitelist").isWhitelisted, "restore_whitelist was not whitelisted");
 				assert(!users.get("restore_control").isWhitelisted, "restore_control was whitelisted");
 
-				const data = await fs.readJson(path.join("temp", "test", "whitelist-backup.json"));
+				const data = JSON.parse(await fs.readFile(path.join("temp", "test", "whitelist-backup.json")));
 				assert(data.indexOf("restore_control") >= 0, "restore_control is missing");
 			});
 			it("should reject multiple provided options", async function() {

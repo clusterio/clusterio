@@ -51,7 +51,6 @@
 		"eslint-plugin-node": "^11.1.0",
 		"express": "^5.1.0",
 		"form-data": "^4.0.4",
-		"fs-extra": "^11.3.0",
 		"globals": "^16.3.0",
 		"jsonwebtoken": "^9.0.2",
 		"jszip": "^3.10.1",

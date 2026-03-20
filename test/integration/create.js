@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
@@ -18,10 +18,10 @@ async function exec(command, options = {}) {
 
 describe("Integration of create tool", function () {
 	beforeEach(async function () {
-		await fs.ensureDir(cwd);
+		await fs.mkdir(cwd, { recursive: true });
 	});
 	afterEach(async function () {
-		await fs.remove(cwd);
+		await fs.rm(cwd, { recursive: true, maxRetries: 10 });
 	});
 	it("should create a new standalone installation", async function () {
 		this.skip();
@@ -37,10 +37,10 @@ describe("Integration of create tool", function () {
 		].join(" "));
 
 		// Check that the generated config is correct
-		const controllerConfig = await fs.readJson(path.join(cwd, "config-controller.json"));
+		const controllerConfig = JSON.parse(await fs.readFile(path.join(cwd, "config-controller.json")));
 		assert.equal(controllerConfig["controller.http_port"], 8099);
 
-		const hostConfig = await fs.readJson(path.join(cwd, "config-host.json"));
+		const hostConfig = JSON.parse(await fs.readFile(path.join(cwd, "config-host.json")));
 		assert.equal(hostConfig["host.name"], "local");
 		assert.equal(hostConfig["host.public_address"], "localhost");
 		assert.equal(hostConfig["host.factorio_directory"], "test/factorio");
@@ -58,9 +58,9 @@ describe("Integration of create tool", function () {
 		].join(" "));
 
 		// Check that the generated config is correct
-		const controllerConfig = await fs.readJson(path.join(cwd, "config-controller.json"));
+		const controllerConfig = JSON.parse(await fs.readFile(path.join(cwd, "config-controller.json")));
 		assert.equal(controllerConfig["controller.http_port"], 8099);
 
-		await assert.rejects(fs.readJson(path.join(cwd, "config-host.json")));
+		await assert.rejects(fs.access(path.join(cwd, "config-host.json")));
 	}).timeout(60000);
 });

@@ -46,10 +46,6 @@ module.exports = (env = {}, argv = {}) => ({
 	module: {
 		rules: [
 			{
-				test: /node_modules.fs-extra/,
-				use: require.resolve("null-loader"),
-			},
-			{
 				test: /node_modules.winston.dist.winston.transports.(http|file)/,
 				use: require.resolve("null-loader"),
 			},
@@ -124,6 +120,8 @@ module.exports = (env = {}, argv = {}) => ({
 		extensions: [".js", ".ts", ".json", ".jsx", ".tsx"],
 		fallback: {
 			"crypto": false,
+			"fs": false,
+			"fs/promises": false,
 
 			// Required for winston
 			"util": require.resolve("util/"),

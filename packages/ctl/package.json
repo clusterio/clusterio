@@ -21,17 +21,15 @@
 	},
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
-		"set-blocking": "catalog:",
-		"fs-extra": "catalog:",
-		"winston": "catalog:",
 		"as-table": "^1.0.55",
+		"set-blocking": "catalog:",
+		"winston": "catalog:",
 		"yargs": "^17.7.2"
 	},
 	"publishConfig": {
 		"access": "public"
 	},
 	"devDependencies": {
-		"@types/fs-extra": "catalog:",
 		"@types/node": "catalog:",
 		"@types/set-blocking": "catalog:",
 		"@types/yargs": "^17.0.33",

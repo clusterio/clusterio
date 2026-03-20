@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import asTableModule from "as-table";
 import path from "path";
 
@@ -224,7 +224,7 @@ async function handleImportOrRestore(args: {
 
 	print(`${restore ? "Restored" : "Imported"} ${importType} from ${args.filepath}`);
 	if (restore && backup && !args.noBackup) {
-		await fs.writeJSON(`${importType}-backup.json`, backup, { spaces: 2 });
+		await fs.writeFile(`${importType}-backup.json`, JSON.stringify(backup, undefined, "\t"));
 		print(`Wrote backup to ${importType}-backup.json`);
 	}
 }
@@ -296,9 +296,9 @@ userCommands.add(new lib.Command({
 			exportType = "whitelist";
 		}
 
-		await fs.writeJSON(args.filepath, await control.send(
+		await fs.writeFile(args.filepath, JSON.stringify(await control.send(
 			new lib.UserBulkExportRequest(exportType)
-		), { spaces: 2 });
+		), undefined, "\t"));
 		print(`Exported ${exportType} to ${args.filepath}`);
 	},
 }));

@@ -1,5 +1,6 @@
 // Factorio Server interface
-import fs from "fs-extra";
+import fs from "node:fs/promises";
+import { type FSWatcher, watch as fsWatch, writeFileSync } from "node:fs";
 import child_process from "child_process";
 import path from "path";
 import JSZip from "jszip";
@@ -116,7 +117,7 @@ async function downloadAndExtractZip(url: string, targetDir: string) {
 	const zip = await JSZip.loadAsync(buffer);
 
   	// Extract each file/folder
-	await fs.ensureDir(targetDir);
+	await fs.mkdir(targetDir, { recursive: true });
 	await Promise.all(
 		Object.values(zip.files).map(async (entry) => {
 			const parts = entry.name.split("/").filter(Boolean);
@@ -127,9 +128,9 @@ async function downloadAndExtractZip(url: string, targetDir: string) {
 
 			const entryPath = path.join(targetDir, strippedPath);
 			if (entry.dir) {
-				await fs.ensureDir(entryPath);
+				await fs.mkdir(entryPath, { recursive: true });
 			} else {
-				await fs.ensureDir(path.dirname(entryPath));
+				await fs.mkdir(path.dirname(entryPath), { recursive: true });
 				await fs.writeFile(entryPath, await entry.async("nodebuffer"));
 			}
 		})
@@ -153,7 +154,7 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 	const tmpFilePath = `${targetDir}.tmp`;
 	const buffer = Buffer.from(await res.arrayBuffer());
 	await fs.writeFile(tmpFilePath, buffer);
-	await fs.ensureDir(targetDir);
+	await fs.mkdir(targetDir, { recursive: true });
 
 	// Execute tar CLI to extract
 	try {
@@ -165,7 +166,7 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 		throw err;
 	} finally {
 		// Clean up temp file
-		await fs.remove(tmpFilePath);
+		await fs.rm(tmpFilePath);
 	}
 }
 
@@ -631,7 +632,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 	// Due to inconsistencies in the factorio api, we must manually watch the whitelist
 	// https://forums.factorio.com/viewtopic.php?t=123673
-	_whitelistWatcher: fs.FSWatcher | null = null;
+	_whitelistWatcher: FSWatcher | null = null;
 	_whitelist = new Set<string>();
 
 	_logger: lib.Logger;
@@ -885,7 +886,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 		const filePath = this.writePath("server-whitelist.json");
 		try {
-			this._whitelistWatcher = fs.watch(filePath);
+			this._whitelistWatcher = fsWatch(filePath);
 		} catch (err: any) {
 			this._logger.warn(`Unable to watch whitelist, bidirectional sync will not be available:\n${err}`);
 			return;
@@ -907,7 +908,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 			let newWhitelistJson;
 			try {
-				newWhitelistJson = await fs.readJSON(filePath);
+				newWhitelistJson = JSON.parse(await fs.readFile(filePath, "utf8"));
 			} catch (err: any) {
 				this._logger.error(`Unable to read whitelist, bidirectional sync will not be available:\n${err}`);
 				return;
@@ -1527,20 +1528,20 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		});
 		// Must be sync to allow process spawn without awaiting
 		// eslint-disable-next-line node/no-sync
-		fs.writeFileSync(this.writePath("config.ini"), content);
+		writeFileSync(this.writePath("config.ini"), content);
 	}
 
 	_writeMapSettingsSync(mapGenSettings?: object, mapSettings?: object) {
 		// Must be sync to allow process spawn without awaiting
 		if (mapGenSettings) {
 			// eslint-disable-next-line node/no-sync
-			fs.writeFileSync(
+			writeFileSync(
 				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, "\t")
 			);
 		}
 		if (mapSettings) {
 			// eslint-disable-next-line node/no-sync
-			fs.writeFileSync(
+			writeFileSync(
 				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, "\t")
 			);
 		}

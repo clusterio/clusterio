@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";

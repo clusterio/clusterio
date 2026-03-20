@@ -12,7 +12,7 @@
  * @example
  * npx clusteriohost run
  */
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import yargs from "yargs";
 import setBlocking from "set-blocking";
@@ -199,9 +199,9 @@ async function startHost() {
 	await hostConfigLock.acquire();
 
 	// If we get here the command was run
-	await fs.ensureDir(hostConfig.get("host.instances_directory"));
-	await fs.ensureDir(hostConfig.get("host.mods_directory"));
-	await fs.ensureDir("modules");
+	await fs.mkdir(hostConfig.get("host.instances_directory"), { recursive: true });
+	await fs.mkdir(hostConfig.get("host.mods_directory"), { recursive: true });
+	await fs.mkdir("modules", { recursive: true });
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.

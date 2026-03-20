@@ -2,7 +2,7 @@
 const events = require("events");
 const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 class MockDatastoreProvider extends lib.DatastoreProvider {
@@ -37,7 +37,8 @@ describe("lib/datastore", function() {
 	const baseDir = path.join("temp", "test", "datastore");
 	const testFiles = path.join("test", "file");
 	before(async function() {
-		await fs.emptyDir(baseDir);
+		await fs.rm(baseDir, { force: true, recursive: true, maxRetries: 10 });
+		await fs.mkdir(baseDir, { recursive: true });
 	});
 
 	describe("class DatastoreProvider", function() {
@@ -107,7 +108,7 @@ describe("lib/datastore", function() {
 		});
 
 		beforeEach(async function() {
-			await fs.copy(path.join(testFiles, "json", "load_map.json"), dataPath);
+			await fs.copyFile(path.join(testFiles, "json", "load_map.json"), dataPath);
 			datastoreProvider = new lib.JsonDatastoreProvider(dataPath);
 		});
 
@@ -170,7 +171,7 @@ describe("lib/datastore", function() {
 				assert.equal(loadedData.size, 0);
 			});
 			it("throws for invalid file contents", async function() {
-				await fs.copy(path.join(testFiles, "json", "invalid.json"), dataPath);
+				await fs.copyFile(path.join(testFiles, "json", "invalid.json"), dataPath);
 				await assert.rejects(() => datastoreProvider.load(dataPath));
 			});
 			it("writes a backup if size changes after load", async function() {
@@ -201,7 +202,7 @@ describe("lib/datastore", function() {
 		});
 
 		beforeEach(async function() {
-			await fs.copy(path.join(testFiles, "json", "load_array_map.json"), dataPath);
+			await fs.copyFile(path.join(testFiles, "json", "load_array_map.json"), dataPath);
 			datastoreProvider = new lib.JsonIdDatastoreProvider(dataPath);
 		});
 
@@ -265,7 +266,7 @@ describe("lib/datastore", function() {
 				assert.equal(loadedData.size, 0);
 			});
 			it("throws for invalid file contents", async function() {
-				await fs.copy(path.join(testFiles, "json", "invalid.json"), dataPath);
+				await fs.copyFile(path.join(testFiles, "json", "invalid.json"), dataPath);
 				await assert.rejects(() => datastoreProvider.load(dataPath));
 			});
 			it("writes a backup if size changes after load", async function() {

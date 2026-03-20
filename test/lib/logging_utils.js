@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 const { testLines } = require("./factorio/lines");
@@ -47,7 +47,7 @@ describe("lib/logging_utils.js", function() {
 		});
 		it("should handle loading broken index", async function() {
 			let tempDir = path.join("temp", "test", "log");
-			await fs.outputFile(path.join(tempDir, "index.json"), "Broken JSON");
+			await fs.writeFile(path.join(tempDir, "index.json"), "Broken JSON");
 			let logIndex = await lib.LogIndex.load(tempDir);
 			assert.deepEqual(logIndex.index, new Map());
 		});
@@ -60,7 +60,7 @@ describe("lib/logging_utils.js", function() {
 			if (file === "excluded.txt") {
 				continue;
 			}
-			let fileStream = fs.createReadStream(path.join(logDir, file));
+			let fileStream = (await fs.open(path.join(logDir, file))).createReadStream();
 			let lineStream = new lib.LineSplitter({ readableObjectMode: true });
 			fileStream.pipe(lineStream);
 			for await (let line of lineStream) {

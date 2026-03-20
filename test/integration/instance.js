@@ -2,7 +2,7 @@
 const path = require("path");
 const assert = require("assert").strict;
 const lib = require("@clusterio/lib");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 
 const { testMatrix } = require("../common");
 const {
@@ -82,16 +82,16 @@ describe("Clusterio Instance", function() {
 		});
 		it("should always create a whitelist json even if unused", async function() {
 			slowTest(this);
-			await fs.remove(whitelistPath);
+			await fs.rm(whitelistPath, { force: true });
 			await execCtl(`instance start ${instName}`);
-			const whitelist = await fs.readJSON(whitelistPath);
+			const whitelist = JSON.parse(await fs.readFile(whitelistPath, "utf8"));
 			assert.deepEqual(whitelist, []);
 		});
 		it("should not overwrite the existing whitelist if sync is disabled", async function() {
 			slowTest(this);
-			await fs.writeJSON(whitelistPath, ["test_user"]);
+			await fs.writeFile(whitelistPath, JSON.stringify(["test_user"]));
 			await execCtl(`instance start ${instName}`);
-			const whitelist = await fs.readJSON(whitelistPath);
+			const whitelist = JSON.parse(await fs.readFile(whitelistPath, "utf8"));
 			assert.deepEqual(whitelist, ["test_user"]);
 		});
 	});

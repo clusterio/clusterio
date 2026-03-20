@@ -1,5 +1,5 @@
 import path from "path";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 
 import type Controller from "./Controller";
 import type WsServerConnector from "./WsServerConnector";
@@ -97,7 +97,7 @@ export default class BaseConnection extends lib.Link {
 
 		let stream = await routes.createProxyStream(this._controller.app);
 		stream.filename = mod.filename;
-		stream.source = fs.createReadStream(modPath);
+		stream.source = (await fs.open(modPath)).createReadStream();
 		stream.mime = "application/zip";
 		stream.size = String(mod.size);
 

@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const events = require("events");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
@@ -44,12 +44,10 @@ describe("Integration of host/src/server", function() {
 
 		before(async function() {
 			// Delete result from previous run of these tests
-			if (await fs.pathExists(writePath)) {
-				await fs.remove(writePath);
-			}
+			await fs.rm(writePath, { force: true, recursive: true, maxRetries: 10 });
 
-			await fs.ensureDir(writePath);
-			logFile = fs.createWriteStream(path.join(writePath, "log.txt"), "utf8");
+			await fs.mkdir(writePath, { recursive: true });
+			logFile = (await fs.open(path.join(writePath, "log.txt"), "w")).createWriteStream({ encoding: "utf8" });
 			server.on("output", function(output) {
 				if (output.source === "stderr") {
 					// Factorio doesn't print on stderr but sometimes on
@@ -103,10 +101,10 @@ describe("Integration of host/src/server", function() {
 
 				// Make sure the test is not fooled by previous data
 				let mapPath = server.writePath("saves", "test.zip");
-				assert(!await fs.exists(mapPath), "save exist before test");
+				await assert.rejects(fs.access(mapPath), "save exist before test");
 
 				await server.create("test.zip", undefined, { width: 50, height: 50 });
-				assert(await fs.exists(mapPath), "test did not create save");
+				assert.doesNotReject(await fs.access(mapPath), "test did not create save");
 			});
 		});
 
@@ -119,11 +117,11 @@ describe("Integration of host/src/server", function() {
 				let settings = await server.exampleSettings();
 				settings.visibility = { public: false, lan: true };
 				settings.require_user_verification = false;
-				await fs.outputFile(server.writePath("server-settings.json"), JSON.stringify(settings, null, "\t"));
+				await fs.writeFile(server.writePath("server-settings.json"), JSON.stringify(settings, null, "\t"));
 
 				// Make sure the test does not fail due to create() failing.
 				let mapPath = server.writePath("saves", "test.zip");
-				assert(await fs.exists(mapPath), "save is missing");
+				await assert.doesNotReject(fs.access(mapPath), "save is missing");
 
 				await server.start("test.zip");
 			});
@@ -171,7 +169,8 @@ describe("Integration of host/src/server", function() {
 		describe(".startScenario()", function() {
 			before("Write test_scenario", async function() {
 				let content = "script.on_init(function() print('test_scenario init') end)\n";
-				await fs.outputFile(server.writePath("scenarios", "test_scenario", "control.lua"), content);
+				await fs.mkdir(server.writePath("scenarios", "test_scenario"), { recursive: true });
+				await fs.writeFile(server.writePath("scenarios", "test_scenario", "control.lua"), content);
 			});
 
 			it("runs the given scenario", async function() {

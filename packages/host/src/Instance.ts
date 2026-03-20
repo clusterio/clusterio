@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import pidusage from "pidusage";
 import util from "util";
@@ -755,8 +755,8 @@ end`.replace(/\r?\n/g, " ");
 	 * @param instanceDir -
 	 */
 	static async populate_folders(instanceDir: string) {
-		await fs.ensureDir(path.join(instanceDir, "script-output"));
-		await fs.ensureDir(path.join(instanceDir, "saves"));
+		await fs.mkdir(path.join(instanceDir, "script-output"), { recursive: true });
+		await fs.mkdir(path.join(instanceDir, "saves"), { recursive: true });
 	}
 
 	/**
@@ -786,7 +786,7 @@ end`.replace(/\r?\n/g, " ");
 
 		const mods = await this._host.fetchMods(modPack.mods.values());
 
-		await fs.ensureDir(this.path("mods"));
+		await fs.mkdir(this.path("mods"), { recursive: true });
 
 		// Remove all files
 		for (let entry of await fs.readdir(this.path("mods"), { withFileTypes: true })) {
@@ -825,12 +825,12 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		// Write mod-list.json
-		await fs.outputFile(this.path("mods", "mod-list.json"), JSON.stringify({
+		await fs.writeFile(this.path("mods", "mod-list.json"), JSON.stringify({
 			mods: [...this.activeModPack.mods.values()],
 		}, null, "\t"));
 
 		// Write mod-settings.dat
-		await fs.outputFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
+		await fs.writeFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
 	}
 
 	/**
@@ -921,7 +921,11 @@ end`.replace(/\r?\n/g, " ");
 				now.getUTCMinutes().toLocaleString("en", { minimumIntegerDigits: 2 }),
 				saveName,
 			);
-			await fs.copy(this.path("saves", saveName), this.path("saves", newName));
+			await fs.copyFile(
+				this.path("saves", saveName),
+				this.path("saves", newName),
+				fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE,
+			);
 			saveName = newName;
 		}
 
