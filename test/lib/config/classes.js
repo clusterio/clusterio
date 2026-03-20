@@ -11,6 +11,7 @@ describe("lib/config/classes", function() {
 	describe("Config", function() {
 		class TestConfig extends lib.Config {
 			static defaultAccess = ["local", "remote"];
+			static validatorCalls = [];
 
 			static migrations(config) {
 				if (config.hasOwnProperty("test.migration")) {
@@ -48,6 +49,7 @@ describe("lib/config/classes", function() {
 					initialValue: 1,
 					dependsOn: ["test.base", "test.objDependent"],
 					validator(value, config) {
+						TestConfig.validatorCalls.push(["test.dependent", value]);
 						if (value < config.get("test.base")) {
 							throw new Error("dependent must be >= base");
 						}
@@ -62,6 +64,7 @@ describe("lib/config/classes", function() {
 					initialValue: {},
 					dependsOn: ["test.base"],
 					validator(value, config) {
+						TestConfig.validatorCalls.push(["test.objDependent", value]);
 						if (value.base && value.base !== config.get("test.base")) {
 							throw new Error("base prop must match test.base");
 						}
@@ -71,6 +74,7 @@ describe("lib/config/classes", function() {
 					type: "number",
 					optional: true,
 					validator(value) {
+						TestConfig.validatorCalls.push(["test.validated", value]);
 						if (value !== null && value < 0) {
 							throw new Error("must be positive");
 						}
@@ -80,6 +84,7 @@ describe("lib/config/classes", function() {
 					type: "object",
 					initialValue: {},
 					validator(value) {
+						TestConfig.validatorCalls.push(["test.objValidated", value]);
 						if (value && value.bad !== undefined) {
 							throw new Error("bad key");
 						}
@@ -715,6 +720,7 @@ describe("lib/config/classes", function() {
 		describe(".set()", function() {
 			let testInstance;
 			beforeEach(function() {
+				TestConfig.validatorCalls = [];
 				testInstance = new TestConfig("local", {
 					"test.enum": "a",
 					"test.test": "blah",
@@ -750,24 +756,38 @@ describe("lib/config/classes", function() {
 			it("should run field validator successfully", function() {
 				testInstance.set("test.validated", 5);
 				assert.equal(testInstance.get("test.validated"), 5);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.validated", 5], // set test.validated
+				]);
 			});
 			it("should throw if validator fails", function() {
 				assert.throws(
 					() => testInstance.set("test.validated", -1),
 					new lib.InvalidValue("Failed validation of test.validated: must be positive")
 				);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.validated", -1], // set test.validated
+				]);
 			});
 			it("should validate dependent fields", function() {
 				testInstance.set("test.dependent", 10);
 				testInstance.set("test.base", 5);
 				assert.equal(testInstance.get("test.dependent"), 10);
 				assert.equal(testInstance.get("test.base"), 5);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.dependent", 10], // set test.dependent
+					["test.dependent", 10], // set test.base
+					["test.objDependent", {}], // set test.base
+				]);
 			});
 			it("should throw if dependent validation fails", function() {
 				assert.throws(
 					() => testInstance.set("test.base", 5),
 					new lib.InvalidValue("Failed validation of dependent test.dependent: dependent must be >= base")
 				);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.dependent", 1], // set test.base
+				]);
 			});
 		});
 
@@ -823,6 +843,7 @@ describe("lib/config/classes", function() {
 		describe(".setProp()", function() {
 			let testInstance;
 			beforeEach(function() {
+				TestConfig.validatorCalls = [];
 				testInstance = new TestConfig("local", {
 					"test.enum": "a",
 					"test.test": "blah",
@@ -859,16 +880,26 @@ describe("lib/config/classes", function() {
 			it("should run validator when setting object property", function() {
 				testInstance.setProp("test.objValidated", "good", true);
 				assert.deepEqual(testInstance.get("test.objValidated"), { good: true });
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.objValidated", { good: true }], // setProp test.objValidated good
+				]);
 			});
 			it("should throw if object validator fails", function() {
 				assert.throws(
 					() => testInstance.setProp("test.objValidated", "bad", true),
 					new lib.InvalidValue("Failed validation of test.objValidated: bad key")
 				);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.objValidated", { bad: true }], // setProp test.objValidated bad
+				]);
 			});
 			it("should validate dependent fields", function() {
 				testInstance.setProp("test.objDependent", "base", 1);
 				assert.deepEqual(testInstance.get("test.objDependent"), { base: 1 });
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.objDependent", { base: 1 }], // setProp test.objDependent base
+					["test.dependent", 1], // setProp test.objDependent base
+				]);
 			});
 			it("should throw if dependent validation fails", function() {
 				testInstance.set("test.base", 0);
@@ -876,6 +907,12 @@ describe("lib/config/classes", function() {
 					() => testInstance.setProp("test.objDependent", "base", 0),
 					new lib.InvalidValue("Failed validation of dependent test.dependent: objDependent cannot be 0")
 				);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.dependent", 1], // set test.base
+					["test.objDependent", {}], // set test.base
+					["test.objDependent", { base: 0 }], // setProp test.objDependent base
+					["test.dependent", 1], // setProp test.objDependent base
+				]);
 			});
 		});
 
@@ -949,6 +986,7 @@ describe("lib/config/classes", function() {
 		describe(".commitStaging()", function() {
 			let testInstance;
 			beforeEach(function() {
+				TestConfig.validatorCalls = [];
 				testInstance = new TestConfig("local");
 			});
 
@@ -962,6 +1000,13 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.get("alpha.foo"), null);
 				testInstance.commitStaging();
 				assert.equal(testInstance.get("alpha.foo"), "value");
+				assert.deepEqual(TestConfig.validatorCalls, [
+					// commitStaging, all values are checked once
+					["test.dependent", 1],
+					["test.objDependent", {}],
+					["test.validated", null],
+					["test.objValidated", {}],
+				]);
 			});
 			it("should throw if staged validation fails", function() {
 				testInstance.stage("test.validated", -1);
@@ -970,6 +1015,12 @@ describe("lib/config/classes", function() {
 					() => testInstance.commitStaging(),
 					new lib.InvalidValue("Failed validation of test.validated: must be positive")
 				);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					// commitStaging, all values are checked once
+					["test.dependent", 1],
+					["test.objDependent", {}],
+					["test.validated", -1], // throws, so no fourth item
+				]);
 			});
 			it("should commit stages values with dependent validation", function() {
 				assert.throws(() => testInstance.set("test.base", 10));
@@ -979,6 +1030,14 @@ describe("lib/config/classes", function() {
 				testInstance.commitStaging();
 				assert.equal(testInstance.get("test.base"), 10);
 				assert.equal(testInstance.get("test.dependent"), 15);
+				assert.deepEqual(TestConfig.validatorCalls, [
+					["test.dependent", 1], // set test.base
+					// commitStaging, all values are checked once
+					["test.dependent", 15],
+					["test.objDependent", {}],
+					["test.validated", null],
+					["test.objValidated", {}],
+				]);
 			});
 			it("should notify fieldChanged listeners", function() {
 				const changes = [];
