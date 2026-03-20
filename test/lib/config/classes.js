@@ -90,6 +90,29 @@ describe("lib/config/classes", function() {
 						}
 					},
 				},
+				"test.badValidator": {
+					type: "string",
+					optional: true,
+					dependsOn: ["test.base"],
+					validator(value, config) {
+						if (config.get("test.base") < 1) {
+							return;
+						}
+						if (value === "set") {
+							config.set("alpha.foo", "BAD");
+						} else if (value === "setProp") {
+							config.setProp("beta.bar", "baz", "BAD");
+						} else if (value === "stage") {
+							config.stage("alpha.foo", "BAD");
+						} else if (value === "stageProp") {
+							config.stageProp("beta.bar", "baz", "BAD");
+						} else if (value === "commitStaging") {
+							config.commitStaging();
+						} else if (value === "revertStaging") {
+							config.revertStaging();
+						}
+					},
+				},
 			};
 		}
 
@@ -1075,6 +1098,29 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.staging.get("alpha.foo"), null);
 				assert.equal(testInstance.get("alpha.foo"), null);
 			});
+		});
+
+		describe("is readonly in validators", function() {
+			for (const method of [
+				"set", "setProp", "stage", "stageProp", "commitStaging", "revertStaging",
+			]) {
+				it(`${method} should throw if called inside a validator`, function() {
+					const testInstance = new TestConfig("local");
+					assert.throws(
+						() => testInstance.set("test.badValidator", method),
+						/config is readonly and cannot have values changed/
+					);
+				});
+				it(`${method} should throw if called inside a dependent validator`, function() {
+					const testInstance = new TestConfig("local");
+					testInstance.set("test.base", 0);
+					testInstance.set("test.badValidator", method);
+					assert.throws(
+						() => testInstance.set("test.base", 1),
+						/config is readonly and cannot have values changed/
+					);
+				});
+			}
 		});
 	});
 });

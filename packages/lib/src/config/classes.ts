@@ -230,6 +230,8 @@ export class Config<
 	private fields: Fields;
 	private _unknownFields: Record<string, FieldValue> = {};
 
+	/** Set to true during validators to prevent edits */
+	private _readonly = false; // TODO replace with "using config.asReadonly()"
 	/** Set to true when a field in the config is changed. */
 	private dirty = false;
 	/** Set to true when a 'restart required' field in the config is changed. */
@@ -274,6 +276,7 @@ export class Config<
 	private _staging?: { config: Config<Fields>, changes: Set<string>};
 
 	/** Get the latest version of staging */
+	// TODO replace with "using config.startStating()"
 	get staging(): Config<Fields> {
 		if (this._staging) { return this._staging.config; }
 		const config = new this.constructor(this.location, this.fields);
@@ -417,9 +420,14 @@ export class Config<
 	 * @param notify - False to skip setting dirty flags and emitting events
 	 */
 	_set(name: keyof Fields & string, value: FieldValue, notify: boolean = true) {
+		if (this._readonly) {
+			throw new Error("config is readonly and cannot have values changed");
+		}
+
 		const prev = this.fields[name];
 		this.fields[name] = value as any;
 		this.revertStaging();
+
 		if (notify && !isDeepStrictEqual(value, prev)) {
 			const def = this.constructor.fieldDefinitions[name];
 			if (def.restartRequired) {
@@ -650,23 +658,37 @@ export class Config<
 
 		const value = Config._coerceValue(name, def, newValue);
 
-		if (def.validator) {
-			try {
-				def.validator(value, this);
-			} catch (err: any) {
-				throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+		const _readonly = this._readonly;
+		this.staging._readonly = true;
+		this._readonly = true;
+		try {
+			if (def.validator) {
+				try {
+					def.validator(value, this);
+				} catch (err: any) {
+					throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+				}
 			}
+		} finally {
+			this._readonly = _readonly;
+			this.staging._readonly = _readonly;
 		}
 
 		const dependents = this.constructor.fieldDependents.get(name);
 		if (dependents) {
+			// This mimics stage + commit but optimised for a single value
 			this.staging._set(name, value);
-			for (const dependent of dependents) {
-				try {
-					dependent.def.validator(this.get(dependent.name as keyof Fields & string, remote), this.staging);
-				} catch (err: any) {
-					throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+			this.staging._readonly = true;
+			try {
+				for (const dependent of dependents) {
+					try {
+						dependent.def.validator(this.get(dependent.name as any, remote), this.staging);
+					} catch (err: any) {
+						throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+					}
 				}
+			} finally {
+				this.revertStaging();
 			}
 		}
 
@@ -715,23 +737,37 @@ export class Config<
 			delete updated[prop];
 		}
 
-		if (def.validator) {
-			try {
-				def.validator(updated, this);
-			} catch (err: any) {
-				throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+		const _readonly = this._readonly;
+		this.staging._readonly = true;
+		this._readonly = true;
+		try {
+			if (def.validator) {
+				try {
+					def.validator(updated, this);
+				} catch (err: any) {
+					throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+				}
 			}
+		} finally {
+			this._readonly = _readonly;
+			this.staging._readonly = _readonly;
 		}
 
 		const dependents = this.constructor.fieldDependents.get(name);
 		if (dependents) {
+			// This mimics stage + commit but optimised for a single value
 			this.staging._set(name, updated);
-			for (const dependent of dependents) {
-				try {
-					dependent.def.validator(this.get(dependent.name as keyof Fields & string, remote), this.staging);
-				} catch (err: any) {
-					throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+			this.staging._readonly = true;
+			try {
+				for (const dependent of dependents) {
+					try {
+						dependent.def.validator(this.get(dependent.name as any, remote), this.staging);
+					} catch (err: any) {
+						throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+					}
 				}
+			} finally {
+				this.revertStaging();
 			}
 		}
 
@@ -749,6 +785,10 @@ export class Config<
 	 * @throws {InvalidValue} if value is not allowed for the field.
 	 */
 	stage<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], remote = this.location) {
+		if (this._readonly) {
+			throw new Error("config is readonly and cannot have values changed");
+		}
+
 		const def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
@@ -780,6 +820,10 @@ export class Config<
 		value?: unknown,
 		remote = this.location,
 	) {
+		if (this._readonly) {
+			throw new Error("config is readonly and cannot have values changed");
+		}
+
 		const def = this.constructor.fieldDefinitions[name];
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
@@ -812,6 +856,10 @@ export class Config<
 	 * @throws {InvalidValue} if a value is not allowed for its field.
 	 */
 	commitStaging() {
+		if (this._readonly) {
+			throw new Error("config is readonly and cannot have values changed");
+		}
+
 		const staging = this._staging;
 		if (!staging) {
 			return; // Nothing to commit
@@ -819,14 +867,20 @@ export class Config<
 
 		// Validate all fields using the current state of staging
 		const config = staging.config;
-		for (const [fieldName, fieldDef] of Object.entries(this.constructor.fieldDefinitions)) {
-			if (fieldDef.validator) {
-				try {
-					fieldDef.validator(config.fields[fieldName as keyof Fields], config);
-				} catch (err: any) {
-					throw new InvalidValue(`Failed validation of ${fieldName}: ${err.message}`);
+		const _readonly = this._readonly;
+		config._readonly = true;
+		try {
+			for (const [fieldName, fieldDef] of Object.entries(this.constructor.fieldDefinitions)) {
+				if (fieldDef.validator) {
+					try {
+						fieldDef.validator(config.fields[fieldName as keyof Fields], config);
+					} catch (err: any) {
+						throw new InvalidValue(`Failed validation of ${fieldName}: ${err.message}`);
+					}
 				}
 			}
+		} finally {
+			config._readonly = _readonly;
 		}
 
 		// Validation success, set all values which have changed
@@ -838,6 +892,9 @@ export class Config<
 
 	/** Revert all changes in staging */
 	revertStaging() {
+		if (this._readonly) {
+			throw new Error("config is readonly and cannot have values changed");
+		}
 		this._staging = undefined;
 	}
 }
