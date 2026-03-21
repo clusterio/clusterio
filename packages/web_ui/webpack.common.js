@@ -39,7 +39,7 @@ module.exports = (env = {}, argv = {}) => ({
 			}
 		),
 		// Strip node: prefix in request paths.
-		new webpack.NormalModuleReplacementPlugin(/node:/, resource => {
+		new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
 			resource.request = resource.request.replace(/^node:/, "");
 		}),
 	],
