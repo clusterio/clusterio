@@ -921,10 +921,11 @@ end`.replace(/\r?\n/g, " ");
 				now.getUTCMinutes().toLocaleString("en", { minimumIntegerDigits: 2 }),
 				saveName,
 			);
+			// This will overwrite the save if this runs twice in the same minute.
 			await fs.copyFile(
 				this.path("saves", saveName),
 				this.path("saves", newName),
-				fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE,
+				fs.constants.COPYFILE_FICLONE,
 			);
 			saveName = newName;
 		}
