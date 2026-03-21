@@ -38,6 +38,10 @@ module.exports = (env = {}, argv = {}) => ({
 				resource.request = resource.request.replace("@ant-design\/icons", "$&/es/icons");
 			}
 		),
+		// Strip node: prefix in request paths.
+		new webpack.NormalModuleReplacementPlugin(/^node:/, resource => {
+			resource.request = resource.request.replace(/^node:/, "");
+		}),
 	],
 	module: {
 		rules: [
