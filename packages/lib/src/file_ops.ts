@@ -68,44 +68,7 @@ export async function directorySize(directory: string) {
 }
 
 /**
- * Modifies name in case it already exisist at the given directory
- *
- * Checks the directory passed if it already contains a file or folder with
- * the given name, if it does not returns name unmodified, otherwise it
- * returns a modified name that does not exist in the directory.
- *
- * Warning: this function should not be relied upon to be accurate for
- * security sensitive applications.  The selection process is inherently
- * racy and a file or folder may have been created in the folder by the time
- * this function returns.
- *
- * @param directory - directory to check in.
- * @param name - file name to check for, may have extension.
- * @param extension - dot extension used for the file name.
- * @returns modified name with extension that likely does
- *     not exist in the folder
- */
-export async function findUnusedName(directory: string, name: string, extension = "") {
-	if (extension && name.endsWith(extension)) {
-		name = name.slice(0, -extension.length);
-	}
-
-	while (true) {
-		if (!await fs.pathExists(path.join(directory, `${name}${extension}`))) {
-			return `${name}${extension}`;
-		}
-
-		let match = /^(.*?)(-(\d+))?$/.exec(name)!;
-		if (!match[2]) {
-			name = `${match[1]}-2`;
-		} else {
-			name = `${match[1]}-${Number.parseInt(match[3], 10) + 1}`;
-		}
-	}
-}
-
-/**
- * Generate collision resistante temporary file name
+ * Generate collision resistant temporary file name
  *
  * Warning: this function should not be relied upon to be accurate for
  * security sensitive applications.  The selection process is inherently
@@ -119,8 +82,7 @@ export async function findUnusedName(directory: string, name: string, extension 
  */
 export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
 	let fileName = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
-	let freeFile = await findUnusedName(tmpdir, fileName);
-	let fullPath = path.join(tmpdir, freeFile);
+	let fullPath = path.join(tmpdir, fileName);
 	return fullPath;
 }
 
