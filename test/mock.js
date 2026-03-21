@@ -195,6 +195,10 @@ class MockController {
 		this.handles = new Map();
 	}
 
+	get authSecret() {
+		return Buffer.from(this.config.get("controller.auth_secret"), "base64");
+	}
+
 	handle(eventClass, handler) {
 		this.handles.set(eventClass, handler);
 	}

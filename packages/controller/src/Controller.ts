@@ -268,6 +268,11 @@ export default class Controller {
 		this.users.records.on("update", this.usersUpdated.bind(this));
 	}
 
+	get authSecret() {
+		// Auth secret is never null after startup
+		return Buffer.from(this.config.get("controller.auth_secret")!, "base64");
+	}
+
 	async start(args: ControllerArgs) {
 		if (this._state !== "new") {
 			throw new Error(`Cannot start in state ${this._state}`);
@@ -883,10 +888,7 @@ export default class Controller {
 	 * @param hostId - ID of host to generate a token for.
 	 */
 	generateHostToken(hostId: number): string {
-		return jwt.sign(
-			{ aud: "host", host: hostId },
-			Buffer.from(this.config.get("controller.auth_secret"), "base64")
-		);
+		return jwt.sign({ aud: "host", host: hostId }, this.authSecret);
 	}
 
 	hostsUpdated(hosts: HostRecord[]) {

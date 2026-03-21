@@ -4,7 +4,7 @@ const assert = require("assert").strict;
 
 // Each migration test should indicate which version introduced the migration
 
-describe("lib/config/migrations", function() {
+describe("lib/config/definitions/migrations", function() {
 	describe("Controller Config", function() {
 		it("should migrate 'external_address' to 'public_url'", function() { // Alpha 19
 			const config = lib.ControllerConfig.fromJSON({

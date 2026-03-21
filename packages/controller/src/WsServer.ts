@@ -223,10 +223,7 @@ ${err.stack}`
 	createSession(dst: lib.Address): [ WsServerConnector, string ] {
 		let sessionId = this.nextSessionId;
 		this.nextSessionId += 1;
-		let sessionToken = jwt.sign(
-			{ aud: this.sessionAud, sid: sessionId },
-			Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-		);
+		let sessionToken = jwt.sign({ aud: this.sessionAud, sid: sessionId }, this.controller.authSecret);
 		let sessionTimeout = this.controller.config.get("controller.session_timeout");
 		let heartbeatInterval = this.controller.config.get("controller.heartbeat_interval");
 		let connector = new WsServerConnector(dst, sessionId, sessionTimeout, heartbeatInterval);
@@ -247,13 +244,8 @@ ${err.stack}`
 		}
 
 		try {
-			let tokenPayload = jwt.verify(
-				data.token,
-				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-				// migrate: allow pre-rename tokens issued to hosts before alpha-14
-				{ audience: ["host", "slave"] }
-			);
-
+			// migrate: allow pre-rename tokens issued to hosts before alpha-14
+			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: ["host", "slave"] });
 			if (typeof tokenPayload === "string") {
 				throw new Error("unexpected JsonWebToken type");
 			}
@@ -324,12 +316,7 @@ ${err.stack}`
 	async registerControl(data: lib.RegisterControlData, socket: WebSocket, req: IncomingMessage) {
 		let user;
 		try {
-			let tokenPayload = jwt.verify(
-				data.token,
-				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-				{ audience: "user" }
-			);
-
+			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: "user" });
 			if (typeof tokenPayload === "string") {
 				throw new Error("unexpected JsonWebToken type");
 			}
@@ -376,12 +363,7 @@ ${err.stack}`
 	resumeSession(data: lib.ResumeData, socket: WebSocket, req: IncomingMessage) {
 		let connector;
 		try {
-			let payload = jwt.verify(
-				data.sessionToken,
-				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-				{ audience: this.sessionAud }
-			);
-
+			const payload = jwt.verify(data.sessionToken, this.controller.authSecret, { audience: this.sessionAud });
 			if (typeof payload === "string") {
 				throw new Error("unexpected JsonWebToken type");
 			}

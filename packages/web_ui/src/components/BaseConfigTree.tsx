@@ -9,6 +9,7 @@ import * as lib from "@clusterio/lib";
 import ControlContext from "./ControlContext";
 import { InputComponent, InputComponentProps } from "../BaseWebPlugin";
 import type { Control } from "../util/websocket";
+import { notifyErrorHandler } from "../util/notify";
 
 const { Title } = Typography;
 
@@ -67,8 +68,7 @@ function renderInput(inputComponents: Record<string, InputComponent>, def: lib.F
 type BaseConfigTreeProps = {
 	ConfigClass: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig;
 	retrieveConfig: () => Promise<lib.ConfigSchema>;
-	setField: (field:string, value:any) => Promise<void>;
-	setProp: (field:string, prop:string, value:any) => Promise<void>;
+	setConfig: (fields: Record<string, string | Record<string, string>>) => Promise<void>;
 	id?: number;
 	onApply?: () => void;
 	available?: boolean;
@@ -157,32 +157,33 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 					loading={applying}
 					onClick={async () => {
 						setApplying(true);
-						for (let field of changedFields) {
-							let value = form.getFieldValue(field);
-							let request;
+						const fields: Record<string, string | Record<string, string>> = {};
+						for (const field of changedFields) {
+							const value = form.getFieldValue(field);
 							if (propsMap.has(field)) {
-								let [fieldName, prop] = propsMap.get(field);
-								request = props.setProp(fieldName, prop, value);
+								const [fieldName, prop] = propsMap.get(field)!;
+								const fieldValue = (fields[fieldName] ?? {}) as Record<string, string>;
+								fields[fieldName] = fieldValue;
+								try {
+									fieldValue[prop] = value ? JSON.parse(value) : undefined;
+								} catch (err: any) {
+									setErrorFields(errors => {
+										const newErrors = new Map(errors);
+										newErrors.set(fieldName, err.message);
+										return newErrors;
+									});
+								}
 
 							} else {
-								request = props.setField(field, value === null ? "" : String(value));
+								fields[field] = value === null ? "" : String(value);
 							}
+						}
 
-							try {
-								await request;
-								setChangedFields(changed => {
-									let newChanged = new Set(changed);
-									newChanged.delete(field);
-									return newChanged;
-								});
-
-							} catch (err: any) {
-								setErrorFields(errors => {
-									let newErrors = new Map(errors);
-									newErrors.set(field, err.message);
-									return newErrors;
-								});
-							}
+						try {
+							await props.setConfig(fields);
+							setChangedFields(new Set());
+						} catch (err: any) {
+							notifyErrorHandler(err.message);
 						}
 
 						await updateConfig();
@@ -254,7 +255,7 @@ function computeTreeData(
 	};
 
 	let treeData = [];
-	let propsMap = new Map();
+	const propsMap = new Map<string, [fieldName: string, prop: string]>();
 	const groups = new Map<string, { [name: string]: lib.FieldDefinition }>();
 	for (let [fieldName, def] of Object.entries(ConfigClass.fieldDefinitions)) {
 		const [groupName, field] = lib.splitOn(".", fieldName);
@@ -312,17 +313,37 @@ function computeTreeData(
 								{`"${prop}"`}
 								{restart && restartTip}
 							</>}
-							rules={[{ validator: (_, fieldValue) => {
+							dependencies={def.dependsOn}
+							rules={[({getFieldValue}) => ({ validator: async (_, fieldValue) => {
 								if (!fieldValue.length) {
-									return Promise.reject(new Error("Will be removed"));
+									throw new Error("Will be removed");
 								}
+
 								try {
-									JSON.parse(fieldValue);
+									fieldValue = JSON.parse(fieldValue);
 								} catch (err) {
-									return Promise.reject(new Error("Must be valid json"));
+									throw new Error("Must be valid json");
 								}
-								return Promise.resolve();
-							}}]}
+
+								if (!def.validator) { return; }
+								config.stageProp(fieldName, prop, fieldValue);
+
+								for (const dependsOn of def.dependsOn ?? []) {
+									const dependsOnDef = ConfigClass.fieldDefinitions[dependsOn as any] as typeof def;
+									try {
+										if (propsMap.has(dependsOn)) {
+											const [name, otherProp] = propsMap.get(dependsOn)!;
+											config.stageProp(name, otherProp, JSON.parse(getFieldValue(dependsOn)));
+										} else if (dependsOnDef.type !== "object") {
+											config.stage(dependsOn, getFieldValue(dependsOn));
+										}
+									} catch (err) {
+										throw new Error(`Failed to fetch field: ${dependsOn}`);
+									}
+								}
+
+								def.validator(fieldValue, config.staging);
+							}})]}
 						>
 							<Input className="json-input" disabled={!canWrite} />
 						</Form.Item>,
@@ -390,7 +411,30 @@ function computeTreeData(
 					validateStatus={errorFields.has(fieldName) ? "error" : undefined}
 					help={errorFields.get(fieldName)}
 					tooltip={def.description}
+					dependencies={def.dependsOn}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
+					rules={[({getFieldValue}) => ({
+						validator: async (_, fieldValue) => {
+							if (!def.validator) { return; }
+							config.stage(fieldName, fieldValue);
+
+							for (const dependsOn of def.dependsOn ?? []) {
+								const dependsOnDef = ConfigClass.fieldDefinitions[dependsOn as any] as typeof def;
+								try {
+									if (propsMap.has(dependsOn)) {
+										const [name, prop] = propsMap.get(dependsOn)!;
+										config.stageProp(name, prop, JSON.parse(getFieldValue(dependsOn)));
+									} else if (dependsOnDef.type !== "object") {
+										config.stage(dependsOn, getFieldValue(dependsOn));
+									}
+								} catch (err) {
+									throw new Error(`Failed to fetch field: ${dependsOn}`);
+								}
+							}
+
+							def.validator(fieldValue, config.staging);
+						},
+					})]}
 				>
 					{renderInput(control.inputComponents, def, !canWrite)}
 				</Form.Item>;

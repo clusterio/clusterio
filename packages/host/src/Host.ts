@@ -387,6 +387,7 @@ export default class Host extends lib.Link {
 		this.handle(lib.HostRestartRequest, this.handleHostRestartRequest.bind(this));
 		this.handle(lib.HostUpdateRequest, this.handleHostUpdateRequest.bind(this));
 		this.handle(lib.HostConfigGetRequest, this.handleHostConfigGetRequest.bind(this));
+		this.handle(lib.HostConfigSetRequest, this.handleHostConfigSetRequest.bind(this));
 		this.handle(lib.HostConfigSetFieldRequest, this.handleHostConfigSetFieldRequest.bind(this));
 		this.handle(lib.HostConfigSetPropRequest, this.handleHostConfigSetPropRequest.bind(this));
 		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
@@ -503,18 +504,41 @@ export default class Host extends lib.Link {
 		return this.config.toRemote("control");
 	}
 
-	async handleHostConfigSetFieldRequest(request: lib.HostConfigSetFieldRequest) {
-		if (request.field === "host.id") {
+	private static validateHostConfigSetField(fieldName: string) {
+		if (fieldName === "host.id") {
 			// Changing host.id at runtime is not worth the effort to
 			// support and will break a lot of things if it is allowed.
 			throw new lib.RequestError("Setting 'host.id' while host is running is not supported");
 		}
+	}
 
+	async handleHostConfigSetRequest(request: lib.HostConfigSetRequest) {
+		try {
+			for (const [fieldName, fieldValue] of Object.entries(request.fields)) {
+				Host.validateHostConfigSetField(fieldName);
+				if (typeof fieldValue === "object") {
+					for (const [propName, propValue] of Object.entries(fieldValue)) {
+						this.config.stageProp(fieldName as keyof lib.HostConfigFields, propName, propValue, "control");
+					}
+				} else {
+					this.config.stage(fieldName as keyof lib.HostConfigFields, fieldValue, "control");
+				}
+			}
+
+			this.config.commitStaging();
+		} finally {
+			this.config.revertStaging();
+		}
+	}
+
+	async handleHostConfigSetFieldRequest(request: lib.HostConfigSetFieldRequest) {
+		Host.validateHostConfigSetField(request.field);
 		this.config.set(request.field as keyof lib.HostConfigFields, request.value, "control");
 	}
 
 	async handleHostConfigSetPropRequest(request: lib.HostConfigSetPropRequest) {
 		let { field, prop, value } = request;
+		Host.validateHostConfigSetField(field);
 		this.config.setProp(field as keyof lib.HostConfigFields, prop, value, "control");
 	}
 

@@ -73,6 +73,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ControllerRestartRequest, this.handleControllerRestartRequest.bind(this));
 		this.handle(lib.ControllerUpdateRequest, this.handleControllerUpdateRequest.bind(this));
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
+		this.handle(lib.ControllerConfigSetRequest, this.handleControllerConfigSetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
 		this.handle(lib.HostRevokeTokensRequest, this.handleHostRevokeTokensRequest.bind(this));
@@ -84,6 +85,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
 		this.handle(lib.InstanceDeleteRequest, this.handleInstanceDeleteRequest.bind(this));
 		this.handle(lib.InstanceConfigGetRequest, this.handleInstanceConfigGetRequest.bind(this));
+		this.handle(lib.InstanceConfigSetRequest, this.handleInstanceConfigSetRequest.bind(this));
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
@@ -195,6 +197,26 @@ export default class ControlConnection extends BaseConnection {
 		return this._controller.config.toRemote("control");
 	}
 
+	async handleControllerConfigSetRequest(request: lib.ControllerConfigSetRequest) {
+		try {
+			for (const [fieldName, fieldValue] of Object.entries(request.fields)) {
+				if (typeof fieldValue === "object") {
+					for (const [propName, propValue] of Object.entries(fieldValue)) {
+						this._controller.config.stageProp(
+							fieldName as keyof lib.ControllerConfigFields, propName, propValue, "control"
+						);
+					}
+				} else {
+					this._controller.config.stage(fieldName as keyof lib.ControllerConfigFields, fieldValue, "control");
+				}
+			}
+
+			this._controller.config.commitStaging();
+		} finally {
+			this._controller.config.revertStaging();
+		}
+	}
+
 	async handleControllerConfigSetFieldRequest(request: lib.ControllerConfigSetFieldRequest) {
 		this._controller.config.set(request.field as keyof lib.ControllerConfigFields, request.value, "control");
 	}
@@ -280,17 +302,42 @@ export default class ControlConnection extends BaseConnection {
 		return instance.config.toRemote("control");
 	}
 
-	async handleInstanceConfigSetFieldRequest(request: lib.InstanceConfigSetFieldRequest) {
-		let instance = this._controller.instances.getForRequest(request.instanceId);
-		if (request.field === "instance.assigned_host") {
+	private static validateInstanceConfigSetField(fieldName: string) {
+		if (fieldName === "instance.assigned_host") {
 			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
 		}
 
-		if (request.field === "instance.id") {
+		if (fieldName === "instance.id") {
 			// XXX is this worth implementing?  It's race condition galore.
 			throw new lib.RequestError("Setting instance.id is not supported");
 		}
+	}
 
+	async handleInstanceConfigSetRequest(request: lib.InstanceConfigSetRequest) {
+		const instance = this._controller.instances.getForRequest(request.instanceId);
+		try {
+			for (const [fieldName, fieldValue] of Object.entries(request.fields)) {
+				ControlConnection.validateInstanceConfigSetField(fieldName);
+				if (typeof fieldValue === "object") {
+					for (const [propName, propValue] of Object.entries(fieldValue)) {
+						instance.config.stageProp(
+							fieldName as keyof lib.InstanceConfigFields, propName, propValue, "control"
+						);
+					}
+				} else {
+					instance.config.stage(fieldName as keyof lib.InstanceConfigFields, fieldValue, "control");
+				}
+			}
+
+			instance.config.commitStaging();
+		} finally {
+			instance.config.revertStaging();
+		}
+	}
+
+	async handleInstanceConfigSetFieldRequest(request: lib.InstanceConfigSetFieldRequest) {
+		const instance = this._controller.instances.getForRequest(request.instanceId);
+		ControlConnection.validateInstanceConfigSetField(request.field);
 		instance.config.set(request.field as keyof lib.InstanceConfigFields, request.value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
@@ -298,6 +345,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleInstanceConfigSetPropRequest(request: lib.InstanceConfigSetPropRequest) {
 		let instance = this._controller.instances.getForRequest(request.instanceId);
 		let { field, prop, value } = request;
+		ControlConnection.validateInstanceConfigSetField(field);
 		instance.config.setProp(field as keyof lib.InstanceConfigFields, prop, value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}

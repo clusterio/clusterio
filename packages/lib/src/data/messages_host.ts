@@ -37,6 +37,28 @@ export class HostConfigGetRequest {
 	static Response = plainJson(HostConfig.jsonSchema);
 }
 
+export class HostConfigSetRequest {
+	declare ["constructor"]: typeof HostConfigSetRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.update_config" as const;
+
+	constructor(
+		public fields: Record<string, string | Record<string, unknown>>,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"fields": Type.Record(Type.String(), Type.Union([
+			Type.String(), Type.Record(Type.String(), Type.Unknown()),
+		])),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.fields);
+	}
+}
+
 export class HostConfigSetFieldRequest {
 	declare ["constructor"]: typeof HostConfigSetFieldRequest;
 	static type = "request" as const;

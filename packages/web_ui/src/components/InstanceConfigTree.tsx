@@ -17,28 +17,14 @@ export default function InstanceConfigTree(props: InstanceConfigTreeProps) {
 		return await control.send(new lib.InstanceConfigGetRequest(props.id));
 	}
 
-	async function setField(field: string, value: any) {
-		await control.send(new lib.InstanceConfigSetFieldRequest(props.id, field, value));
-	}
-
-	async function setProp(field: string, prop: string, value: any) {
-		if (value) {
-			try {
-				value = JSON.parse(value);
-			} catch (err) {
-				return;
-			}
-		} else {
-			value = undefined;
-		}
-		await control.send(new lib.InstanceConfigSetPropRequest(props.id, field, prop, value));
+	async function setConfig(fields: Record<string, string | Record<string, string>>) {
+		await control.send(new lib.InstanceConfigSetRequest(props.id, fields));
 	}
 
 	return <BaseConfigTree
 		ConfigClass={lib.InstanceConfig}
 		retrieveConfig={retrieveConfig}
-		setField={setField}
-		setProp={setProp}
+		setConfig={setConfig}
 		id={props.id}
 	/>;
 }
