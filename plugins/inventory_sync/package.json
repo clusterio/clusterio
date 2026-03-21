@@ -24,20 +24,18 @@
 	},
 	"peerDependencies": {
 		"@clusterio/controller": "workspace:*",
-		"@clusterio/web_ui": "workspace:*",
 		"@clusterio/host": "workspace:*",
-		"@clusterio/lib": "workspace:*"
+		"@clusterio/lib": "workspace:*",
+		"@clusterio/web_ui": "workspace:*"
 	},
 	"dependencies": {
-		"@sinclair/typebox": "catalog:",
-		"fs-extra": "catalog:"
+		"@sinclair/typebox": "catalog:"
 	},
 	"devDependencies": {
 		"@clusterio/controller": "workspace:*",
-		"@clusterio/web_ui": "workspace:*",
 		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*",
-		"@types/fs-extra": "catalog:",
+		"@clusterio/web_ui": "workspace:*",
 		"@types/node": "catalog:",
 		"@types/react": "catalog:",
 		"antd": "catalog:",

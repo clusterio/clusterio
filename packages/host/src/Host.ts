@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import events from "events";
 import pidusage from "pidusage";
@@ -294,7 +294,7 @@ export default class Host extends lib.Link {
 
 	static async bootstrap(hostConfig: lib.HostConfig) {
 		const modsDirectory = hostConfig.get("host.mods_directory");
-		await fs.ensureDir(modsDirectory);
+		await fs.mkdir(modsDirectory, { recursive: true });
 		return [
 			await lib.ModStore.fromDirectory(modsDirectory),
 		] as const;
@@ -847,7 +847,7 @@ export default class Host extends lib.Link {
 			// First check the clusterio version
 			const runningVersion = this.config.get("host.version");
 			const packageJsonPath = require.resolve("@clusterio/host/package.json");
-			const packageJson = await fs.readJSON(packageJsonPath);
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
 				return true;
@@ -864,7 +864,7 @@ export default class Host extends lib.Link {
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
 				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-				const pluginPackageJson = await fs.readJSON(pluginPackageJsonPath);
+				const pluginPackageJson = JSON.parse(await fs.readFile(pluginPackageJsonPath, "utf8"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;
@@ -931,12 +931,21 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(newName);
 		let instance = this.getRequestInstance(instanceId);
 		try {
-			await fs.move(
+			// Check if save with old name exists first
+			await fs.access(path.join(instance.path, "saves", oldName));
+			// Check if save with new name doesn't exist, this creates the file
+			await fs.writeFile(path.join(instance.path, "saves", newName), "", { flag: "wx" });
+			// Move save to new name overwriting the file that was created for it, this
+			// might leave an empty file at the new name if the save was (re)moved between
+			// the previous two calls and this one.
+			await fs.rename(
 				path.join(instance.path, "saves", oldName),
 				path.join(instance.path, "saves", newName),
-				{ overwrite: false },
 			);
 		} catch (err: any) {
+			if (err.code === "EEXIST") {
+				throw new lib.RequestError(`${newName} already exists`);
+			}
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${oldName} does not exist`);
 			}
@@ -951,10 +960,10 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(destination);
 		let instance = this.getRequestInstance(instanceId);
 		try {
-			await fs.copy(
+			await fs.copyFile(
 				path.join(instance.path, "saves", source),
 				path.join(instance.path, "saves", destination),
-				{ overwrite: false, errorOnExist: true },
+				fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE
 			);
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
@@ -980,16 +989,15 @@ export default class Host extends lib.Link {
 
 		try {
 			if (copy) {
-				await fs.copy(
+				await fs.copyFile(
 					path.join(sourceInstance.path, "saves", sourceName),
 					path.join(targetInstance.path, "saves", targetName),
-					{ overwrite: true },
+					fs.constants.COPYFILE_FICLONE
 				);
 			} else {
-				await fs.move(
+				await fs.rename(
 					path.join(sourceInstance.path, "saves", sourceName),
 					path.join(targetInstance.path, "saves", targetName),
-					{ overwrite: true },
 				);
 			}
 		} catch (err: any) {
@@ -1051,11 +1059,9 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(name);
 		let instance = this.getRequestInstance(instanceId);
 
-		let content = fs.createReadStream(path.join(instance.path, "saves", name));
+		let content;
 		try {
-			// TODO: Due to a bug in fs-extra the ready event is not emitted here. Replace
-			// "open" with "ready" when fs-extra is replaced with node's fs module.
-			await events.once(content, "open");
+			content = (await fs.open(path.join(instance.path, "saves", name))).createReadStream();
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${name} does not exist`);
@@ -1087,7 +1093,7 @@ export default class Host extends lib.Link {
 
 		this.discoveredInstances.delete(instanceId);
 		this.assignedInstances.delete(instanceId);
-		await fs.remove(instance.path);
+		await fs.rm(instance.path, { recursive: true, maxRetries: 10 });
 	}
 
 	async handleHostUpdateRequest(request: lib.HostUpdateRequest) {

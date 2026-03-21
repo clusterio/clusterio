@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const stream = require("node:stream");
 const JSZip = require("jszip"); // Added for creating mock zips
 
@@ -44,7 +44,7 @@ async function waitBriefly() {
 
 describe("lib/ModStore", function () {
 	before(async function () {
-		await fs.ensureDir(MODS_DIR);
+		await fs.mkdir(MODS_DIR, { recursive: true });
 	});
 
 	after(function() {
@@ -59,7 +59,8 @@ describe("lib/ModStore", function () {
 	});
 
 	afterEach(async function () {
-		await fs.emptyDir(MODS_DIR);
+		await fs.rm(MODS_DIR, { force: true, recursive: true, maxRetries: 10 });
+		await fs.mkdir(MODS_DIR, { recursive: true });
 	});
 
 	describe("constructor", function () {
@@ -120,7 +121,7 @@ describe("lib/ModStore", function () {
 
 			// Add other file types and directories
 			await fs.writeFile(path.join(MODS_DIR, "some-text.txt"), "hello");
-			await fs.ensureDir(path.join(MODS_DIR, "a-directory"));
+			await fs.mkdir(path.join(MODS_DIR, "a-directory"), { recursive: true });
 			await fs.writeFile(path.join(MODS_DIR, "archive.tar.gz"), "not a zip");
 			await createMockModZip(path.join(MODS_DIR, "temp_file.tmp.zip"), "temp", "1.0.0"); // Should ignore .tmp.zip
 
@@ -139,7 +140,7 @@ describe("lib/ModStore", function () {
 			await createMockModZip(modPath, modName, modVersion);
 			let modStore = await ModStore.fromDirectory(MODS_DIR);
 			assert.equal(modStore.files.size, 1);
-			assert(await fs.pathExists(CACHE_FILE), "Cache file should exist");
+			await assert.doesNotReject(fs.access(CACHE_FILE), "Cache file should exist");
 
 			// Wait and recreate the file to update mtime
 			await waitBriefly();
@@ -197,7 +198,9 @@ describe("lib/ModStore", function () {
 
 		beforeEach(async function () {
 			// Start with an empty store for download tests
-			await fs.emptyDir(MODS_DIR); // Clear any existing files in the temp dir
+			// Clear any existing files in the temp dir
+			await fs.rm(MODS_DIR, { force: true, recursive: true, maxRetries: 10 });
+			await fs.mkdir(MODS_DIR, { recursive: true });
 			modStore = await ModStore.fromDirectory(MODS_DIR); // Initialize using fromDirectory
 
 			// Restore fetch before each test in this suite to avoid pollution
@@ -269,7 +272,7 @@ describe("lib/ModStore", function () {
 			assert.equal(modStore.files.size, 1, "Should have 1 mod after download");
 			const filename = "download-mod-1_1.1.0.zip";
 			assert(modStore.files.has(filename), `Mod ${filename} should be in the store`);
-			assert(await fs.pathExists(path.join(MODS_DIR, filename)), `File ${filename} should exist`);
+			await assert.doesNotReject(fs.access(path.join(MODS_DIR, filename)), `File ${filename} should exist`);
 			const modInfo = modStore.files.get(filename);
 			assert(modInfo instanceof ModInfo);
 			assert.equal(modInfo.name, "download-mod-1");
@@ -290,8 +293,8 @@ describe("lib/ModStore", function () {
 			assert.equal(modStore.files.size, 2);
 			assert(modStore.files.has("multi-mod-a_1.0.0.zip"));
 			assert(modStore.files.has("multi-mod-b_2.0.0.zip"));
-			assert(await fs.pathExists(path.join(MODS_DIR, "multi-mod-a_1.0.0.zip")));
-			assert(await fs.pathExists(path.join(MODS_DIR, "multi-mod-b_2.0.0.zip")));
+			await fs.access(path.join(MODS_DIR, "multi-mod-a_1.0.0.zip"));
+			await fs.access(path.join(MODS_DIR, "multi-mod-b_2.0.0.zip"));
 		});
 		it("should throw when no releases available", async function () {
 			const modsToDownload = [{ name: "download-mod-1", version: ModVersionEquality.fromString("1.1.0") }];
@@ -803,12 +806,12 @@ describe("lib/ModStore", function () {
 		describe("deleteFile", function () {
 			it("should delete an existing file from store and filesystem", async function () {
 				assert(modStore.files.has(testMod1Filename), "Mod should exist before deletion");
-				assert(await fs.pathExists(testMod1Path), "Mod file should exist before deletion");
+				await assert.doesNotReject(fs.access(testMod1Path), "Mod file should exist before deletion");
 
 				await modStore.deleteFile(testMod1Filename);
 
 				assert(!modStore.files.has(testMod1Filename), "Mod should not exist in store after deletion");
-				assert(!(await fs.pathExists(testMod1Path)), "Mod file should not exist after deletion");
+				await assert.rejects(fs.access(testMod1Path), "Mod file should not exist after deletion");
 			});
 
 			it("should emit 'change' event with isDeleted flag when deleting", async function () {

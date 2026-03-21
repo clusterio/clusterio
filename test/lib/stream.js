@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 const stream = require("stream");
 const util = require("util");
@@ -109,7 +109,7 @@ describe("lib/stream", function() {
 		it("should read chunks in a file in reverse", async function() {
 			let content = "";
 			for (let i = 0; i < 10; i++) { content += String(i).repeat(10); }
-			await fs.outputFile(path.join("temp", "test", "reverse.txt"), content);
+			await fs.writeFile(path.join("temp", "test", "reverse.txt"), content);
 			let reverseStream = await lib.createReverseReadStream(
 				path.join("temp", "test", "reverse.txt"),
 				{ encoding: "utf8", highWaterMark: 10 }
@@ -123,7 +123,7 @@ describe("lib/stream", function() {
 		});
 
 		it("should reverse the lines of a file", async function() {
-			let ws = fs.createWriteStream(path.join("temp", "test", "reverse.txt"));
+			let ws = (await fs.open(path.join("temp", "test", "reverse.txt"), "w")).createWriteStream();
 			for (let i = 1; i < 100000; i++) {
 				ws.write(Buffer.from(`${i}\n`));
 			}

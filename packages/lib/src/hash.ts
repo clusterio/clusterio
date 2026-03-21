@@ -3,7 +3,7 @@
  * @module lib/hash
  */
 import crypto from "crypto";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 
 
 /**
@@ -35,6 +35,6 @@ export function hashStream(stream: NodeJS.ReadableStream): Promise<string> {
  * @param path - Path to the file to hash.
  * @returns hash of the file given.
  */
-export function hashFile(path: string) {
-	return hashStream(fs.createReadStream(path));
+export async function hashFile(path: string) {
+	return hashStream((await fs.open(path)).createReadStream());
 }

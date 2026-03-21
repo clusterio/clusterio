@@ -1,5 +1,5 @@
 // Export of item icons and locale
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";

@@ -4,7 +4,7 @@ import Controller from "./Controller";
 import busboy from "busboy";
 import crypto from "crypto";
 import events from "events";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import JSZip from "jszip";
 import jwt from "jsonwebtoken";
 import path from "path";

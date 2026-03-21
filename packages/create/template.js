@@ -1,6 +1,6 @@
 "use strict";
 const { logger } = require("./logging");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 const _package = require("./package.json");
@@ -61,9 +61,15 @@ async function copyTemplateFile(src, dst, properties) {
 			return include ? content : "";
 		});
 
+	// Create folder for output file
+	const dir = path.parse(dir);
+	if (dir) {
+		await fs.mkdir(dir, { recursive: true });
+	}
+
 	// Attempt to write the output file, warn if it already exists
 	try {
-		await fs.outputFile(dst, outputData, { flag: "wx" });
+		await fs.writeFile(dst, outputData, { flag: "wx" });
 	} catch (err) {
 		if (err.code === "EEXIST") {
 			logger.warn(`Could not create file ${dst} because it already exists`);

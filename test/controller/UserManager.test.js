@@ -1,6 +1,6 @@
 "use strict";
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const assert = require("assert").strict;
 const jwt = require("jsonwebtoken");
 const { Role, SubscribableDatastore, ControllerConfig } = require("@clusterio/lib");
@@ -26,7 +26,8 @@ describe("controller/UserManager", function () {
 			"controller.auth_secret": Buffer.from("mysecret").toString("base64"),
 		});
 		userManager = new UserManager(records, roles, config);
-		await fs.emptyDir(TEMP_DIR);
+		await fs.rm(TEMP_DIR, { force: true, recursive: true, maxRetries: 10 });
+		await fs.mkdir(TEMP_DIR, { recursive: true });
 	});
 
 	describe(".has() / .get() / .getMutable() / .hasName() / .getByName() / .getByNameMutable()", function () {
@@ -142,14 +143,14 @@ describe("controller/UserManager", function () {
 		});
 
 		it("should do nothing if roles key missing", async function () {
-			await fs.writeJson(usersFile, { users: [] });
+			await fs.writeFile(usersFile, JSON.stringify({ users: [] }));
 			await UserManager.attemptMigrateLegacyUsersFile(usersFile, rolesFile);
-			const content = await fs.readJson(usersFile);
+			const content = JSON.parse(await fs.readFile(usersFile));
 			assert.deepEqual(content, { users: [] });
 		});
 
 		it("should throw if users key missing in legacy file", async function () {
-			await fs.writeJson(usersFile, { roles: [] });
+			await fs.writeFile(usersFile, JSON.stringify({ roles: [] }));
 			await assert.rejects(
 				() => UserManager.attemptMigrateLegacyUsersFile(usersFile, rolesFile),
 				/Error: Legacy users json does not contain users property/
@@ -158,12 +159,12 @@ describe("controller/UserManager", function () {
 
 		it("should migrate valid legacy file", async function () {
 			const legacy = { roles: [{ id: 1 }, { id: 2 }], users: [{ name: "Karl" }] };
-			await fs.writeJson(usersFile, legacy);
+			await fs.writeFile(usersFile, JSON.stringify(legacy));
 
 			await UserManager.attemptMigrateLegacyUsersFile(usersFile, rolesFile);
 
-			const writtenRoles = await fs.readJson(rolesFile);
-			const writtenUsers = await fs.readJson(usersFile);
+			const writtenRoles = JSON.parse(await fs.readFile(rolesFile));
+			const writtenUsers = JSON.parse(await fs.readFile(usersFile));
 
 			assert.deepEqual(writtenRoles, [{ id: 1 }, { id: 2 }]);
 			assert.deepEqual(writtenUsers, [{ name: "Karl" }]);

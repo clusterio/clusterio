@@ -4,7 +4,7 @@
  * Command line interface for controlling a Clusterio cluster
  * @module ctl/ctl
  */
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import yargs, { type Argv } from "yargs";
 import path from "path";
 import { version } from "./package.json";

@@ -1,5 +1,5 @@
 import path from "path";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import { EventEmitter } from "events";
 
 import { safeOutputFile } from "./file_ops";

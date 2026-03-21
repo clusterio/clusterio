@@ -8,7 +8,7 @@
 
 "use strict";
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const yargs = require("yargs");
 
 const npmPackage = require("./package.json");
@@ -18,19 +18,30 @@ const workspaces = npmPackage.workspaces
 
 let DRY = false;
 
+async function pathExists(filePath) {
+	try {
+		await fs.access(filePath);
+	} catch (err) {
+		if (err.code === "ENOENT" || err.code === "ENOTDIR") {
+			return false;
+		}
+	}
+	return true;
+}
+
 /**
  * Attempt to remove a file / directory if it exists.
  *
  * @param {string} filePath The path to remove.
  */
 async function tryRemove(filePath) {
-	if (await fs.exists(filePath)) {
+	if (await pathExists(filePath)) {
 		// eslint-disable-next-line no-console
 		console.log(filePath);
 	}
 
 	if (!DRY) {
-		await fs.remove(filePath);
+		await fs.rm(filePath, { force: true, recursive: true, maxRetries: 10 });
 	}
 }
 

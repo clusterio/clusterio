@@ -1,6 +1,6 @@
 import { BaseControllerPlugin, type ControlConnection } from "@clusterio/controller";
 
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 
 import * as lib from "@clusterio/lib";

@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const events = require("events");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const jwt = require("jsonwebtoken");
 
 const { TestControlConnector, TestHostConnector, TestControl, get, exec, url, slowTest } = require("./index");

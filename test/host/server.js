@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const events = require("events");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 const hostServer = require("@clusterio/host/dist/node/src/server");
@@ -135,9 +135,10 @@ describe("host/server", function() {
 			slowTest(this);
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.zip";
 			const downloads = path.join("temp", "test", "downloads");
-			await fs.emptyDir(downloads);
+			await fs.rm(downloads, { force: true, recursive: true, maxRetries: 10 });
+			await fs.mkdir(downloads, { recursive: true });
 			await hostServer._downloadAndExtractZip(url, path.join(downloads, "zip"));
-			assert.ok(await fs.exists(path.join(downloads, "zip", "packages", "controller", "package.json")));
+			await fs.access(path.join(downloads, "zip", "packages", "controller", "package.json"));
 		});
 		it("errors and bad status", async function() {
 			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
@@ -157,9 +158,10 @@ describe("host/server", function() {
 		it("works", async function() {
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.tar.gz";
 			const downloads = path.join("temp", "test", "downloads");
-			await fs.emptyDir(downloads);
+			await fs.rm(downloads, { force: true, recursive: true, maxRetries: 10 });
+			await fs.mkdir(downloads, { recursive: true });
 			await hostServer._downloadAndExtractTar(url, path.join(downloads, "tar"));
-			assert.ok(await fs.exists(path.join(downloads, "tar", "packages", "controller", "package.json")));
+			await fs.access(path.join(downloads, "tar", "packages", "controller", "package.json"));
 		});
 		it("errors and bad status", async function() {
 			global.fetch = () => ({ ok: false, status: -1, statusText: "Fetch called" });
@@ -281,13 +283,14 @@ describe("host/server", function() {
 				);
 			});
 			it("should load and delete json file", async function() {
+				await fs.mkdir(server.writePath("script-output"), { recursive: true });
 				let filePath = server.writePath("script-output", "data.json");
-				await fs.outputFile(filePath, '{"data":"spam"}');
+				await fs.writeFile(filePath, '{"data":"spam"}');
 				let waiter = events.once(server, "ipc-channel");
 				await server._handleIpc(Buffer.from("\f$ipc:channel?fdata.json"));
 				let result = await waiter;
 				assert.deepEqual(result[0], { "data": "spam" });
-				assert(!await fs.pathExists(filePath), "File was not deleted");
+				await assert.rejects(fs.access(filePath), "File was not deleted");
 			});
 		});
 
@@ -469,7 +472,8 @@ describe("host/server", function() {
 				server._factorioDir = path.join("test", "file", "factorioDownload");
 				server._targetVersion = "latest";
 				global.fetch = _fetch;
-				await fs.emptyDir(server._factorioDir);
+				await fs.rm(server._factorioDir, { force: true, recursive: true, maxRetries: 10 });
+				await fs.mkdir(server._factorioDir, { recursive: true });
 				await server.checkForUpdates([{
 					stable: true,
 					version: "2.0.73",

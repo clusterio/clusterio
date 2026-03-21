@@ -1,5 +1,5 @@
-import { FileHandle, open, unlink, readFile } from "fs/promises";
-import { unlinkSync } from "fs";
+import { FileHandle, open, unlink, readFile } from "node:fs/promises";
+import { unlinkSync } from "node:fs";
 import assert from "assert";
 
 /**

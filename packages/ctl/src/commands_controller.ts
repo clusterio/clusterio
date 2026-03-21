@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import asTableModule from "as-table";
 import events from "events";
 import os from "os";

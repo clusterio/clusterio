@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import asTableModule from "as-table";
 import events from "events";
 import path from "path";
@@ -338,7 +338,7 @@ instanceSaveCommands.add(new lib.Command({
 
 		const response = await fetch(url, {
 			method: "POST",
-			body: await fs.createReadStream(args.filepath),
+			body: (await fs.open(args.filepath)).createReadStream(),
 			duplex: "half",
 			headers: {
 				"X-Access-Token": control.config.get("control.controller_token")!,

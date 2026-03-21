@@ -1,7 +1,7 @@
 import { BaseControllerPlugin, type InstanceRecord } from "@clusterio/controller";
 import type { IpcPlayerData } from "./messages";
 
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import * as lib from "@clusterio/lib";
 import * as msg from "./messages";

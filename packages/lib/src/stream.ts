@@ -1,6 +1,10 @@
 import assert from "assert";
-import fs from "fs-extra";
+import fs from "node:fs"; // Need the non-promise api for reverse stream
 import stream from "stream";
+import util from "node:util";
+
+const fsOpen = util.promisify(fs.open);
+const fsFstat = util.promisify(fs.fstat);
 
 
 /**
@@ -13,7 +17,7 @@ import stream from "stream";
  * ```ts
  * let lineStream = new lib.LineSplitter({ readableObjectMode: true });
  * lineStream.on("data", line => { console.log(line.toString("utf8")); });
- * let fileStream = fs.createReadStream(path);
+ * let fileStream = (await fs.open(path)).createReadStream();
  * fileStream.pipe(lineStream);
  * ```
  */
@@ -141,8 +145,8 @@ export async function createReverseReadStream(path: string, options?: ReadStream
 	if (typeof options === "string") {
 		options = { encoding: options };
 	}
-	const fileFd = await fs.open(path, "r");
-	const fileSize = (await fs.fstat(fileFd)).size;
+	const fileFd = await fsOpen(path, "r");
+	const fileSize = (await fsFstat(fileFd)).size;
 	let filePosition = fileSize;
 	const reverseFs = {
 		read(
@@ -162,8 +166,5 @@ export async function createReverseReadStream(path: string, options?: ReadStream
 		open() { assert(false); },
 		close(fd: number, callback: () => void) { return fs.close(fd, callback); },
 	};
-	return fs.createReadStream(
-		"",
-		{ ...options, fd: fileFd, fs: reverseFs } as ReadStreamOptions, // type specification is missing fs prop.
-	);
+	return fs.createReadStream("", { ...options, fd: fileFd, fs: reverseFs });
 }

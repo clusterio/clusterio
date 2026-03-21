@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
 "use strict";
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
+const { readFileSync } = require("node:fs");
 const child_process = require("child_process");
 const jwt = require("jsonwebtoken");
 const util = require("util");
@@ -160,7 +161,7 @@ async function get(urlPath) {
 function loadJSON(filePath) {
 	try {
 		// eslint-disable-next-line node/no-sync
-		return JSON.parse(fs.readFileSync(filePath, "utf8"));
+		return JSON.parse(readFileSync(filePath, "utf8"));
 	} catch (err) {
 		if (err.code === "ENOENT") {
 			return undefined;
@@ -319,19 +320,19 @@ before(async function() {
 		console.log("FAST_TEST is present in env, slow tests will be skipped.");
 	}
 
-	await fs.remove(instancesDir);
-	await fs.remove(modsDir);
-	await fs.remove(databaseDir);
+	await fs.rm(instancesDir, { force: true, recursive: true, maxRetries: 10 });
+	await fs.rm(modsDir, { force: true, recursive: true, maxRetries: 10 });
+	await fs.rm(databaseDir, { force: true, recursive: true, maxRetries: 10 });
 
-	await fs.remove(pluginListPath);
-	await fs.remove(controllerConfigPath);
-	await fs.remove(hostConfigPath);
-	await fs.remove(controlConfigPath);
+	await fs.rm(pluginListPath, { force: true });
+	await fs.rm(controllerConfigPath, { force: true });
+	await fs.rm(hostConfigPath, { force: true });
+	await fs.rm(controlConfigPath, { force: true });
 
-	await fs.ensureDir(path.join("temp", "test"));
+	await fs.mkdir(path.join("temp", "test"), { recursive: true });
 
 	console.log("Building Mods");
-	await fs.ensureDir(modsDir);
+	await fs.mkdir(modsDir, { recursive: true });
 	await lib.build({
 		build: true,
 		pack: true,
