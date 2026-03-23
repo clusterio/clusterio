@@ -364,10 +364,12 @@ describe("host/server", function() {
 								stable: true,
 								version: "0.2.1",
 								headlessUrl: "test1",
+								windowsHeadlessUrl: "win-test1",
 							}, {
 								stable: false,
 								version: "0.2.0",
 								headlessUrl: "test2",
+								windowsHeadlessUrl: "win-test2",
 							}]);
 
 							assert.equal(fetchCalledWith, null);
@@ -380,10 +382,12 @@ describe("host/server", function() {
 							stable: true,
 							version: "0.1.1",
 							headlessUrl: "test1",
+							windowsHeadlessUrl: "win-test1",
 						}, {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test2",
+							windowsHeadlessUrl: "win-test2",
 						}]);
 
 						assert.equal(fetchCalledWith, null);
@@ -395,21 +399,28 @@ describe("host/server", function() {
 							stable: true,
 							version: "0.1.5",
 							headlessUrl: "test1",
+							windowsHeadlessUrl: "win-test1",
 						}, {
 							stable: true,
 							version: "0.1.1",
 							headlessUrl: "test1",
+							windowsHeadlessUrl: "win-test1",
 						}, {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test2",
+							windowsHeadlessUrl: "win-test2",
 						}]);
 
 						assert.equal(fetchCalledWith, null);
 					});
-					it("should do nothing when on windows", async function() {
-						let logLine = null;
-						server._logger = { info: line => { logLine = line; } };
+					it("should do attempt to download on windows", async function() {
+						let infoLine = null;
+						let warnLine = null;
+						server._logger = {
+							info: line => { infoLine = line; },
+							warn: line => { warnLine = line; },
+						};
 						Object.defineProperty(process, "platform", { value: "win32" });
 
 						server._factorioDir = path.join("test", "file", "factorio");
@@ -418,44 +429,56 @@ describe("host/server", function() {
 							stable: true,
 							version: "0.1.5",
 							headlessUrl: "test1",
+							windowsHeadlessUrl: "win-test1",
 						}, {
 							stable: true,
 							version: "0.1.1",
 							headlessUrl: "test2",
+							windowsHeadlessUrl: "win-test2",
 						}, {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test3",
+							windowsHeadlessUrl: "win-test3",
 						}]);
 
-						assert.equal(fetchCalledWith, null);
-						assert.ok(logLine !== null);
-						assert.ok(logLine.endsWith("but must be manually downloaded"));
+						assert.equal(fetchCalledWith, "win-test1");
+						assert.ok(infoLine !== null);
+						assert.ok(infoLine.endsWith("starting download..."));
+						assert.ok(warnLine?.includes("continuing with installed versions"));
 					});
 					it("should do attempt to download on linux", async function() {
-						let logLine = null;
-						server._logger = { info: line => { logLine = line; } };
+						let infoLine = null;
+						let warnLine = null;
+						server._logger = {
+							info: line => { infoLine = line; },
+							warn: line => { warnLine = line; },
+						};
 						Object.defineProperty(process, "platform", { value: "linux" });
 
 						server._factorioDir = path.join("test", "file", "factorio");
 						server._targetVersion = target === "0.1.1" ? "0.1.5" : target;
-						await assert.rejects(server.checkForUpdates([{
+						await server.checkForUpdates([{
 							stable: true,
 							version: "0.1.5",
 							headlessUrl: "test1",
+							windowsHeadlessUrl: "win-test1",
 						}, {
 							stable: true,
 							version: "0.1.1",
 							headlessUrl: "test2",
+							windowsHeadlessUrl: "win-test2",
 						}, {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test3",
-						}]), new Error("Failed to fetch test1: -1 Fetch called"));
+							windowsHeadlessUrl: "win-test3",
+						}]);
 
 						assert.equal(fetchCalledWith, "test1");
-						assert.ok(logLine !== null);
-						assert.ok(logLine.endsWith("starting download..."));
+						assert.ok(infoLine !== null);
+						assert.ok(infoLine.endsWith("starting download..."));
+						assert.ok(warnLine?.includes("continuing with installed versions"));
 					});
 				});
 				/* eslint-enable no-loop-func */
@@ -474,6 +497,7 @@ describe("host/server", function() {
 					stable: true,
 					version: "2.0.73",
 					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
+					windowsHeadlessUrl: "https://factorio-repackager.fly.dev/get-download/2.0.73/headless/win64",
 				}]);
 			});
 		});

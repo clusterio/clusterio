@@ -55,11 +55,13 @@ describe("FactorioVersions", function() {
 					stable: false,
 					version: "2.0.73",
 					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
+					windowsHeadlessUrl: "https://factorio-repackager.fly.dev/get-download/2.0.73/headless/win64",
 				},
 				{
 					stable: true,
 					version: "2.0.72",
 					headlessUrl: "https://www.factorio.com/get-download/2.0.72/headless/linux64",
+					windowsHeadlessUrl: "https://factorio-repackager.fly.dev/get-download/2.0.72/headless/win64",
 				},
 			]);
 		});
@@ -91,6 +93,7 @@ describe("FactorioVersions", function() {
 					stable: true,
 					version: "2.0.73",
 					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",
+					windowsHeadlessUrl: "https://factorio-repackager.fly.dev/get-download/2.0.73/headless/win64",
 				},
 			]);
 		});

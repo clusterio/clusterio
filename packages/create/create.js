@@ -43,6 +43,9 @@ const availablePlugins = [
 	{ name: "Server Select", value: "@hornwitser/server_select" },
 ];
 
+const windowsHeadlessDownloadUrl = "https://factorio-repackager.fly.dev/get-download/latest/headless/win64";
+const headlessDownloadPlatforms = new Set(["linux", "win32"]);
+
 const factorioLocations = {
 	win32: [
 		"C:\\Program Files\\Factorio",
@@ -52,6 +55,10 @@ const factorioLocations = {
 		"/Applications/factorio.app/Contents",
 	],
 };
+
+function supportsHeadlessDownload(platform = process.platform) {
+	return headlessDownloadPlatforms.has(platform);
+}
 
 
 class LineSplitter extends stream.Transform {
@@ -647,14 +654,14 @@ async function inquirerMissingArgs(args) {
 				foundLocations.push(location);
 			}
 		}
-		if (process.platform === "linux") {
+		if (supportsHeadlessDownload()) {
 			if (args.hasOwnProperty("downloadHeadless")) { answers.downloadHeadless = args.downloadHeadless; }
 
 			answers = await inquirer.prompt([
 				{
 					type: "confirm",
 					name: "downloadHeadless",
-					message: "(Linux only) Automatically download latest factorio release?",
+					message: "Automatically download latest headless Factorio release?",
 					default: true,
 				},
 			], answers);
@@ -671,7 +678,7 @@ async function inquirerMissingArgs(args) {
 				message: "Path to Factorio installation",
 				choices: [
 					...foundLocations.map(location => ({ name: `${location} (auto detected)`, value: location })),
-					{ name: "Use local factorio directory, you must copy an installation to it", value: "factorio" },
+					{ name: "Use local factorio directory", value: "factorio" },
 					{ name: "Provide path manually", value: null },
 				],
 			},
@@ -801,6 +808,87 @@ async function downloadLinuxServer() {
 	}
 }
 
+async function getFactorioVersion(factorioDir) {
+	const changelogPath = path.join(factorioDir, "data", "changelog.txt");
+	const changelog = await fs.readFile(changelogPath, "utf8");
+	for (const line of changelog.split(/\r?\n/)) {
+		const index = line.indexOf(":");
+		if (index === -1) {
+			continue;
+		}
+		if (line.slice(0, index).trim().toLowerCase() === "version") {
+			return line.slice(index + 1).trim();
+		}
+	}
+	throw new Error(`Unable to detect Factorio version from ${changelogPath}`);
+}
+
+async function findFactorioRoot(rootDir) {
+	const entries = await fs.readdir(rootDir);
+	const factorioRoot = entries.find(entry => entry === "factorio" || entry === "Factorio")
+		?? (entries.length === 1 ? entries[0] : null);
+	if (!factorioRoot) {
+		throw new Error(`Unable to locate extracted Factorio directory in ${rootDir}`);
+	}
+	return path.join(rootDir, factorioRoot);
+}
+
+async function downloadWindowsServer() {
+	let res = await fetch(windowsHeadlessDownloadUrl);
+	if (res.status === 202) {
+		throw new Error("Latest Windows headless package is not ready yet, try again in a few minutes.");
+	}
+	if (!res.ok) {
+		throw new Error(`Failed to fetch ${windowsHeadlessDownloadUrl}: HTTP ${res.status} ${res.statusText}`);
+	}
+	if (!res.body) {
+		throw new Error("Windows headless download did not include an archive payload");
+	}
+
+	const tmpDir = path.join("temp", "create-temp");
+	const archivePath = path.join(tmpDir, "factorio-headless-win64.zip");
+	const tmpArchivePath = `${archivePath}.tmp`;
+	const tmpExtractDir = path.join(tmpDir, "win64-extract");
+
+	await fs.emptyDir(tmpDir);
+
+	logger.info("Downloading latest Windows headless release. This may take a while.");
+	const writeStream = fs.createWriteStream(tmpArchivePath);
+	stream.Readable.fromWeb(res.body).pipe(writeStream);
+	await finished(writeStream);
+	await fs.rename(tmpArchivePath, archivePath);
+
+	try {
+		const expandArchiveCommand =
+			`Expand-Archive -LiteralPath '${archivePath.replace(/'/g, "''")}' ` +
+			`-DestinationPath '${tmpExtractDir.replace(/'/g, "''")}' -Force`;
+		await execFile("powershell.exe", [
+			"-NoProfile",
+			"-NonInteractive",
+			"-ExecutionPolicy",
+			"Bypass",
+			"-Command",
+			expandArchiveCommand,
+		]);
+	} catch (err) {
+		logger.error("error executing command - do you have PowerShell available?");
+		throw err;
+	}
+
+	const tmpFactorioDir = await findFactorioRoot(tmpExtractDir);
+	const version = await getFactorioVersion(tmpFactorioDir);
+	const factorioDir = path.join("factorio", version);
+
+	if (await fs.pathExists(factorioDir)) {
+		logger.warn(`setting downloadDir to ${factorioDir}, but not downloading because already existing`);
+	} else {
+		await fs.ensureDir("factorio");
+		await fs.rename(tmpFactorioDir, factorioDir);
+	}
+
+	await fs.rm(tmpDir, { recursive: true, force: true });
+}
+
 async function main() {
 	let args = yargs
 		.option("log-level", {
@@ -824,7 +912,7 @@ async function main() {
 			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
 		})
 		.option("download-headless", {
-			describe: "Download the latest headless release [standalone/controller] [linux only]",
+			describe: "Download the latest headless release [standalone/host]",
 			type: "boolean", nargs: 0,
 		})
 		.option("host-name", {
@@ -861,17 +949,17 @@ async function main() {
 	;
 
 	if (process.platform === "linux") {
-		args = args
-			.option("allow-install-as-root", {
-				nargs: 0, describe: "(Linux only) Allow installing as root (not recommended)", type: "boolean",
-			})
-			.option("download-headless", {
-				nargs: 0,
-				describe: "(Linux only) Automatically download and unpack the latest factorio release. " +
-					"Can be set to false using --no-download-headless.",
-				type: "boolean",
-			})
-		;
+		args = args.option("allow-install-as-root", {
+			nargs: 0, describe: "(Linux only) Allow installing as root (not recommended)", type: "boolean",
+		});
+	}
+	if (supportsHeadlessDownload()) {
+		args = args.option("download-headless", {
+			nargs: 0,
+			describe: "Automatically download and unpack the latest headless Factorio release. " +
+				"Can be set to false using --no-download-headless.",
+			type: "boolean",
+		});
 	}
 
 	args = args.argv;
@@ -901,7 +989,13 @@ async function main() {
 		if (answers.factorioDir !== "factorio") {
 			throw new InstallError("--download-headless option requires --factorio-dir to be set to factorio");
 		}
-		await downloadLinuxServer();
+		if (process.platform === "linux") {
+			await downloadLinuxServer();
+		} else if (process.platform === "win32") {
+			await downloadWindowsServer();
+		} else {
+			throw new InstallError("--download-headless is only supported on Linux and Windows");
+		}
 	}
 
 	if (!dev) {
