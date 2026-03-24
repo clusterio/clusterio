@@ -207,35 +207,107 @@ describe("lib/config/definitions/validators", function() {
 			);
 		});
 
-		it("should validate factorio.player_online_autosave_slots against autosave slots", function() {
-			const config = new InstanceConfig("controller", {
-				"factorio.settings": {
-					autosave_slots: 5,
-				},
+		describe("factorio.player_online_autosave_slots", function() {
+			it("should validate against autosave slots", function() {
+				const config = new InstanceConfig("controller", {
+					"factorio.settings": {
+						autosave_slots: 5,
+					},
+				});
+
+				// valid: equal
+				assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 5));
+
+				// valid: greater
+				assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 6));
+
+				// invalid: less than autosave_slots
+				assert.throws(
+					() => config.set("factorio.player_online_autosave_slots", 4),
+					/Value cannot be less than the number of autosave slots/
+				);
 			});
+			it("should allow when autosave_slots is not a number", function() {
+				const config = new InstanceConfig("controller", {
+					"factorio.settings": {
+						autosave_slots: null,
+					},
+				});
 
-			// valid: equal
-			assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 5));
-
-			// valid: greater
-			assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 6));
-
-			// invalid: less than autosave_slots
-			assert.throws(
-				() => config.set("factorio.player_online_autosave_slots", 4),
-				/Value cannot be less than the number of autosave slots/
-			);
+				assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 0));
+				assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 1));
+			});
 		});
 
-		it("should allow player_online_autosave_slots when autosave_slots is not a number", function() {
-			const config = new InstanceConfig("controller", {
-				"factorio.settings": {
-					autosave_slots: null,
-				},
-			});
+		describe("plugin.load_plugin", function() {
+			class TestInstanceConfig extends InstanceConfig {
+				static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+			}
+			it("should validate against factorio.enable_save_patching", function() {
+				lib.addPluginFieldDefinitions(
+					{name: "save_patching", features: ["SavePatching"] },
+					"instanceConfigFields", TestInstanceConfig
+				);
 
-			assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 0));
-			assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 1));
+				const config = new TestInstanceConfig("controller");
+
+				// valid: does not require script commands
+				assert.doesNotThrow(() => config.set("factorio.enable_script_commands", false));
+
+				// valid: can have load disabled
+				assert.doesNotThrow(() => config.set("save_patching.load_plugin", false));
+
+				// valid: does not require save patching when not loaded
+				assert.doesNotThrow(() => config.set("factorio.enable_save_patching", false));
+
+				// invalid: requires save patching when loaded
+				assert.throws(
+					() => config.set("save_patching.load_plugin", true),
+					/requires save patching/
+				);
+			});
+			it("should validate against factorio.enable_script_commands", function() {
+				lib.addPluginFieldDefinitions(
+					{ name: "script_commands", features: ["ScriptCommands"] },
+					"instanceConfigFields", TestInstanceConfig
+				);
+
+				const config = new TestInstanceConfig("controller");
+
+				// valid: does not require save patching
+				assert.doesNotThrow(() => config.set("factorio.enable_save_patching", false));
+
+				// valid: can have load disabled
+				assert.doesNotThrow(() => config.set("script_commands.load_plugin", false));
+
+				// valid: does not require script commands when not loaded
+				assert.doesNotThrow(() => config.set("factorio.enable_script_commands", false));
+
+				// invalid: requires script commands when loaded
+				assert.throws(
+					() => config.set("script_commands.load_plugin", true),
+					/requires script commands/
+				);
+			});
+			it("should allow when no feature flags are present", function() {
+				lib.addPluginFieldDefinitions(
+					{ name: "no_features", features: [] },
+					"instanceConfigFields", TestInstanceConfig
+				);
+
+				const config = new TestInstanceConfig("controller");
+
+				// valid: does not require save patching
+				assert.doesNotThrow(() => config.set("factorio.enable_save_patching", false));
+
+				// valid: does not require script commands
+				assert.doesNotThrow(() => config.set("factorio.enable_script_commands", false));
+
+				// valid: can have load disabled
+				assert.doesNotThrow(() => config.set("script_commands.load_plugin", false));
+
+				// no invalid case
+			});
 		});
 	});
 

@@ -7,6 +7,14 @@ import type { Logger } from "./logging";
 import type { FieldDefinition } from "./config";
 import type { PlayerStats } from "./data";
 
+
+export const PluginFeatureFlags = [
+	/** The plugin requires module code to be patched into the save */
+	"SavePatching",
+	/** The plugin requires access to script commands over rcon */
+	"ScriptCommands",
+] as const;
+
 /** Used to define the plugin export in plugins */
 export type PluginDeclaration = {
 	name: string;
@@ -25,6 +33,8 @@ export type PluginDeclaration = {
 	ctlEntrypoint?: string;
 	webEntrypoint?: string;
 	controlConfigFields?: Record<string, FieldDefinition>;
+
+	features?: (typeof PluginFeatureFlags)[number][];
 
 	messages?: any[];
 	routes?: string[];
