@@ -240,16 +240,25 @@ describe("lib/config/definitions/validators", function() {
 		});
 
 		describe("plugin.load_plugin", function() {
-			class TestInstanceConfig extends InstanceConfig {
-				static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
-			}
+			const initialConfigFields = {
+				"global_chat.load_plugin": false,
+				"inventory_sync.load_plugin": false,
+				"player_auth.load_plugin": false,
+				"research_sync.load_plugin": false,
+				"statistics_exporter.load_plugin": false,
+				"subspace_storage.load_plugin": false,
+			};
 			it("should validate against factorio.enable_save_patching", function() {
+				class TestInstanceConfig extends InstanceConfig {
+					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+				}
+
 				lib.addPluginFieldDefinitions(
 					{name: "save_patching", features: ["SavePatching"] },
 					"instanceConfigFields", TestInstanceConfig
 				);
 
-				const config = new TestInstanceConfig("controller");
+				const config = new TestInstanceConfig("controller", initialConfigFields);
 
 				// valid: does not require script commands
 				assert.doesNotThrow(() => config.set("factorio.enable_script_commands", false));
@@ -267,12 +276,16 @@ describe("lib/config/definitions/validators", function() {
 				);
 			});
 			it("should validate against factorio.enable_script_commands", function() {
+				class TestInstanceConfig extends InstanceConfig {
+					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+				}
+
 				lib.addPluginFieldDefinitions(
 					{ name: "script_commands", features: ["ScriptCommands"] },
 					"instanceConfigFields", TestInstanceConfig
 				);
 
-				const config = new TestInstanceConfig("controller");
+				const config = new TestInstanceConfig("controller", initialConfigFields);
 
 				// valid: does not require save patching
 				assert.doesNotThrow(() => config.set("factorio.enable_save_patching", false));
@@ -290,12 +303,16 @@ describe("lib/config/definitions/validators", function() {
 				);
 			});
 			it("should allow when no feature flags are present", function() {
+				class TestInstanceConfig extends InstanceConfig {
+					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+				}
+
 				lib.addPluginFieldDefinitions(
 					{ name: "no_features", features: [] },
 					"instanceConfigFields", TestInstanceConfig
 				);
 
-				const config = new TestInstanceConfig("controller");
+				const config = new TestInstanceConfig("controller", initialConfigFields);
 
 				// valid: does not require save patching
 				assert.doesNotThrow(() => config.set("factorio.enable_save_patching", false));
@@ -304,7 +321,7 @@ describe("lib/config/definitions/validators", function() {
 				assert.doesNotThrow(() => config.set("factorio.enable_script_commands", false));
 
 				// valid: can have load disabled
-				assert.doesNotThrow(() => config.set("script_commands.load_plugin", false));
+				assert.doesNotThrow(() => config.set("no_features.load_plugin", false));
 
 				// no invalid case
 			});
