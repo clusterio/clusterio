@@ -9,6 +9,10 @@ export const plugin: lib.PluginDeclaration = {
 	instanceEntrypoint: "dist/node/instance",
 	ctlEntrypoint: "dist/node/control",
 
+	features: [
+		"ScriptCommands",
+	],
+
 	messages: [
 		ChatEvent,
 	],

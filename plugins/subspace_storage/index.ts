@@ -49,6 +49,10 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
+	features: [
+		"ScriptCommands",
+	],
+
 	messages: [
 		messages.PlaceEvent,
 		messages.RemoveRequest,

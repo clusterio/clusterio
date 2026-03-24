@@ -33,6 +33,10 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
+	features: [
+		"SavePatching",
+	],
+
 	messages: [
 		messages.FetchPlayerCodeRequest,
 		messages.SetVerifyCodeRequest,

@@ -13,10 +13,6 @@ type IpcPlayerAuth = {
 
 export class InstancePlugin extends BaseInstancePlugin {
 	async init() {
-		if (!this.instance.config.get("factorio.enable_save_patching")) {
-			throw new Error("player_auth plugin requires save patching.");
-		}
-
 		this.instance.server.on(
 			"ipc-player_auth",
 			(ipcPlayerAuth: IpcPlayerAuth) => this.handleEvent(ipcPlayerAuth).catch(
