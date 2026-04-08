@@ -931,17 +931,13 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(newName);
 		let instance = this.getRequestInstance(instanceId);
 		try {
-			// Check if save with old name exists first
-			await fs.access(path.join(instance.path, "saves", oldName));
-			// Check if save with new name doesn't exist, this creates the file
-			await fs.writeFile(path.join(instance.path, "saves", newName), "", { flag: "wx" });
-			// Move save to new name overwriting the file that was created for it, this
-			// might leave an empty file at the new name if the save was (re)moved between
-			// the previous two calls and this one.
-			await fs.rename(
+			// Link save in the new location.
+			await fs.link(
 				path.join(instance.path, "saves", oldName),
 				path.join(instance.path, "saves", newName),
 			);
+			// Unlink save in old location.
+			await fs.unlink(path.join(instance.path, "saves", oldName));
 		} catch (err: any) {
 			if (err.code === "EEXIST") {
 				throw new lib.RequestError(`${newName} already exists`);

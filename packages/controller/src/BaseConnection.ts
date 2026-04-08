@@ -94,10 +94,12 @@ export default class BaseConnection extends lib.Link {
 	async handleModDownloadRequest(request: lib.ModDownloadRequest) {
 		let mod = this.getMod(request);
 		let modPath = path.join(this._controller.config.get("controller.mods_directory"), mod.filename);
+		// Open source file before creating the stream in case it throws.
+		let source = (await fs.open(modPath)).createReadStream();
 
 		let stream = await routes.createProxyStream(this._controller.app);
 		stream.filename = mod.filename;
-		stream.source = (await fs.open(modPath)).createReadStream();
+		stream.source = source;
 		stream.mime = "application/zip";
 		stream.size = String(mod.size);
 

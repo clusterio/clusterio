@@ -176,12 +176,13 @@ async function checkPackageJson(pluginPath: string): Promise<boolean> {
 	const packageJsonPath = path.join(pluginPath, "package.json");
 
 	// Read and parse package.json
-	let packageJson;
+	let content;
 	try {
-		packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
+		content = await fs.readFile(packageJsonPath, { encoding: "utf8" });
 	} catch (err: any) {
 		return false;
 	}
+	const packageJson = JSON.parse(content);
 
 	// Check if package has the clusterio-plugin keyword
 	return packageJson.keywords?.includes("clusterio-plugin");

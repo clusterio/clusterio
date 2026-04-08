@@ -18,26 +18,17 @@ const workspaces = npmPackage.workspaces
 
 let DRY = false;
 
-async function pathExists(filePath) {
-	try {
-		await fs.access(filePath);
-	} catch (err) {
-		if (err.code === "ENOENT" || err.code === "ENOTDIR") {
-			return false;
-		}
-	}
-	return true;
-}
-
 /**
  * Attempt to remove a file / directory if it exists.
  *
  * @param {string} filePath The path to remove.
  */
 async function tryRemove(filePath) {
-	if (await pathExists(filePath)) {
-		// eslint-disable-next-line no-console
+	try {
+		await fs.access(filePath);
 		console.log(filePath);
+	} catch {
+		return;
 	}
 
 	if (!DRY) {

@@ -276,7 +276,7 @@ export async function createTempWriteStream(filePath: string) {
 		}
 	}
 
-	return [tempFilePath, writeStream] as [typeof tempFilePath, typeof writeStream];
+	return [tempFilePath, writeStream] as const;
 }
 
 /**

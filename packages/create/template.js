@@ -62,7 +62,7 @@ async function copyTemplateFile(src, dst, properties) {
 		});
 
 	// Create folder for output file
-	const dir = path.parse(dir);
+	const dir = path.parse(dst);
 	if (dir) {
 		await fs.mkdir(dir, { recursive: true });
 	}
