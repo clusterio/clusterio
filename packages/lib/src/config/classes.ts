@@ -1,6 +1,6 @@
 // Configuration classes
 import { Type, Static } from "@sinclair/typebox";
-import * as fs from "fs-extra";
+import * as fs from "node:fs/promises";
 import events from "events";
 
 import isDeepStrictEqual from "../is_deep_strict_equal";
@@ -446,7 +446,7 @@ export class Config<
 	 * @returns Instance of this config
 	 */
 	static async fromFile(location: ConfigLocation, filepath: string) {
-		const fields = await fs.readJson(filepath, { encoding: "utf8" });
+		const fields = JSON.parse(await fs.readFile(filepath, { encoding: "utf8" }));
 		return this.fromJSON(fields, location, filepath);
 	}
 

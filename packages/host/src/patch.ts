@@ -1,7 +1,7 @@
 // Library for patching Factorio saves with scenario code.
 
 import events from "events";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import JSZip from "jszip";
 import path from "path";
 import semver from "semver";
@@ -93,7 +93,9 @@ export class SaveModule {
 	static async fromPlugin(plugin: BaseInstancePlugin) {
 		let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
 		let moduleDirectory = path.join(path.dirname(pluginPackagePath), "module");
-		if (!await fs.pathExists(moduleDirectory)) {
+		try {
+			await fs.access(moduleDirectory);
+		} catch (err: any) {
 			return null;
 		}
 

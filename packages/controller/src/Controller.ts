@@ -7,7 +7,7 @@ import finalhandler from "finalhandler";
 
 import compression from "compression";
 import events from "events";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import http from "http";
 import https from "https";
 import jwt from "jsonwebtoken";
@@ -123,7 +123,7 @@ export default class Controller {
 
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
-		await fs.ensureDir(databaseDirectory);
+		await fs.mkdir(databaseDirectory, { recursive: true });
 
 		// Migrate combined user and role file from 2.0.0-alpha.22
 		await UserManager.attemptMigrateLegacyUsersFile(
@@ -173,7 +173,7 @@ export default class Controller {
 		).bootstrap());
 
 		let modsDirectory = config.get("controller.mods_directory");
-		await fs.ensureDir(modsDirectory);
+		await fs.mkdir(modsDirectory, { recursive: true });
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
 
 		// Add default mod packs
@@ -602,7 +602,7 @@ export default class Controller {
 			// First check the clusterio version
 			const runningVersion = this.config.get("controller.version");
 			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
-			const packageJson = await fs.readJSON(packageJsonPath);
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
 				return true;
@@ -619,7 +619,7 @@ export default class Controller {
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
 				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-				const pluginPackageJson = await fs.readJSON(pluginPackageJsonPath);
+				const pluginPackageJson = JSON.parse(await fs.readFile(pluginPackageJsonPath, "utf8"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;

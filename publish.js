@@ -4,7 +4,7 @@
 
 "use strict";
 const FormData = require("form-data");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const yargs = require("yargs");
 
 let DRY = false;
@@ -62,7 +62,7 @@ async function uploadModRelease(file, name) {
 	// Upload the new version of the mod
 	const uploadUrl = (await initResponse.json()).upload_url;
 	const uploadFormData = new FormData();
-	uploadFormData.append("file", fs.createReadStream(file));
+	uploadFormData.append("file", (await fs.open(file)).createReadStream(file));
 
 	const uploadResponse = await fetch(uploadUrl, {
 		method: "POST",

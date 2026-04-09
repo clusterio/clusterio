@@ -8,7 +8,7 @@
 
 "use strict";
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const yargs = require("yargs");
 
 const npmPackage = require("./package.json");
@@ -24,13 +24,15 @@ let DRY = false;
  * @param {string} filePath The path to remove.
  */
 async function tryRemove(filePath) {
-	if (await fs.exists(filePath)) {
-		// eslint-disable-next-line no-console
+	try {
+		await fs.access(filePath);
 		console.log(filePath);
+	} catch {
+		return;
 	}
 
 	if (!DRY) {
-		await fs.remove(filePath);
+		await fs.rm(filePath, { force: true, recursive: true, maxRetries: 10 });
 	}
 }
 

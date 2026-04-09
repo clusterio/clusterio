@@ -2,7 +2,7 @@
 
 "use strict";
 const child_process = require("child_process");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const inquirer = require("inquirer");
 const os = require("os");
 const path = require("path");
@@ -97,11 +97,24 @@ class LineSplitter extends stream.Transform {
 
 class InstallError extends Error { }
 
+async function pathExists(filePath) {
+	try {
+		await fs.access(filePath);
+	} catch (err) {
+		if (err.code === "ENOENT" || err.code === "ENOTDIR") {
+			return false;
+		}
+	}
+	return true;
+}
 
 async function safeOutputFile(file, data, options={}) {
 	let { dir, name, ext } = path.parse(file);
 	let temporary = path.join(dir, `${name}.tmp${ext}`);
-	await fs.outputFile(temporary, data, options);
+	if (dir) {
+		await fs.mkdir(dir, { recursive: true });
+	}
+	await fs.writeFile(temporary, data, { ...options, flush: true });
 	await fs.rename(temporary, file);
 }
 
@@ -221,7 +234,7 @@ async function migrateRename(args) {
 	}
 
 	async function migrateConfig(source, destination) {
-		if (await fs.pathExists(source) && !await fs.pathExists(destination)) {
+		if (await pathExists(source) && !await pathExists(destination)) {
 			await safeOutputFile(destination, JSON.stringify(
 				renameConfig(JSON.parse(await fs.readFile(source))), null, "\t"
 			));
@@ -233,7 +246,7 @@ async function migrateRename(args) {
 	await migrateConfig("config-slave.json", "config-host.json");
 
 	let instancesFile = path.join("database", "instances.json");
-	if (await fs.pathExists(instancesFile)) {
+	if (await pathExists(instancesFile)) {
 		await safeOutputFile(instancesFile, JSON.stringify(
 			JSON.parse(await fs.readFile(instancesFile)).map(renameConfig), null, "\t"
 		));
@@ -241,7 +254,7 @@ async function migrateRename(args) {
 	}
 
 	let usersFile = path.join("database", "users.json");
-	if (await fs.pathExists(usersFile)) {
+	if (await pathExists(usersFile)) {
 		let users = JSON.parse(await fs.readFile(usersFile));
 		for (let role of users["roles"]) {
 			role["permissions"] = role["permissions"].map(rename);
@@ -258,7 +271,7 @@ async function migrateRename(args) {
 
 	async function migrateLog(inputFile, outputFile) {
 		let lineStream = new LineSplitter({ readableObjectMode: true });
-		let fileStream = fs.createReadStream(inputFile);
+		let fileStream = (await fs.open(inputFile)).createReadStream();
 		fileStream.pipe(lineStream);
 		let lines = [];
 
@@ -278,7 +291,7 @@ async function migrateRename(args) {
 	}
 
 	async function migrateLogsDir(inputLogs, outputLogs) {
-		if (await fs.pathExists(inputLogs)) {
+		if (await pathExists(inputLogs)) {
 			logger.info(`Migrating ${inputLogs} to ${outputLogs}`);
 			for (let logFile of await fs.readdir(inputLogs)) {
 				if (!logFile.endsWith(".log")) {
@@ -286,7 +299,7 @@ async function migrateRename(args) {
 				}
 				let inputFile = path.join(inputLogs, logFile);
 				let outputFile = path.join(outputLogs, rename(logFile));
-				if (!await fs.pathExists(outputFile)) {
+				if (!await pathExists(outputFile)) {
 					await migrateLog(inputFile, outputFile);
 					logger.verbose(`Migrated ${inputFile} to ${outputFile}`);
 				}
@@ -297,16 +310,16 @@ async function migrateRename(args) {
 	await migrateLogsDir(path.join("logs", "master"), path.join("logs", "controller"));
 	await migrateLogsDir(path.join("logs", "slave"), path.join("logs", "host"));
 	if (
-		await fs.pathExists(path.join("logs", "cluster"))
-		&& !await fs.pathExists(path.join("logs", "cluster-prerename"))
+		await pathExists(path.join("logs", "cluster"))
+		&& !await pathExists(path.join("logs", "cluster-prerename"))
 	) {
 		await fs.rename(path.join("logs", "cluster"), path.join("logs", "cluster-prerename"));
 		await migrateLogsDir(path.join("logs", "cluster-prerename"), path.join("logs", "cluster"));
 	}
 
 	if (
-		await fs.pathExists("sharedMods")
-		&& !await fs.pathExists("mods")
+		await pathExists("sharedMods")
+		&& !await pathExists("mods")
 	) {
 		logger.info("Moving sharedMods/ to mods/");
 		await fs.rename("sharedMods", "mods");
@@ -328,8 +341,8 @@ async function migrateRename(args) {
 		await execFile(`npm${scriptExt}`, ["update"]);
 	}
 
-	const hasRunMaster = await fs.pathExists("run-master.sh") || await fs.pathExists("run-master.cmd");
-	const hasRunSlave = await fs.pathExists("run-slave.sh") || await fs.pathExists("run-slave.cmd");
+	const hasRunMaster = await pathExists("run-master.sh") || await pathExists("run-master.cmd");
+	const hasRunSlave = await pathExists("run-slave.sh") || await pathExists("run-slave.cmd");
 	if (hasRunMaster || hasRunSlave) {
 		logger.info("Writing run scripts");
 		let mode = "standalone";
@@ -354,7 +367,7 @@ async function migrateRename(args) {
 
 async function installClusterio(mode, plugins) {
 	try {
-		await fs.outputFile("package.json", JSON.stringify({
+		await fs.writeFile("package.json", JSON.stringify({
 			name: "clusterio-install",
 			private: true,
 		}, null, 2), { flag: "wx" });
@@ -643,7 +656,7 @@ async function inquirerMissingArgs(args) {
 		let locations = factorioLocations[process.platform] || [];
 		let foundLocations = [];
 		for (let location of locations) {
-			if (await fs.pathExists(path.join(location, "data", "changelog.txt"))) {
+			if (await pathExists(path.join(location, "data", "changelog.txt"))) {
 				foundLocations.push(location);
 			}
 		}
@@ -687,7 +700,7 @@ async function inquirerMissingArgs(args) {
 				},
 			], answers);
 		} else if (answers.factorioDir === "factorio") {
-			await fs.ensureDir("factorio");
+			await fs.mkdir("factorio", { recursive: true });
 		}
 	}
 
@@ -772,20 +785,21 @@ async function downloadLinuxServer() {
 	const factorioDir = `factorio/${version}/`;
 	const tmpFactorioDir = tmpDir + version;
 
-	if (await fs.pathExists(factorioDir)) {
+	if (await pathExists(factorioDir)) {
 		logger.warn(`setting downloadDir to ${factorioDir}, but not downloading because already existing`);
 	} else {
-		await fs.emptyDir(tmpDir);
+		await fs.rm(tmpDir, { force: true, recursive: true, maxRetries: 10 });
+		await fs.mkdir(tmpDir, { recursive: true });
 
 		logger.info("Downloading latest Factorio server release. This may take a while.");
-		const writeStream = fs.createWriteStream(tmpArchivePath);
+		const writeStream = (await fs.open(tmpArchivePath, "w")).createWriteStream();
 		stream.Readable.fromWeb(res.body).pipe(writeStream);
 
 		await finished(writeStream);
 
 		await fs.rename(tmpArchivePath, archivePath);
 		try {
-			await fs.ensureDir(tmpFactorioDir);
+			await fs.mkdir(tmpFactorioDir, { recursive: true });
 			await execFile("tar", [
 				"xf", archivePath, "-C", tmpFactorioDir, "--strip-components", "1",
 			]);
@@ -794,7 +808,7 @@ async function downloadLinuxServer() {
 			throw e;
 		}
 
-		await fs.ensureDir("factorio");
+		await fs.mkdir("factorio", { recursive: true });
 		await fs.rename(tmpFactorioDir, factorioDir);
 		await fs.unlink(archivePath);
 		await fs.rm(tmpDir);

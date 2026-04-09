@@ -1,7 +1,6 @@
 "use strict";
 const lib = require("@clusterio/lib");
-const { optional } = require("@clusterio/lib/dist/node/src/config/validators");
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 const assert = require("assert").strict;
 const CA = lib.ConfigAccess;
@@ -289,10 +288,10 @@ describe("lib/config/classes", function() {
 				await assert.rejects(TestConfig.fromFile("local", filepath));
 			});
 			it("should load defaults for missing fields", async function() {
-				await fs.writeJSON(filepath, {
+				await fs.writeFile(filepath, JSON.stringify({
 					"alpha.foo": "a",
 					"test.enum": "a",
-				});
+				}));
 				const testInstance = await TestConfig.fromFile("local", filepath);
 				assert.equal(testInstance.get("alpha.foo"), "a");
 				assert.deepEqual(testInstance.get("beta.bar"), {});
@@ -302,14 +301,14 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.filepath, filepath);
 			});
 			it("should load fields", async function() {
-				await fs.writeJSON(filepath, {
+				await fs.writeFile(filepath, JSON.stringify({
 					"test.enum": "c",
 					"test.test": "blah",
 					"test.func": 22,
 					"test.bool": null,
 					"test.json": { valid: true },
 					"test.priv": "bar",
-				});
+				}));
 				const testInstance = await TestConfig.fromFile("local", filepath);
 				assert.equal(testInstance.get("test.enum"), "c");
 				assert.equal(testInstance.get("test.test"), "blah");
@@ -335,13 +334,13 @@ describe("lib/config/classes", function() {
 					"test.beta": "decay",
 					"test.gamma": 99,
 				};
-				await fs.writeJson(filepath, testFields);
+				await fs.writeFile(filepath, JSON.stringify(testFields));
 				const testInstance = await TestConfig.fromFile("local", filepath);
 				assert.deepEqual(testInstance.toJSON(), testFields);
 				assert.equal(testInstance.filepath, filepath);
 			});
 			it("should ignore inaccessible fields", async function() {
-				await fs.writeJSON(filepath, { "test.priv": "bad" });
+				await fs.writeFile(filepath, JSON.stringify({ "test.priv": "bad" }));
 				const testInstance = await TestConfig.fromFile("remote", filepath);
 				assert.equal(testInstance.fields["test.priv"], undefined);
 				assert.equal(testInstance.fields["test.func"], 42);
@@ -352,8 +351,8 @@ describe("lib/config/classes", function() {
 		describe(".save()", function() {
 			const filepath = path.join("temp", "test", "config_test.json");
 			beforeEach(async function() {
-				await fs.remove(filepath);
-				assert(!await fs.exists(filepath), "File was not removed");
+				await fs.rm(filepath, { force: true });
+				await assert.rejects(fs.access(filepath), "File was not removed");
 			});
 			it("should throw if there is no filepath", async function() {
 				const testInstance = new TestConfig("local", { "alpha.foo": "a" });
@@ -366,24 +365,24 @@ describe("lib/config/classes", function() {
 			it("should do nothing when not dirty", async function() {
 				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
 				await testInstance.save();
-				assert(!await fs.exists(filepath), "File was created");
+				await assert.rejects(fs.access(filepath), "File was created");
 			});
 			it("should save data to file", async function() {
 				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
 				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
 				await testInstance.save();
-				const json = await fs.readJSON(filepath);
+				const json = JSON.parse(await fs.readFile(filepath, "utf8"));
 				assert.deepEqual(json, testInstance.toJSON());
 			});
 			it("should clear the dirty flag after saving", async function() {
 				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
 				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
 				await testInstance.save();
-				assert(await fs.exists(filepath), "File was not created");
-				await fs.remove(filepath);
-				assert(!await fs.exists(filepath), "File was not removed");
+				await assert.doesNotReject(fs.access(filepath), "File was not created");
+				await fs.rm(filepath);
+				await assert.rejects(fs.access(filepath), "File was was not removed");
 				await testInstance.save();
-				assert(!await fs.exists(filepath), "File was created");
+				await assert.rejects(fs.access(filepath), "File was created");
 			});
 			it("should be round trip savable", async function() {
 				const testInstance = new TestConfig("local", {

@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import { logger } from "./logging";
 import * as libFileOps from "./file_ops";
@@ -174,12 +174,15 @@ export async function loadPluginList(pluginListPath: string, findLocal = true): 
  */
 async function checkPackageJson(pluginPath: string): Promise<boolean> {
 	const packageJsonPath = path.join(pluginPath, "package.json");
-	if (!await fs.exists(packageJsonPath)) {
-		return false;
-	}
 
 	// Read and parse package.json
-	const packageJson = JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
+	let content;
+	try {
+		content = await fs.readFile(packageJsonPath, { encoding: "utf8" });
+	} catch (err: any) {
+		return false;
+	}
+	const packageJson = JSON.parse(content);
 
 	// Check if package has the clusterio-plugin keyword
 	return packageJson.keywords?.includes("clusterio-plugin");

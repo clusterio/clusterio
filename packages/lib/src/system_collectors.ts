@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import os from "os";
 import util from "util";
 import { Gauge } from "./prometheus";
@@ -92,14 +92,7 @@ export const systemDiskCapacityBytes = new Gauge(
 	"Size of the filesystem of the current working directory Node.js runs on",
 	{
 		callback: async function(collector) {
-			// statfs was added in Node.js v18.15.0 and may not be present.
-			// TODO: remove this check once minimum supported Node.js >= v18.15.0.
-			if (!fs.statfs) {
-				collector.set(0);
-				return;
-			}
-			const statFsAsync = util.promisify(fs.statfs);
-			const stats = await statFsAsync(".");
+			const stats = await fs.statfs(".");
 			collector.set(stats.blocks * stats.bsize);
 		},
 	},
@@ -110,13 +103,7 @@ export const systemDiskAvailableBytes = new Gauge(
 	"Available space on the filesystem of the current working directory Node.js runs on",
 	{
 		callback: async function(collector) {
-			// TODO: remove this check once minimum supported Node.js >= v18.15.0.
-			if (!fs.statfs) {
-				collector.set(0);
-				return;
-			}
-			const statFsAsync = util.promisify(fs.statfs);
-			const stats = await statFsAsync(".");
+			const stats = await fs.statfs(".");
 			collector.set(stats.bavail * stats.bsize);
 		},
 	},
@@ -148,14 +135,9 @@ export async function gatherSystemInfo(
 	const cpuUsage = minZip(deltaTotalCpuMs, deltaIdleCpuMs).map(([total, idle]) => (total - idle) / total);
 	previousTotalCpuMs = currentTotalCpuMs;
 	previousIdleCpuMs = currentIdleCpuMs;
-	let diskCapacity = 0;
-	let diskAvailable = 0;
-	if (fs.statfs) { // TODO: remove this check once minimum supported Node.js >= v18.15.0.
-		const statFsAsync = util.promisify(fs.statfs);
-		const stats = await statFsAsync(".");
-		diskCapacity = stats.blocks * stats.bsize;
-		diskAvailable = stats.bavail * stats.bsize;
-	}
+	const stats = await fs.statfs(".");
+	let diskCapacity = stats.blocks * stats.bsize;
+	let diskAvailable = stats.bavail * stats.bsize;
 
 	const now = Date.now();
 	return new SystemInfo(

@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import path from "path";
 import { BaseControllerPlugin } from "@clusterio/controller";
 import { Static } from "@sinclair/typebox";

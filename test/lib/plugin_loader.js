@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
@@ -16,11 +16,12 @@ describe("lib/plugin_loader", function() {
 		let invalidPlugin = path.join(baseDir, "invalid_plugin");
 		before(async function() {
 			async function writePlugin(pluginPath, infoName) {
-				await fs.outputFile(
+				await fs.mkdir(pluginPath, { recursive: true });
+				await fs.writeFile(
 					path.join(pluginPath, "index.js"),
 					`module.exports.plugin = { name: "${infoName}" };`
 				);
-				await fs.outputFile(
+				await fs.writeFile(
 					path.join(pluginPath, "package.json"),
 					'{ "version": "0.0.1" }'
 				);
@@ -28,7 +29,7 @@ describe("lib/plugin_loader", function() {
 
 			await writePlugin(testPlugin, "test");
 			await writePlugin(brokenPlugin, "broken");
-			await fs.outputFile(path.join(brokenPlugin, "index.js"), "Syntax Error");
+			await fs.writeFile(path.join(brokenPlugin, "index.js"), "Syntax Error");
 			await writePlugin(invalidPlugin, "wrong");
 		});
 
@@ -70,7 +71,8 @@ describe("lib/plugin_loader", function() {
 		let wrongParentClass = path.join(baseDir, "wrong_parent_class_plugin");
 		before(async function() {
 			async function writeEntrypoint(pluginPath, content) {
-				await fs.outputFile(path.join(pluginPath, "controller.js"), content);
+				await fs.mkdir(pluginPath, { recursive: true });
+				await fs.writeFile(path.join(pluginPath, "controller.js"), content);
 			}
 
 			await writeEntrypoint(missingClass, "");
@@ -122,16 +124,18 @@ describe("lib/plugin_loader", function() {
 		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
 		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo-plugin");
 		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
+		const notAPluginPath = path.join(baseDir, "node_modules", "not-a-plugin");
 		let pluginList;
 
 		before(async function() {
 			// Setup test plugins
 			async function writePlugin(pluginPath, name) {
-				await fs.outputFile(
+				await fs.mkdir(pluginPath, { recursive: true });
+				await fs.writeFile(
 					path.join(pluginPath, "index.js"),
 					`module.exports.plugin = { name: "${name}" };`
 				);
-				await fs.outputFile(
+				await fs.writeFile(
 					path.join(pluginPath, "package.json"),
 					JSON.stringify({
 						name: path.basename(pluginPath),
@@ -150,7 +154,7 @@ describe("lib/plugin_loader", function() {
 			// Write a monorepo plugin
 			await writePlugin(monorepoPluginPath, "monorepo-plugin");
 			// Create root package.json
-			await fs.outputFile(
+			await fs.writeFile(
 				path.join(baseDir, "package.json"),
 				JSON.stringify({
 					dependencies: {
@@ -160,8 +164,9 @@ describe("lib/plugin_loader", function() {
 				})
 			);
 			// Create an npm module that is not a plugin
-			await fs.outputFile(
-				path.join(baseDir, "node_modules", "not-a-plugin", "package.json"),
+			await fs.mkdir(notAPluginPath, { recursive: true });
+			await fs.writeFile(
+				path.join(notAPluginPath, "package.json"),
 				JSON.stringify({ name: "not-a-plugin", version: "1.0.0" })
 			);
 
@@ -169,7 +174,7 @@ describe("lib/plugin_loader", function() {
 			pluginList = await lib.loadPluginList(pluginListPath, true);
 		});
 		beforeEach(async function() {
-			await fs.remove(pluginListPath);
+			await fs.rm(pluginListPath, { force: true });
 		});
 
 		it("should discover local plugins", async function() {
@@ -188,7 +193,7 @@ describe("lib/plugin_loader", function() {
 
 		it("should load existing plugin list", async function() {
 			const existingList = new Map([["test", "/test/path"]]);
-			await fs.outputFile(pluginListPath, JSON.stringify([...existingList]));
+			await fs.writeFile(pluginListPath, JSON.stringify([...existingList]));
 			const loadedPlugins = await lib.loadPluginList(pluginListPath, false);
 			assert.ok(loadedPlugins.has("test"));
 			assert.strictEqual(loadedPlugins.get("test"), "/test/path");
@@ -201,7 +206,7 @@ describe("lib/plugin_loader", function() {
 
 		it("should not throw when package.json has no dependencies field", async function() {
 			// Create a package.json without dependencies
-			await fs.outputFile(
+			await fs.writeFile(
 				path.join("package.json"),
 				JSON.stringify({
 					name: "test-package",
@@ -217,7 +222,7 @@ describe("lib/plugin_loader", function() {
 
 		after(async function() {
 			process.chdir(old_cwd);
-			await fs.remove(baseDir);
+			await fs.rm(baseDir, { force: true, recursive: true, maxRetries: 10 });
 		});
 	});
 });

@@ -1,7 +1,7 @@
 /* eslint-disable node/no-sync */
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const path = require("path");
 
 const { LockFile } = require("@clusterio/lib");
@@ -15,7 +15,7 @@ describe("class LockFile", function () {
 	let lock;
 
 	before(async function () {
-		await fs.ensureDir(baseDir);
+		await fs.mkdir(baseDir, { recursive: true });
 	});
 
 	beforeEach(function() {
@@ -30,7 +30,7 @@ describe("class LockFile", function () {
 	describe("acquire()", function () {
 		it("should create the lock file when acquiring", async function () {
 			await lock.acquire();
-			assert.ok(fs.existsSync(filePath));
+			await fs.access(filePath);
 		});
 
 		it("should throw LockFileBusyError if called when not idle", async function () {
@@ -41,7 +41,7 @@ describe("class LockFile", function () {
 		it("should remove stale lock file and acquire it", async function () {
 			await fs.writeFile(filePath, "999999\n"); // stale lock
 			await lock.acquire();
-			assert.ok(fs.existsSync(filePath));
+			await fs.access(filePath);
 		});
 
 		it("should throw if existing lock file is not stale", async function () {
@@ -54,7 +54,7 @@ describe("class LockFile", function () {
 		it("should remove the lock file when releasing", async function () {
 			await lock.acquire();
 			await lock.release();
-			assert.ok(!fs.existsSync(filePath));
+			await assert.rejects(fs.access(filePath));
 		});
 
 		it("should throw LockFileBusyError if called when not acquired", async function () {

@@ -4,7 +4,7 @@
  * @module lib/plugin_loader
  */
 import path from "path";
-import fs from "fs/promises";
+import fs from "node:fs/promises";
 import * as libErrors from "./errors";
 import * as libPlugin from "./plugin";
 import { logger } from "./logging";

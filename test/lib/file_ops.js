@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const http = require("node:http");
 const path = require("path");
 const util = require("node:util");
@@ -10,20 +10,21 @@ const lib = require("@clusterio/lib");
 describe("lib/file_ops", function() {
 	let baseDir = path.join("temp", "test", "file_ops");
 	async function setupTestingEnv() {
-		await fs.ensureDir(path.join(baseDir, "test", "folder"));
-		await fs.ensureDir(path.join(baseDir, "test", "another folder"));
-		await fs.remove(path.join(baseDir, "safe"));
-		await fs.ensureDir(path.join(baseDir, "safe"));
+		await fs.mkdir(path.join(baseDir, "test", "folder"), { recursive: true });
+		await fs.mkdir(path.join(baseDir, "test", "another folder"), { recursive: true });
+		await fs.rm(path.join(baseDir, "safe"), { force: true, recursive: true, maxRetries: 10 });
+		await fs.mkdir(path.join(baseDir, "safe"), { recursive: true });
 
-		await fs.outputFile(path.join(baseDir, "test", "file.txt"), "contents");
-		await fs.outputFile(path.join(baseDir, "test", "another file.txt"), "more contents");
+		await fs.writeFile(path.join(baseDir, "test", "file.txt"), "contents");
+		await fs.writeFile(path.join(baseDir, "test", "another file.txt"), "more contents");
 
-		await fs.outputFile(path.join(baseDir, "find", "file"), "contents");
-		await fs.outputFile(path.join(baseDir, "find", "file.txt"), "contents");
-		await fs.outputFile(path.join(baseDir, "find", "foo-1"), "contents");
-		await fs.outputFile(path.join(baseDir, "find", "foo-2"), "contents");
-		await fs.outputFile(path.join(baseDir, "find", "bar-1.txt"), "contents");
-		await fs.outputFile(path.join(baseDir, "find", "bar-2.txt"), "contents");
+		await fs.mkdir(path.join(baseDir, "find"), { recursive: true });
+		await fs.writeFile(path.join(baseDir, "find", "file"), "contents");
+		await fs.writeFile(path.join(baseDir, "find", "file.txt"), "contents");
+		await fs.writeFile(path.join(baseDir, "find", "foo-1"), "contents");
+		await fs.writeFile(path.join(baseDir, "find", "foo-2"), "contents");
+		await fs.writeFile(path.join(baseDir, "find", "bar-1.txt"), "contents");
+		await fs.writeFile(path.join(baseDir, "find", "bar-2.txt"), "contents");
 	}
 
 	before(setupTestingEnv);
@@ -90,14 +91,14 @@ describe("lib/file_ops", function() {
 		it("should write new target file", async function() {
 			let target = path.join(baseDir, "safe", "simple.txt");
 			await lib.safeOutputFile(target, "a text file", "utf8");
-			assert(!await fs.pathExists(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
+			await assert.rejects(fs.access(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "a text file");
 		});
 		it("should overwrite existing target file", async function() {
 			let target = path.join(baseDir, "safe", "exists.txt");
-			await fs.outputFile(target, "previous", "utf8");
+			await fs.writeFile(target, "previous", "utf8");
 			await lib.safeOutputFile(target, "current", "utf8");
-			assert(!await fs.pathExists(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
+			await assert.rejects(fs.access(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "current");
 		});
 		it("should handle creating file in current working directory", async function() {
@@ -228,7 +229,8 @@ describe("lib/file_ops", function() {
 		let server;
 
 		before(async function () {
-			await fs.emptyDir(downloadDir);
+			await fs.rm(downloadDir, { force: true, recursive: true, maxRetries: 10 });
+			await fs.mkdir(downloadDir, { recursive: true });
 			server = http.createServer();
 			server.unref();
 			server.on("request", (req, res) => {
@@ -303,7 +305,7 @@ describe("lib/file_ops", function() {
 
 		it("should throw if file exists and overwriteMode is error", async function () {
 			const downloadPath = path.join(downloadDir, "exists.txt");
-			await fs.outputFile(downloadPath, "");
+			await fs.writeFile(downloadPath, "");
 			await assert.rejects(
 				lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "error"),
 				{ code: "EEXIST" },
@@ -322,7 +324,7 @@ describe("lib/file_ops", function() {
 
 		it("should write a new file if it exists and overwriteMode is rename", async function () {
 			const downloadPath = path.join(downloadDir, "exists.txt");
-			await fs.outputFile(downloadPath, "");
+			await fs.writeFile(downloadPath, "");
 			const newDownloadPath = await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "rename");
 			assert.equal(newDownloadPath, path.join(downloadDir, "exists-2.txt"));
 			const writtenContent = await fs.readFile(newDownloadPath, "utf8");
@@ -336,9 +338,9 @@ describe("lib/file_ops", function() {
 				path.join(downloadDir, "contended-3.txt"),
 				path.join(downloadDir, "contended-4.txt"),
 			];
-			await fs.outputFile(downloadPath, "");
+			await fs.writeFile(downloadPath, "");
 			for (const additionalPath of additionalPaths) {
-				await fs.outputFile(additionalPath, "");
+				await fs.writeFile(additionalPath, "");
 			}
 			const newDownloadPath = await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "rename");
 			assert.equal(newDownloadPath, path.join(downloadDir, "contended-5.txt"));
@@ -348,7 +350,7 @@ describe("lib/file_ops", function() {
 
 		it("should overwrite existing file if overwriteMode is overwrite", async function () {
 			const downloadPath = path.join(downloadDir, "overwrite.txt");
-			await fs.outputFile(downloadPath, "original content");
+			await fs.writeFile(downloadPath, "original content");
 			const newDownloadPath = await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "overwrite");
 			assert.equal(newDownloadPath, downloadPath);
 			const writtenContent = await fs.readFile(newDownloadPath, "utf8");
@@ -357,7 +359,7 @@ describe("lib/file_ops", function() {
 
 		it("should not overwrite existing temp files", async function () {
 			const tempPath = path.join(downloadDir, "temp-exists.tmp.txt");
-			await fs.outputFile(tempPath, "original content");
+			await fs.writeFile(tempPath, "original content");
 			const downloadPath = path.join(downloadDir, "temp-exists.txt");
 			await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "overwrite");
 			const writtenContent = await fs.readFile(tempPath, "utf8");
@@ -377,7 +379,7 @@ describe("lib/file_ops", function() {
 
 			const downloadSubdir = path.join(downloadDir, "subdir");
 			const downloadPath = path.join(downloadSubdir, "test.txt");
-			await fs.ensureDir(downloadSubdir);
+			await fs.mkdir(downloadSubdir, { recursive: true });
 
 			const [stage1, waitForStage1] = stageWaiter();
 			const [stage2, waitForStage2] = stageWaiter();
@@ -391,7 +393,7 @@ describe("lib/file_ops", function() {
 			download.catch(() => {});
 			await waitForStage1;
 
-			await fs.remove(downloadSubdir);
+			await fs.rm(downloadSubdir, { recursive: true, maxRetries: 10 });
 			stage2();
 
 			await assert.rejects(

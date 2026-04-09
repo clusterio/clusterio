@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const fs = require("fs-extra");
+const fs = require("node:fs/promises");
 const lib = require("@clusterio/lib");
 
 describe("lib/ini", function() {

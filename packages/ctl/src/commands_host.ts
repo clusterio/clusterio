@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import asTableModule from "as-table";
 import events from "events";
 import os from "os";
@@ -87,7 +87,7 @@ hostCommands.add(new lib.Command({
 		} else {
 			logger.info(`Writing ${args.output}`);
 			try {
-				await fs.outputFile(args.output, content, { flag: "wx" });
+				await fs.writeFile(args.output, content, { flag: "wx" });
 			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					throw new lib.CommandError(`File ${args.output} already exists`);

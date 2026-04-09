@@ -15,7 +15,7 @@
  */
 
 import path from "path";
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 
 import crypto from "crypto";
 import setBlocking from "set-blocking";

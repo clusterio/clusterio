@@ -4,7 +4,7 @@
  * @module lib/database
  * @author Hornwitser
  */
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 
 import * as libFileOps from "./file_ops";
 import { basicType } from "./helpers";

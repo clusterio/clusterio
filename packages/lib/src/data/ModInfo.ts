@@ -1,4 +1,4 @@
-import fs from "fs-extra";
+import fs from "node:fs/promises";
 import JSZip from "jszip";
 import { Type, Static } from "@sinclair/typebox";
 

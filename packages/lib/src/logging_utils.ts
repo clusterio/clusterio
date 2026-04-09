@@ -4,7 +4,8 @@
  * @author Hornwitser
  * @module lib/logging_utils
  */
-import fs from "fs-extra";
+import fs from "node:fs/promises";
+import type { ReadStream } from "node:fs";
 import path from "path";
 import stream from "stream";
 import util from "util";
@@ -320,7 +321,7 @@ export class LogIndex {
 	async indexFile(file: string) {
 		let filePath = path.join(this.logDirectory, file);
 		let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
-		let fileStream = fs.createReadStream(filePath);
+		let fileStream = (await fs.open(filePath)).createReadStream();
 		fileStream.pipe(lineStream);
 		let entry = {
 			levels: new Set() as Set<keyof typeof levels>,
@@ -478,11 +479,11 @@ export async function queryLog(logDirectory: string, filter: QueryLogFilter, ind
 			continue;
 		}
 		let filePath = path.join(logDirectory, file);
-		let fileStream: fs.ReadStream;
+		let fileStream: ReadStream;
 		let lineStream: libStream.LineSplitter;
 		if (filter.order === "asc") {
 			lineStream = new libStream.LineSplitter({ readableObjectMode: true });
-			fileStream = fs.createReadStream(filePath);
+			fileStream = (await fs.open(filePath)).createReadStream();
 		} else {
 			lineStream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
 			fileStream = await libStream.createReverseReadStream(filePath);
