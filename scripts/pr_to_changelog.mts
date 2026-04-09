@@ -7,6 +7,9 @@ import {
 
 type Changelog = Record<string, string[]>;
 
+const repository = "clusterio/clusterio";
+const branch = "master";
+
 const changelogSections = [
 	"Major Features",
 	"Features",
@@ -115,7 +118,7 @@ function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Chang
 			const entry = line
 				.slice(2)
 				.trim()
-				.replace(/\[#(\d+)\]\(https:\/\/github.com\/clusterio\/clusterio\/(issues|pull)\/\d+\)/g, "#$1");
+				.replace(new RegExp(`\\[#(\\d+)\\]\\(https://github.com/${repository}/(issues|pull)/\\d+\\)`, "g"), "#$1");
 			let hasRef = false
 			for (const ref of entry.matchAll(/#(\d+)/g)) {
 				hasRef = true;
@@ -169,17 +172,17 @@ function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 
 async function fetchLastRelease() {
 	// Assumes releases are ordered by their creation or tag time in descending order.
-	const releases = await githubFetchJson<Release[]>("/repos/clusterio/clusterio/releases");
-	const latest = releases.find(r => r.target_commitish === "master");
+	const releases = await githubFetchJson<Release[]>(`/repos/${repository}/releases`);
+	const latest = releases.find(r => r.target_commitish === branch);
 	if (!latest) {
-		throw new Error("Unable to find latest release on master");
+		throw new Error(`Unable to find latest release on ${branch}`);
 	}
 	return latest;
 }
 
 async function fetchIssuesUpdatedSince(since: string) {
 	return await githubFetchJsonPaginated<Issue>(
-		"/repos/clusterio/clusterio/issues",
+		`/repos/${repository}/issues`,
 		{ state: "all", since, sort: "updated", direction: "asc" },
 	);
 }
@@ -222,7 +225,7 @@ async function main() {
 
 	console.log();
 	console.log("=== Github markdown ===");
-	printMarkdown(changelog, issues, issue => `clusterio/clusterio#${issue.number}`);
+	printMarkdown(changelog, issues, issue => `${repository}#${issue.number}`);
 	console.log();
 	console.log("=== Discord markdown ===");
 	printMarkdown(changelog, issues, issue => `[#${issue.number}](<${issue.html_url}>`);
