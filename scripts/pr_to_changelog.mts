@@ -228,7 +228,7 @@ async function main() {
 	printMarkdown(changelog, issues, issue => `${repository}#${issue.number}`);
 	console.log();
 	console.log("=== Discord markdown ===");
-	printMarkdown(changelog, issues, issue => `[#${issue.number}](<${issue.html_url}>`);
+	printMarkdown(changelog, issues, issue => `[#${issue.number}](<${issue.html_url}>)`);
 }
 
 if (import.meta.main) {
