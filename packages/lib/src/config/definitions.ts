@@ -716,36 +716,73 @@ function validateFieldNames(
 }
 
 /**
- * Add config fields defined by the provided plugin infos
+ * Add the config fields defined by the by a specific plugin infos
+ */
+export function addPluginFieldDefinitions(
+	pluginInfo: PluginNodeEnvInfo | PluginWebpackEnvInfo,
+	kind: "controllerConfigFields" | "hostConfigFields" | "instanceConfigFields",
+	Config: typeof classes.Config<any>
+) {
+	// Define plugin.load_plugin
+	const fieldDef: classes.FieldDefinition = {
+		title: "Load Plugin",
+		type: "boolean",
+		initialValue: true,
+		restartRequired: true,
+	};
+
+	// The validator is dynamic based on the feature requirements of the plugin
+	if (kind === "instanceConfigFields" && pluginInfo.features) {
+		fieldDef.dependsOn = [];
+
+		const savePatching = pluginInfo.features.includes("SavePatching");
+		if (savePatching) {
+			fieldDef.dependsOn.push("factorio.enable_save_patching");
+		}
+
+		const scriptCommands = pluginInfo.features.includes("ScriptCommands");
+		if (scriptCommands) {
+			fieldDef.dependsOn.push("factorio.enable_script_commands");
+		}
+
+		if (scriptCommands || savePatching) {
+			fieldDef.validator = (enabled, config) => {
+				if (!enabled) {
+					return;
+				}
+				if (savePatching && !config.get("factorio.enable_save_patching")) {
+					throw new Error(`Plugin ${pluginInfo.name} requires save patching`);
+				}
+				if (scriptCommands && !config.get("factorio.enable_script_commands")) {
+					throw new Error(`Plugin ${pluginInfo.name} requires script commands`);
+				}
+			};
+		}
+	}
+
+	Config.fieldDefinitions[`${pluginInfo.name}.load_plugin`] = fieldDef;
+
+	// Merge in other fields from the plugin
+	const fields = pluginInfo[kind];
+	if (fields) {
+		validateFieldNames(pluginInfo.name, fields);
+		Object.assign(Config.fieldDefinitions, fields);
+	}
+}
+
+/**
+ * Add all config fields defined by the provided plugin infos
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
  */
 export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginWebpackEnvInfo[]) {
-	function pluginConfig(
-		pluginInfo: PluginNodeEnvInfo | PluginWebpackEnvInfo,
-		kind: "controllerConfigFields" | "hostConfigFields" | "instanceConfigFields",
-		Config: typeof ControllerConfig | typeof HostConfig | typeof InstanceConfig,
-	) {
-		(Config.fieldDefinitions as any)[`${pluginInfo.name}.load_plugin`] = {
-			title: "Load Plugin",
-			restartRequired: true,
-			type: "boolean",
-			initialValue: true,
-		};
-
-		const fields = pluginInfo[kind];
-		if (fields) {
-			validateFieldNames(pluginInfo.name, fields);
-			Object.assign(Config.fieldDefinitions, fields);
-		}
-	}
 	for (let pluginInfo of pluginInfos) {
-		pluginConfig(pluginInfo, "controllerConfigFields", ControllerConfig);
+		addPluginFieldDefinitions(pluginInfo, "controllerConfigFields", ControllerConfig);
 		if (pluginInfo.hostEntrypoint || pluginInfo.instanceEntrypoint) {
-			pluginConfig(pluginInfo, "hostConfigFields", HostConfig);
+			addPluginFieldDefinitions(pluginInfo, "hostConfigFields", HostConfig);
 		}
 		if (pluginInfo.instanceEntrypoint) {
-			pluginConfig(pluginInfo, "instanceConfigFields", InstanceConfig);
+			addPluginFieldDefinitions(pluginInfo, "instanceConfigFields", InstanceConfig);
 		}
 	}
 }

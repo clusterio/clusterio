@@ -45,6 +45,11 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
+	features: [
+		"SavePatching",
+		"ScriptCommands",
+	],
+
 	messages: [
 		messages.AcquireRequest,
 		messages.ReleaseRequest,

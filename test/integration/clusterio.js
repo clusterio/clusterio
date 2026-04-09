@@ -763,9 +763,25 @@ describe("Integration of Clusterio", function() {
 
 		describe("instance send-rcon", function() {
 			requiresFactorio(this);
+			const plugins = [
+				"global_chat", "inventory_sync", "player_auth",
+				"research_sync", "statistics_exporter", "subspace_storage",
+			];
+			this.beforeAll(async function() {
+				this.timeout(10000);
+				// Disable plugins as they interfere with enable_script_commands test
+				for (const plugin of plugins) {
+					await execCtl(`instance config set test ${plugin}.load_plugin false`);
+				}
+			});
 			this.afterAll(async function() {
+				this.timeout(10000);
 				// Prevents cascading failure where enable_script_commands is expected to be true
 				await execCtl("instance config set test factorio.enable_script_commands true");
+				// Enable plugins after they were previously disabled
+				for (const plugin of plugins) {
+					await execCtl(`instance config set test ${plugin}.load_plugin true`);
+				}
 			});
 			it("sends the command", async function() {
 				slowTest(this);
@@ -1097,12 +1113,12 @@ describe("Integration of Clusterio", function() {
 			it("starts the instance with the given settings", async function() {
 				slowTest(this);
 				requiresFactorio(this);
-				await execCtl("instance config set 44 factorio.enable_save_patching false");
 				await execCtl("instance config set 44 player_auth.load_plugin false");
 				await execCtl("instance config set 44 research_sync.load_plugin false");
 				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
 				await execCtl("instance config set 44 subspace_storage.load_plugin false");
 				await execCtl("instance config set 44 inventory_sync.load_plugin false");
+				await execCtl("instance config set 44 factorio.enable_save_patching false");
 
 				await execCtl("instance start 44");
 				const instance = (await getInstances()).get(44);

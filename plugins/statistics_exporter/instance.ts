@@ -104,15 +104,6 @@ function setForceFlowStatistic(
 
 
 export class InstancePlugin extends BaseInstancePlugin {
-	async init() {
-		if (!this.instance.config.get("factorio.enable_save_patching")) {
-			throw new Error("statistics_exporter plugin requires save patching.");
-		}
-		if (!this.instance.config.get("factorio.enable_script_commands")) {
-			throw new Error("statistics_exporter plugin requires script commands.");
-		}
-	}
-
 	async gatherMetrics() {
 		let string = await this.sendRcon("/sc statistics_exporter.export()");
 		let stats: IpcStats;

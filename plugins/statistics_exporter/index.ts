@@ -22,4 +22,9 @@ export const plugin: lib.PluginDeclaration = {
 			initialValue: 1,
 		},
 	},
+
+	features: [
+		"SavePatching",
+		"ScriptCommands",
+	],
 };

@@ -9,6 +9,11 @@ export const plugin: lib.PluginDeclaration = {
 	instanceEntrypoint: "dist/node/instance",
 	controllerEntrypoint: "dist/node/controller",
 
+	features: [
+		"SavePatching",
+		"ScriptCommands",
+	],
+
 	messages: [
 		messages.ContributionEvent,
 		messages.ProgressEvent,
