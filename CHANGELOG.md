@@ -31,6 +31,50 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.24
+
+### Features
+
+- Added `FactorioIcon` component for showing icons from the game in the web UI. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Added `useDefaultModPack` hook to the web UI. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Added types for the exported metadata for mod packs. [#526](https://github.com/clusterio/clusterio/issues/526)
+- Added config value validation beyond simple type checks. [#856](https://github.com/clusterio/clusterio/pull/856)
+- Added config staging to allow setting many values at once. [#856](https://github.com/clusterio/clusterio/pull/856)
+- Added a warning when attempting to set player autosave slots lower than autosave slots. [#855](https://github.com/clusterio/clusterio/issues/855)
+- Added `controller.authSecret` as the type of config field `controller.auth_secret` was inconsistent. [#856](https://github.com/clusterio/clusterio/pull/856)
+- Added support for the `node:` prefix in import statements in web UI code. [#881](https://github.com/clusterio/clusterio/pull/881)
+- Added config validation to load plugin to error when save patching or script commands are disabled [#884](https://github.com/clusterio/clusterio/issues/884)
+
+### Fixes
+
+- Fixed host printing a deprecation warning on startup. [#855](https://github.com/clusterio/clusterio/issues/855)
+- Fixed exported prototype metadata missing localised_name. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Fixed headless download option in installer failing with `TypeError: callback is not a function`. [#860](https://github.com/clusterio/clusterio/issues/860)
+- Fixed controller crashing if a host attempted to download a mod that had been deleted from the controller's filesystem while the controller was running. [#860](https://github.com/clusterio/clusterio/issues/860)
+
+### Changes
+
+- Moved `/icon-reference` to `/mods/mod-packs/:id/icon-reference` and linked it from the mod pack page. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Made the `useAccount`, `useModPacks`, `useMods`, `useRoles`, `useSaves`, `useSystems`, `useUsers` and related hooks in the web UI available to plugins. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Exported prototypes are now based on the `defines.prototypes` mapping from the game. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Removed usage of fs-extra. [#860](https://github.com/clusterio/clusterio/issues/860)
+
+### Breaking Changes
+
+- Removed `useExportManifest` from the web UI. Use `.exportManifest` on a mod pack from one of the `useModPack` hooks instead. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Replaced the 8 `useTypeMetadata` hooks in the web UI such as `useItemMetadata` with `useExportPrototypeMetadata`. [#875](https://github.com/clusterio/clusterio/pull/875)
+- `.item-name` css classes are no longer created in the web UI, and will not render icons from the game. Use the `FactorioIcon` component instead and pass it a prototype from `useExportPrototypeMetadata`. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Renamed `useLocale` hook in web UI to `useExportLocale` which now requires the mod pack to load the exported locale from as an argument. [#875](https://github.com/clusterio/clusterio/pull/875)
+- Fluids are no longer merged with items in the exported prototype metadata for mod packs. [#875](https://github.com/clusterio/clusterio/pull/875)
+
+### Meta
+
+- Changelog entries are now parsed with a script from pull request descriptions. [#871](https://github.com/clusterio/clusterio/pull/871)
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Hornwitser](https://github.com/Hornwitser)
+
 ## Version 2.0.0-alpha.23
 
 ### Major Features
