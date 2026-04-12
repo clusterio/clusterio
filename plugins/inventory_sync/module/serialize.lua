@@ -203,7 +203,7 @@ function serialize.serialize_crafting_queue(player)
 	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus + 1000
 
 	-- Save current items
-	local inventory = player.get_main_inventory()
+	local inventory = player.character.get_main_inventory()
 	local old_items = inventory.get_contents()
 	local crafting_queue_progress = player.crafting_queue_progress
 
