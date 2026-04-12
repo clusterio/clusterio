@@ -14,7 +14,7 @@ export default function HostConfigTree(props: { id: number, available: boolean }
 	}
 
 	async function setConfig(fields: Record<string, string | Record<string, string>>) {
-		await control.send(new lib.HostConfigSetRequest(fields));
+		await control.sendTo({ hostId: props.id }, new lib.HostConfigSetRequest(fields));
 	}
 
 	return <BaseConfigTree
