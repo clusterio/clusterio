@@ -311,12 +311,18 @@ async function startControl() {
 		throw err;
 	}
 
+	let caughtSigInt = false;
 	process.on("SIGINT", () => {
+		if (caughtSigInt) {
+			logger.info("Caught second interrupt signal, forcing disconnect");
+			process.exit(1);
+		}
+		caughtSigInt = true;
+
 		logger.info("Caught interrupt signal, closing connection");
 		control.shutdown().catch(err => {
 			setBlocking(true);
 			logger.error(err.stack);
-
 			process.exit(1);
 		});
 	});
