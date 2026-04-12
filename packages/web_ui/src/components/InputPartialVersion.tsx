@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { TreeSelect } from "antd";
+import { Button, Divider, Input, TreeSelect } from "antd";
 
 import * as lib from "@clusterio/lib";
 import { InputComponentProps } from "../BaseWebPlugin";
@@ -16,6 +16,7 @@ export default function InputPartialVersion (
 ) {
 	const fieldDefinition = props.fieldDefinition || defaultFieldDefinition;
 	const [versions, setVersions] = useState<readonly lib.PartialVersion[]>(lib.ApiVersions);
+	const [customVersion, setCustomVersion] = useState("");
 	const control = useContext(ControlContext);
 	const account = useAccount();
 
@@ -64,5 +65,36 @@ export default function InputPartialVersion (
 		allowClear={fieldDefinition.optional}
 		className={props.className}
 		disabled={props.disabled}
+		popupRender={(menu) => {
+			const isValid = lib.isPartialVersion(customVersion);
+
+			return (
+				<>
+					{menu}
+					<Divider style={{ margin: "8px 0" }} />
+					<div style={{ display: "flex", gap: 8, padding: "0 8px 4px" }}>
+						<Input
+							style={{ flex: 1 }}
+							placeholder="Custom X.Y.Z"
+							value={customVersion}
+							status={
+								customVersion && !isValid ? "error" : undefined
+							}
+							onChange={(e) => setCustomVersion(e.target.value)}
+						/>
+						<Button
+							type="primary"
+							disabled={!customVersion || !isValid}
+							onClick={() => {
+								props.onChange(customVersion);
+								setCustomVersion("");
+							}}
+						>
+							Use
+						</Button>
+					</div>
+				</>
+			);
+		}}
 	/>;
 }
