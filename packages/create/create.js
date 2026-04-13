@@ -14,7 +14,6 @@ const { levels, logger, setLogLevel } = require("./logging");
 const { copyPluginTemplates } = require("./template");
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
-const finished = util.promisify(stream.finished);
 const { escapeArg } = require("./escape_arg");
 
 // I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
@@ -660,22 +659,6 @@ async function inquirerMissingArgs(args) {
 				foundLocations.push(location);
 			}
 		}
-		if (process.platform === "linux") {
-			if (args.hasOwnProperty("downloadHeadless")) { answers.downloadHeadless = args.downloadHeadless; }
-
-			answers = await inquirer.prompt([
-				{
-					type: "confirm",
-					name: "downloadHeadless",
-					message: "(Linux only) Automatically download latest factorio release?",
-					default: true,
-				},
-			], answers);
-
-			if (!answers.factorioDir && answers.downloadHeadless) {
-				answers.factorioDir = "factorio";
-			}
-		}
 
 		answers = await inquirer.prompt([
 			{
@@ -767,54 +750,6 @@ async function inquirerMissingArgs(args) {
 	return answers;
 }
 
-async function downloadLinuxServer() {
-	let res = await fetch("https://factorio.com/get-download/stable/headless/linux64");
-
-	// get the filename of the latest factorio archive from redirected url
-	const url = new URL(res.url); // The res is redirects, need final url
-	const filename = path.posix.basename(url.pathname);
-	const match = filename.match(/(?<=factorio_headless_x64_|factorio-headless_linux_)\d+\.\d+\.\d+(?=\.tar\.xz)/);
-	if (!match || !match.length) {
-		throw Error(`Unable to extract version from filename: ${filename}`);
-	}
-	const version = match[0];
-
-	const tmpDir = "temp/create-temp/";
-	const archivePath = tmpDir + filename;
-	const tmpArchivePath = `${archivePath}.tmp`;
-	const factorioDir = `factorio/${version}/`;
-	const tmpFactorioDir = tmpDir + version;
-
-	if (await pathExists(factorioDir)) {
-		logger.warn(`setting downloadDir to ${factorioDir}, but not downloading because already existing`);
-	} else {
-		await fs.rm(tmpDir, { force: true, recursive: true, maxRetries: 10 });
-		await fs.mkdir(tmpDir, { recursive: true });
-
-		logger.info("Downloading latest Factorio server release. This may take a while.");
-		const writeStream = (await fs.open(tmpArchivePath, "w")).createWriteStream();
-		stream.Readable.fromWeb(res.body).pipe(writeStream);
-
-		await finished(writeStream);
-
-		await fs.rename(tmpArchivePath, archivePath);
-		try {
-			await fs.mkdir(tmpFactorioDir, { recursive: true });
-			await execFile("tar", [
-				"xf", archivePath, "-C", tmpFactorioDir, "--strip-components", "1",
-			]);
-		} catch (e) {
-			logger.error("error executing command- do you have 'xz-utils' installed?");
-			throw e;
-		}
-
-		await fs.mkdir("factorio", { recursive: true });
-		await fs.rename(tmpFactorioDir, factorioDir);
-		await fs.unlink(archivePath);
-		await fs.rm(tmpDir);
-	}
-}
-
 async function main() {
 	let args = yargs
 		.option("log-level", {
@@ -836,10 +771,6 @@ async function main() {
 		})
 		.option("http-port", {
 			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
-		})
-		.option("download-headless", {
-			describe: "Download the latest headless release [standalone/controller] [linux only]",
-			type: "boolean", nargs: 0,
 		})
 		.option("host-name", {
 			nargs: 1, describe: "Host name [host]", type: "string",
@@ -879,12 +810,6 @@ async function main() {
 			.option("allow-install-as-root", {
 				nargs: 0, describe: "(Linux only) Allow installing as root (not recommended)", type: "boolean",
 			})
-			.option("download-headless", {
-				nargs: 0,
-				describe: "(Linux only) Automatically download and unpack the latest factorio release. " +
-					"Can be set to false using --no-download-headless.",
-				type: "boolean",
-			})
 		;
 	}
 
@@ -909,13 +834,6 @@ async function main() {
 	if (answers.pluginTemplate) {
 		await copyPluginTemplates(answers.pluginName, answers.pluginTemplate);
 		return;
-	}
-
-	if (answers.downloadHeadless) {
-		if (answers.factorioDir !== "factorio") {
-			throw new InstallError("--download-headless option requires --factorio-dir to be set to factorio");
-		}
-		await downloadLinuxServer();
 	}
 
 	if (!dev) {
