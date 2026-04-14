@@ -116,9 +116,9 @@ function inventory_sync.deserialize_player(player, finished_record)
 
 	-- Transfer items from stashed inventory
 	if stashed_corpse then
-		local main = player.get_main_inventory()
 		local stash = stashed_corpse.get_inventory(defines.inventory.character_corpse)
-		if main then
+		if player.character then
+			local main = player.character.get_main_inventory()
 			for i = 1, #stash do
 				-- Try transferring a stack
 				local source = stash[i]

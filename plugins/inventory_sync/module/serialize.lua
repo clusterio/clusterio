@@ -317,7 +317,7 @@ function serialize.serialize_crafting_queue(player)
 end
 
 function serialize.deserialize_crafting_queue(player, serialized)
-	local inventory = player.get_main_inventory()
+	local inventory = player.character.get_main_inventory()
 
 	-- Give player some more inventory space to avoid duplicating items
 	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus + 1000
