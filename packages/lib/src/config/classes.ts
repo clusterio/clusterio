@@ -9,6 +9,7 @@ import * as libSchema from "../schema";
 import { StringEnum } from "../data/composites";
 import { safeOutputFile } from "../file_ops";
 import * as validators from "./validators";
+import { RequestError } from "../errors";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -21,7 +22,7 @@ export type ConfigLocation = Static<typeof ConfigLocation>;
  *
  * @extends Error
  */
-export class InvalidAccess extends Error { };
+export class InvalidAccess extends RequestError { };
 
 /**
  * Invalid Value exception
@@ -31,7 +32,7 @@ export class InvalidAccess extends Error { };
  *
  * @extends Error
  */
-export class InvalidValue extends Error { };
+export class InvalidValue extends RequestError { };
 
 /**
  * Invalid Field exception
@@ -41,7 +42,7 @@ export class InvalidValue extends Error { };
  *
  * @extends Error
  */
-export class InvalidField extends Error { };
+export class InvalidField extends RequestError { };
 
 
 const OldConfigGroupSchema = Type.Object({
