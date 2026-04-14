@@ -15,7 +15,6 @@
 import fs from "node:fs/promises";
 import path from "path";
 import yargs from "yargs";
-import setBlocking from "set-blocking";
 import { version } from "./package.json";
 import winston from "winston";
 import "winston-daily-rotate-file";
@@ -239,32 +238,8 @@ async function startHost() {
 	);
 
 	// Handle interrupts
-	let secondSigint = false;
-	process.on("SIGINT", () => {
-		if (secondSigint) {
-			setBlocking(true);
-			logger.fatal("Caught second interrupt, terminating immediately");
-
-			process.exit(1);
-		}
-
-		secondSigint = true;
-		logger.info("Caught interrupt signal, shutting down");
-		host!.shutdown();
-	});
-	let secondSigterm = false;
-	process.on("SIGTERM", () => {
-		if (secondSigterm) {
-			setBlocking(true);
-			logger.fatal("Caught second termination, terminating immediately");
-
-			process.exit(1);
-		}
-
-		secondSigterm = true;
-		logger.info("Caught termination signal, shutting down");
-		host!.shutdown();
-	});
+	process.on("SIGINT", lib.createShutdownGuard(logger, "interrupt", host.shutdown.bind(host)));
+	process.on("SIGTERM", lib.createShutdownGuard(logger, "termination", host.shutdown.bind(host)));
 	process.on("SIGHUP", () => {
 		logger.info("Terminal closed, shutting down");
 		host!.shutdown();

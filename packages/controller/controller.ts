@@ -18,7 +18,6 @@ import path from "path";
 import fs from "node:fs/promises";
 
 import crypto from "crypto";
-import setBlocking from "set-blocking";
 import yargs from "yargs";
 import util from "util";
 import winston from "winston";
@@ -446,33 +445,9 @@ async function startup() {
 		process.exit(1);
 	}
 
-	let secondSigint = false;
-	process.on("SIGINT", () => {
-		if (secondSigint) {
-			setBlocking(true);
-			logger.fatal("Caught second interrupt, terminating immediately");
-
-			process.exit(1);
-		}
-
-		secondSigint = true;
-		logger.info("Caught interrupt signal, shutting down");
-		controller.stop();
-	});
-	let secondSigterm = false;
-	process.on("SIGTERM", () => {
-		if (secondSigterm) {
-			setBlocking(true);
-			logger.fatal("Caught second termination, terminating immediately");
-
-			process.exit(1);
-		}
-
-		secondSigterm = true;
-		logger.info("Caught termination signal, shutting down");
-		controller.stop();
-	});
-
+	// Handle interrupts
+	process.on("SIGINT", lib.createShutdownGuard(logger, "interrupt", controller.stop.bind(controller)));
+	process.on("SIGTERM", lib.createShutdownGuard(logger, "termination", controller.stop.bind(controller)));
 	process.on("SIGHUP", () => {
 		logger.info("Terminal closed, shutting down");
 		controller.stop();
