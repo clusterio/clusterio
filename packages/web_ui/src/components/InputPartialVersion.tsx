@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Button, Divider, Input, TreeSelect } from "antd";
+import React, { useContext, useEffect, useState, useRef } from "react";
+import { Button, Divider, Input, InputRef, RefSelectProps, TreeSelect } from "antd";
 
 import * as lib from "@clusterio/lib";
 import { InputComponentProps } from "../BaseWebPlugin";
@@ -17,6 +17,9 @@ export default function InputPartialVersion (
 	const fieldDefinition = props.fieldDefinition || defaultFieldDefinition;
 	const [versions, setVersions] = useState<readonly lib.PartialVersion[]>(lib.ApiVersions);
 	const [customVersion, setCustomVersion] = useState("");
+	const [open, setOpen] = useState(false);
+	const inputRef = useRef<InputRef>(null);
+	const selectRef = useRef<RefSelectProps>(null);
 	const control = useContext(ControlContext);
 	const account = useAccount();
 
@@ -58,6 +61,7 @@ export default function InputPartialVersion (
 
 	return <TreeSelect
 		showSearch
+		ref={selectRef}
 		style={{ minWidth: 175 }}
 		onChange={(value) => props.onChange(value ?? null)}
 		value={props.value}
@@ -65,8 +69,29 @@ export default function InputPartialVersion (
 		allowClear={fieldDefinition.optional}
 		className={props.className}
 		disabled={props.disabled}
+		open={open}
+		onOpenChange={newOpen => {
+			setOpen(newOpen);
+			if (newOpen && typeof props.value === "string") {
+				setCustomVersion(props.value);
+			}
+		}}
+		onKeyDown={e => {
+			if (open && e.key === "Tab") {
+				e.preventDefault();
+				inputRef.current?.focus();
+			}
+		}}
 		popupRender={(menu) => {
 			const isValid = lib.isPartialVersion(customVersion);
+
+			const submit = () => {
+				if (customVersion && isValid) {
+					setTimeout(() => selectRef.current?.focus(), 0);
+					props.onChange(customVersion);
+					setOpen(false);
+				}
+			};
 
 			return (
 				<>
@@ -74,21 +99,18 @@ export default function InputPartialVersion (
 					<Divider style={{ margin: "8px 0" }} />
 					<div style={{ display: "flex", gap: 8, padding: "0 8px 4px" }}>
 						<Input
+							ref={inputRef}
 							style={{ flex: 1 }}
 							placeholder="Custom X.Y.Z"
 							value={customVersion}
-							status={
-								customVersion && !isValid ? "error" : undefined
-							}
+							status={customVersion && !isValid ? "error" : undefined}
 							onChange={(e) => setCustomVersion(e.target.value)}
+							onPressEnter={submit}
 						/>
 						<Button
 							type="primary"
 							disabled={!customVersion || !isValid}
-							onClick={() => {
-								props.onChange(customVersion);
-								setCustomVersion("");
-							}}
+							onClick={submit}
 						>
 							Use
 						</Button>
