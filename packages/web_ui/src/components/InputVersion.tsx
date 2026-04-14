@@ -8,14 +8,21 @@ import ControlContext from "./ControlContext";
 
 const defaultFieldDefinition: lib.FieldDefinition = { type: "string", optional: false };
 
-export default function InputPartialVersion (
+function InputVersion<
+	Version extends lib.TargetVersion,
+	IncludeLatest extends (Version extends "latest" ? boolean : false),
+> (
 	props: Omit<InputComponentProps, "fieldDefinition"> & {
 		fieldDefinition?: lib.FieldDefinition;
 		className?: string;
+		version: {
+			isValid: (v: string) => v is Version;
+			includeLatest: IncludeLatest;
+		};
 	}
 ) {
 	const fieldDefinition = props.fieldDefinition || defaultFieldDefinition;
-	const [versions, setVersions] = useState<readonly lib.PartialVersion[]>(lib.ApiVersions);
+	const [versions, setVersions] = useState<readonly string[]>(lib.ApiVersions);
 	const [customVersion, setCustomVersion] = useState("");
 	const [open, setOpen] = useState(false);
 	const inputRef = useRef<InputRef>(null);
@@ -33,11 +40,11 @@ export default function InputPartialVersion (
 	}, [control]);
 
 	// Split the versions into groups based on major minor
-	const groups = new Map<lib.PartialVersion, lib.PartialVersion[]>();
+	const groups = new Map<string, string[]>();
 
 	for (const version of versions) {
 		const [major, minor] = version.split(".");
-		const key = `${major}.${minor}` as lib.PartialVersion;
+		const key = `${major}.${minor}`;
 
 		if (!groups.has(key)) {
 			groups.set(key, []);
@@ -58,6 +65,11 @@ export default function InputPartialVersion (
 			})),
 		}
 	));
+
+	// Add "latest" option for TargetVersion
+	if (props.version.includeLatest) {
+		tree.unshift({ title: "latest", value: "latest", key: "latest", children: [] });
+	}
 
 	return <TreeSelect
 		showSearch
@@ -83,7 +95,7 @@ export default function InputPartialVersion (
 			}
 		}}
 		popupRender={(menu) => {
-			const isValid = lib.isPartialVersion(customVersion);
+			const isValid = props.version.isValid(customVersion);
 
 			const submit = () => {
 				if (customVersion && isValid) {
@@ -117,6 +129,51 @@ export default function InputPartialVersion (
 					</div>
 				</>
 			);
+		}}
+	/>;
+}
+
+export function InputTargetVersion (
+	props: Omit<InputComponentProps, "fieldDefinition"> & {
+		fieldDefinition?: lib.FieldDefinition;
+		className?: string;
+	}
+) {
+	return <InputVersion
+		{...props}
+		version={{
+			isValid: lib.isTargetVersion,
+			includeLatest: true,
+		}}
+	/>;
+}
+
+export function InputPartialVersion (
+	props: Omit<InputComponentProps, "fieldDefinition"> & {
+		fieldDefinition?: lib.FieldDefinition;
+		className?: string;
+	}
+) {
+	return <InputVersion
+		{...props}
+		version={{
+			isValid: lib.isPartialVersion,
+			includeLatest: false,
+		}}
+	/>;
+}
+
+export function InputFullVersion (
+	props: Omit<InputComponentProps, "fieldDefinition"> & {
+		fieldDefinition?: lib.FieldDefinition;
+		className?: string;
+	}
+) {
+	return <InputVersion
+		{...props}
+		version={{
+			isValid: lib.isFullVersion,
+			includeLatest: false,
 		}}
 	/>;
 }
