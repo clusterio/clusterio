@@ -9,7 +9,7 @@ import * as lib from "@clusterio/lib";
 import ControlContext from "./ControlContext";
 import { InputComponent, InputComponentProps } from "../BaseWebPlugin";
 import type { Control } from "../util/websocket";
-import { notifyErrorHandler } from "../util/notify";
+import notify from "../util/notify";
 
 const { Title } = Typography;
 
@@ -183,7 +183,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 							await props.setConfig(fields);
 							setChangedFields(new Set());
 						} catch (err: any) {
-							notifyErrorHandler(err.message);
+							notify(err.message, "error");
 						}
 
 						await updateConfig();
