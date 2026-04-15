@@ -72,8 +72,8 @@ export function createShutdownGuard(logger: Logger, signalName: string, callback
 		logger.info(`Caught ${signalName}, shutting down`);
 		callback().catch(err => {
 			setBlocking(true);
-			logger.error(err.stack);
 			logger.fatal("Error during shutdown, terminating immediately");
+			logger.fatal(err.stack);
 			process.exit(1);
 		});
 	};
