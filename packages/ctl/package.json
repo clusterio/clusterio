@@ -22,7 +22,6 @@
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
 		"as-table": "^1.0.55",
-		"set-blocking": "catalog:",
 		"winston": "catalog:",
 		"yargs": "^17.7.2"
 	},
@@ -31,7 +30,6 @@
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
-		"@types/set-blocking": "catalog:",
 		"@types/yargs": "^17.0.33",
 		"typescript": "catalog:"
 	}

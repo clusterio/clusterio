@@ -3,6 +3,9 @@
  * @module lib/helpers
  */
 
+import type { Logger } from "./logging";
+import setBlocking from "set-blocking";
+
 /**
  * Return a string describing the type of the value passed
  *
@@ -50,6 +53,32 @@ export async function timeout<T>(promise: Promise<T>, limitMs: number, timeoutRe
 		clearTimeout(timer);
 	}
 }
+
+
+/**
+ * Catch process signals, force exit on second signal
+ */
+export function createShutdownGuard(logger: Logger, signalName: string, callback: () => Promise<unknown>): () => void {
+	let called = false;
+
+	return () => {
+		if (called) {
+			setBlocking(true);
+			logger.fatal(`Caught second ${signalName}, terminating immediately`);
+			process.exit(1);
+		}
+
+		called = true;
+		logger.info(`Caught ${signalName}, shutting down`);
+		callback().catch(err => {
+			setBlocking(true);
+			logger.fatal("Error during shutdown, terminating immediately");
+			logger.fatal(err.stack);
+			process.exit(1);
+		});
+	};
+}
+
 
 /**
  * Helper to serialise and merge waiting calls to an async callback.
