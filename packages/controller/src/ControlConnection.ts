@@ -330,6 +330,7 @@ export default class ControlConnection extends BaseConnection {
 			}
 
 			instance.config.commitStaging();
+			await this._controller.instanceConfigUpdated(instance);
 		} finally {
 			instance.config.revertStaging();
 		}
