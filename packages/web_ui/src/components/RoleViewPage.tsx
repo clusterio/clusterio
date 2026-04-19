@@ -113,8 +113,8 @@ function PermissionGroup({
 			<Space style={{ width: "100%", justifyContent: "space-between" }}>
 				<strong>{formatGroupTitle(groupName)}</strong>
 				<Space>
-					<Button size="small" onClick={() => setGroup(true)}>Select all</Button>
-					<Button size="small" onClick={() => setGroup(false)}>Clear</Button>
+					<Button size="small" disabled={!canUpdate} onClick={() => setGroup(true)}>Select all</Button>
+					<Button size="small" disabled={!canUpdate} onClick={() => setGroup(false)}>Clear</Button>
 				</Space>
 			</Space>
 
