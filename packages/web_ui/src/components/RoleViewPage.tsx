@@ -109,7 +109,7 @@ function PermissionGroup({
 	}
 
 	return (
-		<div style={{ border: "1px solid #f0f0f0", padding: 12, borderRadius: 6 }}>
+		<div style={{ border: "1px solid #424242", padding: 12, borderRadius: 6 }}>
 			<Space style={{ width: "100%", justifyContent: "space-between" }}>
 				<strong>{formatGroupTitle(groupName)}</strong>
 				<Space>
