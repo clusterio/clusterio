@@ -8,6 +8,7 @@ import BaseWebPlugin from "../BaseWebPlugin";
 
 type PluginExtraProps = {
 	component: string;
+	search?: string;
 	instance?: lib.InstanceDetails;
 	user?: lib.UserDetails;
 	host?: lib.HostDetails;
