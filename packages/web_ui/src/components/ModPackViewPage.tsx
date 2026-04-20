@@ -26,7 +26,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
-import InputPartialVersion from "./InputPartialVersion";
+import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
 
 const { logger } = lib;

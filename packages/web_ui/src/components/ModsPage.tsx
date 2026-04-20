@@ -21,7 +21,7 @@ import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
-import InputPartialVersion from "./InputPartialVersion";
+import { InputPartialVersion } from "./InputVersion";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 

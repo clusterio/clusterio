@@ -9,8 +9,7 @@ import App from "./components/App";
 import BaseWebPlugin, { InputComponent } from "./BaseWebPlugin";
 import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
-import InputTargetVersion from "./components/InputTargetVersion";
-import InputPartialVersion from "./components/InputPartialVersion";
+import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
@@ -111,6 +110,7 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 
 function inputComponentsFromPlugins(plugins: Map<string, BaseWebPlugin>) {
 	const inputComponents: Record<string, InputComponent> = {
+		"full_version": InputFullVersion,
 		"partial_version": InputPartialVersion,
 		"target_version": InputTargetVersion,
 		"mod_pack": InputModPack,
