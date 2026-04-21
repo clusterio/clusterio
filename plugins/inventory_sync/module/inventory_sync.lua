@@ -312,7 +312,7 @@ function inventory_sync.sync_player(acquire_response)
 end
 
 function inventory_sync.finish_download(player, finished_record)
-	local status, result = pcall(inventory_sync.deserialize_player, player, finished_record)
+	local status, result = xpcall(inventory_sync.deserialize_player, debug.traceback, player, finished_record)
 	if not status then
 		log("ERROR: Deserializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Deserializing player data failed: " .. result)
@@ -382,7 +382,7 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	end
 
 	player_record.generation = player_record.generation + 1
-	local status, result = pcall(inventory_sync.serialize_player, player, player_record)
+	local status, result = xpcall(inventory_sync.serialize_player, debug.traceback, player, player_record)
 	if not status then
 		log("ERROR: Serializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Serializing player data failed: " .. result)
