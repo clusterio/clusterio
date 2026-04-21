@@ -510,6 +510,26 @@ function serialize.serialize_player(player, failed_deserialization)
 	return serialized
 end
 
+--- Ensure a player has a character, works from any controller type
+--- @param player LuaPlayer
+--- @return LuaEntity
+local function ensure_character(player)
+	-- Do nothing if the player has a valid character
+	local character = player.character
+	if character and character.valid then
+		return character
+	end
+
+	-- Switch to god controller if create_character would fail
+	if player.controller_type ~= defines.controllers.god then
+		player.set_controller{ type = defines.controllers.god }
+	end
+
+	-- Create and return the character
+	assert(player.create_character(), "Failed to create character")
+	return player.character
+end
+
 --- @class FailedDeserializationPlayerData
 --- @field recipe_notifications string[]?
 
@@ -519,45 +539,45 @@ end
 function serialize.deserialize_player(player, serialized)
 	local failed_deserialization = {}
 
-	if player.controller_type ~= defines.controllers[serialized.controller] or serialized.controller == "ghost" then
-		-- If targeting the character or ghost controller then create a character
-		if serialized.controller == "character" or serialized.controller == "ghost" then
-			if player.controller_type == defines.controllers.ghost or player.controller_type == defines.controllers.spectator then
-				player.set_controller({ type = defines.controllers.god })
-			end
-			if player.controller_type == defines.controllers.god then
-				player.create_character()
+	local target_controller = defines.controllers[serialized.controller]
+	if player.controller_type ~= target_controller or serialized.controller == "ghost" then
+		if serialized.controller == "character" or serialized.controller == "remote" then
+			-- Character and Remote both require a character, but must not destroy an existing one
+			ensure_character(player)
+			if player.controller_type ~= target_controller then
+				player.set_controller{ type = target_controller }
 			end
 
-			-- The ghost state stores hidden logistic and filters which are only accessible in the character controller
-			if serialized.controller == "ghost" then
+		elseif serialized.controller == "ghost" then
+			-- Ghost state stores hidden logistic and filters which are only accessible in the character controller
+			local character = ensure_character(player)
+			if serialized.personal_logistic_slots then
 				serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
+			end
+			if serialized.inventories then
 				serialize.deserialize_inventories(player, serialized.inventories, character_inventories)
-				local character = player.character
-				if serialized.ticks_to_respawn then
-					player.ticks_to_respawn = serialized.ticks_to_respawn
-				else
-					-- We have to set ticks to respawn to save the hidden state into the player but we
-					-- can't unset tick_to_respawn by setting it back to nil as that triggers a respawn.
-					player.ticks_to_respawn = 0
-					player.set_controller({ type = defines.controllers.god })
-					player.set_controller({ type = defines.controllers.ghost })
-				end
-				if character and character.valid then
-					character.destroy()
-				end
+			end
+			if serialized.ticks_to_respawn then
+				player.ticks_to_respawn = serialized.ticks_to_respawn
+			else
+				-- We have to set ticks to respawn to save the hidden state into the player but we
+				-- can't unset tick_to_respawn by setting it back to nil as that triggers a respawn.
+				player.ticks_to_respawn = 0
+				player.set_controller{ type = defines.controllers.god }
+				player.set_controller{ type = defines.controllers.ghost }
+			end
+			if character and character.valid then
+				character.destroy()
 			end
 
 		else
-			-- Targeting the god or spectator controller, if coming from the
-			-- character controller then destroy the character
-			if player.controller_type == defines.controllers.character then
-				player.character.destroy()
+			-- All other controllers should not have a character
+			local character = player.character
+			if character and character.valid then
+				character.destroy()
 			end
-
-			-- Switching to god or spectator is a matter of setting the controller
-			if player.controller_type ~= defines.controllers[serialized.controller] then
-				player.set_controller({ type = defines.controllers[serialized.controller] })
+			if player.controller_type ~= target_controller then
+				player.set_controller{ type = target_controller }
 			end
 		end
 	end
