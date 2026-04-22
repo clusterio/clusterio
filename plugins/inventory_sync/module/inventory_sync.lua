@@ -16,6 +16,8 @@ local get_script_data = require("modules/inventory_sync/get_script_data")
 local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local dialog_failed_download = require("modules/inventory_sync/gui/dialog_failed_download")
 
+local v2_remote_controller = compat.version_ge("2.0.0")
+
 -- Returns true if the player is currently in a cutscene
 local function is_in_cutscene(player)
 	return player.controller_type == defines.controllers.cutscene
@@ -113,6 +115,11 @@ function inventory_sync.deserialize_player(player, finished_record)
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
+
+	-- Return to remote if needed (restore position may exit remote view)
+	if serialized_player.remote then
+		player.set_controller{ type = defines.controllers.remote }
+	end
 
 	-- Transfer items from stashed inventory
 	if stashed_corpse then
@@ -440,8 +447,13 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	-- player data is downloading
 	if player_record.sync then
 		-- Store original position to teleport back to
-		record.surface = player.surface
-		record.position = player.position
+		if v2_remote_controller then
+			record.surface = player.physical_surface
+			record.position = player.physical_position
+		else
+			record.surface = player.surface
+			record.position = player.position
+		end
 		if player.driving then
 			record.vehicle = player.vehicle
 		end

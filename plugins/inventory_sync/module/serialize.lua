@@ -6,6 +6,7 @@ local serialize = {}
 
 local v2_logistic_api = compat.version_ge("2.0.0")
 local v2_storage_api = compat.version_ge("2.0.0")
+local v2_remote_controller = compat.version_ge("2.0.0")
 local recipe_notifications_api = compat.version_ge("2.0.67")
 
 function serialize.serialize_inventories(source, inventories)
@@ -428,6 +429,7 @@ end
 --- @field generation number
 --- @field name string
 --- @field controller string
+--- @field remote boolean
 --- @field color Color
 --- @field chat_color Color
 --- @field tag string
@@ -450,6 +452,7 @@ function serialize.serialize_player(player, failed_deserialization)
 	local serialized = {
 		generation = 0, -- Gets replaced later
 		controller = controller_to_name[player.controller_type],
+		remote = false,
 		name = player.name,
 		color = player.color,
 		chat_color = player.chat_color,
@@ -459,6 +462,11 @@ function serialize.serialize_player(player, failed_deserialization)
 		flashlight = player.is_flashlight_enabled(),
 		ticks_to_respawn = player.ticks_to_respawn,
 	}
+
+	if v2_remote_controller then
+		serialized.remote = player.controller_type == defines.controllers.remote
+		serialized.controller = controller_to_name[player.physical_controller_type]
+	end
 
 	-- For the waiting to respawn state the inventory logistic requests and filters are hidden on the player
 	if player.controller_type == defines.controllers.ghost and player.ticks_to_respawn then
@@ -482,7 +490,9 @@ function serialize.serialize_player(player, failed_deserialization)
 	end
 
 	-- Serialize non-character inventories
-	if player.controller_type == defines.controllers.god then
+	if player.controller_type == defines.controllers.god
+	or v2_remote_controller and player.physical_controller_type == defines.controllers.god
+	then
 		serialized.inventories = serialize.serialize_inventories(player, { main = defines.inventory.god_main })
 	end
 
@@ -541,8 +551,8 @@ function serialize.deserialize_player(player, serialized)
 
 	local target_controller = defines.controllers[serialized.controller]
 	if player.controller_type ~= target_controller or serialized.controller == "ghost" then
-		if serialized.controller == "character" or serialized.controller == "remote" then
-			-- Character and Remote both require a character, but must not destroy an existing one
+		if serialized.controller == "character" then
+			-- Create a character but do not destroy an existing one
 			ensure_character(player)
 			if player.controller_type ~= target_controller then
 				player.set_controller{ type = target_controller }
@@ -570,7 +580,7 @@ function serialize.deserialize_player(player, serialized)
 				character.destroy()
 			end
 
-		else
+		elseif serialized.controller ~= "remote" then
 			-- All other controllers should not have a character
 			local character = player.character
 			if character and character.valid then
@@ -579,6 +589,9 @@ function serialize.deserialize_player(player, serialized)
 			if player.controller_type ~= target_controller then
 				player.set_controller{ type = target_controller }
 			end
+
+		else
+			error("Remote should not be 'serialized.controller'")
 		end
 	end
 
@@ -622,6 +635,11 @@ function serialize.deserialize_player(player, serialized)
 	if recipe_notifications_api and serialized.recipe_notifications then
 		failed_deserialization.recipe_notifications =
 			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
+	end
+
+	-- Return to remote view after physical controller has been synced
+	if serialized.remote then
+		player.set_controller{ type = defines.controllers.remote }
 	end
 
 	return next(failed_deserialization) and failed_deserialization or nil
