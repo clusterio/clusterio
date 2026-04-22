@@ -4,8 +4,12 @@ local can_enter_vehicle = {
 	[defines.controllers.character] = true,
 	[defines.controllers.god] = true,
 	[defines.controllers.editor] = true,
-	[defines.controllers.remote] = true,
 }
+
+if defines.controllers.remote then
+	-- Does not exist in 1.1, so we need this nil check
+	can_enter_vehicle[defines.controllers.remote] = true
+end
 
 local v2_surface_platform = compat.version_ge("2.0.0")
 
