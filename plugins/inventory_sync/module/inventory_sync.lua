@@ -116,11 +116,6 @@ function inventory_sync.deserialize_player(player, finished_record)
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
 
-	-- Return to remote if needed (restore position may exit remote view)
-	if serialized_player.remote then
-		player.set_controller{ type = defines.controllers.remote }
-	end
-
 	-- Transfer items from stashed inventory
 	if stashed_corpse then
 		local stash = stashed_corpse.get_inventory(defines.inventory.character_corpse)

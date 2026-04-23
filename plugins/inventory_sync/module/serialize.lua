@@ -429,7 +429,6 @@ end
 --- @field generation number
 --- @field name string
 --- @field controller string
---- @field remote boolean
 --- @field color Color
 --- @field chat_color Color
 --- @field tag string
@@ -452,7 +451,6 @@ function serialize.serialize_player(player, failed_deserialization)
 	local serialized = {
 		generation = 0, -- Gets replaced later
 		controller = controller_to_name[player.controller_type],
-		remote = false,
 		name = player.name,
 		color = player.color,
 		chat_color = player.chat_color,
@@ -463,8 +461,8 @@ function serialize.serialize_player(player, failed_deserialization)
 		ticks_to_respawn = player.ticks_to_respawn,
 	}
 
+	-- In 2.0 we want to sync the physical controller to ignore remote view
 	if v2_remote_controller then
-		serialized.remote = player.controller_type == defines.controllers.remote
 		serialized.controller = controller_to_name[player.physical_controller_type]
 	end
 
@@ -635,11 +633,6 @@ function serialize.deserialize_player(player, serialized)
 	if recipe_notifications_api and serialized.recipe_notifications then
 		failed_deserialization.recipe_notifications =
 			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
-	end
-
-	-- Return to remote view after physical controller has been synced
-	if serialized.remote then
-		player.set_controller{ type = defines.controllers.remote }
 	end
 
 	return next(failed_deserialization) and failed_deserialization or nil
