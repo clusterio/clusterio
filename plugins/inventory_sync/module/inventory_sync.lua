@@ -16,6 +16,8 @@ local get_script_data = require("modules/inventory_sync/get_script_data")
 local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local dialog_failed_download = require("modules/inventory_sync/gui/dialog_failed_download")
 
+local v2_remote_controller = compat.version_ge("2.0.0")
+
 -- Returns true if the player is currently in a cutscene
 local function is_in_cutscene(player)
 	return player.controller_type == defines.controllers.cutscene
@@ -116,9 +118,9 @@ function inventory_sync.deserialize_player(player, finished_record)
 
 	-- Transfer items from stashed inventory
 	if stashed_corpse then
-		local main = player.get_main_inventory()
 		local stash = stashed_corpse.get_inventory(defines.inventory.character_corpse)
-		if main then
+		if player.character then
+			local main = player.character.get_main_inventory()
 			for i = 1, #stash do
 				-- Try transferring a stack
 				local source = stash[i]
@@ -312,7 +314,7 @@ function inventory_sync.sync_player(acquire_response)
 end
 
 function inventory_sync.finish_download(player, finished_record)
-	local status, result = pcall(inventory_sync.deserialize_player, player, finished_record)
+	local status, result = xpcall(inventory_sync.deserialize_player, debug.traceback, player, finished_record)
 	if not status then
 		log("ERROR: Deserializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Deserializing player data failed: " .. result)
@@ -382,7 +384,7 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	end
 
 	player_record.generation = player_record.generation + 1
-	local status, result = pcall(inventory_sync.serialize_player, player, player_record)
+	local status, result = xpcall(inventory_sync.serialize_player, debug.traceback, player, player_record)
 	if not status then
 		log("ERROR: Serializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Serializing player data failed: " .. result)
@@ -440,8 +442,13 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	-- player data is downloading
 	if player_record.sync then
 		-- Store original position to teleport back to
-		record.surface = player.surface
-		record.position = player.position
+		if v2_remote_controller then
+			record.surface = player.physical_surface
+			record.position = player.physical_position
+		else
+			record.surface = player.surface
+			record.position = player.position
+		end
 		if player.driving then
 			record.vehicle = player.vehicle
 		end

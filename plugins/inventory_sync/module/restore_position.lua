@@ -1,8 +1,17 @@
+local compat = require("modules/clusterio/compat")
+
 local can_enter_vehicle = {
 	[defines.controllers.character] = true,
 	[defines.controllers.god] = true,
 	[defines.controllers.editor] = true,
 }
+
+if defines.controllers.remote then
+	-- Does not exist in 1.1, so we need this nil check
+	can_enter_vehicle[defines.controllers.remote] = true
+end
+
+local v2_surface_platform = compat.version_ge("2.0.0")
 
 --- @param player LuaPlayer
 --- @param record table
@@ -20,6 +29,8 @@ return function(player, record)
 				player.teleport(safe_position, player.surface)
 			end
 		end
+	elseif v2_surface_platform and record.surface and record.surface.platform and can_enter_vehicle[player.controller_type] then
+		player.enter_space_platform(record.surface.platform)
 	elseif record.surface and record.position then
 		player.teleport(record.position, record.surface)
 	end
