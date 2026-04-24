@@ -31,6 +31,35 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.25
+
+### Features
+
+- Added double interrupt logic to ctl to force immediate exit. [#887](<https://github.com/clusterio/clusterio/issues/887>)
+- Allow selection of factorio versions not listed on the Wube website for instances and mod packs. [#867](<https://github.com/clusterio/clusterio/issues/867>)
+
+### Fixes
+
+- Fix the webui being unable to set host config values and that no error was displayed. [#891](<https://github.com/clusterio/clusterio/issues/891>)
+- Fix instance config not updating on changes being applied. [#901](<https://github.com/clusterio/clusterio/pull/901>)
+- Incorrect acccessing of player inventory during crafting queue serialisation when in remote view. [#892](<https://github.com/clusterio/clusterio/issues/892>)
+- Use physical location and controller for syncing player to prevent teleporting with remote view. [#894](<https://github.com/clusterio/clusterio/pull/894>)
+- Fixed player exiting space platform hub on sync and other remote view edge cases.  [#894](<https://github.com/clusterio/clusterio/pull/894>)
+
+### Changes
+
+- Config validation errors are no longer logged when raised during an request handler. [#888](<https://github.com/clusterio/clusterio/issues/888>)
+- Updated role permission editor to use grouped layout with search and improved formatting. [#902](<https://github.com/clusterio/clusterio/pull/902>)
+
+### Breaking Changes
+
+- Removed obsolete functionality to download headless server in the installer. [#890](<https://github.com/clusterio/clusterio/pull/890>)
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](<https://github.com/Cooldude2606>)
+[@Daniel](<https://github.com/Daniel>)
+[@Hornwitser](<https://github.com/Hornwitser>)
+
 ## Version 2.0.0-alpha.24
 
 ### Features
