@@ -21,7 +21,7 @@
 		"node": ">=20"
 	},
 	"dependencies": {
-		"@clusterio/lib": "workspace:*",
+		"@clusterio/lib": "workspace:^",
 		"@sinclair/typebox": "catalog:",
 		"jimp": "^1.6.0",
 		"jszip": "catalog:",
