@@ -20,7 +20,7 @@
 		"node": ">=20"
 	},
 	"dependencies": {
-		"@clusterio/lib": "workspace:*",
+		"@clusterio/lib": "workspace:^",
 		"as-table": "^1.0.55",
 		"winston": "catalog:",
 		"yargs": "^17.7.2"

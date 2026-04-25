@@ -199,7 +199,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			title: "Last seen",
 			key: "lastSeen",
 			filterMultiple: false,
-			defaultFilteredValue: onlyOnline ? ["online"] : undefined,
+			defaultFilteredValue: onlyOnline ? "online" : undefined,
 			filters: [
 				{ text: "Online", value: "online" },
 				{ text: "24h", value: "24h" },
