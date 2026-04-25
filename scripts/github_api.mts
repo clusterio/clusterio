@@ -95,6 +95,11 @@ export interface Issue {
 	html_url: string,
 	state: string,
 	body?: string | null,
+	user: {
+		login: string,
+		url: string,
+		html_url: string,
+	}
 	pull_request?: {
 		url: string,
 		html_url: string,
