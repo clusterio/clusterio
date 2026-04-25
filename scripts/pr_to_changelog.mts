@@ -191,7 +191,7 @@ function printMarkdown(changelog: Changelog, issues: Issue[], refText: (issue: I
 	const sections = new Set([...changelogSections, ...Object.keys(changelog)]);
 	for (const section of sections) {
 		if (section in changelog) {
-			console.log(`### ${section}`);
+			console.log(`### ${section}\n`);
 			const entries = changelog[section];
 			console.log(entries.map(text => (
 				`- ${text.replaceAll(/#(\d+)/g, (ref, idAsText) => {
