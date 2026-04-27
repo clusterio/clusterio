@@ -28,6 +28,7 @@ import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
+import * as Console from "node:console";
 
 const { logger } = lib;
 const { Text } = Typography;
@@ -1068,8 +1069,31 @@ function ExportButton(props: { modPack: lib.ModPack }) {
 function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"locale"): Map<any, any> | any {
 	let [assetData, setAssetData] = useState<Map<any, any>|any>(asset === "locale" ? new Map() : {});
 	let assetFilename: string | undefined;
-	if (modPack instanceof lib.ModPack && modPack.exportManifest?.assets[asset]) {
-		assetFilename = modPack.exportManifest.assets[asset];
+	if (modPack instanceof lib.ModPack && modPack.exportManifest) {
+		const assets = modPack.exportManifest.assets;
+		if (asset === "locale") {
+			const languages = [
+				...navigator.languages,
+				navigator.language,
+			];
+
+			for (const lang of languages) {
+				if (assets[`locale-${lang}`]) {
+					assetFilename = assets[`locale-${lang}`];
+					break;
+				}
+				const baseLang = lang.split("-")[0];
+				if (assets[`locale-${baseLang}`]) {
+					assetFilename = assets[`locale-${baseLang}`];
+					break;
+				}
+			}
+			if (!assetFilename) {
+				assetFilename = assets["locale"];
+			}
+		} else {
+			assetFilename = assets[asset];
+		}
 	}
 	useEffect(() => {
 		async function load() {
