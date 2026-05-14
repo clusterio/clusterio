@@ -89,9 +89,11 @@ function LoginForm(props: LoginFormProps) {
 					Start Factorio, join one of the following multiplayer servers
 					and type <Text keyboard>/web-login</Text> into the chat:
 				</Paragraph>
-				<ul>
-					{servers.map(text => <li key={text}>{text}</li>)}
-				</ul>
+				<div style={{ maxHeight: 160, overflowY: "auto", paddingLeft: 16 }}>
+					<ul>
+						{servers.map(text => <li key={text}>{text}</li>)}
+					</ul>
+				</div>
 			</li>
 			<li>
 				<Paragraph>Enter the code displayed in the in-game dialog here:</Paragraph>

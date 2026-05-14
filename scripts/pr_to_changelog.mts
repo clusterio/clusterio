@@ -187,11 +187,17 @@ async function fetchIssuesUpdatedSince(since: string) {
 	);
 }
 
-function printMarkdown(changelog: Changelog, issues: Issue[], refText: (issue: Issue) => string) {
+function printMarkdown(
+	changelog: Changelog,
+	issues: Issue[],
+	users: Issue["user"][],
+	refText: (issue: Issue) => string,
+	userText: (user: Issue["user"]) => string,
+) {
 	const sections = new Set([...changelogSections, ...Object.keys(changelog)]);
 	for (const section of sections) {
 		if (section in changelog) {
-			console.log(`### ${section}`);
+			console.log(`### ${section}\n`);
 			const entries = changelog[section];
 			console.log(entries.map(text => (
 				`- ${text.replaceAll(/#(\d+)/g, (ref, idAsText) => {
@@ -209,6 +215,9 @@ function printMarkdown(changelog: Changelog, issues: Issue[], refText: (issue: I
 			console.log();
 		}
 	}
+
+	console.log(`Many thanks to the following for contributing to this release:`);
+	console.log(users.map(userText).join("\n"))
 }
 
 async function main() {
@@ -222,13 +231,21 @@ async function main() {
 	));
 
 	const changelog = changelogFromPullRequests(pullRequests, issues);
+	const users = [...new Map(pullRequests.map(issue => [issue.user.login, issue.user])).values()]
 
 	console.log();
-	console.log("=== Github markdown ===");
-	printMarkdown(changelog, issues, issue => `${repository}#${issue.number}`);
+	console.log("=== Github Release Markdown ===");
+	printMarkdown(changelog, issues, users,
+		issue => `${repository}#${issue.number}`,
+		user => `@${user.login}`,
+	);
+
 	console.log();
-	console.log("=== Discord markdown ===");
-	printMarkdown(changelog, issues, issue => `[#${issue.number}](<${issue.html_url}>)`);
+	console.log("=== Discord / Changelog Markdown ===");
+	printMarkdown(changelog, issues, users,
+		issue => `[#${issue.number}](<${issue.html_url}>)`,
+		user => `[@${user.login}](<${user.html_url}>)`
+	);
 }
 
 if (import.meta.main) {

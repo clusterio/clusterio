@@ -35,11 +35,11 @@
 		"external_plugins/*/*"
 	],
 	"devDependencies": {
-		"@clusterio/controller": "workspace:*",
-		"@clusterio/ctl": "workspace:*",
-		"@clusterio/host": "workspace:*",
-		"@clusterio/lib": "workspace:*",
-		"@clusterio/web_ui": "workspace:*",
+		"@clusterio/controller": "workspace:^",
+		"@clusterio/ctl": "workspace:^",
+		"@clusterio/host": "workspace:^",
+		"@clusterio/lib": "workspace:^",
+		"@clusterio/web_ui": "workspace:^",
 		"@eslint/eslintrc": "^3.3.1",
 		"@eslint/js": "^9.32.0",
 		"@stylistic/eslint-plugin": "^5.2.2",

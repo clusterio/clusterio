@@ -21,6 +21,7 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 	const account = useAccount();
 	const control = useContext(ControlContext);
 	const [switching, setSwitching] = useState<boolean>(false);
+	const [popconfirm, setPopconfirm] = useState<string | null>(null);
 
 	const instanceId = props.instance.id;
 	const instanceStatus = props.instance.status;
@@ -88,35 +89,43 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 	if (account.hasPermission("core.instance.kill")) {
 		actions.push({
 			key: "kill",
+			label: "Kill",
 			danger: true,
 			disabled: instanceStatus === "stopped",
-			label: (<Popconfirm
-				title={<>
-					Killing this instance may leave you save and player data corrupted.
-					Are you sure you want to kill the instance?
-				</>}
-				placement="bottomRight"
-				okText="Kill"
-				okButtonProps={{ danger: true }}
-				onConfirm={() => {
-					control.sendTo(
-						{ instanceId },
-						new lib.InstanceKillRequest(),
-					).catch(
-						notifyErrorHandler("Error killing instance")
-					).finally(actionFinish);
-				}}
-			>
-				Kill
-			</Popconfirm>),
+			onClick: () => setPopconfirm("kill"),
 		});
 	}
 
-	return <VariableDropdownButton
-		{...props}
-		type="primary"
-		actions={actions}
-		loading={switching}
-		disabled={!(showStart || showStop)}
-	/>;
+	return <div style={{ position: "relative", display: "inline-block" }}>
+		<VariableDropdownButton
+			{...props}
+			type="primary"
+			actions={actions}
+			loading={switching}
+			disabled={!(showStart || showStop)}
+		/>
+		<Popconfirm
+			title={<>
+				Killing this instance may leave you save and player data corrupted.
+				Are you sure you want to kill the instance?
+			</>}
+			open={popconfirm === "kill"}
+			placement="bottomRight"
+			okText="Kill"
+			okButtonProps={{ danger: true }}
+			onCancel={() => setPopconfirm(null)}
+			onConfirm={() => {
+				control.sendTo(
+					{ instanceId },
+					new lib.InstanceKillRequest(),
+				).catch(
+					notifyErrorHandler("Error killing instance")
+				).finally(actionFinish);
+				setPopconfirm(null);
+			}}
+		>
+			{/* Used to position the popup under the button */}
+			<span style={{ position: "absolute", right: 0, top: "100%", width: 1, height: 1 }} />
+		</Popconfirm>
+	</div>;
 }

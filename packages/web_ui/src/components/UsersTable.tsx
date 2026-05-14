@@ -231,7 +231,8 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			},
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortLastSeen(a, b, instanceId, instanceId),
 			render: (_: any, user: lib.UserDetails) => formatLastSeen(user, instanceId),
-			responsive: ["lg"],
+			// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
+			// responsive: ["lg"],
 		},
 	);
 
