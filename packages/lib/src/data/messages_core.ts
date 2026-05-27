@@ -102,8 +102,16 @@ export class Address {
 	 * Returns a string suitable for indexing the address in a Map
 	 * @returns unique string for this address
 	 */
-	index() {
-		return `${this.type}:${this.id}:${this.requestId}`;
+	requestIndex() {
+		return `${this.type}:${this.id}:${this.requestId}` as const;
+	}
+
+	/**
+	 * Returns a string suitable for indexing the address in a Map
+	 * @returns unique string for this address, excluding required id
+	 */
+	addressIndex() {
+		return `${this.type}:${this.id}` as const;
 	}
 
 	/**
