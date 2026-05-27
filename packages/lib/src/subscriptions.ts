@@ -9,6 +9,120 @@ export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, 
 export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void
 
 /**
+ * Represents a set of string subscription filters.
+ * When isAll() is true, all strings match this filter.
+ * When isEmpty() is true, no strings match this filter.
+ * Otherwise, literal string matching is performed against a set.
+ */
+export class SubscriptionFilters {
+	private constructor(
+		private _all: boolean,
+		private _filters: Set<string>,
+	) {}
+
+	static jsonSchema = Type.Array(Type.String());
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(false, new Set(json));
+	}
+
+	toJSON() {
+		return [...this._filters];
+	}
+
+	/** Creates a subscription filter accepting all strings */
+	static all() {
+		return new this(true, new Set());
+	}
+
+	isAll() {
+		return this._all;
+	}
+
+	/** Creates a subscription filter rejecting all strings */
+	static empty() {
+		return new this(false, new Set());
+	}
+
+	isEmpty() {
+		return !this._all && this._filters.size === 0;
+	}
+
+	/**
+	 * Creates a subscription filter from undefined, string, or array of strings.
+	 * Strings work as expected, undefined will produce a filter accepting all values.
+	 * @param filters Shorthand representation
+	 */
+	static fromShorthand(filters?: string | string[]) {
+		if (filters === undefined) {
+			return this.all();
+		}
+		if (Array.isArray(filters)) {
+			return new this(false, new Set(filters));
+		}
+		return new this(false, new Set([filters]));
+	}
+
+	toString() {
+		return `[SubscriptionFilters ${this._all ? "All" : String(this._filters)}]`;
+	}
+
+	/** Returns true if this filter accepts this string */
+	accepts(value: string) {
+		return this._all || this._filters.has(value);
+	}
+
+	/** Returns true if there is overlap between two filters */
+	intersects(other: this) {
+		if (this._all) {
+			return !other.isEmpty();
+		}
+		if (other._all) {
+			return !this.isEmpty();
+		}
+		for (const filter of other._filters) {
+			if (this._filters.has(filter)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Add filters from a filter into this one. */
+	union(other: this) {
+		if (this._all) {
+			return; // Already all
+		}
+		if (other._all) {
+			this._all = true;
+			this._filters.clear();
+			return;
+		}
+		for (const filter of other._filters) {
+			this._filters.add(filter);
+		}
+	}
+
+	/**
+	 * Remove filters in a filter from this one.
+	 * You cannot subtract filters from a filter accepting all.
+	 * Subtracting a filter accepting all produces an empty filter.
+	 */
+	subtract(other: this) {
+		if (this._all) {
+			return; // Cannot subtract from all
+		}
+		if (other._all) {
+			this._all = false;
+			this._filters.clear();
+		}
+		for (const filter of other._filters) {
+			this._filters.delete(filter);
+		}
+	}
+}
+
+/**
  * A subscription request sent by a subscriber, this updates what events the subscriber will be sent
  * The permission for this request copies the permission from the event being subscribed to
  * subscribe: false will unsubscribe the subscriber from all notifications
@@ -20,7 +134,7 @@ export class SubscriptionRequest {
 	static dst = "controller" as const;
 	static permission(user: IUser, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
-			const data = message.data as Static<typeof SubscriptionRequest.jsonSchema>;
+			const data = message.data as Static<typeof this.jsonSchema>;
 			const entry = Link._eventsByName.get(data[0]);
 			if (entry && entry.Event.permission) {
 				if (typeof entry.Event.permission === "string") {
@@ -34,15 +148,36 @@ export class SubscriptionRequest {
 
 	/** Indicates if updates have been sent */
 	static Response = JsonBoolean;
+	public filters: SubscriptionFilters;
+
+	/** @deprecated Use SubscriptionFilters instead */
+	constructor(
+		eventName: string,
+		subscribe: boolean,
+		lastRequestTimeMs: number | undefined,
+		filters?: string | string[],
+	);
+
+	constructor(
+		eventName: string,
+		subscribe: boolean,
+		lastRequestTimeMs: number | undefined,
+		filters?: SubscriptionFilters,
+	);
 
 	constructor(
 		public eventName: string,
 		public subscribe: boolean,
 		public lastRequestTimeMs: number = 0,
-		public filters: string | string[] | undefined = undefined,
+		filters: undefined | string | string[] | SubscriptionFilters,
 	) {
 		if (!Link._eventsByName.has(eventName)) {
 			throw new Error(`Unregistered Event class ${eventName}`);
+		}
+		if (filters instanceof SubscriptionFilters) { // Easier migration for plugins
+			this.filters = filters;
+		} else {
+			this.filters = SubscriptionFilters.fromShorthand(filters);
 		}
 	}
 
@@ -56,28 +191,32 @@ export class SubscriptionRequest {
 			Type.String(),
 			Type.Boolean(),
 			Type.Number(),
-			Type.Union([Type.String(), Type.Array(Type.String())]),
+			SubscriptionFilters.jsonSchema,
 		]),
 	]);
 
 	toJSON() {
-		if (this.filters !== undefined) {
-			return [this.eventName, this.subscribe, this.lastRequestTimeMs, this.filters];
+		if (!this.filters.isAll()) {
+			return [this.eventName, this.subscribe, this.lastRequestTimeMs, this.filters.toJSON()];
 		}
 		return [this.eventName, this.subscribe, this.lastRequestTimeMs];
 	}
 
-	static fromJSON(json: Static<typeof SubscriptionRequest.jsonSchema>): SubscriptionRequest {
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		const [eventName, subscribe, lastRequestTimeMs, filters] = json;
-		return new this(eventName, subscribe, lastRequestTimeMs, filters);
+		return new this(
+			eventName,
+			subscribe,
+			lastRequestTimeMs,
+			filters ? SubscriptionFilters.fromJSON(filters) : SubscriptionFilters.all()
+		);
 	}
 }
 
 type Subscriber = {
 	link: Link,
 	dst: Address,
-	/** Optional filters this subscriber is interested in. Undefined means all events */
-	filters?: string[],
+	filters: SubscriptionFilters,
 }
 
 type EventData = {
@@ -91,13 +230,6 @@ type EventData = {
  */
 export class SubscriptionController {
 	_events = new Map<string, EventData>();
-
-	private static normalizeFilters(value?: string | string[]): string[] | undefined {
-		if (value === undefined) {
-			return undefined;
-		}
-		return Array.isArray(value) ? value : [value];
-	}
 
 	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
@@ -124,7 +256,7 @@ export class SubscriptionController {
 	 * Broadcast an event to all subscribers of that event
 	 * @param event - Event to broadcast.
 	 */
-	broadcast<T>(event: Event<T>, filter?: string | string[]) {
+	broadcast<T>(event: Event<T> & { filters?: string | string[] }, filters?: string | string[]) {
 		const entry = Link._eventsByClass.get(event.constructor);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${event.constructor.name}`);
@@ -134,18 +266,13 @@ export class SubscriptionController {
 			throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
 
-		const filtersToMatch = SubscriptionController.normalizeFilters(filter);
+		const broadcastFilters = SubscriptionFilters.fromShorthand(filters);
 		for (const [addressIndex, subscriber] of eventData.subscriptions) {
 			if ((subscriber.link.connector as WebSocketBaseConnector).closing) {
 				eventData.subscriptions.delete(addressIndex);
 				continue;
 			}
-
-			if (
-				filtersToMatch === undefined
-				|| subscriber.filters === undefined
-				|| subscriber.filters.some(f => filtersToMatch.includes(f))
-			) {
+			if (subscriber.filters.intersects(broadcastFilters)) {
 				subscriber.link.sendTo(subscriber.dst, event);
 			}
 		}
@@ -181,58 +308,48 @@ export class SubscriptionController {
 	/**
 	 * Handle incoming subscription requests on a link
 	 * @param link - Link message was received on
-	 * @param event - incomming event.
+	 * @param request - incoming request.
 	 * @param src - Source address of incomming request.
 	 * @param dst - destination address of incomming request.
 	 */
-	async handleRequest(link: Link, event: SubscriptionRequest, src: Address, dst: Address) {
-		if (!Link._eventsByName.has(event.eventName)) {
-			throw new Error(`Event ${event.eventName} is not a registered event`);
+	async handleRequest(link: Link, request: SubscriptionRequest, src: Address, dst: Address) {
+		if (!Link._eventsByName.has(request.eventName)) {
+			throw new Error(`Event ${request.eventName} is not a registered event`);
 		}
-		const eventData = this._events.get(event.eventName);
+		const eventData = this._events.get(request.eventName);
 		if (!eventData) {
-			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
+			throw new Error(`Event ${request.eventName} is not a registered as subscribable`);
 		}
 		const addressIndex = src.addressIndex();
 		const subscriber = eventData.subscriptions.get(addressIndex);
-		if (event.subscribe === false) {
-			// Unsubscribe logic
-			if (!subscriber) {
-				return false;
-			}
-			if (event.filters === undefined || subscriber.filters === undefined) {
-				// Remove entire subscription for this address
-				eventData.subscriptions.delete(addressIndex);
-			} else {
-				const filtersToRemove = Array.isArray(event.filters) ? event.filters : [event.filters];
-				subscriber.filters = subscriber.filters.filter(f => !filtersToRemove.includes(f));
-				if (subscriber.filters.length === 0) {
-					// No filters left, remove subscription
+		switch (request.subscribe) {
+			case false:
+				if (!subscriber) {
+					return false;
+				}
+				subscriber.filters.subtract(request.filters);
+				if (subscriber.filters.isEmpty()) {
 					eventData.subscriptions.delete(addressIndex);
 				}
-			}
-		} else {
-			// Subscribe logic
-			const newFilters = SubscriptionController.normalizeFilters(event.filters);
-			if (!subscriber) {
-				eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: newFilters });
-			} else if (subscriber.filters === undefined || newFilters === undefined) {
-				// Either was already subscribed to all or new request wants all
-				subscriber.filters = undefined;
-			} else {
-				for (const f of newFilters) {
-					if (!subscriber.filters.includes(f)) {
-						subscriber.filters.push(f);
+				break;
+
+			case true:
+				if (!subscriber) {
+					eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: request.filters });
+				} else {
+					subscriber.filters.union(request.filters);
+				}
+				if (eventData.subscriptionUpdate) {
+					const eventReplay = await eventData.subscriptionUpdate(request, src, dst);
+					if (eventReplay) {
+						link.sendTo(src, eventReplay);
+						return true;
 					}
 				}
-			}
-			if (eventData.subscriptionUpdate) {
-				const eventReplay = await eventData.subscriptionUpdate(event, src, dst);
-				if (eventReplay) {
-					link.sendTo(src, eventReplay);
-					return true;
-				}
-			}
+				break;
+
+			default:
+				throw new Error(`unreachable case: ${String(request.subscribe)}`);
 		}
 		return false;
 	}
