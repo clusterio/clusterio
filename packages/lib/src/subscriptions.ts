@@ -265,7 +265,7 @@ export class SubscriptionController {
 	 * Broadcast an event to all subscribers of that event
 	 * @param event - Event to broadcast.
 	 */
-	broadcast<T>(event: Event<T> & { filters?: string | string[] }, filters?: string | string[]) {
+	broadcast<T extends Event<T>>(event: T & { filters?: string | string[] }, filters?: string | string[]) {
 		const entry = Link._eventsByClass.get(event.constructor);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${event.constructor.name}`);
@@ -275,7 +275,7 @@ export class SubscriptionController {
 			throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
 
-		const broadcastFilters = SubscriptionFilters.fromShorthand(filters);
+		const broadcastFilters = SubscriptionFilters.fromShorthand(filters ?? event.filters);
 		for (const [addressIndex, subscriber] of eventData.subscriptions) {
 			if ((subscriber.link.connector as WebSocketBaseConnector).closing) {
 				eventData.subscriptions.delete(addressIndex);
