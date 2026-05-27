@@ -82,7 +82,7 @@ type Subscriber = {
 
 type EventData = {
 	subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-	subscriptions: Array<Subscriber>,
+	subscriptions: Map<ReturnType<Address["addressIndex"]>, Subscriber>,
 };
 
 /**
@@ -116,7 +116,7 @@ export class SubscriptionController {
 		}
 		this._events.set(entry.name, {
 			subscriptionUpdate: subscriptionUpdate,
-			subscriptions: [],
+			subscriptions: new Map(),
 		});
 	}
 
@@ -133,12 +133,11 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
-		const toRemove: Subscriber[] = [];
-		const filtersToMatch = SubscriptionController.normalizeFilters(filter);
 
-		for (const subscriber of eventData.subscriptions) {
+		const filtersToMatch = SubscriptionController.normalizeFilters(filter);
+		for (const [addressIndex, subscriber] of eventData.subscriptions) {
 			if ((subscriber.link.connector as WebSocketBaseConnector).closing) {
-				toRemove.push(subscriber);
+				eventData.subscriptions.delete(addressIndex);
 				continue;
 			}
 
@@ -150,7 +149,6 @@ export class SubscriptionController {
 				subscriber.link.sendTo(subscriber.dst, event);
 			}
 		}
-		eventData.subscriptions = eventData.subscriptions.filter(subscriber => !toRemove.includes(subscriber));
 	}
 
 	/**
@@ -159,10 +157,9 @@ export class SubscriptionController {
 	 * @param address - Address to stop sending events to.
 	 */
 	unsubscribeAddress(address: Address) {
-		for (let eventData of this._events.values()) {
-			eventData.subscriptions = eventData.subscriptions.filter(
-				subscriber => !subscriber.dst.addressedTo(address)
-			);
+		const addressIndex = address.addressIndex();
+		for (const eventData of this._events.values()) {
+			eventData.subscriptions.delete(addressIndex);
 		}
 	}
 
@@ -172,10 +169,12 @@ export class SubscriptionController {
 	 * @param link - Link to stop sending events to.
 	 */
 	unsubscribeLink(link: Link) {
-		for (let eventData of this._events.values()) {
-			eventData.subscriptions = eventData.subscriptions.filter(
-				subscriber => subscriber.link !== link
-			);
+		for (const eventData of this._events.values()) {
+			for (const [addressIndex, subscriber] of eventData.subscriptions) {
+				if (subscriber.link === link) {
+					eventData.subscriptions.delete(addressIndex);
+				}
+			}
 		}
 	}
 
@@ -194,29 +193,29 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
+		const addressIndex = src.addressIndex();
+		const subscriber = eventData.subscriptions.get(addressIndex);
 		if (event.subscribe === false) {
 			// Unsubscribe logic
-			const subscriber = eventData.subscriptions.find(sub => sub.dst.addressedTo(src));
 			if (!subscriber) {
 				return false;
 			}
 			if (event.filters === undefined || subscriber.filters === undefined) {
 				// Remove entire subscription for this address
-				eventData.subscriptions = eventData.subscriptions.filter(sub => !sub.dst.addressedTo(src));
+				eventData.subscriptions.delete(addressIndex);
 			} else {
 				const filtersToRemove = Array.isArray(event.filters) ? event.filters : [event.filters];
 				subscriber.filters = subscriber.filters.filter(f => !filtersToRemove.includes(f));
 				if (subscriber.filters.length === 0) {
 					// No filters left, remove subscription
-					eventData.subscriptions = eventData.subscriptions.filter(sub => sub !== subscriber);
+					eventData.subscriptions.delete(addressIndex);
 				}
 			}
 		} else {
 			// Subscribe logic
-			let subscriber = eventData.subscriptions.find(sub => sub.dst.addressedTo(src));
 			const newFilters = SubscriptionController.normalizeFilters(event.filters);
 			if (!subscriber) {
-				eventData.subscriptions.push({ link: link, dst: src, filters: newFilters });
+				eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: newFilters });
 			} else if (subscriber.filters === undefined || newFilters === undefined) {
 				// Either was already subscribed to all or new request wants all
 				subscriber.filters = undefined;
