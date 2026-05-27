@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUser, plainJson, JsonBoolean } from "./data";
+import { Address, MessageRequest, IUser, plainJson, JsonBoolean, StringEnum } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
 import { RequestError, SessionLost } from "./errors";
 import { logger } from "./logging";
@@ -122,6 +122,9 @@ export class SubscriptionFilters {
 	}
 }
 
+const SubscriptionActionSchema = StringEnum(["subscribe", "unsubscribe", "replace"]);
+type SubscriptionAction = Static<typeof SubscriptionActionSchema>;
+
 /**
  * A subscription request sent by a subscriber, this updates what events the subscriber will be sent
  * The permission for this request copies the permission from the event being subscribed to
@@ -149,8 +152,9 @@ export class SubscriptionRequest {
 	/** Indicates if updates have been sent */
 	static Response = JsonBoolean;
 	public filters: SubscriptionFilters;
+	public action: SubscriptionAction;
 
-	/** @deprecated Use SubscriptionFilters instead */
+	/** @deprecated Use SubscriptionFilters and SubscriptionAction instead */
 	constructor(
 		eventName: string,
 		subscribe: boolean,
@@ -160,14 +164,14 @@ export class SubscriptionRequest {
 
 	constructor(
 		eventName: string,
-		subscribe: boolean,
+		action: SubscriptionAction,
 		lastRequestTimeMs: number | undefined,
 		filters?: SubscriptionFilters,
 	);
 
 	constructor(
 		public eventName: string,
-		public subscribe: boolean,
+		action: boolean | SubscriptionAction,
 		public lastRequestTimeMs: number = 0,
 		filters: undefined | string | string[] | SubscriptionFilters,
 	) {
@@ -179,17 +183,22 @@ export class SubscriptionRequest {
 		} else {
 			this.filters = SubscriptionFilters.fromShorthand(filters);
 		}
+		if (typeof action === "boolean") { // Easier migration for plugins
+			this.action = action ? "subscribe" : "unsubscribe";
+		} else {
+			this.action = action;
+		}
 	}
 
 	static jsonSchema = Type.Union([
 		Type.Tuple([
 			Type.String(),
-			Type.Boolean(),
+			SubscriptionActionSchema,
 			Type.Number(),
 		]),
 		Type.Tuple([
 			Type.String(),
-			Type.Boolean(),
+			SubscriptionActionSchema,
 			Type.Number(),
 			SubscriptionFilters.jsonSchema,
 		]),
@@ -197,16 +206,16 @@ export class SubscriptionRequest {
 
 	toJSON() {
 		if (!this.filters.isAll()) {
-			return [this.eventName, this.subscribe, this.lastRequestTimeMs, this.filters.toJSON()];
+			return [this.eventName, this.action, this.lastRequestTimeMs, this.filters.toJSON()];
 		}
-		return [this.eventName, this.subscribe, this.lastRequestTimeMs];
+		return [this.eventName, this.action, this.lastRequestTimeMs];
 	}
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		const [eventName, subscribe, lastRequestTimeMs, filters] = json;
+		const [eventName, action, lastRequestTimeMs, filters] = json;
 		return new this(
 			eventName,
-			subscribe,
+			action,
 			lastRequestTimeMs,
 			filters ? SubscriptionFilters.fromJSON(filters) : SubscriptionFilters.all()
 		);
@@ -322,8 +331,8 @@ export class SubscriptionController {
 		}
 		const addressIndex = src.addressIndex();
 		const subscriber = eventData.subscriptions.get(addressIndex);
-		switch (request.subscribe) {
-			case false:
+		switch (request.action) {
+			case "unsubscribe":
 				if (!subscriber) {
 					return false;
 				}
@@ -333,7 +342,7 @@ export class SubscriptionController {
 				}
 				break;
 
-			case true:
+			case "subscribe":
 				if (!subscriber) {
 					eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: request.filters });
 				} else {
@@ -348,8 +357,20 @@ export class SubscriptionController {
 				}
 				break;
 
+			case "replace":
+				if (request.filters.isEmpty()) {
+					if (!subscriber) {
+						return false;
+					}
+					eventData.subscriptions.delete(addressIndex);
+				} else if (!subscriber) {
+					eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: request.filters });
+				} else {
+					subscriber.filters = request.filters;
+				}
+
 			default:
-				throw new Error(`unreachable case: ${String(request.subscribe)}`);
+				throw new Error(`unreachable case: ${String(request.action)}`);
 		}
 		return false;
 	}
@@ -515,7 +536,7 @@ export class EventSubscriber<
 			this._syncing = this._callbacks.length > 0;
 			const updatesSent = await this.control.sendTo("controller", new SubscriptionRequest(
 				entry.name,
-				this._syncing,
+				this._syncing ? "subscribe" : "unsubscribe",
 				this.lastResponseTimeMs
 			));
 			if (!updatesSent) {
