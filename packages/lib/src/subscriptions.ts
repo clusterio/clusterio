@@ -348,13 +348,6 @@ export class SubscriptionController {
 				} else {
 					subscriber.filters.union(request.filters);
 				}
-				if (eventData.subscriptionUpdate) {
-					const eventReplay = await eventData.subscriptionUpdate(request, src, dst);
-					if (eventReplay) {
-						link.sendTo(src, eventReplay);
-						return true;
-					}
-				}
 				break;
 
 			case "replace":
@@ -372,6 +365,15 @@ export class SubscriptionController {
 			default:
 				throw new Error(`unreachable case: ${String(request.action)}`);
 		}
+
+		if (eventData.subscriptionUpdate) {
+			const eventReplay = await eventData.subscriptionUpdate(request, src, dst);
+			if (eventReplay) {
+				link.sendTo(src, eventReplay);
+				return true;
+			}
+		}
+
 		return false;
 	}
 }
