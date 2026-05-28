@@ -384,35 +384,25 @@ export interface SubscribableValue {
 	isDeleted: boolean,
 }
 
-export type EventSubscribable<T, V extends SubscribableValue> = Event<T> & Partial<{
-	updates: V[],
-}>
-
 /**
  * Component for subscribing to and tracking updates of a remote resource
  * Multiple handlers can be subscribed at the same time
  */
-export class EventSubscriber<
-	T extends EventSubscribable<T, V>,
-	K extends string | number = NonNullable<T["updates"]>[number]["id"],
-	V extends SubscribableValue = NonNullable<T["updates"]>[number],
-> {
+export class EventSubscriber<E, S = null> {
 	/** The time at which an event was last received, is less than 0 when there have been no events */
-	lastResponseTimeMs = -1;
-	/** Values of the subscribed resource */
-	values = new Map<K, V>();
+	lastUpdatedMs = -1;
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
 	/** True if this subscriber is expecting to receive updates from the source */
-	_syncing = false;
+	private _syncing = false;
 	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
-	_snapshot: readonly [ReadonlyMap<K, Readonly<V>>, boolean] = [new Map<K, V>(), false];
-	_snapshotLastUpdatedMs = -1;
+	private _snapshot: readonly [S, boolean] = [null as S, false];
+	private _snapshotLastUpdatedMs = -1;
 	/** Callbacks will be called when an event is received or the synced state changes */
-	_callbacks = new Array<EventSubscriberCallback<T>>();
+	private _callbacks = new Array<EventSubscriberCallback<E>>();
 
 	constructor(
-		private Event: EventClass<T>,
+		protected Event: EventClass<E>,
 		public control: Link,
 	) {
 		control.handle(Event, this._handleEvent.bind(this));
@@ -436,9 +426,7 @@ export class EventSubscriber<
 			this._updateSubscription();
 		} else if (this.synced) {
 			this.synced = false;
-			for (let callback of this._callbacks) {
-				callback(null, false);
-			}
+			this.notify(null);
 		}
 	}
 
@@ -447,33 +435,36 @@ export class EventSubscriber<
 	 * @param event - event from subscribed resource
 	 * @internal
 	 */
-	async _handleEvent(event: T) {
-		// We support the automatic maintaining of a map for events with the updates property
-		const updates = event.updates ?? [];
-		for (const value of updates) {
-			this.lastResponseTimeMs = Math.max(this.lastResponseTimeMs, value.updatedAtMs);
-			// Warn about updates which changes content but don't update updatedAtMs
-			const existing = this.values.get(value.id as K);
-			if (existing && existing.updatedAtMs === value.updatedAtMs && !isDeepStrictEqual(existing, value)) {
-				logger.warn(
-					`${this.Event.name} contains update for value with id ${value.id} that has an identical ` +
-					"updatedAtMs timestamp but differing content"
-				);
-			}
-			if (value.isDeleted) {
-				this.values.delete(value.id as K);
-			} else {
-				this.values.set(value.id as K, value);
-			}
-		}
+	private async _handleEvent(event: E) {
 		// Event handling logic
 		if (this._syncing && !this.synced) {
 			this._snapshotLastUpdatedMs = -1;
 			this.synced = true;
 		}
+		const eventTimeMs = this.getLastUpdatedTimeMs(event);
+		if (eventTimeMs > this.lastUpdatedMs) {
+			this.lastUpdatedMs = eventTimeMs;
+		}
+		this.processEvent(event);
+		this.notify(event);
+	}
+
+	private notify(event: E | null) {
 		for (const callback of this._callbacks) {
 			callback(event, this.synced);
 		}
+	}
+
+	protected getLastUpdatedTimeMs(event: E) {
+		return Date.now();
+	}
+
+	protected processEvent(event: E) {
+		// Noop for EventSubscriber
+	}
+
+	protected makeSnapshot(): S {
+		return null as S;
 	}
 
 	/**
@@ -483,7 +474,7 @@ export class EventSubscriber<
 	 *     synced property changes, in which case the event will be null.
 	 * @returns function that will unsubscribe from notifications
 	 */
-	subscribe(handler: EventSubscriberCallback<T>) {
+	subscribe(handler: EventSubscriberCallback<E>) {
 		this._callbacks.push(handler);
 		if (this._callbacks.length === 1) {
 			this._updateSubscription();
@@ -517,12 +508,12 @@ export class EventSubscriber<
 	 * Obtain a snapshot of the current state of the tracked resource
 	 * @returns tuple of values map snapshot and synced property.
 	 */
-	getSnapshot() {
-		if (this._snapshotLastUpdatedMs !== this.lastResponseTimeMs) {
-			this._snapshotLastUpdatedMs = this.lastResponseTimeMs;
-			this._snapshot = [new Map(this.values), this.synced];
+	getSnapshot(): readonly [S, boolean] {
+		if (this._snapshotLastUpdatedMs !== this.lastUpdatedMs || this._snapshot[1] !== this.synced) {
+			this._snapshotLastUpdatedMs = this.lastUpdatedMs;
+			this._snapshot = [this.makeSnapshot(), this.synced];
 		}
-		return this._snapshot!;
+		return this._snapshot;
 	}
 
 	/**
@@ -539,13 +530,11 @@ export class EventSubscriber<
 			const updatesSent = await this.control.sendTo("controller", new SubscriptionRequest(
 				entry.name,
 				this._syncing ? "subscribe" : "unsubscribe",
-				this.lastResponseTimeMs
+				this.lastUpdatedMs
 			));
 			if (!updatesSent) {
 				this.synced = this._syncing;
-				for (const callback of this._callbacks) {
-					callback(null, this.synced);
-				}
+				this.notify(null);
 			}
 		} catch (err: any) {
 			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
@@ -554,5 +543,66 @@ export class EventSubscriber<
 				);
 			}
 		}
+	}
+}
+
+export class ValueSubscriber<
+	E extends { value: V },
+	V extends SubscribableValue = E["value"],
+> extends EventSubscriber<E, Readonly<V> | null> {
+	/** Current value of the subscribed resource */
+	value: V | null = null;
+
+	protected override getLastUpdatedTimeMs(event: E) {
+		return event.value.updatedAtMs;
+	}
+
+	protected override processEvent(event: E) {
+		this.value = event.value;
+	}
+
+	protected override makeSnapshot() {
+		return this.value;
+	}
+}
+
+export class MapSubscriber<
+	E extends { updates: V[] },
+	K extends string | number = E["updates"][number]["id"],
+	V extends SubscribableValue = E["updates"][number],
+> extends EventSubscriber<E, ReadonlyMap<K, Readonly<V>>> {
+	/** Current value of the subscribed resource */
+	values = new Map<K, V>();
+
+	protected override getLastUpdatedTimeMs(event: E) {
+		let maxTime = this.lastUpdatedMs;
+		for (const update of event.updates) {
+			if (update.updatedAtMs > maxTime) {
+				maxTime = update.updatedAtMs;
+			}
+		}
+		return maxTime;
+	}
+
+	protected override processEvent(event: E) {
+		for (const value of event.updates) {
+			// Warn about updates which changes content but don't update updatedAtMs
+			const existing = this.values.get(value.id as K);
+			if (existing && existing.updatedAtMs === value.updatedAtMs && !isDeepStrictEqual(existing, value)) {
+				logger.warn(
+					`${this.Event.name} contains update for value with id ${value.id} that has an identical ` +
+					"updatedAtMs timestamp but differing content"
+				);
+			}
+			if (value.isDeleted) {
+				this.values.delete(value.id as K);
+			} else {
+				this.values.set(value.id as K, value);
+			}
+		}
+	}
+
+	protected override makeSnapshot() {
+		return new Map(this.values);
 	}
 }

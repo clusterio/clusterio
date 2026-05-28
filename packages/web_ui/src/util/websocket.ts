@@ -60,14 +60,14 @@ export class Control extends lib.Link {
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
-	systems = new lib.EventSubscriber(lib.SystemInfoUpdateEvent, this);
-	hosts = new lib.EventSubscriber(lib.HostUpdatesEvent, this);
-	instances = new lib.EventSubscriber(lib.InstanceDetailsUpdatesEvent, this);
-	saves = new lib.EventSubscriber(lib.InstanceSaveDetailsUpdatesEvent, this);
-	modPacks = new lib.EventSubscriber(lib.ModPackUpdatesEvent, this);
-	mods = new lib.EventSubscriber(lib.ModUpdatesEvent, this);
-	users = new lib.EventSubscriber(lib.UserUpdatesEvent, this);
-	roles = new lib.EventSubscriber(lib.RoleUpdatesEvent, this);
+	systems = new lib.MapSubscriber(lib.SystemInfoUpdateEvent, this);
+	hosts = new lib.MapSubscriber(lib.HostUpdatesEvent, this);
+	instances = new lib.MapSubscriber(lib.InstanceDetailsUpdatesEvent, this);
+	saves = new lib.MapSubscriber(lib.InstanceSaveDetailsUpdatesEvent, this);
+	modPacks = new lib.MapSubscriber(lib.ModPackUpdatesEvent, this);
+	mods = new lib.MapSubscriber(lib.ModUpdatesEvent, this);
+	users = new lib.MapSubscriber(lib.UserUpdatesEvent, this);
+	roles = new lib.MapSubscriber(lib.RoleUpdatesEvent, this);
 
 	/** Cache for factorio versions to avoid repeat calls to the controller */
 	factorioVersions = new lib.ValueCache(this.requestFactorioVersions.bind(this));
