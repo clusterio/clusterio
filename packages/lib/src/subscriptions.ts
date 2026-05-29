@@ -1,8 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUser, plainJson, JsonBoolean, StringEnum } from "./data";
+import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
-import { RequestError, SessionLost } from "./errors";
+import { RequestError } from "./errors";
 import { logger } from "./logging";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
@@ -67,9 +67,14 @@ export class SubscriptionFilters {
 		return `[SubscriptionFilters ${this._all ? "All" : String(this._filters)}]`;
 	}
 
-	/** Returns true if this filter accepts this string */
+	/** Returns true if this filter accepts all the given filters */
 	accepts(value: string) {
 		return this._all || this._filters.has(value);
+	}
+
+	/** Returns true if this filter extends the other */
+	extends(other: this) {
+		return this._all || (!other._all && [...other._filters.values()].every(value => this._filters.has(value)));
 	}
 
 	/** Returns true if there is overlap between two filters */
@@ -393,17 +398,18 @@ export class EventSubscriber<E, S = null> {
 	lastUpdatedMs = -1;
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
-	/** True if this subscriber is expecting to receive updates from the source */
-	private _syncing = false;
 	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
 	private _snapshot: readonly [S, boolean] = [null as S, false];
 	private _snapshotLastUpdatedMs = -1;
 	/** Callbacks will be called when an event is received or the synced state changes */
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
+	/** Filters applied to the filtered handler, if empty the filtered handler will not be called */
+	private _filters = SubscriptionFilters.empty();
 
 	constructor(
 		protected Event: EventClass<E>,
 		public control: Link,
+		protected filteredHandler?: EventSubscriberCallback<E>,
 	) {
 		control.handle(Event, this._handleEvent.bind(this));
 		// The events below exist only on websocket connectors, we can't early return because of test mocking
@@ -423,10 +429,10 @@ export class EventSubscriber<E, S = null> {
 	 */
 	handleConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
 		if (event === "connect" || event === "resume") {
-			this._updateSubscription();
+			this._sendRequest("replace", this._callbacks.length > 0 ? SubscriptionFilters.all() : this._filters);
 		} else if (this.synced) {
 			this.synced = false;
-			this.notify(null);
+			this._notify(null);
 		}
 	}
 
@@ -436,22 +442,21 @@ export class EventSubscriber<E, S = null> {
 	 * @internal
 	 */
 	private async _handleEvent(event: E) {
-		// Event handling logic
-		if (this._syncing && !this.synced) {
-			this._snapshotLastUpdatedMs = -1;
-			this.synced = true;
-		}
 		const eventTimeMs = this.getLastUpdatedTimeMs(event);
 		if (eventTimeMs > this.lastUpdatedMs) {
 			this.lastUpdatedMs = eventTimeMs;
 		}
+		this.synced = this._hasSubscriptions();
 		this.processEvent(event);
-		this.notify(event);
+		this._notify(event);
 	}
 
-	private notify(event: E | null) {
+	private _notify(event: E | null) {
 		for (const callback of this._callbacks) {
 			callback(event, this.synced);
+		}
+		if (this.filteredHandler && !this._filters.isEmpty()) {
+			this.filteredHandler(event, this.synced);
 		}
 	}
 
@@ -477,7 +482,7 @@ export class EventSubscriber<E, S = null> {
 	subscribe(handler: EventSubscriberCallback<E>) {
 		this._callbacks.push(handler);
 		if (this._callbacks.length === 1) {
-			this._updateSubscription();
+			this._sendRequest("subscribe", SubscriptionFilters.all());
 		}
 		return () => {
 			// During a page transition the components currently rendered
@@ -498,10 +503,44 @@ export class EventSubscriber<E, S = null> {
 				}
 				this._callbacks.splice(index, 1);
 				if (this._callbacks.length === 0) {
-					this._updateSubscription();
+					this._sendRequest("replace", this._filters);
 				}
 			});
 		};
+	}
+
+	/** Returns true if all filters are present */
+	hasFilters(filters: string | string[] | SubscriptionFilters) {
+		if (!(filters instanceof SubscriptionFilters)) {
+			filters = SubscriptionFilters.fromShorthand(filters);
+		}
+		return this._filters.extends(filters);
+	}
+
+	/** Add filters to the filtered handler */
+	addFilters(filters: string | string[] | SubscriptionFilters) {
+		if (!(filters instanceof SubscriptionFilters)) {
+			filters = SubscriptionFilters.fromShorthand(filters);
+		}
+		this._filters.union(filters);
+		this._sendRequest("subscribe", filters);
+	}
+
+	/** Remove filters from the filtered handler */
+	removeFilters(filters: string | string[] | SubscriptionFilters) {
+		if (!(filters instanceof SubscriptionFilters)) {
+			filters = SubscriptionFilters.fromShorthand(filters);
+		}
+		this._filters.subtract(filters);
+		this._sendRequest("unsubscribe", filters);
+	}
+
+	/** Clear all filters from the filtered handler, it will no longer be called */
+	clearFilters() {
+		this._filters = SubscriptionFilters.empty();
+		if (!this._hasSubscriptions()) {
+			this._sendRequest("unsubscribe", SubscriptionFilters.all());
+		}
 	}
 
 	/**
@@ -516,31 +555,31 @@ export class EventSubscriber<E, S = null> {
 		return this._snapshot;
 	}
 
+	/** Returns true if there are any active subscription callbacks */
+	private _hasSubscriptions() {
+		return this._callbacks.length > 0 || !this._filters.isEmpty();
+	}
+
 	/**
 	 * Update the subscription with the controller based on current handler counts
 	 */
-	async _updateSubscription() {
+	private async _sendRequest(action: SubscriptionAction, filters: SubscriptionFilters) {
 		if (!this.control.connector.valid) {
 			return;
 		}
-		const entry = Link._eventsByClass.get(this.Event)!;
 
+		const entry = Link._eventsByClass.get(this.Event)!;
 		try {
-			this._syncing = this._callbacks.length > 0;
 			const updatesSent = await this.control.sendTo("controller", new SubscriptionRequest(
-				entry.name,
-				this._syncing ? "subscribe" : "unsubscribe",
-				this.lastUpdatedMs
+				entry.name, action, this.lastUpdatedMs, filters
 			));
 			if (!updatesSent) {
-				this.synced = this._syncing;
-				this.notify(null);
+				this.synced = this._hasSubscriptions();
+				this._notify(null);
 			}
 		} catch (err: any) {
 			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
-				logger.error(
-					`Unexpected error updating ${entry.name} subscription:\n${err.stack}`
-				);
+				logger.error(`Unexpected error updating ${entry.name} subscription:\n${err.stack}`);
 			}
 		}
 	}
