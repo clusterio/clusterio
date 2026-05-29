@@ -64,7 +64,13 @@ export class SubscriptionFilters {
 	}
 
 	toString() {
-		return `[SubscriptionFilters ${this._all ? "All" : String(this._filters)}]`;
+		if (this._all) {
+			return "[SubscriptionFilters All]";
+		}
+		if (this._filters.size === 0) {
+			return "[SubscriptionFilters Empty]";
+		}
+		return `[SubscriptionFilters Set<${this._filters.size}>]`;
 	}
 
 	/** Returns true if this filter accepts all the given filters */

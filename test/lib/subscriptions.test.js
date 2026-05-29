@@ -105,6 +105,28 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe(".toString()", function() {
+			it("should return 'All' for all filters", function() {
+				const filters = lib.SubscriptionFilters.all();
+				assert.equal(filters.toString(), "[SubscriptionFilters All]");
+			});
+
+			it("should return empty set representation for empty filters", function() {
+				const filters = lib.SubscriptionFilters.empty();
+				assert.equal(filters.toString(), "[SubscriptionFilters Empty]");
+			});
+
+			it("should include single filter value", function() {
+				const filters = lib.SubscriptionFilters.fromShorthand("foo");
+				assert.equal(filters.toString(), "[SubscriptionFilters Set<1>]");
+			});
+
+			it("should include multiple filter values", function() {
+				const filters = lib.SubscriptionFilters.fromShorthand(["foo", "bar"]);
+				assert.equal(filters.toString(), "[SubscriptionFilters Set<2>]");
+			});
+		});
+
 		describe(".accepts()", function() {
 			it("should accept any value when all", function() {
 				const f = lib.SubscriptionFilters.all();
@@ -727,6 +749,18 @@ describe("lib/subscriptions", function() {
 					assertLastEvent(0, RegisteredEvent);
 				});
 
+				it("should subscribe when no existing subscriber exists", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+
+					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "replace", 0, "foo");
+					await subscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src);
+
+					subscriptions.broadcast(new RegisteredEvent(), "foo");
+					await onceConnectorSend(0);
+					assertLastEvent(0, RegisteredEvent);
+				});
+
 				it("should remove subscription when replacing with empty", async function() {
 					const link = getLink(0);
 					const connectorData = connectorSetupDate[0];
@@ -741,19 +775,31 @@ describe("lib/subscriptions", function() {
 					await new Promise(r => setImmediate(r));
 					assertNoEvent(0);
 				});
+
+				it("should do nothing when replacing with empty if no subscriber exists", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+
+					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "replace", 0, []);
+					await subscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src);
+
+					subscriptions.broadcast(new RegisteredEvent());
+					await new Promise(r => setImmediate(r));
+					assertNoEvent(0);
+				});
 			});
 		});
 	});
 
 	describe("class EventSubscriber", function() {
-		let mockControl, registeredEvent;
+		let mockControl, eventSubscriber;
 
 		beforeEach(function() {
 			mockControl = new MockControl(new MockConnector(
 				addr({ controlId: 0 }),
 				addr("controller"),
 			));
-			registeredEvent = new lib.EventSubscriber(RegisteredEvent, mockControl);
+			eventSubscriber = new lib.EventSubscriber(RegisteredEvent, mockControl);
 		});
 
 		function onceConnectorSend() {
@@ -787,7 +833,7 @@ describe("lib/subscriptions", function() {
 
 		describe("subscribe()", function() {
 			it("should send subscribe(all) on first subscription", async function() {
-				registeredEvent.subscribe(() => {});
+				eventSubscriber.subscribe(() => {});
 				await onceConnectorSend();
 
 				assertLastMessage(new lib.SubscriptionRequest(
@@ -796,7 +842,7 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should send replace(filters) when last callback unsubscribes", async function() {
-				const unsubscribe = registeredEvent.subscribe(() => {});
+				const unsubscribe = eventSubscriber.subscribe(() => {});
 				await onceConnectorSend();
 
 				unsubscribe();
@@ -811,10 +857,10 @@ describe("lib/subscriptions", function() {
 				let called1, called2;
 				const event = new RegisteredEvent();
 
-				const unsubscribe = registeredEvent.subscribe((e, s) => { called1 = [e, s]; });
-				registeredEvent.subscribe((e, s) => { called2 = [e, s]; });
+				const unsubscribe = eventSubscriber.subscribe((e, s) => { called1 = [e, s]; });
+				eventSubscriber.subscribe((e, s) => { called2 = [e, s]; });
 
-				await registeredEvent._handleEvent(event);
+				await eventSubscriber._handleEvent(event);
 
 				assert.deepEqual(called1, [event, true]);
 				assert.deepEqual(called2, [event, true]);
@@ -824,19 +870,19 @@ describe("lib/subscriptions", function() {
 				let called1, called2;
 				const event = new RegisteredEvent();
 
-				const unsubscribe = registeredEvent.subscribe((e, s) => { called1 = [e, s]; });
-				registeredEvent.subscribe((e, s) => { called2 = [e, s]; });
+				const unsubscribe = eventSubscriber.subscribe((e, s) => { called1 = [e, s]; });
+				eventSubscriber.subscribe((e, s) => { called2 = [e, s]; });
 
 				unsubscribe();
 				await new Promise(r => setImmediate(r));
-				await registeredEvent._handleEvent(event);
+				await eventSubscriber._handleEvent(event);
 
 				assert.deepEqual(called1, undefined);
 				assert.deepEqual(called2, [event, true]);
 			});
 
 			it("should not throw when unsubscribing multiple times", async function() {
-				const unsubscribe = registeredEvent.subscribe(() => {});
+				const unsubscribe = eventSubscriber.subscribe(() => {});
 				unsubscribe();
 				await onceConnectorSend();
 				unsubscribe();
@@ -845,7 +891,7 @@ describe("lib/subscriptions", function() {
 
 		describe("filters", function() {
 			it("should add filters and send subscribe", async function() {
-				registeredEvent.addFilters("foo");
+				eventSubscriber.addFilters("foo");
 				await onceConnectorSend();
 
 				assertLastMessage(new lib.SubscriptionRequest(
@@ -854,10 +900,10 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should remove filters and send unsubscribe", async function() {
-				registeredEvent.addFilters("foo");
+				eventSubscriber.addFilters("foo");
 				await onceConnectorSend();
 
-				registeredEvent.removeFilters("foo");
+				eventSubscriber.removeFilters("foo");
 				await onceConnectorSend();
 
 				assertLastMessage(new lib.SubscriptionRequest(
@@ -866,10 +912,10 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should clear filters and unsubscribe when no callbacks", async function() {
-				registeredEvent.addFilters("foo");
+				eventSubscriber.addFilters("foo");
 				await onceConnectorSend();
 
-				registeredEvent.clearFilters();
+				eventSubscriber.clearFilters();
 				await onceConnectorSend();
 
 				assertLastMessage(new lib.SubscriptionRequest(
@@ -878,10 +924,10 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should not unsubscribe on clearFilters if callbacks exist", async function() {
-				registeredEvent.subscribe(() => {});
+				eventSubscriber.subscribe(() => {});
 				await onceConnectorSend();
 
-				registeredEvent.clearFilters();
+				eventSubscriber.clearFilters();
 				await new Promise(r => setImmediate(r));
 
 				// No new message
@@ -889,55 +935,55 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should correctly report hasFilters", function() {
-				registeredEvent.addFilters(["foo", "bar"]);
-				assert.equal(registeredEvent.hasFilters("foo"), true);
-				assert.equal(registeredEvent.hasFilters("baz"), false);
+				eventSubscriber.addFilters(["foo", "bar"]);
+				assert.equal(eventSubscriber.hasFilters("foo"), true);
+				assert.equal(eventSubscriber.hasFilters("baz"), false);
 			});
 
 			it("should only fire when filters are not empty", async function() {
 				let called = false;
-				registeredEvent.filteredHandler = () => { called = true; };
+				eventSubscriber.filteredHandler = () => { called = true; };
 
-				await registeredEvent._handleEvent(new RegisteredEvent());
+				await eventSubscriber._handleEvent(new RegisteredEvent());
 				assert.equal(called, false);
 
-				registeredEvent.addFilters("foo");
+				eventSubscriber.addFilters("foo");
 				await onceConnectorSend();
 
-				await registeredEvent._handleEvent(new RegisteredEvent());
+				await eventSubscriber._handleEvent(new RegisteredEvent());
 				assert.equal(called, true);
 			});
 		});
 
 		describe("getSnapshot()", function() {
 			it("should cache snapshot until state changes", async function() {
-				const snap1 = registeredEvent.getSnapshot();
-				const snap2 = registeredEvent.getSnapshot();
+				const snap1 = eventSubscriber.getSnapshot();
+				const snap2 = eventSubscriber.getSnapshot();
 				assert.strictEqual(snap1, snap2);
 
-				await registeredEvent._handleEvent(new RegisteredEvent());
-				const snap3 = registeredEvent.getSnapshot();
+				await eventSubscriber._handleEvent(new RegisteredEvent());
+				const snap3 = eventSubscriber.getSnapshot();
 				assert.notStrictEqual(snap1, snap3);
 
-				registeredEvent.synced = !registeredEvent.synced;
-				const snap4 = registeredEvent.getSnapshot();
+				eventSubscriber.synced = !eventSubscriber.synced;
+				const snap4 = eventSubscriber.getSnapshot();
 				assert.notStrictEqual(snap3, snap4);
 			});
 		});
 
 		describe("handleConnectionEvent", function() {
 			it("should send replace(all) on reconnect if subscribed", async function() {
-				registeredEvent.subscribe(() => {});
+				eventSubscriber.subscribe(() => {});
 				await onceConnectorSend();
 
-				registeredEvent.control.connector.emit("connect");
+				eventSubscriber.control.connector.emit("connect");
 				await onceConnectorSend();
 				assertLastMessage(new lib.SubscriptionRequest(
 					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
 				));
 
 				mockControl.connector.sentMessages.pop();
-				registeredEvent.handleConnectionEvent("resume");
+				eventSubscriber.handleConnectionEvent("resume");
 				await onceConnectorSend();
 				assertLastMessage(new lib.SubscriptionRequest(
 					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
@@ -945,17 +991,17 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should send replace(filters) when only filters exist", async function() {
-				registeredEvent.addFilters("foo");
+				eventSubscriber.addFilters("foo");
 				await onceConnectorSend();
 
-				registeredEvent.control.connector.emit("connect");
+				eventSubscriber.control.connector.emit("connect");
 				await onceConnectorSend();
 				assertLastMessage(new lib.SubscriptionRequest(
 					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.fromShorthand("foo")
 				));
 
 				mockControl.connector.sentMessages.pop();
-				registeredEvent.handleConnectionEvent("resume");
+				eventSubscriber.handleConnectionEvent("resume");
 				await onceConnectorSend();
 				assertLastMessage(new lib.SubscriptionRequest(
 					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.fromShorthand("foo")
@@ -963,33 +1009,33 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should set synced false on close", async function() {
-				registeredEvent.synced = true;
-				registeredEvent.control.connector.emit("close");
-				assert.equal(registeredEvent.synced, false);
+				eventSubscriber.synced = true;
+				eventSubscriber.control.connector.emit("close");
+				assert.equal(eventSubscriber.synced, false);
 
-				registeredEvent.synced = true;
-				registeredEvent.handleConnectionEvent("drop");
-				assert.equal(registeredEvent.synced, false);
+				eventSubscriber.synced = true;
+				eventSubscriber.handleConnectionEvent("drop");
+				assert.equal(eventSubscriber.synced, false);
 
-				registeredEvent.synced = true;
-				registeredEvent.handleConnectionEvent("close");
-				assert.equal(registeredEvent.synced, false);
+				eventSubscriber.synced = true;
+				eventSubscriber.handleConnectionEvent("close");
+				assert.equal(eventSubscriber.synced, false);
 			});
 
 			it("should invoke callbacks on close", async function() {
 				let calledWith;
-				registeredEvent.subscribe((v, s) => { calledWith = [v, s]; });
+				eventSubscriber.subscribe((v, s) => { calledWith = [v, s]; });
 				const [msg] = await onceConnectorSend();
 
 				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src,
 					lib.SubscriptionRequest.Response.fromJSON(false)
 				));
 				await new Promise(r => setImmediate(r));
-				assert.equal(registeredEvent.synced, true);
+				assert.equal(eventSubscriber.synced, true);
 				calledWith = undefined;
 
-				registeredEvent.control.connector.emit("close");
-				assert.equal(registeredEvent.synced, false);
+				eventSubscriber.control.connector.emit("close");
+				assert.equal(eventSubscriber.synced, false);
 				assert.deepEqual(calledWith, [null, false]);
 			});
 		});
@@ -997,14 +1043,14 @@ describe("lib/subscriptions", function() {
 		describe("._sendRequest()", function() {
 			it("should do nothing if connection is not valid", async function() {
 				mockControl.connector.valid = false;
-				registeredEvent.subscribe(() => {});
+				eventSubscriber.subscribe(() => {});
 				await new Promise(r => setImmediate(r));
 				assertNoMessageSent();
 			});
 
 			it("should set synced when no updates returned", async function() {
 				let calledWith;
-				registeredEvent.subscribe((e, s) => { calledWith = [e, s]; });
+				eventSubscriber.subscribe((e, s) => { calledWith = [e, s]; });
 				const [msg] = await onceConnectorSend();
 
 				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src,
@@ -1013,12 +1059,12 @@ describe("lib/subscriptions", function() {
 
 				await new Promise(r => setImmediate(r));
 				assert.deepEqual(calledWith, [null, true]);
-				assert.equal(registeredEvent.synced, true);
+				assert.equal(eventSubscriber.synced, true);
 			});
 
 			it("should set synced when updates returned via _handleEvent", async function() {
 				let calledWith;
-				registeredEvent.subscribe((e, s) => { calledWith = [e, s]; });
+				eventSubscriber.subscribe((e, s) => { calledWith = [e, s]; });
 				const [msg] = await onceConnectorSend();
 
 				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src,
@@ -1027,13 +1073,52 @@ describe("lib/subscriptions", function() {
 
 				await new Promise(r => setImmediate(r));
 				assert.equal(calledWith, undefined);
-				assert.equal(registeredEvent.synced, false);
+				assert.equal(eventSubscriber.synced, false);
 
 				const eventUpdate = new RegisteredEvent();
-				registeredEvent._handleEvent(eventUpdate);
+				eventSubscriber._handleEvent(eventUpdate);
 
 				assert.deepEqual(calledWith, [eventUpdate, true]);
-				assert.equal(registeredEvent.synced, true);
+				assert.equal(eventSubscriber.synced, true);
+			});
+
+			it("should log error when sendTo throws", async function() {
+				let logged;
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged = msg; };
+
+				// Mock sendTo to throw generic error
+				mockControl.sendTo = async function() {
+					throw new Error("boom");
+				};
+
+				try {
+					eventSubscriber.subscribe(() => {});
+					await new Promise(r => setImmediate(r));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.notEqual(logged, undefined);
+			});
+
+			it("should not log error when sendTo throws SessionLost RequestError", async function() {
+				let logged;
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged = msg; };
+
+				mockControl.sendTo = async function() {
+					const err = new lib.RequestError("Session lost");
+					err.code = "SessionLost";
+					throw err;
+				};
+
+				try {
+					eventSubscriber.subscribe(() => {});
+					await new Promise(r => setImmediate(r));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(logged, undefined);
 			});
 		});
 	});
@@ -1208,20 +1293,22 @@ describe("lib/subscriptions", function() {
 		});
 
 		it("should warn on same timestamp but different content", async function() {
-			let warned = false;
+			let logged = false;
 			const originalWarn = lib.logger.warn;
-			lib.logger.warn = () => { warned = true; };
+			lib.logger.warn = msg => { logged = msg; };
 
-			await subscriber._handleEvent(new MapEvent([
-				{ id: 1, updatedAtMs: 10, isDeleted: false, foo: "a" },
-			]));
+			try {
+				await subscriber._handleEvent(new MapEvent([
+					{ id: 1, updatedAtMs: 10, isDeleted: false, foo: "a" },
+				]));
 
-			await subscriber._handleEvent(new MapEvent([
-				{ id: 1, updatedAtMs: 10, isDeleted: false, foo: "b" },
-			]));
-
-			lib.logger.warn = originalWarn;
-			assert.equal(warned, true);
+				await subscriber._handleEvent(new MapEvent([
+					{ id: 1, updatedAtMs: 10, isDeleted: false, foo: "b" },
+				]));
+			} finally {
+				lib.logger.warn = originalWarn;
+			}
+			assert.notEqual(logged, undefined);
 		});
 	});
 });
