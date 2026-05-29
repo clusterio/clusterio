@@ -114,12 +114,13 @@ export class SubscriptionFilters {
 	 * Subtracting a filter accepting all produces an empty filter.
 	 */
 	subtract(other: this) {
-		if (this._all) {
-			return; // Cannot subtract from all
-		}
 		if (other._all) {
 			this._all = false;
 			this._filters.clear();
+			return;
+		}
+		if (this._all) {
+			return; // Cannot subtract from all
 		}
 		for (const filter of other._filters) {
 			this._filters.delete(filter);
@@ -366,6 +367,7 @@ export class SubscriptionController {
 				} else {
 					subscriber.filters = request.filters;
 				}
+				break;
 
 			default:
 				throw new Error(`unreachable case: ${String(request.action)}`);
