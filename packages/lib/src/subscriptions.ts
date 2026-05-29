@@ -401,7 +401,7 @@ export class EventSubscriber<E, S = null> {
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
 	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
-	private _snapshot: readonly [S, boolean] = [null as S, false];
+	private _snapshot: readonly [S, boolean] = [this.makeSnapshot(), false];
 	private _snapshotLastUpdatedMs = -1;
 	/** Callbacks will be called when an event is received or the synced state changes */
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
