@@ -586,7 +586,7 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should throw if action is not supported", async function() {
-				const request = new lib.SubscriptionRequest(StringPermissionEvent.name, "invalid action");
+				const request = new lib.SubscriptionRequest(RegisteredEvent.name, "invalid action");
 				await assert.rejects(subscriptions.handleRequest(
 					getLink(0), request, connectorSetupDate[0].dst, connectorSetupDate[0].src
 				), /unreachable case: invalid action/);

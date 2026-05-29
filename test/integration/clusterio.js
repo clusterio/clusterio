@@ -1655,12 +1655,13 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should grant default permissions with --grant-default", async function() {
 				await execCtl("role edit new --grant-default");
-				let roles = await getControl().send(new lib.RoleListRequest());
+				const control = getControl();
+				let roles = await control.send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
-				let defaultPermissions = [...lib.permissions.values()]
+				const permissions = await control.send(new lib.PermissionListRequest());
+				const defaultPermissions = permissions
 					.filter(p => p.grantByDefault)
-					.map(p => p.name)
-				;
+					.map(p => p.name);
 				assert.deepEqual(new Set(newRole.permissions), new Set(defaultPermissions));
 			});
 		});
