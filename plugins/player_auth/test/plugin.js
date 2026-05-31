@@ -100,7 +100,7 @@ describe("player_auth", function() {
 
 			describe("/api/player_auth/servers", function() {
 				it("should return a list of running servers with player_auth loaded", async function() {
-					function addInstance(id, status, load, name, version) {
+					function addInstance(id, status, load, name, version, gamePort, host=1) {
 						controllerPlugin.controller.instances.records.set(id, {
 							config: {
 								get(field) {
@@ -114,22 +114,25 @@ describe("player_auth", function() {
 										return id;
 									}
 									if (field === "instance.assigned_host") {
-										return 1;
+										return host;
 									}
 									throw new Error(`field ${field} not implemented`);
 								},
 							},
 							status,
-							gamePort: 34197,
+							gamePort,
 							factorioVersion: version,
 						});
 					}
 
-					addInstance(1, "running", true, "running loaded", "1.1.0");
-					addInstance(2, "stopped", true, "stopped loaded", "1.1.1");
-					addInstance(3, "running", false, "running unloaded", "1.1.2");
-					addInstance(4, "stopped", false, "stopped unloaded", "1.1.3");
-					addInstance(5, "running", true, undefined, undefined);
+					addInstance(1, "running", true, "running loaded", "1.1.1", 34197);
+					addInstance(2, "stopped", true, "stopped loaded", "1.1.2", 34197);
+					addInstance(3, "running", false, "running unloaded", "1.1.3", 34197);
+					addInstance(4, "stopped", false, "stopped unloaded", "1.1.4", 34197);
+					addInstance(5, "running", true, undefined, "1.1.5", 34197);
+					addInstance(6, "running", true, "no port", "1.1.6", undefined);
+					addInstance(7, "running", true, "no host", "1.1.7", 34197, null);
+					addInstance(8, "running", true, "no version", undefined, 34197);
 
 					controllerPlugin.controller.hosts.set(1, {
 						publicAddress: "127.0.0.1",
@@ -137,8 +140,10 @@ describe("player_auth", function() {
 
 					const result = await fetch(`${controllerUrl}/api/player_auth/servers`);
 					assert.deepEqual(await result.json(), [
-						{ name: "running loaded", address: "127.0.0.1:34197", factorioVersion: "1.1.0" },
-						{ name: "unnamed server", address: "127.0.0.1:34197" },
+						{ name: "running loaded", address: "127.0.0.1:34197", factorioVersion: "1.1.1" },
+						{ name: "unnamed server", address: "127.0.0.1:34197", factorioVersion: "1.1.5" },
+						{ name: "no port", address: "127.0.0.1", factorioVersion: "1.1.6" },
+						{ name: "no version", address: "127.0.0.1:34197" },
 					]);
 				});
 			});

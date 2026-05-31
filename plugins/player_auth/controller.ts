@@ -57,7 +57,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				}
 
 				const host = this.controller.hosts.get(assignedHost);
-				if (!host || !host.publicAddress) {
+				if (!host) {
 					continue;
 				}
 
