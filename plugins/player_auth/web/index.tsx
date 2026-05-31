@@ -21,26 +21,27 @@ function LoginForm(props: LoginFormProps) {
 
 	useEffect(() => {
 		let cancelled = false;
-
-		async function load() {
-			let response = await fetch(`${webRoot}api/player_auth/servers`);
-			if (!response.ok) {
-				if (!cancelled) {
-					setServers([]);
-					const err = new Error(await response.text());
-					notifyErrorHandler("Error retrieving servers")(err);
+		async function loadServers() {
+			try {
+				const response = await fetch(`${webRoot}api/player_auth/servers`);
+				if (!response.ok) {
+					throw new Error(`Bad server response: ${response.status}`);
 				}
-				return;
-			}
 
-			const json = await response.json();
-			if (!cancelled) {
-				setServers(json.map((s: any) => PlayerAuthServer.fromJSON(s)));
+				const data = await response.json();
+				if (!cancelled) {
+					setServers(data);
+				}
+			} catch (err) {
+				if (!cancelled && err instanceof Error) {
+					setServers([]);
+					notifyErrorHandler("Error fetching servers")(err);
+				}
 			}
 		}
 
-		load();
-		const interval = setInterval(load, 15 * 1000);
+		loadServers();
+		const interval = setInterval(loadServers, 15 * 1000);
 
 		return () => {
 			cancelled = true;
@@ -49,42 +50,57 @@ function LoginForm(props: LoginFormProps) {
 	}, []);
 
 	useEffect(() => {
-		if (verifyToken) {
-			let checkLoop = setInterval(() => {
-				(async () => {
-					let response = await fetch(`${webRoot}api/player_auth/verify`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							verify_token: verifyToken,
-							verify_code: verifyCode,
-							player_code: playerCode,
-						}),
-					});
-					if (!response.ok) {
-						throw new Error(`Bad server response: ${response.status}`);
-					}
-					let json = await response.json();
-					if (json.error) {
-						// While there are other possibilites the most likely
-						// cause of an error response here is that the code expired.
-						setPlayerCodeError("Code expired");
-						setVerifyToken(null);
-						clearInterval(checkLoop);
-						return;
-					}
-					if (json.verified) {
-						props.setToken(json.token);
-					}
-				})().catch(err => {
-					clearInterval(checkLoop);
-					notifyErrorHandler("Error verifying code")(err);
-				});
-			}, 2 * 1000);
-			return () => { clearInterval(checkLoop); };
+		if (!verifyToken) {
+			return undefined;
 		}
 
-		return undefined;
+		let cancelled = false;
+		async function verify() {
+			try {
+				const response = await fetch(`${webRoot}api/player_auth/verify`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						verify_token: verifyToken,
+						verify_code: verifyCode,
+						player_code: playerCode,
+					}),
+				});
+
+				if (!response.ok) {
+					throw new Error(`Bad server response: ${response.status}`);
+				}
+
+				const json = await response.json();
+				if (cancelled) {
+					return;
+				}
+
+				if (json.error) {
+					setPlayerCodeError("Code expired");
+					setVerifyToken(null);
+					clearInterval(interval);
+					return;
+				}
+
+				if (json.verified) {
+					props.setToken(json.token);
+				}
+			} catch (err) {
+				if (!cancelled && err instanceof Error) {
+					clearInterval(interval);
+					notifyErrorHandler("Error verifying code")(err);
+				}
+			}
+		}
+
+		verify();
+		const interval = setInterval(verify, 2 * 1000);
+
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
 	}, [verifyToken]);
 
 	if (!servers) {
