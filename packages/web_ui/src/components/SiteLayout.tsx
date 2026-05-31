@@ -1,18 +1,19 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { Button, Dropdown, Layout, Menu, MenuProps, Tooltip } from "antd";
-import UserOutlined from "@ant-design/icons/UserOutlined";
-import webUiPackage from "../../package.json";
+import { UserOutlined, DownloadOutlined } from "@ant-design/icons";
 
-import { useAccount } from "../model/account";
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
+import ChangeLogModal from "./ChangeLogModal";
+
 import { pages } from "../pages";
-import { DraggingContext } from "../model/is_dragging";
 import { saveJson } from "../util/save_file";
+import { useAccount } from "../model/account";
+import { DraggingContext } from "../model/is_dragging";
+
 import { ControlConfig } from "@clusterio/lib";
-import { DownloadOutlined } from "@ant-design/icons";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -145,7 +146,7 @@ export default function SiteLayout() {
 			<Header className="header">
 				<div className="site-logo" />
 				<span className="site-name">Clusterio</span>
-				<span className="site-version">{webUiPackage.version}</span>
+				<ChangeLogModal />
 				<Menu
 					theme="dark"
 					mode="horizontal"

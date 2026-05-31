@@ -114,6 +114,10 @@ module.exports = (env = {}, argv = {}) => ({
 				test: /\.png$/,
 				type: "asset/resource",
 			},
+			{
+				test: /\.md$/,
+				type: "asset/source",
+			},
 		],
 	},
 	resolve: {

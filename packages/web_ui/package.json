@@ -37,6 +37,7 @@
 		"rc-field-form": "^1.37.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
+		"react-markdown": "catalog:",
 		"react-router-dom": "^6.29.0",
 		"stream-browserify": "^3.0.0",
 		"style-loader": "^3.3.3",
