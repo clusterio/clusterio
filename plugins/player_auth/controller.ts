@@ -3,11 +3,12 @@ import express, { type Request, type Response } from "express";
 import util from "util";
 import jwt from "jsonwebtoken";
 
+import { Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin } from "@clusterio/controller";
 const { basicType } = lib;
 
-import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages";
+import { FetchPlayerCodeRequest, PlayerAuthServer, SetVerifyCodeRequest } from "./messages";
 
 
 async function generateCode(length: number): Promise<string> {
@@ -46,12 +47,32 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}, 60e3).unref();
 
 		this.controller.app.get("/api/player_auth/servers", (req: Request, res: Response) => {
-			let servers: string[] = [];
-			for (let instance of this.controller.instances.values()) {
-				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
-					servers.push(instance.config.get("factorio.settings")["name"] as string || "unnamed server");
+			const servers: Static<typeof PlayerAuthServer.jsonSchema>[] = [];
+
+			for (const instance of this.controller.instances.values()) {
+				const pluginLoaded = instance.config.get("player_auth.load_plugin");
+				const assignedHost = instance.config.get("instance.assigned_host");
+				if (instance.status !== "running" || !pluginLoaded || !assignedHost) {
+					continue;
 				}
+
+				const host = this.controller.hosts.get(assignedHost);
+				if (!host || !host.publicAddress) {
+					continue;
+				}
+
+				const address = instance.gamePort !== undefined
+					? `${host.publicAddress}:${instance.gamePort}`
+					: host.publicAddress;
+
+				const settings = instance.config.get("factorio.settings");
+				servers.push({
+					name: settings["name"] as string || "unnamed server",
+					factorioVersion: instance.factorioVersion,
+					address,
+				});
 			}
+
 			res.send(servers);
 		});
 
