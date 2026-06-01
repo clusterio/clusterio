@@ -8,8 +8,9 @@ import * as lib from "@clusterio/lib";
 import { useRoles } from "../model/roles";
 import { formatDuration } from "../util/time_format";
 import {
-	formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen,
-	useUsers, calculateLastSeen, getUserStats, isUserOnline,
+	calculateFirstSeen, formatFirstSeen, sortFirstSeen,
+	calculateLastSeen, formatLastSeen, sortLastSeen,
+	useUsers, getUserStats, isUserOnline,
 } from "../model/user";
 
 import { onFilterUser, Username, useUserFilter } from "./UsersFilters";
@@ -37,6 +38,47 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 
 	const data = [...users.values()];
 	const roleFilters = [...roles.values()].map(role => ({ text: role.name, value: role.id }));
+
+	const durationFilters = [
+		{ text: "Online", value: "online" },
+		{ text: "24h", value: "24h" },
+		{ text: "7d", value: "7d" },
+		{ text: "30d", value: "30d" },
+		{ text: "Anytime", value: "any" },
+	];
+
+	function onFilterDuration(
+		value: string,
+		record: lib.UserDetails,
+		calculateDuration: (user: lib.UserDetails, instanceId?: number) => number | undefined,
+	) {
+		const online = isUserOnline(record, instanceId);
+		if (value === "online") {
+			return online;
+		}
+
+		// Online players should appear in all buckets
+		if (online) {
+			return true;
+		}
+
+		const ts = calculateDuration(record, instanceId);
+		if (!ts) { return false; }
+
+		const diff = Date.now() - ts;
+		switch (value) {
+			case "24h":
+				return diff <= 24 * 60 * 60 * 1000;
+			case "7d":
+				return diff <= 7 * 24 * 60 * 60 * 1000;
+			case "30d":
+				return diff <= 30 * 24 * 60 * 60 * 1000;
+			case "any":
+				return true;
+			default:
+				return false;
+		}
+	}
 
 	const columns: any[] = [
 		{
@@ -98,6 +140,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 		{
 			title: "First Seen",
 			key: "firstSeen",
+			filterMultiple: false,
+			filters: durationFilters,
+			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateFirstSeen),
 			render: (_: any, user: lib.UserDetails) => formatFirstSeen(user, instanceId),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortFirstSeen(a, b, instanceId, instanceId),
 		},
@@ -105,39 +150,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			title: "Last Seen",
 			key: "lastSeen",
 			filterMultiple: false,
+			filters: durationFilters,
 			defaultFilteredValue: onlyOnline ? ["online"] : undefined,
-			filters: [
-				{ text: "Online", value: "online" },
-				{ text: "24h", value: "24h" },
-				{ text: "7d", value: "7d" },
-				{ text: "30d", value: "30d" },
-				{ text: "Anytime", value: "any" },
-			],
-			onFilter: (value: string | number | boolean, record: lib.UserDetails) => {
-				const online = isUserOnline(record, instanceId);
-				if (value === "online") {
-					return online;
-				}
-				// Online players should appear in all buckets
-				if (online) {
-					return true;
-				}
-				const ts = calculateLastSeen(record, instanceId);
-				if (!ts) { return false; }
-				const diff = Date.now() - ts;
-				switch (value) {
-					case "24h":
-						return diff <= 24 * 60 * 60 * 1000;
-					case "7d":
-						return diff <= 7 * 24 * 60 * 60 * 1000;
-					case "30d":
-						return diff <= 30 * 24 * 60 * 60 * 1000;
-					case "any":
-						return true;
-					default:
-						return false;
-				}
-			},
+			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateLastSeen),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortLastSeen(a, b, instanceId, instanceId),
 			render: (_: any, user: lib.UserDetails) => formatLastSeen(user, instanceId),
 			// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
