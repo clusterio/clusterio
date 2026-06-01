@@ -8,22 +8,15 @@ import * as lib from "@clusterio/lib";
 import { useRoles } from "../model/roles";
 import { formatDuration } from "../util/time_format";
 import {
-	formatFirstSeen,
-	formatLastSeen,
-	sortFirstSeen,
-	sortLastSeen,
-	useUsers,
+	formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen,
+	useUsers, calculateLastSeen, getUserStats, isUserOnline,
 } from "../model/user";
 
 import { onFilterUser, Username, useUserFilter } from "./UsersFilters";
 import Link from "./Link";
 
 export interface UsersTableProps {
-	/**
-	 * Optional instance id.
-	 *  – If provided, instance-specific columns (Play Time, Join Count, First Seen) are shown.
-	 *  – If omitted, global player statistics columns (Online Time, First/Last Seen) are shown.
-	 */
+	/** Optional instance id. If provided, stats will be filtered to that instance only */
 	instanceId?: number;
 	/** Show only players that are currently online, works with instanceId to show online of a particular instance */
 	onlyOnline?: boolean;
@@ -43,16 +36,6 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
 
 	const data = [...users.values()];
-
-	// Determine online predicate based on instanceId
-	const isUserOnline = (user: lib.UserDetails) => {
-		if (instanceId !== undefined) {
-			return user.instances && user.instances.has(instanceId);
-		}
-		return user.instances && user.instances.size > 0;
-	};
-
-	// Prepare filters for roles column
 	const roleFilters = [...roles.values()].map(role => ({ text: role.name, value: role.id }));
 
 	const columns: any[] = [
@@ -87,87 +70,39 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				))
 			),
 		},
-	];
-
-
-	// Helper to get last seen timestamp
-	function getLastSeenTimestamp(user: lib.UserDetails): number | undefined {
-		const stats = instanceId !== undefined ? user.instanceStats.get(instanceId) : user.playerStats;
-		if (!stats) { return undefined; }
-		if (stats.lastLeaveAt && stats.lastLeaveAt.getTime() > (stats.lastJoinAt?.getTime() ?? 0)) {
-			return stats.lastLeaveAt.getTime();
-		}
-		if (stats.lastJoinAt) {
-			return stats.lastJoinAt.getTime();
-		}
-		return undefined;
-	}
-
-	if (instanceId !== undefined) {
-		columns.push(
-			{
-				title: "Play Time",
-				key: "playTime",
-				render: (_: any, user: lib.UserDetails) => {
-					const instanceStats = user.instanceStats.get(instanceId);
-					return instanceStats?.onlineTimeMs ? formatDuration(instanceStats.onlineTimeMs) : "-";
-				},
-				sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
-					const statsA = a.instanceStats.get(instanceId);
-					const statsB = b.instanceStats.get(instanceId);
-					return (statsA?.onlineTimeMs ?? 0) - (statsB?.onlineTimeMs ?? 0);
-				},
-			},
-			{
-				title: "Join Count",
-				key: "joinCount",
-				render: (_: any, user: lib.UserDetails) => {
-					const instanceStats = user.instanceStats.get(instanceId);
-					return instanceStats?.joinCount ?? 0;
-				},
-				sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
-					const statsA = a.instanceStats.get(instanceId);
-					const statsB = b.instanceStats.get(instanceId);
-					return (statsA?.joinCount ?? 0) - (statsB?.joinCount ?? 0);
-				},
-			},
-			{
-				title: "First Seen",
-				key: "firstSeen",
-				render: (_: any, user: lib.UserDetails) => formatFirstSeen(user, instanceId),
-				sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
-					const statsA = a.instanceStats.get(instanceId);
-					const statsB = b.instanceStats.get(instanceId);
-					const firstSeenA = statsA?.firstJoinAt?.getTime() ?? 0;
-					const firstSeenB = statsB?.firstJoinAt?.getTime() ?? 0;
-					return firstSeenA - firstSeenB;
-				},
-			},
-		);
-	} else {
-		columns.push(
-			{
-				title: "Online time",
-				key: "onlineTime",
-				render: (_: any, user: lib.UserDetails) => (user.playerStats?.onlineTimeMs
-					? formatDuration(user.playerStats.onlineTimeMs)
-					: null),
-				// eslint-disable-next-line max-len
-				sorter: (a: lib.UserDetails, b: lib.UserDetails) => (a.playerStats?.onlineTimeMs ?? 0) - (b.playerStats?.onlineTimeMs ?? 0),
-				// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
-				// responsive: ["lg"],
-			},
-			{
-				title: "First seen",
-				key: "firstSeen",
-				render: (_: any, user: lib.UserDetails) => formatFirstSeen(user),
-				sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortFirstSeen(a, b),
-			},
-		);
-	}
-	columns.push(
 		{
-			title: "Last seen",
+			title: "Online Time",
+			key: "onlineTime",
+			render: (_: any, user: lib.UserDetails) => {
+				const userStats = getUserStats(user, instanceId);
+				return userStats?.onlineTimeMs ? formatDuration(userStats.onlineTimeMs) : "-";
+			},
+			sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
+				const statsA = getUserStats(a, instanceId);
+				const statsB = getUserStats(b, instanceId);
+				return (statsA?.onlineTimeMs ?? 0) - (statsB?.onlineTimeMs ?? 0);
+			},
+		},
+		{
+			title: "Join Count",
+			key: "joinCount",
+			render: (_: any, user: lib.UserDetails) => (
+				getUserStats(user, instanceId)?.joinCount ?? 0
+			),
+			sorter: (a: lib.UserDetails, b: lib.UserDetails) => {
+				const statsA = getUserStats(a, instanceId);
+				const statsB = getUserStats(b, instanceId);
+				return (statsA?.joinCount ?? 0) - (statsB?.joinCount ?? 0);
+			},
+		},
+		{
+			title: "First Seen",
+			key: "firstSeen",
+			render: (_: any, user: lib.UserDetails) => formatFirstSeen(user, instanceId),
+			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortFirstSeen(a, b, instanceId, instanceId),
+		},
+		{
+			title: "Last Seen",
 			key: "lastSeen",
 			filterMultiple: false,
 			defaultFilteredValue: onlyOnline ? ["online"] : undefined,
@@ -176,9 +111,10 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				{ text: "24h", value: "24h" },
 				{ text: "7d", value: "7d" },
 				{ text: "30d", value: "30d" },
+				{ text: "Anytime", value: "any" },
 			],
 			onFilter: (value: string | number | boolean, record: lib.UserDetails) => {
-				const online = isUserOnline(record);
+				const online = isUserOnline(record, instanceId);
 				if (value === "online") {
 					return online;
 				}
@@ -186,7 +122,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				if (online) {
 					return true;
 				}
-				const ts = getLastSeenTimestamp(record);
+				const ts = calculateLastSeen(record, instanceId);
 				if (!ts) { return false; }
 				const diff = Date.now() - ts;
 				switch (value) {
@@ -196,6 +132,8 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 						return diff <= 7 * 24 * 60 * 60 * 1000;
 					case "30d":
 						return diff <= 30 * 24 * 60 * 60 * 1000;
+					case "any":
+						return true;
 					default:
 						return false;
 				}
@@ -205,7 +143,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
 			// responsive: ["lg"],
 		},
-	);
+	];
 
 	const defaultPagination = pagination === undefined
 		? {
