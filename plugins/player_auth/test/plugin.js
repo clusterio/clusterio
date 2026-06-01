@@ -132,7 +132,8 @@ describe("player_auth", function() {
 					addInstance(5, "running", true, undefined, "1.1.5", 34197);
 					addInstance(6, "running", true, "no port", "1.1.6", undefined);
 					addInstance(7, "running", true, "no host", "1.1.7", 34197, null);
-					addInstance(8, "running", true, "no version", undefined, 34197);
+					addInstance(8, "running", true, "invalid host", "1.1.8", 34197, 2);
+					addInstance(9, "running", true, "no version", undefined, 34197);
 
 					controllerPlugin.controller.hosts.set(1, {
 						publicAddress: "127.0.0.1",
