@@ -36,12 +36,12 @@ export interface UsersTableProps {
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 export default function UsersTable({ instanceId, onlyOnline = false, pagination, size }: UsersTableProps) {
-	const [roles] = useRoles();
+	const [roles, rolesSynced] = useRoles();
+	const [users, usersSynced] = useUsers();
 	const navigate = useNavigate();
 
 	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
 
-	const [users] = useUsers();
 	const data = [...users.values()];
 
 	// Determine online predicate based on instanceId
@@ -154,7 +154,8 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 					: null),
 				// eslint-disable-next-line max-len
 				sorter: (a: lib.UserDetails, b: lib.UserDetails) => (a.playerStats?.onlineTimeMs ?? 0) - (b.playerStats?.onlineTimeMs ?? 0),
-				responsive: ["lg"],
+				// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
+				// responsive: ["lg"],
 			},
 			{
 				title: "First seen",
@@ -223,6 +224,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			pagination={defaultPagination}
 			size={size}
 			scroll={{ x: "max-content" }}
+			loading={!usersSynced || !rolesSynced}
 			onRow={(user) => ({
 				onClick: (event) => {
 					if ((event.target as HTMLElement).closest("a")) {
