@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, Tag, Space } from "antd";
+import { Table, Tag } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -15,7 +15,7 @@ import {
 	useUsers,
 } from "../model/user";
 
-import { onFilterUser, useUserFilter } from "./UsersFilters";
+import { onFilterUser, Username, useUserFilter } from "./UsersFilters";
 import Link from "./Link";
 
 export interface UsersTableProps {
@@ -39,7 +39,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 	const [roles] = useRoles();
 	const navigate = useNavigate();
 
-	const {filterDropdown, filterDropdownProps} = useUserFilter();
+	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
 
 	const [users] = useUsers();
 	const data = [...users.values()];
@@ -60,14 +60,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			title: "Name",
 			key: "name",
 			render: (_: any, user: lib.UserDetails) => (
-				<Space>
-					{user.name}
-					<span>
-						{user.isAdmin && <Tag color="gold">Admin</Tag>}
-						{user.isWhitelisted && <Tag>Whitelisted</Tag>}
-						{user.isBanned && <Tag color="red">Banned</Tag>}
-					</span>
-				</Space>
+				<Username user={user} withStatus />
 			),
 			defaultSortOrder: "ascend",
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => strcmp(a.name, b.name),

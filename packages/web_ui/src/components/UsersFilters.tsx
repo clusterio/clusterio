@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { InputRef, Input, Space, Segmented, Button, Typography } from "antd";
+import { InputRef, Input, Space, Segmented, Button, Typography, Tag } from "antd";
 import type { FilterDropdownProps } from "antd/es/table/interface";
 import { CheckOutlined, CloseOutlined, MinusOutlined } from "@ant-design/icons";
 import { UserDetails } from "@clusterio/lib";
@@ -59,7 +59,28 @@ export function onFilterUser(
 		&& matchesTriState(record.isBanned, filter.banned);
 }
 
-export function useUserFilter() {
+export function Username({
+	user,
+	withStatus = false,
+} : {
+	user: UserDetails,
+	withStatus: boolean,
+}) {
+	return (
+		<Space>
+			{user.name}
+			{withStatus && (
+				<span>
+					{user.isAdmin && <Tag color="gold">Admin</Tag>}
+					{user.isWhitelisted && <Tag>Whitelisted</Tag>}
+					{user.isBanned && <Tag color="red">Banned</Tag>}
+				</span>
+			)}
+		</Space>
+	);
+}
+
+export function useUserFilter(withStatus?: boolean) {
 	const searchInput = useRef<InputRef>(null);
 
 	function filterDropdown({
@@ -77,9 +98,13 @@ export function useUserFilter() {
 			? decodeFilter(selectedKeys[0])
 			: {};
 
-		function update(next: Partial<UserFilter>, search?: boolean) {
-			const updated = { ...filter, ...next };
-			setSelectedKeys([encodeFilter(updated)]);
+		function update(next: Partial<UserFilter>) {
+			const encoded = encodeFilter({ ...filter, ...next });
+			if (encoded === "{}") {
+				clearFilters?.({ closeDropdown: false });
+			} else {
+				setSelectedKeys([encoded]);
+			}
 			confirm({ closeDropdown: false });
 		}
 
@@ -91,55 +116,57 @@ export function useUserFilter() {
 						placeholder="Search username"
 						value={filter.search}
 						allowClear
-						onChange={(e) => update({ search: e.target.value })}
 						onSearch={() => confirm({ closeDropdown: true })}
+						onChange={(e) => update({ search: e.target.value !== "" ? e.target.value : undefined })}
 						onClear={() => {
 							clearFilters?.({ closeDropdown: false });
 							confirm({ closeDropdown: true });
 						}}
 					/>
 
-					<Space size={8} align="center">
-						<Segmented
-							size="small"
-							value={triStateToSegmented(filter.admin)}
-							onChange={value => update({ admin: segmentedToTriState(value) })}
-							options={[
-								{ icon: <CloseOutlined />, value: "no", className: "seg-no" },
-								{ icon: <MinusOutlined />, value: "any" },
-								{ icon: <CheckOutlined />, value: "yes", className: "seg-yes" },
-							]}
-						/>
-						<Text>Admin</Text>
-					</Space>
+					{withStatus &&<>
+						<Space size={8} align="center">
+							<Segmented
+								size="small"
+								value={triStateToSegmented(filter.admin)}
+								onChange={value => update({ admin: segmentedToTriState(value) })}
+								options={[
+									{ icon: <CloseOutlined />, value: "no", className: "seg-no" },
+									{ icon: <MinusOutlined />, value: "any" },
+									{ icon: <CheckOutlined />, value: "yes", className: "seg-yes" },
+								]}
+							/>
+							<Text>Admin</Text>
+						</Space>
 
-					<Space size={8} align="center">
-						<Segmented
-							size="small"
-							value={triStateToSegmented(filter.whitelisted)}
-							onChange={value => update({ whitelisted: segmentedToTriState(value) })}
-							options={[
-								{ icon: <CloseOutlined />, value: "no", className: "seg-no" },
-								{ icon: <MinusOutlined />, value: "any" },
-								{ icon: <CheckOutlined />, value: "yes", className: "seg-yes" },
-							]}
-						/>
-						<Text>Whitelist</Text>
-					</Space>
+						<Space size={8} align="center">
+							<Segmented
+								size="small"
+								value={triStateToSegmented(filter.whitelisted)}
+								onChange={value => update({ whitelisted: segmentedToTriState(value) })}
+								options={[
+									{ icon: <CloseOutlined />, value: "no", className: "seg-no" },
+									{ icon: <MinusOutlined />, value: "any" },
+									{ icon: <CheckOutlined />, value: "yes", className: "seg-yes" },
+								]}
+							/>
+							<Text>Whitelist</Text>
+						</Space>
 
-					<Space size={8} align="center">
-						<Segmented
-							size="small"
-							value={triStateToSegmented(filter.banned)}
-							onChange={value => update({ banned: segmentedToTriState(value) })}
-							options={[
-								{ icon: <CloseOutlined />, value: "no", className: "seg-no" },
-								{ icon: <MinusOutlined />, value: "any" },
-								{ icon: <CheckOutlined />, value: "yes", className: "seg-yes" },
-							]}
-						/>
-						<Text>Banned</Text>
-					</Space>
+						<Space size={8} align="center">
+							<Segmented
+								size="small"
+								value={triStateToSegmented(filter.banned)}
+								onChange={value => update({ banned: segmentedToTriState(value) })}
+								options={[
+									{ icon: <CloseOutlined />, value: "no", className: "seg-no" },
+									{ icon: <MinusOutlined />, value: "any" },
+									{ icon: <CheckOutlined />, value: "yes", className: "seg-yes" },
+								]}
+							/>
+							<Text>Banned</Text>
+						</Space>
+					</>}
 				</Space>
 			</div>
 		);
