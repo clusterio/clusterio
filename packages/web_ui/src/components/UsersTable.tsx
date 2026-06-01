@@ -1,6 +1,5 @@
-import React, { useRef } from "react";
-import { Table, Tag, Space, Input, InputRef } from "antd";
-import type { FilterDropdownProps } from "antd/es/table/interface";
+import React from "react";
+import { Table, Tag, Space } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -15,6 +14,8 @@ import {
 	sortLastSeen,
 	useUsers,
 } from "../model/user";
+
+import { onFilterUser, useUserFilter } from "./UsersFilters";
 import Link from "./Link";
 
 export interface UsersTableProps {
@@ -37,10 +38,10 @@ const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 export default function UsersTable({ instanceId, onlyOnline = false, pagination, size }: UsersTableProps) {
 	const [roles] = useRoles();
 	const navigate = useNavigate();
-	const searchInput = useRef<InputRef>(null);
+
+	const {filterDropdown, filterDropdownProps} = useUserFilter();
 
 	const [users] = useUsers();
-
 	const data = [...users.values()];
 
 	// Determine online predicate based on instanceId
@@ -73,33 +74,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			filterIcon: (filtered: boolean) => (
 				<SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
 			),
-			onFilter: (value: string | number | boolean, record: lib.UserDetails) => record.name
-				.toLowerCase()
-				.includes((value as string).toLowerCase()),
-			filterDropdownProps: {
-				onOpenChange: (open: boolean) => open && setTimeout(() => searchInput.current?.select(), 100),
-			},
-			filterDropdown: ({ selectedKeys, setSelectedKeys, confirm, clearFilters }: {
-				selectedKeys: string[],
-				setSelectedKeys: (keys: string[]) => void,
-				confirm: FilterDropdownProps["confirm"],
-				clearFilters: FilterDropdownProps["clearFilters"],
-			}) => (
-				<div style={{ padding: 4 }} onKeyDown={(e) => e.stopPropagation()}>
-					<Input.Search
-						allowClear
-						ref={searchInput}
-						placeholder={"Search username"}
-						value={selectedKeys[0]}
-						onChange={(e) => setSelectedKeys([e.target.value])}
-						onSearch={() => confirm({ closeDropdown: false })}
-						onClear={() => {
-							clearFilters?.({ closeDropdown: false });
-							confirm({ closeDropdown: true });
-						}}
-					/>
-				</div>
-			),
+			onFilter: onFilterUser,
+			filterDropdownProps,
+			filterDropdown,
 		},
 		{
 			title: "Roles",
