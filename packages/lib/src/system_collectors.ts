@@ -132,7 +132,9 @@ export async function gatherSystemInfo(
 	const currentIdleCpuMs = cpus.map(({ times }) => times.idle);
 	const deltaTotalCpuMs = minZip(previousTotalCpuMs, currentTotalCpuMs).map(([prev, curr]) => curr - prev);
 	const deltaIdleCpuMs = minZip(previousIdleCpuMs, currentIdleCpuMs).map(([prev, curr]) => curr - prev);
-	const cpuUsage = minZip(deltaTotalCpuMs, deltaIdleCpuMs).map(([total, idle]) => (total - idle) / total);
+	const cpuUsage = minZip(deltaTotalCpuMs, deltaIdleCpuMs).map(
+		([total, idle]) => (total <= 0 ? 0 : (total - idle) / total)
+	);
 	previousTotalCpuMs = currentTotalCpuMs;
 	previousIdleCpuMs = currentIdleCpuMs;
 	const stats = await fs.statfs(".");
