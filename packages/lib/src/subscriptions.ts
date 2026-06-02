@@ -73,7 +73,7 @@ export class SubscriptionFilters {
 		return `[SubscriptionFilters Set<${this._filters.size}>]`;
 	}
 
-	/** Returns true if this filter accepts all the given filters */
+	/** Returns true if this filter accepts the given string */
 	accepts(value: string) {
 		return this._all || this._filters.has(value);
 	}
