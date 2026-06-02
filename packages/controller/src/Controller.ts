@@ -875,6 +875,9 @@ export default class Controller {
 	}
 
 	async handleSystemInfoSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const systems = [...this.systems.values()].filter(
 			metric => metric.updatedAtMs > request.lastRequestTimeMs,
 		);
@@ -897,6 +900,9 @@ export default class Controller {
 	}
 
 	async handleHostSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const hosts = [...this.hosts.values()].filter(
 			host => host.updatedAtMs > request.lastRequestTimeMs,
 		).map(host => host.toHostDetails());
@@ -944,6 +950,9 @@ export default class Controller {
 	}
 
 	async handleInstanceDetailsSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const instances = [...this.instances.values()].filter(
 			instance => instance.updatedAtMs > request.lastRequestTimeMs,
 		).map(instance => instance.toInstanceDetails());
@@ -955,7 +964,12 @@ export default class Controller {
 	}
 
 	async handleInstanceSaveDetailsSubscription(request: lib.SubscriptionRequest) {
-		const saves = [...this.saves.values()].filter(save => save.updatedAtMs > request.lastRequestTimeMs);
+		if (request.action === "unsubscribe") {
+			return null;
+		}
+		const saves = [...this.saves.values()].filter(
+			save => save.updatedAtMs > request.lastRequestTimeMs
+		);
 		return saves.length ? new lib.InstanceSaveDetailsUpdatesEvent(saves) : null;
 	}
 
@@ -966,6 +980,9 @@ export default class Controller {
 	}
 
 	async handleModPackSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const modPacks = [...this.modPacks.values()].filter(
 			modPack => modPack.updatedAtMs > request.lastRequestTimeMs,
 		);
@@ -979,6 +996,9 @@ export default class Controller {
 	}
 
 	async handleModSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const mods = [...this.modStore.files.values()].filter(
 			mod => mod.updatedAtMs > request.lastRequestTimeMs,
 		);
@@ -990,6 +1010,9 @@ export default class Controller {
 	}
 
 	async handleUserSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const users = [...this.users.records.values()].filter(
 			user => user.updatedAtMs > request.lastRequestTimeMs,
 		);
@@ -1037,6 +1060,9 @@ export default class Controller {
 	}
 
 	async handleRoleSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
 		const roles = [...this.roles.values()].filter(
 			role => role.updatedAtMs > request.lastRequestTimeMs,
 		);

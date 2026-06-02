@@ -8,16 +8,17 @@ export default class Permission {
 		public name: string,
 		public title: string,
 		public description: string,
-		public grantByDefault?: boolean,
+		public grantByDefault: boolean = false,
 	) { }
 
 	static jsonSchema = Type.Object({
 		name: Type.String(),
 		title: Type.String(),
 		description: Type.String(),
+		grantByDefault: Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.title, json.description);
+		return new this(json.name, json.title, json.description, Boolean(json.grantByDefault));
 	}
 }

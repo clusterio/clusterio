@@ -240,14 +240,16 @@ describe("lib/config/definitions/validators", function() {
 		});
 
 		describe("plugin.load_plugin", function() {
-			const initialConfigFields = {
-				"global_chat.load_plugin": false,
-				"inventory_sync.load_plugin": false,
-				"player_auth.load_plugin": false,
-				"research_sync.load_plugin": false,
-				"statistics_exporter.load_plugin": false,
-				"subspace_storage.load_plugin": false,
-			};
+			const initialConfigFields = {};
+
+			before(function() {
+				for (const fieldName of Object.keys(InstanceConfig.fieldDefinitions)) {
+					if (fieldName.endsWith("load_plugin")) {
+						initialConfigFields[fieldName] = false;
+					}
+				}
+			});
+
 			it("should validate against factorio.enable_save_patching", function() {
 				class TestInstanceConfig extends InstanceConfig {
 					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };

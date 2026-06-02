@@ -219,7 +219,7 @@ export class Link {
 
 		if (!message.dst.addressedTo(this.connector.src)) {
 			if (message.type === "response" || message.type === "responseError") {
-				this._forwardedRequests.delete(message.dst.index());
+				this._forwardedRequests.delete(message.dst.requestIndex());
 			}
 			this._routeMessage(message, entry);
 			return;
@@ -566,7 +566,7 @@ export class Link {
 			src: message.src,
 			dst: message.dst,
 		};
-		this._forwardedRequests.set(message.src.index(), pending);
+		this._forwardedRequests.set(message.src.requestIndex(), pending);
 		this.connector.forward(message);
 	}
 
