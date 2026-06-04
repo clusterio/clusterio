@@ -2,8 +2,14 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
+import { AsyncParallelHook } from "tapable";
+
+import fs from "node:fs/promises";
+import path from "path";
+
+import * as libErrors from "./errors";
 import * as libHelpers from "./helpers";
-import type { Logger } from "./logging";
+import { type Logger, logger } from "./logging";
 import type { FieldDefinition } from "./config";
 import type { PlayerStats } from "./data";
 
@@ -80,42 +86,210 @@ export interface PlayerEvent {
 	stats: PlayerStats,
 }
 
+export type PluginLoadContext<Context extends object> = Context & {
+	logger: Logger;
+	plugin: PluginNodeEnvInfo;
+};
+
+export interface PluginClass<Context extends object, Instance = unknown> {
+	new (context: PluginLoadContext<Context>): Instance;
+	registerHooks: (context: PluginLoadContext<Context>, plugin: Instance) => void;
+};
+
+type PluginType = Extract<keyof PluginNodeEnvInfo, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
+
 /**
- * Invokes the given hook on all plugins
+ * Creates an AsyncParallelHook configured for plugin execution.
  *
- * @param plugins -
- *     Mapping of plugin names to plugins to invoke the hook on.
- * @param hook - Name of hook to invoke.
- * @param args - Arguments to pass on to the hook.
- * @returns Non-undefined return values from the hooks.
+ * Registered handlers are automatically wrapped to:
+ * - enforce a timeout,
+ * - log and suppress errors,
+ *
+ * The registered plugin name is taken from the tap name.
+ *
+ * @param options - Hook configuration.
+ * @returns Configured hook instance.
  */
-export async function invokeHook<
-	Hook extends string,
-	R,
-	Args extends [...any],
-	Plugin extends { logger: Logger } & Record<Hook, (...hookArgs: Args) => R | Promise<R>>
->(
-	plugins: Map<string, Plugin>,
-	hook: Hook,
-	...args: Args
-): Promise<Exclude<Awaited<ReturnType<Plugin[Hook]>>, void>[]> {
-	let results: any[] = [];
-	for (let [name, plugin] of plugins) {
-		try {
-			const timeout = Symbol("timeout-token");
-			let result = await libHelpers.timeout<R | typeof timeout>(
-				plugin[hook](...args) as Promise<R>,
-				15000,
-				timeout
-			);
-			if (result === timeout) {
-				throw new Error(`Invoking hook ${hook} timed out for plugin ${name}`);
-			} else if (result !== undefined) {
-				results.push(result);
-			}
-		} catch (err: any) {
-			plugin.logger.error(`Ignoring error from plugin ${name} in ${hook}:\n${err.stack}`);
-		}
+export function createPluginHook<Args extends any[]>() {
+	const hook = new AsyncParallelHook<[...Args]>();
+	const timeoutToken = Symbol("timeout");
+
+	hook.intercept({
+		register(tap) {
+			const originalFn = tap.fn;
+
+			return {
+				...tap,
+
+				fn: async (...args: Args): Promise<unknown> => {
+					try {
+						const result = await libHelpers.timeout(
+							Promise.resolve(originalFn(...args)),
+							15000,
+							timeoutToken
+						);
+
+						if (result === timeoutToken) {
+							throw new Error("Hook timed out after 15s");
+						}
+
+						return result;
+					} catch (err: any) {
+						logger.error(`Ignoring error in hook:\n${err.stack ?? err}`);
+						return undefined;
+					}
+				},
+			};
+		},
+	});
+
+	return hook;
+}
+
+async function loadPluginEntrypoint<
+	Context extends object
+> (
+	pluginInfo: PluginNodeEnvInfo,
+	pluginType: PluginType,
+	context: PluginLoadContext<Context>,
+	module: Record<string, unknown>,
+) {
+	const fn = module.default;
+
+	if (typeof fn !== "function") {
+		throw new Error(`Expected ${pluginType} plugin ${pluginInfo.name} to export a default function`);
 	}
-	return results;
+
+	await fn(context);
+}
+
+function loadPluginClass<
+	Context extends object,
+	Class extends PluginClass<Context>,
+> (
+	pluginInfo: PluginNodeEnvInfo,
+	pluginType: PluginType,
+	context: PluginLoadContext<Context>,
+	module: Record<string, unknown>,
+	exportName: string,
+	baseClass: Class,
+) {
+	const PluginClass = module[exportName] as any;
+
+	if (typeof PluginClass !== "object") {
+		throw new Error(`Expected ${pluginType} plugin ${pluginInfo.name} to export a class named ${exportName}`);
+	}
+
+	if (!(PluginClass.prototype instanceof baseClass)) {
+		throw new Error(`Expected ${exportName} exported from ${pluginInfo.name} to extend ${baseClass.name}`);
+	}
+
+	const plugin = new PluginClass(context);
+	baseClass.registerHooks(context, plugin);
+}
+
+export async function loadPlugin<
+	Context extends { logger: Logger },
+	Class extends PluginClass<Context>,
+> (
+	pluginInfo: PluginNodeEnvInfo,
+	pluginType: PluginType,
+	context: Context,
+	exportName: string,
+	baseClass: Class,
+) {
+	const entrypoint = `${pluginType}Entrypoint` as const;
+	const requirePath = pluginInfo[entrypoint];
+
+	if (!requirePath) {
+		return;
+	}
+
+	const module = require(requirePath);
+	const pluginContext: PluginLoadContext<Context> = {
+		...context,
+		plugin: pluginInfo,
+		logger: context.logger.child({ plugin: pluginInfo.name }),
+	};
+
+	if (typeof module.default === "function") {
+		await loadPluginEntrypoint(pluginInfo, pluginType, pluginContext, module);
+		return;
+	}
+
+	// migrate: accept plugins which export classes
+	if (module[entrypoint]) {
+		logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks on ${pluginType}`);
+		loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
+		return;
+	}
+
+	throw new Error(`Plugin ${pluginInfo.name} must export either a default function or ${pluginType}`);
+}
+
+/**
+ * Load plugin information
+ *
+ * Loads plugin info modules for the paths to the given plugins.  Once
+ * loaded the info modules will not be reloaded should this function be
+ * called again.
+ *
+ * @param pluginList -
+ *     Mapping of plugin name to require path for the plugins to load.
+ * @returns Array of plugin info modules.
+ */
+export async function loadPluginInfos(pluginList: Map<string, string>) {
+	let plugins: PluginNodeEnvInfo[] = [];
+	for (let [pluginName, pluginPath] of pluginList) {
+		let pluginInfo: PluginNodeEnvInfo;
+		let pluginPackage: { name?: string, version: string, main?: string, private?: boolean };
+
+		// Check if plugin path exists, otherwise remove it
+		try {
+			require.resolve(pluginPath);
+		} catch {
+			let errMsg = `Plugin path ${pluginPath} does not exist`;
+			try {
+				await fs.access(pluginPath, fs.constants.F_OK);
+				errMsg = `Plugin path ${pluginPath} missing index or main file`;
+			} catch {}
+			logger.error(`${errMsg}, not loading ${pluginName}`);
+			pluginList.delete(pluginName);
+			continue;
+		}
+
+		try {
+			pluginInfo = require(pluginPath).plugin;
+			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
+		} catch (err: any) {
+			if (err.code === "InstallationError") {
+				throw err;
+			}
+			throw new libErrors.PluginError(pluginName, err);
+		}
+
+		if (typeof pluginInfo !== "object") {
+			throw new libErrors.EnvironmentError(
+				`Expected plugin at ${pluginPath} to export an object named 'plugin' but got ${typeof pluginInfo}`,
+			);
+		}
+
+		if (pluginInfo.name !== pluginName) {
+			throw new libErrors.EnvironmentError(
+				`Expected plugin at ${pluginPath} to be named ${pluginName} but got ${pluginInfo.name}`
+			);
+		}
+
+		// migrate: ignore incompatible old plugins
+		if (pluginInfo.messages && !(pluginInfo.messages instanceof Array)) {
+			logger.warn(`Ignoring incompatible pre alpha.14 plugin ${pluginName}`);
+			continue;
+		}
+
+		pluginInfo.requirePath = pluginPath;
+		pluginInfo.version = pluginPackage.version;
+		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name ? pluginPath : undefined;
+		plugins.push(pluginInfo);
+	}
+	return plugins;
 }

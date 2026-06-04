@@ -22,7 +22,6 @@ export * from "./src/logging_utils";
 export * from "./src/lua_tools";
 export * from "./src/permissions";
 export * from "./src/plugin";
-export * from "./src/plugin_loader";
 export * from "./src/prometheus";
 export * from "./src/schema";
 export * from "./src/shared_commands";
