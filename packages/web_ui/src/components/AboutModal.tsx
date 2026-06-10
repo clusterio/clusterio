@@ -2,9 +2,14 @@ import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Modal, Button, Space, Typography, message, Row, Col, Card } from "antd";
 import { ReloadOutlined, CopyOutlined, InfoCircleOutlined } from "@ant-design/icons";
 
-import { ControlContext, useAccount, useHosts, useInstances, useUsers } from "@clusterio/web_ui";
 import { PluginWebApi } from "@clusterio/lib";
+
 import webUiPackage from "../../package.json";
+import ControlContext from "./ControlContext";
+import { useAccount } from "../model/account";
+import { useHosts } from "../model/host";
+import { useInstances } from "../model/instance";
+import { useUsers } from "../model/user";
 
 const { Text } = Typography;
 
