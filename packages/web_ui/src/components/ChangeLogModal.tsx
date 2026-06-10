@@ -52,11 +52,9 @@ export default function ChangeLogModal({
 				footer={null}
 				width={800}
 			>
-				<div style={{ maxHeight: "70vh", overflow: "auto" }}>
-					<ReactMarkdown>
-						{cleanedChangelog}
-					</ReactMarkdown>
-				</div>
+				<ReactMarkdown>
+					{cleanedChangelog}
+				</ReactMarkdown>
 			</Modal>
 		</>
 	);
