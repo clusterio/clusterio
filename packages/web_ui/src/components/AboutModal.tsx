@@ -5,6 +5,9 @@ import { ReloadOutlined, CopyOutlined, InfoCircleOutlined } from "@ant-design/ic
 import { PluginWebApi } from "@clusterio/lib";
 
 import webUiPackage from "../../package.json";
+import DiscordLogo from "../images/discord.svg";
+import GitHubLogo from "../images/github.svg";
+
 import ControlContext from "./ControlContext";
 import { useAccount } from "../model/account";
 import { useHosts } from "../model/host";
@@ -153,10 +156,7 @@ export default function AboutModal({ open, onClose, onOpenChangelog }: any) {
 								target="_blank"
 								href="https://github.com/clusterio/clusterio/issues"
 								icon={<span style={{ display: "flex", alignItems: "center" }}>
-									<img
-										src="https://github.githubassets.com/favicons/favicon-dark.svg"
-										style={{ width: 16 }}
-									/>
+									<img src={GitHubLogo} style={{ width: 16 }} />
 								</span>}
 							>
 								GitHub Issues
@@ -165,11 +165,7 @@ export default function AboutModal({ open, onClose, onOpenChangelog }: any) {
 								target="_blank"
 								href="https://discord.gg/mzAsgnm"
 								icon={<span style={{ display: "flex", alignItems: "center" }}>
-									<img
-										// eslint-disable-next-line max-len
-										src="https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d7f4ef6498ac018f2c55_Symbol.svg"
-										style={{ width: 16}}
-									/>
+									<img src={DiscordLogo} style={{ width: 16}} />
 								</span>}
 							>
 								Support Server

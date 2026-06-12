@@ -130,6 +130,10 @@ module.exports = (env = {}, argv = {}) => ({
 				type: "asset/resource",
 			},
 			{
+				test: /\.svg$/,
+				type: "asset/resource",
+			},
+			{
 				test: /\.md$/,
 				type: "asset/source",
 			},
