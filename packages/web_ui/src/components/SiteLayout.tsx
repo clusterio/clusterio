@@ -1,18 +1,21 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { Button, Dropdown, Layout, Menu, MenuProps, Tooltip } from "antd";
-import UserOutlined from "@ant-design/icons/UserOutlined";
-import webUiPackage from "../../package.json";
+import { UserOutlined, DownloadOutlined } from "@ant-design/icons";
 
-import { useAccount } from "../model/account";
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
+import ChangeLogModal from "./ChangeLogModal";
+import AboutModal from "./AboutModal";
+
 import { pages } from "../pages";
-import { DraggingContext } from "../model/is_dragging";
 import { saveJson } from "../util/save_file";
+import { useAccount } from "../model/account";
+import { DraggingContext } from "../model/is_dragging";
+import webUiPackage from "../../package.json";
+
 import { ControlConfig } from "@clusterio/lib";
-import { DownloadOutlined } from "@ant-design/icons";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -43,6 +46,9 @@ export default function SiteLayout() {
 	let plugins = useContext(ControlContext).plugins;
 	const control = useContext(ControlContext);
 	const [dragging, setDragging] = useState(0);
+	const [aboutOpen, setAboutOpen] = useState(false);
+	const [wasAboutOpen, setWasAboutOpen] = useState(false);
+	const [changeLogOpen, setChangeLogOpen] = useState(false);
 
 	function SetSidebar(props: { path: string | null }) {
 		useEffect(() => {
@@ -61,6 +67,8 @@ export default function SiteLayout() {
 					"control.controller_url": (new URL(webRoot, document.location.href)).href,
 				});
 				saveJson("config-control.json", config.toJSON());
+			} else if (key === "about") {
+				setAboutOpen(true);
 			} else if (key === "logOut") {
 				account.logOut();
 			}
@@ -73,6 +81,7 @@ export default function SiteLayout() {
 				</Tooltip>,
 				key: "ctlConfig",
 			},
+			{ label: "About", key: "about" },
 			{ type: "divider" },
 			{ label: "Log out", danger: true, key: "logOut" },
 		],
@@ -141,11 +150,42 @@ export default function SiteLayout() {
 			}
 		}}
 	>
+		<AboutModal
+			open={aboutOpen}
+			onClose={() => {
+				setAboutOpen(false);
+				setWasAboutOpen(false);
+			}}
+			onOpenChangelog={() => {
+				setChangeLogOpen(true);
+				setWasAboutOpen(aboutOpen);
+				setAboutOpen(false);
+			}}
+		/>
+		<ChangeLogModal
+			open={changeLogOpen}
+			onClose={() => {
+				setChangeLogOpen(false);
+				setAboutOpen(wasAboutOpen);
+			}}
+		/>
 		<DraggingContext.Provider value={dragging > 0}>
 			<Header className="header">
 				<div className="site-logo" />
 				<span className="site-name">Clusterio</span>
-				<span className="site-version">{webUiPackage.version}</span>
+				<Tooltip
+					title="View changelog"
+					placement="bottom"
+					align={{ offset: [0, -10] }}
+				>
+					<span
+						className="site-version"
+						style={{ cursor: "pointer" }}
+						onClick={() => setChangeLogOpen(true)}
+					>
+						{webUiPackage.version}
+					</span>
+				</Tooltip>
 				<Menu
 					theme="dark"
 					mode="horizontal"
