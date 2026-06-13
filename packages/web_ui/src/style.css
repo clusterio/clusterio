@@ -409,3 +409,30 @@ tr.ant-table-row.deleted {
 	border-radius: 8px;
 	max-width: 384px;
 }
+
+/**
+ * Tri-state segmented control:
+ * represents include, exclude, or no filter
+ */
+.seg-yes {
+	color: #389e0d;
+}
+.seg-no {
+	color: #cf1322;
+}
+
+.ant-segmented-item-selected.seg-yes {
+	background-color: #389e0d !important;
+	color: white !important;
+}
+.ant-segmented-item-selected.seg-no {
+	background-color: #cf1322 !important;
+	color: white !important;
+}
+
+.seg-yes:hover {
+	background-color: #306317;
+}
+.seg-no:hover {
+	background-color: #7a2e2f;
+}
