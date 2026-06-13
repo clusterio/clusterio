@@ -2,13 +2,10 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-import { AsyncParallelHook } from "tapable";
-
 import fs from "node:fs/promises";
 import path from "path";
 
 import * as libErrors from "./errors";
-import * as libHelpers from "./helpers";
 import { type Logger, logger } from "./logging";
 import type { FieldDefinition } from "./config";
 import type { PlayerStats } from "./data";
@@ -91,60 +88,17 @@ export type PluginLoadContext<Context extends object> = Context & {
 	plugin: PluginNodeEnvInfo;
 };
 
-export interface PluginClass<Context extends object, Instance = unknown> {
-	new (context: PluginLoadContext<Context>): Instance;
-	registerHooks: (context: PluginLoadContext<Context>, plugin: Instance) => void;
+export type PluginClass<
+	Context extends object,
+	Instance = unknown
+> = {
+	new (...args: any[]): Instance,
+	fromContext(context: PluginLoadContext<Context>): Instance & {
+		init(): void;
+	};
 };
 
 type PluginType = Extract<keyof PluginNodeEnvInfo, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
-
-/**
- * Creates an AsyncParallelHook configured for plugin execution.
- *
- * Registered handlers are automatically wrapped to:
- * - enforce a timeout,
- * - log and suppress errors,
- *
- * The registered plugin name is taken from the tap name.
- *
- * @param options - Hook configuration.
- * @returns Configured hook instance.
- */
-export function createPluginHook<Args extends any[]>() {
-	const hook = new AsyncParallelHook<[...Args]>();
-	const timeoutToken = Symbol("timeout");
-
-	hook.intercept({
-		register(tap) {
-			const originalFn = tap.fn;
-
-			return {
-				...tap,
-
-				fn: async (...args: Args): Promise<unknown> => {
-					try {
-						const result = await libHelpers.timeout(
-							Promise.resolve(originalFn(...args)),
-							15000,
-							timeoutToken
-						);
-
-						if (result === timeoutToken) {
-							throw new Error("Hook timed out after 15s");
-						}
-
-						return result;
-					} catch (err: any) {
-						logger.error(`Ignoring error in hook:\n${err.stack ?? err}`);
-						return undefined;
-					}
-				},
-			};
-		},
-	});
-
-	return hook;
-}
 
 async function loadPluginEntrypoint<
 	Context extends object
@@ -154,16 +108,16 @@ async function loadPluginEntrypoint<
 	context: PluginLoadContext<Context>,
 	module: Record<string, unknown>,
 ) {
-	const fn = module.default;
+	const init = module.default;
 
-	if (typeof fn !== "function") {
+	if (typeof init !== "function") {
 		throw new Error(`Expected ${pluginType} plugin ${pluginInfo.name} to export a default function`);
 	}
 
-	await fn(context);
+	await init(context);
 }
 
-function loadPluginClass<
+async function loadPluginClass<
 	Context extends object,
 	Class extends PluginClass<Context>,
 > (
@@ -184,8 +138,7 @@ function loadPluginClass<
 		throw new Error(`Expected ${exportName} exported from ${pluginInfo.name} to extend ${baseClass.name}`);
 	}
 
-	const plugin = new PluginClass(context);
-	baseClass.registerHooks(context, plugin);
+	await PluginClass.fromContext(context).init();
 }
 
 export async function loadPlugin<
@@ -220,7 +173,7 @@ export async function loadPlugin<
 	// migrate: accept plugins which export classes
 	if (module[entrypoint]) {
 		logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks on ${pluginType}`);
-		loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
+		await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
 		return;
 	}
 
