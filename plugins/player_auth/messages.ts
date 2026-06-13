@@ -1,5 +1,32 @@
 import { Type, Static } from "@sinclair/typebox";
 
+export class PlayerAuthServer {
+	declare ["constructor"]: typeof PlayerAuthServer;
+
+	static jsonSchema = Type.Object({
+		name: Type.String(),
+		address: Type.String(),
+		factorioVersion: Type.Optional(Type.String()),
+	});
+
+	constructor(
+		public name: string,
+		public address: string,
+		public factorioVersion?: string,
+	) {}
+
+	toJSON(): Static<typeof PlayerAuthServer.jsonSchema> {
+		if (this.factorioVersion === undefined) {
+			return { name: this.name, address: this.address };
+		}
+		return { name: this.name, address: this.address, factorioVersion: this.factorioVersion };
+	}
+
+	static fromJSON(json: Static<typeof PlayerAuthServer.jsonSchema>) {
+		return new this(json.name, json.address, json.factorioVersion);
+	}
+}
+
 class FetchPlayerCodeResponse {
 	constructor(
 		public playerCode: string,

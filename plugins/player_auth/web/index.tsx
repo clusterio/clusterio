@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
 import { Button, Form, Input, Spin, Typography } from "antd";
 
+import { PlayerAuthServer } from "../messages";
 import "./style.css";
 
 const { Paragraph, Text } = Typography;
@@ -12,60 +13,94 @@ interface LoginFormProps {
 }
 
 function LoginForm(props: LoginFormProps) {
-	let [servers, setServers] = useState<string[] | null>(null);
+	const [servers, setServers] = useState<PlayerAuthServer[] | null>(null);
 	let [playerCode, setPlayerCode] = useState<string | null>(null);
 	let [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
 	let [verifyCode, setVerifyCode] = useState<string | undefined>();
 	let [verifyToken, setVerifyToken] = useState<string | null>(null);
 
 	useEffect(() => {
-		(async () => {
-			let response = await fetch(`${webRoot}api/player_auth/servers`);
-			if (response.ok) {
-				setServers(await response.json());
-			} else {
-				setServers([]);
+		let cancelled = false;
+		async function loadServers() {
+			try {
+				const response = await fetch(`${webRoot}api/player_auth/servers`);
+				if (!response.ok) {
+					throw new Error(`Bad server response: ${response.status}`);
+				}
+
+				const data = await response.json();
+				if (!cancelled) {
+					setServers(data);
+				}
+			} catch (err) {
+				if (!cancelled && err instanceof Error) {
+					setServers([]);
+					notifyErrorHandler("Error fetching servers")(err);
+				}
 			}
-		})();
+		}
+
+		loadServers();
+		const interval = setInterval(loadServers, 15 * 1000);
+
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
 	}, []);
 
 	useEffect(() => {
-		if (verifyToken) {
-			let checkLoop = setInterval(() => {
-				(async () => {
-					let response = await fetch(`${webRoot}api/player_auth/verify`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							verify_token: verifyToken,
-							verify_code: verifyCode,
-							player_code: playerCode,
-						}),
-					});
-					if (!response.ok) {
-						throw new Error(`Bad server response: ${response.status}`);
-					}
-					let json = await response.json();
-					if (json.error) {
-						// While there are other possibilites the most likely
-						// cause of an error response here is that the code expired.
-						setPlayerCodeError("Code expired");
-						setVerifyToken(null);
-						clearInterval(checkLoop);
-						return;
-					}
-					if (json.verified) {
-						props.setToken(json.token);
-					}
-				})().catch(err => {
-					clearInterval(checkLoop);
-					notifyErrorHandler("Error verifying code")(err);
-				});
-			}, 2000);
-			return () => { clearInterval(checkLoop); };
+		if (!verifyToken) {
+			return undefined;
 		}
 
-		return undefined;
+		let cancelled = false;
+		async function verify() {
+			try {
+				const response = await fetch(`${webRoot}api/player_auth/verify`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						verify_token: verifyToken,
+						verify_code: verifyCode,
+						player_code: playerCode,
+					}),
+				});
+
+				if (!response.ok) {
+					throw new Error(`Bad server response: ${response.status}`);
+				}
+
+				const json = await response.json();
+				if (cancelled) {
+					return;
+				}
+
+				if (json.error) {
+					setPlayerCodeError("Code expired");
+					setVerifyToken(null);
+					clearInterval(interval);
+					return;
+				}
+
+				if (json.verified) {
+					props.setToken(json.token);
+				}
+			} catch (err) {
+				if (!cancelled && err instanceof Error) {
+					clearInterval(interval);
+					notifyErrorHandler("Error verifying code")(err);
+				}
+			}
+		}
+
+		verify();
+		const interval = setInterval(verify, 2 * 1000);
+
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
 	}, [verifyToken]);
 
 	if (!servers) {
@@ -74,8 +109,8 @@ function LoginForm(props: LoginFormProps) {
 
 	if (servers.length === 0) {
 		return <Paragraph>
-			There are no servers in the cluster currently running that can complete
-			the login via Factorio.  Please try again later.
+			There are no running servers available for login via Factorio at the moment.
+			Please try again later.
 		</Paragraph>;
 	}
 
@@ -89,9 +124,35 @@ function LoginForm(props: LoginFormProps) {
 					Start Factorio, join one of the following multiplayer servers
 					and type <Text keyboard>/web-login</Text> into the chat:
 				</Paragraph>
-				<div style={{ maxHeight: 160, overflowY: "auto", paddingLeft: 16 }}>
-					<ul>
-						{servers.map(text => <li key={text}>{text}</li>)}
+				<div style={{ maxHeight: 160, overflowY: "auto", paddingLeft: 16, padding: "8px 0" }}>
+					<ul style={{ margin: 0, paddingLeft: 16 }}>
+						{servers.map(server => (
+							<li key={server.address} style={{ marginBottom: 6 }}>
+								<div style={{
+									display: "grid",
+									gridTemplateColumns: "1fr auto",
+									alignItems: "center",
+									gap: 8,
+								}}>
+									<span>
+										{server.name}
+										{server.factorioVersion && (
+											<Text type="secondary"> ({server.factorioVersion})</Text>
+										)}
+									</span>
+
+									<Button
+										size="small"
+										onClick={() => {
+											window.location.href =
+												`steam://run/427520//--mp-connect=${server.address}`;
+										}}
+									>
+										Connect
+									</Button>
+								</div>
+							</li>
+						))}
 					</ul>
 				</div>
 			</li>
