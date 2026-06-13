@@ -83,12 +83,7 @@ export default class InstanceManager {
 		instance: InstanceRecord,
 		prev?: lib.InstanceStatus,
 	): Promise<void> {
-		await lib.invokeHook(
-			this._controller.plugins,
-			"onInstanceStatusChanged",
-			instance,
-			prev,
-		);
+		await this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 	}
 
 	private async _notifyConfigFieldChanged(
@@ -97,14 +92,7 @@ export default class InstanceManager {
 		curr: unknown,
 		prev: unknown,
 	): Promise<void> {
-		await lib.invokeHook(
-			this._controller.plugins,
-			"onInstanceConfigFieldChanged",
-			instance,
-			field,
-			curr,
-			prev,
-		);
+		await this._controller.hooks.instanceConfigFieldChanged.invoke(instance, field, curr, prev);
 	}
 
 	/**

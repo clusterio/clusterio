@@ -48,7 +48,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 	const controller: Controller = req.app.locals.controller;
 
 	let results: lib.CollectorResult[] = [];
-	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics");
+	let pluginResults = await controller.hooks.metrics.collect();
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
@@ -108,8 +108,13 @@ function getPlugins(req: Request, res: Response) {
 	let plugins: lib.PluginWebApi[] = [];
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
-		let loaded = req.app.locals.controller.plugins.has(name);
-		let enabled = loaded && req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
+		let loaded = false;
+		let enabled = false;
+		try {
+			enabled = req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
+		} catch {
+			// config.get will fail if the plugin failed to load its config definitions
+		}
 		// Note: Cast through unknown is needed because load_plugin is
 		// defined at runtime and no other fields in the controller config
 		// currently have the boolean type.

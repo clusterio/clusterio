@@ -1,44 +1,47 @@
-import type {
-	CollectorResult, Event, InstanceStatus, Logger,
-	ModPack, ModInfo, PlayerEvent, PluginNodeEnvInfo,
-} from "@clusterio/lib";
 import type Controller from "./Controller";
 import type InstanceRecord from "./InstanceRecord";
 import type ControlConnection from "./ControlConnection";
 import type HostConnection from "./HostConnection";
 
+import {
+	AsyncHook,
+	type HookHandler,
+	type CollectorResult,
+	type Event,
+	type InstanceStatus,
+	type Logger,
+	type PluginNodeEnvInfo,
+	type PluginLoadContext,
+	type ModPack,
+	type ModInfo,
+	type Role,
+	type PlayerEvent,
+} from "@clusterio/lib";
+
+export type ControllerPluginContext = PluginLoadContext<{
+	controller: Controller;
+	metrics: any;
+}>;
+
 /**
- * Base class for controller plugins
- *
- * Controller plugins are subclasses of this class which get instantiated by
- * the controller on startup when the plugin is enabled in the config.
- * To be discovered the class must be exported under the name `ControllerPlugin`
- * in the module specified by the `controllerEntrypoint` in the plugin's
- * `plugin` export.
+ * Collection of controller plugin hooks
  */
-export default class BaseControllerPlugin {
-	/**
-	 * Logger for this plugin
-	 *
-	 * Instance of winston Logger for sending log messages from this
-	 * plugin.  Supported methods and their corresponding log levels are
-	 * `error`, `warn`, `audit`, `info` and `verbose`.
-	 */
-	logger: Logger;
-
-	constructor(
-		public info: PluginNodeEnvInfo,
-		public controller: Controller,
-		public metrics: any,
-		logger: Logger
-	) {
-		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
+export class ControllerHooks {
+	constructor(logger: Logger) {
+		this.save = new AsyncHook(logger);
+		this.metrics = new AsyncHook(logger);
+		this.shutdown = new AsyncHook(logger);
+		this.instanceStatusChanged = new AsyncHook(logger);
+		this.instanceConfigFieldChanged = new AsyncHook(logger);
+		this.controllerConfigFieldChanged = new AsyncHook(logger);
+		this.controlConnectionEvent = new AsyncHook(logger);
+		this.hostConnectionEvent = new AsyncHook(logger);
+		this.prepareHostDisconnect = new AsyncHook(logger);
+		this.modPacksUpdated = new AsyncHook(logger);
+		this.modsUpdated = new AsyncHook(logger);
+		this.rolesUpdated = new AsyncHook(logger);
+		this.playerEvent = new AsyncHook(logger);
 	}
-
-	/**
-	 * Called immediately after the class is instantiated
-	 */
-	async init() { }
 
 	/**
 	 * Called when the controller saves data in memory to disk
@@ -51,7 +54,7 @@ export default class BaseControllerPlugin {
 	 * BaseControllerPlugin.onShutdown} have been invoked and all links have
 	 * been disconnected.
 	 */
-	async onSaveData() { }
+	save: AsyncHook<[]>;
 
 	/**
 	 * Called when the status of an instance changes
@@ -91,7 +94,7 @@ export default class BaseControllerPlugin {
 	 *     The instance that changed.
 	 * @param prev - the previous status of the instance.
 	 */
-	async onInstanceStatusChanged(instance: InstanceRecord, prev?: InstanceStatus) { }
+	instanceStatusChanged: AsyncHook<[InstanceRecord, InstanceStatus | undefined]>;
 
 	/**
 	 * Called when the value of a controller config field changed.
@@ -103,7 +106,7 @@ export default class BaseControllerPlugin {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onControllerConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
+	controllerConfigFieldChanged: AsyncHook<[string, unknown, unknown]>;
 
 	/**
 	 * Called when the value of an instance config field changed.
@@ -117,7 +120,7 @@ export default class BaseControllerPlugin {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onInstanceConfigFieldChanged(instance: InstanceRecord, field: string, curr: unknown, prev: unknown) { }
+	instanceConfigFieldChanged: AsyncHook<[InstanceRecord, string, unknown, unknown]>;
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -134,12 +137,12 @@ export default class BaseControllerPlugin {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+	metrics: AsyncHook<[], AsyncIterable<CollectorResult>>;
 
 	/**
 	 * Called when the controller is shutting down
 	 */
-	async onShutdown() { }
+	shutdown: AsyncHook<[]>;
 
 	/**
 	 * Called when an event on a host connection happens
@@ -174,7 +177,7 @@ export default class BaseControllerPlugin {
 	 *     The connection the event occured on.
 	 * @param event - one of connect, drop, resume and close
 	 */
-	onHostConnectionEvent(connection: HostConnection, event: "connect" | "drop" | "resume" | "close") { }
+	hostConnectionEvent: AsyncHook<[HostConnection, "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when an avent on a control connection happens
@@ -210,7 +213,7 @@ export default class BaseControllerPlugin {
 	 *     The connection the event occured on.
 	 * @param event - one of connect, drop, resume, and close.
 	 */
-	onControlConnectionEvent(connection: ControlConnection, event: "connect" | "drop" | "resume" | "close") { }
+	controlConnectionEvent: AsyncHook<[ControlConnection, "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when a host is preparing to disconnect from the controller
@@ -224,7 +227,7 @@ export default class BaseControllerPlugin {
 	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	async onPrepareHostDisconnect(connection: HostConnection) { }
+	prepareHostDisconnect: AsyncHook<[HostConnection]>;
 
 	/**
 	 * Called when one or more mod packs are updated
@@ -237,7 +240,7 @@ export default class BaseControllerPlugin {
 	 *
 	 * @param modPacks - Mod packs that updated.
 	 */
-	async onModPacksUpdated(modPacks: ModPack[]) { }
+	modPacksUpdated: AsyncHook<[ModPack[]]>;
 
 	/**
 	 * Called when one or more mod stored on the controller are updated
@@ -249,7 +252,18 @@ export default class BaseControllerPlugin {
 	 *
 	 * @param mods - Mods that updated.
 	 */
-	async onModsUpdated(mods: ModInfo[]) { }
+	modsUpdated: AsyncHook<[ModInfo[]]>;
+
+	/**
+	 * Called when one or more roles stored on the controller are updated
+	 *
+	 * Invoked when one or more roles have been added, updated or deleted.
+	 *
+	 * If a role has been deleted its `.isDeleted` property will be true.
+	 *
+	 * @param roles - Roles that updated.
+	 */
+	rolesUpdated: AsyncHook<[Role[]]>;
 
 	/**
 	 * Called when a player joins or leaves an instance
@@ -261,6 +275,82 @@ export default class BaseControllerPlugin {
 	 *     The instance it occured on.
 	 * @param event - Information about the event.
 	 */
+	playerEvent: AsyncHook<[InstanceRecord, PlayerEvent]>;
+}
+
+/**
+ * Base class for controller plugins
+ *
+ * Controller plugins are subclasses of this class which get instantiated by
+ * the controller on startup when the plugin is enabled in the config.
+ * To be discovered the class must be exported under the name `ControllerPlugin`
+ * in the module specified by the `controllerEntrypoint` in the plugin's
+ * `plugin` export.
+ */
+export class BaseControllerPlugin {
+	constructor(
+		public info: PluginNodeEnvInfo,
+		public controller: Controller,
+		public metrics: any,
+		public logger: Logger,
+	) {
+		const attach = <Args extends unknown[], Return>(
+			hook: AsyncHook<Args, Return>,
+			fn?: HookHandler<Args, Return>,
+		) => {
+			if (fn) {
+				hook.attach(info.name, fn.bind(this));
+			}
+		};
+
+		attach(controller.hooks.save, this.onSaveData);
+		attach(controller.hooks.instanceStatusChanged, this.onInstanceStatusChanged);
+		attach(controller.hooks.controllerConfigFieldChanged, this.onControllerConfigFieldChanged);
+		attach(controller.hooks.instanceConfigFieldChanged, this.onInstanceConfigFieldChanged);
+		attach(controller.hooks.metrics, this.onMetrics);
+		attach(controller.hooks.shutdown, this.onShutdown);
+		attach(controller.hooks.hostConnectionEvent, this.onHostConnectionEvent);
+		attach(controller.hooks.controlConnectionEvent, this.onControlConnectionEvent);
+		attach(controller.hooks.prepareHostDisconnect, this.onPrepareHostDisconnect);
+		attach(controller.hooks.modPacksUpdated, this.onModPacksUpdated);
+		attach(controller.hooks.modsUpdated, this.onModsUpdated);
+		attach(controller.hooks.rolesUpdated, this.onRolesUpdated);
+		attach(controller.hooks.playerEvent, this.onPlayerEvent);
+	}
+
+	static fromContext(context: ControllerPluginContext) {
+		return new this(context.plugin, context.controller, context.metrics, context.logger);
+	}
+
+	/**
+	 * Called immediately after the class is instantiated
+	 */
+	async init() { }
+
+	async onSaveData() { }
+
+	async onInstanceStatusChanged(instance: InstanceRecord, prev?: InstanceStatus) { }
+
+	async onControllerConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
+
+	async onInstanceConfigFieldChanged(instance: InstanceRecord, field: string, curr: unknown, prev: unknown) { }
+
+	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+
+	async onShutdown() { }
+
+	onHostConnectionEvent(connection: HostConnection, event: "connect" | "drop" | "resume" | "close") { }
+
+	onControlConnectionEvent(connection: ControlConnection, event: "connect" | "drop" | "resume" | "close") { }
+
+	async onPrepareHostDisconnect(connection: HostConnection) { }
+
+	async onModPacksUpdated(modPacks: ModPack[]) { }
+
+	async onModsUpdated(mods: ModInfo[]) { }
+
+	async onRolesUpdated(roles: Role[]) { }
+
 	async onPlayerEvent(instance: InstanceRecord, event: PlayerEvent) { }
 
 	/**

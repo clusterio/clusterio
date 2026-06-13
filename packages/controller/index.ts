@@ -6,7 +6,7 @@ export { default as HostConnection } from "./src/HostConnection";
 export { default as InstanceRecord } from "./src/InstanceRecord";
 export { default as InstanceManager } from "./src/InstanceManager";
 export { default as HostRecord } from "./src/HostRecord";
-export { default as BaseControllerPlugin } from "./src/BaseControllerPlugin";
+export { BaseControllerPlugin } from "./src/BaseControllerPlugin";
 export { default as UserManager } from "./src/UserManager";
 export { default as UserRecord } from "./src/UserRecord";
 export { default as User } from "./src/User";
