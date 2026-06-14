@@ -54,7 +54,7 @@ export class ControllerHooks {
 	 * BaseControllerPlugin.onShutdown} have been invoked and all links have
 	 * been disconnected.
 	 */
-	save: AsyncHook<[]>;
+	readonly save: AsyncHook<[]>;
 
 	/**
 	 * Called when the status of an instance changes
@@ -94,7 +94,7 @@ export class ControllerHooks {
 	 *     The instance that changed.
 	 * @param prev - the previous status of the instance.
 	 */
-	instanceStatusChanged: AsyncHook<[InstanceRecord, InstanceStatus | undefined]>;
+	readonly instanceStatusChanged: AsyncHook<[instance: InstanceRecord, prev: InstanceStatus | undefined]>;
 
 	/**
 	 * Called when the value of a controller config field changed.
@@ -106,7 +106,7 @@ export class ControllerHooks {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	controllerConfigFieldChanged: AsyncHook<[string, unknown, unknown]>;
+	readonly controllerConfigFieldChanged: AsyncHook<[field: string, curr: unknown, prev: unknown]>;
 
 	/**
 	 * Called when the value of an instance config field changed.
@@ -120,7 +120,8 @@ export class ControllerHooks {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	instanceConfigFieldChanged: AsyncHook<[InstanceRecord, string, unknown, unknown]>;
+	// eslint-disable-next-line max-len
+	readonly instanceConfigFieldChanged: AsyncHook<[instance: InstanceRecord, field: string, curr: unknown, prev: unknown]>;
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -137,12 +138,12 @@ export class ControllerHooks {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	metrics: AsyncHook<[], AsyncIterable<CollectorResult>>;
+	readonly metrics: AsyncHook<[], AsyncIterable<CollectorResult>>;
 
 	/**
 	 * Called when the controller is shutting down
 	 */
-	shutdown: AsyncHook<[]>;
+	readonly shutdown: AsyncHook<[]>;
 
 	/**
 	 * Called when an event on a host connection happens
@@ -177,7 +178,8 @@ export class ControllerHooks {
 	 *     The connection the event occured on.
 	 * @param event - one of connect, drop, resume and close
 	 */
-	hostConnectionEvent: AsyncHook<[HostConnection, "connect" | "drop" | "resume" | "close"]>;
+	// eslint-disable-next-line max-len
+	readonly hostConnectionEvent: AsyncHook<[connection: HostConnection, event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when an avent on a control connection happens
@@ -213,7 +215,8 @@ export class ControllerHooks {
 	 *     The connection the event occured on.
 	 * @param event - one of connect, drop, resume, and close.
 	 */
-	controlConnectionEvent: AsyncHook<[ControlConnection, "connect" | "drop" | "resume" | "close"]>;
+	// eslint-disable-next-line max-len
+	readonly controlConnectionEvent: AsyncHook<[connection: ControlConnection, event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when a host is preparing to disconnect from the controller
@@ -227,7 +230,7 @@ export class ControllerHooks {
 	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	prepareHostDisconnect: AsyncHook<[HostConnection]>;
+	readonly prepareHostDisconnect: AsyncHook<[connection: HostConnection]>;
 
 	/**
 	 * Called when one or more mod packs are updated
@@ -240,7 +243,7 @@ export class ControllerHooks {
 	 *
 	 * @param modPacks - Mod packs that updated.
 	 */
-	modPacksUpdated: AsyncHook<[ModPack[]]>;
+	readonly modPacksUpdated: AsyncHook<[modPacks: ModPack[]]>;
 
 	/**
 	 * Called when one or more mod stored on the controller are updated
@@ -252,7 +255,7 @@ export class ControllerHooks {
 	 *
 	 * @param mods - Mods that updated.
 	 */
-	modsUpdated: AsyncHook<[ModInfo[]]>;
+	readonly modsUpdated: AsyncHook<[mods: ModInfo[]]>;
 
 	/**
 	 * Called when one or more roles stored on the controller are updated
@@ -263,7 +266,7 @@ export class ControllerHooks {
 	 *
 	 * @param roles - Roles that updated.
 	 */
-	rolesUpdated: AsyncHook<[Role[]]>;
+	readonly rolesUpdated: AsyncHook<[roles: Role[]]>;
 
 	/**
 	 * Called when a player joins or leaves an instance
@@ -275,7 +278,7 @@ export class ControllerHooks {
 	 *     The instance it occured on.
 	 * @param event - Information about the event.
 	 */
-	playerEvent: AsyncHook<[InstanceRecord, PlayerEvent]>;
+	readonly playerEvent: AsyncHook<[instance: InstanceRecord, event: PlayerEvent]>;
 }
 
 /**

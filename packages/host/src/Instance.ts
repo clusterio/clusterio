@@ -13,7 +13,7 @@ import { FactorioServer } from "./server";
 import { SaveModule, patch } from "./patch";
 import { exportData } from "./export";
 import type Host from "./Host";
-import BaseInstancePlugin from "./BaseInstancePlugin";
+import { BaseInstancePlugin, InstanceHooks } from "./BaseInstancePlugin";
 
 const scriptCommands = [
 	"/cheat", "/editor",
@@ -140,7 +140,6 @@ export default class Instance extends lib.Link {
 	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
 	 */
 	readonly id: number;
-	plugins: Map<string, BaseInstancePlugin>;
 	config: lib.InstanceConfig;
 	logger: lib.Logger;
 	server: FactorioServer;
@@ -156,6 +155,10 @@ export default class Instance extends lib.Link {
 	 * Players currently online on the instance.
 	 */
 	playersOnline: Set<string> = new Set();
+	/** Hooks which plugins can attach to */
+	hooks: InstanceHooks;
+	/** Plugins which have modules */
+	moduleInfos: Set<lib.PluginNodeEnvInfo> = new Set();
 
 
 	_host: Host;
@@ -179,7 +182,6 @@ export default class Instance extends lib.Link {
 		this._host = host;
 		this._dir = dir;
 
-		this.plugins = new Map();
 		this.config = instanceConfig;
 
 		this.id = this.config.get("instance.id");
@@ -189,8 +191,10 @@ export default class Instance extends lib.Link {
 			instance_name: this.name,
 		});
 
+		this.hooks = new InstanceHooks(this.logger);
+
 		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
-			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", field, curr, prev);
+			let hook = () => this.hooks.instanceConfigFieldChanged.invoke(field, curr, prev);
 
 			if (field === "factorio.shutdown_timeout") {
 				this.server.shutdownTimeoutMs = curr as number * 1000;
@@ -231,7 +235,7 @@ export default class Instance extends lib.Link {
 		this.server.on("output", (parsed, line) => {
 			this.logger.log("server", { message: line, instance_id: this.id, parsed });
 
-			lib.invokeHook(this.plugins, "onOutput", parsed, line);
+			this.hooks.output.invoke(parsed, line);
 		});
 
 		this.server.on("error", err => {
@@ -397,7 +401,7 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
-		lib.invokeHook(this.plugins, "onPlayerEvent", event);
+		this.hooks.playerEvent.invoke(event);
 	}
 
 	_recordPlayerLeave(name: string, reason: string) {
@@ -418,7 +422,7 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, stats, reason));
-		lib.invokeHook(this.plugins, "onPlayerEvent", event);
+		this.hooks.playerEvent.invoke(event);
 	}
 
 	async handleInstanceExtractPlayersRequest() {
@@ -449,7 +453,7 @@ end`.replace(/\r?\n/g, " ");
 				stats,
 			};
 			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, stats));
-			lib.invokeHook(this.plugins, "onPlayerEvent", event);
+			this.hooks.playerEvent.invoke(event);
 			count += 1;
 		}
 		this.logger.info(`Extracted data for ${count} player(s)`);
@@ -587,29 +591,12 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		// Notify plugins of exit
-		for (let pluginInstance of this.plugins.values()) {
-			pluginInstance.onExit();
-		}
+		this.hooks.exit.invoke();
 
 		for (let player of this.playersOnline) {
 			this._recordPlayerLeave(player, "server_quit");
 		}
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
-	}
-
-	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
-		let pluginLoadStartedMs = Date.now();
-		let InstancePluginClass = await lib.loadPluginClass(
-			pluginInfo.name,
-			path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint!),
-			"InstancePlugin",
-			BaseInstancePlugin,
-		);
-		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
-		this.plugins.set(pluginInfo.name, instancePlugin);
-		await instancePlugin.init();
-
-		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 	}
 
 	async _loadStats() {
@@ -651,6 +638,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		// load plugins
+		const plugins: Record<string, string> = {};
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
@@ -666,7 +654,18 @@ end`.replace(/\r?\n/g, " ");
 			}
 
 			try {
-				await this._loadPlugin(pluginInfo, this._host);
+				let pluginLoadStartedMs = Date.now();
+				await lib.loadPlugin(
+					pluginInfo,
+					"instance",
+					{ logger: this.logger, host: this._host, instance: this },
+					"InstancePlugin",
+					BaseInstancePlugin,
+				);
+
+				this.moduleInfos.add(pluginInfo);
+				plugins[pluginInfo.name] = pluginInfo.version;
+				this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 			} catch (err) {
 				this.notifyExit();
 				await this.sendSaveListUpdate();
@@ -674,10 +673,6 @@ end`.replace(/\r?\n/g, " ");
 			}
 		}
 
-		let plugins: Record<string, string> = {};
-		for (let [name, plugin] of this.plugins) {
-			plugins[name] = plugin.info.version;
-		}
 		this.send(new lib.InstanceInitialisedEvent(plugins));
 	}
 
@@ -939,8 +934,8 @@ end`.replace(/\r?\n/g, " ");
 
 		// Find plugin modules to patch in
 		let modules: Map<string, SaveModule> = new Map();
-		for (let plugin of this.plugins.values()) {
-			let module = await SaveModule.fromPlugin(plugin);
+		for (const pluginInfo of this.moduleInfos) {
+			let module = await SaveModule.fromPluginInfo(pluginInfo);
 			if (!module) {
 				continue;
 			}
@@ -994,7 +989,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		await this.sendSaveListUpdate();
-		await lib.invokeHook(this.plugins, "onStart");
+		await this.hooks.start.invoke();
 
 		this.notifyStatus("running");
 	}
@@ -1019,7 +1014,7 @@ end`.replace(/\r?\n/g, " ");
 		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
 		this._watchServerLogActions();
 
-		await lib.invokeHook(this.plugins, "onStart");
+		await this.hooks.start.invoke();
 
 		this.notifyStatus("running");
 	}
@@ -1155,7 +1150,7 @@ end`.replace(/\r?\n/g, " ");
 
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
-			await lib.invokeHook(this.plugins, "onStop");
+			await this.hooks.stop.invoke();
 			await this.server.stop();
 			await this.sendSaveListUpdate();
 		} else if (
@@ -1174,17 +1169,17 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleControllerConnectionEvent(event: lib.ControllerConnectionEvent) {
-		await lib.invokeHook(this.plugins, "onControllerConnectionEvent", event.event);
+		await this.hooks.controllerConnectionEvent.invoke(event.event);
 	}
 
 	async handlePrepareControllerDisconnectRequest() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
+		await this.hooks.prepareControllerDisconnect.invoke(this);
 	}
 
 	async handleInstanceMetricsRequest() {
 		let results: ReturnType<typeof lib.serializeResult>[] = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
-			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
+			let pluginResults = await this.hooks.metrics.collect();
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
 					results.push(lib.serializeResult(metric));

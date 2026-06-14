@@ -9,9 +9,6 @@ import { Type, Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
-import BaseInstancePlugin from "./BaseInstancePlugin";
-
-
 /**
  * Describes a module that can be patched into a save
  */
@@ -90,8 +87,8 @@ export class SaveModule {
 		return module;
 	}
 
-	static async fromPlugin(plugin: BaseInstancePlugin) {
-		let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
+	static async fromPluginInfo(pluginInfo: lib.PluginNodeEnvInfo) {
+		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
 		let moduleDirectory = path.join(path.dirname(pluginPackagePath), "module");
 		try {
 			await fs.access(moduleDirectory);
@@ -103,17 +100,17 @@ export class SaveModule {
 		let moduleJson;
 		try {
 			moduleJson = {
-				name: plugin.info.name,
-				version: plugin.info.version,
+				name: pluginInfo.name,
+				version: pluginInfo.version,
 				dependencies: { "clusterio": "*" },
 				...JSON.parse(await fs.readFile(moduleJsonPath, "utf8")),
 			};
 		} catch (err: any) {
-			throw new Error(`Loading module/module.json in plugin ${plugin.info.name} failed: ${err.message}`);
+			throw new Error(`Loading module/module.json in plugin ${pluginInfo.name} failed: ${err.message}`);
 		}
 		if (!lib.ModuleInfo.validate(moduleJson)) {
 			throw new Error(
-				`module/module.json in plugin ${plugin.info.name} failed validation:\n` +
+				`module/module.json in plugin ${pluginInfo.name} failed validation:\n` +
 				`${JSON.stringify(lib.ModuleInfo.validate.errors, null, "\t")}`
 			);
 		}

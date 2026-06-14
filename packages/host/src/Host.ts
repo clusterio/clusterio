@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "path";
-import events from "events";
 import pidusage from "pidusage";
 import setBlocking from "set-blocking";
 import stream from "stream";
@@ -13,9 +12,7 @@ import { logger } from "@clusterio/lib";
 import type { HostConnector } from "../host";
 import Instance from "./Instance";
 import InstanceConnection from "./InstanceConnection";
-import BaseHostPlugin from "./BaseHostPlugin";
-
-const finished = util.promisify(stream.finished);
+import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin";
 
 
 function checkRequestSaveName(name: string) {
@@ -265,8 +262,8 @@ export default class Host extends lib.Link {
 	pluginInfos: lib.PluginNodeEnvInfo[];
 	config: lib.HostConfig;
 
-	/** Mapping of plugin name to loaded plugin */
-	plugins: Map<string, BaseHostPlugin> = new Map();
+	/** Hooks which plugins can attach to */
+	hooks = new HostHooks(logger);
 
 	/** A map from instance id to instance connection. Only present when instance is running. */
 	instanceConnections = new Map<number, InstanceConnection>();
@@ -325,7 +322,7 @@ export default class Host extends lib.Link {
 			if (name === "host.name" || name === "host.public_address") {
 				this.sendHostUpdate();
 			}
-			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", name, curr, prev);
+			this.hooks.hostConfigFieldChanged.invoke(name, curr, prev);
 		});
 
 		this.connector.on("hello", data => {
@@ -377,9 +374,7 @@ export default class Host extends lib.Link {
 				for (let instanceConnection of this.instanceConnections.values()) {
 					instanceConnection.send(message);
 				}
-				for (let plugin of this.plugins.values()) {
-					plugin.onControllerConnectionEvent(event);
-				}
+				this.hooks.controllerConnectionEvent.invoke(event);
 			});
 		}
 
@@ -416,6 +411,7 @@ export default class Host extends lib.Link {
 	}
 
 	async loadPlugins() {
+		const context = { logger, host: this };
 		for (let pluginInfo of this.pluginInfos) {
 			if (
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
@@ -429,20 +425,14 @@ export default class Host extends lib.Link {
 				continue;
 			}
 
-			let HostPluginClass = BaseHostPlugin;
 			try {
-				if (pluginInfo.hostEntrypoint) {
-					HostPluginClass = await lib.loadPluginClass(
-						pluginInfo.name,
-						path.posix.join(pluginInfo.requirePath, pluginInfo.hostEntrypoint),
-						"HostPlugin",
-						BaseHostPlugin,
-					);
-				}
-
-				let hostPlugin = new HostPluginClass(pluginInfo, this, logger);
-				await hostPlugin.init();
-				this.plugins.set(pluginInfo.name, hostPlugin);
+				await lib.loadPlugin(
+					pluginInfo,
+					"host",
+					context,
+					"HostPlugin",
+					BaseHostPlugin,
+				);
 
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
@@ -884,7 +874,7 @@ export default class Host extends lib.Link {
 		}
 
 		let results = [];
-		let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
+		let pluginResults = await this.hooks.metrics.collect();
 		for (let metricIterator of pluginResults) {
 			for await (let metric of metricIterator) {
 				results.push(metric);
@@ -1116,7 +1106,7 @@ export default class Host extends lib.Link {
 	async handlePluginListRequest(request: lib.PluginListRequest) {
 		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
 			pluginInfo,
-			this.plugins.has(pluginInfo.name),
+			Boolean(pluginInfo.hostEntrypoint) || Boolean(pluginInfo.instanceEntrypoint),
 			this.config.get(`${pluginInfo.name}.load_plugin`),
 		));
 	}
@@ -1177,7 +1167,7 @@ export default class Host extends lib.Link {
 	}
 
 	async prepareDisconnect() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
+		await this.hooks.prepareControllerDisconnect.invoke(this);
 		for (let instanceConnection of this.instanceConnections.values()) {
 			await instanceConnection.send(new lib.PrepareControllerDisconnectRequest());
 		}
@@ -1194,7 +1184,7 @@ export default class Host extends lib.Link {
 		}
 		this._shuttingDown = true;
 
-		await lib.invokeHook(this.plugins, "onShutdown");
+		await this.hooks.shutdown.invoke();
 
 		for (let instanceConnection of this.instanceConnections.values()) {
 			try {

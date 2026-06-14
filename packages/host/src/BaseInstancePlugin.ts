@@ -1,68 +1,37 @@
-import type {
-	CollectorResult, Logger, ParsedFactorioOutput, PlayerEvent, PluginNodeEnvInfo,
-} from "@clusterio/lib";
 import type Instance from "./Instance";
 import type Host from "./Host";
 
+import {
+	AsyncHook,
+	type HookHandler,
+	type CollectorResult,
+	type Logger,
+	type ParsedFactorioOutput,
+	type PlayerEvent,
+	type PluginLoadContext,
+	type PluginNodeEnvInfo,
+} from "@clusterio/lib";
+
+export type InstancePluginContext = PluginLoadContext<{
+	host: Host;
+	instance: Instance;
+}>;
+
 /**
- * Base class for instance plugins
- *
- * Instance plugins are subclasses of this class which get instantiated by
- * the host when it brings up an instance with the plugin enabled in the
- * config.  To be discovered the class must be exported under the name
- * `InstancePlugin` in the module specified by the `instanceEntrypoint` in
- * the plugin's `plugin` export.
- *
- * Instances may be started and stopped many times, and many instances may
- * be running at the same time, each of which will have their own instance
- * of the InstancePlugin class.
+ * Collection of instance plugin hooks
  */
-export default class BaseInstancePlugin {
-	/**
-	 * Logger for this plugin
-	 *
-	 * Instance of winston Logger for sending log messages from this
-	 * plugin.  Supported methods and their corresponding log levels are
-	 * `error`, `warn`, `audit`, `info` and `verbose`.
-	 */
-	logger: Logger;
-
-	private _pendingRconMessages: {
-		resolve: (result: string) => void,
-		reject: (err: Error) => void,
-		message: string,
-		expectEmpty: boolean,
-	}[] = [];
-
-	private _sendingRconMessages = false;
-
-	constructor(
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginNodeEnvInfo,
-		/**
-		 * Instance the plugin started for
-		 */
-		public instance: Instance,
-		/**
-		 * Host running the instance
-		 *
-		 * With the exepction of accessing the host's config you should
-		 * avoid ineracting with the host object directly.
-		 */
-		public host: Host,
-	) {
-		this.logger = instance.logger.child({ plugin: this.info.name }) as unknown as Logger;
-
-		this._pendingRconMessages = [];
-		this._sendingRconMessages = false;
+export class InstanceHooks {
+	constructor(logger: Logger) {
+		this.metrics = new AsyncHook(logger);
+		this.start = new AsyncHook(logger);
+		this.stop = new AsyncHook(logger);
+		this.exit = new AsyncHook(logger);
+		this.output = new AsyncHook(logger);
+		this.instanceConfigFieldChanged = new AsyncHook(logger);
+		this.controllerConnectionEvent = new AsyncHook(logger);
+		this.prepareControllerDisconnect = new AsyncHook(logger);
+		this.playerEvent = new AsyncHook(logger);
 	}
-
-	/**
-	 * Called immediately after the class is instantiated
-	 */
-	async init() { }
 
 	/**
 	 * Called when the value of a config field changed.
@@ -74,7 +43,7 @@ export default class BaseInstancePlugin {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onInstanceConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
+	readonly instanceConfigFieldChanged: AsyncHook<[field: string, curr: unknown, prev: unknown]>;
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -91,12 +60,12 @@ export default class BaseInstancePlugin {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+	readonly metrics: AsyncHook<[], AsyncIterable<CollectorResult>>;
 
 	/**
 	 * Called after the Factorio server is started
 	 */
-	async onStart() { }
+	readonly start: AsyncHook<[]>;
 
 	/**
 	 * Called before the Factorio server is stopped
@@ -104,7 +73,7 @@ export default class BaseInstancePlugin {
 	 * This will not be called if for example the Factorio server crashes or
 	 * is killed.
 	 */
-	async onStop() { }
+	readonly stop: AsyncHook<[]>;
 
 	/**
 	 * Called when the instance exits
@@ -113,7 +82,7 @@ export default class BaseInstancePlugin {
 	 * has been called if an error occurs during startup.  Note that if
 	 * the plugin's init() throws this method will still be invoked.
 	 */
-	onExit() { }
+	readonly exit: AsyncHook<[]>;
 
 	/**
 	 * Called when the Factorio outputs a line
@@ -125,7 +94,7 @@ export default class BaseInstancePlugin {
 	 * @param parsed - parsed server output.
 	 * @param line - raw line of server output.
 	 */
-	async onOutput(parsed: ParsedFactorioOutput, line: string) { }
+	readonly output: AsyncHook<[parsed: ParsedFactorioOutput, line: string]>;
 
 	/**
 	 * Called when an event on the controller connection happens
@@ -161,7 +130,7 @@ export default class BaseInstancePlugin {
 	 *
 	 * @param event - one of connect, drop, resume and close
 	 */
-	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
+	readonly controllerConnectionEvent: AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when the controller is preparing to disconnect from the host
@@ -176,7 +145,7 @@ export default class BaseInstancePlugin {
 	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	async onPrepareControllerDisconnect(connection: Instance) { }
+	readonly prepareControllerDisconnect: AsyncHook<[connection: Instance]>;
 
 	/**
 	 * Called when a player joins or leaves the game
@@ -185,6 +154,95 @@ export default class BaseInstancePlugin {
 	 *
 	 * @param event - Information about the event.
 	 */
+	readonly playerEvent: AsyncHook<[event: PlayerEvent]>;
+}
+
+/**
+ * Base class for instance plugins
+ *
+ * Instance plugins are subclasses of this class which get instantiated by
+ * the host when it brings up an instance with the plugin enabled in the
+ * config.  To be discovered the class must be exported under the name
+ * `InstancePlugin` in the module specified by the `instanceEntrypoint` in
+ * the plugin's `plugin` export.
+ *
+ * Instances may be started and stopped many times, and many instances may
+ * be running at the same time, each of which will have their own instance
+ * of the InstancePlugin class.
+ */
+export class BaseInstancePlugin {
+	private _pendingRconMessages: {
+		resolve: (result: string) => void,
+		reject: (err: Error) => void,
+		message: string,
+		expectEmpty: boolean,
+	}[] = [];
+
+	private _sendingRconMessages = false;
+
+	constructor(
+		/**
+		 * The plugin's own info module
+		 */
+		public info: PluginNodeEnvInfo,
+		/**
+		 * Instance the plugin started for
+		 */
+		public instance: Instance,
+		/**
+		 * Host running the instance
+		 *
+		 * With the exepction of accessing the host's config you should
+		 * avoid ineracting with the host object directly.
+		 */
+		public host: Host,
+		public logger: Logger,
+	) {
+		const attach = <Args extends unknown[], Return>(
+			hook: AsyncHook<Args, Return>,
+			fn?: HookHandler<Args, Return>,
+		) => {
+			if (fn) {
+				hook.attach(info.name, fn.bind(this));
+			}
+		};
+
+		attach(instance.hooks.instanceConfigFieldChanged, this.onInstanceConfigFieldChanged);
+		attach(instance.hooks.metrics, this.onMetrics);
+		attach(instance.hooks.start, this.onStart);
+		attach(instance.hooks.stop, this.onStop);
+		attach(instance.hooks.exit, this.onExit);
+		attach(instance.hooks.output, this.onOutput);
+		attach(instance.hooks.controllerConnectionEvent, this.onControllerConnectionEvent);
+		attach(instance.hooks.prepareControllerDisconnect, this.onPrepareControllerDisconnect);
+		attach(instance.hooks.playerEvent, this.onPlayerEvent);
+	}
+
+	static fromContext(context: InstancePluginContext) {
+		return new this(context.plugin, context.instance, context.host, context.logger);
+	}
+
+	/**
+	 * Called immediately after the class is instantiated
+	 */
+	async init() { }
+
+	async onInstanceConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
+
+	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+
+	async onStart() { }
+
+	async onStop() { }
+
+	onExit() { }
+
+	async onOutput(parsed: ParsedFactorioOutput, line: string) { }
+
+	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
+
+	async onPrepareControllerDisconnect(connection: Instance) { }
+
 	async onPlayerEvent(event: PlayerEvent) { }
 
 	/**
