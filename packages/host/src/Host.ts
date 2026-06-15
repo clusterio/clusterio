@@ -264,6 +264,8 @@ export default class Host extends lib.Link {
 
 	/** Hooks which plugins can attach to */
 	hooks = new HostHooks(logger);
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 	/** A map from instance id to instance connection. Only present when instance is running. */
 	instanceConnections = new Map<number, InstanceConnection>();
@@ -433,6 +435,8 @@ export default class Host extends lib.Link {
 					"HostPlugin",
 					BaseHostPlugin,
 				);
+
+				this.loadedPlugins.add(pluginInfo);
 
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
@@ -1106,7 +1110,7 @@ export default class Host extends lib.Link {
 	async handlePluginListRequest(request: lib.PluginListRequest) {
 		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
 			pluginInfo,
-			Boolean(pluginInfo.hostEntrypoint) || Boolean(pluginInfo.instanceEntrypoint),
+			this.loadedPlugins.has(pluginInfo),
 			this.config.get(`${pluginInfo.name}.load_plugin`),
 		));
 	}

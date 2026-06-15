@@ -157,8 +157,8 @@ export default class Instance extends lib.Link {
 	playersOnline: Set<string> = new Set();
 	/** Hooks which plugins can attach to */
 	hooks: InstanceHooks;
-	/** Plugins which have modules */
-	moduleInfos: Set<lib.PluginNodeEnvInfo> = new Set();
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 
 	_host: Host;
@@ -663,7 +663,7 @@ end`.replace(/\r?\n/g, " ");
 					BaseInstancePlugin,
 				);
 
-				this.moduleInfos.add(pluginInfo);
+				this.loadedPlugins.add(pluginInfo);
 				plugins[pluginInfo.name] = pluginInfo.version;
 				this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 			} catch (err) {
@@ -934,7 +934,7 @@ end`.replace(/\r?\n/g, " ");
 
 		// Find plugin modules to patch in
 		let modules: Map<string, SaveModule> = new Map();
-		for (const pluginInfo of this.moduleInfos) {
+		for (const pluginInfo of this.loadedPlugins) {
 			let module = await SaveModule.fromPluginInfo(pluginInfo);
 			if (!module) {
 				continue;

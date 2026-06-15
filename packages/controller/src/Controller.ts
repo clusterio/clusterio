@@ -70,6 +70,8 @@ export default class Controller {
 
 	/** Hooks which plugins can attach to */
 	hooks = new ControllerHooks(logger);
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 	/** WebSocket server */
 	wsServer: WsServer;
@@ -1095,6 +1097,8 @@ export default class Controller {
 					"ControllerPlugin",
 					BaseControllerPlugin,
 				);
+
+				this.loadedPlugins.add(pluginInfo);
 
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
