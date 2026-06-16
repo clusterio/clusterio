@@ -1,18 +1,9 @@
 import type Instance from "./Instance";
 import type Host from "./Host";
 
-import {
-	AsyncHook,
-	type HookHandler,
-	type CollectorResult,
-	type Logger,
-	type ParsedFactorioOutput,
-	type PlayerEvent,
-	type PluginLoadContext,
-	type PluginNodeEnvInfo,
-} from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
-export type InstancePluginContext = PluginLoadContext<{
+export type InstancePluginContext = lib.PluginLoadContext<{
 	host: Host;
 	instance: Instance;
 }>;
@@ -21,16 +12,16 @@ export type InstancePluginContext = PluginLoadContext<{
  * Collection of instance plugin hooks
  */
 export class InstanceHooks {
-	constructor(logger: Logger) {
-		this.metrics = new AsyncHook(logger);
-		this.start = new AsyncHook(logger);
-		this.stop = new AsyncHook(logger);
-		this.exit = new AsyncHook(logger);
-		this.output = new AsyncHook(logger);
-		this.instanceConfigFieldChanged = new AsyncHook(logger);
-		this.controllerConnectionEvent = new AsyncHook(logger);
-		this.prepareControllerDisconnect = new AsyncHook(logger);
-		this.playerEvent = new AsyncHook(logger);
+	constructor(logger: lib.Logger) {
+		this.metrics = new lib.AsyncHook(logger);
+		this.start = new lib.AsyncHook(logger);
+		this.stop = new lib.AsyncHook(logger);
+		this.exit = new lib.AsyncHook(logger);
+		this.output = new lib.AsyncHook(logger);
+		this.instanceConfigFieldChanged = new lib.AsyncHook(logger);
+		this.controllerConnectionEvent = new lib.AsyncHook(logger);
+		this.prepareControllerDisconnect = new lib.AsyncHook(logger);
+		this.playerEvent = new lib.AsyncHook(logger);
 	}
 
 	/**
@@ -43,7 +34,7 @@ export class InstanceHooks {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	readonly instanceConfigFieldChanged: AsyncHook<[field: string, curr: unknown, prev: unknown]>;
+	readonly instanceConfigFieldChanged: lib.AsyncHook<[field: string, curr: unknown, prev: unknown]>;
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -60,12 +51,12 @@ export class InstanceHooks {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	readonly metrics: AsyncHook<[], AsyncIterable<CollectorResult>>;
+	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult>>;
 
 	/**
 	 * Called after the Factorio server is started
 	 */
-	readonly start: AsyncHook<[]>;
+	readonly start: lib.AsyncHook<[]>;
 
 	/**
 	 * Called before the Factorio server is stopped
@@ -73,7 +64,7 @@ export class InstanceHooks {
 	 * This will not be called if for example the Factorio server crashes or
 	 * is killed.
 	 */
-	readonly stop: AsyncHook<[]>;
+	readonly stop: lib.AsyncHook<[]>;
 
 	/**
 	 * Called when the instance exits
@@ -82,7 +73,7 @@ export class InstanceHooks {
 	 * has been called if an error occurs during startup.  Note that if
 	 * the plugin's init() throws this method will still be invoked.
 	 */
-	readonly exit: AsyncHook<[]>;
+	readonly exit: lib.AsyncHook<[]>;
 
 	/**
 	 * Called when the Factorio outputs a line
@@ -94,7 +85,7 @@ export class InstanceHooks {
 	 * @param parsed - parsed server output.
 	 * @param line - raw line of server output.
 	 */
-	readonly output: AsyncHook<[parsed: ParsedFactorioOutput, line: string]>;
+	readonly output: lib.AsyncHook<[parsed: lib.ParsedFactorioOutput, line: string]>;
 
 	/**
 	 * Called when an event on the controller connection happens
@@ -130,7 +121,7 @@ export class InstanceHooks {
 	 *
 	 * @param event - one of connect, drop, resume and close
 	 */
-	readonly controllerConnectionEvent: AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
+	readonly controllerConnectionEvent: lib.AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when the controller is preparing to disconnect from the host
@@ -145,7 +136,7 @@ export class InstanceHooks {
 	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	readonly prepareControllerDisconnect: AsyncHook<[connection: Instance]>;
+	readonly prepareControllerDisconnect: lib.AsyncHook<[connection: Instance]>;
 
 	/**
 	 * Called when a player joins or leaves the game
@@ -154,7 +145,7 @@ export class InstanceHooks {
 	 *
 	 * @param event - Information about the event.
 	 */
-	readonly playerEvent: AsyncHook<[event: PlayerEvent]>;
+	readonly playerEvent: lib.AsyncHook<[event: lib.PlayerEvent]>;
 }
 
 /**
@@ -184,7 +175,7 @@ export class BaseInstancePlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginNodeEnvInfo,
+		public info: lib.PluginNodeEnvInfo,
 		/**
 		 * Instance the plugin started for
 		 */
@@ -196,11 +187,11 @@ export class BaseInstancePlugin {
 		 * avoid ineracting with the host object directly.
 		 */
 		public host: Host,
-		public logger: Logger,
+		public logger: lib.Logger,
 	) {
 		const attach = <Args extends unknown[], Return>(
-			hook: AsyncHook<Args, Return>,
-			fn?: HookHandler<Args, Return>,
+			hook: lib.AsyncHook<Args, Return>,
+			fn?: lib.HookHandler<Args, Return>,
 		) => {
 			if (fn) {
 				hook.attach(info.name, fn.bind(this));
@@ -229,7 +220,7 @@ export class BaseInstancePlugin {
 
 	async onInstanceConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
 
-	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+	async onMetrics(): Promise<void | AsyncIterable<lib.CollectorResult>> { }
 
 	async onStart() { }
 
@@ -237,13 +228,13 @@ export class BaseInstancePlugin {
 
 	onExit() { }
 
-	async onOutput(parsed: ParsedFactorioOutput, line: string) { }
+	async onOutput(parsed: lib.ParsedFactorioOutput, line: string) { }
 
 	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
 
 	async onPrepareControllerDisconnect(connection: Instance) { }
 
-	async onPlayerEvent(event: PlayerEvent) { }
+	async onPlayerEvent(event: lib.PlayerEvent) { }
 
 	/**
 	 * Send RCON message to instance

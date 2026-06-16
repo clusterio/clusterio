@@ -1,15 +1,8 @@
 import type Host from "./Host";
 
-import {
-	AsyncHook,
-	type HookHandler,
-	type CollectorResult,
-	type Logger,
-	type PluginLoadContext,
-	type PluginNodeEnvInfo,
-} from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
-export type HostPluginContext = PluginLoadContext<{
+export type HostPluginContext = lib.PluginLoadContext<{
 	host: Host;
 }>;
 
@@ -17,12 +10,12 @@ export type HostPluginContext = PluginLoadContext<{
  * Collection of host plugin hooks
  */
 export class HostHooks {
-	constructor(logger: Logger) {
-		this.metrics = new AsyncHook(logger);
-		this.shutdown = new AsyncHook(logger);
-		this.hostConfigFieldChanged = new AsyncHook(logger);
-		this.controllerConnectionEvent = new AsyncHook(logger);
-		this.prepareControllerDisconnect = new AsyncHook(logger);
+	constructor(logger: lib.Logger) {
+		this.metrics = new lib.AsyncHook(logger);
+		this.shutdown = new lib.AsyncHook(logger);
+		this.hostConfigFieldChanged = new lib.AsyncHook(logger);
+		this.controllerConnectionEvent = new lib.AsyncHook(logger);
+		this.prepareControllerDisconnect = new lib.AsyncHook(logger);
 	}
 
 	/**
@@ -35,7 +28,7 @@ export class HostHooks {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	readonly hostConfigFieldChanged: AsyncHook<[field: string, curr: unknown, prev: unknown]>;
+	readonly hostConfigFieldChanged: lib.AsyncHook<[field: string, curr: unknown, prev: unknown]>;
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -52,12 +45,12 @@ export class HostHooks {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	readonly metrics: AsyncHook<[], AsyncIterable<CollectorResult>>;
+	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult>>;
 
 	/**
 	 * Called when the host is shutting down
 	*/
-	readonly shutdown: AsyncHook<[]>;
+	readonly shutdown: lib.AsyncHook<[]>;
 
 	/**
 	 * Called when an event on the controller connection happens
@@ -93,7 +86,7 @@ export class HostHooks {
 	 *
 	 * @param event - one of connect, drop, resume and close
 	 */
-	readonly controllerConnectionEvent: AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
+	readonly controllerConnectionEvent: lib.AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when the controller is preparing to disconnect from the host
@@ -108,7 +101,7 @@ export class HostHooks {
 	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	readonly prepareControllerDisconnect: AsyncHook<[connection: Host]>;
+	readonly prepareControllerDisconnect: lib.AsyncHook<[connection: Host]>;
 }
 
 /**
@@ -121,13 +114,13 @@ export class HostHooks {
  */
 export class BaseHostPlugin {
 	constructor(
-		public info: PluginNodeEnvInfo,
+		public info: lib.PluginNodeEnvInfo,
 		public host: Host,
-		public logger: Logger,
+		public logger: lib.Logger,
 	) {
 		const attach = <Args extends unknown[], Return>(
-			hook: AsyncHook<Args, Return>,
-			fn?: HookHandler<Args, Return>,
+			hook: lib.AsyncHook<Args, Return>,
+			fn?: lib.HookHandler<Args, Return>,
 		) => {
 			if (fn) {
 				hook.attach(info.name, fn.bind(this));
@@ -153,7 +146,7 @@ export class BaseHostPlugin {
 
 	async onHostConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
 
-	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+	async onMetrics(): Promise<void | AsyncIterable<lib.CollectorResult>> { }
 
 	async onShutdown() { }
 
