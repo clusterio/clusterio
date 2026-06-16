@@ -1,6 +1,6 @@
 import type React from "react";
-import type { AccountRole, FieldDefinition, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
 import type { Control } from "./util/websocket";
+import * as lib from "@clusterio/lib";
 
 /**
  * Plugin supplied login form
@@ -23,19 +23,11 @@ export interface PluginLoginForm {
 	Component: React.ComponentType<{ setToken(token: string): void }>;
 }
 
-export interface InputComponentProps {
-	disabled?: boolean,
-	fieldDefinition: FieldDefinition,
-	value: null | boolean | number | string,
-	onChange: (value: null | boolean | number | string) => void,
-}
-export type InputComponent = React.ComponentType<InputComponentProps>;
-
 export type UserAccount = {
 	/** Name of the currently logged in account. */
 	name: string;
-	/** Roles of the corrently logged in account. */
-	roles: AccountRole[];
+	/** Roles of the currently logged in account. */
+	roles: lib.AccountRole[];
 	/** Check if the currently logged in account has the given permission. */
 	hasPermission: (permission: string) => boolean | null;
 	/** Check if the currently logged in account has any of the given permissions. */
@@ -78,105 +70,84 @@ export interface PluginPage {
 	permission?: string | ((account: UserAccount) => (boolean|null));
 };
 
-/**
- * Base class for web interface plugins
- */
-export default class BaseWebPlugin {
+export interface InputComponentProps {
+	disabled?: boolean,
+	fieldDefinition: lib.FieldDefinition,
+	value: null | boolean | number | string,
+	onChange: (value: null | boolean | number | string) => void,
+}
+
+export type InputComponent = React.ComponentType<InputComponentProps>;
+
+export type ExtensionSlotProps = {
+	/** Placed at the end of the controller page. */
+	ControllerPage: Record<string, never>;
+	/** Placed at the end of the hosts list page. */
+	HostsPage: Record<string, never>;
 	/**
-	 * Contents of the plugin's package.json file
+	 * Placed at the end of each host page.
+	 * `host` is the host the page is displayed for.
 	 */
+	HostViewPage: {
+		host: lib.HostDetails;
+	};
+	/** Placed at the end of the instance list page.  */
+	InstancesPage: Record<string, never>;
+	/**
+	 * Placed at the end of each instance page.
+	 * `instance` is the instance the page is displayed for.
+	 */
+	InstanceViewPage: {
+		instance: lib.InstanceDetails;
+	};
+	/** Placed at the end of the users list page. */
+	UsersPage: Record<string, never>;
+	/**
+	 * Placed at the end of each user page.
+	 * `user` is the user the page is displayed for.
+	 */
+	UserViewPage: {
+		user: lib.UserDetails;
+	};
+	/** Placed at the end of the roles list page.  */
+	RolesPage: Record<string, never>;
+	/**
+	 * Placed at the end of each role page.
+	 * `role` is the role the page is displayed for.
+	 */
+	RoleViewPage: {
+		role: lib.Role;
+	};
+};
+
+export type PluginExtensionSlot = keyof ExtensionSlotProps;
+
+export type PluginExtensionProps<K extends PluginExtensionSlot> = ExtensionSlotProps[K] & {
+	component: K;
+	search?: string;
+};
+
+export type ExtensionComponent<K extends PluginExtensionSlot> = React.ComponentType<PluginExtensionProps<K>>;
+
+export type ExtensionComponents = { [K in PluginExtensionSlot]: Map<string, ExtensionComponent<K>> };
+
+export type WebPluginContext = lib.PluginLoadContext<{
+	control: Control;
+	container: any;
 	package: any;
-	/**
-	 * Logger for this plugin
-	 *
-	 * Instance of winston Logger for sending log messages from this
-	 * plugin.  Supported methods and their corresponding log levels are
-	 * `error`, `warn`, `audit`, `info` and `verbose`.
-	 */
-	logger: Logger;
-	/**
-	 * List of login forms provided by this plugin
-	 */
-	loginForms: PluginLoginForm[] = [];
-	/**
-	 * List of pages provided by this plugin
-	 */
-	pages: PluginPage[] = [];
-	/**
-	 * Additional Config inputComponent types available to render config
-	 * entries with.
-	 */
-	inputComponents: Record<string, InputComponent> = {};
-	/**
-	 * Extra react component to add to core components
-	 *
-	 * Interface to augment core components of the web UI.  Setting a
-	 * component as one of the supported properties of this object will
-	 * cause the web UI to render it when displaying that component,
-	 * usually at the end.  Each component will receive a `plugin` param
-	 * which is the instance of the web plugin that contained the
-	 * component extra.
-	 */
-	componentExtra: {
-		/** Placed at the end of the controller page. */
-		ControllerPage?: React.ComponentType,
-		/** Placed at the end of the hosts list page. */
-		HostsPage?: React.ComponentType,
-		/**
-		 * Placed at the end of each host page.  Takes a `host` param which
-		 * is the host the page is displayed for.
-		 */
-		HostViewPage?: React.ComponentType,
-		/** Placed at the end of the instance list page.  */
-		InstancesPage?: React.ComponentType,
-		/**
-		 * Placed at the end of each instance page.  Takes an `instance`
-		 * param which is the instance the page is displayed for.
-		 */
-		InstanceViewPage?: React.ComponentType,
-		/** Placed at the end of the users list page.  */
-		UsersPage?: React.ComponentType,
-		/**
-		 * Placed at the end of each user page.  Takes a `user` param which
-		 * is the user object the page is displayed for.
-		 */
-		UserViewPage?: React.ComponentType,
-		/** Placed at the end of the roles list page.  */
-		RolesPage?: React.ComponentType,
-		/**
-		 * Placed at the end of each role page.  Takes a `role` param which
-		 * is the role object the page is displayed for.
-		 */
-		RoleViewPage?: React.ComponentType,
-	} = {};
+}>;
 
-
-	constructor(
-		/**
-		 * Webpack container for this plugin
-		 */
-		public container: any,
-		packageData: any,
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginWebpackEnvInfo,
-		/**
-		 * Control link to the controller
-		 *
-		 * Not connected at the time init is invoked.
-		 */
-		public control: Control,
-		logger: Logger,
-	) {
-		this.package = packageData;
-		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
+/**
+ * Collection of host plugin hooks
+ */
+export class WebHooks {
+	constructor(logger: lib.Logger) {
+		this.controllerConnectionEvent = new lib.AsyncHook(logger);
+		this.extensionComponents = new lib.AsyncHook(logger);
+		this.inputComponents = new lib.AsyncHook(logger);
+		this.loginForms = new lib.AsyncHook(logger);
+		this.pages = new lib.AsyncHook(logger);
 	}
-
-	/**
-	 * Called immediately after the class is instantiated.
-	 */
-	async init() { }
 
 	/**
 	 * Called when an event on the controller connection happens
@@ -212,5 +183,95 @@ export default class BaseWebPlugin {
 	 *
 	 * @param event - one of connect, drop, resume and close
 	 */
+	readonly controllerConnectionEvent: lib.AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
+
+	/**
+	 * Collect additional UI components to render in core ui extension points.
+	 *
+	 * Each plugin may return a partial mapping of extension slot names
+	 * to React components. All returned components are rendered.
+	 *
+	 * Multiple plugins may contribute to the same slot.
+	 */
+	readonly extensionComponents: lib.AsyncHook<[], Partial<{
+		[K in PluginExtensionSlot]: ExtensionComponent<K>;
+	}>>;
+
+	/**
+	 * Collect additional config input components provided by plugins.
+	 *
+	 * Each plugin may return a mapping of input component names to React components.
+	 * These mappings are merged together to form the final registry.
+	 *
+	 * If multiple plugins define the same key, the last attached handler wins.
+	 */
+	readonly inputComponents: lib.AsyncHook<[], Record<string, InputComponent>>;
+
+	/**
+	 * Additional methods used to login to the web ui.
+	 *
+	 * All returned components are rendered.
+	 * Each must has a unique name prefixed with the plugin name.
+	 */
+	readonly loginForms: lib.AsyncHook<[], PluginLoginForm[]>;
+
+	/**
+	 * Additional pages accessible on the web ui.
+	 *
+	 * Each page must have a unique path.
+	 */
+	readonly pages: lib.AsyncHook<[], PluginPage[]>;
+}
+
+/**
+ * Base class for web interface plugins
+ */
+export default class BaseWebPlugin {
+	/**
+	 * Contents of the plugin's package.json file
+	 */
+	package: any;
+
+	pages: PluginPage[] = [];
+	loginForms: PluginLoginForm[] = [];
+	inputComponents: Record<string, InputComponent> = {};
+	componentExtra: Partial<{
+		[K in PluginExtensionSlot]: ExtensionComponent<K>;
+	}> = {};
+
+	constructor(
+		public container: any,
+		packageData: any,
+		public info: lib.PluginWebpackEnvInfo,
+		public control: Control,
+		public logger: lib.Logger,
+	) {
+		this.package = packageData; // strict mode complains if we don't assign it this way
+
+		const attach = <Args extends unknown[], Return>(
+			hook: lib.AsyncHook<Args, Return>,
+			fn?: lib.HookHandler<Args, Return>,
+		) => {
+			if (fn) {
+				hook.attach(info.name, fn.bind(this));
+			}
+		};
+
+		attach(control.hooks.controllerConnectionEvent, this.onControllerConnectionEvent);
+		attach(control.hooks.inputComponents, () => this.inputComponents);
+		attach(control.hooks.extensionComponents, () => this.componentExtra);
+		attach(control.hooks.loginForms, () => this.loginForms);
+		attach(control.hooks.pages, () => this.pages);
+	}
+
+	static fromContext(context: WebPluginContext): BaseWebPlugin {
+		return new this(context.container, context.package, context.plugin, context.control, context.logger);
+	}
+
+	/**
+	 * Called immediately after the class is instantiated.
+	 */
+	async init() { }
+
 	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
 }

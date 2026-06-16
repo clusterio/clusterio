@@ -1,29 +1,17 @@
 import React, { useContext } from "react";
 
-import * as lib from "@clusterio/lib";
-
 import ControlContext from "./ControlContext";
-import BaseWebPlugin from "../BaseWebPlugin";
+import { PluginExtensionSlot, ExtensionSlotProps } from "../BaseWebPlugin";
 
 
-type PluginExtraProps = {
-	component: string;
-	search?: string;
-	instance?: lib.InstanceDetails;
-	user?: lib.UserDetails;
-	host?: lib.HostDetails;
-	role?: lib.Role;
-};
-export default function PluginExtra(props: PluginExtraProps) {
-	let control = useContext(ControlContext);
-
-	let components = [];
-	for (let [name, plugin] of control.plugins) {
-		if (Object.prototype.hasOwnProperty.call(plugin.componentExtra, props.component)) {
-			type ComponentExtra = {[key: string]: React.ComponentType<PluginExtraProps & {plugin:BaseWebPlugin}>};
-			let ComponentExtra = (plugin.componentExtra as ComponentExtra)[props.component];
-			components.push(<ComponentExtra key={name} plugin={plugin} {...props}/>);
-		}
-	}
-	return components;
+export default function PluginExtra<
+	C extends PluginExtensionSlot
+> (
+	props: { component: C } & ExtensionSlotProps[C]
+) {
+	const control = useContext(ControlContext);
+	const components = control.extensionComponents[props.component];
+	return components && [...components].map(([source, Component]) => (
+		<Component key={source} {...props} />
+	));
 }

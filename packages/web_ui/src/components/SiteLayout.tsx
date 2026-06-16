@@ -78,13 +78,9 @@ export default function SiteLayout() {
 		],
 	};
 
-	let combinedPages = [...pages];
-	for (let plugin of plugins.values()) {
-		combinedPages.push(...plugin.pages);
-	}
-
 	let menuItems: MenuItem[] = [];
 	let menuGroups = new Map();
+	const combinedPages = [...control.pages];
 	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
 		if (
 			!sidebarName || permission && (

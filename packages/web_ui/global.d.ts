@@ -3,6 +3,11 @@ declare module "*.png" {
 	export default value;
 }
 
+declare module "*.css" {
+	const value: string;
+	export default value;
+}
+
 declare const webRoot: string;
 declare const staticRoot: string;
 

@@ -118,4 +118,22 @@ export class AsyncHook<
 			(result): result is Awaited<Result> => result !== undefined
 		);
 	}
+
+	/**
+	 * Invoke all handlers attached to this hook.
+	 *
+	 * Returns all successful results and their source.
+	 */
+	async collectEntries(...args: Args): Promise<[string, Result][]> {
+		const results = await Promise.all(
+			[...this._handlers.entries()].map(async ([name, handler]) => {
+				const result = await this._invokeHandler(name, handler, args);
+				return result !== undefined ? [name, result] as [string, Result] : undefined;
+			})
+		);
+
+		return results.filter(
+			(entry): entry is [string, Result] => entry !== undefined
+		);
+	}
 }
