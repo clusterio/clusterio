@@ -76,26 +76,42 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 	return pluginInfos;
 }
 
-async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Control) {
-	let plugins = new Map<string, BaseWebPlugin>();
-	for (let pluginInfo of pluginInfos) {
-		if (!pluginInfo.enabled) {
+async function loadPlugins(
+	pluginInfos: lib.PluginWebpackEnvInfo[],
+	control: Control
+) {
+	const plugins = new Map<string, BaseWebPlugin>();
+
+	for (const pluginInfo of pluginInfos) {
+		if (!pluginInfo.enabled || !pluginInfo.webEntrypoint) {
 			continue;
 		}
+
 		try {
-			let WebPluginClass = BaseWebPlugin;
-			if (pluginInfo.webEntrypoint) {
-				let webModule = (await pluginInfo.container.get(pluginInfo.webEntrypoint))();
-				if (!webModule.WebPlugin) {
-					pluginInfo.error = "Plugin webEntrypoint does not export WebPlugin class";
-					throw new Error(pluginInfo.error);
-				}
-				WebPluginClass = webModule.WebPlugin;
+			const moduleFactory = await pluginInfo.container.get(pluginInfo.webEntrypoint);
+			const webModule = moduleFactory();
+
+			const pluginContext: WebPlugin.WebPluginContext = {
+				control,
+				plugin: pluginInfo,
+				container: pluginInfo.container,
+				package: pluginInfo.package,
+				logger: logger.child({ plugin: pluginInfo.name }),
+			};
+
+			if (typeof webModule.default === "function") {
+				await lib.loadPluginEntrypoint(pluginInfo, "web", pluginContext, webModule);
 			}
 
-			let plugin = new WebPluginClass(pluginInfo.container, pluginInfo.package, pluginInfo, control, logger);
-			await plugin.init();
-			plugins.set(pluginInfo.name, plugin);
+			// migrate: accept plugins which export classes
+			if (webModule.WebPlugin) {
+				logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks on web`);
+				plugins.set(pluginInfo.name, await lib.loadPluginClass(
+					pluginInfo, "web", pluginContext, webModule, "WebPlugin", BaseWebPlugin
+				));
+			}
+
+			throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
 
 		} catch (err: any) {
 			pluginInfo.error = `Error loading plugin: ${err.message}`;
@@ -105,6 +121,7 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 			}
 		}
 	}
+
 	return plugins;
 }
 

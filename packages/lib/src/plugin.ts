@@ -85,7 +85,7 @@ export interface PlayerEvent {
 
 export type PluginLoadContext<Context extends object> = Context & {
 	logger: Logger;
-	plugin: PluginNodeEnvInfo;
+	plugin: PluginDeclaration;
 };
 
 export type PluginClass<
@@ -98,12 +98,12 @@ export type PluginClass<
 	};
 };
 
-type PluginType = Extract<keyof PluginNodeEnvInfo, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
+type PluginType = Extract<keyof PluginDeclaration, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
 
-async function loadPluginEntrypoint<
+export async function loadPluginEntrypoint<
 	Context extends object
 > (
-	pluginInfo: PluginNodeEnvInfo,
+	pluginInfo: PluginDeclaration,
 	pluginType: PluginType,
 	context: PluginLoadContext<Context>,
 	module: Record<string, unknown>,
@@ -117,11 +117,11 @@ async function loadPluginEntrypoint<
 	await init(context);
 }
 
-async function loadPluginClass<
+export async function loadPluginClass<
 	Context extends object,
 	Class extends PluginClass<Context>,
 > (
-	pluginInfo: PluginNodeEnvInfo,
+	pluginInfo: PluginDeclaration,
 	pluginType: PluginType,
 	context: PluginLoadContext<Context>,
 	module: Record<string, unknown>,
@@ -138,14 +138,16 @@ async function loadPluginClass<
 		throw new Error(`Expected ${exportName} exported from ${pluginInfo.name} to extend ${baseClass.name}`);
 	}
 
-	await PluginClass.fromContext(context).init();
+	const pluginClass = PluginClass.fromContext(context);
+	await pluginClass.init();
+	return pluginClass;
 }
 
 export async function loadPlugin<
 	Context extends { logger: Logger },
 	Class extends PluginClass<Context>,
 > (
-	pluginInfo: PluginNodeEnvInfo,
+	pluginInfo: PluginDeclaration,
 	pluginType: PluginType,
 	context: Context,
 	exportName: string,
