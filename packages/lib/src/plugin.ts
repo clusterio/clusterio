@@ -83,9 +83,12 @@ export interface PlayerEvent {
 	stats: PlayerStats,
 }
 
-export type PluginLoadContext<Context extends object> = Context & {
+export type PluginLoadContext<
+	Context extends object,
+	Info extends PluginDeclaration = PluginNodeEnvInfo
+> = Context & {
 	logger: Logger;
-	plugin: PluginDeclaration;
+	plugin: Info;
 };
 
 export type PluginClass<
@@ -101,11 +104,12 @@ export type PluginClass<
 type PluginType = Extract<keyof PluginDeclaration, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
 
 export async function loadPluginEntrypoint<
-	Context extends object
+	Context extends object,
+	Info extends PluginDeclaration,
 > (
-	pluginInfo: PluginDeclaration,
+	pluginInfo: Info,
 	pluginType: PluginType,
-	context: PluginLoadContext<Context>,
+	context: PluginLoadContext<Context, Info>,
 	module: Record<string, unknown>,
 ) {
 	const init = module.default;
@@ -120,10 +124,11 @@ export async function loadPluginEntrypoint<
 export async function loadPluginClass<
 	Context extends object,
 	Class extends PluginClass<Context>,
+	Info extends PluginDeclaration,
 > (
-	pluginInfo: PluginDeclaration,
+	pluginInfo: Info,
 	pluginType: PluginType,
-	context: PluginLoadContext<Context>,
+	context: PluginLoadContext<Context, Info>,
 	module: Record<string, unknown>,
 	exportName: string,
 	baseClass: Class,
@@ -146,8 +151,9 @@ export async function loadPluginClass<
 export async function loadPlugin<
 	Context extends { logger: Logger },
 	Class extends PluginClass<Context>,
+	Info extends PluginDeclaration,
 > (
-	pluginInfo: PluginDeclaration,
+	pluginInfo: Info,
 	pluginType: PluginType,
 	context: Context,
 	exportName: string,
@@ -161,7 +167,7 @@ export async function loadPlugin<
 	}
 
 	const module = require(requirePath);
-	const pluginContext: PluginLoadContext<Context> = {
+	const pluginContext: PluginLoadContext<Context, Info> = {
 		...context,
 		plugin: pluginInfo,
 		logger: context.logger.child({ plugin: pluginInfo.name }),

@@ -135,7 +135,7 @@ export type WebPluginContext = lib.PluginLoadContext<{
 	control: Control;
 	container: any;
 	package: any;
-}>;
+}, lib.PluginWebpackEnvInfo>;
 
 /**
  * Collection of host plugin hooks
