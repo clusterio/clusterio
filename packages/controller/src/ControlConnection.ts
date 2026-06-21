@@ -63,9 +63,7 @@ export default class ControlConnection extends BaseConnection {
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			this.connector.on(event, () => {
-				for (let controllerPlugin of this._controller.plugins.values()) {
-					controllerPlugin.onControlConnectionEvent(this, event);
-				}
+				this._controller.hooks.controlConnectionEvent.invoke(this, event);
 			});
 		}
 
@@ -1274,7 +1272,7 @@ export default class ControlConnection extends BaseConnection {
 	async handlePluginListRequest(request: lib.PluginListRequest) {
 		return this._controller.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
 			pluginInfo,
-			this._controller.plugins.has(pluginInfo.name),
+			this._controller.loadedPlugins.has(pluginInfo),
 			this._controller.config.get(`${pluginInfo.name}.load_plugin`),
 		));
 	}

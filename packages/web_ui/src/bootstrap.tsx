@@ -11,6 +11,7 @@ import InputModPack from "./components/InputModPack";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
 import BaseWebPlugin, * as WebPlugin from "./BaseWebPlugin";
+import { pages } from "./pages";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
@@ -90,6 +91,7 @@ async function loadPlugins(
 		try {
 			const moduleFactory = await pluginInfo.container.get(pluginInfo.webEntrypoint);
 			const webModule = moduleFactory();
+			let loaded = false;
 
 			const pluginContext: WebPlugin.WebPluginContext = {
 				control,
@@ -101,17 +103,21 @@ async function loadPlugins(
 
 			if (typeof webModule.default === "function") {
 				await lib.loadPluginEntrypoint(pluginInfo, "web", pluginContext, webModule);
+				loaded = true;
 			}
 
 			// migrate: accept plugins which export classes
 			if (webModule.WebPlugin) {
-				logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks on web`);
+				logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks`);
 				plugins.set(pluginInfo.name, await lib.loadPluginClass(
 					pluginInfo, "web", pluginContext, webModule, "WebPlugin", BaseWebPlugin
 				));
+				loaded = true;
 			}
 
-			throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
+			if (!loaded) {
+				throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
+			}
 
 		} catch (err: any) {
 			pluginInfo.error = `Error loading plugin: ${err.message}`;
@@ -193,6 +199,7 @@ async function loginFormsFromHooks(control: Control) {
 
 async function pagesFromHooks(control: Control) {
 	const results = await control.hooks.pages.collectEntries();
+	results.unshift(["core", pages]);
 	return mergeWithWarning<WebPlugin.PluginPage>(results, item => item.path, "page");
 }
 

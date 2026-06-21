@@ -135,8 +135,8 @@ export default class WsServer {
 
 		// Start connection handshake.
 		let loadedPlugins: {[key:string]: string} = {};
-		for (let [name, plugin] of this.controller.plugins) {
-			loadedPlugins[name] = plugin.info.version;
+		for (const plugin of this.controller.loadedPlugins) {
+			loadedPlugins[plugin.name] = plugin.version;
 		}
 
 		socket.send(JSON.stringify(new lib.MessageHello(new lib.HelloData(packageVersion, loadedPlugins))));

@@ -1,4 +1,5 @@
 export * from "./src/api";
+export * from "./src/AsyncHook";
 export * from "./src/config";
 export * from "./src/data";
 export * from "./src/errors";
@@ -10,7 +11,7 @@ export * from "./src/link";
 export * from "./src/lua_tools";
 export * from "./src/logging";
 export * from "./src/permissions";
-export * from "./src/plugin";
+export * from "./src/loadPlugin";
 export * from "./src/schema";
 export * from "./src/subscriptions";
 

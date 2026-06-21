@@ -81,9 +81,9 @@ export type InputComponent = React.ComponentType<InputComponentProps>;
 
 export type ExtensionSlotProps = {
 	/** Placed at the end of the controller page. */
-	ControllerPage: Record<string, never>;
+	ControllerPage: Record<never, never>;
 	/** Placed at the end of the hosts list page. */
-	HostsPage: Record<string, never>;
+	HostsPage: Record<never, never>;
 	/**
 	 * Placed at the end of each host page.
 	 * `host` is the host the page is displayed for.
@@ -92,7 +92,7 @@ export type ExtensionSlotProps = {
 		host: lib.HostDetails;
 	};
 	/** Placed at the end of the instance list page.  */
-	InstancesPage: Record<string, never>;
+	InstancesPage: Record<never, never>;
 	/**
 	 * Placed at the end of each instance page.
 	 * `instance` is the instance the page is displayed for.
@@ -101,7 +101,7 @@ export type ExtensionSlotProps = {
 		instance: lib.InstanceDetails;
 	};
 	/** Placed at the end of the users list page. */
-	UsersPage: Record<string, never>;
+	UsersPage: Record<never, never>;
 	/**
 	 * Placed at the end of each user page.
 	 * `user` is the user the page is displayed for.
@@ -109,23 +109,23 @@ export type ExtensionSlotProps = {
 	UserViewPage: {
 		user: lib.UserDetails;
 	};
+	/** Placed at the end of the mods list page */
+	ModsPage: Record<never, never>;
 	/** Placed at the end of the roles list page.  */
-	RolesPage: Record<string, never>;
+	RolesPage: Record<never, never>;
 	/**
 	 * Placed at the end of each role page.
 	 * `role` is the role the page is displayed for.
 	 */
 	RoleViewPage: {
 		role: lib.Role;
+		search?: string;
 	};
 };
 
 export type PluginExtensionSlot = keyof ExtensionSlotProps;
 
-export type PluginExtensionProps<K extends PluginExtensionSlot> = ExtensionSlotProps[K] & {
-	component: K;
-	search?: string;
-};
+export type PluginExtensionProps<K extends PluginExtensionSlot> = ExtensionSlotProps[K] & { component: K };
 
 export type ExtensionComponent<K extends PluginExtensionSlot> = React.ComponentType<PluginExtensionProps<K>>;
 

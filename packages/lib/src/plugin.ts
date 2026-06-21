@@ -9,6 +9,7 @@ import * as libErrors from "./errors";
 import { type Logger, logger } from "./logging";
 import type { FieldDefinition } from "./config";
 import type { PlayerStats } from "./data";
+import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin";
 
 
 export const PluginFeatureFlags = [
@@ -93,70 +94,25 @@ export type PluginLoadContext<
 
 export type PluginClass<
 	Context extends object,
-	Instance = unknown
+	Info extends PluginDeclaration,
 > = {
-	new (...args: any[]): Instance,
-	fromContext(context: PluginLoadContext<Context>): Instance & {
-		init(): void;
+	new (...args: any[]): any,
+	fromContext(context: PluginLoadContext<Context, Info>): {
+		init(): Promise<void>;
 	};
 };
 
-type PluginType = Extract<keyof PluginDeclaration, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
-
-export async function loadPluginEntrypoint<
-	Context extends object,
-	Info extends PluginDeclaration,
-> (
-	pluginInfo: Info,
-	pluginType: PluginType,
-	context: PluginLoadContext<Context, Info>,
-	module: Record<string, unknown>,
-) {
-	const init = module.default;
-
-	if (typeof init !== "function") {
-		throw new Error(`Expected ${pluginType} plugin ${pluginInfo.name} to export a default function`);
-	}
-
-	await init(context);
-}
-
-export async function loadPluginClass<
-	Context extends object,
-	Class extends PluginClass<Context>,
-	Info extends PluginDeclaration,
-> (
-	pluginInfo: Info,
-	pluginType: PluginType,
-	context: PluginLoadContext<Context, Info>,
-	module: Record<string, unknown>,
-	exportName: string,
-	baseClass: Class,
-) {
-	const PluginClass = module[exportName] as any;
-
-	if (typeof PluginClass !== "object") {
-		throw new Error(`Expected ${pluginType} plugin ${pluginInfo.name} to export a class named ${exportName}`);
-	}
-
-	if (!(PluginClass.prototype instanceof baseClass)) {
-		throw new Error(`Expected ${exportName} exported from ${pluginInfo.name} to extend ${baseClass.name}`);
-	}
-
-	const pluginClass = PluginClass.fromContext(context);
-	await pluginClass.init();
-	return pluginClass;
-}
+export type PluginType =
+	Extract<keyof PluginDeclaration, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
 
 export async function loadPlugin<
 	Context extends { logger: Logger },
-	Class extends PluginClass<Context>,
-	Info extends PluginDeclaration,
+	Class extends PluginClass<Context, PluginNodeEnvInfo>,
 > (
-	pluginInfo: Info,
+	pluginInfo: PluginNodeEnvInfo,
 	pluginType: PluginType,
 	context: Context,
-	exportName: string,
+	exportName: `${string}Plugin`,
 	baseClass: Class,
 ) {
 	const entrypoint = `${pluginType}Entrypoint` as const;
@@ -166,8 +122,8 @@ export async function loadPlugin<
 		return;
 	}
 
-	const module = require(requirePath);
-	const pluginContext: PluginLoadContext<Context, Info> = {
+	const module = require(path.posix.join(pluginInfo.requirePath, requirePath));
+	const pluginContext: PluginLoadContext<Context> = {
 		...context,
 		plugin: pluginInfo,
 		logger: context.logger.child({ plugin: pluginInfo.name }),
@@ -179,13 +135,13 @@ export async function loadPlugin<
 	}
 
 	// migrate: accept plugins which export classes
-	if (module[entrypoint]) {
-		logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks on ${pluginType}`);
+	if (module[exportName]) {
+		logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
 		await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
 		return;
 	}
 
-	throw new Error(`Plugin ${pluginInfo.name} must export either a default function or ${pluginType}`);
+	throw new Error(`Plugin ${pluginInfo.name} must export either a default function or ${exportName} class`);
 }
 
 /**

@@ -8,7 +8,6 @@ import { useAccount } from "../model/account";
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
-import { pages } from "../pages";
 import { DraggingContext } from "../model/is_dragging";
 import { saveJson } from "../util/save_file";
 import { ControlConfig } from "@clusterio/lib";
@@ -40,7 +39,6 @@ export default function SiteLayout() {
 	let navigate = useNavigate();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
 	let account = useAccount();
-	let plugins = useContext(ControlContext).plugins;
 	const control = useContext(ControlContext);
 	const [dragging, setDragging] = useState(0);
 
