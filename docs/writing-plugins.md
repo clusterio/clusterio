@@ -593,3 +593,43 @@ module.exports = {
     CtlPlugin,
 }
 ```
+## Developing and Testing External Plugins
+
+When developing an external plugin outside of the Clusterio repository (e.g., `../my-custom-plugin`), you may encounter a Webpack "duplicate dependency" error when symlinking it into a Clusterio installation for testing. This happens because Webpack follows symlinks to their real path, meaning it looks up into your external plugin's own `node_modules` and resolves duplicate installations of shared dependencies like `react` or `webpack`.
+
+To fix this, you must instruct `pnpm` to hard-link or copy your external plugin directly into the workspace instead of symlinking it. This masks the real path from Webpack, forcing it to correctly share the workspace dependencies.
+
+First, ensure your external plugin's path is included in the `packages` array of `pnpm-workspace.yaml`:
+
+```yaml
+packages:
+  - packages/*
+  - plugins/*
+  - test/
+  - ../my-custom-plugin
+```
+
+Then, in the target Clusterio installation's `package.json`, add your plugin as a workspace dependency and declare it as `injected: true` in the `dependenciesMeta` section:
+
+```json
+{
+	"devDependencies": {
+		"my-custom-plugin": "workspace:*"
+	},
+	"dependenciesMeta": {
+		"my-custom-plugin": {
+			"injected": true
+		}
+	}
+}
+```
+
+Finally, run `pnpm install`.
+
+### Why we don't inject internal plugins
+
+Internal plugins (those inside the `plugins/` directory) physically live inside the Clusterio repository, which means they are fully protected by the `pnpm.overrides` rules defined in the root `package.json`. These overrides enforce a strict singleton installation of dependencies like `webpack` and `react` across the entire workspace, naturally preventing duplicate dependency errors.
+
+External plugins, however, live outside the repository boundary. When Webpack follows their symlink, it escapes the workspace's `node_modules` root where those `pnpm.overrides` are enforced. That is why external plugins specifically require `injected: true`—it physically copies or hard-links them inside the workspace boundary so they are forced to use the exact same overridden dependencies.
+
+We deliberately avoid using `injected: true` for internal plugins because creating hard-linked snapshots in `node_modules` breaks Hot Module Replacement (HMR) and file-watcher live-reloading for most editors (because atomic saves sever the inode link). By relying on `pnpm.overrides` and standard workspace symlinks instead, core developers retain fast live-reloading while avoiding duplicate dependency bugs.
