@@ -2,6 +2,7 @@ packages:
   - packages/*
   - plugins/*
   - test/
+  - test/mock_external_plugin
 
 catalog:
   '@sinclair/typebox': ^0.30.4
