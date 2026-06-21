@@ -1,0 +1,9 @@
+{
+	"name": "@clusterio/plugin-mock-external",
+	"version": "1.0.0",
+	"description": "Mock external plugin used to verify pnpm.overrides singleton behavior during code review.",
+	"dependencies": {
+		"@clusterio/lib": "workspace:*",
+		"react": "catalog:"
+	}
+}
