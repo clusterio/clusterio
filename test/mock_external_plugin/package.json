@@ -1,9 +1,9 @@
 {
 	"name": "@clusterio/plugin-mock-external",
 	"version": "1.0.0",
-	"description": "Mock external plugin used to verify pnpm.overrides singleton behavior during code review.",
+	"description": "Mock workspace plugin that DELIBERATELY requests a conflicting react (^17) so the test is falsifiable. The root pnpm.overrides (react -> catalog: ^18) must collapse this to the single workspace react. With the override, only one react exists under node_modules/.pnpm; remove the override and a second react@17 copy appears. See TESTPLAN.md Part A.",
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
-		"react": "catalog:"
+		"react": "^17.0.2"
 	}
 }

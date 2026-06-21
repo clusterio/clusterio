@@ -37,7 +37,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
     - name: Prepare and install
-      run: pnpm i --no-frozen-lockfile
+      run: pnpm i --frozen-lockfile
     - name: Use Factorio ${{ matrix.factorio-version }}
       run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ matrix.factorio-version }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
@@ -79,7 +79,7 @@ jobs:
         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
-    - run: pnpm i --no-frozen-lockfile
+    - run: pnpm i --frozen-lockfile
     - run: pnpm run lint
 
   build:
@@ -102,7 +102,7 @@ jobs:
         key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-store-
-    - run: pnpm i --no-frozen-lockfile
+    - run: pnpm i --frozen-lockfile
     - run: pnpm run build-mod
     # Upload build to artifacts
     - name: Upload build to artifacts
