@@ -25,14 +25,19 @@
 			"plugins/*/test/**"
 		]
 	},
+	"pnpm": {
+		"overrides": {
+			"webpack": "catalog:",
+			"react": "catalog:",
+			"@clusterio/lib": "workspace:*"
+		}
+	},
 	"engines": {
 		"node": ">=20"
 	},
 	"workspaces": [
 		"packages/*",
-		"plugins/*",
-		"external_plugins/*",
-		"external_plugins/*/*"
+		"plugins/*"
 	],
 	"devDependencies": {
 		"@clusterio/controller": "workspace:^",

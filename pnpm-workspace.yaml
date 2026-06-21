@@ -1,8 +1,6 @@
 packages:
   - packages/*
   - plugins/*
-  - external_plugins/*
-  - external_plugins/*/*
   - test/
 
 catalog:

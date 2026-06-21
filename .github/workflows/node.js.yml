@@ -24,6 +24,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+    - name: Get pnpm store directory
+      id: pnpm-cache
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+    - uses: actions/cache@v4
+      name: Setup pnpm cache
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
     - name: Prepare and install
       run: pnpm i --no-frozen-lockfile
     - name: Use Factorio ${{ matrix.factorio-version }}
@@ -55,6 +67,18 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: 20.x
+    - name: Get pnpm store directory
+      id: pnpm-cache
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+    - uses: actions/cache@v4
+      name: Setup pnpm cache
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
 
@@ -66,6 +90,18 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: 20.x
+    - name: Get pnpm store directory
+      id: pnpm-cache
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+    - uses: actions/cache@v4
+      name: Setup pnpm cache
+      with:
+        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run build-mod
     # Upload build to artifacts
