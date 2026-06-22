@@ -1,6 +1,6 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { Button, Dropdown, Layout, Menu, MenuProps, Tooltip } from "antd";
+import { Button, Flex, Layout, Menu, MenuProps, Tooltip, Typography } from "antd";
 import { UserOutlined, DownloadOutlined } from "@ant-design/icons";
 
 import ErrorBoundary from "./ErrorBoundary";
@@ -14,12 +14,13 @@ import { saveJson } from "../util/save_file";
 import { useAccount } from "../model/account";
 import { DraggingContext } from "../model/is_dragging";
 import webUiPackage from "../../package.json";
+import logo from "../images/logo.png";
 
 import { ControlConfig } from "@clusterio/lib";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
-const { Header, Sider } = Layout;
+const { Sider } = Layout;
 
 function isActiveDropzone(element: HTMLElement | null): boolean {
 	if (!element) {
@@ -127,6 +128,8 @@ export default function SiteLayout() {
 	}
 
 	return <Layout
+		hasSider
+		className="site-layout"
 		style={{ minHeight: "100vh" }}
 		onDragEnter={() => setDraggingProxy(1)}
 		onDragLeave={() => setDraggingProxy(-1)}
@@ -170,70 +173,68 @@ export default function SiteLayout() {
 			}}
 		/>
 		<DraggingContext.Provider value={dragging > 0}>
-			<Header className="header">
-				<div className="site-logo" />
-				<span className="site-name">Clusterio</span>
-				<Tooltip
-					title="View changelog"
-					placement="bottom"
-					align={{ offset: [0, -10] }}
-				>
-					<span
-						className="site-version"
-						style={{ cursor: "pointer" }}
-						onClick={() => setChangeLogOpen(true)}
-					>
-						{webUiPackage.version}
-					</span>
-				</Tooltip>
-				<Menu
-					theme="dark"
-					mode="horizontal"
-					defaultSelectedKeys={["1"]}
-					items={[{ label: "Dashboard", key: "1" }]}
-				/>
-				<Dropdown
-					className="account-dropdown-header"
-					placement="bottomRight"
-					trigger={["click"]}
-					menu={accountMenuProps}
-				>
-					<UserOutlined />
-				</Dropdown>
-			</Header>
-			<Layout className="site-layout">
-				<Sider
-					collapsible
-					collapsedWidth={0}
-					breakpoint="md"
-					zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
-					width={250}
-					className="site-layout-sider"
-				>
+			<Sider
+				collapsible
+				collapsedWidth={0}
+				breakpoint="md"
+				zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
+				width={250}
+				className="site-layout-sider"
+			>
+				<Flex vertical style={{ height: "100%" }}>
+					<Flex align="center" gap="middle" style={{ padding: 16 }}>
+						<img src={logo} width={48} height={48} alt="Clusterio logo" />
+						<Flex vertical>
+							<Typography.Title level={4} style={{ margin: 0 }}>Clusterio</Typography.Title>
+							<Tooltip title="View changelog" placement="right">
+								<Typography.Text
+									type="danger"
+									style={{ cursor: "pointer" }}
+									onClick={() => setChangeLogOpen(true)}
+								>
+									{webUiPackage.version}
+								</Typography.Text>
+							</Tooltip>
+						</Flex>
+					</Flex>
 					<Menu
+						theme="dark"
 						mode="inline"
 						defaultOpenKeys={[...menuGroups.keys()]}
 						selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
-						style={{ height: "100%", borderRight: 0 }}
+						style={{ flex: 1, overflow: "auto", borderInlineEnd: 0 }}
 						onClick={({ key }) => navigate(key)}
 						items={menuItems}
 					/>
-				</Sider>
-				<Layout className="site-layout-content-container">
-					<Routes>
-						{combinedPages.map(({ path, sidebarPath, content }) => <Route
-							path={path}
-							key={path}
-							element={<Fragment key={path}>
-								<SetSidebar path={sidebarPath ? sidebarPath : path} />
-								<ErrorBoundary Component={ErrorPage}>
-									{content}
-								</ErrorBoundary>
-							</Fragment>}
-						/>)}
-						<Route element={<SetSidebar path={null} />} />
-					</Routes>
-				</Layout>
+					<Menu
+						theme="dark"
+						mode="vertical"
+						selectable={false}
+						style={{ borderInlineEnd: 0 }}
+						onClick={accountMenuProps.onClick}
+						items={[{
+							key: "account",
+							icon: <UserOutlined />,
+							label: account.name,
+							children: accountMenuProps.items,
+						}]}
+					/>
+				</Flex>
+			</Sider>
+			<Layout className="site-layout-content-container">
+				<Routes>
+					{combinedPages.map(({ path, sidebarPath, content }) => <Route
+						path={path}
+						key={path}
+						element={<Fragment key={path}>
+							<SetSidebar path={sidebarPath ? sidebarPath : path} />
+							<ErrorBoundary Component={ErrorPage}>
+								{content}
+							</ErrorBoundary>
+						</Fragment>}
+					/>)}
+					<Route element={<SetSidebar path={null} />} />
+				</Routes>
 			</Layout>
 		</DraggingContext.Provider>
 	</Layout>;
