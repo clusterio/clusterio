@@ -16,6 +16,7 @@
 		"lint": "eslint packages plugins test",
 		"lint-fix": "eslint --fix packages plugins test",
 		"clean": "node ./clean.js",
+		"dev-plugin": "node ./dev-plugin.js",
 		"docs": "typedoc",
 		"bundle-dependencies": "bundle-dependencies"
 	},
