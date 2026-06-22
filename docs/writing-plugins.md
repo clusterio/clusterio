@@ -595,21 +595,35 @@ module.exports = {
 ```
 ## Developing and Testing External Plugins
 
-When developing an external plugin outside of the Clusterio repository (e.g., `../my-custom-plugin`), you may encounter a Webpack "duplicate dependency" error when symlinking it into a Clusterio installation for testing. This happens because Webpack follows symlinks to their real path, meaning it looks up into your external plugin's own `node_modules` and resolves duplicate installations of shared dependencies like `react` or `webpack`.
+To develop an external plugin against this repository with `--dev-plugin` (live web reloading), the plugin's build needs to resolve `webpack`, `react`, `@clusterio/lib` and friends to the *single* workspace copy. How you achieve that depends on where the plugin physically lives.
 
-To fix this, you must instruct `pnpm` to hard-link or copy your external plugin directly into the workspace instead of symlinking it. This masks the real path from Webpack, forcing it to correctly share the workspace dependencies.
+### Common case: plugin cloned into `external_plugins/`
 
-First, ensure your external plugin's path is included in the `packages` array of `pnpm-workspace.yaml`:
+If you clone (or copy) the plugin directly into the `external_plugins/` directory — i.e. it physically lives inside this repository — add a single line to the `packages` array of `pnpm-workspace.yaml` and run `pnpm install`:
 
 ```yaml
 packages:
   - packages/*
   - plugins/*
-  - test/
-  - ../my-custom-plugin
+  - test/mock_external_plugin
+  - external_plugins/my-custom-plugin
 ```
 
-Then, in the target Clusterio installation's `package.json`, add your plugin as a workspace dependency and declare it as `injected: true` in the `dependenciesMeta` section:
+```
+pnpm install
+```
+
+That is all. pnpm makes the plugin a workspace member and links its `node_modules` (react, webpack, antd, `@clusterio/*`, …) straight to the shared store, so the build uses the same singletons the rest of the workspace does — the controller's webpack and the plugin's webpack are literally the same copy. **No `injected: true` is required**, and the plugin stays a normal symlinked workspace member so editor live-reload keeps working.
+
+> The plugin is discovered automatically by its path (it does not need to be in `plugin-list.json`), and the `pnpm.overrides` in the root `package.json` collapse any conflicting version ranges the plugin requests (e.g. `react@^17`) down to the workspace copy.
+
+> **Caveat:** this relies on pnpm owning the plugin's `node_modules`. If the plugin directory carries its *own* `node_modules` (e.g. you ran `npm install` inside it before copying it in), Webpack's nearest-wins resolution finds those duplicate copies first — the same failure as the symlink case below. Delete the plugin's stray `node_modules` and re-run `pnpm install` so pnpm relinks its dependencies to the shared store.
+
+### Special case: plugin symlinked from *outside* the repository
+
+`external_plugins/` is `.gitignore`d, so a common alternative is to symlink a plugin you keep elsewhere on disk into it (e.g. `external_plugins/my-custom-plugin -> ~/dev/my-custom-plugin`). In that case Node and Webpack resolve the symlink to its **real path outside the workspace**, walk up into the plugin's *own* `node_modules`, and find duplicate copies of `react`/`webpack` there — the classic "duplicate dependency" / "two React instances" error.
+
+For this case only, also declare the plugin `injected: true` in the root `package.json`, which makes pnpm hard-link a copy *inside* the workspace boundary so resolution stays on the shared singletons:
 
 ```json
 {
@@ -624,12 +638,8 @@ Then, in the target Clusterio installation's `package.json`, add your plugin as 
 }
 ```
 
-Finally, run `pnpm install`.
+Then run `pnpm install`. Note that injection trades away live-reload (hard-linked snapshots break file watchers because atomic saves sever the inode link), so prefer cloning directly into `external_plugins/` when you want HMR.
 
-### Why we don't inject internal plugins
+### Why internal plugins need neither step
 
-Internal plugins (those inside the `plugins/` directory) physically live inside the Clusterio repository, which means they are fully protected by the `pnpm.overrides` rules defined in the root `package.json`. These overrides enforce a strict singleton installation of dependencies like `webpack` and `react` across the entire workspace, naturally preventing duplicate dependency errors.
-
-External plugins, however, live outside the repository boundary. When Webpack follows their symlink, it escapes the workspace's `node_modules` root where those `pnpm.overrides` are enforced. That is why external plugins specifically require `injected: true`—it physically copies or hard-links them inside the workspace boundary so they are forced to use the exact same overridden dependencies.
-
-We deliberately avoid using `injected: true` for internal plugins because creating hard-linked snapshots in `node_modules` breaks Hot Module Replacement (HMR) and file-watcher live-reloading for most editors (because atomic saves sever the inode link). By relying on `pnpm.overrides` and standard workspace symlinks instead, core developers retain fast live-reloading while avoiding duplicate dependency bugs.
+Internal plugins (those inside the `plugins/` directory) physically live inside the repository and are listed in the workspace already, so they resolve through the `pnpm.overrides` singletons via plain symlinks — no membership edit and no injection. External plugins cloned into `external_plugins/` are in the same position once added to the workspace; only the symlinked-from-outside case escapes the workspace boundary and needs `injected: true`.
