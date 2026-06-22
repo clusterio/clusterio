@@ -69,8 +69,10 @@ if (entryRe.test(ws)) {
 }
 
 // 2. Injection is only needed when the real path escapes the repo (symlinked in).
+// Both paths are realpath'd, so a prefix check is robust — including a symlink to
+// another drive on Windows, where path.relative() would return an absolute path.
 const realDir = fs.realpathSync(pluginDir);
-const escapesRepo = path.relative(repoRoot, realDir).startsWith("..");
+const escapesRepo = realDir !== repoRoot && !realDir.startsWith(repoRoot + path.sep);
 if (escapesRepo) {
 	console.log("");
 	console.log(`${pkg.name} is symlinked from outside the repo:`);
