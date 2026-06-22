@@ -6,15 +6,19 @@
  * Usage:
  *   pnpm dev-plugin <path>          e.g. pnpm dev-plugin external_plugins/my-plugin
  *
- * For a plugin cloned/copied directly into the repo this adds one line to
- * pnpm-workspace.yaml and runs `pnpm install` — pnpm then links the plugin's
- * dependencies to the workspace singletons, so no `injected: true` is needed.
- * If the plugin is a symlink pointing OUTSIDE the repo, its real path escapes
- * the workspace and you additionally need `injected: true`; the script detects
- * this and prints the snippet to add rather than editing package.json for you.
+ * Clone (or copy) the plugin's source directly into external_plugins/. This adds
+ * one line to pnpm-workspace.yaml and runs `pnpm install`; pnpm then links the
+ * plugin's dependencies to the workspace singletons, so no `injected: true` is
+ * needed. Verified live: the controller builds and serves such a plugin via
+ * --dev-plugin with no duplicate-dependency errors.
+ *
+ * Symlinking a plugin from OUTSIDE the repo is NOT supported: --dev-plugin builds
+ * the plugin at its external_plugins/ path, which resolves the plugin's own
+ * outside node_modules (duplicate react/webpack). `injected: true` does not change
+ * that build path, so it does not help — the script refuses this case.
  *
  * Note: external_plugins/ is gitignored and pnpm-lock.yaml is committed, so the
- * resulting lockfile/workspace edits are local-only — do not commit them.
+ * resulting workspace/lockfile edits are local-only — do not commit them.
  */
 const fs = require("fs");
 const path = require("path");
@@ -52,7 +56,24 @@ if (relPath.startsWith("..")) {
 	fail(`${relPath} is outside the repository; place the plugin (or a symlink to it) under external_plugins/`);
 }
 
-// 1. Add the plugin to the `packages:` list in pnpm-workspace.yaml (idempotent).
+// 1. Refuse a plugin whose real path is outside the repo. --dev-plugin builds the
+// plugin at its external_plugins/ path, which resolves the plugin's OWN outside
+// node_modules (duplicate react/webpack); injected:true does not change that build
+// path, so symlinking from outside does not work. Copy the source in instead.
+// Both paths are realpath'd, so the prefix check is robust — including a symlink to
+// another drive on Windows, where path.relative() would return an absolute path.
+const realDir = fs.realpathSync(pluginDir);
+const escapesRepo = realDir !== repoRoot && !realDir.startsWith(repoRoot + path.sep);
+if (escapesRepo) {
+	console.error(`error: ${relPath} resolves to a path outside the repository:`);
+	console.error(`  ${realDir}`);
+	console.error("--dev-plugin builds the plugin there, against its own node_modules, which does");
+	console.error("not work (injected:true does not fix it). Copy the plugin's source into");
+	console.error("external_plugins/ instead of symlinking it.");
+	process.exit(1);
+}
+
+// 2. Add the plugin to the `packages:` list in pnpm-workspace.yaml (idempotent).
 const wsPath = path.join(repoRoot, "pnpm-workspace.yaml");
 let ws = fs.readFileSync(wsPath, "utf8");
 const entryRe = new RegExp(`^[ \\t]*-[ \\t]*${relPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[ \\t\\r]*$`, "m");
@@ -68,27 +89,8 @@ if (entryRe.test(ws)) {
 	console.log(`added ${relPath} to pnpm-workspace.yaml`);
 }
 
-// 2. Injection is only needed when the real path escapes the repo (symlinked in).
-// Both paths are realpath'd, so a prefix check is robust — including a symlink to
-// another drive on Windows, where path.relative() would return an absolute path.
-const realDir = fs.realpathSync(pluginDir);
-const escapesRepo = realDir !== repoRoot && !realDir.startsWith(repoRoot + path.sep);
-if (escapesRepo) {
-	console.log("");
-	console.log(`${pkg.name} is symlinked from outside the repo:`);
-	console.log(`  ${realDir}`);
-	console.log("Its dependencies resolve to its own node_modules, so you also need `injected: true`.");
-	console.log("Add this to the root package.json, then run `pnpm install`:");
-	console.log("");
-	console.log(`  "devDependencies":   { "${pkg.name}": "workspace:*" }`);
-	console.log(`  "dependenciesMeta":  { "${pkg.name}": { "injected": true } }`);
-	console.log("");
-	console.log("(Skipping automatic install — add the snippet above first.)");
-	process.exit(0);
-}
-
-// 3. In-repo plugin: install is all that's left.
-console.log(`${pkg.name} lives inside the repo — no injection needed. Running pnpm install ...`);
+// 3. Install: links the plugin's dependencies to the workspace singletons.
+console.log(`Incorporating ${pkg.name}. Running pnpm install ...`);
 execSync("pnpm install", { stdio: "inherit", cwd: repoRoot });
 console.log("");
 

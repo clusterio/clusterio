@@ -76,13 +76,16 @@ From the repository root, with the project already installed and built
 controller's `--dev-plugin`, it must live under `external_plugins/` (or `plugins/`),
 which is where discovery looks — `test/manual/` is not scanned. Copy the fixture into
 `external_plugins/`, wire it the same way, and start the controller with
-`--dev-plugin mock_external_web`. The full external-plugin workflow is in
-`docs/writing-plugins.md`.
+`--dev-plugin mock_external_web`. This has been done: a live controller compiled and
+served the plugin with no duplicate-dependency errors. The full external-plugin
+workflow is in `docs/writing-plugins.md`.
 
-## The other direction (symlinked from outside the repo)
+## Symlinking from outside the repo is not supported
 
-If instead of cloning the plugin into the repo you symlink one that lives **outside**
-the repository into `external_plugins/`, Node/Webpack resolve the symlink to its real
-path and walk into the plugin's own `node_modules`, finding duplicate copies — that is
-the only case that needs `injected: true`. Reproducing that requires a second checkout
-with its own install and is left to the automated follow-up (see the TAP test plan).
+If instead of copying the plugin into the repo you symlink one that lives **outside**
+the repository into `external_plugins/`, `--dev-plugin` builds it at that path, which
+resolves to the symlink's real location and the plugin's own `node_modules` (duplicate
+`react`/`webpack`). `injected: true` does **not** fix this — it only rewrites
+`node_modules/<name>`, a path that build never uses. This was confirmed with a live
+controller run and a before/after-injection resolution probe. Copy the plugin's source
+into `external_plugins/` instead.

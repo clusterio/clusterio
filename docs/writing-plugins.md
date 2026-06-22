@@ -595,9 +595,9 @@ module.exports = {
 ```
 ## Developing and Testing External Plugins
 
-To develop an external plugin against this repository with `--dev-plugin` (live web reloading), the plugin's build needs to resolve `webpack`, `react`, `@clusterio/lib` and friends to the *single* workspace copy. How you achieve that depends on where the plugin physically lives.
+To develop an external plugin against this repository with `--dev-plugin` (live web reloading), **clone (or copy) the plugin's source into `external_plugins/`** so it becomes a workspace member and its build resolves `webpack`, `react`, `@clusterio/lib` and friends to the *single* workspace copy. Symlinking a plugin that lives outside the repository is **not** supported — see the note at the end of this section.
 
-### Common case: plugin cloned into `external_plugins/`
+### Clone the plugin into `external_plugins/`
 
 If you clone (or copy) the plugin directly into the `external_plugins/` directory — i.e. it physically lives inside this repository — add a single line to the `packages` array of `pnpm-workspace.yaml` and run `pnpm install`:
 
@@ -613,33 +613,18 @@ packages:
 pnpm install
 ```
 
-That is all. pnpm makes the plugin a workspace member and links its `node_modules` (react, webpack, antd, `@clusterio/*`, …) straight to the shared store, so the build uses the same singletons the rest of the workspace does — the controller's webpack and the plugin's webpack are literally the same copy. **No `injected: true` is required**, and the plugin stays a normal symlinked workspace member so editor live-reload keeps working.
+That is all. pnpm makes the plugin a workspace member and links its `node_modules` (react, webpack, antd, `@clusterio/*`, …) straight to the shared store, so the build uses the same singletons the rest of the workspace does — the controller's webpack and the plugin's webpack are literally the same copy. **No `injected: true` is required**, and the plugin stays a normal symlinked workspace member so editor live-reload keeps working. This is verified live: a controller started with `--dev-plugin` compiles and serves such a plugin with no duplicate-dependency errors.
 
 > The plugin is discovered automatically by its path (it does not need to be in `plugin-list.json`), and the `pnpm.overrides` in the root `package.json` collapse any conflicting version ranges the plugin requests (e.g. `react@^17`) down to the workspace copy.
 
-> **Caveat:** this relies on pnpm owning the plugin's `node_modules`. If the plugin directory carries its *own* `node_modules` (e.g. you ran `npm install` inside it before copying it in), Webpack's nearest-wins resolution finds those duplicate copies first — the same failure as the symlink case below. Delete the plugin's stray `node_modules` and re-run `pnpm install` so pnpm relinks its dependencies to the shared store.
+> **Caveat:** this relies on pnpm owning the plugin's `node_modules`. If the plugin directory carries its *own* `node_modules` (e.g. you ran `npm install` inside it before copying it in), Webpack's nearest-wins resolution finds those duplicate copies first. Delete the plugin's stray `node_modules` and re-run `pnpm install` so pnpm relinks its dependencies to the shared store.
 
-### Special case: plugin symlinked from *outside* the repository
+### Not supported: symlinking a plugin from *outside* the repository
 
-`external_plugins/` is `.gitignore`d, so a common alternative is to symlink a plugin you keep elsewhere on disk into it (e.g. `external_plugins/my-custom-plugin -> ~/dev/my-custom-plugin`). In that case Node and Webpack resolve the symlink to its **real path outside the workspace**, walk up into the plugin's *own* `node_modules`, and find duplicate copies of `react`/`webpack` there — the classic "duplicate dependency" / "two React instances" error.
+It is tempting to keep the plugin in its own repo and symlink it into `external_plugins/` (e.g. `external_plugins/my-custom-plugin -> ~/dev/my-custom-plugin`). **This does not work with `--dev-plugin`**, and `injected: true` does **not** fix it. The reason: the controller discovers the plugin at its `external_plugins/<name>` path and builds it *there*, which resolves to the symlink's real path outside the repository and finds the plugin's *own* `node_modules` (duplicate `react`/`webpack`). `injected: true` only rewrites `node_modules/<name>` — a path this build never uses — so resolution still lands on the outside copies. (This was confirmed with a live controller run.)
 
-For this case only, also declare the plugin `injected: true` in the root `package.json`, which makes pnpm hard-link a copy *inside* the workspace boundary so resolution stays on the shared singletons:
+Copy the plugin's source into `external_plugins/` as described above instead. If you develop the plugin in a separate repo, copy it in (or use a tool that mirrors it on save) rather than symlinking.
 
-```json
-{
-	"devDependencies": {
-		"my-custom-plugin": "workspace:*"
-	},
-	"dependenciesMeta": {
-		"my-custom-plugin": {
-			"injected": true
-		}
-	}
-}
-```
+### Why internal plugins need no extra step
 
-Then run `pnpm install`. Note that injection trades away live-reload (hard-linked snapshots break file watchers because atomic saves sever the inode link), so prefer cloning directly into `external_plugins/` when you want HMR.
-
-### Why internal plugins need neither step
-
-Internal plugins (those inside the `plugins/` directory) physically live inside the repository and are listed in the workspace already, so they resolve through the `pnpm.overrides` singletons via plain symlinks — no membership edit and no injection. External plugins cloned into `external_plugins/` are in the same position once added to the workspace; only the symlinked-from-outside case escapes the workspace boundary and needs `injected: true`.
+Internal plugins (those inside the `plugins/` directory) physically live inside the repository and are listed in the workspace already, so they resolve through the `pnpm.overrides` singletons via plain symlinks — no membership edit and no injection. External plugins cloned into `external_plugins/` are in the same position once added to the workspace.
