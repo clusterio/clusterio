@@ -1,0 +1,25 @@
+{
+	"name": "@clusterio/plugin-mock-external-web",
+	"version": "1.0.0",
+	"description": "Manual reproduction fixture for PR #922. A web-enabled external plugin that DELIBERATELY requests conflicting react (^17) and webpack (^4). When added to the workspace as an ordinary in-repo member (NO injected:true), the root pnpm.overrides collapse it to the single workspace react@18 / webpack@5 and the --dev-plugin web build compiles clean. See README.md.",
+	"main": "index.js",
+	"keywords": [
+		"clusterio",
+		"clusterio-plugin",
+		"factorio"
+	],
+	"peerDependencies": {
+		"@clusterio/web_ui": "workspace:^",
+		"@clusterio/lib": "workspace:^"
+	},
+	"devDependencies": {
+		"@clusterio/web_ui": "workspace:^",
+		"@clusterio/lib": "workspace:^",
+		"antd": "^5.13.0",
+		"react": "^17.0.2",
+		"react-dom": "^18.2.0",
+		"webpack": "^4.47.0",
+		"webpack-cli": "^5.1.4",
+		"webpack-merge": "^5.9.0"
+	}
+}

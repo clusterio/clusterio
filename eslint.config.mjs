@@ -500,4 +500,4 @@ export default defineConfig([{
 		"max-len": "off",
 		"indent": "off",
 	},
-}, globalIgnores(["**/dist/", "dist/"])]);
+}, globalIgnores(["**/dist/", "dist/", "test/manual/external_plugin_fixture/"])]);
