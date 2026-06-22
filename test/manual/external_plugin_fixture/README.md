@@ -15,10 +15,9 @@ directly instead (see *Booting it live* below).
 
 ## What it proves
 
-The fixture deliberately requests conflicting `react@^17` and `webpack@^4` (which
-the overrides must collapse) plus `react-dom@^18.2.0` (a compatible range that
-should dedupe on its own — `react-dom` is *not* in `pnpm.overrides`). `verify.js`
-asserts:
+The fixture deliberately requests conflicting `react@^17`, `react-dom@^17` and
+`webpack@^4`, which the overrides must collapse to the single workspace copies.
+`verify.js` asserts:
 
 1. `react` resolves to a **single** copy shared with `@clusterio/web_ui`,
 2. `react-dom` resolves to a **single** copy shared with `@clusterio/web_ui`,
@@ -26,8 +25,8 @@ asserts:
    (the build-tool singleton `injected: true` is meant to provide), and
 4. the `--dev-plugin` web build **compiles with no errors**.
 
-It also prints the resolved versions so you can see `react@^17` / `webpack@^4`
-collapse to the workspace `react@18` / `webpack@5` (and `react-dom` land on `18`).
+It also prints the resolved versions so you can see `react@^17` / `react-dom@^17` /
+`webpack@^4` collapse to the workspace `react@18` / `react-dom@18` / `webpack@5`.
 
 ## Reproduce
 
@@ -58,11 +57,11 @@ From the repository root, with the project already installed and built
    ALL CHECKS PASSED
    ```
 
-3. **Confirm it is falsifiable** — remove the `"react"` and `"webpack"` lines from
-   `pnpm.overrides` in the root `package.json`, run `pnpm install`, and re-run the
-   driver. A second `react@17` / `webpack@4` copy appears; the checks report
-   `SOME CHECKS FAILED` (the build step fails because webpack 4 has no
-   `webpack.container.ModuleFederationPlugin`).
+3. **Confirm it is falsifiable** — remove the `"react"`, `"react-dom"` and
+   `"webpack"` lines from `pnpm.overrides` in the root `package.json`, run
+   `pnpm install`, and re-run the driver. A second `react@17` / `webpack@4` copy
+   appears; the checks report `SOME CHECKS FAILED` (the build step fails because
+   webpack 4 has no `webpack.container.ModuleFederationPlugin`).
 
 4. **Clean up** (these edits are local-only and must not be committed):
 

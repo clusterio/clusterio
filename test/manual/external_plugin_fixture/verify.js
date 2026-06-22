@@ -22,10 +22,9 @@
  * react / react-dom are Module-Federation shared with import:false, so they are
  * not bundled; checks 1-2 (not the compile) are what prove single-copy sharing.
  *
- * The fixture deliberately requests react@^17 and webpack@^4 — a PASS shows the
- * root pnpm.overrides collapsed those to the workspace react@18 / webpack@5.
- * react-dom is requested as ^18.2.0 (a compatible range, NOT overridden), so
- * check 2 confirms it dedupes to the workspace copy on its own.
+ * The fixture deliberately requests react@^17, react-dom@^17 and webpack@^4 — a
+ * PASS shows the root pnpm.overrides collapsed all three to the workspace
+ * react@18 / react-dom@18 / webpack@5.
  */
 const path = require("path");
 const { createRequire } = require("module");
@@ -64,9 +63,9 @@ const fixtureReq = requireFrom(fixtureDir);
 const webUiReq = requireFrom(path.join(repoRoot, "packages", "web_ui"));
 const controllerReq = requireFrom(path.join(repoRoot, "packages", "controller"));
 
-// The fixture asks for react ^17 / webpack ^4 (overridden) and react-dom ^18.2.0
-// (deduped); show what they actually resolved to.
-console.log("Resolved versions (requested: react ^17, webpack ^4 — overridden; react-dom ^18.2.0 — deduped):");
+// The fixture asks for react ^17 / react-dom ^17 / webpack ^4 (all overridden);
+// show what they actually resolved to.
+console.log("Resolved versions (fixture requested react ^17 / react-dom ^17 / webpack ^4, all overridden):");
 console.log(`  react      ${versionOf(fixtureReq, "react")}`);
 console.log(`  react-dom  ${versionOf(fixtureReq, "react-dom")}`);
 console.log(`  webpack    ${versionOf(fixtureReq, "webpack")}\n`);
@@ -128,7 +127,7 @@ runBuild().then(build => {
 	check("--dev-plugin web build compiles with no errors", build.ok, build.ok ? undefined : build.detail);
 	const passed = results.every(Boolean);
 	console.log(`\n${passed ? "ALL CHECKS PASSED" : "SOME CHECKS FAILED"}`);
-	console.log("(remove the `react` / `webpack` lines from pnpm.overrides, re-run `pnpm install`,");
+	console.log("(remove the `react` / `react-dom` / `webpack` lines from pnpm.overrides, re-run `pnpm install`,");
 	console.log(" and re-run this script to watch the checks fail)");
 	process.exit(passed ? 0 : 1);
 });

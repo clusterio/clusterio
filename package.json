@@ -30,6 +30,7 @@
 		"overrides": {
 			"webpack": "catalog:",
 			"react": "catalog:",
+			"react-dom": "catalog:",
 			"@clusterio/lib": "workspace:*"
 		}
 	},
