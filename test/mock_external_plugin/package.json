@@ -1,9 +1,10 @@
 {
 	"name": "@clusterio/plugin-mock-external",
 	"version": "1.0.0",
-	"description": "Mock workspace plugin that DELIBERATELY requests a conflicting react (^17) so the test is falsifiable. The root pnpm.overrides (react -> catalog: ^18) must collapse this to the single workspace react. With the override, only one react exists under node_modules/.pnpm; remove the override and a second react@17 copy appears. See TESTPLAN.md Part A.",
+	"description": "Mock workspace plugin that DELIBERATELY requests conflicting react (^17) and webpack (^4) so the singleton test is falsifiable. The root pnpm.overrides (react/webpack -> catalog: ^18/^5) must collapse these to the single workspace copies. With the overrides, only one react and one webpack exist under node_modules/.pnpm; remove an override and a second copy (react@17 / webpack@4) appears. See TESTPLAN.md Part A.",
 	"dependencies": {
 		"@clusterio/lib": "workspace:*",
-		"react": "^17.0.2"
+		"react": "^17.0.2",
+		"webpack": "^4.47.0"
 	}
 }
