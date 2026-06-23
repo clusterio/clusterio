@@ -1,7 +1,7 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { Button, Flex, Layout, Menu, MenuProps, Tooltip, Typography } from "antd";
-import { UserOutlined, DownloadOutlined } from "@ant-design/icons";
+import { Button, Drawer, Dropdown, Flex, Grid, Layout, Menu, MenuProps, Tooltip, Typography } from "antd";
+import { UserOutlined, DownloadOutlined, MenuOutlined } from "@ant-design/icons";
 
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
@@ -20,7 +20,7 @@ import { ControlConfig } from "@clusterio/lib";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
-const { Sider } = Layout;
+const { Sider, Header } = Layout;
 
 function isActiveDropzone(element: HTMLElement | null): boolean {
 	if (!element) {
@@ -43,6 +43,13 @@ function isActiveDropzone(element: HTMLElement | null): boolean {
 export default function SiteLayout() {
 	let navigate = useNavigate();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
+	const screens = Grid.useBreakpoint();
+	// On phone screens the sidebar becomes an overlay drawer instead of a fixed sider.
+	// `md` matches the previous Sider breakpoint; `screens.md` is undefined until measured,
+	// so treat the initial render as desktop to avoid flashing the hamburger.
+	const isMobile = screens.md === false;
+	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [collapsed, setCollapsed] = useState(false);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
 	const control = useContext(ControlContext);
@@ -127,8 +134,38 @@ export default function SiteLayout() {
 		setDragging(dragging + dragChange);
 	}
 
+	// Navigate and dismiss the mobile drawer, matching hamburger menu conventions.
+	function navigateAndClose(key: string) {
+		navigate(key);
+		setDrawerOpen(false);
+	}
+
+	// The header trigger collapses the sider on desktop and toggles the overlay drawer on phones.
+	function toggleSidebar() {
+		if (isMobile) {
+			setDrawerOpen(value => !value);
+		} else {
+			setCollapsed(value => !value);
+		}
+	}
+
+	let sidebarContent = <Menu
+		theme="dark"
+		mode="inline"
+		defaultOpenKeys={[...menuGroups.keys()]}
+		selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
+		style={{ height: "100%", overflow: "auto", borderInlineEnd: 0 }}
+		onClick={({ key }) => navigateAndClose(key)}
+		items={menuItems}
+	/>;
+
+	let accountMenu = <Dropdown menu={accountMenuProps} trigger={["click"]} placement="bottomRight">
+		<Button type="text" icon={<UserOutlined />} style={{ marginInlineStart: "auto" }}>
+			{account.name}
+		</Button>
+	</Dropdown>;
+
 	return <Layout
-		hasSider
 		className="site-layout"
 		style={{ minHeight: "100vh" }}
 		onDragEnter={() => setDraggingProxy(1)}
@@ -172,69 +209,69 @@ export default function SiteLayout() {
 				setAboutOpen(wasAboutOpen);
 			}}
 		/>
+		<Header className="site-layout-header">
+			<Button
+				type="text"
+				icon={<MenuOutlined />}
+				onClick={toggleSidebar}
+				aria-label="Toggle navigation menu"
+			/>
+			<img src={logo} width={32} height={32} alt="Clusterio logo" />
+			<Flex vertical justify="center">
+				<Typography.Title level={4} style={{ margin: 0, lineHeight: 1.2 }}>Clusterio</Typography.Title>
+				<Tooltip title="View changelog" placement="right">
+					<Typography.Text
+						type="danger"
+						style={{ cursor: "pointer", lineHeight: 1.2 }}
+						onClick={() => setChangeLogOpen(true)}
+					>
+						{webUiPackage.version}
+					</Typography.Text>
+				</Tooltip>
+			</Flex>
+			{accountMenu}
+		</Header>
 		<DraggingContext.Provider value={dragging > 0}>
-			<Sider
-				collapsible
-				collapsedWidth={0}
-				breakpoint="md"
-				zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
-				width={250}
-				className="site-layout-sider"
-			>
-				<Flex vertical style={{ height: "100%" }}>
-					<Flex align="center" gap="middle" style={{ padding: 16 }}>
-						<img src={logo} width={48} height={48} alt="Clusterio logo" />
-						<Flex vertical>
-							<Typography.Title level={4} style={{ margin: 0 }}>Clusterio</Typography.Title>
-							<Tooltip title="View changelog" placement="right">
-								<Typography.Text
-									type="danger"
-									style={{ cursor: "pointer" }}
-									onClick={() => setChangeLogOpen(true)}
-								>
-									{webUiPackage.version}
-								</Typography.Text>
-							</Tooltip>
-						</Flex>
-					</Flex>
-					<Menu
-						theme="dark"
-						mode="inline"
-						defaultOpenKeys={[...menuGroups.keys()]}
-						selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
-						style={{ flex: 1, overflow: "auto", borderInlineEnd: 0 }}
-						onClick={({ key }) => navigate(key)}
-						items={menuItems}
-					/>
-					<Menu
-						theme="dark"
-						mode="vertical"
-						selectable={false}
-						style={{ borderInlineEnd: 0 }}
-						onClick={accountMenuProps.onClick}
-						items={[{
-							key: "account",
-							icon: <UserOutlined />,
-							label: account.name,
-							children: accountMenuProps.items,
-						}]}
-					/>
-				</Flex>
-			</Sider>
-			<Layout className="site-layout-content-container">
-				<Routes>
-					{combinedPages.map(({ path, sidebarPath, content }) => <Route
-						path={path}
-						key={path}
-						element={<Fragment key={path}>
-							<SetSidebar path={sidebarPath ? sidebarPath : path} />
-							<ErrorBoundary Component={ErrorPage}>
-								{content}
-							</ErrorBoundary>
-						</Fragment>}
-					/>)}
-					<Route element={<SetSidebar path={null} />} />
-				</Routes>
+			<Layout hasSider={!isMobile}>
+				{isMobile
+					? <Drawer
+						placement="left"
+						open={drawerOpen}
+						onClose={() => setDrawerOpen(false)}
+						width={250}
+						closable={false}
+						// Start below the sticky 64px header so it stays visible and usable.
+						rootStyle={{ top: 64 }}
+						styles={{ body: { padding: 0, background: "#001529" } }}
+					>
+						{sidebarContent}
+					</Drawer>
+					: <Sider
+						width={250}
+						collapsible
+						collapsed={collapsed}
+						collapsedWidth={0}
+						trigger={null}
+						className="site-layout-sider"
+					>
+						{sidebarContent}
+					</Sider>
+				}
+				<Layout className="site-layout-content-container">
+					<Routes>
+						{combinedPages.map(({ path, sidebarPath, content }) => <Route
+							path={path}
+							key={path}
+							element={<Fragment key={path}>
+								<SetSidebar path={sidebarPath ? sidebarPath : path} />
+								<ErrorBoundary Component={ErrorPage}>
+									{content}
+								</ErrorBoundary>
+							</Fragment>}
+						/>)}
+						<Route element={<SetSidebar path={null} />} />
+					</Routes>
+				</Layout>
 			</Layout>
 		</DraggingContext.Provider>
 	</Layout>;
