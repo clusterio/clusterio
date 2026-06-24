@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
@@ -10,14 +9,16 @@ import notify from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
-	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
+	const rowNav = useRowNavigation();
 
 	useEffect(() => {
 		(async () => {
@@ -54,7 +55,12 @@ export default function PluginsPage() {
 				{
 					title: "Name",
 					key: "name",
-					render: (_, plugin) => (plugin.info ? plugin.info.title : plugin.meta.name),
+					render: (_, plugin) => <Link
+						to={`/plugins/${plugin.meta.name}/view`}
+						style={{ color: "inherit" }}
+					>
+						{plugin.info ? plugin.info.title : plugin.meta.name}
+					</Link>,
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
 				},
@@ -86,11 +92,7 @@ export default function PluginsPage() {
 			dataSource={tableContents}
 			rowKey={plugin => plugin.meta.name}
 			pagination={false}
-			onRow={plugin => ({
-				onClick: event => {
-					navigate(`/plugins/${plugin.meta.name}/view`);
-				},
-			})}
+			onRow={plugin => rowNav(`/plugins/${plugin.meta.name}/view`)}
 		/>
 	</PageLayout>;
 }

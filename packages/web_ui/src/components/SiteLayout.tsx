@@ -8,6 +8,7 @@ import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
 import ChangeLogModal from "./ChangeLogModal";
 import AboutModal from "./AboutModal";
+import Link from "./Link";
 
 import { pages } from "../pages";
 import { saveJson } from "../util/save_file";
@@ -20,6 +21,12 @@ import { ControlConfig } from "@clusterio/lib";
 type MenuItem = Required<MenuProps>["items"][number];
 
 const { Header, Sider } = Layout;
+
+// Render a sidebar menu label as a real link so right-click/middle-click can
+// open it in a new tab; stopPropagation keeps the Menu onClick from also firing.
+function navLink(path: string, label: string) {
+	return <Link to={path} onClick={e => e.stopPropagation()}>{label}</Link>;
+}
 
 function isActiveDropzone(element: HTMLElement | null): boolean {
 	if (!element) {
@@ -74,7 +81,12 @@ export default function SiteLayout() {
 			}
 		},
 		items: [
-			{ label: account.name, key: "user" },
+			{
+				label: <Link to={`/users/${account.name}/view`} onClick={e => e.stopPropagation()}>
+					{account.name}
+				</Link>,
+				key: "user",
+			},
 			{
 				label: <Tooltip title="Download credentials and configuration file for cli interface">
 					Ctl Config <Button size="small" icon={<DownloadOutlined />} />
@@ -110,9 +122,9 @@ export default function SiteLayout() {
 				group = [];
 				menuGroups.set(sidebarGroup, group);
 			}
-			group.push({ label: sidebarName, key: path });
+			group.push({ label: navLink(path, sidebarName), key: path });
 		} else {
-			menuItems.push({ label: sidebarName, key: path });
+			menuItems.push({ label: navLink(path, sidebarName), key: path });
 		}
 	}
 	for (let [name, group] of menuGroups) {

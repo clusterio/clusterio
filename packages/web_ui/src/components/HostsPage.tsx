@@ -1,5 +1,4 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
@@ -20,6 +19,8 @@ import {
 import { useHosts } from "../model/host";
 import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -199,12 +200,12 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 
 export default function HostsPage() {
 	let account = useAccount();
-	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
 	const [showRatios, setShowRatios] = useState(true);
 	const [showNumbers, setShowNumbers] = useState(false);
 	const [showCpuModel, setShowCpuModel] = useState(false);
+	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
@@ -219,6 +220,9 @@ export default function HostsPage() {
 					dataIndex: "name",
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					render: (_, host) => <Link to={`/hosts/${host.id}/view`} style={{ color: "inherit" }}>
+						{host.name}
+					</Link>,
 				},
 				{
 					title: "CPU Model",
@@ -306,11 +310,7 @@ export default function HostsPage() {
 			dataSource={[...hosts.values()]}
 			rowKey={host => host.id}
 			pagination={false}
-			onRow={(record, rowIndex) => ({
-				onClick: event => {
-					navigate(`/hosts/${record.id}/view`);
-				},
-			})}
+			onRow={record => rowNav(`/hosts/${record.id}/view`)}
 		/>
 		<Flex wrap="wrap" style={{ margin: "16px 0 0 0" }} gap="small">
 			<label style={{ width: "14em", display: "flex", justifyContent: "space-between", marginRight: 16 }}>

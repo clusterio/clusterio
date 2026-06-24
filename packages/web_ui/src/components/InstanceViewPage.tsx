@@ -198,12 +198,7 @@ export default function InstanceViewPage() {
 				description={<>Instance with id {instanceId} was not found on the controller.</>}
 				type="warning"
 				action={
-					<Button
-						type="text"
-						onClick={() => { navigate("/instances"); }}
-					>
-						Go back to instances list
-					</Button>
+					<Link to="/instances">Go back to instances list</Link>
 				}
 			/>
 		</PageLayout>;

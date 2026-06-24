@@ -1,7 +1,6 @@
 import React from "react";
 import { Table, Tag } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
 
 import * as lib from "@clusterio/lib";
 
@@ -15,6 +14,7 @@ import {
 
 import { onFilterUser, Username, useUserFilter } from "./UsersFilters";
 import Link from "./Link";
+import useRowNavigation from "../util/useRowNavigation";
 
 export interface UsersTableProps {
 	/** Optional instance id. If provided, stats will be filtered to that instance only */
@@ -32,7 +32,7 @@ const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 export default function UsersTable({ instanceId, onlyOnline = false, pagination, size }: UsersTableProps) {
 	const [roles, rolesSynced] = useRoles();
 	const [users, usersSynced] = useUsers();
-	const navigate = useNavigate();
+	const rowNav = useRowNavigation();
 
 	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
 
@@ -85,7 +85,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			title: "Name",
 			key: "name",
 			render: (_: any, user: lib.UserDetails) => (
-				<Username user={user} withStatus />
+				<Link to={`/users/${user.name}/view`} style={{ color: "inherit" }}>
+					<Username user={user} withStatus />
+				</Link>
 			),
 			defaultSortOrder: "ascend",
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => strcmp(a.name, b.name),
@@ -178,14 +180,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			size={size}
 			scroll={{ x: "max-content" }}
 			loading={!usersSynced || !rolesSynced}
-			onRow={(user) => ({
-				onClick: (event) => {
-					if ((event.target as HTMLElement).closest("a")) {
-						return;
-					}
-					navigate(`/users/${user.name}/view`);
-				},
-			})}
+			onRow={(user) => rowNav(`/users/${user.name}/view`)}
 		/>
 	);
 }

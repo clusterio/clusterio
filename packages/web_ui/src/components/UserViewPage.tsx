@@ -16,6 +16,8 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
 import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUser } from "../model/user";
@@ -31,6 +33,7 @@ export default function UserViewPage() {
 	let userName = params.name as string;
 
 	let navigate = useNavigate();
+	const rowNav = useRowNavigation();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -298,7 +301,9 @@ export default function UserViewPage() {
 				{
 					title: "Instance",
 					key: "instance",
-					render: (_, [id]) => instanceName(id),
+					render: (_, [id]) => <Link to={`/instances/${id}/view`} style={{ color: "inherit" }}>
+						{instanceName(id)}
+					</Link>,
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(instanceName(a[0]), instanceName(b[0])),
 				},
@@ -331,11 +336,7 @@ export default function UserViewPage() {
 			dataSource={[...(user.instanceStats || []).entries()]}
 			pagination={false}
 			rowKey={([id]) => id}
-			onRow={([id], rowIndex) => ({
-				onClick: event => {
-					navigate(`/instances/${id}/view`);
-				},
-			})}
+			onRow={([id]) => rowNav(`/instances/${id}/view`)}
 		/>
 		<PluginExtra component="UserViewPage" user={user} />
 	</PageLayout>;

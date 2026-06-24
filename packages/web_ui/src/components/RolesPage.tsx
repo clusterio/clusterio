@@ -11,6 +11,8 @@ import { notifyErrorHandler } from "../util/notify";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -61,8 +63,8 @@ function CreateRoleButton() {
 
 export default function RolesPage() {
 	let account = useAccount();
-	let navigate = useNavigate();
 	const [roles] = useRoles();
+	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Roles" }]}>
 		<PageHeader
@@ -75,6 +77,9 @@ export default function RolesPage() {
 					title: "Name",
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					render: (_, role) => <Link to={`/roles/${role.id}/view`} style={{ color: "inherit" }}>
+						{role.name}
+					</Link>,
 				},
 				{
 					title: "Description",
@@ -84,11 +89,7 @@ export default function RolesPage() {
 			dataSource={[...roles.values()]}
 			pagination={false}
 			rowKey={role => role.id}
-			onRow={(role, rowIndex) => ({
-				onClick: event => {
-					navigate(`/roles/${role.id}/view`);
-				},
-			})}
+			onRow={role => rowNav(`/roles/${role.id}/view`)}
 		/>
 		<PluginExtra component="RolesPage" />
 	</PageLayout>;

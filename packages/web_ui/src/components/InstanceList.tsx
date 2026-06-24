@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { message, Button, Table, Space } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
@@ -14,6 +13,7 @@ import InstanceControlButton, { InstanceControlButtonPermissions } from "./Insta
 import * as lib from "@clusterio/lib";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import useRowNavigation from "../util/useRowNavigation";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -25,9 +25,9 @@ type InstanceListProps = {
 
 export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
-	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
+	const rowNav = useRowNavigation();
 
 	function hostName(hostId?: number) {
 		if (hostId === undefined) {
@@ -49,6 +49,9 @@ export default function InstanceList(props: InstanceListProps) {
 			dataIndex: "name",
 			defaultSortOrder: "ascend",
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
+			render: (_, instance) => <Link to={`/instances/${instance.id}/view`} style={{ color: "inherit" }}>
+				{instance.name}
+			</Link>,
 		},
 		{
 			title: "Assigned Host",
@@ -124,10 +127,6 @@ export default function InstanceList(props: InstanceListProps) {
 		dataSource={[...props.instances.values()]}
 		rowKey={instance => instance["id"]}
 		pagination={false}
-		onRow={(record, rowIndex) => ({
-			onClick: event => {
-				navigate(`/instances/${record.id}/view`);
-			},
-		})}
+		onRow={record => rowNav(`/instances/${record.id}/view`)}
 	/>;
 }
