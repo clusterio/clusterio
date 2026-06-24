@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { message, Button, Table, Space } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
-import type { ColumnsType } from "antd/es/table";
+import type { ColumnType } from "antd/es/table/interface";
 
 import { useAccount } from "../model/account";
 import { useSystems } from "../model/system";
@@ -14,6 +14,8 @@ import InstanceControlButton, { InstanceControlButtonPermissions } from "./Insta
 import * as lib from "@clusterio/lib";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "./useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -21,6 +23,8 @@ type InstanceListProps = {
 	instances: ReadonlyMap<number, Readonly<lib.InstanceDetails>>;
 	size?: SizeType;
 	hideAssignedHost?: boolean;
+	/** Persist sort/search state in the URL and show a search box (for the standalone Instances page). */
+	persistState?: boolean;
 };
 
 export default function InstanceList(props: InstanceListProps) {
@@ -28,6 +32,11 @@ export default function InstanceList(props: InstanceListProps) {
 	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
+	const persist = props.persistState ?? false;
+	const tableState = useTableQueryState<lib.InstanceDetails>({
+		namespace: "instance", defaultSortKey: "name", pagination: false,
+	});
+	const nameSearch = useColumnSearch<lib.InstanceDetails>(instance => instance.name, "Search instances");
 
 	function hostName(hostId?: number) {
 		if (hostId === undefined) {
@@ -43,12 +52,13 @@ export default function InstanceList(props: InstanceListProps) {
 		return lib.integerPartialVersion(instance.factorioVersion);
 	}
 
-	let columns: ColumnsType<lib.InstanceDetails> = [
+	let columns: ColumnType<lib.InstanceDetails>[] = [
 		{
 			title: "Name",
 			dataIndex: "name",
 			defaultSortOrder: "ascend",
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
+			...(persist ? nameSearch : {}),
 		},
 		{
 			title: "Assigned Host",
@@ -118,12 +128,15 @@ export default function InstanceList(props: InstanceListProps) {
 		columns.splice(1, 1);
 	}
 
+	const finalColumns = persist ? columns.map(tableState.applyColumn) : columns;
+
 	return <Table
 		size={props.size || "large"}
-		columns={columns}
+		columns={finalColumns}
 		dataSource={[...props.instances.values()]}
 		rowKey={instance => instance["id"]}
-		pagination={false}
+		pagination={persist ? tableState.pagination : false}
+		onChange={persist ? tableState.onChange : undefined}
 		onRow={(record, rowIndex) => ({
 			onClick: event => {
 				navigate(`/instances/${record.id}/view`);

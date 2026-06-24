@@ -1,23 +1,38 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
+import type { ColumnsType } from "antd/es/table";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
-import type { PluginWebApi } from "@clusterio/lib";
+import type { PluginWebApi, PluginWebpackEnvInfo } from "@clusterio/lib";
 
 import notify from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "./useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+type PluginRow = {
+	meta: PluginWebApi;
+	info?: PluginWebpackEnvInfo;
+	package?: any;
+};
 
 
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
 	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
+	const tableState = useTableQueryState<PluginRow>({
+		namespace: "plugin", defaultSortKey: "name", pagination: false,
+	});
+	const nameSearch = useColumnSearch<PluginRow>(
+		plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"
+	);
 
 	useEffect(() => {
 		(async () => {
@@ -30,7 +45,7 @@ export default function PluginsPage() {
 		})();
 	}, []);
 
-	let tableContents = [];
+	let tableContents: PluginRow[] = [];
 	for (let meta of pluginList) {
 		if (control.plugins.has(meta.name)) {
 			let plugin = control.plugins.get(meta.name)!;
@@ -50,13 +65,13 @@ export default function PluginsPage() {
 	return <PageLayout nav={[{ name: "Plugins" }]}>
 		<PageHeader title="Plugins" />
 		<Table
-			columns={[
+			columns={([
 				{
 					title: "Name",
 					key: "name",
 					render: (_, plugin) => (plugin.info ? plugin.info.title : plugin.meta.name),
-					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
+					...nameSearch,
 				},
 				{
 					title: "Version",
@@ -82,10 +97,11 @@ export default function PluginsPage() {
 					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
 					responsive: ["sm"],
 				},
-			]}
+			] satisfies ColumnsType<PluginRow>).map(tableState.applyColumn)}
 			dataSource={tableContents}
 			rowKey={plugin => plugin.meta.name}
-			pagination={false}
+			pagination={tableState.pagination}
+			onChange={tableState.onChange}
 			onRow={plugin => ({
 				onClick: event => {
 					navigate(`/plugins/${plugin.meta.name}/view`);

@@ -5,10 +5,12 @@ import {
 	Row, Table, Tag, Select, Space, Spin, Switch,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
+import type { ColumnsType } from "antd/es/table";
 
 import * as lib from "@clusterio/lib";
 
 import { useRoles } from "../model/roles";
+import useTableQueryState from "../util/useTableQueryState";
 import { useAccount } from "../model/account";
 import { useInstances } from "../model/instance";
 import ControlContext from "./ControlContext";
@@ -38,6 +40,9 @@ export default function UserViewPage() {
 	const [user, synced] = useUser(userName);
 	let [roles] = useRoles();
 	let [form] = Form.useForm();
+	const statsTable = useTableQueryState<[number, lib.PlayerStats]>({
+		namespace: "stats", defaultSortKey: "instance", pagination: false,
+	});
 	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
 	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);
 	let [applyingRoles, setApplyingRoles] = useState<boolean>(false);
@@ -294,12 +299,11 @@ export default function UserViewPage() {
 		<SectionHeader title="Instance stats" />
 		<Table
 			size="small"
-			columns={[
+			columns={([
 				{
 					title: "Instance",
 					key: "instance",
 					render: (_, [id]) => instanceName(id),
-					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(instanceName(a[0]), instanceName(b[0])),
 				},
 				{
@@ -327,9 +331,10 @@ export default function UserViewPage() {
 					render: (_, [id]) => formatLastSeen(user, id),
 					sorter: (a, b) => sortLastSeen(user, user, a[0], b[0]),
 				},
-			]}
+			] satisfies ColumnsType<[number, lib.PlayerStats]>).map(statsTable.applyColumn)}
 			dataSource={[...(user.instanceStats || []).entries()]}
-			pagination={false}
+			pagination={statsTable.pagination}
+			onChange={statsTable.onChange}
 			rowKey={([id]) => id}
 			onRow={([id], rowIndex) => ({
 				onClick: event => {

@@ -3,6 +3,7 @@ import { InputRef, Input, Space, Segmented, Button, Typography, Tag } from "antd
 import type { FilterDropdownProps } from "antd/es/table/interface";
 import { CheckOutlined, CloseOutlined, MinusOutlined } from "@ant-design/icons";
 import { UserDetails } from "@clusterio/lib";
+import type { FilterCodec } from "../util/tableQuery";
 const { Text } = Typography;
 
 export interface UserFilter {
@@ -23,6 +24,43 @@ function decodeFilter(value: string): UserFilter {
 		return {};
 	}
 }
+
+function triFromParam(value: string | null): boolean | undefined {
+	if (value === "true") { return true; }
+	if (value === "false") { return false; }
+	return undefined;
+}
+
+/**
+ * Persists the bundled user filter as separate readable query parameters
+ * (`filter.name` for the text search plus `filter.admin`/`filter.whitelisted`/
+ * `filter.banned`) instead of one opaque JSON blob. Plug into
+ * useTableQueryState via `filterCodecs: { name: userFilterCodec }`.
+ */
+export const userFilterCodec: FilterCodec = {
+	decode(params, prefix) {
+		const filter: UserFilter = {};
+		const search = params.get(`${prefix}name`);
+		if (search) { filter.search = search; }
+		const admin = triFromParam(params.get(`${prefix}admin`));
+		if (admin !== undefined) { filter.admin = admin; }
+		const whitelisted = triFromParam(params.get(`${prefix}whitelisted`));
+		if (whitelisted !== undefined) { filter.whitelisted = whitelisted; }
+		const banned = triFromParam(params.get(`${prefix}banned`));
+		if (banned !== undefined) { filter.banned = banned; }
+		return Object.keys(filter).length ? [encodeFilter(filter)] : null;
+	},
+	encode(params, value, prefix) {
+		const filter = value && value[0] ? decodeFilter(String(value[0])) : {};
+		const set = (key: string, val: string | undefined) => (
+			val !== undefined ? params.set(prefix + key, val) : params.delete(prefix + key)
+		);
+		set("name", filter.search || undefined);
+		set("admin", filter.admin === undefined ? undefined : String(filter.admin));
+		set("whitelisted", filter.whitelisted === undefined ? undefined : String(filter.whitelisted));
+		set("banned", filter.banned === undefined ? undefined : String(filter.banned));
+	},
+};
 
 function triStateToSegmented(value?: boolean) {
 	if (value === true) { return "yes"; }

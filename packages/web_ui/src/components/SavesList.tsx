@@ -5,10 +5,12 @@ import {
 } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
+import type { ColumnsType } from "antd/es/table";
 
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
+import useTableQueryState from "../util/useTableQueryState";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
@@ -204,12 +206,15 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let [saves] = useSavesOfInstance(props.instance.id);
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+	const tableState = useTableQueryState<lib.SaveDetails>({
+		namespace: "save", defaultSortKey: "mtimeMs", defaultSortOrder: "descend", pagination: false,
+	});
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
 		className="save-list-table"
 		size="small"
-		columns={[
+		columns={([
 			{
 				title: "Name",
 				key: "name",
@@ -233,10 +238,11 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				key: "mtimeMs",
 				render: (_, save) => new Date(save.mtimeMs).toLocaleString(),
 				sorter: (a, b) => a.mtimeMs - b.mtimeMs,
-				defaultSortOrder: "descend",
 			},
-		]}
+		] satisfies ColumnsType<lib.SaveDetails>).map(tableState.applyColumn)}
 		dataSource={[...saves.values()]}
+		pagination={tableState.pagination}
+		onChange={tableState.onChange}
 		rowKey={save => save.name}
 		expandable={{
 			columnWidth: 33,

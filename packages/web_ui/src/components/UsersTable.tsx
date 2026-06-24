@@ -13,8 +13,9 @@ import {
 	useUsers, getUserStats, isUserOnline,
 } from "../model/user";
 
-import { onFilterUser, Username, useUserFilter } from "./UsersFilters";
+import { onFilterUser, Username, useUserFilter, userFilterCodec } from "./UsersFilters";
 import Link from "./Link";
+import useTableQueryState from "../util/useTableQueryState";
 
 export interface UsersTableProps {
 	/** Optional instance id. If provided, stats will be filtered to that instance only */
@@ -25,14 +26,26 @@ export interface UsersTableProps {
 	pagination?: false | object;
 	/** Ant Design size prop */
 	size?: "small" | "middle" | "large";
+	/** Persist sort/filter/pagination state in the URL (for the standalone Users page). */
+	persistState?: boolean;
 }
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-export default function UsersTable({ instanceId, onlyOnline = false, pagination, size }: UsersTableProps) {
+export default function UsersTable(
+	{ instanceId, onlyOnline = false, pagination, size, persistState }: UsersTableProps
+) {
 	const [roles, rolesSynced] = useRoles();
 	const [users, usersSynced] = useUsers();
 	const navigate = useNavigate();
+	const callerPagination = pagination && typeof pagination === "object" ? pagination : undefined;
+	const defaultPageSize = (callerPagination as { defaultPageSize?: number })?.defaultPageSize ?? 50;
+	const tableState = useTableQueryState<lib.UserDetails>({
+		namespace: "user",
+		defaultSortKey: "name",
+		pagination: pagination === false ? false : { defaultPageSize },
+		filterCodecs: { name: userFilterCodec },
+	});
 
 	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
 
@@ -102,7 +115,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			filters: roleFilters,
 			filterMultiple: true,
 			onFilter: (value: string | number | boolean, record: lib.UserDetails) => (
-				record.roleIds.has(value as number)
+				record.roleIds.has(Number(value))
 			),
 			render: (_: any, user: lib.UserDetails) => (
 				[...user.roleIds].map((id) => (
@@ -160,21 +173,36 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 		},
 	];
 
-	const defaultPagination = pagination === undefined
-		? {
-			defaultPageSize: 50,
-			showSizeChanger: true,
-			pageSizeOptions: ["10", "20", "50", "100", "200"],
-			showTotal: (total: number) => `${total} Users`,
-		}
-		: pagination;
+	const displayPagination = {
+		showSizeChanger: true,
+		pageSizeOptions: ["10", "20", "50", "100", "200"],
+		showTotal: (total: number) => `${total} Users`,
+	};
+	let tablePagination: false | object;
+	if (pagination === false) {
+		tablePagination = false;
+	} else if (persistState) {
+		// Controlled current/pageSize from the URL win over the caller's display props.
+		tablePagination = { ...displayPagination, ...callerPagination, ...(tableState.pagination || {}) };
+	} else {
+		tablePagination = { ...displayPagination, ...(callerPagination ?? { defaultPageSize: 50 }) };
+	}
+
+	let tableColumns = persistState ? columns.map(tableState.applyColumn) : columns;
+	// Seed the online-only default when nothing for the Last Seen column is in the URL yet.
+	if (persistState && onlyOnline && !("lastSeen" in tableState.filters)) {
+		tableColumns = tableColumns.map(column => (
+			column.key === "lastSeen" ? { ...column, filteredValue: ["online"] } : column
+		));
+	}
 
 	return (
 		<Table
-			columns={columns}
+			columns={tableColumns}
 			dataSource={data}
 			rowKey={(user) => user.name}
-			pagination={defaultPagination}
+			pagination={tablePagination}
+			onChange={persistState ? tableState.onChange : undefined}
 			size={size}
 			scroll={{ x: "max-content" }}
 			loading={!usersSynced || !rolesSynced}

@@ -169,7 +169,7 @@ export default function HostViewPage() {
 		</Descriptions>
 		{account.hasPermission("core.instance.list") && <>
 			<Title level={5} style={{ marginTop: 16 }}>Instances</Title>
-			<InstanceList instances={hostInstances} size="small" hideAssignedHost />
+			<InstanceList instances={hostInstances} size="small" hideAssignedHost persistState />
 		</>}
 		{account.hasPermission("core.log.follow") && <>
 			<Flex justify="space-between" align="baseline">

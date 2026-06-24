@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
+import type { ColumnsType } from "antd/es/table";
+
 import * as lib from "@clusterio/lib";
 
 import webUiPackage from "../../package.json";
@@ -20,6 +22,8 @@ import {
 import { useHosts } from "../model/host";
 import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "./useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -205,6 +209,10 @@ export default function HostsPage() {
 	const [showRatios, setShowRatios] = useState(true);
 	const [showNumbers, setShowNumbers] = useState(false);
 	const [showCpuModel, setShowCpuModel] = useState(false);
+	const tableState = useTableQueryState<lib.HostDetails>({
+		namespace: "host", defaultSortKey: "name", pagination: false,
+	});
+	const nameSearch = useColumnSearch<lib.HostDetails>(host => host.name, "Search hosts");
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
@@ -213,12 +221,12 @@ export default function HostsPage() {
 		/>
 		<Table
 			style={{ overflowX: "auto" }}
-			columns={[
+			columns={([
 				{
 					title: "Name",
 					dataIndex: "name",
-					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					...nameSearch,
 				},
 				{
 					title: "CPU Model",
@@ -302,10 +310,11 @@ export default function HostsPage() {
 					</>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
 				},
-			]}
+			] satisfies ColumnsType<lib.HostDetails>).map(tableState.applyColumn)}
 			dataSource={[...hosts.values()]}
 			rowKey={host => host.id}
-			pagination={false}
+			pagination={tableState.pagination}
+			onChange={tableState.onChange}
 			onRow={(record, rowIndex) => ({
 				onClick: event => {
 					navigate(`/hosts/${record.id}/view`);

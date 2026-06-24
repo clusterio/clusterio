@@ -6,6 +6,7 @@ import {
 import {
 	ImportOutlined, PlusOutlined, SearchOutlined, DownloadOutlined,
 } from "@ant-design/icons";
+import type { ColumnsType } from "antd/es/table";
 
 import * as lib from "@clusterio/lib";
 
@@ -18,6 +19,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
+import useTableQueryState from "../util/useTableQueryState";
 import ModDetails from "./ModDetails";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
@@ -510,6 +512,12 @@ export default function ModsPage() {
 	let navigate = useNavigate();
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
+	const modPackTable = useTableQueryState<lib.ModPack>({
+		namespace: "modPack", defaultSortKey: "name", pagination: false,
+	});
+	const modTable = useTableQueryState<lib.ModInfo>({
+		namespace: "mod", defaultSortKey: "title", pagination: false,
+	});
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -571,11 +579,10 @@ export default function ModsPage() {
 			</Space>}
 		/>
 		<Table
-			columns={[
+			columns={([
 				{
 					title: "Name",
 					dataIndex: "name",
-					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
 				},
 				{
@@ -588,9 +595,10 @@ export default function ModsPage() {
 					key: "mods",
 					render: (_, modPack) => modPack.mods.size,
 				},
-			]}
+			] satisfies ColumnsType<lib.ModPack>).map(modPackTable.applyColumn)}
 			dataSource={[...modPacks.values()]}
-			pagination={false}
+			pagination={modPackTable.pagination}
+			onChange={modPackTable.onChange}
 			rowKey={modPack => Number(modPack.id)}
 			onRow={(modPack, rowIndex) => ({
 				onClick: event => {
@@ -617,11 +625,10 @@ export default function ModsPage() {
 		>
 			<Dropzone />
 			<Table
-				columns={[
+				columns={([
 					{
 						title: "Name",
 						dataIndex: "title",
-						defaultSortOrder: "ascend",
 						sorter: (a, b) => (
 							strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
 						),
@@ -655,13 +662,14 @@ export default function ModsPage() {
 						responsive: ["lg"],
 						render: (_, mod) => actions(mod),
 					},
-				]}
+				] satisfies ColumnsType<lib.ModInfo>).map(modTable.applyColumn)}
 				expandable={{
 					expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
 					expandedRowClassName: () => "no-expanded-padding",
 				}}
 				dataSource={[...mods.values()]}
-				pagination={false}
+				pagination={modTable.pagination}
+				onChange={modTable.onChange}
 				rowKey={mod => mod.id}
 			/>
 		</Upload.Dragger>
