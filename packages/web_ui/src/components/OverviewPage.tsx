@@ -46,10 +46,11 @@ export default function OverviewPage() {
 	const [saves] = useSaves();
 	const [grafanaUrl, setGrafanaUrl] = useState<string | null>(null);
 
-	const canHosts = account.hasPermission("core.host.list");
-	const canInstances = account.hasPermission("core.instance.list");
-	const canUsers = account.hasPermission("core.user.list");
-	const canSaves = account.hasAllPermission("core.instance.save.list", "core.instance.save.subscribe");
+	const canHosts = account.hasPermission("core.host.subscribe");
+	const canSystems = account.hasPermission("core.system.subscribe");
+	const canInstances = account.hasPermission("core.instance.subscribe");
+	const canUsers = account.hasPermission("core.user.subscribe");
+	const canSaves = account.hasPermission("core.instance.save.subscribe");
 	const canLogs = account.hasPermission("core.log.follow");
 	const canConfig = account.hasPermission("core.controller.get_config");
 
@@ -109,11 +110,14 @@ export default function OverviewPage() {
 						suffix={`/ ${userList.length}`} />
 				</Card>
 			</Col>}
-			{canSaves && <Col {...colProps}>
-				<ResourceCard title="Saves loaded" used={loadedSaveSize} total={totalSaveSize}
-					format={lib.formatBytes} />
-			</Col>}
-			{canHosts && <>
+			{canSystems && <>
+				<Col {...colProps}>
+					<Card>
+						<Statistic title="Controller running since" formatter={() => (
+							<MetricRelativeDate timeMs={controllerSystem?.processStartedAtMs} compact />
+						)} />
+					</Card>
+				</Col>
 				<Col {...colProps}>
 					<ResourceCard title="CPU" used={sum(hostSystems.map(s => s.cpuUsed))}
 						total={sum(hostSystems.map(s => s.cpuCapacity))} format={formatCores} unit="cores" />
@@ -126,14 +130,11 @@ export default function OverviewPage() {
 					<ResourceCard title="Disk" used={sum(hostSystems.map(s => s.diskUsed))}
 						total={sum(hostSystems.map(s => s.diskCapacity))} format={lib.formatBytes} />
 				</Col>
-				<Col {...colProps}>
-					<Card>
-						<Statistic title="Controller running since" formatter={() => (
-							<MetricRelativeDate timeMs={controllerSystem?.processStartedAtMs} compact />
-						)} />
-					</Card>
-				</Col>
 			</>}
+			{canSaves && <Col {...colProps}>
+				<ResourceCard title="Saves loaded" used={loadedSaveSize} total={totalSaveSize}
+					format={lib.formatBytes} />
+			</Col>}
 		</Row>
 		{canLogs && <>
 			<Title level={5} style={{ marginTop: 16 }}>Recent errors</Title>
