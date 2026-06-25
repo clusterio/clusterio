@@ -26,14 +26,12 @@ export interface UsersTableProps {
 	pagination?: false | object;
 	/** Ant Design size prop */
 	size?: "small" | "middle" | "large";
-	/** Persist sort/filter/pagination state in the URL (for the standalone Users page). */
-	persistState?: boolean;
 }
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 export default function UsersTable(
-	{ instanceId, onlyOnline = false, pagination, size, persistState }: UsersTableProps
+	{ instanceId, onlyOnline = false, pagination, size }: UsersTableProps
 ) {
 	const [roles, rolesSynced] = useRoles();
 	const [users, usersSynced] = useUsers();
@@ -181,16 +179,14 @@ export default function UsersTable(
 	let tablePagination: false | object;
 	if (pagination === false) {
 		tablePagination = false;
-	} else if (persistState) {
+	} else {
 		// Controlled current/pageSize from the URL win over the caller's display props.
 		tablePagination = { ...displayPagination, ...callerPagination, ...(tableState.pagination || {}) };
-	} else {
-		tablePagination = { ...displayPagination, ...(callerPagination ?? { defaultPageSize: 50 }) };
 	}
 
-	let tableColumns = persistState ? columns.map(tableState.applyColumn) : columns;
+	let tableColumns = columns.map(tableState.applyColumn);
 	// Seed the online-only default when nothing for the Last Seen column is in the URL yet.
-	if (persistState && onlyOnline && !("lastSeen" in tableState.filters)) {
+	if (onlyOnline && !("lastSeen" in tableState.filters)) {
 		tableColumns = tableColumns.map(column => (
 			column.key === "lastSeen" ? { ...column, filteredValue: ["online"] } : column
 		));
@@ -202,7 +198,7 @@ export default function UsersTable(
 			dataSource={data}
 			rowKey={(user) => user.name}
 			pagination={tablePagination}
-			onChange={persistState ? tableState.onChange : undefined}
+			onChange={tableState.onChange}
 			size={size}
 			scroll={{ x: "max-content" }}
 			loading={!usersSynced || !rolesSynced}

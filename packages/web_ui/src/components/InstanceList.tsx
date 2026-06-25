@@ -23,8 +23,6 @@ type InstanceListProps = {
 	instances: ReadonlyMap<number, Readonly<lib.InstanceDetails>>;
 	size?: SizeType;
 	hideAssignedHost?: boolean;
-	/** Persist sort/search state in the URL and show a search box (for the standalone Instances page). */
-	persistState?: boolean;
 };
 
 export default function InstanceList(props: InstanceListProps) {
@@ -32,7 +30,6 @@ export default function InstanceList(props: InstanceListProps) {
 	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
-	const persist = props.persistState ?? false;
 	const tableState = useTableQueryState<lib.InstanceDetails>({
 		namespace: "instance", defaultSortKey: "name", pagination: false,
 	});
@@ -58,7 +55,7 @@ export default function InstanceList(props: InstanceListProps) {
 			dataIndex: "name",
 			defaultSortOrder: "ascend",
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
-			...(persist ? nameSearch : {}),
+			...nameSearch,
 		},
 		{
 			title: "Assigned Host",
@@ -128,15 +125,15 @@ export default function InstanceList(props: InstanceListProps) {
 		columns.splice(1, 1);
 	}
 
-	const finalColumns = persist ? columns.map(tableState.applyColumn) : columns;
+	const finalColumns = columns.map(tableState.applyColumn);
 
 	return <Table
 		size={props.size || "large"}
 		columns={finalColumns}
 		dataSource={[...props.instances.values()]}
 		rowKey={instance => instance["id"]}
-		pagination={persist ? tableState.pagination : false}
-		onChange={persist ? tableState.onChange : undefined}
+		pagination={tableState.pagination}
+		onChange={tableState.onChange}
 		onRow={(record, rowIndex) => ({
 			onClick: event => {
 				navigate(`/instances/${record.id}/view`);

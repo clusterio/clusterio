@@ -386,7 +386,7 @@ export default function UsersPage() {
 					&& <BulkUserActionButton />}
 			</Space>}
 		/>
-		<UsersTable instanceId={instanceId ?? undefined} persistState/>
+		<UsersTable instanceId={instanceId ?? undefined}/>
 		<PluginExtra component="UsersPage" />
 	</PageLayout>;
 }

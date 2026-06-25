@@ -111,7 +111,7 @@ export default function InstancesPage() {
 			</Space>}
 		/>
 
-		<InstanceList instances={instances} persistState />
+		<InstanceList instances={instances} />
 		<PluginExtra component="InstancesPage" />
 	</PageLayout>;
 }
