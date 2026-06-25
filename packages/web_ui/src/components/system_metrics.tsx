@@ -106,9 +106,13 @@ function humanAbsTimeDiff(date1: number, date2 = 0) {
 	return `${seconds}s`;
 }
 
-export function MetricRelativeDate(props: { timeMs?: number }) {
+export function MetricRelativeDate(props: { timeMs?: number, compact?: boolean }) {
 	if (!props.timeMs || props.timeMs === 0) {
 		return "N/A";
 	}
-	return `${new Date(props.timeMs).toLocaleString()} (${humanAbsTimeDiff(props.timeMs, Date.now())})`;
+	const diff = humanAbsTimeDiff(props.timeMs, Date.now());
+	const absolute = props.compact
+		? new Date(props.timeMs).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+		: new Date(props.timeMs).toLocaleString();
+	return `${absolute} (${diff})`;
 }
