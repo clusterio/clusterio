@@ -5,15 +5,15 @@
  *
  * Every parameter is namespaced with the table's name so the URL is
  * self-describing and two tables could coexist on one page without colliding:
- *   <ns>.sort        column key the table is sorted by
- *   <ns>.order       "ascend" | "descend"
+ *   <ns>.sort        `<field>.<asc|desc>`, e.g. user.sort=name.desc
  *   <ns>.page        1-based page number
- *   <ns>.pageSize    rows per page
+ *   <ns>.size        rows per page
  *   <ns>.<column>    filter value for that column (e.g. user.name, user.admin)
  *
- * `prefix` below is the namespace with its trailing dot, e.g. "user.".
- * Multi-value filters use a repeated parameter (`user.roles=1&user.roles=2`)
- * so URLSearchParams handles all encoding/decoding exactly once.
+ * System keys (`sort`, `page`, `size`) are reserved, so filterable columns must
+ * not use those names. `prefix` below is the namespace with its trailing dot,
+ * e.g. "user.". Multi-value filters use a repeated parameter
+ * (`user.roles=1&user.roles=2`) so URLSearchParams handles encoding once.
  */
 
 export type SortOrder = "ascend" | "descend";
@@ -47,16 +47,23 @@ export interface FilterCodec {
 }
 
 /** Suffixes reserved for table-level state; any other `<prefix><x>` is a column filter. */
-const RESERVED_SUFFIXES = new Set(["sort", "order", "page", "pageSize"]);
+const RESERVED_SUFFIXES = new Set(["sort", "page", "size"]);
 
-/** Parse an order parameter, returning undefined for anything unexpected. */
-export function parseOrder(value: string | null): SortOrder | undefined {
-	return value === "ascend" || value === "descend" ? value : undefined;
+/** Convert a URL sort direction token to the antd sort order. */
+function orderFromToken(token: string): SortOrder {
+	return token === "desc" ? "descend" : "ascend";
+}
+
+/** Convert an antd sort order to a URL direction token. */
+function tokenFromOrder(order: SortOrder): string {
+	return order === "descend" ? "desc" : "asc";
 }
 
 /**
  * Read the sort state from the query, falling back to the supplied defaults
- * when no (valid) sort parameter is present.
+ * when no sort parameter is present. The value is `<field>.<asc|desc>`; only the
+ * first `<prefix>sort` parameter is used (the format allows repeats so
+ * multi-column sort can be added later without changing the URL shape).
  */
 export function parseSort(
 	params: URLSearchParams,
@@ -64,11 +71,14 @@ export function parseSort(
 	defaultKey?: string,
 	defaultOrder: SortOrder = "ascend",
 ): TableSortState {
-	const columnKey = params.get(`${prefix}sort`);
-	if (!columnKey) {
+	const raw = params.getAll(`${prefix}sort`)[0];
+	if (!raw) {
 		return { columnKey: defaultKey, order: defaultKey ? defaultOrder : undefined };
 	}
-	return { columnKey, order: parseOrder(params.get(`${prefix}order`)) ?? defaultOrder };
+	const dot = raw.lastIndexOf(".");
+	const columnKey = dot === -1 ? raw : raw.slice(0, dot);
+	const order = dot === -1 ? defaultOrder : orderFromToken(raw.slice(dot + 1));
+	return { columnKey, order };
 }
 
 /** Read pagination state from the query, tolerating missing/garbage values. */
@@ -79,7 +89,7 @@ export function parsePagination(
 	defaultPage = 1,
 ): TablePageState {
 	const page = Number.parseInt(params.get(`${prefix}page`) ?? "", 10);
-	const pageSize = Number.parseInt(params.get(`${prefix}pageSize`) ?? "", 10);
+	const pageSize = Number.parseInt(params.get(`${prefix}size`) ?? "", 10);
 	return {
 		page: Number.isInteger(page) && page >= 1 ? page : defaultPage,
 		pageSize: Number.isInteger(pageSize) && pageSize >= 1 ? pageSize : defaultPageSize,
@@ -114,13 +124,10 @@ export function applySort(
 ): void {
 	const { columnKey, order } = sort;
 	const isDefault = columnKey === defaultKey && (order ?? defaultOrder) === defaultOrder;
-	if (!columnKey || !order || isDefault) {
-		params.delete(`${prefix}sort`);
-		params.delete(`${prefix}order`);
-		return;
+	params.delete(`${prefix}sort`);
+	if (columnKey && order && !isDefault) {
+		params.set(`${prefix}sort`, `${columnKey}.${tokenFromOrder(order)}`);
 	}
-	params.set(`${prefix}sort`, columnKey);
-	params.set(`${prefix}order`, order);
 }
 
 /**
@@ -161,8 +168,8 @@ export function applyPagination(
 		params.delete(`${prefix}page`);
 	}
 	if (pageSize !== defaultPageSize) {
-		params.set(`${prefix}pageSize`, String(pageSize));
+		params.set(`${prefix}size`, String(pageSize));
 	} else {
-		params.delete(`${prefix}pageSize`);
+		params.delete(`${prefix}size`);
 	}
 }
