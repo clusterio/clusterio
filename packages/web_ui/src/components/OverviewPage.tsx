@@ -9,6 +9,7 @@ import { useHosts } from "../model/host";
 import { useInstances } from "../model/instance";
 import { useUsers, isUserOnline } from "../model/user";
 import { useSystems } from "../model/system";
+import { useSaves } from "../model/saves";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
@@ -42,11 +43,13 @@ export default function OverviewPage() {
 	const [instances] = useInstances();
 	const [users] = useUsers();
 	const [systems] = useSystems();
+	const [saves] = useSaves();
 	const [grafanaUrl, setGrafanaUrl] = useState<string | null>(null);
 
 	const canHosts = account.hasPermission("core.host.list");
 	const canInstances = account.hasPermission("core.instance.list");
 	const canUsers = account.hasPermission("core.user.list");
+	const canSaves = account.hasAllPermission("core.instance.save.list", "core.instance.save.subscribe");
 	const canLogs = account.hasPermission("core.log.follow");
 	const canConfig = account.hasPermission("core.controller.get_config");
 
@@ -72,8 +75,11 @@ export default function OverviewPage() {
 	// Resource totals across the connected host machines (the controller is shown only for uptime).
 	const hostSystems = [...systems.values()].filter(system => system.id !== "controller");
 	const controllerSystem = systems.get("controller");
+	const saveList = [...saves.values()];
+	const loadedSaveSize = sum(saveList.filter(save => save.loaded).map(save => save.size));
+	const totalSaveSize = sum(saveList.map(save => save.size));
 
-	const colProps = { xs: 24, sm: 12, lg: 8 };
+	const colProps = { xs: 24, sm: 12, lg: 6 };
 
 	return <PageLayout nav={[{ name: "Overview" }]}>
 		<PageHeader
@@ -103,6 +109,10 @@ export default function OverviewPage() {
 						suffix={`/ ${userList.length}`} />
 				</Card>
 			</Col>}
+			{canSaves && <Col {...colProps}>
+				<ResourceCard title="Saves loaded" used={loadedSaveSize} total={totalSaveSize}
+					format={lib.formatBytes} />
+			</Col>}
 			{canHosts && <>
 				<Col {...colProps}>
 					<ResourceCard title="CPU" used={sum(hostSystems.map(s => s.cpuUsed))}
@@ -118,8 +128,9 @@ export default function OverviewPage() {
 				</Col>
 				<Col {...colProps}>
 					<Card>
-						<Statistic title="Controller running since"
-							formatter={() => <MetricRelativeDate timeMs={controllerSystem?.processStartedAtMs} />} />
+						<Statistic title="Controller running since" formatter={() => (
+							<MetricRelativeDate timeMs={controllerSystem?.processStartedAtMs} compact />
+						)} />
 					</Card>
 				</Col>
 			</>}
