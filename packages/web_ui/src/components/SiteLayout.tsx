@@ -8,6 +8,7 @@ import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
 import ChangeLogModal from "./ChangeLogModal";
 import AboutModal from "./AboutModal";
+import Link from "./Link";
 
 import { pages } from "../pages";
 import { saveJson } from "../util/save_file";
@@ -216,7 +217,9 @@ export default function SiteLayout() {
 				onClick={toggleSidebar}
 				aria-label="Toggle navigation menu"
 			/>
-			<img src={logo} width={32} height={32} alt="Clusterio logo" />
+			<Link to="/" style={{ display: "flex", alignItems: "center" }}>
+				<img src={logo} width={32} height={32} alt="Clusterio logo" />
+			</Link>
 			<Flex vertical justify="center">
 				<Typography.Title level={4} style={{ margin: 0, lineHeight: 1.2 }}>Clusterio</Typography.Title>
 				<Tooltip title="View changelog" placement="right">
