@@ -220,6 +220,7 @@ export default function HostsPage() {
 					dataIndex: "name",
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					className: "table-link-cell",
 					render: (_, host) => <Link to={`/hosts/${host.id}/view`} style={{ color: "inherit" }}>
 						{host.name}
 					</Link>,

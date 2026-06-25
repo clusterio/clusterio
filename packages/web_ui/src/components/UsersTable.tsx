@@ -84,6 +84,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 		{
 			title: "Name",
 			key: "name",
+			className: "table-link-cell",
 			render: (_: any, user: lib.UserDetails) => (
 				<Link to={`/users/${user.name}/view`} style={{ color: "inherit" }}>
 					<Username user={user} withStatus />

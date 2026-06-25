@@ -579,6 +579,7 @@ export default function ModsPage() {
 					dataIndex: "name",
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					className: "table-link-cell",
 					render: (_, modPack) => <Link
 						to={`/mods/mod-packs/${modPack.id}/view`}
 						style={{ color: "inherit" }}

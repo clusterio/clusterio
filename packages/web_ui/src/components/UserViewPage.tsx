@@ -301,6 +301,7 @@ export default function UserViewPage() {
 				{
 					title: "Instance",
 					key: "instance",
+					className: "table-link-cell",
 					render: (_, [id]) => <Link to={`/instances/${id}/view`} style={{ color: "inherit" }}>
 						{instanceName(id)}
 					</Link>,

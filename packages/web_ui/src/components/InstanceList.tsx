@@ -49,6 +49,7 @@ export default function InstanceList(props: InstanceListProps) {
 			dataIndex: "name",
 			defaultSortOrder: "ascend",
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
+			className: "table-link-cell",
 			render: (_, instance) => <Link to={`/instances/${instance.id}/view`} style={{ color: "inherit" }}>
 				{instance.name}
 			</Link>,
@@ -56,6 +57,7 @@ export default function InstanceList(props: InstanceListProps) {
 		{
 			title: "Assigned Host",
 			key: "assignedHost",
+			className: "table-link-cell",
 			render: (_, instance) => <Space>
 				<Link
 					to={`/hosts/${instance.assignedHost}/view`}

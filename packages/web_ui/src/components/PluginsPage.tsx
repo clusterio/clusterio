@@ -55,6 +55,7 @@ export default function PluginsPage() {
 				{
 					title: "Name",
 					key: "name",
+					className: "table-link-cell",
 					render: (_, plugin) => <Link
 						to={`/plugins/${plugin.meta.name}/view`}
 						style={{ color: "inherit" }}

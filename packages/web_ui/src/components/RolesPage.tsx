@@ -77,6 +77,7 @@ export default function RolesPage() {
 					title: "Name",
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					className: "table-link-cell",
 					render: (_, role) => <Link to={`/roles/${role.id}/view`} style={{ color: "inherit" }}>
 						{role.name}
 					</Link>,

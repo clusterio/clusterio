@@ -10,6 +10,17 @@ body {
 	cursor: pointer;
 }
 
+/* Make a table name-cell link fill the whole cell, so the entire cell is
+   clickable and right-click "open in new tab"-able, not just the text. */
+.table-link-cell {
+	position: relative;
+}
+.table-link-cell a::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+}
+
 .login-container {
 	min-height: 100vh;
 	display: flex;

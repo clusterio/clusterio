@@ -25,7 +25,9 @@ const { Header, Sider } = Layout;
 // Render a sidebar menu label as a real link so right-click/middle-click can
 // open it in a new tab; stopPropagation keeps the Menu onClick from also firing.
 function navLink(path: string, label: string) {
-	return <Link to={path} onClick={e => e.stopPropagation()}>{label}</Link>;
+	// color: inherit keeps the menu colour in every state (incl. the focus left
+	// behind by a middle-click, which would otherwise show the link blue).
+	return <Link to={path} style={{ color: "inherit" }} onClick={e => e.stopPropagation()}>{label}</Link>;
 }
 
 function isActiveDropzone(element: HTMLElement | null): boolean {
@@ -82,7 +84,8 @@ export default function SiteLayout() {
 		},
 		items: [
 			{
-				label: <Link to={`/users/${account.name}/view`} onClick={e => e.stopPropagation()}>
+				label: <Link to={`/users/${account.name}/view`} style={{ color: "inherit" }}
+					onClick={e => e.stopPropagation()}>
 					{account.name}
 				</Link>,
 				key: "user",
