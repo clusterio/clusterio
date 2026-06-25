@@ -2,6 +2,7 @@ import React from "react";
 import { Table, Tag } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
+import type { ColumnType } from "antd/es/table/interface";
 
 import * as lib from "@clusterio/lib";
 
@@ -91,7 +92,7 @@ export default function UsersTable(
 		}
 	}
 
-	const columns: any[] = [
+	const columns: ColumnType<lib.UserDetails>[] = [
 		{
 			title: "Name",
 			key: "name",
@@ -112,7 +113,7 @@ export default function UsersTable(
 			key: "roles",
 			filters: roleFilters,
 			filterMultiple: true,
-			onFilter: (value: string | number | boolean, record: lib.UserDetails) => (
+			onFilter: (value: boolean | React.Key, record: lib.UserDetails) => (
 				record.roleIds.has(Number(value))
 			),
 			render: (_: any, user: lib.UserDetails) => (

@@ -79,7 +79,7 @@ function matchesTriState(value: boolean, filter?: boolean) {
 }
 
 export function onFilterUser(
-	value: string | number | boolean,
+	value: boolean | React.Key,
 	record: UserDetails
 ) {
 	const filter = decodeFilter(String(value));
@@ -126,14 +126,9 @@ export function useUserFilter(withStatus?: boolean) {
 		setSelectedKeys,
 		confirm,
 		clearFilters,
-	}: {
-		selectedKeys: string[];
-		setSelectedKeys: (keys: string[]) => void;
-		confirm: FilterDropdownProps["confirm"];
-		clearFilters: FilterDropdownProps["clearFilters"];
-	}) {
+	}: FilterDropdownProps) {
 		const filter: UserFilter = selectedKeys[0]
-			? decodeFilter(selectedKeys[0])
+			? decodeFilter(String(selectedKeys[0]))
 			: {};
 
 		function update(next: Partial<UserFilter>) {
