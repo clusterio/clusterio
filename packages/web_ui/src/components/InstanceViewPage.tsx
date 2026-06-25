@@ -30,6 +30,9 @@ import { MetricRelativeDate } from "./system_metrics";
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
 
+// Remembers the console "Chat/Log" toggle across reloads (defaults to on).
+const consoleActionsOnlyKey = "instance-console-actions-only";
+
 type InstanceDescriptionProps = {
 	host?: Readonly<lib.HostDetails>;
 	instance: Readonly<lib.InstanceDetails>;
@@ -177,7 +180,9 @@ export default function InstanceViewPage() {
 	let params = useParams();
 	let instanceId = Number(params.id);
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("server");
-	const [actionsOnly, setActionsOnly] = useState<boolean>(true);
+	const [actionsOnly, setActionsOnly] = useState<boolean>(
+		() => localStorage.getItem(consoleActionsOnlyKey) !== "false"
+	);
 
 	let navigate = useNavigate();
 
@@ -234,7 +239,10 @@ export default function InstanceViewPage() {
 							checkedChildren="Chat"
 							unCheckedChildren="Log"
 							checked={actionsOnly}
-							onChange={setActionsOnly}
+							onChange={value => {
+								setActionsOnly(value);
+								localStorage.setItem(consoleActionsOnlyKey, String(value));
+							}}
 						/>
 						<SelectMaxLogLevel
 							value={maxLevel}
