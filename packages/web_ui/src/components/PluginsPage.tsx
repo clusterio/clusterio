@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
@@ -12,7 +11,7 @@ import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
 import useTableQueryState from "../util/useTableQueryState";
-import useColumnSearch from "./useColumnSearch";
+import useColumnSearch from "../util/useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -65,12 +64,14 @@ export default function PluginsPage() {
 	return <PageLayout nav={[{ name: "Plugins" }]}>
 		<PageHeader title="Plugins" />
 		<Table
-			columns={([
+			columns={[
 				{
 					title: "Name",
 					key: "name",
 					render: (_, plugin) => (plugin.info ? plugin.info.title : plugin.meta.name),
 					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
+					sortOrder: tableState.sortOrder("name"),
+					filteredValue: tableState.filteredValue("name"),
 					...nameSearch,
 				},
 				{
@@ -89,15 +90,17 @@ export default function PluginsPage() {
 						return plugin.package.version;
 					},
 					sorter: (a, b) => strcmp(a.meta.version, b.meta.version),
+					sortOrder: tableState.sortOrder("version"),
 				},
 				{
 					title: "Loaded",
 					key: "loaded",
 					render: (_, plugin) => (plugin.package ? "Yes" : null),
 					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
+					sortOrder: tableState.sortOrder("loaded"),
 					responsive: ["sm"],
 				},
-			] satisfies ColumnsType<PluginRow>).map(tableState.applyColumn)}
+			]}
 			dataSource={tableContents}
 			rowKey={plugin => plugin.meta.name}
 			pagination={tableState.pagination}

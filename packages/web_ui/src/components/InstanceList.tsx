@@ -15,7 +15,7 @@ import * as lib from "@clusterio/lib";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
 import useTableQueryState from "../util/useTableQueryState";
-import useColumnSearch from "./useColumnSearch";
+import useColumnSearch from "../util/useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -53,8 +53,9 @@ export default function InstanceList(props: InstanceListProps) {
 		{
 			title: "Name",
 			dataIndex: "name",
-			defaultSortOrder: "ascend",
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
+			sortOrder: tableState.sortOrder("name"),
+			filteredValue: tableState.filteredValue("name"),
 			...nameSearch,
 		},
 		{
@@ -70,6 +71,7 @@ export default function InstanceList(props: InstanceListProps) {
 				<RestartRequired system={instance.assignedHost ? systems.get(instance.assignedHost) : undefined}/>
 			</Space>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
+			sortOrder: tableState.sortOrder("assignedHost"),
 			responsive: ["sm"],
 		},
 		{
@@ -94,6 +96,7 @@ export default function InstanceList(props: InstanceListProps) {
 				instancePublicAddress(a, hosts.get(a.assignedHost!) ?? null),
 				instancePublicAddress(b, hosts.get(b.assignedHost!) ?? null)
 			),
+			sortOrder: tableState.sortOrder("publicAddress"),
 			responsive: ["lg"],
 		},
 		{
@@ -101,6 +104,7 @@ export default function InstanceList(props: InstanceListProps) {
 			key: "version",
 			render: (_, instance) => instance.factorioVersion ?? "unknown",
 			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b),
+			sortOrder: tableState.sortOrder("version"),
 			responsive: ["xl"],
 		},
 		{
@@ -108,6 +112,7 @@ export default function InstanceList(props: InstanceListProps) {
 			key: "status",
 			render: (_, instance) => <InstanceStatusTag status={instance["status"]} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
+			sortOrder: tableState.sortOrder("status"),
 		},
 	];
 
@@ -125,11 +130,9 @@ export default function InstanceList(props: InstanceListProps) {
 		columns.splice(1, 1);
 	}
 
-	const finalColumns = columns.map(tableState.applyColumn);
-
 	return <Table
 		size={props.size || "large"}
-		columns={finalColumns}
+		columns={columns}
 		dataSource={[...props.instances.values()]}
 		rowKey={instance => instance["id"]}
 		pagination={tableState.pagination}

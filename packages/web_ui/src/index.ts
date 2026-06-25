@@ -44,4 +44,4 @@ export { default as Link } from "./components/Link";
 export { default as FactorioIcon } from "./components/FactorioIcon";
 
 export { default as useTableQueryState } from "./util/useTableQueryState";
-export { default as useColumnSearch } from "./components/useColumnSearch";
+export { default as useColumnSearch } from "./util/useColumnSearch";

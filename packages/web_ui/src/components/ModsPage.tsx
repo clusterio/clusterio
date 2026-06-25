@@ -6,8 +6,6 @@ import {
 import {
 	ImportOutlined, PlusOutlined, SearchOutlined, DownloadOutlined,
 } from "@ant-design/icons";
-import type { ColumnsType } from "antd/es/table";
-
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
@@ -579,23 +577,25 @@ export default function ModsPage() {
 			</Space>}
 		/>
 		<Table
-			columns={([
+			columns={[
 				{
 					title: "Name",
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					sortOrder: modPackTable.sortOrder("name"),
 				},
 				{
 					title: "Factorio Version",
 					dataIndex: "factorioVersion",
 					sorter: (a, b) => a.integerFactorioVersion - b.integerFactorioVersion,
+					sortOrder: modPackTable.sortOrder("factorioVersion"),
 				},
 				{
 					title: "Mods",
 					key: "mods",
 					render: (_, modPack) => modPack.mods.size,
 				},
-			] satisfies ColumnsType<lib.ModPack>).map(modPackTable.applyColumn)}
+			]}
 			dataSource={[...modPacks.values()]}
 			pagination={modPackTable.pagination}
 			onChange={modPackTable.onChange}
@@ -625,13 +625,14 @@ export default function ModsPage() {
 		>
 			<Dropzone />
 			<Table
-				columns={([
+				columns={[
 					{
 						title: "Name",
 						dataIndex: "title",
 						sorter: (a, b) => (
 							strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
 						),
+						sortOrder: modTable.sortOrder("title"),
 					},
 					{
 						title: "Version",
@@ -647,6 +648,7 @@ export default function ModsPage() {
 						dataIndex: "filename",
 						responsive: ["xl"],
 						sorter: (a, b) => strcmp(a.filename, b.filename),
+						sortOrder: modTable.sortOrder("filename"),
 					},
 					{
 						title: "Size",
@@ -655,6 +657,7 @@ export default function ModsPage() {
 						render: (_, mod) => lib.formatBytes(mod.size),
 						align: "right",
 						sorter: (a, b) => a.size - b.size,
+						sortOrder: modTable.sortOrder("size"),
 					},
 					{
 						title: "Action",
@@ -662,7 +665,7 @@ export default function ModsPage() {
 						responsive: ["lg"],
 						render: (_, mod) => actions(mod),
 					},
-				] satisfies ColumnsType<lib.ModInfo>).map(modTable.applyColumn)}
+				]}
 				expandable={{
 					expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
 					expandedRowClassName: () => "no-expanded-padding",

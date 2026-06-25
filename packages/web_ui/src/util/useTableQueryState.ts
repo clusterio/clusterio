@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import type { TablePaginationConfig } from "antd";
-import type { ColumnType, FilterValue, SorterResult } from "antd/es/table/interface";
+import type { FilterValue, SorterResult } from "antd/es/table/interface";
 
 import {
 	applyFilters, applyPagination, applySort,
@@ -28,12 +28,12 @@ export interface TableQueryState<T> {
 		filters: Record<string, FilterValue | null>,
 		sorter: SorterResult<T> | SorterResult<T>[],
 	) => void;
-	/** Wrap each column to inject controlled `sortOrder`/`filteredValue` from the URL. */
-	applyColumn: (column: ColumnType<T>) => ColumnType<T>;
+	/** Controlled `sortOrder` for the column with this key (null unless it's the active sort). */
+	sortOrder: (columnKey: string) => SortOrder | null;
+	/** Controlled `filteredValue` for the column with this key (null when no filter is active). */
+	filteredValue: (columnKey: string) => string[] | null;
 	/** Controlled pagination ({@link current}/{@link pageSize}), or `false` when disabled. */
 	pagination: false | TablePaginationConfig;
-	/** The active column filters parsed from the URL, keyed by column key. */
-	filters: Record<string, string[]>;
 }
 
 /**
@@ -83,23 +83,17 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 			setParams(next);
 		},
 
-		applyColumn(column) {
-			const key = String(column.key ?? column.dataIndex ?? "");
-			const next: ColumnType<T> = { ...column };
-			if (column.sorter) {
-				next.sortOrder = key === sort.columnKey ? (sort.order ?? null) : null;
-			}
-			if (column.filters || column.onFilter || column.filterDropdown) {
-				const codec = codecs[key];
-				next.filteredValue = codec ? codec.decode(params, prefix) : (filters[key] ?? null);
-			}
-			return next;
+		sortOrder(columnKey) {
+			return columnKey === sort.columnKey ? (sort.order ?? null) : null;
+		},
+
+		filteredValue(columnKey) {
+			const codec = codecs[columnKey];
+			return codec ? codec.decode(params, prefix) : (filters[columnKey] ?? null);
 		},
 
 		pagination: paginationEnabled && page
 			? { current: page.page, pageSize: page.pageSize }
 			: false,
-
-		filters,
 	};
 }

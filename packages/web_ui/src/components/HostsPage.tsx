@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
-import type { ColumnsType } from "antd/es/table";
-
 import * as lib from "@clusterio/lib";
 
 import webUiPackage from "../../package.json";
@@ -23,7 +21,7 @@ import { useHosts } from "../model/host";
 import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
 import useTableQueryState from "../util/useTableQueryState";
-import useColumnSearch from "./useColumnSearch";
+import useColumnSearch from "../util/useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -221,17 +219,20 @@ export default function HostsPage() {
 		/>
 		<Table
 			style={{ overflowX: "auto" }}
-			columns={([
+			columns={[
 				{
 					title: "Name",
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					sortOrder: tableState.sortOrder("name"),
+					filteredValue: tableState.filteredValue("name"),
 					...nameSearch,
 				},
 				{
 					title: "CPU Model",
 					dataIndex: "cpuModel",
 					sorter: (a, b) => strcmp(systems.get(a.id)?.cpuModel ?? "", systems.get(b.id)?.cpuModel ?? ""),
+					sortOrder: tableState.sortOrder("cpuModel"),
 					render: (_, host) => systems.get(host.id)?.cpuModel,
 					hidden: !showCpuModel,
 				},
@@ -239,6 +240,7 @@ export default function HostsPage() {
 					title: "CPU%",
 					key: "cpuPct",
 					sorter: (a, b) => (systems.get(a.id)?.cpuRatio ?? 0) - (systems.get(b.id)?.cpuRatio ?? 0),
+					sortOrder: tableState.sortOrder("cpuPct"),
 					render: (_, host) => <MetricCpuRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
@@ -248,6 +250,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.cpuUsed ?? 0) - (systems.get(b.id)?.cpuUsed ?? 0)
 					),
+					sortOrder: tableState.sortOrder("cores"),
 					render: (_, host) => <MetricCpuUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
@@ -257,6 +260,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.memoryRatio ?? 0) - (systems.get(b.id)?.memoryRatio ?? 0)
 					),
+					sortOrder: tableState.sortOrder("memPct"),
 					render: (_, host) => <MetricMemoryRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
@@ -266,6 +270,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.memoryUsed ?? 0) - (systems.get(b.id)?.memoryUsed ?? 0)
 					),
+					sortOrder: tableState.sortOrder("memory"),
 					render: (_, host) => <MetricMemoryUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
@@ -273,6 +278,7 @@ export default function HostsPage() {
 					title: "Disk%",
 					key: "diskPct",
 					sorter: (a, b) => (systems.get(a.id)?.diskAvailable ?? 0) - (systems.get(b.id)?.diskAvailable ?? 0),
+					sortOrder: tableState.sortOrder("diskPct"),
 					render: (_, host) => <MetricDiskRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
@@ -282,6 +288,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.diskUsed ?? 0) - (systems.get(b.id)?.diskUsed ?? 0)
 					),
+					sortOrder: tableState.sortOrder("disk"),
 					render: (_, host) => <MetricDiskUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
@@ -295,11 +302,13 @@ export default function HostsPage() {
 						</Tooltip>}
 					</Space>,
 					sorter: (a, b) => strcmp(a.version, b.version),
+					sortOrder: tableState.sortOrder("version"),
 				},
 				{
 					title: "Public address",
 					dataIndex: "publicAddress",
 					sorter: (a, b) => strcmp(a.publicAddress??"", b.publicAddress??""),
+					sortOrder: tableState.sortOrder("publicAddress"),
 				},
 				{
 					title: "Connected",
@@ -309,8 +318,9 @@ export default function HostsPage() {
 						<RestartRequired system={systems.get(host.id)}/>
 					</>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
+					sortOrder: tableState.sortOrder("connected"),
 				},
-			] satisfies ColumnsType<lib.HostDetails>).map(tableState.applyColumn)}
+			]}
 			dataSource={[...hosts.values()]}
 			rowKey={host => host.id}
 			pagination={tableState.pagination}

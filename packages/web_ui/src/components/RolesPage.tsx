@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
 
 import * as lib from "@clusterio/lib";
 
@@ -13,7 +12,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import useTableQueryState from "../util/useTableQueryState";
-import useColumnSearch from "./useColumnSearch";
+import useColumnSearch from "../util/useColumnSearch";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -75,18 +74,20 @@ export default function RolesPage() {
 			extra={account.hasPermission("core.role.create") ? <CreateRoleButton /> : undefined}
 		/>
 		<Table
-			columns={([
+			columns={[
 				{
 					title: "Name",
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					sortOrder: tableState.sortOrder("name"),
+					filteredValue: tableState.filteredValue("name"),
 					...nameSearch,
 				},
 				{
 					title: "Description",
 					dataIndex: "description",
 				},
-			] satisfies ColumnsType<lib.Role>).map(tableState.applyColumn)}
+			]}
 			dataSource={[...roles.values()]}
 			pagination={tableState.pagination}
 			rowKey={role => role.id}

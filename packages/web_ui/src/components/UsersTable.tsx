@@ -2,7 +2,6 @@ import React from "react";
 import { Table, Tag } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import type { ColumnType } from "antd/es/table/interface";
 
 import * as lib from "@clusterio/lib";
 
@@ -92,15 +91,16 @@ export default function UsersTable(
 		}
 	}
 
-	const columns: ColumnType<lib.UserDetails>[] = [
+	const columns: any[] = [
 		{
 			title: "Name",
 			key: "name",
 			render: (_: any, user: lib.UserDetails) => (
 				<Username user={user} withStatus />
 			),
-			defaultSortOrder: "ascend",
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => strcmp(a.name, b.name),
+			sortOrder: tableState.sortOrder("name"),
+			filteredValue: tableState.filteredValue("name"),
 			filterIcon: (filtered: boolean) => (
 				<SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
 			),
@@ -113,6 +113,7 @@ export default function UsersTable(
 			key: "roles",
 			filters: roleFilters,
 			filterMultiple: true,
+			filteredValue: tableState.filteredValue("roles"),
 			onFilter: (value: boolean | React.Key, record: lib.UserDetails) => (
 				record.roleIds.has(Number(value))
 			),
@@ -136,6 +137,7 @@ export default function UsersTable(
 				const statsB = getUserStats(b, instanceId);
 				return (statsA?.onlineTimeMs ?? 0) - (statsB?.onlineTimeMs ?? 0);
 			},
+			sortOrder: tableState.sortOrder("onlineTime"),
 		},
 		{
 			title: "Join Count",
@@ -148,27 +150,30 @@ export default function UsersTable(
 				const statsB = getUserStats(b, instanceId);
 				return (statsA?.joinCount ?? 0) - (statsB?.joinCount ?? 0);
 			},
+			sortOrder: tableState.sortOrder("joinCount"),
 		},
 		{
 			title: "First Seen",
 			key: "firstSeen",
 			filterMultiple: false,
 			filters: durationFilters,
+			filteredValue: tableState.filteredValue("firstSeen"),
 			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateFirstSeen),
 			render: (_: any, user: lib.UserDetails) => formatFirstSeen(user, instanceId),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortFirstSeen(a, b, instanceId, instanceId),
+			sortOrder: tableState.sortOrder("firstSeen"),
 		},
 		{
 			title: "Last Seen",
 			key: "lastSeen",
 			filterMultiple: false,
 			filters: durationFilters,
-			defaultFilteredValue: onlyOnline ? ["online"] : undefined,
+			// Default to online-only when nothing for this column is in the URL yet.
+			filteredValue: tableState.filteredValue("lastSeen") ?? (onlyOnline ? ["online"] : null),
 			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateLastSeen),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortLastSeen(a, b, instanceId, instanceId),
+			sortOrder: tableState.sortOrder("lastSeen"),
 			render: (_: any, user: lib.UserDetails) => formatLastSeen(user, instanceId),
-			// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
-			// responsive: ["lg"],
 		},
 	];
 
@@ -185,17 +190,9 @@ export default function UsersTable(
 		tablePagination = { ...displayPagination, ...callerPagination, ...(tableState.pagination || {}) };
 	}
 
-	let tableColumns = columns.map(tableState.applyColumn);
-	// Seed the online-only default when nothing for the Last Seen column is in the URL yet.
-	if (onlyOnline && !("lastSeen" in tableState.filters)) {
-		tableColumns = tableColumns.map(column => (
-			column.key === "lastSeen" ? { ...column, filteredValue: ["online"] } : column
-		));
-	}
-
 	return (
 		<Table
-			columns={tableColumns}
+			columns={columns}
 			dataSource={data}
 			rowKey={(user) => user.name}
 			pagination={tablePagination}

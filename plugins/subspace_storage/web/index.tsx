@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from "react";
 import { Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
 
 import {
 	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext, notifyErrorHandler,
@@ -87,12 +86,14 @@ function StoragePage() {
 		<PageHeader title="Storage" />
 		<Table
 			className="subspace-storage-storage"
-			columns={([
+			columns={[
 				{
 					title: "Resource",
 					key: "resource",
 					...resourceSearch,
 					onFilter: matchesResource,
+					filteredValue: tableState.filteredValue("resource"),
+					sortOrder: tableState.sortOrder("resource"),
 					sorter: (a, b) => {
 						let aName = getLocaleName(a[1].name);
 						let bName = getLocaleName(b[1].name);
@@ -121,9 +122,10 @@ function StoragePage() {
 					key: "quantity",
 					align: "right",
 					sorter: (a, b) => a[1].count - b[1].count,
+					sortOrder: tableState.sortOrder("quantity"),
 					render: (_, item) => numberFormat.format(item[1].count),
 				},
-			] satisfies ColumnsType<[string, Item]>).map(tableState.applyColumn)}
+			]}
 			dataSource={storage}
 			rowKey={item => item[0]}
 			pagination={tableState.pagination}

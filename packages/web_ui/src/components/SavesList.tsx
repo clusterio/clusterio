@@ -5,7 +5,6 @@ import {
 } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
-import type { ColumnsType } from "antd/es/table";
 
 import * as lib from "@clusterio/lib";
 
@@ -214,7 +213,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	const saveTable = <Table
 		className="save-list-table"
 		size="small"
-		columns={([
+		columns={[
 			{
 				title: "Name",
 				key: "name",
@@ -224,6 +223,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 					{save.loadByDefault && <Tooltip title="Save loaded by default"><LeftOutlined /></Tooltip>}
 				</>,
 				sorter: (a, b) => a.name.localeCompare(b.name),
+				sortOrder: tableState.sortOrder("name"),
 			},
 			{
 				title: "Size",
@@ -232,14 +232,16 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				render: (_, save) => lib.formatBytes(save.size),
 				align: "right",
 				sorter: (a, b) => a.size - b.size,
+				sortOrder: tableState.sortOrder("size"),
 			},
 			{
 				title: "Last Modified",
 				key: "mtimeMs",
 				render: (_, save) => new Date(save.mtimeMs).toLocaleString(),
 				sorter: (a, b) => a.mtimeMs - b.mtimeMs,
+				sortOrder: tableState.sortOrder("mtimeMs"),
 			},
-		] satisfies ColumnsType<lib.SaveDetails>).map(tableState.applyColumn)}
+		]}
 		dataSource={[...saves.values()]}
 		pagination={tableState.pagination}
 		onChange={tableState.onChange}
