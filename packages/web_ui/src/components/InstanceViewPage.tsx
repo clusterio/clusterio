@@ -25,10 +25,14 @@ import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import useLocalStorage from "../util/useLocalStorage";
 import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
+
+// Remembers the console "Chat/Log" toggle across reloads (defaults to on).
+const consoleActionsOnlyKey = "instance-console-actions-only";
 
 type InstanceDescriptionProps = {
 	host?: Readonly<lib.HostDetails>;
@@ -177,7 +181,7 @@ export default function InstanceViewPage() {
 	let params = useParams();
 	let instanceId = Number(params.id);
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("server");
-	const [actionsOnly, setActionsOnly] = useState<boolean>(true);
+	const [actionsOnly, setActionsOnly] = useLocalStorage(consoleActionsOnlyKey, true);
 
 	let navigate = useNavigate();
 
