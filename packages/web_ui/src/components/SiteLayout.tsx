@@ -218,7 +218,7 @@ export default function SiteLayout() {
 				aria-label="Toggle navigation menu"
 			/>
 			<Link to="/" style={{ display: "flex", alignItems: "center" }}>
-				<img src={logo} width={32} height={32} alt="Clusterio logo" />
+				<img src={logo} width={56} height={56} alt="Clusterio logo" />
 			</Link>
 			<Flex vertical justify="center">
 				<Typography.Title level={4} style={{ margin: 0, lineHeight: 1.2 }}>Clusterio</Typography.Title>
