@@ -25,6 +25,7 @@ import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import useLocalStorage from "../util/useLocalStorage";
 import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -180,9 +181,7 @@ export default function InstanceViewPage() {
 	let params = useParams();
 	let instanceId = Number(params.id);
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("server");
-	const [actionsOnly, setActionsOnly] = useState<boolean>(
-		() => localStorage.getItem(consoleActionsOnlyKey) !== "false"
-	);
+	const [actionsOnly, setActionsOnly] = useLocalStorage(consoleActionsOnlyKey, true);
 
 	let navigate = useNavigate();
 
@@ -239,10 +238,7 @@ export default function InstanceViewPage() {
 							checkedChildren="Chat"
 							unCheckedChildren="Log"
 							checked={actionsOnly}
-							onChange={value => {
-								setActionsOnly(value);
-								localStorage.setItem(consoleActionsOnlyKey, String(value));
-							}}
+							onChange={setActionsOnly}
 						/>
 						<SelectMaxLogLevel
 							value={maxLevel}
