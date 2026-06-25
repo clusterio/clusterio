@@ -1,6 +1,9 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Space, Spin, Switch, Typography } from "antd";
+import {
+	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Space, Spin, Switch, Typography, message,
+} from "antd";
+import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -39,10 +42,11 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 
 	const { host, instance } = props;
 	let assigned = instance.assignedHost !== undefined;
+	const publicAddress = instancePublicAddress(instance, host);
 	return <Descriptions
 		bordered
 		size="small"
-		column={{ xs: 1, md: 3, lg: 3, xl: 3, xxl: 3 }}
+		column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}
 	>
 		<Descriptions.Item label="Host">
 			{!assigned
@@ -62,6 +66,22 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 				}}
 				buttonContent={assigned ? "Reassign" : "Assign"}
 			/>}
+		</Descriptions.Item>
+		<Descriptions.Item label="Public address">
+			{publicAddress
+				? <Space>
+					{publicAddress}
+					<Button
+						type="text"
+						size="small"
+						icon={<CopyOutlined />}
+						onClick={() => {
+							navigator.clipboard.writeText(publicAddress);
+							message.success("Copied public address!");
+						}}
+					/>
+				</Space>
+				: <em>N/A</em>}
 		</Descriptions.Item>
 		<Descriptions.Item label="Version">
 			{instance.factorioVersion ?? "unknown"}
