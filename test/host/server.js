@@ -233,6 +233,16 @@ describe("host/server", function() {
 			});
 		});
 
+		describe(".setTargetVersion()", function() {
+			it("should override the target version before init", function() {
+				const fresh = new hostServer.FactorioServer(
+					path.join("test", "file", "factorio"), writePath, {}
+				);
+				fresh.setTargetVersion("0.1.5");
+				assert.equal(fresh._targetVersion, "0.1.5");
+			});
+		});
+
 		describe(".init()", function() {
 			it("should not throw on first call", async function() {
 				await server.init();
