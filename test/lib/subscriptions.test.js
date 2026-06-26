@@ -792,7 +792,10 @@ describe("lib/subscriptions", function() {
 	});
 
 	describe("class EventSubscriber", function() {
-		let mockControl, eventSubscriber;
+		/** @type {MockControl} */
+		let mockControl;
+		/** @type {lib.EventSubscriber} */
+		let eventSubscriber;
 
 		beforeEach(function() {
 			mockControl = new MockControl(new MockConnector(
@@ -1119,6 +1122,23 @@ describe("lib/subscriptions", function() {
 					lib.logger.error = originalError;
 				}
 				assert.equal(logged, undefined);
+			});
+
+			it("should expose errors through the snapshot", async function() {
+				eventSubscriber.control.sendTo = function() {
+					throw new lib.PermissionError("Permission denied");
+				};
+
+				const unsubscribe = eventSubscriber.subscribe(() => {});
+				await new Promise(r => setImmediate(r));
+				const [,, error1] = eventSubscriber.getSnapshot();
+				assert.deepEqual(error1, new lib.PermissionError("Permission denied"));
+
+				eventSubscriber.control.sendTo = function() {};
+				unsubscribe();
+				await new Promise(r => setImmediate(r));
+				const [,, error2] = eventSubscriber.getSnapshot();
+				assert.deepEqual(error2, null);
 			});
 		});
 	});

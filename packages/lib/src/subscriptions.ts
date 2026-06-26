@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data";
+import { Address, MessageRequest, IUser, JsonBoolean, StringEnum, AccountDetails } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
 import { RequestError } from "./errors";
 import { logger } from "./logging";
@@ -408,8 +408,10 @@ export class EventSubscriber<E, S = null> {
 	lastUpdatedMs = -1;
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
+	/** Error value from last attempted subscription event */
+	error = null as Error | null;
 	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
-	private _snapshot: readonly [S, boolean] = [this.makeSnapshot(), false];
+	private _snapshot: readonly [S, boolean, Error | null] = [this.makeSnapshot(), false, null];
 	private _snapshotLastUpdatedMs = -1;
 	/** Callbacks will be called when an event is received or the synced state changes */
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
@@ -557,10 +559,14 @@ export class EventSubscriber<E, S = null> {
 	 * Obtain a snapshot of the current state of the tracked resource
 	 * @returns tuple of values map snapshot and synced property.
 	 */
-	getSnapshot(): readonly [S, boolean] {
-		if (this._snapshotLastUpdatedMs !== this.lastUpdatedMs || this._snapshot[1] !== this.synced) {
+	getSnapshot(): readonly [S, boolean, Error | null] {
+		if (
+			this._snapshotLastUpdatedMs !== this.lastUpdatedMs
+			|| this._snapshot[1] !== this.synced
+			|| this._snapshot[2] !== this.error
+		) {
 			this._snapshotLastUpdatedMs = this.lastUpdatedMs;
-			this._snapshot = [this.makeSnapshot(), this.synced];
+			this._snapshot = [this.makeSnapshot(), this.synced, this.error];
 		}
 		return this._snapshot;
 	}
@@ -583,6 +589,7 @@ export class EventSubscriber<E, S = null> {
 			const updatesSent = await this.control.sendTo("controller", new SubscriptionRequest(
 				entry.name, action, this.lastUpdatedMs, filters
 			));
+			this.error = null;
 			if (!updatesSent) {
 				this.synced = this._hasSubscriptions();
 				this._notify(null);
@@ -590,6 +597,9 @@ export class EventSubscriber<E, S = null> {
 		} catch (err: any) {
 			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
 				logger.error(`Unexpected error updating ${entry.name} subscription:\n${err.stack}`);
+			}
+			if (err instanceof Error) {
+				this.error = err;
 			}
 		}
 	}
