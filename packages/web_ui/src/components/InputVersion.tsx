@@ -58,7 +58,10 @@ function InputVersion<
 			title: majorMinor,
 			value: majorMinor,
 			key: majorMinor,
-			children: patchVersions.map((v) => ({
+			// Skip a patch equal to the group key (a bare major.minor version,
+			// e.g. the ApiVersions fallback): the selectable group node already
+			// represents it, and a duplicate value warns in the TreeSelect.
+			children: patchVersions.filter((v) => v !== majorMinor).map((v) => ({
 				title: v,
 				value: v,
 				key: v,
