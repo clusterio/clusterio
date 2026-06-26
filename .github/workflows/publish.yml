@@ -6,6 +6,10 @@ on:
     types:
       - released
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   npm:
     runs-on: ubuntu-latest
@@ -19,8 +23,6 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm -r --filter='./{plugins,packages}/*' publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: softprops/action-gh-release@v2
         with:
           files: pnpm-lock.yaml
