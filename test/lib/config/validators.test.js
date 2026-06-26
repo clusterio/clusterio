@@ -203,7 +203,7 @@ describe("lib/config/definitions/validators", function() {
 			// invalid case
 			assert.throws(
 				() => config.set("factorio.version", "invalidValue"),
-				/Value must be be 'latest', or match X.Y, or match X.Y.Z/
+				/Value must be 'latest', a release channel, or match X.Y or X.Y.Z/
 			);
 		});
 

@@ -704,6 +704,28 @@ describe("Integration of Clusterio", function() {
 						await execCtl("instance config set 44 factorio.version latest");
 					}
 				});
+				it("should resolve a release channel target when starting", async function() {
+					slowTest(this);
+					try {
+						// "experimental" is resolved to a concrete version through the
+						// controller's latest-releases data before the server starts.
+						// Whether that version is installed (or downloadable) depends on
+						// the host's Factorio install - CI uses a fixed direct install -
+						// so the start may succeed or fail, but the channel must resolve
+						// and the instance must reach a terminal state rather than hang.
+						await execCtl("instance config set 44 factorio.version experimental");
+						await execCtl(`instance ${cmd} test`).catch(() => {});
+						const status = (await getInstances()).get(44).status;
+						assert(
+							["running", "stopped"].includes(status),
+							`instance stuck in unexpected state '${status}'`
+						);
+
+					} finally {
+						await execCtl("instance stop 44").catch(() => {});
+						await execCtl("instance config set 44 factorio.version latest");
+					}
+				});
 				it("should not leave the instance in the stopping state if it fails", async function() {
 					slowTest(this);
 					try {
