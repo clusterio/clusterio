@@ -24,25 +24,11 @@ export function isVersionEquality(input: string): input is VersionEquality {
 }
 
 /**
- * Matches valid factorio versions accepts by the web API
- * https://wiki.factorio.com/Mod_portal_API#/api/mods (see version enum)
+ * Known Factorio major versions, offered as fallback options in the web
+ * interface before the live version list has been fetched. Versions are no
+ * longer validated against this list; the mod portal is the source of truth.
  */
-export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0"] as const;
-export const ApiVersionSchema = Type.Union(ApiVersions.map(v => Type.Literal(v)));
-export type ApiVersion = Static<typeof ApiVersionSchema>;
-
-export function isApiVersion(input: string): input is ApiVersion {
-	return ApiVersions.includes(input as any);
-}
-
-export function normaliseApiVersion(version: PartialVersion) {
-	const parts = version.split(".");
-	const apiVersion = `${parts[0]}.${parts[1]}`;
-	if (!isApiVersion(apiVersion)) {
-		throw new Error(`Factorio version not supported by mod portal: ${apiVersion}`);
-	}
-	return apiVersion;
-}
+export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0", "2.1"] as const;
 
 /**
  * Matches valid mod versions, where all parts are specified.
@@ -69,6 +55,31 @@ export function normaliseFullVersion(version: PartialVersion) {
 }
 
 /**
+ * Matches a version string the same lenient way the game reads it: each number
+ * may be preceded by whitespace, the major and minor are required, the patch is
+ * optional, and any trailing content is ignored. The pattern is intentionally
+ * not anchored at the end.
+ */
+const gameVersionRegExp = /^\s*\d+\.\s*\d+(?:\.\s*\d+)?/;
+export const GameVersionSchema = Type.String({ pattern: gameVersionRegExp.source });
+
+/**
+ * Normalise a version string the same lenient way the game reads it. Numbers
+ * are read as integers, so leading whitespace and zeros are dropped and any
+ * content after the patch is ignored.
+ *
+ * @returns The normalised full version, or undefined if no major and minor
+ *     could be read.
+ */
+export function normaliseGameVersion(input: string): FullVersion | undefined {
+	const match = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/.exec(input);
+	if (match === null) {
+		return undefined;
+	}
+	return `${Number(match[1])}.${Number(match[2])}.${Number(match[3] ?? "0")}` as FullVersion;
+}
+
+/**
  * Matches valid factorio versions and mod dependencies specifications where 2 or 3 parts are specified.
  */
 const partialVersionRegExp = /^\d+\.\d+(?:\.\d+)?$/;
@@ -85,6 +96,14 @@ export function integerPartialVersion(version: PartialVersion) {
 	const [major, minor, sub] = version.split(".").map(n => Number.parseInt(n, 10));
 	// Can't use bitwise here because this is 48-bits. sub is optional and defaults to 0.
 	return major * 0x100000000 + minor * 0x10000 + (sub || 0) as IntegerVersion;
+}
+
+/**
+ * The major.minor of a version, as used by the mod portal's version filter.
+ */
+export function majorMinorVersion(version: PartialVersion) {
+	const [major, minor] = version.split(".");
+	return `${major}.${minor}` as `${number}.${number}`;
 }
 
 /**

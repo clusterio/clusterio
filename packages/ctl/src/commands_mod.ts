@@ -108,9 +108,13 @@ modCommands.add(new lib.Command({
 		},
 		control: Control
 	) {
+		const searchVersion = lib.normaliseGameVersion(String(args.factorioVersion));
+		if (searchVersion === undefined) {
+			throw new Error(`Invalid factorio version "${args.factorioVersion}"`);
+		}
 		let response = await control.send(new lib.ModSearchRequest(
 			args.query,
-			lib.normaliseApiVersion(args.factorioVersion as any),
+			lib.majorMinorVersion(searchVersion),
 			args.page,
 			args.pageSize,
 			args.sort,

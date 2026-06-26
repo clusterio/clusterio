@@ -5,7 +5,7 @@ import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { downloadFile, safeOutputFile } from "./file_ops";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
-import { ModInfo, ModPack, FullVersion, ApiVersion, ModVersionEquality } from "./data";
+import { ModInfo, ModPack, FullVersion, PartialVersion, majorMinorVersion, ModVersionEquality } from "./data";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -198,18 +198,29 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	private async downloadModsChunk(
 		mods: ModNameVersionPair[],
 		username: string, token: string,
-		factorioVersion: ApiVersion,
+		factorioVersion: PartialVersion,
 	) {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
-		url.searchParams.set("version", factorioVersion);
+		url.searchParams.set("version", majorMinorVersion(factorioVersion));
 		const response = await fetch(url, {
 			method: "POST",
 			body: new URLSearchParams({ namelist: mods.map(m => m.name).join(",") }),
 		});
 
 		if (response.status !== 200) {
-			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
+			// Surface the portal's own error (e.g. an unsupported version) rather
+			// than a generic status line.
+			let detail = `${response.status} ${response.statusText}`;
+			try {
+				const body = await response.json() as { message?: string };
+				if (body && typeof body.message === "string") {
+					detail = body.message;
+				}
+			} catch {
+				// Response body was not JSON; keep the status line.
+			}
+			throw new Error(`Mod portal request to ${url} failed: ${detail}`);
 		}
 
 		const modReleases = (await response.json() as ModsInfoResponse).results;
@@ -236,7 +247,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	 * @param factorioVersion - Factorio version to filter for (mods are not guaranteed to work between Middle versions)
 	 */
 	async downloadMods(
-		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: ApiVersion = "1.1"
+		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: PartialVersion = "1.1"
 	) {
 		const chunkSize = 500;
 		const futures: Promise<void>[] = [];

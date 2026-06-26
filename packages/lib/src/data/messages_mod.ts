@@ -5,7 +5,8 @@ import { JsonString, jsonArray } from "./composites";
 
 import {
 	FullVersion, FullVersionSchema,
-	ApiVersion, ApiVersionSchema, normaliseApiVersion,
+	PartialVersion, PartialVersionSchema,
+	GameVersionSchema,
 	ModVersionEquality,
 } from "./version";
 
@@ -154,7 +155,7 @@ export class ModSearchRequest {
 
 	constructor(
 		public query: string,
-		public factorioVersion: ApiVersion,
+		public factorioVersion: PartialVersion,
 		public page: number,
 		public pageSize?: number,
 		public sort?: string,
@@ -163,7 +164,7 @@ export class ModSearchRequest {
 
 	static jsonSchema = Type.Object({
 		"query": Type.String(),
-		"factorioVersion": ApiVersionSchema,
+		"factorioVersion": PartialVersionSchema,
 		"page": Type.Integer(),
 		"pageSize": Type.Optional(Type.Integer()),
 		"sort": Type.Optional(Type.String()),
@@ -207,7 +208,7 @@ export class ModSearchRequest {
 export const ModPortalReleaseSchema = Type.Object({
 	version: FullVersionSchema,
 	// Match the structure from ModStore's ModRelease/ModDetails
-	info_json: Type.Object({ factorio_version: ApiVersionSchema }),
+	info_json: Type.Object({ factorio_version: GameVersionSchema }),
 	released_at: Type.String(), // ISO 8601 date string
 	download_url: Type.String(),
 	file_name: Type.String(),
@@ -236,12 +237,12 @@ export class ModPortalGetAllRequest {
 	static permission = "core.mod.search_portal" as const;
 
 	constructor(
-		public factorioVersion: ApiVersion,
+		public factorioVersion: PartialVersion,
 		public hide_deprecated?: boolean,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"factorioVersion": ApiVersionSchema,
+		"factorioVersion": PartialVersionSchema,
 		"hide_deprecated": Type.Optional(Type.Boolean()),
 	});
 
@@ -385,12 +386,12 @@ export class ModPortalDownloadRequest {
 
 	constructor(
 		public mods: ModNameVersionPair[],
-		public factorioVersion: ApiVersion,
+		public factorioVersion: PartialVersion,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"mods": Type.Array(ModNameVersionPairSchema),
-		"factorioVersion": ApiVersionSchema,
+		"factorioVersion": PartialVersionSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -422,13 +423,13 @@ export class ModDependencyResolveRequest {
 
 	constructor(
 		public mods: ModDependency[],
-		public factorioVersion: ApiVersion,
+		public factorioVersion: PartialVersion,
 		public checkForUpdates: boolean = false,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"mods": Type.Array(ModDependency.jsonSchema),
-		"factorioVersion": ApiVersionSchema,
+		"factorioVersion": PartialVersionSchema,
 		"checkForUpdates": Type.Boolean(),
 	});
 
@@ -441,7 +442,7 @@ export class ModDependencyResolveRequest {
 		return new this(
 			[...modPack.mods.values()]
 				.map(mod => new ModDependency(`${mod.name} ${equality} ${mod.version}`)),
-			normaliseApiVersion(modPack.factorioVersion),
+			modPack.factorioVersion,
 			checkForUpdates,
 		);
 	}
@@ -452,7 +453,7 @@ export class ModDependencyResolveRequest {
 			[...modPack.mods.values()]
 				.filter(mod => mod.enabled)
 				.map(mod => new ModDependency(`${mod.name} ${equality} ${mod.version}`)),
-			normaliseApiVersion(modPack.factorioVersion),
+			modPack.factorioVersion,
 			checkForUpdates,
 		);
 	}

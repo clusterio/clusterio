@@ -341,6 +341,21 @@ describe("lib/data/ModInfo", function() {
 				dependencies: ["base", ""],
 			}), /my-mod/); // check the mod name is included in the error message
 		});
+		it("should normalise lenient version fields the way the game reads them", function() {
+			const mod = ModInfo.fromJSON({
+				name: "my-mod",
+				version: " 1.2.3-extra",
+				factorio_version: "1.1.0",
+			});
+			assert.equal(mod.version, "1.2.3");
+			assert.equal(mod.factorioVersion, "1.1");
+		});
+		it("should throw for an unparseable mod version", function() {
+			assert.throws(
+				() => ModInfo.fromJSON({ name: "my-mod", version: "not-a-version" }),
+				/Invalid mod version/
+			);
+		});
 		it("should sort integer mod versions lexicographically", function() {
 			let unsortedVersions = ["1.0.0", "1.1.0", "0.1.0", "3.0.0", "1.2.0", "0.3.1", "0.3.3", "2.1.1", "0.0.1"];
 			let sortedVersions = ["0.0.1", "0.1.0", "0.3.1", "0.3.3", "1.0.0", "1.1.0", "1.2.0", "2.1.1", "3.0.0"];
