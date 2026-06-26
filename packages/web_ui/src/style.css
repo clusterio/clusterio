@@ -10,6 +10,14 @@ body {
 	cursor: pointer;
 }
 
+/* Make a table link-cell's link fill the cell width, so the whole column
+   width is clickable and right-click "open in new tab"-able, not just the
+   text. Uses display:block rather than an overlay so sibling content (e.g.
+   the restart-required icon) stays interactive. */
+.table-link-cell a {
+	display: block;
+}
+
 .login-container {
 	min-height: 100vh;
 	display: flex;

@@ -23,6 +23,14 @@ type MenuItem = Required<MenuProps>["items"][number];
 
 const { Sider, Header } = Layout;
 
+// Render a sidebar menu label as a real link so right-click/middle-click can
+// open it in a new tab; stopPropagation keeps the Menu onClick from also firing.
+function navLink(path: string, label: string) {
+	// color: inherit keeps the menu colour in every state (incl. the focus left
+	// behind by a middle-click, which would otherwise show the link blue).
+	return <Link to={path} style={{ color: "inherit" }} onClick={e => e.stopPropagation()}>{label}</Link>;
+}
+
 function isActiveDropzone(element: HTMLElement | null): boolean {
 	if (!element) {
 		return false;
@@ -83,7 +91,13 @@ export default function SiteLayout() {
 			}
 		},
 		items: [
-			{ label: account.name, key: "user" },
+			{
+				label: <Link to={`/users/${account.name}/view`} style={{ color: "inherit" }}
+					onClick={e => e.stopPropagation()}>
+					{account.name}
+				</Link>,
+				key: "user",
+			},
 			{
 				label: <Tooltip title="Download credentials and configuration file for cli interface">
 					Ctl Config <Button size="small" icon={<DownloadOutlined />} />
@@ -119,9 +133,9 @@ export default function SiteLayout() {
 				group = [];
 				menuGroups.set(sidebarGroup, group);
 			}
-			group.push({ label: sidebarName, key: path });
+			group.push({ label: navLink(path, sidebarName), key: path });
 		} else {
-			menuItems.push({ label: sidebarName, key: path });
+			menuItems.push({ label: navLink(path, sidebarName), key: path });
 		}
 	}
 	for (let [name, group] of menuGroups) {

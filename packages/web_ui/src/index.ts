@@ -42,3 +42,5 @@ export { default as SectionHeader } from "./components/SectionHeader";
 export { default as Link } from "./components/Link";
 
 export { default as FactorioIcon } from "./components/FactorioIcon";
+
+export { default as useRowNavigation } from "./util/useRowNavigation";
