@@ -10,15 +10,12 @@ body {
 	cursor: pointer;
 }
 
-/* Make a table name-cell link fill the whole cell, so the entire cell is
-   clickable and right-click "open in new tab"-able, not just the text. */
-.table-link-cell {
-	position: relative;
-}
-.table-link-cell a::after {
-	content: "";
-	position: absolute;
-	inset: 0;
+/* Make a table link-cell's link fill the cell width, so the whole column
+   width is clickable and right-click "open in new tab"-able, not just the
+   text. Uses display:block rather than an overlay so sibling content (e.g.
+   the restart-required icon) stays interactive. */
+.table-link-cell a {
+	display: block;
 }
 
 .login-container {

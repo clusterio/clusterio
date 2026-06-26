@@ -59,12 +59,12 @@ export default function InstanceList(props: InstanceListProps) {
 			key: "assignedHost",
 			className: "table-link-cell",
 			render: (_, instance) => <Space>
-				<Link
+				{instance.assignedHost !== undefined && <Link
 					to={`/hosts/${instance.assignedHost}/view`}
 					onClick={e => e.stopPropagation()}
 				>
 					{hostName(instance.assignedHost)}
-				</Link>
+				</Link>}
 				<RestartRequired system={instance.assignedHost ? systems.get(instance.assignedHost) : undefined}/>
 			</Space>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
