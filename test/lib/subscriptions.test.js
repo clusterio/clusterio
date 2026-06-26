@@ -1132,7 +1132,9 @@ describe("lib/subscriptions", function() {
 				const unsubscribe = eventSubscriber.subscribe(() => {});
 				await new Promise(r => setImmediate(r));
 				const [,, error1] = eventSubscriber.getSnapshot();
-				assert.deepEqual(error1, new lib.PermissionError("Permission denied"));
+				assert.ok(error1 instanceof lib.PermissionError);
+				assert.equal(error1.message, "Permission denied");
+				assert.equal(error1.code, "PermissionError");
 
 				eventSubscriber.control.sendTo = function() {};
 				unsubscribe();
