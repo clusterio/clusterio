@@ -171,13 +171,19 @@ body {
 	margin: 0;
 	background: #000;
 	border-color: #252525;
-	height: 300px;
+	/* Height is driven by --console-height (set from the persisted user choice)
+	   so the console can be drag-resized; the resize handle needs a non-visible
+	   overflow, which overflow-y: scroll provides. */
+	height: var(--console-height, 300px);
+	min-height: 100px;
+	resize: vertical;
 	overflow-y: scroll;
 	white-space: pre-wrap;
 
 	/* Make sure there's at least one pixel of scroll space, this */
-	/* is necessary for the view to stick on the scroll anchor. */
-	padding-top: 300px;
+	/* is necessary for the view to stick on the scroll anchor. Tracks the */
+	/* height so the pin-to-bottom keeps working at any size. */
+	padding-top: var(--console-height, 300px);
 }
 
 .instance-console .factorio-time {

@@ -4,9 +4,13 @@ import { Select, Typography } from "antd";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
+import useLocalStorage from "../util/useLocalStorage";
 import ControlContext from "./ControlContext";
 
 const { Paragraph } = Typography;
+
+const consoleHeightKey = "instance-console-height";
+const defaultConsoleHeight = 300;
 
 type Parsed = {
 	format: string;
@@ -99,6 +103,28 @@ export default function LogConsole(props: LogConsoleProps) {
 	let anchor = useRef<any>();
 	let [pastLines, setPastLines] = useState([<span key={0}>{"Loading past entries..."}<br/></span>]);
 	let [lines, setLines] = useState<ReactElement[]>([]);
+	const [consoleHeight, setConsoleHeight] = useLocalStorage(consoleHeightKey, defaultConsoleHeight);
+	const consoleHeightRef = useRef(consoleHeight);
+	consoleHeightRef.current = consoleHeight;
+
+	// Persist the height the user drag-resizes the console to, so it is restored
+	// on the next visit. The scroll container is the <code> element wrapping the
+	// anchor.
+	useEffect(() => {
+		const element = anchor.current?.parentElement as HTMLElement | undefined;
+		if (!element || typeof ResizeObserver === "undefined") {
+			return undefined;
+		}
+		const observer = new ResizeObserver(() => {
+			const next = Math.round(element.offsetHeight);
+			if (next && next !== consoleHeightRef.current) {
+				consoleHeightRef.current = next;
+				setConsoleHeight(next);
+			}
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
 
 	useEffect(() => {
 		let logFilter = {
@@ -163,7 +189,11 @@ export default function LogConsole(props: LogConsoleProps) {
 	]);
 
 	return <>
-		<Paragraph code className="instance-console">
+		<Paragraph
+			code
+			className="instance-console"
+			style={{ "--console-height": `${consoleHeight}px` } as React.CSSProperties}
+		>
 			{pastLines}
 			{lines}
 			<div className="scroll-anchor" key="anchor" ref={anchor} />
