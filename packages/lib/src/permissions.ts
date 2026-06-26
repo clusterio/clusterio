@@ -524,3 +524,9 @@ definePermission({
 	title: "Get factorio versions",
 	description: "Get list of all factorio versions from Wube",
 });
+
+definePermission({
+	name: "core.external.get_latest_releases",
+	title: "Get factorio releases",
+	description: "Get the latest stable and experimental factorio releases from Wube",
+});

@@ -121,6 +121,28 @@ export default class Controller {
 		}
 	});
 
+	// Cache for the latest stable/experimental factorio releases. Persisted to
+	// disk so that release channel targets can still be resolved when
+	// factorio.com is unavailable.
+	latestReleases = new lib.ValueCache(async () => {
+		const cachePath = path.join(this.config.get("controller.database_directory"), "latest-releases.json");
+		try {
+			const releases = await lib.fetchLatestReleases();
+			await lib.safeOutputFile(cachePath, JSON.stringify(releases, null, "\t"));
+			return releases;
+		} catch (err: any) {
+			logger.warn(`Failed to retrieve Factorio releases ${err.message}`);
+			try {
+				return JSON.parse(await fs.readFile(cachePath, "utf8")) as lib.LatestReleases;
+			} catch (readErr: any) {
+				if (readErr.code !== "ENOENT") {
+					logger.warn(`Failed to read cached Factorio releases ${readErr.message}`);
+				}
+				return {};
+			}
+		}
+	});
+
 	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.mkdir(databaseDirectory, { recursive: true });

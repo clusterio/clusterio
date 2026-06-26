@@ -62,7 +62,11 @@ describe("host/server", function() {
 				let installDir = path.join("test", "file", "factorio", "0.1.1");
 				await assert.rejects(
 					hostServer._findVersion(installDir, "0.1.2"),
-					new Error("Unable to find Factorio version 0.1.2")
+					new Error(
+						`Unable to find Factorio version 0.1.2: ${installDir} is a direct (single-version) ` +
+						`install of 0.1.1. Use a versioned layout, where ${installDir} contains a subdirectory ` +
+						"per version, to run other versions or download them automatically."
+					)
 				);
 			});
 		});
@@ -433,7 +437,7 @@ describe("host/server", function() {
 
 						assert.equal(fetchCalledWith, null);
 						assert.ok(logLine !== null);
-						assert.ok(logLine.endsWith("but must be manually downloaded"));
+						assert.ok(logLine.endsWith("(automatic downloads are only supported on Linux)."));
 					});
 					it("should do attempt to download on linux", async function() {
 						let logLine = null;
