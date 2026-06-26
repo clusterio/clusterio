@@ -10,7 +10,9 @@ import ControlContext from "./ControlContext";
 const { Paragraph } = Typography;
 
 const consoleHeightKey = "instance-console-height";
-const defaultConsoleHeight = 300;
+// With border-box the height includes the pin-to-bottom padding, so this is the
+// full rendered height (matching the previous content-box default of 300 + 300).
+const defaultConsoleHeight = 600;
 
 type Parsed = {
 	format: string;
