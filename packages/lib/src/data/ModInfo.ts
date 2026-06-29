@@ -11,7 +11,7 @@ import {
 	FullVersion, integerFullVersion,
 	integerPartialVersion,
 	GameVersionSchema, normaliseGameVersion, normaliseMajorMinorVersion,
-	MajorMinorVersion, MajorMinorVersionSchema,
+	MajorMinorVersion,
 	ModVersionEquality,
 } from "./version";
 
@@ -266,9 +266,6 @@ export default class ModInfo {
 
 	static jsonSchema = Type.Object({
 		...this.infoJsonSchema.properties,
-		// The stored value is always normalised to a strict major.minor (see fromJSON),
-		// unlike the lenient info.json schema above.
-		"factorio_version": Type.Optional(MajorMinorVersionSchema),
 		"size": Type.Optional(Type.Integer()),
 		"mtime_ms": Type.Optional(Type.Number()),
 		"sha1": Type.Optional(Type.String()),
@@ -278,12 +275,7 @@ export default class ModInfo {
 
 	static validate = libSchema.compile(this.jsonSchema as any);
 
-	// Accepts the lenient info.json version fields (normalised below) plus the stored
-	// extras; the strict jsonSchema describes the serialised form produced by toJSON.
-	static fromJSON(json:
-		Static<typeof ModInfo.infoJsonSchema>
-		& Pick<Static<typeof ModInfo.jsonSchema>, "size" | "mtime_ms" | "sha1" | "updated_at_ms" | "is_deleted">
-	) {
+	static fromJSON(json: Static<typeof ModInfo.jsonSchema>) {
 		const modInfo = new this();
 
 		// info.json fields

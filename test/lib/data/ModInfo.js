@@ -356,6 +356,12 @@ describe("lib/data/ModInfo", function() {
 				/Invalid mod version/
 			);
 		});
+		it("should throw for an unparseable factorio_version", function() {
+			assert.throws(
+				() => ModInfo.fromJSON({ name: "my-mod", factorio_version: "not-a-version" }),
+				/Invalid factorio_version/
+			);
+		});
 		it("should sort integer mod versions lexicographically", function() {
 			let unsortedVersions = ["1.0.0", "1.1.0", "0.1.0", "3.0.0", "1.2.0", "0.3.1", "0.3.3", "2.1.1", "0.0.1"];
 			let sortedVersions = ["0.0.1", "0.1.0", "0.3.1", "0.3.3", "1.0.0", "1.1.0", "1.2.0", "2.1.1", "3.0.0"];

@@ -103,9 +103,6 @@ export function integerPartialVersion(version: PartialVersion) {
  */
 const majorMinorVersionRegExp = /^\d+\.\d+$/;
 export type MajorMinorVersion = `${number}.${number}`;
-export const MajorMinorVersionSchema = Type.Unsafe<MajorMinorVersion>(
-	Type.String({ pattern: majorMinorVersionRegExp.source })
-);
 
 export function isMajorMinorVersion(input: string): input is MajorMinorVersion {
 	return majorMinorVersionRegExp.test(input);
