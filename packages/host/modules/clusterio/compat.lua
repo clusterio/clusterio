@@ -17,6 +17,8 @@ local lib_json = require("json")
 --- @field prototypes LuaPrototypes
 --- @field active_mods table<string, string>
 --- @field write_file fun(filename: string, data: LocalisedString, append: boolean?, for_player: uint?)
+--- @field encode_string fun(string: string): string
+--- @field decode_string fun(string: string): string
 --- @field table_to_json fun(data: table): string
 --- @field json_to_table fun(json: string): AnyBasic?
 local compat = {}
@@ -174,6 +176,24 @@ function runtime_properties.write_file()
 		return game.write_file
 	elseif v2 then
 		return helpers.write_file
+	end
+end
+
+--- Deflates and base64 encodes the given string.
+function runtime_properties.encode_string()
+	if (v0_18 and compat.version_ge("0.18.7")) or v1 then
+		return game.encode_string
+	elseif v2 then
+		return helpers.encode_string
+	end
+end
+
+--- Base64 decodes and inflates the given string.
+function runtime_properties.decode_string()
+	if (v0_18 and compat.version_ge("0.18.7")) or v1 then
+		return game.decode_string
+	elseif v2 then
+		return helpers.decode_string
 	end
 end
 
