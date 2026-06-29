@@ -60,7 +60,7 @@ export function normaliseFullVersion(version: PartialVersion) {
  * optional, and any trailing content is ignored. The pattern is intentionally
  * not anchored at the end.
  */
-const gameVersionRegExp = /^\s*\d+\.\s*\d+(?:\.\s*\d+)?/;
+const gameVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
 export const GameVersionSchema = Type.String({ pattern: gameVersionRegExp.source });
 
 /**
@@ -72,7 +72,7 @@ export const GameVersionSchema = Type.String({ pattern: gameVersionRegExp.source
  *     could be read.
  */
 export function normaliseGameVersion(input: string): FullVersion | undefined {
-	const match = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/.exec(input);
+	const match = gameVersionRegExp.exec(input);
 	if (match === null) {
 		return undefined;
 	}
@@ -83,7 +83,7 @@ export function normaliseGameVersion(input: string): FullVersion | undefined {
  * Matches valid factorio versions and mod dependencies specifications where 2 or 3 parts are specified.
  */
 const partialVersionRegExp = /^\d+\.\d+(?:\.\d+)?$/;
-export type PartialVersion = FullVersion | `${number}.${number}`;
+export type PartialVersion = FullVersion | MajorMinorVersion;
 export const PartialVersionSchema = Type.Unsafe<PartialVersion>(
 	Type.String({ pattern: partialVersionRegExp.source })
 );
@@ -99,11 +99,24 @@ export function integerPartialVersion(version: PartialVersion) {
 }
 
 /**
- * The major.minor of a version, as used by the mod portal's version filter.
+ * Matches a major.minor version, as used by the mod portal's version filter.
  */
-export function majorMinorVersion(version: PartialVersion) {
+const majorMinorVersionRegExp = /^\d+\.\d+$/;
+export type MajorMinorVersion = `${number}.${number}`;
+export const MajorMinorVersionSchema = Type.Unsafe<MajorMinorVersion>(
+	Type.String({ pattern: majorMinorVersionRegExp.source })
+);
+
+export function isMajorMinorVersion(input: string): input is MajorMinorVersion {
+	return majorMinorVersionRegExp.test(input);
+}
+
+/**
+ * Reduce a version to its major.minor, as used by the mod portal's version filter.
+ */
+export function normaliseMajorMinorVersion(version: PartialVersion): MajorMinorVersion {
 	const [major, minor] = version.split(".");
-	return `${major}.${minor}` as `${number}.${number}`;
+	return `${major}.${minor}` as MajorMinorVersion;
 }
 
 /**

@@ -10,8 +10,8 @@ import { ModRecord } from "./ModPack";
 import {
 	FullVersion, integerFullVersion,
 	integerPartialVersion,
-	GameVersionSchema, normaliseGameVersion, majorMinorVersion,
-	PartialVersion,
+	GameVersionSchema, normaliseGameVersion, normaliseMajorMinorVersion,
+	MajorMinorVersion,
 	ModVersionEquality,
 } from "./version";
 
@@ -175,7 +175,7 @@ export default class ModInfo {
 	 * Major version of Factorio this mod supports.
 	 * Sourced from info.json.
 	 */
-	factorioVersion = "0.12" as PartialVersion;
+	factorioVersion = "0.12" as MajorMinorVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
@@ -297,7 +297,7 @@ export default class ModInfo {
 			if (factorioVersion === undefined) {
 				throw new Error(`Invalid factorio_version "${json.factorio_version}"`);
 			}
-			modInfo.factorioVersion = majorMinorVersion(factorioVersion);
+			modInfo.factorioVersion = normaliseMajorMinorVersion(factorioVersion);
 		}
 
 		// Parse the dependencies

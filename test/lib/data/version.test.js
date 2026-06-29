@@ -39,11 +39,23 @@ describe("lib/data/version", function() {
 			}
 		});
 	});
-	describe("majorMinorVersion()", function() {
+	describe("normaliseMajorMinorVersion()", function() {
 		it("should return the major.minor", function() {
-			assert.equal(lib.majorMinorVersion("1.1"), "1.1");
-			assert.equal(lib.majorMinorVersion("1.1.50"), "1.1");
-			assert.equal(lib.majorMinorVersion("0.18.0"), "0.18");
+			assert.equal(lib.normaliseMajorMinorVersion("1.1"), "1.1");
+			assert.equal(lib.normaliseMajorMinorVersion("1.1.50"), "1.1");
+			assert.equal(lib.normaliseMajorMinorVersion("0.18.0"), "0.18");
+		});
+	});
+	describe("isMajorMinorVersion()", function() {
+		it("should correctly validate input strings", function() {
+			const valid = ["1.1", "0.18", "2.0", "10.20"];
+			const invalid = ["1", "1.1.0", "1.1.50", "latest", "1.", ".1", ""];
+			for (const version of valid) {
+				assert(lib.isMajorMinorVersion(version), `${version} should be valid`);
+			}
+			for (const version of invalid) {
+				assert(!lib.isMajorMinorVersion(version), `${version} should be invalid`);
+			}
 		});
 	});
 	describe("isFullVersion()", function() {

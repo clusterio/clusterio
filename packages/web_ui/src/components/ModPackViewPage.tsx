@@ -82,7 +82,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 	// Get a valid factorio version
 	useEffect(() => {
 		try {
-			setFactorioVersion(lib.majorMinorVersion(props.modPack.factorioVersion));
+			setFactorioVersion(lib.normaliseMajorMinorVersion(props.modPack.factorioVersion));
 		} catch (err) {
 			setFactorioVersion(null);
 		}
@@ -295,7 +295,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	// Get a valid factorio version
 	useEffect(() => {
 		try {
-			setFactorioVersion(lib.majorMinorVersion(props.modPack.factorioVersion));
+			setFactorioVersion(lib.normaliseMajorMinorVersion(props.modPack.factorioVersion));
 		} catch (err) {
 			setError(new Error(`Invalid factorio version: ${props.modPack.factorioVersion}`));
 			setFactorioVersion(null);
@@ -577,8 +577,9 @@ function ModsTable(props: ModsTableProps) {
 		if (mod.enabled && mod.info) {
 			mod.warning = mod.info.checkDependencySatisfaction(mods.filter(m => m.enabled));
 			try {
-				const packFactorioVersion = lib.majorMinorVersion(props.modPack.factorioVersion);
-				const modFactorioVersion = lib.majorMinorVersion(mod.info.factorioVersion);
+				const packFactorioVersion = lib.normaliseMajorMinorVersion(props.modPack.factorioVersion);
+				// mod.info.factorioVersion is already a MajorMinorVersion, no need to re-reduce it.
+				const modFactorioVersion = mod.info.factorioVersion;
 				if (packFactorioVersion !== modFactorioVersion) {
 					mod.warning = "wrong_factorio_version";
 				}

@@ -5,7 +5,7 @@ import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { downloadFile, safeOutputFile } from "./file_ops";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
-import { ModInfo, ModPack, FullVersion, PartialVersion, majorMinorVersion, ModVersionEquality } from "./data";
+import { ModInfo, ModPack, FullVersion, PartialVersion, normaliseMajorMinorVersion, ModVersionEquality } from "./data";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -202,7 +202,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	) {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
-		url.searchParams.set("version", majorMinorVersion(factorioVersion));
+		url.searchParams.set("version", normaliseMajorMinorVersion(factorioVersion));
 		const response = await fetch(url, {
 			method: "POST",
 			body: new URLSearchParams({ namelist: mods.map(m => m.name).join(",") }),

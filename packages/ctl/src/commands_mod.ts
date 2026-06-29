@@ -114,7 +114,7 @@ modCommands.add(new lib.Command({
 		}
 		let response = await control.send(new lib.ModSearchRequest(
 			args.query,
-			lib.majorMinorVersion(searchVersion),
+			lib.normaliseMajorMinorVersion(searchVersion),
 			args.page,
 			args.pageSize,
 			args.sort,
