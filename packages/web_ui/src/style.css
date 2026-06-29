@@ -10,6 +10,14 @@ body {
 	cursor: pointer;
 }
 
+/* Make a table link-cell's link fill the cell width, so the whole column
+   width is clickable and right-click "open in new tab"-able, not just the
+   text. Uses display:block rather than an overlay so sibling content (e.g.
+   the restart-required icon) stays interactive. */
+.table-link-cell a {
+	display: block;
+}
+
 .login-container {
 	min-height: 100vh;
 	display: flex;
@@ -33,16 +41,12 @@ body {
 }
 
 .site-breadcrumb {
-	margin: 16px 0 16px 52px;
+	margin: 16px 0;
 }
 
 @media (min-width: 576px) {
 	.site-layout-content-container {
 		padding: 0 24px 24px;
-	}
-
-	.site-breadcrumb {
-		margin-left: 28px;
 	}
 }
 
@@ -56,13 +60,30 @@ body {
 	}
 }
 
-.site-layout-sider {
-	z-index: 0;
+/* Top bar hosting the menu toggle and branding, sticky above the content. */
+.site-layout-header {
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding-inline: 16px;
+	background: #001529;
 }
 
-.header {
-	padding-left: 250px;
-	padding-right: 64px;
+/* Keep the sidebar fixed in place (below the header) while content scrolls. */
+.site-layout-sider {
+	position: sticky;
+	top: 64px;
+	height: calc(100vh - 64px);
+	align-self: flex-start;
+}
+
+/* Snap the sider open/closed instead of animating its width — the width
+   transition reflowed the content area and caused styling glitches. */
+.ant-layout-sider.site-layout-sider {
+	transition: none;
 }
 
 .page-header {
@@ -103,75 +124,6 @@ body {
 
 .section-header-extra, .page-header-extra {
 	margin-left: auto;
-}
-
-.site-name {
-	position: absolute;
-	top: -10px;
-	left: 112px;
-	font-size: 18pt;
-	font-weight: 400;
-}
-
-.site-version {
-	position: absolute;
-	top: 10px;
-	left: 120px;
-	color: #f00;
-}
-
-.site-logo {
-	position: absolute;
-	left: 36px;
-	width: 64px;
-	height: 64px;
-	background-image: url("./images/logo.png");
-	background-size: 64px;
-}
-
-@media not all and (min-width: 576px) {
-	.header {
-		padding-left: 88px;
-	}
-
-	.site-logo {
-		left: 12px;
-	}
-
-	.site-name {
-		display: none;
-	}
-
-	.site-version {
-		display: none;
-	}
-}
-
-.account-dropdown-header {
-	position: absolute;
-	right: 0;
-	top: 0;
-	width: 64px;
-	height: 64px;
-	font-size: 18px;
-	line-height: 72px;
-	display: flex;
-	justify-content: center;
-}
-
-.account-dropdown-header::after {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	background: transparent;
-	transition: all 0.3s;
-	content: "";
-}
-
-.account-dropdown-header:hover::after {
-	background: rgba(255, 255, 255, 0.1);
 }
 
 .error-traceback code {

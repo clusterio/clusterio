@@ -1,25 +1,35 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { Button, Dropdown, Layout, Menu, MenuProps, Tooltip } from "antd";
-import { UserOutlined, DownloadOutlined } from "@ant-design/icons";
+import { Button, Drawer, Dropdown, Flex, Grid, Layout, Menu, MenuProps, Tooltip, Typography } from "antd";
+import { UserOutlined, DownloadOutlined, MenuOutlined } from "@ant-design/icons";
 
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
 import ChangeLogModal from "./ChangeLogModal";
 import AboutModal from "./AboutModal";
+import Link from "./Link";
 
 import { pages } from "../pages";
 import { saveJson } from "../util/save_file";
 import { useAccount } from "../model/account";
 import { DraggingContext } from "../model/is_dragging";
 import webUiPackage from "../../package.json";
+import logo from "../images/logo.png";
 
 import { ControlConfig } from "@clusterio/lib";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
-const { Header, Sider } = Layout;
+const { Sider, Header } = Layout;
+
+// Render a sidebar menu label as a real link so right-click/middle-click can
+// open it in a new tab; stopPropagation keeps the Menu onClick from also firing.
+function navLink(path: string, label: string) {
+	// color: inherit keeps the menu colour in every state (incl. the focus left
+	// behind by a middle-click, which would otherwise show the link blue).
+	return <Link to={path} style={{ color: "inherit" }} onClick={e => e.stopPropagation()}>{label}</Link>;
+}
 
 function isActiveDropzone(element: HTMLElement | null): boolean {
 	if (!element) {
@@ -42,6 +52,13 @@ function isActiveDropzone(element: HTMLElement | null): boolean {
 export default function SiteLayout() {
 	let navigate = useNavigate();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
+	const screens = Grid.useBreakpoint();
+	// On phone screens the sidebar becomes an overlay drawer instead of a fixed sider.
+	// `md` matches the previous Sider breakpoint; `screens.md` is undefined until measured,
+	// so treat the initial render as desktop to avoid flashing the hamburger.
+	const isMobile = screens.md === false;
+	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [collapsed, setCollapsed] = useState(false);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
 	const control = useContext(ControlContext);
@@ -74,7 +91,13 @@ export default function SiteLayout() {
 			}
 		},
 		items: [
-			{ label: account.name, key: "user" },
+			{
+				label: <Link to={`/users/${account.name}/view`} style={{ color: "inherit" }}
+					onClick={e => e.stopPropagation()}>
+					{account.name}
+				</Link>,
+				key: "user",
+			},
 			{
 				label: <Tooltip title="Download credentials and configuration file for cli interface">
 					Ctl Config <Button size="small" icon={<DownloadOutlined />} />
@@ -110,9 +133,9 @@ export default function SiteLayout() {
 				group = [];
 				menuGroups.set(sidebarGroup, group);
 			}
-			group.push({ label: sidebarName, key: path });
+			group.push({ label: navLink(path, sidebarName), key: path });
 		} else {
-			menuItems.push({ label: sidebarName, key: path });
+			menuItems.push({ label: navLink(path, sidebarName), key: path });
 		}
 	}
 	for (let [name, group] of menuGroups) {
@@ -126,7 +149,39 @@ export default function SiteLayout() {
 		setDragging(dragging + dragChange);
 	}
 
+	// Navigate and dismiss the mobile drawer, matching hamburger menu conventions.
+	function navigateAndClose(key: string) {
+		navigate(key);
+		setDrawerOpen(false);
+	}
+
+	// The header trigger collapses the sider on desktop and toggles the overlay drawer on phones.
+	function toggleSidebar() {
+		if (isMobile) {
+			setDrawerOpen(value => !value);
+		} else {
+			setCollapsed(value => !value);
+		}
+	}
+
+	let sidebarContent = <Menu
+		theme="dark"
+		mode="inline"
+		defaultOpenKeys={[...menuGroups.keys()]}
+		selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
+		style={{ height: "100%", overflow: "auto", borderInlineEnd: 0 }}
+		onClick={({ key }) => navigateAndClose(key)}
+		items={menuItems}
+	/>;
+
+	let accountMenu = <Dropdown menu={accountMenuProps} trigger={["click"]} placement="bottomRight">
+		<Button type="text" icon={<UserOutlined />} style={{ marginInlineStart: "auto" }}>
+			{account.name}
+		</Button>
+	</Dropdown>;
+
 	return <Layout
+		className="site-layout"
 		style={{ minHeight: "100vh" }}
 		onDragEnter={() => setDraggingProxy(1)}
 		onDragLeave={() => setDraggingProxy(-1)}
@@ -169,56 +224,56 @@ export default function SiteLayout() {
 				setAboutOpen(wasAboutOpen);
 			}}
 		/>
-		<DraggingContext.Provider value={dragging > 0}>
-			<Header className="header">
-				<div className="site-logo" />
-				<span className="site-name">Clusterio</span>
-				<Tooltip
-					title="View changelog"
-					placement="bottom"
-					align={{ offset: [0, -10] }}
-				>
-					<span
-						className="site-version"
-						style={{ cursor: "pointer" }}
+		<Header className="site-layout-header">
+			<Button
+				type="text"
+				icon={<MenuOutlined />}
+				onClick={toggleSidebar}
+				aria-label="Toggle navigation menu"
+			/>
+			<Link to="/" style={{ display: "flex", alignItems: "center" }}>
+				<img src={logo} width={56} height={56} alt="Clusterio logo" />
+			</Link>
+			<Flex vertical justify="center">
+				<Typography.Title level={4} style={{ margin: 0, lineHeight: 1.2 }}>Clusterio</Typography.Title>
+				<Tooltip title="View changelog" placement="right">
+					<Typography.Text
+						type="danger"
+						style={{ cursor: "pointer", lineHeight: 1.2 }}
 						onClick={() => setChangeLogOpen(true)}
 					>
 						{webUiPackage.version}
-					</span>
+					</Typography.Text>
 				</Tooltip>
-				<Menu
-					theme="dark"
-					mode="horizontal"
-					defaultSelectedKeys={["1"]}
-					items={[{ label: "Dashboard", key: "1" }]}
-				/>
-				<Dropdown
-					className="account-dropdown-header"
-					placement="bottomRight"
-					trigger={["click"]}
-					menu={accountMenuProps}
-				>
-					<UserOutlined />
-				</Dropdown>
-			</Header>
-			<Layout className="site-layout">
-				<Sider
-					collapsible
-					collapsedWidth={0}
-					breakpoint="md"
-					zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
-					width={250}
-					className="site-layout-sider"
-				>
-					<Menu
-						mode="inline"
-						defaultOpenKeys={[...menuGroups.keys()]}
-						selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
-						style={{ height: "100%", borderRight: 0 }}
-						onClick={({ key }) => navigate(key)}
-						items={menuItems}
-					/>
-				</Sider>
+			</Flex>
+			{accountMenu}
+		</Header>
+		<DraggingContext.Provider value={dragging > 0}>
+			<Layout hasSider={!isMobile}>
+				{isMobile
+					? <Drawer
+						placement="left"
+						open={drawerOpen}
+						onClose={() => setDrawerOpen(false)}
+						width={250}
+						closable={false}
+						// Start below the sticky 64px header so it stays visible and usable.
+						rootStyle={{ top: 64 }}
+						styles={{ body: { padding: 0, background: "#001529" } }}
+					>
+						{sidebarContent}
+					</Drawer>
+					: <Sider
+						width={250}
+						collapsible
+						collapsed={collapsed}
+						collapsedWidth={0}
+						trigger={null}
+						className="site-layout-sider"
+					>
+						{sidebarContent}
+					</Sider>
+				}
 				<Layout className="site-layout-content-container">
 					<Routes>
 						{combinedPages.map(({ path, sidebarPath, content }) => <Route

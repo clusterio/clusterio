@@ -18,6 +18,7 @@ export interface ControllerConfigFields {
 	"controller.bind_address": string | null;
 	"controller.trusted_proxies": string | null;
 	"controller.public_url": string | null;
+	"controller.grafana_url": string | null;
 	"controller.tls_certificate": string | null;
 	"controller.tls_private_key": string | null;
 	"controller.auth_secret": string | null;
@@ -136,6 +137,12 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			optional: true,
 			// TODO extendedValidation, valid url including the protocol
+		},
+		"controller.grafana_url": {
+			title: "Grafana URL",
+			description: "URL of a Grafana dashboard to link from the overview page, including the protocol.",
+			type: "string",
+			optional: true,
 		},
 		"controller.tls_certificate": {
 			title: "TLS Certificate",
@@ -501,14 +508,16 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: false,
 		},
 		"factorio.version": {
-			description: "Version of the game to run, use latest to run the latest installed version",
+			description:
+				"Version of the game to run. Use 'latest' for the latest installed version, a release " +
+				"channel such as 'stable' or 'experimental', or a specific X.Y or X.Y.Z version.",
 			restartRequired: true,
 			type: "string",
 			initialValue: "latest",
 			inputComponent: "target_version",
 			validator: function(value) {
 				if (!isTargetVersion(value)) {
-					throw new Error("Value must be be 'latest', or match X.Y, or match X.Y.Z");
+					throw new Error("Value must be 'latest', a release channel, or match X.Y or X.Y.Z");
 				}
 			},
 		},

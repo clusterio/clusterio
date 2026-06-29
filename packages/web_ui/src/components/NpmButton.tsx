@@ -170,7 +170,7 @@ export function NpmButton(props: {
 			okButtonProps={{disabled: formAction === undefined}}
 			onOk={() => { onOk().catch(notifyErrorHandler(`Error running ${formAction}`)); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form} onValuesChange={onValuesChange} clearOnDestroy>
 				<Form.Item label="Action" name="action">

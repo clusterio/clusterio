@@ -120,7 +120,7 @@ function TransferModal(props: ModalProps) {
 			open={open}
 			onOk={() => form.submit()}
 			onCancel={() => setOpen(false)}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form
 				form={form}

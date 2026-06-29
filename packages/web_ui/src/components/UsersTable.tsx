@@ -1,7 +1,6 @@
 import React from "react";
 import { Table, Tag, type TablePaginationConfig } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
 
 import * as lib from "@clusterio/lib";
 
@@ -16,6 +15,7 @@ import {
 import { onFilterUser, Username, useUserFilter, userFilterCodec } from "./UsersFilters";
 import Link from "./Link";
 import useTableQueryState from "../util/useTableQueryState";
+import useRowNavigation from "../util/useRowNavigation";
 
 export interface UsersTableProps {
 	/** Optional instance id. If provided, stats will be filtered to that instance only */
@@ -35,7 +35,6 @@ export default function UsersTable(
 ) {
 	const [roles, rolesSynced] = useRoles();
 	const [users, usersSynced] = useUsers();
-	const navigate = useNavigate();
 	const tableState = useTableQueryState<lib.UserDetails>({
 		namespace: "user",
 		defaultSortKey: "name",
@@ -43,6 +42,7 @@ export default function UsersTable(
 		pagination: pagination === false ? false : (pagination ?? { defaultPageSize: 50 }),
 		filterCodecs: { name: userFilterCodec },
 	});
+	const rowNav = useRowNavigation();
 
 	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
 
@@ -94,8 +94,11 @@ export default function UsersTable(
 		{
 			title: "Name",
 			key: "name",
+			className: "table-link-cell",
 			render: (_: any, user: lib.UserDetails) => (
-				<Username user={user} withStatus />
+				<Link to={`/users/${user.name}/view`} style={{ color: "inherit" }}>
+					<Username user={user} withStatus />
+				</Link>
 			),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => strcmp(a.name, b.name),
 			sortOrder: tableState.sortOrder("name"),
@@ -200,14 +203,7 @@ export default function UsersTable(
 			size={size}
 			scroll={{ x: "max-content" }}
 			loading={!usersSynced || !rolesSynced}
-			onRow={(user) => ({
-				onClick: (event) => {
-					if ((event.target as HTMLElement).closest("a")) {
-						return;
-					}
-					navigate(`/users/${user.name}/view`);
-				},
-			})}
+			onRow={(user) => rowNav(`/users/${user.name}/view`)}
 		/>
 	);
 }

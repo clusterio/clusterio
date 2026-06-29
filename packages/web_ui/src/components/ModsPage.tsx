@@ -18,6 +18,8 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import useTableQueryState from "../util/useTableQueryState";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 import ModDetails from "./ModDetails";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
@@ -507,7 +509,6 @@ function SearchModsButton() {
 export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let navigate = useNavigate();
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
 	const modPackTable = useTableQueryState<lib.ModPack>({
@@ -516,6 +517,7 @@ export default function ModsPage() {
 	const modTable = useTableQueryState<lib.ModInfo>({
 		namespace: "mod", defaultSortKey: "title",
 	});
+	const rowNav = useRowNavigation();
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -583,6 +585,13 @@ export default function ModsPage() {
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
 					sortOrder: modPackTable.sortOrder("name"),
+					className: "table-link-cell",
+					render: (_, modPack) => <Link
+						to={`/mods/mod-packs/${modPack.id}/view`}
+						style={{ color: "inherit" }}
+					>
+						{modPack.name}
+					</Link>,
 				},
 				{
 					title: "Factorio Version",
@@ -600,11 +609,7 @@ export default function ModsPage() {
 			pagination={modPackTable.pagination}
 			onChange={modPackTable.onChange}
 			rowKey={modPack => Number(modPack.id)}
-			onRow={(modPack, rowIndex) => ({
-				onClick: event => {
-					navigate(`/mods/mod-packs/${modPack.id}/view`);
-				},
-			})}
+			onRow={modPack => rowNav(`/mods/mod-packs/${modPack.id}/view`)}
 		/>
 		<SectionHeader title="Stored Mods" extra={<Space wrap>
 			<SearchModsButton />

@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
@@ -12,6 +11,8 @@ import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
 import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -24,7 +25,6 @@ type PluginRow = {
 
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
-	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 	const tableState = useTableQueryState<PluginRow>({
 		namespace: "plugin", defaultSortKey: "name",
@@ -32,6 +32,7 @@ export default function PluginsPage() {
 	const nameSearch = useColumnSearch<PluginRow>(
 		plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"
 	);
+	const rowNav = useRowNavigation();
 
 	useEffect(() => {
 		(async () => {
@@ -68,7 +69,13 @@ export default function PluginsPage() {
 				{
 					title: "Name",
 					key: "name",
-					render: (_, plugin) => (plugin.info ? plugin.info.title : plugin.meta.name),
+					className: "table-link-cell",
+					render: (_, plugin) => <Link
+						to={`/plugins/${plugin.meta.name}/view`}
+						style={{ color: "inherit" }}
+					>
+						{plugin.info ? plugin.info.title : plugin.meta.name}
+					</Link>,
 					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
 					sortOrder: tableState.sortOrder("name"),
 					filteredValue: tableState.filteredValue("name"),
@@ -105,11 +112,7 @@ export default function PluginsPage() {
 			rowKey={plugin => plugin.meta.name}
 			pagination={tableState.pagination}
 			onChange={tableState.onChange}
-			onRow={plugin => ({
-				onClick: event => {
-					navigate(`/plugins/${plugin.meta.name}/view`);
-				},
-			})}
+			onRow={plugin => rowNav(`/plugins/${plugin.meta.name}/view`)}
 		/>
 	</PageLayout>;
 }

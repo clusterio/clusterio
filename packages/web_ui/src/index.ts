@@ -45,3 +45,4 @@ export { default as FactorioIcon } from "./components/FactorioIcon";
 
 export { default as useTableQueryState } from "./util/useTableQueryState";
 export { default as useColumnSearch } from "./util/useColumnSearch";
+export { default as useRowNavigation } from "./util/useRowNavigation";

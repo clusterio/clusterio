@@ -1,5 +1,4 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
@@ -22,6 +21,8 @@ import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
 import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -201,7 +202,6 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 
 export default function HostsPage() {
 	let account = useAccount();
-	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
 	const [showRatios, setShowRatios] = useState(true);
@@ -211,6 +211,7 @@ export default function HostsPage() {
 		namespace: "host", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<lib.HostDetails>(host => host.name, "Search hosts");
+	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
@@ -226,6 +227,10 @@ export default function HostsPage() {
 					sorter: (a, b) => strcmp(a.name, b.name),
 					sortOrder: tableState.sortOrder("name"),
 					filteredValue: tableState.filteredValue("name"),
+					className: "table-link-cell",
+					render: (_, host) => <Link to={`/hosts/${host.id}/view`} style={{ color: "inherit" }}>
+						{host.name}
+					</Link>,
 					...nameSearch,
 				},
 				{
@@ -325,11 +330,7 @@ export default function HostsPage() {
 			rowKey={host => host.id}
 			pagination={tableState.pagination}
 			onChange={tableState.onChange}
-			onRow={(record, rowIndex) => ({
-				onClick: event => {
-					navigate(`/hosts/${record.id}/view`);
-				},
-			})}
+			onRow={record => rowNav(`/hosts/${record.id}/view`)}
 		/>
 		<Flex wrap="wrap" style={{ margin: "16px 0 0 0" }} gap="small">
 			<label style={{ width: "14em", display: "flex", justifyContent: "space-between", marginRight: 16 }}>

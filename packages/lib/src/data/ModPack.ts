@@ -396,7 +396,7 @@ export default class ModPack {
 
 	/** Array of default mod packs which should exist on a newly installed cluster */
 	static defaultModPacks = [
-		...(["0.17", "0.18", "1.0", "1.1", "2.0"] as const)
+		...(["0.17", "0.18", "1.0", "1.1", "2.0", "2.1"] as const)
 			.map(version => this.fromJSON({
 				name: `Base Game ${version}`,
 				description: `Factorio ${version} with no extra mods.`,
@@ -411,6 +411,18 @@ export default class ModPack {
 					{ name: "elevated-rails", enabled: true, version: normaliseFullVersion(version) },
 					{ name: "quality", enabled: true, version: normaliseFullVersion(version) },
 					{ name: "space-age", enabled: true, version: normaliseFullVersion(version) },
+				],
+			} as any)),
+		...(["2.1"] as const)
+			.map(version => this.fromJSON({
+				name: `Space Age ${version}`,
+				description: `Factorio ${version} with Space Age expansion.`,
+				factorio_version: version,
+				mods: [
+					{ name: "elevated-rails", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "quality", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "space-age", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "recycler", enabled: true, version: normaliseFullVersion(version) },
 				],
 			} as any)),
 	];
@@ -434,6 +446,12 @@ export default class ModPack {
 				{ name: "elevated-rails", enabled: false, version: factorioVersion },
 				{ name: "quality", enabled: false, version: factorioVersion },
 				{ name: "space-age", enabled: false, version: factorioVersion },
+			]);
+		}
+
+		if (integerVersion >= integerPartialVersion("2.1")) {
+			defaultMods = defaultMods.concat([
+				{ name: "recycler", enabled: false, version: factorioVersion },
 			]);
 		}
 

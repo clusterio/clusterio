@@ -50,7 +50,7 @@ function CreateUserButton() {
 			open={open}
 			onOk={() => { createUser().catch(notifyErrorHandler("Error creating user")); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form}>
 				<Form.Item name="userName" label="Name">
@@ -345,7 +345,7 @@ function BulkUserActionButton() {
 			okButtonProps={{ disabled: formAction === undefined }}
 			onOk={() => { onOk().catch(notifyErrorHandler(`Error running ${formAction}`)); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form} onValuesChange={onValuesChange} clearOnDestroy>
 				<Form.Item label="Action" name="action">

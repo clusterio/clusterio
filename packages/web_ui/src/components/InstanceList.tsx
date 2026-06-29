@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { message, Button, Table, Space } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
@@ -16,6 +15,7 @@ import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
 import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -27,13 +27,13 @@ type InstanceListProps = {
 
 export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
-	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
 	const tableState = useTableQueryState<lib.InstanceDetails>({
 		namespace: "instance", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<lib.InstanceDetails>(instance => instance.name, "Search instances");
+	const rowNav = useRowNavigation();
 
 	function hostName(hostId?: number) {
 		if (hostId === undefined) {
@@ -56,18 +56,23 @@ export default function InstanceList(props: InstanceListProps) {
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
 			sortOrder: tableState.sortOrder("name"),
 			filteredValue: tableState.filteredValue("name"),
+			className: "table-link-cell",
+			render: (_, instance) => <Link to={`/instances/${instance.id}/view`} style={{ color: "inherit" }}>
+				{instance.name}
+			</Link>,
 			...nameSearch,
 		},
 		{
 			title: "Assigned Host",
 			key: "assignedHost",
+			className: "table-link-cell",
 			render: (_, instance) => <Space>
-				<Link
+				{instance.assignedHost !== undefined && <Link
 					to={`/hosts/${instance.assignedHost}/view`}
 					onClick={e => e.stopPropagation()}
 				>
 					{hostName(instance.assignedHost)}
-				</Link>
+				</Link>}
 				<RestartRequired system={instance.assignedHost ? systems.get(instance.assignedHost) : undefined}/>
 			</Space>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
@@ -137,10 +142,6 @@ export default function InstanceList(props: InstanceListProps) {
 		rowKey={instance => instance["id"]}
 		pagination={tableState.pagination}
 		onChange={tableState.onChange}
-		onRow={(record, rowIndex) => ({
-			onClick: event => {
-				navigate(`/instances/${record.id}/view`);
-			},
-		})}
+		onRow={record => rowNav(`/instances/${record.id}/view`)}
 	/>;
 }

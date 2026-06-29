@@ -53,7 +53,7 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 			open={open}
 			onOk={() => { createInstance().catch(notifyErrorHandler("Error creating instance")); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form}>
 				<Form.Item name="instanceName" label="Name">
