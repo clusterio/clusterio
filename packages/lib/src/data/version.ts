@@ -120,16 +120,30 @@ export function normaliseMajorMinorVersion(version: PartialVersion): MajorMinorV
 }
 
 /**
- * Matches valid factorio target versions, this is the same as partial but also accepts "latest".
+ * Matches a release channel name from the latest-releases API, such as
+ * "stable" or "experimental". Excludes "latest", which is handled separately.
+ * The set of channels is dynamic, so any lowercase identifier is accepted here
+ * and resolved against the live API when the instance starts.
+ */
+const releaseChannelRegExp = /^[a-z][a-z0-9-]*$/;
+
+export function isReleaseChannel(input: string): boolean {
+	return input !== "latest" && releaseChannelRegExp.test(input);
+}
+
+/**
+ * Matches valid factorio target versions: a partial version, "latest", or a
+ * release channel name (e.g. "stable" or "experimental").
  */
 export type TargetVersion = PartialVersion | "latest";
 export const TargetVersionSchema = Type.Union([
 	PartialVersionSchema,
 	Type.Literal("latest"),
+	Type.Unsafe<TargetVersion>(Type.String({ pattern: releaseChannelRegExp.source })),
 ]);
 
 export function isTargetVersion(input: string): input is TargetVersion {
-	return input === "latest" || partialVersionRegExp.test(input);
+	return input === "latest" || isReleaseChannel(input) || partialVersionRegExp.test(input);
 }
 
 /**

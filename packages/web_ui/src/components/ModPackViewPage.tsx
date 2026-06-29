@@ -1053,7 +1053,7 @@ function ExportButton(props: { modPack: lib.ModPack }) {
 			open={open}
 			onOk={close}
 			onCancel={close}
-			destroyOnClose
+			destroyOnHidden
 			footer={<Space>
 				<CopyButton content={exportString} />
 				<Button onClick={close}>Close</Button>

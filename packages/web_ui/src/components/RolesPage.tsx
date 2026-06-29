@@ -47,7 +47,7 @@ function CreateRoleButton() {
 			open={open}
 			onOk={() => { createRole().catch(notifyErrorHandler("Error creating role")); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form}>
 				<Form.Item name="roleName" label="Name">

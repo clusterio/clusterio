@@ -190,7 +190,11 @@ async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion
 		if (targetVersion === "latest" || directVersion === targetVersion || directVersion.startsWith(targetVersion)) {
 			return [path.join(factorioDir, "data"), directVersion];
 		}
-		throw new Error(`Unable to find Factorio version ${targetVersion}`);
+		throw new Error(
+			`Unable to find Factorio version ${targetVersion}: ${factorioDir} is a direct (single-version) ` +
+			`install of ${directVersion}. Use a versioned layout, where ${factorioDir} contains a subdirectory ` +
+			"per version, to run other versions or download them automatically."
+		);
 	}
 
 	// Otherwise assume it is a directory of multiple versions
@@ -953,6 +957,18 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	/**
+	 * Override the target version of Factorio to run
+	 *
+	 * Used to substitute a concrete version for a release channel target
+	 * (e.g. "stable" or "experimental") before {@link checkForUpdates} and
+	 * {@link init} run. Must be called before the server is initialized.
+	 */
+	setTargetVersion(version: lib.TargetVersion) {
+		this._check(["new"]);
+		this._targetVersion = version;
+	}
+
+	/**
 	 * Initialize class instance
 	 *
 	 * Must be called before instances of this class can be used.
@@ -987,8 +1003,20 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		if (!installedVersions.versions.has(latestVersion.version)) {
 			const v = latestVersion.version;
 			// Can't download if not linux or this is a direct install
-			if (installedVersions.direct || process.platform !== "linux") {
-				this._logger.info(`A newer version of factorio is available (${v}) but must be manually downloaded`);
+			if (installedVersions.direct) {
+				this._logger.info(
+					`A newer version of factorio is available (${v}) but cannot be downloaded automatically ` +
+					`because ${this._factorioDir} is a direct (single-version) Factorio install. Use a versioned ` +
+					`layout, where ${this._factorioDir} contains a subdirectory per version, to enable automatic ` +
+					"downloads."
+				);
+				return;
+			}
+			if (process.platform !== "linux") {
+				this._logger.info(
+					`A newer version of factorio is available (${v}) but must be manually downloaded ` +
+					"(automatic downloads are only supported on Linux)."
+				);
 				return;
 			}
 

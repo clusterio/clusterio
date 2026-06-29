@@ -278,7 +278,12 @@ export default class ModInfo {
 
 	static validate = libSchema.compile(this.jsonSchema as any);
 
-	static fromJSON(json: Static<typeof ModInfo.jsonSchema>) {
+	// Accepts the lenient info.json version fields (normalised below) plus the stored
+	// extras; the strict jsonSchema describes the serialised form produced by toJSON.
+	static fromJSON(json:
+		Static<typeof ModInfo.infoJsonSchema>
+		& Pick<Static<typeof ModInfo.jsonSchema>, "size" | "mtime_ms" | "sha1" | "updated_at_ms" | "is_deleted">
+	) {
 		const modInfo = new this();
 
 		// info.json fields

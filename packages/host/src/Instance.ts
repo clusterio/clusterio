@@ -642,6 +642,21 @@ end`.replace(/\r?\n/g, " ");
 		try {
 			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 			await this._loadStats();
+			// Resolve a release channel target (e.g. "stable") to a concrete
+			// version using the controller's cached latest-releases data, so the
+			// existing download/lookup logic can fetch and run it.
+			const targetVersion = this.config.get("factorio.version") as string;
+			if (lib.isReleaseChannel(targetVersion)) {
+				const releases = await this.sendTo("controller", new lib.LatestReleasesRequest());
+				const resolved = lib.resolveReleaseChannel(releases, targetVersion);
+				if (!resolved) {
+					throw new Error(
+						`Cannot resolve Factorio release channel '${targetVersion}': ` +
+						"latest-releases unavailable and no cached copy on the controller."
+					);
+				}
+				this.server.setTargetVersion(resolved);
+			}
 			await this.server.checkForUpdates(factorioVersions);
 			await this.server.init();
 		} catch (err) {

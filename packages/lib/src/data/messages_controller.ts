@@ -2,7 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { JsonString, StringEnum, StringKey, plainJson } from "./composites";
 import { levels } from "../logging";
 import { ControllerConfig, HostConfig } from "../config";
-import { ExternalFactorioVersionSchema } from "../external";
+import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external";
 
 export class ControllerStopRequest {
 	declare ["constructor"]: typeof ControllerStopRequest;
@@ -441,4 +441,26 @@ export class FactorioVersionsRequest {
 	}
 
 	static Response = plainJson(Type.Array(ExternalFactorioVersionSchema));
+}
+
+export class LatestReleasesRequest {
+	declare ["constructor"]: typeof LatestReleasesRequest;
+	static type = "request" as const;
+	static src = ["control", "instance"] as const;
+	static dst = "controller" as const;
+	static permission = "core.external.get_latest_releases" as const;
+
+	constructor(
+		public maxAgeMs: number = 5 * 60 * 1000, // Default 5 minutes
+	) {}
+
+	static jsonSchema = Type.Object({
+		"maxAgeMs": Type.Number(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.maxAgeMs);
+	}
+
+	static Response = plainJson(LatestReleasesSchema);
 }

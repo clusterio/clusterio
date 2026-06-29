@@ -72,6 +72,9 @@ export class Control extends lib.Link {
 	/** Cache for factorio versions to avoid repeat calls to the controller */
 	factorioVersions = new lib.ValueCache(this.requestFactorioVersions.bind(this));
 
+	/** Cache for the latest factorio release channels to avoid repeat calls to the controller */
+	latestReleases = new lib.ValueCache(this.requestLatestReleases.bind(this));
+
 	declare connector: ControlConnector;
 
 	constructor(
@@ -110,6 +113,10 @@ export class Control extends lib.Link {
 
 	requestFactorioVersions() {
 		return this.send(new lib.FactorioVersionsRequest());
+	}
+
+	requestLatestReleases() {
+		return this.send(new lib.LatestReleasesRequest());
 	}
 
 	async handleAccountUpdateEvent(event: lib.AccountUpdateEvent) {
