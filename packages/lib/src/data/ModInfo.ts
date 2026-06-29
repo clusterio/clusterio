@@ -11,7 +11,7 @@ import {
 	FullVersion, integerFullVersion,
 	integerPartialVersion,
 	GameVersionSchema, normaliseGameVersion, normaliseMajorMinorVersion,
-	MajorMinorVersion,
+	MajorMinorVersion, MajorMinorVersionSchema,
 	ModVersionEquality,
 } from "./version";
 
@@ -266,6 +266,9 @@ export default class ModInfo {
 
 	static jsonSchema = Type.Object({
 		...this.infoJsonSchema.properties,
+		// The stored value is always normalised to a strict major.minor (see fromJSON),
+		// unlike the lenient info.json schema above.
+		"factorio_version": Type.Optional(MajorMinorVersionSchema),
 		"size": Type.Optional(Type.Integer()),
 		"mtime_ms": Type.Optional(Type.Number()),
 		"sha1": Type.Optional(Type.String()),
