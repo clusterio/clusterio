@@ -27,7 +27,7 @@ export default function PluginsPage() {
 	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 	const tableState = useTableQueryState<PluginRow>({
-		namespace: "plugin", defaultSortKey: "name", pagination: false,
+		namespace: "plugin", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<PluginRow>(
 		plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"

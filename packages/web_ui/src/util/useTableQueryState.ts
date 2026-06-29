@@ -15,8 +15,8 @@ export interface TableQueryStateOptions {
 	defaultSortKey?: string;
 	/** Direction of the default sort. Default "ascend". */
 	defaultSortOrder?: SortOrder;
-	/** Pass an object to persist pagination; omit/false for `pagination={false}` tables. */
-	pagination?: false | { defaultPageSize?: number };
+	/** Pagination config to persist pagination; only `defaultPageSize` is read (omit for `pagination={false}`). */
+	pagination?: false | TablePaginationConfig;
 	/** Per-column-key codecs to persist a bundled filter value as separate readable params. */
 	filterCodecs?: Record<string, FilterCodec>;
 }
@@ -59,6 +59,8 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 
 	return {
 		onChange(pagination, tableFilters, sorter) {
+			// Only single-column sort is persisted; antd passes an array when several
+			// columns are sorted, so take the first (primary) sorter.
 			const single = Array.isArray(sorter) ? sorter[0] : sorter;
 			const order = single && single.order ? single.order : undefined;
 			const columnKey = order ? String(single.columnKey ?? single.field ?? "") : undefined;

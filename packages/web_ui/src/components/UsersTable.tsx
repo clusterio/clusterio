@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, Tag } from "antd";
+import { Table, Tag, type TablePaginationConfig } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -23,7 +23,7 @@ export interface UsersTableProps {
 	/** Show only players that are currently online, works with instanceId to show online of a particular instance */
 	onlyOnline?: boolean;
 	/** Ant Design pagination prop. Pass `false` to disable pagination. */
-	pagination?: false | object;
+	pagination?: false | TablePaginationConfig;
 	/** Ant Design size prop */
 	size?: "small" | "middle" | "large";
 }
@@ -36,12 +36,11 @@ export default function UsersTable(
 	const [roles, rolesSynced] = useRoles();
 	const [users, usersSynced] = useUsers();
 	const navigate = useNavigate();
-	const callerPagination = pagination && typeof pagination === "object" ? pagination : undefined;
-	const defaultPageSize = (callerPagination as { defaultPageSize?: number })?.defaultPageSize ?? 50;
 	const tableState = useTableQueryState<lib.UserDetails>({
 		namespace: "user",
 		defaultSortKey: "name",
-		pagination: pagination === false ? false : { defaultPageSize },
+		// Default to 50 per page when the caller does not specify a pagination config.
+		pagination: pagination === false ? false : (pagination ?? { defaultPageSize: 50 }),
 		filterCodecs: { name: userFilterCodec },
 	});
 
@@ -168,7 +167,8 @@ export default function UsersTable(
 			key: "lastSeen",
 			filterMultiple: false,
 			filters: durationFilters,
-			// Default to online-only when nothing for this column is in the URL yet.
+			// With the onlyOnline prop set, seed this column's filter to "online" until the
+			// URL provides one, so the table starts out showing only online players.
 			filteredValue: tableState.filteredValue("lastSeen") ?? (onlyOnline ? ["online"] : null),
 			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateLastSeen),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortLastSeen(a, b, instanceId, instanceId),
@@ -187,7 +187,7 @@ export default function UsersTable(
 		tablePagination = false;
 	} else {
 		// Controlled current/pageSize from the URL win over the caller's display props.
-		tablePagination = { ...displayPagination, ...callerPagination, ...(tableState.pagination || {}) };
+		tablePagination = { ...displayPagination, ...pagination, ...(tableState.pagination || {}) };
 	}
 
 	return (

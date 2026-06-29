@@ -511,10 +511,10 @@ export default function ModsPage() {
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
 	const modPackTable = useTableQueryState<lib.ModPack>({
-		namespace: "modPack", defaultSortKey: "name", pagination: false,
+		namespace: "modPack", defaultSortKey: "name",
 	});
 	const modTable = useTableQueryState<lib.ModInfo>({
-		namespace: "mod", defaultSortKey: "title", pagination: false,
+		namespace: "mod", defaultSortKey: "title",
 	});
 
 	function actions(mod: lib.ModInfo) {

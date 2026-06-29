@@ -40,7 +40,7 @@ export default function UserViewPage() {
 	let [roles] = useRoles();
 	let [form] = Form.useForm();
 	const statsTable = useTableQueryState<[number, lib.PlayerStats]>({
-		namespace: "stats", defaultSortKey: "instance", pagination: false,
+		namespace: "stats", defaultSortKey: "instance",
 	});
 	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
 	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);

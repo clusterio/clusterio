@@ -206,7 +206,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
 	const tableState = useTableQueryState<lib.SaveDetails>({
-		namespace: "save", defaultSortKey: "mtimeMs", defaultSortOrder: "descend", pagination: false,
+		namespace: "save", defaultSortKey: "mtimeMs", defaultSortOrder: "descend",
 	});
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);

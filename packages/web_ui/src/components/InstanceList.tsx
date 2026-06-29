@@ -31,7 +31,7 @@ export default function InstanceList(props: InstanceListProps) {
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
 	const tableState = useTableQueryState<lib.InstanceDetails>({
-		namespace: "instance", defaultSortKey: "name", pagination: false,
+		namespace: "instance", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<lib.InstanceDetails>(instance => instance.name, "Search instances");
 

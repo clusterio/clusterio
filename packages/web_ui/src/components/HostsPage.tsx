@@ -208,7 +208,7 @@ export default function HostsPage() {
 	const [showNumbers, setShowNumbers] = useState(false);
 	const [showCpuModel, setShowCpuModel] = useState(false);
 	const tableState = useTableQueryState<lib.HostDetails>({
-		namespace: "host", defaultSortKey: "name", pagination: false,
+		namespace: "host", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<lib.HostDetails>(host => host.name, "Search hosts");
 
