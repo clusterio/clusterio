@@ -31,6 +31,39 @@ export function isVersionEquality(input: string): input is VersionEquality {
 export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0", "2.1"] as const;
 
 /**
+ * Matches a version string the same lenient way the game reads it: each number
+ * may be preceded by whitespace, the major and minor are required, the patch is
+ * optional, and any trailing content is ignored. The pattern is intentionally
+ * not anchored at the end.
+ */
+const gameVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
+declare const gameVersionSymbol: unique symbol;
+export type GameVersion = string & { [gameVersionSymbol]: void };
+export const GameVersionSchema = Type.Unsafe<GameVersion>(
+	Type.String({ pattern: gameVersionRegExp.source })
+);
+
+export function isGameVersion(input: string): input is GameVersion {
+	return gameVersionRegExp.test(input);
+}
+
+/**
+ * Normalise a version string the same lenient way the game reads it. Numbers
+ * are read as integers, so leading whitespace and zeros are dropped and any
+ * content after the patch is ignored.
+ *
+ * @returns The normalised full version, or undefined if no major and minor
+ *     could be read.
+ */
+export function normaliseGameVersion(input: string): FullVersion | undefined {
+	const match = gameVersionRegExp.exec(input);
+	if (match === null) {
+		return undefined;
+	}
+	return `${Number(match[1])}.${Number(match[2])}.${Number(match[3] ?? "0")}` as FullVersion;
+}
+
+/**
  * Matches valid mod versions, where all parts are specified.
  */
 const fullVersionRegExp = /^\d+\.\d+\.\d+$/;
@@ -55,28 +88,30 @@ export function normaliseFullVersion(version: PartialVersion) {
 }
 
 /**
- * Matches a version string the same lenient way the game reads it: each number
- * may be preceded by whitespace, the major and minor are required, the patch is
- * optional, and any trailing content is ignored. The pattern is intentionally
- * not anchored at the end.
+ * Matches a major.minor version, as used by the mod portal's version filter.
  */
-const gameVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
-export const GameVersionSchema = Type.String({ pattern: gameVersionRegExp.source });
+const majorMinorVersionRegExp = /^\d+\.\d+$/;
+export type MajorMinorVersion = `${number}.${number}`;
+export const MajorMinorVersionSchema = Type.Unsafe<MajorMinorVersion>(
+	Type.String({ pattern: majorMinorVersionRegExp.source })
+);
+
+export function isMajorMinorVersion(input: string): input is MajorMinorVersion {
+	return majorMinorVersionRegExp.test(input);
+}
+
+export function integerMajorMinorVersion(version: MajorMinorVersion) {
+	const [major, minor] = version.split(".").map(n => Number.parseInt(n, 10));
+	// Can't use bitwise here because this is 48-bits. sub is always 0 so is omitted.
+	return major * 0x100000000 + minor * 0x10000 as IntegerVersion;
+}
 
 /**
- * Normalise a version string the same lenient way the game reads it. Numbers
- * are read as integers, so leading whitespace and zeros are dropped and any
- * content after the patch is ignored.
- *
- * @returns The normalised full version, or undefined if no major and minor
- *     could be read.
+ * Reduce a version to its major.minor, as used by the mod portal's version filter.
  */
-export function normaliseGameVersion(input: string): FullVersion | undefined {
-	const match = gameVersionRegExp.exec(input);
-	if (match === null) {
-		return undefined;
-	}
-	return `${Number(match[1])}.${Number(match[2])}.${Number(match[3] ?? "0")}` as FullVersion;
+export function normaliseMajorMinorVersion(version: PartialVersion): MajorMinorVersion {
+	const [major, minor] = version.split(".");
+	return `${major}.${minor}` as MajorMinorVersion;
 }
 
 /**
@@ -99,32 +134,19 @@ export function integerPartialVersion(version: PartialVersion) {
 }
 
 /**
- * Matches a major.minor version, as used by the mod portal's version filter.
- */
-const majorMinorVersionRegExp = /^\d+\.\d+$/;
-export type MajorMinorVersion = `${number}.${number}`;
-
-export function isMajorMinorVersion(input: string): input is MajorMinorVersion {
-	return majorMinorVersionRegExp.test(input);
-}
-
-/**
- * Reduce a version to its major.minor, as used by the mod portal's version filter.
- */
-export function normaliseMajorMinorVersion(version: PartialVersion): MajorMinorVersion {
-	const [major, minor] = version.split(".");
-	return `${major}.${minor}` as MajorMinorVersion;
-}
-
-/**
  * Matches a release channel name from the latest-releases API, such as
  * "stable" or "experimental". Excludes "latest", which is handled separately.
  * The set of channels is dynamic, so any lowercase identifier is accepted here
  * and resolved against the live API when the instance starts.
  */
 const releaseChannelRegExp = /^[a-z][a-z0-9-]*$/;
+declare const releaseChannelSymbol: unique symbol;
+export type ReleaseChannel = string & { [releaseChannelSymbol]: void };
+export const ReleaseChannelSchema = Type.Unsafe<ReleaseChannel>(
+	Type.String({ pattern: releaseChannelRegExp.source })
+);
 
-export function isReleaseChannel(input: string): boolean {
+export function isReleaseChannel(input: string): input is ReleaseChannel {
 	return input !== "latest" && releaseChannelRegExp.test(input);
 }
 
@@ -132,15 +154,15 @@ export function isReleaseChannel(input: string): boolean {
  * Matches valid factorio target versions: a partial version, "latest", or a
  * release channel name (e.g. "stable" or "experimental").
  */
-export type TargetVersion = PartialVersion | "latest";
+export type TargetVersion = PartialVersion | ReleaseChannel | "latest";
 export const TargetVersionSchema = Type.Union([
 	PartialVersionSchema,
+	ReleaseChannelSchema,
 	Type.Literal("latest"),
-	Type.Unsafe<TargetVersion>(Type.String({ pattern: releaseChannelRegExp.source })),
 ]);
 
 export function isTargetVersion(input: string): input is TargetVersion {
-	return input === "latest" || isReleaseChannel(input) || partialVersionRegExp.test(input);
+	return input === "latest" || releaseChannelRegExp.test(input) || partialVersionRegExp.test(input);
 }
 
 /**

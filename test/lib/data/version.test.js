@@ -58,6 +58,14 @@ describe("lib/data/version", function() {
 			}
 		});
 	});
+	describe("integerMajorMinorVersion()", function() {
+		it("should sort versions lexicographically", function() {
+			let unsortedVersions = ["1.0", "1.1", "0.1", "3.0", "1.2", "0.3", "2.1"];
+			let sortedVersions = ["0.1", "0.3", "1.0", "1.1", "1.2", "2.1", "3.0"];
+			unsortedVersions.sort((a, b) => lib.integerMajorMinorVersion(a) - lib.integerMajorMinorVersion(b));
+			assert.deepEqual(unsortedVersions, sortedVersions);
+		});
+	});
 	describe("isFullVersion()", function() {
 		it("should correctly validate input strings", function() {
 			const valid = ["0.12.0", "0.13.1", "0.17.99", "00.000.0001", "1.1.110"];

@@ -77,7 +77,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 	const [modResultPageSize, setModResultPageSize] = useState<number>(10);
 	const [modResultCount, setModResultCount] = useState<number>(2);
 	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string, number>>(new Map());
-	const [factorioVersion, setFactorioVersion] = useState<lib.PartialVersion | null>(null);
+	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion | null>(null);
 
 	// Get a valid factorio version
 	useEffect(() => {
@@ -271,7 +271,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	const [open, setOpen] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 	const [loading, setLoading] = useState<boolean>(false);
-	const [factorioVersion, setFactorioVersion] = useState<lib.PartialVersion | null>(null);
+	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion | null>(null);
 
 	const [mods, setMods] = useState<lib.ModInfo[]>([]); // All resolved mods and dependencies
 	const [missing, setMissing] = useState<lib.ModInfo[]>([]); // Missing mods and dependencies, excluding builtin
@@ -578,7 +578,6 @@ function ModsTable(props: ModsTableProps) {
 			mod.warning = mod.info.checkDependencySatisfaction(mods.filter(m => m.enabled));
 			try {
 				const packFactorioVersion = lib.normaliseMajorMinorVersion(props.modPack.factorioVersion);
-				// mod.info.factorioVersion is already a MajorMinorVersion, no need to re-reduce it.
 				const modFactorioVersion = mod.info.factorioVersion;
 				if (packFactorioVersion !== modFactorioVersion) {
 					mod.warning = "wrong_factorio_version";

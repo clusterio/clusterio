@@ -9,11 +9,11 @@ import { ModRecord } from "./ModPack";
 
 import {
 	FullVersion, integerFullVersion,
-	integerPartialVersion,
-	GameVersionSchema, normaliseGameVersion, normaliseMajorMinorVersion,
-	MajorMinorVersion,
+	MajorMinorVersion, normaliseMajorMinorVersion, integerMajorMinorVersion,
+	GameVersion, GameVersionSchema, normaliseGameVersion,
 	ModVersionEquality,
 } from "./version";
+
 
 type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required";
 
@@ -132,13 +132,18 @@ export default class ModInfo {
 	 * Version of the mod.
 	 * Sourced from info.json.
 	 */
-	version = "0.0.0" as FullVersion;
+	version = "0.0.0" as GameVersion;
+
+	/**
+	 * Type safe accessor for this.version
+	 */
+	safeVersion = "0.0.0" as FullVersion;
 
 	/**
 	 * Integer representation of the version
 	 */
 	get integerVersion() {
-		return integerFullVersion(this.version);
+		return integerFullVersion(this.safeVersion);
 	}
 
 	/**
@@ -175,14 +180,19 @@ export default class ModInfo {
 	 * Major version of Factorio this mod supports.
 	 * Sourced from info.json.
 	 */
-	factorioVersion = "0.12" as MajorMinorVersion;
+	factorioVersion = "0.12" as GameVersion;
+
+	/**
+	 * Type safe accessor for this.factorioVersion
+	 */
+	safeFactorioVersion = "0.0" as MajorMinorVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		return integerPartialVersion(this.factorioVersion);
+		return integerMajorMinorVersion(this.safeFactorioVersion);
 	}
 
 	/**
@@ -221,7 +231,7 @@ export default class ModInfo {
 	 * @param version - Mod's version
 	 * @returns string containing {name}_{version}.zip
 	 */
-	static filename(name: string, version: FullVersion) {
+	static filename(name: string, version: GameVersion) {
 		return `${name}_${version}.zip`;
 	}
 
@@ -285,7 +295,8 @@ export default class ModInfo {
 			if (version === undefined) {
 				throw new Error(`Invalid mod version "${json.version}"`);
 			}
-			modInfo.version = version;
+			modInfo.version = json.version;
+			modInfo.safeVersion = version;
 		}
 		if (json.title) { modInfo.title = json.title; }
 		if (json.author) { modInfo.author = json.author; }
@@ -297,7 +308,8 @@ export default class ModInfo {
 			if (factorioVersion === undefined) {
 				throw new Error(`Invalid factorio_version "${json.factorio_version}"`);
 			}
-			modInfo.factorioVersion = normaliseMajorMinorVersion(factorioVersion);
+			modInfo.factorioVersion = json.factorio_version;
+			modInfo.safeFactorioVersion = normaliseMajorMinorVersion(factorioVersion);
 		}
 
 		// Parse the dependencies

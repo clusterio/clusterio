@@ -5,7 +5,7 @@ import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { downloadFile, safeOutputFile } from "./file_ops";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
-import { ModInfo, ModPack, FullVersion, PartialVersion, normaliseMajorMinorVersion, ModVersionEquality } from "./data";
+import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, GameVersion } from "./data";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -44,7 +44,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		super();
 	}
 
-	getMod(name: string, version: FullVersion, sha1?: string) {
+	getMod(name: string, version: GameVersion, sha1?: string) {
 		const mod = this.files.get(ModInfo.filename(name, version));
 		if (!mod || sha1 && sha1 !== mod.sha1) {
 			return undefined;
@@ -86,11 +86,11 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		this.emit("change", modInfo);
 	}
 
-	async loadMod(name: string, version: FullVersion) {
+	async loadMod(name: string, version: GameVersion) {
 		return await this.loadFile(ModInfo.filename(name, version));
 	}
 
-	async deleteMod(name: string, version: FullVersion) {
+	async deleteMod(name: string, version: GameVersion) {
 		return await this.deleteFile(ModInfo.filename(name, version));
 	}
 
@@ -198,11 +198,11 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	private async downloadModsChunk(
 		mods: ModNameVersionPair[],
 		username: string, token: string,
-		factorioVersion: PartialVersion,
+		factorioVersion: MajorMinorVersion,
 	) {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
-		url.searchParams.set("version", normaliseMajorMinorVersion(factorioVersion));
+		url.searchParams.set("version", factorioVersion);
 		const response = await fetch(url, {
 			method: "POST",
 			body: new URLSearchParams({ namelist: mods.map(m => m.name).join(",") }),
@@ -247,7 +247,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	 * @param factorioVersion - Factorio version to filter for (mods are not guaranteed to work between Middle versions)
 	 */
 	async downloadMods(
-		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: PartialVersion = "1.1"
+		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: MajorMinorVersion = "1.1"
 	) {
 		const chunkSize = 500;
 		const futures: Promise<void>[] = [];

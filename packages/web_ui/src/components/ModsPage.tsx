@@ -147,7 +147,7 @@ function SearchModsButton() {
 	const [open, setOpen] = useState(false);
 	const [form] = Form.useForm();
 	const [searchText, setSearchText] = useState("");
-	const [factorioVersion, setFactorioVersion] = useState<lib.PartialVersion>("2.0");
+	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion>("2.0");
 
 	// State for all mods fetched from backend
 	const [allMods, setAllMods] = useState<ModPortalModType[]>([]);
@@ -164,8 +164,8 @@ function SearchModsButton() {
 	const handleControllerDownload = (
 		modName: string,
 		modTitle: string | undefined,
-		modVersion: lib.FullVersion | undefined,
-		portalFactorioVersion: lib.PartialVersion,
+		modVersion: lib.GameVersion | undefined,
+		portalFactorioVersion: lib.MajorMinorVersion,
 	) => {
 		if (modVersion) {
 			control.send(
@@ -271,7 +271,7 @@ function SearchModsButton() {
 	// Update search text and factorio version from form
 	const handleSearch = (changedValues: any, allValues: any) => {
 		const nameValue = allValues.name;
-		const versionValue = allValues.factorioVersion as lib.PartialVersion | undefined;
+		const versionValue = allValues.factorioVersion as lib.MajorMinorVersion | undefined;
 
 		// Only trigger state updates if values actually changed
 		if (nameValue !== searchText) {
