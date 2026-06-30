@@ -174,18 +174,25 @@ body {
 	height: 1px;
 }
 
+/* Scroll headroom above the output so short output sits at the bottom; it is
+   scroll content, not box padding, so it does not block dragging smaller. */
+.instance-console code .console-spacer {
+	height: 100%;
+}
+
 .instance-console code {
 	display: block;
 	margin: 0;
 	background: #000;
 	border-color: #252525;
+	/* Drag-resizable (the native handle needs the scroll overflow); height is set
+	   imperatively in LogConsole, border-box keeps padding out of offsetHeight. */
+	box-sizing: border-box;
 	height: 300px;
+	min-height: 100px;
+	resize: vertical;
 	overflow-y: scroll;
 	white-space: pre-wrap;
-
-	/* Make sure there's at least one pixel of scroll space, this */
-	/* is necessary for the view to stick on the scroll anchor. */
-	padding-top: 300px;
 }
 
 .instance-console .factorio-time {

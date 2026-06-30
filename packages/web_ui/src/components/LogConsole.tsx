@@ -4,9 +4,13 @@ import { Select, Typography } from "antd";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
+import useLocalStorage from "../util/useLocalStorage";
 import ControlContext from "./ControlContext";
 
 const { Paragraph } = Typography;
+
+const consoleHeightKey = "instance-console-height";
+const defaultConsoleHeight = 300;
 
 type Parsed = {
 	format: string;
@@ -99,6 +103,36 @@ export default function LogConsole(props: LogConsoleProps) {
 	let anchor = useRef<any>();
 	let [pastLines, setPastLines] = useState([<span key={0}>{"Loading past entries..."}<br/></span>]);
 	let [lines, setLines] = useState<ReactElement[]>([]);
+	const [consoleHeight, setConsoleHeight] = useLocalStorage(consoleHeightKey, defaultConsoleHeight);
+	const consoleHeightRef = useRef(consoleHeight);
+	consoleHeightRef.current = consoleHeight;
+
+	// The console is resized with the browser's native resize handle, which owns
+	// the element's inline height. Driving the height from React would rewrite
+	// that inline style on every re-render and fight the drag (locking the size),
+	// so the height is only read here (on mount) and persisted (on resize), never
+	// written back through React. The scroll container is the <code> element
+	// wrapping the anchor.
+	useEffect(() => {
+		const element = anchor.current?.parentElement as HTMLElement | undefined;
+		if (!element) {
+			return undefined;
+		}
+		element.style.height = `${consoleHeightRef.current}px`;
+
+		if (typeof ResizeObserver === "undefined") {
+			return undefined;
+		}
+		const observer = new ResizeObserver(() => {
+			const next = Math.round(element.offsetHeight);
+			if (next && next !== consoleHeightRef.current) {
+				consoleHeightRef.current = next;
+				setConsoleHeight(next);
+			}
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
 
 	useEffect(() => {
 		let logFilter = {
@@ -164,6 +198,10 @@ export default function LogConsole(props: LogConsoleProps) {
 
 	return <>
 		<Paragraph code className="instance-console">
+			{/* Scrollable spacer (one console-height tall) that keeps short output
+			    pinned to the bottom and leaves room to scroll up. Unlike a
+			    padding-top it is scroll content, so it does not constrain resize. */}
+			<div className="console-spacer" key="spacer" />
 			{pastLines}
 			{lines}
 			<div className="scroll-anchor" key="anchor" ref={anchor} />
