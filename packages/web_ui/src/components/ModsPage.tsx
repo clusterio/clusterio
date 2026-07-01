@@ -164,13 +164,16 @@ function SearchModsButton() {
 	const handleControllerDownload = (
 		modName: string,
 		modTitle: string | undefined,
-		modVersion: lib.GameVersion | undefined,
+		modVersion: lib.SourceVersion | undefined,
 		portalFactorioVersion: lib.MajorMinorVersion,
 	) => {
 		if (modVersion) {
 			control.send(
 				new lib.ModPortalDownloadRequest(
-					[{ name: modName, version: new lib.ModVersionEquality("=", lib.normaliseGameVersion(modVersion))}],
+					[{
+						name: modName,
+						version: new lib.ModVersionEquality("=", lib.normaliseSourceVersion(modVersion)),
+					}],
 					portalFactorioVersion
 				)
 			).then(() => {

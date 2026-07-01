@@ -17,25 +17,25 @@ describe("lib/data/version", function() {
 			}
 		});
 	});
-	describe("normaliseGameVersion()", function() {
+	describe("normaliseSourceVersion()", function() {
 		it("should normalise lenient version strings the way the game reads them", function() {
 			// Major and minor required, patch optional and defaulting to 0.
-			assert.equal(lib.normaliseGameVersion("1.1"), "1.1.0");
-			assert.equal(lib.normaliseGameVersion("1.1.50"), "1.1.50");
-			assert.equal(lib.normaliseGameVersion("0.18"), "0.18.0");
+			assert.equal(lib.normaliseSourceVersion("1.1"), "1.1.0");
+			assert.equal(lib.normaliseSourceVersion("1.1.50"), "1.1.50");
+			assert.equal(lib.normaliseSourceVersion("0.18"), "0.18.0");
 			// Leading whitespace and zeros are dropped.
-			assert.equal(lib.normaliseGameVersion("  1.1"), "1.1.0");
-			assert.equal(lib.normaliseGameVersion("01.02.03"), "1.2.3");
-			assert.equal(lib.normaliseGameVersion("1. 1. 50"), "1.1.50");
+			assert.equal(lib.normaliseSourceVersion("  1.1"), "1.1.0");
+			assert.equal(lib.normaliseSourceVersion("01.02.03"), "1.2.3");
+			assert.equal(lib.normaliseSourceVersion("1. 1. 50"), "1.1.50");
 			// Anything after the patch (or a non-numeric patch) is ignored.
-			assert.equal(lib.normaliseGameVersion("1.1.50-beta"), "1.1.50");
-			assert.equal(lib.normaliseGameVersion("1.1.x"), "1.1.0");
-			assert.equal(lib.normaliseGameVersion("1.1.50.60"), "1.1.50");
+			assert.equal(lib.normaliseSourceVersion("1.1.50-beta"), "1.1.50");
+			assert.equal(lib.normaliseSourceVersion("1.1.x"), "1.1.0");
+			assert.equal(lib.normaliseSourceVersion("1.1.50.60"), "1.1.50");
 		});
 		it("should return undefined when no major.minor can be read", function() {
 			const invalid = ["1", "", "latest", "abc", ".1.1", "x.y"];
 			for (const test of invalid) {
-				assert.equal(lib.normaliseGameVersion(test), undefined, test);
+				assert.equal(lib.normaliseSourceVersion(test), undefined, test);
 			}
 		});
 	});

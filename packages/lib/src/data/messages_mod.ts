@@ -5,7 +5,7 @@ import { JsonString, jsonArray } from "./composites";
 
 import {
 	MajorMinorVersion, MajorMinorVersionSchema,	normaliseMajorMinorVersion,
-	GameVersion, GameVersionSchema,
+	SourceVersion, SourceVersionSchema,
 	ModVersionEquality,
 } from "./version";
 
@@ -119,13 +119,13 @@ export class ModGetRequest {
 
 	constructor(
 		public name: string,
-		public version: GameVersion,
+		public version: SourceVersion,
 		public sha1?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": GameVersionSchema,
+		"version": SourceVersionSchema,
 		"sha1": Type.Optional(Type.String()),
 	});
 
@@ -205,9 +205,9 @@ export class ModSearchRequest {
 
 // Define the structure for the latest release info from the portal
 export const ModPortalReleaseSchema = Type.Object({
-	version: GameVersionSchema,
+	version: SourceVersionSchema,
 	// Match the structure from ModStore's ModRelease/ModDetails
-	info_json: Type.Object({ factorio_version: GameVersionSchema }),
+	info_json: Type.Object({ factorio_version: SourceVersionSchema }),
 	released_at: Type.String(), // ISO 8601 date string
 	download_url: Type.String(),
 	file_name: Type.String(),
@@ -276,13 +276,13 @@ export class ModDownloadRequest {
 
 	constructor(
 		public name: string,
-		public version: GameVersion,
+		public version: SourceVersion,
 		public sha1?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": GameVersionSchema,
+		"version": SourceVersionSchema,
 		"sha1": Type.Optional(Type.String()),
 	});
 
@@ -302,12 +302,12 @@ export class ModDeleteRequest {
 
 	constructor(
 		public name: string,
-		public version: GameVersion,
+		public version: SourceVersion,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": GameVersionSchema,
+		"version": SourceVersionSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {

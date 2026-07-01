@@ -766,7 +766,7 @@ export default class Controller {
 				// migrate: 2.0.0-alpha.22 - old buildins used X.Y rather than X.Y.Z
 				// All other versions are kept verbatim so they still match the mod's file name.
 				if (lib.isPartialVersion(mod.version)) {
-					mod.version = lib.normaliseFullVersion(mod.version) as lib.GameVersion;
+					mod.version = lib.normaliseFullVersion(mod.version) as lib.SourceVersion;
 				}
 			}
 			return json;

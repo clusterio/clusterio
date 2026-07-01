@@ -36,20 +36,24 @@ export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0
  * optional, and any trailing content is ignored. The pattern is intentionally
  * not anchored at the end.
  */
-const gameVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
+const sourceVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
 
 /**
  * A raw, un-normalised version string exactly as the game reads it, such as a
  * mod's version taken from info.json or a mod file name.
  */
-declare const gameVersionSymbol: unique symbol;
-export type GameVersion = string & { [gameVersionSymbol]: void };
-export const GameVersionSchema = Type.Unsafe<GameVersion>(
-	Type.String({ pattern: gameVersionRegExp.source })
+declare const sourceVersionSymbol: unique symbol;
+export type SourceVersion = string & { [sourceVersionSymbol]: void };
+export const SourceVersionSchema = Type.Unsafe<SourceVersion>(
+	Type.String({ pattern: sourceVersionRegExp.source })
 );
 
-export function isGameVersion(input: string): input is GameVersion {
-	return gameVersionRegExp.test(input);
+export function isSourceVersion(input: string): input is SourceVersion {
+	return sourceVersionRegExp.test(input);
+}
+
+export function integerSourceVersion(version: SourceVersion) {
+	return integerFullVersion(normaliseSourceVersion(version));
 }
 
 /**
@@ -60,19 +64,15 @@ export function isGameVersion(input: string): input is GameVersion {
  * @returns The normalised full version, or undefined if no major and minor
  *     could be read.
  */
-export function normaliseGameVersion(input: GameVersion): FullVersion;
-export function normaliseGameVersion(input: string): FullVersion | undefined;
+export function normaliseSourceVersion(input: SourceVersion): FullVersion;
+export function normaliseSourceVersion(input: string): FullVersion | undefined;
 
-export function normaliseGameVersion(input: string | GameVersion): FullVersion | undefined {
-	const match = gameVersionRegExp.exec(input);
+export function normaliseSourceVersion(input: string | SourceVersion): FullVersion | undefined {
+	const match = sourceVersionRegExp.exec(input);
 	if (match === null) {
 		return undefined;
 	}
 	return `${Number(match[1])}.${Number(match[2])}.${Number(match[3] ?? "0")}` as FullVersion;
-}
-
-export function integerGameVersion(version: GameVersion) {
-	return integerFullVersion(normaliseGameVersion(version));
 }
 
 /**
@@ -213,8 +213,8 @@ export class ModVersionEquality {
 		}
 	}
 
-	testVersion(version: GameVersion) {
-		return this.testIntegerVersion(integerGameVersion(version));
+	testVersion(version: SourceVersion) {
+		return this.testIntegerVersion(integerSourceVersion(version));
 	}
 
 	toString() {
@@ -276,11 +276,11 @@ export class ModVersionRange {
 		return this.minVersion.testIntegerVersion(other) && this.maxVersion.testIntegerVersion(other);
 	}
 
-	testVersion(version: PartialVersion | GameVersion) {
+	testVersion(version: PartialVersion | SourceVersion) {
 		if (isPartialVersion(version)) {
 			return this.testIntegerVersion(integerPartialVersion(version));
 		}
-		return this.testIntegerVersion(integerGameVersion(version));
+		return this.testIntegerVersion(integerSourceVersion(version));
 	}
 
 	combineVersion(other: ModVersionEquality) {

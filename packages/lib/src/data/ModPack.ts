@@ -12,7 +12,7 @@ import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
 
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	GameVersion, GameVersionSchema, normaliseFullVersion,
+	SourceVersion, SourceVersionSchema, normaliseFullVersion,
 } from "./version";
 
 
@@ -47,7 +47,7 @@ export interface ModRecord {
 	/** if mod is to be loaded. */
 	enabled: boolean,
 	/** version of the mod, verbatim as it appears in the mod's file name. */
-	version: GameVersion,
+	version: SourceVersion,
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
@@ -61,7 +61,7 @@ export interface ModRecord {
 const ModRecordJsonSchema = Type.Object({
 	"name": Type.String(),
 	"enabled": Type.Boolean(),
-	"version": GameVersionSchema,
+	"version": SourceVersionSchema,
 	"sha1": Type.Optional(Type.String()),
 });
 
@@ -434,7 +434,7 @@ export default class ModPack {
 	 * @return Built in mods for the given version
 	 */
 	static getBuiltinMods(factorioVersion: PartialVersion) {
-		const version = normaliseFullVersion(factorioVersion) as GameVersion;
+		const version = normaliseFullVersion(factorioVersion) as SourceVersion;
 		const integerVersion = integerPartialVersion(factorioVersion);
 		let defaultMods: ModRecord[] = [
 			// "core" not included because core cannot be disabled

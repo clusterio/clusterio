@@ -5,7 +5,7 @@ import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { downloadFile, safeOutputFile } from "./file_ops";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
-import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, GameVersion } from "./data";
+import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, SourceVersion } from "./data";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -44,7 +44,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		super();
 	}
 
-	getMod(name: string, version: GameVersion, sha1?: string) {
+	getMod(name: string, version: SourceVersion, sha1?: string) {
 		const mod = this.files.get(ModInfo.filename(name, version));
 		if (!mod || sha1 && sha1 !== mod.sha1) {
 			return undefined;
@@ -86,11 +86,11 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		this.emit("change", modInfo);
 	}
 
-	async loadMod(name: string, version: GameVersion) {
+	async loadMod(name: string, version: SourceVersion) {
 		return await this.loadFile(ModInfo.filename(name, version));
 	}
 
-	async deleteMod(name: string, version: GameVersion) {
+	async deleteMod(name: string, version: SourceVersion) {
 		return await this.deleteFile(ModInfo.filename(name, version));
 	}
 
