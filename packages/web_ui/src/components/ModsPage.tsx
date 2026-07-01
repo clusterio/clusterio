@@ -18,6 +18,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
 import useRowNavigation from "../util/useRowNavigation";
 import Link from "./Link";
 import ModDetails from "./ModDetails";
@@ -517,6 +518,8 @@ export default function ModsPage() {
 	const modTable = useTableQueryState<lib.ModInfo>({
 		namespace: "mod", defaultSortKey: "title",
 	});
+	const modPackNameSearch = useColumnSearch<lib.ModPack>(modPack => modPack.name, "Search mod packs");
+	const modNameSearch = useColumnSearch<lib.ModInfo>(mod => mod.title, "Search mods");
 	const rowNav = useRowNavigation();
 
 	function actions(mod: lib.ModInfo) {
@@ -585,6 +588,7 @@ export default function ModsPage() {
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
 					sortOrder: modPackTable.sortOrder("name"),
+					filteredValue: modPackTable.filteredValue("name"),
 					className: "table-link-cell",
 					render: (_, modPack) => <Link
 						to={`/mods/mod-packs/${modPack.id}/view`}
@@ -592,6 +596,7 @@ export default function ModsPage() {
 					>
 						{modPack.name}
 					</Link>,
+					...modPackNameSearch,
 				},
 				{
 					title: "Factorio Version",
@@ -638,6 +643,8 @@ export default function ModsPage() {
 							strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
 						),
 						sortOrder: modTable.sortOrder("title"),
+						filteredValue: modTable.filteredValue("title"),
+						...modNameSearch,
 					},
 					{
 						title: "Version",
