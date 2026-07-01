@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data";
+import { Address, MessageRequest, IUser, JsonBoolean, StringEnum, AccountDetails } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
 import { RequestError } from "./errors";
 import { logger } from "./logging";
@@ -14,25 +14,27 @@ export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => v
  * When isEmpty() is true, no strings match this filter.
  * Otherwise, literal string matching is performed against a set.
  */
-export class SubscriptionFilters {
+export class SubscriptionFilters extends Set<string> {
 	private constructor(
 		private _all: boolean,
-		private _filters: Set<string>,
-	) {}
+		_filters: Iterable<string> = [],
+	) {
+		super(_filters);
+	}
 
 	static jsonSchema = Type.Array(Type.String());
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(false, new Set(json));
+		return new this(false, json);
 	}
 
 	toJSON() {
-		return [...this._filters];
+		return [...this];
 	}
 
 	/** Creates a subscription filter accepting all strings */
 	static all() {
-		return new this(true, new Set());
+		return new this(true);
 	}
 
 	isAll() {
@@ -41,11 +43,11 @@ export class SubscriptionFilters {
 
 	/** Creates a subscription filter rejecting all strings */
 	static empty() {
-		return new this(false, new Set());
+		return new this(false);
 	}
 
 	isEmpty() {
-		return !this._all && this._filters.size === 0;
+		return !this._all && this.size === 0;
 	}
 
 	/**
@@ -67,20 +69,20 @@ export class SubscriptionFilters {
 		if (this._all) {
 			return "[SubscriptionFilters All]";
 		}
-		if (this._filters.size === 0) {
+		if (this.size === 0) {
 			return "[SubscriptionFilters Empty]";
 		}
-		return `[SubscriptionFilters Set<${this._filters.size}>]`;
+		return `[SubscriptionFilters Set<${this.size}>]`;
 	}
 
 	/** Returns true if this filter accepts the given string */
 	accepts(value: string) {
-		return this._all || this._filters.has(value);
+		return this._all || this.has(value);
 	}
 
 	/** Returns true if this filter extends the other */
 	extends(other: this) {
-		return this._all || (!other._all && [...other._filters.values()].every(value => this._filters.has(value)));
+		return this._all || (!other._all && [...other.values()].every(value => this.has(value)));
 	}
 
 	/** Returns true if there is overlap between two filters */
@@ -91,8 +93,8 @@ export class SubscriptionFilters {
 		if (other._all) {
 			return !this.isEmpty();
 		}
-		for (const filter of other._filters) {
-			if (this._filters.has(filter)) {
+		for (const filter of other) {
+			if (this.has(filter)) {
 				return true;
 			}
 		}
@@ -106,11 +108,11 @@ export class SubscriptionFilters {
 		}
 		if (other._all) {
 			this._all = true;
-			this._filters.clear();
+			this.clear();
 			return;
 		}
-		for (const filter of other._filters) {
-			this._filters.add(filter);
+		for (const filter of other) {
+			this.add(filter);
 		}
 	}
 
@@ -122,14 +124,14 @@ export class SubscriptionFilters {
 	subtract(other: this) {
 		if (other._all) {
 			this._all = false;
-			this._filters.clear();
+			this.clear();
 			return;
 		}
 		if (this._all) {
 			return; // Cannot subtract from all
 		}
-		for (const filter of other._filters) {
-			this._filters.delete(filter);
+		for (const filter of other) {
+			this.delete(filter);
 		}
 	}
 }
@@ -406,8 +408,10 @@ export class EventSubscriber<E, S = null> {
 	lastUpdatedMs = -1;
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
+	/** Error value from last attempted subscription event */
+	error = null as Error | null;
 	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
-	private _snapshot: readonly [S, boolean] = [this.makeSnapshot(), false];
+	private _snapshot: readonly [S, boolean, Error | null] = [this.makeSnapshot(), false, null];
 	private _snapshotLastUpdatedMs = -1;
 	/** Callbacks will be called when an event is received or the synced state changes */
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
@@ -555,10 +559,14 @@ export class EventSubscriber<E, S = null> {
 	 * Obtain a snapshot of the current state of the tracked resource
 	 * @returns tuple of values map snapshot and synced property.
 	 */
-	getSnapshot(): readonly [S, boolean] {
-		if (this._snapshotLastUpdatedMs !== this.lastUpdatedMs || this._snapshot[1] !== this.synced) {
+	getSnapshot(): readonly [S, boolean, Error | null] {
+		if (
+			this._snapshotLastUpdatedMs !== this.lastUpdatedMs
+			|| this._snapshot[1] !== this.synced
+			|| this._snapshot[2] !== this.error
+		) {
 			this._snapshotLastUpdatedMs = this.lastUpdatedMs;
-			this._snapshot = [this.makeSnapshot(), this.synced];
+			this._snapshot = [this.makeSnapshot(), this.synced, this.error];
 		}
 		return this._snapshot;
 	}
@@ -581,6 +589,7 @@ export class EventSubscriber<E, S = null> {
 			const updatesSent = await this.control.sendTo("controller", new SubscriptionRequest(
 				entry.name, action, this.lastUpdatedMs, filters
 			));
+			this.error = null;
 			if (!updatesSent) {
 				this.synced = this._hasSubscriptions();
 				this._notify(null);
@@ -588,6 +597,9 @@ export class EventSubscriber<E, S = null> {
 		} catch (err: any) {
 			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
 				logger.error(`Unexpected error updating ${entry.name} subscription:\n${err.stack}`);
+			}
+			if (err instanceof Error) {
+				this.error = err;
 			}
 		}
 	}
