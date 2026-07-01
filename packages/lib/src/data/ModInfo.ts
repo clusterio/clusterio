@@ -8,8 +8,8 @@ import { findRoot } from "../zip_ops";
 import { ModRecord } from "./ModPack";
 
 import {
-	MajorMinorVersion, normaliseMajorMinorVersion, integerMajorMinorVersion,
-	GameVersion, GameVersionSchema, normaliseGameVersion, integerGameVersion,
+	MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion, integerMajorMinorVersion,
+	GameVersion, GameVersionSchema, isGameVersion, normaliseGameVersion, integerGameVersion,
 	ModVersionEquality,
 } from "./version";
 
@@ -141,6 +141,10 @@ export default class ModInfo {
 	 */
 	get integerVersion() {
 		return integerGameVersion(this.version);
+	}
+
+	get normalisedVersion() {
+		return normaliseGameVersion(this.version);
 	}
 
 	/**
@@ -283,9 +287,7 @@ export default class ModInfo {
 		// info.json fields
 		if (json.name) { modInfo.name = json.name; }
 		if (json.version) {
-			// Validate that the raw version can be read, but keep it verbatim so
-			// it still matches the mod's file name on disk and the portal.
-			if (normaliseGameVersion(json.version) === undefined) {
+			if (!isGameVersion(json.version)) {
 				throw new Error(`Invalid mod version "${json.version}"`);
 			}
 			modInfo.version = json.version;
@@ -330,7 +332,7 @@ export default class ModInfo {
 		if (this.contact) { json.contact = this.contact; }
 		if (this.homepage) { json.homepage = this.homepage; }
 		if (this.description) { json.description = this.description; }
-		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion; }
+		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion as GameVersion; }
 		if (this.dependencies.length !== 1 || this.dependencies[0].name !== "base") {
 			json.dependencies = this.dependencySpecifications;
 		}

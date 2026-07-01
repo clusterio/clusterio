@@ -20,7 +20,7 @@ modCommands.add(new lib.Command({
 		yargs.positional("mod-version", { describe: "Version of the mod", type: "string" });
 	}],
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
-		if (!lib.isFullVersion(args.modVersion)) {
+		if (!lib.isGameVersion(args.modVersion)) {
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
 		let modInfo = await control.send(new lib.ModGetRequest(args.name, args.modVersion));
@@ -191,7 +191,7 @@ modCommands.add(new lib.Command({
 		yargs.positional("mod-version", { describe: "Version of mod to download", type: "string" });
 	}],
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
-		if (!lib.isFullVersion(args.modVersion)) {
+		if (!lib.isGameVersion(args.modVersion)) {
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
 		let streamId = await control.send(new lib.ModDownloadRequest(args.name, args.modVersion));
@@ -211,7 +211,7 @@ modCommands.add(new lib.Command({
 		yargs.positional("mod-version", { describe: "Version of mod to delete", type: "string" });
 	}],
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
-		if (!lib.isFullVersion(args.modVersion)) {
+		if (!lib.isGameVersion(args.modVersion)) {
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
 		await control.send(new lib.ModDeleteRequest(args.name, args.modVersion));

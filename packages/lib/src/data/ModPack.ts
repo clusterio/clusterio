@@ -434,24 +434,24 @@ export default class ModPack {
 	 * @return Built in mods for the given version
 	 */
 	static getBuiltinMods(factorioVersion: PartialVersion) {
-		factorioVersion = normaliseFullVersion(factorioVersion);
+		const version = normaliseFullVersion(factorioVersion) as GameVersion;
+		const integerVersion = integerPartialVersion(factorioVersion);
 		let defaultMods: ModRecord[] = [
 			// "core" not included because core cannot be disabled
-			{ name: "base", enabled: true, version: factorioVersion },
+			{ name: "base", enabled: true, version: version },
 		];
 
-		const integerVersion = integerPartialVersion(factorioVersion);
 		if (integerVersion >= integerPartialVersion("1.2")) {
 			defaultMods = defaultMods.concat([
-				{ name: "elevated-rails", enabled: false, version: factorioVersion },
-				{ name: "quality", enabled: false, version: factorioVersion },
-				{ name: "space-age", enabled: false, version: factorioVersion },
+				{ name: "elevated-rails", enabled: false, version: version },
+				{ name: "quality", enabled: false, version: version },
+				{ name: "space-age", enabled: false, version: version },
 			]);
 		}
 
 		if (integerVersion >= integerPartialVersion("2.1")) {
 			defaultMods = defaultMods.concat([
-				{ name: "recycler", enabled: false, version: factorioVersion },
+				{ name: "recycler", enabled: false, version: version },
 			]);
 		}
 

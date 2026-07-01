@@ -763,12 +763,10 @@ export default class Controller {
 		const serialized = rawJson as Static<typeof lib.ModPack.jsonSchema>[];
 		return serialized.map(json => {
 			for (const mod of json.mods) {
-				// Older mod packs recorded builtins with a major.minor version; pad
-				// those to major.minor.patch. Raw versions the game reads leniently
-				// (e.g. with leading zeros) are kept verbatim so they still match the
-				// mod's file name.
+				// migrate: 2.0.0-alpha.22 - old buildins used X.Y rather than X.Y.Z
+				// All other versions are kept verbatim so they still match the mod's file name.
 				if (lib.isPartialVersion(mod.version)) {
-					mod.version = lib.normaliseFullVersion(mod.version);
+					mod.version = lib.normaliseFullVersion(mod.version) as lib.GameVersion;
 				}
 			}
 			return json;

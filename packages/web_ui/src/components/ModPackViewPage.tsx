@@ -405,7 +405,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 				missing.map(mod => ({
 					name: mod.name,
 					// mod.version is the raw version; the equality bound must be canonical.
-					version: new lib.ModVersionEquality("=", lib.normaliseGameVersion(mod.version)!),
+					version: new lib.ModVersionEquality("=", mod.normalisedVersion),
 				})),
 				factorioVersion,
 			)
