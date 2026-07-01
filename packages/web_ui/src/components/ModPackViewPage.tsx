@@ -403,7 +403,9 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 		control.send(
 			new lib.ModPortalDownloadRequest(
 				missing.map(mod => ({
-					name: mod.name, version: new lib.ModVersionEquality("=", mod.version),
+					name: mod.name,
+					// mod.version is the raw version; the equality bound must be canonical.
+					version: new lib.ModVersionEquality("=", lib.normaliseGameVersion(mod.version)!),
 				})),
 				factorioVersion,
 			)

@@ -170,7 +170,7 @@ function SearchModsButton() {
 		if (modVersion) {
 			control.send(
 				new lib.ModPortalDownloadRequest(
-					[{ name: modName, version: new lib.ModVersionEquality("=", modVersion)}],
+					[{ name: modName, version: new lib.ModVersionEquality("=", lib.normaliseGameVersion(modVersion)!)}],
 					portalFactorioVersion
 				)
 			).then(() => {

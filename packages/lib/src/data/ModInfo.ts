@@ -8,9 +8,8 @@ import { findRoot } from "../zip_ops";
 import { ModRecord } from "./ModPack";
 
 import {
-	FullVersion, integerFullVersion,
 	MajorMinorVersion, normaliseMajorMinorVersion, integerMajorMinorVersion,
-	GameVersion, GameVersionSchema, normaliseGameVersion,
+	GameVersion, GameVersionSchema, normaliseGameVersion, integerGameVersion,
 	ModVersionEquality,
 } from "./version";
 
@@ -129,21 +128,19 @@ export default class ModInfo {
 	name = "";
 
 	/**
-	 * Version of the mod.
-	 * Sourced from info.json.
+	 * Version of the mod, exactly as it appears in info.json and the mod's file
+	 * name. This is the raw, un-normalised version the game reads leniently, so
+	 * it is only safe to use for building file names and identifiers; use
+	 * {@link integerVersion} to compare it.
 	 */
 	version = "0.0.0" as GameVersion;
 
 	/**
-	 * Type safe accessor for this.version
-	 */
-	safeVersion = "0.0.0" as FullVersion;
-
-	/**
-	 * Integer representation of the version
+	 * Integer representation of the version, normalised the lenient way the
+	 * game reads it so it can be compared and sorted.
 	 */
 	get integerVersion() {
-		return integerFullVersion(this.safeVersion);
+		return integerGameVersion(this.version);
 	}
 
 	/**
@@ -177,22 +174,17 @@ export default class ModInfo {
 	description = "";
 
 	/**
-	 * Major version of Factorio this mod supports.
-	 * Sourced from info.json.
+	 * Major version of Factorio this mod supports, reduced to major.minor.
+	 * Sourced from info.json and normalised when read in fromJSON.
 	 */
-	factorioVersion = "0.12" as GameVersion;
-
-	/**
-	 * Type safe accessor for this.factorioVersion
-	 */
-	safeFactorioVersion = "0.0" as MajorMinorVersion;
+	factorioVersion = "0.12" as MajorMinorVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		return integerMajorMinorVersion(this.safeFactorioVersion);
+		return integerMajorMinorVersion(this.factorioVersion);
 	}
 
 	/**
@@ -291,12 +283,12 @@ export default class ModInfo {
 		// info.json fields
 		if (json.name) { modInfo.name = json.name; }
 		if (json.version) {
-			const version = normaliseGameVersion(json.version);
-			if (version === undefined) {
+			// Validate that the raw version can be read, but keep it verbatim so
+			// it still matches the mod's file name on disk and the portal.
+			if (normaliseGameVersion(json.version) === undefined) {
 				throw new Error(`Invalid mod version "${json.version}"`);
 			}
 			modInfo.version = json.version;
-			modInfo.safeVersion = version;
 		}
 		if (json.title) { modInfo.title = json.title; }
 		if (json.author) { modInfo.author = json.author; }
@@ -308,8 +300,7 @@ export default class ModInfo {
 			if (factorioVersion === undefined) {
 				throw new Error(`Invalid factorio_version "${json.factorio_version}"`);
 			}
-			modInfo.factorioVersion = json.factorio_version;
-			modInfo.safeFactorioVersion = normaliseMajorMinorVersion(factorioVersion);
+			modInfo.factorioVersion = normaliseMajorMinorVersion(factorioVersion);
 		}
 
 		// Parse the dependencies

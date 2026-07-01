@@ -707,7 +707,7 @@ export default class ControlConnection extends BaseConnection {
 			const release = releases.releases
 				.filter(info => versionRange.testVersion(info.version))
 				.reduce<ModPortalReleaseType | undefined>((max, cur) => (
-					max && lib.integerFullVersion(max.version) > lib.integerFullVersion(cur.version) ? max : cur
+					max && lib.integerGameVersion(max.version) > lib.integerGameVersion(cur.version) ? max : cur
 				), undefined);
 
 			if (!release) {

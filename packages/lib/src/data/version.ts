@@ -37,8 +37,16 @@ export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0
  * not anchored at the end.
  */
 const gameVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
-declare const gameVersionSymbol: unique symbol;
-export type GameVersion = string & { [gameVersionSymbol]: void };
+/**
+ * A raw, un-normalised version string exactly as the game reads it, such as a
+ * mod's version taken from info.json or a mod file name. It is deliberately a
+ * plain string alias so that any of the stricter, normalised version types
+ * ({@link FullVersion}, {@link MajorMinorVersion}, {@link PartialVersion}) widen
+ * into it for free, while a GameVersion can not be used where a normalised
+ * version is required without going through {@link normaliseGameVersion} or
+ * {@link integerGameVersion} first.
+ */
+export type GameVersion = string;
 export const GameVersionSchema = Type.Unsafe<GameVersion>(
 	Type.String({ pattern: gameVersionRegExp.source })
 );
@@ -61,6 +69,21 @@ export function normaliseGameVersion(input: string): FullVersion | undefined {
 		return undefined;
 	}
 	return `${Number(match[1])}.${Number(match[2])}.${Number(match[3] ?? "0")}` as FullVersion;
+}
+
+/**
+ * Integer representation of a raw {@link GameVersion}, normalised the same
+ * lenient way the game reads it. Suitable for comparing versions that may carry
+ * leading zeros, whitespace or trailing content.
+ *
+ * @throws if the input can not be read as a version.
+ */
+export function integerGameVersion(version: GameVersion) {
+	const normalised = normaliseGameVersion(version);
+	if (normalised === undefined) {
+		throw new Error(`Invalid version "${version}"`);
+	}
+	return integerFullVersion(normalised);
 }
 
 /**
@@ -201,8 +224,8 @@ export class ModVersionEquality {
 		}
 	}
 
-	testVersion(version: PartialVersion) {
-		return this.testIntegerVersion(integerPartialVersion(version));
+	testVersion(version: GameVersion) {
+		return this.testIntegerVersion(integerGameVersion(version));
 	}
 
 	toString() {
@@ -264,8 +287,8 @@ export class ModVersionRange {
 		return this.minVersion.testIntegerVersion(other) && this.maxVersion.testIntegerVersion(other);
 	}
 
-	testVersion(version: PartialVersion) {
-		return this.testIntegerVersion(integerPartialVersion(version));
+	testVersion(version: GameVersion) {
+		return this.testIntegerVersion(integerGameVersion(version));
 	}
 
 	combineVersion(other: ModVersionEquality) {

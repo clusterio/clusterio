@@ -12,7 +12,7 @@ import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
 
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	FullVersion, FullVersionSchema, normaliseFullVersion,
+	GameVersion, GameVersionSchema, normaliseFullVersion,
 } from "./version";
 
 
@@ -46,8 +46,8 @@ export interface ModRecord {
 	name: string,
 	/** if mod is to be loaded. */
 	enabled: boolean,
-	/** version of the mod. */
-	version: FullVersion,
+	/** version of the mod, verbatim as it appears in the mod's file name. */
+	version: GameVersion,
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
@@ -61,7 +61,7 @@ export interface ModRecord {
 const ModRecordJsonSchema = Type.Object({
 	"name": Type.String(),
 	"enabled": Type.Boolean(),
-	"version": FullVersionSchema,
+	"version": GameVersionSchema,
 	"sha1": Type.Optional(Type.String()),
 });
 
