@@ -77,12 +77,12 @@ function SearchModsTable(props: SearchModsTableProps) {
 	const [modResultPageSize, setModResultPageSize] = useState<number>(10);
 	const [modResultCount, setModResultCount] = useState<number>(2);
 	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string, number>>(new Map());
-	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
+	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion | null>(null);
 
 	// Get a valid factorio version
 	useEffect(() => {
 		try {
-			setFactorioVersion(lib.normaliseApiVersion(props.modPack.factorioVersion));
+			setFactorioVersion(lib.normaliseMajorMinorVersion(props.modPack.factorioVersion));
 		} catch (err) {
 			setFactorioVersion(null);
 		}
@@ -271,7 +271,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	const [open, setOpen] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 	const [loading, setLoading] = useState<boolean>(false);
-	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion | null>(null);
+	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion | null>(null);
 
 	const [mods, setMods] = useState<lib.ModInfo[]>([]); // All resolved mods and dependencies
 	const [missing, setMissing] = useState<lib.ModInfo[]>([]); // Missing mods and dependencies, excluding builtin
@@ -295,7 +295,7 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	// Get a valid factorio version
 	useEffect(() => {
 		try {
-			setFactorioVersion(lib.normaliseApiVersion(props.modPack.factorioVersion));
+			setFactorioVersion(lib.normaliseMajorMinorVersion(props.modPack.factorioVersion));
 		} catch (err) {
 			setError(new Error(`Invalid factorio version: ${props.modPack.factorioVersion}`));
 			setFactorioVersion(null);
@@ -403,7 +403,9 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 		control.send(
 			new lib.ModPortalDownloadRequest(
 				missing.map(mod => ({
-					name: mod.name, version: new lib.ModVersionEquality("=", mod.version),
+					name: mod.name,
+					// mod.version is the raw version; the equality bound must be canonical.
+					version: new lib.ModVersionEquality("=", mod.normalisedVersion),
 				})),
 				factorioVersion,
 			)
@@ -577,8 +579,8 @@ function ModsTable(props: ModsTableProps) {
 		if (mod.enabled && mod.info) {
 			mod.warning = mod.info.checkDependencySatisfaction(mods.filter(m => m.enabled));
 			try {
-				const packFactorioVersion = lib.normaliseApiVersion(props.modPack.factorioVersion);
-				const modFactorioVersion = lib.normaliseApiVersion(mod.info.factorioVersion);
+				const packFactorioVersion = lib.normaliseMajorMinorVersion(props.modPack.factorioVersion);
+				const modFactorioVersion = mod.info.factorioVersion;
 				if (packFactorioVersion !== modFactorioVersion) {
 					mod.warning = "wrong_factorio_version";
 				}

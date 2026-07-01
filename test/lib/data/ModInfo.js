@@ -341,6 +341,39 @@ describe("lib/data/ModInfo", function() {
 				dependencies: ["base", ""],
 			}), /my-mod/); // check the mod name is included in the error message
 		});
+		it("should keep the raw mod version but normalise it for comparison", function() {
+			const mod = ModInfo.fromJSON({
+				name: "my-mod",
+				version: " 1.2.3-extra",
+				factorio_version: "1.1.0",
+			});
+			// The version is kept verbatim so it still matches the mod's file name,
+			// but is read leniently the way the game does when compared.
+			assert.equal(mod.version, " 1.2.3-extra");
+			assert.equal(mod.integerVersion, ModInfo.fromJSON({ version: "1.2.3" }).integerVersion);
+			// factorio_version is not part of any file name, so it is reduced to major.minor.
+			assert.equal(mod.factorioVersion, "1.1");
+		});
+		it("should keep leading zeros in the version so the file name matches", function() {
+			// Mirrors the mods.factorio.com/mod/leading-zeros case: the version has
+			// a zero-padded component that the file name keeps verbatim.
+			const mod = ModInfo.fromJSON({ name: "leading-zeros", version: "1.01.0" });
+			assert.equal(mod.version, "1.01.0");
+			assert.equal(mod.filename, "leading-zeros_1.01.0.zip");
+			assert.equal(mod.integerVersion, ModInfo.fromJSON({ version: "1.1.0" }).integerVersion);
+		});
+		it("should throw for an unparseable mod version", function() {
+			assert.throws(
+				() => ModInfo.fromJSON({ name: "my-mod", version: "not-a-version" }),
+				/Invalid mod version/
+			);
+		});
+		it("should throw for an unparseable factorio_version", function() {
+			assert.throws(
+				() => ModInfo.fromJSON({ name: "my-mod", factorio_version: "not-a-version" }),
+				/Invalid factorio_version/
+			);
+		});
 		it("should sort integer mod versions lexicographically", function() {
 			let unsortedVersions = ["1.0.0", "1.1.0", "0.1.0", "3.0.0", "1.2.0", "0.3.1", "0.3.3", "2.1.1", "0.0.1"];
 			let sortedVersions = ["0.0.1", "0.1.0", "0.3.1", "0.3.3", "1.0.0", "1.1.0", "1.2.0", "2.1.1", "3.0.0"];

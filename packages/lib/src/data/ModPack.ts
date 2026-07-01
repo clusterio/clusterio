@@ -12,7 +12,7 @@ import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
 
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	FullVersion, FullVersionSchema, normaliseFullVersion,
+	SourceVersion, SourceVersionSchema, normaliseFullVersion,
 } from "./version";
 
 
@@ -46,8 +46,8 @@ export interface ModRecord {
 	name: string,
 	/** if mod is to be loaded. */
 	enabled: boolean,
-	/** version of the mod. */
-	version: FullVersion,
+	/** version of the mod, verbatim as it appears in the mod's file name. */
+	version: SourceVersion,
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
@@ -61,7 +61,7 @@ export interface ModRecord {
 const ModRecordJsonSchema = Type.Object({
 	"name": Type.String(),
 	"enabled": Type.Boolean(),
-	"version": FullVersionSchema,
+	"version": SourceVersionSchema,
 	"sha1": Type.Optional(Type.String()),
 });
 
@@ -434,24 +434,24 @@ export default class ModPack {
 	 * @return Built in mods for the given version
 	 */
 	static getBuiltinMods(factorioVersion: PartialVersion) {
-		factorioVersion = normaliseFullVersion(factorioVersion);
+		const version = normaliseFullVersion(factorioVersion) as SourceVersion;
+		const integerVersion = integerPartialVersion(factorioVersion);
 		let defaultMods: ModRecord[] = [
 			// "core" not included because core cannot be disabled
-			{ name: "base", enabled: true, version: factorioVersion },
+			{ name: "base", enabled: true, version: version },
 		];
 
-		const integerVersion = integerPartialVersion(factorioVersion);
 		if (integerVersion >= integerPartialVersion("1.2")) {
 			defaultMods = defaultMods.concat([
-				{ name: "elevated-rails", enabled: false, version: factorioVersion },
-				{ name: "quality", enabled: false, version: factorioVersion },
-				{ name: "space-age", enabled: false, version: factorioVersion },
+				{ name: "elevated-rails", enabled: false, version: version },
+				{ name: "quality", enabled: false, version: version },
+				{ name: "space-age", enabled: false, version: version },
 			]);
 		}
 
 		if (integerVersion >= integerPartialVersion("2.1")) {
 			defaultMods = defaultMods.concat([
-				{ name: "recycler", enabled: false, version: factorioVersion },
+				{ name: "recycler", enabled: false, version: version },
 			]);
 		}
 

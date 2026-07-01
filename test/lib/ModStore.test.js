@@ -358,7 +358,7 @@ describe("lib/ModStore", function () {
 
 			await assert.rejects(
 				modStore.downloadMods(modsToDownload, username, token, factorioVersion),
-				/Fetch: https:\/\/mods\.factorio\.com\/api\/mods.* returned 503 Service Unavailable/
+				/Mod portal request to https:\/\/mods\.factorio\.com\/api\/mods.* failed: 503 Service Unavailable/
 			);
 			assert.equal(modStore.files.size, 0, "No mods should be added on API error");
 		});

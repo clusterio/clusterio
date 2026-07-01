@@ -8,12 +8,11 @@ import { findRoot } from "../zip_ops";
 import { ModRecord } from "./ModPack";
 
 import {
-	ApiVersion,
-	ApiVersionSchema,
-	FullVersion, FullVersionSchema, integerFullVersion,
-	integerPartialVersion,
+	MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion, integerMajorMinorVersion,
+	SourceVersion, SourceVersionSchema, isSourceVersion, normaliseSourceVersion, integerSourceVersion,
 	ModVersionEquality,
 } from "./version";
+
 
 type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required";
 
@@ -129,16 +128,23 @@ export default class ModInfo {
 	name = "";
 
 	/**
-	 * Version of the mod.
-	 * Sourced from info.json.
+	 * Version of the mod, exactly as it appears in info.json and the mod's file
+	 * name. This is the raw, un-normalised version the game reads leniently, so
+	 * it is only safe to use for building file names and identifiers; use
+	 * {@link integerVersion} to compare it.
 	 */
-	version = "0.0.0" as FullVersion;
+	version = "0.0.0" as SourceVersion;
 
 	/**
-	 * Integer representation of the version
+	 * Integer representation of the version, normalised the lenient way the
+	 * game reads it so it can be compared and sorted.
 	 */
 	get integerVersion() {
-		return integerFullVersion(this.version);
+		return integerSourceVersion(this.version);
+	}
+
+	get normalisedVersion() {
+		return normaliseSourceVersion(this.version);
 	}
 
 	/**
@@ -172,17 +178,17 @@ export default class ModInfo {
 	description = "";
 
 	/**
-	 * Major version of Factorio this mod supports.
-	 * Sourced from info.json.
+	 * Major version of Factorio this mod supports, reduced to major.minor.
+	 * Sourced from info.json and normalised when read in fromJSON.
 	 */
-	factorioVersion = "0.12" as "0.12" | ApiVersion;
+	factorioVersion = "0.12" as MajorMinorVersion;
 
 	/**
 	 * Integer representation of the factorioVersion
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		return integerPartialVersion(this.factorioVersion);
+		return integerMajorMinorVersion(this.factorioVersion);
 	}
 
 	/**
@@ -221,7 +227,7 @@ export default class ModInfo {
 	 * @param version - Mod's version
 	 * @returns string containing {name}_{version}.zip
 	 */
-	static filename(name: string, version: FullVersion) {
+	static filename(name: string, version: SourceVersion) {
 		return `${name}_${version}.zip`;
 	}
 
@@ -248,16 +254,17 @@ export default class ModInfo {
 	 */
 	isDeleted = false;
 
-	// Content of info.json found in mod files
+	// Content of info.json found in mod files. The version fields use the same
+	// lenient format the game accepts; they are normalised when read in fromJSON.
 	static infoJsonSchema = Type.Object({
 		"name": Type.String(),
-		"version": FullVersionSchema,
+		"version": SourceVersionSchema,
 		"title": Type.String(),
 		"author": Type.String(),
 		"contact": Type.Optional(Type.String()),
 		"homepage": Type.Optional(Type.String()),
 		"description": Type.Optional(Type.String()),
-		"factorio_version": Type.Optional(ApiVersionSchema),
+		"factorio_version": Type.Optional(SourceVersionSchema),
 		"dependencies": Type.Optional(Type.Array(Type.String())),
 	});
 
@@ -279,13 +286,24 @@ export default class ModInfo {
 
 		// info.json fields
 		if (json.name) { modInfo.name = json.name; }
-		if (json.version) { modInfo.version = json.version; }
+		if (json.version) {
+			if (!isSourceVersion(json.version)) {
+				throw new Error(`Invalid mod version "${json.version}"`);
+			}
+			modInfo.version = json.version;
+		}
 		if (json.title) { modInfo.title = json.title; }
 		if (json.author) { modInfo.author = json.author; }
 		if (json.contact) { modInfo.contact = json.contact; }
 		if (json.homepage) { modInfo.homepage = json.homepage; }
 		if (json.description) { modInfo.description = json.description; }
-		if (json.factorio_version) { modInfo.factorioVersion = json.factorio_version; }
+		if (json.factorio_version) {
+			const factorioVersion = normaliseSourceVersion(json.factorio_version);
+			if (factorioVersion === undefined) {
+				throw new Error(`Invalid factorio_version "${json.factorio_version}"`);
+			}
+			modInfo.factorioVersion = normaliseMajorMinorVersion(factorioVersion);
+		}
 
 		// Parse the dependencies
 		try {
@@ -314,7 +332,7 @@ export default class ModInfo {
 		if (this.contact) { json.contact = this.contact; }
 		if (this.homepage) { json.homepage = this.homepage; }
 		if (this.description) { json.description = this.description; }
-		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion; }
+		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion as SourceVersion; }
 		if (this.dependencies.length !== 1 || this.dependencies[0].name !== "base") {
 			json.dependencies = this.dependencySpecifications;
 		}

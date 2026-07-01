@@ -17,36 +17,53 @@ describe("lib/data/version", function() {
 			}
 		});
 	});
-	describe("isApiVersion()", function() {
-		it("should correctly validate input strings", function() {
-			const valid = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0"];
-			for (const test of valid) {
-				assert.equal(lib.isApiVersion(test), true, test);
-			}
-			const invalid = ["0.12", "0.19", "1.2", "2.1", "1.0.0", "1.0.0.0", "0", "", "latest"];
+	describe("normaliseSourceVersion()", function() {
+		it("should normalise lenient version strings the way the game reads them", function() {
+			// Major and minor required, patch optional and defaulting to 0.
+			assert.equal(lib.normaliseSourceVersion("1.1"), "1.1.0");
+			assert.equal(lib.normaliseSourceVersion("1.1.50"), "1.1.50");
+			assert.equal(lib.normaliseSourceVersion("0.18"), "0.18.0");
+			// Leading whitespace and zeros are dropped.
+			assert.equal(lib.normaliseSourceVersion("  1.1"), "1.1.0");
+			assert.equal(lib.normaliseSourceVersion("01.02.03"), "1.2.3");
+			assert.equal(lib.normaliseSourceVersion("1. 1. 50"), "1.1.50");
+			// Anything after the patch (or a non-numeric patch) is ignored.
+			assert.equal(lib.normaliseSourceVersion("1.1.50-beta"), "1.1.50");
+			assert.equal(lib.normaliseSourceVersion("1.1.x"), "1.1.0");
+			assert.equal(lib.normaliseSourceVersion("1.1.50.60"), "1.1.50");
+		});
+		it("should return undefined when no major.minor can be read", function() {
+			const invalid = ["1", "", "latest", "abc", ".1.1", "x.y"];
 			for (const test of invalid) {
-				assert.equal(lib.isApiVersion(test), false, test);
+				assert.equal(lib.normaliseSourceVersion(test), undefined, test);
 			}
 		});
 	});
-	describe("normaliseApiVersion()", function() {
-		it("should normalise accepted versions", function() {
-			assert.equal(lib.normaliseApiVersion("0.13"), "0.13");
-			assert.equal(lib.normaliseApiVersion("0.13.0"), "0.13");
-			assert.equal(lib.normaliseApiVersion("0.13.1"), "0.13");
-			assert.equal(lib.normaliseApiVersion("1.1"), "1.1");
-			assert.equal(lib.normaliseApiVersion("1.1.0"), "1.1");
-			assert.equal(lib.normaliseApiVersion("1.1.1"), "1.1");
-			assert.equal(lib.normaliseApiVersion("2.0"), "2.0");
-			assert.equal(lib.normaliseApiVersion("2.0.0"), "2.0");
-			assert.equal(lib.normaliseApiVersion("2.0.1"), "2.0");
-			assert.equal(lib.normaliseApiVersion("1.0.0.0"), "1.0");
+	describe("normaliseMajorMinorVersion()", function() {
+		it("should return the major.minor", function() {
+			assert.equal(lib.normaliseMajorMinorVersion("1.1"), "1.1");
+			assert.equal(lib.normaliseMajorMinorVersion("1.1.50"), "1.1");
+			assert.equal(lib.normaliseMajorMinorVersion("0.18.0"), "0.18");
 		});
-		it("should throw for invalid versions", function() {
-			const invalid = ["0.12", "0", "", "latest"];
-			for (const test of invalid) {
-				assert.throws(() => lib.normaliseApiVersion(test), undefined, test);
+	});
+	describe("isMajorMinorVersion()", function() {
+		it("should correctly validate input strings", function() {
+			const valid = ["1.1", "0.18", "2.0", "10.20"];
+			const invalid = ["1", "1.1.0", "1.1.50", "latest", "1.", ".1", ""];
+			for (const version of valid) {
+				assert(lib.isMajorMinorVersion(version), `${version} should be valid`);
 			}
+			for (const version of invalid) {
+				assert(!lib.isMajorMinorVersion(version), `${version} should be invalid`);
+			}
+		});
+	});
+	describe("integerMajorMinorVersion()", function() {
+		it("should sort versions lexicographically", function() {
+			let unsortedVersions = ["1.0", "1.1", "0.1", "3.0", "1.2", "0.3", "2.1"];
+			let sortedVersions = ["0.1", "0.3", "1.0", "1.1", "1.2", "2.1", "3.0"];
+			unsortedVersions.sort((a, b) => lib.integerMajorMinorVersion(a) - lib.integerMajorMinorVersion(b));
+			assert.deepEqual(unsortedVersions, sortedVersions);
 		});
 	});
 	describe("isFullVersion()", function() {

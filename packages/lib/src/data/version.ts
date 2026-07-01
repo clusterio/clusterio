@@ -24,24 +24,55 @@ export function isVersionEquality(input: string): input is VersionEquality {
 }
 
 /**
- * Matches valid factorio versions accepts by the web API
- * https://wiki.factorio.com/Mod_portal_API#/api/mods (see version enum)
+ * Known Factorio major versions, offered as fallback options in the web
+ * interface before the live version list has been fetched. Versions are no
+ * longer validated against this list; the mod portal is the source of truth.
  */
-export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0"] as const;
-export const ApiVersionSchema = Type.Union(ApiVersions.map(v => Type.Literal(v)));
-export type ApiVersion = Static<typeof ApiVersionSchema>;
+export const ApiVersions = ["0.13", "0.14", "0.15", "0.16", "0.17", "0.18", "1.0", "1.1", "2.0", "2.1"] as const;
 
-export function isApiVersion(input: string): input is ApiVersion {
-	return ApiVersions.includes(input as any);
+/**
+ * Matches a version string the same lenient way the game reads it: each number
+ * may be preceded by whitespace, the major and minor are required, the patch is
+ * optional, and any trailing content is ignored. The pattern is intentionally
+ * not anchored at the end.
+ */
+const sourceVersionRegExp = /^\s*(\d+)\.\s*(\d+)(?:\.\s*(\d+))?/;
+
+/**
+ * A raw, un-normalised version string exactly as the game reads it, such as a
+ * mod's version taken from info.json or a mod file name.
+ */
+declare const sourceVersionSymbol: unique symbol;
+export type SourceVersion = string & { [sourceVersionSymbol]: void };
+export const SourceVersionSchema = Type.Unsafe<SourceVersion>(
+	Type.String({ pattern: sourceVersionRegExp.source })
+);
+
+export function isSourceVersion(input: string): input is SourceVersion {
+	return sourceVersionRegExp.test(input);
 }
 
-export function normaliseApiVersion(version: PartialVersion) {
-	const parts = version.split(".");
-	const apiVersion = `${parts[0]}.${parts[1]}`;
-	if (!isApiVersion(apiVersion)) {
-		throw new Error(`Factorio version not supported by mod portal: ${apiVersion}`);
+export function integerSourceVersion(version: SourceVersion) {
+	return integerFullVersion(normaliseSourceVersion(version));
+}
+
+/**
+ * Normalise a version string the same lenient way the game reads it. Numbers
+ * are read as integers, so leading whitespace and zeros are dropped and any
+ * content after the patch is ignored.
+ *
+ * @returns The normalised full version, or undefined if no major and minor
+ *     could be read.
+ */
+export function normaliseSourceVersion(input: SourceVersion): FullVersion;
+export function normaliseSourceVersion(input: string): FullVersion | undefined;
+
+export function normaliseSourceVersion(input: string | SourceVersion): FullVersion | undefined {
+	const match = sourceVersionRegExp.exec(input);
+	if (match === null) {
+		return undefined;
 	}
-	return apiVersion;
+	return `${Number(match[1])}.${Number(match[2])}.${Number(match[3] ?? "0")}` as FullVersion;
 }
 
 /**
@@ -69,10 +100,37 @@ export function normaliseFullVersion(version: PartialVersion) {
 }
 
 /**
+ * Matches a major.minor version, as used by the mod portal's version filter.
+ */
+const majorMinorVersionRegExp = /^\d+\.\d+$/;
+export type MajorMinorVersion = `${number}.${number}`;
+export const MajorMinorVersionSchema = Type.Unsafe<MajorMinorVersion>(
+	Type.String({ pattern: majorMinorVersionRegExp.source })
+);
+
+export function isMajorMinorVersion(input: string): input is MajorMinorVersion {
+	return majorMinorVersionRegExp.test(input);
+}
+
+export function integerMajorMinorVersion(version: MajorMinorVersion) {
+	const [major, minor] = version.split(".").map(n => Number.parseInt(n, 10));
+	// Can't use bitwise here because this is 48-bits. sub is always 0 so is omitted.
+	return major * 0x100000000 + minor * 0x10000 as IntegerVersion;
+}
+
+/**
+ * Reduce a version to its major.minor, as used by the mod portal's version filter.
+ */
+export function normaliseMajorMinorVersion(version: PartialVersion): MajorMinorVersion {
+	const [major, minor] = version.split(".");
+	return `${major}.${minor}` as MajorMinorVersion;
+}
+
+/**
  * Matches valid factorio versions and mod dependencies specifications where 2 or 3 parts are specified.
  */
 const partialVersionRegExp = /^\d+\.\d+(?:\.\d+)?$/;
-export type PartialVersion = FullVersion | `${number}.${number}`;
+export type PartialVersion = FullVersion | MajorMinorVersion;
 export const PartialVersionSchema = Type.Unsafe<PartialVersion>(
 	Type.String({ pattern: partialVersionRegExp.source })
 );
@@ -94,8 +152,13 @@ export function integerPartialVersion(version: PartialVersion) {
  * and resolved against the live API when the instance starts.
  */
 const releaseChannelRegExp = /^[a-z][a-z0-9-]*$/;
+declare const releaseChannelSymbol: unique symbol;
+export type ReleaseChannel = string & { [releaseChannelSymbol]: void };
+export const ReleaseChannelSchema = Type.Unsafe<ReleaseChannel>(
+	Type.String({ pattern: releaseChannelRegExp.source })
+);
 
-export function isReleaseChannel(input: string): boolean {
+export function isReleaseChannel(input: string): input is ReleaseChannel {
 	return input !== "latest" && releaseChannelRegExp.test(input);
 }
 
@@ -103,15 +166,15 @@ export function isReleaseChannel(input: string): boolean {
  * Matches valid factorio target versions: a partial version, "latest", or a
  * release channel name (e.g. "stable" or "experimental").
  */
-export type TargetVersion = PartialVersion | "latest";
+export type TargetVersion = PartialVersion | ReleaseChannel | "latest";
 export const TargetVersionSchema = Type.Union([
 	PartialVersionSchema,
+	ReleaseChannelSchema,
 	Type.Literal("latest"),
-	Type.Unsafe<TargetVersion>(Type.String({ pattern: releaseChannelRegExp.source })),
 ]);
 
 export function isTargetVersion(input: string): input is TargetVersion {
-	return input === "latest" || isReleaseChannel(input) || partialVersionRegExp.test(input);
+	return input === "latest" || releaseChannelRegExp.test(input) || partialVersionRegExp.test(input);
 }
 
 /**
@@ -150,8 +213,8 @@ export class ModVersionEquality {
 		}
 	}
 
-	testVersion(version: PartialVersion) {
-		return this.testIntegerVersion(integerPartialVersion(version));
+	testVersion(version: SourceVersion) {
+		return this.testIntegerVersion(integerSourceVersion(version));
 	}
 
 	toString() {
@@ -213,8 +276,11 @@ export class ModVersionRange {
 		return this.minVersion.testIntegerVersion(other) && this.maxVersion.testIntegerVersion(other);
 	}
 
-	testVersion(version: PartialVersion) {
-		return this.testIntegerVersion(integerPartialVersion(version));
+	testVersion(version: PartialVersion | SourceVersion) {
+		if (isPartialVersion(version)) {
+			return this.testIntegerVersion(integerPartialVersion(version));
+		}
+		return this.testIntegerVersion(integerSourceVersion(version));
 	}
 
 	combineVersion(other: ModVersionEquality) {

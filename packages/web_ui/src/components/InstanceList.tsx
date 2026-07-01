@@ -37,10 +37,11 @@ export default function InstanceList(props: InstanceListProps) {
 	}
 
 	function integerFactorioVersionOrDefault(instance: lib.InstanceDetails) {
-		if (instance.factorioVersion === undefined || instance.factorioVersion === "latest") {
-			return -1;
+		const v = instance.factorioVersion;
+		if (v && lib.isPartialVersion(v)) {
+			return lib.integerPartialVersion(v);
 		}
-		return lib.integerPartialVersion(instance.factorioVersion);
+		return -1;
 	}
 
 	let columns: ColumnsType<lib.InstanceDetails> = [

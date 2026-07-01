@@ -5,7 +5,7 @@ import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { downloadFile, safeOutputFile } from "./file_ops";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod";
-import { ModInfo, ModPack, FullVersion, ApiVersion, ModVersionEquality } from "./data";
+import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, SourceVersion } from "./data";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -44,7 +44,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		super();
 	}
 
-	getMod(name: string, version: FullVersion, sha1?: string) {
+	getMod(name: string, version: SourceVersion, sha1?: string) {
 		const mod = this.files.get(ModInfo.filename(name, version));
 		if (!mod || sha1 && sha1 !== mod.sha1) {
 			return undefined;
@@ -86,11 +86,11 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		this.emit("change", modInfo);
 	}
 
-	async loadMod(name: string, version: FullVersion) {
+	async loadMod(name: string, version: SourceVersion) {
 		return await this.loadFile(ModInfo.filename(name, version));
 	}
 
-	async deleteMod(name: string, version: FullVersion) {
+	async deleteMod(name: string, version: SourceVersion) {
 		return await this.deleteFile(ModInfo.filename(name, version));
 	}
 
@@ -198,7 +198,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	private async downloadModsChunk(
 		mods: ModNameVersionPair[],
 		username: string, token: string,
-		factorioVersion: ApiVersion,
+		factorioVersion: MajorMinorVersion,
 	) {
 		const url = new URL("https://mods.factorio.com/api/mods");
 		url.searchParams.set("page_size", "max");
@@ -209,7 +209,18 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		});
 
 		if (response.status !== 200) {
-			throw Error(`Fetch: ${url} returned ${response.status} ${response.statusText}`);
+			// Surface the portal's own error (e.g. an unsupported version) rather
+			// than a generic status line.
+			let detail = `${response.status} ${response.statusText}`;
+			try {
+				const body = await response.json() as { message?: string };
+				if (body && typeof body.message === "string") {
+					detail = body.message;
+				}
+			} catch {
+				// Response body was not JSON; keep the status line.
+			}
+			throw new Error(`Mod portal request to ${url} failed: ${detail}`);
 		}
 
 		const modReleases = (await response.json() as ModsInfoResponse).results;
@@ -236,7 +247,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 	 * @param factorioVersion - Factorio version to filter for (mods are not guaranteed to work between Middle versions)
 	 */
 	async downloadMods(
-		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: ApiVersion = "1.1"
+		mods: ModNameVersionPair[], username: string, token: string, factorioVersion: MajorMinorVersion = "1.1"
 	) {
 		const chunkSize = 500;
 		const futures: Promise<void>[] = [];
