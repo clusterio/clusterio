@@ -210,7 +210,7 @@ export default function HostsPage() {
 	const tableState = useTableQueryState<lib.HostDetails>({
 		namespace: "host", defaultSortKey: "name",
 	});
-	const nameSearch = useColumnSearch<lib.HostDetails>(host => host.name, "Search hosts");
+	const nameSearch = useColumnSearch<lib.HostDetails>(tableState, "name", host => host.name, "Search hosts");
 	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>

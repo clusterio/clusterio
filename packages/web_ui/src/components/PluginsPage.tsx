@@ -30,7 +30,7 @@ export default function PluginsPage() {
 		namespace: "plugin", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<PluginRow>(
-		plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"
+		tableState, "name", plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"
 	);
 	const rowNav = useRowNavigation();
 

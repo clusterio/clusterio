@@ -518,8 +518,10 @@ export default function ModsPage() {
 	const modTable = useTableQueryState<lib.ModInfo>({
 		namespace: "mod", defaultSortKey: "title",
 	});
-	const modPackNameSearch = useColumnSearch<lib.ModPack>(modPack => modPack.name, "Search mod packs");
-	const modNameSearch = useColumnSearch<lib.ModInfo>(mod => mod.title, "Search mods");
+	const modPackNameSearch = useColumnSearch<lib.ModPack>(
+		modPackTable, "name", modPack => modPack.name, "Search mod packs"
+	);
+	const modNameSearch = useColumnSearch<lib.ModInfo>(modTable, "title", mod => mod.title, "Search mods");
 	const rowNav = useRowNavigation();
 
 	function actions(mod: lib.ModInfo) {

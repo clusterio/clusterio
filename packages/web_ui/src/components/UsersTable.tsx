@@ -44,7 +44,7 @@ export default function UsersTable(
 	});
 	const rowNav = useRowNavigation();
 
-	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
+	const {filterDropdown, filterDropdownProps} = useUserFilter(tableState, "name", true);
 
 	const data = [...users.values()];
 	const roleFilters = [...roles.values()].map(role => ({ text: role.name, value: role.id }));

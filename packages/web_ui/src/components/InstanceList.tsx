@@ -32,7 +32,9 @@ export default function InstanceList(props: InstanceListProps) {
 	const tableState = useTableQueryState<lib.InstanceDetails>({
 		namespace: "instance", defaultSortKey: "name",
 	});
-	const nameSearch = useColumnSearch<lib.InstanceDetails>(instance => instance.name, "Search instances");
+	const nameSearch = useColumnSearch<lib.InstanceDetails>(
+		tableState, "name", instance => instance.name, "Search instances"
+	);
 	const rowNav = useRowNavigation();
 
 	function hostName(hostId?: number) {

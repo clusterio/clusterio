@@ -67,7 +67,7 @@ export default function RolesPage() {
 	let account = useAccount();
 	const [roles] = useRoles();
 	const tableState = useTableQueryState<lib.Role>({ namespace: "role" });
-	const nameSearch = useColumnSearch<lib.Role>(role => role.name, "Search roles");
+	const nameSearch = useColumnSearch<lib.Role>(tableState, "name", role => role.name, "Search roles");
 	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Roles" }]}>

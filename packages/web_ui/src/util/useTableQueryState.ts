@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { TablePaginationConfig } from "antd";
 import type { FilterValue, SorterResult } from "antd/es/table/interface";
@@ -32,6 +33,10 @@ export interface TableQueryState<T> {
 	sortOrder: (columnKey: string) => SortOrder | null;
 	/** Controlled `filteredValue` for the column with this key (null when no filter is active). */
 	filteredValue: (columnKey: string) => string[] | null;
+	/** Set a column's live filter — filters the table immediately without writing the URL. */
+	setFilter: (columnKey: string, values: string[] | null) => void;
+	/** Commit a column's live filter to the URL; call when its filter dropdown closes. */
+	commitFilter: (columnKey: string) => void;
 	/** Controlled pagination ({@link current}/{@link pageSize}), or `false` when disabled. */
 	pagination: false | TablePaginationConfig;
 }
@@ -52,6 +57,14 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 	const defaultPageSize = paginationOptions?.defaultPageSize ?? 10;
 
 	const [params, setParams] = useSearchParams();
+	// Live filter overrides let the table filter as the user types without writing the
+	// URL on every keystroke; they are committed to the URL when the filter dropdown
+	// closes (see commitFilter) and cleared whenever the URL changes (commit, back/forward).
+	const [liveFilters, setLiveFilters] = useState<Record<string, string[] | null>>({});
+	const paramsString = params.toString();
+	useEffect(() => {
+		setLiveFilters({});
+	}, [paramsString]);
 
 	const sort = parseSort(params, prefix, defaultSortKey, defaultSortOrder);
 	const filters = parseFilters(params, prefix);
@@ -90,8 +103,33 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 		},
 
 		filteredValue(columnKey) {
+			if (columnKey in liveFilters) {
+				return liveFilters[columnKey];
+			}
 			const codec = codecs[columnKey];
 			return codec ? codec.decode(params, prefix) : (filters[columnKey] ?? null);
+		},
+
+		setFilter(columnKey, values) {
+			setLiveFilters(prev => ({ ...prev, [columnKey]: values }));
+		},
+
+		commitFilter(columnKey) {
+			// Only write the URL when a live edit is pending for this column.
+			if (!(columnKey in liveFilters)) {
+				return;
+			}
+			const next = new URLSearchParams(params);
+			const codec = codecs[columnKey];
+			if (codec) {
+				codec.encode(next, liveFilters[columnKey], prefix);
+			} else {
+				applyFilters(next, prefix, { [columnKey]: liveFilters[columnKey] });
+			}
+			// Avoid pushing a duplicate history entry when nothing actually changed.
+			if (next.toString() !== paramsString) {
+				setParams(next);
+			}
 		},
 
 		pagination: paginationEnabled && page

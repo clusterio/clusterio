@@ -39,7 +39,9 @@ function StoragePage() {
 	const tableState = useTableQueryState<[string, Item]>({
 		namespace: "storage", defaultSortKey: "quantity", defaultSortOrder: "descend", pagination: false,
 	});
-	const resourceSearch = useColumnSearch<[string, Item]>(item => getLocaleName(item[1].name), "Search");
+	const resourceSearch = useColumnSearch<[string, Item]>(
+		tableState, "resource", item => getLocaleName(item[1].name), "Search"
+	);
 
 	function getLocaleName(itemName: string) {
 		let localeName = itemName;
