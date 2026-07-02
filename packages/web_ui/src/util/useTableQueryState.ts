@@ -35,8 +35,8 @@ export interface TableQueryState<T> {
 	filteredValue: (columnKey: string) => string[] | null;
 	/** Set a column's live filter — filters the table immediately without writing the URL. */
 	setFilter: (columnKey: string, values: string[] | null) => void;
-	/** Commit a column's live filter to the URL; call when its filter dropdown closes. */
-	commitFilter: (columnKey: string) => void;
+	/** Commit a column's filter to the URL: pass `values` to write now (e.g. clear), omit to commit the override. */
+	commitFilter: (columnKey: string, values?: string[] | null) => void;
 	/** Controlled pagination ({@link current}/{@link pageSize}), or `false` when disabled. */
 	pagination: false | TablePaginationConfig;
 }
@@ -114,17 +114,22 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 			setLiveFilters(prev => ({ ...prev, [columnKey]: values }));
 		},
 
-		commitFilter(columnKey) {
-			// Only write the URL when a live edit is pending for this column.
-			if (!(columnKey in liveFilters)) {
+		commitFilter(columnKey, values) {
+			// Explicit values (e.g. from the clear button) are written immediately; otherwise
+			// commit the current live override, if any (e.g. when the dropdown closes).
+			let effective = values;
+			if (effective === undefined && columnKey in liveFilters) {
+				effective = liveFilters[columnKey];
+			}
+			if (effective === undefined) {
 				return;
 			}
 			const next = new URLSearchParams(params);
 			const codec = codecs[columnKey];
 			if (codec) {
-				codec.encode(next, liveFilters[columnKey], prefix);
+				codec.encode(next, effective, prefix);
 			} else {
-				applyFilters(next, prefix, { [columnKey]: liveFilters[columnKey] });
+				applyFilters(next, prefix, { [columnKey]: effective });
 			}
 			// Avoid pushing a duplicate history entry when nothing actually changed.
 			if (next.toString() !== paramsString) {

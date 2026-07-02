@@ -47,6 +47,8 @@ export default function useColumnSearch<T>(
 					onClear={() => {
 						setSelectedKeys([]);
 						tableState.setFilter(columnKey, null);
+						// Clearing is a deliberate action, so write it to the URL right away.
+						tableState.commitFilter(columnKey, null);
 					}}
 				/>
 			</div>

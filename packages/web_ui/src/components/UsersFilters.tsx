@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { InputRef, Input, Space, Segmented, Button, Typography, Tag } from "antd";
+import { InputRef, Input, Space, Segmented, Typography, Tag } from "antd";
 import type { FilterDropdownProps } from "antd/es/table/interface";
 import { CheckOutlined, CloseOutlined, MinusOutlined } from "@ant-design/icons";
 import { UserDetails } from "@clusterio/lib";
@@ -135,13 +135,16 @@ export function useUserFilter(
 			? decodeFilter(String(selectedKeys[0]))
 			: {};
 
-		// Update the live filter as the user types/toggles; the URL is only written
-		// when the dropdown closes (see filterDropdownProps.onOpenChange below).
-		function update(next: Partial<UserFilter>) {
+		// Update the live filter as the user types/toggles; the URL is only written when the
+		// dropdown closes (see onOpenChange), or immediately when `commit` is set (e.g. clear).
+		function update(next: Partial<UserFilter>, commit = false) {
 			const encoded = encodeFilter({ ...filter, ...next });
 			const values = encoded === "{}" ? null : [encoded];
 			setSelectedKeys(values ?? []);
 			tableState.setFilter(columnKey, values);
+			if (commit) {
+				tableState.commitFilter(columnKey, values);
+			}
 		}
 
 		return (
@@ -154,7 +157,7 @@ export function useUserFilter(
 						allowClear
 						onSearch={() => close()}
 						onChange={(e) => update({ search: e.target.value !== "" ? e.target.value : undefined })}
-						onClear={() => update({ search: undefined })}
+						onClear={() => update({ search: undefined }, true)}
 					/>
 
 					{withStatus &&<>
