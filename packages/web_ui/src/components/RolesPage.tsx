@@ -11,6 +11,8 @@ import { notifyErrorHandler } from "../util/notify";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
 import useRowNavigation from "../util/useRowNavigation";
 import Link from "./Link";
 
@@ -64,6 +66,8 @@ function CreateRoleButton() {
 export default function RolesPage() {
 	let account = useAccount();
 	const [roles] = useRoles();
+	const tableState = useTableQueryState<lib.Role>({ namespace: "role" });
+	const nameSearch = useColumnSearch<lib.Role>(tableState, "name", role => role.name, "Search roles");
 	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Roles" }]}>
@@ -77,10 +81,13 @@ export default function RolesPage() {
 					title: "Name",
 					dataIndex: "name",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					sortOrder: tableState.sortOrder("name"),
+					filteredValue: tableState.filteredValue("name"),
 					className: "table-link-cell",
 					render: (_, role) => <Link to={`/roles/${role.id}/view`} style={{ color: "inherit" }}>
 						{role.name}
 					</Link>,
+					...nameSearch,
 				},
 				{
 					title: "Description",
@@ -88,8 +95,9 @@ export default function RolesPage() {
 				},
 			]}
 			dataSource={[...roles.values()]}
-			pagination={false}
+			pagination={tableState.pagination}
 			rowKey={role => role.id}
+			onChange={tableState.onChange}
 			onRow={role => rowNav(`/roles/${role.id}/view`)}
 		/>
 		<PluginExtra component="RolesPage" />

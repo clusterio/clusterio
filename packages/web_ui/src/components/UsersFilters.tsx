@@ -3,6 +3,8 @@ import { InputRef, Input, Space, Segmented, Button, Typography, Tag } from "antd
 import type { FilterDropdownProps } from "antd/es/table/interface";
 import { CheckOutlined, CloseOutlined, MinusOutlined } from "@ant-design/icons";
 import { UserDetails } from "@clusterio/lib";
+import type { FilterCodec } from "../util/tableQuery";
+import type { TableQueryState } from "../util/useTableQueryState";
 const { Text } = Typography;
 
 export interface UserFilter {
@@ -24,6 +26,43 @@ function decodeFilter(value: string): UserFilter {
 	}
 }
 
+function triFromParam(value: string | null): boolean | undefined {
+	if (value === "true") { return true; }
+	if (value === "false") { return false; }
+	return undefined;
+}
+
+/**
+ * Persists the bundled user filter as separate readable query parameters
+ * (`filter.name` for the text search plus `filter.admin`/`filter.whitelisted`/
+ * `filter.banned`) instead of one opaque JSON blob. Plug into
+ * useTableQueryState via `filterCodecs: { name: userFilterCodec }`.
+ */
+export const userFilterCodec: FilterCodec = {
+	decode(params, prefix) {
+		const filter: UserFilter = {};
+		const search = params.get(`${prefix}name`);
+		if (search) { filter.search = search; }
+		const admin = triFromParam(params.get(`${prefix}admin`));
+		if (admin !== undefined) { filter.admin = admin; }
+		const whitelisted = triFromParam(params.get(`${prefix}whitelisted`));
+		if (whitelisted !== undefined) { filter.whitelisted = whitelisted; }
+		const banned = triFromParam(params.get(`${prefix}banned`));
+		if (banned !== undefined) { filter.banned = banned; }
+		return Object.keys(filter).length ? [encodeFilter(filter)] : null;
+	},
+	encode(params, value, prefix) {
+		const filter = value && value[0] ? decodeFilter(String(value[0])) : {};
+		const set = (key: string, val: string | undefined) => (
+			val !== undefined ? params.set(prefix + key, val) : params.delete(prefix + key)
+		);
+		set("name", filter.search || undefined);
+		set("admin", filter.admin === undefined ? undefined : String(filter.admin));
+		set("whitelisted", filter.whitelisted === undefined ? undefined : String(filter.whitelisted));
+		set("banned", filter.banned === undefined ? undefined : String(filter.banned));
+	},
+};
+
 function triStateToSegmented(value?: boolean) {
 	if (value === true) { return "yes"; }
 	if (value === false) { return "no"; }
@@ -41,7 +80,7 @@ function matchesTriState(value: boolean, filter?: boolean) {
 }
 
 export function onFilterUser(
-	value: string | number | boolean,
+	value: boolean | React.Key,
 	record: UserDetails
 ) {
 	const filter = decodeFilter(String(value));
@@ -80,32 +119,29 @@ export function Username({
 	);
 }
 
-export function useUserFilter(withStatus?: boolean) {
+export function useUserFilter(
+	tableState: TableQueryState<UserDetails>,
+	columnKey: string,
+	withStatus?: boolean,
+) {
 	const searchInput = useRef<InputRef>(null);
 
 	function filterDropdown({
 		selectedKeys,
 		setSelectedKeys,
-		confirm,
-		clearFilters,
-	}: {
-		selectedKeys: string[];
-		setSelectedKeys: (keys: string[]) => void;
-		confirm: FilterDropdownProps["confirm"];
-		clearFilters: FilterDropdownProps["clearFilters"];
-	}) {
+		close,
+	}: FilterDropdownProps) {
 		const filter: UserFilter = selectedKeys[0]
-			? decodeFilter(selectedKeys[0])
+			? decodeFilter(String(selectedKeys[0]))
 			: {};
 
+		// Update the live filter as the user types/toggles; the URL is only written
+		// when the dropdown closes (see filterDropdownProps.onOpenChange below).
 		function update(next: Partial<UserFilter>) {
 			const encoded = encodeFilter({ ...filter, ...next });
-			if (encoded === "{}") {
-				clearFilters?.({ closeDropdown: false });
-			} else {
-				setSelectedKeys([encoded]);
-			}
-			confirm({ closeDropdown: false });
+			const values = encoded === "{}" ? null : [encoded];
+			setSelectedKeys(values ?? []);
+			tableState.setFilter(columnKey, values);
 		}
 
 		return (
@@ -116,12 +152,9 @@ export function useUserFilter(withStatus?: boolean) {
 						placeholder="Search username"
 						value={filter.search}
 						allowClear
-						onSearch={() => confirm({ closeDropdown: true })}
+						onSearch={() => close()}
 						onChange={(e) => update({ search: e.target.value !== "" ? e.target.value : undefined })}
-						onClear={() => {
-							clearFilters?.({ closeDropdown: false });
-							confirm({ closeDropdown: true });
-						}}
+						onClear={() => update({ search: undefined })}
 					/>
 
 					{withStatus &&<>
@@ -176,6 +209,8 @@ export function useUserFilter(withStatus?: boolean) {
 		onOpenChange: (open: boolean) => {
 			if (open) {
 				setTimeout(() => searchInput.current?.select(), 100);
+			} else {
+				tableState.commitFilter(columnKey);
 			}
 		},
 	};
