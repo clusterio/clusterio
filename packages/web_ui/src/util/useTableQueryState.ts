@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { TablePaginationConfig } from "antd";
 import type { FilterValue, SorterResult } from "antd/es/table/interface";
@@ -61,8 +61,12 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 	// URL on every keystroke; they are committed to the URL when the filter dropdown
 	// closes (see commitFilter) and cleared whenever the URL changes (commit, back/forward).
 	const [liveFilters, setLiveFilters] = useState<Record<string, string[] | null>>({});
+	// A ref mirrors the overrides so commitFilter always reads the latest values even within
+	// the same event that set them (e.g. clearing then closing), instead of a stale closure.
+	const liveFiltersRef = useRef<Record<string, string[] | null>>(liveFilters);
 	const paramsString = params.toString();
 	useEffect(() => {
+		liveFiltersRef.current = {};
 		setLiveFilters({});
 	}, [paramsString]);
 
@@ -111,15 +115,17 @@ export default function useTableQueryState<T>(options: TableQueryStateOptions): 
 		},
 
 		setFilter(columnKey, values) {
-			setLiveFilters(prev => ({ ...prev, [columnKey]: values }));
+			const nextLive = { ...liveFiltersRef.current, [columnKey]: values };
+			liveFiltersRef.current = nextLive;
+			setLiveFilters(nextLive);
 		},
 
 		commitFilter(columnKey, values) {
 			// Explicit values (e.g. from the clear button) are written immediately; otherwise
 			// commit the current live override, if any (e.g. when the dropdown closes).
 			let effective = values;
-			if (effective === undefined && columnKey in liveFilters) {
-				effective = liveFilters[columnKey];
+			if (effective === undefined && columnKey in liveFiltersRef.current) {
+				effective = liveFiltersRef.current[columnKey];
 			}
 			if (effective === undefined) {
 				return;

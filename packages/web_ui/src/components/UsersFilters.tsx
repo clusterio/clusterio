@@ -155,9 +155,15 @@ export function useUserFilter(
 						placeholder="Search username"
 						value={filter.search}
 						allowClear
-						onSearch={() => close()}
+						onSearch={value => {
+							if (value) {
+								close();
+							} else {
+								// Clear (X) fires onSearch with an empty value before onChange.
+								update({ search: undefined }, true);
+							}
+						}}
 						onChange={(e) => update({ search: e.target.value !== "" ? e.target.value : undefined })}
-						onClear={() => update({ search: undefined }, true)}
 					/>
 
 					{withStatus &&<>
