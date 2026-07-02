@@ -226,21 +226,23 @@ async function uploadExport(req: Request, res: Response) {
 	let zip = await JSZip.loadAsync(buffer);
 	buffer = null;
 
-	// This is hardcoded to prevent path expansion attacks
-	let exportFiles = [
-		"export/settings.json",
-		"export/prototypes.json",
-		"export/locale.json",
-		"export/defines.json",
-		"export/spritesheet.png",
-		"export/metadata.json",
-	];
-
 	let assets: any = {};
 	let settingPrototypes: lib.ExportSettings = {};
-	for (let filePath of exportFiles) {
-		let file = zip.file(filePath);
-		if (!file) {
+	for (let [filePath, file] of Object.entries(zip.files)) {
+		if (file.dir || !filePath.startsWith("export/")) {
+			continue;
+		}
+
+		let { name, ext } = path.posix.parse(filePath);
+		const allowedFiles = [
+			"settings.json",
+			"prototypes.json",
+			"locale.json",
+			"defines.json",
+			"spritesheet.png",
+			"metadata.json",
+		];
+		if (!allowedFiles.includes(`${name}${ext}`) && !name.startsWith("locale-")) {
 			continue;
 		}
 
@@ -248,7 +250,6 @@ async function uploadExport(req: Request, res: Response) {
 			settingPrototypes = JSON.parse(await file.async("text"));
 		}
 
-		let { name, ext } = path.posix.parse(filePath);
 		let hash = await lib.hashStream(file.nodeStream());
 		assets[name] = `${name}.${hash}${ext}`;
 		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
