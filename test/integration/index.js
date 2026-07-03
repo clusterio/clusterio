@@ -382,8 +382,8 @@ before(async function() {
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
 	testPack.name = "subspace_storage-pack";
-	testPack.factorioVersion = "2.0.0";
-	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "2.0.20" });
+	testPack.factorioVersion = "2.1";
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "2.0.21" });
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
 		"controller",

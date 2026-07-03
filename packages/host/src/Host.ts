@@ -662,7 +662,7 @@ export default class Host extends lib.Link {
 	async fetchMods(mods: Iterable<lib.ModRecord>) {
 		// This is better than the previous hard coded names
 		// But it really shouldn't be a hard coded version either
-		const builtinModNames = lib.ModPack.getBuiltinModNames("2.0");
+		const builtinModNames = lib.ModPack.getBuiltinModNames("2.1");
 		const modInfos: Promise<lib.ModInfo>[] = [];
 		for (const mod of mods) {
 			if (builtinModNames.includes(mod.name)) {

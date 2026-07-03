@@ -5,6 +5,8 @@ class MapReaderState {
 	last_position = { x: 0, y: 0 };
 	/** True when a version greater than 2.0.0 is detected */
 	v2 = false;
+	/** True when a version greater than 2.1.0 is detected */
+	v2_1 = false;
 	constructor(
 		public buf: Buffer
 	) { }
@@ -262,7 +264,23 @@ function readEnemyEvolution(state: MapReaderState) {
 }
 
 function readEnemyExpansion(state: MapReaderState) {
-	return {
+	return state.v2_1 ? {
+		enabled: readOptional(state, readBool),
+		max_expansion_distance: readOptional(state, readUInt32),
+		min_expansion_distance: readOptional(state, readUInt32), // v2.1
+		friendly_base_influence_radius: readOptional(state, readUInt32),
+		enemy_building_influence_radius: readOptional(state, readUInt32),
+		building_coefficient: readOptional(state, readDouble),
+		other_base_coefficient: readOptional(state, readDouble),
+		neighbouring_chunk_coefficient: readOptional(state, readDouble),
+		neighbouring_base_chunk_coefficient: readOptional(state, readDouble),
+		max_colliding_tiles_coefficient: readOptional(state, readDouble),
+		settler_group_min_size: readOptional(state, readUInt32),
+		settler_group_max_size: readOptional(state, readUInt32),
+		evolution_group_size_factor: readOptional(state, readDouble), // v2.1
+		min_expansion_cooldown: readOptional(state, readUInt32),
+		max_expansion_cooldown: readOptional(state, readUInt32),
+	} : {
 		enabled: readOptional(state, readBool),
 		max_expansion_distance: readOptional(state, readUInt32),
 		friendly_base_influence_radius: readOptional(state, readUInt32),
@@ -355,17 +373,32 @@ function readAsteroids(state: MapReaderState) {
 }
 
 function readMapSettings(state: MapReaderState) {
-	return state.v2 ? {
-		pollution: readPollution(state),
-		steering: readSteering(state),
-		enemy_evolution: readEnemyEvolution(state),
-		enemy_expansion: readEnemyExpansion(state),
-		unit_group: readUnitGroup(state),
-		path_finder: readPathFinder(state),
-		max_failed_behavior_count: readUInt32(state),
-		difficulty_settings: readDifficultySettings(state),
-		asteroids: readAsteroids(state), // v2
-	} : {
+	if (state.v2_1) {
+		return {
+			pollution: readPollution(state),
+			// steering removed v2.1
+			enemy_evolution: readEnemyEvolution(state),
+			enemy_expansion: readEnemyExpansion(state),
+			unit_group: readUnitGroup(state),
+			path_finder: readPathFinder(state),
+			max_failed_behavior_count: readUInt32(state),
+			difficulty_settings: readDifficultySettings(state),
+			asteroids: readAsteroids(state), // v2
+		};
+	} else if (state.v2) {
+		return {
+			pollution: readPollution(state),
+			steering: readSteering(state),
+			enemy_evolution: readEnemyEvolution(state),
+			enemy_expansion: readEnemyExpansion(state),
+			unit_group: readUnitGroup(state),
+			path_finder: readPathFinder(state),
+			max_failed_behavior_count: readUInt32(state),
+			difficulty_settings: readDifficultySettings(state),
+			asteroids: readAsteroids(state), // v2
+		};
+	}
+	return {
 		pollution: readPollution(state),
 		steering: readSteering(state),
 		enemy_evolution: readEnemyEvolution(state),
@@ -427,6 +460,7 @@ export function readMapExchangeString(exchangeString: string) {
 	try {
 		const version = readVersion(state);
 		state.v2 = version[0] >= 2;
+		state.v2_1 = version[0] >= 2 && version[1] >= 1;
 		data = {
 			version: version,
 			unknown: readUInt8(state),
