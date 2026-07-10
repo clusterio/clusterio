@@ -8,6 +8,8 @@ local v2_logistic_api = compat.version_ge("2.0.0")
 local v2_storage_api = compat.version_ge("2.0.0")
 local v2_remote_controller = compat.version_ge("2.0.0")
 local recipe_notifications_api = compat.version_ge("2.0.67")
+local v2_0_quick_bar_api = compat.version_ge("2.0.0")
+local v2_1_quick_bar_api = compat.version_ge("2.1.0")
 
 function serialize.serialize_inventories(source, inventories)
 	local serialized = {}
@@ -189,6 +191,159 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 		for i, slot in pairs(serialized) do
 			if slot ~= nil then
 				player.set_personal_slogistic_slot(tonumber(i), slot)
+			end
+		end
+	end
+end
+
+-- name is a custom type where quality is "normal" and comparator is "=" (most common case)
+--- @alias QuickBarSlotEncoded.name string
+--- @alias QuickBarSlotEncoded.filter { t: "f", n: string, q: string, c: string }
+--- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter
+
+--- @param filter ItemFilter
+--- @return QuickBarSlotEncoded
+local function serialize_filter(filter)
+	if filter.quality == "normal" and filter.comparator == "=" then
+		return filter.name
+	end
+
+	return {
+		t = "f",
+		n = filter.name,
+		q = filter.quality,
+		c = filter.comparator,
+	}
+end
+
+--- @param slot QuickBarSlot | ItemFilter | LuaItemPrototype
+--- @return QuickBarSlotEncoded | nil
+function serialize.serialize_quick_bar_slot(slot)
+	if v2_1_quick_bar_api then
+		-- 2.1 has a dedicated type for quick bar slots
+		--- @cast slot QuickBarSlot
+		if slot.type == "filter" then
+			return serialize_filter(slot.filter)
+		end
+
+		print("Warning: Unsupported quick bar slot type '" .. slot.type .. "'")
+		return nil
+	end
+
+	if v2_0_quick_bar_api then
+		-- 2.0 gives us an item filter which supports quality
+		--- @cast slot ItemFilter
+		return serialize_filter(slot)
+	end
+
+	-- pre 2.0 quality did not exist
+	--- @cast slot LuaItemPrototype
+	return slot.name
+end
+
+--- @param entry string | QuickBarSlotEncoded
+--- @return QuickBarSlot | ItemWithQualityID | nil
+function serialize.deserialize_quick_bar_slot(entry)
+	if v2_1_quick_bar_api then
+		-- Return a quick bar slot
+		if type(entry) == "string" then
+			return {
+				type = "filter",
+				filter = {
+					name = entry,
+					quality = "normal",
+					comparator = "=",
+				},
+			}
+		end
+
+		if entry.t == "f" then
+			return {
+				type = "filter",
+				filter = {
+					name = entry.n,
+					quality = entry.q,
+					comparator = entry.c,
+				},
+			}
+		end
+
+		print("Warning: Unsupported serialized quick bar slot type '" .. tostring(entry.t) .. "'")
+		return nil
+	end
+
+	if v2_0_quick_bar_api then
+		-- Return a ItemIDAndQualityIDPair (member of ItemWithQualityID)
+		if type(entry) == "string" then
+			return {
+				name = entry,
+				quality = "normal",
+			}
+		end
+
+		-- entry.t == "f" is only remaining case for 2.0
+		return {
+			name = entry.n,
+			quality = entry.q,
+		}
+	end
+
+	-- Return a string (member of ItemPrototypeIdentification)
+	-- Pre 2.0 this was the only method of encoding used
+	return entry
+end
+
+--- @param player LuaPlayer
+--- @return table<string, QuickBarSlotEncoded>?
+function serialize.serialize_quick_bar(player)
+	local serialized
+	local width = v2_1_quick_bar_api and player.quick_bar_width
+
+	for i = 1, 100 do
+		local slot
+
+		if v2_1_quick_bar_api then
+			local page = math.floor((i - 1) / width) + 1
+			local page_slot = ((i - 1) % width) + 1
+			slot = player.get_quick_bar_slot(page, page_slot)
+		else
+			--- @diagnostic disable-next-line: missing-parameter
+			slot = player.get_quick_bar_slot(i)
+		end
+
+		if slot ~= nil then
+			local entry = serialize.serialize_quick_bar_slot(slot)
+			if entry ~= nil then
+				serialized = serialized or {}
+				serialized[tostring(i)] = entry
+			end
+		end
+	end
+
+	return serialized
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, string | QuickBarSlotEncoded>?
+function serialize.deserialize_quick_bar(player, serialized)
+	if not serialized then
+		return
+	end
+
+	local width = v2_1_quick_bar_api and player.quick_bar_width
+	for i = 1, 100 do
+		local entry = serialized[tostring(i)]
+		if entry ~= nil then
+			local slot = serialize.deserialize_quick_bar_slot(entry)
+			if slot ~= nil then
+				if v2_1_quick_bar_api then
+					local page = math.floor((i - 1) / width) + 1
+					local page_slot = ((i - 1) % width) + 1
+					player.set_quick_bar_slot(page, page_slot, slot)
+				else
+					--- @diagnostic disable-next-line: param-type-mismatch
+					player.set_quick_bar_slot(i, slot)
+				end
 			end
 		end
 	end
@@ -439,6 +594,7 @@ end
 --- @field character table<string, any>?
 --- @field inventories table<string, table>?
 --- @field hotbar table<string, string>?
+--- @field quick_bar table<string, QuickBarSlotEncoded>?
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
@@ -494,16 +650,8 @@ function serialize.serialize_player(player, failed_deserialization)
 		serialized.inventories = serialize.serialize_inventories(player, { main = defines.inventory.god_main })
 	end
 
-	-- Serialize hotbar
-	for i = 1, 100 do
-		local slot = player.get_quick_bar_slot(i)
-		if slot ~= nil and slot.name ~= nil then
-			if not serialized.hotbar then
-				serialized.hotbar = {}
-			end
-			serialized.hotbar[tostring(i)] = slot.name --[[@as string]]
-		end
-	end
+	-- Serialize quick bar
+	serialized.quick_bar = serialize.serialize_quick_bar(player)
 
 	-- Serialize crafting queue
 	if player.character then
@@ -615,14 +763,8 @@ function serialize.deserialize_player(player, serialized)
 		serialize.deserialize_inventories(player, serialized.inventories, { main = defines.inventory.god_main })
 	end
 
-	-- Deserialize hotbar
-	if serialized.hotbar then
-		for i = 1, 100 do
-			if serialized.hotbar[tostring(i)] ~= nil then
-				player.set_quick_bar_slot(i, serialized.hotbar[tostring(i)])
-			end
-		end
-	end
+	-- Deserialize quick bar (named hotbar in old data)
+	serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
 
 	-- Deserialize crafting queue
 	if player.character and serialized.crafting_queue then
