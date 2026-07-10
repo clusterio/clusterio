@@ -251,7 +251,7 @@ export class Config<
 	constructor(
 		public location: ConfigLocation,
 		fields?: Static<typeof Config.jsonSchema>,
-		public filepath?: string,
+		private _filepath?: string,
 	) {
 		if (typeof location !== "string") {
 			throw new Error("location must be a string");
@@ -271,6 +271,15 @@ export class Config<
 		if (fields) {
 			this.update(this.constructor.migrations(fields), false, location);
 		}
+	}
+
+	get filepath() {
+		return this._filepath;
+	}
+
+	set filepath(filepath: string | undefined) {
+		this.dirty = true;
+		this._filepath = filepath;
 	}
 
 	/** A staging version of the config with changes tracked, invalided by revertStaging */
