@@ -197,7 +197,7 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 end
 
 -- name is a custom type where quality is "normal" and comparator is "=" (most common case)
---- @alias QuickBarSlotEncoded.name { t: "n", n: string } 
+--- @alias QuickBarSlotEncoded.name string
 --- @alias QuickBarSlotEncoded.filter { t: "f", n: string, q: string, c: string }
 --- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter
 
@@ -205,7 +205,7 @@ end
 --- @return QuickBarSlotEncoded
 local function serialize_filter(filter)
 	if filter.quality == "normal" and filter.comparator == "=" then
-		return { t = "n", n = filter.name }
+		return filter.name
 	end
 
 	return {
@@ -238,27 +238,19 @@ function serialize.serialize_quick_bar_slot(slot)
 
 	-- pre 2.0 quality did not exist
 	--- @cast slot LuaItemPrototype
-	return {
-		t = "n",
-		n = slot.name
-	}
+	return slot.name
 end
 
 --- @param entry string | QuickBarSlotEncoded
 --- @return QuickBarSlot | ItemWithQualityID | nil
 function serialize.deserialize_quick_bar_slot(entry)
-	if type(entry) == "string" then
-		-- Migration, old data was just the name, so convert to QuickBarSlotEncoded.name
-		entry = { t = "n", n = entry }
-	end
-
 	if v2_1_quick_bar_api then
 		-- Return a quick bar slot
-		if entry.t == "n" then
+		if type(entry) == "string" then
 			return {
 				type = "filter",
 				filter = {
-					name = entry.n,
+					name = entry,
 					quality = "normal",
 					comparator = "=",
 				},
@@ -282,9 +274,9 @@ function serialize.deserialize_quick_bar_slot(entry)
 
 	if v2_0_quick_bar_api then
 		-- Return a ItemIDAndQualityIDPair (member of ItemWithQualityID)
-		if entry.t == "n" then
+		if type(entry) == "string" then
 			return {
-				name = entry.n,
+				name = entry,
 				quality = "normal",
 			}
 		end
@@ -297,8 +289,8 @@ function serialize.deserialize_quick_bar_slot(entry)
 	end
 
 	-- Return a string (member of ItemPrototypeIdentification)
-	-- entry.t == "n" is the only case for pre 2.0
-	return entry.n
+	-- Pre 2.0 this was the only method of encoding used
+	return entry
 end
 
 --- @param player LuaPlayer
