@@ -14,7 +14,7 @@ import {
 } from "./version";
 
 
-type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required";
+type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required" | "recommended";
 
 export type ModDependencyUnsatisfiedReason = "incompatible" | "missing_dependency" | "wrong_version";
 const UnsatisfiedSeverity: Record<ModDependencyUnsatisfiedReason, number> = {
@@ -39,6 +39,8 @@ export class ModDependency {
 				return "hidden";
 			case "~":
 				return "unordered";
+			case "+":
+				return "recommended";
 			case "":
 				return "required";
 			default:
@@ -84,6 +86,10 @@ export class ModDependency {
 
 	get incompatible() {
 		return this.type === "incompatible";
+	}
+
+	get recommended() {
+		return this.type === "recommended";
 	}
 
 	get required() {

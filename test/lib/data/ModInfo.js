@@ -217,23 +217,29 @@ describe("lib/data/ModInfo", function() {
 				const dependency = new ModDependency("! my-mod");
 				assert.equal(dependency.isSatisfied(mods), false);
 			});
-			it("should pass for optional / hidden being missing", function() {
+			it("should pass for optional / hidden / recommended being missing", function() {
 				const dependencyOptional = new ModDependency("? not-present");
 				assert.equal(dependencyOptional.isSatisfied(mods), true);
 				const dependencyHidden = new ModDependency("(?) not-present");
 				assert.equal(dependencyHidden.isSatisfied(mods), true);
+				const dependencyRecommended = new ModDependency("+ not-present");
+				assert.equal(dependencyRecommended.isSatisfied(mods), true);
 			});
-			it("should pass for optional / hidden being present", function() {
+			it("should pass for optional / hidden / recommended being present", function() {
 				const dependencyOptional = new ModDependency("? my-mod");
 				assert.equal(dependencyOptional.isSatisfied(mods), true);
 				const dependencyHidden = new ModDependency("(?) my-mod");
 				assert.equal(dependencyHidden.isSatisfied(mods), true);
+				const dependencyRecommended = new ModDependency("+ my-mod");
+				assert.equal(dependencyRecommended.isSatisfied(mods), true);
 			});
-			it("should fail for optional / hidden being present but wrong version", function() {
+			it("should fail for optional / hidden / recommended being present but wrong version", function() {
 				const dependencyOptional = new ModDependency("? my-mod > 2.0.0");
 				assert.equal(dependencyOptional.isSatisfied(mods), false);
 				const dependencyHidden = new ModDependency("(?) my-mod > 2.0.0");
 				assert.equal(dependencyHidden.isSatisfied(mods), false);
+				const dependencyRecommended = new ModDependency("+ my-mod > 2.0.0");
+				assert.equal(dependencyRecommended.isSatisfied(mods), false);
 			});
 			it("should pass for unordered / required being present", function() {
 				const dependencyOptional = new ModDependency("~ my-mod");
@@ -258,9 +264,19 @@ describe("lib/data/ModInfo", function() {
 			it("should return true iff the type is incompatible", function() {
 				const dependencyIncompatible = new ModDependency("! my-mod");
 				assert.equal(dependencyIncompatible.incompatible, true);
-				for (const test of ["my-mod", "? my-mod", "(?) my-mod", "~ my-mod"]) {
+				for (const test of ["my-mod", "? my-mod", "(?) my-mod", "~ my-mod", "+ my-mod"]) {
 					const dependency = new ModDependency(test);
 					assert.equal(dependency.incompatible, false, test);
+				}
+			});
+		});
+		describe("recommended", function() {
+			it("should return true iff the type is recommended", function() {
+				const dependencyIncompatible = new ModDependency("+ my-mod");
+				assert.equal(dependencyIncompatible.recommended, true);
+				for (const test of ["my-mod", "? my-mod", "(?) my-mod", "~ my-mod", "! my-mod"]) {
+					const dependency = new ModDependency(test);
+					assert.equal(dependency.recommended, false, test);
 				}
 			});
 		});
@@ -270,7 +286,7 @@ describe("lib/data/ModInfo", function() {
 					const dependency = new ModDependency(test);
 					assert.equal(dependency.required, true, test);
 				}
-				for (const test of ["! my-mod", "? my-mod", "(?) my-mod"]) {
+				for (const test of ["! my-mod", "? my-mod", "(?) my-mod", "+ my-mod"]) {
 					const dependency = new ModDependency(test);
 					assert.equal(dependency.required, false, test);
 				}
@@ -282,7 +298,7 @@ describe("lib/data/ModInfo", function() {
 					const dependency = new ModDependency(test);
 					assert.equal(dependency.optional, true, test);
 				}
-				for (const test of ["! my-mod", "my-mod", "~ my-mod"]) {
+				for (const test of ["! my-mod", "my-mod", "~ my-mod", "+ my-mod"]) {
 					const dependency = new ModDependency(test);
 					assert.equal(dependency.optional, false, test);
 				}

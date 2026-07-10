@@ -187,14 +187,16 @@ describe("messages/mod", function() {
 			});
 		});
 		describe("handle", function() {
-			const factorioVersions = ["1.0", "1.1", "2.0"];
+			const factorioVersions = ["1.0", "1.1", "2.0", "2.1"];
 			it("resolves dependencies", async function() {
 				for (const factorioVersion of factorioVersions) {
-					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo", "bar < 2.0.0", "? baz"]);
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo", "bar < 2.0.0", "? baz", "+ qux"]);
 					setPortalModRelease("foo", "1.0.0", factorioVersion, ["foo-dep"]);
 					setPortalModRelease("foo-dep", "1.0.0", factorioVersion, []);
 					setPortalModRelease("bar", "1.0.0", factorioVersion, []);
 					setPortalModRelease("baz", "1.0.0", factorioVersion, []);
+					setPortalModRelease("qux", "1.0.0", factorioVersion, ["qux-dep"]);
+					setPortalModRelease("qux-dep", "1.0.0", factorioVersion, []);
 
 					setPortalModRelease("root-2", "1.0.0", factorioVersion, ["foo", "bar-2"]);
 					setPortalModRelease("bar-2", "1.0.0", factorioVersion, []);
@@ -213,7 +215,7 @@ describe("messages/mod", function() {
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
 					assert.deepEqual(depIds, new Set([
 						"root_1.0.0", "foo_1.0.0", "foo-dep_1.0.0", "bar_1.0.0",
-						"root-2_1.0.0", "bar-2_1.0.0",
+						"root-2_1.0.0", "bar-2_1.0.0", "qux_1.0.0", "qux-dep_1.0.0",
 					]));
 				}
 			});
@@ -307,6 +309,24 @@ describe("messages/mod", function() {
 					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0"]));
 				}
 			});
+			it("ignores missing optional dependencies", async function() {
+				for (const factorioVersion of factorioVersions) {
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["? foo"]);
+
+					const result = await controlConnection.handleModDependencyResolveRequest(
+						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion),
+					);
+
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
+
+					const depIds = new Set(result.dependencies.map(mod => mod.id));
+					assert.deepEqual(depIds, new Set([
+						"root_1.0.0",
+					]));
+				}
+			});
 			it("does not ignore optional dependencies when required by another", async function() {
 				for (const factorioVersion of factorioVersions) {
 					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo", "? baz"]);
@@ -323,6 +343,44 @@ describe("messages/mod", function() {
 
 					const depIds = new Set(result.dependencies.map(mod => mod.id));
 					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0", "baz_1.0.0"]));
+				}
+			});
+			it("ignores missing recommended dependencies", async function() {
+				for (const factorioVersion of factorioVersions) {
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["+ foo"]);
+
+					const result = await controlConnection.handleModDependencyResolveRequest(
+						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion),
+					);
+
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
+
+					const depIds = new Set(result.dependencies.map(mod => mod.id));
+					assert.deepEqual(depIds, new Set([
+						"root_1.0.0",
+					]));
+				}
+			});
+			it("does not ignore recommended dependencies when required by another", async function() {
+				for (const factorioVersion of factorioVersions) {
+					setPortalModRelease("root", "1.0.0", factorioVersion, ["+ baz", "foo"]);
+					setPortalModRelease("foo", "1.0.0", factorioVersion, ["baz"]);
+					setPortalModRelease("baz", "1.0.0", factorioVersion, []);
+
+					const result = await controlConnection.handleModDependencyResolveRequest(
+						new lib.ModDependencyResolveRequest([new ModDependency("root")], factorioVersion),
+					);
+
+					assert.deepEqual(result.errors, new Map([
+						["base", "notFound"],
+					]));
+
+					const depIds = new Set(result.dependencies.map(mod => mod.id));
+					assert.deepEqual(depIds, new Set([
+						"root_1.0.0", "foo_1.0.0", "baz_1.0.0",
+					]));
 				}
 			});
 			it("prefers the locally installed version if matching", async function() {
@@ -426,7 +484,7 @@ describe("messages/mod", function() {
 					"pyalienlife", "pyalienlifegraphics", "pyalienlifegraphics2", "pyalienlifegraphics3",
 					"pycoalprocessing", "pycoalprocessinggraphics", "pyfusionenergy", "pyfusionenergygraphics",
 					"pypetroleumhandling", "pypetroleumhandlinggraphics", "pyrawores", "pyraworesgraphics",
-					"pyhightech", "pyhightechgraphics", "pyindustry", "pyindustrygraphics",
+					"pyhightech", "pyhightechgraphics", "pyindustry", "pyindustrygraphics", "enable-all-feature-flags",
 				]));
 			});
 		});
