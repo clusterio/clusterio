@@ -43,17 +43,9 @@ export default function useColumnSearch<T>(
 						setSelectedKeys(values);
 						tableState.setFilter(columnKey, values.length ? values : null);
 					}}
-					onSearch={value => {
-						if (value) {
-							close();
-						} else {
-							// antd fires onSearch with an empty value when the clear (X) is clicked
-							// (before onChange); commit the cleared state instead of closing, which
-							// would re-commit the still-live typed value.
-							setSelectedKeys([]);
-							tableState.setFilter(columnKey, null);
-							tableState.commitFilter(columnKey, null);
-						}
+					onPressEnter={e => {
+						close();
+						tableState.commitFilter(columnKey);
 					}}
 				/>
 			</div>
