@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, Tag } from "antd";
+import { Table, Tag, type TablePaginationConfig } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -12,8 +12,9 @@ import {
 	useUsers, getUserStats, isUserOnline,
 } from "../model/user";
 
-import { onFilterUser, Username, useUserFilter } from "./UsersFilters";
+import { onFilterUser, Username, useUserFilter, userFilterCodec } from "./UsersFilters";
 import Link from "./Link";
+import useTableQueryState from "../util/useTableQueryState";
 import useRowNavigation from "../util/useRowNavigation";
 
 export interface UsersTableProps {
@@ -22,19 +23,28 @@ export interface UsersTableProps {
 	/** Show only players that are currently online, works with instanceId to show online of a particular instance */
 	onlyOnline?: boolean;
 	/** Ant Design pagination prop. Pass `false` to disable pagination. */
-	pagination?: false | object;
+	pagination?: false | TablePaginationConfig;
 	/** Ant Design size prop */
 	size?: "small" | "middle" | "large";
 }
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-export default function UsersTable({ instanceId, onlyOnline = false, pagination, size }: UsersTableProps) {
+export default function UsersTable(
+	{ instanceId, onlyOnline = false, pagination, size }: UsersTableProps
+) {
 	const [roles, rolesSynced] = useRoles();
 	const [users, usersSynced] = useUsers();
+	const tableState = useTableQueryState<lib.UserDetails>({
+		namespace: "user",
+		defaultSortKey: "name",
+		// Default to 50 per page when the caller does not specify a pagination config.
+		pagination: pagination === false ? false : (pagination ?? { defaultPageSize: 50 }),
+		filterCodecs: { name: userFilterCodec },
+	});
 	const rowNav = useRowNavigation();
 
-	const {filterDropdown, filterDropdownProps} = useUserFilter(true);
+	const {filterDropdown, filterDropdownProps} = useUserFilter(tableState, "name", true);
 
 	const data = [...users.values()];
 	const roleFilters = [...roles.values()].map(role => ({ text: role.name, value: role.id }));
@@ -90,8 +100,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 					<Username user={user} withStatus />
 				</Link>
 			),
-			defaultSortOrder: "ascend",
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => strcmp(a.name, b.name),
+			sortOrder: tableState.sortOrder("name"),
+			filteredValue: tableState.filteredValue("name"),
 			filterIcon: (filtered: boolean) => (
 				<SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
 			),
@@ -104,8 +115,9 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 			key: "roles",
 			filters: roleFilters,
 			filterMultiple: true,
-			onFilter: (value: string | number | boolean, record: lib.UserDetails) => (
-				record.roleIds.has(value as number)
+			filteredValue: tableState.filteredValue("roles"),
+			onFilter: (value: boolean | React.Key, record: lib.UserDetails) => (
+				record.roleIds.has(Number(value))
 			),
 			render: (_: any, user: lib.UserDetails) => (
 				[...user.roleIds].map((id) => (
@@ -127,6 +139,7 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				const statsB = getUserStats(b, instanceId);
 				return (statsA?.onlineTimeMs ?? 0) - (statsB?.onlineTimeMs ?? 0);
 			},
+			sortOrder: tableState.sortOrder("onlineTime"),
 		},
 		{
 			title: "Join Count",
@@ -139,45 +152,54 @@ export default function UsersTable({ instanceId, onlyOnline = false, pagination,
 				const statsB = getUserStats(b, instanceId);
 				return (statsA?.joinCount ?? 0) - (statsB?.joinCount ?? 0);
 			},
+			sortOrder: tableState.sortOrder("joinCount"),
 		},
 		{
 			title: "First Seen",
 			key: "firstSeen",
 			filterMultiple: false,
 			filters: durationFilters,
+			filteredValue: tableState.filteredValue("firstSeen"),
 			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateFirstSeen),
 			render: (_: any, user: lib.UserDetails) => formatFirstSeen(user, instanceId),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortFirstSeen(a, b, instanceId, instanceId),
+			sortOrder: tableState.sortOrder("firstSeen"),
 		},
 		{
 			title: "Last Seen",
 			key: "lastSeen",
 			filterMultiple: false,
 			filters: durationFilters,
-			defaultFilteredValue: onlyOnline ? ["online"] : undefined,
+			// With the onlyOnline prop set, seed this column's filter to "online" until the
+			// URL provides one, so the table starts out showing only online players.
+			filteredValue: tableState.filteredValue("lastSeen") ?? (onlyOnline ? ["online"] : null),
 			onFilter: (value: any, record: lib.UserDetails) => onFilterDuration(value, record, calculateLastSeen),
 			sorter: (a: lib.UserDetails, b: lib.UserDetails) => sortLastSeen(a, b, instanceId, instanceId),
+			sortOrder: tableState.sortOrder("lastSeen"),
 			render: (_: any, user: lib.UserDetails) => formatLastSeen(user, instanceId),
-			// Responsive breaks defaultFilteredValue, see: https://github.com/ant-design/ant-design/issues/32847
-			// responsive: ["lg"],
 		},
 	];
 
-	const defaultPagination = pagination === undefined
-		? {
-			defaultPageSize: 50,
-			showSizeChanger: true,
-			pageSizeOptions: ["10", "20", "50", "100", "200"],
-			showTotal: (total: number) => `${total} Users`,
-		}
-		: pagination;
+	const displayPagination = {
+		showSizeChanger: true,
+		pageSizeOptions: ["10", "20", "50", "100", "200"],
+		showTotal: (total: number) => `${total} Users`,
+	};
+	let tablePagination: false | object;
+	if (pagination === false) {
+		tablePagination = false;
+	} else {
+		// Controlled current/pageSize from the URL win over the caller's display props.
+		tablePagination = { ...displayPagination, ...pagination, ...(tableState.pagination || {}) };
+	}
 
 	return (
 		<Table
 			columns={columns}
 			dataSource={data}
 			rowKey={(user) => user.name}
-			pagination={defaultPagination}
+			pagination={tablePagination}
+			onChange={tableState.onChange}
 			size={size}
 			scroll={{ x: "max-content" }}
 			loading={!usersSynced || !rolesSynced}
