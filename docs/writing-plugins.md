@@ -455,6 +455,20 @@ async frobnicate() {
 }
 ```
 
+The send and handle methods depend on `this`, so call them directly on the connection object.
+Extracting one into a variable, destructuring it, or passing it as an unbound callback drops the receiver and the method later throws when called with `this === undefined` (for example `Cannot read properties of undefined (reading 'sendRequest')`).
+A type cast around a method that is invoked directly still retains its receiver, but storing or passing the cast result is an unsafe extraction.
+When possible, cast the arguments or result instead of the method so the binding remains obvious.
+
+```js
+// Broken: the extracted method loses its `this` binding and crashes when called.
+const send = this.instance.sendTo;
+send("controller", new messages.Frobnicate({ foo: "bar" }));
+
+// Correct: call it bound on the connection object and cast the arguments/result if needed.
+this.instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
+```
+
 For classes with `static type = "request"` the send method is async and returns a promise that resolves to the response data received from the target it was sent to, or rejects with an error if the request failed.
 The destination specification can either be the ID of a particular control, host or instance, or one of the keywords used to send to multiple targets at once.
 
