@@ -43,6 +43,11 @@ After creating a directory for your plugin, the boilerplate can be generated aut
 To add it to `plugin-list.json` so that it gets loaded use the `plugin add <path>` sub-command to either clusteriocontroller, clusteriohost or clusterioctl.
 Note that it's important that the path starts with ./ or ../ (use .\ or ..\ on Windows).
 
+Do not install the `@clusterio/*` packages into a plugin's own `node_modules`.
+They are declared as peer dependencies, and npm 7 and later installs a package's `peerDependencies` automatically, so running a bare `npm install` inside a plugin directory plants a second copy of `@clusterio/lib`.
+When a second copy is loaded into the same runtime, that process fails with `Error: Attempt to import duplicate copy of @clusterio/lib`.
+To install development tools inside a plugin directory without pulling in the peers, add a plugin-level `.npmrc` containing `legacy-peer-deps=true`, or install the tools with `--no-save` and remove the `@clusterio` packages from `node_modules` afterwards.
+
 For a plugin to be recognised by Clusterio it needs to export an entry named `plugin` from its main entrypoint.
 By default the main entrypoint is the `index.js` file, but this may be changed by setting the `"main"` entry to a different file in `package.json`.
 Here's an example of `index.js`:
