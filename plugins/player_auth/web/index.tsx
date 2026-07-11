@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
-import { Button, Form, Input, Spin, Typography } from "antd";
+import { Alert, Button, Form, Input, Modal, Space, Spin, Typography } from "antd";
 
 import { PlayerAuthServer } from "../messages";
 import "./style.css";
@@ -18,6 +18,7 @@ function LoginForm(props: LoginFormProps) {
 	let [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
 	let [verifyCode, setVerifyCode] = useState<string | undefined>();
 	let [verifyToken, setVerifyToken] = useState<string | null>(null);
+	const [connectServer, setConnectServer] = useState<{ name: string, address: string } | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -115,6 +116,41 @@ function LoginForm(props: LoginFormProps) {
 	}
 
 	return <>
+		<Modal
+			open={connectServer !== null}
+			title={`Connect to ${connectServer?.name ?? ""}`}
+			okText="Connect"
+			cancelText="Back"
+			onCancel={() => setConnectServer(null)}
+			onOk={() => {
+				if (!connectServer) {
+					return;
+				}
+
+				window.location.href = `steam://run/427520//--mp-connect=${connectServer.address}`;
+				setConnectServer(null);
+			}}
+		>
+			<Space direction="vertical" style={{ width: "100%" }}>
+				<Paragraph>
+					This button launches Factorio through Steam. It only works if
+					you own and have installed the Steam version of Factorio, and
+					Factorio is not already running.
+				</Paragraph>
+
+				<Paragraph>
+					If you are using the standalone version, or Factorio is already
+					running, use the following address with <b>Multiplayer → Connect to address</b>:
+				</Paragraph>
+
+				<Typography.Paragraph
+					copyable={{ text: connectServer?.address ?? "" }}
+					style={{ marginBottom: 0 }}
+				>
+					{connectServer?.address}
+				</Typography.Paragraph>
+			</Space>
+		</Modal>
 		<Paragraph>Login using your Factorio account is a 3 step process:</Paragraph>
 		<style>
 		</style>
@@ -127,7 +163,7 @@ function LoginForm(props: LoginFormProps) {
 				<div style={{ maxHeight: 160, overflowY: "auto", paddingLeft: 16, padding: "8px 0" }}>
 					<ul style={{ margin: 0, paddingLeft: 16 }}>
 						{servers.map(server => (
-							<li key={server.address} style={{ marginBottom: 6 }}>
+							<li key={server.name} style={{ marginBottom: 6 }}>
 								<div style={{
 									display: "grid",
 									gridTemplateColumns: "1fr auto",
@@ -141,15 +177,19 @@ function LoginForm(props: LoginFormProps) {
 										)}
 									</span>
 
-									<Button
-										size="small"
-										onClick={() => {
-											window.location.href =
-												`steam://run/427520//--mp-connect=${server.address}`;
-										}}
-									>
-										Connect
-									</Button>
+									{server.address && (
+										<Button
+											size="small"
+											onClick={() => {
+												setConnectServer({
+													name: server.name,
+													address: server.address!,
+												});
+											}}
+										>
+											Connect
+										</Button>
+									)}
 								</div>
 							</li>
 						))}
