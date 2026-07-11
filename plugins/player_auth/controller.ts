@@ -66,10 +66,11 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					: host.publicAddress;
 
 				const settings = instance.config.get("factorio.settings");
+				const includeAddress = this.controller.config.get("player_auth.show_connect_address");
 				servers.push({
 					name: settings["name"] as string || "unnamed server",
 					factorioVersion: instance.factorioVersion,
-					address,
+					address: includeAddress ? address : undefined,
 				});
 			}
 

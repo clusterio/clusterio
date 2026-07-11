@@ -8,6 +8,7 @@ declare module "@clusterio/lib" {
 	export interface ControllerConfigFields {
 		"player_auth.code_length": number;
 		"player_auth.code_timeout": number;
+		"player_auth.show_connect_address": boolean;
 	}
 }
 
@@ -30,6 +31,12 @@ export const plugin: lib.PluginDeclaration = {
 			description: "Time in seconds for the generated codes to stay valid.",
 			type: "number",
 			initialValue: 120,
+		},
+		"player_auth.show_connect_address": {
+			title: "Show Connect Address",
+			description: "Show server connect addresses to unauthenticated users.",
+			type: "boolean",
+			initialValue: false,
 		},
 	},
 

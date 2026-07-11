@@ -26,7 +26,7 @@ describe("player_auth", function() {
 			it("should be round trip json serialisable", function() {
 				testRoundTripJsonSerialisable(PlayerAuthServer, testMatrix(
 					["server1", "server2"], // name
-					["127.0.0.1", "10.0.0.1:1234"], // address
+					[undefined, "127.0.0.1", "10.0.0.1:1234"], // address
 					[undefined, "1.1.0", "2.0.0"], // version
 				));
 			});

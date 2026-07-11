@@ -5,21 +5,25 @@ export class PlayerAuthServer {
 
 	static jsonSchema = Type.Object({
 		name: Type.String(),
-		address: Type.String(),
+		address: Type.Optional(Type.String()),
 		factorioVersion: Type.Optional(Type.String()),
 	});
 
 	constructor(
 		public name: string,
-		public address: string,
+		public address?: string,
 		public factorioVersion?: string,
 	) {}
 
 	toJSON(): Static<typeof PlayerAuthServer.jsonSchema> {
-		if (this.factorioVersion === undefined) {
-			return { name: this.name, address: this.address };
+		const json = { name: this.name } as Static<typeof PlayerAuthServer.jsonSchema>;
+		if (this.address !== undefined) {
+			json.address = this.address;
 		}
-		return { name: this.name, address: this.address, factorioVersion: this.factorioVersion };
+		if (this.factorioVersion !== undefined) {
+			json.factorioVersion = this.address;
+		}
+		return json;
 	}
 
 	static fromJSON(json: Static<typeof PlayerAuthServer.jsonSchema>) {
