@@ -4,9 +4,10 @@ class MapReaderState {
 	pos = 0;
 	last_position = { x: 0, y: 0 };
 	/** True when a version greater than 2.0.0 is detected */
-	v2 = false;
+	gt_v2_0 = false;
 	/** True when a version greater than 2.1.0 is detected */
-	v2_1 = false;
+	gt_v2_1 = false;
+	// If more versions are required then we should expose version directly
 	constructor(
 		public buf: Buffer
 	) { }
@@ -163,7 +164,7 @@ function readBoundingBox(state: MapReaderState) {
 }
 
 function readCliffSettings(state: MapReaderState) {
-	return state.v2 ? {
+	return state.gt_v2_0 ? {
 		name: readString(state),
 		control: readString(state), // v2
 		cliff_elevation_0: readFloat(state),
@@ -188,7 +189,7 @@ function readTerritorySettings(state: MapReaderState) {
 }
 
 function readMapGenSettings(state: MapReaderState) {
-	return state.v2 ? {
+	return state.gt_v2_0 ? {
 		autoplace_controls: Object.fromEntries(readDict(state, readString, readFrequencySizeRichness)),
 		autoplace_settings: Object.fromEntries(readDict(state, readString, readAutoplaceSetting)),
 		default_enable_all_autoplace_controls: readBool(state),
@@ -264,7 +265,7 @@ function readEnemyEvolution(state: MapReaderState) {
 }
 
 function readEnemyExpansion(state: MapReaderState) {
-	return state.v2_1 ? {
+	return state.gt_v2_1 ? {
 		enabled: readOptional(state, readBool),
 		max_expansion_distance: readOptional(state, readUInt32),
 		min_expansion_distance: readOptional(state, readUInt32), // v2.1
@@ -354,7 +355,7 @@ function readPathFinder(state: MapReaderState) {
 }
 
 function readDifficultySettings(state: MapReaderState) {
-	return state.v2 ? {
+	return state.gt_v2_0 ? {
 		technology_price_multiplier: readDouble(state),
 		spoil_time_modifier: readDouble(state), // v2
 	} : {
@@ -373,7 +374,7 @@ function readAsteroids(state: MapReaderState) {
 }
 
 function readMapSettings(state: MapReaderState) {
-	if (state.v2_1) {
+	if (state.gt_v2_1) {
 		return {
 			pollution: readPollution(state),
 			// steering removed v2.1
@@ -385,7 +386,7 @@ function readMapSettings(state: MapReaderState) {
 			difficulty_settings: readDifficultySettings(state),
 			asteroids: readAsteroids(state), // v2
 		};
-	} else if (state.v2) {
+	} else if (state.gt_v2_0) {
 		return {
 			pollution: readPollution(state),
 			steering: readSteering(state),
@@ -459,8 +460,8 @@ export function readMapExchangeString(exchangeString: string) {
 
 	try {
 		const version = readVersion(state);
-		state.v2 = version[0] >= 2;
-		state.v2_1 = version[0] >= 2 && version[1] >= 1;
+		state.gt_v2_0 = version[0] >= 2;
+		state.gt_v2_1 = version[0] >= 2 && version[1] >= 1;
 		data = {
 			version: version,
 			unknown: readUInt8(state),
