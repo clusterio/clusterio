@@ -31,6 +31,44 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.27
+
+### Features
+
+- Added a cluster overview landing page. [#928](<https://github.com/clusterio/clusterio/issues/928>)
+- Remember the instance console chat/log toggle. [#932](<https://github.com/clusterio/clusterio/pull/932>)
+- Show the public address on the instance details page. [#934](<https://github.com/clusterio/clusterio/issues/934>)
+- Navigation links can now be opened in a new tab. [#929](<https://github.com/clusterio/clusterio/issues/929>)
+- Instances can target a Factorio release channel (e.g. `stable` or `experimental`) as their version, resolved from `factorio.com/api/latest-releases`. [#937](<https://github.com/clusterio/clusterio/pull/937>)
+- The instance console in the Web UI can be resized by dragging its bottom edge, and the chosen height is remembered across page reloads. [#938](<https://github.com/clusterio/clusterio/issues/938>)
+- Tables now remember their sort and filters in the URL. [#927](<https://github.com/clusterio/clusterio/issues/927>)
+- Display Factorio server version in login server list. [#906](<https://github.com/clusterio/clusterio/issues/906>)
+- Add "Connect via Steam" button to login server list. [#915](<https://github.com/clusterio/clusterio/pull/915>)
+
+### Fixes
+
+- Silenced two Ant Design console warnings in the Web UI: the deprecated Modal `destroyOnClose` prop, and a duplicate-value warning from the instance version selector. [#940](<https://github.com/clusterio/clusterio/pull/940>)
+- Surface the mod portal's own error when downloading mods for an unsupported Factorio version. [#941](<https://github.com/clusterio/clusterio/pull/941>)
+- Instances always create their config file on assignment preventing duplicate folder creation. [#945](<https://github.com/clusterio/clusterio/pull/945>)
+
+### Changes
+
+- Reworked the site layout into a fixed sidebar with a top bar. [#924](<https://github.com/clusterio/clusterio/pull/924>)
+- The builtin "recycler" mod is now included correctly as builtin. [#925](<https://github.com/clusterio/clusterio/issues/925>)
+- Mod `info.json` versions (a mod's version and its `factorio_version`) are now parsed leniently, matching how the game reads them, instead of being validated against a fixed list of Factorio versions. [#941](<https://github.com/clusterio/clusterio/pull/941>)
+- SubscriptionFilter now directly extends Set<string>. [#942](<https://github.com/clusterio/clusterio/pull/942>)
+- EventSubscriber now exposes network errors, include permission errors. [#942](<https://github.com/clusterio/clusterio/pull/942>)
+- Quick bar syncing now supports quality filters. [#944](<https://github.com/clusterio/clusterio/pull/944>)
+- Added support for recommended mod dependencies. [#946](<https://github.com/clusterio/clusterio/pull/946>)
+
+### Meta
+
+- Node 20 is no longer officially supported as it went EoL in March 2026. Please update to v22 or v24. [#943](<https://github.com/clusterio/clusterio/pull/943>)
+
+Many thanks to the following for contributing to this release:
+[@bbassie](<https://github.com/bbassie>)
+[@Cooldude2606](<https://github.com/Cooldude2606>)
+
 ## Version 2.0.0-alpha.26
 
 ### Features
