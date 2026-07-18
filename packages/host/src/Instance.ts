@@ -797,9 +797,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 		this.activeModPack = modPack;
 
-		// TODO validate factorioVersion
-
-		const mods = await this._host.fetchMods(modPack.mods.values());
+		const mods = await this._host.fetchMods(modPack.mods.values(), modPack.factorioVersion);
 
 		await fs.mkdir(this.path("mods"), { recursive: true });
 

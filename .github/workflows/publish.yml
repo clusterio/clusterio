@@ -6,6 +6,10 @@ on:
     types:
       - released
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   npm:
     runs-on: ubuntu-latest
@@ -15,12 +19,10 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 24.x
           registry-url: https://registry.npmjs.org
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm -r --filter='./{plugins,packages}/*' publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: softprops/action-gh-release@v2
         with:
           files: pnpm-lock.yaml
@@ -33,7 +35,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 24.x
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm -r --filter='./{plugins,packages}/*' run build-mod --output-dir ../../dist
       - run: node ./publish.js factorio ./dist

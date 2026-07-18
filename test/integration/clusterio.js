@@ -1150,8 +1150,15 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance start 44");
 				const instance = (await getInstances()).get(44);
 				const isV2 = lib.integerPartialVersion(instance.factorioVersion) > lib.integerPartialVersion("2.0");
-				const exchangeString = (isV2 ? testStrings.modified_v2 : testStrings.modified).replace(/[\n\r]+/g, "");
-				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+				const isV2_1 = lib.integerPartialVersion(instance.factorioVersion) > lib.integerPartialVersion("2.1");
+				let exchangeString = testStrings.modified;
+				if (isV2_1) {
+					exchangeString = testStrings.modified_v2_1;
+				} else if (isV2) {
+					exchangeString = testStrings.modified_v2;
+				}
+				// eslint-disable-next-line max-len
+				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString.replace(/[\n\r]+/g, "")}"`;
 				await execCtl("instance stop 44");
 
 				await execCtl(`instance load-scenario test ${args}`);

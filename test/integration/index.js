@@ -363,7 +363,11 @@ before(async function() {
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
-	haveFactorioInstall = (await _listFactorioVersions(factorioDir)).versions.size > 0;
+	const factorioVersions = (await _listFactorioVersions(factorioDir)).versions;
+	const latestFactorioVersion = [...factorioVersions.values()]
+		.sort((a, b) => lib.integerFullVersion(b) - lib.integerFullVersion(a))[0];
+	haveFactorioInstall = factorioVersions.size > 0;
+
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
@@ -382,8 +386,11 @@ before(async function() {
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
 	testPack.name = "subspace_storage-pack";
-	testPack.factorioVersion = "2.0.0";
-	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "2.0.20" });
+	testPack.factorioVersion = latestFactorioVersion;
+
+	const [major, minor] = lib.normaliseMajorMinorVersion(latestFactorioVersion).split(".");
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.0.${major}${minor}` });
+
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
 		"controller",

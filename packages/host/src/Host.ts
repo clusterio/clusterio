@@ -659,10 +659,8 @@ export default class Host extends lib.Link {
 		return await this.downloadMod(mod);
 	}
 
-	async fetchMods(mods: Iterable<lib.ModRecord>) {
-		// This is better than the previous hard coded names
-		// But it really shouldn't be a hard coded version either
-		const builtinModNames = lib.ModPack.getBuiltinModNames("2.0");
+	async fetchMods(mods: Iterable<lib.ModRecord>, factorioVersion: lib.PartialVersion) {
+		const builtinModNames = lib.ModPack.getBuiltinModNames(factorioVersion);
 		const modInfos: Promise<lib.ModInfo>[] = [];
 		for (const mod of mods) {
 			if (builtinModNames.includes(mod.name)) {
