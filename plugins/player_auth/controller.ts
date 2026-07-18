@@ -52,7 +52,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			for (const instance of this.controller.instances.values()) {
 				const pluginLoaded = instance.config.get("player_auth.load_plugin");
 				const assignedHost = instance.config.get("instance.assigned_host");
-				if (instance.status !== "running" || !pluginLoaded || !assignedHost) {
+				if (instance.status !== "running" || !pluginLoaded || assignedHost === null) {
 					continue;
 				}
 
@@ -70,7 +70,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				servers.push({
 					name: settings["name"] as string || "unnamed server",
 					factorioVersion: instance.factorioVersion,
-					address: includeAddress ? address : undefined,
+					address: (includeAddress && host.publicAddress !== "") ? address : undefined,
 				});
 			}
 

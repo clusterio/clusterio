@@ -21,7 +21,7 @@ export class PlayerAuthServer {
 			json.address = this.address;
 		}
 		if (this.factorioVersion !== undefined) {
-			json.factorioVersion = this.address;
+			json.factorioVersion = this.factorioVersion;
 		}
 		return json;
 	}
