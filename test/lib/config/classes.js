@@ -176,6 +176,28 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		describe("get filepath", function() {
+			it("returns the current filepath for the config", function() {
+				const testInstance = new TestConfig("local", undefined, "foo/bar");
+				assert.equal(testInstance.filepath, "foo/bar");
+			});
+		});
+
+		describe("set filepath", function() {
+			it("sets the current filepath for the config", function() {
+				const testInstance = new TestConfig("local");
+				assert.equal(testInstance.filepath, undefined);
+				testInstance.filepath = "foo/bar";
+				assert.equal(testInstance.filepath, "foo/bar");
+			});
+			it("sets the dirty flag", function() {
+				const testInstance = new TestConfig("local");
+				assert.equal(testInstance.dirty, false);
+				testInstance.filepath = "foo/bar";
+				assert.equal(testInstance.dirty, true);
+			});
+		});
+
 		describe(".toJSON()", function() {
 			it("should serialize a basic config", function() {
 				const testInstance = new TestConfig("local");
