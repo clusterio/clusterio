@@ -675,6 +675,7 @@ export default class ControlConnection extends BaseConnection {
 		type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
 		type ModPortalReleaseType = NonNullable<ModPortalModType["releases"]>[number];
 		const dependencyRequirements = new Map<string, lib.ModVersionRange>();
+		const recommendedRequirements = new Map<string, lib.ModVersionRange>();
 		const optionalRequirements = new Map<string, lib.ModVersionRange>();
 		const candidateReleases = new Map<string, lib.ModInfo>();
 		const errors = new Map<string, lib.ModDependencyResolveErrors>();
@@ -739,16 +740,32 @@ export default class ControlConnection extends BaseConnection {
 				continue;
 			}
 
-			// Get the current version range (optionals are tracked in case they become required)
-			let versionRange = dependencyRequirements.get(mod.name);
-			if (!versionRange) {
-				versionRange = optionalRequirements.get(mod.name) ?? new lib.ModVersionRange();
-				if (mod.required) {
-					dependencyRequirements.set(mod.name, versionRange);
+			// Get the current version range (dependencies can be promoted to a stricter requirement)
+			const versionRange =
+				dependencyRequirements.get(mod.name)
+				?? recommendedRequirements.get(mod.name)
+				?? optionalRequirements.get(mod.name)
+				?? new lib.ModVersionRange();
+
+			if (mod.required) {
+				// Add to required, remove from recommended and optional
+				dependencyRequirements.set(mod.name, versionRange);
+				recommendedRequirements.delete(mod.name);
+				optionalRequirements.delete(mod.name);
+
+			} else if (mod.recommended) {
+				// If not required, add to recommended and remove from optional
+				if (!dependencyRequirements.has(mod.name)) {
+					recommendedRequirements.set(mod.name, versionRange);
 					optionalRequirements.delete(mod.name);
-				} else {
-					optionalRequirements.set(mod.name, versionRange);
 				}
+
+			} else if (
+				!dependencyRequirements.has(mod.name)
+				&& !recommendedRequirements.has(mod.name)
+			) {
+				// If not required or recommended, add to optional
+				optionalRequirements.set(mod.name, versionRange);
 			}
 
 			// Update the version range if needed
@@ -757,6 +774,7 @@ export default class ControlConnection extends BaseConnection {
 				if (!versionRange.valid) {
 					candidateReleases.delete(mod.name);
 					errors.set(mod.name, "unsatisfiable");
+					continue;
 				}
 			}
 
@@ -804,9 +822,9 @@ export default class ControlConnection extends BaseConnection {
 			}
 		}
 
-		// Remove incompatible dependencies if they aren't required by others
+		// Remove incompatible and unsatisfiable dependencies if they aren't required by others
 		for (const [modName, error] of errors) {
-			if (error === "incompatible" && !dependencyRequirements.has(modName)) {
+			if (!dependencyRequirements.has(modName) && (error === "incompatible" || error === "unsatisfiable")) {
 				errors.delete(modName);
 			}
 		}
