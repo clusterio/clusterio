@@ -90,6 +90,7 @@ describe("player_auth", function() {
 				controllerPlugin = await mock.createControllerPlugin(controller.ControllerPlugin, info);
 				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_length", 10);
 				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_timeout", 1);
+				controllerPlugin.controller.mockConfigEntries.set("player_auth.show_connect_address", true);
 				controllerUrl = await controllerPlugin.controller.startServer();
 			});
 			after(async function() {
