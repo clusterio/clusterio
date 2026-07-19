@@ -252,6 +252,23 @@ describe("controller/src/Controller", function() {
 				assert.equal(controller.config.restartRequired, true);
 			});
 		});
+		describe(".checkRestartDowngrade()", function() {
+			it("returns null when the installed version matches", async function() {
+				controller.config.set("controller.version", controllerVersion);
+				assert.equal(await controller.checkRestartDowngrade(), null);
+			});
+			it("returns null when the installed version is newer", async function() {
+				controller.config.set("controller.version", "0.0.0");
+				assert.equal(await controller.checkRestartDowngrade(), null);
+			});
+			it("returns both versions when the installed version is older", async function() {
+				controller.config.set("controller.version", "999.0.0");
+				assert.deepEqual(await controller.checkRestartDowngrade(), {
+					installedVersion: controllerVersion,
+					runningVersion: "999.0.0",
+				});
+			});
+		});
 
 		describe(".factorioVersions", function() {
 			const _fetch = global.fetch;
