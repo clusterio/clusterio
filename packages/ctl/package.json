@@ -1,11 +1,27 @@
 {
 	"name": "@clusterio/ctl",
-	"description": "Clusterio command line management tool",
-	"author": "Hornwitser <github@hornwitser.no>",
-	"homepage": "https://github.com/clusterio/clusterio#readme",
-	"license": "MIT",
-	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"version": "2.0.0-alpha.27",
+	"description": "Clusterio command line management tool",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
+	"license": "MIT",
+
+	"keywords": [
+		"clusterio",
+		"factorio"
+	],
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
+	},
+	"bugs": {
+		"url": "https://github.com/clusterio/clusterio/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
@@ -14,13 +30,10 @@
 	"bin": {
 		"clusterioctl": "./dist/node/ctl.js"
 	},
-	"keywords": [
-		"clusterio",
-		"factorio"
-	],
 	"engines": {
 		"node": ">=22"
 	},
+
 	"dependencies": {
 		"@clusterio/lib": "workspace:^",
 		"as-table": "^1.0.55",
@@ -31,8 +44,5 @@
 		"@types/node": "catalog:",
 		"@types/yargs": "^17.0.33",
 		"typescript": "catalog:"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

@@ -1,11 +1,27 @@
 {
 	"name": "@clusterio/controller",
-	"description": "Implementation of Clusterio controller",
-	"author": "Hornwitser <github@hornwitser.no>",
-	"homepage": "https://github.com/clusterio/clusterio#readme",
-	"license": "MIT",
-	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"version": "2.0.0-alpha.27",
+	"description": "Implementation of Clusterio controller",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
+	"license": "MIT",
+
+	"keywords": [
+		"clusterio",
+		"factorio"
+	],
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
+	},
+	"bugs": {
+		"url": "https://github.com/clusterio/clusterio/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --mode production",
@@ -14,13 +30,10 @@
 	"bin": {
 		"clusteriocontroller": "./dist/node/controller.js"
 	},
-	"keywords": [
-		"clusterio",
-		"factorio"
-	],
 	"engines": {
 		"node": ">=22"
 	},
+
 	"dependencies": {
 		"@clusterio/lib": "workspace:^",
 		"@sinclair/typebox": "catalog:",
@@ -54,8 +67,5 @@
 		"webpack-cli": "catalog:",
 		"webpack-dev-middleware": "^6.1.1",
 		"webpack-merge": "catalog:"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

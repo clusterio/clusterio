@@ -2,26 +2,36 @@
 	"name": "@clusterio/plugin-inventory_sync",
 	"version": "2.0.0-alpha.27",
 	"description": "Clusterio plugin forwarding between Factorio servers",
-	"author": "Danielv <danielv@danielv.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Danielv <danielv@danielv.no>",
 	"license": "MIT",
-	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
-	"main": "dist/node/index.js",
+
 	"keywords": [
 		"clusterio",
 		"clusterio-plugin",
 		"factorio"
 	],
-	"scripts": {
-		"prepare": "tsc --build && webpack-cli --mode production",
-		"test": "echo \"Error: run tests from root\" && exit 1"
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
 	},
 	"bugs": {
 		"url": "https://github.com/clusterio/factorioClusterio/issues"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
+
+	"main": "dist/node/index.js",
+	"scripts": {
+		"prepare": "tsc --build && webpack-cli --mode production",
+		"test": "echo \"Error: run tests from root\" && exit 1"
+	},
 	"engines": {
 		"node": ">=22"
 	},
+
 	"peerDependencies": {
 		"@clusterio/controller": "workspace:^",
 		"@clusterio/host": "workspace:^",
@@ -45,8 +55,5 @@
 		"webpack": "catalog:",
 		"webpack-cli": "catalog:",
 		"webpack-merge": "catalog:"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

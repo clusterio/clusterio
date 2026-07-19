@@ -2,30 +2,40 @@
 	"name": "@clusterio/plugin-statistics_exporter",
 	"version": "2.0.0-alpha.27",
 	"description": "Clusterio plugin for gathering statistics from Factorio servers",
-	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
 	"license": "MIT",
-	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
-	"main": "dist/node/index.js",
+
 	"keywords": [
 		"clusterio",
 		"clusterio-plugin",
 		"factorio"
 	],
-	"scripts": {
-		"prepare": "tsc --build && webpack-cli --mode production",
-		"test": "echo \"Error: run tests from root\" && exit 1"
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
 	},
 	"bugs": {
 		"url": "https://github.com/clusterio/clusterio/issues"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
+
+	"main": "dist/node/index.js",
+	"scripts": {
+		"prepare": "tsc --build && webpack-cli --mode production",
+		"test": "echo \"Error: run tests from root\" && exit 1"
+	},
 	"engines": {
 		"node": ">=22"
 	},
+
 	"peerDependencies": {
-		"@clusterio/web_ui": "workspace:^",
 		"@clusterio/host": "workspace:^",
-		"@clusterio/lib": "workspace:^"
+		"@clusterio/lib": "workspace:^",
+		"@clusterio/web_ui": "workspace:^"
 	},
 	"devDependencies": {
 		"@clusterio/web_ui": "workspace:^",
@@ -37,8 +47,5 @@
 		"webpack": "catalog:",
 		"webpack-cli": "catalog:",
 		"webpack-merge": "catalog:"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

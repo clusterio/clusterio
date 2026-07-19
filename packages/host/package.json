@@ -1,11 +1,27 @@
 {
 	"name": "@clusterio/host",
-	"description": "Implementation of Clusterio host server",
-	"author": "Hornwitser <github@hornwitser.no>",
-	"homepage": "https://github.com/clusterio/clusterio#readme",
-	"license": "MIT",
-	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"version": "2.0.0-alpha.27",
+	"description": "Implementation of Clusterio host server",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
+	"license": "MIT",
+
+	"keywords": [
+		"clusterio",
+		"factorio"
+	],
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
+	},
+	"bugs": {
+		"url": "https://github.com/clusterio/clusterio/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
@@ -15,13 +31,10 @@
 	"bin": {
 		"clusteriohost": "./dist/node/host.js"
 	},
-	"keywords": [
-		"clusterio",
-		"factorio"
-	],
 	"engines": {
 		"node": ">=22"
 	},
+
 	"dependencies": {
 		"@clusterio/lib": "workspace:^",
 		"@sinclair/typebox": "catalog:",
@@ -34,9 +47,6 @@
 		"winston": "catalog:",
 		"winston-daily-rotate-file": "catalog:",
 		"yargs": "^17.7.2"
-	},
-	"publishConfig": {
-		"access": "public"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",

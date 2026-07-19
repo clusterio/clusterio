@@ -2,26 +2,36 @@
 	"name": "@clusterio/plugin-research_sync",
 	"version": "2.0.0-alpha.27",
 	"description": "Clusterio plugin for synchronizing research between Factorio servers",
-	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
 	"license": "MIT",
-	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
-	"main": "dist/node/index.js",
+
 	"keywords": [
 		"clusterio",
 		"clusterio-plugin",
 		"factorio"
 	],
-	"scripts": {
-		"prepare": "tsc --build && webpack-cli --mode production",
-		"test": "echo \"Error: run tests from root\" && exit 1"
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
 	},
 	"bugs": {
 		"url": "https://github.com/clusterio/clusterio/issues"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
+
+	"main": "dist/node/index.js",
+	"scripts": {
+		"prepare": "tsc --build && webpack-cli --mode production",
+		"test": "echo \"Error: run tests from root\" && exit 1"
+	},
 	"engines": {
 		"node": ">=22"
 	},
+
 	"peerDependencies": {
 		"@clusterio/controller": "workspace:^",
 		"@clusterio/host": "workspace:^",
@@ -42,8 +52,5 @@
 		"webpack": "catalog:",
 		"webpack-cli": "catalog:",
 		"webpack-merge": "catalog:"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }
