@@ -118,9 +118,9 @@ describe("Host testing", function() {
 		});
 		describe(".checkRestartRequired()", function() {
 			let host;
+			const hostVersion = require("@clusterio/host/package.json").version;
 			beforeEach(function() {
 				// This can be used more generally, but i did not want to interfere with handleSyncUserListsEvent
-				const hostVersion = require("@clusterio/host/package.json").version;
 				const pluginInfos = [{
 					name: "global_chat",
 					requirePath: path.dirname(require.resolve("@clusterio/host/package.json")),
@@ -172,6 +172,64 @@ describe("Host testing", function() {
 				const result = await host.checkRestartRequired();
 				assert.equal(result, true);
 				assert.equal(host.config.restartRequired, true);
+			});
+		});
+		describe(".checkRestartDowngrade()", function() {
+			let host;
+			const hostVersion = require("@clusterio/host/package.json").version;
+			beforeEach(function() {
+				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
+				const hostConnector = new HostConnector(hostConfig, []);
+				host = new Host(hostConnector, hostConfig, []);
+			});
+			it("returns null when the installed version matches", async function() {
+				assert.equal(await host.checkRestartDowngrade(), null);
+			});
+			it("returns null when the installed version is newer", async function() {
+				host.config.set("host.version", "0.0.0");
+				assert.equal(await host.checkRestartDowngrade(), null);
+			});
+			it("returns both versions when the installed version is older", async function() {
+				host.config.set("host.version", "999.0.0");
+				assert.deepEqual(await host.checkRestartDowngrade(), {
+					installedVersion: hostVersion,
+					runningVersion: "999.0.0",
+				});
+			});
+		});
+		describe(".handleHostRestartRequest()", function() {
+			let mockHost;
+			beforeEach(function() {
+				process.exitCode = undefined;
+				mockHost = {
+					canRestart: true,
+					shutdownCalled: false,
+					async checkRestartDowngrade() { return null; },
+					shutdown() { this.shutdownCalled = true; },
+					handleHostRestartRequest: Host.prototype.handleHostRestartRequest,
+				};
+			});
+			afterEach(function() {
+				process.exitCode = undefined;
+			});
+
+			it("restarts when the installed version is not older", async function() {
+				await mockHost.handleHostRestartRequest();
+				assert.equal(process.exitCode, 1);
+				assert.equal(mockHost.shutdownCalled, true);
+			});
+			it("rejects a downgrade without shutting down the host", async function() {
+				mockHost.checkRestartDowngrade = async () => ({
+					installedVersion: "1.0.0",
+					runningVersion: "2.0.0",
+				});
+
+				await assert.rejects(
+					() => mockHost.handleHostRestartRequest(),
+					/Stop the host before starting the older version manually/
+				);
+				assert.equal(process.exitCode, undefined);
+				assert.equal(mockHost.shutdownCalled, false);
 			});
 		});
 	});

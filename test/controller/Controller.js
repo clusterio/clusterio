@@ -1,7 +1,7 @@
 "use strict";
 const path = require("node:path");
 const assert = require("assert").strict;
-const { Controller, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
+const { Controller, ControlConnection, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
 const { EventEmitter } = require("stream");
 
 const {
@@ -250,6 +250,57 @@ describe("controller/src/Controller", function() {
 				const result = await controller.checkRestartRequired();
 				assert.equal(result, true);
 				assert.equal(controller.config.restartRequired, true);
+			});
+		});
+		describe(".checkRestartDowngrade()", function() {
+			it("returns null when the installed version matches", async function() {
+				controller.config.set("controller.version", controllerVersion);
+				assert.equal(await controller.checkRestartDowngrade(), null);
+			});
+			it("returns null when the installed version is newer", async function() {
+				controller.config.set("controller.version", "0.0.0");
+				assert.equal(await controller.checkRestartDowngrade(), null);
+			});
+			it("returns both versions when the installed version is older", async function() {
+				controller.config.set("controller.version", "999.0.0");
+				assert.deepEqual(await controller.checkRestartDowngrade(), {
+					installedVersion: controllerVersion,
+					runningVersion: "999.0.0",
+				});
+			});
+		});
+
+		describe("ControlConnection.handleControllerRestartRequest()", function() {
+			let mockController;
+			beforeEach(function() {
+				mockController = {
+					canRestart: true,
+					shouldRestart: false,
+					stopped: false,
+					async checkRestartDowngrade() { return null; },
+					stop() { this.stopped = true; },
+				};
+			});
+			async function restart() {
+				await ControlConnection.prototype.handleControllerRestartRequest.call({
+					_controller: mockController,
+				});
+			}
+
+			it("restarts when the installed version is not older", async function() {
+				await restart();
+				assert.equal(mockController.shouldRestart, true);
+				assert.equal(mockController.stopped, true);
+			});
+			it("rejects a downgrade without stopping the controller", async function() {
+				mockController.checkRestartDowngrade = async () => ({
+					installedVersion: "1.0.0",
+					runningVersion: "2.0.0",
+				});
+
+				await assert.rejects(restart, /Stop the controller before starting the older version manually/);
+				assert.equal(mockController.shouldRestart, false);
+				assert.equal(mockController.stopped, false);
 			});
 		});
 
