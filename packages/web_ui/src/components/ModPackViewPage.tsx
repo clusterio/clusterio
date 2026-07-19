@@ -11,6 +11,7 @@ import {
 import {
 	ExportOutlined, FileUnknownOutlined, FileExclamationOutlined, FileSyncOutlined,
 	CloseOutlined, DeleteOutlined, ToolOutlined, PlusOutlined, CloudSyncOutlined, CloudDownloadOutlined,
+	LikeOutlined,
 } from "@ant-design/icons";
 
 import type { SorterResult, FilterValue, TableCurrentDataSource } from "antd/es/table/interface";
@@ -545,7 +546,7 @@ function ModsTable(props: ModsTableProps) {
 		}
 	}
 
-	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
+	let mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
 		(mod: lib.ModRecord): lib.ModRecord => {
 			if (props.builtInModNames.includes(mod.name)) {
 				return {
@@ -590,6 +591,7 @@ function ModsTable(props: ModsTableProps) {
 			}
 		}
 	}
+	mods = lib.applyModRecordAdvisories(mods, lib.getInstalledModUpdates(mods, modInfos.values()));
 
 	async function fixDependencyIssues(mod: lib.ModRecord) {
 		if (!mod.info) {
@@ -766,27 +768,48 @@ function ModsTable(props: ModsTableProps) {
 				{
 					title: "Name",
 					key: "name",
-					render: (_, mod: lib.ModRecord) => <>
-						{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
-							<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
-						</Tooltip>}
-						{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
-							<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
-							<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
-							<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "wrong_version" && <Tooltip title="Mod has wrong dependency version added.">
-							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "wrong_factorio_version" && <Tooltip title="Mod has wrong factorio version.">
-							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.info?.title || mod.name}
-					</>,
+					render: (_, mod: lib.ModRecord) => {
+						const recommendedBy = mod.advisories
+							?.filter(advisory => advisory.type === "recommended_dependency")
+							.map(advisory => advisory.sourceModName) ?? [];
+						const update = mod.advisories
+							?.find(advisory => advisory.type === "update_available");
+						return <>
+							{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
+								<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
+							</Tooltip>}
+							{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
+								<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
+								<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
+								<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "wrong_version" && <Tooltip
+								title="Mod has wrong dependency version added."
+							>
+								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "wrong_factorio_version" && <Tooltip
+								title="Mod has wrong factorio version."
+							>
+								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{recommendedBy.length > 0 && <Tooltip
+								title={`Recommended by ${recommendedBy.join(", ")}, but currently disabled.`}
+							>
+								<LikeOutlined style={{ color: "#0958d9" }} />{" "}
+							</Tooltip>}
+							{update?.type === "update_available" && <Tooltip
+								title={`A newer compatible version (${update.version}) is available.`}
+							>
+								<CloudSyncOutlined style={{ color: "#0958d9" }} />{" "}
+							</Tooltip>}
+							{mod.info?.title || mod.name}
+						</>;
+					},
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
 				},

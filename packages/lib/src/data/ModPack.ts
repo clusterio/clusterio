@@ -12,7 +12,7 @@ import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
 
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	SourceVersion, SourceVersionSchema, normaliseFullVersion,
+	SourceVersion, SourceVersionSchema, normaliseFullVersion, integerSourceVersion,
 } from "./version";
 
 
@@ -31,6 +31,10 @@ export interface ModSetting {
 	/** Value of the given mod setting. */
 	value: boolean | number | string | ModSettingColor;
 }
+
+export type ModRecordAdvisory =
+	| { type: "recommended_dependency", sourceModName: string }
+	| { type: "update_available", version: SourceVersion };
 
 const ModSettingJsonSchema = Type.Object({
 	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String(), ModSettingColor]),
@@ -56,6 +60,91 @@ export interface ModRecord {
 	warning?: ModDependencyUnsatisfiedReason | "wrong_factorio_version",
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx when there is no error. */
 	info?: ModInfo,
+	/** Non-blocking recommendations displayed by the Web UI. */
+	advisories?: ModRecordAdvisory[],
+}
+
+type AnnotatedModRecord = ModRecord & { advisories: ModRecordAdvisory[] };
+
+/**
+ * Finds newer versions already installed on the controller for mods in a pack.
+ */
+export function getInstalledModUpdates(mods: ModRecord[], installedMods: Iterable<ModInfo>) {
+	const updates = new Map<string, SourceVersion>();
+
+	for (const mod of mods) {
+		if (!mod.info) {
+			continue;
+		}
+
+		for (const installedMod of installedMods) {
+			if (
+				installedMod.name !== mod.name
+				|| installedMod.factorioVersion !== mod.info.factorioVersion
+				|| installedMod.integerVersion <= integerSourceVersion(mod.version)
+			) {
+				continue;
+			}
+
+			const existingUpdate = updates.get(mod.name);
+			if (!existingUpdate || installedMod.integerVersion > integerSourceVersion(existingUpdate)) {
+				updates.set(mod.name, installedMod.version);
+			}
+		}
+	}
+
+	return updates;
+}
+
+export function applyModRecordAdvisories(
+	mods: ModRecord[],
+	availableUpdates: ReadonlyMap<string, SourceVersion> = new Map(),
+) {
+	const annotatedMods: AnnotatedModRecord[] = mods.map(mod => ({ ...mod, advisories: [] }));
+	const modsByName = new Map(annotatedMods.map(mod => [mod.name, mod]));
+
+	for (const sourceMod of annotatedMods) {
+		if (!sourceMod.enabled || !sourceMod.info) {
+			continue;
+		}
+
+		for (const dependency of sourceMod.info.dependencies) {
+			if (!dependency.recommended) {
+				continue;
+			}
+
+			const targetMod = modsByName.get(dependency.name);
+			if (
+				!targetMod
+				|| targetMod.enabled
+				|| dependency.version && !dependency.version.testVersion(targetMod.version)
+			) {
+				continue;
+			}
+
+			if (!targetMod.advisories.some(
+				advisory => advisory.type === "recommended_dependency"
+					&& advisory.sourceModName === sourceMod.name
+			)) {
+				targetMod.advisories.push({
+					type: "recommended_dependency",
+					sourceModName: sourceMod.name,
+				});
+			}
+		}
+	}
+
+	for (const mod of annotatedMods) {
+		const availableVersion = availableUpdates.get(mod.name);
+		if (availableVersion && integerSourceVersion(availableVersion) > integerSourceVersion(mod.version)) {
+			mod.advisories.push({ type: "update_available", version: availableVersion });
+		}
+		if (mod.advisories.length === 0) {
+			delete (mod as ModRecord).advisories;
+		}
+	}
+
+	return annotatedMods;
 }
 
 const ModRecordJsonSchema = Type.Object({
