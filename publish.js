@@ -42,9 +42,9 @@ async function uploadModRelease(file, name) {
 		return;
 	}
 
-	const headers = {
+	const headers = new Headers({
 		Authorization: `Bearer ${process.env.FACTORIO_TOKEN}`,
-	};
+	});
 
 	// Start the upload process by requesting an upload url
 	const initFormData = new FormData();

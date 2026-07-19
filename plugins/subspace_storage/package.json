@@ -5,7 +5,7 @@
 	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"license": "MIT",
-	"repository": "clusterio/clusterio",
+	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"main": "dist/node/index.js",
 	"keywords": [
 		"clusterio",

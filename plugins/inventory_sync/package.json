@@ -3,9 +3,9 @@
 	"version": "2.0.0-alpha.27",
 	"description": "Clusterio plugin forwarding between Factorio servers",
 	"author": "Danielv <danielv@danielv.no>",
-	"homepage": "https://github.com/clusterio/factorioClusterio#readme",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"license": "MIT",
-	"repository": "clusterio/factorioClusterio",
+	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"main": "dist/node/index.js",
 	"keywords": [
 		"clusterio",

@@ -3,6 +3,7 @@
 	"description": "Clusterio web interface implementation",
 	"author": "Hornwitser",
 	"license": "MIT",
+	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"version": "2.0.0-alpha.27",
 	"browser": "src/index.ts",
 	"main": "dist/browser/src/index.js",
@@ -49,12 +50,12 @@
 		"webpack-cli": "^5.1.4",
 		"webpack-manifest-plugin": "^5.0.0"
 	},
-	"publishConfig": {
-		"access": "public"
-	},
 	"devDependencies": {
 		"@types/node": "^20.17.19",
 		"@types/react": "^18.3.18",
 		"@types/react-dom": "^18.3.5"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }

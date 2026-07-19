@@ -1,8 +1,10 @@
 {
 	"name": "@clusterio/host",
 	"description": "Implementation of Clusterio host server",
-	"author": "Hornwitser",
+	"author": "Hornwitser <github@hornwitser.no>",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"license": "MIT",
+	"repository": { "type": "git", "url": "https://github.com/clusterio/clusterio" },
 	"version": "2.0.0-alpha.27",
 	"main": "dist/node/index.js",
 	"scripts": {
