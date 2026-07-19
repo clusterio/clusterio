@@ -189,6 +189,16 @@ export default class ControlConnection extends BaseConnection {
 		if (!this._controller.canRestart) {
 			throw new lib.RequestError("Cannot restart, controller does not have a process monitor to restart it.");
 		}
+		const downgrade = await this._controller.checkRestartDowngrade();
+		if (downgrade) {
+			const { installedVersion, runningVersion } = downgrade;
+			throw new lib.RequestError(
+				`Cannot restart controller with installed Clusterio version ${installedVersion} because it ` +
+				"is older than " +
+				`running version ${runningVersion}. Stop the controller before starting the older ` +
+				"version manually."
+			);
+		}
 		this._controller.shouldRestart = true;
 		this._controller.stop();
 	}

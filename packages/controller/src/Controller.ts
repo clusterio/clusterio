@@ -12,6 +12,7 @@ import http from "http";
 import https from "https";
 import jwt from "jsonwebtoken";
 import path from "path";
+import semver from "semver";
 import stream from "stream";
 
 import * as lib from "@clusterio/lib";
@@ -652,6 +653,31 @@ export default class Controller {
 		}
 
 		return false;
+	}
+
+	async checkRestartDowngrade() {
+		try {
+			const runningVersion = this.config.get("controller.version");
+			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
+			const installedVersion = packageJson.version;
+
+			if (!semver.valid(runningVersion) || !semver.valid(installedVersion)) {
+				logger.warn(
+					`Unable to compare running controller version ${runningVersion} ` +
+					`with installed version ${installedVersion}.`
+				);
+				return null;
+			}
+
+			if (semver.lt(installedVersion, runningVersion)) {
+				return { installedVersion, runningVersion };
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to check controller version before restart:\n${err.stack ?? err.message}`);
+		}
+
+		return null;
 	}
 
 	onAutosaveIntervalChanged() {
