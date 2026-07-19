@@ -5,8 +5,8 @@
  */
 export { default as ExportManifest } from "./ExportManifest";
 export { default as ModInfo, ModDependency } from "./ModInfo";
-export { ModSettingColor } from "./ModPack";
-export type { ModSetting, ModRecord } from "./ModPack";
+export { ModSettingColor, applyModRecordAdvisories } from "./ModPack";
+export type { ModSetting, ModRecord, ModRecordAdvisory } from "./ModPack";
 export { default as ModPack } from "./ModPack";
 export { default as ModuleInfo } from "./ModuleInfo";
 export { default as Permission } from "./Permission";

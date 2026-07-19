@@ -35,6 +35,7 @@ Many thanks to the following for contributing to this release:
 
 ### Features
 
+- Mod packs now show informational notices for disabled recommended mods and available compatible updates. [#949](<https://github.com/clusterio/clusterio/issues/949>)
 - Added a cluster overview landing page. [#928](<https://github.com/clusterio/clusterio/issues/928>)
 - Remember the instance console chat/log toggle. [#932](<https://github.com/clusterio/clusterio/pull/932>)
 - Show the public address on the instance details page. [#934](<https://github.com/clusterio/clusterio/issues/934>)

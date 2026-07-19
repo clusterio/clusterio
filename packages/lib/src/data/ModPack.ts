@@ -12,7 +12,7 @@ import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
 
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	SourceVersion, SourceVersionSchema, normaliseFullVersion,
+	SourceVersion, SourceVersionSchema, normaliseFullVersion, integerSourceVersion,
 } from "./version";
 
 
@@ -31,6 +31,10 @@ export interface ModSetting {
 	/** Value of the given mod setting. */
 	value: boolean | number | string | ModSettingColor;
 }
+
+export type ModRecordAdvisory =
+	| { type: "recommended_dependency", sourceModName: string }
+	| { type: "update_available", version: SourceVersion };
 
 const ModSettingJsonSchema = Type.Object({
 	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String(), ModSettingColor]),
@@ -56,6 +60,63 @@ export interface ModRecord {
 	warning?: ModDependencyUnsatisfiedReason | "wrong_factorio_version",
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx when there is no error. */
 	info?: ModInfo,
+	/** Non-blocking recommendations displayed by the Web UI. */
+	advisories?: ModRecordAdvisory[],
+}
+
+export function applyModRecordAdvisories(
+	mods: ModRecord[],
+	availableUpdates: ReadonlyMap<string, SourceVersion> = new Map(),
+) {
+	const annotatedMods: ModRecord[] = mods.map(mod => ({ ...mod, advisories: [] }));
+	const modsByName = new Map(annotatedMods.map(mod => [mod.name, mod]));
+
+	for (const sourceMod of annotatedMods) {
+		if (!sourceMod.enabled || !sourceMod.info) {
+			continue;
+		}
+
+		for (const dependency of sourceMod.info.dependencies) {
+			if (!dependency.recommended) {
+				continue;
+			}
+
+			const targetMod = modsByName.get(dependency.name);
+			if (
+				!targetMod
+				|| targetMod.enabled
+				|| dependency.version && !dependency.version.testVersion(targetMod.version)
+			) {
+				continue;
+			}
+
+			const targetAdvisories = targetMod.advisories ?? [];
+			targetMod.advisories = targetAdvisories;
+			if (!targetAdvisories.some(
+				advisory => advisory.type === "recommended_dependency"
+					&& advisory.sourceModName === sourceMod.name
+			)) {
+				targetAdvisories.push({
+					type: "recommended_dependency",
+					sourceModName: sourceMod.name,
+				});
+			}
+		}
+	}
+
+	for (const mod of annotatedMods) {
+		const advisories = mod.advisories ?? [];
+		mod.advisories = advisories;
+		const availableVersion = availableUpdates.get(mod.name);
+		if (availableVersion && integerSourceVersion(availableVersion) > integerSourceVersion(mod.version)) {
+			advisories.push({ type: "update_available", version: availableVersion });
+		}
+		if (advisories.length === 0) {
+			delete mod.advisories;
+		}
+	}
+
+	return annotatedMods;
 }
 
 const ModRecordJsonSchema = Type.Object({

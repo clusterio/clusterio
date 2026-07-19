@@ -11,6 +11,7 @@ import {
 import {
 	ExportOutlined, FileUnknownOutlined, FileExclamationOutlined, FileSyncOutlined,
 	CloseOutlined, DeleteOutlined, ToolOutlined, PlusOutlined, CloudSyncOutlined, CloudDownloadOutlined,
+	LikeOutlined,
 } from "@ant-design/icons";
 
 import type { SorterResult, FilterValue, TableCurrentDataSource } from "antd/es/table/interface";
@@ -261,6 +262,7 @@ type DownloadDependenciesProps = {
 	modPack: lib.ModPack;
 	mods: lib.ModRecord[];
 	onChange: (change: ModChange) => void;
+	onUpdatesResolved?: (updates: Map<string, lib.SourceVersion>) => void;
 	builtInModNames: string[];
 }
 function DownloadDependenciesButton(props: DownloadDependenciesProps) {
@@ -320,6 +322,16 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			lib.ModDependencyResolveRequest.fromModPackEnabled(props.modPack, props.checkForUpdates)
 		).then(response => {
 			if (canceled) { return; }
+			if (props.checkForUpdates && props.onUpdatesResolved) {
+				const updates = new Map<string, lib.SourceVersion>();
+				for (const resolvedMod of response.dependencies) {
+					const currentMod = props.modPack.mods.get(resolvedMod.name);
+					if (currentMod && resolvedMod.integerVersion > lib.integerSourceVersion(currentMod.version)) {
+						updates.set(resolvedMod.name, resolvedMod.version);
+					}
+				}
+				props.onUpdatesResolved(updates);
+			}
 
 			const newModErrors = [...response.errors.entries()]
 				.reduce<typeof modErrors>((acc, [modName, modError]) => {
@@ -338,6 +350,9 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 			setLoading(false);
 		}).catch(err => {
 			if (canceled) { return; }
+			if (props.checkForUpdates && props.onUpdatesResolved) {
+				props.onUpdatesResolved(new Map());
+			}
 			notifyErrorHandler("Error fetching mods dependencies")(err);
 			setError(err);
 			setMods([]);
@@ -528,8 +543,10 @@ type ModsTableProps = {
 function ModsTable(props: ModsTableProps) {
 	const account = useAccount();
 	const [modInfos] = useMods();
+	const [availableUpdates, setAvailableUpdates] = useState<Map<string, lib.SourceVersion>>(new Map());
 
 	const [showAddMods, setShowAddMods] = useState(false);
+	useEffect(() => setAvailableUpdates(new Map()), [props.modPack.factorioVersion, props.changes]);
 
 	const deletedMods: Map<string, lib.ModRecord> = new Map();
 	const changedMods: Map<string, lib.ModRecord> = new Map();
@@ -545,7 +562,7 @@ function ModsTable(props: ModsTableProps) {
 		}
 	}
 
-	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
+	let mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
 		(mod: lib.ModRecord): lib.ModRecord => {
 			if (props.builtInModNames.includes(mod.name)) {
 				return {
@@ -590,6 +607,7 @@ function ModsTable(props: ModsTableProps) {
 			}
 		}
 	}
+	mods = lib.applyModRecordAdvisories(mods, availableUpdates);
 
 	async function fixDependencyIssues(mod: lib.ModRecord) {
 		if (!mod.info) {
@@ -722,6 +740,7 @@ function ModsTable(props: ModsTableProps) {
 						onChange={props.onChange}
 						builtInModNames={props.builtInModNames}
 						checkForUpdates
+						onUpdatesResolved={setAvailableUpdates}
 					/>}
 				<Button icon={<PlusOutlined />} onClick={() => setShowAddMods(true)}>Add</Button>
 			</Space>}
@@ -766,27 +785,48 @@ function ModsTable(props: ModsTableProps) {
 				{
 					title: "Name",
 					key: "name",
-					render: (_, mod: lib.ModRecord) => <>
-						{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
-							<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
-						</Tooltip>}
-						{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
-							<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
-							<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
-							<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "wrong_version" && <Tooltip title="Mod has wrong dependency version added.">
-							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.warning === "wrong_factorio_version" && <Tooltip title="Mod has wrong factorio version.">
-							<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
-						</Tooltip>}
-						{mod.info?.title || mod.name}
-					</>,
+					render: (_, mod: lib.ModRecord) => {
+						const recommendedBy = mod.advisories
+							?.filter(advisory => advisory.type === "recommended_dependency")
+							.map(advisory => advisory.sourceModName) ?? [];
+						const update = mod.advisories
+							?.find(advisory => advisory.type === "update_available");
+						return <>
+							{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
+								<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
+							</Tooltip>}
+							{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
+								<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
+								<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
+								<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "wrong_version" && <Tooltip
+								title="Mod has wrong dependency version added."
+							>
+								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{mod.warning === "wrong_factorio_version" && <Tooltip
+								title="Mod has wrong factorio version."
+							>
+								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+							</Tooltip>}
+							{recommendedBy.length > 0 && <Tooltip
+								title={`Recommended by ${recommendedBy.join(", ")}, but currently disabled.`}
+							>
+								<LikeOutlined style={{ color: "#0958d9" }} />{" "}
+							</Tooltip>}
+							{update?.type === "update_available" && <Tooltip
+								title={`A newer compatible version (${update.version}) is available.`}
+							>
+								<CloudSyncOutlined style={{ color: "#0958d9" }} />{" "}
+							</Tooltip>}
+							{mod.info?.title || mod.name}
+						</>;
+					},
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
 				},
