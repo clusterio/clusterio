@@ -25,6 +25,7 @@ catalog:
   react-markdown: ^10.1.0
   react-router-dom: ^6.29.0
   set-blocking: ^2.0.0
+  tap: ^21.7.4
   typescript: ^5.7.3
   webpack: ^5.98.0
   webpack-cli: ^5.1.4
