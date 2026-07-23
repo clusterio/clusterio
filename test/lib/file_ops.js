@@ -291,6 +291,23 @@ describe("lib/file_ops", function() {
 			);
 		});
 
+		it("should not leak credentials from the url when throwing", async function () {
+			// The mod portal takes the Factorio token as a query parameter, see #795.
+			const downloadPath = path.join(downloadDir, "credentials.txt");
+			const url = new URL("/not-found", baseUrl);
+			url.searchParams.set("username", "user");
+			url.searchParams.set("token", "secret");
+			await assert.rejects(
+				lib.downloadFile(url, downloadPath, "overwrite"),
+				err => {
+					assert.ok(!err.message.includes("secret"), `token leaked in: ${err.message}`);
+					assert.match(err.message, /token=REDACTED/);
+					assert.match(err.message, /username=user/);
+					return true;
+				}
+			);
+		});
+
 		it("should throw if fetch response body is missing", async function () {
 			const downloadPath = path.join(downloadDir, "not-content.txt");
 			await assert.rejects(
