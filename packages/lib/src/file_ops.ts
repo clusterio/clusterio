@@ -280,6 +280,32 @@ export async function createTempWriteStream(filePath: string) {
 }
 
 /**
+ * Discard a partially written download
+ *
+ * Destroys the write stream and removes the file it was writing to, so a
+ * download which failed part way through does not leave a stray temporary
+ * file and an open file handle behind.  Safe to call whether or not the
+ * stream has already closed.
+ *
+ * @param writeStream - stream the download was written to.
+ * @param tempFilePath - path the stream was writing to.
+ */
+async function discardPartialDownload(writeStream: stream.Writable, tempFilePath: string) {
+	if (!writeStream.closed) {
+		writeStream.destroy();
+		await events.once(writeStream, "close");
+	}
+	try {
+		await fs.unlink(tempFilePath);
+	} catch (err: any) {
+		// Nothing to discard if the file never made it to disk.
+		if (err.code !== "ENOENT") {
+			throw err;
+		}
+	}
+}
+
+/**
  * Download a file by fetching the given url and streaming the body content to it.
  *
  * @param url - The resource to download
@@ -305,16 +331,21 @@ export async function downloadFile(
 		[tempFilePath, writeStream] = await createTempWriteStream(filePath);
 	}
 
-	// Fetch stream bytes
-	const response = await fetch(url);
-	if (!response.ok || !response.body) {
-		writeStream.end();
-		await events.once(writeStream, "close");
-		await fs.unlink(tempFilePath);
-		throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+	// Fetch stream bytes.  Anything that goes wrong from here until the
+	// body has been written leaves a temporary file that is of no use to
+	// anyone, including the request never reaching the server at all.
+	try {
+		const response = await fetch(url);
+		if (!response.ok || !response.body) {
+			throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+		}
+		const writer = stream.Writable.toWeb(writeStream);
+		await response.body.pipeTo(writer);
+
+	} catch (err) {
+		await discardPartialDownload(writeStream, tempFilePath);
+		throw err;
 	}
-	const writer = stream.Writable.toWeb(writeStream);
-	await response.body.pipeTo(writer);
 
 	let targetFilePath = filePath;
 	if (overwriteMode === "overwrite") {
