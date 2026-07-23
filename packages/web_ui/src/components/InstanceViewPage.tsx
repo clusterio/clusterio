@@ -1,7 +1,8 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Space, Spin, Switch, Typography, message,
+	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Segmented, Space, Spin, Tooltip, Typography,
+	message,
 } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
@@ -34,7 +35,7 @@ import { MetricRelativeDate } from "./system_metrics";
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
 
-// Remembers the console "Chat/Log" toggle across reloads (defaults to on).
+// Remembers the console "Chat/Log" selection across reloads (defaults to chat).
 const consoleActionsOnlyKey = "instance-console-actions-only";
 
 type InstanceDescriptionProps = {
@@ -249,12 +250,22 @@ export default function InstanceViewPage() {
 				{
 					account.hasPermission("core.log.follow")
 					&& <Flex align="center" gap="middle">
-						<Switch
-							checkedChildren="Chat"
-							unCheckedChildren="Log"
-							checked={actionsOnly}
-							onChange={setActionsOnly}
-						/>
+						<Tooltip
+							title={
+								"Chat shows what happened on the server: player chat, joins, leaves, " +
+								"commands and the replies to them, plus anything that went wrong. Log adds " +
+								"the Factorio engine log and Clusterio's own account of running the instance."
+							}
+						>
+							<Segmented
+								value={actionsOnly ? "chat" : "log"}
+								onChange={value => setActionsOnly(value === "chat")}
+								options={[
+									{ label: "Chat", value: "chat" },
+									{ label: "Log", value: "log" },
+								]}
+							/>
+						</Tooltip>
 						<SelectMaxLogLevel
 							value={maxLevel}
 							onChange={setMaxLevel}
