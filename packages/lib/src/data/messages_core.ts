@@ -115,6 +115,24 @@ export class Address {
 	}
 
 	/**
+	 * Returns this address with any request id removed
+	 *
+	 * A request id identifies one request in flight and is set on the
+	 * source address of a request so that its response can be matched back
+	 * up with it.  It is meaningless on anything else, so an address taken
+	 * from a request has to be stripped of it before it is used as the
+	 * destination of an event.
+	 *
+	 * @returns this address without a request id.
+	 */
+	withoutRequestId() {
+		if (this.requestId === undefined) {
+			return this;
+		}
+		return new Address(this.type, this.id);
+	}
+
+	/**
 	 * Returns true if this address targets the given destination
 	 * @param dst - Destination to check
 	 * @returns true if this address is addressed to the given destination
