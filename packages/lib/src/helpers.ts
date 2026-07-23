@@ -268,6 +268,50 @@ export function formatBytes(bytes: number, prefixes: "si" | "binary" = "si") {
 	return significant.toFixed(fractionDigits) + units[exponent];
 }
 
+/**
+ * Query parameters whose values are credentials and must never be logged.
+ *
+ * Matched case insensitively against the full parameter name.
+ */
+const sensitiveSearchParams = new Set([
+	"access_token",
+	"api_key",
+	"apikey",
+	"password",
+	"secret",
+	"token",
+]);
+
+/**
+ * Replace credentials in a URL with a placeholder
+ *
+ * Returns the URL as a string with the values of any query parameter
+ * carrying a credential replaced by `REDACTED`, so that the URL can
+ * safely be included in log output and error messages.  The parameter
+ * names are kept intact to preserve the diagnostic value of the URL.
+ *
+ * Returns the input unchanged if it is a string which does not parse as
+ * a URL, as there are then no query parameters to redact.
+ *
+ * @param url - URL to redact credentials from.
+ * @returns url with credentials replaced by `REDACTED`.
+ */
+export function redactUrl(url: URL | string) {
+	let parsed;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return String(url);
+	}
+
+	for (const name of [...parsed.searchParams.keys()]) {
+		if (sensitiveSearchParams.has(name.toLowerCase())) {
+			parsed.searchParams.set(name, "REDACTED");
+		}
+	}
+	return parsed.toString();
+}
+
 function skipWhitespace(pos: number, input: string) {
 	// whitespace = 1*" "
 	while (pos < input.length && input.charAt(pos) === " ") {

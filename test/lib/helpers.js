@@ -236,6 +236,45 @@ describe("lib/helpers", function() {
 		});
 	});
 
+	describe("redactUrl()", function() {
+		it("should redact the value of credential query parameters", function() {
+			assert.equal(
+				lib.redactUrl("https://mods.factorio.com/download/mod?username=user&token=secret"),
+				"https://mods.factorio.com/download/mod?username=user&token=REDACTED"
+			);
+			for (const name of ["access_token", "api_key", "apikey", "password", "secret", "token"]) {
+				assert.equal(
+					lib.redactUrl(`https://example.com/?${name}=secret`),
+					`https://example.com/?${name}=REDACTED`
+				);
+			}
+		});
+		it("should match credential parameter names case insensitively", function() {
+			assert.equal(lib.redactUrl("https://example.com/?Token=secret"), "https://example.com/?Token=REDACTED");
+			assert.equal(lib.redactUrl("https://example.com/?API_KEY=secret"), "https://example.com/?API_KEY=REDACTED");
+		});
+		it("should redact every occurrence of a repeated credential parameter", function() {
+			assert.equal(
+				lib.redactUrl("https://example.com/?token=first&token=second"),
+				"https://example.com/?token=REDACTED"
+			);
+		});
+		it("should accept a URL object", function() {
+			assert.equal(
+				lib.redactUrl(new URL("https://example.com/path?token=secret")),
+				"https://example.com/path?token=REDACTED"
+			);
+		});
+		it("should leave URLs without credentials untouched", function() {
+			assert.equal(lib.redactUrl("https://example.com/path"), "https://example.com/path");
+			assert.equal(lib.redactUrl("https://example.com/?page=2"), "https://example.com/?page=2");
+		});
+		it("should return unparsable input unchanged", function() {
+			assert.equal(lib.redactUrl("not a url?token=secret"), "not a url?token=secret");
+			assert.equal(lib.redactUrl(""), "");
+		});
+	});
+
 	function parse(input, attributes) {
 		const result = lib.parseSearchString(input, attributes);
 		if (!result.issues.length) {
