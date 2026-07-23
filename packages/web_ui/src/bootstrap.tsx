@@ -11,6 +11,7 @@ import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
+import { fetchPluginSet, pluginSetFingerprint } from "./util/pluginSet";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
@@ -29,16 +30,16 @@ async function loadScript(url: string) {
 	return result;
 }
 
-async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
-	let response = await fetch(`${webRoot}api/plugins`);
+async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> {
 	let pluginList: lib.PluginWebApi[];
-	if (response.ok) {
-		pluginList = await response.json();
+	try {
+		pluginList = await fetchPluginSet();
 
-	} else {
-		logger.error("Failed to get plugin data, running without plugins");
+	} catch (err: any) {
+		logger.error(`Failed to get plugin data, running without plugins: ${err.message}`);
 		pluginList = [];
 	}
+	const fingerprint = pluginSetFingerprint(pluginList);
 
 	let pluginInfos: lib.PluginWebpackEnvInfo[] = [];
 	await __webpack_init_sharing__("default");
@@ -73,7 +74,7 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 			}
 		}
 	}
-	return pluginInfos;
+	return [pluginInfos, fingerprint];
 }
 
 async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Control) {
@@ -132,13 +133,14 @@ export default async function bootstrap() {
 		level: "verbose",
 		format: new WebConsoleFormat(),
 	}));
-	let pluginInfos = await loadPluginInfos();
+	let [pluginInfos, pluginFingerprint] = await loadPluginInfos();
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120);
 	let control = new Control(controlConnector, new Map(pluginInfos.map(p => [p.name, p])));
+	control.pluginFingerprint = pluginFingerprint;
 	control.plugins = await loadPlugins(pluginInfos, control);
 	control.inputComponents = inputComponentsFromPlugins(control.plugins);
 
