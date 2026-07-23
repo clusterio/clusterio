@@ -88,6 +88,14 @@ export default function PluginsPage() {
 						if (!plugin.meta.enabled) {
 							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
 						}
+						// Plugins are loaded once when the page starts, so one the
+						// controller has picked up since then was never attempted
+						// rather than attempted and failed. A plugin the controller
+						// cannot serve at all is excluded before it gets that far,
+						// and is a real error.
+						if (!plugin.meta.web.error && !control.pluginInfos.has(plugin.meta.name)) {
+							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
+						}
 						if (!plugin.package) {
 							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
 						}
