@@ -345,6 +345,9 @@ export class SubscriptionController {
 		}
 		const addressIndex = src.addressIndex();
 		const subscriber = eventData.subscriptions.get(addressIndex);
+		// src is the source of a request and carries its request id, which
+		// has no meaning on the events sent back to the subscriber.
+		const subscriberDst = src.withoutRequestId();
 		switch (request.action) {
 			case "unsubscribe":
 				if (!subscriber) {
@@ -358,7 +361,9 @@ export class SubscriptionController {
 
 			case "subscribe":
 				if (!subscriber) {
-					eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: request.filters });
+					eventData.subscriptions.set(
+						addressIndex, { link: link, dst: subscriberDst, filters: request.filters }
+					);
 				} else {
 					subscriber.filters.union(request.filters);
 				}
@@ -371,7 +376,9 @@ export class SubscriptionController {
 					}
 					eventData.subscriptions.delete(addressIndex);
 				} else if (!subscriber) {
-					eventData.subscriptions.set(addressIndex, { link: link, dst: src, filters: request.filters });
+					eventData.subscriptions.set(
+						addressIndex, { link: link, dst: subscriberDst, filters: request.filters }
+					);
 				} else {
 					subscriber.filters = request.filters;
 				}
@@ -384,7 +391,7 @@ export class SubscriptionController {
 		if (eventData.subscriptionUpdate) {
 			const eventReplay = await eventData.subscriptionUpdate(request, src, dst);
 			if (eventReplay) {
-				link.sendTo(src, eventReplay);
+				link.sendTo(subscriberDst, eventReplay);
 				return true;
 			}
 		}
