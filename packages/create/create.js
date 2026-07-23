@@ -118,12 +118,15 @@ async function safeOutputFile(file, data, options={}) {
 }
 
 async function execFile(cmd, args) {
-	const escaped = args.map(escapeArg);
-	logger.verbose(`executing ${cmd} ${escaped.join(" ")}`);
+	// Arguments are escaped here and joined into the command rather than
+	// passed to execFile. With shell: true it would only concatenate them by
+	// space without escaping anything, which is what it is deprecated for
+	// (DEP0190) as it gives the impression the arguments are made safe.
+	const command = [cmd, ...args.map(escapeArg)].join(" ");
+	logger.verbose(`executing ${command}`);
 	return new Promise((resolve, reject) => {
 		let child = child_process.execFile(
-			cmd,
-			escaped,
+			command,
 			{
 				shell: true,
 
