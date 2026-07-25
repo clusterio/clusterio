@@ -182,6 +182,12 @@ export class HostRouter {
 			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
 				this.host.connector.forward(message);
 			}
+		} else if (dst.id === lib.Address.host) {
+			// Sent up to the controller, which passes it on to the other
+			// hosts. Nothing left to do when it came from there.
+			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
+				this.host.connector.forward(message);
+			}
 		} else if (dst.id === lib.Address.control) {
 			if (this.host !== origin) {
 				if (!plugin || this.host.serverPlugins.has(plugin)) {

@@ -225,6 +225,16 @@ export class Link {
 			return;
 		}
 
+		// A broadcast is addressed to every link of the type it targets, so
+		// being addressed to this one does not mean it stops here.
+		if (
+			message.type === "event"
+			&& message.dst.type === libData.Address.broadcast
+			&& this.router
+		) {
+			this._routeMessage(message, entry);
+		}
+
 		if (message.type === "request") {
 			this._processRequest(
 				message as libData.MessageRequest,

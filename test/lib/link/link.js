@@ -254,6 +254,42 @@ describe("lib/link/link", function() {
 			await assert.rejects(pending, { message: "Session Lost" });
 		});
 
+		describe("Broadcast handling", function() {
+			// A broadcast is addressed to every link of the type it targets,
+			// so a link it reaches has to pass it on as well as handle it,
+			// see #575.
+			function mockRouter(record) {
+				return { forwardMessage: () => { record.routed = true; return true; } };
+			}
+
+			it("should route a broadcast addressed to this link as well as handle it", function() {
+				const record = {};
+				let handled = false;
+				testLink.router = mockRouter(record);
+				testLink.handle(SimpleEvent, async () => { handled = true; });
+				testConnector.emit("message", new lib.MessageEvent(1, dst, addr("allControls"), "SimpleEvent"));
+				assert(record.routed, "broadcast was not routed onwards");
+				assert(handled, "broadcast was not handled locally");
+			});
+
+			it("should handle a broadcast on a link which does not route", function() {
+				// Instances have no router, so routing unconditionally would
+				// throw here and the event would never be handled.
+				let handled = false;
+				testLink.handle(SimpleEvent, async () => { handled = true; });
+				testConnector.emit("message", new lib.MessageEvent(1, dst, addr("allControls"), "SimpleEvent"));
+				assert(handled, "broadcast was not handled locally");
+			});
+
+			it("should not route a non broadcast addressed to this link", function() {
+				const record = {};
+				testLink.router = mockRouter(record);
+				testLink.handle(SimpleEvent, async () => {});
+				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+				assert(!record.routed, "message addressed to this link was routed onwards");
+			});
+		});
+
 		describe(".send()", function() {
 			it("should send request to the other side of the link", async function() {
 				let message = events.once(testConnector, "send");
