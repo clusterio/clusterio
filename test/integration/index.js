@@ -350,6 +350,7 @@ before(async function() {
 	await execController("config set controller.tls_private_key ../../test/file/tls/key.pem");
 
 	console.log("Setting Controller Plugins");
+	await execCtlProcess("plugin add ../../test/file/test_plugin");
 	await execCtlProcess("plugin add ../../plugins/global_chat");
 	await execCtlProcess("plugin add ../../plugins/research_sync");
 	await execCtlProcess("plugin add ../../plugins/statistics_exporter");
