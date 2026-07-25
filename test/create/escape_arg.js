@@ -8,9 +8,6 @@ const { escapeArg } = require("../../packages/create/escape_arg");
 const execFile = util.promisify(child_process.execFile);
 
 async function exec(file, args) {
-	// Escape the arguments and join them into the command the same way
-	// create.js does, rather than passing them to execFile which would only
-	// concatenate them by space without escaping (DEP0190).
 	const command = [file, ...args.map(escapeArg)].join(" ");
 	const { stdout, stderr } = await execFile(
 		command,
