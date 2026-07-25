@@ -614,6 +614,71 @@ describe("lib/subscriptions", function() {
 				), /unreachable case: invalid action/);
 			});
 
+			describe("addressing", function() {
+				// A subscribe arrives as a request, so the source address it is
+				// handled with carries the request id which should not be persisted
+				const connectorData = connectorSetupDate[0];
+
+				function requestSource(requestId) {
+					return new lib.Address(connectorData.dst.type, connectorData.dst.id, requestId);
+				}
+
+				function lastSentMessage() {
+					return getLink(connectorData.id).connector.sentMessages.at(-1);
+				}
+
+				it("should strip the request id from broadcast events", async function() {
+					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					ownSubscriptions.handle(RegisteredEvent);
+					await ownSubscriptions.handleRequest(
+						getLink(connectorData.id),
+						new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe"),
+						requestSource(213), connectorData.src
+					);
+
+					ownSubscriptions.broadcast(new RegisteredEvent());
+					await onceConnectorSend(connectorData.id);
+
+					const message = lastSentMessage();
+					assert.equal(message.name, RegisteredEvent.name);
+					assert.equal(message.dst.requestId, undefined, "event addressed to a request id");
+					assert.deepEqual(message.dst.toJSON(), connectorData.dst.toJSON());
+				});
+
+				it("should strip the request id from the replayed event", async function() {
+					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					ownSubscriptions.handle(RegisteredEvent, async () => new RegisteredEvent());
+					await ownSubscriptions.handleRequest(
+						getLink(connectorData.id),
+						new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe"),
+						requestSource(417), connectorData.src
+					);
+
+					const message = lastSentMessage();
+					assert.equal(message.name, RegisteredEvent.name);
+					assert.equal(message.dst.requestId, undefined, "replay addressed to a request id");
+					assert.deepEqual(message.dst.toJSON(), connectorData.dst.toJSON());
+				});
+
+				it("should strip the request id when replacing filters creates the subscription", async function() {
+					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					ownSubscriptions.handle(RegisteredEvent);
+					await ownSubscriptions.handleRequest(
+						getLink(connectorData.id),
+						new lib.SubscriptionRequest(RegisteredEvent.name, "replace", 0, "foo"),
+						requestSource(918), connectorData.src
+					);
+
+					ownSubscriptions.broadcast(new RegisteredEvent(), "foo");
+					await onceConnectorSend(connectorData.id);
+
+					const message = lastSentMessage();
+					assert.equal(message.name, RegisteredEvent.name);
+					assert.equal(message.dst.requestId, undefined, "event addressed to a request id");
+					assert.deepEqual(message.dst.toJSON(), connectorData.dst.toJSON());
+				});
+			});
+
 			describe("subscribe", function() {
 				it("should create a new subscription", async function() {
 					const request = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe");
