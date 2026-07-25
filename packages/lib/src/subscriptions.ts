@@ -238,7 +238,7 @@ export class SubscriptionRequest {
 
 type Subscriber = {
 	link: Link,
-	dst: Address,
+	address: Address,
 	filters: SubscriptionFilters,
 }
 
@@ -296,7 +296,7 @@ export class SubscriptionController {
 				continue;
 			}
 			if (subscriber.filters.intersects(broadcastFilters)) {
-				subscriber.link.sendTo(subscriber.dst, event);
+				subscriber.link.sendTo(subscriber.address, event);
 			}
 		}
 	}
@@ -343,11 +343,9 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${request.eventName} is not a registered as subscribable`);
 		}
-		const addressIndex = src.addressIndex();
-		const subscriber = eventData.subscriptions.get(addressIndex);
-		// src is the source of a request and carries its request id, which
-		// has no meaning on the events sent back to the subscriber.
-		const subscriberDst = src.withoutRequestId();
+		const index = src.addressIndex();
+		const address = src.withoutRequestId();
+		const subscriber = eventData.subscriptions.get(index);
 		switch (request.action) {
 			case "unsubscribe":
 				if (!subscriber) {
@@ -355,15 +353,13 @@ export class SubscriptionController {
 				}
 				subscriber.filters.subtract(request.filters);
 				if (subscriber.filters.isEmpty()) {
-					eventData.subscriptions.delete(addressIndex);
+					eventData.subscriptions.delete(index);
 				}
 				break;
 
 			case "subscribe":
 				if (!subscriber) {
-					eventData.subscriptions.set(
-						addressIndex, { link: link, dst: subscriberDst, filters: request.filters }
-					);
+					eventData.subscriptions.set(index, { link, address, filters: request.filters });
 				} else {
 					subscriber.filters.union(request.filters);
 				}
@@ -374,11 +370,9 @@ export class SubscriptionController {
 					if (!subscriber) {
 						return false;
 					}
-					eventData.subscriptions.delete(addressIndex);
+					eventData.subscriptions.delete(index);
 				} else if (!subscriber) {
-					eventData.subscriptions.set(
-						addressIndex, { link: link, dst: subscriberDst, filters: request.filters }
-					);
+					eventData.subscriptions.set(index, { link, address, filters: request.filters });
 				} else {
 					subscriber.filters = request.filters;
 				}
@@ -391,7 +385,7 @@ export class SubscriptionController {
 		if (eventData.subscriptionUpdate) {
 			const eventReplay = await eventData.subscriptionUpdate(request, src, dst);
 			if (eventReplay) {
-				link.sendTo(subscriberDst, eventReplay);
+				link.sendTo(address, eventReplay);
 				return true;
 			}
 		}
