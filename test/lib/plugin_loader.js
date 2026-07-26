@@ -124,12 +124,16 @@ describe("lib/plugin_loader", function() {
 		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
 		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo-plugin");
 		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
+		const transitivePluginPath = path.join(baseDir, "node_modules", "transitive-plugin");
+		const hiddenPluginPath = path.join(
+			baseDir, "node_modules", "not-a-plugin", "node_modules", "hidden-plugin"
+		);
 		const notAPluginPath = path.join(baseDir, "node_modules", "not-a-plugin");
 		let pluginList;
 
 		before(async function() {
 			// Setup test plugins
-			async function writePlugin(pluginPath, name) {
+			async function writePlugin(pluginPath, name, dependencies = {}, packageJsonFields = {}) {
 				await fs.mkdir(pluginPath, { recursive: true });
 				await fs.writeFile(
 					path.join(pluginPath, "index.js"),
@@ -141,6 +145,8 @@ describe("lib/plugin_loader", function() {
 						name: path.basename(pluginPath),
 						version: "0.0.1",
 						keywords: ["clusterio-plugin"],
+						dependencies,
+						...packageJsonFields,
 					})
 				);
 			}
@@ -150,7 +156,13 @@ describe("lib/plugin_loader", function() {
 			// Create external plugin
 			await writePlugin(externalPluginPath, "external_plugin");
 			// Create npm plugin
-			await writePlugin(npmPluginPath, "npm");
+			await writePlugin(
+				npmPluginPath,
+				"npm",
+				{ "transitive-plugin": "^1.0.0" },
+				{ exports: "./index.js" },
+			);
+			await writePlugin(transitivePluginPath, "transitive", { "npm-plugin": "^1.0.0" });
 			// Write a monorepo plugin
 			await writePlugin(monorepoPluginPath, "monorepo-plugin");
 			// Create root package.json
@@ -165,10 +177,12 @@ describe("lib/plugin_loader", function() {
 			);
 			// Create an npm module that is not a plugin
 			await fs.mkdir(notAPluginPath, { recursive: true });
-			await fs.writeFile(
-				path.join(notAPluginPath, "package.json"),
-				JSON.stringify({ name: "not-a-plugin", version: "1.0.0" })
-			);
+			await fs.writeFile(path.join(notAPluginPath, "package.json"), JSON.stringify({
+				name: "not-a-plugin",
+				version: "1.0.0",
+				dependencies: { "hidden-plugin": "^1.0.0" },
+			}));
+			await writePlugin(hiddenPluginPath, "hidden");
 
 			process.chdir(baseDir);
 			pluginList = await lib.loadPluginList(pluginListPath, true);
@@ -189,6 +203,11 @@ describe("lib/plugin_loader", function() {
 			assert.strictEqual(pluginList.get("npm"), "npm-plugin");
 			// Check that it does not contain not-a-plugin
 			assert.strictEqual(pluginList.get("not-a-plugin"), undefined);
+		});
+
+		it("should discover transitive npm plugins without traversing non-plugin packages", async function() {
+			assert.strictEqual(pluginList.get("transitive"), "transitive-plugin");
+			assert.strictEqual(pluginList.get("hidden"), undefined);
 		});
 
 		it("should load existing plugin list", async function() {
