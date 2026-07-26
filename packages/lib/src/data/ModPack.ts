@@ -122,15 +122,10 @@ export function applyModRecordAdvisories(
 				continue;
 			}
 
-			if (!targetMod.advisories.some(
-				advisory => advisory.type === "recommended_dependency"
-					&& advisory.sourceModName === sourceMod.name
-			)) {
-				targetMod.advisories.push({
-					type: "recommended_dependency",
-					sourceModName: sourceMod.name,
-				});
-			}
+			targetMod.advisories.push({
+				type: "recommended_dependency",
+				sourceModName: sourceMod.name,
+			});
 		}
 	}
 
