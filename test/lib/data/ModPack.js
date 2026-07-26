@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const zlib = require("zlib");
 
 const lib = require("@clusterio/lib");
-const { ModPack } = lib;
+const { ModInfo, ModPack, getInstalledModUpdates, applyModRecordAdvisories } = lib;
 
 
 describe("lib/data/ModPack", function() {
@@ -419,6 +419,86 @@ describe("lib/data/ModPack", function() {
 				const builtinModNames = ModPack.getBuiltinModNames("2.0");
 				assert.deepEqual(builtinModNames, ["base", "elevated-rails", "quality", "space-age"]);
 			});
+		});
+	});
+
+	describe("applyModRecordAdvisories()", function() {
+		it("finds newer installed versions for the same Factorio version", function() {
+			const current = ModInfo.fromJSON({
+				name: "source",
+				version: "1.0.0",
+				factorio_version: "2.0",
+			});
+			const newer = ModInfo.fromJSON({
+				name: "source",
+				version: "1.1.0",
+				factorio_version: "2.0",
+			});
+			const otherFactorioVersion = ModInfo.fromJSON({
+				name: "source",
+				version: "2.0.0",
+				factorio_version: "1.1",
+			});
+
+			const updates = getInstalledModUpdates([
+				{ name: "source", enabled: true, version: "1.0.0", info: current },
+			], [current, newer, otherFactorioVersion]);
+
+			assert.deepEqual([...updates], [["source", "1.1.0"]]);
+		});
+
+		it("marks compatible disabled recommended dependencies", function() {
+			const sourceInfo = ModInfo.fromJSON({
+				name: "source",
+				version: "1.0.0",
+				dependencies: ["+ quality >= 2.0.0", "+ stale >= 2.0.0", "+ active"],
+			});
+			const otherInfo = ModInfo.fromJSON({
+				name: "other",
+				version: "1.0.0",
+				dependencies: ["+ quality"],
+			});
+			const mods = [
+				{ name: "source", enabled: true, version: "1.0.0", info: sourceInfo },
+				{ name: "other", enabled: true, version: "1.0.0", info: otherInfo },
+				{ name: "ignored", enabled: false, version: "1.0.0", info: otherInfo },
+				{ name: "quality", enabled: false, version: "2.0.0" },
+				{ name: "stale", enabled: false, version: "1.0.0" },
+				{ name: "active", enabled: true, version: "1.0.0" },
+			];
+
+			const annotated = applyModRecordAdvisories(mods);
+
+			assert.deepEqual(annotated[3].advisories, [
+				{ type: "recommended_dependency", sourceModName: "source" },
+				{ type: "recommended_dependency", sourceModName: "other" },
+			]);
+			assert.equal(annotated[4].advisories, undefined);
+			assert.equal(annotated[5].advisories, undefined);
+			assert.equal(mods[3].advisories, undefined);
+		});
+
+		it("marks only newer resolved updates and preserves other advisories", function() {
+			const sourceInfo = ModInfo.fromJSON({
+				name: "source",
+				version: "1.0.0",
+				dependencies: ["+ quality"],
+			});
+			const mods = [
+				{ name: "source", enabled: true, version: "1.0.0", info: sourceInfo },
+				{ name: "quality", enabled: false, version: "2.0.0" },
+			];
+
+			const annotated = applyModRecordAdvisories(mods, new Map([
+				["source", "1.0.0"],
+				["quality", "2.1.0"],
+			]));
+
+			assert.deepEqual(annotated[0].advisories, undefined);
+			assert.deepEqual(annotated[1].advisories, [
+				{ type: "recommended_dependency", sourceModName: "source" },
+				{ type: "update_available", version: "2.1.0" },
+			]);
 		});
 	});
 });
