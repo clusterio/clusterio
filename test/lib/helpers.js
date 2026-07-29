@@ -256,7 +256,7 @@ describe("lib/helpers", function() {
 		it("should redact every occurrence of a repeated credential parameter", function() {
 			assert.equal(
 				lib.redactUrl("https://example.com/?token=first&token=second"),
-				"https://example.com/?token=REDACTED"
+				"https://example.com/?token=REDACTED&token=REDACTED"
 			);
 		});
 		it("should accept a URL object", function() {

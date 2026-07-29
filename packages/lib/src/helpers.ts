@@ -304,11 +304,12 @@ export function redactUrl(url: URL | string) {
 		return String(url);
 	}
 
-	for (const name of [...parsed.searchParams.keys()]) {
-		if (sensitiveSearchParams.has(name.toLowerCase())) {
-			parsed.searchParams.set(name, "REDACTED");
-		}
+	const searchParams = new URLSearchParams();
+	for (const [name, value] of parsed.searchParams) {
+		searchParams.append(name, sensitiveSearchParams.has(name.toLowerCase()) ? "REDACTED" : value);
 	}
+
+	parsed.search = searchParams.toString();
 	return parsed.toString();
 }
 
