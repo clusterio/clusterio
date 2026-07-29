@@ -7,6 +7,8 @@ import fs from "node:fs/promises";
 import path from "path";
 import stream from "stream";
 
+import { redactUrl } from "./helpers";
+
 
 /**
  * Returns the newest file in a directory
@@ -332,12 +334,11 @@ export async function downloadFile(
 	}
 
 	// Fetch stream bytes.  Anything that goes wrong from here until the
-	// body has been written leaves a temporary file that is of no use to
-	// anyone, including the request never reaching the server at all.
+	// body has been written leaves a temporary file that needs to be removed
 	try {
 		const response = await fetch(url);
 		if (!response.ok || !response.body) {
-			throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+			throw new Error(`Failed to download ${redactUrl(url)}: ${response.status} ${response.statusText}`);
 		}
 		const writer = stream.Writable.toWeb(writeStream);
 		await response.body.pipeTo(writer);

@@ -16,6 +16,33 @@ describe("lib/data/messages_core", function() {
 		const instanceBr = new Address(Address.broadcast, Address.instance);
 		const controlBr = new Address(Address.broadcast, Address.control);
 
+		describe(".withoutRequestId()", () => {
+			it("returns the same instance when requestId is undefined", () => {
+				const address = new Address(1, 2);
+
+				assert.strictEqual(address.withoutRequestId(), address);
+			});
+
+			it("returns a new instance when requestId is present", () => {
+				const address = new Address(1, 2, 123);
+
+				const result = address.withoutRequestId();
+
+				assert.notStrictEqual(result, address);
+				assert.deepEqual(result, new Address(1, 2));
+			});
+
+			it("does not modify the original address", () => {
+				const address = new Address(1, 2, 123);
+
+				address.withoutRequestId();
+
+				assert.equal(address.type, 1);
+				assert.equal(address.id, 2);
+				assert.equal(address.requestId, 123);
+			});
+		});
+
 		it("Should correctly resolve addressedTo", function() {
 			assert(controller.addressedTo(controller));
 			assert(!controller.addressedTo(host1));

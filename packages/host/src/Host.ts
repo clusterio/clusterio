@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "path";
 import events from "events";
 import pidusage from "pidusage";
+import semver from "semver";
 import setBlocking from "set-blocking";
 import stream from "stream";
 import util from "util";
@@ -496,6 +497,14 @@ export default class Host extends lib.Link {
 		if (!this.canRestart) {
 			throw new lib.RequestError("Cannot restart, host does not have a process monitor to restart it.");
 		}
+		const downgrade = await this.checkRestartDowngrade();
+		if (downgrade) {
+			const { installedVersion, runningVersion } = downgrade;
+			throw new lib.RequestError(
+				`Cannot restart host with installed Clusterio version ${installedVersion} because it is older than ` +
+				`running version ${runningVersion}. Stop the host before starting the older version manually.`
+			);
+		}
 		process.exitCode = 1;
 		this.shutdown();
 	}
@@ -873,6 +882,31 @@ export default class Host extends lib.Link {
 		}
 
 		return false;
+	}
+
+	async checkRestartDowngrade() {
+		try {
+			const runningVersion = this.config.get("host.version");
+			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
+			const installedVersion = packageJson.version;
+
+			if (!semver.valid(runningVersion) || !semver.valid(installedVersion)) {
+				logger.warn(
+					`Unable to compare running host version ${runningVersion} ` +
+					`with installed version ${installedVersion}.`
+				);
+				return null;
+			}
+
+			if (semver.lt(installedVersion, runningVersion)) {
+				return { installedVersion, runningVersion };
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to check host version before restart:\n${err.stack ?? err.message}`);
+		}
+
+		return null;
 	}
 
 	async handleHostMetricsRequest() {

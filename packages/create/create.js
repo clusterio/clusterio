@@ -118,12 +118,11 @@ async function safeOutputFile(file, data, options={}) {
 }
 
 async function execFile(cmd, args) {
-	const escaped = args.map(escapeArg);
-	logger.verbose(`executing ${cmd} ${escaped.join(" ")}`);
+	const command = [cmd, ...args.map(escapeArg)].join(" ");
+	logger.verbose(`executing ${command}`);
 	return new Promise((resolve, reject) => {
 		let child = child_process.execFile(
-			cmd,
-			escaped,
+			command,
 			{
 				shell: true,
 
