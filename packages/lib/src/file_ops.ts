@@ -7,6 +7,8 @@ import fs from "node:fs/promises";
 import path from "path";
 import stream from "stream";
 
+import { redactUrl } from "./helpers";
+
 
 /**
  * Returns the newest file in a directory
@@ -311,7 +313,7 @@ export async function downloadFile(
 		writeStream.end();
 		await events.once(writeStream, "close");
 		await fs.unlink(tempFilePath);
-		throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+		throw new Error(`Failed to download ${redactUrl(url)}: ${response.status} ${response.statusText}`);
 	}
 	const writer = stream.Writable.toWeb(writeStream);
 	await response.body.pipeTo(writer);
