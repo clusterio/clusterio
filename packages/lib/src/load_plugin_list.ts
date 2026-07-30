@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "path";
 import { logger } from "./logging";
 import * as libFileOps from "./file_ops";
@@ -73,25 +74,42 @@ function getPluginName(requireSpec: string) {
 	return context.pluginInfo.name;
 }
 
-async function findNpmPackagePath(packageName: string, parentPath: string): Promise<string | undefined> {
-	let currentPath = parentPath;
-	while (true) {
-		if (path.basename(currentPath) !== "node_modules") {
-			const packagePath = path.join(currentPath, "node_modules", packageName);
-			try {
-				await fs.access(path.join(packagePath, "package.json"));
-				return packagePath;
-			} catch {
-				// Continue searching parent node_modules directories.
-			}
-		}
-
-		const nextPath = path.dirname(currentPath);
-		if (nextPath === currentPath) {
+async function resolveNpmPackage(
+	packageName: string,
+	parentPath: string,
+): Promise<{ packagePath: string; requirePath: string } | undefined> {
+	const packageRequire = createRequire(path.join(parentPath, "package.json"));
+	let entryPath;
+	try {
+		entryPath = packageRequire.resolve(packageName);
+	} catch (err: any) {
+		if (err.code === "MODULE_NOT_FOUND") {
 			return undefined;
 		}
-		currentPath = nextPath;
+		throw err;
 	}
+
+	const resolvedEntryPath = await fs.realpath(entryPath);
+	for (const searchPath of packageRequire.resolve.paths(packageName) ?? []) {
+		const packagePath = path.join(searchPath, packageName);
+		try {
+			await fs.access(path.join(packagePath, "package.json"));
+			const resolvedPackagePath = await fs.realpath(packagePath);
+			const relativeEntryPath = path.relative(resolvedPackagePath, resolvedEntryPath);
+			if (
+				relativeEntryPath !== ".."
+				&& !relativeEntryPath.startsWith(`..${path.sep}`)
+				&& !path.isAbsolute(relativeEntryPath)
+			) {
+				return { packagePath, requirePath: entryPath };
+			}
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+		}
+	}
+	return undefined;
 }
 
 /**
@@ -129,17 +147,18 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 
 	while (pendingPackages.length) {
 		const { packageName, packageVersion, parentPath, isRootDependency } = pendingPackages.shift()!;
-		const packagePath = await findNpmPackagePath(packageName, parentPath);
-		if (!packagePath) {
+		if (visitedPackages.has(packageName)) {
 			continue;
 		}
-		if (visitedPackages.has(packagePath)) {
+		const npmPackage = await resolveNpmPackage(packageName, parentPath);
+		if (!npmPackage) {
 			continue;
 		}
-		visitedPackages.add(packagePath);
+		const { packagePath, requirePath } = npmPackage;
+		visitedPackages.add(packageName);
 
 		if (await checkPackageJson(packagePath)) {
-			const pluginName = getPluginName(packagePath);
+			const pluginName = getPluginName(requirePath);
 			if (pluginList.has(pluginName)) {
 				logger.warn(
 					`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +

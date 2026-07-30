@@ -122,18 +122,26 @@ describe("lib/plugin_loader", function() {
 		const externalPluginPath = path.join(baseDir, "external_plugins", "external_plugin");
 		const externalPluginPathAbs = path.resolve(externalPluginPath);
 		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
+		const aliasedPluginPath = path.join(baseDir, "node_modules", "plugin-alias");
+		const nestedManifestPluginPath = path.join(baseDir, "node_modules", "nested-manifest-plugin");
 		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo-plugin");
 		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
 		const transitivePluginPath = path.join(baseDir, "node_modules", "transitive-plugin");
-		const hiddenPluginPath = path.join(
-			baseDir, "node_modules", "not-a-plugin", "node_modules", "hidden-plugin"
+		const duplicateNpmPluginPath = path.join(
+			transitivePluginPath, "node_modules", "npm-plugin"
 		);
+		const hiddenPluginPath = path.join(baseDir, "node_modules", "hidden-plugin");
 		const notAPluginPath = path.join(baseDir, "node_modules", "not-a-plugin");
 		let pluginList;
 
 		before(async function() {
 			// Setup test plugins
-			async function writePlugin(pluginPath, name, dependencies = {}, packageJsonFields = {}) {
+			async function writePlugin(
+				pluginPath,
+				name,
+				dependencies = {},
+				packageJsonFields = { exports: "./index.js" },
+			) {
 				await fs.mkdir(pluginPath, { recursive: true });
 				await fs.writeFile(
 					path.join(pluginPath, "index.js"),
@@ -160,9 +168,30 @@ describe("lib/plugin_loader", function() {
 				npmPluginPath,
 				"npm",
 				{ "transitive-plugin": "^1.0.0" },
-				{ exports: "./index.js" },
 			);
 			await writePlugin(transitivePluginPath, "transitive", { "npm-plugin": "^1.0.0" });
+			await writePlugin(duplicateNpmPluginPath, "nested-npm");
+			await writePlugin(
+				aliasedPluginPath,
+				"aliased",
+				{},
+				{ name: "real-plugin", exports: "./index.js" },
+			);
+			await writePlugin(
+				nestedManifestPluginPath,
+				"unused-root-entrypoint",
+				{},
+				{ exports: "./dist/index.js" },
+			);
+			await fs.mkdir(path.join(nestedManifestPluginPath, "dist"));
+			await fs.writeFile(
+				path.join(nestedManifestPluginPath, "dist", "index.js"),
+				'module.exports.plugin = { name: "nested-manifest" };'
+			);
+			await fs.writeFile(
+				path.join(nestedManifestPluginPath, "dist", "package.json"),
+				JSON.stringify({ type: "commonjs" })
+			);
 			// Write a monorepo plugin
 			await writePlugin(monorepoPluginPath, "monorepo-plugin");
 			// Create root package.json
@@ -172,16 +201,18 @@ describe("lib/plugin_loader", function() {
 					dependencies: {
 						"npm-plugin": "^1.0.0",
 						"not-a-plugin": "^1.0.0",
+						"plugin-alias": "npm:real-plugin@^0.0.1",
+						"nested-manifest-plugin": "^0.0.1",
 					},
 				})
 			);
 			// Create an npm module that is not a plugin
-			await fs.mkdir(notAPluginPath, { recursive: true });
-			await fs.writeFile(path.join(notAPluginPath, "package.json"), JSON.stringify({
-				name: "not-a-plugin",
-				version: "1.0.0",
-				dependencies: { "hidden-plugin": "^1.0.0" },
-			}));
+			await writePlugin(
+				notAPluginPath,
+				"not-a-plugin",
+				{ "hidden-plugin": "^0.0.1" },
+				{ keywords: [] },
+			);
 			await writePlugin(hiddenPluginPath, "hidden");
 
 			process.chdir(baseDir);
@@ -201,12 +232,15 @@ describe("lib/plugin_loader", function() {
 		it("should discover npm plugins", async function() {
 			assert.ok(pluginList.has("npm"));
 			assert.strictEqual(pluginList.get("npm"), "npm-plugin");
+			assert.strictEqual(pluginList.get("aliased"), "plugin-alias");
+			assert.strictEqual(pluginList.get("nested-manifest"), "nested-manifest-plugin");
 			// Check that it does not contain not-a-plugin
 			assert.strictEqual(pluginList.get("not-a-plugin"), undefined);
 		});
 
 		it("should discover transitive npm plugins without traversing non-plugin packages", async function() {
 			assert.strictEqual(pluginList.get("transitive"), "transitive-plugin");
+			assert.strictEqual(pluginList.get("nested-npm"), undefined);
 			assert.strictEqual(pluginList.get("hidden"), undefined);
 		});
 
