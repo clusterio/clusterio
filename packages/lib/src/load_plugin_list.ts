@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "path";
 import { logger } from "./logging";
 import * as libFileOps from "./file_ops";
@@ -73,6 +74,18 @@ function getPluginName(requireSpec: string) {
 	return context.pluginInfo.name;
 }
 
+function resolvePackagePath(packageName: string, fromPath: string): string | undefined {
+	const packageRequire = createRequire(path.join(fromPath, "package.json"));
+	try {
+		return path.dirname(packageRequire.resolve(`${packageName}/package.json`));
+	} catch (err: any) {
+		if (err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") {
+			return undefined;
+		}
+		throw err;
+	}
+}
+
 /**
  * Find NPM packages in the root package.json that satisfies the requirements for plugins.
  * Adds discovered plugins to the plugin list.
@@ -98,13 +111,36 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 	}
 
 	let hasChanged = 0;
-	for (const [packageName, packageVersion] of Object.entries(dependencies)) {
-		if ([...pluginList.values()].includes(packageName)) {
-			continue; // This npm module is already in the plugin list
+	const pendingPackages = Object.entries(dependencies).map(([packageName, packageVersion]) => ({
+		packageName,
+		packageVersion,
+		parentPath: process.cwd(),
+		isRootDependency: true,
+	}));
+	const corePackages = new Set([
+		"@clusterio/controller",
+		"@clusterio/ctl",
+		"@clusterio/host",
+		"@clusterio/lib",
+		"@clusterio/web_ui",
+	]);
+	const visitedPackages = new Set<string>();
+
+	while (pendingPackages.length) {
+		const { packageName, packageVersion, parentPath, isRootDependency } = pendingPackages.shift()!;
+		if (visitedPackages.has(packageName)) {
+			continue;
 		}
-		// Find the package in node_modules and read the package.json to check if it's a clusterio-plugin
-		if (await checkPackageJson(path.resolve("node_modules", packageName))) {
-			const pluginName = getPluginName(path.resolve("node_modules", packageName));
+
+		const npmPackagePath = resolvePackagePath(packageName, parentPath);
+		if (!npmPackagePath) {
+			continue;
+		}
+
+		visitedPackages.add(packageName);
+
+		if (await checkPackageJson(npmPackagePath)) {
+			const pluginName = getPluginName(npmPackagePath);
 			if (pluginList.has(pluginName)) {
 				logger.warn(
 					`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
@@ -112,16 +148,22 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 				);
 			} else {
 				pluginList.set(pluginName, packageName);
-				logger.info(`Added ${pluginName} from NPM`);
+				logger.info(`Added ${pluginName} from node modules`);
 				hasChanged += 1;
 			}
-		} else if (![
-			"@clusterio/controller",
-			"@clusterio/ctl",
-			"@clusterio/host",
-			"@clusterio/lib",
-			"@clusterio/web_ui",
-		].includes(packageName)) {
+
+			const packageJson = JSON.parse(
+				await fs.readFile(path.join(npmPackagePath, "package.json"), { encoding: "utf8" })
+			);
+			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
+				pendingPackages.push({
+					packageName: dependencyName,
+					packageVersion: dependencyVersion,
+					parentPath: npmPackagePath,
+					isRootDependency: false,
+				});
+			}
+		} else if (isRootDependency && !corePackages.has(packageName)) {
 			logger.warn(`${packageName}@${packageVersion} is not a clusterio-plugin`);
 		}
 	}
