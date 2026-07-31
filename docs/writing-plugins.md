@@ -454,22 +454,23 @@ async frobnicate() {
     console.log(response); // { report: [...] }
 }
 ```
+Because the send and handle methods rely on this, you should always call them directly on the connection object.
 
-The send and handle methods depend on `this`, so call them directly on the connection object.
-Extracting one into a variable, destructuring it, or passing it as an unbound callback drops the receiver and the method later throws when called with `this === undefined` (for example `Cannot read properties of undefined (reading 'sendRequest')`).
-A type cast around a method that is invoked directly still retains its receiver, but storing or passing the cast result is an unsafe extraction.
-When possible, cast the arguments or result instead of the method so the binding remains obvious.
-When a method has to be passed as a value, use `.bind()` to fix its receiver first — most commonly when registering handlers.
+If you extract them into a variable, destructure them, or pass them as unbound callbacks, they lose their this context. The method will eventually crash with an error like Cannot read properties of undefined (reading 'sendRequest').
+
+While it's fine to type cast a direct method invocation, casting and then storing the result causes that same dangerous loss of context.
+
+Here is what that looks like in practice:
 
 ```js
-// Broken: the extracted method loses its `this` binding and crashes when called.
+// ❌ BAD: The extracted method loses its `this` binding and crashes when called.
 const send = this.instance.sendTo;
 send("controller", new messages.Frobnicate({ foo: "bar" }));
 
-// Correct: call it bound on the connection object and cast the arguments/result if needed.
+// ✅ GOOD: Call it directly on the connection object. (Cast args/results here if needed).
 this.instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
 
-// Correct: bind the receiver when passing a method as a value, such as a handler.
+// ✅ GOOD: Explicitly bind the receiver if you need to pass a method as a value (like a handler).
 this.instance.handle(messages.Frobnicate, this.handleFrobnicate.bind(this));
 ```
 
