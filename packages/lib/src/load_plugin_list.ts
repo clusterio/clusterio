@@ -74,42 +74,16 @@ function getPluginName(requireSpec: string) {
 	return context.pluginInfo.name;
 }
 
-async function resolveNpmPackage(
-	packageName: string,
-	parentPath: string,
-): Promise<{ packagePath: string; requirePath: string } | undefined> {
-	const packageRequire = createRequire(path.join(parentPath, "package.json"));
-	let entryPath;
+function resolvePackagePath(packageName: string, fromPath: string): string | undefined {
+	const packageRequire = createRequire(path.join(fromPath, "package.json"));
 	try {
-		entryPath = packageRequire.resolve(packageName);
+		return path.dirname(packageRequire.resolve(`${packageName}/package.json`));
 	} catch (err: any) {
-		if (err.code === "MODULE_NOT_FOUND") {
+		if (err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") {
 			return undefined;
 		}
 		throw err;
 	}
-
-	const resolvedEntryPath = await fs.realpath(entryPath);
-	for (const searchPath of packageRequire.resolve.paths(packageName) ?? []) {
-		const packagePath = path.join(searchPath, packageName);
-		try {
-			await fs.access(path.join(packagePath, "package.json"));
-			const resolvedPackagePath = await fs.realpath(packagePath);
-			const relativeEntryPath = path.relative(resolvedPackagePath, resolvedEntryPath);
-			if (
-				relativeEntryPath !== ".."
-				&& !relativeEntryPath.startsWith(`..${path.sep}`)
-				&& !path.isAbsolute(relativeEntryPath)
-			) {
-				return { packagePath, requirePath: entryPath };
-			}
-		} catch (err: any) {
-			if (err.code !== "ENOENT") {
-				throw err;
-			}
-		}
-	}
-	return undefined;
 }
 
 /**
@@ -143,6 +117,13 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 		parentPath: process.cwd(),
 		isRootDependency: true,
 	}));
+	const corePackages = new Set([
+		"@clusterio/controller",
+		"@clusterio/ctl",
+		"@clusterio/host",
+		"@clusterio/lib",
+		"@clusterio/web_ui",
+	]);
 	const visitedPackages = new Set<string>();
 
 	while (pendingPackages.length) {
@@ -150,15 +131,16 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 		if (visitedPackages.has(packageName)) {
 			continue;
 		}
-		const npmPackage = await resolveNpmPackage(packageName, parentPath);
-		if (!npmPackage) {
+
+		const npmPackagePath = resolvePackagePath(packageName, parentPath);
+		if (!npmPackagePath) {
 			continue;
 		}
-		const { packagePath, requirePath } = npmPackage;
+
 		visitedPackages.add(packageName);
 
-		if (await checkPackageJson(packagePath)) {
-			const pluginName = getPluginName(requirePath);
+		if (await checkPackageJson(npmPackagePath)) {
+			const pluginName = getPluginName(npmPackagePath);
 			if (pluginList.has(pluginName)) {
 				logger.warn(
 					`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
@@ -166,28 +148,22 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 				);
 			} else {
 				pluginList.set(pluginName, packageName);
-				logger.info(`Added ${pluginName} from NPM`);
+				logger.info(`Added ${pluginName} from node modules`);
 				hasChanged += 1;
 			}
 
 			const packageJson = JSON.parse(
-				await fs.readFile(path.join(packagePath, "package.json"), { encoding: "utf8" })
+				await fs.readFile(path.join(npmPackagePath, "package.json"), { encoding: "utf8" })
 			);
 			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
 				pendingPackages.push({
 					packageName: dependencyName,
 					packageVersion: dependencyVersion,
-					parentPath: packagePath,
+					parentPath: npmPackagePath,
 					isRootDependency: false,
 				});
 			}
-		} else if (isRootDependency && ![
-			"@clusterio/controller",
-			"@clusterio/ctl",
-			"@clusterio/host",
-			"@clusterio/lib",
-			"@clusterio/web_ui",
-		].includes(packageName)) {
+		} else if (isRootDependency && !corePackages.has(packageName)) {
 			logger.warn(`${packageName}@${packageVersion} is not a clusterio-plugin`);
 		}
 	}

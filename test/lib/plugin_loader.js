@@ -121,17 +121,17 @@ describe("lib/plugin_loader", function() {
 		const localPluginPathAbs = path.resolve(localPluginPath);
 		const externalPluginPath = path.join(baseDir, "external_plugins", "external_plugin");
 		const externalPluginPathAbs = path.resolve(externalPluginPath);
-		const npmPluginPath = path.join(baseDir, "node_modules", "npm-plugin");
-		const aliasedPluginPath = path.join(baseDir, "node_modules", "plugin-alias");
-		const nestedManifestPluginPath = path.join(baseDir, "node_modules", "nested-manifest-plugin");
-		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo-plugin");
+		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo_plugin");
 		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
-		const transitivePluginPath = path.join(baseDir, "node_modules", "transitive-plugin");
-		const duplicateNpmPluginPath = path.join(
-			transitivePluginPath, "node_modules", "npm-plugin"
-		);
-		const hiddenPluginPath = path.join(baseDir, "node_modules", "hidden-plugin");
-		const notAPluginPath = path.join(baseDir, "node_modules", "not-a-plugin");
+
+		const nodeModules = path.join(baseDir, "node_modules");
+		const npmPluginPath = path.join(nodeModules, "plugin-npm");
+		const aliasedPluginPath = path.join(nodeModules, "plugin-aliased");
+		const deepPluginPath = path.join(nodeModules, "plugin-deep");
+		const transitivePluginPath = path.join(nodeModules, "plugin-transitive");
+		const nestedPluginPath = path.join(transitivePluginPath, "node_modules", "plugin-nested");
+		const hiddenPluginPath = path.join(nodeModules, "plugin-hidden");
+		const notAPluginPath = path.join(nodeModules, "not-a-plugin");
 		let pluginList;
 
 		before(async function() {
@@ -140,7 +140,7 @@ describe("lib/plugin_loader", function() {
 				pluginPath,
 				name,
 				dependencies = {},
-				packageJsonFields = { exports: "./index.js" },
+				packageJsonFields = {},
 			) {
 				await fs.mkdir(pluginPath, { recursive: true });
 				await fs.writeFile(
@@ -159,67 +159,64 @@ describe("lib/plugin_loader", function() {
 				);
 			}
 
+			try {
+				await fs.rm(baseDir, { force: true, recursive: true, maxRetries: 10 });
+			} catch {}
+
 			// Create local plugin
-			await writePlugin(localPluginPath, "local_plugin");
+			await writePlugin(localPluginPath, "local");
+
 			// Create external plugin
-			await writePlugin(externalPluginPath, "external_plugin");
-			// Create npm plugin
-			await writePlugin(
-				npmPluginPath,
-				"npm",
-				{ "transitive-plugin": "^1.0.0" },
-			);
-			await writePlugin(transitivePluginPath, "transitive", { "npm-plugin": "^1.0.0" });
-			await writePlugin(duplicateNpmPluginPath, "nested-npm");
-			await writePlugin(
-				aliasedPluginPath,
-				"aliased",
-				{},
-				{ name: "real-plugin", exports: "./index.js" },
-			);
-			await writePlugin(
-				nestedManifestPluginPath,
-				"unused-root-entrypoint",
-				{},
-				{ exports: "./dist/index.js" },
-			);
-			await fs.mkdir(path.join(nestedManifestPluginPath, "dist"));
-			await fs.writeFile(
-				path.join(nestedManifestPluginPath, "dist", "index.js"),
-				'module.exports.plugin = { name: "nested-manifest" };'
-			);
-			await fs.writeFile(
-				path.join(nestedManifestPluginPath, "dist", "package.json"),
-				JSON.stringify({ type: "commonjs" })
-			);
+			await writePlugin(externalPluginPath, "external");
+
 			// Write a monorepo plugin
-			await writePlugin(monorepoPluginPath, "monorepo-plugin");
+			await writePlugin(monorepoPluginPath, "monorepo");
+
+			// Create a plugin that is not in root or transitive
+			await writePlugin(hiddenPluginPath, "hidden");
+
+			// Create npm plugins
+			await writePlugin(npmPluginPath, "npm", { "plugin-transitive": "^1.0.0" });
+			await writePlugin(transitivePluginPath, "transitive", { "plugin-npm": "^1.0.0" });
+			await writePlugin(nestedPluginPath, "nested");
+			await writePlugin(aliasedPluginPath, "aliased", {}, { name: "real-plugin" });
+
+			// Create npm plugin with deep entry point
+			await writePlugin(deepPluginPath, "unused", {}, {
+				main: "./dist/index.js",
+			});
+			await fs.mkdir(path.join(deepPluginPath, "dist"));
+			await fs.writeFile(
+				path.join(deepPluginPath, "dist", "index.js"),
+				'module.exports.plugin = { name: "deep" };'
+			);
+
+			// Create an npm module that is not a plugin
+			await writePlugin(notAPluginPath, "not-a-plugin", { "plugin-hidden": "^0.0.1" }, { keywords: [] });
+
 			// Create root package.json
 			await fs.writeFile(
 				path.join(baseDir, "package.json"),
 				JSON.stringify({
 					dependencies: {
-						"npm-plugin": "^1.0.0",
+						"plugin-npm": "^1.0.0",
 						"not-a-plugin": "^1.0.0",
-						"plugin-alias": "npm:real-plugin@^0.0.1",
-						"nested-manifest-plugin": "^0.0.1",
+						"plugin-aliased": "npm:real-plugin@^0.0.1",
+						"plugin-deep": "^0.0.1",
 					},
 				})
 			);
-			// Create an npm module that is not a plugin
-			await writePlugin(
-				notAPluginPath,
-				"not-a-plugin",
-				{ "hidden-plugin": "^0.0.1" },
-				{ keywords: [] },
-			);
-			await writePlugin(hiddenPluginPath, "hidden");
 
 			process.chdir(baseDir);
 			pluginList = await lib.loadPluginList(pluginListPath, true);
 		});
+
 		beforeEach(async function() {
 			await fs.rm(pluginListPath, { force: true });
+		});
+
+		after(async function() {
+			process.chdir(old_cwd);
 		});
 
 		it("should discover local plugins", async function() {
@@ -231,16 +228,15 @@ describe("lib/plugin_loader", function() {
 
 		it("should discover npm plugins", async function() {
 			assert.ok(pluginList.has("npm"));
-			assert.strictEqual(pluginList.get("npm"), "npm-plugin");
-			assert.strictEqual(pluginList.get("aliased"), "plugin-alias");
-			assert.strictEqual(pluginList.get("nested-manifest"), "nested-manifest-plugin");
-			// Check that it does not contain not-a-plugin
+			assert.strictEqual(pluginList.get("npm"), "plugin-npm");
+			assert.strictEqual(pluginList.get("aliased"), "plugin-aliased");
+			assert.strictEqual(pluginList.get("deep"), "plugin-deep");
 			assert.strictEqual(pluginList.get("not-a-plugin"), undefined);
 		});
 
 		it("should discover transitive npm plugins without traversing non-plugin packages", async function() {
-			assert.strictEqual(pluginList.get("transitive"), "transitive-plugin");
-			assert.strictEqual(pluginList.get("nested-npm"), undefined);
+			assert.strictEqual(pluginList.get("transitive"), "plugin-transitive");
+			assert.strictEqual(pluginList.get("nested"), undefined);
 			assert.strictEqual(pluginList.get("hidden"), undefined);
 		});
 
@@ -253,8 +249,8 @@ describe("lib/plugin_loader", function() {
 		});
 
 		it("should support monorepo plugins", async function() {
-			assert.ok(pluginList.has("monorepo-plugin"));
-			assert.strictEqual(pluginList.get("monorepo-plugin"), monorepoPluginPathAbs);
+			assert.ok(pluginList.has("monorepo_plugin"));
+			assert.strictEqual(pluginList.get("monorepo_plugin"), monorepoPluginPathAbs);
 		});
 
 		it("should not throw when package.json has no dependencies field", async function() {
@@ -271,11 +267,6 @@ describe("lib/plugin_loader", function() {
 			await assert.doesNotReject(async () => {
 				await lib.loadPluginList(pluginListPath, true);
 			});
-		});
-
-		after(async function() {
-			process.chdir(old_cwd);
-			await fs.rm(baseDir, { force: true, recursive: true, maxRetries: 10 });
 		});
 	});
 });
