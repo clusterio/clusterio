@@ -68,6 +68,36 @@ function formatLog(info: Info, key: number): ReactElement {
 	return <span key={key}>[{level}] {info.message}<br/></span>;
 }
 
+/**
+ * Test if a log entry survives the console's actions only filter
+ *
+ * The filter narrows the console down to what happened on the server,
+ * rather than everything the cluster wrote about it.  Anything reporting
+ * that something went wrong is kept regardless of source, as hiding it is
+ * what makes a filtered console misleading rather than merely terse.
+ */
+function passesActionsOnly(info: Info) {
+	// Clusterio's own entries are its account of running the instance.
+	// Keep the ones reporting a problem, drop the routine bookkeeping.
+	if (info.level !== "server") {
+		return lib.levels[info.level] <= lib.levels.warn;
+	}
+
+	// Factorio writes two interleaved streams to stdout.  The console log
+	// is date stamped and carries the things done to the server: chat,
+	// joins, leaves, commands, and the server's replies to them.  It is
+	// kept whole, because a reply is not always an action -- a rejected
+	// command is answered with a plain message, and dropping it makes the
+	// console look like the command did nothing at all.
+	//
+	// The engine log is stamped with seconds since start and is verbose
+	// diagnostic output, so only its warnings and errors are kept.
+	if (info.parsed?.format === "seconds") {
+		return info.parsed.level === "Warning" || info.parsed.level === "Error";
+	}
+	return true;
+}
+
 type LogConsoleProps = {
 	all?: boolean;
 	controller?: boolean;
@@ -159,11 +189,7 @@ export default function LogConsole(props: LogConsoleProps) {
 				"desc",
 			)).then(result => {
 				setPastLines(result.log
-					.filter(info => (
-						!props.actionsOnly
-						|| (info as Info).level !== "server"
-						|| (info as Info).parsed?.type === "action"
-					))
+					.filter(info => !props.actionsOnly || passesActionsOnly(info as Info))
 					.map((info, index) => formatLog(info as Info, -index - 1))
 					.reverse()
 				);
@@ -175,7 +201,7 @@ export default function LogConsole(props: LogConsoleProps) {
 		}
 
 		function logHandler(info: Info) {
-			if (!props.actionsOnly || info.level !== "server" || info.parsed?.type === "action") {
+			if (!props.actionsOnly || passesActionsOnly(info)) {
 				setLines(currentLines => currentLines.concat(
 					[formatLog(info, currentLines.length)]
 				));
