@@ -8,13 +8,14 @@
 		"watch": "tsc --build --watch",
 		"build-mod": "pnpm run -r build-mod --output-dir ../../dist",
 		"test": "pnpm run build && NODE_EXTRA_CA_CERTS=$(pwd)/test/file/tls/cert.pem mocha --enable-source-maps --check-leaks -R spec --recursive test \"plugins/*/test/**\" --exclude \"test/manual/**\"",
+		"test:tap": "pnpm run build && NODE_EXTRA_CA_CERTS=$(pwd)/test/file/tls/cert.pem tap --disable-coverage --allow-incomplete-coverage --before=tap-demo/boot.js --after=tap-demo/teardown.js tap-demo/smoke.test.js",
 		"silent-test": "SILENT_TEST=y pnpm test",
 		"fast-test": "FAST_TEST=y pnpm test",
 		"cover": "nyc pnpm test",
 		"fast-cover": "FAST_TEST=y nyc pnpm test",
 		"ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
-		"lint": "eslint packages plugins test",
-		"lint-fix": "eslint --fix packages plugins test",
+		"lint": "eslint packages plugins test tap-demo",
+		"lint-fix": "eslint --fix packages plugins test tap-demo",
 		"clean": "node ./clean.js",
 		"docs": "typedoc",
 		"bundle-dependencies": "bundle-dependencies"
@@ -23,6 +24,11 @@
 		"exclude": [
 			"test/**",
 			"plugins/*/test/**"
+		]
+	},
+	"tap": {
+		"files": [
+			"tap-demo/**/*.test.js"
 		]
 	},
 	"engines": {
@@ -56,6 +62,7 @@
 		"jszip": "^3.10.1",
 		"mocha": "^11.7.1",
 		"nyc": "^17.1.0",
+		"tap": "catalog:",
 		"typedoc": "^0.28.9",
 		"typescript": "^5.9.2",
 		"yargs": "^18.0.0"
