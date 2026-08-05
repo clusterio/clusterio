@@ -235,8 +235,6 @@ describe("Integration of link routing", function() {
 		};
 		for (const dstName of dsts[dst]) {
 			if (srcName === dstName) { continue; }
-			// TODO remove when broadcasting from instance to hosts is fixed, see #575
-			if (srcName === "instanceA1" && dstName === "hostB") { continue; }
 			let called;
 			handle(get(dstName), Event, async () => { called = true; });
 			const should = canReach(dstName);
