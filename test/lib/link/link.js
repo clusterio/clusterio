@@ -504,6 +504,48 @@ describe("lib/link/link", function() {
 			});
 		});
 
+		describe(".forwardRequest()", function() {
+			// A request is recorded so that its response can be sent back the
+			// way it came. If it never left there is nothing to send back, and
+			// leaving it recorded has it answered twice, see #650.
+			function forwardingSetup() {
+				const originConnector = new mock.MockConnector(dst, src);
+				const origin = new lib.Link(originConnector);
+				const nextHopConnector = new mock.MockConnector(src, dst);
+				const nextHop = new lib.Link(nextHopConnector);
+				const message = new lib.MessageRequest(1, src, dst, "SimpleRequest");
+				return { origin, originConnector, nextHop, nextHopConnector, message };
+			}
+
+			it("should record a request it forwarded", function() {
+				const { origin, nextHop, nextHopConnector, message } = forwardingSetup();
+				nextHop.forwardRequest(message, origin);
+				assert.equal(nextHop.pendingRequestCount, 1);
+				assert.equal(nextHopConnector.sentMessages.length, 1);
+			});
+
+			it("should not record a request it failed to forward", function() {
+				const { origin, nextHop, nextHopConnector, message } = forwardingSetup();
+				nextHopConnector.send = () => throwSimple("Session Closed");
+
+				assert.throws(() => nextHop.forwardRequest(message, origin), { message: "Session Closed" });
+				assert.equal(nextHop.pendingRequestCount, 0, "failed forward was left pending");
+			});
+
+			it("should not answer a request it failed to forward a second time", function() {
+				const { origin, originConnector, nextHop, nextHopConnector, message } = forwardingSetup();
+				nextHopConnector.send = () => throwSimple("Session Closed");
+
+				// Routers answer the origin themselves when forwarding throws.
+				assert.throws(() => nextHop.forwardRequest(message, origin), { message: "Session Closed" });
+				originConnector.sendResponseError(new lib.ResponseError("Session Closed"), message.src);
+				const answers = originConnector.sentMessages.length;
+
+				nextHop._clearPendingRequests(new lib.SessionLost("Session Lost"));
+				assert.equal(originConnector.sentMessages.length, answers, "request was answered twice");
+			});
+		});
+
 		describe(".snoopEvent()", function() {
 			it("should snoop an event", function() {
 				let handled = false;
