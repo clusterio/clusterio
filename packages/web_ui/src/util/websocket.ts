@@ -54,6 +54,12 @@ export class Control extends lib.Link {
 	/** Plugins loaded in the web interface */
 	public plugins = new Map<string, BaseWebPlugin>();
 	public inputComponents: Record<string, InputComponent> = {};
+	/**
+	 * Summary of the plugin set this interface was loaded against, see
+	 * pluginSetFingerprint.  Compared against the controller's current set
+	 * on reconnect to detect that a reload is needed.
+	 */
+	public pluginFingerprint: string = "";
 
 	/** Updates not handled by the subscription service */
 	accountUpdateHandlers: accountHandler[] = [];

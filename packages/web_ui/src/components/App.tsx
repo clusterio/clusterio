@@ -9,8 +9,9 @@ import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
 import LoginForm from "./LoginForm";
+import { fetchPluginSet, pluginSetFingerprint } from "../util/pluginSet";
 
-import { Card, ConfigProvider, Spin, Typography, theme } from "antd";
+import { Button, Card, ConfigProvider, Spin, Typography, theme } from "antd";
 
 const { Paragraph } = Typography;
 
@@ -28,11 +29,28 @@ function ErrorCard(props: ErrorProps) {
 }
 
 
+function PluginsChangedCard() {
+	return <div className="login-container">
+		<Card>
+			<h1>Reload required</h1>
+			<Paragraph>
+				The plugins the controller is running have changed since this page was opened. Plugin code,
+				messages and config fields are loaded once when the page starts and cannot be swapped out
+				while it runs, so this page is now out of step with the controller and has been stopped to
+				keep it from acting on plugins that are no longer there.
+			</Paragraph>
+			<Button type="primary" onClick={() => window.location.reload()}>Reload</Button>
+		</Card>
+	</div>;
+}
+
+
 type AppProps = {
 	control: Control;
 };
 export default function App(props: AppProps) {
 	let [connected, setConnected] = useState(false);
+	let [pluginsChanged, setPluginsChanged] = useState(false);
 	let [token, setToken] = useState(localStorage.getItem("controller_token") || null);
 	let connector = props.control.connector;
 
@@ -73,6 +91,29 @@ export default function App(props: AppProps) {
 		};
 	}, [token, props.control]);
 
+	// A controller that restarts to pick up a plugin being installed, enabled
+	// or disabled comes back serving a different set than this page loaded
+	// against, and entering recovery mode disables them all. The session does
+	// not survive that, so every new session is an opportunity to check.
+	useEffect(() => {
+		let cancelled = false;
+		function onConnect() {
+			fetchPluginSet().then(plugins => {
+				if (!cancelled && pluginSetFingerprint(plugins) !== props.control.pluginFingerprint) {
+					setPluginsChanged(true);
+				}
+			}).catch(err => {
+				logger.error(`Unable to check the controller's plugins:\n${err.stack}`);
+			});
+		}
+
+		connector.on("connect", onConnect);
+		return () => {
+			cancelled = true;
+			connector.off("connect", onConnect);
+		};
+	}, [props.control]);
+
 	useEffect(() => {
 		if (token && !connected) {
 			if (props.control.loggingOut) {
@@ -86,7 +127,10 @@ export default function App(props: AppProps) {
 	}, [token, connected]);
 
 	let page;
-	if (connected) {
+	if (pluginsChanged) {
+		page = <PluginsChangedCard />;
+
+	} else if (connected) {
 		page = <SiteLayout/>;
 
 	} else if (token) {
