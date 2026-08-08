@@ -571,10 +571,7 @@ export class Link {
 		try {
 			this.connector.forward(message);
 		} catch (err) {
-			// The request never left, so nothing will answer it. Callers
-			// respond with the error themselves, and leaving it recorded here
-			// would have it answered a second time when pending requests are
-			// cleared.
+			// Clean up pending request as there will be no response
 			this._forwardedRequests.delete(requestIndex);
 			throw err;
 		}
