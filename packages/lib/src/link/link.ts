@@ -566,8 +566,15 @@ export class Link {
 			src: message.src,
 			dst: message.dst,
 		};
-		this._forwardedRequests.set(message.src.requestIndex(), pending);
-		this.connector.forward(message);
+		const requestIndex = message.src.requestIndex();
+		this._forwardedRequests.set(requestIndex, pending);
+		try {
+			this.connector.forward(message);
+		} catch (err) {
+			// Clean up pending request as there will be no response
+			this._forwardedRequests.delete(requestIndex);
+			throw err;
+		}
 	}
 
 	sendEvent<T>(event: Event<T>, dst: libData.Address) {
