@@ -3,13 +3,13 @@ import { BaseInstancePlugin } from "@clusterio/host";
 import { ChatEvent } from "./messages";
 
 /**
- * Removes gps and train tags from messags
+ * Removes server-specific tags from messages.
  *
  * @param content - string to strip tags from.
  * @returns stripped string.
  */
 function removeTags(content: string): string {
-	return content.replace(/(\[gps=-?\d+,-?\d+\]|\[train=\d+\])/g, "");
+	return content.replace(/\[(?:gps|special-item|train|train-stop)=\S*?\]/gm, "");
 }
 
 export class InstancePlugin extends BaseInstancePlugin {

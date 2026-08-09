@@ -53,6 +53,7 @@ Many thanks to the following for contributing to this release:
 
 ### Changes
 
+- Global chat now filters server-specific GPS, blueprint, train, and train-stop rich-text tags before relaying messages between instances. [#593](<https://github.com/clusterio/clusterio/issues/593>)
 - Reworked the site layout into a fixed sidebar with a top bar. [#924](<https://github.com/clusterio/clusterio/pull/924>)
 - The builtin "recycler" mod is now included correctly as builtin. [#925](<https://github.com/clusterio/clusterio/issues/925>)
 - Mod `info.json` versions (a mod's version and its `factorio_version`) are now parsed leniently, matching how the game reads them, instead of being validated against a fixed list of Factorio versions. [#941](<https://github.com/clusterio/clusterio/pull/941>)
