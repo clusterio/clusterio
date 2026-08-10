@@ -88,11 +88,14 @@ export default function PluginsPage() {
 						if (!plugin.meta.enabled) {
 							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
 						}
+						if (!plugin.meta.web.error && !control.pluginInfos.has(plugin.meta.name)) {
+							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
+						}
 						if (!plugin.package) {
 							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
 						}
 						if (plugin.package.version !== plugin.meta.version) {
-							return "Version missmatched";
+							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Version mis-matched</>;
 						}
 						return plugin.package.version;
 					},
