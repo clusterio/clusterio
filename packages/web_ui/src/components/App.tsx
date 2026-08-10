@@ -34,10 +34,8 @@ function PluginsChangedCard() {
 		<Card>
 			<h1>Reload required</h1>
 			<Paragraph>
-				The plugins the controller is running have changed since this page was opened. Plugin code,
-				messages and config fields are loaded once when the page starts and cannot be swapped out
-				while it runs, so this page has been stopped to keep it from acting on plugins that are no
-				longer there.
+				The plugins the controller is running have changed since this page was opened.
+				So the page has been closed and must be reloaded to continue functioning as expected.
 			</Paragraph>
 			<Button type="primary" onClick={() => window.location.reload()}>Reload</Button>
 		</Card>
@@ -91,9 +89,8 @@ export default function App(props: AppProps) {
 		};
 	}, [token, props.control]);
 
-	// The controller reports the plugins it is running in the handshake it
-	// sends on every connection, so restarting it to install, enable or
-	// disable a plugin, or into recovery mode, is caught on reconnect.
+	// The controller reports the plugins it is running in the handshake
+	// This is used to detect when plugins change and a restart is required
 	useEffect(() => {
 		function onHello(data: any) {
 			if (pluginSetKey(data.plugins) !== props.control.pluginSetKey) {

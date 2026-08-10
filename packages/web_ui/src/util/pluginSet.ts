@@ -1,7 +1,8 @@
 import type { PluginWebApi } from "@clusterio/lib";
 
 /**
- * Canonical key for a set of plugins loaded on the controller
+ * Canonical key for a set of plugins loaded on the controller.
+ * It is assumed that all plugins provided are currently loaded.
  *
  * @param plugins - name to version mapping of loaded plugins.
  * @returns value comparable with === against another key.
@@ -17,9 +18,6 @@ export function pluginSetKey(plugins: Record<string, string>) {
  * @returns value comparable with === against a key from the handshake.
  */
 export function loadedPluginSetKey(pluginList: PluginWebApi[]) {
-	// The handshake reports the plugins the controller is running, so
-	// compare against loaded rather than enabled, which also takes the
-	// config into account and only applies from the next restart.
 	return pluginSetKey(Object.fromEntries(
 		pluginList.filter(plugin => plugin.loaded).map(plugin => [plugin.name, plugin.version])
 	));
