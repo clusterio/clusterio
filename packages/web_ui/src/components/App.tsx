@@ -9,8 +9,9 @@ import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
 import LoginForm from "./LoginForm";
+import { pluginSetKey } from "../util/pluginSet";
 
-import { Card, ConfigProvider, Spin, Typography, theme } from "antd";
+import { Button, Card, ConfigProvider, Spin, Typography, theme } from "antd";
 
 const { Paragraph } = Typography;
 
@@ -28,11 +29,28 @@ function ErrorCard(props: ErrorProps) {
 }
 
 
+function PluginsChangedCard() {
+	return <div className="login-container">
+		<Card>
+			<h1>Reload required</h1>
+			<Paragraph>
+				The plugins the controller is running have changed since this page was opened. Plugin code,
+				messages and config fields are loaded once when the page starts and cannot be swapped out
+				while it runs, so this page has been stopped to keep it from acting on plugins that are no
+				longer there.
+			</Paragraph>
+			<Button type="primary" onClick={() => window.location.reload()}>Reload</Button>
+		</Card>
+	</div>;
+}
+
+
 type AppProps = {
 	control: Control;
 };
 export default function App(props: AppProps) {
 	let [connected, setConnected] = useState(false);
+	let [pluginsChanged, setPluginsChanged] = useState(false);
 	let [token, setToken] = useState(localStorage.getItem("controller_token") || null);
 	let connector = props.control.connector;
 
@@ -73,6 +91,22 @@ export default function App(props: AppProps) {
 		};
 	}, [token, props.control]);
 
+	// The controller reports the plugins it is running in the handshake it
+	// sends on every connection, so restarting it to install, enable or
+	// disable a plugin, or into recovery mode, is caught on reconnect.
+	useEffect(() => {
+		function onHello(data: any) {
+			if (pluginSetKey(data.plugins) !== props.control.pluginSetKey) {
+				setPluginsChanged(true);
+			}
+		}
+
+		connector.on("hello", onHello);
+		return () => {
+			connector.off("hello", onHello);
+		};
+	}, [props.control]);
+
 	useEffect(() => {
 		if (token && !connected) {
 			if (props.control.loggingOut) {
@@ -86,7 +120,10 @@ export default function App(props: AppProps) {
 	}, [token, connected]);
 
 	let page;
-	if (connected) {
+	if (pluginsChanged) {
+		page = <PluginsChangedCard />;
+
+	} else if (connected) {
 		page = <SiteLayout/>;
 
 	} else if (token) {

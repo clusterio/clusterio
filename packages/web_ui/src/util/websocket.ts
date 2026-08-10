@@ -80,6 +80,8 @@ export class Control extends lib.Link {
 	constructor(
 		connector: ControlConnector,
 		public pluginInfos = new Map<string, lib.PluginWebpackEnvInfo>(),
+		/** Key of the plugin set this interface was loaded against */
+		public pluginSetKey = "",
 	) {
 		super(connector);
 

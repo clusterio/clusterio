@@ -11,6 +11,7 @@ import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
+import { loadedPluginSetKey } from "./util/pluginSet";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
@@ -29,7 +30,7 @@ async function loadScript(url: string) {
 	return result;
 }
 
-async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
+async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> {
 	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList: lib.PluginWebApi[];
 	if (response.ok) {
@@ -39,6 +40,7 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 		logger.error("Failed to get plugin data, running without plugins");
 		pluginList = [];
 	}
+	let pluginSetKey = loadedPluginSetKey(pluginList);
 
 	let pluginInfos: lib.PluginWebpackEnvInfo[] = [];
 	await __webpack_init_sharing__("default");
@@ -73,7 +75,7 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 			}
 		}
 	}
-	return pluginInfos;
+	return [pluginInfos, pluginSetKey];
 }
 
 async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Control) {
@@ -132,13 +134,13 @@ export default async function bootstrap() {
 		level: "verbose",
 		format: new WebConsoleFormat(),
 	}));
-	let pluginInfos = await loadPluginInfos();
+	let [pluginInfos, pluginSetKey] = await loadPluginInfos();
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120);
-	let control = new Control(controlConnector, new Map(pluginInfos.map(p => [p.name, p])));
+	let control = new Control(controlConnector, new Map(pluginInfos.map(p => [p.name, p])), pluginSetKey);
 	control.plugins = await loadPlugins(pluginInfos, control);
 	control.inputComponents = inputComponentsFromPlugins(control.plugins);
 
