@@ -16,6 +16,7 @@ const {
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
 } = require("./index");
+const { ControllerEcho, HostEchoReceived } = require("../file/test_plugin/messages");
 
 
 /** @returns {Promise<Map<number, lib.InstanceDetails>>} */
@@ -383,6 +384,64 @@ describe("Integration of Clusterio", function() {
 					await stopAltHost(hostProcessB);
 				}
 			});
+		});
+	});
+
+	describe("plugin system", function() {
+		// Exercised with test/file/test_plugin, which is a plugin that exists
+		// only to be loaded by these tests, see #342.
+		async function pluginDetails(address) {
+			const plugins = await getControl().sendTo(address, new lib.PluginListRequest());
+			const details = plugins.find(plugin => plugin.name === "test_plugin");
+			assert(details, `test_plugin missing from the plugin list of ${JSON.stringify(address)}`);
+			return details;
+		}
+
+		it("should load the plugin on the controller", async function() {
+			const details = await pluginDetails("controller");
+			assert(details.enabled, "test_plugin is not enabled on the controller");
+			assert(details.loaded, "test_plugin is not loaded on the controller");
+		});
+
+		it("should load the plugin on the host", async function() {
+			const details = await pluginDetails({ hostId: 4 });
+			assert(details.enabled, "test_plugin is not enabled on the host");
+			assert(details.loaded, "test_plugin is not loaded on the host");
+		});
+
+		it("should report the plugin's title and version", async function() {
+			const details = await pluginDetails("controller");
+			assert.equal(details.title, "Test Plugin");
+			assert.equal(details.version, "0.0.1");
+		});
+
+		it("should add the plugin's command to clusterioctl", async function() {
+			const { stdout } = await execCtlProcess("test-plugin echo works");
+			assert(stdout.includes("works"), `plugin command did not print its message, got ${stdout}`);
+		});
+
+		it("should route a plugin request from control to the controller", async function() {
+			const response = await getControl().sendTo("controller", new ControllerEcho("to-controller"));
+			assert.equal(response, "to-controller");
+		});
+
+		it("should route a plugin request from control to a host", async function() {
+			const received = await getControl().sendTo({ hostId: 4 }, new HostEchoReceived("never-broadcast"));
+			assert.equal(received, false);
+		});
+
+		it("should deliver a plugin event sent with broadcastEventToHosts", async function() {
+			await getControl().sendTo("controller", new ControllerEcho("to-hosts"));
+
+			// The broadcast is sent without waiting for the hosts to receive it.
+			let received = false;
+			for (let attempt = 0; attempt < 100 && !received; attempt++) {
+				received = await getControl().sendTo({ hostId: 4 }, new HostEchoReceived("to-hosts"));
+				if (!received) {
+					await lib.wait(20);
+				}
+			}
+			assert(received, "host did not receive the event broadcast to it");
 		});
 	});
 
