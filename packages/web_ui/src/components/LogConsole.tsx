@@ -22,7 +22,7 @@ type Parsed = {
 	message: string;
 };
 
-function formatParsedOutput(parsed: Parsed, key: number) {
+function formatParsedOutput(parsed: Parsed) {
 	let time: ReactElement|string = "";
 	if (parsed.format === "seconds") {
 		time = <span className="factorio-time">{parsed.time.padStart(8)} </span>;
@@ -51,7 +51,7 @@ function formatParsedOutput(parsed: Parsed, key: number) {
 		info = <>[<span className="factorio-action">{parsed.action}</span>] </>;
 	}
 
-	return <span key={key}>{time}{info}{parsed.message}<br/></span>;
+	return <>{time}{info}{parsed.message}</>;
 }
 
 type Info = {
@@ -61,11 +61,27 @@ type Info = {
 };
 
 function formatLog(info: Info, key: number): ReactElement {
-	if (info.level === "server" && info.parsed) {
-		return formatParsedOutput(info.parsed, key);
-	}
 	let level = <span className={`log-${info.level}`}>{info.level}</span>;
-	return <span key={key}>[{level}] {info.message}<br/></span>;
+	let message = info.level === "server" && info.parsed ? formatParsedOutput(info.parsed) : info.message;
+	return <span key={key}>[{level}] {message}<br/></span>;
+}
+
+/**
+ * Test if a log entry survives the console's actions only filter
+ */
+function passesActionsOnly(info: Info) {
+	// Clusterio's own entries are bookkeeping, only keep those reporting a problem.
+	if (info.level !== "server") {
+		return lib.levels[info.level] <= lib.levels.warn;
+	}
+
+	// Factorio's seconds stamped engine log is verbose diagnostics, only keep warnings and errors.
+	if (info.parsed?.format === "seconds") {
+		return info.parsed.level === "Warning" || info.parsed.level === "Error";
+	}
+
+	// What is left is the date stamped console log: the actions done to the server and the replies to them.
+	return true;
 }
 
 type LogConsoleProps = {
@@ -159,11 +175,7 @@ export default function LogConsole(props: LogConsoleProps) {
 				"desc",
 			)).then(result => {
 				setPastLines(result.log
-					.filter(info => (
-						!props.actionsOnly
-						|| (info as Info).level !== "server"
-						|| (info as Info).parsed?.type === "action"
-					))
+					.filter(info => !props.actionsOnly || passesActionsOnly(info as Info))
 					.map((info, index) => formatLog(info as Info, -index - 1))
 					.reverse()
 				);
@@ -175,7 +187,7 @@ export default function LogConsole(props: LogConsoleProps) {
 		}
 
 		function logHandler(info: Info) {
-			if (!props.actionsOnly || info.level !== "server" || info.parsed?.type === "action") {
+			if (!props.actionsOnly || passesActionsOnly(info)) {
 				setLines(currentLines => currentLines.concat(
 					[formatLog(info, currentLines.length)]
 				));

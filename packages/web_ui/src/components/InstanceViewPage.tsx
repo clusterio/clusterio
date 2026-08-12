@@ -1,7 +1,8 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Space, Spin, Switch, Typography, message,
+	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Segmented, Space, Spin, Tooltip, Typography,
+	message,
 } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
@@ -34,7 +35,7 @@ import { MetricRelativeDate } from "./system_metrics";
 type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
 
-// Remembers the console "Chat/Log" toggle across reloads (defaults to on).
+// Remembers the console "Game/Instance" selection across reloads (defaults to game).
 const consoleActionsOnlyKey = "instance-console-actions-only";
 
 type InstanceDescriptionProps = {
@@ -249,12 +250,21 @@ export default function InstanceViewPage() {
 				{
 					account.hasPermission("core.log.follow")
 					&& <Flex align="center" gap="middle">
-						<Switch
-							checkedChildren="Chat"
-							unCheckedChildren="Log"
-							checked={actionsOnly}
-							onChange={setActionsOnly}
-						/>
+						<Tooltip
+							title={
+								"Game filters to in-game actions and errors: player chat, joins, leaves, etc." +
+								"Instance is the full unfiltered log including the engine log."
+							}
+						>
+							<Segmented
+								value={actionsOnly ? "game" : "instance"}
+								onChange={value => setActionsOnly(value === "game")}
+								options={[
+									{ label: "Game", value: "game" },
+									{ label: "Instance", value: "instance" },
+								]}
+							/>
+						</Tooltip>
 						<SelectMaxLogLevel
 							value={maxLevel}
 							onChange={setMaxLevel}
