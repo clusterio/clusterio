@@ -22,7 +22,7 @@ type Parsed = {
 	message: string;
 };
 
-function formatParsedOutput(parsed: Parsed, key: number) {
+function formatParsedOutput(parsed: Parsed) {
 	let time: ReactElement|string = "";
 	if (parsed.format === "seconds") {
 		time = <span className="factorio-time">{parsed.time.padStart(8)} </span>;
@@ -51,7 +51,7 @@ function formatParsedOutput(parsed: Parsed, key: number) {
 		info = <>[<span className="factorio-action">{parsed.action}</span>] </>;
 	}
 
-	return <span key={key}>{time}{info}{parsed.message}<br/></span>;
+	return <>{time}{info}{parsed.message}</>;
 }
 
 type Info = {
@@ -61,11 +61,9 @@ type Info = {
 };
 
 function formatLog(info: Info, key: number): ReactElement {
-	if (info.level === "server" && info.parsed) {
-		return formatParsedOutput(info.parsed, key);
-	}
 	let level = <span className={`log-${info.level}`}>{info.level}</span>;
-	return <span key={key}>[{level}] {info.message}<br/></span>;
+	let message = info.level === "server" && info.parsed ? formatParsedOutput(info.parsed) : info.message;
+	return <span key={key}>[{level}] {message}<br/></span>;
 }
 
 /**

@@ -257,6 +257,10 @@ body {
 	color: #ad3939;
 }
 
+.log-server {
+	font-weight: bold;
+}
+
 .log-fatal {
 	font-weight: bold;
 	background-color: #ad3939;
