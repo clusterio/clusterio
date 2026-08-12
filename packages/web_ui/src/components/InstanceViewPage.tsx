@@ -252,9 +252,8 @@ export default function InstanceViewPage() {
 					&& <Flex align="center" gap="middle">
 						<Tooltip
 							title={
-								"Game shows what happened on the server: player chat, joins, leaves, " +
-								"commands and the replies to them, plus anything that went wrong. Instance " +
-								"adds the Factorio engine log and Clusterio's own account of running it."
+								"Game filters to in-game actions and errors: player chat, joins, leaves, etc." +
+								"Instance is the full unfiltered log including the engine log."
 							}
 						>
 							<Segmented
