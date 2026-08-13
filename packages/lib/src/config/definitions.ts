@@ -575,7 +575,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			validator: function(value, config) {
 				const factorioSettings = config.get("factorio.settings");
 				const autosaveSlots = factorioSettings.autosave_slots;
-				if (typeof autosaveSlots === "number" && value < autosaveSlots) {
+				if (value !== 0 && typeof autosaveSlots === "number" && value < autosaveSlots) {
 					throw new Error("Value cannot be less than the number of autosave slots");
 				}
 			},
