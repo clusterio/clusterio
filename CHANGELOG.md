@@ -47,6 +47,7 @@ Many thanks to the following for contributing to this release:
 
 ### Fixes
 
+- Allow player online autosave slots to be disabled while autosaves are enabled. [#966](<https://github.com/clusterio/clusterio/issues/966>)
 - Silenced two Ant Design console warnings in the Web UI: the deprecated Modal `destroyOnClose` prop, and a duplicate-value warning from the instance version selector. [#940](<https://github.com/clusterio/clusterio/pull/940>)
 - Surface the mod portal's own error when downloading mods for an unsupported Factorio version. [#941](<https://github.com/clusterio/clusterio/pull/941>)
 - Instances always create their config file on assignment preventing duplicate folder creation. [#945](<https://github.com/clusterio/clusterio/pull/945>)

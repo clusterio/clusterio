@@ -227,6 +227,15 @@ describe("lib/config/definitions/validators", function() {
 					/Value cannot be less than the number of autosave slots/
 				);
 			});
+			it("should allow disabling player online autosaves", function() {
+				const config = new InstanceConfig("controller", {
+					"factorio.settings": {
+						autosave_slots: 5,
+					},
+				});
+
+				assert.doesNotThrow(() => config.set("factorio.player_online_autosave_slots", 0));
+			});
 			it("should allow when autosave_slots is not a number", function() {
 				const config = new InstanceConfig("controller", {
 					"factorio.settings": {
