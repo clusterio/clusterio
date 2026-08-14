@@ -26,7 +26,7 @@ export default function PluginViewPage() {
 		})();
 	}, []);
 
-	const plugin = control.plugins.get(pluginName);
+	const loadedPlugin = control.loadedPlugins.get(pluginName);
 	const pluginInfo = control.pluginInfos.get(pluginName);
 	const pluginTitle = pluginInfo ? pluginInfo.title : pluginName;
 	let nav = [{ name: "Plugins", path: "/plugins" }, { name: pluginTitle }];
@@ -46,7 +46,7 @@ export default function PluginViewPage() {
 	}
 
 	const pluginError = pluginMeta.web.error ?? pluginInfo?.error;
-	if (!plugin) {
+	if (!loadedPlugin) {
 		return <PageLayout nav={nav}>
 			<Descriptions bordered size="small" title={pluginTitle}>
 				<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
@@ -81,22 +81,22 @@ export default function PluginViewPage() {
 			<Descriptions.Item label="Enabled on controller" span={2}>
 				{pluginMeta.enabled ? "Yes" : "No"}
 			</Descriptions.Item>
-			<Descriptions.Item label="Description" span={3}>{plugin.info.description}</Descriptions.Item>
-			{plugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
-				<a href={plugin.package.homepage}>{plugin.package.homepage}</a>
+			<Descriptions.Item label="Description" span={3}>{loadedPlugin.description}</Descriptions.Item>
+			{loadedPlugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
+				<a href={loadedPlugin.package.homepage}>{loadedPlugin.package.homepage}</a>
 			</Descriptions.Item> : null}
-			{plugin.package.author ? <Descriptions.Item label="Author" span={3}>
-				{plugin.package.author}
+			{loadedPlugin.package.author ? <Descriptions.Item label="Author" span={3}>
+				{loadedPlugin.package.author}
 			</Descriptions.Item> : null}
-			<Descriptions.Item label="License" span={3}>{plugin.package.license}</Descriptions.Item>
+			<Descriptions.Item label="License" span={3}>{loadedPlugin.package.license}</Descriptions.Item>
 		</Descriptions>
-		{pluginMeta.version !== plugin.package.version ? <Alert
+		{pluginMeta.version !== loadedPlugin.package.version ? <Alert
 			style={{
 				marginTop: "1em",
 			}}
 			message="Version missmatch detected"
 			description={
-				`The version of the web interface module for this plugin (${plugin.package.version}) `+
+				`The version of the web interface module for this plugin (${loadedPlugin.package.version}) `+
 				`does not match the version running on the controller (${pluginMeta.version}), `+
 				"spurious errors may occur. This usually happens when the plugin is updated but the "+
 				"controller has not been restarted yet, but may also be due to an outdated build."

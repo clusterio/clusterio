@@ -43,6 +43,12 @@ export async function loadPluginClass<
 	}
 
 	const plugin = (pluginClass as Class).fromContext(context);
-	await plugin.init();
+	try {
+		await plugin.init();
+	} catch (err) {
+		plugin.detachHooks();
+		throw err;
+	}
+
 	return plugin as InstanceType<Class>;
 }

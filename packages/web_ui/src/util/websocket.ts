@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import packageJson from "../../package.json";
-import BaseWebPlugin, * as WebPlugin from "../BaseWebPlugin";
+import * as WebPlugin from "../BaseWebPlugin";
 
 const { logFilter, logger } = lib;
 
@@ -52,7 +52,7 @@ export class Control extends lib.Link {
 	accountRoles: lib.AccountRole[] | null = null;
 
 	public hooks = new WebPlugin.WebHooks(logger);
-	public plugins = new Map<string, BaseWebPlugin>();
+	public plugins = new Map<string, WebPlugin.BaseWebPlugin>();
 	public loadedPlugins = new Map<string, lib.PluginWebpackEnvInfo>();
 	public inputComponents = new Map<string, WebPlugin.InputComponent>();
 	public extensionComponents: Partial<WebPlugin.ExtensionComponents> = {};
@@ -100,11 +100,7 @@ export class Control extends lib.Link {
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
-			this.connector.on(event, () => {
-				for (let plugin of this.plugins.values()) {
-					plugin.onControllerConnectionEvent(event);
-				}
-			});
+			this.connector.on(event, this.hooks.controllerConnectionEvent.listener);
 		}
 
 		this.handle(lib.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));

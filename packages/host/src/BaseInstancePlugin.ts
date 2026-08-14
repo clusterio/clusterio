@@ -11,17 +11,18 @@ export type InstancePluginContext = lib.PluginLoadContext<{
 /**
  * Collection of instance plugin hooks
  */
-export class InstanceHooks {
+export class InstanceHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
-		this.metrics = new lib.AsyncHook(logger);
-		this.start = new lib.AsyncHook(logger);
-		this.stop = new lib.AsyncHook(logger);
-		this.exit = new lib.AsyncHook(logger);
-		this.output = new lib.AsyncHook(logger);
-		this.instanceConfigFieldChanged = new lib.AsyncHook(logger);
-		this.controllerConnectionEvent = new lib.AsyncHook(logger);
-		this.prepareControllerDisconnect = new lib.AsyncHook(logger);
-		this.playerEvent = new lib.AsyncHook(logger);
+		super(logger);
+		this.metrics = this.newHook();
+		this.start = this.newHook();
+		this.stop = this.newHook();
+		this.exit = this.newHook();
+		this.output = this.newHook();
+		this.instanceConfigFieldChanged = this.newHook();
+		this.controllerConnectionEvent = this.newHook();
+		this.prepareControllerDisconnect = this.newHook();
+		this.playerEvent = this.newHook();
 	}
 
 	/**
@@ -148,6 +149,19 @@ export class InstanceHooks {
 	readonly playerEvent: lib.AsyncHook<[event: lib.PlayerEvent]>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseInstancePlugin {
+	onInstanceConfigFieldChanged?(field: string, curr: unknown, prev: unknown): Promise<void>;
+	onMetrics?(): Promise<void | AsyncIterable<lib.CollectorResult>>;
+	onStart?(): Promise<void>;
+	onStop?(): Promise<void>;
+	onExit?(): void;
+	onOutput?(parsed: lib.ParsedFactorioOutput, line: string): Promise<void>;
+	onControllerConnectionEvent?(event: "connect" | "drop" | "resume" | "close"): void;
+	onPrepareControllerDisconnect?(connection: Instance): Promise<void>;
+	onPlayerEvent?(event: lib.PlayerEvent): Promise<void>;
+}
+
 /**
  * Base class for instance plugins
  *
@@ -161,6 +175,7 @@ export class InstanceHooks {
  * be running at the same time, each of which will have their own instance
  * of the InstancePlugin class.
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class BaseInstancePlugin {
 	private _pendingRconMessages: {
 		resolve: (result: string) => void,
@@ -213,28 +228,14 @@ export class BaseInstancePlugin {
 		return new this(context.plugin, context.instance, context.host, context.logger);
 	}
 
+	detachHooks() {
+		this.instance.hooks.detachAll(this.info.name);
+	}
+
 	/**
 	 * Called immediately after the class is instantiated
 	 */
-	async init() { }
-
-	async onInstanceConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
-
-	async onMetrics(): Promise<void | AsyncIterable<lib.CollectorResult>> { }
-
-	async onStart() { }
-
-	async onStop() { }
-
-	onExit() { }
-
-	async onOutput(parsed: lib.ParsedFactorioOutput, line: string) { }
-
-	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
-
-	async onPrepareControllerDisconnect(connection: Instance) { }
-
-	async onPlayerEvent(event: lib.PlayerEvent) { }
+	async init() {}
 
 	/**
 	 * Send RCON message to instance

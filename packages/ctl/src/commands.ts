@@ -26,7 +26,7 @@ export async function registerCommands(ctlHooks: CtlHooks, yargs: Argv) {
 	rootCommands.add(logCommands);
 	rootCommands.add(debugCommands);
 
-	await ctlHooks.addCommands.invoke(roleCommands);
+	await ctlHooks.addCommands.invoke(rootCommands);
 
 	for (let [name, command] of rootCommands.subCommands) {
 		if (name === command.name) {

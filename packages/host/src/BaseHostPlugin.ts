@@ -9,13 +9,14 @@ export type HostPluginContext = lib.PluginLoadContext<{
 /**
  * Collection of host plugin hooks
  */
-export class HostHooks {
+export class HostHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
-		this.metrics = new lib.AsyncHook(logger);
-		this.shutdown = new lib.AsyncHook(logger);
-		this.hostConfigFieldChanged = new lib.AsyncHook(logger);
-		this.controllerConnectionEvent = new lib.AsyncHook(logger);
-		this.prepareControllerDisconnect = new lib.AsyncHook(logger);
+		super(logger);
+		this.metrics = this.newHook();
+		this.shutdown = this.newHook();
+		this.hostConfigFieldChanged = this.newHook();
+		this.controllerConnectionEvent = this.newHook();
+		this.prepareControllerDisconnect = this.newHook();
 	}
 
 	/**
@@ -104,6 +105,15 @@ export class HostHooks {
 	readonly prepareControllerDisconnect: lib.AsyncHook<[connection: Host]>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseHostPlugin {
+	onHostConfigFieldChanged?(field: string, curr: unknown, prev: unknown): Promise<void>;
+	onMetrics?(): Promise<void | AsyncIterable<lib.CollectorResult>>;
+	onShutdown?(): Promise<void>;
+	onControllerConnectionEvent?(event: "connect" | "drop" | "resume" | "close"): void;
+	onPrepareControllerDisconnect?(connection: Host): Promise<void>;
+}
+
 /**
  * Base class for host plugins
  *
@@ -112,6 +122,7 @@ export class HostHooks {
  * discovered the class must be exported under the name `HostPlugin` in the
  * module specified by the `hostEntrypoint` in the plugin's `plugin` export.
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class BaseHostPlugin {
 	constructor(
 		public info: lib.PluginNodeEnvInfo,
@@ -139,18 +150,12 @@ export class BaseHostPlugin {
 		return plugin;
 	}
 
+	detachHooks() {
+		this.host.hooks.detachAll(this.info.name);
+	}
+
 	/**
 	 * Called immediately after the class is instantiated
 	 */
-	async init() { }
-
-	async onHostConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
-
-	async onMetrics(): Promise<void | AsyncIterable<lib.CollectorResult>> { }
-
-	async onShutdown() { }
-
-	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
-
-	async onPrepareControllerDisconnect(connection: Host) { }
+	async init() {}
 }

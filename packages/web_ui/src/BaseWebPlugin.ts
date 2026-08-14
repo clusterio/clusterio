@@ -140,13 +140,14 @@ export type WebPluginContext = lib.PluginLoadContext<{
 /**
  * Collection of host plugin hooks
  */
-export class WebHooks {
+export class WebHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
-		this.controllerConnectionEvent = new lib.AsyncHook(logger);
-		this.extensionComponents = new lib.AsyncHook(logger);
-		this.inputComponents = new lib.AsyncHook(logger);
-		this.loginForms = new lib.AsyncHook(logger);
-		this.pages = new lib.AsyncHook(logger);
+		super(logger);
+		this.controllerConnectionEvent = this.newHook();
+		this.extensionComponents = this.newHook();
+		this.inputComponents = this.newHook();
+		this.loginForms = this.newHook();
+		this.pages = this.newHook();
 	}
 
 	/**
@@ -223,10 +224,16 @@ export class WebHooks {
 	readonly pages: lib.AsyncHook<[], PluginPage[]>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseWebPlugin {
+	onControllerConnectionEvent?(event: "connect" | "drop" | "resume" | "close"): void;
+}
+
 /**
  * Base class for web interface plugins
  */
-export default class BaseWebPlugin {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class BaseWebPlugin {
 	/**
 	 * Contents of the plugin's package.json file
 	 */
@@ -248,30 +255,37 @@ export default class BaseWebPlugin {
 	) {
 		this.package = packageData; // strict mode complains if we don't assign it this way
 
-		const attach = <Args extends unknown[], Return>(
-			hook: lib.AsyncHook<Args, Return>,
-			fn?: lib.HookHandler<Args, Return>,
-		) => {
-			if (fn) {
-				hook.attach(info.name, fn.bind(this));
-			}
-		};
+		if (this.onControllerConnectionEvent) {
+			control.hooks.controllerConnectionEvent.attach(info.name, this.onControllerConnectionEvent.bind(this));
+		}
 
-		attach(control.hooks.controllerConnectionEvent, this.onControllerConnectionEvent);
-		attach(control.hooks.inputComponents, () => this.inputComponents);
-		attach(control.hooks.extensionComponents, () => this.componentExtra);
-		attach(control.hooks.loginForms, () => this.loginForms);
-		attach(control.hooks.pages, () => this.pages);
+		if (Object.keys(this.inputComponents).length) {
+			control.hooks.inputComponents.attach(info.name, () => this.inputComponents);
+		}
+
+		if (Object.keys(this.componentExtra).length) {
+			control.hooks.extensionComponents.attach(info.name, () => this.componentExtra);
+		}
+
+		if (this.loginForms.length) {
+			control.hooks.loginForms.attach(info.name, () => this.loginForms);
+		}
+
+		if (this.pages.length) {
+			control.hooks.pages.attach(info.name, () => this.pages);
+		}
 	}
 
 	static fromContext(context: WebPluginContext): BaseWebPlugin {
 		return new this(context.container, context.package, context.plugin, context.control, context.logger);
 	}
 
+	detachHooks() {
+		this.control.hooks.detachAll(this.info.name);
+	}
+
 	/**
 	 * Called immediately after the class is instantiated.
 	 */
-	async init() { }
-
-	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
+	async init() {}
 }

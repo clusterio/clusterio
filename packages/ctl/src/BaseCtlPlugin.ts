@@ -7,9 +7,10 @@ export type CtlPluginContext = lib.PluginLoadContext<{
 /**
  * Collection of clusterioctl plugin hooks
  */
-export class CtlHooks {
+export class CtlHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
-		this.addCommands = new lib.AsyncHook(logger);
+		super(logger);
+		this.addCommands = this.newHook();
 	}
 
 	/**
@@ -25,6 +26,11 @@ export class CtlHooks {
 	readonly addCommands: lib.AsyncHook<[rootCommand: lib.CommandTree]>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseCtlPlugin {
+	addCommands?(rootCommand: lib.CommandTree): Promise<void>;
+}
+
 /**
  * Base class for clusterioctl plugins
  *
@@ -33,35 +39,31 @@ export class CtlHooks {
  * class must be exported under the name `CtlPlugin` in the module
  * specified by the `ctlEntrypoint` in the plugin's `plugin` export.
  */
-export default class BaseCtlPlugin {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class BaseCtlPlugin {
 	constructor(
 		/**
 		 * The plugin's own info module
 		 */
 		public info: lib.PluginNodeEnvInfo,
 		public logger: lib.Logger,
-		hooks: CtlHooks,
+		private hooks: CtlHooks,
 	) {
-		const attach = <Args extends unknown[], Return>(
-			hook: lib.AsyncHook<Args, Return>,
-			fn?: lib.HookHandler<Args, Return>,
-		) => {
-			if (fn) {
-				hook.attach(info.name, fn.bind(this));
-			}
-		};
-
-		attach(hooks.addCommands, this.addCommands);
+		if (this.addCommands) {
+			hooks.addCommands.attach(info.name, this.addCommands.bind(this));
+		}
 	}
 
 	static fromContext(context: CtlPluginContext) {
 		return new this(context.plugin, context.logger, context.hooks);
 	}
 
+	detachHooks() {
+		this.hooks.detachAll(this.info.name);
+	}
+
 	/**
 	 * Called immediately after the class is instantiated
 	 */
-	async init() { }
-
-	async addCommands(rootCommand: lib.CommandTree) { }
+	async init() {}
 }

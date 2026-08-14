@@ -227,7 +227,7 @@ async function execCtl(command) {
 	inExecCtl = true;
 	process.chdir("temp/test");
 	try {
-		const initArgs = await initializeCtl(command, control.plugins, true);
+		const initArgs = await initializeCtl(command, control.hooks, true);
 		if (!initArgs.shouldRun) {
 			return;
 		}
@@ -377,7 +377,7 @@ before(async function() {
 
 	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} control-config list`, undefined, true);
 	control.config = initArgs.controlConfig;
-	control.plugins = initArgs.ctlPlugins;
+	control.hooks = initArgs.ctlHooks;
 
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;

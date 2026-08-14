@@ -10,7 +10,7 @@ import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
-import BaseWebPlugin, * as WebPlugin from "./BaseWebPlugin";
+import * as WebPlugin from "./BaseWebPlugin";
 import { pages } from "./pages";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
@@ -81,7 +81,7 @@ async function loadPlugins(
 	pluginInfos: lib.PluginWebpackEnvInfo[],
 	control: Control
 ) {
-	const plugins = new Map<string, BaseWebPlugin>();
+	const plugins = new Map<string, WebPlugin.BaseWebPlugin>();
 
 	for (const pluginInfo of pluginInfos) {
 		if (!pluginInfo.enabled || !pluginInfo.webEntrypoint) {
@@ -91,7 +91,6 @@ async function loadPlugins(
 		try {
 			const moduleFactory = await pluginInfo.container.get(pluginInfo.webEntrypoint);
 			const webModule = moduleFactory();
-			let loaded = false;
 
 			const pluginContext: WebPlugin.WebPluginContext = {
 				control,
@@ -103,21 +102,19 @@ async function loadPlugins(
 
 			if (typeof webModule.default === "function") {
 				await lib.loadPluginEntrypoint(pluginInfo, "web", pluginContext, webModule);
-				loaded = true;
+				continue;
 			}
 
 			// migrate: accept plugins which export classes
 			if (webModule.WebPlugin) {
 				logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks`);
 				plugins.set(pluginInfo.name, await lib.loadPluginClass(
-					pluginInfo, "web", pluginContext, webModule, "WebPlugin", BaseWebPlugin
+					pluginInfo, "web", pluginContext, webModule, "WebPlugin", WebPlugin.BaseWebPlugin
 				));
-				loaded = true;
+				continue;
 			}
 
-			if (!loaded) {
-				throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
-			}
+			throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
 
 		} catch (err: any) {
 			pluginInfo.error = `Error loading plugin: ${err.message}`;
@@ -217,7 +214,10 @@ export default async function bootstrap() {
 	let controlConnector = new ControlConnector(wsUrl.href, 120);
 	let control = new Control(controlConnector, new Map(pluginInfoEntries));
 	control.plugins = await loadPlugins(pluginInfos, control);
-	control.loadedPlugins = new Map(pluginInfoEntries.filter(info => control.plugins.has(info[0])));
+	control.loadedPlugins = new Map(pluginInfoEntries.filter(
+		([_, info]) => info.enabled && info.webEntrypoint && !info.error
+	));
+
 	control.inputComponents = await inputComponentsFromHooks(control);
 	control.extensionComponents = await extensionComponentsFromHooks(control);
 	control.loginForms = await loginFormsFromHooks(control);

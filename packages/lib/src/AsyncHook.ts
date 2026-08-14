@@ -19,6 +19,10 @@ export class AsyncHook<
 		return this._handlers.size;
 	}
 
+	get attached() {
+		return this._handlers.keys();
+	}
+
 	/**
 	 * Stable event listener reference bound to this hook instance.
 	 *
@@ -135,5 +139,46 @@ export class AsyncHook<
 		return results.filter(
 			(entry): entry is [string, Result] => entry !== undefined
 		);
+	}
+}
+
+export class AsyncHookCollection {
+	private hooks: AsyncHook<any[], any>[] = [];
+
+	constructor(
+		private _logger = logger,
+	) {}
+
+	protected newHook<
+		Args extends unknown[],
+		Result = void,
+	> (
+		_logger = this._logger
+	) {
+		const hook = new AsyncHook<Args, Result>(_logger);
+		this.hooks.push(hook);
+		return hook;
+	}
+
+	get size() {
+		const attached = new Set(this.hooks.flatMap(hook => hook.attached));
+		return attached.size;
+	}
+
+	get attached() {
+		const attached = new Set(this.hooks.flatMap(hook => hook.attached));
+		return attached.values();
+	}
+
+	detachAll(name: string) {
+		for (const hook of this.hooks) {
+			hook.detach(name);
+		}
+	}
+
+	clearAll() {
+		for (const hook of this.hooks) {
+			hook.clear();
+		}
 	}
 }

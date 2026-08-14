@@ -16,7 +16,7 @@ import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import * as commands from "./src/commands";
-import BaseCtlPlugin, { CtlHooks } from "./src/BaseCtlPlugin";
+import { BaseCtlPlugin, CtlHooks } from "./src/BaseCtlPlugin";
 
 
 /**
@@ -113,7 +113,7 @@ async function loadPlugins(pluginList: Map<string, string>, hooks: CtlHooks) {
 		}
 
 		const context = { hooks, logger, plugin: pluginInfo };
-		lib.loadPlugin(pluginInfo, "ctl", context, "CtlPlugin", BaseCtlPlugin);
+		await lib.loadPlugin(pluginInfo, "ctl", context, "CtlPlugin", BaseCtlPlugin);
 		ctlPlugins.add(pluginInfo);
 	}
 
@@ -132,7 +132,6 @@ interface CtlArguments {
 interface InitializeParameters {
 	args: CtlArguments;
 	shouldRun: boolean;
-	ctlPlugins?: CtlHooks;
 	rootCommands?: lib.CommandTree;
 	controlConfig?: lib.ControlConfig;
 }

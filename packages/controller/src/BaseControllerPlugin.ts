@@ -12,21 +12,22 @@ export type ControllerPluginContext = lib.PluginLoadContext<{
 /**
  * Collection of controller plugin hooks
  */
-export class ControllerHooks {
+export class ControllerHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
-		this.save = new lib.AsyncHook(logger);
-		this.metrics = new lib.AsyncHook(logger);
-		this.shutdown = new lib.AsyncHook(logger);
-		this.instanceStatusChanged = new lib.AsyncHook(logger);
-		this.instanceConfigFieldChanged = new lib.AsyncHook(logger);
-		this.controllerConfigFieldChanged = new lib.AsyncHook(logger);
-		this.controlConnectionEvent = new lib.AsyncHook(logger);
-		this.hostConnectionEvent = new lib.AsyncHook(logger);
-		this.prepareHostDisconnect = new lib.AsyncHook(logger);
-		this.modPacksUpdated = new lib.AsyncHook(logger);
-		this.modsUpdated = new lib.AsyncHook(logger);
-		this.rolesUpdated = new lib.AsyncHook(logger);
-		this.playerEvent = new lib.AsyncHook(logger);
+		super(logger);
+		this.save = this.newHook();
+		this.metrics = this.newHook();
+		this.shutdown = this.newHook();
+		this.instanceStatusChanged = this.newHook();
+		this.instanceConfigFieldChanged = this.newHook();
+		this.controllerConfigFieldChanged = this.newHook();
+		this.controlConnectionEvent = this.newHook();
+		this.hostConnectionEvent = this.newHook();
+		this.prepareHostDisconnect = this.newHook();
+		this.modPacksUpdated = this.newHook();
+		this.modsUpdated = this.newHook();
+		this.rolesUpdated = this.newHook();
+		this.playerEvent = this.newHook();
 	}
 
 	/**
@@ -267,6 +268,23 @@ export class ControllerHooks {
 	readonly playerEvent: lib.AsyncHook<[instance: InstanceRecord, event: lib.PlayerEvent]>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseControllerPlugin {
+	onSaveData?(): Promise<void>;
+	onMetrics?(): Promise<void | AsyncIterable<lib.CollectorResult>>;
+	onShutdown?(): Promise<void>;
+	onInstanceStatusChanged?(instance: InstanceRecord, prev?: lib.InstanceStatus): Promise<void>;
+	onControllerConfigFieldChanged?(field: string, curr: unknown, prev: unknown): Promise<void>;
+	onInstanceConfigFieldChanged?(instance: InstanceRecord, field: string, curr: unknown, prev: unknown): Promise<void>;
+	onHostConnectionEvent?(connection: HostConnection, event: "connect" | "drop" | "resume" | "close"): void;
+	onControlConnectionEvent?(connection: ControlConnection, event: "connect" | "drop" | "resume" | "close"): void;
+	onPrepareHostDisconnect?(connection: HostConnection): Promise<void>;
+	onModPacksUpdated?(modPacks: lib.ModPack[]): Promise<void>;
+	onModsUpdated?(mods: lib.ModInfo[]): Promise<void>;
+	onRolesUpdated?(roles: lib.Role[]): Promise<void>;
+	onPlayerEvent?(instance: InstanceRecord, event: lib.PlayerEvent): Promise<void>;
+}
+
 /**
  * Base class for controller plugins
  *
@@ -276,6 +294,7 @@ export class ControllerHooks {
  * in the module specified by the `controllerEntrypoint` in the plugin's
  * `plugin` export.
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class BaseControllerPlugin {
 	constructor(
 		public info: lib.PluginNodeEnvInfo,
@@ -311,36 +330,14 @@ export class BaseControllerPlugin {
 		return new this(context.plugin, context.controller, context.metrics, context.logger);
 	}
 
+	detachHooks() {
+		this.controller.hooks.detachAll(this.info.name);
+	}
+
 	/**
 	 * Called immediately after the class is instantiated
 	 */
-	async init() { }
-
-	async onSaveData() { }
-
-	async onInstanceStatusChanged(instance: InstanceRecord, prev?: lib.InstanceStatus) { }
-
-	async onControllerConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
-
-	async onInstanceConfigFieldChanged(instance: InstanceRecord, field: string, curr: unknown, prev: unknown) { }
-
-	async onMetrics(): Promise<void | AsyncIterable<lib.CollectorResult>> { }
-
-	async onShutdown() { }
-
-	onHostConnectionEvent(connection: HostConnection, event: "connect" | "drop" | "resume" | "close") { }
-
-	onControlConnectionEvent(connection: ControlConnection, event: "connect" | "drop" | "resume" | "close") { }
-
-	async onPrepareHostDisconnect(connection: HostConnection) { }
-
-	async onModPacksUpdated(modPacks: lib.ModPack[]) { }
-
-	async onModsUpdated(mods: lib.ModInfo[]) { }
-
-	async onRolesUpdated(roles: lib.Role[]) { }
-
-	async onPlayerEvent(instance: InstanceRecord, event: lib.PlayerEvent) { }
+	async init() {}
 
 	/**
 	 * Broadcast event to all connected hosts

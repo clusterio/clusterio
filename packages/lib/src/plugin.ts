@@ -96,9 +96,10 @@ export type PluginClass<
 	Context extends object,
 	Info extends PluginDeclaration,
 > = {
-	new (...args: any[]): any,
+	new (...args: any[]): any;
 	fromContext(context: PluginLoadContext<Context, Info>): {
 		init(): Promise<void>;
+		detachHooks(): void;
 	};
 };
 

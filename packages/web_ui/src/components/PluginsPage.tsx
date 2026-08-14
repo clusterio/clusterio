@@ -32,17 +32,15 @@ export default function PluginsPage() {
 
 	let tableContents = [];
 	for (let meta of pluginList) {
-		if (control.plugins.has(meta.name)) {
-			let plugin = control.plugins.get(meta.name)!;
+		const info = control.loadedPlugins.get(meta.name);
+		if (info) {
 			tableContents.push({
-				meta,
-				info: plugin.info,
-				package: plugin.package,
+				meta, info,
+				package: info.package,
 			});
 		} else {
 			tableContents.push({
-				meta,
-				info: control.pluginInfos.get(meta.name),
+				meta, info: control.pluginInfos.get(meta.name),
 			});
 		}
 	}

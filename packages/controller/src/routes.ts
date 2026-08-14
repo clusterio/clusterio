@@ -109,7 +109,7 @@ function getPlugins(req: Request, res: Response) {
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
 		const loaded = req.app.locals.controller.loadedPlugins.has(pluginInfo);
-		const enabled = req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
+		const enabled = loaded && req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
 		// Note: Cast through unknown is needed because load_plugin is
 		// defined at runtime and no other fields in the controller config
 		// currently have the boolean type.

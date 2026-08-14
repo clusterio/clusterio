@@ -1,6 +1,6 @@
 import { bootstrap } from "./ctl";
 export * from "./ctl";
-export { default as BaseCtlPlugin } from "./src/BaseCtlPlugin";
+export { BaseCtlPlugin } from "./src/BaseCtlPlugin";
 
 if (module === require.main) {
 	bootstrap();
