@@ -384,8 +384,10 @@ describe("messages/mod", function() {
 				}
 			});
 			it("prefers the locally installed version if matching", async function() {
-				controller.modStore.addMod(lib.ModInfo.fromJSON({ name: "foo", version: "1.0.0" }));
 				for (const factorioVersion of factorioVersions) {
+					controller.modStore.addMod(lib.ModInfo.fromJSON({
+						name: "foo", version: "1.0.0", factorio_version: factorioVersion,
+					}));
 					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo"]);
 					setPortalModRelease("foo", "2.0.0", factorioVersion, []);
 
@@ -402,8 +404,10 @@ describe("messages/mod", function() {
 				}
 			});
 			it("prefers the mod portal version when checking for updates", async function() {
-				controller.modStore.addMod(lib.ModInfo.fromJSON({ name: "foo", version: "1.0.0" }));
 				for (const factorioVersion of factorioVersions) {
+					controller.modStore.addMod(lib.ModInfo.fromJSON({
+						name: "foo", version: "1.0.0", factorio_version: factorioVersion,
+					}));
 					setPortalModRelease("root", "1.0.0", factorioVersion, ["foo"]);
 					setPortalModRelease("foo", "2.0.0", factorioVersion, []);
 
@@ -455,6 +459,68 @@ describe("messages/mod", function() {
 					assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_2.0.0", "bar_1.5.0"]));
 				}
 			});
+			it("only selects portal releases matching the factorio version", async function() {
+				setPortalModRelease("root", "1.0.0", "2.0", ["foo"]);
+				ModReleases.set("foo", {
+					name: "foo",
+					releases: [{
+						version: "1.0.0", info_json: { factorio_version: "1.1", dependencies: [] },
+					}, {
+						version: "2.0.0", info_json: { factorio_version: "2.0", dependencies: [] },
+					}, {
+						version: "3.0.0", info_json: { factorio_version: "2.1", dependencies: [] },
+					}],
+				});
+
+				const result = await controlConnection.handleModDependencyResolveRequest(
+					new lib.ModDependencyResolveRequest([new ModDependency("root")], "2.0")
+				);
+
+				assert.deepEqual(result.errors, new Map([
+					["base", "notFound"],
+				]));
+
+				const depIds = new Set(result.dependencies.map(mod => mod.id));
+				assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_2.0.0"]));
+			});
+			it("only selects local mods matching the factorio version", async function() {
+				controller.modStore.addMod(lib.ModInfo.fromJSON({
+					name: "foo", version: "1.0.0", factorio_version: "2.0",
+				}));
+				controller.modStore.addMod(lib.ModInfo.fromJSON({
+					name: "foo", version: "3.0.0", factorio_version: "2.1",
+				}));
+				setPortalModRelease("root", "1.0.0", "2.0", ["foo"]);
+				setPortalModRelease("foo", "2.0.0", "2.0", []);
+
+				let result = await controlConnection.handleModDependencyResolveRequest(
+					new lib.ModDependencyResolveRequest([new ModDependency("root")], "2.0")
+				);
+				let depIds = new Set(result.dependencies.map(mod => mod.id));
+				assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_1.0.0"]));
+
+				result = await controlConnection.handleModDependencyResolveRequest(
+					new lib.ModDependencyResolveRequest([new ModDependency("root")], "2.0", true)
+				);
+				depIds = new Set(result.dependencies.map(mod => mod.id));
+				assert.deepEqual(depIds, new Set(["root_1.0.0", "foo_2.0.0"]));
+			});
+			it("highlights dependencies with no release for the factorio version", async function() {
+				setPortalModRelease("root", "1.0.0", "2.0", ["foo"]);
+				setPortalModRelease("foo", "1.0.0", "2.1", []);
+
+				const result = await controlConnection.handleModDependencyResolveRequest(
+					new lib.ModDependencyResolveRequest([new ModDependency("root")], "2.0")
+				);
+
+				assert.deepEqual(result.errors, new Map([
+					["base", "notFound"],
+					["foo", "notFound"],
+				]));
+
+				assert.equal(result.dependencies.length, 1);
+				assert.equal(result.dependencies[0].id, "root_1.0.0");
+			});
 			it("rejects when a network error occurs", async function() {
 				lib.ModStore.fetchModReleases = function() {
 					throw new Error("Mock network error");
@@ -484,7 +550,7 @@ describe("messages/mod", function() {
 					"pyalienlife", "pyalienlifegraphics", "pyalienlifegraphics2", "pyalienlifegraphics3",
 					"pycoalprocessing", "pycoalprocessinggraphics", "pyfusionenergy", "pyfusionenergygraphics",
 					"pypetroleumhandling", "pypetroleumhandlinggraphics", "pyrawores", "pyraworesgraphics",
-					"pyhightech", "pyhightechgraphics", "pyindustry", "pyindustrygraphics", "enable-all-feature-flags",
+					"pyhightech", "pyhightechgraphics", "pyindustry", "pyindustrygraphics",
 				]));
 			});
 		});
