@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import dgram from "node:dgram";
 import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -333,6 +334,70 @@ describe("host/server", function() {
 				assert.equal(logged.length, 1);
 				assert(logged[0].startsWith("Error handling ipc event:\nError: Event NumberEvent failed validation\n"));
 				assert(logged[0].includes('"message": "must be number"'));
+			});
+		});
+
+		describe("Lua UDP", function() {
+			let udpServer;
+			let received;
+			before(async function() {
+				// Stand-in for the Factorio server's --enable-lua-udp socket
+				udpServer = dgram.createSocket("udp4");
+				received = [];
+				udpServer.on("message", (msg, rinfo) => received.push([msg, rinfo]));
+				await events.once(udpServer.bind(0, "127.0.0.1"), "listening");
+			});
+			after(function() {
+				udpServer.close();
+			});
+
+			it("should not have a host port when not running", function() {
+				assert.equal(server.hostUdpPort, undefined);
+			});
+			it("should reject sendUdp when not enabled", async function() {
+				server._state = "running";
+				try {
+					await assert.rejects(server.sendUdp("data"), new Error("Lua UDP is not enabled"));
+				} finally {
+					server._state = "init";
+				}
+			});
+			it("should bind a socket, send and receive ipc over UDP", async function() {
+				server.enableLuaUdp = true;
+				server.luaUdpPort = udpServer.address().port;
+				await server._bindUdpSocket();
+				server._state = "running";
+				try {
+					assert(server.hostUdpPort > 0, "hostUdpPort not set");
+
+					await server.sendUdp("hello");
+					await server.sendUdp(Buffer.from("world"));
+					while (received.length < 2) {
+						await wait(1);
+					}
+					assert.equal(received[0][0].toString(), "hello");
+					assert.equal(received[1][0].toString(), "world");
+					assert.equal(received[0][1].port, server.hostUdpPort);
+
+					let ipcReceived = [];
+					let onIpc = content => ipcReceived.push(content);
+					server.on("ipc-udp_channel", onIpc);
+					let waiter = events.once(server, "ipc-udp_channel");
+					// Packets not from the Factorio server's port are ignored
+					let other = dgram.createSocket("udp4");
+					await events.once(other.bind(0, "127.0.0.1"), "listening");
+					other.send(Buffer.from('\f$ipc:udp_channel?j{"data":"bad"}'), server.hostUdpPort, "127.0.0.1");
+					udpServer.send(Buffer.from('\f$ipc:udp_channel?j{"data":"spam"}'), server.hostUdpPort, "127.0.0.1");
+					await waiter;
+					server.off("ipc-udp_channel", onIpc);
+					other.close();
+					assert.deepEqual(ipcReceived, [{ data: "spam" }]);
+				} finally {
+					server._resetState();
+					server.enableLuaUdp = false;
+				}
+				assert.equal(server._udpSocket, null);
+				assert.equal(server.hostUdpPort, undefined);
 			});
 		});
 

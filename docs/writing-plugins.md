@@ -131,7 +131,7 @@ The following properties are recognized:
     See [Migrating Stored Data](#migrating-stored-data)
 
 **features**:
-    Array of features the plugin needs from the instances it is loaded on, `"SavePatching"` and/or `"ScriptCommands"`.
+    Array of features the plugin needs from the instances it is loaded on, any of `"SavePatching"`, `"ScriptCommands"` and `"LuaUdp"`.
     See [Handling Invalid Configuration](#handling-invalid-configuration)
 
 **messages**:
@@ -286,7 +286,7 @@ See [Configuration System](config-system.md) for more details on how this system
 
 ### Handling Invalid Configuration
 
-If the plugin requires save patching or script commands to function, which can be disabled to run vanilla or scenarios not compatible with Clusterio, declare it under `features` in the `plugin` export:
+If the plugin requires save patching, script commands or Lua UDP to function, which can be disabled to run vanilla or scenarios not compatible with Clusterio, declare it under `features` in the `plugin` export:
 
 ```js
 export const plugin = {
@@ -481,6 +481,29 @@ Data out from Factorio does not have the same limits as data into Factorio, RCON
 **Note:** both `send_json` and RCON can operate out of order.
 For `send_json` it's possible that payloads greater than 4kB are received after payloads that were sent at a later point in time.
 For RCON, commands longer than 50 characters may end up being executed after shorter commands sent after it.
+
+### Communicating over UDP
+
+Instances can optionally exchange UDP packets with the Factorio server for low latency fire-and-forget communication, using the `--enable-lua-udp` option of Factorio 2.0.59 and later.
+This is disabled by default and enabled by setting `factorio.enable_lua_udp` on the instance.
+Sending data out of Factorio also needs `factorio.enable_script_commands`, as the port to send to is passed to the module with a script command on startup.
+Plugins requiring it should declare the `LuaUdp` feature.
+Note that UDP does not guarantee delivery or ordering, and packets should be kept well below 64 kB.
+
+Data out from Factorio is sent with the `send_udp` API of the Clusterio module and is delivered to plugins as the same `ipc-channel_name` events as `send_json` uses:
+
+```lua
+clusterio_api.send_udp("my_plugin_foo", { data = 123 })
+```
+
+Data into Factorio is sent with the `sendUdp` method on the plugin object and delivered in-game as `defines.events.on_udp_packet_received` events with the packet in `event.payload`.
+The Clusterio module polls for received packets every tick, all modules and mods receive every packet so make sure the payload identifies your plugin.
+
+```js
+async onStart() {
+    await this.sendUdp("my_plugin_foo:123");
+}
+```
 
 
 ## Defining Link Messages
