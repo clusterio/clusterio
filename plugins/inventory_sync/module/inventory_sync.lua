@@ -314,15 +314,20 @@ function inventory_sync.sync_player(acquire_response)
 end
 
 function inventory_sync.finish_download(player, finished_record)
+	local script_data = get_script_data()
+	script_data.finished_downloads[player.name] = nil
+	local player_record = script_data.players[player.name]
+
 	local status, result = xpcall(inventory_sync.deserialize_player, debug.traceback, player, finished_record)
 	if not status then
 		log("ERROR: Deserializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Deserializing player data failed: " .. result)
+		-- Treat this as a temporary inventory so the incomplete state is not uploaded over the synced data
+		player_record.dirty = true
+		player_record.sync = false
+		return
 	end
-	local script_data = get_script_data()
-	script_data.finished_downloads[player.name] = nil
 
-	local player_record = script_data.players[player.name]
 	player_record.dirty = true
 	player_record.sync = true
 	player_record.generation = finished_record.generation
@@ -380,6 +385,8 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	end
 
 	if not player_record.dirty or not player_record.sync then
+		-- Nothing to upload, release the acquisition so other instances are not blocked
+		clusterio_api.send_json("inventory_sync_release", { player_name = player.name })
 		return
 	end
 
