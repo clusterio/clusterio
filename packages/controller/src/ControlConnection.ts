@@ -713,9 +713,14 @@ export default class ControlConnection extends BaseConnection {
 				return null;
 			}
 
-			// Select the latest matching version
+			// Select the latest matching version for the mod pack's Factorio version
 			const release = releases.releases
-				.filter(info => versionRange.testVersion(info.version))
+				.filter(info => (
+					versionRange.testVersion(info.version)
+					&& lib.normaliseMajorMinorVersion(
+						lib.normaliseSourceVersion(info.info_json.factorio_version)
+					) === factorioVersion
+				))
 				.reduce<ModPortalReleaseType | undefined>((max, cur) => (
 					max && lib.integerSourceVersion(max.version) > lib.integerSourceVersion(cur.version) ? max : cur
 				), undefined);
@@ -797,7 +802,11 @@ export default class ControlConnection extends BaseConnection {
 
 			// Check if a local version fits the requirements
 			let candidate = localInfos
-				.filter(info => (info.name === mod.name && versionRange.testVersion(info.version)))
+				.filter(info => (
+					info.name === mod.name
+					&& info.factorioVersion === factorioVersion
+					&& versionRange.testVersion(info.version)
+				))
 				.reduce<lib.ModInfo | undefined>((max, cur) => (
 					max && max.integerVersion > cur.integerVersion ? max : cur
 				), undefined);
