@@ -69,6 +69,16 @@ describe("lib/factorio/exchange_string", function() {
 			});
 		});
 
+		it("should parse post v2.1.13 strings", function() {
+			assert.deepEqual(lib.readMapExchangeString(testStrings.modified_v2_1_13), {
+				version: [2, 1, 14, 1],
+				unknown: 0,
+				map_gen_settings: testSettings.modified_v2_1_map_gen_settings,
+				map_settings: testSettings.modified_v2_1_13_map_settings,
+				checksum: 272054359,
+			});
+		});
+
 		it("should handle malformed strings", function() {
 			assert.throws(
 				() => lib.readMapExchangeString("<<blah>>"),

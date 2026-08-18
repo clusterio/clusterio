@@ -615,6 +615,14 @@ const modified_v2_1_map_settings = {
 	},
 };
 
+const modified_v2_1_13_map_settings = {
+	...modified_v2_1_map_settings,
+	"enemy_expansion": {
+		...modified_v2_1_map_settings.enemy_expansion,
+		"build_base_unit_dispatch_cooldown": 1234,
+	},
+};
+
 const modified_space_age_map_gen_settings = {
 	autoplace_controls: {
 		"aquilo_crude_oil": { frequency: 1, size: 1, richness: 1 },
@@ -703,5 +711,6 @@ module.exports = {
 	modified_v2_map_settings,
 	modified_v2_1_map_gen_settings,
 	modified_v2_1_map_settings,
+	modified_v2_1_13_map_settings,
 	modified_space_age_map_gen_settings,
 };

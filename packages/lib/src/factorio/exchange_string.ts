@@ -3,14 +3,23 @@ import zlib from "zlib";
 class MapReaderState {
 	pos = 0;
 	last_position = { x: 0, y: 0 };
+	/** Version of Factorio the string was created with */
+	version = [0, 0, 0, 0];
 	/** True when a version greater than 2.0.0 is detected */
 	gt_v2_0 = false;
 	/** True when a version greater than 2.1.0 is detected */
 	gt_v2_1 = false;
-	// If more versions are required then we should expose version directly
 	constructor(
 		public buf: Buffer
 	) { }
+
+	/** True when the version is at least the given major.minor.patch */
+	atLeast(major: number, minor: number, patch = 0) {
+		const [vMajor, vMinor, vPatch] = this.version;
+		if (vMajor !== major) { return vMajor > major; }
+		if (vMinor !== minor) { return vMinor > minor; }
+		return vPatch >= patch;
+	}
 }
 
 function readUInt8(state: MapReaderState) {
@@ -281,6 +290,9 @@ function readEnemyExpansion(state: MapReaderState) {
 		evolution_group_size_factor: readOptional(state, readDouble), // v2.1
 		min_expansion_cooldown: readOptional(state, readUInt32),
 		max_expansion_cooldown: readOptional(state, readUInt32),
+		...state.atLeast(2, 1, 13) ? {
+			build_base_unit_dispatch_cooldown: readOptional(state, readUInt32), // v2.1.13
+		} : {},
 	} : {
 		enabled: readOptional(state, readBool),
 		max_expansion_distance: readOptional(state, readUInt32),
@@ -460,8 +472,9 @@ export function readMapExchangeString(exchangeString: string) {
 
 	try {
 		const version = readVersion(state);
-		state.gt_v2_0 = version[0] >= 2;
-		state.gt_v2_1 = version[0] >= 2 && version[1] >= 1;
+		state.version = version;
+		state.gt_v2_0 = state.atLeast(2, 0);
+		state.gt_v2_1 = state.atLeast(2, 1);
 		data = {
 			version: version,
 			unknown: readUInt8(state),
