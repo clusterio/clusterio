@@ -301,6 +301,9 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance create alt-start --id 97");
 				await execCtl("instance assign alt-start 5");
 				await execCtl("instance config set alt-start instance.auto_start true");
+				const visibility = jsonArg({ lan: false, public: false });
+				await execCtlProcess(`instance config set-prop alt-start factorio.settings visibility ${visibility}`);
+				await execCtl("instance config set-prop alt-start factorio.settings require_user_verification false");
 				await stopAltHost(hostProcess);
 				hostProcess = await spawnAltHost();
 				// Stop the host immediatly to test the handling of stopping
