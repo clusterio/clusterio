@@ -5,16 +5,12 @@ class MapReaderState {
 	last_position = { x: 0, y: 0 };
 	/** Version of Factorio the string was created with */
 	version = [0, 0, 0, 0];
-	/** True when a version greater than 2.0.0 is detected */
-	gt_v2_0 = false;
-	/** True when a version greater than 2.1.0 is detected */
-	gt_v2_1 = false;
 	constructor(
 		public buf: Buffer
 	) { }
 
 	/** True when the version is at least the given major.minor.patch */
-	atLeast(major: number, minor: number, patch = 0) {
+	versionAtLeast(major: number, minor: number, patch = 0) {
 		const [vMajor, vMinor, vPatch] = this.version;
 		if (vMajor !== major) { return vMajor > major; }
 		if (vMinor !== minor) { return vMinor > minor; }
@@ -173,7 +169,7 @@ function readBoundingBox(state: MapReaderState) {
 }
 
 function readCliffSettings(state: MapReaderState) {
-	return state.gt_v2_0 ? {
+	return state.versionAtLeast(2, 0) ? {
 		name: readString(state),
 		control: readString(state), // v2
 		cliff_elevation_0: readFloat(state),
@@ -198,7 +194,7 @@ function readTerritorySettings(state: MapReaderState) {
 }
 
 function readMapGenSettings(state: MapReaderState) {
-	return state.gt_v2_0 ? {
+	return state.versionAtLeast(2, 0) ? {
 		autoplace_controls: Object.fromEntries(readDict(state, readString, readFrequencySizeRichness)),
 		autoplace_settings: Object.fromEntries(readDict(state, readString, readAutoplaceSetting)),
 		default_enable_all_autoplace_controls: readBool(state),
@@ -274,7 +270,7 @@ function readEnemyEvolution(state: MapReaderState) {
 }
 
 function readEnemyExpansion(state: MapReaderState) {
-	return state.gt_v2_1 ? {
+	return state.versionAtLeast(2, 1) ? {
 		enabled: readOptional(state, readBool),
 		max_expansion_distance: readOptional(state, readUInt32),
 		min_expansion_distance: readOptional(state, readUInt32), // v2.1
@@ -290,7 +286,7 @@ function readEnemyExpansion(state: MapReaderState) {
 		evolution_group_size_factor: readOptional(state, readDouble), // v2.1
 		min_expansion_cooldown: readOptional(state, readUInt32),
 		max_expansion_cooldown: readOptional(state, readUInt32),
-		...state.atLeast(2, 1, 13) ? {
+		...state.versionAtLeast(2, 1, 13) ? {
 			build_base_unit_dispatch_cooldown: readOptional(state, readUInt32), // v2.1.13
 		} : {},
 	} : {
@@ -367,7 +363,7 @@ function readPathFinder(state: MapReaderState) {
 }
 
 function readDifficultySettings(state: MapReaderState) {
-	return state.gt_v2_0 ? {
+	return state.versionAtLeast(2, 0) ? {
 		technology_price_multiplier: readDouble(state),
 		spoil_time_modifier: readDouble(state), // v2
 	} : {
@@ -386,7 +382,7 @@ function readAsteroids(state: MapReaderState) {
 }
 
 function readMapSettings(state: MapReaderState) {
-	if (state.gt_v2_1) {
+	if (state.versionAtLeast(2, 1)) {
 		return {
 			pollution: readPollution(state),
 			// steering removed v2.1
@@ -398,7 +394,7 @@ function readMapSettings(state: MapReaderState) {
 			difficulty_settings: readDifficultySettings(state),
 			asteroids: readAsteroids(state), // v2
 		};
-	} else if (state.gt_v2_0) {
+	} else if (state.versionAtLeast(2, 0)) {
 		return {
 			pollution: readPollution(state),
 			steering: readSteering(state),
@@ -473,8 +469,6 @@ export function readMapExchangeString(exchangeString: string) {
 	try {
 		const version = readVersion(state);
 		state.version = version;
-		state.gt_v2_0 = state.atLeast(2, 0);
-		state.gt_v2_1 = state.atLeast(2, 1);
 		data = {
 			version: version,
 			unknown: readUInt8(state),
