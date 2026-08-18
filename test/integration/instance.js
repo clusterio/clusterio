@@ -7,7 +7,7 @@ const fs = require("node:fs/promises");
 const { testMatrix } = require("../common");
 const {
 	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
-	requiresFactorio, hasFactorio, instancesDir,
+	requiresFactorio, hasFactorio, getFactorioVersion, instancesDir,
 } = require("./index");
 
 const instId = 48;
@@ -21,6 +21,11 @@ const requireApi = [
 	"package.loaded['modules/clusterio/api']", // 1.1.110
 	"or package.loaded['__level__/modules/clusterio/api.lua']", // 2.0.0
 ].join(" ");
+
+// --enable-lua-udp was added in Factorio 2.0.59
+function hasLuaUdp() {
+	return lib.integerFullVersion(getFactorioVersion()) >= lib.integerFullVersion("2.0.59");
+}
 
 function getUser(name) {
 	return getControl().send(new lib.UserGetRequest(name));
@@ -112,6 +117,7 @@ describe("Clusterio Instance", function() {
 				await execCtl(`${instSetConfig} factorio.enable_whitelist true`);
 				await execCtl(`${instSetConfig} factorio.enable_save_patching ${savePatchingEnabled}`);
 				await execCtl(`${instSetConfig} factorio.enable_script_commands ${scriptCommandsEnabled}`);
+				await execCtl(`${instSetConfig} factorio.enable_lua_udp ${hasLuaUdp()}`);
 				await execCtl(`instance save create ${instName}`);
 				await execCtl(`instance start ${instName}`);
 			});
@@ -151,6 +157,24 @@ describe("Clusterio Instance", function() {
 							"{ type='leave', name='JoiningPlayer', reason='quit' })"
 						);
 						const userLeave = await getUser("JoiningPlayer");
+						assert(!userLeave.instances.has(instId), "Player is not shown as offline");
+					});
+					it("should respond to a player join and leave event sent over UDP", async function() {
+						// The host port is passed to the module by updateInstanceData on startup
+						if (!hasLuaUdp() || !scriptCommandsEnabled) {
+							this.skip();
+						}
+						await sendRcon(instId,
+							`/sc ${requireApi} api.send_udp("player_event",` +
+							"{ type='join', name='UdpPlayer' })"
+						);
+						const userJoin = await getUser("UdpPlayer");
+						assert(userJoin.instances.has(instId), "Player is not shown as online");
+						await sendRcon(instId,
+							`/sc ${requireApi} api.send_udp("player_event",` +
+							"{ type='leave', name='UdpPlayer', reason='quit' })"
+						);
+						const userLeave = await getUser("UdpPlayer");
 						assert(!userLeave.instances.has(instId), "Player is not shown as offline");
 					});
 				}

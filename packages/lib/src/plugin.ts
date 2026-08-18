@@ -13,6 +13,8 @@ export const PluginFeatureFlags = [
 	"SavePatching",
 	/** The plugin requires access to script commands over rcon */
 	"ScriptCommands",
+	/** The plugin requires UDP messaging with the Factorio server */
+	"LuaUdp",
 ] as const;
 
 /** Used to define the plugin export in plugins */

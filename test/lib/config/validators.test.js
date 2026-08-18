@@ -341,6 +341,35 @@ describe("lib/config/definitions/validators", function() {
 					/requires script commands/
 				);
 			});
+			it("should validate against factorio.enable_lua_udp", function() {
+				class TestInstanceConfig extends InstanceConfig {
+					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+				}
+
+				lib.addPluginFieldDefinitions(
+					{ name: "lua_udp", features: ["LuaUdp"] },
+					"instanceConfigFields", TestInstanceConfig
+				);
+
+				const config = new TestInstanceConfig("controller", initialConfigFields);
+
+				// valid: does not require save patching or script commands
+				assert.doesNotThrow(() => config.set("factorio.enable_save_patching", false));
+				assert.doesNotThrow(() => config.set("factorio.enable_script_commands", false));
+
+				// valid: can have load disabled
+				assert.doesNotThrow(() => config.set("lua_udp.load_plugin", false));
+
+				// invalid: requires lua udp when loaded (disabled by default)
+				assert.throws(
+					() => config.set("lua_udp.load_plugin", true),
+					/requires Lua UDP/
+				);
+
+				// valid: requirement satisfied
+				assert.doesNotThrow(() => config.set("factorio.enable_lua_udp", true));
+				assert.doesNotThrow(() => config.set("lua_udp.load_plugin", true));
+			});
 			it("should allow when no feature flags are present", function() {
 				class TestInstanceConfig extends InstanceConfig {
 					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
