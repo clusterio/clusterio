@@ -2,7 +2,7 @@ const assert = require("assert").strict;
 const { readFile } = require("node:fs/promises");
 
 const { fetchFactorioVersions } = require("@clusterio/lib");
-const { slowTest } = require("../../integration");
+const { slowTest, externalTest } = require("../../integration");
 
 describe("FactorioVersions", function() {
 	describe("fetchFactorioVersions", function() {
@@ -129,6 +129,7 @@ describe("FactorioVersions", function() {
 		});
 		it("parses versions from live api", async function() {
 			slowTest(this);
+			externalTest(this);
 			global.fetch = originalFetch;
 
 			const versions = await fetchFactorioVersions();

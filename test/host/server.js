@@ -8,7 +8,7 @@ const hostServer = require("@clusterio/host/dist/node/src/server");
 const lib = require("@clusterio/lib");
 const { wait } = lib;
 const { testLines } = require("../lib/factorio/lines");
-const { slowTest } = require("../integration");
+const { slowTest, externalTest } = require("../integration");
 
 
 describe("host/server", function() {
@@ -137,6 +137,7 @@ describe("host/server", function() {
 
 		it("works", async function() {
 			slowTest(this);
+			externalTest(this);
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.zip";
 			const downloads = path.join("temp", "test", "downloads");
 			await fs.rm(downloads, { force: true, recursive: true, maxRetries: 10 });
@@ -160,6 +161,8 @@ describe("host/server", function() {
 		});
 
 		it("works", async function() {
+			slowTest(this);
+			externalTest(this);
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.tar.gz";
 			const downloads = path.join("temp", "test", "downloads");
 			await fs.rm(downloads, { force: true, recursive: true, maxRetries: 10 });
@@ -479,6 +482,7 @@ describe("host/server", function() {
 			}
 			it("should download a version correctly (live api)", async function() {
 				slowTest(this);
+				externalTest(this);
 				if (_platform !== "linux") {
 					this.skip();
 				}

@@ -128,6 +128,15 @@ function slowTest(test) {
 	test.timeout(30000);
 }
 
+// Mark that this test depends on an external API and may be slow or flaky.
+function externalTest(test) {
+	if (process.env.NO_EXTERNAL_TEST) {
+		test.skip();
+	}
+
+	test.timeout(60000);
+}
+
 // Mark that this test or suite of tests requires a factorio install to run.
 function requiresFactorio(testOrSuite) {
 	if (testOrSuite.skip) {
@@ -320,6 +329,10 @@ before(async function() {
 		console.log("FAST_TEST is present in env, slow tests will be skipped.");
 	}
 
+	if (process.env.NO_EXTERNAL_TEST) {
+		console.log("NO_EXTERNAL_TEST is present in env, tests depending on external APIs will be skipped.");
+	}
+
 	await fs.rm(instancesDir, { force: true, recursive: true, maxRetries: 10 });
 	await fs.rm(modsDir, { force: true, recursive: true, maxRetries: 10 });
 	await fs.rm(databaseDir, { force: true, recursive: true, maxRetries: 10 });
@@ -433,6 +446,7 @@ module.exports = {
 	execController,
 	execCtlProcess,
 	slowTest,
+	externalTest,
 	requiresFactorio,
 	get,
 	exec,

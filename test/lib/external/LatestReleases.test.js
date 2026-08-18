@@ -1,7 +1,7 @@
 const assert = require("assert").strict;
 
 const { fetchLatestReleases, resolveReleaseChannel } = require("@clusterio/lib");
-const { slowTest } = require("../../integration");
+const { slowTest, externalTest } = require("../../integration");
 
 describe("LatestReleases", function() {
 	describe("fetchLatestReleases", function() {
@@ -54,6 +54,7 @@ describe("LatestReleases", function() {
 		});
 		it("fetches from the live api", async function() {
 			slowTest(this);
+			externalTest(this);
 			global.fetch = originalFetch;
 
 			const releases = await fetchLatestReleases();
