@@ -30,6 +30,7 @@ dist/
 node_modules
 
 /factorio*
+/test/file/factorioDownload/
 /instances
 /mods
 /database
