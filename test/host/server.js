@@ -483,7 +483,7 @@ describe("host/server", function() {
 					this.skip();
 				}
 
-				server._factorioDir = path.join("test", "file", "factorioDownload");
+				server._factorioDir = path.join("temp", "test", "factorioDownload");
 				server._targetVersion = "latest";
 				global.fetch = _fetch;
 				await fs.rm(server._factorioDir, { force: true, recursive: true, maxRetries: 10 });
