@@ -7,6 +7,8 @@ local serialize = {}
 local v2_logistic_api = compat.version_ge("2.0.0")
 local v2_storage_api = compat.version_ge("2.0.0")
 local v2_remote_controller = compat.version_ge("2.0.0")
+local v2_space_platform = compat.version_ge("2.0.0")
+local v2_exit_remote_view = compat.version_ge("2.0.56")
 local recipe_notifications_api = compat.version_ge("2.0.67")
 local v2_0_quick_bar_api = compat.version_ge("2.0.0")
 local v2_1_quick_bar_api = compat.version_ge("2.1.0")
@@ -666,6 +668,23 @@ function serialize.serialize_player(player, failed_deserialization)
 	return serialized
 end
 
+--- Find a surface characters can exist on, used when the player is on a space platform surface
+--- @param platform LuaSpacePlatform
+--- @return LuaSurface
+local function find_planet_surface(platform)
+	local location = platform.space_location
+	local planet = location and game.planets[location.name]
+	if planet and planet.surface then
+		return planet.surface
+	end
+	for _, surface in pairs(game.surfaces) do
+		if not surface.platform then
+			return surface
+		end
+	end
+	error("No surface found which can hold a character")
+end
+
 --- Ensure a player has a character, works from any controller type
 --- @param player LuaPlayer
 --- @return LuaEntity
@@ -676,13 +695,32 @@ local function ensure_character(player)
 		return character
 	end
 
+	-- Exit remote view before switching controllers, this can fail if the player is on a platform
+	if v2_exit_remote_view and player.controller_type == defines.controllers.remote then
+		player.exit_remote_view()
+	end
+
 	-- Switch to god controller if create_character would fail
 	if player.controller_type ~= defines.controllers.god then
 		player.set_controller{ type = defines.controllers.god }
 	end
 
+	-- Characters can not be created on platform surfaces, restore_position will move them back into the hub
+	local surface = player.surface
+	if v2_space_platform and surface.platform then
+		local planet_surface = find_planet_surface(surface.platform)
+		player.teleport(player.force.get_spawn_position(planet_surface), planet_surface)
+	end
+
 	-- Create and return the character
-	assert(player.create_character(), "Failed to create character")
+	if not player.create_character() then
+		error(string.format(
+			"Failed to create character (controller: %s, physical: %s, surface: %s, connected: %s, driving: %s)",
+			controller_to_name[player.controller_type],
+			v2_remote_controller and controller_to_name[player.physical_controller_type] or "n/a",
+			player.surface.name, tostring(player.connected), tostring(player.driving)
+		))
+	end
 	return player.character
 end
 
