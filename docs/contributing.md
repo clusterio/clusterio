@@ -125,6 +125,11 @@ Please do add tests for any code you add and run both:
 
 To check that your changes pass the integration tests as well as the ESLint rules set up for the project.
 
+The full test suite can take a while to run.
+Use `pnpm run fast-test` to skip tests marked as slow, or `pnpm run no-external-test` to skip tests that depend on external APIs such as the Factorio mod portal or GitHub.
+These correspond to setting the `FAST_TEST` and `NO_EXTERNAL_TEST` environment variables and can be combined.
+When writing tests that take a lot of time call `slowTest(this)` at the start of the test, and for tests that call out to external APIs call `externalTest(this)`, both are exported from `test/integration/index.js`.
+
 
 ### Submitting a Pull Request
 

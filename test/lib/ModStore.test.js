@@ -9,6 +9,7 @@ const JSZip = require("jszip"); // Added for creating mock zips
 const nativeFetch = global.fetch;
 
 const { ModStore, ModInfo, ModVersionEquality } = require("@clusterio/lib"); // Adjust path based on compiled output
+const { externalTest } = require("../integration");
 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");
@@ -582,7 +583,7 @@ describe("lib/ModStore", function () {
 		// It requires network access and may take a while to run.
 		// It might also break if the API changes or is unavailable.
 		it("should fetch all mods from the LIVE portal API and check structure/count", async function () {
-			this.timeout(60000); // Increase timeout to 60 seconds for live API call
+			externalTest(this);
 			// Ensure we are using the true native fetch we captured earlier
 			global.fetch = nativeFetch;
 			assert.strictEqual(
@@ -700,6 +701,7 @@ describe("lib/ModStore", function () {
 			await assert.rejects(ModStore.fetchModReleases("my-mod"));
 		});
 		it("should fetch from the correct api url (live)", async function() {
+			externalTest(this);
 			global.fetch = nativeFetch;
 			const result = await ModStore.fetchModReleases("clusterio_lib");
 			assert(result.releases && result.releases.length > 1, "Failed to fetch releases");

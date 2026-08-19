@@ -7,7 +7,7 @@ const { ModDependencyResolveRequest, ModDependency, ModInfo } = lib;
 const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
 
 const { Controller, ControlConnection } = require("@clusterio/controller");
-const { slowTest } = require("../integration");
+const { externalTest } = require("../integration");
 
 describe("messages/mod", function() {
 	/** @type {Controller} */
@@ -467,7 +467,7 @@ describe("messages/mod", function() {
 				}
 			});
 			it("resolves dependencies (live)", async function() {
-				this.timeout(60000); // Increase timeout to 60 seconds for live API call
+				externalTest(this);
 				lib.ModStore.fetchModReleases = _ModStore_fetchModReleases;
 
 				const result = await controlConnection.handleModDependencyResolveRequest(
