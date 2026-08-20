@@ -500,4 +500,17 @@ export default defineConfig([{
 		"max-len": "off",
 		"indent": "off",
 	},
+}, {
+	files: ["tap-demo/**/*.js"],
+
+	languageOptions: {
+		sourceType: "commonjs",
+	},
+
+	"rules": {
+		// tap lifecycle/diagnostic CLI scripts: progress logging and startup-time sync I/O
+		// are intended here, matching how test/integration/index.js operates.
+		"no-console": "off",
+		"node/no-sync": "off",
+	},
 }, globalIgnores(["**/dist/", "dist/"])]);
