@@ -6,6 +6,12 @@
  * and the other from a release published to npm, then verifies the host
  * connects to the controller and can be assigned an instance.
  *
+ * Before starting the cluster it also diffs the link messages registered by
+ * the local and published versions of the lib.  A message whose serialization
+ * (src, dst, data schema or response schema) changed fails the test, while
+ * added and removed messages are only warned about since breaking
+ * compatibility is unavoidable there.
+ *
  * Usage:
  *   node scripts/version-compat-test.js --controller local --host published
  *   node scripts/version-compat-test.js --controller published --host local --published-version 2.0.0-alpha.27
@@ -116,6 +122,86 @@ async function shutdown(name, proc) {
 	console.log(`${name}: exited with ${signal ?? code}`);
 }
 
+function annotate(message) {
+	console.log(message);
+	if (process.env.GITHUB_ACTIONS) {
+		console.log(`::warning::${message}`);
+	}
+}
+
+// JSON.stringify with object keys sorted so logically equal schemas compare equal.
+function stableStringify(value) {
+	return JSON.stringify(value, (key, item) => (
+		item && typeof item === "object" && !Array.isArray(item)
+			? Object.fromEntries(Object.keys(item).sort().map(k => [k, item[k]])) : item
+	));
+}
+
+// Runs in a child process because only one copy of the lib may be loaded per process.
+const dumpMessageSpecs = `
+	const { Link } = require(process.argv[1]);
+	const addresses = types => [types].flat().sort();
+	const specs = {};
+	for (const [name, entry] of Link._requestsByName) {
+		specs["request " + name] = {
+			src: addresses(entry.Request.src),
+			dst: addresses(entry.Request.dst),
+			data: entry.Request.jsonSchema ?? null,
+			response: entry.Request.Response ? entry.Request.Response.jsonSchema : null,
+		};
+	}
+	for (const [name, entry] of Link._eventsByName) {
+		specs["event " + name] = {
+			src: addresses(entry.Event.src),
+			dst: addresses(entry.Event.dst),
+			data: entry.Event.jsonSchema ?? null,
+		};
+	}
+	console.log(JSON.stringify(specs));
+`;
+
+async function messageSpecs(libPath) {
+	const result = await execFile(process.execPath, ["-e", dumpMessageSpecs, libPath]);
+	return new Map(Object.entries(JSON.parse(result.stdout)));
+}
+
+async function checkMessageCompat(publishedVersion) {
+	const localSpecs = await messageSpecs(path.join(repoRoot, "packages", "lib"));
+	const publishedSpecs = await messageSpecs(path.join(publishedDir, "node_modules", "@clusterio", "lib"));
+	console.log(`| comparing ${localSpecs.size} local with ${publishedSpecs.size} published link messages`);
+
+	const changed = [];
+	for (const [name, localSpec] of localSpecs) {
+		const publishedSpec = publishedSpecs.get(name);
+		if (!publishedSpec) {
+			annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
+			continue;
+		}
+		const fields = Object.keys(localSpec).filter(
+			field => stableStringify(localSpec[field]) !== stableStringify(publishedSpec[field])
+		);
+		if (fields.length) {
+			changed.push({ name, fields, localSpec, publishedSpec });
+		}
+	}
+	for (const name of publishedSpecs.keys()) {
+		if (!localSpecs.has(name)) {
+			annotate(`Link ${name} was removed after ${publishedVersion} which may still send it`);
+		}
+	}
+
+	for (const { name, fields, localSpec, publishedSpec } of changed) {
+		console.error(`Link ${name} changed ${fields.join(", ")} since ${publishedVersion}:`);
+		for (const field of fields) {
+			console.error(`  ${field} in ${publishedVersion}: ${stableStringify(publishedSpec[field])}`);
+			console.error(`  ${field} in local: ${stableStringify(localSpec[field])}`);
+		}
+	}
+	if (changed.length) {
+		throw new Error(`${changed.length} link message(s) changed serialization since ${publishedVersion}`);
+	}
+}
+
 async function pollCtl(ctl, cliArgs, expectRegex, description, timeoutMs = 30e3) {
 	const deadline = Date.now() + timeoutMs;
 	for (;;) {
@@ -148,6 +234,11 @@ async function main() {
 		console.log(`| npm install ${specs.join(" ")}`);
 		await execFile("npm", ["install", "--no-audit", "--no-fund", ...specs], { cwd: publishedDir });
 	}
+
+	const publishedLib = JSON.parse(await fs.readFile(
+		path.join(publishedDir, "node_modules", "@clusterio", "lib", "package.json"), "utf8"
+	));
+	await checkMessageCompat(publishedLib.version);
 
 	const controller = packageDir("controller", options.controller);
 	const host = packageDir("host", options.host);
