@@ -47,6 +47,40 @@ jobs:
         name: logs-${{ matrix.node-version }}-${{ matrix.factorio-version }}
         path: temp/test/logs
 
+  version-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # npm version spec for the published side of the compatibility test.
+      # If each release is compatible with the one before it then testing
+      # against the latest release transitively covers older versions too.
+      PUBLISHED_VERSION: latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - controller: local
+            host: published
+          - controller: published
+            host: local
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+    - name: Prepare and install
+      run: pnpm i --no-frozen-lockfile
+    - name: Build
+      run: pnpm run build
+    - name: Test ${{ matrix.controller }} controller with ${{ matrix.host }} host
+      run: >
+        node scripts/version-compat-test.js
+        --controller ${{ matrix.controller }}
+        --host ${{ matrix.host }}
+        --published-version $PUBLISHED_VERSION
+
   lint:
     runs-on: ubuntu-latest
     steps:
