@@ -32,6 +32,7 @@ function statistics_exporter.export()
 		for _, force in pairs(game.forces) do
 			local flow_statistics = {}
 			for _, statName in pairs(statistics) do
+				--- @type LuaFlowStatistics
 				local stat = v2_stats and force["get_" .. statName](surface.index) or force[statName]
 				flow_statistics[statName] = {
 					input = stat.input_counts,

@@ -22,6 +22,9 @@
 -- SOFTWARE.
 --
 
+--- Vendored file, the forward declared recursion is not worth annotating
+--- @diagnostic disable: need-check-nil
+
 local json = { _version = "0.1.2" }
 
 -------------------------------------------------------------------------------

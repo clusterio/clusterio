@@ -1,3 +1,6 @@
+--- Undefined fields are expected, the typedefs only cover the latest version
+--- @diagnostic disable: undefined-field
+
 local function send_json(channel, data)
 	data = helpers and helpers.table_to_json(data) or game.table_to_json(data)
 	print("\f$ipc:" .. channel .. "?j" .. data)

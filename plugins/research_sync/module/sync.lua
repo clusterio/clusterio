@@ -30,8 +30,17 @@ local function set_technology_progress(tech, progress)
 	end
 end
 
+--- @class ResearchSyncTechnology
+--- @field level uint
+--- @field researched boolean?
+--- @field progress double?
+
+--- @class ResearchSyncData
+--- @field technologies table<string, ResearchSyncTechnology>
+--- @field ignore_research_finished boolean
+
 --- @param no_early_return boolean?
---- @return table
+--- @return ResearchSyncData
 local function get_script_data(no_early_return)
 	local research_sync = compat.script_data.research_sync
 	if research_sync and not no_early_return then
