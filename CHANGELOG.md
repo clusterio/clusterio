@@ -31,6 +31,16 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.28
+
+### Fixes
+
+- Plugin web bundles are now loaded relative to `staticRoot` instead of `webRoot`. [#980](<https://github.com/clusterio/clusterio/issues/980>)
+
+### Breaking Changes
+
+- `staticRoot` in the web interface now includes the `static/` prefix. Plugins that fetch assets with `${staticRoot}static/...` should drop the `static/` part. [#980](<https://github.com/clusterio/clusterio/issues/980>)
+
 ## Version 2.0.0-alpha.27
 
 ### Features

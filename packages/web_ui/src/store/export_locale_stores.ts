@@ -21,7 +21,7 @@ class ExportLocaleStore {
 			return;
 		}
 
-		let response = await fetch(`${staticRoot}static/${cacheEntry.localePath}`);
+		let response = await fetch(`${staticRoot}${cacheEntry.localePath}`);
 		if (response.ok) {
 			cacheEntry.data = new Map(await response.json() as ExportLocale);
 			for (const callback of cacheEntry.callbacks) {

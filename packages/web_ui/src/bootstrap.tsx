@@ -50,7 +50,7 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 			continue;
 		}
 		try {
-			await loadScript(`${webRoot}${meta.web.main}`);
+			await loadScript(`${staticRoot}${meta.web.main}`);
 			let container: any = (window as { [key: string]: any })[`plugin_${meta.name}`];
 			if (!container) {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);

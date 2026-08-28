@@ -1217,7 +1217,7 @@ export default class Controller {
 	}
 
 	/**
-	 * Servers the web interface with the root path set apropriately
+	 * Serves the web interface with the root path set appropriately
 	 *
 	 * @param route - route the interface is served under.
 	 * @returns Experess.js route handler.
@@ -1231,7 +1231,7 @@ export default class Controller {
 		return function(req: Request, res: Response, next: NextFunction) {
 			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
-			let staticRoot = webRoot;
+			let staticRoot = `${webRoot}static/`;
 			let mainBundle: string = "";
 			if (res.app.locals.mainBundle) {
 				mainBundle = res.app.locals.mainBundle;
@@ -1239,6 +1239,7 @@ export default class Controller {
 				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
+			mainBundle = routes.stripStaticPrefix(mainBundle);
 
 			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");

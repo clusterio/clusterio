@@ -13,7 +13,9 @@ declare module "*.md" {
 	export default value;
 }
 
+/** Path the web interface is served under, ends with a slash. */
 declare const webRoot: string;
+/** Path static assets are served under, ends with a slash. */
 declare const staticRoot: string;
 
 declare const __webpack_init_sharing__: (shareScope: string) => Promise<void>;
