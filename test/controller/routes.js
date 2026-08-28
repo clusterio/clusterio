@@ -73,6 +73,50 @@ describe("controller/src/routes", function() {
 			assert.equal(await responses[1].text(), "test content");
 		});
 	});
+	describe("stripStaticPrefix()", function() {
+		it("should remove a leading static/", function() {
+			assert.equal(routes.stripStaticPrefix("static/main.abc.js"), "main.abc.js");
+		});
+		it("should leave other paths alone", function() {
+			assert.equal(routes.stripStaticPrefix("main.abc.js"), "main.abc.js");
+			assert.equal(routes.stripStaticPrefix("other/static/main.js"), "other/static/main.js");
+		});
+	});
+	describe("/api/plugins", function() {
+		let endpoint;
+		beforeEach(function() {
+			endpoint = `http://localhost:${port}/api/plugins`;
+			controller.plugins = new Map([["foo", {}]]);
+			controller.mockConfigEntries.set("foo.load_plugin", true);
+		});
+		it("should strip static/ from the plugin bundle path", async function() {
+			controller.pluginInfos = [{
+				name: "foo", version: "1.0.0", npmPackage: "foo",
+				manifest: { "foo.js": "static/foo.abc.js" },
+			}];
+			let response = await fetch(endpoint);
+			assert.equal(response.status, 200);
+			assert.deepEqual(await response.json(), [{
+				name: "foo", version: "1.0.0", enabled: true, loaded: true, npmPackage: "foo",
+				web: { main: "foo.abc.js" },
+			}]);
+		});
+		it("should report missing manifest and entrypoint", async function() {
+			controller.pluginInfos = [
+				{ name: "foo", version: "1.0.0", npmPackage: "foo" },
+				{ name: "bar", version: "1.0.0", npmPackage: "bar", manifest: {} },
+				{ name: "baz", version: "1.0.0", npmPackage: "baz", manifest: { "baz.js": "remoteEntry.js" } },
+			];
+			let response = await fetch(endpoint);
+			assert.equal(response.status, 200);
+			let data = await response.json();
+			assert.equal(data[0].web.error, "Missing dist/web/manifest.json");
+			assert.equal(data[1].web.error, "Missing bar.js entry in manifest.json");
+			assert.equal(data[2].web.error, "Incompatible old remoteEntry.js entrypoint.");
+			assert.equal(data[1].loaded, false);
+			assert.equal(data[1].enabled, false);
+		});
+	});
 	describe("/api/cluster-name", function() {
 		let endpoint;
 		beforeEach(function() {
