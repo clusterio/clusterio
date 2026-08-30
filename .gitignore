@@ -38,6 +38,7 @@ node_modules
 /config-*.json.lock
 pnpm-lock.yaml
 mod_cache.json
+.luarc.json
 /static/
 saves
 /temp/
