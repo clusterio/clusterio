@@ -207,14 +207,14 @@ end
 --- @return QuickBarSlotEncoded
 local function serialize_filter(filter)
 	if filter.quality == "normal" and filter.comparator == "=" then
-		return filter.name
+		return filter.name --[[@as string]]
 	end
 
 	return {
 		t = "f",
-		n = filter.name,
-		q = filter.quality,
-		c = filter.comparator,
+		n = filter.name --[[@as string]],
+		q = filter.quality --[[@as string]],
+		c = filter.comparator --[[@as string]],
 	}
 end
 
@@ -234,7 +234,7 @@ function serialize.serialize_quick_bar_slot(slot)
 
 	if v2_0_quick_bar_api then
 		-- 2.0 gives us an item filter which supports quality
-		--- @cast slot ItemFilter
+		--- @cast slot -QuickBarSlot, -LuaItemPrototype
 		return serialize_filter(slot)
 	end
 
@@ -267,7 +267,7 @@ function serialize.deserialize_quick_bar_slot(entry)
 					quality = entry.q,
 					comparator = entry.c,
 				},
-			}
+			} --[[@as QuickBarSlot]]
 		end
 
 		print("Warning: Unsupported serialized quick bar slot type '" .. tostring(entry.t) .. "'")
@@ -292,7 +292,7 @@ function serialize.deserialize_quick_bar_slot(entry)
 
 	-- Return a string (member of ItemPrototypeIdentification)
 	-- Pre 2.0 this was the only method of encoding used
-	return entry
+	return entry --[[@as string]]
 end
 
 --- @param player LuaPlayer
@@ -709,7 +709,8 @@ local function ensure_character(player)
 	local surface = player.surface
 	if v2_space_platform and surface.platform then
 		local planet_surface = find_planet_surface(surface.platform)
-		player.teleport(player.force.get_spawn_position(planet_surface), planet_surface)
+		local force = player.force --[[@as LuaForce]]
+		player.teleport(force.get_spawn_position(planet_surface), planet_surface)
 	end
 
 	-- Create and return the character
@@ -721,7 +722,7 @@ local function ensure_character(player)
 			player.surface.name, tostring(player.connected), tostring(player.driving)
 		))
 	end
-	return player.character
+	return assert(player.character)
 end
 
 --- @class FailedDeserializationPlayerData

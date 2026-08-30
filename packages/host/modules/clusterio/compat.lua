@@ -10,7 +10,8 @@ Implementation Guidelines
 
 local lib_json = require("json")
 
---- @diagnostic disable: deprecated
+--- Undefined fields are expected, the typedefs only cover the latest version
+--- @diagnostic disable: deprecated, undefined-field
 
 --- @class LibCompat
 --- @field script_data table
@@ -238,4 +239,6 @@ set_script_data()
 compat.on_init = set_script_data --- @package
 compat.on_load = set_script_data --- @package
 
-return setmetatable(compat, compat_mt)
+-- Not returned directly because that would infer the metatable type rather than LibCompat
+setmetatable(compat, compat_mt)
+return compat
