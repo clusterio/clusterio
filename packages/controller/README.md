@@ -104,6 +104,16 @@ This can be used both in the web interface and as the `controller_token` to conn
 Creates a clusterioctl config for the given user with url and token set up for connecting to the cluster.
 
 
+### `copy-static [target]`
+
+Copies the static web assets to the given target folder (which defaults to `./static/`).
+Useful in case you want to host the assets on a CDN or separate web server and want provide the files directly instead of fetching them from the controller.
+
+Note that mod pack exports will create additional static files that also have to be hosted, these are written to the `./static/` folder in the clusterio installation directory.
+
+See also the `controller.public_url` config option for setting where static assets are loaded from.
+
+
 ### `run`
 
 Runs the controller.

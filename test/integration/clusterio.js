@@ -140,6 +140,25 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("copy-static", function() {
+			it("should copy the files from dist/web/static", async function() {
+				const dir = "temp/test/copy-static";
+				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
+				await execController("copy-static copy-static");
+				const controllerFiles = await fs.readdir("packages/controller/dist/web/static");
+				const globalChatFiles = await fs.readdir("plugins/global_chat/dist/web/static");
+				const targetFiles = await fs.readdir(dir);
+				assert(
+					controllerFiles.every(name => targetFiles.includes(name)),
+					"Missing files from controller static folder",
+				);
+				assert(
+					globalChatFiles.every(name => targetFiles.includes(name)),
+					"Missing files from global_chat's static folder",
+				);
+			});
+		});
+
 		describe("config", function() {
 			it("can read the config file", async function() {
 				await execController("config list");
