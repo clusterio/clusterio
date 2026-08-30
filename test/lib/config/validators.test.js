@@ -184,7 +184,35 @@ describe("lib/config/validators", function() {
 
 describe("lib/config/definitions/validators", function() {
 	describe("Controller Config", function() {
+		it("should validate controller.static_url", function() {
+			const config = new ControllerConfig("controller");
 
+			// valid cases
+			config.set("controller.static_url", "");
+			config.set("controller.static_url", null);
+			config.set("controller.static_url", "static/");
+			config.set("controller.static_url", "./static/");
+			config.set("controller.static_url", "/static/");
+			config.set("controller.static_url", "http://example/static/");
+
+			// invalid cases
+			assert.throws(
+				() => config.set("controller.static_url", "/foo/"),
+				"Path component of static_url must be \/static\/ not \/foo\/."
+			);
+			assert.throws(
+				() => config.set("controller.static_url", "http://example/foo/static/"),
+				"Path component of static_url must be \/static\/ not \/foo\/static\/."
+			);
+			assert.throws(
+				() => config.set("controller.static_url", "http://example/static"),
+				"Path component of static_url must be \/static\/ not \/static."
+			);
+			assert.throws(
+				() => config.set("controller.static_url", "http://:80"),
+				/Invalid URL/,
+			);
+		});
 	});
 
 	describe("Host Config", function() {

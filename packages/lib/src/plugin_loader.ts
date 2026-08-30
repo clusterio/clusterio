@@ -69,6 +69,12 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 			continue;
 		}
 
+		pluginInfo.webStaticPath = path.join(
+			path.dirname(
+				require.resolve(path.posix.join(pluginPath, "package.json"))
+			),
+			"dist", "web", "static",
+		);
 		pluginInfo.requirePath = pluginPath;
 		pluginInfo.version = pluginPackage.version;
 		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name ? pluginPath : undefined;

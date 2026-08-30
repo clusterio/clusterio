@@ -22,6 +22,7 @@ declare global {
 		export interface Locals {
 			controller: Controller,
 			mainBundle: string,
+			staticRoot: string | null,
 			devPlugins: Map<string, number>,
 			streams: Map<string, ProxyStream>
 		}

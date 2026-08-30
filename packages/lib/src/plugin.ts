@@ -41,6 +41,11 @@ export type PluginDeclaration = {
 }
 
 export type PluginNodeEnvInfo = PluginDeclaration & {
+	/**
+	 * Path to the folder with the static files that should be hosted on the web
+	 * server in order for the web interface to be able to load the plugin.
+	 */
+	webStaticPath: string;
 	requirePath: string;
 	version: string;
 	manifest: any;
