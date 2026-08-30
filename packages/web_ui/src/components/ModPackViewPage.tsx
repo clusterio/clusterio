@@ -1102,7 +1102,7 @@ function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"l
 				return;
 			}
 
-			let response = await fetch(`${staticRoot}static/${assetFilename}`);
+			let response = await fetch(`${staticRoot}${assetFilename}`);
 			if (response.ok) {
 				let data = await response.json();
 				setAssetData(asset === "locale" ? new Map(data) : data);

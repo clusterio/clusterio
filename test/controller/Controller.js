@@ -3,6 +3,9 @@ const path = require("node:path");
 const assert = require("assert").strict;
 const { Controller, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
 const { EventEmitter } = require("stream");
+const events = require("node:events");
+const http = require("node:http");
+const express = require("express");
 
 const {
 	ControllerConfig, Address, RequestError,
@@ -48,6 +51,40 @@ describe("controller/src/Controller", function() {
 				assert(list.check(ip), `${ip} missing from list`);
 			}
 		}
+		describe(".serveWeb()", function() {
+			let server, port;
+			before(async function() {
+				const app = express();
+				app.locals.controller = { config: { get: () => "Test Cluster" } };
+				app.locals.mainBundle = "static/main.abc.js";
+				for (let route of ["/", "/instances/:id/view"]) {
+					app.get(route, Controller.serveWeb(route));
+				}
+				server = http.createServer(app);
+				server.listen(0, "localhost");
+				await events.once(server, "listening");
+				port = server.address().port;
+			});
+			after(function() {
+				server.close();
+			});
+			it("should serve the root with static/ in staticRoot", async function() {
+				const html = await (await fetch(`http://localhost:${port}/`)).text();
+				assert(html.includes("<title>Test Cluster</title>"));
+				assert(html.includes("src=\"./static/main.abc.js\""));
+				assert(html.includes("new URL(\"./\", document.location)"));
+				assert(html.includes("new URL(\"./static/\", document.location)"));
+			});
+			it("should use relative roots for nested routes", async function() {
+				let html = await (await fetch(`http://localhost:${port}/instances/1/view`)).text();
+				assert(html.includes("src=\"../../static/main.abc.js\""));
+				assert(html.includes("new URL(\"../../\", document.location)"));
+				assert(html.includes("new URL(\"../../static/\", document.location)"));
+				html = await (await fetch(`http://localhost:${port}/instances/1/view/`)).text();
+				assert(html.includes("src=\"../../../static/main.abc.js\""));
+				assert(html.includes("new URL(\"../../../static/\", document.location)"));
+			});
+		});
 		describe(".parseTrustedProxies()", function() {
 			it("should parse addresses", function() {
 				controller.config.set("controller.trusted_proxies", "10.0.0.1");
