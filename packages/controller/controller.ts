@@ -211,6 +211,40 @@ async function handleBootstrapCommand(
 	}
 }
 
+async function handleCopyStaticCommand(
+	args: any,
+	pluginInfos: lib.PluginNodeEnvInfo[],
+) {
+	await fs.cp(
+		path.join(__dirname, "..", "web", "static"),
+		args.target,
+		{
+			recursive: true,
+			mode: fs.constants.COPYFILE_FICLONE,
+		},
+	);
+	logger.info("Copied main web interface files");
+	for (const pluginInfo of pluginInfos) {
+		try {
+			await fs.cp(
+				pluginInfo.webStaticPath,
+				args.target,
+				{
+					recursive: true,
+					mode: fs.constants.COPYFILE_FICLONE,
+				},
+			);
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				logger.info(`Skipped web interface files for ${pluginInfo.name}: ${err.message}`);
+			} else {
+				logger.error(`Unexpected error copying web interface files for ${pluginInfo.name}:\n${err.stack}`);
+				process.exitCode = 1;
+			}
+		}
+		logger.info(`Copied web interface files for ${pluginInfo.name}`);
+	}
+}
 
 export interface ControllerArgs {
 	[x: string]: unknown;
@@ -283,6 +317,13 @@ async function initialize(): Promise<InitializeParameters> {
 					});
 				})
 				.demandCommand(1, "You need to specify a command to run");
+		})
+		.command("copy-static [target]", "Copy static Web UI files to a folder", yargs => {
+			yargs.positional("target", {
+				describe: "Target directory to copy files to",
+				type: "string",
+				default: "static",
+			});
 		})
 		.command("run", "Run controller", yargs => {
 			yargs.option("can-restart", {
@@ -399,6 +440,8 @@ async function initialize(): Promise<InitializeParameters> {
 		await lib.handleConfigCommand(args, controllerConfig, controllerConfigLock);
 	} else if (command === "bootstrap") {
 		await handleBootstrapCommand(args, controllerConfig, controllerConfigLock);
+	} else if (command === "copy-static") {
+		await handleCopyStaticCommand(args, pluginInfos);
 	} else if (shouldRun) {
 		await controllerConfigLock.acquire(); // Hold the lock until process exit
 	}

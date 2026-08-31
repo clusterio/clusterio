@@ -355,6 +355,8 @@ export default class Controller {
 				this.onSystemMetricsIntervalChanged();
 			} else if (field === "controller.trusted_proxies") {
 				this.trustedProxies = this.parseTrustedProxies();
+			} else if (field === "controller.static_url") {
+				this.app.locals.staticRoot = this.config.get("controller.static_url");
 			}
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
 		});
@@ -389,6 +391,7 @@ export default class Controller {
 			}
 			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
 		}
+		this.app.locals.staticRoot = this.config.get("controller.static_url");
 
 		// Load plugins
 		await this.loadPlugins();
@@ -866,7 +869,7 @@ export default class Controller {
 		);
 	}
 
-	static addAppRoutes(app: Application, pluginInfos: any[]) {
+	static addAppRoutes(app: Application, pluginInfos: lib.PluginNodeEnvInfo[]) {
 		app.use((req: Request, res: Response, next) => {
 			const startNs = process.hrtime.bigint();
 			stream.finished(res, () => {
@@ -915,9 +918,7 @@ export default class Controller {
 				app.get(route, Controller.serveWeb(route));
 			}
 
-			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web", "static");
-			app.use("/static", express.static(webPath, staticOptions));
+			app.use("/static", express.static(pluginInfo.webStaticPath, staticOptions));
 		}
 	}
 
@@ -1231,7 +1232,7 @@ export default class Controller {
 		return function(req: Request, res: Response, next: NextFunction) {
 			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
-			let staticRoot = `${webRoot}static/`;
+			let staticRoot = res.app.locals.staticRoot ?? `${webRoot}static/`;
 			let mainBundle: string = "";
 			if (res.app.locals.mainBundle) {
 				mainBundle = res.app.locals.mainBundle;

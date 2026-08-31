@@ -43,7 +43,13 @@ describe("lib/plugin_loader", function() {
 		it("should load test plugin", async function() {
 			assert.deepEqual(
 				await lib.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
-				[{ name: "test", version: "0.0.1", npmPackage: undefined, requirePath: path.resolve(testPlugin) }]
+				[{
+					name: "test",
+					version: "0.0.1",
+					npmPackage: undefined,
+					requirePath: path.resolve(testPlugin),
+					webStaticPath: path.resolve(path.join(testPlugin, "dist", "web", "static")),
+				}]
 			);
 		});
 		it("should reject on broken plugin", async function() {
