@@ -136,6 +136,7 @@ export default async function bootstrap() {
 	}));
 	let [pluginInfos, pluginSetKey] = await loadPluginInfos();
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);

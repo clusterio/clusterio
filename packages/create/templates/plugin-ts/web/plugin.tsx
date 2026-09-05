@@ -57,7 +57,7 @@ export class WebPlugin extends BaseWebPlugin {
 				permission: "__plugin_name__.example.permission.subscribe",
 //%endif
 //%if !controller
-				permission: "__plugin_name__.example.permission.view",
+				permission: "__plugin_name__.page.view",
 //%endif
 				content: <MyTemplatePage/>,
 			},

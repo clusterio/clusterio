@@ -402,6 +402,7 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.info("Loading Plugin info");
 	const pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	const controllerConfigPath = args.config;

@@ -163,6 +163,7 @@ async function startHost() {
 	logger.info("Loading Plugin info");
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	const hostConfigPath = args.config;

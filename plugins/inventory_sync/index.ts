@@ -8,14 +8,10 @@ declare module "@clusterio/lib" {
 	export interface ControllerConfigFields {
 		"inventory_sync.player_lock_timeout": number;
 	}
+	export interface Permissions {
+		"inventory_sync.inventory.view": never;
+	}
 }
-
-lib.definePermission({
-	name: "inventory_sync.inventory.view",
-	title: "View player inventories",
-	description: "View player inventories",
-	grantByDefault: true,
-});
 
 export const plugin: lib.PluginDeclaration = {
 	name: "inventory_sync",
@@ -56,6 +52,14 @@ export const plugin: lib.PluginDeclaration = {
 		messages.UploadRequest,
 		messages.DownloadRequest,
 		messages.DatabaseStatsRequest,
+	],
+	permissions: [
+		{
+			name: "inventory_sync.inventory.view",
+			title: "View player inventories",
+			description: "View player inventories",
+			grantByDefault: true,
+		},
 	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],

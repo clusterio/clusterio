@@ -5,6 +5,7 @@
 import * as libHelpers from "./helpers";
 import type { Logger } from "./logging";
 import type { FieldDefinition } from "./config";
+import type { PermissionDefinition } from "./permissions";
 import type { PlayerStats } from "./data";
 
 
@@ -37,6 +38,7 @@ export type PluginDeclaration = {
 	features?: (typeof PluginFeatureFlags)[number][];
 
 	messages?: any[];
+	permissions?: PermissionDefinition[];
 	routes?: string[];
 }
 

@@ -10,6 +10,7 @@ The plugin classes have pre-defined hooks that are called during various stages 
 - [Defining the plugin class](#defining-the-plugin-class)
 - [Logging Messages](#logging-messages)
 - [Plugin Configuration](#plugin-configuration)
+- [Plugin Permissions](#plugin-permissions)
 - [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
 - [Sending Link Messages](#sending-link-messages)
@@ -100,6 +101,10 @@ The following properties are recognized:
 **messages**:
     Object with link messages definitions for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
+
+**permissions**:
+    Array of permission definitions for this plugin.
+    See [Plugin Permissions](#plugin-permissions)
 
 The optional module folder contains a Clusterio module that will be patched into the save when the plugin is loaded.
 See the section on [Clusterio Modules](developing-for-clusterio.md) in the Developing for Clusterio document.
@@ -251,6 +256,45 @@ async init() {
     }
 }
 ```
+
+
+## Plugin Permissions
+
+Permissions are granted to roles and checked on users, both on the controller and in the web UI.
+A plugin declares the permissions it uses under `permissions` in the `plugin` export.
+Names must start with the plugin name followed by a dot.
+For example in index.ts:
+
+```ts
+import type * as lib from "@clusterio/lib";
+
+declare module "@clusterio/lib" {
+    // Extend the interface of known permission names so that
+    // user.checkPermission(...) accepts our permission.
+    export interface Permissions {
+        "foo_frobber.frobnicate": never;
+    }
+}
+
+export default {
+    ...
+    permissions: [
+        {
+            name: "foo_frobber.frobnicate",
+            title: "Frobnicate",
+            description: "Run frobnication on instances.",
+            grantByDefault: false, // Whether the generated Player role is granted this permission
+        },
+    ],
+} satisfies lib.PluginDeclaration;
+```
+
+The `Permissions` interface only exists at the type level, its values are always `never` and only the keys are used.
+Adding your permission names to it gives you autocomplete and a compile error on typos when calling `user.checkPermission`, `account.hasPermission` or setting the `permission` of a web UI page.
+In JavaScript the `declare module` block is not needed.
+
+Permissions declared this way are registered when the plugin is loaded.
+The older `lib.definePermission()` function still works, but a plugin should not use both for the same permission name.
 
 
 ## Communicating with Factorio

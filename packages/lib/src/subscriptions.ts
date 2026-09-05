@@ -4,6 +4,7 @@ import { Address, MessageRequest, IUser, JsonBoolean, StringEnum, AccountDetails
 import isDeepStrictEqual from "./is_deep_strict_equal";
 import { RequestError } from "./errors";
 import { logger } from "./logging";
+import type { PermissionName } from "./permissions";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void
@@ -155,7 +156,7 @@ export class SubscriptionRequest {
 			const entry = Link._eventsByName.get(data[0]);
 			if (entry && entry.Event.permission) {
 				if (typeof entry.Event.permission === "string") {
-					user.checkPermission(entry.Event.permission);
+					user.checkPermission(entry.Event.permission as PermissionName);
 				} else {
 					entry.Event.permission(user, message);
 				}
