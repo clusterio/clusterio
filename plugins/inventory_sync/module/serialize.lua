@@ -592,6 +592,7 @@ end
 --- @field force string
 --- @field cheat_mode boolean
 --- @field flashlight boolean
+--- @field shortcuts table<string, boolean>?
 --- @field ticks_to_respawn number
 --- @field character table<string, any>?
 --- @field inventories table<string, table>?
@@ -600,6 +601,36 @@ end
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
+
+--- Toggle shortcuts whose state is stored on the player and not covered by any other synced data
+local synced_shortcuts = {
+	"toggle-personal-roboport",
+	"toggle-equipment-movement-bonus",
+}
+
+--- @param player LuaPlayer
+--- @return table<string, boolean>
+function serialize.serialize_shortcuts(player)
+	local shortcut_prototypes = compat.prototypes.shortcut
+	local shortcuts = {}
+	for _, name in ipairs(synced_shortcuts) do
+		if shortcut_prototypes[name] then
+			shortcuts[name] = player.is_shortcut_toggled(name)
+		end
+	end
+	return shortcuts
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, boolean>
+function serialize.deserialize_shortcuts(player, serialized)
+	local shortcut_prototypes = compat.prototypes.shortcut
+	for name, toggled in pairs(serialized) do
+		if shortcut_prototypes[name] then
+			player.set_shortcut_toggled(name, toggled)
+		end
+	end
+end
 
 --- @param player LuaPlayer
 --- @param failed_deserialization FailedDeserializationPlayerData
@@ -616,6 +647,7 @@ function serialize.serialize_player(player, failed_deserialization)
 		force = player.force.name,
 		cheat_mode = player.cheat_mode,
 		flashlight = player.is_flashlight_enabled(),
+		shortcuts = serialize.serialize_shortcuts(player),
 		ticks_to_respawn = player.ticks_to_respawn,
 	}
 
@@ -789,6 +821,9 @@ function serialize.deserialize_player(player, serialized)
 		player.enable_flashlight()
 	else
 		player.disable_flashlight()
+	end
+	if serialized.shortcuts then
+		serialize.deserialize_shortcuts(player, serialized.shortcuts)
 	end
 
 	-- Deserialize character

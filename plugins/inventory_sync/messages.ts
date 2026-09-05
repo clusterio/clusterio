@@ -12,6 +12,7 @@ export type IpcPlayerData = {
 	force: string,
 	cheat_mode: boolean,
 	flashlight: boolean,
+	shortcuts?: Record<string, boolean>,
 	ticks_to_respawn?: number,
 	character?: any,
 	inventories?: any,
