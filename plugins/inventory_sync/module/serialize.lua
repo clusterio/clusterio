@@ -602,19 +602,12 @@ end
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
 
---- Toggle shortcuts whose state is stored on the player and not covered by any other synced data
-local synced_shortcuts = {
-	"toggle-personal-roboport",
-	"toggle-equipment-movement-bonus",
-}
-
 --- @param player LuaPlayer
 --- @return table<string, boolean>
 function serialize.serialize_shortcuts(player)
-	local shortcut_prototypes = compat.prototypes.shortcut
 	local shortcuts = {}
-	for _, name in ipairs(synced_shortcuts) do
-		if shortcut_prototypes[name] then
+	for name, prototype in pairs(compat.prototypes.shortcut) do
+		if prototype.toggleable then
 			shortcuts[name] = player.is_shortcut_toggled(name)
 		end
 	end
@@ -626,7 +619,8 @@ end
 function serialize.deserialize_shortcuts(player, serialized)
 	local shortcut_prototypes = compat.prototypes.shortcut
 	for name, toggled in pairs(serialized) do
-		if shortcut_prototypes[name] then
+		local prototype = shortcut_prototypes[name]
+		if prototype and prototype.toggleable then
 			player.set_shortcut_toggled(name, toggled)
 		end
 	end
