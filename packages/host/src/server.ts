@@ -736,6 +736,9 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	handle<Event>(eventName: string, handler: (event: Event) => Promise<void>) {
 		this.on(`ipc-${eventName}`, (event) => handler(event).catch((err: Error) => {
 			this._logger.error(`Error handling ipc event:\n${err.stack ?? err.message}`);
+			if (err instanceof lib.InvalidMessage && err.errors) {
+				this._logger.error(JSON.stringify(err.errors, null, "\t"));
+			}
 		}));
 	}
 

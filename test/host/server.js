@@ -311,6 +311,37 @@ describe("host/server", function() {
 			});
 		});
 
+		describe(".handle()", function() {
+			it("should log validation errors from ipc handlers", async function() {
+				let logs = [];
+				let ipcServer = new hostServer.FactorioServer(
+					path.join("test", "file", "factorio"), writePath,
+					{ logger: { error: message => logs.push(message) } }
+				);
+				class ValidationRequest {
+					static jsonSchema = { type: "number" };
+					static fromJSON(json) { return json; }
+				}
+				let requestFromJSON = lib.Link.requestFromJSON(ValidationRequest, "ValidationRequest");
+				let error;
+				try {
+					requestFromJSON("not a number");
+				} catch (err) {
+					error = err;
+				}
+				assert(error instanceof lib.InvalidMessage);
+				assert(error.errors);
+
+				ipcServer.handle("validation", async () => { throw error; });
+				ipcServer.emit("ipc-validation", {});
+				await new Promise(resolve => setImmediate(resolve));
+
+				assert.equal(logs.length, 2);
+				assert.match(logs[0], /Error handling ipc event:\nError: Request ValidationRequest failed validation/);
+				assert.equal(logs[1], JSON.stringify(error.errors, null, "\t"));
+			});
+		});
+
 		describe(".stop()", function() {
 			it("should handle server quitting on its own during stop", async function() {
 				server.shutdownTimeoutMs = 20;
