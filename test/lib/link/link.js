@@ -413,6 +413,21 @@ describe("lib/link/link", function() {
 				testLink.handle(SimpleEvent, async () => { throwSimple("Error"); });
 				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
 			});
+			it("should log InvalidMessage from event handler", async function() {
+				let logs = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logs.push(msg); };
+				try {
+					let error = new lib.InvalidMessage("failed", [{ message: "bad" }]);
+					error.stack = "failed stack";
+					testLink.handle(SimpleEvent, async () => { throw error; });
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+					assert.deepEqual(logs, ["Unexpected error handling SimpleEvent:\nfailed stack", '[\n\t{\n\t\t"message": "bad"\n\t}\n]']);
+				} finally {
+					lib.logger.error = originalError;
+				}
+			});
 			it("should throw on unknown type", function() {
 				assert.throws(
 					() => testLink.handle({ name: "Bad", type: "bad" }),
@@ -594,6 +609,21 @@ describe("lib/link/link", function() {
 			it("should log errors from snoop handler", function() {
 				testLink.snoopEvent(SimpleEvent, async () => { throwSimple("Error"); });
 				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+			});
+			it("should log InvalidMessage from snoop handler", async function() {
+				let logs = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logs.push(msg); };
+				try {
+					let error = new lib.InvalidMessage("failed", [{ message: "bad" }]);
+					error.stack = "failed stack";
+					testLink.snoopEvent(SimpleEvent, async () => { throw error; });
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+					assert.deepEqual(logs, ["Unexpected error snooping SimpleEvent:\nfailed stack", '[\n\t{\n\t\t"message": "bad"\n\t}\n]']);
+				} finally {
+					lib.logger.error = originalError;
+				}
 			});
 			it("should throw on double registration", function() {
 				testLink.snoopEvent(SimpleEvent);
