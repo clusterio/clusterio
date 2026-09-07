@@ -46,3 +46,4 @@ saves
 # IDE
 .idea/
 .vs/
+benchmarks/out/
