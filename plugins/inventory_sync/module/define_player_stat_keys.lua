@@ -15,6 +15,7 @@ local keys = {
 	"character_trash_slot_count_bonus",
 	"character_maximum_following_robot_count_bonus",
 	"character_health_bonus",
+	"allow_dispatching_robots",
 }
 
 if compat.version_le("1.1.110") then

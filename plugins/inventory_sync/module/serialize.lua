@@ -2,6 +2,7 @@ local compat = require("modules/clusterio/compat")
 local clusterio_serialize = require("modules/clusterio/serialize")
 local character_inventories = require("modules/inventory_sync/define_player_inventories")
 local character_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
+local game_view_settings_keys = require("modules/inventory_sync/define_game_view_settings")
 local serialize = {}
 
 local v2_logistic_api = compat.version_ge("2.0.0")
@@ -52,6 +53,8 @@ end
 --   character_maximum_following_robot_count_bonus
 --   character_health_bonus
 --   character_personal_logistic_requests_enabled
+--   allow_dispatching_robots
+--   inhibit_movement_bonus (optional, from the armor equipment grid)
 --   inventories: table of character inventory name to inventory content
 function serialize.serialize_character(character)
 	local serialized = { }
@@ -64,6 +67,12 @@ function serialize.serialize_character(character)
 	-- Serialize character inventories
 	serialized.inventories = serialize.serialize_inventories(character, character_inventories)
 
+	-- Serialize armor grid state
+	local grid = character.grid
+	if grid then
+		serialized.inhibit_movement_bonus = grid.inhibit_movement_bonus
+	end
+
 	return serialized
 end
 
@@ -75,6 +84,12 @@ function serialize.deserialize_character(character, serialized)
 
 	-- Deserialize character inventories
 	serialize.deserialize_inventories(character, serialized.inventories, character_inventories)
+
+	-- Deserialize armor grid state, the grid exists after the armor inventory is restored
+	local grid = character.grid
+	if grid and serialized.inhibit_movement_bonus ~= nil then
+		grid.inhibit_movement_bonus = serialized.inhibit_movement_bonus
+	end
 end
 
 -- Personal logistic slots is a table mapping string indexes to a table with the following fields:
@@ -592,6 +607,8 @@ end
 --- @field force string
 --- @field cheat_mode boolean
 --- @field flashlight boolean
+--- @field shortcuts table<string, boolean>?
+--- @field game_view_settings table<string, boolean>?
 --- @field ticks_to_respawn number
 --- @field character table<string, any>?
 --- @field inventories table<string, table>?
@@ -600,6 +617,52 @@ end
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
+
+--- @param player LuaPlayer
+--- @return table<string, boolean>
+function serialize.serialize_shortcuts(player)
+	local shortcuts = {}
+	for name, prototype in pairs(compat.prototypes.shortcut) do
+		if prototype.toggleable then
+			shortcuts[name] = player.is_shortcut_toggled(name)
+		end
+	end
+	return shortcuts
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, boolean>
+function serialize.deserialize_shortcuts(player, serialized)
+	local shortcut_prototypes = compat.prototypes.shortcut
+	for name, toggled in pairs(serialized) do
+		local prototype = shortcut_prototypes[name]
+		if prototype and prototype.toggleable then
+			player.set_shortcut_toggled(name, toggled)
+		end
+	end
+end
+
+--- @param player LuaPlayer
+--- @return table<string, boolean>
+function serialize.serialize_game_view_settings(player)
+	local settings = player.game_view_settings
+	local serialized = {}
+	for _, key in pairs(game_view_settings_keys) do
+		serialized[key] = settings[key]
+	end
+	return serialized
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, boolean>
+function serialize.deserialize_game_view_settings(player, serialized)
+	local settings = player.game_view_settings
+	for _, key in pairs(game_view_settings_keys) do
+		if serialized[key] ~= nil then
+			settings[key] = serialized[key]
+		end
+	end
+end
 
 --- @param player LuaPlayer
 --- @param failed_deserialization FailedDeserializationPlayerData
@@ -616,6 +679,8 @@ function serialize.serialize_player(player, failed_deserialization)
 		force = player.force.name,
 		cheat_mode = player.cheat_mode,
 		flashlight = player.is_flashlight_enabled(),
+		shortcuts = serialize.serialize_shortcuts(player),
+		game_view_settings = serialize.serialize_game_view_settings(player),
 		ticks_to_respawn = player.ticks_to_respawn,
 	}
 
@@ -789,6 +854,12 @@ function serialize.deserialize_player(player, serialized)
 		player.enable_flashlight()
 	else
 		player.disable_flashlight()
+	end
+	if serialized.shortcuts then
+		serialize.deserialize_shortcuts(player, serialized.shortcuts)
+	end
+	if serialized.game_view_settings then
+		serialize.deserialize_game_view_settings(player, serialized.game_view_settings)
 	end
 
 	-- Deserialize character
