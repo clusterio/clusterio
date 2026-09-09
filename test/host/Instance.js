@@ -39,6 +39,18 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe(".sendUdp()", function() {
+		it("should throw when Lua UDP is disabled", async function() {
+			await assert.rejects(instance.sendUdp("data"), /Lua UDP is disabled/);
+			assert.deepEqual(instance.server.udpMessages, []);
+		});
+		it("should send to the server when enabled", async function() {
+			instance.config.set("factorio.enable_lua_udp", true);
+			await instance.sendUdp("data");
+			assert.deepEqual(instance.server.udpMessages, ["data"]);
+		});
+	});
+
 	describe("._recordPlayerJoin()", function() {
 		it("should add player to playersOnline", function() {
 			instance._recordPlayerJoin("player");

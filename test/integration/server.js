@@ -177,6 +177,8 @@ describe("Integration of host/src/server", function() {
 				slowTest(this);
 				log(".startScenario()");
 
+				// --enable-lua-udp was added in Factorio 2.0.59
+				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.0.59");
 				let pass = false;
 				function filter(output) {
 					if (output.message === "test_scenario init") {
@@ -189,6 +191,7 @@ describe("Integration of host/src/server", function() {
 
 				log(".stop()");
 				await server.stop();
+				server.enableLuaUdp = false;
 
 				server.off("output", filter);
 				assert(pass, "server did not output line from test scenario");

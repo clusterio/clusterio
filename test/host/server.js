@@ -400,6 +400,71 @@ describe("host/server", function() {
 				assert.equal(server._udpSocket, null);
 				assert.equal(server.hostUdpPort, undefined);
 			});
+			it("should warn on packets not in IPC format", async function() {
+				server.luaUdpPort = udpServer.address().port;
+				await server._bindUdpSocket();
+				const logger = server._logger;
+				let warnings = [];
+				server._logger = { warn: msg => warnings.push(msg) };
+				try {
+					udpServer.send(Buffer.from("not ipc"), server.hostUdpPort, "127.0.0.1");
+					while (warnings.length < 1) {
+						await wait(1);
+					}
+					assert.equal(warnings[0], "Ignoring UDP packet not in IPC format: not ipc");
+				} finally {
+					server._logger = logger;
+					server._resetState();
+				}
+			});
+			it("should emit error on malformed IPC packets", async function() {
+				server.luaUdpPort = udpServer.address().port;
+				await server._bindUdpSocket();
+				try {
+					let waiter = events.once(server, "error");
+					udpServer.send(Buffer.from("\f$ipc:no_separator"), server.hostUdpPort, "127.0.0.1");
+					let [err] = await waiter;
+					assert.equal(err.message, 'Malformed IPC line "\f$ipc:no_separator"');
+				} finally {
+					server._resetState();
+				}
+			});
+			it("should forward socket errors", async function() {
+				await server._bindUdpSocket();
+				try {
+					let waiter = events.once(server, "error");
+					server._udpSocket.emit("error", new Error("socket failed"));
+					let [err] = await waiter;
+					assert.equal(err.message, "socket failed");
+				} finally {
+					server._resetState();
+				}
+			});
+			it("should reject sendUdp when sending fails", async function() {
+				server.luaUdpPort = udpServer.address().port;
+				await server._bindUdpSocket();
+				server._state = "running";
+				try {
+					// Larger than the maximum size of a UDP datagram
+					await assert.rejects(server.sendUdp(Buffer.alloc(70000)), { code: "EMSGSIZE" });
+				} finally {
+					server._resetState();
+				}
+			});
+			it("should close the socket if binding fails", async function() {
+				const createSocket = dgram.createSocket;
+				dgram.createSocket = (...args) => {
+					const socket = createSocket(...args);
+					socket.bind = () => process.nextTick(() => socket.emit("error", new Error("bind failed")));
+					return socket;
+				};
+				try {
+					await assert.rejects(server._bindUdpSocket(), new Error("bind failed"));
+				} finally {
+					dgram.createSocket = createSocket;
+				}
+				assert.equal(server._udpSocket, null);
+			});
 		});
 
 		describe(".stop()", function() {
