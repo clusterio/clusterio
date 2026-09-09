@@ -522,6 +522,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				await execCtl("controller update");
 			});
+			it("accepts --all", async function() {
+				await execCtl("controller update --all");
+			});
 			it("accepts --restart", async function() {
 				// We cannot restart the controller, so we check for controller error instead
 				await assert.rejects(
@@ -603,6 +606,9 @@ describe("Integration of Clusterio", function() {
 		describe("host update", function() {
 			it("runs", async function() {
 				await execCtl("host update 4");
+			});
+			it("accepts --all", async function() {
+				await execCtl("host update 4 --all");
 			});
 			it("accepts --restart", async function() {
 				// We cannot restart the host, so we check for host error instead
