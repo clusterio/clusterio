@@ -311,6 +311,32 @@ describe("host/server", function() {
 			});
 		});
 
+		describe(".handle()", function() {
+			it("should log validation errors from ipc handlers", async function() {
+				let logged = [];
+				let ipcServer = new hostServer.FactorioServer(
+					path.join("test", "file", "factorio"), writePath,
+					{ logger: { error: msg => { logged.push(msg); } } }
+				);
+				class NumberEvent {
+					static type = "event";
+					static src = "instance";
+					static dst = "controller";
+					constructor(value) { this.value = value; }
+					static jsonSchema = { type: "number" };
+					static fromJSON(json) { return new this(json); }
+				}
+				let eventFromJSON = lib.Link.eventFromJSON(NumberEvent, "NumberEvent");
+				ipcServer.handle("bad_event", async () => { eventFromJSON("not a number"); });
+				ipcServer.emit("ipc-bad_event", {});
+				await new Promise(resolve => setImmediate(resolve));
+
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith("Error handling ipc event:\nError: Event NumberEvent failed validation\n"));
+				assert(logged[0].includes('"message": "must be number"'));
+			});
+		});
+
 		describe(".stop()", function() {
 			it("should handle server quitting on its own during stop", async function() {
 				server.shutdownTimeoutMs = 20;

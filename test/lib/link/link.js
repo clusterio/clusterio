@@ -413,6 +413,25 @@ describe("lib/link/link", function() {
 				testLink.handle(SimpleEvent, async () => { throwSimple("Error"); });
 				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
 			});
+			it("should log validation errors from event handler", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {
+						testLink.sendEvent(new NumberEvent("not a number"), dst);
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith(
+					"Unexpected error handling SimpleEvent:\nError: Event NumberEvent failed validation\n"
+				));
+				assert(logged[0].includes('"message": "must be number"'));
+			});
 			it("should throw on unknown type", function() {
 				assert.throws(
 					() => testLink.handle({ name: "Bad", type: "bad" }),
@@ -594,6 +613,26 @@ describe("lib/link/link", function() {
 			it("should log errors from snoop handler", function() {
 				testLink.snoopEvent(SimpleEvent, async () => { throwSimple("Error"); });
 				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+			});
+			it("should log validation errors from snoop handler", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {});
+					testLink.snoopEvent(SimpleEvent, async () => {
+						testLink.sendEvent(new NumberEvent("not a number"), dst);
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith(
+					"Unexpected error snooping SimpleEvent:\nError: Event NumberEvent failed validation\n"
+				));
+				assert(logged[0].includes('"message": "must be number"'));
 			});
 			it("should throw on double registration", function() {
 				testLink.snoopEvent(SimpleEvent);
