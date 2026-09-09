@@ -247,6 +247,13 @@ This command lists all plugins currently known to the remote. Newly installed pl
 
 If remote plugin updates are enabled on the remote, this will execute `npm update --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
 
+### Update All
+
+    ctl> controller update --all [--restart]
+    ctl> host update <host> --all [--restart]
+
+Updates the Clusterio package and all plugins installed from npm in a single `npm update --save` command. Updating everything at once avoids ending up with multiple versions of `@clusterio/lib` in the installation. Requires both remote updates and remote plugin updates to be enabled on the remote.
+
 ### Install
 
     ctl> controller plugin install <name> [--restart]

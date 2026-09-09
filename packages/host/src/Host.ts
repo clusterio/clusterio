@@ -403,6 +403,7 @@ export default class Host extends lib.Link {
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
+		this.handle(lib.UpdateAllRequest, this.handleUpdateAllRequest.bind(this));
 
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.handleAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.handleBanlistUpdateEvent.bind(this));
@@ -1149,6 +1150,16 @@ export default class Host extends lib.Link {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
 		return await lib.handlePluginInstall(request.pluginPackage);
+	}
+
+	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
+		if (!this.config.get("host.allow_remote_updates")) {
+			throw new lib.RequestError("Remote updates are disabled on this machine");
+		}
+		if (!this.config.get("host.allow_plugin_updates")) {
+			throw new lib.RequestError("Plugin updates are disabled on this machine");
+		}
+		return await lib.handleUpdateAll("@clusterio/host", this.pluginInfos);
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
