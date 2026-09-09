@@ -254,6 +254,15 @@ If remote plugin updates are enabled on the remote, this will execute `npm updat
 
 If remote plugin installs are enabled on the remote, this will execute `npm install --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
 
+### Search
+
+    ctl> controller plugin search [query] [--page <n>] [--page-size <n>]
+
+Searches the npm registry for packages tagged with the clusterio-plugin keyword.
+The search is done by the controller and does not require remote installs to be enabled.
+The web UI has a plugin browser on the plugins page that uses the same search and can install the result to the controller, selected hosts, or all hosts that allow remote installs.
+
+
 ### Enable/Disable Updates
 
     host> config set host.allow_plugin_updates true/false

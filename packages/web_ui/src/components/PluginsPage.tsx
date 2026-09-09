@@ -6,7 +6,9 @@ import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 import type { PluginWebApi, PluginWebpackEnvInfo } from "@clusterio/lib";
 
 import notify from "../util/notify";
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import { PluginBrowserButton } from "./PluginBrowser";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
 import useTableQueryState from "../util/useTableQueryState";
@@ -25,6 +27,7 @@ type PluginRow = {
 
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
+	const account = useAccount();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 	const tableState = useTableQueryState<PluginRow>({
 		namespace: "plugin", defaultSortKey: "name",
@@ -63,7 +66,10 @@ export default function PluginsPage() {
 	}
 
 	return <PageLayout nav={[{ name: "Plugins" }]}>
-		<PageHeader title="Plugins" />
+		<PageHeader
+			title="Plugins"
+			extra={account.hasPermission("core.plugin.search") ? <PluginBrowserButton /> : undefined}
+		/>
 		<Table
 			columns={[
 				{
