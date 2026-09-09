@@ -39,14 +39,14 @@
 		"@clusterio/lib": "workspace:^",
 		"@sinclair/typebox": "catalog:",
 		"jimp": "^1.6.0",
-		"jszip": "catalog:",
 		"pidusage": "^3.0.2",
 		"rcon-client": "^4.2.5",
 		"semver": "^7.7.1",
 		"set-blocking": "catalog:",
 		"winston": "catalog:",
 		"winston-daily-rotate-file": "catalog:",
-		"yargs": "^17.7.2"
+		"yargs": "^17.7.2",
+		"yazl": "catalog:"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
@@ -54,6 +54,7 @@
 		"@types/semver": "^7.5.0",
 		"@types/set-blocking": "catalog:",
 		"@types/yargs": "^17.0.33",
+		"@types/yazl": "catalog:",
 		"typescript": "catalog:"
 	}
 }

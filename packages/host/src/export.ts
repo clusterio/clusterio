@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import { Jimp, JimpMime, type JimpInstance } from "jimp";
-import JSZip from "jszip";
+import yazl from "yazl";
 
 import * as lib from "@clusterio/lib";
 import * as libBuildMod from "@clusterio/lib/dist/node/build_mod";
@@ -64,7 +64,11 @@ async function generateExportMod(server: FactorioServer) {
 	});
 }
 
-let zipCache = new Map<string, JSZip>();
+interface ModZip {
+	zip: lib.ZipArchive;
+	root: string;
+}
+let zipCache = new Map<string, ModZip>();
 async function loadZip(server: FactorioServer, modVersions: Map<string, string>, mod: string) {
 	let modVersion = modVersions.get(mod);
 	if (!modVersion) {
@@ -72,13 +76,26 @@ async function loadZip(server: FactorioServer, modVersions: Map<string, string>,
 	}
 
 	let zipPath = server.writePath("mods", `${mod}_${modVersion}.zip`);
-	let zip = zipCache.get(zipPath);
-	if (!zip) {
-		zip = await JSZip.loadAsync(await fs.readFile(zipPath));
-		zipCache.set(zipPath, zip);
+	let modZip = zipCache.get(zipPath);
+	if (!modZip) {
+		const zip = await lib.ZipArchive.fromFile(zipPath);
+		try {
+			modZip = { zip, root: lib.findRoot(zip) };
+		} catch (err) {
+			zip.close();
+			throw err;
+		}
+		zipCache.set(zipPath, modZip);
 	}
 
-	return zip.folder(lib.findRoot(zip))!;
+	return modZip;
+}
+
+function closeZipCache() {
+	for (const { zip } of zipCache.values()) {
+		zip.close();
+	}
+	zipCache.clear();
 }
 
 /**
@@ -111,9 +128,9 @@ async function loadFile(server: FactorioServer, modVersions: Map<string, string>
 		}
 	}
 
-	let zip;
+	let modZip;
 	try {
-		zip = await loadZip(server, modVersions, mod);
+		modZip = await loadZip(server, modVersions, mod);
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			return null;
@@ -121,12 +138,7 @@ async function loadFile(server: FactorioServer, modVersions: Map<string, string>
 		throw err;
 	}
 
-	let file = zip.file(filePath);
-	if (!file) {
-		return null;
-	}
-
-	return await file.async("nodebuffer");
+	return await modZip.zip.readFile(path.posix.join(modZip.root, filePath));
 }
 
 type Image = JimpInstance;
@@ -445,18 +457,21 @@ async function exportLocale(
 			continue;
 		}
 
-		let zip;
+		let modZip;
 		try {
-			zip = await loadZip(server, modVersions, mod);
+			modZip = await loadZip(server, modVersions, mod);
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				continue;
 			}
 			throw err;
 		}
-		for (let file of zip.file(new RegExp(`locale\\/${languageCode}\\/.*\\.cfg`))) {
-			let content = await file.async("nodebuffer");
-			mergeLocale(lib.parse(content.toString("utf8")));
+		const localePath = `${path.posix.join(modZip.root, "locale", languageCode)}/`;
+		for (const entry of modZip.zip.entries.values()) {
+			if (entry.fileName.startsWith(localePath) && entry.fileName.endsWith(".cfg")) {
+				let content = await modZip.zip.readEntry(entry);
+				mergeLocale(lib.parse(content.toString("utf8")));
+			}
 		}
 	}
 
@@ -470,6 +485,15 @@ async function exportLocale(
  * @returns zip file with exported data.
  */
 export async function exportData(server: FactorioServer) {
+	try {
+		return await buildExport(server);
+	} finally {
+		// Free up the zip files loaded during the export.
+		closeZipCache();
+	}
+}
+
+async function buildExport(server: FactorioServer) {
 	await generateExportMod(server);
 
 	let settings: lib.ExportSettings = {};
@@ -551,14 +575,12 @@ export async function exportData(server: FactorioServer) {
 
 	let locale = await exportLocale(server, modVersions, modOrder, "en");
 
-	// Free up the memory used by zip files loaded during the export.
-	zipCache.clear();
-
-	let zip = new JSZip();
-	zip.file("export/settings.json", JSON.stringify(settings satisfies lib.ExportSettings));
-	zip.file("export/prototypes.json", JSON.stringify(prototypes satisfies lib.ExportPrototypes));
-	zip.file("export/locale.json", JSON.stringify([...locale.entries()] satisfies lib.ExportLocale));
-	zip.file("export/defines.json", JSON.stringify(defines satisfies lib.ExportDefines));
+	let zip = new yazl.ZipFile();
+	const addJson = (name: string, value: unknown) => zip.addBuffer(Buffer.from(JSON.stringify(value)), name);
+	addJson("export/settings.json", settings satisfies lib.ExportSettings);
+	addJson("export/prototypes.json", prototypes satisfies lib.ExportPrototypes);
+	addJson("export/locale.json", [...locale.entries()] satisfies lib.ExportLocale);
+	addJson("export/defines.json", defines satisfies lib.ExportDefines);
 
 	// Build a single unified spritesheet across all prototypes with icons.
 	const state = await createSheetState();
@@ -579,8 +601,9 @@ export async function exportData(server: FactorioServer) {
 	// Crop sheet to actual used height and write single spritesheet + metadata.
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
 	state.sheet.crop({ x: 0, y: 0, w: SHEET_WIDTH, h: Math.max(usedRows * SHEET_ICON_SIZE, 1) });
-	zip.file("export/spritesheet.png", await state.sheet.getBuffer(JimpMime.png));
-	zip.file("export/metadata.json", JSON.stringify(state.metadata satisfies lib.ExportMetadata));
+	zip.addBuffer(await state.sheet.getBuffer(JimpMime.png), "export/spritesheet.png");
+	addJson("export/metadata.json", state.metadata satisfies lib.ExportMetadata);
+	zip.end();
 
 	server._logger.info(`Export complete: ${state.pos} icons on ${usedRows} row(s)`);
 

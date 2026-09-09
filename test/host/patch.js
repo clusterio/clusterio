@@ -1,11 +1,11 @@
 "use strict";
 const assert = require("assert").strict;
 const fs = require("node:fs/promises");
-const JSZip = require("jszip");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
 const patch = require("@clusterio/host/dist/node/src/patch");
+const { createZipBuffer } = require("../common");
 
 
 describe("host/patch", function() {
@@ -228,10 +228,8 @@ describe("host/patch", function() {
 
 	describe("patch()", function() {
 		it("should throw on unknown scenario", async function() {
-			let zip = new JSZip();
-			zip.file("world/control.lua", "-- unknown\n");
 			let zipPath = path.join("temp", "test", "patch.zip");
-			await fs.writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+			await fs.writeFile(zipPath, await createZipBuffer([["world/control.lua", "-- unknown\n"]]));
 
 			await assert.rejects(
 				patch.patch(zipPath, []),

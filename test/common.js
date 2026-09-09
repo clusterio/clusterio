@@ -1,6 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
-const { compile } = require("@clusterio/lib");
+const yazl = require("yazl");
+const { compile, zipOutputStream } = require("@clusterio/lib");
 
 /**
  * Generate a flat array of tests from a matrix of inputs.
@@ -35,7 +36,38 @@ function testRoundTripJsonSerialisable(Class, tests) {
 	}
 }
 
+/**
+ * Create a zip file in memory
+ *
+ * @param {Iterable<[string, string | Buffer]>} files - Paths and content of the files to add.
+ * @returns {yazl.ZipFile} zip file with the output stream ready to be read.
+ */
+function createZip(files) {
+	const zip = new yazl.ZipFile();
+	for (const [filePath, content] of files) {
+		zip.addBuffer(Buffer.from(content), filePath);
+	}
+	zip.end();
+	return zip;
+}
+
+/**
+ * Create a zip file in memory and return its content
+ *
+ * @param {Iterable<[string, string | Buffer]>} files - Paths and content of the files to add.
+ * @returns {Promise<Buffer>} content of the zip file.
+ */
+async function createZipBuffer(files) {
+	const chunks = [];
+	for await (const chunk of zipOutputStream(createZip(files))) {
+		chunks.push(chunk);
+	}
+	return Buffer.concat(chunks);
+}
+
 module.exports = {
 	testMatrix,
 	testRoundTripJsonSerialisable,
+	createZip,
+	createZipBuffer,
 };

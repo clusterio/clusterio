@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
-import JSZip from "jszip";
+import path from "path";
 import { Type, Static } from "@sinclair/typebox";
 
 import * as libHash from "../hash";
 import * as libSchema from "../schema";
-import { findRoot } from "../zip_ops";
+import { ZipArchive, findRoot } from "../zip_ops";
 import { ModRecord } from "./ModPack";
 
 import {
@@ -352,18 +352,15 @@ export default class ModInfo {
 
 	static async fromModFile(modPath: string) {
 		let modInfo: Static<typeof ModInfo.jsonSchema>;
-		{
-			// XXX: JSZip needs the whole archive loaded in memory to work.
-			// This is clearly untenable and will be replaced later.
-			let zip = await JSZip.loadAsync(await fs.readFile(modPath));
-			let root = zip.folder(findRoot(zip))!;
-
-			let infoFile = root.file("info.json");
-			if (!infoFile) {
+		let zip = await ZipArchive.fromFile(modPath);
+		try {
+			let content = await zip.readFile(path.posix.join(findRoot(zip), "info.json"));
+			if (content === null) {
 				throw new Error("Mod contains no info.json file");
 			}
-
-			modInfo = JSON.parse(await infoFile.async("string"));
+			modInfo = JSON.parse(content.toString("utf8"));
+		} finally {
+			zip.close();
 		}
 
 		let valid = this.validateInfo(modInfo);

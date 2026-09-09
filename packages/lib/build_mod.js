@@ -1,13 +1,10 @@
 /* eslint-disable no-console */
 "use strict";
 const fs = require("node:fs/promises");
-const JSZip = require("jszip");
 const path = require("path");
-const stream = require("stream");
-const util = require("util");
+const { pipeline } = require("node:stream/promises");
 const yargs = require("yargs");
-
-const finished = util.promisify(stream.finished);
+const yazl = require("yazl");
 
 
 async function buildMod(args, info, modName) {
@@ -16,7 +13,7 @@ async function buildMod(args, info, modName) {
 		modName = args.modName ?? `${info.name}_${info.version}`;
 
 		if (args.pack) {
-			let zip = new JSZip();
+			let zip = new yazl.ZipFile();
 			for await (const dirent of await fs.opendir(args.sourceDir, { recursive: true })) {
 				if (dirent.isFile()) {
 					const itemPath = path.join(dirent.parentPath, dirent.name);
@@ -29,30 +26,29 @@ async function buildMod(args, info, modName) {
 						// The info.json file is overridden later.
 						continue;
 					}
-					zip.file(path.posix.join(modName, basePath), (await fs.open(itemPath)).createReadStream());
+					zip.addFile(itemPath, path.posix.join(modName, basePath));
 				}
 			}
 
 			for (let [fileName, pathParts] of Object.entries(info.additional_files || {})) {
 				let filePath = path.join(args.sourceDir, ...pathParts);
-				let fileStream;
 				try {
-					fileStream = (await fs.open(filePath)).createReadStream();
+					await fs.access(filePath);
 				} catch (err) {
 					throw new Error(`Error reading additional file ${filePath}`, { cause: err });
 				}
-				zip.file(path.posix.join(modName, fileName), fileStream);
+				zip.addFile(filePath, path.posix.join(modName, fileName));
 			}
 			delete info.additional_files;
 
-			zip.file(path.posix.join(modName, "info.json"), JSON.stringify(info, null, "\t"));
+			zip.addBuffer(Buffer.from(JSON.stringify(info, null, "\t")), path.posix.join(modName, "info.json"));
+			zip.end();
+			// yazl reports errors on the zip object, not the output stream.
+			zip.on("error", err => zip.outputStream.destroy(err));
 
 			let modPath = path.join(args.outputDir, `${modName}.zip`);
 			console.log(`Writing ${modPath}`);
-			let writeStream = zip.generateNodeStream().pipe(
-				(await fs.open(modPath, "w")).createWriteStream()
-			);
-			await finished(writeStream);
+			await pipeline(zip.outputStream, (await fs.open(modPath, "w")).createWriteStream());
 
 		} else {
 			let modDir = path.join(args.outputDir, modName);

@@ -3,19 +3,18 @@ const assert = require("assert").strict;
 const path = require("path");
 const fs = require("node:fs/promises");
 const stream = require("node:stream");
-const JSZip = require("jszip"); // Added for creating mock zips
 
 // Capture native fetch before any potential mocks are applied
 const nativeFetch = global.fetch;
 
-const { ModStore, ModInfo, ModVersionEquality } = require("@clusterio/lib"); // Adjust path based on compiled output
+const { ModStore, ModInfo, ModVersionEquality, zipOutputStream } = require("@clusterio/lib");
 const { externalTest } = require("../integration");
+const { createZip, createZipBuffer } = require("../common");
 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");
 
-function createMockModJSZip(name, version, factorioVersion = "1.1", dependencies = ["base >= 1.1"]) {
-	const zip = new JSZip();
+function mockModFiles(name, version, factorioVersion = "1.1", dependencies = ["base >= 1.1"]) {
 	const infoJson = {
 		name: name,
 		version: version,
@@ -25,16 +24,15 @@ function createMockModJSZip(name, version, factorioVersion = "1.1", dependencies
 		dependencies: dependencies,
 		description: `Description for ${name}`,
 	};
-	zip.file(`${name}/info.json`, JSON.stringify(infoJson, null, 4));
-	zip.file(`${name}/dummy.lua`, "-- Mock Lua file");
-
-	return zip;
+	return [
+		[`${name}/info.json`, JSON.stringify(infoJson, null, 4)],
+		[`${name}/dummy.lua`, "-- Mock Lua file"],
+	];
 }
 
 // Helper function to create a mock mod zip file
 async function createMockModZip(filePath, name, version, factorioVersion = "1.1", dependencies = ["base >= 1.1"]) {
-	const zip = createMockModJSZip(name, version, factorioVersion, dependencies);
-	const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+	const buffer = await createZipBuffer(mockModFiles(name, version, factorioVersion, dependencies));
 	await fs.writeFile(filePath, buffer);
 }
 
@@ -254,8 +252,8 @@ describe("lib/ModStore", function () {
 					if (name === "bad-download-mod") {
 						return { ok: false, status: 503, statusText: "Test Mock download error" };
 					}
-					const zip = createMockModJSZip(name, version);
-					return { ok: true, status: 200, body: stream.Readable.toWeb(zip.generateNodeStream()) };
+					const zip = createZip(mockModFiles(name, version));
+					return { ok: true, status: 200, body: stream.Readable.toWeb(zipOutputStream(zip)) };
 				}
 				// Fallback for unhandled fetches in this test
 				return { ok: false, status: 404, statusText: `Test Mock 404: ${urlString}` };

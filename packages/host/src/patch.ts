@@ -1,10 +1,10 @@
 // Library for patching Factorio saves with scenario code.
 
-import events from "events";
 import fs from "node:fs/promises";
-import JSZip from "jszip";
 import path from "path";
 import semver from "semver";
+import { pipeline } from "node:stream/promises";
+import yazl from "yazl";
 import { Type, Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
@@ -75,18 +75,16 @@ export class SaveModule {
 		};
 	}
 
-	static async fromSave(json: Static<typeof SaveModule.jsonSchema>, root: JSZip) {
+	static async fromSave(json: Static<typeof SaveModule.jsonSchema>, zip: lib.ZipArchive, root: string) {
 		const module = new this(lib.ModuleInfo.fromJSON(json));
-		module.files = new Map(await Promise.all(json.files
-			.map(filename => ({filename, file: root.file(filename)}))
-			.filter(({filename, file}) => {
-				if (file === null) {
-					lib.logger.warn(`Missing file ${filename} in save`);
-				}
-				return file !== null;
-			})
-			.map(async ({filename, file}) => [filename, await file!.async("nodebuffer")] as const)
-		));
+		for (const filename of json.files) {
+			const content = await zip.readFile(path.posix.join(root, filename));
+			if (content === null) {
+				lib.logger.warn(`Missing file ${filename} in save`);
+				continue;
+			}
+			module.files.set(filename, content);
+		}
 		return module;
 	}
 
@@ -175,7 +173,7 @@ export class PatchInfo {
 		};
 	}
 
-	static async fromSave(json: Static<typeof PatchInfo.jsonSchema>, root: JSZip) {
+	static async fromSave(json: Static<typeof PatchInfo.jsonSchema>, zip: lib.ZipArchive, root: string) {
 		if (json.version === undefined) {
 			interface ScenarioInfoV0 {
 				name: string;
@@ -199,7 +197,7 @@ export class PatchInfo {
 		return new this(
 			json.patch_number,
 			lib.ModuleInfo.fromJSON(json.scenario),
-			await Promise.all(json.modules.map(m => SaveModule.fromSave(m, root))),
+			await Promise.all(json.modules.map(m => SaveModule.fromSave(m, zip, root))),
 		);
 	}
 }
@@ -366,80 +364,113 @@ const knownScenarios: Record<string, lib.ModuleInfo> = {
  * @param modules - Description of the modules to patch.
  */
 export async function patch(savePath: string, modules: SaveModule[]) {
-	let zip = await JSZip.loadAsync(await fs.readFile(savePath));
-	let root = zip.folder(lib.findRoot(zip))!;
+	const zip = await lib.ZipArchive.fromFile(savePath);
+	let tempSavePath: string;
+	try {
+		const root = lib.findRoot(zip);
+		const rootPath = (relativePath: string) => path.posix.join(root, relativePath);
 
-	let patchInfoFile = root.file("clusterio.json");
-	let patchInfo: PatchInfo;
-	if (patchInfoFile !== null) {
-		let content = await patchInfoFile.async("string");
-		patchInfo = await PatchInfo.fromSave(JSON.parse(content), root);
-		if (patchInfo.version > PatchInfo.currentVersion) {
-			throw new Error(
-				`Save patch version ${patchInfo.version} is newer than the patch version this ` +
-				`version of Clusterio can load (${PatchInfo.currentVersion})`
-			);
-		}
+		// Files to add or replace in the save, relative to the root
+		const files = new Map<string, Buffer>();
+		let patchInfo: PatchInfo;
+		const patchInfoContent = await zip.readFile(rootPath("clusterio.json"));
+		if (patchInfoContent !== null) {
+			patchInfo = await PatchInfo.fromSave(JSON.parse(patchInfoContent.toString("utf8")), zip, root);
+			if (patchInfo.version > PatchInfo.currentVersion) {
+				throw new Error(
+					`Save patch version ${patchInfo.version} is newer than the patch version this ` +
+					`version of Clusterio can load (${PatchInfo.currentVersion})`
+				);
+			}
 
-	// No info file present, try to detect if it's a known compatible scenario.
-	} else {
-		let controlFile = root.file("control.lua");
-		if (!controlFile) {
-			throw new Error("Unable to patch save, missing control.lua file.");
-		}
-		let controlStream = controlFile.nodeStream("nodebuffer");
-		let controlHash = await lib.hashStream(controlStream);
-
-		if (controlHash in knownScenarios) {
-			patchInfo = new PatchInfo(0, knownScenarios[controlHash], []);
-			root.file("scenario.lua", controlFile.nodeStream("nodebuffer"));
+		// No info file present, try to detect if it's a known compatible scenario.
 		} else {
-			throw new Error(`Unable to patch save, unknown scenario (${controlHash})`);
-		}
-	}
+			const controlFile = zip.file(rootPath("control.lua"));
+			if (!controlFile) {
+				throw new Error("Unable to patch save, missing control.lua file.");
+			}
+			const controlHash = await lib.hashStream(await zip.openStream(controlFile));
 
-	// Increment patch number
-	patchInfo.patchNumber = patchInfo.patchNumber + 1;
-
-	// Remove any existing modules from the save
-	if (patchInfo.version === 0) {
-		for (let file of root.file(/^modules\//)) {
-			zip.remove(file.name);
-		}
-	} else {
-		for (let module of patchInfo.modules) {
-			for (let filepath of module.files.keys()) {
-				const file = root.file(filepath);
-				if (file !== null) {
-					zip.remove(file.name);
-				}
+			if (controlHash in knownScenarios) {
+				patchInfo = new PatchInfo(0, knownScenarios[controlHash], []);
+				files.set("scenario.lua", await zip.readEntry(controlFile));
+			} else {
+				throw new Error(`Unable to patch save, unknown scenario (${controlHash})`);
 			}
 		}
-		patchInfo.modules = [];
-	}
 
-	reorderDependencies(modules);
+		// Increment patch number
+		patchInfo.patchNumber = patchInfo.patchNumber + 1;
 
-	// Add the modules to the save.
-	for (let module of modules) {
-		for (let [relativePath, contents] of module.files) {
-			root.file(relativePath, contents);
+		// Remove any existing modules from the save
+		const removed = new Set<string>();
+		if (patchInfo.version === 0) {
+			const modulesPath = rootPath("modules/");
+			for (const name of zip.entries.keys()) {
+				if (name.startsWith(modulesPath)) {
+					removed.add(name);
+				}
+			}
+		} else {
+			for (const module of patchInfo.modules) {
+				for (const filepath of module.files.keys()) {
+					removed.add(rootPath(filepath));
+				}
+			}
+			patchInfo.modules = [];
 		}
-		patchInfo.modules.push(module);
-	}
 
-	// Add loading code and patch info
-	root.file("control.lua", generateLoader(patchInfo));
-	root.file("clusterio.json", JSON.stringify(patchInfo, null, "\t"));
+		reorderDependencies(modules);
 
-	// Write back the save
-	let stream = zip.generateNodeStream({ compression: "DEFLATE" });
-	const [tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
-	try {
-		let pipe = stream.pipe(writeStream);
-		await events.once(pipe, "finish");
+		// Add the modules to the save.
+		for (const module of modules) {
+			for (const [relativePath, contents] of module.files) {
+				files.set(relativePath, contents);
+			}
+			patchInfo.modules.push(module);
+		}
+
+		// Add loading code and patch info
+		files.set("control.lua", Buffer.from(generateLoader(patchInfo), "utf8"));
+		files.set("clusterio.json", Buffer.from(JSON.stringify(patchInfo, null, "\t"), "utf8"));
+
+		// Write back the save, keeping the order of the entries in the original
+		const output = new yazl.ZipFile();
+		const added = new Map([...files].map(([relativePath, contents]) => [rootPath(relativePath), contents]));
+		for (const entry of zip.entries.values()) {
+			const name = entry.fileName;
+			if (removed.has(name)) {
+				continue;
+			}
+			const contents = added.get(name);
+			if (contents !== undefined) {
+				output.addBuffer(contents, name);
+				added.delete(name);
+			} else if (name.endsWith("/")) {
+				output.addEmptyDirectory(name, { mtime: entry.getLastModDate() });
+			} else {
+				output.addReadStreamLazy(
+					name,
+					{ mtime: entry.getLastModDate(), size: entry.uncompressedSize },
+					cb => zip.zipfile.openReadStream(entry, cb),
+				);
+			}
+		}
+		for (const [name, contents] of added) {
+			output.addBuffer(contents, name);
+		}
+		output.end();
+
+		let writeStream;
+		[tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
+		try {
+			await pipeline(lib.zipOutputStream(output), writeStream);
+		} catch (err) {
+			await fs.rm(tempSavePath, { force: true });
+			throw err;
+		}
 	} finally {
-		writeStream.destroy();
+		zip.close();
 	}
 	await fs.rename(tempSavePath, savePath);
 }
