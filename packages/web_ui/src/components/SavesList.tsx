@@ -13,6 +13,7 @@ import useTableQueryState from "../util/useTableQueryState";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
+import ResourceNotes from "./ResourceNotes";
 import { useInstances } from "../model/instance";
 import { useSavesOfInstance } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
@@ -249,58 +250,61 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		expandable={{
 			columnWidth: 33,
 			expandRowByClick: true,
-			expandedRowRender: save => <Space wrap style={{ marginBottom: 0 }}>
-				{account.hasPermission("core.instance.start") && <Button
-					loading={starting}
-					disabled={props.instance.status !== "stopped"}
-					onClick={() => {
-						setStarting(true);
-						control.sendTo(
-							{ instanceId: props.instance.id! },
-							new lib.InstanceStartRequest(save.name),
-						).catch(
-							notifyErrorHandler("Error loading save")
-						).finally(
-							() => { setStarting(false); }
-						);
-					}}
-				>Load save</Button>}
-				{account.hasPermission("core.instance.save.rename") && <RenameModal
-					disabled={hostOffline} instanceId={props.instance.id!} save={save}
-				/>}
-				{account.hasPermission("core.instance.save.copy") && <CopyModal
-					disabled={hostOffline} instanceId={props.instance.id!} save={save}
-				/>}
-				{account.hasPermission("core.instance.save.download") && <Button
-					disabled={hostOffline}
-					onClick={() => {
-						control.send(
-							new lib.InstanceDownloadSaveRequest(props.instance.id!, save.name)
-						).then(streamId => {
-							let url = new URL(webRoot, document.location.href);
-							url.pathname += `api/stream/${streamId}`;
-							document.location.assign(url);
-						}).catch(
-							notifyErrorHandler("Error downloading save")
-						);
-					}}
-				>Download</Button>}
-				{account.hasPermission("core.instance.save.transfer") && <TransferModal
-					disabled={hostOffline} instanceId={props.instance.id!} save={save}
-				/>}
-				{account.hasPermission("core.instance.save.delete") && <Popconfirm
-					title="Permanently delete save?"
-					okText="Delete"
-					placement="top"
-					okButtonProps={{ danger: true }}
-					onConfirm={() => {
-						control.send(
-							new lib.InstanceDeleteSaveRequest(props.instance.id!, save.name)
-						).catch(notifyErrorHandler("Error deleting save"));
-					}}
-				>
-					<Button danger disabled={hostOffline}>Delete</Button>
-				</Popconfirm>}
+			expandedRowRender: save => <Space direction="vertical" style={{ width: "100%" }}>
+				<Space wrap>
+					{account.hasPermission("core.instance.start") && <Button
+						loading={starting}
+						disabled={props.instance.status !== "stopped"}
+						onClick={() => {
+							setStarting(true);
+							control.sendTo(
+								{ instanceId: props.instance.id! },
+								new lib.InstanceStartRequest(save.name),
+							).catch(
+								notifyErrorHandler("Error loading save")
+							).finally(
+								() => { setStarting(false); }
+							);
+						}}
+					>Load save</Button>}
+					{account.hasPermission("core.instance.save.rename") && <RenameModal
+						disabled={hostOffline} instanceId={props.instance.id!} save={save}
+					/>}
+					{account.hasPermission("core.instance.save.copy") && <CopyModal
+						disabled={hostOffline} instanceId={props.instance.id!} save={save}
+					/>}
+					{account.hasPermission("core.instance.save.download") && <Button
+						disabled={hostOffline}
+						onClick={() => {
+							control.send(
+								new lib.InstanceDownloadSaveRequest(props.instance.id!, save.name)
+							).then(streamId => {
+								let url = new URL(webRoot, document.location.href);
+								url.pathname += `api/stream/${streamId}`;
+								document.location.assign(url);
+							}).catch(
+								notifyErrorHandler("Error downloading save")
+							);
+						}}
+					>Download</Button>}
+					{account.hasPermission("core.instance.save.transfer") && <TransferModal
+						disabled={hostOffline} instanceId={props.instance.id!} save={save}
+					/>}
+					{account.hasPermission("core.instance.save.delete") && <Popconfirm
+						title="Permanently delete save?"
+						okText="Delete"
+						placement="top"
+						okButtonProps={{ danger: true }}
+						onConfirm={() => {
+							control.send(
+								new lib.InstanceDeleteSaveRequest(props.instance.id!, save.name)
+							).catch(notifyErrorHandler("Error deleting save"));
+						}}
+					>
+						<Button danger disabled={hostOffline}>Delete</Button>
+					</Popconfirm>}
+				</Space>
+				<ResourceNotes resourceType="save" resourceId={save.id} compact />
 			</Space>,
 		}}
 	/>;

@@ -15,6 +15,7 @@ import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import ResourceNotes from "./ResourceNotes";
 import InstanceConfigTree from "./InstanceConfigTree";
 import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
@@ -236,6 +237,7 @@ export default function InstanceViewPage() {
 			extra={<InstanceButtons instance={instance} />}
 		/>
 		<InstanceDescription host={host} instance={instance} />
+		<ResourceNotes resourceType="instance" resourceId={instanceId} />
 
 		{account.hasPermission("core.user.list") && <OnlinePlayersList instanceId={instanceId} />}
 

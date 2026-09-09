@@ -1803,6 +1803,53 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("note set", function() {
+			it("should set the note of the given resource", async function() {
+				await execCtl("note set host 4 basement-box");
+				const notes = await getControl().send(new lib.NoteListRequest());
+				const note = notes.find(n => n.id === "host/4");
+				assert.equal(note.content, "basement-box");
+				assert.equal(note.updatedBy, "test");
+			});
+		});
+
+		describe("note list", function() {
+			it("runs", async function() {
+				await execCtl("note list");
+			});
+			it("runs with --type", async function() {
+				await execCtl("note list --type host");
+			});
+		});
+
+		describe("note get", function() {
+			it("should print the note of the given resource", async function() {
+				const lines = [];
+				const originalLog = console.log; // eslint-disable-line no-console
+				console.log = (...args) => lines.push(args.join(" ")); // eslint-disable-line no-console
+				try {
+					await execCtl("note get host 4");
+				} finally {
+					console.log = originalLog; // eslint-disable-line no-console
+				}
+				assert.deepEqual(lines, ["basement-box"]);
+			});
+			it("should fail for a resource without a note", async function() {
+				await assert.rejects(
+					execCtl("note get host 5"),
+					new lib.CommandError("No note for host 5")
+				);
+			});
+		});
+
+		describe("note delete", function() {
+			it("should remove the note of the given resource", async function() {
+				await execCtl("note delete host 4");
+				const notes = await getControl().send(new lib.NoteListRequest());
+				assert(!notes.find(n => n.id === "host/4"), "Note was not deleted");
+			});
+		});
+
 		describe("user list", function() {
 			it("runs", async function() {
 				await execCtl("user list");

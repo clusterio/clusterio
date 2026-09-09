@@ -68,6 +68,7 @@ export class Control extends lib.Link {
 	mods = new lib.MapSubscriber(lib.ModUpdatesEvent, this);
 	users = new lib.MapSubscriber(lib.UserUpdatesEvent, this);
 	roles = new lib.MapSubscriber(lib.RoleUpdatesEvent, this);
+	notes = new lib.MapSubscriber(lib.NoteUpdatesEvent, this);
 
 	/** Cache for factorio versions to avoid repeat calls to the controller */
 	factorioVersions = new lib.ValueCache(this.requestFactorioVersions.bind(this));

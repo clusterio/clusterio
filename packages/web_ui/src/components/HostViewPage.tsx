@@ -16,6 +16,7 @@ import { useHost } from "../model/host";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import ResourceNotes from "./ResourceNotes";
 import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio, MetricRelativeDate,
@@ -167,6 +168,7 @@ export default function HostViewPage() {
 					: null
 			}
 		</Descriptions>
+		<ResourceNotes resourceType="host" resourceId={hostId} />
 		{account.hasPermission("core.instance.list") && <>
 			<Title level={5} style={{ marginTop: 16 }}>Instances</Title>
 			<InstanceList instances={hostInstances} size="small" hideAssignedHost />

@@ -114,6 +114,8 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.RoleUpdateRequest, this.handleRoleUpdateRequest.bind(this));
 		this.handle(lib.RoleGrantDefaultPermissionsRequest, this.handleRoleGrantDefaultPermissionsRequest.bind(this));
 		this.handle(lib.RoleDeleteRequest, this.handleRoleDeleteRequest.bind(this));
+		this.handle(lib.NoteListRequest, this.handleNoteListRequest.bind(this));
+		this.handle(lib.NoteSetRequest, this.handleNoteSetRequest.bind(this));
 		this.handle(lib.UserGetRequest, this.handleUserGetRequest.bind(this));
 		this.handle(lib.UserListRequest, this.handleUserListRequest.bind(this));
 		this.handle(lib.UserCreateRequest, this.handleUserCreateRequest.bind(this));
@@ -304,6 +306,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceDeleteRequest(request: lib.InstanceDeleteRequest) {
 		await this._controller.instances.deleteInstance(request.instanceId);
+		this._controller.deleteNote("instance", request.instanceId);
 	}
 
 	async handleInstanceConfigGetRequest(request: lib.InstanceConfigGetRequest) {
@@ -491,6 +494,7 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
 		this._controller.modPacks.delete(modPack);
+		this._controller.deleteNote("mod_pack", id);
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {
@@ -854,6 +858,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleModDeleteRequest(request: lib.ModDeleteRequest) {
 		await this._controller.modStore.deleteMod(request.name, request.version);
+		this._controller.deleteNote("mod", `${request.name}_${request.version}`);
 	}
 
 	async handleLogSetSubscriptionsRequest(request: lib.LogSetSubscriptionsRequest) {
@@ -954,12 +959,25 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`Role with ID ${id} does not exist`);
 		}
 		this._controller.roles.delete(role);
+		this._controller.deleteNote("role", id);
 
 		for (const user of this._controller.users.values()) {
 			if (user.removeRole(id)) {
 				this._controller.userPermissionsUpdated(user);
 			}
 		}
+	}
+
+	async handleNoteListRequest() {
+		return [...this._controller.notes.values()];
+	}
+
+	async handleNoteSetRequest(request: lib.NoteSetRequest) {
+		const { resourceType, resourceId, content } = request;
+		if (!resourceType || !resourceId) {
+			throw new lib.RequestError("resourceType and resourceId must not be empty");
+		}
+		this._controller.setNote(resourceType, resourceId, content, this.user.name);
 	}
 
 	async handleUserGetRequest(request: lib.UserGetRequest): Promise<lib.UserDetails> {
@@ -1071,6 +1089,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		this._controller.users.deleteUser(user);
+		this._controller.deleteNote("user", user.id);
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));

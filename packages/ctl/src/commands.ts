@@ -9,6 +9,7 @@ import { modPackCommands } from "./commands_mod_pack";
 import { modCommands } from "./commands_mod";
 import { permissionCommands } from "./commands_permission";
 import { roleCommands } from "./commands_role";
+import { noteCommands } from "./commands_note";
 import { userCommands } from "./commands_user";
 import { logCommands } from "./commands_log";
 import { debugCommands } from "./commands_debug";
@@ -22,6 +23,7 @@ export async function registerCommands(ctlPlugins: Map<string, BaseCtlPlugin>, y
 	rootCommands.add(modCommands);
 	rootCommands.add(permissionCommands);
 	rootCommands.add(roleCommands);
+	rootCommands.add(noteCommands);
 	rootCommands.add(userCommands);
 	rootCommands.add(logCommands);
 	rootCommands.add(debugCommands);
