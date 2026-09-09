@@ -55,19 +55,40 @@ export default async function(context: ControllerPluginContext) {
 	const playerDatastore: Map<string, IpcPlayerData> = await loadDatabase(controller.config, logger);
 	let playerDatastoreDirty = false;
 
-	function acquire(instanceId: number, playerName: string): boolean {
+	// Returns the acquisition record for the player if it's still in effect
+	function getAcquisition(playerName: string) {
 		let acquisitionRecord = acquiredPlayers.get(playerName);
 		if (
 			!acquisitionRecord
-			|| acquisitionRecord.instanceId === instanceId
 			|| !controller.instances.has(acquisitionRecord.instanceId)
 			|| acquisitionRecord.expiresMs && acquisitionRecord.expiresMs < Date.now()
 		) {
+			return undefined;
+		}
+		return acquisitionRecord;
+	}
+
+	function acquire(instanceId: number, playerName: string): boolean {
+		let acquisitionRecord = getAcquisition(playerName);
+		if (!acquisitionRecord || acquisitionRecord.instanceId === instanceId) {
 			acquiredPlayers.set(playerName, { instanceId });
 			return true;
 		}
 
 		return false;
+	}
+
+	// Modifying stored data while an instance holds the player is pointless
+	// as the instance uploads its own copy when the player leaves.
+	function checkNotAcquired(playerName: string) {
+		let acquisitionRecord = getAcquisition(playerName);
+		if (acquisitionRecord) {
+			let instanceName = controller.instances.get(acquisitionRecord.instanceId)!.config.get("instance.name");
+			throw new lib.RequestError(
+				`${playerName} is currently acquired by ${instanceName}, ` +
+				"have the player leave or release the lock first"
+			);
+		}
 	}
 
 	controller.hooks.instanceStatusChanged.attach(plugin.name, async (instance: InstanceRecord) => {
@@ -201,5 +222,64 @@ export default async function(context: ControllerPluginContext) {
 				size: entries[0] && entries[0].length || 0,
 			},
 		);
+	});
+
+	controller.handle(msg.ListPlayersRequest, async () => {
+		let entries = new Map<string, msg.PlayerEntry>();
+		for (let [name, playerData] of playerDatastore) {
+			entries.set(name, new msg.PlayerEntry(name, playerData.generation, JSON.stringify(playerData).length));
+		}
+		for (let name of acquiredPlayers.keys()) {
+			let acquisitionRecord = getAcquisition(name);
+			if (!acquisitionRecord) {
+				continue;
+			}
+			let entry = entries.get(name) ?? new msg.PlayerEntry(name);
+			entry.instanceId = acquisitionRecord.instanceId;
+			entries.set(name, entry);
+		}
+		return [...entries.values()];
+	});
+
+	controller.handle(msg.GetPlayerDataRequest, async (request: msg.GetPlayerDataRequest) => {
+		let { playerName } = request;
+		return new msg.GetPlayerDataRequest.Response(
+			playerDatastore.get(playerName) ?? null,
+			getAcquisition(playerName)?.instanceId,
+		);
+	});
+
+	controller.handle(msg.SetPlayerDataRequest, async (request: msg.SetPlayerDataRequest) => {
+		let { playerName, playerData } = request;
+		checkNotAcquired(playerName);
+
+		// Bump the generation so instances holding an older copy download this one
+		let oldPlayerData = playerDatastore.get(playerName);
+		playerData.name = playerName;
+		playerData.generation = Math.max(playerData.generation, (oldPlayerData?.generation ?? 0) + 1);
+		playerDatastore.set(playerName, playerData);
+		playerDatastoreDirty = true;
+		logger.info(`Replaced player data for ${playerName} with generation ${playerData.generation}`);
+		return new msg.SetPlayerDataRequest.Response(playerData.generation);
+	});
+
+	controller.handle(msg.DeletePlayerDataRequest, async (request: msg.DeletePlayerDataRequest) => {
+		let { playerName } = request;
+		if (!playerDatastore.has(playerName)) {
+			throw new lib.RequestError(`No player data stored for ${playerName}`);
+		}
+		checkNotAcquired(playerName);
+
+		playerDatastore.delete(playerName);
+		playerDatastoreDirty = true;
+		logger.info(`Deleted player data for ${playerName}`);
+	});
+
+	controller.handle(msg.ForceReleaseRequest, async (request: msg.ForceReleaseRequest) => {
+		let { playerName } = request;
+		if (!acquiredPlayers.delete(playerName)) {
+			throw new lib.RequestError(`${playerName} is not acquired by any instance`);
+		}
+		logger.info(`Released lock on ${playerName}`);
 	});
 }

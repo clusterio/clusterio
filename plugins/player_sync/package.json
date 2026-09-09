@@ -35,6 +35,7 @@
 
 	"peerDependencies": {
 		"@clusterio/controller": "workspace:^",
+		"@clusterio/ctl": "workspace:^",
 		"@clusterio/host": "workspace:^",
 		"@clusterio/lib": "workspace:^"
 	},
@@ -51,6 +52,7 @@
 	},
 	"devDependencies": {
 		"@clusterio/controller": "workspace:^",
+		"@clusterio/ctl": "workspace:^",
 		"@clusterio/host": "workspace:^",
 		"@clusterio/lib": "workspace:^",
 		"@clusterio/web_ui": "workspace:^",

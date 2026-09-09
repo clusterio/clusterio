@@ -30,6 +30,28 @@ Remove the old package and install the new one in its place:
 The `inventory_sync.*` config fields and the `inventory_sync.inventory.view` permission are renamed on load.
 The controller moves `inventories.json` in the database directory to `player_sync.json`, and saves keep their player data the next time they are started with the new module.
 
+## Fixing broken inventories
+
+The controller stores one entry per player in `player_sync.json` and keeps a lock on the player while an instance has them online.
+When sync goes wrong for a player, the Player sync page in the web interface lists every stored entry with its generation, size and the instance holding the lock.
+Click an entry to see a summary of its inventories, export it as JSON, import an edited JSON file in its place, delete it, or release the lock.
+
+The same operations are available from clusterioctl:
+
+    npx clusterioctl player-sync list
+    npx clusterioctl player-sync show <player>
+    npx clusterioctl player-sync export <player> [file]
+    npx clusterioctl player-sync import <player> <file>
+    npx clusterioctl player-sync delete <player>
+    npx clusterioctl player-sync release <player>
+
+Importing bumps the generation so instances holding an older copy download the new one the next time the player joins.
+Deleting makes the next join turn whatever the player has on that instance into the new synced inventory.
+Both are refused while an instance holds the lock on the player, because the instance uploads its own copy when the player leaves and that would undo the change.
+Have the player leave first, or release the lock if the instance is stuck holding it.
+
+Viewing and exporting need the `player_sync.inventory.view` permission. Importing, deleting and releasing need `player_sync.inventory.modify`, which is not granted by default.
+
 ## Method of operation
 
 This plugin does event based synchronization of inventories.
