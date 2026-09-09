@@ -533,15 +533,59 @@ function serialize.serialize_crafting_notifications(player, failed)
 		recipes[recipe.name] = nil
 	end
 
-	-- Convert to a list of names
-	local recipe_names = failed or {} -- Includes previous recipes if any
-	local index = #recipe_names + 1
+	-- Convert to a list of names, including previously failed recipes if any
+	local recipe_names = {}
+	for _, name in ipairs(failed or {}) do
+		recipe_names[#recipe_names + 1] = name
+	end
 	for name in pairs(recipes) do
-		recipe_names[index] = name
-		index = index + 1
+		recipe_names[#recipe_names + 1] = name
 	end
 
 	return helpers.encode_string(helpers.table_to_json(recipe_names))
+end
+
+--- Current notification state, sent with download requests so the instance plugin only returns the difference
+--- @param player LuaPlayer
+--- @param failed FailedDeserializationPlayerData?
+--- @return string?
+function serialize.crafting_notification_snapshot(player, failed)
+	if not recipe_notifications_api then
+		return nil
+	end
+	return serialize.serialize_crafting_notifications(player, failed and failed.recipe_notifications)
+end
+
+--- @class CraftingNotificationDelta
+--- @field add string[]? Recipe names to add to the cleared list
+--- @field remove string[]? Recipe names to remove from the cleared list
+
+--- Rebuild the full serialized form from the snapshot the delta was computed against
+--- @param snapshot string
+--- @param serialized_delta string
+--- @return string?
+function serialize.apply_crafting_notification_delta(snapshot, serialized_delta)
+	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(snapshot)))
+	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
+	--- @type CraftingNotificationDelta
+	local delta = helpers.json_to_table(assert(helpers.decode_string(serialized_delta)))
+	assert(type(delta) == "table", "wrong type decoded from json_to_table")
+	local cleared = {}
+	for _, name in pairs(recipe_names) do
+		cleared[name] = true
+	end
+	for _, name in pairs(delta.remove or {}) do
+		cleared[name] = nil
+	end
+	for _, name in pairs(delta.add or {}) do
+		cleared[name] = true
+	end
+
+	local merged = {}
+	for name in pairs(cleared) do
+		merged[#merged + 1] = name
+	end
+	return helpers.encode_string(helpers.table_to_json(merged))
 end
 
 --- @param player LuaPlayer

@@ -111,6 +111,13 @@ function inventory_sync.deserialize_player(player, finished_record)
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
 	assert(type(serialized_player) == "table", "wrong type for serialized_player")
+	if serialized_player.recipe_notifications_delta then
+		serialized_player.recipe_notifications = serialize.apply_crafting_notification_delta(
+			assert(finished_record.recipe_notifications, "recipe notification delta without snapshot"),
+			serialized_player.recipe_notifications_delta
+		)
+		serialized_player.recipe_notifications_delta = nil
+	end
 	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
 
 	-- Restore player position and driving state
@@ -441,8 +448,14 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	local script_data = get_script_data()
 	script_data.active_downloads[player.name] = record
 
+	-- The plugin only sends back what differs from the current notification state
+	record.recipe_notifications = serialize.crafting_notification_snapshot(
+		player, script_data.failed_deserialization[player.name]
+	)
+
 	clusterio_api.send_json("inventory_sync_download", {
-		player_name = player.name
+		player_name = player.name,
+		recipe_notifications = record.recipe_notifications,
 	})
 
 	-- If this is a synced player turn them into a spectator while the
