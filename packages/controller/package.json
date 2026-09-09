@@ -43,7 +43,6 @@
 		"express": "catalog:",
 		"finalhandler": "^2.1.1",
 		"jsonwebtoken": "catalog:",
-		"jszip": "catalog:",
 		"semver": "catalog:",
 		"winston": "catalog:",
 		"winston-daily-rotate-file": "catalog:",

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import JSZip from "jszip";
 import path from "node:path";
 
 import * as lib from "@clusterio/lib";
 import * as patch from "@clusterio/host/dist/node/src/patch.js";
+import { createZipBuffer } from "../common.js";
 
 
 describe("host/patch", function() {
@@ -262,10 +262,8 @@ describe("host/patch", function() {
 
 	describe("patch()", function() {
 		it("should throw on unknown scenario", async function() {
-			let zip = new JSZip();
-			zip.file("world/control.lua", "-- unknown\n");
 			let zipPath = path.join("temp", "test", "patch.zip");
-			await fs.writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+			await fs.writeFile(zipPath, await createZipBuffer([["world/control.lua", "-- unknown\n"]]));
 
 			await assert.rejects(
 				patch.patch(zipPath, []),

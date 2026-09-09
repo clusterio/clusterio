@@ -1,8 +1,9 @@
 // Implementation of the create-scenario command
 import fs from "node:fs/promises";
 import os from "node:os";
-import JSZip from "jszip";
 import path from "path";
+import { pipeline } from "node:stream/promises";
+import yazl from "yazl";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
@@ -61,7 +62,8 @@ export async function createScenario(
 
 async function zipDirectory(dirPath: string, zipPath: string) {
 	const root = path.basename(path.resolve(dirPath));
-	const zip = new JSZip();
+	const zip = new yazl.ZipFile();
+	const output = lib.zipOutputStream(zip);
 	let dirs: [string, string][] = [[dirPath, root]];
 	while (dirs.length) {
 		let [dir, relativeDir] = dirs.pop()!;
@@ -69,25 +71,32 @@ async function zipDirectory(dirPath: string, zipPath: string) {
 			let fsPath = path.join(dir, entry.name);
 			let relativePath = path.posix.join(relativeDir, entry.name);
 			if (entry.isFile()) {
-				zip.file(relativePath, await fs.readFile(fsPath));
+				zip.addFile(fsPath, relativePath);
 			} else if (entry.isDirectory()) {
 				dirs.push([fsPath, relativePath]);
 			}
 		}
 	}
-	await fs.writeFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
+	zip.end();
+	const fd = await fs.open(zipPath, "w");
+	await pipeline(output, fd.createWriteStream());
 }
 
 async function extractZip(zipPath: string, dirPath: string) {
-	const zip = await JSZip.loadAsync(await fs.readFile(zipPath));
-	const root = lib.findRoot(zip);
-	for (let file of Object.values(zip.files)) {
-		if (file.dir || !file.name.startsWith(`${root}/`)) {
-			continue;
+	const zip = await lib.ZipArchive.fromFile(zipPath);
+	try {
+		const root = lib.findRoot(zip);
+		for (let entry of zip.entries.values()) {
+			if (entry.fileName.endsWith("/") || !entry.fileName.startsWith(`${root}/`)) {
+				continue;
+			}
+			const fsPath = path.join(dirPath, entry.fileName.slice(root.length + 1));
+			await fs.mkdir(path.dirname(fsPath), { recursive: true });
+			const fd = await fs.open(fsPath, "w");
+			await pipeline(await zip.openStream(entry), fd.createWriteStream());
 		}
-		const fsPath = path.join(dirPath, file.name.slice(root.length + 1));
-		await fs.mkdir(path.dirname(fsPath), { recursive: true });
-		await fs.writeFile(fsPath, await file.async("nodebuffer"));
+	} finally {
+		zip.close();
 	}
 }
 

@@ -17,11 +17,12 @@ catalog:
   '@types/set-blocking': ^2.0.2
   '@types/ws': ^8.18.1
   '@types/yargs': ^17.0.35
+  '@types/yauzl': ^3.4.0
+  '@types/yazl': ^3.3.1
   antd: ^5.29.3
   chalk: ^6.0.0
   express: ^5.2.1
   jsonwebtoken: ^9.0.3
-  jszip: ^3.10.2
   react: ^18.2.0
   react-dom: ^18.2.0
   react-markdown: ^10.1.0
@@ -37,6 +38,8 @@ catalog:
   winston-transport: ^4.9.0
   ws: ^8.21.3
   yargs: ^18.1.0
+  yauzl: ^3.4.0
+  yazl: ^3.3.1
 
 catalogMode: strict
 

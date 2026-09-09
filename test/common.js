@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { compile } from "@clusterio/lib";
+import yazl from "yazl";
+import { compile, zipOutputStream } from "@clusterio/lib";
 
 /**
  * Generate a flat array of tests from a matrix of inputs.
@@ -54,4 +55,33 @@ export function externalTest(test) {
 		test.skip();
 	}
 	test.timeout(60000);
+}
+
+/**
+ * Create a zip file in memory
+ *
+ * @param {Iterable<[string, string | Buffer]>} files - Paths and content of the files to add.
+ * @returns {yazl.ZipFile} zip file with the output stream ready to be read.
+ */
+export function createZip(files) {
+	const zip = new yazl.ZipFile();
+	for (const [filePath, content] of files) {
+		zip.addBuffer(Buffer.from(content), filePath);
+	}
+	zip.end();
+	return zip;
+}
+
+/**
+ * Create a zip file in memory and return its content
+ *
+ * @param {Iterable<[string, string | Buffer]>} files - Paths and content of the files to add.
+ * @returns {Promise<Buffer>} content of the zip file.
+ */
+export async function createZipBuffer(files) {
+	const chunks = [];
+	for await (const chunk of zipOutputStream(createZip(files))) {
+		chunks.push(chunk);
+	}
+	return Buffer.concat(chunks);
 }
