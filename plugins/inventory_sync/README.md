@@ -17,6 +17,28 @@ Run the following commands in the folder Clusterio is installed to:
 
 Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicated host or ctl installation respectively.
 
+## Fixing broken inventories
+
+The controller stores one entry per player in `inventories.json` and keeps a lock on the player while an instance has them online.
+When sync goes wrong for a player, the Inventory sync page in the web interface lists every stored entry with its generation, size and the instance holding the lock.
+Click an entry to see a summary of its inventories, export it as JSON, import an edited JSON file in its place, delete it, or release the lock.
+
+The same operations are available from clusterioctl:
+
+    npx clusterioctl inventory-sync list
+    npx clusterioctl inventory-sync show <player>
+    npx clusterioctl inventory-sync export <player> [file]
+    npx clusterioctl inventory-sync import <player> <file>
+    npx clusterioctl inventory-sync delete <player>
+    npx clusterioctl inventory-sync release <player>
+
+Importing bumps the generation so instances holding an older copy download the new one the next time the player joins.
+Deleting makes the next join turn whatever the player has on that instance into the new synced inventory.
+Both are refused while an instance holds the lock on the player, because the instance uploads its own copy when the player leaves and that would undo the change.
+Have the player leave first, or release the lock if the instance is stuck holding it.
+
+Viewing and exporting need the `inventory_sync.inventory.view` permission. Importing, deleting and releasing need `inventory_sync.inventory.modify`, which is not granted by default.
+
 ## Method of operation
 
 This plugin does event based synchronization of inventories.

@@ -1,5 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import { StringEnum } from "@clusterio/lib";
+import { StringEnum, jsonArray } from "@clusterio/lib";
 
 // .\module\serialize.lua:serialize.serialize_player()
 export type IpcPlayerData = {
@@ -189,4 +189,159 @@ export class DatabaseStatsRequest {
 	static plugin = "inventory_sync" as const;
 	static permission = "inventory_sync.inventory.view" as const;
 	static Response = DatabaseStatsResponse;
+}
+
+export class PlayerEntry {
+	constructor(
+		public name: string,
+		public generation?: number,
+		public size?: number,
+		public instanceId?: number,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"generation": Type.Optional(Type.Integer()),
+		"size": Type.Optional(Type.Integer()),
+		"instanceId": Type.Optional(Type.Integer()),
+	});
+
+	static fromJSON(json: Static<typeof PlayerEntry.jsonSchema>): PlayerEntry {
+		return new this(json.name, json.generation, json.size, json.instanceId);
+	}
+}
+
+export class ListPlayersRequest {
+	declare ["constructor"]: typeof ListPlayersRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
+	static permission = "inventory_sync.inventory.view" as const;
+	static Response = jsonArray(PlayerEntry);
+}
+
+export class GetPlayerDataResponse {
+	constructor(
+		public playerData: IpcPlayerData | null,
+		public instanceId?: number,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"playerData": Type.Union([jsonPlayerData, Type.Null()]),
+		"instanceId": Type.Optional(Type.Integer()),
+	});
+
+	static fromJSON(json: Static<typeof GetPlayerDataResponse.jsonSchema>): GetPlayerDataResponse {
+		return new this(json.playerData as IpcPlayerData | null, json.instanceId);
+	}
+}
+
+export class GetPlayerDataRequest {
+	declare ["constructor"]: typeof GetPlayerDataRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
+	static permission = "inventory_sync.inventory.view" as const;
+	static Response = GetPlayerDataResponse;
+
+	constructor(
+		public playerName: string,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"playerName": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof GetPlayerDataRequest.jsonSchema>) {
+		return new this(json.playerName);
+	}
+}
+
+export class SetPlayerDataResponse {
+	constructor(
+		public generation: number,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"generation": Type.Integer(),
+	});
+
+	static fromJSON(json: Static<typeof SetPlayerDataResponse.jsonSchema>): SetPlayerDataResponse {
+		return new this(json.generation);
+	}
+}
+
+export class SetPlayerDataRequest {
+	declare ["constructor"]: typeof SetPlayerDataRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
+	static permission = "inventory_sync.inventory.modify" as const;
+	static Response = SetPlayerDataResponse;
+
+	constructor(
+		public playerName: string,
+		public playerData: IpcPlayerData,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"playerName": Type.String(),
+		"playerData": jsonPlayerData,
+	});
+
+	static fromJSON(json: Static<typeof SetPlayerDataRequest.jsonSchema>) {
+		return new this(json.playerName, json.playerData as IpcPlayerData);
+	}
+}
+
+export class DeletePlayerDataRequest {
+	declare ["constructor"]: typeof DeletePlayerDataRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
+	static permission = "inventory_sync.inventory.modify" as const;
+
+	constructor(
+		public playerName: string,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"playerName": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof DeletePlayerDataRequest.jsonSchema>) {
+		return new this(json.playerName);
+	}
+}
+
+export class ForceReleaseRequest {
+	declare ["constructor"]: typeof ForceReleaseRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
+	static permission = "inventory_sync.inventory.modify" as const;
+
+	constructor(
+		public playerName: string,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"playerName": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof ForceReleaseRequest.jsonSchema>) {
+		return new this(json.playerName);
+	}
 }
