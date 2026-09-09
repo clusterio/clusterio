@@ -108,6 +108,10 @@ describe("messages/note", function() {
 	});
 
 	describe("resource deletion", function() {
+		it("does nothing for a resource without a note", function() {
+			controller.deleteNote("host", 1);
+			assert.equal(broadcasts.length, 0);
+		});
 		it("removes the note of a deleted role", async function() {
 			const id = await controlConnection.handleRoleCreateRequest(new lib.RoleCreateRequest("r", "", []));
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("role", String(id), "text"));
