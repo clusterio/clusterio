@@ -134,6 +134,35 @@ describe("messages/plugin", function() {
 		});
 	});
 
+	describe("PluginSearchRequest", function() {
+		const _fetch = global.fetch;
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("has round trip json serialisation", function() {
+			const request = new lib.PluginSearchRequest("foo", 2, 10);
+			const json = JSON.stringify(request);
+			const reconstructed = lib.PluginSearchRequest.fromJSON(JSON.parse(json));
+			assert.deepEqual(reconstructed, request);
+		});
+		it("has round trip json serialisation of the response", function() {
+			const response = new lib.PluginSearchRequest.Response(1, [
+				new lib.PluginSearchResult("foo", "1.0.0", "Foo", "bar", "date", "home", "repo", "npm"),
+			]);
+			const json = JSON.stringify(response);
+			const reconstructed = lib.PluginSearchRequest.Response.fromJSON(JSON.parse(json));
+			assert.deepEqual(reconstructed, response);
+		});
+		it("runs on the controller", async function() {
+			global.fetch = function() {
+				return { ok: true, json: async () => ({ total: 0, objects: [] }) };
+			};
+			const response = await controlConnection.handlePluginSearchRequest(new lib.PluginSearchRequest());
+			assert.deepEqual(response, new lib.PluginSearchRequest.Response(0, []));
+		});
+	});
+
 	describe("PluginInstallRequest", function() {
 		const _fetch = global.fetch;
 		before(function() {

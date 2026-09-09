@@ -512,6 +512,11 @@ definePermission({
 	title: "Install plugin",
 	description: "Remotely install a plugin if the target allows remote installs of plugins.",
 });
+definePermission({
+	name: "core.plugin.search",
+	title: "Search plugins",
+	description: "Search the npm registry for plugins via the controller.",
+});
 
 definePermission({
 	name: "core.debug.dump_ws",
