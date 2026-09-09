@@ -11,6 +11,7 @@ import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import ResourceNotes from "./ResourceNotes";
 import { notifyErrorHandler } from "../util/notify";
 
 
@@ -294,6 +295,8 @@ export default function RoleViewPage() {
 				<label style={{ width: 110, flexShrink: 0 }}>Description</label>
 				<Input value={description} disabled={!canUpdate} onChange={e => setDescription(e.target.value)} />
 			</div>
+
+			<ResourceNotes resourceType="role" resourceId={roleId} />
 
 			<h3>Permissions</h3>
 

@@ -17,6 +17,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
+import ResourceNotes from "./ResourceNotes";
 import useRowNavigation from "../util/useRowNavigation";
 import Link from "./Link";
 import notify, { notifyErrorHandler } from "../util/notify";
@@ -283,6 +284,7 @@ export default function UserViewPage() {
 					&& <Form.Item label="Ban reason">{user.banReason}</Form.Item>
 			}
 		</Form>
+		<ResourceNotes resourceType="user" resourceId={user.id} />
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2, xxl: 2 }}>
 			<Descriptions.Item label="Total online time">

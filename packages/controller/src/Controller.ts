@@ -195,6 +195,11 @@ export default class Controller {
 			undefined, this.finaliseUsers,
 		).bootstrap());
 
+		const notes = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "notes.json"),
+			lib.Note.fromJSON.bind(lib.Note),
+		).bootstrap());
+
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
@@ -217,6 +222,7 @@ export default class Controller {
 			modStore,
 			roles,
 			users,
+			notes,
 		] as const;
 	}
 
@@ -250,6 +256,8 @@ export default class Controller {
 		public roles = new lib.SubscribableDatastore<lib.Role>(),
 		/** Mapping of user id to user record */
 		users = new lib.SubscribableDatastore<UserRecord>(),
+		/** Mapping of note id to note attached to a resource */
+		public notes = new lib.SubscribableDatastore<lib.Note>(),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -280,6 +288,7 @@ export default class Controller {
 		this.subscriptions.handle(lib.ModUpdatesEvent, this.handleModSubscription.bind(this));
 		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 		this.subscriptions.handle(lib.RoleUpdatesEvent, this.handleRoleSubscription.bind(this));
+		this.subscriptions.handle(lib.NoteUpdatesEvent, this.handleNoteSubscription.bind(this));
 
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
@@ -289,6 +298,7 @@ export default class Controller {
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
 		this.roles.on("update", this.rolesUpdated.bind(this));
 		this.users.records.on("update", this.usersUpdated.bind(this));
+		this.notes.on("update", this.notesUpdated.bind(this));
 	}
 
 	get authSecret() {
@@ -726,6 +736,7 @@ export default class Controller {
 			this.modPacks.save(),
 			this.roles.save(),
 			this.users.records.save(),
+			this.notes.save(),
 		]);
 
 		await lib.invokeHook(this.plugins, "onSaveData");
@@ -1119,6 +1130,56 @@ export default class Controller {
 			role => role.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return roles.length ? new lib.RoleUpdatesEvent(roles) : null;
+	}
+
+	notesUpdated(notes: lib.Note[]) {
+		this.subscriptions.broadcast(new lib.NoteUpdatesEvent(notes));
+	}
+
+	async handleNoteSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
+		const notes = [...this.notes.values()].filter(
+			note => note.updatedAtMs > request.lastRequestTimeMs,
+		);
+		return notes.length ? new lib.NoteUpdatesEvent(notes) : null;
+	}
+
+	/**
+	 * Set or remove the note attached to a resource
+	 * @param resourceType - Type of resource the note belongs to.
+	 * @param resourceId - Id of the resource within its type.
+	 * @param content - New text of the note, empty removes the note.
+	 * @param updatedBy - Name of the user making the change.
+	 */
+	setNote(resourceType: string, resourceId: string, content: string, updatedBy = "") {
+		const existing = this.notes.getMutable(lib.Note.idFor(resourceType, resourceId));
+		if (content === "") {
+			if (existing) {
+				this.notes.delete(existing);
+			}
+			return;
+		}
+		if (existing) {
+			existing.content = content;
+			existing.updatedBy = updatedBy;
+			this.notes.set(existing);
+		} else {
+			this.notes.set(new lib.Note(resourceType, resourceId, content, updatedBy));
+		}
+	}
+
+	/**
+	 * Remove the note attached to a resource, if any
+	 * @param resourceType - Type of resource the note belongs to.
+	 * @param resourceId - Id of the resource within its type.
+	 */
+	deleteNote(resourceType: string, resourceId: string | number) {
+		const note = this.notes.get(lib.Note.idFor(resourceType, resourceId));
+		if (note) {
+			this.notes.delete(note);
+		}
 	}
 
 	async loadPlugins() {

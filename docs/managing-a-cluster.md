@@ -222,6 +222,33 @@ Note: If the player joins the cluster again a new account will be made for them 
 To be written.
 
 
+## Notes
+
+Free text notes can be attached to hosts, instances, users, roles, mod packs, mods and saves.
+They are stored on the controller and shown to everyone with access to the resource in the web interface, and can for example be used to record who runs a host or what an instance is meant for.
+
+### List notes
+
+    ctl> note list [--type <type>]
+
+Lists all notes, optionally limited to one resource type.
+
+### Set note
+
+    ctl> note set <type> <id> <content>
+
+Sets the note of a resource.
+The type is one of host, instance, user, role, mod_pack, mod or save.
+The id is the numeric id for hosts, instances, roles and mod packs, the lower case name for users, `<name>_<version>` for mods and `<instance id>/<file name>` for saves.
+
+### Delete note
+
+    ctl> note delete <type> <id>
+
+Removes the note of a resource.
+Notes are also removed when the resource they are attached to is deleted.
+
+
 ## Plugins (Local)
 
 To be written.
