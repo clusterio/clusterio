@@ -17,6 +17,12 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
+lib.definePermission({
+	name: "inventory_sync.inventory.modify",
+	title: "Modify player inventories",
+	description: "Replace, delete and release the lock on player inventories stored on the controller",
+});
+
 export const plugin: lib.PluginDeclaration = {
 	name: "inventory_sync",
 	title: "Inventory sync",
@@ -34,6 +40,7 @@ export const plugin: lib.PluginDeclaration = {
 	},
 
 	controllerEntrypoint: "dist/node/controller",
+	ctlEntrypoint: "dist/node/control",
 	controllerConfigFields: {
 		"inventory_sync.player_lock_timeout": {
 			title: "Player Lock Timeout",
@@ -56,6 +63,11 @@ export const plugin: lib.PluginDeclaration = {
 		messages.UploadRequest,
 		messages.DownloadRequest,
 		messages.DatabaseStatsRequest,
+		messages.ListPlayersRequest,
+		messages.GetPlayerDataRequest,
+		messages.SetPlayerDataRequest,
+		messages.DeletePlayerDataRequest,
+		messages.ForceReleaseRequest,
 	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
