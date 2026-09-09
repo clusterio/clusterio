@@ -3,7 +3,12 @@ const assert = require("assert").strict;
 const util = require("util");
 const zlib = require("zlib");
 
+const lib = require("@clusterio/lib");
+
+const mock = require("../../../test/mock");
 const { recipeNotificationDelta, InstancePlugin } = require("../dist/node/instance");
+const { DownloadResponse } = require("../dist/node/messages");
+const info = require("../dist/node/index").plugin;
 
 const inflate = util.promisify(zlib.inflate);
 const deflate = util.promisify(zlib.deflate);
@@ -63,6 +68,63 @@ describe("inventory_sync", function() {
 			assert.equal(playerData.recipe_notifications, stored);
 			assert.equal(playerData.recipe_notifications_delta, undefined);
 			assert.equal(warnings.length, 1);
+		});
+	});
+
+	describe("InstancePlugin.handleDownload()", function() {
+		let instancePlugin;
+		before(async function() {
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			instancePlugin = await mock.createInstancePlugin(InstancePlugin, info);
+			instancePlugin.instance.mockConfigEntries.set("inventory_sync.rcon_chunk_size", 100000);
+		});
+		beforeEach(function() {
+			instancePlugin.instance.server.reset();
+		});
+
+		function respondWith(playerData) {
+			instancePlugin.instance.connector.once("send", message => {
+				instancePlugin.instance.connector.emit("message", new lib.MessageResponse(
+					1, message.dst, message.src, new DownloadResponse(playerData)
+				));
+			});
+		}
+		function downloadCommand(playerData) {
+			const json = lib.escapeString(JSON.stringify(playerData));
+			return `/sc inventory_sync.download_inventory('test','${json}',1,1)`;
+		}
+
+		it("should send an empty download when the controller has no data", async function() {
+			respondWith(undefined);
+			await instancePlugin.handleDownload({ player_name: "test" });
+			assert.deepEqual(
+				instancePlugin.instance.server.rconCommands,
+				["/sc inventory_sync.download_inventory('test',nil,0,0)"]
+			);
+		});
+		it("should send the full list when no snapshot was given", async function() {
+			const playerData = { generation: 1, name: "test", recipe_notifications: await encode(["a"]) };
+			respondWith({ ...playerData });
+			await instancePlugin.handleDownload({ player_name: "test" });
+			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(playerData)]);
+		});
+		it("should send a delta when a snapshot was given", async function() {
+			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a", "b"]) });
+			await instancePlugin.handleDownload({ player_name: "test", recipe_notifications: await encode(["b"]) });
+			const expected = { generation: 1, name: "test", recipe_notifications_delta: await encode({ add: ["a"] }) };
+			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(expected)]);
+		});
+		it("should be invoked by the download ipc", async function() {
+			respondWith(undefined);
+			instancePlugin.instance.server.emit("ipc-inventory_sync_download", { player_name: "test" });
+			for (let i = 0; i < 100 && !instancePlugin.instance.server.rconCommands.length; i++) {
+				await new Promise(resolve => setImmediate(resolve));
+			}
+			assert.equal(instancePlugin.instance.server.rconCommands.length, 1);
 		});
 	});
 });
