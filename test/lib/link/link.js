@@ -432,6 +432,23 @@ describe("lib/link/link", function() {
 				));
 				assert(logged[0].includes('"message": "must be number"'));
 			});
+			it("should fall back to message when event handler error has no stack", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {
+						let err = new Error("no stack");
+						err.stack = undefined;
+						throw err;
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.deepEqual(logged, ["Unexpected error handling SimpleEvent:\nno stack"]);
+			});
 			it("should throw on unknown type", function() {
 				assert.throws(
 					() => testLink.handle({ name: "Bad", type: "bad" }),
@@ -633,6 +650,24 @@ describe("lib/link/link", function() {
 					"Unexpected error snooping SimpleEvent:\nError: Event NumberEvent failed validation\n"
 				));
 				assert(logged[0].includes('"message": "must be number"'));
+			});
+			it("should fall back to message when snoop handler error has no stack", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {});
+					testLink.snoopEvent(SimpleEvent, async () => {
+						let err = new Error("no stack");
+						err.stack = undefined;
+						throw err;
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.deepEqual(logged, ["Unexpected error snooping SimpleEvent:\nno stack"]);
 			});
 			it("should throw on double registration", function() {
 				testLink.snoopEvent(SimpleEvent);
