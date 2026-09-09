@@ -58,6 +58,10 @@ export class InvalidMessage extends Error {
 		public errors?: object | null,
 	) {
 		super(message);
+		// Include the errors in the stack so generic handlers logging it show what failed
+		if (errors) {
+			this.stack += `\n${JSON.stringify(errors, null, "\t")}`;
+		}
 	}
 }
 

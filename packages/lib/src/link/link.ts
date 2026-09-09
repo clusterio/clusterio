@@ -213,7 +213,7 @@ export class Link {
 			let handler = this._eventSnoopers.get((entry as EventEntry).Event)!;
 			let event = message as libData.MessageEvent;
 			handler((entry as EventEntry).eventFromJSON(event.data), event.src, event.dst).catch((err: Error) => {
-				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
+				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack ?? err.message}`);
 			});
 		}
 
@@ -482,7 +482,7 @@ export class Link {
 		handler(
 			entry.eventFromJSON(message.data), message.src, message.dst
 		).catch((err: Error) => {
-			logger.error(`Unexpected error handling ${message.name}:\n${err.stack}`);
+			logger.error(`Unexpected error handling ${message.name}:\n${err.stack ?? err.message}`);
 		});
 	}
 
