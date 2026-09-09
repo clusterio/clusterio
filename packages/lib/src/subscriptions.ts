@@ -2,7 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
 import { Address, MessageRequest, IUser, JsonBoolean, StringEnum, AccountDetails } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
-import { RequestError } from "./errors";
+import { ExpectedError } from "./errors";
 import { logger } from "./logging";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
@@ -596,7 +596,7 @@ export class EventSubscriber<E, S = null> {
 				this._notify(null);
 			}
 		} catch (err: any) {
-			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
+			if (!(err instanceof ExpectedError) || err.code !== "SessionLost") {
 				logger.error(`Unexpected error updating ${entry.name} subscription:\n${err.stack}`);
 			}
 			if (err instanceof Error) {

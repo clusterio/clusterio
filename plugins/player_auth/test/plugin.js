@@ -314,7 +314,7 @@ describe("player_auth", function() {
 						controllerPlugin.handleSetVerifyCodeRequest(
 							new SetVerifyCodeRequest("invalid", "invalid")
 						),
-						new lib.RequestError("invalid player")
+						new lib.ExpectedError("invalid player")
 					);
 				});
 				it("should throw if player code has expired", async function() {
@@ -324,7 +324,7 @@ describe("player_auth", function() {
 						controllerPlugin.handleSetVerifyCodeRequest(
 							new SetVerifyCodeRequest("expired", "expired")
 						),
-						new lib.RequestError("invalid player")
+						new lib.ExpectedError("invalid player")
 					);
 				});
 			});

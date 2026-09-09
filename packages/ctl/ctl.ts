@@ -324,7 +324,7 @@ async function startControl() {
 			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
 
-		} else if (err instanceof lib.RequestError) {
+		} else if (err instanceof lib.ExpectedError) {
 			if (err.stack) {
 				logger.error(`Error sending request:\n${err.stack}`);
 			} else {

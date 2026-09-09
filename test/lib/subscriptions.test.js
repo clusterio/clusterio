@@ -1169,13 +1169,13 @@ describe("lib/subscriptions", function() {
 				assert.notEqual(logged, undefined);
 			});
 
-			it("should not log error when sendTo throws SessionLost RequestError", async function() {
+			it("should not log error when sendTo throws SessionLost ExpectedError", async function() {
 				let logged;
 				const originalError = lib.logger.error;
 				lib.logger.error = msg => { logged = msg; };
 
 				mockControl.sendTo = async function() {
-					const err = new lib.RequestError("Session lost");
+					const err = new lib.ExpectedError("Session lost");
 					err.code = "SessionLost";
 					throw err;
 				};

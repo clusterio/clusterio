@@ -426,7 +426,7 @@ export class Link {
 					if (err.errors) {
 						logger.error(JSON.stringify(err.errors, null, "\t"));
 					}
-				} else if (!(err instanceof libErrors.RequestError)) {
+				} else if (!(err instanceof libErrors.ExpectedError)) {
 					logger.error(`Unexpected error responding to ${message.name}:\n${err.stack}`);
 				}
 				try {
@@ -470,7 +470,7 @@ export class Link {
 		}
 
 		this._pendingRequests.delete(message.dst.requestId!);
-		pending.reject(new libErrors.RequestError(message.data.message, message.data.code, message.data.stack));
+		pending.reject(new libErrors.ExpectedError(message.data.message, message.data.code, message.data.stack));
 	}
 
 	_processEvent(message: libData.MessageEvent, entry: EventEntry) {

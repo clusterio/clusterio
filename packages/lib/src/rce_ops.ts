@@ -2,7 +2,7 @@ import util from "util";
 import path from "path";
 import { exec } from "child_process";
 import { logger } from "./logging";
-import { RequestError } from "./errors";
+import { ExpectedError } from "./errors";
 import { PluginNodeEnvInfo } from "./plugin";
 const execAsync = util.promisify(exec);
 
@@ -29,7 +29,7 @@ export async function installPackage(name: string) {
 
 export async function handlePluginUpdate(pluginName: string, pluginInfos: PluginNodeEnvInfo[]) {
 	if (!pluginInfos.some(plugin => plugin.npmPackage === pluginName)) {
-		throw new RequestError(`Plugin ${pluginName} is not installed on this machine`);
+		throw new ExpectedError(`Plugin ${pluginName} is not installed on this machine`);
 	}
 
 	return await updatePackage(pluginName);
@@ -39,7 +39,7 @@ export async function handlePluginInstall(pluginName: string) {
 	if (pluginName.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(pluginName)) {
 		// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
 		// https://www.npmjs.com/package/validate-npm-package-name
-		throw new RequestError(`Invalid plugin name: ${pluginName}`);
+		throw new ExpectedError(`Invalid plugin name: ${pluginName}`);
 	}
 
 	const packageName = encodeURI(pluginName);
@@ -47,7 +47,7 @@ export async function handlePluginInstall(pluginName: string) {
 		method: "HEAD",
 	});
 	if (!npmRequest.ok) {
-		throw new RequestError(`Unknown plugin: ${packageName}`);
+		throw new ExpectedError(`Unknown plugin: ${packageName}`);
 	}
 
 	return await installPackage(packageName);

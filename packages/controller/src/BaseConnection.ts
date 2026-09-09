@@ -63,7 +63,7 @@ export default class BaseConnection extends lib.Link {
 		let { id } = request;
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
-			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
+			throw new lib.ExpectedError(`Mod pack with ID ${id} does not exist`);
 		}
 		return modPack;
 	}
@@ -71,11 +71,11 @@ export default class BaseConnection extends lib.Link {
 	async handleModPackGetDefaultRequest(): Promise<lib.ModPack> {
 		let id = this._controller.config.get("controller.default_mod_pack_id");
 		if (id === null) {
-			throw new lib.RequestError("Default mod pack not set on controller");
+			throw new lib.ExpectedError("Default mod pack not set on controller");
 		}
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
-			throw new lib.RequestError(`Default mod pack configured (${id}) does not exist`);
+			throw new lib.ExpectedError(`Default mod pack configured (${id}) does not exist`);
 		}
 		return modPack;
 	}
@@ -84,10 +84,10 @@ export default class BaseConnection extends lib.Link {
 		let filename = lib.ModInfo.filename(mod.name, mod.version);
 		let modInfo = this._controller.modStore.files.get(filename);
 		if (!modInfo) {
-			throw new lib.RequestError(`Mod ${filename} does not exist on controller`);
+			throw new lib.ExpectedError(`Mod ${filename} does not exist on controller`);
 		}
 		if (mod.sha1 && mod.sha1 !== modInfo.sha1) {
-			throw new lib.RequestError(`Mod ${filename} checksum does not match controller's checksum`);
+			throw new lib.ExpectedError(`Mod ${filename} checksum does not match controller's checksum`);
 		}
 		return modInfo;
 	}

@@ -690,7 +690,7 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				await assert.rejects(
 					execCtl("instance create testClone --id 440 --from 441"),
-					new lib.RequestError("Instance with ID 441 does not exist")
+					new lib.ExpectedError("Instance with ID 441 does not exist")
 				);
 			});
 		});

@@ -1338,24 +1338,24 @@ export default class Controller {
 		} else if (dst.type === lib.Address.control) {
 			connection = this.wsServer.controlConnections.get(dst.id);
 			if (!connection) {
-				throw new lib.RequestError("Target control connection does not exist.");
+				throw new lib.ExpectedError("Target control connection does not exist.");
 			}
 
 		} else if (dst.type === lib.Address.instance) {
 			const instance = this.instances.getForRequest(dst.id);
 			let hostId = instance.config.get("instance.assigned_host");
 			if (hostId === null) {
-				throw new lib.RequestError("Instance is not assigned to a host");
+				throw new lib.ExpectedError("Instance is not assigned to a host");
 			}
 			connection = this.wsServer.hostConnections.get(hostId);
 			if (!connection) {
-				throw new lib.RequestError("Host containing instance is not connected");
+				throw new lib.ExpectedError("Host containing instance is not connected");
 			}
 
 		} else if (dst.type === lib.Address.host) {
 			connection = this.wsServer.hostConnections.get(dst.id);
 			if (!connection) {
-				throw new lib.RequestError("Host is not connected");
+				throw new lib.ExpectedError("Host is not connected");
 			}
 
 		} else {
@@ -1439,11 +1439,11 @@ export default class Controller {
 		let instance = this.instances.getForRequest(request.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
-			throw new lib.RequestError("Instance is not assigned to a host");
+			throw new lib.ExpectedError("Instance is not assigned to a host");
 		}
 		let connection = this.wsServer.hostConnections.get(hostId);
 		if (!connection) {
-			throw new lib.RequestError("Host containing instance is not connected");
+			throw new lib.ExpectedError("Host containing instance is not connected");
 		}
 		return await connection.send(request);
 	}

@@ -18,12 +18,17 @@ export class InstallationError extends Error {
 }
 
 /**
- * Thrown from requests sent when an error occured handling it
+ * Base class for errors that are part of normal program flow.
+ *
+ * Errors of this class are passed back to the requester without being
+ * logged as unexpected. Extend it for errors the caller is expected to
+ * handle, such as permission checks and validation failures. Also thrown
+ * from requests when the remote side responds with an error.
  */
-export class RequestError extends Error {
+export class ExpectedError extends Error {
 	constructor(
 		message: string,
-		public code = "RequestError",
+		public code = "ExpectedError",
 		public stack?: string,
 	) {
 		super(message);
@@ -31,13 +36,19 @@ export class RequestError extends Error {
 }
 
 /**
+ * @deprecated Use ExpectedError instead
+ */
+export const RequestError = ExpectedError;
+/** @deprecated Use ExpectedError instead */
+export type RequestError = ExpectedError;
+
+/**
  * Thrown when a permission check fails.
  *
- * Is a subclass of RequestError to prevent logging stack traces when
+ * Is a subclass of ExpectedError to prevent logging stack traces when
  * requests fail due to permission denied.
- *
  */
-export class PermissionError extends RequestError {
+export class PermissionError extends ExpectedError {
 	constructor(
 		message: string,
 		code = "PermissionError",
@@ -45,7 +56,6 @@ export class PermissionError extends RequestError {
 	) {
 		super(message, code, stack);
 	}
-
 }
 
 /**
