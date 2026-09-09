@@ -102,7 +102,7 @@ describe("controller/InstanceManager", function () {
 		});
 
 		it("should throw when missing", function () {
-			assert.throws(() => instances.getForRequest(999), lib.RequestError);
+			assert.throws(() => instances.getForRequest(999), lib.ExpectedError);
 		});
 	});
 
@@ -149,7 +149,7 @@ describe("controller/InstanceManager", function () {
 
 			await assert.rejects(
 				() => instances.createInstance(config),
-				lib.RequestError
+				lib.ExpectedError
 			);
 		});
 
@@ -173,7 +173,7 @@ describe("controller/InstanceManager", function () {
 		it("should throw if host not connected", async function () {
 			await assert.rejects(
 				() => instances.assignInstance(1, 5),
-				lib.RequestError
+				lib.ExpectedError
 			);
 		});
 
@@ -205,7 +205,7 @@ describe("controller/InstanceManager", function () {
 
 			await assert.rejects(
 				() => instances.assignInstance(1, 6),
-				lib.RequestError
+				lib.ExpectedError
 			);
 
 			assert.equal(unassignRequest, undefined);

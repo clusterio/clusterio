@@ -1249,7 +1249,7 @@ end`.replace(/\r?\n/g, " ");
 	async handleInstanceLoadScenarioRequest(request: lib.InstanceLoadScenarioRequest) {
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
-			throw new lib.RequestError("Load scenario cannot be used with save patching enabled");
+			throw new lib.ExpectedError("Load scenario cannot be used with save patching enabled");
 		}
 
 		try {
@@ -1310,7 +1310,7 @@ end`.replace(/\r?\n/g, " ");
 
 	async handleInstanceSaveGameRequest() {
 		if (this._status !== "running") {
-			throw new lib.RequestError("Instance is not running");
+			throw new lib.ExpectedError("Instance is not running");
 		}
 
 		const saved = new Promise<void>((resolve, reject) => {
@@ -1320,7 +1320,7 @@ end`.replace(/\r?\n/g, " ");
 			};
 			const onExit = () => {
 				this.server.off("save-finished", onSaved);
-				reject(new lib.RequestError("Instance stopped before the save finished"));
+				reject(new lib.ExpectedError("Instance stopped before the save finished"));
 			};
 			this.server.once("save-finished", onSaved);
 			this.server.once("exit", onExit);

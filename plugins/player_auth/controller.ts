@@ -207,7 +207,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		let entry = this.players.get(player);
 		if (!entry || entry.expiresMs < Date.now()) {
-			throw new lib.RequestError("invalid player");
+			throw new lib.ExpectedError("invalid player");
 		}
 
 		entry.verifyCode = verifyCode;
