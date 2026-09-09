@@ -288,6 +288,7 @@ export default class Instance extends lib.Link {
 		this.handle(lib.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
 		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
+		this.handle(lib.InstanceSaveGameRequest, this.handleInstanceSaveGameRequest.bind(this));
 		this.handle(lib.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
 		this.handle(lib.InstanceRestartRequest, this.handleInstanceRestartRequest.bind(this));
 		this.handle(lib.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
@@ -1305,6 +1306,27 @@ end`.replace(/\r?\n/g, " ");
 		}
 		await this.sendSaveListUpdate();
 		this.logger.info("Successfully created save");
+	}
+
+	async handleInstanceSaveGameRequest() {
+		if (this._status !== "running") {
+			throw new lib.RequestError("Instance is not running");
+		}
+
+		const saved = new Promise<void>((resolve, reject) => {
+			const onSaved = () => {
+				this.server.off("exit", onExit);
+				resolve();
+			};
+			const onExit = () => {
+				this.server.off("save-finished", onSaved);
+				reject(new lib.RequestError("Instance stopped before the save finished"));
+			};
+			this.server.once("save-finished", onSaved);
+			this.server.once("exit", onExit);
+		});
+		await this.sendRcon("/server-save");
+		await saved;
 	}
 
 	async handleInstanceExportDataRequest() {

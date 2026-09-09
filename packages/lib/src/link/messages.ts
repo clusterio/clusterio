@@ -72,6 +72,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	instance.InstanceSaveDetailsListRequest,
 	instance.InstanceSaveDetailsUpdatesEvent,
 	instance.InstanceCreateSaveRequest,
+	instance.InstanceSaveGameRequest,
 	instance.InstanceRenameSaveRequest,
 	instance.InstanceCopySaveRequest,
 	instance.InstanceDeleteSaveRequest,

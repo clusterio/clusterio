@@ -447,6 +447,16 @@ instanceCommands.add(new lib.Command({
 }));
 
 instanceCommands.add(new lib.Command({
+	definition: ["save-game <instance>", "Save the running game of an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to save the game on", type: "string" });
+	}],
+	handler: async function(args: { instance: string }, control: Control) {
+		let instanceId = await lib.resolveInstance(control, args.instance);
+		await control.sendTo({ instanceId }, new lib.InstanceSaveGameRequest());
+	},
+}));
+
+instanceCommands.add(new lib.Command({
 	definition: ["extract-players <instance>", "Extract players from running save into the cluster.", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to extract players and online time from", type: "string" });
 	}],

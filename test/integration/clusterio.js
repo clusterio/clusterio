@@ -914,6 +914,20 @@ describe("Integration of Clusterio", function() {
 				}
 				assert(received, "InstanceSaveDetailsUpdatesEvent not sent");
 			});
+			it("should save the running game with save-game", async function() {
+				slowTest(this);
+				getControl().saveUpdates = [];
+				await execCtl("instance save-game test");
+				let received = false;
+				for (let x = 0; x < 10; x++) {
+					if (getControl().saveUpdates.length) {
+						received = true;
+						break;
+					}
+					await wait(100);
+				}
+				assert(received, "InstanceSaveDetailsUpdatesEvent not sent");
+			});
 			it("should prevent execution of script commands when disabled", async function() {
 				slowTest(this);
 				await execCtl("instance send-rcon test /c");
