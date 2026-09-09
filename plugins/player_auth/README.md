@@ -29,3 +29,10 @@ Time in seconds the first code generated stays valid.
 The login must be completed in less than this time starting from when the login dialog is opened in-game.
 
 Defaults to `120`.
+
+#### player_auth.show_connect_address
+
+Show the address to connect to for each server in the server list on the login page of the web interface, made up of host.public_address and the game port of the instance.
+This list is visible to anyone who can reach the web interface, so leave it off if you don't want unauthenticated users to see where the servers are.
+
+Defaults to `false`.
