@@ -60,13 +60,18 @@ export function externalTest(test) {
 /**
  * Create a zip file in memory
  *
- * @param {Iterable<[string, string | Buffer]>} files - Paths and content of the files to add.
+ * @param {Iterable<[string, string | Buffer]>} files -
+ *     Paths and content of the files to add, paths ending with / are directories.
  * @returns {yazl.ZipFile} zip file with the output stream ready to be read.
  */
 export function createZip(files) {
 	const zip = new yazl.ZipFile();
 	for (const [filePath, content] of files) {
-		zip.addBuffer(Buffer.from(content), filePath);
+		if (filePath.endsWith("/")) {
+			zip.addEmptyDirectory(filePath);
+		} else {
+			zip.addBuffer(Buffer.from(content), filePath);
+		}
 	}
 	zip.end();
 	return zip;
