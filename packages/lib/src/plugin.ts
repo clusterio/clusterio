@@ -46,6 +46,10 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	 * server in order for the web interface to be able to load the plugin.
 	 */
 	webStaticPath: string;
+	/**
+	 * Absolute path to the package.json file for the plugin.
+	 */
+	packagePath: string;
 	requirePath: string;
 	version: string;
 	manifest: any;

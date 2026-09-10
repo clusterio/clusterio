@@ -47,6 +47,7 @@ describe("lib/plugin_loader", function() {
 					name: "test",
 					version: "0.0.1",
 					npmPackage: undefined,
+					packagePath: path.resolve(path.join(testPlugin, "package.json")),
 					requirePath: path.resolve(testPlugin),
 					webStaticPath: path.resolve(path.join(testPlugin, "dist", "web", "static")),
 				}]

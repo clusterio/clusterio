@@ -91,8 +91,7 @@ export class SaveModule {
 	}
 
 	static async fromPlugin(plugin: BaseInstancePlugin) {
-		let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
-		let moduleDirectory = path.join(path.dirname(pluginPackagePath), "module");
+		let moduleDirectory = path.join(path.dirname(plugin.info.packagePath), "module");
 		try {
 			await fs.access(moduleDirectory);
 		} catch (err: any) {

@@ -241,7 +241,7 @@ describe("controller/src/Controller", function() {
 				controller.config.set("global_chat.load_plugin", true);
 				controller.pluginInfos[0] = {
 					name: "global_chat",
-					requirePath: path.dirname(require.resolve("@clusterio/controller/package.json")),
+					packagePath: require.resolve("@clusterio/controller/package.json"),
 					version: controllerVersion,
 				};
 			});

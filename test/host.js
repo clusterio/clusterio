@@ -123,7 +123,7 @@ describe("Host testing", function() {
 				// This can be used more generally, but i did not want to interfere with handleSyncUserListsEvent
 				const pluginInfos = [{
 					name: "global_chat",
-					requirePath: path.dirname(require.resolve("@clusterio/host/package.json")),
+					packagePath: require.resolve("@clusterio/host/package.json"),
 					version: hostVersion,
 				}];
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
