@@ -103,7 +103,7 @@ describe("controller/src/routes", function() {
 		});
 		it("should report missing manifest and entrypoint", async function() {
 			controller.pluginInfos = [
-				{ name: "foo", version: "1.0.0", npmPackage: "foo" },
+				{ name: "foo", version: "1.0.0", npmPackage: "foo", webEntrypoint: "dist/web/index.js" },
 				{ name: "bar", version: "1.0.0", npmPackage: "bar", manifest: {} },
 				{ name: "baz", version: "1.0.0", npmPackage: "baz", manifest: { "baz.js": "remoteEntry.js" } },
 			];
@@ -115,6 +115,19 @@ describe("controller/src/routes", function() {
 			assert.equal(data[2].web.error, "Incompatible old remoteEntry.js entrypoint.");
 			assert.equal(data[1].loaded, false);
 			assert.equal(data[1].enabled, false);
+		});
+		it("should not report a missing manifest for plugins without a web build", async function() {
+			controller.pluginInfos = [
+				{ name: "foo", version: "1.0.0", npmPackage: "foo", hostEntrypoint: "dist/node/host.js" },
+				{ name: "bar", version: "1.0.0", npmPackage: "bar", controllerEntrypoint: "dist/node/controller.js" },
+				{ name: "baz", version: "1.0.0", npmPackage: "baz", instanceConfigFields: {} },
+			];
+			let response = await fetch(endpoint);
+			assert.equal(response.status, 200);
+			let data = await response.json();
+			assert.deepEqual(data[0].web, {});
+			assert.equal(data[1].web.error, "Missing dist/web/manifest.json");
+			assert.equal(data[2].web.error, "Missing dist/web/manifest.json");
 		});
 	});
 	describe("/api/cluster-name", function() {

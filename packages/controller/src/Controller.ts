@@ -1127,7 +1127,9 @@ export default class Controller {
 				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
 				pluginInfo.manifest = await Controller.loadJsonObject(require.resolve(manifestPath), true);
 			} catch (err) {
-				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+				if (lib.pluginNeedsWebBuild(pluginInfo)) {
+					logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+				}
 			}
 
 			if (!this.config.get(`${pluginInfo.name}.load_plugin`)) {
