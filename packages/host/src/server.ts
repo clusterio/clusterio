@@ -181,9 +181,11 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
  * @returns Array with path to data dir and version found.
- * @internal
  */
-async function findVersion(factorioDir: string, targetVersion: lib.TargetVersion): Promise<[string, lib.FullVersion]> {
+export async function findVersion(
+	factorioDir: string,
+	targetVersion: lib.TargetVersion,
+): Promise<[string, lib.FullVersion]> {
 	// Check if this is a direct installation dir
 	const directVersion = await getFactorioVersion(factorioDir);
 	if (directVersion !== null) {
@@ -1580,7 +1582,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 // For testing only
 export const _getFactorioVersion = getFactorioVersion;
 export const _versionOrder = versionOrder;
-export const _findVersion = findVersion;
 export const _listFactorioVersions = listFactorioVersions;
 export const _downloadAndExtractZip = downloadAndExtractZip;
 export const _downloadAndExtractTar = downloadAndExtractTar;

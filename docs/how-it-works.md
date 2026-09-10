@@ -5,6 +5,7 @@ The save patching is based on the built in [event_handler](https://github.com/wu
 Mods on the other hand work without modifications.
 
 This can be disabled with the `factorio.enable_save_patching` config on a per instance basis, however disabling it means that modules are not loaded into the game and most plugins will not function.
+To use the modules outside of Clusterio the `npx clusteriohost create-scenario` command creates a scenario with the modules patched into it.
 
 <sub>1: Before version 2.0 of Clusterio this was done at runtime with a patcher called Hotpatch, but due to the difficulty in supporting run time patching and the lack of documentation it was replace it with save patching instead.</sub>
 

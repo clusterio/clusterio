@@ -226,6 +226,22 @@ describe("host/patch", function() {
 		});
 	});
 
+	describe("loadModules()", function() {
+		it("should load the bundled clusterio module", async function() {
+			const modules = await patch.loadModules([]);
+			assert.deepEqual([...modules.keys()], ["clusterio"]);
+			assert(modules.get("clusterio").files.has("modules/clusterio/api.lua"));
+		});
+		it("should load modules from plugins", async function() {
+			const pluginInfos = await lib.loadPluginInfos(
+				new Map([["research_sync", path.resolve("plugins/research_sync")]])
+			);
+			const modules = await patch.loadModules(pluginInfos);
+			assert.deepEqual([...modules.keys()], ["research_sync", "clusterio"]);
+			assert(modules.get("research_sync").files.has("modules/research_sync/sync.lua"));
+		});
+	});
+
 	describe("patch()", function() {
 		it("should throw on unknown scenario", async function() {
 			let zip = new JSZip();
