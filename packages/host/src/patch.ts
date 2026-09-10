@@ -4,7 +4,6 @@ import fs from "node:fs/promises";
 import path from "path";
 import semver from "semver";
 import { pipeline } from "node:stream/promises";
-import yazl from "yazl";
 import { Type, Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
@@ -435,37 +434,33 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 		files.set("clusterio.json", Buffer.from(JSON.stringify(patchInfo, null, "\t"), "utf8"));
 
 		// Write back the save, keeping the order of the entries in the original
-		const output = new yazl.ZipFile();
 		const added = new Map([...files].map(([relativePath, contents]) => [rootPath(relativePath), contents]));
-		for (const entry of zip.entries.values()) {
-			const name = entry.fileName;
-			if (removed.has(name)) {
-				continue;
-			}
-			const contents = added.get(name);
-			if (contents !== undefined) {
-				output.addBuffer(contents, name);
-				added.delete(name);
-			} else if (name.endsWith("/")) {
-				output.addEmptyDirectory(name, { mtime: entry.getLastModDate() });
-			} else {
-				output.addReadStreamLazy(
-					name,
-					{ mtime: entry.getLastModDate(), size: entry.uncompressedSize },
-					cb => zip.zipfile.openReadStream(entry, cb),
-				);
-			}
-		}
-		for (const [name, contents] of added) {
-			output.addBuffer(contents, name);
-		}
-		output.end();
-
+		const output = new lib.ZipWriter();
 		let writeStream;
 		[tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
+		const writing = pipeline(output.outputStream, writeStream);
 		try {
-			await pipeline(lib.zipOutputStream(output), writeStream);
+			for (const entry of zip.entries.values()) {
+				const name = entry.fileName;
+				if (removed.has(name)) {
+					continue;
+				}
+				const contents = added.get(name);
+				if (contents !== undefined) {
+					await output.addBuffer(contents, name);
+					added.delete(name);
+				} else {
+					await output.addEntry(zip, entry);
+				}
+			}
+			for (const [name, contents] of added) {
+				await output.addBuffer(contents, name);
+			}
+			await output.end();
+			await writing;
 		} catch (err) {
+			output.outputStream.destroy();
+			await writing.catch(() => {});
 			await fs.rm(tempSavePath, { force: true });
 			throw err;
 		}
