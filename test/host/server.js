@@ -366,6 +366,20 @@ describe("host/server", function() {
 				return { lines, restore: () => { server._logger = logger; } };
 			}
 
+			it("should refuse to start on Factorio before 2.1.12", async function() {
+				const version = server._version;
+				server._version = "2.1.11";
+				server.enableLuaUdp = true;
+				try {
+					const error = new Error("Lua UDP requires Factorio 2.1.12 or later");
+					await assert.rejects(server.start("save.zip"), error);
+					await assert.rejects(server.startScenario("test"), error);
+					assert.equal(server._state, "init");
+				} finally {
+					server._version = version;
+					server.enableLuaUdp = false;
+				}
+			});
 			it("should not have a host port when not running", function() {
 				assert.equal(server.hostUdpPort, undefined);
 			});

@@ -22,9 +22,9 @@ const requireApi = [
 	"or package.loaded['__level__/modules/clusterio/api.lua']", // 2.0.0
 ].join(" ");
 
-// --enable-lua-udp was added in Factorio 2.0.59
+// Lua UDP needs Factorio 2.1.12, see docs/configuration.md
 function hasLuaUdp() {
-	return lib.integerFullVersion(getFactorioVersion()) >= lib.integerFullVersion("2.0.59");
+	return lib.integerFullVersion(getFactorioVersion()) >= lib.integerFullVersion("2.1.12");
 }
 
 function getUser(name) {

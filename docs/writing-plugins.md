@@ -331,7 +331,8 @@ For RCON, commands longer than 50 characters may end up being executed after sho
 
 ### Communicating over UDP
 
-Instances can optionally exchange UDP packets with the Factorio server for low latency fire-and-forget communication, using the `--enable-lua-udp` option of Factorio 2.0.59 and later.
+Instances can optionally exchange UDP packets with the Factorio server for low latency fire-and-forget communication, using the `--enable-lua-udp` option of Factorio.
+This needs Factorio 2.1.12 or later, earlier versions crash when a packet is received while the server is paused.
 This is disabled by default and enabled by setting `factorio.enable_lua_udp` on the instance.
 Sending data out of Factorio also needs `factorio.enable_script_commands`, as the port to send to is passed to the module with a script command on startup.
 Plugins requiring it should declare the `LuaUdp` feature.

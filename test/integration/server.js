@@ -123,8 +123,8 @@ describe("Integration of host/src/server", function() {
 				let mapPath = server.writePath("saves", "test.zip");
 				await assert.doesNotReject(fs.access(mapPath), "save is missing");
 
-				// --enable-lua-udp was added in Factorio 2.0.59
-				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.0.59");
+				// Lua UDP needs Factorio 2.1.12, see docs/configuration.md
+				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.12");
 				await server.start("test.zip");
 			});
 		});
@@ -180,9 +180,11 @@ describe("Integration of host/src/server", function() {
 				}
 				log("Lua UDP to game");
 
+				// Poll from on_tick like the clusterio module does
 				await server.sendRcon(
 					"/sc script.on_event(defines.events.on_udp_packet_received, " +
-					"function(event) print('udp:' .. event.payload) end)"
+					"function(event) print('udp:' .. event.payload) end) " +
+					"script.on_nth_tick(1, function() helpers.recv_udp(0) end)"
 				);
 				let pass = false;
 				function filter(output) {
@@ -193,8 +195,9 @@ describe("Integration of host/src/server", function() {
 				server.on("output", filter);
 
 				await server.sendUdp("hello");
+				// The server does not tick without players, commands make it tick
 				for (let i = 0; i < 10; i++) {
-					await server.sendRcon("/sc helpers.recv_udp(0)");
+					await server.sendRcon("/sc rcon.print('tick')");
 					await lib.wait(10);
 					if (pass) {
 						break;

@@ -255,7 +255,7 @@ Parameters:
 
 Send data to Clusterio over the given channel using UDP instead of stdout.
 Clusterio plugins receive it as `udp-channel_name` events, see the [Communicating over UDP section](writing-plugins.md#communicating-over-udp) in the Writing Plugins document.
-Requires `factorio.enable_lua_udp` to be enabled on the instance and Factorio 2.0.59 or later, otherwise the data is silently dropped.
+Requires `factorio.enable_lua_udp` to be enabled on the instance and Factorio 2.1.12 or later, otherwise the data is silently dropped.
 The port to send to is passed to the module with a script command on startup, so `factorio.enable_script_commands` must be enabled as well.
 
 **Note**: Delivery is not guaranteed and payloads should be kept well below 32 kB.
