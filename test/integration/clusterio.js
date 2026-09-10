@@ -257,6 +257,19 @@ describe("Integration of Clusterio", function() {
 	});
 
 	describe("clusteriohost", function() {
+		describe("create-scenario", function() {
+			it("should create a patched scenario", async function() {
+				slowTest(this);
+				requiresFactorio(this);
+				const output = path.join("temp", "test", "patched-scenario");
+				await fs.rm(output, { recursive: true, force: true });
+				await execHost("create-scenario patched-scenario --plugins research_sync");
+				const control = await fs.readFile(path.join(output, "control.lua"), "utf8");
+				assert(control.includes('require("modules/research_sync/sync")'));
+				await fs.access(path.join(output, "scenario.lua"));
+			});
+		});
+
 		describe("hostUpdateEventHandler()", function() {
 			it("should trigger when a new host is added", async function() {
 				slowTest(this);

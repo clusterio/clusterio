@@ -78,6 +78,27 @@ See docs/configuration.md in the main repositiory for the available configuratio
 Shows the value for a single config entry.
 
 
+### `create-scenario <output>`
+
+Create a scenario with the Clusterio modules patched into it and write it to the `output` directory.
+This is the same patching that is applied to saves when an instance starts, see docs/how-it-works.md in the main repository.
+The result can be used as a regular scenario outside of Clusterio by copying it to the `scenarios` folder of Factorio or into a mod.
+
+By default the freeplay scenario from the latest Factorio install in `host.factorio_directory` is patched with the modules from all plugins that are enabled in the host config.
+
+ * `--scenario <path>` Scenario directory, zipped scenario or save to patch instead of freeplay.
+   This has the same restrictions as save patching, the scenario must either use the event_handler library and have been seen by Clusterio before, or already have been patched by Clusterio.
+
+ * `--factorio-version <version>` Factorio version to take the freeplay scenario from.
+   Defaults to `latest`.
+
+ * `--plugins <name>...` Only patch in modules from the given plugins.
+
+For example, creating a scenario with only the inventory_sync module:
+
+    npx clusteriohost create-scenario ~/.factorio/scenarios/inventory_sync --plugins inventory_sync
+
+
 #### `config list`
 
 Lists up all configuration entries with their currently configured values.

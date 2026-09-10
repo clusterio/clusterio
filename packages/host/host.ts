@@ -24,6 +24,7 @@ import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import Host from "./src/Host";
+import { createScenarioCommand, handleCreateScenarioCommand } from "./src/create_scenario";
 
 let host: Host | undefined;
 
@@ -113,6 +114,11 @@ async function startHost() {
 		.option("bypass-lock-file", { hidden: true, type: "boolean", nargs: 0, default: false })
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("config", "Manage Host config", lib.configCommand)
+		.command(
+			"create-scenario <output>",
+			"Create a scenario patched with modules for use outside Clusterio",
+			createScenarioCommand,
+		)
 		.command("run", "Run host", yargs => {
 			yargs.option("can-restart", {
 				type: "boolean", nargs: 0, default: false,
@@ -191,6 +197,11 @@ async function startHost() {
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);
+		return;
+	}
+
+	if (command === "create-scenario") {
+		await handleCreateScenarioCommand(args, hostConfig, pluginInfos);
 		return;
 	}
 
