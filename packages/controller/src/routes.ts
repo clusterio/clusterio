@@ -5,7 +5,6 @@ import busboy from "busboy";
 import crypto from "crypto";
 import events from "events";
 import fs from "node:fs/promises";
-import JSZip from "jszip";
 import jwt from "jsonwebtoken";
 import path from "path";
 import nodeStream from "stream";
@@ -234,9 +233,7 @@ async function uploadExport(req: Request, res: Response) {
 	for await (let chunk of req) {
 		data.push(chunk);
 	}
-	let buffer: Buffer | null = Buffer.concat(data);
-	let zip = await JSZip.loadAsync(buffer);
-	buffer = null;
+	let zip = await lib.ZipArchive.fromBuffer(Buffer.concat(data));
 
 	// This is hardcoded to prevent path expansion attacks
 	let exportFiles = [
@@ -256,14 +253,15 @@ async function uploadExport(req: Request, res: Response) {
 			continue;
 		}
 
+		let content = await zip.readEntry(file);
 		if (filePath === "export/settings.json") {
-			settingPrototypes = JSON.parse(await file.async("text"));
+			settingPrototypes = JSON.parse(content.toString("utf8"));
 		}
 
 		let { name, ext } = path.posix.parse(filePath);
-		let hash = await lib.hashStream(file.nodeStream());
+		let hash = await lib.hashStream(await zip.openStream(file));
 		assets[name] = `${name}.${hash}${ext}`;
-		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
+		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), content);
 	}
 
 	modPack.exportManifest = new lib.ExportManifest(assets, new Date().toISOString());

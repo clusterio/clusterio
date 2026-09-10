@@ -15,11 +15,12 @@ catalog:
   '@types/react': ^18.3.18
   '@types/set-blocking': ^2.0.0
   '@types/ws': ^8.5.14
+  '@types/yauzl': ^3.4.0
+  '@types/yazl': ^3.3.1
   antd: ^5.24.2
   chalk: ^4.1.2
   express: ^5.1.0
   jsonwebtoken: ^9.0.2
-  jszip: ^3.10.1
   react: ^18.2.0
   react-dom: ^18.2.0
   react-markdown: ^10.1.0
@@ -33,6 +34,8 @@ catalog:
   winston-daily-rotate-file: ^4.7.1
   winston-transport: ^4.9.0
   ws: ^8.18.1
+  yauzl: ^3.4.0
+  yazl: ^3.3.1
 
 catalogMode: strict
 

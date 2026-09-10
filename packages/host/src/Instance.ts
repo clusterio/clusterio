@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import pidusage from "pidusage";
+import stream from "node:stream";
 import util from "util";
 import type { Static } from "@sinclair/typebox";
 import { exec } from "child_process";
@@ -1339,13 +1340,12 @@ end`.replace(/\r?\n/g, " ");
 			await this.syncMods();
 			let zip = await exportData(this.server);
 
-			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", String(this.activeModPack.id));
 			let response = await fetch(url, {
 				method: "PUT",
-				body: content,
+				body: stream.Readable.toWeb(lib.zipOutputStream(zip)),
 				duplex: "half",
 				headers: {
 					"Content-Type": "application/zip",
