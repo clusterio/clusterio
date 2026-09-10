@@ -253,17 +253,16 @@ Parameters:
 
 #### clusterio_api.send_udp(channel, data)
 
-Send JSON data to Clusterio over the given channel using UDP instead of stdout.
-Clusterio plugins receive it the same way as data sent with `send_json`.
+Send data to Clusterio over the given channel using UDP instead of stdout.
+Clusterio plugins receive it as `udp-channel_name` events, see the [Communicating over UDP section](writing-plugins.md#communicating-over-udp) in the Writing Plugins document.
 Requires `factorio.enable_lua_udp` to be enabled on the instance and Factorio 2.0.59 or later, otherwise the data is silently dropped.
 The port to send to is passed to the module with a script command on startup, so `factorio.enable_script_commands` must be enabled as well.
-See the [Communicating over UDP section](writing-plugins.md#communicating-over-udp) in the Writing Plugins document for more information.
 
-**Note**: Delivery is not guaranteed and payloads must be less than 64 kB.
+**Note**: Delivery is not guaranteed and payloads should be kept well below 32 kB.
 
 Parameters:
 - `channel`: string identifying which channel to send it on.
-- `data`: table that can be converted to JSON with game.table_to_json
+- `data`: string with the payload to send, any bytes are allowed.
 
 
 ### serialize library

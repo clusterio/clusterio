@@ -123,6 +123,8 @@ describe("Integration of host/src/server", function() {
 				let mapPath = server.writePath("saves", "test.zip");
 				await assert.doesNotReject(fs.access(mapPath), "save is missing");
 
+				// --enable-lua-udp was added in Factorio 2.0.59
+				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.0.59");
 				await server.start("test.zip");
 			});
 		});
@@ -157,6 +159,53 @@ describe("Integration of host/src/server", function() {
 			});
 		});
 
+		describe("Lua UDP", function() {
+			it("emits udp events for packets sent from the game", async function() {
+				slowTest(this);
+				if (!server.enableLuaUdp) {
+					this.skip();
+				}
+				log("Lua UDP from game");
+
+				assert(server.hostUdpPort > 0, "host UDP socket is not open");
+				let waiter = events.once(server, "udp-test_channel");
+				await server.sendRcon(`/sc helpers.send_udp(${server.hostUdpPort}, "test_channel?hello", 0)`);
+				let [data] = await waiter;
+				assert.equal(data.toString(), "hello");
+			});
+			it("delivers packets sent with sendUdp to the game", async function() {
+				slowTest(this);
+				if (!server.enableLuaUdp) {
+					this.skip();
+				}
+				log("Lua UDP to game");
+
+				await server.sendRcon(
+					"/sc script.on_event(defines.events.on_udp_packet_received, " +
+					"function(event) print('udp:' .. event.payload) end)"
+				);
+				let pass = false;
+				function filter(output) {
+					if (output.message === "udp:hello") {
+						pass = true;
+					}
+				}
+				server.on("output", filter);
+
+				await server.sendUdp("hello");
+				for (let i = 0; i < 10; i++) {
+					await server.sendRcon("/sc helpers.recv_udp(0)");
+					await lib.wait(10);
+					if (pass) {
+						break;
+					}
+				}
+
+				server.off("output", filter);
+				assert(pass, "server did not output the packet payload");
+			});
+		});
+
 		describe(".stop()", function() {
 			it("stops the server", async function() {
 				slowTest(this);
@@ -177,8 +226,6 @@ describe("Integration of host/src/server", function() {
 				slowTest(this);
 				log(".startScenario()");
 
-				// --enable-lua-udp was added in Factorio 2.0.59
-				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.0.59");
 				let pass = false;
 				function filter(output) {
 					if (output.message === "test_scenario init") {
@@ -191,7 +238,6 @@ describe("Integration of host/src/server", function() {
 
 				log(".stop()");
 				await server.stop();
-				server.enableLuaUdp = false;
 
 				server.off("output", filter);
 				assert(pass, "server did not output line from test scenario");

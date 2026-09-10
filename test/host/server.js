@@ -347,122 +347,155 @@ describe("host/server", function() {
 				received = [];
 				udpServer.on("message", (msg, rinfo) => received.push([msg, rinfo]));
 				await events.once(udpServer.bind(0, "127.0.0.1"), "listening");
+				server.luaUdpPort = udpServer.address().port;
 			});
 			after(function() {
 				udpServer.close();
 			});
+			afterEach(function() {
+				server._stopUdp();
+				server._state = "init";
+			});
+			function sendFromGame(message) {
+				udpServer.send(Buffer.from(message), server.hostUdpPort, "127.0.0.1");
+			}
+			function captureLogger(level) {
+				const logger = server._logger;
+				const lines = [];
+				server._logger = { [level]: msg => lines.push(msg) };
+				return { lines, restore: () => { server._logger = logger; } };
+			}
 
 			it("should not have a host port when not running", function() {
 				assert.equal(server.hostUdpPort, undefined);
 			});
-			it("should reject sendUdp when not enabled", async function() {
+			it("should reject sendUdp when the socket is not open", async function() {
 				server._state = "running";
-				try {
-					await assert.rejects(server.sendUdp("data"), new Error("Lua UDP is not enabled"));
-				} finally {
-					server._state = "init";
-				}
+				await assert.rejects(server.sendUdp("data"), new Error("UDP socket is not open"));
 			});
-			it("should bind a socket, send and receive ipc over UDP", async function() {
-				server.enableLuaUdp = true;
-				server.luaUdpPort = udpServer.address().port;
-				await server._bindUdpSocket();
+			it("should send packets to the Lua UDP port", async function() {
+				await server._startUdp();
 				server._state = "running";
+				assert(server.hostUdpPort > 0, "hostUdpPort not set");
+
+				await server.sendUdp("hello");
+				await server.sendUdp(Buffer.from("world"));
+				while (received.length < 2) {
+					await wait(1);
+				}
+				assert.equal(received[0][0].toString(), "hello");
+				assert.equal(received[1][0].toString(), "world");
+				assert.equal(received[0][1].port, server.hostUdpPort);
+			});
+			it("should emit udp events for packets from the game", async function() {
+				await server._startUdp();
+				let udpReceived = [];
+				let onUdp = data => udpReceived.push(data);
+				// Escaped characters in the channel name are unescaped
+				server.on("udp-udp?channel", onUdp);
+				let waiter = events.once(server, "udp-udp?channel");
+				// Packets not from the Factorio server's port are ignored
+				let other = dgram.createSocket("udp4");
 				try {
-					assert(server.hostUdpPort > 0, "hostUdpPort not set");
-
-					await server.sendUdp("hello");
-					await server.sendUdp(Buffer.from("world"));
-					while (received.length < 2) {
-						await wait(1);
-					}
-					assert.equal(received[0][0].toString(), "hello");
-					assert.equal(received[1][0].toString(), "world");
-					assert.equal(received[0][1].port, server.hostUdpPort);
-
-					let ipcReceived = [];
-					let onIpc = content => ipcReceived.push(content);
-					server.on("ipc-udp_channel", onIpc);
-					let waiter = events.once(server, "ipc-udp_channel");
-					// Packets not from the Factorio server's port are ignored
-					let other = dgram.createSocket("udp4");
 					await events.once(other.bind(0, "127.0.0.1"), "listening");
-					other.send(Buffer.from('\f$ipc:udp_channel?j{"data":"bad"}'), server.hostUdpPort, "127.0.0.1");
-					udpServer.send(Buffer.from('\f$ipc:udp_channel?j{"data":"spam"}'), server.hostUdpPort, "127.0.0.1");
+					other.send(Buffer.from("udp\\x3fchannel?bad"), server.hostUdpPort, "127.0.0.1");
+					sendFromGame("udp\\x3fchannel?spam?eggs");
 					await waiter;
-					server.off("ipc-udp_channel", onIpc);
-					other.close();
-					assert.deepEqual(ipcReceived, [{ data: "spam" }]);
 				} finally {
-					server._resetState();
-					server.enableLuaUdp = false;
+					other.close();
+					server.off("udp-udp?channel", onUdp);
 				}
-				assert.equal(server._udpSocket, null);
-				assert.equal(server.hostUdpPort, undefined);
+				assert(Buffer.isBuffer(udpReceived[0]), "data is not a Buffer");
+				assert.deepEqual(udpReceived.map(String), ["spam?eggs"]);
 			});
-			it("should warn on packets not in IPC format", async function() {
-				server.luaUdpPort = udpServer.address().port;
-				await server._bindUdpSocket();
-				const logger = server._logger;
-				let warnings = [];
-				server._logger = { warn: msg => warnings.push(msg) };
+			it("should warn on malformed packets and unhandled channels", async function() {
+				await server._startUdp();
+				const { lines, restore } = captureLogger("warn");
 				try {
-					udpServer.send(Buffer.from("not ipc"), server.hostUdpPort, "127.0.0.1");
-					while (warnings.length < 1) {
+					sendFromGame("no separator");
+					sendFromGame("unhandled?data");
+					while (lines.length < 2) {
 						await wait(1);
 					}
-					assert.equal(warnings[0], "Ignoring UDP packet not in IPC format: not ipc");
 				} finally {
-					server._logger = logger;
-					server._resetState();
+					restore();
 				}
+				assert.deepEqual(lines, [
+					'Ignoring malformed UDP packet "no separator"',
+					"Warning: Unhandled udp-unhandled",
+				]);
 			});
-			it("should emit error on malformed IPC packets", async function() {
-				server.luaUdpPort = udpServer.address().port;
-				await server._bindUdpSocket();
+			it("should invoke handlers registered with handleUdp", async function() {
+				let handled = [];
+				server.handleUdp("handled", async data => { handled.push(data.toString()); });
+				server.handleUdp("failing", async () => { throw new Error("boom"); });
+				const { lines, restore } = captureLogger("error");
 				try {
-					let waiter = events.once(server, "error");
-					udpServer.send(Buffer.from("\f$ipc:no_separator"), server.hostUdpPort, "127.0.0.1");
-					let [err] = await waiter;
-					assert.equal(err.message, 'Malformed IPC line "\f$ipc:no_separator"');
+					server.emit("udp-handled", Buffer.from("data"));
+					server.emit("udp-failing", Buffer.from("data"));
+					await new Promise(resolve => setImmediate(resolve));
 				} finally {
-					server._resetState();
+					restore();
 				}
+				assert.deepEqual(handled, ["data"]);
+				assert.equal(lines.length, 1);
+				assert(lines[0].startsWith("Error handling udp event:\nError: boom"), lines[0]);
 			});
 			it("should forward socket errors", async function() {
-				await server._bindUdpSocket();
-				try {
-					let waiter = events.once(server, "error");
-					server._udpSocket.emit("error", new Error("socket failed"));
-					let [err] = await waiter;
-					assert.equal(err.message, "socket failed");
-				} finally {
-					server._resetState();
-				}
+				await server._startUdp();
+				let waiter = events.once(server, "error");
+				server._udpSocket.emit("error", new Error("socket failed"));
+				let [err] = await waiter;
+				assert.equal(err.message, "socket failed");
 			});
 			it("should reject sendUdp when sending fails", async function() {
-				server.luaUdpPort = udpServer.address().port;
-				await server._bindUdpSocket();
+				await server._startUdp();
 				server._state = "running";
-				try {
-					// Larger than the maximum size of a UDP datagram
-					await assert.rejects(server.sendUdp(Buffer.alloc(70000)), { code: "EMSGSIZE" });
-				} finally {
-					server._resetState();
-				}
+				// Larger than the maximum size of a UDP datagram
+				await assert.rejects(server.sendUdp(Buffer.alloc(70000)), { code: "EMSGSIZE" });
 			});
-			it("should close the socket if binding fails", async function() {
+			it("should throw if the socket is already open", async function() {
+				await server._startUdp();
+				await assert.rejects(server._startUdp(), new Error("UDP socket is already open"));
+			});
+			it("should log an error if opening the socket fails", async function() {
 				const createSocket = dgram.createSocket;
 				dgram.createSocket = (...args) => {
 					const socket = createSocket(...args);
 					socket.bind = () => process.nextTick(() => socket.emit("error", new Error("bind failed")));
 					return socket;
 				};
+				const { lines, restore } = captureLogger("error");
 				try {
-					await assert.rejects(server._bindUdpSocket(), new Error("bind failed"));
+					await server._startUdp();
 				} finally {
 					dgram.createSocket = createSocket;
+					restore();
 				}
+				assert.equal(server._udpSocket, null);
+				assert(lines[0].startsWith("Failed to open UDP socket:\nError: bind failed"), lines[0]);
+			});
+			it("should close the socket when the server exits", async function() {
+				await server._startUdp();
+				server._server = new events.EventEmitter();
+				server._state = "stopping";
+				server._watchExit();
+				server._server.emit("exit", 0, null);
+				assert.equal(server._udpSocket, null);
+				assert.equal(server._state, "init");
+			});
+			it("should close the socket when the server is killed for hanging", async function() {
+				await server._startUdp();
+				let killed = false;
+				server._server = { kill: () => { killed = true; } };
+				const { restore } = captureLogger("error");
+				try {
+					server.onStopTimeout();
+				} finally {
+					restore();
+					server._server = null;
+				}
+				assert(killed, "server was not killed");
 				assert.equal(server._udpSocket, null);
 			});
 		});

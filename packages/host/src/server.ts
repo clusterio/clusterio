@@ -288,6 +288,15 @@ async function generatePassword(length: number) {
 	}
 }
 
+function unescapeChannel(channel: Buffer) {
+	return channel
+		.toString("utf-8")
+		.replace(/\\x([0-9a-f]{2})/g, (match, p1) => (
+			String.fromCharCode(parseInt(p1, 16))
+		))
+	;
+}
+
 /**
  * Interpret lines of output from Factorio
  *
@@ -410,6 +419,9 @@ const outputHeuristics: Heuristic[] = [
 		filter: { type: "log", message: /^Starting RCON interface/ },
 		action: function() {
 			this._startRcon().catch((err) => { this.emit("error", err); });
+			if (this.enableLuaUdp) {
+				this._startUdp().catch((err) => { this.emit("error", err); });
+			}
 		},
 	},
 
@@ -589,8 +601,9 @@ type FactorioServerEvents = {
 	"_saving": [],
 	"_saved": [],
 
-	// IPS events
+	// IPC events
 	[ipcEvent: `ipc-${string}`]: [ event: any ],
+	[udpEvent: `udp-${string}`]: [ data: Buffer ],
 };
 
 /**
@@ -610,8 +623,8 @@ type FactorioServerEvents = {
  * - autosave-fnished - invoked when the autosave finished
  * - save-finished - invoked when the server has finished a manual save
  * - exit - invoked when the sterver has exited
- * - ipc-<channel> - invoked with data sent by the clusterio module in-game,
- *   either via stdout or via UDP when Lua UDP is enabled
+ * - ipc-<channel> - invoked with data sent with send_json in-game
+ * - udp-<channel> - invoked with data sent with send_udp in-game
  * @extends events.EventEmitter
  */
 export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
@@ -755,19 +768,19 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		}));
 	}
 
+	handleUdp(channel: string, handler: (data: Buffer) => Promise<void>) {
+		this.on(`udp-${channel}`, (data) => handler(data).catch((err: Error) => {
+			this._logger.error(`Error handling udp event:\n${err.stack ?? err.message}`);
+		}));
+	}
+
 	async _handleIpc(line: Buffer) {
 		let channelEnd = line.indexOf("?");
 		if (channelEnd === -1) {
 			throw new Error(`Malformed IPC line "${line.toString()}"`);
 		}
 
-		let channel = line
-			.subarray(6, channelEnd)
-			.toString("utf-8")
-			.replace(/\\x([0-9a-f]{2})/g, (match, p1) => (
-				String.fromCharCode(parseInt(p1, 16))
-			))
-		;
+		let channel = unescapeChannel(line.subarray(6, channelEnd));
 
 		let type = line.subarray(channelEnd + 1, channelEnd + 2).toString("utf-8");
 		let content;
@@ -813,15 +826,24 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			return;
 		}
 
-		if (message.subarray(0, 6).equals(Buffer.from("\f$ipc:"))) {
-			this._handleIpc(message).catch(err => this.emit("error", err));
+		let channelEnd = message.indexOf("?");
+		if (channelEnd === -1) {
+			this._logger.warn(`Ignoring malformed UDP packet "${message.subarray(0, 100).toString("utf-8")}"`);
 			return;
 		}
 
-		this._logger.warn(`Ignoring UDP packet not in IPC format: ${message.subarray(0, 100).toString("utf-8")}`);
+		let channel = unescapeChannel(message.subarray(0, channelEnd));
+		let data = message.subarray(channelEnd + 1);
+		if (!this.emit(`udp-${channel}`, data)) {
+			this._logger.warn(`Warning: Unhandled udp-${channel}`);
+		}
 	}
 
-	async _bindUdpSocket() {
+	async _startUdp() {
+		if (this._udpSocket !== null) {
+			throw Error("UDP socket is already open");
+		}
+
 		const socket = dgram.createSocket("udp4");
 		socket.on("message", (message, rinfo) => this._handleUdpMessage(message, rinfo));
 		try {
@@ -832,15 +854,16 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 					resolve();
 				});
 			});
-		} catch (err) {
+		} catch (err: any) {
+			this._logger.error(`Failed to open UDP socket:\n${err?.stack ?? err?.message ?? err}`);
 			socket.close();
-			throw err;
+			return;
 		}
 		socket.on("error", err => this.emit("error", err));
 		this._udpSocket = socket;
 	}
 
-	_closeUdpSocket() {
+	_stopUdp() {
 		if (this._udpSocket) {
 			this._udpSocket.close();
 			this._udpSocket = null;
@@ -1128,7 +1151,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		this._server = null;
 		this._rconClient = null;
 		this._rconReady = false;
-		this._closeUdpSocket();
+		this._udpSocket = null;
 		this._gameReady = false;
 		this._unexpected = [];
 		this._killed = false;
@@ -1174,6 +1197,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			if (this._rconClient) {
 				this._rconClient.end().catch(() => {});
 			}
+			this._stopUdp();
 
 			if (this._whitelistWatcher) {
 				this._whitelistWatcher.close();
@@ -1192,6 +1216,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			if (this._rconClient) {
 				this._rconClient.end().catch(() => {});
 			}
+			this._stopUdp();
 
 			if (this._whitelistWatcher) {
 				this._whitelistWatcher.close();
@@ -1290,9 +1315,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 */
 	async start(save: string) {
 		this._check(["init"]);
-		if (this.enableLuaUdp) {
-			await this._bindUdpSocket();
-		}
 		this._state = "running";
 
 		try {
@@ -1346,9 +1368,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 */
 	async startScenario(scenario: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
 		this._check(["init"]);
-		if (this.enableLuaUdp) {
-			await this._bindUdpSocket();
-		}
 		this._state = "running";
 
 		try {
@@ -1434,7 +1453,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async sendUdp(message: string | Buffer) {
 		this._check(["running", "stopping"]);
 		if (!this._udpSocket) {
-			throw new Error("Lua UDP is not enabled");
+			throw new Error("UDP socket is not open");
 		}
 
 		const socket = this._udpSocket;
@@ -1478,6 +1497,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		if (this._rconClient) {
 			this._rconClient.end().catch(() => {});
 		}
+		this._stopUdp();
 		if (this._whitelistWatcher) {
 			this._whitelistWatcher.close();
 		}

@@ -159,24 +159,6 @@ describe("Clusterio Instance", function() {
 						const userLeave = await getUser("JoiningPlayer");
 						assert(!userLeave.instances.has(instId), "Player is not shown as offline");
 					});
-					it("should respond to a player join and leave event sent over UDP", async function() {
-						// The host port is passed to the module by updateInstanceData on startup
-						if (!hasLuaUdp() || !scriptCommandsEnabled) {
-							this.skip();
-						}
-						await sendRcon(instId,
-							`/sc ${requireApi} api.send_udp("player_event",` +
-							"{ type='join', name='UdpPlayer' })"
-						);
-						const userJoin = await getUser("UdpPlayer");
-						assert(userJoin.instances.has(instId), "Player is not shown as online");
-						await sendRcon(instId,
-							`/sc ${requireApi} api.send_udp("player_event",` +
-							"{ type='leave', name='UdpPlayer', reason='quit' })"
-						);
-						const userLeave = await getUser("UdpPlayer");
-						assert(!userLeave.instances.has(instId), "Player is not shown as offline");
-					});
 				}
 				it("should respond to a player ban and unban event", async function() {
 					await execCtl(`${instSetConfig} factorio.sync_banlist bidirectional`);

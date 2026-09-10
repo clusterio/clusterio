@@ -335,13 +335,25 @@ Instances can optionally exchange UDP packets with the Factorio server for low l
 This is disabled by default and enabled by setting `factorio.enable_lua_udp` on the instance.
 Sending data out of Factorio also needs `factorio.enable_script_commands`, as the port to send to is passed to the module with a script command on startup.
 Plugins requiring it should declare the `LuaUdp` feature.
-Note that UDP does not guarantee delivery or ordering, and packets should be kept well below 64 kB.
+Note that UDP does not guarantee delivery or ordering, and packets should be kept well below 32 kB.
 
-Data out from Factorio is sent with the `send_udp` API of the Clusterio module and is delivered to plugins as the same `ipc-channel_name` events as `send_json` uses:
+Data out from Factorio is sent with the `send_udp` API of the Clusterio module.
+Unlike `send_json` the payload is an arbitrary string, and it is delivered to plugins as a `udp-channel_name` event with the payload as a Buffer:
 
 ```lua
-clusterio_api.send_udp("my_plugin_foo", { data = 123 })
+clusterio_api.send_udp("my_plugin_foo", "123")
 ```
+
+```js
+async init() {
+    this.instance.server.handleUdp("my_plugin_foo", async data => {
+        this.logger.info(`got ${data.toString()}`);
+    });
+}
+```
+
+Like `handle` for `send_json`, `handleUdp` logs errors thrown by the handler.
+Use `this.instance.server.on("udp-my_plugin_foo", ...)` for custom error handling.
 
 Data into Factorio is sent with the `sendUdp` method on the plugin object and delivered in-game as `defines.events.on_udp_packet_received` events with the packet in `event.payload`.
 The Clusterio module polls for received packets every tick, all modules and mods receive every packet so make sure the payload identifies your plugin.
