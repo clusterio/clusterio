@@ -586,7 +586,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		"factorio.enable_lua_udp": {
 			description:
 				"Enable UDP messaging between the Factorio server and the host. " +
-				"Required by plugins using UDP. Requires Factorio 2.1.12 or later.",
+				"Required by plugins using UDP. Requires Factorio 2.1.10 or later.",
 			restartRequired: true, // Because of the cli option "--enable-lua-udp"
 			type: "boolean",
 			initialValue: false,

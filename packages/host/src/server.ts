@@ -863,10 +863,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		this._udpSocket = socket;
 	}
 
-	// Factorio before 2.1.12 crashes when a packet is received while paused
+	// Factorio before 2.1.10 crashes when a packet is received on a headless server
 	_checkLuaUdpVersion() {
-		if (this.enableLuaUdp && lib.integerFullVersion(this._version!) < lib.integerFullVersion("2.1.12")) {
-			throw new Error("Lua UDP requires Factorio 2.1.12 or later");
+		if (this.enableLuaUdp && lib.integerFullVersion(this._version!) < lib.integerFullVersion("2.1.10")) {
+			throw new Error("Lua UDP requires Factorio 2.1.10 or later");
 		}
 	}
 

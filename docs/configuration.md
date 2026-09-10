@@ -309,7 +309,7 @@ Defaults to true.
 
 Enable UDP messaging between the host and the Factorio server by passing `--enable-lua-udp` to Factorio.
 This lets plugins send UDP packets to the server and receive data sent with `clusterio_api.send_udp` in-game.
-Requires Factorio 2.1.12 or later, earlier versions crash when a packet is received while the server is paused.
+Requires Factorio 2.1.10 or later, earlier versions crash when a packet is received on a headless server.
 
 Defaults to false.
 

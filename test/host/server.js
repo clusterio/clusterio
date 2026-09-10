@@ -366,12 +366,12 @@ describe("host/server", function() {
 				return { lines, restore: () => { server._logger = logger; } };
 			}
 
-			it("should refuse to start on Factorio before 2.1.12", async function() {
+			it("should refuse to start on Factorio before 2.1.10", async function() {
 				const version = server._version;
-				server._version = "2.1.11";
+				server._version = "2.1.9";
 				server.enableLuaUdp = true;
 				try {
-					const error = new Error("Lua UDP requires Factorio 2.1.12 or later");
+					const error = new Error("Lua UDP requires Factorio 2.1.10 or later");
 					await assert.rejects(server.start("save.zip"), error);
 					await assert.rejects(server.startScenario("test"), error);
 					assert.equal(server._state, "init");

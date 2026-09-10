@@ -123,8 +123,8 @@ describe("Integration of host/src/server", function() {
 				let mapPath = server.writePath("saves", "test.zip");
 				await assert.doesNotReject(fs.access(mapPath), "save is missing");
 
-				// Lua UDP needs Factorio 2.1.12, see docs/configuration.md
-				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.12");
+				// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
+				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.10");
 				await server.start("test.zip");
 			});
 		});
