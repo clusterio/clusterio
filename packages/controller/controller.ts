@@ -268,7 +268,7 @@ interface InitializeParameters {
 
 async function initialize(): Promise<InitializeParameters> {
 	// argument parsing
-	const args = await yargs
+	const args = await yargs(process.argv.slice(2))
 		.scriptName("controller")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
@@ -340,7 +340,7 @@ async function initialize(): Promise<InitializeParameters> {
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
-		.argv
+		.parse()
 	;
 
 	// Combined log stream of the whole cluster.

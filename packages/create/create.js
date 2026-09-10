@@ -750,7 +750,7 @@ async function inquirerMissingArgs(args) {
 }
 
 async function main() {
-	let args = yargs
+	let yarg = yargs(process.argv.slice(2))
 		.option("log-level", {
 			nargs: 1, describe: "Log level to print to stdout", default: "info",
 			choices: ["none"].concat(Object.keys(levels)), type: "string",
@@ -805,14 +805,14 @@ async function main() {
 	;
 
 	if (process.platform === "linux") {
-		args = args
+		yarg = yarg
 			.option("allow-install-as-root", {
 				nargs: 0, describe: "(Linux only) Allow installing as root (not recommended)", type: "boolean",
 			})
 		;
 	}
 
-	args = args.argv;
+	const args = yarg.parse();
 
 	setLogLevel(args.logLevel === "none" ? -1 : levels[args.logLevel]);
 	dev = args.dev;

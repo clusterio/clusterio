@@ -121,7 +121,7 @@ async function build(args) {
 
 
 async function main() {
-	const args = yargs
+	const args = yargs(process.argv.slice(2))
 		.scriptName("build")
 		.options({
 			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
@@ -144,7 +144,7 @@ async function main() {
 			},
 		})
 		.strict()
-		.argv
+		.parse()
 	;
 
 	await build(args);
