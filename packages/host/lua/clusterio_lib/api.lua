@@ -73,9 +73,7 @@ function api.send_udp(channel, data)
 		return -- Lua UDP is not enabled for this instance
 	end
 
-	channel = escape_channel(channel)
-	data = compat.table_to_json(data)
-	helpers.send_udp(port, "\f$ipc:" .. channel .. "?j" .. data, 0)
+	helpers.send_udp(port, escape_channel(channel) .. "?" .. data, 0)
 end
 
 
