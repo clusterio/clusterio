@@ -106,6 +106,9 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		this._state = "connected";
 		this._attachSocketHandlers();
 		this._dropSendBufferSeq(lastSeq);
+		logger.verbose(
+			`Connector | resuming session with ${this.dst}, resending ${this._sendBuffer.length} buffered messages`
+		);
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
@@ -113,7 +116,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	}
 
 	_timedOut() {
-		logger.verbose("Connector | Connection timed out");
+		logger.verbose(`Connector | Connection to ${this.dst} timed out`);
 		this._close();
 	}
 

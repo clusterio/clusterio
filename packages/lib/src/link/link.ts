@@ -444,7 +444,7 @@ export class Link {
 		let pending = this._pendingRequests.get(message.dst.requestId!);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
-				`Received response ${message.dst.requestId} without a pending request`
+				`Received response ${message.dst.requestId} from ${message.src} without a pending request`
 			);
 		}
 
@@ -465,7 +465,7 @@ export class Link {
 		let pending = this._pendingRequests.get(message.dst.requestId!);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
-				`Received error response ${message.dst.requestId} without a pending request`
+				`Received error response ${message.dst.requestId} from ${message.src} without a pending request`
 			);
 		}
 
