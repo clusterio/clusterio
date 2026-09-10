@@ -167,16 +167,12 @@ Your instances (save files etc) will be stored there.
 ### Installing Plugins
 
 For well-known plugins you can select them during installation and no further steps are necessary to make them work.
-Installing plugins that are not offered by the installer consists of two steps.
-First install the package the plugin is provided by via npm, for example
+Plugins that are not offered by the installer can be installed by the name of the npm package that provides them, for example
 
-    npm install @clusterio/plugin-subspace_storage
+    npx clusteriocontroller plugin install @clusterio/plugin-subspace_storage
 
-Then tell clusterio that this plugin exists by adding it as a plugin.
-
-    npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
-
-This adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by controller, host and ctl.
+This installs the package with npm and adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by controller, host and ctl.
+The command must be run from the directory clusterio was installed in and will refuse to run anywhere else.
 If you have hosts or ctl installed on separate computers (or directories) then you need to repeat the plugin install process for all of them.
 The clusteriocontroller, clusteriohost and clusterioctl commands has the plugin sub-command so you do not need to install clusteriocontroller to add plugins, instead use the clusterio command you have available.
 
