@@ -10,6 +10,7 @@ const express = require("express");
 const {
 	ControllerConfig, Address, RequestError,
 	InstanceConfig, SystemInfo, Role, ModPack,
+	addPluginConfigFields,
 } = require("@clusterio/lib");
 
 class MockEvent {}
@@ -234,13 +235,16 @@ describe("controller/src/Controller", function() {
 			});
 		});
 		describe(".checkRestartRequired()", function() {
+			before(function() {
+				addPluginConfigFields([{ name: "restart_test" }]);
+			});
 			beforeEach(function() {
 				// Would not be needed if controller setup was beforeEach
-				controller.config.restartRequired = false;
 				controller.config.set("controller.version", controllerVersion);
-				controller.config.set("global_chat.load_plugin", true);
+				controller.config.set("restart_test.load_plugin", true);
+				controller.config.restartRequired = false;
 				controller.pluginInfos[0] = {
-					name: "global_chat",
+					name: "restart_test",
 					packagePath: require.resolve("@clusterio/controller/package.json"),
 					version: controllerVersion,
 				};
@@ -256,7 +260,7 @@ describe("controller/src/Controller", function() {
 				controller.pluginInfos[0].version = "0.0.0";
 				controller.pluginInfos[0].webEntrypoint = true;
 				controller.pluginInfos[0].controllerEntrypoint = true;
-				controller.config.set("global_chat.load_plugin", false);
+				controller.config.set("restart_test.load_plugin", false);
 				controller.config.restartRequired = false; // Setting load_plugin requires a restart
 				const result = await controller.checkRestartRequired();
 				assert.equal(result, false);

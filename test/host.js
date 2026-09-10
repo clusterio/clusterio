@@ -119,10 +119,13 @@ describe("Host testing", function() {
 		describe(".checkRestartRequired()", function() {
 			let host;
 			const hostVersion = require("@clusterio/host/package.json").version;
+			before(function() {
+				lib.addPluginConfigFields([{ name: "restart_test", hostEntrypoint: "host.js" }]);
+			});
 			beforeEach(function() {
 				// This can be used more generally, but i did not want to interfere with handleSyncUserListsEvent
 				const pluginInfos = [{
-					name: "global_chat",
+					name: "restart_test",
 					packagePath: require.resolve("@clusterio/host/package.json"),
 					version: hostVersion,
 				}];
@@ -141,7 +144,7 @@ describe("Host testing", function() {
 				host.pluginInfos[0].version = "0.0.0";
 				host.pluginInfos[0].hostEntrypoint = true;
 				host.pluginInfos[0].instanceEntrypoint = true;
-				host.config.set("global_chat.load_plugin", false);
+				host.config.set("restart_test.load_plugin", false);
 				host.config.restartRequired = false; // Setting load_plugin requires a restart
 				const result = await host.checkRestartRequired();
 				assert.equal(result, false);
