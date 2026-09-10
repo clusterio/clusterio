@@ -240,6 +240,35 @@ describe("host/patch", function() {
 			assert.deepEqual([...modules.keys()], ["research_sync", "clusterio"]);
 			assert(modules.get("research_sync").files.has("modules/research_sync/sync.lua"));
 		});
+		it("should skip plugins without a module", async function() {
+			const pluginInfos = await lib.loadPluginInfos(
+				new Map([["test_plugin", path.resolve("test/file/test_plugin")]])
+			);
+			const modules = await patch.loadModules(pluginInfos);
+			assert.deepEqual([...modules.keys()], ["clusterio"]);
+		});
+		it("should throw on a plugin module named like a bundled module", async function() {
+			const pluginDir = path.join("temp", "test", "clusterio_plugin");
+			await fs.mkdir(path.join(pluginDir, "module"), { recursive: true });
+			await fs.writeFile(path.join(pluginDir, "package.json"), "{}");
+			await fs.writeFile(path.join(pluginDir, "module", "module.json"), "{}");
+			await assert.rejects(
+				patch.loadModules([{ name: "clusterio", version: "1.0.0", requirePath: path.resolve(pluginDir) }]),
+				new Error("Module with name clusterio already exists in a plugin")
+			);
+		});
+	});
+
+	describe("class SaveModule", function() {
+		describe("static fromPlugin()", function() {
+			it("should load the module of the plugin", async function() {
+				const [info] = await lib.loadPluginInfos(
+					new Map([["research_sync", path.resolve("plugins/research_sync")]])
+				);
+				const pluginModule = await patch.SaveModule.fromPlugin({ info });
+				assert.equal(pluginModule.info.name, "research_sync");
+			});
+		});
 	});
 
 	describe("patch()", function() {
