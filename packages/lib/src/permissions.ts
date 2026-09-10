@@ -145,6 +145,11 @@ export const corePermissions = [
 		description: "Modify the controller config or entries of the controller config.",
 	},
 	{
+		name: "core.controller.metrics",
+		title: "Scrape metrics",
+		description: "Fetch the Prometheus metrics for the cluster from the controller's /metrics endpoint.",
+	},
+	{
 		name: "core.system.subscribe",
 		title: "Subscribe to system updates",
 		description:

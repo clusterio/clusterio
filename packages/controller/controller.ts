@@ -101,6 +101,9 @@ void new lib.Gauge(
 	"clusterio_controller_websocket_active_connections",
 	"How many WebSocket connections are currently open to the controller",
 	{ callback: function(gauge:lib.Gauge) {
+		if (!controller) {
+			return;
+		}
 		gauge.set(controller.wsServer.activeConnectors.size);
 	}}
 );
@@ -109,6 +112,9 @@ void new lib.Gauge(
 	"clusterio_controller_active_hosts",
 	"How many hosts are currently connected to the controller",
 	{ callback: function(gauge:lib.Gauge) {
+		if (!controller) {
+			return;
+		}
 		gauge.set(controller.wsServer.hostConnections.size);
 	}}
 );
@@ -118,6 +124,9 @@ void new lib.Gauge(
 	"How many clients are currently connected to this controller",
 	{
 		labels: ["type"], callback: async function(gauge:lib.Gauge) {
+			if (!controller) {
+				return;
+			}
 			gauge.labels("host").set(controller.wsServer.hostConnections.size);
 			gauge.labels("control").set(controller.wsServer.controlConnections.size);
 		},
