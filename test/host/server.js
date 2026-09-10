@@ -380,6 +380,23 @@ describe("host/server", function() {
 					server.enableLuaUdp = false;
 				}
 			});
+			it("should open the socket when RCON starts", async function() {
+				const startRcon = server._startRcon;
+				server._startRcon = async () => {};
+				server.enableLuaUdp = true;
+				try {
+					server._handleOutput(Buffer.from(
+						"   0.500 Info RemoteCommandProcessor.cpp:133: Starting RCON interface"
+					), "stdout");
+					while (!server._udpSocket) {
+						await wait(1);
+					}
+				} finally {
+					server._startRcon = startRcon;
+					server.enableLuaUdp = false;
+				}
+				assert(server.hostUdpPort > 0, "socket was not opened");
+			});
 			it("should not have a host port when not running", function() {
 				assert.equal(server.hostUdpPort, undefined);
 			});
