@@ -5,9 +5,10 @@
  */
 import path from "path";
 import fs from "node:fs/promises";
-import * as libErrors from "./errors";
-import * as libPlugin from "./plugin";
-import { logger } from "./logging";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import * as libErrors from "./errors.js";
+import * as libPlugin from "./plugin.js";
+import { logger } from "./logging.js";
 
 
 /**
@@ -32,7 +33,9 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		try {
 			const absolute = path.isAbsolute(pluginPath);
 			const packageImport = path.posix.join(pluginPath, "package.json");
-			packagePath = require.resolve(packageImport);
+			packagePath = fileURLToPath(import.meta.resolve(
+				absolute ? pathToFileURL(packageImport).href : packageImport
+			));
 			await fs.access(packagePath, fs.constants.F_OK);
 		} catch (err) {
 			let errMsg = `Plugin path ${pluginPath} does not exist`;
@@ -46,8 +49,10 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		}
 
 		try {
-			pluginInfo = require(pluginPath).plugin;
-			pluginPackage = require(packagePath);
+			pluginPackage = (await import(pathToFileURL(packagePath).href, { with: { type: "json" }})).default;
+			pluginInfo = (await import(
+				pathToFileURL(path.posix.join(pluginPath, pluginPackage.main ?? "index.js")).href
+			)).plugin;
 		} catch (err: any) {
 			if (err.code === "InstallationError") {
 				throw err;
@@ -89,7 +94,7 @@ export async function loadPluginClass<Class extends { new (...args: any): any }>
 	className: string,
 	pluginClass: Class,
 ): Promise<Class> {
-	let entrypoint = require(requirePath);
+	let entrypoint = await import(pathToFileURL(requirePath).href);
 	if (!entrypoint[className]) {
 		throw new libErrors.PluginError(pluginName,
 			new Error(`Expected ${requirePath} to export a class named ${className}`)

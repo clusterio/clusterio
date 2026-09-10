@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import type { Control } from "../ctl";
+import type { Control } from "../ctl.js";
 
 export const debugCommands = new lib.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new lib.Command({

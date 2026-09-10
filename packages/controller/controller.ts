@@ -27,12 +27,12 @@ import jwt from "jsonwebtoken";
 
 // homebrew modules
 import * as lib from "@clusterio/lib";
-const { ConsoleTransport, levels, logger } = lib;
+import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Controller from "./src/Controller";
-import UserManager from "./src/UserManager";
-import UserRecord from "./src/UserRecord";
-import { version } from "./package.json";
+import Controller from "./src/Controller.js";
+import UserManager from "./src/UserManager.js";
+import UserRecord from "./src/UserRecord.js";
+import packageConfig from "./package.json" with { type: "json" };
 
 // globals
 let controller: Controller;
@@ -216,7 +216,7 @@ async function handleCopyStaticCommand(
 	pluginInfos: lib.PluginNodeEnvInfo[],
 ) {
 	await fs.cp(
-		path.join(__dirname, "..", "web", "static"),
+		path.join(import.meta.dirname, "..", "web", "static"),
 		args.target,
 		{
 			recursive: true,
@@ -377,7 +377,7 @@ async function initialize(): Promise<InitializeParameters> {
 	let command = args._[0];
 	let shouldRun = false;
 	if (command === "run") {
-		logger.info(`Starting Clusterio controller ${version}`);
+		logger.info(`Starting Clusterio controller ${packageConfig.version}`);
 		if (args.recovery) {
 			logger.warn("Controller recovery mode enabled. Some features will be disabled.");
 		}
@@ -426,7 +426,7 @@ async function initialize(): Promise<InitializeParameters> {
 		}
 	}
 
-	controllerConfig.set("controller.version", version); // Allows tracking last loaded version
+	controllerConfig.set("controller.version", packageConfig.version); // Allows tracking last loaded version
 
 	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
@@ -537,6 +537,6 @@ ${err.stack}`
 	});
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

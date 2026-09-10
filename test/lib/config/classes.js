@@ -1,8 +1,7 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const fs = require("node:fs/promises");
-const path = require("path");
-const assert = require("assert").strict;
+import * as lib from "@clusterio/lib";
+import fs from "node:fs/promises";
+import path from "node:path";
+import assert from "node:assert/strict";
 const CA = lib.ConfigAccess;
 
 

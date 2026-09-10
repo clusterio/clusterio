@@ -1,10 +1,9 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const { testLines } = require("./factorio/lines");
-const lib = require("@clusterio/lib");
+import { testLines } from "./factorio/lines.js";
+import * as lib from "@clusterio/lib";
 
 
 describe("lib/logging_utils.js", function() {

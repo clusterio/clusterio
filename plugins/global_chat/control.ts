@@ -1,6 +1,6 @@
 import { CommandTree, Command } from "@clusterio/lib";
 import { BaseCtlPlugin } from "@clusterio/ctl";
-import { ChatEvent } from "./messages";
+import { ChatEvent } from "./messages.js";
 
 const globalChatCommands = new CommandTree({
 	name: "global-chat", description: "Global Chat plugin commands",

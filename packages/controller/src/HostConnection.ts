@@ -1,12 +1,12 @@
-import type Controller from "./Controller";
-import type WsServerConnector from "./WsServerConnector";
+import type Controller from "./Controller.js";
+import type WsServerConnector from "./WsServerConnector.js";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
-import BaseConnection from "./BaseConnection";
-import InstanceRecord from "./InstanceRecord";
-import HostRecord from "./HostRecord";
+import BaseConnection from "./BaseConnection.js";
+import InstanceRecord from "./InstanceRecord.js";
+import HostRecord from "./HostRecord.js";
 
 
 /**

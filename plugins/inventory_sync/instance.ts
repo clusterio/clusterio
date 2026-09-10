@@ -2,7 +2,7 @@ import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
-} from "./messages";
+} from "./messages.js";
 
 type IpcPlayerName = {
 	player_name: string

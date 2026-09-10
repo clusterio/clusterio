@@ -1,9 +1,9 @@
 import { Type, Static } from "@sinclair/typebox";
-import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUser, JsonBoolean, StringEnum, AccountDetails } from "./data";
-import isDeepStrictEqual from "./is_deep_strict_equal";
-import { RequestError } from "./errors";
-import { logger } from "./logging";
+import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link/index.js";
+import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data/index.js";
+import isDeepStrictEqual from "#is_deep_strict_equal";
+import { RequestError } from "./errors.js";
+import { logger } from "./logging.js";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void

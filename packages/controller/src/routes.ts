@@ -1,5 +1,5 @@
 import type { Application, Request, Response } from "express";
-import Controller from "./Controller";
+import Controller from "./Controller.js";
 
 import busboy from "busboy";
 import crypto from "crypto";
@@ -12,7 +12,7 @@ import nodeStream from "stream";
 import util from "util";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
 const finished = util.promisify(nodeStream.finished);
 

@@ -15,7 +15,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import yargs from "yargs";
-import { version } from "./package.json";
+import packageConfig from "./package.json" with { type: "json" };
 import winston from "winston";
 import "winston-daily-rotate-file";
 
@@ -23,7 +23,7 @@ import "winston-daily-rotate-file";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Host from "./src/Host";
+import Host from "./src/Host.js";
 
 let host: Host | undefined;
 
@@ -69,7 +69,7 @@ export class HostConnector extends lib.WebSocketClientConnector {
 			new lib.MessageRegisterHost(
 				new lib.RegisterHostData(
 					this.hostConfig.get("host.controller_token"),
-					version,
+					packageConfig.version,
 					this.hostConfig.get("host.id"),
 					plugins,
 				)
@@ -145,7 +145,7 @@ async function startHost() {
 
 	let command = args._[0];
 	if (command === "run") {
-		logger.info(`Starting Clusterio host ${version}`);
+		logger.info(`Starting Clusterio host ${packageConfig.version}`);
 		if (args.recovery) {
 			logger.warn("Host recovery mode enabled. Some features will be disabled.");
 		}
@@ -187,7 +187,7 @@ async function startHost() {
 		}
 	}
 
-	hostConfig.set("host.version", version); // Allows tracking last loaded version
+	hostConfig.set("host.version", packageConfig.version); // Allows tracking last loaded version
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);
@@ -308,6 +308,6 @@ ${err.stack}`
 	});
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

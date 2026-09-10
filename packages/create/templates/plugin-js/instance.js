@@ -1,11 +1,10 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const { BaseInstancePlugin } = require("@clusterio/host");
+import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
 //%if multi_context
-const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
+import { PluginExampleEvent, PluginExampleRequest } from "./messages.js";
 //%endif
 
-class InstancePlugin extends BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 //%if multi_context | module
 	async init() {
 //%if multi_context
@@ -68,7 +67,3 @@ class InstancePlugin extends BaseInstancePlugin {
 	}
 //%endif
 }
-
-module.exports = {
-	InstancePlugin,
-};

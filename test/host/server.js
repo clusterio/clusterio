@@ -1,14 +1,12 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import events from "node:events";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const hostServer = require("@clusterio/host/dist/node/src/server");
-const lib = require("@clusterio/lib");
-const { wait } = lib;
-const { testLines } = require("../lib/factorio/lines");
-const { slowTest, externalTest } = require("../integration");
+import * as hostServer from "@clusterio/host/dist/node/src/server.js";
+import { Link, wait } from "@clusterio/lib";
+import { testLines } from "../lib/factorio/lines.js";
+import { slowTest, externalTest } from "../integration/index.js";
 
 
 describe("host/server", function() {
@@ -326,7 +324,7 @@ describe("host/server", function() {
 					static jsonSchema = { type: "number" };
 					static fromJSON(json) { return new this(json); }
 				}
-				let eventFromJSON = lib.Link.eventFromJSON(NumberEvent, "NumberEvent");
+				let eventFromJSON = Link.eventFromJSON(NumberEvent, "NumberEvent");
 				ipcServer.handle("bad_event", async () => { eventFromJSON("not a number"); });
 				ipcServer.emit("ipc-bad_event", {});
 				await new Promise(resolve => setImmediate(resolve));

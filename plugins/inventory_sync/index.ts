@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import * as messages from "./messages";
+import * as messages from "./messages.js";
 
 declare module "@clusterio/lib" {
 	export interface InstanceConfigFields {
@@ -22,7 +22,7 @@ export const plugin: lib.PluginDeclaration = {
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",
 
-	instanceEntrypoint: "dist/node/instance",
+	instanceEntrypoint: "dist/node/instance.js",
 	instanceConfigFields: {
 		"inventory_sync.rcon_chunk_size": {
 			title: "Rcon inventory chunk size",
@@ -33,7 +33,7 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
-	controllerEntrypoint: "dist/node/controller",
+	controllerEntrypoint: "dist/node/controller.js",
 	controllerConfigFields: {
 		"inventory_sync.player_lock_timeout": {
 			title: "Player Lock Timeout",

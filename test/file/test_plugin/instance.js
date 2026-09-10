@@ -1,12 +1,7 @@
-"use strict";
-const { BaseInstancePlugin } = require("@clusterio/host");
+import { BaseInstancePlugin } from "@clusterio/host";
 
-class InstancePlugin extends BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	async init() {
 		this.logger.info("test_plugin instance loaded");
 	}
 }
-
-module.exports = {
-	InstancePlugin,
-};

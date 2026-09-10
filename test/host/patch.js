@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const JSZip = require("jszip");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import JSZip from "jszip";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const patch = require("@clusterio/host/dist/node/src/patch");
+import * as lib from "@clusterio/lib";
+import * as patch from "@clusterio/host/dist/node/src/patch.js";
 
 
 describe("host/patch", function() {

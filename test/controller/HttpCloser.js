@@ -1,12 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const http = require("http");
-const https = require("https");
-const util = require("util");
-const events = require("node:events");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import http from "node:http";
+import https from "node:https";
+import util from "node:util";
+import events from "node:events";
 
-const HttpCloser = require("@clusterio/controller/dist/node/src/HttpCloser").default;
+import HttpCloser from "@clusterio/controller/dist/node/src/HttpCloser.js";
 
 // Time to wait during async operations to ensure they happened in order.
 const tick = 20;

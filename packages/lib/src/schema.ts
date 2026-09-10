@@ -2,7 +2,7 @@
  * JSON schemas used for validating link messages
  * @module lib/schema
  */
-import Ajv, { JSONSchemaType, ValidateFunction } from "ajv";
+import { Ajv, JSONSchemaType, ValidateFunction } from "ajv";
 const ajv = new Ajv({
 	// These are duplicated in scripts/compile_validator
 	allowUnionTypes: true,

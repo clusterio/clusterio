@@ -1,7 +1,7 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
 
-const { Gauge } = lib;
+import { Gauge } from "@clusterio/lib";
 
 type IpcStats = {
 	game_tick: number,

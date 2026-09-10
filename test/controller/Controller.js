@@ -1,17 +1,16 @@
-"use strict";
-const path = require("node:path");
-const assert = require("assert").strict;
-const { Controller, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
-const { EventEmitter } = require("stream");
-const events = require("node:events");
-const http = require("node:http");
-const express = require("express");
+import path from "node:path";
+import assert from "node:assert/strict";
+import { Controller, HostRecord, InstanceRecord, UserRecord } from "@clusterio/controller";
+import events, { EventEmitter } from "node:events";
+import http from "node:http";
+import express from "express";
+import { fileURLToPath } from "node:url";
 
-const {
+import {
 	ControllerConfig, Address, RequestError,
 	InstanceConfig, SystemInfo, Role, ModPack,
 	addPluginConfigFields,
-} = require("@clusterio/lib");
+} from "@clusterio/lib";
 
 class MockEvent {}
 
@@ -33,10 +32,12 @@ class MockInstanceConfig extends EventEmitter {
 }
 
 describe("controller/src/Controller", function() {
-	describe("class Controller", function() {
+	describe("class Controller", async function() {
 		/** @type {Controller} */
 		let controller, mockInstanceConfig;
-		const controllerVersion = require("@clusterio/controller/package.json").version;
+		const controllerVersion = (
+			await import("@clusterio/controller/package.json", { with: { type: "json" }})
+		).default.version;
 		before(async function() {
 			const controllerConfig = new ControllerConfig("controller", { "controller.version": controllerVersion });
 			controller = new Controller({}, [], controllerConfig);
@@ -245,7 +246,7 @@ describe("controller/src/Controller", function() {
 				controller.config.restartRequired = false;
 				controller.pluginInfos[0] = {
 					name: "restart_test",
-					packagePath: require.resolve("@clusterio/controller/package.json"),
+					packagePath: fileURLToPath(import.meta.resolve("@clusterio/controller/package.json")),
 					version: controllerVersion,
 				};
 			});

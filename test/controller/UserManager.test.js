@@ -1,10 +1,9 @@
-"use strict";
-const path = require("path");
-const fs = require("node:fs/promises");
-const assert = require("assert").strict;
-const jwt = require("jsonwebtoken");
-const { Role, SubscribableDatastore, ControllerConfig } = require("@clusterio/lib");
-const { UserRecord, UserManager } = require("@clusterio/controller");
+import path from "node:path";
+import fs from "node:fs/promises";
+import assert from "node:assert/strict";
+import jwt from "jsonwebtoken";
+import { Role, SubscribableDatastore, ControllerConfig } from "@clusterio/lib";
+import { UserRecord, UserManager } from "@clusterio/controller";
 
 const TEMP_DIR = path.join("temp", "test", "UserManager");
 
