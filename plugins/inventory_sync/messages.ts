@@ -21,7 +21,6 @@ export type IpcPlayerData = {
 	personal_logistic_slots?: {name:string, min:number, max:number}[],
 	crafting_queue?: any,
 	recipe_notifications?: string,
-	recipe_notifications_delta?: string,
 }
 
 const jsonPlayerData = Type.Object({

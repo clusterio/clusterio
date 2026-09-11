@@ -48,25 +48,27 @@ describe("inventory_sync", function() {
 		it("should replace the stored list with an encoded delta", async function() {
 			const playerData = { name: "test", recipe_notifications: await encode(["a", "b"]) };
 			await apply(playerData, await encode(["b", "c"]));
-			assert.equal(playerData.recipe_notifications, undefined);
-			assert.deepEqual(await decode(playerData.recipe_notifications_delta), { add: ["a"], remove: ["c"] });
+			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a"], remove: ["c"] });
 		});
 		it("should send an empty delta when nothing changed", async function() {
 			const playerData = { name: "test", recipe_notifications: await encode(["a"]) };
 			await apply(playerData, await encode(["a"]));
-			assert.deepEqual(await decode(playerData.recipe_notifications_delta), {});
+			assert.deepEqual(await decode(playerData.recipe_notifications), {});
+		});
+		it("should add everything without a current list", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode(["a"]) };
+			await apply(playerData, undefined);
+			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a"] });
 		});
 		it("should do nothing without stored notifications", async function() {
 			const playerData = { name: "test" };
 			await apply(playerData, await encode(["a"]));
 			assert.deepEqual(playerData, { name: "test" });
 		});
-		it("should fall back to the full list on invalid input", async function() {
-			const stored = await encode(["a"]);
-			const playerData = { name: "test", recipe_notifications: stored };
-			await apply(playerData, "not base64 zlib");
-			assert.equal(playerData.recipe_notifications, stored);
-			assert.equal(playerData.recipe_notifications_delta, undefined);
+		it("should drop the field on invalid input", async function() {
+			const playerData = { name: "test", recipe_notifications: "not base64 zlib" };
+			await apply(playerData, await encode(["a"]));
+			assert.equal(playerData.recipe_notifications, undefined);
 			assert.equal(warnings.length, 1);
 		});
 	});
@@ -106,16 +108,16 @@ describe("inventory_sync", function() {
 				["/sc inventory_sync.download_inventory('test',nil,0,0)"]
 			);
 		});
-		it("should send the full list when no snapshot was given", async function() {
-			const playerData = { generation: 1, name: "test", recipe_notifications: await encode(["a"]) };
-			respondWith({ ...playerData });
+		it("should send everything as a delta when no snapshot was given", async function() {
+			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a"]) });
 			await instancePlugin.handleDownload({ player_name: "test" });
-			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(playerData)]);
+			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
+			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 		it("should send a delta when a snapshot was given", async function() {
 			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a", "b"]) });
 			await instancePlugin.handleDownload({ player_name: "test", recipe_notifications: await encode(["b"]) });
-			const expected = { generation: 1, name: "test", recipe_notifications_delta: await encode({ add: ["a"] }) };
+			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
 			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 		it("should be invoked by the download ipc", async function() {

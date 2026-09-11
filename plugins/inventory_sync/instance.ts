@@ -217,19 +217,19 @@ export class InstancePlugin extends BaseInstancePlugin {
 	 * Replace the stored recipe notifications with the difference from the
 	 * current state on the instance to reduce the amount of data sent to Lua.
 	 */
-	async applyRecipeNotificationDelta(playerData: IpcPlayerData, current: string) {
+	async applyRecipeNotificationDelta(playerData: IpcPlayerData, current?: string) {
 		if (!playerData.recipe_notifications) {
 			return;
 		}
 		try {
 			const delta = recipeNotificationDelta(
 				JSON.parse(await decodeLuaString(playerData.recipe_notifications)),
-				JSON.parse(await decodeLuaString(current)),
+				current ? JSON.parse(await decodeLuaString(current)) : [],
 			);
-			playerData.recipe_notifications_delta = await encodeLuaString(JSON.stringify(delta));
-			delete playerData.recipe_notifications;
+			playerData.recipe_notifications = await encodeLuaString(JSON.stringify(delta));
 		} catch (err: any) {
-			this.logger.warn(`Sending full recipe notifications for ${playerData.name}:\n${err.stack}`);
+			this.logger.warn(`Dropping invalid recipe notifications for ${playerData.name}:\n${err.stack}`);
+			delete playerData.recipe_notifications;
 		}
 	}
 
@@ -247,9 +247,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 			return;
 		}
 
-		if (request.recipe_notifications) {
-			await this.applyRecipeNotificationDelta(response.playerData, request.recipe_notifications);
-		}
+		await this.applyRecipeNotificationDelta(response.playerData, request.recipe_notifications);
 
 		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));

@@ -545,95 +545,54 @@ function serialize.serialize_crafting_notifications(player, failed)
 	return helpers.encode_string(helpers.table_to_json(recipe_names))
 end
 
---- Current notification state, sent with download requests so the instance plugin only returns the difference
---- @param player LuaPlayer
---- @param failed FailedDeserializationPlayerData?
---- @return string?
-function serialize.crafting_notification_snapshot(player, failed)
-	if not recipe_notifications_api then
-		return nil
-	end
-	return serialize.serialize_crafting_notifications(player, failed and failed.recipe_notifications)
-end
-
 --- @class CraftingNotificationDelta
---- @field add string[]? Recipe names to add to the cleared list
---- @field remove string[]? Recipe names to remove from the cleared list
-
---- Rebuild the full serialized form from the snapshot the delta was computed against
---- @param snapshot string
---- @param serialized_delta string
---- @return string?
-function serialize.apply_crafting_notification_delta(snapshot, serialized_delta)
-	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(snapshot)))
-	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
-	--- @type CraftingNotificationDelta
-	local delta = helpers.json_to_table(assert(helpers.decode_string(serialized_delta)))
-	assert(type(delta) == "table", "wrong type decoded from json_to_table")
-	local cleared = {}
-	for _, name in pairs(recipe_names) do
-		cleared[name] = true
-	end
-	for _, name in pairs(delta.remove or {}) do
-		cleared[name] = nil
-	end
-	for _, name in pairs(delta.add or {}) do
-		cleared[name] = true
-	end
-
-	local merged = {}
-	for name in pairs(cleared) do
-		merged[#merged + 1] = name
-	end
-	return helpers.encode_string(helpers.table_to_json(merged))
-end
+--- @field add string[]? Recipes cleared elsewhere that still have a notification here
+--- @field remove string[]? Recipes with a notification elsewhere that are cleared here
 
 --- @param player LuaPlayer
---- @param serialized string
+--- @param serialized string Encoded delta against the state sent with the download request
+--- @param previous_failed string[]? Recipe names that did not exist at the last deserialization
 --- @return string[]? failed Recipe names that do not exist
-function serialize.deserialize_crafting_notifications(player, serialized)
-	-- Decode the recipe name strings
-	local recipe_names = helpers.json_to_table(assert(helpers.decode_string(serialized)))
-	assert(type(recipe_names) == "table", "wrong type decoded from json_to_table")
-	local clear_notification = player.clear_recipe_notification
-	local add_notification = player.add_recipe_notification
-	local notifications = {}
+function serialize.deserialize_crafting_notifications(player, serialized, previous_failed)
+	--- @type CraftingNotificationDelta
+	local delta = helpers.json_to_table(assert(helpers.decode_string(serialized)))
+	assert(type(delta) == "table", "wrong type decoded from json_to_table")
 	local failed = {}
+	for _, recipe_name in pairs(previous_failed or {}) do
+		failed[recipe_name] = true
+	end
 
-	-- Assume all recipes need a notification
+	-- Recipes which can have a notification on this server
+	local enabled = {}
 	for _, recipe in pairs(player.force.recipes) do
 		if recipe.enabled and not recipe.hidden then
-			notifications[recipe.name] = true
+			enabled[recipe.name] = true
 		end
 	end
 
-	-- Remove recipes the player has cleared
-	for _, recipe_name in pairs(recipe_names) do
-		if notifications[recipe_name] then
-			notifications[recipe_name] = false
+	-- Clear notifications the player has cleared elsewhere
+	for _, recipe_name in pairs(delta.add or {}) do
+		if enabled[recipe_name] then
+			player.clear_recipe_notification(recipe_name)
 		else
-			-- Recipe does not exist on this server
-			failed[#failed+1] = recipe_name
+			failed[recipe_name] = true -- Recipe does not exist on this server
 		end
 	end
 
-	-- Clear ones which are ones which are not required
-	for _, recipe in pairs(player.get_recipe_notifications()) do
-		if notifications[recipe.name] == false then
-			clear_notification(recipe.name)
-		end
-		notifications[recipe.name] = nil -- Prevents double add below
-	end
-
-	-- Add any which the player did not have
-	for recipe_name, should_add in pairs(notifications) do
-		if should_add then
-			add_notification(recipe_name)
+	-- Add notifications the player has elsewhere
+	for _, recipe_name in pairs(delta.remove or {}) do
+		if enabled[recipe_name] then
+			player.add_recipe_notification(recipe_name)
+		else
+			failed[recipe_name] = nil
 		end
 	end
 
-	-- Return failed recipes if any
-	return next(failed) and failed or nil
+	local failed_names = {}
+	for recipe_name in pairs(failed) do
+		failed_names[#failed_names + 1] = recipe_name
+	end
+	return next(failed_names) and failed_names or nil
 end
 
 local controller_to_name = {}
@@ -839,8 +798,9 @@ end
 
 --- @param player LuaPlayer
 --- @param serialized SerializedPlayerData
+--- @param previous_failed FailedDeserializationPlayerData?
 --- @return FailedDeserializationPlayerData?
-function serialize.deserialize_player(player, serialized)
+function serialize.deserialize_player(player, serialized, previous_failed)
 	local failed_deserialization = {}
 
 	local target_controller = defines.controllers[serialized.controller]
@@ -927,8 +887,9 @@ function serialize.deserialize_player(player, serialized)
 
 	-- Deserialize recipe notifications
 	if recipe_notifications_api and serialized.recipe_notifications then
-		failed_deserialization.recipe_notifications =
-			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
+		failed_deserialization.recipe_notifications = serialize.deserialize_crafting_notifications(
+			player, serialized.recipe_notifications, previous_failed and previous_failed.recipe_notifications
+		)
 	end
 
 	return next(failed_deserialization) and failed_deserialization or nil
