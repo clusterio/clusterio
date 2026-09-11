@@ -557,6 +557,7 @@ function serialize.deserialize_crafting_notifications(player, serialized, previo
 	--- @type CraftingNotificationDelta
 	local delta = helpers.json_to_table(assert(helpers.decode_string(serialized)))
 	assert(type(delta) == "table", "wrong type decoded from json_to_table")
+
 	local failed = {}
 	for _, recipe_name in pairs(previous_failed or {}) do
 		failed[recipe_name] = true
@@ -567,10 +568,11 @@ function serialize.deserialize_crafting_notifications(player, serialized, previo
 	for _, recipe in pairs(player.force.recipes) do
 		if recipe.enabled and not recipe.hidden then
 			enabled[recipe.name] = true
+			failed[recipe.name] = nil
 		end
 	end
 
-	-- Clear notifications the player has cleared elsewhere
+	-- Clear notifications the player has cleared elsewhere, this means "add seen notification"
 	for _, recipe_name in pairs(delta.add or {}) do
 		if enabled[recipe_name] then
 			player.clear_recipe_notification(recipe_name)
@@ -579,7 +581,7 @@ function serialize.deserialize_crafting_notifications(player, serialized, previo
 		end
 	end
 
-	-- Add notifications the player has elsewhere
+	-- Add notifications the player has elsewhere, this means "remove seen notification"
 	for _, recipe_name in pairs(delta.remove or {}) do
 		if enabled[recipe_name] then
 			player.add_recipe_notification(recipe_name)
