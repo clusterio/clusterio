@@ -6,7 +6,7 @@
  * @author Hornwitser
  * @module lib/users
  */
-import { Permission } from "./data";
+import { Permission } from "./data/index.js";
 
 export const permissions = new Map<string, Permission>();
 

@@ -1,6 +1,5 @@
-"use strict";
 
-const default_map_gen_settings = {
+export const default_map_gen_settings = {
 	autoplace_controls: {
 		"coal": { frequency: 1, size: 1, richness: 1 },
 		"copper-ore": { frequency: 1, size: 1, richness: 1 },
@@ -37,7 +36,7 @@ const default_map_gen_settings = {
 	water: 1,
 };
 
-const default_map_settings = {
+export const default_map_settings = {
 	pollution: {
 		enabled: true,
 		diffusion_ratio: 0.02,
@@ -140,7 +139,7 @@ const default_map_settings = {
 	},
 };
 
-const modified_map_gen_settings = {
+export const modified_map_gen_settings = {
 	autoplace_controls: {
 		"coal": { frequency: 1, size: 1, richness: 1 },
 		"copper-ore": { frequency: 0.5, size: 1, richness: 1 },
@@ -196,7 +195,7 @@ const modified_map_gen_settings = {
 	water: 0.3333333432674408,
 };
 
-const modified_map_settings = {
+export const modified_map_settings = {
 	pollution: {
 		enabled: true,
 		diffusion_ratio: 0.02,
@@ -299,7 +298,7 @@ const modified_map_settings = {
 	},
 };
 
-const modified_v2_map_gen_settings = {
+export const modified_v2_map_gen_settings = {
 	autoplace_controls: {
 		"coal": { frequency: 1, size: 1, richness: 1 },
 		"copper-ore": { frequency: 0.5, size: 1, richness: 1 },
@@ -362,7 +361,7 @@ const modified_v2_map_gen_settings = {
 	territory_settings: null,
 };
 
-const modified_v2_map_settings = {
+export const modified_v2_map_settings = {
 	pollution: {
 		enabled: true,
 		diffusion_ratio: 0.02,
@@ -467,7 +466,7 @@ const modified_v2_map_settings = {
 	},
 };
 
-const modified_v2_1_map_gen_settings = {
+export const modified_v2_1_map_gen_settings = {
 	"autoplace_controls": {
 		"coal": { "frequency": 1, "size": 1, "richness": 1 },
 		"copper-ore": { "frequency": 0.5, "size": 1, "richness": 1 },
@@ -516,7 +515,7 @@ const modified_v2_1_map_gen_settings = {
 	"territory_settings": null,
 };
 
-const modified_v2_1_map_settings = {
+export const modified_v2_1_map_settings = {
 	"pollution": {
 		"enabled": true,
 		"diffusion_ratio": 0.02,
@@ -615,7 +614,7 @@ const modified_v2_1_map_settings = {
 	},
 };
 
-const modified_v2_1_13_map_settings = {
+export const modified_v2_1_13_map_settings = {
 	...modified_v2_1_map_settings,
 	"enemy_expansion": {
 		...modified_v2_1_map_settings.enemy_expansion,
@@ -623,7 +622,7 @@ const modified_v2_1_13_map_settings = {
 	},
 };
 
-const modified_space_age_map_gen_settings = {
+export const modified_space_age_map_gen_settings = {
 	autoplace_controls: {
 		"aquilo_crude_oil": { frequency: 1, size: 1, richness: 1 },
 		"calcite": { frequency: 1, size: 1, richness: 1 },
@@ -700,17 +699,4 @@ const modified_space_age_map_gen_settings = {
 	},
 	no_enemies_mode: false,
 	territory_settings: null,
-};
-
-module.exports = {
-	default_map_gen_settings,
-	default_map_settings,
-	modified_map_gen_settings,
-	modified_map_settings,
-	modified_v2_map_gen_settings,
-	modified_v2_map_settings,
-	modified_v2_1_map_gen_settings,
-	modified_v2_1_map_settings,
-	modified_v2_1_13_map_settings,
-	modified_space_age_map_gen_settings,
 };

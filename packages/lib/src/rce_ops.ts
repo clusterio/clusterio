@@ -1,15 +1,15 @@
 import util from "util";
 import path from "path";
 import { exec } from "child_process";
-import { logger } from "./logging";
-import { RequestError } from "./errors";
-import { PluginNodeEnvInfo } from "./plugin";
+import { logger } from "./logging.js";
+import { RequestError } from "./errors.js";
+import { PluginNodeEnvInfo } from "./plugin.js";
 const execAsync = util.promisify(exec);
 
 function isDev() {
 	//  dev:                 <devRoot>/packages/lib/dist/src/rce_ops.js
 	// prod: <prodRoot>/node_modules/@clusterio/lib/dist/src/rce_ops.js
-	return __dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
+	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
 }
 
 async function logExec(cmd: string) {

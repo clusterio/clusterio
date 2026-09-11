@@ -60,8 +60,8 @@
 		"terser-webpack-plugin": "^5.3.11",
 		"typescript": "^5.7.3",
 		"util": "^0.12.5",
-		"webpack": "^5.98.0",
-		"webpack-cli": "^5.1.4",
+		"webpack": "catalog:",
+		"webpack-cli": "catalog:",
 		"webpack-manifest-plugin": "^5.0.0"
 	},
 	"devDependencies": {

@@ -1,12 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
+import assert from "node:assert/strict";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const lib = require("@clusterio/lib");
-const Host = require("@clusterio/host/dist/node/src/Host").default;
-const Instance = require("@clusterio/host/dist/node/src/Instance").default;
-const { _discoverInstances } = require("@clusterio/host/dist/node/src/Host");
-const { HostConnector } = require("@clusterio/host/dist/node/host");
+import * as lib from "@clusterio/lib";
+import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
+import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { HostConnector } from "@clusterio/host/dist/node/host.js";
 
 describe("Host testing", function() {
 	describe("discoverInstances()", function() {
@@ -116,14 +115,19 @@ describe("Host testing", function() {
 				]);
 			});
 		});
-		describe(".checkRestartRequired()", function() {
+		describe(".checkRestartRequired()", async function() {
 			let host;
-			const hostVersion = require("@clusterio/host/package.json").version;
+			const hostVersion = (
+				await import("@clusterio/host/package.json", { with: { type: "json" }})
+			).default.version;
+			before(function() {
+				lib.addPluginConfigFields([{ name: "restart_test", hostEntrypoint: "host.js" }]);
+			});
 			beforeEach(function() {
 				// This can be used more generally, but i did not want to interfere with handleSyncUserListsEvent
 				const pluginInfos = [{
-					name: "global_chat",
-					requirePath: path.dirname(require.resolve("@clusterio/host/package.json")),
+					name: "restart_test",
+					packagePath: fileURLToPath(import.meta.resolve("@clusterio/host/package.json")),
 					version: hostVersion,
 				}];
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
@@ -141,7 +145,7 @@ describe("Host testing", function() {
 				host.pluginInfos[0].version = "0.0.0";
 				host.pluginInfos[0].hostEntrypoint = true;
 				host.pluginInfos[0].instanceEntrypoint = true;
-				host.config.set("global_chat.load_plugin", false);
+				host.config.set("restart_test.load_plugin", false);
 				host.config.restartRequired = false; // Setting load_plugin requires a restart
 				const result = await host.checkRestartRequired();
 				assert.equal(result, false);
@@ -174,9 +178,11 @@ describe("Host testing", function() {
 				assert.equal(host.config.restartRequired, true);
 			});
 		});
-		describe(".checkRestartDowngrade()", function() {
+		describe(".checkRestartDowngrade()", async function() {
 			let host;
-			const hostVersion = require("@clusterio/host/package.json").version;
+			const hostVersion = (
+				await import("@clusterio/host/package.json", { with: { type: "json" }})
+			).default.version;
 			beforeEach(function() {
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
 				const hostConnector = new HostConnector(hostConfig, []);

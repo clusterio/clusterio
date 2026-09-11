@@ -1,15 +1,14 @@
-"use strict";
-const assert = require("assert").strict;
-const jwt = require("jsonwebtoken");
+import assert from "node:assert/strict";
+import jwt from "jsonwebtoken";
 
-const mock = require("../../../test/mock");
+import * as mock from "../../../test/mock.js";
 
-const controller = require("../dist/node/controller");
-const instance = require("../dist/node/instance");
-const info = require("../dist/node/index").plugin;
-const { FetchPlayerCodeRequest, SetVerifyCodeRequest, PlayerAuthServer } = require("../dist/node/messages");
-const { testRoundTripJsonSerialisable, testMatrix } = require("../../../test/common");
-const lib = require("@clusterio/lib");
+import * as controller from "../dist/node/controller.js";
+import * as instance from "../dist/node/instance.js";
+import { plugin as info } from "../dist/node/index.js";
+import { FetchPlayerCodeRequest, SetVerifyCodeRequest, PlayerAuthServer } from "../dist/node/messages.js";
+import { testRoundTripJsonSerialisable, testMatrix } from "../../../test/common.js";
+import * as lib from "@clusterio/lib";
 
 
 function postJSON(url, body) {

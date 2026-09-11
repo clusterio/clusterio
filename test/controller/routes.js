@@ -1,12 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const FormData = require("form-data");
-const http = require("http");
+import assert from "node:assert/strict";
+import events from "node:events";
+import FormData from "form-data";
+import http from "node:http";
 
-const { wait } = require("@clusterio/lib");
-const routes = require("@clusterio/controller/dist/node/src/routes");
-const mock = require("../mock");
+import { wait } from "@clusterio/lib";
+import * as routes from "@clusterio/controller/dist/node/src/routes.js";
+import * as mock from "../mock.js";
 
 describe("controller/src/routes", function() {
 	let controller;

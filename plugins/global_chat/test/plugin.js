@@ -1,13 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
 
-const mock = require("../../../test/mock");
-const lines = require("../../../test/lib/factorio/lines");
-const instance = require("../dist/node/instance");
-const info = require("../dist/node/index").plugin;
-const { ChatEvent } = require("../dist/node/messages");
-
+import * as mock from "../../../test/mock.js";
+import * as lines from "../../../test/lib/factorio/lines.js";
+import * as instance from "../dist/node/instance.js";
+import { plugin as info } from "../dist/node/index.js";
+import { ChatEvent } from "../dist/node/messages.js";
 
 describe("global_chat plugin", function() {
 	describe("removeTags()", function() {

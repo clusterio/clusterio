@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 //%if multi_context
-import * as Messages from "./messages";
+import * as Messages from "./messages.js";
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.event",
@@ -71,7 +71,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if controller
-	controllerEntrypoint: "./dist/node/controller",
+	controllerEntrypoint: "./dist/node/controller.js",
 //%endif
 //%if controller & config
 	controllerConfigFields: {
@@ -87,7 +87,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if host
-	hostEntrypoint: "./dist/node/host",
+	hostEntrypoint: "./dist/node/host.js",
 //%endif
 //%if host & config
 	hostConfigFields: {
@@ -103,7 +103,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if instance | module // Modules load an empty instance plugin
-	instanceEntrypoint: "./dist/node/instance",
+	instanceEntrypoint: "./dist/node/instance.js",
 //%endif
 //%if instance & config
 	instanceConfigFields: {
@@ -119,7 +119,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if ctl
-	ctlEntrypoint: "./dist/node/ctl",
+	ctlEntrypoint: "./dist/node/ctl.js",
 //%endif
 //%if ctl & config
 	controlConfigFields: {

@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
+import assert from "node:assert/strict";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const { PlayerStats, wait } = lib;
-const Instance = require("@clusterio/host/dist/node/src/Instance").default;
-const { MockConnector, MockServer } = require("../mock");
+import * as lib from "@clusterio/lib";
+import { PlayerStats, wait } from "@clusterio/lib";
+import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { MockConnector, MockServer } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
 

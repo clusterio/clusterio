@@ -1,6 +1,6 @@
 import { BaseInstancePlugin } from "@clusterio/host";
 
-import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages";
+import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages.js";
 
 type IpcPlayerAuth = {
 	type: "open_dialog",

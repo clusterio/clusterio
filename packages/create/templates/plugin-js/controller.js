@@ -1,19 +1,18 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const { BaseControllerPlugin } = require("@clusterio/controller");
+import * as lib from "@clusterio/lib";
+import { BaseControllerPlugin } from "@clusterio/controller";
 //%if multi_context // Messages requires multi context
 
-const {
+import {
 	PluginExampleEvent, PluginExampleRequest,
 //%endif
 //%if controller & web // Subscribing requires web content and the controller
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
 //%if multi_context // Messages requires multi context
-} = require("./messages");
+} from "./messages.js";
 //%endif
 
-class ControllerPlugin extends BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
 //%if controller & web // Subscribing requires web content and the controller
 	exampleDatabase;
 	storageDirty = false;
@@ -79,7 +78,3 @@ class ControllerPlugin extends BaseControllerPlugin {
 	}
 //%endif
 }
-
-module.exports = {
-	ControllerPlugin,
-};

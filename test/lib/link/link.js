@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
+import assert from "node:assert/strict";
+import events from "node:events";
 
-const lib = require("@clusterio/lib");
-const mock = require("../../mock");
+import * as lib from "@clusterio/lib";
+import * as mock from "../../mock.js";
 
 const addr = lib.Address.fromShorthand;
 

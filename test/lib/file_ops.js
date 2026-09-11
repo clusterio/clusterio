@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const http = require("node:http");
-const path = require("path");
-const util = require("node:util");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import http from "node:http";
+import path from "node:path";
+import util from "node:util";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 describe("lib/file_ops", function() {
 	let baseDir = path.join("temp", "test", "file_ops");

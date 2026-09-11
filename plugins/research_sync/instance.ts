@@ -6,7 +6,7 @@ import {
 	FinishedEvent,
 	TechnologySync,
 	SyncTechnologiesRequest,
-} from "./messages";
+} from "./messages.js";
 
 // ./module/sync.lua
 type IpcContribution = {

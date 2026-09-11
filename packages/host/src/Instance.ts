@@ -9,11 +9,11 @@ const execAsync = util.promisify(exec);
 // internal libraries
 import * as lib from "@clusterio/lib";
 
-import { FactorioServer } from "./server";
-import { SaveModule, patch } from "./patch";
-import { exportData } from "./export";
-import type Host from "./Host";
-import BaseInstancePlugin from "./BaseInstancePlugin";
+import { FactorioServer } from "./server.js";
+import { SaveModule, patch } from "./patch.js";
+import { exportData } from "./export.js";
+import type Host from "./Host.js";
+import BaseInstancePlugin from "./BaseInstancePlugin.js";
 
 const scriptCommands = [
 	"/cheat", "/editor",
@@ -963,7 +963,7 @@ end`.replace(/\r?\n/g, " ");
 
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
-		let modulesDirectory = path.join(__dirname, "..", "..", "..", "modules");
+		let modulesDirectory = path.join(import.meta.dirname, "..", "..", "..", "modules");
 		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {

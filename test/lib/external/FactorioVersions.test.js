@@ -1,8 +1,8 @@
-const assert = require("assert").strict;
-const { readFile } = require("node:fs/promises");
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
-const { fetchFactorioVersions } = require("@clusterio/lib");
-const { slowTest, externalTest } = require("../../integration");
+import { fetchFactorioVersions } from "@clusterio/lib";
+import { slowTest, externalTest } from "../../integration/index.js";
 
 describe("FactorioVersions", function() {
 	describe("fetchFactorioVersions", function() {

@@ -1,6 +1,6 @@
 import { Static, Type } from "@sinclair/typebox";
 
-import PlayerStats from "./PlayerStats";
+import PlayerStats from "./PlayerStats.js";
 
 /** Represents a user in the cluster */
 export default class UserDetails {

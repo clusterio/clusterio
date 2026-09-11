@@ -4,11 +4,12 @@
  */
 import path from "path";
 
-import * as libConfig from "./config";
-import * as libFileOps from "./file_ops";
-import { logger } from "./logging";
-import * as libHelpers from "./helpers";
-import { LockFile } from "./LockFile";
+import * as libConfig from "./config/index.js";
+import * as libFileOps from "./file_ops.js";
+import { logger } from "./logging.js";
+import * as libHelpers from "./helpers.js";
+import { LockFile } from "./LockFile.js";
+import { pathToFileURL } from "url";
 
 
 function print(...content: any[]) {
@@ -59,8 +60,13 @@ export async function handlePluginCommand(
 
 		let pluginInfo: { name: string };
 		try {
-
-			pluginInfo = require(pluginPath).plugin;
+			const pluginPackage = (await import(
+				pathToFileURL(path.posix.join(pluginPath, "package.json")).href,
+				{ with: { type: "json" }},
+			)).default;
+			pluginInfo = (await import(
+				pathToFileURL(path.posix.join(pluginPath, pluginPackage.main ?? "index.js")).href
+			)).plugin;
 		} catch (err: any) {
 			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);
 			process.exitCode = 1;

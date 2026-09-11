@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const mock = require("../../../test/mock");
-const instance = require("../dist/node/instance");
-const info = require("../dist/node/index").plugin;
+import * as mock from "../../../test/mock.js";
+import * as instance from "../dist/node/instance.js";
+import { plugin as info } from "../dist/node/index.js";
 
 
 describe("statistics_exporter plugin", function() {

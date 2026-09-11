@@ -1,9 +1,8 @@
-"use strict";
-const { BaseHostPlugin } = require("@clusterio/host");
+import { BaseHostPlugin } from "@clusterio/host";
 
-const { HostEcho, HostEchoReceived } = require("./messages");
+import { HostEcho, HostEchoReceived } from "./messages.js";
 
-class HostPlugin extends BaseHostPlugin {
+export class HostPlugin extends BaseHostPlugin {
 	async init() {
 		this.logger.info("test_plugin host loaded");
 		this.receivedEchoes = new Set();
@@ -20,7 +19,3 @@ class HostPlugin extends BaseHostPlugin {
 		return this.receivedEchoes.has(request.text);
 	}
 }
-
-module.exports = {
-	HostPlugin,
-};
