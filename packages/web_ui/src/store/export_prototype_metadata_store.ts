@@ -26,7 +26,7 @@ class ExportPrototypeMetadataStore {
 			return;
 		}
 
-		const response = await fetch(`${staticRoot}static/${cacheEntry.metadataPath}`);
+		const response = await fetch(`${staticRoot}${cacheEntry.metadataPath}`);
 		if (!response.ok) {
 			notify(
 				`Failed to fetch prototype metadata for mod pack ${modPackId}, server returned: ` +
@@ -43,7 +43,7 @@ class ExportPrototypeMetadataStore {
 
 		const metadata = await response.json() as ExportMetadata;
 
-		const spriteUrl = `${staticRoot}static/${cacheEntry.spritesheetPath}`;
+		const spriteUrl = `${staticRoot}${cacheEntry.spritesheetPath}`;
 		const styleContent: string[] = [];
 		styleContent.push(`\
 .factorio-icon\

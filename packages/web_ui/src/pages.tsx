@@ -2,6 +2,7 @@ import React, { ReactElement } from "react";
 
 import { PluginPage, UserAccount } from "./BaseWebPlugin";
 
+import OverviewPage from "./components/OverviewPage";
 import ControllerPage from "./components/ControllerPage";
 import HostsPage from "./components/HostsPage";
 import HostViewPage from "./components/HostViewPage";
@@ -21,6 +22,11 @@ import IconReferencePage from "./components/IconReferencePage";
 // When adding or editing page paths here the corresponding webRoutes entry
 // in packages/controller/src/routes.ts also needs to be updated.
 export const pages: PluginPage[] = [
+	{
+		path: "/",
+		sidebarName: "Overview",
+		content: <OverviewPage />,
+	},
 	{
 		path: "/controller",
 		sidebarName: "Controller",

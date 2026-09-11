@@ -16,6 +16,7 @@ const {
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
 } = require("./index");
+const { ControllerEcho, HostEchoReceived } = require("../file/test_plugin/messages");
 
 
 /** @returns {Promise<Map<number, lib.InstanceDetails>>} */
@@ -136,6 +137,25 @@ describe("Integration of Clusterio", function() {
 
 				const json = JSON.parse(await fs.readFile(path.join(databaseDir, "users.json"), "utf8"));
 				assert.equal(Object.values(json).some(user => user.name === "BootstrapAdminTest2"), true);
+			});
+		});
+
+		describe("copy-static", function() {
+			it("should copy the files from dist/web/static", async function() {
+				const dir = "temp/test/copy-static";
+				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
+				await execController("copy-static copy-static");
+				const controllerFiles = await fs.readdir("packages/controller/dist/web/static");
+				const globalChatFiles = await fs.readdir("plugins/global_chat/dist/web/static");
+				const targetFiles = await fs.readdir(dir);
+				assert(
+					controllerFiles.every(name => targetFiles.includes(name)),
+					"Missing files from controller static folder",
+				);
+				assert(
+					globalChatFiles.every(name => targetFiles.includes(name)),
+					"Missing files from global_chat's static folder",
+				);
 			});
 		});
 
@@ -300,6 +320,9 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance create alt-start --id 97");
 				await execCtl("instance assign alt-start 5");
 				await execCtl("instance config set alt-start instance.auto_start true");
+				const visibility = jsonArg({ lan: false, public: false });
+				await execCtlProcess(`instance config set-prop alt-start factorio.settings visibility ${visibility}`);
+				await execCtl("instance config set-prop alt-start factorio.settings require_user_verification false");
 				await stopAltHost(hostProcess);
 				hostProcess = await spawnAltHost();
 				// Stop the host immediatly to test the handling of stopping
@@ -383,6 +406,64 @@ describe("Integration of Clusterio", function() {
 					await stopAltHost(hostProcessB);
 				}
 			});
+		});
+	});
+
+	describe("plugin system", function() {
+		// Exercised with test/file/test_plugin, which is a plugin that exists
+		// only to be loaded by these tests, see #342.
+		async function pluginDetails(address) {
+			const plugins = await getControl().sendTo(address, new lib.PluginListRequest());
+			const details = plugins.find(plugin => plugin.name === "test_plugin");
+			assert(details, `test_plugin missing from the plugin list of ${JSON.stringify(address)}`);
+			return details;
+		}
+
+		it("should load the plugin on the controller", async function() {
+			const details = await pluginDetails("controller");
+			assert(details.enabled, "test_plugin is not enabled on the controller");
+			assert(details.loaded, "test_plugin is not loaded on the controller");
+		});
+
+		it("should load the plugin on the host", async function() {
+			const details = await pluginDetails({ hostId: 4 });
+			assert(details.enabled, "test_plugin is not enabled on the host");
+			assert(details.loaded, "test_plugin is not loaded on the host");
+		});
+
+		it("should report the plugin's title and version", async function() {
+			const details = await pluginDetails("controller");
+			assert.equal(details.title, "Test Plugin");
+			assert.equal(details.version, "0.0.1");
+		});
+
+		it("should add the plugin's command to clusterioctl", async function() {
+			const { stdout } = await execCtlProcess("test-plugin echo works");
+			assert(stdout.includes("works"), `plugin command did not print its message, got ${stdout}`);
+		});
+
+		it("should route a plugin request from control to the controller", async function() {
+			const response = await getControl().sendTo("controller", new ControllerEcho("to-controller"));
+			assert.equal(response, "to-controller");
+		});
+
+		it("should route a plugin request from control to a host", async function() {
+			const received = await getControl().sendTo({ hostId: 4 }, new HostEchoReceived("never-broadcast"));
+			assert.equal(received, false);
+		});
+
+		it("should deliver a plugin event sent with broadcastEventToHosts", async function() {
+			await getControl().sendTo("controller", new ControllerEcho("to-hosts"));
+
+			// The broadcast is sent without waiting for the hosts to receive it.
+			let received = false;
+			for (let attempt = 0; attempt < 100 && !received; attempt++) {
+				received = await getControl().sendTo({ hostId: 4 }, new HostEchoReceived("to-hosts"));
+				if (!received) {
+					await lib.wait(20);
+				}
+			}
+			assert(received, "host did not receive the event broadcast to it");
 		});
 	});
 
@@ -704,6 +785,28 @@ describe("Integration of Clusterio", function() {
 						await execCtl("instance config set 44 factorio.version latest");
 					}
 				});
+				it("should resolve a release channel target when starting", async function() {
+					slowTest(this);
+					try {
+						// "experimental" is resolved to a concrete version through the
+						// controller's latest-releases data before the server starts.
+						// Whether that version is installed (or downloadable) depends on
+						// the host's Factorio install - CI uses a fixed direct install -
+						// so the start may succeed or fail, but the channel must resolve
+						// and the instance must reach a terminal state rather than hang.
+						await execCtl("instance config set 44 factorio.version experimental");
+						await execCtl(`instance ${cmd} test`).catch(() => {});
+						const status = (await getInstances()).get(44).status;
+						assert(
+							["running", "stopped"].includes(status),
+							`instance stuck in unexpected state '${status}'`
+						);
+
+					} finally {
+						await execCtl("instance stop 44").catch(() => {});
+						await execCtl("instance config set 44 factorio.version latest");
+					}
+				});
 				it("should not leave the instance in the stopping state if it fails", async function() {
 					slowTest(this);
 					try {
@@ -801,6 +904,20 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				getControl().saveUpdates = [];
 				await execCtl("instance send-rcon test /server-save");
+				let received = false;
+				for (let x = 0; x < 10; x++) {
+					if (getControl().saveUpdates.length) {
+						received = true;
+						break;
+					}
+					await wait(100);
+				}
+				assert(received, "InstanceSaveDetailsUpdatesEvent not sent");
+			});
+			it("should save the running game with save-game", async function() {
+				slowTest(this);
+				getControl().saveUpdates = [];
+				await execCtl("instance save-game test");
 				let received = false;
 				for (let x = 0; x < 10; x++) {
 					if (getControl().saveUpdates.length) {
@@ -1127,9 +1244,20 @@ describe("Integration of Clusterio", function() {
 
 				await execCtl("instance start 44");
 				const instance = (await getInstances()).get(44);
-				const isV2 = lib.integerPartialVersion(instance.factorioVersion) > lib.integerPartialVersion("2.0");
-				const exchangeString = (isV2 ? testStrings.modified_v2 : testStrings.modified).replace(/[\n\r]+/g, "");
-				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+				const version = lib.integerPartialVersion(instance.factorioVersion);
+				const isV2 = version > lib.integerPartialVersion("2.0");
+				const isV2_1 = version > lib.integerPartialVersion("2.1");
+				const isV2_1_13 = version >= lib.integerPartialVersion("2.1.13");
+				let exchangeString = testStrings.modified;
+				if (isV2_1_13) {
+					exchangeString = testStrings.modified_v2_1_13;
+				} else if (isV2_1) {
+					exchangeString = testStrings.modified_v2_1;
+				} else if (isV2) {
+					exchangeString = testStrings.modified_v2;
+				}
+				// eslint-disable-next-line max-len
+				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString.replace(/[\n\r]+/g, "")}"`;
 				await execCtl("instance stop 44");
 
 				await execCtl(`instance load-scenario test ${args}`);

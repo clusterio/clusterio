@@ -6,19 +6,51 @@ const host = require("@clusterio/host");
 
 describe("host/src/BaseInstancePlugin", function() {
 	describe("class BaseInstancePlugin", function() {
+		const info = { name: "test" };
 		let instancePlugin;
 		it("should be constructible", async function() {
-			instancePlugin = new host.BaseInstancePlugin({}, new mock.MockInstance(), {});
+			instancePlugin = new host.BaseInstancePlugin(
+				info, new mock.MockInstance(), new mock.MockHost(), new mock.MockLogger()
+			);
 			await instancePlugin.init();
+			assert.equal(instancePlugin.instance.hooks.size, 0);
 		});
-		it("should define defaults for hooks", async function() {
-			await instancePlugin.onMetrics();
-			await instancePlugin.onStart();
-			await instancePlugin.onStop();
-			instancePlugin.onExit();
-			await instancePlugin.onOutput({});
-			instancePlugin.onControllerConnectionEvent("connect");
-			await instancePlugin.onPrepareControllerDisconnect();
+		it("should be constructible from a load context", async function() {
+			const instance = new mock.MockInstance();
+			const mockHost = new mock.MockHost();
+			const logger = new mock.MockLogger();
+			const plugin = host.BaseInstancePlugin.fromContext({ plugin: info, instance, host: mockHost, logger });
+			assert.equal(plugin.info, info);
+			assert.equal(plugin.instance, instance);
+			assert.equal(plugin.host, mockHost);
+			assert.equal(plugin.logger, logger);
+		});
+		it("should attach overridden hooks", async function() {
+			let calls = [];
+			class InstancePlugin extends host.BaseInstancePlugin {
+				async onStart() { calls.push(["start", this]); }
+				onExit() { calls.push(["exit"]); }
+				async onOutput(parsed, line) { calls.push(["output", parsed, line]); }
+			}
+			const instance = new mock.MockInstance();
+			const plugin = new InstancePlugin(info, instance, new mock.MockHost(), new mock.MockLogger());
+			assert.deepEqual([...instance.hooks.attached], ["test"]);
+			assert.equal(instance.hooks.stop.size, 0);
+
+			await instance.hooks.start.invoke();
+			await instance.hooks.exit.invoke();
+			await instance.hooks.output.invoke({ type: "generic" }, "line");
+			assert.deepEqual(calls, [["start", plugin], ["exit"], ["output", { type: "generic" }, "line"]]);
+		});
+		it("should detach hooks", async function() {
+			class InstancePlugin extends host.BaseInstancePlugin {
+				async onStart() { }
+			}
+			const instance = new mock.MockInstance();
+			const plugin = new InstancePlugin(info, instance, new mock.MockHost(), new mock.MockLogger());
+			assert.equal(instance.hooks.size, 1);
+			plugin.detachHooks();
+			assert.equal(instance.hooks.size, 0);
 		});
 		describe("sendRcon", function() {
 			it("should send commands out of order", async function() {

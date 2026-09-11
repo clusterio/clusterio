@@ -19,6 +19,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import UsersTable from "./UsersTable";
+import { InputInstanceWithAll } from "./InputInstance";
 
 function CreateUserButton() {
 	let control = useContext(ControlContext);
@@ -49,7 +50,7 @@ function CreateUserButton() {
 			open={open}
 			onOk={() => { createUser().catch(notifyErrorHandler("Error creating user")); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form}>
 				<Form.Item name="userName" label="Name">
@@ -344,7 +345,7 @@ function BulkUserActionButton() {
 			okButtonProps={{ disabled: formAction === undefined }}
 			onOk={() => { onOk().catch(notifyErrorHandler(`Error running ${formAction}`)); }}
 			onCancel={() => { setOpen(false); }}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Form form={form} onValuesChange={onValuesChange} clearOnDestroy>
 				<Form.Item label="Action" name="action">
@@ -366,18 +367,26 @@ function BulkUserActionButton() {
 }
 
 export default function UsersPage() {
-	let account = useAccount();
+	const account = useAccount();
+	const [instanceId, setInstanceId] = useState<number | null>(null);
 
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
 			title="Users"
 			extra={<Space>
-				{account.hasPermission("core.user.create") ? <CreateUserButton /> : undefined}
+				{account.hasAllPermission("core.instance.list", "core.instance.subscribe")
+					&& <InputInstanceWithAll
+						value={instanceId}
+						onChange={value => setInstanceId(value as number)}
+						fieldDefinition={{ optional: true } as any}
+						disabled={false}
+					/>}
+				{account.hasPermission("core.user.create") && <CreateUserButton />}
 				{account.hasAnyPermission("core.user.bulk_import", "core.user.bulk_export")
-					? <BulkUserActionButton /> : undefined}
+					&& <BulkUserActionButton />}
 			</Space>}
 		/>
-		<UsersTable />
+		<UsersTable instanceId={instanceId ?? undefined}/>
 		<PluginExtra component="UsersPage" />
 	</PageLayout>;
 }

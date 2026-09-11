@@ -75,7 +75,7 @@ describe("messages/plugin", function() {
 				description: "Description", npmPackage: "Npm Package",
 			}];
 
-			controller.plugins.set("Name", {});
+			controller.loadedPlugins.add(controller.pluginInfos[0]);
 			controller.config.set("Name.load_plugin", true);
 
 			const response = await controlConnection.handlePluginListRequest(new lib.PluginListRequest());
@@ -90,7 +90,7 @@ describe("messages/plugin", function() {
 				description: "Description", npmPackage: "Npm Package",
 			}];
 
-			host.plugins.set("Name", {});
+			host.loadedPlugins.add(host.pluginInfos[0]);
 			host.config.set("Name.load_plugin", true);
 
 			const response = await host.handlePluginListRequest(new lib.PluginListRequest());

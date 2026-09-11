@@ -60,6 +60,17 @@ This should be a full URL ending with a /.
 Defaults to null meaning assume localhost.
 
 
+### controller.static_url
+
+Used to override where static assets such as the web bundle is loaded from.
+This can be used if you want to put the static assets on a separate cdn url like `https://cdn.example.com/static/` while keeping the API hosted directly by clusterio.
+Due to a limitation on how the webpack assets are built the pathname component of the url have to be `/static/`.
+
+See also the `clusteriocontroller copy-static` command for how to obtain the static asset files that need to be hosted.
+
+Defaults to null meaning use the internally hosted assets.
+
+
 ### controller.tls_certificate
 
 Path to TLS certificate to use for the HTTPS server when controller.https_port is configured.

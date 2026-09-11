@@ -132,7 +132,7 @@ function setModPackMods(modPack: lib.ModPack, mods: string[] | undefined) {
 		if (!version) {
 			throw new lib.CommandError("Added mod must be formatted as name:version or name:version:sha1");
 		}
-		if (!lib.isFullVersion(version)) {
+		if (!lib.isSourceVersion(version)) {
 			throw new lib.CommandError("version must match the format digit.digit.digit");
 		}
 		if (sha1 && !/^[0-9a-f]{40}$/.test(sha1)) {

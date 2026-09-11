@@ -18,6 +18,8 @@ export interface ControllerConfigFields {
 	"controller.bind_address": string | null;
 	"controller.trusted_proxies": string | null;
 	"controller.public_url": string | null;
+	"controller.static_url": string | null;
+	"controller.grafana_url": string | null;
 	"controller.tls_certificate": string | null;
 	"controller.tls_private_key": string | null;
 	"controller.auth_secret": string | null;
@@ -136,6 +138,27 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			optional: true,
 			// TODO extendedValidation, valid url including the protocol
+		},
+		"controller.static_url": {
+			title: "Static URL",
+			description: "Override the URL to where static assets are hosted (must have a path consisting of /static/)",
+			type: "string",
+			optional: true,
+			validator: (value) => {
+				if (value) {
+					// This is unfortunately a limitiation of how the webpack build is set up right now.
+					const pathname = new URL(value, "http://localhost/").pathname;
+					if (pathname !== "/static/") {
+						throw new Error(`Path component of static_url must be /static/ not ${pathname}.`);
+					}
+				}
+			},
+		},
+		"controller.grafana_url": {
+			title: "Grafana URL",
+			description: "URL of a Grafana dashboard to link from the overview page, including the protocol.",
+			type: "string",
+			optional: true,
 		},
 		"controller.tls_certificate": {
 			title: "TLS Certificate",
@@ -501,14 +524,16 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: false,
 		},
 		"factorio.version": {
-			description: "Version of the game to run, use latest to run the latest installed version",
+			description:
+				"Version of the game to run. Use 'latest' for the latest installed version, a release " +
+				"channel such as 'stable' or 'experimental', or a specific X.Y or X.Y.Z version.",
 			restartRequired: true,
 			type: "string",
 			initialValue: "latest",
 			inputComponent: "target_version",
 			validator: function(value) {
 				if (!isTargetVersion(value)) {
-					throw new Error("Value must be be 'latest', or match X.Y, or match X.Y.Z");
+					throw new Error("Value must be 'latest', a release channel, or match X.Y or X.Y.Z");
 				}
 			},
 		},
@@ -566,7 +591,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			validator: function(value, config) {
 				const factorioSettings = config.get("factorio.settings");
 				const autosaveSlots = factorioSettings.autosave_slots;
-				if (typeof autosaveSlots === "number" && value < autosaveSlots) {
+				if (value !== 0 && typeof autosaveSlots === "number" && value < autosaveSlots) {
 					throw new Error("Value cannot be less than the number of autosave slots");
 				}
 			},

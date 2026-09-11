@@ -21,9 +21,10 @@ return function(player, record)
 		player.driving = true
 
 		-- Teleport to safe location if unable to enter vehicle
-		if not player.driving and player.controller_type == defines.controllers.character then
+		local character = player.character
+		if not player.driving and character and player.controller_type == defines.controllers.character then
 			local safe_position = record.vehicle.surface.find_non_colliding_position(
-				player.character.name, player.position, 32, 1/8
+				character.name, player.position, 32, 1/8
 			)
 			if safe_position then
 				player.teleport(safe_position, player.surface)

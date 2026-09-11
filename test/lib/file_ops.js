@@ -291,6 +291,23 @@ describe("lib/file_ops", function() {
 			);
 		});
 
+		it("should not leak credentials from the url when throwing", async function () {
+			// The mod portal takes the Factorio token as a query parameter, see #795.
+			const downloadPath = path.join(downloadDir, "credentials.txt");
+			const url = new URL("/not-found", baseUrl);
+			url.searchParams.set("username", "user");
+			url.searchParams.set("token", "secret");
+			await assert.rejects(
+				lib.downloadFile(url, downloadPath, "overwrite"),
+				err => {
+					assert.ok(!err.message.includes("secret"), `token leaked in: ${err.message}`);
+					assert.match(err.message, /token=REDACTED/);
+					assert.match(err.message, /username=user/);
+					return true;
+				}
+			);
+		});
+
 		it("should throw if fetch response body is missing", async function () {
 			const downloadPath = path.join(downloadDir, "not-content.txt");
 			await assert.rejects(
@@ -364,6 +381,38 @@ describe("lib/file_ops", function() {
 			await lib.downloadFile(new URL("/simple-file", baseUrl), downloadPath, "overwrite");
 			const writtenContent = await fs.readFile(tempPath, "utf8");
 			assert.equal(writtenContent, "original content");
+		});
+
+		it("should not leave a temporary file behind if the request fails", async function () {
+			// Bind a server only to get a port nothing is listening on, so
+			// that the fetch is refused before there is a response at all.
+			const deadServer = http.createServer();
+			await util.promisify(deadServer.listen.bind(deadServer))();
+			const deadUrl = new URL("/simple-file", baseUrl);
+			deadUrl.port = deadServer.address().port;
+			await util.promisify(deadServer.close.bind(deadServer))();
+
+			const downloadPath = path.join(downloadDir, "refused.txt");
+			await assert.rejects(lib.downloadFile(deadUrl, downloadPath, "overwrite"));
+			await assert.rejects(
+				fs.readFile(path.join(downloadDir, "refused.tmp.txt")),
+				{ code: "ENOENT" },
+			);
+			await assert.rejects(fs.readFile(downloadPath), { code: "ENOENT" });
+		});
+
+		it("should not leave a temporary file behind if the download is interrupted", async function () {
+			const downloadPath = path.join(downloadDir, "interrupted.txt");
+			onStream = (res) => {
+				// Cut the connection with the body half written.
+				res.destroy();
+			};
+			await assert.rejects(lib.downloadFile(new URL("/stream", baseUrl), downloadPath, "overwrite"));
+			await assert.rejects(
+				fs.readFile(path.join(downloadDir, "interrupted.tmp.txt")),
+				{ code: "ENOENT" },
+			);
+			await assert.rejects(fs.readFile(downloadPath), { code: "ENOENT" });
 		});
 
 		it("should throw if overwriteMode is rename and directory disappeared", async function () {

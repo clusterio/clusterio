@@ -388,6 +388,14 @@ export class InstanceCreateSaveRequest {
 	}
 }
 
+export class InstanceSaveGameRequest {
+	declare ["constructor"]: typeof InstanceSaveGameRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.save.create" as const;
+}
+
 export class InstanceRenameSaveRequest {
 	declare ["constructor"]: typeof InstanceRenameSaveRequest;
 	static type = "request" as const;

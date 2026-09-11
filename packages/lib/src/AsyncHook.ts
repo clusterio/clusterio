@@ -161,12 +161,12 @@ export class AsyncHookCollection {
 	}
 
 	get size() {
-		const attached = new Set(this.hooks.flatMap(hook => hook.attached));
+		const attached = new Set(this.hooks.flatMap(hook => [...hook.attached]));
 		return attached.size;
 	}
 
 	get attached() {
-		const attached = new Set(this.hooks.flatMap(hook => hook.attached));
+		const attached = new Set(this.hooks.flatMap(hook => [...hook.attached]));
 		return attached.values();
 	}
 

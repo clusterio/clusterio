@@ -413,6 +413,42 @@ describe("lib/link/link", function() {
 				testLink.handle(SimpleEvent, async () => { throwSimple("Error"); });
 				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
 			});
+			it("should log validation errors from event handler", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {
+						testLink.sendEvent(new NumberEvent("not a number"), dst);
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith(
+					"Unexpected error handling SimpleEvent:\nError: Event NumberEvent failed validation\n"
+				));
+				assert(logged[0].includes('"message": "must be number"'));
+			});
+			it("should fall back to message when event handler error has no stack", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {
+						let err = new Error("no stack");
+						err.stack = undefined;
+						throw err;
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.deepEqual(logged, ["Unexpected error handling SimpleEvent:\nno stack"]);
+			});
 			it("should throw on unknown type", function() {
 				assert.throws(
 					() => testLink.handle({ name: "Bad", type: "bad" }),
@@ -486,6 +522,7 @@ describe("lib/link/link", function() {
 					{ message: "Unhandled message type invalid" }
 				);
 			});
+
 			it("should throw on Event failing validation", function() {
 				class StringEvent {
 					static type = "event";
@@ -502,6 +539,84 @@ describe("lib/link/link", function() {
 					{ message: "Event StringEvent failed validation" }
 				);
 			});
+
+			describe("Broadcast handling", function() {
+				// A broadcast is addressed to every link of the type it targets,
+				// so a link it reaches has to pass it on as well as handle it,
+				// see #575.
+				function mockRouter(record) {
+					return { forwardMessage: () => { record.routed = true; return true; } };
+				}
+
+				it("should route a broadcast addressed to this link as well as handle it", function() {
+					const record = {};
+					let handled = false;
+					testLink.router = mockRouter(record);
+					testLink.handle(SimpleEvent, async () => { handled = true; });
+					testConnector.emit("message", new lib.MessageEvent(1, dst, addr("allControls"), "SimpleEvent"));
+					assert(record.routed, "broadcast was not routed onwards");
+					assert(handled, "broadcast was not handled locally");
+				});
+
+				it("should handle a broadcast on a link which does not route", function() {
+					// Instances have no router, so routing unconditionally would
+					// throw here and the event would never be handled.
+					let handled = false;
+					testLink.handle(SimpleEvent, async () => { handled = true; });
+					testConnector.emit("message", new lib.MessageEvent(1, dst, addr("allControls"), "SimpleEvent"));
+					assert(handled, "broadcast was not handled locally");
+				});
+
+				it("should not route a non broadcast addressed to this link", function() {
+					const record = {};
+					testLink.router = mockRouter(record);
+					testLink.handle(SimpleEvent, async () => {});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					assert(!record.routed, "message addressed to this link was routed onwards");
+				});
+			});
+		});
+
+		describe(".forwardRequest()", function() {
+			// A request is recorded so that its response can be sent back the
+			// way it came. If it never left there is nothing to send back, and
+			// leaving it recorded has it answered twice, see #650.
+			function forwardingSetup() {
+				const originConnector = new mock.MockConnector(dst, src);
+				const origin = new lib.Link(originConnector);
+				const nextHopConnector = new mock.MockConnector(src, dst);
+				const nextHop = new lib.Link(nextHopConnector);
+				const message = new lib.MessageRequest(1, src, dst, "SimpleRequest");
+				return { origin, originConnector, nextHop, nextHopConnector, message };
+			}
+
+			it("should record a request it forwarded", function() {
+				const { origin, nextHop, nextHopConnector, message } = forwardingSetup();
+				nextHop.forwardRequest(message, origin);
+				assert.equal(nextHop.pendingRequestCount, 1);
+				assert.equal(nextHopConnector.sentMessages.length, 1);
+			});
+
+			it("should not record a request it failed to forward", function() {
+				const { origin, nextHop, nextHopConnector, message } = forwardingSetup();
+				nextHopConnector.send = () => throwSimple("Session Closed");
+
+				assert.throws(() => nextHop.forwardRequest(message, origin), { message: "Session Closed" });
+				assert.equal(nextHop.pendingRequestCount, 0, "failed forward was left pending");
+			});
+
+			it("should not answer a request it failed to forward a second time", function() {
+				const { origin, originConnector, nextHop, nextHopConnector, message } = forwardingSetup();
+				nextHopConnector.send = () => throwSimple("Session Closed");
+
+				// Routers answer the origin themselves when forwarding throws.
+				assert.throws(() => nextHop.forwardRequest(message, origin), { message: "Session Closed" });
+				originConnector.sendResponseError(new lib.ResponseError("Session Closed"), message.src);
+				const answers = originConnector.sentMessages.length;
+
+				nextHop._clearPendingRequests(new lib.SessionLost("Session Lost"));
+				assert.equal(originConnector.sentMessages.length, answers, "request was answered twice");
+			});
 		});
 
 		describe(".snoopEvent()", function() {
@@ -515,6 +630,44 @@ describe("lib/link/link", function() {
 			it("should log errors from snoop handler", function() {
 				testLink.snoopEvent(SimpleEvent, async () => { throwSimple("Error"); });
 				testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+			});
+			it("should log validation errors from snoop handler", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {});
+					testLink.snoopEvent(SimpleEvent, async () => {
+						testLink.sendEvent(new NumberEvent("not a number"), dst);
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith(
+					"Unexpected error snooping SimpleEvent:\nError: Event NumberEvent failed validation\n"
+				));
+				assert(logged[0].includes('"message": "must be number"'));
+			});
+			it("should fall back to message when snoop handler error has no stack", async function() {
+				let logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					testLink.handle(SimpleEvent, async () => {});
+					testLink.snoopEvent(SimpleEvent, async () => {
+						let err = new Error("no stack");
+						err.stack = undefined;
+						throw err;
+					});
+					testConnector.emit("message", new lib.MessageEvent(1, dst, src, "SimpleEvent"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.deepEqual(logged, ["Unexpected error snooping SimpleEvent:\nno stack"]);
 			});
 			it("should throw on double registration", function() {
 				testLink.snoopEvent(SimpleEvent);

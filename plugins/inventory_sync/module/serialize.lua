@@ -2,12 +2,17 @@ local compat = require("modules/clusterio/compat")
 local clusterio_serialize = require("modules/clusterio/serialize")
 local character_inventories = require("modules/inventory_sync/define_player_inventories")
 local character_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
+local game_view_settings_keys = require("modules/inventory_sync/define_game_view_settings")
 local serialize = {}
 
 local v2_logistic_api = compat.version_ge("2.0.0")
 local v2_storage_api = compat.version_ge("2.0.0")
 local v2_remote_controller = compat.version_ge("2.0.0")
+local v2_space_platform = compat.version_ge("2.0.0")
+local v2_exit_remote_view = compat.version_ge("2.0.56")
 local recipe_notifications_api = compat.version_ge("2.0.67")
+local v2_0_quick_bar_api = compat.version_ge("2.0.0")
+local v2_1_quick_bar_api = compat.version_ge("2.1.0")
 
 function serialize.serialize_inventories(source, inventories)
 	local serialized = {}
@@ -48,6 +53,8 @@ end
 --   character_maximum_following_robot_count_bonus
 --   character_health_bonus
 --   character_personal_logistic_requests_enabled
+--   allow_dispatching_robots
+--   inhibit_movement_bonus (optional, from the armor equipment grid)
 --   inventories: table of character inventory name to inventory content
 function serialize.serialize_character(character)
 	local serialized = { }
@@ -60,6 +67,12 @@ function serialize.serialize_character(character)
 	-- Serialize character inventories
 	serialized.inventories = serialize.serialize_inventories(character, character_inventories)
 
+	-- Serialize armor grid state
+	local grid = character.grid
+	if grid then
+		serialized.inhibit_movement_bonus = grid.inhibit_movement_bonus
+	end
+
 	return serialized
 end
 
@@ -71,6 +84,12 @@ function serialize.deserialize_character(character, serialized)
 
 	-- Deserialize character inventories
 	serialize.deserialize_inventories(character, serialized.inventories, character_inventories)
+
+	-- Deserialize armor grid state, the grid exists after the armor inventory is restored
+	local grid = character.grid
+	if grid and serialized.inhibit_movement_bonus ~= nil then
+		grid.inhibit_movement_bonus = serialized.inhibit_movement_bonus
+	end
 end
 
 -- Personal logistic slots is a table mapping string indexes to a table with the following fields:
@@ -189,6 +208,159 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 		for i, slot in pairs(serialized) do
 			if slot ~= nil then
 				player.set_personal_slogistic_slot(tonumber(i), slot)
+			end
+		end
+	end
+end
+
+-- name is a custom type where quality is "normal" and comparator is "=" (most common case)
+--- @alias QuickBarSlotEncoded.name string
+--- @alias QuickBarSlotEncoded.filter { t: "f", n: string, q: string, c: string }
+--- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter
+
+--- @param filter ItemFilter
+--- @return QuickBarSlotEncoded
+local function serialize_filter(filter)
+	if filter.quality == "normal" and filter.comparator == "=" then
+		return filter.name --[[@as string]]
+	end
+
+	return {
+		t = "f",
+		n = filter.name --[[@as string]],
+		q = filter.quality --[[@as string]],
+		c = filter.comparator --[[@as string]],
+	}
+end
+
+--- @param slot QuickBarSlot | ItemFilter | LuaItemPrototype
+--- @return QuickBarSlotEncoded | nil
+function serialize.serialize_quick_bar_slot(slot)
+	if v2_1_quick_bar_api then
+		-- 2.1 has a dedicated type for quick bar slots
+		--- @cast slot QuickBarSlot
+		if slot.type == "filter" then
+			return serialize_filter(slot.filter)
+		end
+
+		print("Warning: Unsupported quick bar slot type '" .. slot.type .. "'")
+		return nil
+	end
+
+	if v2_0_quick_bar_api then
+		-- 2.0 gives us an item filter which supports quality
+		--- @cast slot -QuickBarSlot, -LuaItemPrototype
+		return serialize_filter(slot)
+	end
+
+	-- pre 2.0 quality did not exist
+	--- @cast slot LuaItemPrototype
+	return slot.name
+end
+
+--- @param entry string | QuickBarSlotEncoded
+--- @return QuickBarSlot | ItemWithQualityID | nil
+function serialize.deserialize_quick_bar_slot(entry)
+	if v2_1_quick_bar_api then
+		-- Return a quick bar slot
+		if type(entry) == "string" then
+			return {
+				type = "filter",
+				filter = {
+					name = entry,
+					quality = "normal",
+					comparator = "=",
+				},
+			}
+		end
+
+		if entry.t == "f" then
+			return {
+				type = "filter",
+				filter = {
+					name = entry.n,
+					quality = entry.q,
+					comparator = entry.c,
+				},
+			} --[[@as QuickBarSlot]]
+		end
+
+		print("Warning: Unsupported serialized quick bar slot type '" .. tostring(entry.t) .. "'")
+		return nil
+	end
+
+	if v2_0_quick_bar_api then
+		-- Return a ItemIDAndQualityIDPair (member of ItemWithQualityID)
+		if type(entry) == "string" then
+			return {
+				name = entry,
+				quality = "normal",
+			}
+		end
+
+		-- entry.t == "f" is only remaining case for 2.0
+		return {
+			name = entry.n,
+			quality = entry.q,
+		}
+	end
+
+	-- Return a string (member of ItemPrototypeIdentification)
+	-- Pre 2.0 this was the only method of encoding used
+	return entry --[[@as string]]
+end
+
+--- @param player LuaPlayer
+--- @return table<string, QuickBarSlotEncoded>?
+function serialize.serialize_quick_bar(player)
+	local serialized
+	local width = v2_1_quick_bar_api and player.quick_bar_width
+
+	for i = 1, 100 do
+		local slot
+
+		if v2_1_quick_bar_api then
+			local page = math.floor((i - 1) / width) + 1
+			local page_slot = ((i - 1) % width) + 1
+			slot = player.get_quick_bar_slot(page, page_slot)
+		else
+			--- @diagnostic disable-next-line: missing-parameter
+			slot = player.get_quick_bar_slot(i)
+		end
+
+		if slot ~= nil then
+			local entry = serialize.serialize_quick_bar_slot(slot)
+			if entry ~= nil then
+				serialized = serialized or {}
+				serialized[tostring(i)] = entry
+			end
+		end
+	end
+
+	return serialized
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, string | QuickBarSlotEncoded>?
+function serialize.deserialize_quick_bar(player, serialized)
+	if not serialized then
+		return
+	end
+
+	local width = v2_1_quick_bar_api and player.quick_bar_width
+	for i = 1, 100 do
+		local entry = serialized[tostring(i)]
+		if entry ~= nil then
+			local slot = serialize.deserialize_quick_bar_slot(entry)
+			if slot ~= nil then
+				if v2_1_quick_bar_api then
+					local page = math.floor((i - 1) / width) + 1
+					local page_slot = ((i - 1) % width) + 1
+					player.set_quick_bar_slot(page, page_slot, slot)
+				else
+					--- @diagnostic disable-next-line: param-type-mismatch
+					player.set_quick_bar_slot(i, slot)
+				end
 			end
 		end
 	end
@@ -435,13 +607,62 @@ end
 --- @field force string
 --- @field cheat_mode boolean
 --- @field flashlight boolean
+--- @field shortcuts table<string, boolean>?
+--- @field game_view_settings table<string, boolean>?
 --- @field ticks_to_respawn number
 --- @field character table<string, any>?
 --- @field inventories table<string, table>?
 --- @field hotbar table<string, string>?
+--- @field quick_bar table<string, QuickBarSlotEncoded>?
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
+
+--- @param player LuaPlayer
+--- @return table<string, boolean>
+function serialize.serialize_shortcuts(player)
+	local shortcuts = {}
+	for name, prototype in pairs(compat.prototypes.shortcut) do
+		if prototype.toggleable then
+			shortcuts[name] = player.is_shortcut_toggled(name)
+		end
+	end
+	return shortcuts
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, boolean>
+function serialize.deserialize_shortcuts(player, serialized)
+	local shortcut_prototypes = compat.prototypes.shortcut
+	for name, toggled in pairs(serialized) do
+		local prototype = shortcut_prototypes[name]
+		if prototype and prototype.toggleable then
+			player.set_shortcut_toggled(name, toggled)
+		end
+	end
+end
+
+--- @param player LuaPlayer
+--- @return table<string, boolean>
+function serialize.serialize_game_view_settings(player)
+	local settings = player.game_view_settings
+	local serialized = {}
+	for _, key in pairs(game_view_settings_keys) do
+		serialized[key] = settings[key]
+	end
+	return serialized
+end
+
+--- @param player LuaPlayer
+--- @param serialized table<string, boolean>
+function serialize.deserialize_game_view_settings(player, serialized)
+	local settings = player.game_view_settings
+	for _, key in pairs(game_view_settings_keys) do
+		if serialized[key] ~= nil then
+			settings[key] = serialized[key]
+		end
+	end
+end
 
 --- @param player LuaPlayer
 --- @param failed_deserialization FailedDeserializationPlayerData
@@ -458,6 +679,8 @@ function serialize.serialize_player(player, failed_deserialization)
 		force = player.force.name,
 		cheat_mode = player.cheat_mode,
 		flashlight = player.is_flashlight_enabled(),
+		shortcuts = serialize.serialize_shortcuts(player),
+		game_view_settings = serialize.serialize_game_view_settings(player),
 		ticks_to_respawn = player.ticks_to_respawn,
 	}
 
@@ -494,16 +717,8 @@ function serialize.serialize_player(player, failed_deserialization)
 		serialized.inventories = serialize.serialize_inventories(player, { main = defines.inventory.god_main })
 	end
 
-	-- Serialize hotbar
-	for i = 1, 100 do
-		local slot = player.get_quick_bar_slot(i)
-		if slot ~= nil and slot.name ~= nil then
-			if not serialized.hotbar then
-				serialized.hotbar = {}
-			end
-			serialized.hotbar[tostring(i)] = slot.name --[[@as string]]
-		end
-	end
+	-- Serialize quick bar
+	serialized.quick_bar = serialize.serialize_quick_bar(player)
 
 	-- Serialize crafting queue
 	if player.character then
@@ -518,6 +733,23 @@ function serialize.serialize_player(player, failed_deserialization)
 	return serialized
 end
 
+--- Find a surface characters can exist on, used when the player is on a space platform surface
+--- @param platform LuaSpacePlatform
+--- @return LuaSurface
+local function find_planet_surface(platform)
+	local location = platform.space_location
+	local planet = location and game.planets[location.name]
+	if planet and planet.surface then
+		return planet.surface
+	end
+	for _, surface in pairs(game.surfaces) do
+		if not surface.platform then
+			return surface
+		end
+	end
+	error("No surface found which can hold a character")
+end
+
 --- Ensure a player has a character, works from any controller type
 --- @param player LuaPlayer
 --- @return LuaEntity
@@ -528,14 +760,34 @@ local function ensure_character(player)
 		return character
 	end
 
+	-- Exit remote view before switching controllers, this can fail if the player is on a platform
+	if v2_exit_remote_view and player.controller_type == defines.controllers.remote then
+		player.exit_remote_view()
+	end
+
 	-- Switch to god controller if create_character would fail
 	if player.controller_type ~= defines.controllers.god then
 		player.set_controller{ type = defines.controllers.god }
 	end
 
+	-- Characters can not be created on platform surfaces, restore_position will move them back into the hub
+	local surface = player.surface
+	if v2_space_platform and surface.platform then
+		local planet_surface = find_planet_surface(surface.platform)
+		local force = player.force --[[@as LuaForce]]
+		player.teleport(force.get_spawn_position(planet_surface), planet_surface)
+	end
+
 	-- Create and return the character
-	assert(player.create_character(), "Failed to create character")
-	return player.character
+	if not player.create_character() then
+		error(string.format(
+			"Failed to create character (controller: %s, physical: %s, surface: %s, connected: %s, driving: %s)",
+			controller_to_name[player.controller_type],
+			v2_remote_controller and controller_to_name[player.physical_controller_type] or "n/a",
+			player.surface.name, tostring(player.connected), tostring(player.driving)
+		))
+	end
+	return assert(player.character)
 end
 
 --- @class FailedDeserializationPlayerData
@@ -603,6 +855,12 @@ function serialize.deserialize_player(player, serialized)
 	else
 		player.disable_flashlight()
 	end
+	if serialized.shortcuts then
+		serialize.deserialize_shortcuts(player, serialized.shortcuts)
+	end
+	if serialized.game_view_settings then
+		serialize.deserialize_game_view_settings(player, serialized.game_view_settings)
+	end
 
 	-- Deserialize character
 	if player.character then
@@ -615,14 +873,8 @@ function serialize.deserialize_player(player, serialized)
 		serialize.deserialize_inventories(player, serialized.inventories, { main = defines.inventory.god_main })
 	end
 
-	-- Deserialize hotbar
-	if serialized.hotbar then
-		for i = 1, 100 do
-			if serialized.hotbar[tostring(i)] ~= nil then
-				player.set_quick_bar_slot(i, serialized.hotbar[tostring(i)])
-			end
-		end
-	end
+	-- Deserialize quick bar (named hotbar in old data)
+	serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
 
 	-- Deserialize crafting queue
 	if player.character and serialized.crafting_queue then

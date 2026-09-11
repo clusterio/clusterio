@@ -31,6 +31,89 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.27
+
+### Features
+
+- Added a cluster overview landing page. [#928](<https://github.com/clusterio/clusterio/issues/928>)
+- Remember the instance console chat/log toggle. [#932](<https://github.com/clusterio/clusterio/pull/932>)
+- Show the public address on the instance details page. [#934](<https://github.com/clusterio/clusterio/issues/934>)
+- Navigation links can now be opened in a new tab. [#929](<https://github.com/clusterio/clusterio/issues/929>)
+- Instances can target a Factorio release channel (e.g. `stable` or `experimental`) as their version, resolved from `factorio.com/api/latest-releases`. [#937](<https://github.com/clusterio/clusterio/pull/937>)
+- The instance console in the Web UI can be resized by dragging its bottom edge, and the chosen height is remembered across page reloads. [#938](<https://github.com/clusterio/clusterio/issues/938>)
+- Tables now remember their sort and filters in the URL. [#927](<https://github.com/clusterio/clusterio/issues/927>)
+- Display Factorio server version in login server list. [#906](<https://github.com/clusterio/clusterio/issues/906>)
+- Add "Connect via Steam" button to login server list. [#915](<https://github.com/clusterio/clusterio/pull/915>)
+
+### Fixes
+
+- Allow player online autosave slots to be disabled while autosaves are enabled. [#966](<https://github.com/clusterio/clusterio/issues/966>)
+- Silenced two Ant Design console warnings in the Web UI: the deprecated Modal `destroyOnClose` prop, and a duplicate-value warning from the instance version selector. [#940](<https://github.com/clusterio/clusterio/pull/940>)
+- Surface the mod portal's own error when downloading mods for an unsupported Factorio version. [#941](<https://github.com/clusterio/clusterio/pull/941>)
+- Instances always create their config file on assignment preventing duplicate folder creation. [#945](<https://github.com/clusterio/clusterio/pull/945>)
+
+### Changes
+
+- Global chat now filters server-specific GPS, blueprint, train, and train-stop rich-text tags before relaying messages between instances. [#593](<https://github.com/clusterio/clusterio/issues/593>)
+- Reworked the site layout into a fixed sidebar with a top bar. [#924](<https://github.com/clusterio/clusterio/pull/924>)
+- The builtin "recycler" mod is now included correctly as builtin. [#925](<https://github.com/clusterio/clusterio/issues/925>)
+- Mod `info.json` versions (a mod's version and its `factorio_version`) are now parsed leniently, matching how the game reads them, instead of being validated against a fixed list of Factorio versions. [#941](<https://github.com/clusterio/clusterio/pull/941>)
+- SubscriptionFilter now directly extends Set<string>. [#942](<https://github.com/clusterio/clusterio/pull/942>)
+- EventSubscriber now exposes network errors, include permission errors. [#942](<https://github.com/clusterio/clusterio/pull/942>)
+- Quick bar syncing now supports quality filters. [#944](<https://github.com/clusterio/clusterio/pull/944>)
+- Added support for recommended mod dependencies. [#946](<https://github.com/clusterio/clusterio/pull/946>)
+
+### Meta
+
+- Node 20 is no longer officially supported as it went EoL in March 2026. Please update to v22 or v24. [#943](<https://github.com/clusterio/clusterio/pull/943>)
+
+Many thanks to the following for contributing to this release:
+[@bbassie](<https://github.com/bbassie>)
+[@Cooldude2606](<https://github.com/Cooldude2606>)
+
+## Version 2.0.0-alpha.26
+
+### Features
+
+- Added filter state to `EventSubscriber` allowing plugings to more easilly filter events. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- Added `replace` subscription action allowing filter state to be fully replaced with a single request. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- Added `ValueSubscriber` and `MapSubscriber` as subclasses of `EventSubscriber`. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- Added changelog viewer accessible from the version number in the web interface. [#907](<https://github.com/clusterio/clusterio/issues/907>)
+- Added about popup to user menu containing support links, build, clusterio, and debug info. [#914](<https://github.com/clusterio/clusterio/pull/914>)
+- Added user status filtering (admin, whitelisted, banned) to the users table. [#905](<https://github.com/clusterio/clusterio/issues/905>)
+- Added instance selector to users page to scope user stats by instance. [#905](<https://github.com/clusterio/clusterio/issues/905>)
+
+### Fixes
+
+- Online user table on instance page now correctly defaults to online only filter. [#909](<https://github.com/clusterio/clusterio/pull/909>)
+- Fixed popup not opening when pressing kill within the instance control button. [#859](<https://github.com/clusterio/clusterio/issues/859>)
+- Fix division by zero in CPU usage calculation. [#916](<https://github.com/clusterio/clusterio/issues/916>)
+- Fixed permissions list not including `grantByDefault` in the json representation. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- Fixed subscription resources being `synced = false` if the remote data was empty. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- Fix incorrect use of `path.parse` within create template for plugins. [#919](<https://github.com/clusterio/clusterio/pull/919>)
+- Fixed active filter icon behaviour in user search using empty string. [#917](<https://github.com/clusterio/clusterio/pull/917>)
+
+### Changes
+
+- Player auth now uses a scroll pane for listing instance names. [#909](<https://github.com/clusterio/clusterio/pull/909>)
+- `subscriptionUpdate` now fires for all subscription requests rather than just added subscriptions. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- Unified instance and global user table columns for consistent behaviour. [#917](<https://github.com/clusterio/clusterio/pull/917>)
+- Improved loading states for tables and inputs using synced state. [#917](<https://github.com/clusterio/clusterio/pull/917>)
+- Refactored username rendering into a reusable component. [#917](<https://github.com/clusterio/clusterio/pull/917>)
+
+### Breaking Changes
+
+- Renamed `lib.Address.index` to `requestIndex` and added `addressIndex`. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+- `EventSubscriber` no longer includes a values map, use `MapSubscriber` instead. [#913](<https://github.com/clusterio/clusterio/pull/913>)
+
+### Meta
+
+- Version dependencies now use `^` which enables updates to be applied one package at a time. [#803](<https://github.com/clusterio/clusterio/issues/803>)
+- Updated change log creation to include new lines and user contributions. [#909](<https://github.com/clusterio/clusterio/pull/909>)
+
+Many thanks to the following for contributing to this release:
+[@Cooldude2606](<https://github.com/Cooldude2606>)
+
 ## Version 2.0.0-alpha.25
 
 ### Features

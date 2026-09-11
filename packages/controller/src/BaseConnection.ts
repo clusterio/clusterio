@@ -33,6 +33,7 @@ export default class BaseConnection extends lib.Link {
 		this.handle(lib.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
 		this.handle(lib.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
 		this.handle(lib.FactorioVersionsRequest, this.handleFactorioVersionsRequest.bind(this));
+		this.handle(lib.LatestReleasesRequest, this.handleLatestReleasesRequest.bind(this));
 
 		this.handle(lib.SubscriptionRequest, this.handleSubscriptionRequest.bind(this));
 		this.connector.on("close", () => {
@@ -79,7 +80,7 @@ export default class BaseConnection extends lib.Link {
 		return modPack;
 	}
 
-	getMod(mod: { name: string, version: lib.FullVersion, sha1?: string }) {
+	getMod(mod: { name: string, version: lib.SourceVersion, sha1?: string }) {
 		let filename = lib.ModInfo.filename(mod.name, mod.version);
 		let modInfo = this._controller.modStore.files.get(filename);
 		if (!modInfo) {
@@ -112,5 +113,9 @@ export default class BaseConnection extends lib.Link {
 
 	async handleFactorioVersionsRequest(request: lib.FactorioVersionsRequest) {
 		return await this._controller.factorioVersions.get(request.maxAgeMs);
+	}
+
+	async handleLatestReleasesRequest(request: lib.LatestReleasesRequest) {
+		return await this._controller.latestReleases.get(request.maxAgeMs);
 	}
 }

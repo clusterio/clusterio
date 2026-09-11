@@ -1,9 +1,8 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { message, Button, Table, Space } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
-import type { ColumnsType } from "antd/es/table";
+import type { ColumnType } from "antd/es/table/interface";
 
 import { useAccount } from "../model/account";
 import { useSystems } from "../model/system";
@@ -14,6 +13,9 @@ import InstanceControlButton, { InstanceControlButtonPermissions } from "./Insta
 import * as lib from "@clusterio/lib";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -25,9 +27,15 @@ type InstanceListProps = {
 
 export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
-	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
+	const tableState = useTableQueryState<lib.InstanceDetails>({
+		namespace: "instance", defaultSortKey: "name",
+	});
+	const nameSearch = useColumnSearch<lib.InstanceDetails>(
+		tableState, "name", instance => instance.name, "Search instances"
+	);
+	const rowNav = useRowNavigation();
 
 	function hostName(hostId?: number) {
 		if (hostId === undefined) {
@@ -37,32 +45,41 @@ export default function InstanceList(props: InstanceListProps) {
 	}
 
 	function integerFactorioVersionOrDefault(instance: lib.InstanceDetails) {
-		if (instance.factorioVersion === undefined || instance.factorioVersion === "latest") {
-			return -1;
+		const v = instance.factorioVersion;
+		if (v && lib.isPartialVersion(v)) {
+			return lib.integerPartialVersion(v);
 		}
-		return lib.integerPartialVersion(instance.factorioVersion);
+		return -1;
 	}
 
-	let columns: ColumnsType<lib.InstanceDetails> = [
+	let columns: ColumnType<lib.InstanceDetails>[] = [
 		{
 			title: "Name",
 			dataIndex: "name",
-			defaultSortOrder: "ascend",
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
+			sortOrder: tableState.sortOrder("name"),
+			filteredValue: tableState.filteredValue("name"),
+			className: "table-link-cell",
+			render: (_, instance) => <Link to={`/instances/${instance.id}/view`} style={{ color: "inherit" }}>
+				{instance.name}
+			</Link>,
+			...nameSearch,
 		},
 		{
 			title: "Assigned Host",
 			key: "assignedHost",
+			className: "table-link-cell",
 			render: (_, instance) => <Space>
-				<Link
+				{instance.assignedHost !== undefined && <Link
 					to={`/hosts/${instance.assignedHost}/view`}
 					onClick={e => e.stopPropagation()}
 				>
 					{hostName(instance.assignedHost)}
-				</Link>
+				</Link>}
 				<RestartRequired system={instance.assignedHost ? systems.get(instance.assignedHost) : undefined}/>
 			</Space>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
+			sortOrder: tableState.sortOrder("assignedHost"),
 			responsive: ["sm"],
 		},
 		{
@@ -87,6 +104,7 @@ export default function InstanceList(props: InstanceListProps) {
 				instancePublicAddress(a, hosts.get(a.assignedHost!) ?? null),
 				instancePublicAddress(b, hosts.get(b.assignedHost!) ?? null)
 			),
+			sortOrder: tableState.sortOrder("publicAddress"),
 			responsive: ["lg"],
 		},
 		{
@@ -94,6 +112,7 @@ export default function InstanceList(props: InstanceListProps) {
 			key: "version",
 			render: (_, instance) => instance.factorioVersion ?? "unknown",
 			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b),
+			sortOrder: tableState.sortOrder("version"),
 			responsive: ["xl"],
 		},
 		{
@@ -101,6 +120,7 @@ export default function InstanceList(props: InstanceListProps) {
 			key: "status",
 			render: (_, instance) => <InstanceStatusTag status={instance["status"]} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
+			sortOrder: tableState.sortOrder("status"),
 		},
 	];
 
@@ -123,11 +143,8 @@ export default function InstanceList(props: InstanceListProps) {
 		columns={columns}
 		dataSource={[...props.instances.values()]}
 		rowKey={instance => instance["id"]}
-		pagination={false}
-		onRow={(record, rowIndex) => ({
-			onClick: event => {
-				navigate(`/instances/${record.id}/view`);
-			},
-		})}
+		pagination={tableState.pagination}
+		onChange={tableState.onChange}
+		onRow={record => rowNav(`/instances/${record.id}/view`)}
 	/>;
 }

@@ -10,13 +10,16 @@ Implementation Guidelines
 
 local lib_json = require("json")
 
---- @diagnostic disable: deprecated
+--- Undefined fields are expected, the typedefs only cover the latest version
+--- @diagnostic disable: deprecated, undefined-field
 
 --- @class LibCompat
 --- @field script_data table
 --- @field prototypes LuaPrototypes
 --- @field active_mods table<string, string>
 --- @field write_file fun(filename: string, data: LocalisedString, append: boolean?, for_player: uint?)
+--- @field encode_string fun(string: string): string
+--- @field decode_string fun(string: string): string
 --- @field table_to_json fun(data: table): string
 --- @field json_to_table fun(json: string): AnyBasic?
 local compat = {}
@@ -177,6 +180,24 @@ function runtime_properties.write_file()
 	end
 end
 
+--- Deflates and base64 encodes the given string.
+function runtime_properties.encode_string()
+	if (v0_18 and compat.version_ge("0.18.7")) or v1 then
+		return game.encode_string
+	elseif v2 then
+		return helpers.encode_string
+	end
+end
+
+--- Base64 decodes and inflates the given string.
+function runtime_properties.decode_string()
+	if (v0_18 and compat.version_ge("0.18.7")) or v1 then
+		return game.decode_string
+	elseif v2 then
+		return helpers.decode_string
+	end
+end
+
 --- Convert tables to and from json, we have backported this to work before runtime
 if v0 or v1 then
 	compat.table_to_json = function(tbl)
@@ -218,4 +239,6 @@ set_script_data()
 compat.on_init = set_script_data --- @package
 compat.on_load = set_script_data --- @package
 
-return setmetatable(compat, compat_mt)
+-- Not returned directly because that would infer the metatable type rather than LibCompat
+setmetatable(compat, compat_mt)
+return compat

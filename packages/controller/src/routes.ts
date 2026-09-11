@@ -22,6 +22,7 @@ declare global {
 		export interface Locals {
 			controller: Controller,
 			mainBundle: string,
+			staticRoot: string | null,
 			devPlugins: Map<string, number>,
 			streams: Map<string, ProxyStream>
 		}
@@ -104,6 +105,14 @@ async function getMetrics(req: Request, res: Response, next: any) {
 }
 
 
+/**
+ * Removes the static/ prefix webpack adds to bundle paths so they can be
+ * resolved relative to staticRoot.
+ */
+export function stripStaticPrefix(bundlePath: string) {
+	return bundlePath.replace(/^static\//, "");
+}
+
 function getPlugins(req: Request, res: Response) {
 	let plugins: lib.PluginWebApi[] = [];
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
@@ -128,6 +137,9 @@ function getPlugins(req: Request, res: Response) {
 		}
 		if (web.main === "remoteEntry.js") {
 			web.error = "Incompatible old remoteEntry.js entrypoint.";
+		}
+		if (web.main) {
+			web.main = stripStaticPrefix(web.main);
 		}
 		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web, npmPackage: pluginInfo.npmPackage });
 	}

@@ -132,6 +132,7 @@ interface CtlArguments {
 interface InitializeParameters {
 	args: CtlArguments;
 	shouldRun: boolean;
+	ctlHooks: CtlHooks;
 	rootCommands?: lib.CommandTree;
 	controlConfig?: lib.ControlConfig;
 }
@@ -205,7 +206,7 @@ export async function initialize(
 		// If the command is plugin management we don't try to load plugins
 		if (args._[0] === "plugin") {
 			await lib.handlePluginCommand(args, pluginList, args.pluginList);
-			return { args, shouldRun: false };
+			return { args, ctlHooks, shouldRun: false };
 		}
 
 		logger.verbose("Loading Plugins");
@@ -250,10 +251,10 @@ export async function initialize(
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
 		await lib.handleConfigCommand(args, controlConfig, controlConfigLock);
-		return { args, controlConfig, rootCommands, shouldRun: false };
+		return { args, controlConfig, ctlHooks, rootCommands, shouldRun: false };
 	}
 
-	return { args, controlConfig, rootCommands, shouldRun: true };
+	return { args, controlConfig, ctlHooks, rootCommands, shouldRun: true };
 }
 
 export function selectTargetCommand(args: CtlArguments, rootCommands: lib.CommandTree): lib.Command {

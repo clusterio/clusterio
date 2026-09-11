@@ -292,6 +292,7 @@ export default class Instance extends lib.Link {
 		this.handle(lib.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
 		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
+		this.handle(lib.InstanceSaveGameRequest, this.handleInstanceSaveGameRequest.bind(this));
 		this.handle(lib.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
 		this.handle(lib.InstanceRestartRequest, this.handleInstanceRestartRequest.bind(this));
 		this.handle(lib.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
@@ -629,6 +630,21 @@ end`.replace(/\r?\n/g, " ");
 		try {
 			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 			await this._loadStats();
+			// Resolve a release channel target (e.g. "stable") to a concrete
+			// version using the controller's cached latest-releases data, so the
+			// existing download/lookup logic can fetch and run it.
+			const targetVersion = this.config.get("factorio.version") as string;
+			if (lib.isReleaseChannel(targetVersion)) {
+				const releases = await this.sendTo("controller", new lib.LatestReleasesRequest());
+				const resolved = lib.resolveReleaseChannel(releases, targetVersion);
+				if (!resolved) {
+					throw new Error(
+						`Cannot resolve Factorio release channel '${targetVersion}': ` +
+						"latest-releases unavailable and no cached copy on the controller."
+					);
+				}
+				this.server.setTargetVersion(resolved);
+			}
 			await this.server.checkForUpdates(factorioVersions);
 			await this.server.init();
 		} catch (err) {
@@ -777,9 +793,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 		this.activeModPack = modPack;
 
-		// TODO validate factorioVersion
-
-		const mods = await this._host.fetchMods(modPack.mods.values());
+		const mods = await this._host.fetchMods(modPack.mods.values(), modPack.factorioVersion);
 
 		await fs.mkdir(this.path("mods"), { recursive: true });
 
@@ -1287,6 +1301,27 @@ end`.replace(/\r?\n/g, " ");
 		}
 		await this.sendSaveListUpdate();
 		this.logger.info("Successfully created save");
+	}
+
+	async handleInstanceSaveGameRequest() {
+		if (this._status !== "running") {
+			throw new lib.RequestError("Instance is not running");
+		}
+
+		const saved = new Promise<void>((resolve, reject) => {
+			const onSaved = () => {
+				this.server.off("exit", onExit);
+				resolve();
+			};
+			const onExit = () => {
+				this.server.off("save-finished", onSaved);
+				reject(new lib.RequestError("Instance stopped before the save finished"));
+			};
+			this.server.once("save-finished", onSaved);
+			this.server.once("exit", onExit);
+		});
+		await this.sendRcon("/server-save");
+		await saved;
 	}
 
 	async handleInstanceExportDataRequest() {

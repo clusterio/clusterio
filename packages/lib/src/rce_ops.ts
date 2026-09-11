@@ -3,7 +3,7 @@ import path from "path";
 import { exec } from "child_process";
 import { logger } from "./logging";
 import { RequestError } from "./errors";
-import { PluginNodeEnvInfo } from "./plugin";
+import type { PluginNodeEnvInfo } from "./plugin";
 const execAsync = util.promisify(exec);
 
 function isDev() {

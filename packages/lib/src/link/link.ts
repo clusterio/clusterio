@@ -213,7 +213,7 @@ export class Link {
 			let handler = this._eventSnoopers.get((entry as EventEntry).Event)!;
 			let event = message as libData.MessageEvent;
 			handler((entry as EventEntry).eventFromJSON(event.data), event.src, event.dst).catch((err: Error) => {
-				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
+				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack ?? err.message}`);
 			});
 		}
 
@@ -223,6 +223,16 @@ export class Link {
 			}
 			this._routeMessage(message, entry);
 			return;
+		}
+
+		// A broadcast is addressed to every link of the type it targets, so
+		// being addressed to this one does not mean it stops here.
+		if (
+			message.type === "event"
+			&& message.dst.type === libData.Address.broadcast
+			&& this.router
+		) {
+			this._routeMessage(message, entry);
 		}
 
 		if (message.type === "request") {
@@ -472,7 +482,7 @@ export class Link {
 		handler(
 			entry.eventFromJSON(message.data), message.src, message.dst
 		).catch((err: Error) => {
-			logger.error(`Unexpected error handling ${message.name}:\n${err.stack}`);
+			logger.error(`Unexpected error handling ${message.name}:\n${err.stack ?? err.message}`);
 		});
 	}
 
@@ -566,8 +576,15 @@ export class Link {
 			src: message.src,
 			dst: message.dst,
 		};
-		this._forwardedRequests.set(message.src.requestIndex(), pending);
-		this.connector.forward(message);
+		const requestIndex = message.src.requestIndex();
+		this._forwardedRequests.set(requestIndex, pending);
+		try {
+			this.connector.forward(message);
+		} catch (err) {
+			// Clean up pending request as there will be no response
+			this._forwardedRequests.delete(requestIndex);
+			throw err;
+		}
 	}
 
 	sendEvent<T>(event: Event<T>, dst: libData.Address) {

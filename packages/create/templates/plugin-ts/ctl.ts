@@ -1,4 +1,4 @@
-import { BaseCtlPlugin, type Control } from "@clusterio/ctl";
+import type { Control, CtlPluginContext } from "@clusterio/ctl";
 import { CommandTree, Command } from "@clusterio/lib";
 //%// We do not check for multi context here because it doesn't make sense to have a ctl without messages
 import { PluginExampleEvent, PluginExampleRequest } from "./messages";
@@ -20,8 +20,8 @@ pluginCommands.add(new Command({
 }));
 
 /* eslint-enable no-console */
-export class CtlPlugin extends BaseCtlPlugin {
-	async addCommands(rootCommand: CommandTree) {
+export default async function loadCtlPlugin(context: CtlPluginContext) {
+	context.hooks.addCommands.attach(context.plugin.name, async (rootCommand) => {
 		rootCommand.add(pluginCommands);
-	}
+	});
 }

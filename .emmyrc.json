@@ -1,0 +1,48 @@
+{
+    "$schema": "https://raw.githubusercontent.com/EmmyLuaLs/emmylua-analyzer-rust/refs/heads/main/crates/emmylua_code_analysis/resources/schema.json",
+    "runtime": {
+        "version": "Lua5.2",
+        "requirePattern": [ "?", "?.lua" ]
+    },
+    "workspace": {
+        "$comment-moduleMap": "Rewrites each file's own module path rather than the require string",
+        "$comment-library": "The factorio typedefs are provided by a second config, generated with fmtk luals-addon in ci",
+        "$comment-templates": "The create templates contain __plugin_name__ placeholders and are not valid lua",
+        "ignoreGlobs": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "database/**",
+            "docs/**",
+            "external_plugins/**",
+            "factorio/**",
+            "instances/**",
+            "logs/**",
+            "mods/**",
+            "modules/**",
+            "temp/**",
+            "packages/create/templates/**"
+        ],
+        "moduleMap": [
+            { "pattern": "^packages\\.host\\.modules\\.(.+)$", "replace": "modules.$1" },
+            { "pattern": "^plugins\\.([^.]+)\\.module\\.(.+)$", "replace": "modules.$1.$2" },
+            { "pattern": "^packages\\.host\\.lua\\.export\\.(.+)$", "replace": "$1" },
+            { "pattern": "^packages\\.host\\.lua\\.clusterio_lib\\.(.+)$", "replace": "$1" }
+        ]
+    },
+    "doc": {
+        "privateName": [ "__*" ]
+    },
+    "$comment-disable": "Same set as ExpCluster, these are editor level hints rather than ci checks",
+    "$comment-unnecessary-if": "Disabled by the config fmtk generates for itself, the api union types make it unreliable",
+    "diagnostics": {
+        "globals": [ "__DebugAdapter", "__Profiler" ],
+        "disable": [
+            "assign-type-mismatch",
+            "param-type-mismatch",
+            "preferred-local-alias",
+            "unnecessary-assert",
+            "unnecessary-if",
+            "unused"
+        ]
+    }
+}

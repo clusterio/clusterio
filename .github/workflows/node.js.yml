@@ -7,15 +7,27 @@ on:
   push:
   pull_request:
 
+env:
+  NODE_VERSION: 24.x
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
-        # Supported versions are active lts and maintenance see https://nodejs.org/en/about/releases/
-        node-version: [20.x, 22.x]
-        # Supported versions are latest stable and one minor version before stable (even if from a previous major) 
-        factorio-version: [1.1.110, 2.0.47]
+        # Supported node versions are active lts and maintenance see https://nodejs.org/en/about/releases/
+        node-version: [24.x]
+
+        # Supported factorio versions are latest stable and one minor version before stable (even if from a previous major) 
+        factorio-version: [1.1.110, 2.0.77, 2.1.8]
+    
+        # Coverage is performed on the older of the supported node versions
+        include:
+          - node-version: 22.x
+            factorio-version: 2.1.8
+            coverage: true
 
     steps:
     - uses: actions/checkout@v4
@@ -29,13 +41,13 @@ jobs:
     - name: Use Factorio ${{ matrix.factorio-version }}
       run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ matrix.factorio-version }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
-      if: ${{ matrix.node-version != '20.x' || matrix.factorio-version != '1.1.110' }}
+      if: ${{ !matrix.coverage }}
       run: pnpm test
     - name: Run coverage
-      if: ${{ matrix.node-version == '20.x' && matrix.factorio-version == '1.1.110' }}
+      if: ${{ matrix.coverage }}
       run: pnpm run ci-cover
-    - name : Upload coverage to Codecov
-      if: ${{ matrix.node-version == '20.x' && matrix.factorio-version == '1.1.110' }}
+    - name: Upload coverage to Codecov
+      if: ${{ matrix.coverage }}
       uses: codecov/codecov-action@v4
       with:
         files: ./coverage/lcov.info
@@ -47,25 +59,61 @@ jobs:
         name: logs-${{ matrix.node-version }}-${{ matrix.factorio-version }}
         path: temp/test/logs
 
-  lint:
+  version-compat:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # npm version spec for the published side of the compatibility test.
+      # If each release is compatible with the one before it then testing
+      # against the latest release transitively covers older versions too.
+      PUBLISHED_VERSION: latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - controller: local
+            host: published
+          - controller: published
+            host: local
+
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: 20.x
+        node-version: ${{ env.NODE_VERSION }}
+    - name: Prepare and install
+      run: pnpm i --no-frozen-lockfile
+    - name: Build
+      run: pnpm run build
+    - name: Test ${{ matrix.controller }} controller with ${{ matrix.host }} host
+      run: >
+        node scripts/version-compat-test.js
+        --controller ${{ matrix.controller }}
+        --host ${{ matrix.host }}
+        --published-version $PUBLISHED_VERSION
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
     - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: 20.x
+        node-version: ${{ env.NODE_VERSION }}
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run build-mod
     # Upload build to artifacts

@@ -1,26 +1,38 @@
 {
 	"name": "@clusterio/create",
+	"version": "2.0.0-alpha.27",
 	"description": "Installer for clusterio",
-	"author": "Hornwitser",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
 	"license": "MIT",
-	"version": "2.0.0-alpha.25",
-	"main": "create.js",
-	"bin": {
-		"clusteriocreate": "./create.js"
-	},
+	
 	"keywords": [
 		"clusterio",
 		"factorio"
 	],
-	"engines": {
-		"node": ">=20"
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
 	},
+	"bugs": {
+		"url": "https://github.com/clusterio/clusterio/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+
+	"main": "create.js",
+	"bin": {
+		"clusteriocreate": "./create.js"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+
 	"dependencies": {
 		"chalk": "catalog:",
 		"inquirer": "^8.2.4",
 		"yargs": "^17.7.2"
-	},
-	"publishConfig": {
-		"access": "public"
 	}
 }

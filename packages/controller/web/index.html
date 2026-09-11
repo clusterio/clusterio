@@ -29,7 +29,7 @@
 		<script id="script-bundle" src="__STATIC_ROOT____MAIN_BUNDLE__" defer></script>
 		<script>
 			webRoot = new URL("__WEB_ROOT__", document.location).pathname;
-			staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
+			staticRoot = new URL("__STATIC_ROOT__", document.location).href;
 			function scriptError(err) {
 				console.error(err);
 				let bootstrapMsg = document.getElementById("bootstrap-msg");

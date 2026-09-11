@@ -1,22 +1,37 @@
 {
 	"name": "@clusterio/lib",
+	"version": "2.0.0-alpha.27",
 	"description": "Shared library for Clusterio",
-	"version": "2.0.0-alpha.25",
-	"repository": "https://github.com/clusterio/clusterio",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"author": "Hornwitser <github@hornwitser.no>",
 	"license": "MIT",
-	"scripts": {
-		"prepare": "tsc --build && pnpm run compile_validator",
-		"compile_validator": "node scripts/compile_validator.js"
-	},
-	"main": "dist/node/index.js",
-	"browser": "browser.ts",
+
 	"keywords": [
 		"clusterio",
 		"factorio"
 	],
-	"engines": {
-		"node": ">=12"
+
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/clusterio/clusterio"
 	},
+	"bugs": {
+		"url": "https://github.com/clusterio/clusterio/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+
+	"browser": "browser.ts",
+	"main": "dist/node/index.js",
+	"scripts": {
+		"prepare": "tsc --build && pnpm run compile_validator",
+		"compile_validator": "node scripts/compile_validator.js"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+
 	"dependencies": {
 		"@sinclair/typebox": "catalog:",
 		"ajv": "^8.17.1",
@@ -29,9 +44,6 @@
 		"winston-transport": "catalog:",
 		"ws": "catalog:",
 		"yargs": "^17.7.2"
-	},
-	"publishConfig": {
-		"access": "public"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",

@@ -1,5 +1,4 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
 
@@ -20,6 +19,10 @@ import {
 import { useHosts } from "../model/host";
 import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -199,12 +202,16 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 
 export default function HostsPage() {
 	let account = useAccount();
-	let navigate = useNavigate();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
 	const [showRatios, setShowRatios] = useState(true);
 	const [showNumbers, setShowNumbers] = useState(false);
 	const [showCpuModel, setShowCpuModel] = useState(false);
+	const tableState = useTableQueryState<lib.HostDetails>({
+		namespace: "host", defaultSortKey: "name",
+	});
+	const nameSearch = useColumnSearch<lib.HostDetails>(tableState, "name", host => host.name, "Search hosts");
+	const rowNav = useRowNavigation();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
@@ -217,13 +224,20 @@ export default function HostsPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
-					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					sortOrder: tableState.sortOrder("name"),
+					filteredValue: tableState.filteredValue("name"),
+					className: "table-link-cell",
+					render: (_, host) => <Link to={`/hosts/${host.id}/view`} style={{ color: "inherit" }}>
+						{host.name}
+					</Link>,
+					...nameSearch,
 				},
 				{
 					title: "CPU Model",
 					dataIndex: "cpuModel",
 					sorter: (a, b) => strcmp(systems.get(a.id)?.cpuModel ?? "", systems.get(b.id)?.cpuModel ?? ""),
+					sortOrder: tableState.sortOrder("cpuModel"),
 					render: (_, host) => systems.get(host.id)?.cpuModel,
 					hidden: !showCpuModel,
 				},
@@ -231,6 +245,7 @@ export default function HostsPage() {
 					title: "CPU%",
 					key: "cpuPct",
 					sorter: (a, b) => (systems.get(a.id)?.cpuRatio ?? 0) - (systems.get(b.id)?.cpuRatio ?? 0),
+					sortOrder: tableState.sortOrder("cpuPct"),
 					render: (_, host) => <MetricCpuRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
@@ -240,6 +255,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.cpuUsed ?? 0) - (systems.get(b.id)?.cpuUsed ?? 0)
 					),
+					sortOrder: tableState.sortOrder("cores"),
 					render: (_, host) => <MetricCpuUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
@@ -249,6 +265,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.memoryRatio ?? 0) - (systems.get(b.id)?.memoryRatio ?? 0)
 					),
+					sortOrder: tableState.sortOrder("memPct"),
 					render: (_, host) => <MetricMemoryRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
@@ -258,6 +275,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.memoryUsed ?? 0) - (systems.get(b.id)?.memoryUsed ?? 0)
 					),
+					sortOrder: tableState.sortOrder("memory"),
 					render: (_, host) => <MetricMemoryUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
@@ -265,6 +283,7 @@ export default function HostsPage() {
 					title: "Disk%",
 					key: "diskPct",
 					sorter: (a, b) => (systems.get(a.id)?.diskAvailable ?? 0) - (systems.get(b.id)?.diskAvailable ?? 0),
+					sortOrder: tableState.sortOrder("diskPct"),
 					render: (_, host) => <MetricDiskRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
@@ -274,6 +293,7 @@ export default function HostsPage() {
 					sorter: (a, b) => (
 						(systems.get(a.id)?.diskUsed ?? 0) - (systems.get(b.id)?.diskUsed ?? 0)
 					),
+					sortOrder: tableState.sortOrder("disk"),
 					render: (_, host) => <MetricDiskUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
@@ -287,11 +307,13 @@ export default function HostsPage() {
 						</Tooltip>}
 					</Space>,
 					sorter: (a, b) => strcmp(a.version, b.version),
+					sortOrder: tableState.sortOrder("version"),
 				},
 				{
 					title: "Public address",
 					dataIndex: "publicAddress",
 					sorter: (a, b) => strcmp(a.publicAddress??"", b.publicAddress??""),
+					sortOrder: tableState.sortOrder("publicAddress"),
 				},
 				{
 					title: "Connected",
@@ -301,16 +323,14 @@ export default function HostsPage() {
 						<RestartRequired system={systems.get(host.id)}/>
 					</>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
+					sortOrder: tableState.sortOrder("connected"),
 				},
 			]}
 			dataSource={[...hosts.values()]}
 			rowKey={host => host.id}
-			pagination={false}
-			onRow={(record, rowIndex) => ({
-				onClick: event => {
-					navigate(`/hosts/${record.id}/view`);
-				},
-			})}
+			pagination={tableState.pagination}
+			onChange={tableState.onChange}
+			onRow={record => rowNav(`/hosts/${record.id}/view`)}
 		/>
 		<Flex wrap="wrap" style={{ margin: "16px 0 0 0" }} gap="small">
 			<label style={{ width: "14em", display: "flex", justifyContent: "space-between", marginRight: 16 }}>

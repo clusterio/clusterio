@@ -12,7 +12,7 @@ import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo";
 
 import {
 	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	FullVersion, FullVersionSchema, normaliseFullVersion,
+	SourceVersion, SourceVersionSchema, normaliseFullVersion, integerSourceVersion,
 } from "./version";
 
 
@@ -32,6 +32,10 @@ export interface ModSetting {
 	value: boolean | number | string | ModSettingColor;
 }
 
+export type ModRecordAdvisory =
+	| { type: "recommended_dependency", sourceModName: string }
+	| { type: "update_available", version: SourceVersion };
+
 const ModSettingJsonSchema = Type.Object({
 	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String(), ModSettingColor]),
 });
@@ -46,8 +50,8 @@ export interface ModRecord {
 	name: string,
 	/** if mod is to be loaded. */
 	enabled: boolean,
-	/** version of the mod. */
-	version: FullVersion,
+	/** version of the mod, verbatim as it appears in the mod's file name. */
+	version: SourceVersion,
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
@@ -56,12 +60,92 @@ export interface ModRecord {
 	warning?: ModDependencyUnsatisfiedReason | "wrong_factorio_version",
 	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx when there is no error. */
 	info?: ModInfo,
+	/** Non-blocking recommendations displayed by the Web UI. */
+	advisories?: ModRecordAdvisory[],
+}
+
+type AnnotatedModRecord = ModRecord & { advisories: ModRecordAdvisory[] };
+
+/**
+ * Finds newer versions already installed on the controller for mods in a pack.
+ */
+export function getInstalledModUpdates(mods: ModRecord[], installedMods: Iterable<ModInfo>) {
+	const updates = new Map<string, SourceVersion>();
+
+	for (const mod of mods) {
+		if (!mod.info) {
+			continue;
+		}
+
+		for (const installedMod of installedMods) {
+			if (
+				installedMod.name !== mod.name
+				|| installedMod.factorioVersion !== mod.info.factorioVersion
+				|| installedMod.integerVersion <= integerSourceVersion(mod.version)
+			) {
+				continue;
+			}
+
+			const existingUpdate = updates.get(mod.name);
+			if (!existingUpdate || installedMod.integerVersion > integerSourceVersion(existingUpdate)) {
+				updates.set(mod.name, installedMod.version);
+			}
+		}
+	}
+
+	return updates;
+}
+
+export function applyModRecordAdvisories(
+	mods: ModRecord[],
+	availableUpdates: ReadonlyMap<string, SourceVersion> = new Map(),
+) {
+	const annotatedMods: AnnotatedModRecord[] = mods.map(mod => ({ ...mod, advisories: [] }));
+	const modsByName = new Map(annotatedMods.map(mod => [mod.name, mod]));
+
+	for (const sourceMod of annotatedMods) {
+		if (!sourceMod.enabled || !sourceMod.info) {
+			continue;
+		}
+
+		for (const dependency of sourceMod.info.dependencies) {
+			if (!dependency.recommended) {
+				continue;
+			}
+
+			const targetMod = modsByName.get(dependency.name);
+			if (
+				!targetMod
+				|| targetMod.enabled
+				|| dependency.version && !dependency.version.testVersion(targetMod.version)
+			) {
+				continue;
+			}
+
+			targetMod.advisories.push({
+				type: "recommended_dependency",
+				sourceModName: sourceMod.name,
+			});
+		}
+	}
+
+	for (const mod of annotatedMods) {
+		const availableVersion = availableUpdates.get(mod.name);
+		if (availableVersion && integerSourceVersion(availableVersion) > integerSourceVersion(mod.version)) {
+			mod.advisories.push({ type: "update_available", version: availableVersion });
+		}
+		if (mod.advisories.length === 0) {
+			delete (mod as ModRecord).advisories;
+		}
+	}
+
+	return annotatedMods;
 }
 
 const ModRecordJsonSchema = Type.Object({
 	"name": Type.String(),
 	"enabled": Type.Boolean(),
-	"version": FullVersionSchema,
+	"version": SourceVersionSchema,
 	"sha1": Type.Optional(Type.String()),
 });
 
@@ -396,7 +480,7 @@ export default class ModPack {
 
 	/** Array of default mod packs which should exist on a newly installed cluster */
 	static defaultModPacks = [
-		...(["0.17", "0.18", "1.0", "1.1", "2.0"] as const)
+		...(["0.17", "0.18", "1.0", "1.1", "2.0", "2.1"] as const)
 			.map(version => this.fromJSON({
 				name: `Base Game ${version}`,
 				description: `Factorio ${version} with no extra mods.`,
@@ -413,6 +497,18 @@ export default class ModPack {
 					{ name: "space-age", enabled: true, version: normaliseFullVersion(version) },
 				],
 			} as any)),
+		...(["2.1"] as const)
+			.map(version => this.fromJSON({
+				name: `Space Age ${version}`,
+				description: `Factorio ${version} with Space Age expansion.`,
+				factorio_version: version,
+				mods: [
+					{ name: "elevated-rails", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "quality", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "space-age", enabled: true, version: normaliseFullVersion(version) },
+					{ name: "recycler", enabled: true, version: normaliseFullVersion(version) },
+				],
+			} as any)),
 	];
 
 	/**
@@ -422,18 +518,24 @@ export default class ModPack {
 	 * @return Built in mods for the given version
 	 */
 	static getBuiltinMods(factorioVersion: PartialVersion) {
-		factorioVersion = normaliseFullVersion(factorioVersion);
+		const version = normaliseFullVersion(factorioVersion) as SourceVersion;
+		const integerVersion = integerPartialVersion(factorioVersion);
 		let defaultMods: ModRecord[] = [
 			// "core" not included because core cannot be disabled
-			{ name: "base", enabled: true, version: factorioVersion },
+			{ name: "base", enabled: true, version: version },
 		];
 
-		const integerVersion = integerPartialVersion(factorioVersion);
 		if (integerVersion >= integerPartialVersion("1.2")) {
 			defaultMods = defaultMods.concat([
-				{ name: "elevated-rails", enabled: false, version: factorioVersion },
-				{ name: "quality", enabled: false, version: factorioVersion },
-				{ name: "space-age", enabled: false, version: factorioVersion },
+				{ name: "elevated-rails", enabled: false, version: version },
+				{ name: "quality", enabled: false, version: version },
+				{ name: "space-age", enabled: false, version: version },
+			]);
+		}
+
+		if (integerVersion >= integerPartialVersion("2.1")) {
+			defaultMods = defaultMods.concat([
+				{ name: "recycler", enabled: false, version: version },
 			]);
 		}
 

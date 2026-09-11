@@ -4,9 +4,13 @@ import { Select, Typography } from "antd";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
+import useLocalStorage from "../util/useLocalStorage";
 import ControlContext from "./ControlContext";
 
 const { Paragraph } = Typography;
+
+const consoleHeightKey = "instance-console-height";
+const defaultConsoleHeight = 300;
 
 type Parsed = {
 	format: string;
@@ -18,7 +22,7 @@ type Parsed = {
 	message: string;
 };
 
-function formatParsedOutput(parsed: Parsed, key: number) {
+function formatParsedOutput(parsed: Parsed) {
 	let time: ReactElement|string = "";
 	if (parsed.format === "seconds") {
 		time = <span className="factorio-time">{parsed.time.padStart(8)} </span>;
@@ -47,7 +51,7 @@ function formatParsedOutput(parsed: Parsed, key: number) {
 		info = <>[<span className="factorio-action">{parsed.action}</span>] </>;
 	}
 
-	return <span key={key}>{time}{info}{parsed.message}<br/></span>;
+	return <>{time}{info}{parsed.message}</>;
 }
 
 type Info = {
@@ -57,11 +61,27 @@ type Info = {
 };
 
 function formatLog(info: Info, key: number): ReactElement {
-	if (info.level === "server" && info.parsed) {
-		return formatParsedOutput(info.parsed, key);
-	}
 	let level = <span className={`log-${info.level}`}>{info.level}</span>;
-	return <span key={key}>[{level}] {info.message}<br/></span>;
+	let message = info.level === "server" && info.parsed ? formatParsedOutput(info.parsed) : info.message;
+	return <span key={key}>[{level}] {message}<br/></span>;
+}
+
+/**
+ * Test if a log entry survives the console's actions only filter
+ */
+function passesActionsOnly(info: Info) {
+	// Clusterio's own entries are bookkeeping, only keep those reporting a problem.
+	if (info.level !== "server") {
+		return lib.levels[info.level] <= lib.levels.warn;
+	}
+
+	// Factorio's seconds stamped engine log is verbose diagnostics, only keep warnings and errors.
+	if (info.parsed?.format === "seconds") {
+		return info.parsed.level === "Warning" || info.parsed.level === "Error";
+	}
+
+	// What is left is the date stamped console log: the actions done to the server and the replies to them.
+	return true;
 }
 
 type LogConsoleProps = {
@@ -99,6 +119,36 @@ export default function LogConsole(props: LogConsoleProps) {
 	let anchor = useRef<any>();
 	let [pastLines, setPastLines] = useState([<span key={0}>{"Loading past entries..."}<br/></span>]);
 	let [lines, setLines] = useState<ReactElement[]>([]);
+	const [consoleHeight, setConsoleHeight] = useLocalStorage(consoleHeightKey, defaultConsoleHeight);
+	const consoleHeightRef = useRef(consoleHeight);
+	consoleHeightRef.current = consoleHeight;
+
+	// The console is resized with the browser's native resize handle, which owns
+	// the element's inline height. Driving the height from React would rewrite
+	// that inline style on every re-render and fight the drag (locking the size),
+	// so the height is only read here (on mount) and persisted (on resize), never
+	// written back through React. The scroll container is the <code> element
+	// wrapping the anchor.
+	useEffect(() => {
+		const element = anchor.current?.parentElement as HTMLElement | undefined;
+		if (!element) {
+			return undefined;
+		}
+		element.style.height = `${consoleHeightRef.current}px`;
+
+		if (typeof ResizeObserver === "undefined") {
+			return undefined;
+		}
+		const observer = new ResizeObserver(() => {
+			const next = Math.round(element.offsetHeight);
+			if (next && next !== consoleHeightRef.current) {
+				consoleHeightRef.current = next;
+				setConsoleHeight(next);
+			}
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
 
 	useEffect(() => {
 		let logFilter = {
@@ -125,11 +175,7 @@ export default function LogConsole(props: LogConsoleProps) {
 				"desc",
 			)).then(result => {
 				setPastLines(result.log
-					.filter(info => (
-						!props.actionsOnly
-						|| (info as Info).level !== "server"
-						|| (info as Info).parsed?.type === "action"
-					))
+					.filter(info => !props.actionsOnly || passesActionsOnly(info as Info))
 					.map((info, index) => formatLog(info as Info, -index - 1))
 					.reverse()
 				);
@@ -141,7 +187,7 @@ export default function LogConsole(props: LogConsoleProps) {
 		}
 
 		function logHandler(info: Info) {
-			if (!props.actionsOnly || info.level !== "server" || info.parsed?.type === "action") {
+			if (!props.actionsOnly || passesActionsOnly(info)) {
 				setLines(currentLines => currentLines.concat(
 					[formatLog(info, currentLines.length)]
 				));
@@ -164,6 +210,10 @@ export default function LogConsole(props: LogConsoleProps) {
 
 	return <>
 		<Paragraph code className="instance-console">
+			{/* Scrollable spacer (one console-height tall) that keeps short output
+			    pinned to the bottom and leaves room to scroll up. Unlike a
+			    padding-top it is scroll content, so it does not constrain resize. */}
+			<div className="console-spacer" key="spacer" />
 			{pastLines}
 			{lines}
 			<div className="scroll-anchor" key="anchor" ref={anchor} />

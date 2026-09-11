@@ -1,37 +1,336 @@
 "use strict";
 const assert = require("assert").strict;
+const fs = require("node:fs/promises");
+const path = require("path");
 
 const mock = require("../mock");
 const lib = require("@clusterio/lib");
+const { BaseControllerPlugin } = require("@clusterio/controller");
 
 
 describe("lib/plugin", function() {
-	describe("invokeHook()", function() {
-		let betaTestCalled = false;
-		let plugins = new Map([
-			["alpha", {
-				test: async function() { },
-				pass: async function(arg) { return arg; },
-				error: async function() { throw new Error("Test"); },
-				logger: new mock.MockLogger(),
-			}],
-			["beta", {
-				test: async function() { betaTestCalled = true; },
-				pass: async function() { },
-				error: async function() { },
-				logger: new mock.MockLogger(),
-			}],
-		]);
-		it("should invoke the hook on the plugin", async function() {
-			await lib.invokeHook(plugins, "test");
-			assert(betaTestCalled, "Hook was not called");
+	describe("loadPluginInfos()", function() {
+		let baseDir = path.join("temp", "test", "plugin");
+		let missingPlugin = path.join(baseDir, "missing_plugin");
+		let testPlugin = path.join(baseDir, "test_plugin");
+		let brokenPlugin = path.join(baseDir, "broken_plugin");
+		let invalidPlugin = path.join(baseDir, "invalid_plugin");
+		before(async function() {
+			async function writePlugin(pluginPath, infoName) {
+				await fs.mkdir(pluginPath, { recursive: true });
+				await fs.writeFile(
+					path.join(pluginPath, "index.js"),
+					`module.exports.plugin = { name: "${infoName}" };`
+				);
+				await fs.writeFile(
+					path.join(pluginPath, "package.json"),
+					'{ "version": "0.0.1" }'
+				);
+			}
+
+			await writePlugin(testPlugin, "test");
+			await writePlugin(brokenPlugin, "broken");
+			await fs.writeFile(path.join(brokenPlugin, "index.js"), "Syntax Error");
+			await writePlugin(invalidPlugin, "wrong");
 		});
-		it("should pass and return args", async function() {
-			let result = await lib.invokeHook(plugins, "pass", 1234);
-			assert.deepEqual(result, [1234]);
+
+		it("should ignore missing plugins", async function() {
+			const result = await lib.loadPluginInfos(new Map([
+				["missing", path.resolve(missingPlugin)],
+				["no_index", path.resolve(baseDir)],
+			]), []);
+			assert.deepEqual(result, []);
 		});
-		it("should ignore errors", async function() {
-			await lib.invokeHook(plugins, "error");
+		it("should load test plugin", async function() {
+			assert.deepEqual(
+				await lib.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
+				[{
+					name: "test",
+					version: "0.0.1",
+					npmPackage: undefined,
+					requirePath: path.resolve(testPlugin),
+					webStaticPath: path.resolve(path.join(testPlugin, "dist", "web", "static")),
+				}]
+			);
+		});
+		it("should reject on broken plugin", async function() {
+			let brokenMessage;
+			try {
+				require(path.resolve(brokenPlugin));
+			} catch (err) {
+				brokenMessage = err.message;
+			}
+			await assert.rejects(
+				lib.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
+				{ message: `PluginError: ${brokenMessage}` }
+			);
+		});
+		it("should reject on invalid plugin", async function() {
+			await assert.rejects(
+				lib.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
+				{ message: `Expected plugin at ${path.resolve(invalidPlugin)} to be named invalid but got wrong` }
+			);
+		});
+	});
+	describe("loadPlugin()", function() {
+		const baseDir = path.join("temp", "test", "plugin");
+		const functionPlugin = path.resolve(baseDir, "function_plugin");
+		const classPlugin = path.resolve(baseDir, "class_plugin");
+		const throwingClassPlugin = path.resolve(baseDir, "throwing_class_plugin");
+		const missingClassPlugin = path.resolve(baseDir, "missing_class_plugin");
+		const wrongParentClassPlugin = path.resolve(baseDir, "wrong_parent_class_plugin");
+		let controller;
+		let logger;
+		let context;
+
+		before(async function() {
+			async function writeEntrypoint(pluginPath, content) {
+				await fs.mkdir(pluginPath, { recursive: true });
+				await fs.writeFile(path.join(pluginPath, "controller.js"), content);
+			}
+
+			await writeEntrypoint(functionPlugin, `
+				module.exports.default = async function(context) {
+					context.controller.loadedWith = context;
+				};
+			`);
+			await writeEntrypoint(classPlugin, `
+				const { BaseControllerPlugin } = require("@clusterio/controller");
+				class ControllerPlugin extends BaseControllerPlugin {
+					async init() { this.controller.loadedWith = this; }
+					async onSaveData() { }
+				}
+				module.exports = { ControllerPlugin };
+			`);
+			await writeEntrypoint(throwingClassPlugin, `
+				const { BaseControllerPlugin } = require("@clusterio/controller");
+				class ControllerPlugin extends BaseControllerPlugin {
+					async init() { throw new Error("init failed"); }
+					async onSaveData() { }
+				}
+				module.exports = { ControllerPlugin };
+			`);
+			await writeEntrypoint(missingClassPlugin, "");
+			await writeEntrypoint(
+				wrongParentClassPlugin, "class ControllerPlugin {}\nmodule.exports = { ControllerPlugin };\n"
+			);
+		});
+
+		beforeEach(function() {
+			controller = new mock.MockController();
+			logger = new mock.MockLogger();
+			logger.warnings = [];
+			logger.warn = msg => logger.warnings.push(msg);
+			context = { controller, metrics: {}, logger };
+		});
+
+		function info(requirePath, entrypoint = "controller") {
+			return { name: "test", requirePath, controllerEntrypoint: entrypoint };
+		}
+
+		it("should do nothing when the entrypoint is not set", async function() {
+			await lib.loadPlugin(
+				{ name: "test", requirePath: missingClassPlugin }, "controller", context,
+				"ControllerPlugin", BaseControllerPlugin,
+			);
+			assert.equal(controller.loadedWith, undefined);
+		});
+		it("should call the default export with the load context", async function() {
+			const pluginInfo = info(functionPlugin);
+			await lib.loadPlugin(pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin);
+			assert.equal(controller.loadedWith.controller, controller);
+			assert.equal(controller.loadedWith.plugin, pluginInfo);
+			assert.equal(controller.loadedWith.logger, logger);
+			assert.deepEqual(logger.warnings, []);
+		});
+		it("should load a deprecated class export", async function() {
+			const pluginInfo = info(classPlugin);
+			await lib.loadPlugin(pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin);
+			assert(controller.loadedWith instanceof BaseControllerPlugin);
+			assert.equal(controller.loadedWith.info, pluginInfo);
+			assert.deepEqual([...controller.hooks.save.attached], ["test"]);
+			assert.deepEqual(logger.warnings, ["Plugin test is using deprecated class export"]);
+		});
+		it("should detach hooks if init throws", async function() {
+			await assert.rejects(
+				lib.loadPlugin(
+					info(throwingClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
+				),
+				new Error("init failed")
+			);
+			assert.equal(controller.hooks.size, 0);
+		});
+		it("should throw if neither a function nor a class is exported", async function() {
+			await assert.rejects(
+				lib.loadPlugin(
+					info(missingClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
+				),
+				new Error("Plugin test must export either a default function or ControllerPlugin class")
+			);
+		});
+		it("should throw if the class is not a subclass of the base class", async function() {
+			await assert.rejects(
+				lib.loadPlugin(
+					info(wrongParentClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
+				),
+				new Error("Expected ControllerPlugin exported from test to extend BaseControllerPlugin")
+			);
+		});
+	});
+	describe("loadPluginList()", async function() {
+		const old_cwd = process.cwd();
+		const baseDir = path.join("temp", "test", "plugin_list");
+		const pluginListPath = path.join(baseDir, "plugin_list.json");
+		const localPluginPath = path.join(baseDir, "plugins", "local_plugin");
+		const localPluginPathAbs = path.resolve(localPluginPath);
+		const externalPluginPath = path.join(baseDir, "external_plugins", "external_plugin");
+		const externalPluginPathAbs = path.resolve(externalPluginPath);
+		const monorepoPluginPath = path.join(baseDir, "external_plugins", "monorepo", "monorepo_plugin");
+		const monorepoPluginPathAbs = path.resolve(monorepoPluginPath);
+
+		const nodeModules = path.join(baseDir, "node_modules");
+		const npmPluginPath = path.join(nodeModules, "plugin-npm");
+		const aliasedPluginPath = path.join(nodeModules, "plugin-aliased");
+		const deepPluginPath = path.join(nodeModules, "plugin-deep");
+		const transitivePluginPath = path.join(nodeModules, "plugin-transitive");
+		const nestedPluginPath = path.join(transitivePluginPath, "node_modules", "plugin-nested");
+		const hiddenPluginPath = path.join(nodeModules, "plugin-hidden");
+		const notAPluginPath = path.join(nodeModules, "not-a-plugin");
+		let pluginList;
+
+		before(async function() {
+			// Setup test plugins
+			async function writePlugin(
+				pluginPath,
+				name,
+				dependencies = {},
+				packageJsonFields = {},
+			) {
+				await fs.mkdir(pluginPath, { recursive: true });
+				await fs.writeFile(
+					path.join(pluginPath, "index.js"),
+					`module.exports.plugin = { name: "${name}" };`
+				);
+				await fs.writeFile(
+					path.join(pluginPath, "package.json"),
+					JSON.stringify({
+						name: path.basename(pluginPath),
+						version: "0.0.1",
+						keywords: ["clusterio-plugin"],
+						dependencies,
+						...packageJsonFields,
+					})
+				);
+			}
+
+			try {
+				await fs.rm(baseDir, { force: true, recursive: true, maxRetries: 10 });
+			} catch {}
+
+			// Create local plugin
+			await writePlugin(localPluginPath, "local");
+
+			// Create external plugin
+			await writePlugin(externalPluginPath, "external");
+
+			// Write a monorepo plugin
+			await writePlugin(monorepoPluginPath, "monorepo");
+
+			// Create a plugin that is not in root or transitive
+			await writePlugin(hiddenPluginPath, "hidden");
+
+			// Create npm plugins
+			await writePlugin(npmPluginPath, "npm", { "plugin-transitive": "^1.0.0" });
+			await writePlugin(transitivePluginPath, "transitive", { "plugin-npm": "^1.0.0" });
+			await writePlugin(nestedPluginPath, "nested");
+			await writePlugin(aliasedPluginPath, "aliased", {}, { name: "real-plugin" });
+
+			// Create npm plugin with deep entry point
+			await writePlugin(deepPluginPath, "unused", {}, {
+				main: "./dist/index.js",
+			});
+			await fs.mkdir(path.join(deepPluginPath, "dist"));
+			await fs.writeFile(
+				path.join(deepPluginPath, "dist", "index.js"),
+				'module.exports.plugin = { name: "deep" };'
+			);
+
+			// Create an npm module that is not a plugin
+			await writePlugin(notAPluginPath, "not-a-plugin", { "plugin-hidden": "^0.0.1" }, { keywords: [] });
+
+			// Create root package.json
+			await fs.writeFile(
+				path.join(baseDir, "package.json"),
+				JSON.stringify({
+					dependencies: {
+						"plugin-npm": "^1.0.0",
+						"not-a-plugin": "^1.0.0",
+						"plugin-aliased": "npm:real-plugin@^0.0.1",
+						"plugin-deep": "^0.0.1",
+					},
+				})
+			);
+
+			process.chdir(baseDir);
+			pluginList = await lib.loadPluginList(pluginListPath, true);
+		});
+
+		beforeEach(async function() {
+			await fs.rm(pluginListPath, { force: true });
+		});
+
+		after(async function() {
+			process.chdir(old_cwd);
+		});
+
+		it("should discover local plugins", async function() {
+			assert.ok(pluginList.has("local_plugin"));
+			assert.ok(pluginList.has("external_plugin"));
+			assert.strictEqual(pluginList.get("local_plugin"), localPluginPathAbs);
+			assert.strictEqual(pluginList.get("external_plugin"), externalPluginPathAbs);
+		});
+
+		it("should discover npm plugins", async function() {
+			assert.ok(pluginList.has("npm"));
+			assert.strictEqual(pluginList.get("npm"), "plugin-npm");
+			assert.strictEqual(pluginList.get("aliased"), "plugin-aliased");
+			assert.strictEqual(pluginList.get("deep"), "plugin-deep");
+			assert.strictEqual(pluginList.get("not-a-plugin"), undefined);
+		});
+
+		it("should discover transitive npm plugins without traversing non-plugin packages", async function() {
+			assert.strictEqual(pluginList.get("transitive"), "plugin-transitive");
+			assert.strictEqual(pluginList.get("nested"), undefined);
+			assert.strictEqual(pluginList.get("hidden"), undefined);
+		});
+
+		it("should load existing plugin list", async function() {
+			const existingList = new Map([["test", "/test/path"]]);
+			await fs.writeFile(pluginListPath, JSON.stringify([...existingList]));
+			const loadedPlugins = await lib.loadPluginList(pluginListPath, false);
+			assert.ok(loadedPlugins.has("test"));
+			assert.strictEqual(loadedPlugins.get("test"), "/test/path");
+		});
+
+		it("should support monorepo plugins", async function() {
+			assert.ok(pluginList.has("monorepo_plugin"));
+			assert.strictEqual(pluginList.get("monorepo_plugin"), monorepoPluginPathAbs);
+		});
+
+		it("should not throw when package.json has no dependencies field", async function() {
+			// Create a package.json without dependencies
+			await fs.writeFile(
+				path.join("package.json"),
+				JSON.stringify({
+					name: "test-package",
+					version: "1.0.0",
+				})
+			);
+
+			// Should not throw
+			await assert.doesNotReject(async () => {
+				await lib.loadPluginList(pluginListPath, true);
+			});
 		});
 	});
 });

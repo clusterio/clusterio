@@ -65,6 +65,12 @@ Terminates the running Factorio server without giving it a chance to save or cle
 
 Note: This may cause loss of data.
 
+### Save game
+
+    ctl> instance save-game <name>
+
+Saves the running game of the instance to the save it was started from and waits for the save to finish.
+
 ### Extract players from instance
 
     ctl> instance extract-players <name>

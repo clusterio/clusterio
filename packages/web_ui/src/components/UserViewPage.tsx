@@ -9,6 +9,7 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import * as lib from "@clusterio/lib";
 
 import { useRoles } from "../model/roles";
+import useTableQueryState from "../util/useTableQueryState";
 import { useAccount } from "../model/account";
 import { useInstances } from "../model/instance";
 import ControlContext from "./ControlContext";
@@ -16,6 +17,8 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
 import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUser } from "../model/user";
@@ -31,6 +34,7 @@ export default function UserViewPage() {
 	let userName = params.name as string;
 
 	let navigate = useNavigate();
+	const rowNav = useRowNavigation();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -38,6 +42,9 @@ export default function UserViewPage() {
 	const [user, synced] = useUser(userName);
 	let [roles] = useRoles();
 	let [form] = Form.useForm();
+	const statsTable = useTableQueryState<[number, lib.PlayerStats]>({
+		namespace: "stats", defaultSortKey: "instance",
+	});
 	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
 	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);
 	let [applyingRoles, setApplyingRoles] = useState<boolean>(false);
@@ -298,21 +305,26 @@ export default function UserViewPage() {
 				{
 					title: "Instance",
 					key: "instance",
-					render: (_, [id]) => instanceName(id),
-					defaultSortOrder: "ascend",
+					className: "table-link-cell",
+					render: (_, [id]) => <Link to={`/instances/${id}/view`} style={{ color: "inherit" }}>
+						{instanceName(id)}
+					</Link>,
 					sorter: (a, b) => strcmp(instanceName(a[0]), instanceName(b[0])),
+					sortOrder: statsTable.sortOrder("instance"),
 				},
 				{
 					title: "Online time",
 					key: "onlineTime",
 					render: (_, [, stats]) => formatDuration(stats.onlineTimeMs || 0),
 					sorter: (a, b) => (a[1].onlineTimeMs || 0) - (b[1].onlineTimeMs || 0),
+					sortOrder: statsTable.sortOrder("onlineTime"),
 				},
 				{
 					title: "Join count",
 					key: "joinCoint",
 					render: (_, [, stats]) => stats.joinCount || 0,
 					sorter: (a, b) => (a[1].joinCount || 0) - (b[1].joinCount || 0),
+					sortOrder: statsTable.sortOrder("joinCoint"),
 					responsive: ["sm"],
 				},
 				{
@@ -320,22 +332,21 @@ export default function UserViewPage() {
 					key: "firstSeen",
 					render: (_, [id]) => formatFirstSeen(user, id),
 					sorter: (a, b) => sortFirstSeen(user, user, a[0], b[0]),
+					sortOrder: statsTable.sortOrder("firstSeen"),
 				},
 				{
 					title: "Last seen",
 					key: "lastSeen",
 					render: (_, [id]) => formatLastSeen(user, id),
 					sorter: (a, b) => sortLastSeen(user, user, a[0], b[0]),
+					sortOrder: statsTable.sortOrder("lastSeen"),
 				},
 			]}
 			dataSource={[...(user.instanceStats || []).entries()]}
-			pagination={false}
+			pagination={statsTable.pagination}
+			onChange={statsTable.onChange}
 			rowKey={([id]) => id}
-			onRow={([id], rowIndex) => ({
-				onClick: event => {
-					navigate(`/instances/${id}/view`);
-				},
-			})}
+			onRow={([id]) => rowNav(`/instances/${id}/view`)}
 		/>
 		<PluginExtra component="UserViewPage" user={user} />
 	</PageLayout>;

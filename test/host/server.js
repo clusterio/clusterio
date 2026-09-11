@@ -8,7 +8,7 @@ const hostServer = require("@clusterio/host/dist/node/src/server");
 const lib = require("@clusterio/lib");
 const { wait } = lib;
 const { testLines } = require("../lib/factorio/lines");
-const { slowTest } = require("../integration");
+const { slowTest, externalTest } = require("../integration");
 
 
 describe("host/server", function() {
@@ -62,7 +62,11 @@ describe("host/server", function() {
 				let installDir = path.join("test", "file", "factorio", "0.1.1");
 				await assert.rejects(
 					hostServer._findVersion(installDir, "0.1.2"),
-					new Error("Unable to find Factorio version 0.1.2")
+					new Error(
+						`Unable to find Factorio version 0.1.2: ${installDir} is a direct (single-version) ` +
+						`install of 0.1.1. Use a versioned layout, where ${installDir} contains a subdirectory ` +
+						"per version, to run other versions or download them automatically."
+					)
 				);
 			});
 		});
@@ -133,6 +137,7 @@ describe("host/server", function() {
 
 		it("works", async function() {
 			slowTest(this);
+			externalTest(this);
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.zip";
 			const downloads = path.join("temp", "test", "downloads");
 			await fs.rm(downloads, { force: true, recursive: true, maxRetries: 10 });
@@ -156,6 +161,8 @@ describe("host/server", function() {
 		});
 
 		it("works", async function() {
+			slowTest(this);
+			externalTest(this);
 			const url = "https://github.com/clusterio/clusterio/archive/refs/tags/v2.0.0-alpha.22.tar.gz";
 			const downloads = path.join("temp", "test", "downloads");
 			await fs.rm(downloads, { force: true, recursive: true, maxRetries: 10 });
@@ -229,6 +236,16 @@ describe("host/server", function() {
 			});
 		});
 
+		describe(".setTargetVersion()", function() {
+			it("should override the target version before init", function() {
+				const fresh = new hostServer.FactorioServer(
+					path.join("test", "file", "factorio"), writePath, {}
+				);
+				fresh.setTargetVersion("0.1.5");
+				assert.equal(fresh._targetVersion, "0.1.5");
+			});
+		});
+
 		describe(".init()", function() {
 			it("should not throw on first call", async function() {
 				await server.init();
@@ -291,6 +308,32 @@ describe("host/server", function() {
 				let result = await waiter;
 				assert.deepEqual(result[0], { "data": "spam" });
 				await assert.rejects(fs.access(filePath), "File was not deleted");
+			});
+		});
+
+		describe(".handle()", function() {
+			it("should log validation errors from ipc handlers", async function() {
+				let logged = [];
+				let ipcServer = new hostServer.FactorioServer(
+					path.join("test", "file", "factorio"), writePath,
+					{ logger: { error: msg => { logged.push(msg); } } }
+				);
+				class NumberEvent {
+					static type = "event";
+					static src = "instance";
+					static dst = "controller";
+					constructor(value) { this.value = value; }
+					static jsonSchema = { type: "number" };
+					static fromJSON(json) { return new this(json); }
+				}
+				let eventFromJSON = lib.Link.eventFromJSON(NumberEvent, "NumberEvent");
+				ipcServer.handle("bad_event", async () => { eventFromJSON("not a number"); });
+				ipcServer.emit("ipc-bad_event", {});
+				await new Promise(resolve => setImmediate(resolve));
+
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith("Error handling ipc event:\nError: Event NumberEvent failed validation\n"));
+				assert(logged[0].includes('"message": "must be number"'));
 			});
 		});
 
@@ -433,7 +476,7 @@ describe("host/server", function() {
 
 						assert.equal(fetchCalledWith, null);
 						assert.ok(logLine !== null);
-						assert.ok(logLine.endsWith("but must be manually downloaded"));
+						assert.ok(logLine.endsWith("(automatic downloads are only supported on Linux)."));
 					});
 					it("should do attempt to download on linux", async function() {
 						let logLine = null;
@@ -465,11 +508,12 @@ describe("host/server", function() {
 			}
 			it("should download a version correctly (live api)", async function() {
 				slowTest(this);
+				externalTest(this);
 				if (_platform !== "linux") {
 					this.skip();
 				}
 
-				server._factorioDir = path.join("test", "file", "factorioDownload");
+				server._factorioDir = path.join("temp", "test", "factorioDownload");
 				server._targetVersion = "latest";
 				global.fetch = _fetch;
 				await fs.rm(server._factorioDir, { force: true, recursive: true, maxRetries: 10 });

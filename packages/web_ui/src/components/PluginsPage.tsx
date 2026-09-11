@@ -1,23 +1,38 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
-import type { PluginWebApi } from "@clusterio/lib";
+import type { PluginWebApi, PluginWebpackEnvInfo } from "@clusterio/lib";
 
 import notify from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+type PluginRow = {
+	meta: PluginWebApi;
+	info?: PluginWebpackEnvInfo;
+	package?: any;
+};
 
 
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
-	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
+	const tableState = useTableQueryState<PluginRow>({
+		namespace: "plugin", defaultSortKey: "name",
+	});
+	const nameSearch = useColumnSearch<PluginRow>(
+		tableState, "name", plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"
+	);
+	const rowNav = useRowNavigation();
 
 	useEffect(() => {
 		(async () => {
@@ -30,7 +45,7 @@ export default function PluginsPage() {
 		})();
 	}, []);
 
-	let tableContents = [];
+	let tableContents: PluginRow[] = [];
 	for (let meta of pluginList) {
 		const info = control.loadedPlugins.get(meta.name);
 		if (info) {
@@ -52,9 +67,17 @@ export default function PluginsPage() {
 				{
 					title: "Name",
 					key: "name",
-					render: (_, plugin) => (plugin.info ? plugin.info.title : plugin.meta.name),
-					defaultSortOrder: "ascend",
+					className: "table-link-cell",
+					render: (_, plugin) => <Link
+						to={`/plugins/${plugin.meta.name}/view`}
+						style={{ color: "inherit" }}
+					>
+						{plugin.info ? plugin.info.title : plugin.meta.name}
+					</Link>,
 					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
+					sortOrder: tableState.sortOrder("name"),
+					filteredValue: tableState.filteredValue("name"),
+					...nameSearch,
 				},
 				{
 					title: "Version",
@@ -63,32 +86,34 @@ export default function PluginsPage() {
 						if (!plugin.meta.enabled) {
 							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
 						}
+						if (!plugin.meta.web.error && !control.pluginInfos.has(plugin.meta.name)) {
+							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
+						}
 						if (!plugin.package) {
 							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
 						}
 						if (plugin.package.version !== plugin.meta.version) {
-							return "Version missmatched";
+							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Version mis-matched</>;
 						}
 						return plugin.package.version;
 					},
 					sorter: (a, b) => strcmp(a.meta.version, b.meta.version),
+					sortOrder: tableState.sortOrder("version"),
 				},
 				{
 					title: "Loaded",
 					key: "loaded",
 					render: (_, plugin) => (plugin.package ? "Yes" : null),
 					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
+					sortOrder: tableState.sortOrder("loaded"),
 					responsive: ["sm"],
 				},
 			]}
 			dataSource={tableContents}
 			rowKey={plugin => plugin.meta.name}
-			pagination={false}
-			onRow={plugin => ({
-				onClick: event => {
-					navigate(`/plugins/${plugin.meta.name}/view`);
-				},
-			})}
+			pagination={tableState.pagination}
+			onChange={tableState.onChange}
+			onRow={plugin => rowNav(`/plugins/${plugin.meta.name}/view`)}
 		/>
 	</PageLayout>;
 }

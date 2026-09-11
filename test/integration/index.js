@@ -128,6 +128,15 @@ function slowTest(test) {
 	test.timeout(30000);
 }
 
+// Mark that this test depends on an external API and may be slow or flaky.
+function externalTest(test) {
+	if (process.env.NO_EXTERNAL_TEST) {
+		test.skip();
+	}
+
+	test.timeout(60000);
+}
+
 // Mark that this test or suite of tests requires a factorio install to run.
 function requiresFactorio(testOrSuite) {
 	if (testOrSuite.skip) {
@@ -320,6 +329,10 @@ before(async function() {
 		console.log("FAST_TEST is present in env, slow tests will be skipped.");
 	}
 
+	if (process.env.NO_EXTERNAL_TEST) {
+		console.log("NO_EXTERNAL_TEST is present in env, tests depending on external APIs will be skipped.");
+	}
+
 	await fs.rm(instancesDir, { force: true, recursive: true, maxRetries: 10 });
 	await fs.rm(modsDir, { force: true, recursive: true, maxRetries: 10 });
 	await fs.rm(databaseDir, { force: true, recursive: true, maxRetries: 10 });
@@ -350,6 +363,7 @@ before(async function() {
 	await execController("config set controller.tls_private_key ../../test/file/tls/key.pem");
 
 	console.log("Setting Controller Plugins");
+	await execCtlProcess("plugin add ../../test/file/test_plugin");
 	await execCtlProcess("plugin add ../../plugins/global_chat");
 	await execCtlProcess("plugin add ../../plugins/research_sync");
 	await execCtlProcess("plugin add ../../plugins/statistics_exporter");
@@ -363,7 +377,11 @@ before(async function() {
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
-	haveFactorioInstall = (await _listFactorioVersions(factorioDir)).versions.size > 0;
+	const factorioVersions = (await _listFactorioVersions(factorioDir)).versions;
+	const latestFactorioVersion = [...factorioVersions.values()]
+		.sort((a, b) => lib.integerFullVersion(b) - lib.integerFullVersion(a))[0];
+	haveFactorioInstall = factorioVersions.size > 0;
+
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
@@ -382,8 +400,11 @@ before(async function() {
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
 	testPack.name = "subspace_storage-pack";
-	testPack.factorioVersion = "2.0.0";
-	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "2.0.20" });
+	testPack.factorioVersion = latestFactorioVersion;
+
+	const [major, minor] = lib.normaliseMajorMinorVersion(latestFactorioVersion).split(".");
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.0.${major}${minor}` });
+
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
 		"controller",
@@ -425,6 +446,7 @@ module.exports = {
 	execController,
 	execCtlProcess,
 	slowTest,
+	externalTest,
 	requiresFactorio,
 	get,
 	exec,

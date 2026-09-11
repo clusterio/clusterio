@@ -1,7 +1,7 @@
 /// <reference path="../global.d.ts" preserve="true" />
 export { default as bootstrap } from "./bootstrap";
 export { default as notify, notifyErrorHandler } from "./util/notify";
-export { BaseWebPlugin } from "./BaseWebPlugin";
+export * from "./BaseWebPlugin";
 export * from "./util/websocket";
 
 export * from "./model/account";
@@ -42,3 +42,7 @@ export { default as SectionHeader } from "./components/SectionHeader";
 export { default as Link } from "./components/Link";
 
 export { default as FactorioIcon } from "./components/FactorioIcon";
+
+export { default as useTableQueryState } from "./util/useTableQueryState";
+export { default as useColumnSearch } from "./util/useColumnSearch";
+export { default as useRowNavigation } from "./util/useRowNavigation";

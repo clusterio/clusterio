@@ -67,7 +67,7 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 			confirmLoading={applying}
 			onOk={handleAssign}
 			onCancel={handleCancel}
-			destroyOnClose
+			destroyOnHidden
 		>
 			<Paragraph style={{ maxWidth: "30em" }}>
 				Select a Host to assign this instance to.  Assignment

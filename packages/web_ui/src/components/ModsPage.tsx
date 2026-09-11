@@ -6,7 +6,6 @@ import {
 import {
 	ImportOutlined, PlusOutlined, SearchOutlined, DownloadOutlined,
 } from "@ant-design/icons";
-
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
@@ -18,6 +17,10 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
+import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
+import useRowNavigation from "../util/useRowNavigation";
+import Link from "./Link";
 import ModDetails from "./ModDetails";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
@@ -145,7 +148,7 @@ function SearchModsButton() {
 	const [open, setOpen] = useState(false);
 	const [form] = Form.useForm();
 	const [searchText, setSearchText] = useState("");
-	const [factorioVersion, setFactorioVersion] = useState<lib.ApiVersion>("2.0");
+	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion>("2.0");
 
 	// State for all mods fetched from backend
 	const [allMods, setAllMods] = useState<ModPortalModType[]>([]);
@@ -162,13 +165,16 @@ function SearchModsButton() {
 	const handleControllerDownload = (
 		modName: string,
 		modTitle: string | undefined,
-		modVersion: lib.FullVersion | undefined,
-		portalFactorioVersion: lib.ApiVersion,
+		modVersion: lib.SourceVersion | undefined,
+		portalFactorioVersion: lib.MajorMinorVersion,
 	) => {
 		if (modVersion) {
 			control.send(
 				new lib.ModPortalDownloadRequest(
-					[{ name: modName, version: new lib.ModVersionEquality("=", modVersion)}],
+					[{
+						name: modName,
+						version: new lib.ModVersionEquality("=", lib.normaliseSourceVersion(modVersion)),
+					}],
 					portalFactorioVersion
 				)
 			).then(() => {
@@ -269,7 +275,7 @@ function SearchModsButton() {
 	// Update search text and factorio version from form
 	const handleSearch = (changedValues: any, allValues: any) => {
 		const nameValue = allValues.name;
-		const versionValue = allValues.factorioVersion as lib.ApiVersion | undefined;
+		const versionValue = allValues.factorioVersion as lib.MajorMinorVersion | undefined;
 
 		// Only trigger state updates if values actually changed
 		if (nameValue !== searchText) {
@@ -507,9 +513,19 @@ function SearchModsButton() {
 export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let navigate = useNavigate();
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
+	const modPackTable = useTableQueryState<lib.ModPack>({
+		namespace: "modPack", defaultSortKey: "name",
+	});
+	const modTable = useTableQueryState<lib.ModInfo>({
+		namespace: "mod", defaultSortKey: "title",
+	});
+	const modPackNameSearch = useColumnSearch<lib.ModPack>(
+		modPackTable, "name", modPack => modPack.name, "Search mod packs"
+	);
+	const modNameSearch = useColumnSearch<lib.ModInfo>(modTable, "title", mod => mod.title, "Search mods");
+	const rowNav = useRowNavigation();
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -575,13 +591,23 @@ export default function ModsPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
-					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+					sortOrder: modPackTable.sortOrder("name"),
+					filteredValue: modPackTable.filteredValue("name"),
+					className: "table-link-cell",
+					render: (_, modPack) => <Link
+						to={`/mods/mod-packs/${modPack.id}/view`}
+						style={{ color: "inherit" }}
+					>
+						{modPack.name}
+					</Link>,
+					...modPackNameSearch,
 				},
 				{
 					title: "Factorio Version",
 					dataIndex: "factorioVersion",
 					sorter: (a, b) => a.integerFactorioVersion - b.integerFactorioVersion,
+					sortOrder: modPackTable.sortOrder("factorioVersion"),
 				},
 				{
 					title: "Mods",
@@ -590,13 +616,10 @@ export default function ModsPage() {
 				},
 			]}
 			dataSource={[...modPacks.values()]}
-			pagination={false}
+			pagination={modPackTable.pagination}
+			onChange={modPackTable.onChange}
 			rowKey={modPack => Number(modPack.id)}
-			onRow={(modPack, rowIndex) => ({
-				onClick: event => {
-					navigate(`/mods/mod-packs/${modPack.id}/view`);
-				},
-			})}
+			onRow={modPack => rowNav(`/mods/mod-packs/${modPack.id}/view`)}
 		/>
 		<SectionHeader title="Stored Mods" extra={<Space wrap>
 			<SearchModsButton />
@@ -621,10 +644,12 @@ export default function ModsPage() {
 					{
 						title: "Name",
 						dataIndex: "title",
-						defaultSortOrder: "ascend",
 						sorter: (a, b) => (
 							strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
 						),
+						sortOrder: modTable.sortOrder("title"),
+						filteredValue: modTable.filteredValue("title"),
+						...modNameSearch,
 					},
 					{
 						title: "Version",
@@ -640,6 +665,7 @@ export default function ModsPage() {
 						dataIndex: "filename",
 						responsive: ["xl"],
 						sorter: (a, b) => strcmp(a.filename, b.filename),
+						sortOrder: modTable.sortOrder("filename"),
 					},
 					{
 						title: "Size",
@@ -648,6 +674,7 @@ export default function ModsPage() {
 						render: (_, mod) => lib.formatBytes(mod.size),
 						align: "right",
 						sorter: (a, b) => a.size - b.size,
+						sortOrder: modTable.sortOrder("size"),
 					},
 					{
 						title: "Action",
@@ -661,7 +688,8 @@ export default function ModsPage() {
 					expandedRowClassName: () => "no-expanded-padding",
 				}}
 				dataSource={[...mods.values()]}
-				pagination={false}
+				pagination={modTable.pagination}
+				onChange={modTable.onChange}
 				rowKey={mod => mod.id}
 			/>
 		</Upload.Dragger>

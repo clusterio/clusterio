@@ -1,5 +1,8 @@
 "use strict";
 const assert = require("assert").strict;
+const fs = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 const lib = require("@clusterio/lib");
 
 const { Controller, ControlConnection } = require("@clusterio/controller");
@@ -415,6 +418,51 @@ describe("messages/controller", function() {
 
 			assert.deepEqual(versions3, versions);
 			assert.equal(callCount, 2);
+		});
+		it("round trips LatestReleasesRequest", function() {
+			testRoundTripJsonSerialisable(lib.LatestReleasesRequest, [[], [0], [60000]]);
+		});
+		it("caches the latest releases and persists them for offline use", async function() {
+			const releases = {
+				stable: { headless: "2.0.77" },
+				experimental: { headless: "2.1.8" },
+			};
+			const databaseDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-test-"));
+			controller.config.set("controller.database_directory", databaseDirectory);
+			const cachePath = path.join(databaseDirectory, "latest-releases.json");
+			const originalFetch = global.fetch;
+			try {
+				let callCount = 0;
+				global.fetch = async () => {
+					callCount += 1;
+					return { ok: true, status: 200, statusText: "OK", json: async () => releases };
+				};
+
+				// First call fetches from the api and persists the result to disk
+				const fetched = await controlConnection.handleLatestReleasesRequest(
+					new lib.LatestReleasesRequest(0)
+				);
+				assert.deepEqual(fetched, releases);
+				assert.equal(callCount, 1);
+				assert.deepEqual(JSON.parse(await fs.readFile(cachePath, "utf8")), releases);
+
+				// When the api is unavailable the persisted copy is served instead
+				global.fetch = async () => { throw new Error("Network Error"); };
+				const cached = await controlConnection.handleLatestReleasesRequest(
+					new lib.LatestReleasesRequest(0)
+				);
+				assert.deepEqual(cached, releases);
+
+				// With no persisted copy and an unavailable api an empty object is returned
+				await fs.rm(cachePath);
+				const empty = await controlConnection.handleLatestReleasesRequest(
+					new lib.LatestReleasesRequest(0)
+				);
+				assert.deepEqual(empty, {});
+			} finally {
+				global.fetch = originalFetch;
+				await fs.rm(databaseDirectory, { recursive: true, force: true });
+			}
 		});
 	});
 });

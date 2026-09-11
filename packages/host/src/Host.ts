@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import pidusage from "pidusage";
+import semver from "semver";
 import setBlocking from "set-blocking";
 import stream from "stream";
 import util from "util";
@@ -176,6 +177,12 @@ export class HostRouter {
 					instanceConnection.connector.forward(message);
 				}
 			}
+			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
+				this.host.connector.forward(message);
+			}
+		} else if (dst.id === lib.Address.host) {
+			// Sent up to the controller, which passes it on to the other
+			// hosts. Nothing left to do when it came from there.
 			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
 				this.host.connector.forward(message);
 			}
@@ -490,6 +497,14 @@ export default class Host extends lib.Link {
 		if (!this.canRestart) {
 			throw new lib.RequestError("Cannot restart, host does not have a process monitor to restart it.");
 		}
+		const downgrade = await this.checkRestartDowngrade();
+		if (downgrade) {
+			const { installedVersion, runningVersion } = downgrade;
+			throw new lib.RequestError(
+				`Cannot restart host with installed Clusterio version ${installedVersion} because it is older than ` +
+				`running version ${runningVersion}. Stop the host before starting the older version manually.`
+			);
+		}
 		process.exitCode = 1;
 		this.shutdown();
 	}
@@ -653,10 +668,8 @@ export default class Host extends lib.Link {
 		return await this.downloadMod(mod);
 	}
 
-	async fetchMods(mods: Iterable<lib.ModRecord>) {
-		// This is better than the previous hard coded names
-		// But it really shouldn't be a hard coded version either
-		const builtinModNames = lib.ModPack.getBuiltinModNames("2.0");
+	async fetchMods(mods: Iterable<lib.ModRecord>, factorioVersion: lib.PartialVersion) {
+		const builtinModNames = lib.ModPack.getBuiltinModNames(factorioVersion);
 		const modInfos: Promise<lib.ModInfo>[] = [];
 		for (const mod of mods) {
 			if (builtinModNames.includes(mod.name)) {
@@ -869,6 +882,31 @@ export default class Host extends lib.Link {
 		}
 
 		return false;
+	}
+
+	async checkRestartDowngrade() {
+		try {
+			const runningVersion = this.config.get("host.version");
+			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
+			const installedVersion = packageJson.version;
+
+			if (!semver.valid(runningVersion) || !semver.valid(installedVersion)) {
+				logger.warn(
+					`Unable to compare running host version ${runningVersion} ` +
+					`with installed version ${installedVersion}.`
+				);
+				return null;
+			}
+
+			if (semver.lt(installedVersion, runningVersion)) {
+				return { installedVersion, runningVersion };
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to check host version before restart:\n${err.stack ?? err.message}`);
+		}
+
+		return null;
 	}
 
 	async handleHostMetricsRequest() {

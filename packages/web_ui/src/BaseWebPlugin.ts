@@ -80,6 +80,8 @@ export interface InputComponentProps {
 export type InputComponent = React.ComponentType<InputComponentProps>;
 
 export type ExtensionSlotProps = {
+	/** Placed at the end of the overview page. */
+	OverviewPage: Record<never, never>;
 	/** Placed at the end of the controller page. */
 	ControllerPage: Record<never, never>;
 	/** Placed at the end of the hosts list page. */
@@ -138,7 +140,7 @@ export type WebPluginContext = lib.PluginLoadContext<{
 }, lib.PluginWebpackEnvInfo>;
 
 /**
- * Collection of host plugin hooks
+ * Collection of web plugin hooks
  */
 export class WebHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
@@ -259,21 +261,12 @@ export class BaseWebPlugin {
 			control.hooks.controllerConnectionEvent.attach(info.name, this.onControllerConnectionEvent.bind(this));
 		}
 
-		if (Object.keys(this.inputComponents).length) {
-			control.hooks.inputComponents.attach(info.name, () => this.inputComponents);
-		}
-
-		if (Object.keys(this.componentExtra).length) {
-			control.hooks.extensionComponents.attach(info.name, () => this.componentExtra);
-		}
-
-		if (this.loginForms.length) {
-			control.hooks.loginForms.attach(info.name, () => this.loginForms);
-		}
-
-		if (this.pages.length) {
-			control.hooks.pages.attach(info.name, () => this.pages);
-		}
+		// Subclasses populate these fields in init(), which runs after the
+		// constructor, so the handlers read them when the hook is collected.
+		control.hooks.inputComponents.attach(info.name, () => this.inputComponents);
+		control.hooks.extensionComponents.attach(info.name, () => this.componentExtra);
+		control.hooks.loginForms.attach(info.name, () => this.loginForms);
+		control.hooks.pages.attach(info.name, () => this.pages);
 	}
 
 	static fromContext(context: WebPluginContext): BaseWebPlugin {

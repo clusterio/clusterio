@@ -241,6 +241,13 @@ describe("start-all and stop-all commands", function() {
 		await execCtl(`instance assign ${testInstName1} 4`);
 		await execCtl(`instance assign ${testInstName2} 4`);
 		await execCtl(`instance assign ${testInstName3} 4`);
+		const visibility = JSON.stringify({ lan: false, public: false }).replace(
+			/"/g, process.platform === "win32" ? '""' : '\\"'
+		);
+		for (const name of [testInstName1, testInstName2, testInstName3]) {
+			await execCtlProcess(`instance config set-prop ${name} factorio.settings visibility "${visibility}"`);
+			await execCtl(`instance config set-prop ${name} factorio.settings require_user_verification false`);
+		}
 
 		// Exclude testInstName3 from start-all by default
 		await execCtl(`instance config set ${testInstName3} instance.exclude_from_start_all true`);

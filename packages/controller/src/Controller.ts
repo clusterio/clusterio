@@ -12,6 +12,7 @@ import http from "http";
 import https from "https";
 import jwt from "jsonwebtoken";
 import path from "path";
+import semver from "semver";
 import stream from "stream";
 
 import * as lib from "@clusterio/lib";
@@ -120,6 +121,28 @@ export default class Controller {
 		} catch (err: any) {
 			logger.warn(`Failed to retrieve Factorio versions ${err.message}`);
 			return [];
+		}
+	});
+
+	// Cache for the latest stable/experimental factorio releases. Persisted to
+	// disk so that release channel targets can still be resolved when
+	// factorio.com is unavailable.
+	latestReleases = new lib.ValueCache(async () => {
+		const cachePath = path.join(this.config.get("controller.database_directory"), "latest-releases.json");
+		try {
+			const releases = await lib.fetchLatestReleases();
+			await lib.safeOutputFile(cachePath, JSON.stringify(releases, null, "\t"));
+			return releases;
+		} catch (err: any) {
+			logger.warn(`Failed to retrieve Factorio releases ${err.message}`);
+			try {
+				return JSON.parse(await fs.readFile(cachePath, "utf8")) as lib.LatestReleases;
+			} catch (readErr: any) {
+				if (readErr.code !== "ENOENT") {
+					logger.warn(`Failed to read cached Factorio releases ${readErr.message}`);
+				}
+				return {};
+			}
 		}
 	});
 
@@ -334,6 +357,8 @@ export default class Controller {
 				this.onSystemMetricsIntervalChanged();
 			} else if (field === "controller.trusted_proxies") {
 				this.trustedProxies = this.parseTrustedProxies();
+			} else if (field === "controller.static_url") {
+				this.app.locals.staticRoot = this.config.get("controller.static_url");
 			}
 			this.hooks.controllerConfigFieldChanged.invoke(field, curr, prev);
 		});
@@ -368,6 +393,7 @@ export default class Controller {
 			}
 			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
 		}
+		this.app.locals.staticRoot = this.config.get("controller.static_url");
 
 		// Load plugins
 		await this.loadPlugins();
@@ -634,6 +660,31 @@ export default class Controller {
 		return false;
 	}
 
+	async checkRestartDowngrade() {
+		try {
+			const runningVersion = this.config.get("controller.version");
+			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
+			const installedVersion = packageJson.version;
+
+			if (!semver.valid(runningVersion) || !semver.valid(installedVersion)) {
+				logger.warn(
+					`Unable to compare running controller version ${runningVersion} ` +
+					`with installed version ${installedVersion}.`
+				);
+				return null;
+			}
+
+			if (semver.lt(installedVersion, runningVersion)) {
+				return { installedVersion, runningVersion };
+			}
+		} catch (err: any) {
+			logger.warn(`Failed to check controller version before restart:\n${err.stack ?? err.message}`);
+		}
+
+		return null;
+	}
+
 	onAutosaveIntervalChanged() {
 		if (this.autosaveInterval) {
 			clearInterval(this.autosaveInterval);
@@ -742,8 +793,11 @@ export default class Controller {
 		const serialized = rawJson as Static<typeof lib.ModPack.jsonSchema>[];
 		return serialized.map(json => {
 			for (const mod of json.mods) {
-				// migrate: 2.0.0.alpha.22 - json schema now enforces X.Y.Z for mod version, builtins would use X.Y only
-				mod.version = lib.normaliseFullVersion(mod.version);
+				// migrate: 2.0.0-alpha.22 - old buildins used X.Y rather than X.Y.Z
+				// All other versions are kept verbatim so they still match the mod's file name.
+				if (lib.isPartialVersion(mod.version)) {
+					mod.version = lib.normaliseFullVersion(mod.version) as lib.SourceVersion;
+				}
 			}
 			return json;
 		});
@@ -816,7 +870,7 @@ export default class Controller {
 		);
 	}
 
-	static addAppRoutes(app: Application, pluginInfos: any[]) {
+	static addAppRoutes(app: Application, pluginInfos: lib.PluginNodeEnvInfo[]) {
 		app.use((req: Request, res: Response, next) => {
 			const startNs = process.hrtime.bigint();
 			stream.finished(res, () => {
@@ -865,9 +919,7 @@ export default class Controller {
 				app.get(route, Controller.serveWeb(route));
 			}
 
-			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web", "static");
-			app.use("/static", express.static(webPath, staticOptions));
+			app.use("/static", express.static(pluginInfo.webStaticPath, staticOptions));
 		}
 	}
 
@@ -1164,7 +1216,7 @@ export default class Controller {
 	}
 
 	/**
-	 * Servers the web interface with the root path set apropriately
+	 * Serves the web interface with the root path set appropriately
 	 *
 	 * @param route - route the interface is served under.
 	 * @returns Experess.js route handler.
@@ -1178,7 +1230,7 @@ export default class Controller {
 		return function(req: Request, res: Response, next: NextFunction) {
 			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
-			let staticRoot = webRoot;
+			let staticRoot = res.app.locals.staticRoot ?? `${webRoot}static/`;
 			let mainBundle: string = "";
 			if (res.app.locals.mainBundle) {
 				mainBundle = res.app.locals.mainBundle;
@@ -1186,6 +1238,7 @@ export default class Controller {
 				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
+			mainBundle = routes.stripStaticPrefix(mainBundle);
 
 			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");

@@ -187,6 +187,15 @@ export default class ControlConnection extends BaseConnection {
 		if (!this._controller.canRestart) {
 			throw new lib.RequestError("Cannot restart, controller does not have a process monitor to restart it.");
 		}
+		const downgrade = await this._controller.checkRestartDowngrade();
+		if (downgrade) {
+			const { installedVersion, runningVersion } = downgrade;
+			throw new lib.RequestError(
+				`Cannot restart controller with installed Clusterio version ${installedVersion} because it ` +
+				`is older than running version ${runningVersion}. ` +
+				"Stop the controller before starting the older version manually."
+			);
+		}
 		this._controller.shouldRestart = true;
 		this._controller.stop();
 	}
@@ -673,6 +682,7 @@ export default class ControlConnection extends BaseConnection {
 		type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
 		type ModPortalReleaseType = NonNullable<ModPortalModType["releases"]>[number];
 		const dependencyRequirements = new Map<string, lib.ModVersionRange>();
+		const recommendedRequirements = new Map<string, lib.ModVersionRange>();
 		const optionalRequirements = new Map<string, lib.ModVersionRange>();
 		const candidateReleases = new Map<string, lib.ModInfo>();
 		const errors = new Map<string, lib.ModDependencyResolveErrors>();
@@ -701,11 +711,16 @@ export default class ControlConnection extends BaseConnection {
 				return null;
 			}
 
-			// Select the latest matching version
+			// Select the latest matching version for the mod pack's Factorio version
 			const release = releases.releases
-				.filter(info => versionRange.testVersion(info.version))
+				.filter(info => (
+					versionRange.testVersion(info.version)
+					&& lib.normaliseMajorMinorVersion(
+						lib.normaliseSourceVersion(info.info_json.factorio_version)
+					) === factorioVersion
+				))
 				.reduce<ModPortalReleaseType | undefined>((max, cur) => (
-					max && lib.integerFullVersion(max.version) > lib.integerFullVersion(cur.version) ? max : cur
+					max && lib.integerSourceVersion(max.version) > lib.integerSourceVersion(cur.version) ? max : cur
 				), undefined);
 
 			if (!release) {
@@ -737,16 +752,32 @@ export default class ControlConnection extends BaseConnection {
 				continue;
 			}
 
-			// Get the current version range (optionals are tracked in case they become required)
-			let versionRange = dependencyRequirements.get(mod.name);
-			if (!versionRange) {
-				versionRange = optionalRequirements.get(mod.name) ?? new lib.ModVersionRange();
-				if (mod.required) {
-					dependencyRequirements.set(mod.name, versionRange);
+			// Get the current version range (dependencies can be promoted to a stricter requirement)
+			const versionRange =
+				dependencyRequirements.get(mod.name)
+				?? recommendedRequirements.get(mod.name)
+				?? optionalRequirements.get(mod.name)
+				?? new lib.ModVersionRange();
+
+			if (mod.required) {
+				// Add to required, remove from recommended and optional
+				dependencyRequirements.set(mod.name, versionRange);
+				recommendedRequirements.delete(mod.name);
+				optionalRequirements.delete(mod.name);
+
+			} else if (mod.recommended) {
+				// If not required, add to recommended and remove from optional
+				if (!dependencyRequirements.has(mod.name)) {
+					recommendedRequirements.set(mod.name, versionRange);
 					optionalRequirements.delete(mod.name);
-				} else {
-					optionalRequirements.set(mod.name, versionRange);
 				}
+
+			} else if (
+				!dependencyRequirements.has(mod.name)
+				&& !recommendedRequirements.has(mod.name)
+			) {
+				// If not required or recommended, add to optional
+				optionalRequirements.set(mod.name, versionRange);
 			}
 
 			// Update the version range if needed
@@ -755,6 +786,7 @@ export default class ControlConnection extends BaseConnection {
 				if (!versionRange.valid) {
 					candidateReleases.delete(mod.name);
 					errors.set(mod.name, "unsatisfiable");
+					continue;
 				}
 			}
 
@@ -768,7 +800,11 @@ export default class ControlConnection extends BaseConnection {
 
 			// Check if a local version fits the requirements
 			let candidate = localInfos
-				.filter(info => (info.name === mod.name && versionRange.testVersion(info.version)))
+				.filter(info => (
+					info.name === mod.name
+					&& info.factorioVersion === factorioVersion
+					&& versionRange.testVersion(info.version)
+				))
 				.reduce<lib.ModInfo | undefined>((max, cur) => (
 					max && max.integerVersion > cur.integerVersion ? max : cur
 				), undefined);
@@ -802,9 +838,9 @@ export default class ControlConnection extends BaseConnection {
 			}
 		}
 
-		// Remove incompatible dependencies if they aren't required by others
+		// Remove incompatible and unsatisfiable dependencies if they aren't required by others
 		for (const [modName, error] of errors) {
-			if (error === "incompatible" && !dependencyRequirements.has(modName)) {
+			if (!dependencyRequirements.has(modName) && (error === "incompatible" || error === "unsatisfiable")) {
 				errors.delete(modName);
 			}
 		}

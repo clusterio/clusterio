@@ -45,6 +45,11 @@ export type PluginDeclaration = {
 }
 
 export type PluginNodeEnvInfo = PluginDeclaration & {
+	/**
+	 * Path to the folder with the static files that should be hosted on the web
+	 * server in order for the web interface to be able to load the plugin.
+	 */
+	webStaticPath: string;
 	requirePath: string;
 	version: string;
 	manifest: any;
@@ -137,7 +142,7 @@ export async function loadPlugin<
 
 	// migrate: accept plugins which export classes
 	if (module[exportName]) {
-		logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
+		pluginContext.logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
 		await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
 		return;
 	}
@@ -204,6 +209,12 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 			continue;
 		}
 
+		pluginInfo.webStaticPath = path.join(
+			path.dirname(
+				require.resolve(path.posix.join(pluginPath, "package.json"))
+			),
+			"dist", "web", "static",
+		);
 		pluginInfo.requirePath = pluginPath;
 		pluginInfo.version = pluginPackage.version;
 		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name ? pluginPath : undefined;
