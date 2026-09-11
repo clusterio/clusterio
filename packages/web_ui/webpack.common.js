@@ -141,6 +141,9 @@ module.exports = (env = {}, argv = {}) => ({
 	},
 	resolve: {
 		extensions: [".js", ".ts", ".json", ".jsx", ".tsx"],
+		extensionAlias: {
+			".js": [".ts", ".js"],
+		},
 		fallback: {
 			"crypto": false,
 			"fs": false,

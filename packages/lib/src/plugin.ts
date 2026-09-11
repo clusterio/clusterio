@@ -2,10 +2,10 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-import * as libHelpers from "./helpers";
-import type { Logger } from "./logging";
-import type { FieldDefinition } from "./config";
-import type { PlayerStats } from "./data";
+import * as libHelpers from "./helpers.js";
+import type { Logger } from "./logging.js";
+import type { FieldDefinition } from "./config/index.js";
+import type { PlayerStats } from "./data/index.js";
 
 
 export const PluginFeatureFlags = [
@@ -46,6 +46,10 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	 * server in order for the web interface to be able to load the plugin.
 	 */
 	webStaticPath: string;
+	/**
+	 * Absolute path to the package.json file for the plugin.
+	 */
+	packagePath: string;
 	requirePath: string;
 	version: string;
 	manifest: any;

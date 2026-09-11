@@ -6,7 +6,7 @@ import {
 	useExportLocale, useExportPrototypeMetadata, useDefaultModPack, FactorioIcon,
 	useTableQueryState, useColumnSearch,
 } from "@clusterio/web_ui";
-import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages";
+import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages.js";
 
 import "./style.css";
 

@@ -4,7 +4,7 @@ import { BaseControllerPlugin } from "@clusterio/controller";
 import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
-const { RateLimiter } = lib;
+import { RateLimiter } from "@clusterio/lib";
 
 import {
 	ContributionEvent,
@@ -13,7 +13,7 @@ import {
 	TechnologySync,
 	SyncTechnologiesRequest,
 	TechnologyProgress,
-} from "./messages";
+} from "./messages.js";
 
 type Technology = {
 	level: number,

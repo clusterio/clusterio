@@ -1,8 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
-const mock = require("../mock");
+import * as mock from "../mock.js";
 
-const host = require("@clusterio/host");
+import * as host from "@clusterio/host";
 
 describe("host/src/BaseHostPlugin", function() {
 	describe("class BaseHostPlugin", function() {

@@ -1,7 +1,5 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const { Address } = lib;
+import assert from "node:assert/strict";
+import { Address } from "@clusterio/lib";
 
 describe("lib/data/messages_core", function() {
 	describe("class Address", function() {

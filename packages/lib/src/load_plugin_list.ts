@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "path";
-import { logger } from "./logging";
-import * as libFileOps from "./file_ops";
+import { logger } from "./logging.js";
+import * as libFileOps from "./file_ops.js";
 import vm from "vm";
 
 /**
@@ -67,6 +67,7 @@ async function findLocalPlugins(pluginList: Map<string, string>): Promise<boolea
 	return hasChanged > 0;
 }
 
+const require = createRequire(import.meta.url);
 function getPluginName(requireSpec: string) {
 	const context = vm.createContext({ require: require, pluginInfo: null });
 	const code = `pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;

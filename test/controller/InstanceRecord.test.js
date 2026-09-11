@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const { InstanceRecord } = require("@clusterio/controller");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import { InstanceRecord } from "@clusterio/controller";
 
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 
 describe("controller/InstanceRecord", function () {
 	/** @type {lib.InstanceConfig} */

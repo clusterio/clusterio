@@ -1,15 +1,14 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
-const fs = require("node:fs/promises");
-const stream = require("node:stream");
-const JSZip = require("jszip"); // Added for creating mock zips
+import assert from "node:assert/strict";
+import path from "node:path";
+import fs from "node:fs/promises";
+import stream from "node:stream";
+import JSZip from "jszip"; // Added for creating mock zips
 
 // Capture native fetch before any potential mocks are applied
 const nativeFetch = global.fetch;
 
-const { ModStore, ModInfo, ModVersionEquality } = require("@clusterio/lib"); // Adjust path based on compiled output
-const { externalTest } = require("../integration");
+import { ModStore, ModInfo, ModVersionEquality } from "@clusterio/lib"; // Adjust path based on compiled output
+import { externalTest } from "../integration/index.js";
 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");

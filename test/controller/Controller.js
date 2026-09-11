@@ -1,16 +1,16 @@
-"use strict";
-const path = require("node:path");
-const assert = require("assert").strict;
-const { Controller, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
-const { EventEmitter } = require("stream");
-const events = require("node:events");
-const http = require("node:http");
-const express = require("express");
+import path from "node:path";
+import assert from "node:assert/strict";
+import { Controller, HostRecord, InstanceRecord, UserRecord } from "@clusterio/controller";
+import events, { EventEmitter } from "node:events";
+import http from "node:http";
+import express from "express";
+import { fileURLToPath } from "node:url";
 
-const {
+import {
 	ControllerConfig, Address, RequestError,
 	InstanceConfig, SystemInfo, Role, ModPack,
-} = require("@clusterio/lib");
+	addPluginConfigFields,
+} from "@clusterio/lib";
 
 class MockEvent {}
 
@@ -32,10 +32,12 @@ class MockInstanceConfig extends EventEmitter {
 }
 
 describe("controller/src/Controller", function() {
-	describe("class Controller", function() {
+	describe("class Controller", async function() {
 		/** @type {Controller} */
 		let controller, mockInstanceConfig;
-		const controllerVersion = require("@clusterio/controller/package.json").version;
+		const controllerVersion = (
+			await import("@clusterio/controller/package.json", { with: { type: "json" }})
+		).default.version;
 		before(async function() {
 			const controllerConfig = new ControllerConfig("controller", { "controller.version": controllerVersion });
 			controller = new Controller({}, [], controllerConfig);
@@ -234,14 +236,17 @@ describe("controller/src/Controller", function() {
 			});
 		});
 		describe(".checkRestartRequired()", function() {
+			before(function() {
+				addPluginConfigFields([{ name: "restart_test" }]);
+			});
 			beforeEach(function() {
 				// Would not be needed if controller setup was beforeEach
-				controller.config.restartRequired = false;
 				controller.config.set("controller.version", controllerVersion);
-				controller.config.set("global_chat.load_plugin", true);
+				controller.config.set("restart_test.load_plugin", true);
+				controller.config.restartRequired = false;
 				controller.pluginInfos[0] = {
-					name: "global_chat",
-					requirePath: path.dirname(require.resolve("@clusterio/controller/package.json")),
+					name: "restart_test",
+					packagePath: fileURLToPath(import.meta.resolve("@clusterio/controller/package.json")),
 					version: controllerVersion,
 				};
 			});
@@ -256,7 +261,7 @@ describe("controller/src/Controller", function() {
 				controller.pluginInfos[0].version = "0.0.0";
 				controller.pluginInfos[0].webEntrypoint = true;
 				controller.pluginInfos[0].controllerEntrypoint = true;
-				controller.config.set("global_chat.load_plugin", false);
+				controller.config.set("restart_test.load_plugin", false);
 				controller.config.restartRequired = false; // Setting load_plugin requires a restart
 				const result = await controller.checkRestartRequired();
 				assert.equal(result, false);

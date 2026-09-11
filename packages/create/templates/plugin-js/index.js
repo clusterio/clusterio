@@ -1,7 +1,6 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 //%if multi_context
-const Messages = require("./messages");
+import Messages from "./messages.js";
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.event",
@@ -36,7 +35,7 @@ lib.definePermission({
 });
 //%endif
 
-const plugin = {
+export const plugin = {
 	name: "__plugin_name__",
 	title: "__plugin_name__",
 	description: "Example Description. Plugin. Change me in index.js",
@@ -44,7 +43,7 @@ const plugin = {
 
 //%endif
 //%if controller
-	controllerEntrypoint: "./dist/node/controller",
+	controllerEntrypoint: "./dist/node/controller.js",
 //%endif
 //%if controller & config
 	controllerConfigFields: {
@@ -60,7 +59,7 @@ const plugin = {
 
 //%endif
 //%if host
-	hostEntrypoint: "./dist/node/host",
+	hostEntrypoint: "./dist/node/host.js",
 //%endif
 //%if host & config
 	hostConfigFields: {
@@ -76,7 +75,7 @@ const plugin = {
 
 //%endif
 //%if instance | module // Modules load an empty instance plugin
-	instanceEntrypoint: "./dist/node/instance",
+	instanceEntrypoint: "./dist/node/instance.js",
 //%endif
 //%if instance & config
 	instanceConfigFields: {
@@ -92,7 +91,7 @@ const plugin = {
 
 //%endif
 //%if ctl
-	ctlEntrypoint: "./dist/node/ctl",
+	ctlEntrypoint: "./dist/node/ctl.js",
 //%endif
 //%if ctl & config
 	controlConfigFields: {
@@ -123,8 +122,4 @@ const plugin = {
 		"/__plugin_name__",
 	],
 //%endif
-};
-
-module.exports = {
-	plugin,
 };

@@ -1,7 +1,7 @@
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const { fetchLatestReleases, resolveReleaseChannel } = require("@clusterio/lib");
-const { slowTest, externalTest } = require("../../integration");
+import { fetchLatestReleases, resolveReleaseChannel } from "@clusterio/lib";
+import { slowTest, externalTest } from "../../integration/index.js";
 
 describe("LatestReleases", function() {
 	describe("fetchLatestReleases", function() {

@@ -1,6 +1,5 @@
-"use strict";
-const { Command, CommandTree } = require("@clusterio/lib");
-const { BaseCtlPlugin } = require("@clusterio/ctl");
+import { Command, CommandTree } from "@clusterio/lib";
+import { BaseCtlPlugin } from "@clusterio/ctl";
 
 const testPluginCommands = new CommandTree({
 	name: "test-plugin", description: "Test plugin commands",
@@ -15,12 +14,8 @@ testPluginCommands.add(new Command({
 	},
 }));
 
-class CtlPlugin extends BaseCtlPlugin {
+export class CtlPlugin extends BaseCtlPlugin {
 	async addCommands(rootCommand) {
 		rootCommand.add(testPluginCommands);
 	}
 }
-
-module.exports = {
-	CtlPlugin,
-};

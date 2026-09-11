@@ -1,6 +1,4 @@
-"use strict";
-
-function escapeArg(arg) {
+export function escapeArg(arg) {
 	// When shell: true is used execFile does not escaping of arguments, they are
 	// simply joined by space and then passed to the shell.
 
@@ -56,7 +54,3 @@ function escapeArg(arg) {
 	}
 	return `"${arg.replace(/[$`"\\]/g, "\\$&")}"`;
 }
-
-module.exports = {
-	escapeArg,
-};

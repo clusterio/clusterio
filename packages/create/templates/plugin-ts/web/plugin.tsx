@@ -21,7 +21,7 @@ import {
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
 //%if multi_context // Messages requires multi context
-} from "../messages";
+} from "../messages.js";
 //%endif
 
 import * as lib from "@clusterio/lib";
@@ -43,7 +43,7 @@ function MyTemplatePage() {
 
 export class WebPlugin extends BaseWebPlugin {
 //%if controller // Subscribing requires web content and the controller
-	subscribableData = new lib.EventSubscriber(ExampleSubscribableUpdate, this.control);
+	subscribableData = new lib.MapSubscriber(ExampleSubscribableUpdate, this.control);
 
 //%endif
 	async init() {

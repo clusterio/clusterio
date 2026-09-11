@@ -1,13 +1,12 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const lib = require("@clusterio/lib");
-const { ModDependencyResolveRequest, ModDependency, ModInfo } = lib;
+import * as lib from "@clusterio/lib";
+import { ModDependencyResolveRequest, ModDependency, ModInfo } from "@clusterio/lib";
 
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 
-const { Controller, ControlConnection } = require("@clusterio/controller");
-const { externalTest } = require("../integration");
+import { Controller, ControlConnection } from "@clusterio/controller";
+import { externalTest } from "../integration/index.js";
 
 describe("messages/mod", function() {
 	/** @type {Controller} */

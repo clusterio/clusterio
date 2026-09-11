@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
 import { Alert, Button, Form, Input, Modal, Space, Spin, Typography } from "antd";
 
-import { PlayerAuthServer } from "../messages";
+import { PlayerAuthServer } from "../messages.js";
 import "./style.css";
 
 const { Paragraph, Text } = Typography;

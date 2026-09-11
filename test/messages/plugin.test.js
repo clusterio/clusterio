@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
-const { Controller, ControlConnection } = require("@clusterio/controller");
-const { Host } = require("@clusterio/host");
+import { Controller, ControlConnection } from "@clusterio/controller";
+import { Host } from "@clusterio/host";
 
 describe("messages/plugin", function() {
 	/** @type {Host} */

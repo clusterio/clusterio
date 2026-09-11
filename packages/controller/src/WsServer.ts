@@ -1,18 +1,18 @@
 import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
-import type Controller from "./Controller";
+import type Controller from "./Controller.js";
 
 import jwt from "jsonwebtoken";
 import WebSocket, { WebSocketServer } from "ws";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
-import ControlConnection from "./ControlConnection";
-import HostConnection from "./HostConnection";
-import WsServerConnector from "./WsServerConnector";
+import ControlConnection from "./ControlConnection.js";
+import HostConnection from "./HostConnection.js";
+import WsServerConnector from "./WsServerConnector.js";
 
-import { version as packageVersion } from "../package.json";
+import packageConfig from "../package.json" with { type: "json" };
 
 const wsMessageCounter = new lib.Counter(
 	"clusterio_controller_websocket_message_total",
@@ -45,12 +45,12 @@ export default class WsServer {
 	sessionAud: string = `session-${Date.now()}`;
 	nextSessionId: number = 1;
 	nextControlId: number = 1;
-	wss: WebSocket.Server;
+	wss: WebSocketServer;
 
 	constructor(controller: Controller) {
 		this.controller = controller;
 
-		this.wss = new WebSocket.Server({
+		this.wss = new WebSocketServer({
 			noServer: true,
 			path: "/api/socket",
 		});
@@ -139,7 +139,7 @@ export default class WsServer {
 			loadedPlugins[name] = plugin.info.version;
 		}
 
-		socket.send(JSON.stringify(new lib.MessageHello(new lib.HelloData(packageVersion, loadedPlugins))));
+		socket.send(JSON.stringify(new lib.MessageHello(new lib.HelloData(packageConfig.version, loadedPlugins))));
 		this.attachHandler(socket, req);
 	}
 
@@ -287,10 +287,11 @@ ${err.stack}`
 		logger.info(
 			`WsServer | registered host ${data.id} using version ${data.version}`
 		);
-		if (data.version !== packageVersion) {
+		if (data.version !== packageConfig.version) {
 			logger.warn(
 				`Host ${data.id} connected using version ${data.version} which does not match the ` +
-				`version of the controller is currently running (${packageVersion}). It may not work as expected.`
+				`version of the controller is currently running (${packageConfig.version}). ` +
+				"It may not work as expected."
 			);
 		}
 

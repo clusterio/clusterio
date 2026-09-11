@@ -6,9 +6,9 @@
  * @author Hornwitser
  * @module lib/command
  */
-import * as libData from "./data";
-import * as libErrors from "./errors";
-import type { Link } from "./link";
+import * as libData from "./data/index.js";
+import * as libErrors from "./errors.js";
+import type { Link } from "./link/index.js";
 import type { Argv } from "yargs";
 
 export type CommandHandler = (args: any, control: any) => Promise<void>;
