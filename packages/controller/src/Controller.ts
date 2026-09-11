@@ -1237,7 +1237,7 @@ export default class Controller {
 				mainBundle = res.app.locals.mainBundle;
 			} else {
 				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
-				mainBundle = stats.toJson().assetsByChunkName["main"];
+				mainBundle = stats.toJson().assetsByChunkName["main"][0];
 			}
 			mainBundle = routes.stripStaticPrefix(mainBundle);
 

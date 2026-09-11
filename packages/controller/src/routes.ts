@@ -126,7 +126,7 @@ function getPlugins(req: Request, res: Response) {
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
 			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)!];
-			web.main = stats.toJson().assetsByChunkName[name];
+			web.main = stats.toJson().assetsByChunkName[name][0];
 		} else if (pluginInfo.manifest) {
 			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
 			if (!web.main) {
