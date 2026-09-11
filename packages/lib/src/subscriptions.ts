@@ -1,6 +1,6 @@
-import { Type, Static } from "@sinclair/typebox";
-import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link/index.js";
-import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data/index.js";
+import { Type, type Static } from "@sinclair/typebox";
+import { Link, type Event, type EventClass, type RequestHandler, WebSocketBaseConnector } from "./link/index.js";
+import { Address, MessageRequest, type IUser, JsonBoolean, StringEnum } from "./data/index.js";
 import isDeepStrictEqual from "#is_deep_strict_equal";
 import type { PermissionName } from "./permissions.js";
 import { RequestError } from "./errors.js";

@@ -1,4 +1,4 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import { HostDetails } from "@clusterio/lib";
 
 /** Underlying data class for hosts on the controller */

@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 
 /** Underlying data class for instances on the controller */
 export default class InstanceRecord {

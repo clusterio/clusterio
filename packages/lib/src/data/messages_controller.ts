@@ -1,4 +1,4 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import { JsonString, StringEnum, StringKey, plainJson } from "./composites.js";
 import { levels } from "../logging.js";
 import { ControllerConfig, HostConfig } from "../config/index.js";

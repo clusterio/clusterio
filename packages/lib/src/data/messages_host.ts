@@ -1,4 +1,4 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import { jsonArray, plainJson, StringEnum } from "./composites.js";
 import { CollectorResultSerialized } from "../prometheus.js";
 import { HostConfig } from "../config/definitions.js";

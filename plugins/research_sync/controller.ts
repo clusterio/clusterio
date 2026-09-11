@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "path";
 import { BaseControllerPlugin } from "@clusterio/controller";
-import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 import { RateLimiter } from "@clusterio/lib";

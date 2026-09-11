@@ -1,5 +1,5 @@
 import zlib from "zlib";
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 
 import * as libSchema from "../schema.js";
 import * as libLuaTools from "../lua_tools.js";
@@ -8,11 +8,11 @@ import ExportManifest from "./ExportManifest.js";
 import type { ExportSettings } from "../export.js";
 import type { Logger } from "../logging.js";
 
-import ModInfo, { ModDependencyUnsatisfiedReason } from "./ModInfo.js";
+import ModInfo, { type ModDependencyUnsatisfiedReason } from "./ModInfo.js";
 
 import {
-	PartialVersion, PartialVersionSchema, integerPartialVersion,
-	SourceVersion, SourceVersionSchema, normaliseFullVersion, integerSourceVersion,
+	type PartialVersion, PartialVersionSchema, integerPartialVersion,
+	type SourceVersion, SourceVersionSchema, normaliseFullVersion, integerSourceVersion,
 } from "./version.js";
 
 

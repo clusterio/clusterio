@@ -1,4 +1,4 @@
-import { Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 import type { PermissionName } from "../permissions.js";
 import PlayerStats from "./PlayerStats.js";
 

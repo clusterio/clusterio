@@ -2,7 +2,7 @@
 import * as classes from "./classes.js";
 import * as validators from "./validators.js";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
-import { Static } from "@sinclair/typebox";
+import type { Static } from "@sinclair/typebox";
 import { isTargetVersion } from "../data/version.js";
 
 type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;

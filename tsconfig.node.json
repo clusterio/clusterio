@@ -5,6 +5,7 @@
 		"module": "nodenext",
 		"moduleResolution": "node16",
 		"target": "es2022",
+		"verbatimModuleSyntax": true,
 		"forceConsistentCasingInFileNames": true,
 		"outDir": "${configDir}/dist/node",
 	},

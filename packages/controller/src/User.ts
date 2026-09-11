@@ -1,11 +1,11 @@
 
 import {
-	IUser, Role, SubscribableDatastore,
-	PermissionError, PermissionName, permissions,
+	type IUser, Role, SubscribableDatastore,
+	PermissionError, type PermissionName, permissions,
 } from "@clusterio/lib";
 
 import UserRecord from "./UserRecord.js";
-import { Static } from "@sinclair/typebox";
+import type { Static } from "@sinclair/typebox";
 
 /**
  * Represents a user as viewed from the controller.

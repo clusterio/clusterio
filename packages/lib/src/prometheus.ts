@@ -39,7 +39,7 @@
  * app.listen(9100);
  * @module lib/prometheus
  */
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import { StringEnum } from "./data/composites.js";
 
 /**

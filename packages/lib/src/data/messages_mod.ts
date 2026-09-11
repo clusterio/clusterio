@@ -1,11 +1,11 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import ModInfo, { ModDependency } from "./ModInfo.js";
 import ModPack from "./ModPack.js";
 import { JsonString, jsonArray } from "./composites.js";
 
 import {
-	MajorMinorVersion, MajorMinorVersionSchema,	normaliseMajorMinorVersion,
-	SourceVersion, SourceVersionSchema,
+	type MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion,
+	type SourceVersion, SourceVersionSchema,
 	ModVersionEquality,
 } from "./version.js";
 

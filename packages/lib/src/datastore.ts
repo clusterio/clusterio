@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import { EventEmitter } from "events";
 
 import { safeOutputFile } from "./file_ops.js";
-import { SubscribableValue } from "./subscriptions.js";
+import type { SubscribableValue } from "./subscriptions.js";
 import { logger } from "./logging.js";
 import { ControllerConfig } from "./config/index.js";
 

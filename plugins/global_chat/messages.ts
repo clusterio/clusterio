@@ -1,4 +1,4 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 export class ChatEvent {
 	declare ["constructor"]: typeof ChatEvent;
 	static type = "event" as const;

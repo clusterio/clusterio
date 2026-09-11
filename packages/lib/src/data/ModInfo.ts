@@ -1,15 +1,15 @@
 import fs from "node:fs/promises";
 import JSZip from "jszip";
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 
 import * as libHash from "../hash.js";
 import * as libSchema from "../schema.js";
 import { findRoot } from "../zip_ops.js";
-import { ModRecord } from "./ModPack.js";
+import type { ModRecord } from "./ModPack.js";
 
 import {
-	MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion, integerMajorMinorVersion,
-	SourceVersion, SourceVersionSchema, isSourceVersion, normaliseSourceVersion, integerSourceVersion,
+	type MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion, integerMajorMinorVersion,
+	type SourceVersion, SourceVersionSchema, isSourceVersion, normaliseSourceVersion, integerSourceVersion,
 	ModVersionEquality,
 } from "./version.js";
 

@@ -1,5 +1,5 @@
 import { UserDetails } from "@clusterio/lib";
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 
 /** Underlying data class for users on the controller */
 export default class UserRecord extends UserDetails {

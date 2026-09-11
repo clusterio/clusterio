@@ -1,11 +1,11 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import PlayerStats from "./PlayerStats.js";
 import { JsonString, StringEnum, jsonArray, plainJson } from "./composites.js";
 import { InstanceConfig } from "../config/index.js";
 import type { IUser } from "./UserDetails.js";
 import type { MessageRequest } from "./messages_core.js";
 import { CollectorResultSerialized } from "../prometheus.js";
-import { TargetVersion, TargetVersionSchema, PartialVersion, PartialVersionSchema } from "./version.js";
+import { type TargetVersion, TargetVersionSchema, type PartialVersion, PartialVersionSchema } from "./version.js";
 import InstanceDetails, { InstanceStatus } from "./InstanceDetails.js";
 
 export class InstanceDetailsGetRequest {

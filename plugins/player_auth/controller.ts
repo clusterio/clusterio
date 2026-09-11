@@ -3,7 +3,7 @@ import express, { type Request, type Response } from "express";
 import util from "util";
 import jwt from "jsonwebtoken";
 
-import { Static } from "@sinclair/typebox";
+import type { Static } from "@sinclair/typebox";
 import { BaseControllerPlugin } from "@clusterio/controller";
 import { basicType, RequestError } from "@clusterio/lib";
 

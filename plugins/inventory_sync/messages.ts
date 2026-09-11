@@ -1,4 +1,4 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import { StringEnum } from "@clusterio/lib";
 
 // .\module\serialize.lua:serialize.serialize_player()

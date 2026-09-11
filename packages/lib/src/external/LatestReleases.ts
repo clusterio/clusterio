@@ -1,5 +1,5 @@
-import { Static, Type } from "@sinclair/typebox";
-import { FullVersion, FullVersionSchema } from "../data/version.js";
+import { type Static, Type } from "@sinclair/typebox";
+import { type FullVersion, FullVersionSchema } from "../data/version.js";
 
 const LATEST_RELEASES_URL = "https://factorio.com/api/latest-releases";
 

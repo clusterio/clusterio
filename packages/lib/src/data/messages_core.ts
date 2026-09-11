@@ -1,5 +1,5 @@
 // Note: Run compile_validator script after making changes to this file.
-import { TSchema, Type, Static } from "@sinclair/typebox";
+import { type TSchema, Type, type Static } from "@sinclair/typebox";
 
 import messageValidate from "./message_validate.js"; // generated file
 import { StringEnum } from "./composites.js";

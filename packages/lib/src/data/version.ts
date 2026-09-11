@@ -1,6 +1,6 @@
 // Helper functions for dealing with factorio version numbers
 
-import { Static, Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 
 /**
  * Integer representation of a version string.

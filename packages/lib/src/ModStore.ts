@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import path from "path";
 import events from "events";
-import { Static } from "@sinclair/typebox";
+import type { Static } from "@sinclair/typebox";
 import { logger } from "./logging.js";
 import { downloadFile, safeOutputFile } from "./file_ops.js";
-import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod.js";
-import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, SourceVersion } from "./data/index.js";
+import { ModPortalReleaseSchema, ModPortalDetailsSchema, type ModNameVersionPair } from "./data/messages_mod.js";
+import { ModInfo, ModPack, type MajorMinorVersion, ModVersionEquality, type SourceVersion } from "./data/index.js";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
