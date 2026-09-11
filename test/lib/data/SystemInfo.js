@@ -1,8 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const lib = require("@clusterio/lib");
-const { SystemInfo } = lib;
+import { SystemInfo } from "@clusterio/lib";
 
 
 describe("lib/data/SystemInfo", function() {

@@ -1,8 +1,8 @@
 import * as lib from "@clusterio/lib";
 
-import type Controller from "./Controller";
-import type HostConnection from "./HostConnection";
-import InstanceRecord from "./InstanceRecord";
+import type Controller from "./Controller.js";
+import type HostConnection from "./HostConnection.js";
+import InstanceRecord from "./InstanceRecord.js";
 
 export default class InstanceManager {
 	private static readonly DefaultFactorioSettings = {

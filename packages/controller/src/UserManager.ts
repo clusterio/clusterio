@@ -3,8 +3,8 @@ import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";
 
-import User from "./User";
-import UserRecord from "./UserRecord";
+import User from "./User.js";
+import UserRecord from "./UserRecord.js";
 
 /**
  * Access layer for users on the controller.

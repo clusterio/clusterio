@@ -2,7 +2,7 @@ import winston from "winston";
 
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
-import type { Control } from "../ctl";
+import type { Control } from "../ctl.js";
 
 export const logCommands = new lib.CommandTree({ name: "log", description: "Log inspection" });
 logCommands.add(new lib.Command({

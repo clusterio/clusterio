@@ -1,5 +1,5 @@
-const assert = require("assert").strict;
-const { ValueCache, wait } = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import { ValueCache, wait } from "@clusterio/lib";
 
 describe("ValueCache", function () {
 	describe("constructor", function () {

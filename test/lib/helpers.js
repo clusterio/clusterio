@@ -1,8 +1,7 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 const hrtime = process.hrtime.bigint;
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 
 describe("lib/helpers", function() {

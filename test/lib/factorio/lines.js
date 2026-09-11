@@ -1,7 +1,5 @@
 // Lines for testing the factorio output
-
-"use strict";
-let testLines = new Map([
+export const testLines = new Map([
 	[
 		"   1.306 Info RemoteCommandProcessor.cpp:131: Starting RCON interface at port 4000",
 		{
@@ -219,7 +217,3 @@ let testLines = new Map([
 		},
 	],
 ]);
-
-module.exports = {
-	testLines,
-};

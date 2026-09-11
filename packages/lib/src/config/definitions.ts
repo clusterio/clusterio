@@ -1,9 +1,9 @@
 // Core definitions for the configuration system
-import * as classes from "./classes";
-import * as validators from "./validators";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
+import * as classes from "./classes.js";
+import * as validators from "./validators.js";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
 import { Static } from "@sinclair/typebox";
-import { isTargetVersion } from "../data/version";
+import { isTargetVersion } from "../data/version.js";
 
 type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;
 type configFromFile<T> = (...args: Parameters<typeof classes.Config.fromFile>) => Promise<T>;

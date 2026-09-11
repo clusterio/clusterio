@@ -1,6 +1,5 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const assert = require("assert").strict;
+import * as lib from "@clusterio/lib";
+import assert from "node:assert/strict";
 
 // Each migration test should indicate which version introduced the migration
 

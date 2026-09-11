@@ -1,6 +1,5 @@
-"use strict";
-const assert = require("assert").strict;
-const { compile } = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import { compile } from "@clusterio/lib";
 
 /**
  * Generate a flat array of tests from a matrix of inputs.
@@ -10,7 +9,7 @@ const { compile } = require("@clusterio/lib");
  * @returns {Array<{ [K in keyof T]: T[K][number] }>}
  * 		An array of tuples, each containing one value from each input array.
  */
-function testMatrix(...arrays) {
+export function testMatrix(...arrays) {
 	return arrays.reduce((acc, curr) => acc.flatMap(a => curr.map(b => [...a, b])), [[]]);
 }
 
@@ -21,7 +20,7 @@ function testMatrix(...arrays) {
  * @param {{new(...args: T): object}} Class - The class which has toJSON and fromJSON methods.
  * @param {T[]} tests - The tests inputs to pass to the class constructor.
  */
-function testRoundTripJsonSerialisable(Class, tests) {
+export function testRoundTripJsonSerialisable(Class, tests) {
 	const validate = compile(Class.jsonSchema);
 	for (const test of tests) {
 		const original = new Class(...test);
@@ -34,8 +33,3 @@ function testRoundTripJsonSerialisable(Class, tests) {
 		}
 	}
 }
-
-module.exports = {
-	testMatrix,
-	testRoundTripJsonSerialisable,
-};

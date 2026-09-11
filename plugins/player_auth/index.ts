@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import * as messages from "./messages";
+import * as messages from "./messages.js";
 
 declare module "@clusterio/lib" {
 	export interface InstanceConfigFields {
@@ -16,8 +16,8 @@ export const plugin: lib.PluginDeclaration = {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",
-	controllerEntrypoint: "dist/node/controller",
-	instanceEntrypoint: "dist/node/instance",
+	controllerEntrypoint: "dist/node/controller.js",
+	instanceEntrypoint: "dist/node/instance.js",
 	webEntrypoint: "./web",
 	controllerConfigFields: {
 		"player_auth.code_length": {

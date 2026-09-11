@@ -7,16 +7,16 @@
 import fs from "node:fs/promises";
 import yargs, { type Argv } from "yargs";
 import path from "path";
-import { version } from "./package.json";
+import packageConfig from "./package.json" with { type: "json" };
 import { strict as assert } from "assert";
 
 // Reduce startup time by lazy compiling schemas.
-(global as any).lazySchemaCompilation = true;
+import "./src/set_lazy_schema_compliation.js";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import * as commands from "./src/commands";
-import BaseCtlPlugin from "./src/BaseCtlPlugin";
+import * as commands from "./src/commands.js";
+import BaseCtlPlugin from "./src/BaseCtlPlugin.js";
 
 
 /**
@@ -37,7 +37,7 @@ class ControlConnector extends lib.WebSocketClientConnector {
 			new lib.MessageRegisterControl(
 				new lib.RegisterControlData(
 					this._token,
-					version,
+					packageConfig.version,
 				)
 			)
 		);
@@ -378,6 +378,6 @@ ${err.stack}`
 	});
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

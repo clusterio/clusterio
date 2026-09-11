@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import * as lib from "@clusterio/lib";
 
 describe("lib/ini", function() {
 	describe("parse()", function() {

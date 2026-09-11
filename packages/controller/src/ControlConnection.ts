@@ -1,15 +1,15 @@
-import type WsServerConnector from "./WsServerConnector";
+import type WsServerConnector from "./WsServerConnector.js";
 
 import events from "events";
 
 import * as lib from "@clusterio/lib";
-const { logFilter, logger } = lib;
+import { logFilter, logger } from "@clusterio/lib";
 
-import BaseConnection from "./BaseConnection";
-import User from "./User";
-import UserRecord from "./UserRecord";
-import * as routes from "./routes";
-import Controller from "./Controller";
+import BaseConnection from "./BaseConnection.js";
+import User from "./User.js";
+import UserRecord from "./UserRecord.js";
+import * as routes from "./routes.js";
+import Controller from "./Controller.js";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -1325,5 +1325,3 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.debugEvents.on("message", this.ws_dumper);
 	}
 }
-
-module.exports = ControlConnection;

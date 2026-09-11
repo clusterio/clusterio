@@ -1,12 +1,12 @@
 import { Type, Static } from "@sinclair/typebox";
-import PlayerStats from "./PlayerStats";
-import { JsonString, StringEnum, jsonArray, plainJson } from "./composites";
-import { InstanceConfig } from "../config";
-import type { IUser } from "./UserDetails";
-import type { MessageRequest } from "./messages_core";
-import { CollectorResultSerialized } from "../prometheus";
-import { TargetVersion, TargetVersionSchema, PartialVersion, PartialVersionSchema } from "./version";
-import InstanceDetails, { InstanceStatus } from "./InstanceDetails";
+import PlayerStats from "./PlayerStats.js";
+import { JsonString, StringEnum, jsonArray, plainJson } from "./composites.js";
+import { InstanceConfig } from "../config/index.js";
+import type { IUser } from "./UserDetails.js";
+import type { MessageRequest } from "./messages_core.js";
+import { CollectorResultSerialized } from "../prometheus.js";
+import { TargetVersion, TargetVersionSchema, PartialVersion, PartialVersionSchema } from "./version.js";
+import InstanceDetails, { InstanceStatus } from "./InstanceDetails.js";
 
 export class InstanceDetailsGetRequest {
 	declare ["constructor"]: typeof InstanceDetailsGetRequest;
@@ -386,6 +386,14 @@ export class InstanceCreateSaveRequest {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.name, json.seed, json.mapGenSettings, json.mapSettings);
 	}
+}
+
+export class InstanceSaveGameRequest {
+	declare ["constructor"]: typeof InstanceSaveGameRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.save.create" as const;
 }
 
 export class InstanceRenameSaveRequest {

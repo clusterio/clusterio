@@ -1,13 +1,12 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const libBuildMod = require("@clusterio/lib/build_mod");
-const { ModInfo, ModDependency } = lib;
+import * as lib from "@clusterio/lib";
+import * as libBuildMod from "@clusterio/lib/build_mod.js";
+import { ModInfo, ModDependency } from "@clusterio/lib";
 
-const { testMatrix, testRoundTripJsonSerialisable } = require("../../common");
+import { testMatrix, testRoundTripJsonSerialisable } from "../../common.js";
 
 describe("lib/data/ModInfo", function() {
 	describe("class ModDependency", function() {

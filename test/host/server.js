@@ -1,14 +1,12 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import events from "node:events";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const hostServer = require("@clusterio/host/dist/node/src/server");
-const lib = require("@clusterio/lib");
-const { wait } = lib;
-const { testLines } = require("../lib/factorio/lines");
-const { slowTest, externalTest } = require("../integration");
+import * as hostServer from "@clusterio/host/dist/node/src/server.js";
+import { Link, wait } from "@clusterio/lib";
+import { testLines } from "../lib/factorio/lines.js";
+import { slowTest, externalTest } from "../integration/index.js";
 
 
 describe("host/server", function() {
@@ -308,6 +306,32 @@ describe("host/server", function() {
 				let result = await waiter;
 				assert.deepEqual(result[0], { "data": "spam" });
 				await assert.rejects(fs.access(filePath), "File was not deleted");
+			});
+		});
+
+		describe(".handle()", function() {
+			it("should log validation errors from ipc handlers", async function() {
+				let logged = [];
+				let ipcServer = new hostServer.FactorioServer(
+					path.join("test", "file", "factorio"), writePath,
+					{ logger: { error: msg => { logged.push(msg); } } }
+				);
+				class NumberEvent {
+					static type = "event";
+					static src = "instance";
+					static dst = "controller";
+					constructor(value) { this.value = value; }
+					static jsonSchema = { type: "number" };
+					static fromJSON(json) { return new this(json); }
+				}
+				let eventFromJSON = Link.eventFromJSON(NumberEvent, "NumberEvent");
+				ipcServer.handle("bad_event", async () => { eventFromJSON("not a number"); });
+				ipcServer.emit("ipc-bad_event", {});
+				await new Promise(resolve => setImmediate(resolve));
+
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith("Error handling ipc event:\nError: Event NumberEvent failed validation\n"));
+				assert(logged[0].includes('"message": "must be number"'));
 			});
 		});
 

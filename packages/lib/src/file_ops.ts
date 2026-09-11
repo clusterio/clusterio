@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import path from "path";
 import stream from "stream";
 
-import { redactUrl } from "./helpers";
+import { redactUrl } from "./helpers.js";
 
 
 /**

@@ -6,8 +6,8 @@
  * @author Hornwitser
  * @module lib/users
  */
-import { Permission } from "./data";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "./plugin";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "./plugin.js";
+import { Permission } from "./data/index.js";
 
 export const permissions = new Map<string, Permission>();
 

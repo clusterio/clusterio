@@ -49,12 +49,12 @@ By default the main entrypoint is the `index.js` file, but this may be changed b
 Here's an example of `index.js`:
 
 ```js
-module.exports.plugin = {
+export const plugin = {
     name: "foo_frobber",
     title: "Foo Frobber",
     description: "Does advanced frobnication",
-    instanceEntrypoint: "instance",
-    controllerEntrypoint: "controller",
+    instanceEntrypoint: "instance.js",
+    controllerEntrypoint: "controller.js",
     messages: {
         /* See below */
     },
@@ -122,19 +122,15 @@ The plugin class should derive from its respective base class defined in `lib/pl
 For example, to define a ControllerPlugin class the following code can be used:
 
 ```js
-const { BaseControllerPlugin } = require("@clusterio/controller");
+import { BaseControllerPlugin } from "@clusterio/controller";
 
-class ControllerPlugin extends BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
     async init() {
         this.foo = 42;
         await this.startFrobnication();
     }
 
     // ...
-}
-
-module.exports = {
-    ControllerPlugin,
 }
 ```
 
@@ -569,7 +565,7 @@ In its simplest form collecting data from plugins consists of defining the metri
 For example:
 
 ```js
-const { Counter } = require("@clusterio/lib");
+import { Counter } from "@clusterio/lib";
 
 const fooMetric = new Counter(
     "clusterio_foo_frobber_foo_metric", "Measures the level of foo",
@@ -585,7 +581,7 @@ It's recommended that plugin metrics follow `clusterio_<plugin_name>_<metric_nam
 For metrics that are per-instance, you must define an `instance_id` label and set it accordingly, for example:
 
 ```js
-const { Counter } = require("@clusterio/lib");
+import { Counter } from "@clusterio/lib";
 
 const barMetric = new Gauge(
     "clusterio_foo_frobber_bar_metric", "Bar instance level",
@@ -609,7 +605,7 @@ The control entrypoint for plugins allows you to extend clustectl with your own 
 The creation of custom commands typically starts with defining a command tree for the plugin:
 
 ```js
-const { Command, CommandTree } = require("@clusterio/lib");
+import { Command, CommandTree } from "@clusterio/lib";
 const fooFrobberCommands = new CommandTree({
     name: "foo-frobber", description: "Foo Frobber Plugin commands"
 });
@@ -618,7 +614,7 @@ const fooFrobberCommands = new CommandTree({
 Then commands are added to the the plugin's command tree:
 
 ```js
-const info = require("./info");
+import { messages } from "./index.js";
 
 fooFrobberCommands.add(new Command({
     definition: ["frobnicate <type>", "Do frobnications", (yargs) => {
@@ -644,15 +640,11 @@ Note that messages sent from clusterioctl needs to have `"control-controller"` a
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in `addCommands` callback of the Ctl plugin:
 
 ```js
-const { BaseCtlPlugin } = require("@clusterio/ctl");
+import { BaseCtlPlugin } from "@clusterio/ctl";
 
-class CtlPlugin extends BaseCtlPlugin {
+export class CtlPlugin extends BaseCtlPlugin {
     async addCommands(rootCommand) {
         rootCommand.add(fooFrobberCommands);
     }
-}
-
-module.exports = {
-    CtlPlugin,
 }
 ```

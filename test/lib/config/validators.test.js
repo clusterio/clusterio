@@ -1,8 +1,7 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 const validators = lib.Config.validators;
-const { ControllerConfig, HostConfig, InstanceConfig, ControlConfig } = lib;
+import { ControllerConfig, HostConfig, InstanceConfig, ControlConfig } from "@clusterio/lib";
 
 describe("lib/config/validators", function() {
 	describe("all", function() {

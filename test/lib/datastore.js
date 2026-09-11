@@ -1,9 +1,8 @@
-"use strict";
-const events = require("events");
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const fs = require("node:fs/promises");
-const path = require("path");
+import events from "node:events";
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 class MockDatastoreProvider extends lib.DatastoreProvider {
 	constructor() {

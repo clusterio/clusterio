@@ -418,7 +418,7 @@ export default defineConfig([{
 			...globals.mocha,
 		},
 
-		sourceType: "commonjs",
+		sourceType: "module",
 		parserOptions: {},
 	},
 
@@ -489,7 +489,7 @@ export default defineConfig([{
 		"node/shebang": "off",
 	},
 }, {
-	files: ["packages/create/templates/**/*.{t,j}s?(x)"],
+	files: ["packages/create/templates/**/*.?(c){t,j}s?(x)"],
 
 	"rules": {
 		"node/no-missing-require": "off",

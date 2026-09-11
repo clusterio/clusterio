@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
+import assert from "node:assert/strict";
+import path from "node:path";
 
-const { _exportLocale } = require("@clusterio/host/dist/node/src/export");
-const { FactorioServer } = require("@clusterio/host/dist/node/src/server");
+import { _exportLocale } from "@clusterio/host/dist/node/src/export.js";
+import { FactorioServer } from "@clusterio/host/dist/node/src/server.js";
 
-const { factorioDir, requiresFactorio } = require("./index");
+import { factorioDir, requiresFactorio } from "./index.js";
 
 
 describe("Integration of lib/factorio/export", function() {

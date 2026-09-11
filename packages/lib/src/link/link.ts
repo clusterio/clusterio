@@ -1,15 +1,15 @@
 // Implementation of Link class
-import * as libData from "../data";
-import * as libErrors from "../errors";
-import { logger } from "../logging";
-import * as libSchema from "../schema";
-import { dataClasses } from "./messages";
-import { BaseConnector, WebSocketBaseConnector } from "./connectors";
+import * as libData from "../data/index.js";
+import * as libErrors from "../errors.js";
+import { logger } from "../logging.js";
+import * as libSchema from "../schema.js";
+import { dataClasses } from "./messages.js";
+import { BaseConnector, WebSocketBaseConnector } from "./connectors.js";
 import { strict as assert } from "assert";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
 import type {
 	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUser,
-} from "../data";
+} from "../data/index.js";
 
 export interface Request<Req, Res> {
 	constructor: Partial<JSONDeserialisable<Req & Request<Req, Res>>> & {
@@ -213,7 +213,7 @@ export class Link {
 			let handler = this._eventSnoopers.get((entry as EventEntry).Event)!;
 			let event = message as libData.MessageEvent;
 			handler((entry as EventEntry).eventFromJSON(event.data), event.src, event.dst).catch((err: Error) => {
-				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
+				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack ?? err.message}`);
 			});
 		}
 
@@ -482,7 +482,7 @@ export class Link {
 		handler(
 			entry.eventFromJSON(message.data), message.src, message.dst
 		).catch((err: Error) => {
-			logger.error(`Unexpected error handling ${message.name}:\n${err.stack}`);
+			logger.error(`Unexpected error handling ${message.name}:\n${err.stack ?? err.message}`);
 		});
 	}
 

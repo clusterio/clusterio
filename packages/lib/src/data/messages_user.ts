@@ -1,7 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
-import UserDetails, { IUser } from "./UserDetails";
-import { StringEnum, jsonArray, plainJson } from "./composites";
-import { MessageRequest } from "./messages_core";
+import UserDetails, { IUser } from "./UserDetails.js";
+import { StringEnum, jsonArray, plainJson } from "./composites.js";
+import { MessageRequest } from "./messages_core.js";
 
 export class UserGetRequest {
 	declare ["constructor"]: typeof UserGetRequest;
