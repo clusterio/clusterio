@@ -7,7 +7,7 @@ const fs = require("node:fs/promises");
 const { testMatrix } = require("../common");
 const {
 	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
-	requiresFactorio, hasFactorio, instancesDir,
+	requiresFactorio, hasFactorio, getFactorioVersion, instancesDir,
 } = require("./index");
 
 const instId = 48;
@@ -21,6 +21,11 @@ const requireApi = [
 	"package.loaded['modules/clusterio/api']", // 1.1.110
 	"or package.loaded['__level__/modules/clusterio/api.lua']", // 2.0.0
 ].join(" ");
+
+// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
+function hasLuaUdp() {
+	return lib.integerFullVersion(getFactorioVersion()) >= lib.integerFullVersion("2.1.10");
+}
 
 function getUser(name) {
 	return getControl().send(new lib.UserGetRequest(name));
@@ -112,6 +117,7 @@ describe("Clusterio Instance", function() {
 				await execCtl(`${instSetConfig} factorio.enable_whitelist true`);
 				await execCtl(`${instSetConfig} factorio.enable_save_patching ${savePatchingEnabled}`);
 				await execCtl(`${instSetConfig} factorio.enable_script_commands ${scriptCommandsEnabled}`);
+				await execCtl(`${instSetConfig} factorio.enable_lua_udp ${hasLuaUdp()}`);
 				await execCtl(`instance save create ${instName}`);
 				await execCtl(`instance start ${instName}`);
 			});

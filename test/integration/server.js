@@ -123,6 +123,8 @@ describe("Integration of host/src/server", function() {
 				let mapPath = server.writePath("saves", "test.zip");
 				await assert.doesNotReject(fs.access(mapPath), "save is missing");
 
+				// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
+				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.10");
 				await server.start("test.zip");
 			});
 		});
@@ -154,6 +156,56 @@ describe("Integration of host/src/server", function() {
 					server.sendRcon("/sc rcon.print('fail')", true),
 					new Error('Expected empty response but got "fail\n"')
 				);
+			});
+		});
+
+		describe("Lua UDP", function() {
+			it("emits udp events for packets sent from the game", async function() {
+				slowTest(this);
+				if (!server.enableLuaUdp) {
+					this.skip();
+				}
+				log("Lua UDP from game");
+
+				assert(server.hostUdpPort > 0, "host UDP socket is not open");
+				let waiter = events.once(server, "udp-test_channel");
+				await server.sendRcon(`/sc helpers.send_udp(${server.hostUdpPort}, "test_channel?hello", 0)`);
+				let [data] = await waiter;
+				assert.equal(data.toString(), "hello");
+			});
+			it("delivers packets sent with sendUdp to the game", async function() {
+				slowTest(this);
+				if (!server.enableLuaUdp) {
+					this.skip();
+				}
+				log("Lua UDP to game");
+
+				// Poll from on_tick like the clusterio module does
+				await server.sendRcon(
+					"/sc script.on_event(defines.events.on_udp_packet_received, " +
+					"function(event) print('udp:' .. event.payload) end) " +
+					"script.on_nth_tick(1, function() helpers.recv_udp(0) end)"
+				);
+				let pass = false;
+				function filter(output) {
+					if (output.message === "udp:hello") {
+						pass = true;
+					}
+				}
+				server.on("output", filter);
+
+				await server.sendUdp("hello");
+				// The server does not tick without players, commands make it tick
+				for (let i = 0; i < 10; i++) {
+					await server.sendRcon("/sc rcon.print('tick')");
+					await lib.wait(10);
+					if (pass) {
+						break;
+					}
+				}
+
+				server.off("output", filter);
+				assert(pass, "server did not output the packet payload");
 			});
 		});
 

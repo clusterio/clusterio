@@ -35,6 +35,12 @@ describe("host/src/BaseInstancePlugin", function() {
 				await assert.rejects(instancePlugin.sendRcon("a"), new Error("ref"));
 			});
 		});
+		describe("sendUdp", function() {
+			it("should send message to the instance", async function() {
+				await instancePlugin.sendUdp("a");
+				assert.deepEqual(instancePlugin.instance.server.udpMessages, ["a"]);
+			});
+		});
 		describe("sendOrderedRcon", function() {
 			it("should send commands in order", async function() {
 				instancePlugin.instance.server.rconCommandResults.set("a", { time: 100, response: "a" });

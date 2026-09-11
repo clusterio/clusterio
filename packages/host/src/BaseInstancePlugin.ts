@@ -210,6 +210,22 @@ export default class BaseInstancePlugin {
 	}
 
 	/**
+	 * Send UDP message to instance
+	 *
+	 * Send a UDP packet to the Factorio server, which is delivered in-game
+	 * as an on_udp_packet_received event.  Delivery is not guaranteed and
+	 * the payload should be kept well below 64 kB.  Requires the LuaUdp
+	 * plugin feature.
+	 *
+	 * This should not be called before onStart or after onStop.
+	 *
+	 * @param message - payload of the packet to send.
+	 */
+	async sendUdp(message: string | Buffer): Promise<void> {
+		await this.instance.sendUdp(message);
+	}
+
+	/**
 	 * Send serially ordered RCON message to instance
 	 *
 	 * Send a message or command to the server which will not be executed
