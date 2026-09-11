@@ -47,12 +47,7 @@ export default class HostConnection extends BaseConnection {
 		this._checkPluginVersions();
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
-
-			this.connector.on(event, () => {
-				for (let plugin of this._controller.plugins.values()) {
-					plugin.onHostConnectionEvent(this, event);
-				}
-			});
+			this.connector.on(event, () => this._controller.hooks.hostConnectionEvent.invoke(this, event));
 		}
 
 		this.connector.on("close", () => {
@@ -66,7 +61,7 @@ export default class HostConnection extends BaseConnection {
 				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
-				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
+				this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 			}
 			this._controller.instances.records.setMany(instances);
 
@@ -143,7 +138,7 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async prepareDisconnect() {
-		await lib.invokeHook(this._controller.plugins, "onPrepareHostDisconnect", this);
+		await this._controller.hooks.prepareHostDisconnect.invoke(this);
 		return await super.prepareDisconnect();
 	}
 
@@ -216,7 +211,7 @@ export default class HostConnection extends BaseConnection {
 		instance.factorioVersion = request.factorioVersion;
 		this._controller.instances.records.set(instance);
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
+		await this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 	}
 
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
@@ -256,9 +251,7 @@ export default class HostConnection extends BaseConnection {
 					}
 					instanceUpdates.push(controllerInstance);
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					await lib.invokeHook(
-						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
-					);
+					await this._controller.hooks.instanceStatusChanged.invoke(controllerInstance, prev);
 				}
 				continue;
 			}
@@ -274,7 +267,7 @@ export default class HostConnection extends BaseConnection {
 		// We suppress the changes made by createInstance so we must manually make them here
 		this._controller.instances.records.setMany(instanceUpdates);
 		await Promise.all(instanceUpdates.flatMap(newInstance => [
-			lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance),
+			this._controller.hooks.instanceStatusChanged.invoke(newInstance, undefined),
 			this.send(
 				new lib.InstanceAssignInternalRequest(
 					newInstance.config.get("instance.id"), newInstance.config.toRemote("host")
@@ -350,7 +343,7 @@ export default class HostConnection extends BaseConnection {
 		user.saveRecord();
 
 		let instance = this._controller.instances.get(instanceId)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.type,
 			name: event.name,
 			reason: event.reason,
@@ -367,7 +360,7 @@ export default class HostConnection extends BaseConnection {
 		user.set("isAdmin", event.admin);
 
 		const instance = this._controller.instances.get(src.id)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.admin ? "promote" : "demote" as lib.PlayerEvent["type"],
 			name: event.name,
 			stats: user.instanceStats.get(src.id)!,
@@ -385,11 +378,11 @@ export default class HostConnection extends BaseConnection {
 		user.saveRecord();
 
 		const instance = this._controller.instances.get(src.id)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.banned ? "ban" : "unban" as lib.PlayerEvent["type"],
 			name: event.name,
 			stats: user.instanceStats.get(src.id)!,
-			resaon: event.reason,
+			reason: event.reason,
 		});
 	}
 
@@ -402,7 +395,7 @@ export default class HostConnection extends BaseConnection {
 		user.set("isWhitelisted", event.whitelisted);
 
 		const instance = this._controller.instances.get(src.id)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.whitelisted ? "whitelisted" : "unwhitelisted" as lib.PlayerEvent["type"],
 			name: event.name,
 			stats: user.instanceStats.get(src.id)!,

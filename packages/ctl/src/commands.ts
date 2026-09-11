@@ -1,7 +1,6 @@
 import type { Argv } from "yargs";
 
 import * as lib from "@clusterio/lib";
-import type BaseCtlPlugin from "./BaseCtlPlugin.js";
 import { controllerCommands } from "./commands_controller.js";
 import { hostCommands } from "./commands_host.js";
 import { instanceCommands } from "./commands_instance.js";
@@ -12,8 +11,9 @@ import { roleCommands } from "./commands_role.js";
 import { userCommands } from "./commands_user.js";
 import { logCommands } from "./commands_log.js";
 import { debugCommands } from "./commands_debug.js";
+import type { CtlHooks } from "./BaseCtlPlugin.js";
 
-export async function registerCommands(ctlPlugins: Map<string, BaseCtlPlugin>, yargs: Argv) {
+export async function registerCommands(ctlHooks: CtlHooks, yargs: Argv) {
 	const rootCommands = new lib.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
 	rootCommands.add(controllerCommands);
 	rootCommands.add(hostCommands);
@@ -26,9 +26,7 @@ export async function registerCommands(ctlPlugins: Map<string, BaseCtlPlugin>, y
 	rootCommands.add(logCommands);
 	rootCommands.add(debugCommands);
 
-	for (let controlPlugin of ctlPlugins.values()) {
-		await controlPlugin.addCommands(rootCommands);
-	}
+	await ctlHooks.addCommands.invoke(rootCommands);
 
 	for (let [name, command] of rootCommands.subCommands) {
 		if (name === command.name) {

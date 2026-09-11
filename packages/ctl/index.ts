@@ -1,6 +1,6 @@
 import { bootstrap } from "./ctl.js";
 export * from "./ctl.js";
-export { default as BaseCtlPlugin } from "./src/BaseCtlPlugin.js";
+export { BaseCtlPlugin, CtlHooks, type CtlPluginContext } from "./src/BaseCtlPlugin.js";
 
 if (import.meta.main) {
 	bootstrap();

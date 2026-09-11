@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { jsonArray } from "./composites.js";
-import { PluginNodeEnvInfo } from "../plugin.js";
+import type { PluginNodeEnvInfo } from "../plugin.js";
 
 /* This is similar to other plugin definitions but with lots removed */
 export class PluginDetails {

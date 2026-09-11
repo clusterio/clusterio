@@ -10,7 +10,6 @@ import ChangeLogModal from "./ChangeLogModal";
 import AboutModal from "./AboutModal";
 import Link from "./Link";
 
-import { pages } from "../pages";
 import { saveJson } from "../util/save_file";
 import { useAccount } from "../model/account";
 import { DraggingContext } from "../model/is_dragging";
@@ -60,7 +59,6 @@ export default function SiteLayout() {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
 	let account = useAccount();
-	let plugins = useContext(ControlContext).plugins;
 	const control = useContext(ControlContext);
 	const [dragging, setDragging] = useState(0);
 	const [aboutOpen, setAboutOpen] = useState(false);
@@ -110,13 +108,9 @@ export default function SiteLayout() {
 		],
 	};
 
-	let combinedPages = [...pages];
-	for (let plugin of plugins.values()) {
-		combinedPages.push(...plugin.pages);
-	}
-
 	let menuItems: MenuItem[] = [];
 	let menuGroups = new Map();
+	const combinedPages = [...control.pages];
 	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
 		if (
 			!sidebarName || permission && (

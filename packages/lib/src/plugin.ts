@@ -2,7 +2,6 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-import * as libHelpers from "./helpers.js";
 import type { Logger } from "./logging.js";
 import type { FieldDefinition } from "./config/index.js";
 import type { PermissionDefinition } from "./permissions.js";
@@ -90,42 +89,24 @@ export interface PlayerEvent {
 	stats: PlayerStats,
 }
 
-/**
- * Invokes the given hook on all plugins
- *
- * @param plugins -
- *     Mapping of plugin names to plugins to invoke the hook on.
- * @param hook - Name of hook to invoke.
- * @param args - Arguments to pass on to the hook.
- * @returns Non-undefined return values from the hooks.
- */
-export async function invokeHook<
-	Hook extends string,
-	R,
-	Args extends [...any],
-	Plugin extends { logger: Logger } & Record<Hook, (...hookArgs: Args) => R | Promise<R>>
->(
-	plugins: Map<string, Plugin>,
-	hook: Hook,
-	...args: Args
-): Promise<Exclude<Awaited<ReturnType<Plugin[Hook]>>, void>[]> {
-	let results: any[] = [];
-	for (let [name, plugin] of plugins) {
-		try {
-			const timeout = Symbol("timeout-token");
-			let result = await libHelpers.timeout<R | typeof timeout>(
-				plugin[hook](...args) as Promise<R>,
-				15000,
-				timeout
-			);
-			if (result === timeout) {
-				throw new Error(`Invoking hook ${hook} timed out for plugin ${name}`);
-			} else if (result !== undefined) {
-				results.push(result);
-			}
-		} catch (err: any) {
-			plugin.logger.error(`Ignoring error from plugin ${name} in ${hook}:\n${err.stack}`);
-		}
-	}
-	return results;
-}
+export type PluginLoadContext<
+	Context extends object,
+	Info extends PluginDeclaration = PluginNodeEnvInfo
+> = Context & {
+	logger: Logger;
+	plugin: Info;
+};
+
+export type PluginClass<
+	Context extends object,
+	Info extends PluginDeclaration,
+> = {
+	new (...args: any[]): any;
+	fromContext(context: PluginLoadContext<Context, Info>): {
+		init(): Promise<void>;
+		detachHooks(): void;
+	};
+};
+
+export type PluginType =
+	Extract<keyof PluginDeclaration, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;
