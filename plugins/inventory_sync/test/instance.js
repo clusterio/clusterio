@@ -1,14 +1,12 @@
-"use strict";
-const assert = require("assert").strict;
-const util = require("util");
-const zlib = require("zlib");
+import assert from "node:assert/strict";
+import util from "node:util";
+import zlib from "node:zlib";
+import * as lib from "@clusterio/lib";
 
-const lib = require("@clusterio/lib");
-
-const mock = require("../../../test/mock");
-const { recipeNotificationDelta, InstancePlugin } = require("../dist/node/instance");
-const { DownloadResponse } = require("../dist/node/messages");
-const info = require("../dist/node/index").plugin;
+import * as mock from "../../../test/mock.js";
+import { recipeNotificationDelta, InstancePlugin } from "../dist/node/instance.js";
+import { DownloadResponse } from "../dist/node/messages.js";
+import { plugin as info } from "../dist/node/index.js";
 
 const inflate = util.promisify(zlib.inflate);
 const deflate = util.promisify(zlib.deflate);
