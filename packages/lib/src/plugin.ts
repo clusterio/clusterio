@@ -5,8 +5,8 @@
 import * as libHelpers from "./helpers.js";
 import type { Logger } from "./logging.js";
 import type { FieldDefinition } from "./config/index.js";
+import type { PermissionDefinition } from "./permissions.js";
 import type { PlayerStats } from "./data/index.js";
-
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */
@@ -37,6 +37,7 @@ export type PluginDeclaration = {
 	features?: (typeof PluginFeatureFlags)[number][];
 
 	messages?: any[];
+	permissions?: PermissionDefinition[];
 	routes?: string[];
 }
 

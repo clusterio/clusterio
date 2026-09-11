@@ -169,7 +169,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		if (typeof permission === "string") {
-			this.user.checkPermission(permission);
+			this.user.checkPermission(permission as lib.PermissionName);
 			return;
 		}
 

@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link/index.js";
 import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data/index.js";
 import isDeepStrictEqual from "#is_deep_strict_equal";
+import type { PermissionName } from "./permissions.js";
 import { RequestError } from "./errors.js";
 import { logger } from "./logging.js";
 
@@ -155,7 +156,7 @@ export class SubscriptionRequest {
 			const entry = Link._eventsByName.get(data[0]);
 			if (entry && entry.Event.permission) {
 				if (typeof entry.Event.permission === "string") {
-					user.checkPermission(entry.Event.permission);
+					user.checkPermission(entry.Event.permission as PermissionName);
 				} else {
 					entry.Event.permission(user, message);
 				}

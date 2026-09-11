@@ -43,4 +43,45 @@ describe("lib/users", function() {
 			);
 		});
 	});
+
+	describe("registerPluginPermissions()", function() {
+		it("should define the permissions declared by plugins", function() {
+			lib.registerPluginPermissions([
+				{ name: "foo", permissions: [
+					{ name: "foo.first", title: "First", description: "The first" },
+					{ name: "foo.second", title: "Second", description: "The second", grantByDefault: true },
+				]},
+				{ name: "bar" },
+				{ name: "baz", permissions: [] },
+			]);
+			assert(lib.permissions.has("foo.first"), "foo.first was not defined");
+			assert.equal(lib.permissions.get("foo.first").grantByDefault, false);
+			assert(lib.permissions.has("foo.second"), "foo.second was not defined");
+			assert.equal(lib.permissions.get("foo.second").grantByDefault, true);
+		});
+
+		it("should throw if the name does not start with the plugin name", function() {
+			assert.throws(
+				() => lib.registerPluginPermissions([
+					{ name: "foo", permissions: [{ name: "bar.spam", title: "Spam", description: "Spam" }] },
+				]),
+				new Error("Expected name of permission 'bar.spam' for foo to start with 'foo.'")
+			);
+			assert.throws(
+				() => lib.registerPluginPermissions([
+					{ name: "foo", permissions: [{ title: "Spam", description: "Spam" }] },
+				]),
+				new Error("Expected name of permission 'undefined' for foo to start with 'foo.'")
+			);
+		});
+
+		it("should throw on already defined permission", function() {
+			assert.throws(
+				() => lib.registerPluginPermissions([
+					{ name: "foo", permissions: [{ name: "foo.first", title: "First", description: "The first" }] },
+				]),
+				new Error("Permission 'foo.first' is already defined")
+			);
+		});
+	});
 });

@@ -1,5 +1,5 @@
 import { Static, Type } from "@sinclair/typebox";
-
+import type { PermissionName } from "../permissions.js";
 import PlayerStats from "./PlayerStats.js";
 
 /** Represents a user in the cluster */
@@ -164,5 +164,5 @@ export interface IUser extends UserDetails {
 	 * @throws {Error} If the given permission does not exist.
 	 * @throws {libErrors.PermissionError} if the user does noh have the given permission.
 	 */
-	checkPermission(permission: string): void
+	checkPermission(permission: PermissionName): void
 }

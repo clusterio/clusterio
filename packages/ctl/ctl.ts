@@ -108,6 +108,7 @@ export class Control extends lib.Link {
 async function loadPlugins(pluginList: Map<string, string>) {
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	let ctlPlugins = new Map<string, BaseCtlPlugin>();
