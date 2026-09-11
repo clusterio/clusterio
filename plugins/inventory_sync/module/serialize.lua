@@ -551,33 +551,27 @@ end
 
 --- @param player LuaPlayer
 --- @param serialized string Encoded delta against the state sent with the download request
---- @param previous_failed string[]? Recipe names that did not exist at the last deserialization
 --- @return string[]? failed Recipe names that do not exist
-function serialize.deserialize_crafting_notifications(player, serialized, previous_failed)
+function serialize.deserialize_crafting_notifications(player, serialized)
 	--- @type CraftingNotificationDelta
 	local delta = helpers.json_to_table(assert(helpers.decode_string(serialized)))
 	assert(type(delta) == "table", "wrong type decoded from json_to_table")
-
-	local failed = {}
-	for _, recipe_name in pairs(previous_failed or {}) do
-		failed[recipe_name] = true
-	end
 
 	-- Recipes which can have a notification on this server
 	local enabled = {}
 	for _, recipe in pairs(player.force.recipes) do
 		if recipe.enabled and not recipe.hidden then
 			enabled[recipe.name] = true
-			failed[recipe.name] = nil
 		end
 	end
 
 	-- Clear notifications the player has cleared elsewhere, this means "add seen notification"
+	local failed = {}
 	for _, recipe_name in pairs(delta.add or {}) do
 		if enabled[recipe_name] then
 			player.clear_recipe_notification(recipe_name)
 		else
-			failed[recipe_name] = true -- Recipe does not exist on this server
+			failed[#failed + 1] = recipe_name -- Recipe does not exist on this server
 		end
 	end
 
@@ -585,16 +579,10 @@ function serialize.deserialize_crafting_notifications(player, serialized, previo
 	for _, recipe_name in pairs(delta.remove or {}) do
 		if enabled[recipe_name] then
 			player.add_recipe_notification(recipe_name)
-		else
-			failed[recipe_name] = nil
 		end
 	end
 
-	local failed_names = {}
-	for recipe_name in pairs(failed) do
-		failed_names[#failed_names + 1] = recipe_name
-	end
-	return next(failed_names) and failed_names or nil
+	return next(failed) and failed or nil
 end
 
 local controller_to_name = {}
@@ -800,9 +788,8 @@ end
 
 --- @param player LuaPlayer
 --- @param serialized SerializedPlayerData
---- @param previous_failed FailedDeserializationPlayerData?
 --- @return FailedDeserializationPlayerData?
-function serialize.deserialize_player(player, serialized, previous_failed)
+function serialize.deserialize_player(player, serialized)
 	local failed_deserialization = {}
 
 	local target_controller = defines.controllers[serialized.controller]
@@ -889,9 +876,8 @@ function serialize.deserialize_player(player, serialized, previous_failed)
 
 	-- Deserialize recipe notifications
 	if recipe_notifications_api and serialized.recipe_notifications then
-		failed_deserialization.recipe_notifications = serialize.deserialize_crafting_notifications(
-			player, serialized.recipe_notifications, previous_failed and previous_failed.recipe_notifications
-		)
+		failed_deserialization.recipe_notifications =
+			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
 	end
 
 	return next(failed_deserialization) and failed_deserialization or nil

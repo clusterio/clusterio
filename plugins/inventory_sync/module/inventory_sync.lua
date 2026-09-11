@@ -112,9 +112,7 @@ function inventory_sync.deserialize_player(player, finished_record)
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
 	assert(type(serialized_player) == "table", "wrong type for serialized_player")
-	script_data.failed_deserialization[player.name] = serialize.deserialize_player(
-		player, serialized_player, script_data.failed_deserialization[player.name]
-	)
+	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
@@ -447,10 +445,7 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	-- The plugin only sends back what differs from the current notification state
 	local recipe_notifications
 	if recipe_notifications_api then
-		local failed = script_data.failed_deserialization[player.name]
-		recipe_notifications = serialize.serialize_crafting_notifications(
-			player, failed and failed.recipe_notifications
-		)
+		recipe_notifications = serialize.serialize_crafting_notifications(player)
 	end
 
 	clusterio_api.send_json("inventory_sync_download", {
