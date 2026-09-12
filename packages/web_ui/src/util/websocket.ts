@@ -52,6 +52,7 @@ export class Control extends lib.Link {
 	accountRoles: lib.AccountRole[] | null = null;
 
 	public hooks = new WebPlugin.WebHooks(logger);
+	/** @deprecated Only holds plugins using the class export, use loadedPlugins and hooks instead */
 	public plugins = new Map<string, WebPlugin.BaseWebPlugin>();
 	public loadedPlugins = new Map<string, lib.PluginWebpackEnvInfo>();
 	public inputComponents = new Map<string, WebPlugin.InputComponent>();

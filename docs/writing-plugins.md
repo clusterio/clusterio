@@ -98,6 +98,10 @@ The following properties are recognized:
     This is an optional paramater.
     A plugin can be made that only runs on the clusterioctl side.
 
+**features**:
+    Array of features the plugin needs from the instances it is loaded on, `"SavePatching"` and/or `"ScriptCommands"`.
+    See [Handling Invalid Configuration](#handling-invalid-configuration)
+
 **messages**:
     Object with link messages definitions for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
@@ -238,7 +242,7 @@ The controller entrypoint will then be able to access the level config field thr
 
 ```ts
 export default async function(context: ControllerPluginContext) {
-    let level = context.controller.config.get("foo_frobber.level");
+    const level = context.controller.config.get("foo_frobber.level");
     context.logger.info(`I got a frobnication level of ${level}`);
 }
 ```
@@ -249,17 +253,21 @@ See [Configuration System](config-system.md) for more details on how this system
 
 ### Handling Invalid Configuration
 
-If the plugin requires a certain feature to be enabled to function it should throw an error from the entrypoint if this is not the case.
-The most common such feature is the save patching, which can be disabled to run vanilla or scenarios not compatible with Clusterio.
-For example:
+If the plugin requires save patching or script commands to function, which can be disabled to run vanilla or scenarios not compatible with Clusterio, declare it under `features` in the `plugin` export:
 
 ```js
-export default async function(context) {
-    if (!context.instance.config.get("factorio.enable_save_patching")) {
-        throw new Error("foo_frobber plugin requires save patching.");
-    }
-}
+export const plugin = {
+    name: "foo_frobber",
+    // ...
+    features: ["SavePatching"],
+};
 ```
+
+Enabling the plugin on an instance that has the feature turned off then fails config validation, so the mistake is caught when the config is edited instead of when the instance starts.
+
+Other constraints on config fields are expressed with a `validator` on the field definition, which throws when the value is not acceptable.
+Use `dependsOn` when the check involves other fields so that the validator runs when those change too.
+See [Configuration System](config-system.md) for details.
 
 
 ## Plugin Permissions
@@ -309,7 +317,7 @@ For example:
 
 ```js
 instance.hooks.start.attach(plugin.name, async () => {
-    let response = await instance.sendRcon(
+    const response = await instance.sendRcon(
         "/sc rcon.print('data')"
     );
 
@@ -605,7 +613,32 @@ Metrics are automatically registered to the default registry, and this default r
 This means that it's important that you place the definition of the metric at module level so that it's not created more than once over the lifetime of a host.
 Since the metrics remember their values and would continue to be exported after an instance is shutdown, there's code at instance shutdown that removes all the values where the `instance_id` label matches the id of the instance shut down.
 
-For statistics you need to update on collection there's a `metrics` hook on both controller and instance plugins that is run before the metrics in the default registry are collected.
+For statistics you need to update on collection there's a `metrics` hook on the controller, host and instance that is run before the metrics in the default registry are collected.
+
+```js
+import { Gauge } from "@clusterio/lib";
+
+const frobnicationsMetric = new Gauge(
+    "clusterio_foo_frobber_frobnications", "Frobnications currently in progress"
+);
+
+// In the controller entrypoint
+controller.hooks.metrics.attach(plugin.name, async () => {
+    frobnicationsMetric.set(frobnications.size);
+});
+```
+
+A handler may also return the results of collecting collectors that are not in the default registry, and they are added to the response.
+
+```js
+import { CollectorRegistry, Counter } from "@clusterio/lib";
+
+const fooRegistry = new CollectorRegistry();
+const fooCounter = new Counter("clusterio_foo_frobber_foos", "Foos frobbed", { register: false });
+fooRegistry.register(fooCounter);
+
+controller.hooks.metrics.attach(plugin.name, async () => fooRegistry.collect());
+```
 
 
 ## Adding Custom Commands to clusterioctl
