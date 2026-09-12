@@ -22,13 +22,13 @@ export function compile<T>(schema: JSONSchemaType<T>) {
 	}
 
 	let doValidate: ValidateFunction<T> | undefined;
-	const validate = <ValidateFunction<T>> function (data) {
+	const validate = function (data) {
 		if (!doValidate) {
 			doValidate = ajv.compile(schema);
 		}
 		let result = doValidate(data);
 		validate.errors = doValidate.errors;
 		return result;
-	};
+	} as ValidateFunction<T>;
 	return validate;
 }
