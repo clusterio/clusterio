@@ -25,17 +25,28 @@ Configure plugins available to be loaded by the controller.
 The available plugins will be loaded unless they have been disabled in the configuration, see the config command for disabling plugins.
 
 
+#### `plugin install <package>`
+
+Install a plugin from npm and add it to the plugin list.
+The package is passed to `npm install --save` so anything npm accepts works, including a version like `@clusterio/plugin-subspace_storage@2.0.0`.
+This command refuses to run outside the directory Clusterio was installed in, as the plugin has to end up in that directory's node_modules to be found.
+
+For example, installing the Subspace Storage plugin:
+
+    npx clusteriocontroller plugin install @clusterio/plugin-subspace_storage
+
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
+
+
 #### `plugin add <path>`
 
 Add plugin either by require path or relative/absolute path to the plugin directory.
 A relative path must start with ./ or ../ (or .\ and ..\ on Windows) otherwise it will be assumed to be a require path for an installed package in node_modules.
+This is mainly useful for plugins under development, packages published on npm are better installed with `plugin install`.
 
-For example, installing the Subspace Storage plugin:
+For example, adding a plugin checked out in the external_plugins directory:
 
-    npm install @clusterio/plugin-subspace_storage
-    npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
-
-Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
+    npx clusteriocontroller plugin add ./external_plugins/my_plugin
 
 
 #### `plugin remove <name>`

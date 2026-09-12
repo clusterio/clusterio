@@ -2,8 +2,11 @@
  * Implementation of commands shared between controller/host/ctl.
  * @module lib/shared_commands
  */
+import fs from "fs/promises";
 import path from "path";
+import { spawn } from "child_process";
 
+import { loadPluginList } from "./load_plugin_list.js";
 import * as libConfig from "./config/index.js";
 import * as libFileOps from "./file_ops.js";
 import { logger } from "./logging.js";
@@ -27,6 +30,7 @@ function print(...content: any[]) {
  */
 export function pluginCommand(yargs: any) {
 	yargs
+		.command("install <package>", "Install plugin from npm and add it")
 		.command("add <path>", "Add plugin by require path")
 		.command("remove <name>", "Remove plugin by name")
 		.command("list", "List all plugins and their path")
@@ -34,6 +38,67 @@ export function pluginCommand(yargs: any) {
 		.help()
 		.strict()
 	;
+}
+
+const corePackages = ["@clusterio/controller", "@clusterio/host", "@clusterio/ctl"];
+
+/**
+ * Check if the current directory is a Clusterio installation
+ *
+ * A directory counts as an installation if it has a package.json created
+ * by the installer or one that depends on a Clusterio package.
+ */
+export async function isClusterioInstall(dir = process.cwd()) {
+	let packageJson: { name?: string, dependencies?: Record<string, string> };
+	try {
+		packageJson = JSON.parse(await fs.readFile(path.join(dir, "package.json"), "utf8"));
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			return false;
+		}
+		throw err;
+	}
+	if (packageJson.name === "clusterio-install") {
+		return true;
+	}
+	return corePackages.some(name => packageJson.dependencies?.[name] !== undefined);
+}
+
+async function readDependencies(): Promise<Record<string, string>> {
+	const packageJson = JSON.parse(await fs.readFile("package.json", "utf8"));
+	return packageJson.dependencies ?? {};
+}
+
+async function packageNameFromSpec(packageSpec: string) {
+	try {
+		const packageJson = JSON.parse(await fs.readFile(path.join(packageSpec, "package.json"), "utf8"));
+		if (typeof packageJson.name === "string") {
+			return packageJson.name;
+		}
+	} catch (err: any) {
+		if (!["ENOENT", "ENOTDIR"].includes(err.code)) {
+			throw err;
+		}
+	}
+	return packageSpec.replace(/(?!^)@.*$/, "");
+}
+
+function npmInstall(packageSpec: string) {
+	const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+	return new Promise<void>((resolve, reject) => {
+		const child = spawn(npm, ["install", "--save", "--no-audit", "--no-fund", packageSpec], {
+			stdio: "inherit",
+			shell: process.platform === "win32",
+		});
+		child.on("error", reject);
+		child.on("exit", code => {
+			if (code === 0) {
+				resolve();
+			} else {
+				reject(new Error(`npm install exited with code ${code}`));
+			}
+		});
+	});
 }
 
 /**
@@ -51,11 +116,58 @@ export async function handlePluginCommand(
 	pluginListPath: string
 ) {
 	let command = (args._ as string[])[1];
+	const wrongDirHint = `${process.cwd()} is not a Clusterio installation, run this command from the directory ` +
+		"Clusterio was installed in";
 
-	if (command === "add") {
+	if (command === "install") {
+		if (!await isClusterioInstall()) {
+			logger.error(wrongDirHint);
+			process.exitCode = 1;
+			return;
+		}
+
+		const packageSpec = args.package as string;
+		const depsBefore = await readDependencies();
+		try {
+			await npmInstall(packageSpec);
+		} catch (err: any) {
+			logger.error(`Failed to install ${packageSpec}: ${err.message}`);
+			process.exitCode = 1;
+			return;
+		}
+		const depsAfter = await readDependencies();
+
+		const newPluginList = await loadPluginList(pluginListPath);
+		const added = [...newPluginList.keys()].filter(name => !pluginList.has(name));
+		for (const name of added) {
+			pluginList.set(name, newPluginList.get(name)!);
+			print(`Installed ${name}`);
+		}
+		if (added.length) {
+			return;
+		}
+
+		// Nothing new, either the plugin was already in the list or the package is not a plugin.
+		let packageNames = Object.keys(depsAfter).filter(name => depsAfter[name] !== depsBefore[name]);
+		if (!packageNames.length) {
+			packageNames = [await packageNameFromSpec(packageSpec)];
+		}
+		const existing = [...pluginList].filter(([, requirePath]) => packageNames.includes(requirePath));
+		if (existing.length) {
+			for (const [name] of existing) {
+				print(`${name} is already installed`);
+			}
+		} else {
+			logger.error(`${packageSpec} was installed but did not provide any plugins`);
+			process.exitCode = 1;
+		}
+
+	} else if (command === "add") {
 		let pluginPath = args.path as string;
 		if (/^\.\.?[\/\\]/.test(pluginPath)) {
 			pluginPath = path.resolve(pluginPath);
+		} else if (!path.isAbsolute(pluginPath) && !await isClusterioInstall()) {
+			logger.warn(wrongDirHint);
 		}
 
 		let pluginInfo: { name: string };
