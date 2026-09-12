@@ -19,9 +19,6 @@
 //%if controller
 		"@clusterio/controller": "^__clusterio_version__",
 //%endif
-//%if webpack
-		"@clusterio/web_ui": "^__clusterio_version__",
-//%endif
 //%if host
 		"@clusterio/host": "^__clusterio_version__",
 //%endif
