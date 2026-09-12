@@ -101,10 +101,15 @@ hostCommands.add(new lib.Command({
 	definition: ["update <host>", "Update the host", (yargs) => {
 		yargs.positional("host", { describe: "Host to update", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+		yargs.option("all", { alias: "a", type: "boolean", description: "Also update all plugins" });
 	}],
-	handler: async function(args: { host: string, restart: boolean }, control: Control) {
+	handler: async function(args: { host: string, restart: boolean, all: boolean }, control: Control) {
 		let hostId = await lib.resolveHost(control, args.host);
-		await control.sendTo({ hostId }, new lib.HostUpdateRequest());
+		if (args.all) {
+			await control.sendTo({ hostId }, new lib.UpdateAllRequest());
+		} else {
+			await control.sendTo({ hostId }, new lib.HostUpdateRequest());
+		}
 		if (args.restart) {
 			await control.sendTo({ hostId }, new lib.HostRestartRequest());
 		} else {

@@ -28,9 +28,14 @@ controllerCommands.add(new lib.Command({
 controllerCommands.add(new lib.Command({
 	definition: ["update", "Update the controller", (yargs) => {
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+		yargs.option("all", { alias: "a", type: "boolean", description: "Also update all plugins" });
 	}],
-	handler: async function(args: { restart: boolean }, control: Control) {
-		await control.send(new lib.ControllerUpdateRequest());
+	handler: async function(args: { restart: boolean, all: boolean }, control: Control) {
+		if (args.all) {
+			await control.send(new lib.UpdateAllRequest());
+		} else {
+			await control.send(new lib.ControllerUpdateRequest());
+		}
 		if (args.restart) {
 			await control.send(new lib.ControllerRestartRequest());
 		} else {
