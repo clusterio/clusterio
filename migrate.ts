@@ -175,6 +175,7 @@ function migrateFile(path: string) {
 		// Look for static assignments and put property after it
 		for (let i = propertyPos; i < cls.constructorStart; i++) {
 			if (/\tstatic [a-zA-Z_$]+\??( =|;)/.test(lines[i])) {
+				while(!/;/.test(lines[i])) { i += 1; }
 				propertyPos = i + 1;
 			}
 		}
@@ -241,7 +242,7 @@ function migrateFile(path: string) {
 			mutations.push({
 				start: cls.constructorBodyStart!,
 				end: cls.constructorBodyStart! + 1,
-				content: [lines[cls.constructorBodyStart!].replace(" }", "")],
+				content: [lines[cls.constructorBodyStart!].replace(/ ?}/, "")],
 			});
 		}
 

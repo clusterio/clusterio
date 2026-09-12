@@ -149,11 +149,13 @@ export interface TerminalFormatOptions extends winston.Logform.ColorizeOptions {
  */
 export class TerminalFormat {
 	colorize: winston.Logform.Colorizer;
+	options: TerminalFormatOptions;
 
 	constructor(
-		public options: TerminalFormatOptions = {}
+		options: TerminalFormatOptions = {}
 	) {
 		this.colorize = winston.format.colorize(options);
+		this.options = options;
 	}
 
 	transform(info: any, opts: unknown) {
@@ -233,6 +235,7 @@ const logIndexVersion = 2;
  * Keeps an index over a log directory to speed up queries to it
  */
 export class LogIndex {
+	logDirectory: string;
 	index: Map<string, {
 		levels: Set<keyof typeof levels>,
 		controller: boolean,
@@ -241,9 +244,10 @@ export class LogIndex {
 	}>;
 
 	constructor(
-		public logDirectory: string,
+		logDirectory: string,
 		serialized: any,
 	) {
+		this.logDirectory = logDirectory;
 		this.index = new Map();
 
 		if (serialized.version !== logIndexVersion) {

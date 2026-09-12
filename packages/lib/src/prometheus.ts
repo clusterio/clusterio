@@ -119,20 +119,33 @@ export type MetricType = "counter" | "gauge" | "histogram" | "summary" | "untype
  * and labels attached to the collector.
  */
 export class Metric {
+	/**
+	 * Metric type, should be one of `counter`, `gauge`, `histogram`,
+	 * `summary` or `untyped`.
+	 */
+	type: MetricType;
+	/** Name of the metric */
+	name: string;
+	/** Help text for the metric */
+	help: string;
+	/** Labels for this metric.  */
+	labels: string[];
+
 	constructor(
-		/**
-		 * Metric type, should be one of `counter`, `gauge`, `histogram`,
-		 * `summary` or `untyped`.
-		 */
-		public type: MetricType,
-		/** Name of the metric */
-		public name: string,
-		/** Help text for the metric */
-		public help: string,
-		/** Labels for this metric.  */
-		public labels: string[] = [],
+		/** {@inheritDoc type} */
+		type: MetricType,
+		/** {@inheritDoc name} */
+		name: string,
+		/** {@inheritDoc help} */
+		help: string,
+		/** {@inheritDoc labels} */
+		labels: string[] = [],
 		_reserved_labels: string[] = []
 	) {
+		this.type = type;
+		this.name = name;
+		this.help = help;
+		this.labels = labels;
 		if (typeof name !== "string") {
 			throw new Error("Expected name to be a string");
 		}

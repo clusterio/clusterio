@@ -93,6 +93,7 @@ export function createShutdownGuard(logger: Logger, signalName: string, callback
  * be merged into one call of the callback.
  */
 export class AsyncSerialMergingCallback {
+	callback: () => Promise<void>;
 	private _currentlyRunning = false;
 	private _currentlyWaiting: (() => void)[] = [];
 
@@ -100,8 +101,10 @@ export class AsyncSerialMergingCallback {
 	 * @param callback - Async function to serialise access to
 	 */
 	constructor(
-		public callback: () => Promise<void>,
-	) { }
+		callback: () => Promise<void>,
+	) {
+		this.callback = callback;
+	}
 
 	/**
 	 * Invoke the assosiated callback.
@@ -149,6 +152,7 @@ export class AsyncSerialMergingCallback {
 export class AsyncSerialCallback<
 	Callback extends (...args: Parameters<Callback>) => Promise<Awaited<ReturnType<Callback>>>,
 > {
+	callback: Callback;
 	private _currentlyRunning = false;
 	private _currentlyWaiting: (() => void)[] = [];
 
@@ -156,8 +160,10 @@ export class AsyncSerialCallback<
 	 * @param callback - Async function to serialise access to
 	 */
 	constructor(
-		public callback: Callback,
-	) { }
+		callback: Callback,
+	) {
+		this.callback = callback;
+	}
 
 	/**
 	 * Invoke the assosiated callback.

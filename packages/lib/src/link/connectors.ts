@@ -51,13 +51,17 @@ type BaseConnectorEvents = {
 export abstract class BaseConnector<
 	E extends Record<string, any[]> | [never] = [never], // Should be "extends EventMap = DefaultEventMap"
 > extends events.EventEmitter<E | BaseConnectorEvents> {
+	src: libData.Address;
+	dst: libData.Address;
 	protected _seq = 1;
 
 	constructor(
-		public src: libData.Address,
-		public dst: libData.Address,
+		src: libData.Address,
+		dst: libData.Address,
 	) {
 		super();
+		this.src = src;
+		this.dst = dst;
 	}
 
 	_reset() {
@@ -428,13 +432,15 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 	_sessionToken: string | null = null;
 	_sessionTimeout: number | null = null;
 	_startedResumingMs: number | null = null;
+	_url: string;
 	_backoff: ExponentialBackoff;
 
 	constructor(
-		protected _url: string,
+		_url: string,
 		maxReconnectDelay: number,
 	) {
 		super(undefined as any, new libData.Address(libData.Address.controller, 0));
+		this._url = _url;
 		this._backoff = new ExponentialBackoff({ max: maxReconnectDelay });
 
 		// The following states are used in the client connector

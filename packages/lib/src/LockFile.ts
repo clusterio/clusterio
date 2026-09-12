@@ -6,11 +6,14 @@ import assert from "assert";
  * Error thrown when the lock file already exists.
  */
 export class LockFileExistsError extends Error {
+	readonly filePath: string;
+
 	constructor(
-		readonly filePath: string
+		filePath: string
 	) {
 		super(`Cannot acquire lock, a valid lock file exists at ${filePath}`);
 		this.name = "LockFileExistsError";
+		this.filePath = filePath;
 	}
 }
 
@@ -30,12 +33,15 @@ type LockState = "idle" | "acquiring" | "acquired" | "releasing";
  * Cross-platform lock file utility for Node.js.
  */
 export class LockFile {
+	private readonly filePath: string;
 	private handle: FileHandle | null = null;
 	private state: LockState = "idle";
 
 	constructor(
-		private readonly filePath: string
-	) {}
+		filePath: string,
+	) {
+		this.filePath = filePath;
+	}
 
 	/**
 	 * Acquire the lock file.

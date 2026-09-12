@@ -13,6 +13,14 @@ import type Host from "./Host.js";
  */
 export default class BaseHostPlugin {
 	/**
+	 * The plugin's own info module
+	 */
+	info: PluginNodeEnvInfo;
+	/**
+	 * Host the plugin started for
+	 */
+	host: Host;
+	/**
 	 * Logger for this plugin
 	 *
 	 * Instance of winston Logger for sending log messages from this
@@ -22,16 +30,14 @@ export default class BaseHostPlugin {
 	logger: Logger;
 
 	constructor(
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginNodeEnvInfo,
-		/**
-		 * Host the plugin started for
-		 */
-		public host: Host,
+		/** {@inheritDoc info} */
+		info: PluginNodeEnvInfo,
+		/** {@inheritDoc host} */
+		host: Host,
 		logger: Logger,
 	) {
+		this.info = info;
+		this.host = host;
 		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
 	}
 

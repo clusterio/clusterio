@@ -68,9 +68,13 @@ export class ConsoleTransport extends Transport {
  * Formats winston log messages for the web console
  */
 export class WebConsoleFormat {
+	options: {};
+
 	constructor(
-		public options = {}
-	) { }
+		options = {}
+	) {
+		this.options = options;
+	}
 
 	transform(info: any, _options: unknown) {
 		let src = " ";

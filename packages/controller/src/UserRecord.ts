@@ -3,12 +3,16 @@ import { Type, type Static } from "@sinclair/typebox";
 
 /** Underlying data class for users on the controller */
 export default class UserRecord extends UserDetails {
+	/** Unix time in seconds the user token must be issued after to be valid.  */
+	tokenValidAfter: number;
+
 	constructor(
-		/** Unix time in seconds the user token must be issued after to be valid.  */
-		public tokenValidAfter = 0,
+		/** {@inheritDoc tokenValidAfter} */
+		tokenValidAfter = 0,
 		...args: ConstructorParameters<typeof UserDetails>
 	) {
 		super(...args);
+		this.tokenValidAfter = tokenValidAfter;
 	}
 
 	static jsonSchema = Type.Object({

@@ -15,9 +15,13 @@ export class InstanceDetailsGetRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.get" as const;
 
+	instanceId: number;
+
 	constructor(
-		public instanceId: number,
-	) { }
+		instanceId: number,
+	) {
+		this.instanceId = instanceId;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -46,9 +50,13 @@ export class InstanceDetailsUpdatesEvent {
 	static dst = "control" as const;
 	static permission = "core.instance.subscribe" as const;
 
+	updates: InstanceDetails[];
+
 	constructor(
-		public updates: InstanceDetails[],
-	) { }
+		updates: InstanceDetails[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(InstanceDetails.jsonSchema),
@@ -66,10 +74,16 @@ export class InstanceCreateRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.create" as const;
 
+	config: Static<typeof InstanceConfig.jsonSchema>;
+	cloneFromId?: number;
+
 	constructor(
-		public config: Static<typeof InstanceConfig.jsonSchema>,
-		public cloneFromId?: number,
-	) { }
+		config: Static<typeof InstanceConfig.jsonSchema>,
+		cloneFromId?: number,
+	) {
+		this.config = config;
+		this.cloneFromId = cloneFromId;
+	}
 
 	static jsonSchema = Type.Object({
 		"config": InstanceConfig.jsonSchema,
@@ -89,9 +103,13 @@ export class InstanceConfigGetRequest {
 	static permission = "core.instance.get_config" as const;
 	static Response = plainJson(InstanceConfig.jsonSchema);
 
+	instanceId: number;
+
 	constructor(
-		public instanceId: number,
-	) { }
+		instanceId: number,
+	) {
+		this.instanceId = instanceId;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -109,10 +127,16 @@ export class InstanceConfigSetRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.update_config" as const;
 
+	instanceId: number;
+	fields: Record<string, string | Record<string, unknown>>;
+
 	constructor(
-		public instanceId: number,
-		public fields: Record<string, string | Record<string, unknown>>,
-	) { }
+		instanceId: number,
+		fields: Record<string, string | Record<string, unknown>>,
+	) {
+		this.instanceId = instanceId;
+		this.fields = fields;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -133,11 +157,19 @@ export class InstanceConfigSetFieldRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.update_config" as const;
 
+	instanceId: number;
+	field: string;
+	value: string;
+
 	constructor(
-		public instanceId: number,
-		public field: string,
-		public value: string,
-	) { }
+		instanceId: number,
+		field: string,
+		value: string,
+	) {
+		this.instanceId = instanceId;
+		this.field = field;
+		this.value = value;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -157,12 +189,22 @@ export class InstanceConfigSetPropRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.update_config" as const;
 
+	instanceId: number;
+	field: string;
+	prop: string;
+	value?: unknown;
+
 	constructor(
-		public instanceId: number,
-		public field: string,
-		public prop: string,
-		public value?: unknown,
-	) { }
+		instanceId: number,
+		field: string,
+		prop: string,
+		value?: unknown,
+	) {
+		this.instanceId = instanceId;
+		this.field = field;
+		this.prop = prop;
+		this.value = value;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -183,10 +225,16 @@ export class InstanceAssignRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.assign" as const;
 
+	instanceId: number;
+	hostId?: number;
+
 	constructor(
-		public instanceId: number,
-		public hostId?: number,
-	) { }
+		instanceId: number,
+		hostId?: number,
+	) {
+		this.instanceId = instanceId;
+		this.hostId = hostId;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Number(),
@@ -205,9 +253,13 @@ export class InstanceMetricsRequest {
 	static dst = "instance" as const;
 
 	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
+		results: CollectorResultSerialized[];
+
 		constructor(
-			public results: CollectorResultSerialized[],
-		) { }
+			results: CollectorResultSerialized[],
+		) {
+			this.results = results;
+		}
 
 		static jsonSchema = Type.Object({
 			"results": Type.Array(CollectorResultSerialized),
@@ -226,9 +278,13 @@ export class InstanceStartRequest {
 	static dst = "instance" as const;
 	static permission = "core.instance.start" as const;
 
+	save?: string;
+
 	constructor(
-		public save?: string,
-	) { }
+		save?: string,
+	) {
+		this.save = save;
+	}
 
 	static jsonSchema = Type.Object({
 		"save": Type.Optional(Type.String()),
@@ -246,9 +302,13 @@ export class InstanceRestartRequest {
 	static dst = "instance" as const;
 	static permission = "core.instance.restart" as const;
 
+	save?: string;
+
 	constructor(
-		public save?: string,
-	) { }
+		save?: string,
+	) {
+		this.save = save;
+	}
 
 	static jsonSchema = Type.Object({
 		"save": Type.Optional(Type.String()),
@@ -260,18 +320,39 @@ export class InstanceRestartRequest {
 }
 
 export class SaveDetails {
+	instanceId: number;
+	type: "file" | "directory" | "special";
+	name: string;
+	size: number;
+	mtimeMs: number;
+	loaded: boolean;
+	loadByDefault: boolean;
+	/** Millisecond Unix timestamp this entry was last updated at */
+	updatedAtMs: number;
+	isDeleted: boolean;
+
 	constructor(
-		public instanceId: number,
-		public type: "file" | "directory" | "special",
-		public name: string,
-		public size: number,
-		public mtimeMs: number,
-		public loaded: boolean,
-		public loadByDefault: boolean,
-		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAtMs: number,
-		public isDeleted: boolean,
-	) { }
+		instanceId: number,
+		type: "file" | "directory" | "special",
+		name: string,
+		size: number,
+		mtimeMs: number,
+		loaded: boolean,
+		loadByDefault: boolean,
+		/** {@inheritDoc updatedAtMs} */
+		updatedAtMs: number,
+		isDeleted: boolean,
+	) {
+		this.instanceId = instanceId;
+		this.type = type;
+		this.name = name;
+		this.size = size;
+		this.mtimeMs = mtimeMs;
+		this.loaded = loaded;
+		this.loadByDefault = loadByDefault;
+		this.updatedAtMs = updatedAtMs;
+		this.isDeleted = isDeleted;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -343,14 +424,21 @@ export class InstanceSaveDetailsUpdatesEvent {
 	static dst = ["controller", "control"] as const;
 	static permission = "core.instance.save.subscribe" as const;
 
+	updates: SaveDetails[];
+	/**
+	 * Present if this update was sent by a host and updates contains all
+	 * saves of the given instance.
+	 */
+	instanceId?: number;
+
 	constructor(
-		public updates: SaveDetails[],
-		/**
-		 * Present if this update was sent by a host and updates contains all
-		 * saves of the given instance.
-		 */
-		public instanceId?: number,
-	) { }
+		updates: SaveDetails[],
+		/** {@inheritDoc instanceId} */
+		instanceId?: number,
+	) {
+		this.updates = updates;
+		this.instanceId = instanceId;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(SaveDetails.jsonSchema),
@@ -369,12 +457,22 @@ export class InstanceCreateSaveRequest {
 	static dst = "instance" as const;
 	static permission = "core.instance.save.create" as const;
 
+	name: string;
+	seed?: number;
+	mapGenSettings?: object;
+	mapSettings?: object;
+
 	constructor(
-		public name: string,
-		public seed?: number,
-		public mapGenSettings?: object,
-		public mapSettings?: object,
-	) { }
+		name: string,
+		seed?: number,
+		mapGenSettings?: object,
+		mapSettings?: object,
+	) {
+		this.name = name;
+		this.seed = seed;
+		this.mapGenSettings = mapGenSettings;
+		this.mapSettings = mapSettings;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -403,11 +501,19 @@ export class InstanceRenameSaveRequest {
 	static dst = ["controller", "host"] as const;
 	static permission = "core.instance.save.rename" as const;
 
+	instanceId: number;
+	oldName: string;
+	newName: string;
+
 	constructor(
-		public instanceId: number,
-		public oldName: string,
-		public newName: string,
-	) { }
+		instanceId: number,
+		oldName: string,
+		newName: string,
+	) {
+		this.instanceId = instanceId;
+		this.oldName = oldName;
+		this.newName = newName;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -427,11 +533,19 @@ export class InstanceCopySaveRequest {
 	static dst = ["controller", "host"] as const;
 	static permission = "core.instance.save.copy" as const;
 
+	instanceId: number;
+	source: string;
+	destination: string;
+
 	constructor(
-		public instanceId: number,
-		public source: string,
-		public destination: string,
-	) { }
+		instanceId: number,
+		source: string,
+		destination: string,
+	) {
+		this.instanceId = instanceId;
+		this.source = source;
+		this.destination = destination;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -451,10 +565,16 @@ export class InstanceDeleteSaveRequest {
 	static dst = ["controller", "host"] as const;
 	static permission = "core.instance.save.delete" as const;
 
+	instanceId: number;
+	name: string;
+
 	constructor(
-		public instanceId: number,
-		public name: string,
-	) { }
+		instanceId: number,
+		name: string,
+	) {
+		this.instanceId = instanceId;
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -473,10 +593,16 @@ export class InstanceDownloadSaveRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.save.download" as const;
 
+	instanceId: number;
+	name: string;
+
 	constructor(
-		public instanceId: number,
-		public name: string,
-	) { }
+		instanceId: number,
+		name: string,
+	) {
+		this.instanceId = instanceId;
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -495,6 +621,12 @@ export class InstanceTransferSaveRequest {
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
 	static dst = ["controller", "host"] as const;
+
+	sourceInstanceId: number;
+	sourceName: string;
+	targetInstanceId: number;
+	targetName: string;
+	copy: boolean;
 	static permission(user: IUser, message: MessageRequest) {
 		user.checkPermission("core.instance.save.transfer");
 		if (typeof message.data === "object" && message.data !== null) {
@@ -508,12 +640,18 @@ export class InstanceTransferSaveRequest {
 	}
 
 	constructor(
-		public sourceInstanceId: number,
-		public sourceName: string,
-		public targetInstanceId: number,
-		public targetName: string,
-		public copy: boolean,
-	) { }
+		sourceInstanceId: number,
+		sourceName: string,
+		targetInstanceId: number,
+		targetName: string,
+		copy: boolean,
+	) {
+		this.sourceInstanceId = sourceInstanceId;
+		this.sourceName = sourceName;
+		this.targetInstanceId = targetInstanceId;
+		this.targetName = targetName;
+		this.copy = copy;
+	}
 
 	static jsonSchema = Type.Object({
 		"sourceInstanceId": Type.Number(),
@@ -539,11 +677,19 @@ export class InstancePullSaveRequest {
 	static src = "controller" as const;
 	static dst = "host" as const;
 
+	instanceId: number;
+	streamId: string;
+	name: string;
+
 	constructor(
-		public instanceId: number,
-		public streamId: string,
-		public name: string,
-	) { }
+		instanceId: number,
+		streamId: string,
+		name: string,
+	) {
+		this.instanceId = instanceId;
+		this.streamId = streamId;
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -564,11 +710,19 @@ export class InstancePushSaveRequest {
 	static src = "controller" as const;
 	static dst = "host" as const;
 
+	instanceId: number;
+	streamId: string;
+	name: string;
+
 	constructor(
-		public instanceId: number,
-		public streamId: string,
-		public name: string,
-	) { }
+		instanceId: number,
+		streamId: string,
+		name: string,
+	) {
+		this.instanceId = instanceId;
+		this.streamId = streamId;
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -588,12 +742,22 @@ export class InstanceLoadScenarioRequest {
 	static dst = "instance" as const;
 	static permission = "core.instance.load_scenario" as const;
 
+	scenario: string;
+	seed?: number;
+	mapGenSettings?: object;
+	mapSettings?: object;
+
 	constructor(
-		public scenario: string,
-		public seed?: number,
-		public mapGenSettings?: object,
-		public mapSettings?: object,
-	) { }
+		scenario: string,
+		seed?: number,
+		mapGenSettings?: object,
+		mapSettings?: object,
+	) {
+		this.scenario = scenario;
+		this.seed = seed;
+		this.mapGenSettings = mapGenSettings;
+		this.mapSettings = mapSettings;
+	}
 
 	static jsonSchema = Type.Object({
 		"scenario": Type.String(),
@@ -646,9 +810,13 @@ export class InstanceDeleteRequest {
 	static dst = "controller" as const;
 	static permission = "core.instance.delete" as const;
 
+	instanceId: number;
+
 	constructor(
-		public instanceId: number,
-	) { }
+		instanceId: number,
+	) {
+		this.instanceId = instanceId;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -665,9 +833,13 @@ export class InstanceDeleteInternalRequest {
 	static src = "controller" as const;
 	static dst = "host" as const;
 
+	instanceId: number;
+
 	constructor(
-		public instanceId: number,
-	) { }
+		instanceId: number,
+	) {
+		this.instanceId = instanceId;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -685,9 +857,13 @@ export class InstanceSendRconRequest {
 	static dst = "instance" as const;
 	static permission = "core.instance.send_rcon" as const;
 
+	command: string;
+
 	constructor(
-		public command: string,
-	) { }
+		command: string,
+	) {
+		this.command = command;
+	}
 
 	static jsonSchema = Type.Object({
 		"command": Type.String(),
@@ -701,12 +877,22 @@ export class InstanceSendRconRequest {
 }
 
 export class HostInstanceUpdate {
+	config: Static<typeof InstanceConfig.jsonSchema>;
+	status: InstanceStatus;
+	gamePort: number | undefined;
+	factorioVersion: PartialVersion | undefined;
+
 	constructor(
-		public config: Static<typeof InstanceConfig.jsonSchema>,
-		public status: InstanceStatus,
-		public gamePort: number | undefined,
-		public factorioVersion: PartialVersion | undefined,
-	) { }
+		config: Static<typeof InstanceConfig.jsonSchema>,
+		status: InstanceStatus,
+		gamePort: number | undefined,
+		factorioVersion: PartialVersion | undefined,
+	) {
+		this.config = config;
+		this.status = status;
+		this.gamePort = gamePort;
+		this.factorioVersion = factorioVersion;
+	}
 
 	static jsonSchema = Type.Object({
 		"config": InstanceConfig.jsonSchema,
@@ -728,9 +914,13 @@ export class InstancesUpdateRequest {
 	static src = "host" as const;
 	static dst = "controller" as const;
 
+	instances: HostInstanceUpdate[];
+
 	constructor(
-		public instances: HostInstanceUpdate[],
-	) { }
+		instances: HostInstanceUpdate[],
+	) {
+		this.instances = instances;
+	}
 
 	static jsonSchema = Type.Array(HostInstanceUpdate.jsonSchema);
 
@@ -749,10 +939,16 @@ export class InstanceAssignInternalRequest {
 	static src = "controller" as const;
 	static dst = "host" as const;
 
+	instanceId: number;
+	config: Static<typeof InstanceConfig.jsonSchema>;
+
 	constructor(
-		public instanceId: number,
-		public config: Static<typeof InstanceConfig.jsonSchema>,
-	) { }
+		instanceId: number,
+		config: Static<typeof InstanceConfig.jsonSchema>,
+	) {
+		this.instanceId = instanceId;
+		this.config = config;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -770,9 +966,13 @@ export class InstanceUnassignInternalRequest {
 	static src = "controller" as const;
 	static dst = "host" as const;
 
+	instanceId: number;
+
 	constructor(
-		public instanceId: number,
-	) { }
+		instanceId: number,
+	) {
+		this.instanceId = instanceId;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -789,9 +989,13 @@ export class InstanceInitialisedEvent {
 	static src = "instance" as const;
 	static dst = "host" as const;
 
+	plugins: Record<string, string>;
+
 	constructor(
-		public plugins: Record<string, string>,
-	) { }
+		plugins: Record<string, string>,
+	) {
+		this.plugins = plugins;
+	}
 
 	static jsonSchema = Type.Object({
 		"plugins": Type.Record(Type.String(), Type.String()),
@@ -808,12 +1012,22 @@ export class InstanceStatusChangedEvent {
 	static src = ["instance", "host"] as const;
 	static dst = "controller" as const;
 
+	instanceId: number;
+	status: InstanceStatus;
+	gamePort?: number;
+	factorioVersion?: TargetVersion;
+
 	constructor(
-		public instanceId: number,
-		public status: InstanceStatus,
-		public gamePort?: number,
-		public factorioVersion?: TargetVersion,
-	) { }
+		instanceId: number,
+		status: InstanceStatus,
+		gamePort?: number,
+		factorioVersion?: TargetVersion,
+	) {
+		this.instanceId = instanceId;
+		this.status = status;
+		this.gamePort = gamePort;
+		this.factorioVersion = factorioVersion;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
@@ -835,9 +1049,13 @@ export class InstanceDetailsChangedEvent {
 	static src = "instance" as const;
 	static dst = "controller" as const;
 
+	details: InstanceDetails;
+
 	constructor(
-		public details: InstanceDetails,
-	) { }
+		details: InstanceDetails,
+	) {
+		this.details = details;
+	}
 
 	static jsonSchema = InstanceDetails.jsonSchema;
 
@@ -852,11 +1070,19 @@ export class InstanceBanlistUpdateEvent {
 	static src = ["controller", "host", "instance"] as const;
 	static dst = "instance" as const;
 
+	name: string;
+	banned: boolean;
+	reason: string;
+
 	constructor(
-		public name: string,
-		public banned: boolean,
-		public reason: string,
-	) { }
+		name: string,
+		banned: boolean,
+		reason: string,
+	) {
+		this.name = name;
+		this.banned = banned;
+		this.reason = reason;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -875,10 +1101,16 @@ export class InstanceAdminlistUpdateEvent {
 	static src = ["controller", "host", "instance"] as const;
 	static dst = "instance" as const;
 
+	name: string;
+	admin: boolean;
+
 	constructor(
-		public name: string,
-		public admin: boolean,
-	) { }
+		name: string,
+		admin: boolean,
+	) {
+		this.name = name;
+		this.admin = admin;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -896,10 +1128,16 @@ export class InstanceWhitelistUpdateEvent {
 	static src = ["controller", "host", "instance"] as const;
 	static dst = "instance" as const;
 
+	name: string;
+	whitelisted: boolean;
+
 	constructor(
-		public name: string,
-		public whitelisted: boolean,
-	) { }
+		name: string,
+		whitelisted: boolean,
+	) {
+		this.name = name;
+		this.whitelisted = whitelisted;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -917,12 +1155,22 @@ export class InstancePlayerUpdateEvent {
 	static src = "instance" as const;
 	static dst = "controller" as const;
 
+	type: "join" | "leave" | "import";
+	name: string;
+	stats: PlayerStats;
+	reason?: string;
+
 	constructor(
-		public type: "join" | "leave" | "import",
-		public name: string,
-		public stats: PlayerStats,
-		public reason?: string,
-	) { }
+		type: "join" | "leave" | "import",
+		name: string,
+		stats: PlayerStats,
+		reason?: string,
+	) {
+		this.type = type;
+		this.name = name;
+		this.stats = stats;
+		this.reason = reason;
+	}
 
 	static jsonSchema = Type.Object({
 		"type": StringEnum(["join", "leave", "import"]),

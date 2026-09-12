@@ -14,15 +14,21 @@ import { logger } from "@clusterio/lib";
  * @alias module:controller/src/WsServerConnector
  */
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
+	private _sessionId: number;
+	private _sessionTimeout: number;
+	_heartbeatInterval: number;
 	_timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
 		dst: lib.Address,
-		private _sessionId: number,
-		private _sessionTimeout: number,
-		public _heartbeatInterval: number,
+		_sessionId: number,
+		_sessionTimeout: number,
+		_heartbeatInterval: number,
 	) {
 		super(new lib.Address(lib.Address.controller, 0), dst);
+		this._sessionId = _sessionId;
+		this._sessionTimeout = _sessionTimeout;
+		this._heartbeatInterval = _heartbeatInterval;
 
 		// The following states are used in the server connector
 		// closed: Connection is closed

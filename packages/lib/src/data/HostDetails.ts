@@ -1,26 +1,55 @@
 import { Type, type Static } from "@sinclair/typebox";
 
 export default class HostDetails {
+	/** Version of the host software. The controller may warn if there is a mismatch. */
+	version: string;
+	/** Human-readable display name of the host. */
+	name: string;
+	/** Unique numeric identifier for this host. */
+	id: number;
+	/** Whether the host is currently connected to the controller. */
+	connected: boolean;
+	/** Address from which the host has connected to the controller. */
+	remoteAddress: string;
+	/** Public-facing IP address of the host, if available. */
+	publicAddress: string;
+	/** Unix timestamp (sec) after which issued tokens are considered valid. */
+	tokenValidAfter: number;
+	/** Unix timestamp (ms) indicating when this record was last updated. */
+	updatedAtMs: number;
+	/** Flag indicating the host record has been removed on the controller. */
+	isDeleted: boolean;
+
 	constructor(
-		/** Version of the host software. The controller may warn if there is a mismatch. */
-		public version: string,
-		/** Human-readable display name of the host. */
-		public name: string,
-		/** Unique numeric identifier for this host. */
-		public id: number,
-		/** Whether the host is currently connected to the controller. */
-		public connected: boolean,
-		/** Address from which the host has connected to the controller. */
-		public remoteAddress = "",
-		/** Public-facing IP address of the host, if available. */
-		public publicAddress: string = "",
-		/** Unix timestamp (sec) after which issued tokens are considered valid. */
-		public tokenValidAfter: number = 0,
-		/** Unix timestamp (ms) indicating when this record was last updated. */
-		public updatedAtMs = 0,
-		/** Flag indicating the host record has been removed on the controller. */
-		public isDeleted = false
-	) {}
+		/** {@inheritDoc version} */
+		version: string,
+		/** {@inheritDoc name} */
+		name: string,
+		/** {@inheritDoc id} */
+		id: number,
+		/** {@inheritDoc connected} */
+		connected: boolean,
+		/** {@inheritDoc remoteAddress} */
+		remoteAddress = "",
+		/** {@inheritDoc publicAddress} */
+		publicAddress: string = "",
+		/** {@inheritDoc tokenValidAfter} */
+		tokenValidAfter: number = 0,
+		/** {@inheritDoc updatedAtMs} */
+		updatedAtMs = 0,
+		/** {@inheritDoc isDeleted} */
+		isDeleted = false,
+	) {
+		this.version = version;
+		this.name = name;
+		this.id = id;
+		this.connected = connected;
+		this.remoteAddress = remoteAddress;
+		this.publicAddress = publicAddress;
+		this.tokenValidAfter = tokenValidAfter;
+		this.updatedAtMs = updatedAtMs;
+		this.isDeleted = isDeleted;
+	}
 
 	static jsonSchema = Type.Object({
 		"version": Type.String(),

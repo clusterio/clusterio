@@ -16,13 +16,15 @@ import * as routes from "./routes.js";
  * @alias module:controller/src/BaseConnection
  */
 export default class BaseConnection extends lib.Link {
+	_controller: Controller;
 	declare "connector": WsServerConnector;
 
 	constructor(
 		connector: lib.WebSocketBaseConnector,
-		public _controller: Controller
+		_controller: Controller,
 	) {
 		super(connector);
+		this._controller = _controller;
 		this.router = _controller.router;
 		for (let [Request, handler] of this._controller._registeredRequests) { this.handle(Request, handler); }
 		for (let [Request, handler] of this._controller._fallbackedRequests) { this.fallbackRequest(Request, handler); }

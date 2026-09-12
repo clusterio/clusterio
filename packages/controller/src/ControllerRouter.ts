@@ -7,9 +7,13 @@ import HostConnection from "./HostConnection.js";
 import ControlConnection from "./ControlConnection.js";
 
 export default class ControllerRouter {
+	controller: Controller;
+
 	constructor(
-		public controller: Controller
-	) {}
+		controller: Controller,
+	) {
+		this.controller = controller;
+	}
 
 	/**
 	 * @param origin - Source link of the message.

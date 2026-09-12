@@ -17,9 +17,13 @@ export class ModPackGetRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod_pack.get" as const;
 
+	id: number;
+
 	constructor(
-		public id: number,
-	) { }
+		id: number,
+	) {
+		this.id = id;
+	}
 
 	static jsonSchema = Type.Object({
 		"id": Type.Integer(),
@@ -57,9 +61,13 @@ export class ModPackCreateRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod_pack.create" as const;
 
+	modPack: ModPack;
+
 	constructor(
-		public modPack: ModPack,
-	) { }
+		modPack: ModPack,
+	) {
+		this.modPack = modPack;
+	}
 
 	static jsonSchema = Type.Object({
 		"modPack": ModPack.jsonSchema,
@@ -77,9 +85,13 @@ export class ModPackUpdateRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod_pack.update" as const;
 
+	modPack: ModPack;
+
 	constructor(
-		public modPack: ModPack,
-	) { }
+		modPack: ModPack,
+	) {
+		this.modPack = modPack;
+	}
 
 	static jsonSchema = Type.Object({
 		"modPack": ModPack.jsonSchema,
@@ -97,9 +109,13 @@ export class ModPackDeleteRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod_pack.delete" as const;
 
+	id: number;
+
 	constructor(
-		public id: number,
-	) { }
+		id: number,
+	) {
+		this.id = id;
+	}
 
 	static jsonSchema = Type.Object({
 		"id": Type.Integer(),
@@ -117,11 +133,19 @@ export class ModGetRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.get" as const;
 
+	name: string;
+	version: SourceVersion;
+	sha1?: string;
+
 	constructor(
-		public name: string,
-		public version: SourceVersion,
-		public sha1?: string,
-	) { }
+		name: string,
+		version: SourceVersion,
+		sha1?: string,
+	) {
+		this.name = name;
+		this.version = version;
+		this.sha1 = sha1;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -152,14 +176,28 @@ export class ModSearchRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.search" as const;
 
+	query: string;
+	factorioVersion: MajorMinorVersion;
+	page: number;
+	pageSize?: number;
+	sort?: string;
+	sortOrder?: string;
+
 	constructor(
-		public query: string,
-		public factorioVersion: MajorMinorVersion,
-		public page: number,
-		public pageSize?: number,
-		public sort?: string,
-		public sortOrder?: string,
-	) { }
+		query: string,
+		factorioVersion: MajorMinorVersion,
+		page: number,
+		pageSize?: number,
+		sort?: string,
+		sortOrder?: string,
+	) {
+		this.query = query;
+		this.factorioVersion = factorioVersion;
+		this.page = page;
+		this.pageSize = pageSize;
+		this.sort = sort;
+		this.sortOrder = sortOrder;
+	}
 
 	static jsonSchema = Type.Object({
 		"query": Type.String(),
@@ -175,12 +213,22 @@ export class ModSearchRequest {
 	}
 
 	static Response = class Response {
+		queryIssues: string[];
+		pageCount: number;
+		resultCount: number;
+		results: { name: string, versions: ModInfo[] }[];
+
 		constructor(
-			public queryIssues: string[],
-			public pageCount: number,
-			public resultCount: number,
-			public results: { name: string, versions: ModInfo[] }[],
-		) { }
+			queryIssues: string[],
+			pageCount: number,
+			resultCount: number,
+			results: { name: string, versions: ModInfo[] }[],
+		) {
+			this.queryIssues = queryIssues;
+			this.pageCount = pageCount;
+			this.resultCount = resultCount;
+			this.results = results;
+		}
 
 		static jsonSchema = Type.Object({
 			"queryIssues": Type.Array(Type.String()),
@@ -235,10 +283,16 @@ export class ModPortalGetAllRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.search_portal" as const;
 
+	factorioVersion: MajorMinorVersion;
+	hide_deprecated?: boolean;
+
 	constructor(
-		public factorioVersion: MajorMinorVersion,
-		public hide_deprecated?: boolean,
-	) { }
+		factorioVersion: MajorMinorVersion,
+		hide_deprecated?: boolean,
+	) {
+		this.factorioVersion = factorioVersion;
+		this.hide_deprecated = hide_deprecated;
+	}
 
 	static jsonSchema = Type.Object({
 		"factorioVersion": MajorMinorVersionSchema,
@@ -252,9 +306,14 @@ export class ModPortalGetAllRequest {
 	// Define the Response class inline
 	static Response = class ModPortalGetAllResponse {
 		declare ["constructor"]: typeof ModPortalGetAllResponse;
+
+		mods: Static<typeof ModPortalDetailsSchema>[];
+
 		constructor(
-			public mods: Static<typeof ModPortalDetailsSchema>[],
-		) { }
+			mods: Static<typeof ModPortalDetailsSchema>[],
+		) {
+			this.mods = mods;
+		}
 
 		static jsonSchema = Type.Object({
 			mods: Type.Array(ModPortalDetailsSchema),
@@ -274,11 +333,19 @@ export class ModDownloadRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.download" as const;
 
+	name: string;
+	version: SourceVersion;
+	sha1?: string;
+
 	constructor(
-		public name: string,
-		public version: SourceVersion,
-		public sha1?: string,
-	) { }
+		name: string,
+		version: SourceVersion,
+		sha1?: string,
+	) {
+		this.name = name;
+		this.version = version;
+		this.sha1 = sha1;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -300,10 +367,16 @@ export class ModDeleteRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.delete" as const;
 
+	name: string;
+	version: SourceVersion;
+
 	constructor(
-		public name: string,
-		public version: SourceVersion,
-	) { }
+		name: string,
+		version: SourceVersion,
+	) {
+		this.name = name;
+		this.version = version;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -322,9 +395,13 @@ export class ModPackUpdatesEvent {
 	static dst = "control" as const;
 	static permission = "core.mod_pack.subscribe" as const;
 
+	updates: ModPack[];
+
 	constructor(
-		public updates: ModPack[],
-	) { }
+		updates: ModPack[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(ModPack.jsonSchema),
@@ -342,9 +419,13 @@ export class ModUpdatesEvent {
 	static dst = "control" as const;
 	static permission = "core.mod.subscribe" as const;
 
+	updates: ModInfo[];
+
 	constructor(
-		public updates: ModInfo[],
-	) { }
+		updates: ModInfo[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(ModInfo.jsonSchema),
@@ -383,10 +464,16 @@ export class ModPortalDownloadRequest {
 	static permission = "core.mod.download_from_portal" as const;
 	static Response = jsonArray(ModInfo);
 
+	mods: ModNameVersionPair[];
+	factorioVersion: MajorMinorVersion;
+
 	constructor(
-		public mods: ModNameVersionPair[],
-		public factorioVersion: MajorMinorVersion,
-	) { }
+		mods: ModNameVersionPair[],
+		factorioVersion: MajorMinorVersion,
+	) {
+		this.mods = mods;
+		this.factorioVersion = factorioVersion;
+	}
 
 	static jsonSchema = Type.Object({
 		"mods": Type.Array(ModNameVersionPairSchema),
@@ -420,11 +507,19 @@ export class ModDependencyResolveRequest {
 	static dst = "controller" as const;
 	static permission = "core.mod.search_portal" as const;
 
+	mods: ModDependency[];
+	factorioVersion: MajorMinorVersion;
+	checkForUpdates: boolean;
+
 	constructor(
-		public mods: ModDependency[],
-		public factorioVersion: MajorMinorVersion,
-		public checkForUpdates: boolean = false,
-	) { }
+		mods: ModDependency[],
+		factorioVersion: MajorMinorVersion,
+		checkForUpdates: boolean = false,
+	) {
+		this.mods = mods;
+		this.factorioVersion = factorioVersion;
+		this.checkForUpdates = checkForUpdates;
+	}
 
 	static jsonSchema = Type.Object({
 		"mods": Type.Array(ModDependency.jsonSchema),
@@ -458,10 +553,16 @@ export class ModDependencyResolveRequest {
 	}
 
 	static Response = class ModDependencyResolveResponse {
+		dependencies: ModInfo[];
+		errors: Map<string, ModDependencyResolveErrors>;
+
 		constructor(
-			public dependencies: ModInfo[],
-			public errors: Map<string, ModDependencyResolveErrors>,
-		) {}
+			dependencies: ModInfo[],
+			errors: Map<string, ModDependencyResolveErrors>,
+		) {
+			this.dependencies = dependencies;
+			this.errors = errors;
+		}
 
 		static jsonSchema = Type.Object({
 			"dependencies": Type.Array(ModInfo.jsonSchema),

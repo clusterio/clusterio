@@ -7,23 +7,31 @@ import { Type, type Static } from "@sinclair/typebox";
  * given mod pack.
  */
 export default class ExportManifest {
+	/**
+	 * Mapping between known assets and their file names.
+	 *
+	 * Currently exported assets are:
+	 * - settings: JSON of mod settings prototypes.
+	 * - prototypes: JSON of all game prototypes except settings.
+	 * - locale: JSON of flattened Map entries of en locale strings from the game.
+	 * - spritesheet: Single PNG spritesheet containing all icon categories.
+	 * - metadata: JSON array of [name, {x, y, size, category, path?}] entries
+	 *   describing sprite coordinates and category membership. Categories:
+	 *   item, recipe, signal, technology, planet, quality, entity, static.
+	 */
+	assets: Record<string, string>;
+	/** ISO 8601 timestamp of when the export was uploaded. */
+	exportedAt?: string;
+
 	constructor(
-		/**
-		 * Mapping between known assets and their file names.
-		 *
-		 * Currently exported assets are:
-		 * - settings: JSON of mod settings prototypes.
-		 * - prototypes: JSON of all game prototypes except settings.
-		 * - locale: JSON of flattened Map entries of en locale strings from the game.
-		 * - spritesheet: Single PNG spritesheet containing all icon categories.
-		 * - metadata: JSON array of [name, {x, y, size, category, path?}] entries
-		 *   describing sprite coordinates and category membership. Categories:
-		 *   item, recipe, signal, technology, planet, quality, entity, static.
-		 */
-		public assets: Record<string, string>,
-		/** ISO 8601 timestamp of when the export was uploaded. */
-		public exportedAt?: string,
-	) { }
+		/** {@inheritDoc assets} */
+		assets: Record<string, string>,
+		/** {@inheritDoc exportedAt} */
+		exportedAt?: string,
+	) {
+		this.assets = assets;
+		this.exportedAt = exportedAt;
+	}
 
 	static jsonSchema = Type.Object({
 		"assets": Type.Record(Type.String(), Type.String()),

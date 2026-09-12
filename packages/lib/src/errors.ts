@@ -21,12 +21,17 @@ export class InstallationError extends Error {
  * Thrown from requests sent when an error occured handling it
  */
 export class RequestError extends Error {
+	code: string;
+	stack?: string;
+
 	constructor(
 		message: string,
-		public code = "RequestError",
-		public stack?: string,
+		code = "RequestError",
+		stack?: string,
 	) {
 		super(message);
+		this.code = code;
+		this.stack = stack;
 	}
 }
 
@@ -52,12 +57,14 @@ export class PermissionError extends RequestError {
  * Signal for messages that fail validation
  */
 export class InvalidMessage extends Error {
+	errors?: object | null;
 	code = "InvalidMessage";
 	constructor(
 		message: string,
-		public errors?: object | null,
+		errors?: object | null,
 	) {
 		super(message);
+		this.errors = errors;
 		// Include the errors in the stack so generic handlers logging it show what failed
 		if (errors) {
 			this.stack += `\n${JSON.stringify(errors, null, "\t")}`;
@@ -118,11 +125,15 @@ export class EnvironmentError extends Error {
  * Errors caused by plugins
  */
 export class PluginError extends Error {
+	pluginName: string;
+	original: Error;
 	code = "PluginError";
 	constructor(
-		public pluginName: string,
-		public original: Error
+		pluginName: string,
+		original: Error,
 	) {
 		super(`PluginError: ${original.message}`);
+		this.pluginName = pluginName;
+		this.original = original;
 	}
 }

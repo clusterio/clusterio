@@ -16,11 +16,14 @@ export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => v
  * Otherwise, literal string matching is performed against a set.
  */
 export class SubscriptionFilters extends Set<string> {
+	_all: boolean;
+
 	private constructor(
-		private _all: boolean,
+		_all: boolean,
 		_filters: Iterable<string> = [],
 	) {
 		super(_filters);
+		this._all = _all;
 	}
 
 	static jsonSchema = Type.Array(Type.String());
@@ -166,6 +169,9 @@ export class SubscriptionRequest {
 
 	/** Indicates if updates have been sent */
 	static Response = JsonBoolean;
+
+	eventName: string;
+	lastRequestTimeMs: number;
 	public filters: SubscriptionFilters;
 	public action: SubscriptionAction;
 
@@ -185,11 +191,13 @@ export class SubscriptionRequest {
 	);
 
 	constructor(
-		public eventName: string,
+		eventName: string,
 		action: boolean | SubscriptionAction,
-		public lastRequestTimeMs: number = 0,
+		lastRequestTimeMs: number = 0,
 		filters: undefined | string | string[] | SubscriptionFilters,
 	) {
+		this.eventName = eventName;
+		this.lastRequestTimeMs = lastRequestTimeMs;
 		if (!Link._eventsByName.has(eventName)) {
 			throw new Error(`Unregistered Event class ${eventName}`);
 		}
@@ -406,6 +414,9 @@ export interface SubscribableValue {
  * Multiple handlers can be subscribed at the same time
  */
 export class EventSubscriber<E, S = null> {
+	protected Event: EventClass<E>;
+	control: Link;
+	protected filteredHandler?: EventSubscriberCallback<E>;
 	/** The time at which an event was last received, is less than 0 when there have been no events */
 	lastUpdatedMs = -1;
 	/** True if this subscriber is currently synced with the source */
@@ -421,10 +432,13 @@ export class EventSubscriber<E, S = null> {
 	private _filters = SubscriptionFilters.empty();
 
 	constructor(
-		protected Event: EventClass<E>,
-		public control: Link,
-		protected filteredHandler?: EventSubscriberCallback<E>,
+		Event: EventClass<E>,
+		control: Link,
+		filteredHandler?: EventSubscriberCallback<E>,
 	) {
+		this.Event = Event;
+		this.control = control;
+		this.filteredHandler = filteredHandler;
 		control.handle(Event, this._handleEvent.bind(this));
 		// The events below exist only on websocket connectors, we can't early return because of test mocking
 		const webSocketConnector = control.connector as WebSocketBaseConnector;

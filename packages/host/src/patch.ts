@@ -16,12 +16,20 @@ import BaseInstancePlugin from "./BaseInstancePlugin.js";
  * Describes a module that can be patched into a save
  */
 export class SaveModule {
+	/** Module */
+	info: lib.ModuleInfo;
+	/** Files and their content that will be patched into the save */
+	files: Map<string, Buffer>;
+
 	constructor(
-		/** Module */
-		public info: lib.ModuleInfo,
-		/** Files and their content that will be patched into the save */
-		public files = new Map<string, Buffer>(),
-	) { }
+		/** {@inheritDoc info} */
+		info: lib.ModuleInfo,
+		/** {@inheritDoc files} */
+		files = new Map<string, Buffer>(),
+	) {
+		this.info = info;
+		this.files = files;
+	}
 
 	static moduleFilePath(filePath: string, moduleName: string) {
 		// Map locale files to the save's locale folder
@@ -151,12 +159,22 @@ export class SaveModule {
 export class PatchInfo {
 	static currentVersion = 1;
 
+	patchNumber: number;
+	scenario: lib.ModuleInfo;
+	modules: SaveModule[];
+	version: number;
+
 	constructor(
-		public patchNumber: number,
-		public scenario: lib.ModuleInfo,
-		public modules: SaveModule[],
-		public version = PatchInfo.currentVersion,
-	) { }
+		patchNumber: number,
+		scenario: lib.ModuleInfo,
+		modules: SaveModule[],
+		version = PatchInfo.currentVersion,
+	) {
+		this.patchNumber = patchNumber;
+		this.scenario = scenario;
+		this.modules = modules;
+		this.version = version;
+	}
 
 	static jsonSchema = Type.Object({
 		"version": Type.Number(),

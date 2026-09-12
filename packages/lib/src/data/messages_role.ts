@@ -28,9 +28,13 @@ export class RoleUpdatesEvent {
 	static dst = "control" as const;
 	static permission = "core.role.subscribe" as const;
 
+	updates: Role[];
+
 	constructor(
-		public updates: Role[],
-	) { }
+		updates: Role[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(Role.jsonSchema),
@@ -48,11 +52,19 @@ export class RoleCreateRequest {
 	static dst = "controller" as const;
 	static permission = "core.role.create" as const;
 
+	name: string;
+	description: string;
+	permissions: string[];
+
 	constructor(
-		public name: string,
-		public description: string,
-		public permissions: string[],
-	) { }
+		name: string,
+		description: string,
+		permissions: string[],
+	) {
+		this.name = name;
+		this.description = description;
+		this.permissions = permissions;
+	}
 
 	static jsonSchema = Type.Object({
 		name: Type.String(),
@@ -74,12 +86,22 @@ export class RoleUpdateRequest {
 	static dst = "controller" as const;
 	static permission = "core.role.update" as const;
 
+	id: number;
+	name: string;
+	description: string;
+	permissions: string[];
+
 	constructor(
-		public id: number,
-		public name: string,
-		public description: string,
-		public permissions: string[],
-	) { }
+		id: number,
+		name: string,
+		description: string,
+		permissions: string[],
+	) {
+		this.id = id;
+		this.name = name;
+		this.description = description;
+		this.permissions = permissions;
+	}
 
 	static jsonSchema = Type.Object({
 		id: Type.Integer(),
@@ -100,9 +122,13 @@ export class RoleGrantDefaultPermissionsRequest {
 	static dst = "controller" as const;
 	static permission = "core.role.update" as const;
 
+	id: number;
+
 	constructor(
-		public id: number,
-	) { }
+		id: number,
+	) {
+		this.id = id;
+	}
 
 	static jsonSchema = Type.Object({
 		id: Type.Integer(),
@@ -120,9 +146,13 @@ export class RoleDeleteRequest {
 	static dst = "controller" as const;
 	static permission = "core.role.delete" as const;
 
+	id: number;
+
 	constructor(
-		public id: number,
-	) { }
+		id: number,
+	) {
+		this.id = id;
+	}
 
 	static jsonSchema = Type.Object({
 		id: Type.Integer(),

@@ -44,9 +44,13 @@ export class ControllerConfigSetRequest {
 	static dst = "controller" as const;
 	static permission = "core.controller.update_config" as const;
 
+	fields: Record<string, string | Record<string, unknown>>;
+
 	constructor(
-		public fields: Record<string, string | Record<string, unknown>>,
-	) { }
+		fields: Record<string, string | Record<string, unknown>>,
+	) {
+		this.fields = fields;
+	}
 
 	static jsonSchema = Type.Object({
 		"fields": Type.Record(Type.String(), Type.Union([
@@ -66,10 +70,16 @@ export class ControllerConfigSetFieldRequest {
 	static dst = "controller" as const;
 	static permission = "core.controller.update_config" as const;
 
+	field: string;
+	value: string;
+
 	constructor(
-		public field: string,
-		public value: string,
-	) { }
+		field: string,
+		value: string,
+	) {
+		this.field = field;
+		this.value = value;
+	}
 
 	static jsonSchema = Type.Object({
 		"field": Type.String(),
@@ -88,11 +98,19 @@ export class ControllerConfigSetPropRequest {
 	static dst = "controller" as const;
 	static permission = "core.controller.update_config" as const;
 
+	field: string;
+	prop: string;
+	value?: unknown;
+
 	constructor(
-		public field: string,
-		public prop: string,
-		public value?: unknown,
-	) { }
+		field: string,
+		prop: string,
+		value?: unknown,
+	) {
+		this.field = field;
+		this.prop = prop;
+		this.value = value;
+	}
 
 	static jsonSchema = Type.Object({
 		"field": Type.String(),
@@ -112,9 +130,13 @@ export class HostGenerateTokenRequest {
 	static dst = "controller" as const;
 	static permission = "core.host.generate_token" as const;
 
+	hostId?: number;
+
 	constructor(
-		public hostId?: number,
-	) { }
+		hostId?: number,
+	) {
+		this.hostId = hostId;
+	}
 
 	static jsonSchema = Type.Object({
 		"hostId": Type.Optional(Type.Integer()),
@@ -134,11 +156,19 @@ export class HostConfigCreateRequest {
 	static dst = "controller" as const;
 	static permission = "core.host.create_config" as const;
 
+	id: number | undefined;
+	name: string | undefined;
+	generateToken: boolean;
+
 	constructor(
-		public id: number | undefined,
-		public name: string | undefined,
-		public generateToken: boolean,
-	) { }
+		id: number | undefined,
+		name: string | undefined,
+		generateToken: boolean,
+	) {
+		this.id = id;
+		this.name = name;
+		this.generateToken = generateToken;
+	}
 
 	static jsonSchema = Type.Object({
 		"id": Type.Optional(Type.Integer()),
@@ -172,13 +202,25 @@ export class LogSetSubscriptionsRequest {
 	static dst = "controller" as const;
 	static permission = "core.log.follow" as const;
 
+	all?: boolean;
+	controller?: boolean;
+	hostIds?: number[];
+	instanceIds?: number[];
+	maxLevel?: keyof typeof levels;
+
 	constructor(
-		public all?: boolean,
-		public controller?: boolean,
-		public hostIds?: number[],
-		public instanceIds?: number[],
-		public maxLevel?: keyof typeof levels,
-	) { }
+		all?: boolean,
+		controller?: boolean,
+		hostIds?: number[],
+		instanceIds?: number[],
+		maxLevel?: keyof typeof levels,
+	) {
+		this.all = all;
+		this.controller = controller;
+		this.hostIds = hostIds;
+		this.instanceIds = instanceIds;
+		this.maxLevel = maxLevel;
+	}
 
 	static jsonSchema = Type.Object({
 		all: Type.Optional(Type.Boolean()),
@@ -200,15 +242,31 @@ export class LogQueryRequest {
 	static dst = "controller" as const;
 	static permission = "core.log.query" as const;
 
+	all: boolean;
+	controller: boolean;
+	hostIds: number[];
+	instanceIds: number[];
+	maxLevel: undefined | keyof typeof levels;
+	limit: number;
+	order: "asc" | "desc";
+
 	constructor(
-		public all: boolean,
-		public controller: boolean,
-		public hostIds: number[],
-		public instanceIds: number[],
-		public maxLevel: undefined | keyof typeof levels,
-		public limit: number,
-		public order: "asc" | "desc",
-	) { }
+		all: boolean,
+		controller: boolean,
+		hostIds: number[],
+		instanceIds: number[],
+		maxLevel: undefined | keyof typeof levels,
+		limit: number,
+		order: "asc" | "desc",
+	) {
+		this.all = all;
+		this.controller = controller;
+		this.hostIds = hostIds;
+		this.instanceIds = instanceIds;
+		this.maxLevel = maxLevel;
+		this.limit = limit;
+		this.order = order;
+	}
 
 	static jsonSchema = Type.Object({
 		all: Type.Boolean(),
@@ -227,9 +285,13 @@ export class LogQueryRequest {
 	}
 
 	static Response = class Response {
+		log: object[];
+
 		constructor(
-			public log: object[],
-		) { }
+			log: object[],
+		) {
+			this.log = log;
+		}
 
 		static jsonSchema = Type.Object({
 			"log": Type.Array(Type.Object({})),
@@ -247,9 +309,13 @@ export class LogMessageEvent {
 	static src = ["host", "controller"] as const;
 	static dst = ["controller", "control"] as const;
 
+	info: { level: keyof typeof levels, message: string };
+
 	constructor(
-		public info: { level: keyof typeof levels, message: string },
-	) { }
+		info: { level: keyof typeof levels, message: string },
+	) {
+		this.info = info;
+	}
 
 	static jsonSchema = Type.Object({
 		"info": Type.Object({
@@ -264,30 +330,68 @@ export class LogMessageEvent {
 }
 
 export class SystemInfo {
+	/**
+	 * Id of the host these metrics originate from, or the string
+	 * "controller" if these metrics are for the controller.
+	 */
+	id: number | "controller";
+	hostname: string;
+	node: string;
+	kernel: string;
+	machine: string;
+	cpuModel: string;
+	coreRatios: number[];
+	memoryCapacity: number;
+	memoryAvailable: number;
+	diskCapacity: number;
+	diskAvailable: number;
+	canRestart: boolean;
+	restartRequired: boolean;
+	systemStartedAtMs: number;
+	processStartedAtMs: number;
+	/** Millisecond Unix timestamp this entry was last updated at */
+	updatedAtMs: number;
+	isDeleted: boolean;
+
 	constructor(
-		/**
-		 * Id of the host these metrics originate from, or the string
-		 * "controller" if these metrics are for the controller.
-		 */
-		public id: number | "controller",
-		public hostname: string,
-		public node: string,
-		public kernel: string,
-		public machine: string,
-		public cpuModel: string,
-		public coreRatios: number[],
-		public memoryCapacity: number,
-		public memoryAvailable: number,
-		public diskCapacity: number,
-		public diskAvailable: number,
-		public canRestart: boolean,
-		public restartRequired: boolean,
-		public systemStartedAtMs: number,
-		public processStartedAtMs: number,
-		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAtMs: number,
-		public isDeleted: boolean,
-	) { }
+		/** {@inheritDoc id} */
+		id: number | "controller",
+		hostname: string,
+		node: string,
+		kernel: string,
+		machine: string,
+		cpuModel: string,
+		coreRatios: number[],
+		memoryCapacity: number,
+		memoryAvailable: number,
+		diskCapacity: number,
+		diskAvailable: number,
+		canRestart: boolean,
+		restartRequired: boolean,
+		systemStartedAtMs: number,
+		processStartedAtMs: number,
+		/** {@inheritDoc updatedAtMs} */
+		updatedAtMs: number,
+		isDeleted: boolean,
+	) {
+		this.id = id;
+		this.hostname = hostname;
+		this.node = node;
+		this.kernel = kernel;
+		this.machine = machine;
+		this.cpuModel = cpuModel;
+		this.coreRatios = coreRatios;
+		this.memoryCapacity = memoryCapacity;
+		this.memoryAvailable = memoryAvailable;
+		this.diskCapacity = diskCapacity;
+		this.diskAvailable = diskAvailable;
+		this.canRestart = canRestart;
+		this.restartRequired = restartRequired;
+		this.systemStartedAtMs = systemStartedAtMs;
+		this.processStartedAtMs = processStartedAtMs;
+		this.updatedAtMs = updatedAtMs;
+		this.isDeleted = isDeleted;
+	}
 
 	static jsonSchema = Type.Object({
 		"id": Type.Union([Type.Number(), Type.Literal("controller")]),
@@ -379,9 +483,13 @@ export class SystemInfoUpdateEvent {
 	static dst = "control" as const;
 	static permission = "core.system.subscribe" as const;
 
+	updates: SystemInfo[];
+
 	constructor(
-		public updates: SystemInfo[],
-	) { }
+		updates: SystemInfo[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(SystemInfo.jsonSchema),
@@ -406,10 +514,16 @@ export class DebugWsMessageEvent {
 	static src = "controller" as const;
 	static dst = "control" as const;
 
+	direction: string;
+	content: string;
+
 	constructor(
-		public direction: string,
-		public content: string,
-	) { }
+		direction: string,
+		content: string,
+	) {
+		this.direction = direction;
+		this.content = content;
+	}
 
 	static jsonSchema = Type.Object({
 		"direction": Type.String(),
@@ -428,9 +542,13 @@ export class FactorioVersionsRequest {
 	static dst = "controller" as const;
 	static permission = "core.external.get_factorio_versions" as const;
 
+	maxAgeMs: number;
+
 	constructor(
-		public maxAgeMs: number = 5 * 60 * 1000, // Default 5 minutes
-	) {}
+		maxAgeMs: number = 5 * 60 * 1000, // Default 5 minutes,
+	) {
+		this.maxAgeMs = maxAgeMs;
+	}
 
 	static jsonSchema = Type.Object({
 		"maxAgeMs": Type.Number(),
@@ -450,9 +568,13 @@ export class LatestReleasesRequest {
 	static dst = "controller" as const;
 	static permission = "core.external.get_latest_releases" as const;
 
+	maxAgeMs: number;
+
 	constructor(
-		public maxAgeMs: number = 5 * 60 * 1000, // Default 5 minutes
-	) {}
+		maxAgeMs: number = 5 * 60 * 1000, // Default 5 minutes,
+	) {
+		this.maxAgeMs = maxAgeMs;
+	}
 
 	static jsonSchema = Type.Object({
 		"maxAgeMs": Type.Number(),

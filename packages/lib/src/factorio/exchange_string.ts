@@ -1,13 +1,16 @@
 import zlib from "zlib";
 
 class MapReaderState {
+	buf: Buffer;
 	pos = 0;
 	last_position = { x: 0, y: 0 };
 	/** Version of Factorio the string was created with */
 	version = [0, 0, 0, 0];
 	constructor(
-		public buf: Buffer
-	) { }
+		buf: Buffer,
+	) {
+		this.buf = buf;
+	}
 
 	/** True when the version is at least the given major.minor.patch */
 	versionAtLeast(major: number, minor: number, patch = 0) {

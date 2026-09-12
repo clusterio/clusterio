@@ -10,6 +10,10 @@ import type { CommandTree, Logger, PluginNodeEnvInfo } from "@clusterio/lib";
  */
 export default class BaseCtlPlugin {
 	/**
+	 * The plugin's own info module
+	 */
+	info: PluginNodeEnvInfo;
+	/**
 	 * Logger for this plugin
 	 *
 	 * Instance of winston Logger for sending log messages from this
@@ -19,12 +23,11 @@ export default class BaseCtlPlugin {
 	logger: Logger;
 
 	constructor(
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginNodeEnvInfo,
+		/** {@inheritDoc info} */
+		info: PluginNodeEnvInfo,
 		logger: Logger,
 	) {
+		this.info = info;
 		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
 	}
 

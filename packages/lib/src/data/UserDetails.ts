@@ -4,30 +4,60 @@ import PlayerStats from "./PlayerStats.js";
 
 /** Represents a user in the cluster */
 export default class UserDetails {
+	/** Factorio user name.  */
+	name: string;
+	/** Roles this user has */
+	roleIds: Set<number>;
+	/** Instances this user is online on.  */
+	instances: Set<number>;
+	/** True if the user is promoted to admin on the Factorio instances.  */
+	isAdmin: boolean;
+	/** True if the user is banned from Factorio instances.  */
+	isBanned: boolean;
+	/** True if the user is whitelisted on the Factorio instances.  */
+	isWhitelisted: boolean;
+	/** Reason for being banned.  Ignored if isBanned is false.  */
+	banReason: string;
+	/** Millisecond Unix timestamp this entry was last updated at */
+	updatedAtMs: number;
+	/** True if this user object has been removed from the cluster.  */
+	isDeleted: boolean;
+	/** Per instance statistics for the player this user account is tied to.  */
+	instanceStats: Map<number, PlayerStats>;
 	public playerStats: PlayerStats;
 
 	constructor(
-		/** Factorio user name.  */
-		public name: string,
-		/** Roles this user has */
-		public roleIds = new Set<number>(),
-		/** Instances this user is online on.  */
-		public instances = new Set<number>(),
-		/** True if the user is promoted to admin on the Factorio instances.  */
-		public isAdmin = false,
-		/** True if the user is banned from Factorio instances.  */
-		public isBanned = false,
-		/** True if the user is whitelisted on the Factorio instances.  */
-		public isWhitelisted = false,
-		/** Reason for being banned.  Ignored if isBanned is false.  */
-		public banReason = "",
-		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAtMs = 0,
-		/** True if this user object has been removed from the cluster.  */
-		public isDeleted = false,
-		/** Per instance statistics for the player this user account is tied to.  */
-		public instanceStats = new Map<number, PlayerStats>(),
+		/** {@inheritDoc name} */
+		name: string,
+		/** {@inheritDoc roleIds} */
+		roleIds = new Set<number>(),
+		/** {@inheritDoc instances} */
+		instances = new Set<number>(),
+		/** {@inheritDoc isAdmin} */
+		isAdmin = false,
+		/** {@inheritDoc isBanned} */
+		isBanned = false,
+		/** {@inheritDoc isWhitelisted} */
+		isWhitelisted = false,
+		/** {@inheritDoc banReason} */
+		banReason = "",
+		/** {@inheritDoc updatedAtMs} */
+		updatedAtMs = 0,
+		/** {@inheritDoc isDeleted} */
+		isDeleted = false,
+		/** {@inheritDoc instanceStats} */
+		instanceStats = new Map<number, PlayerStats>(),
 	) {
+		this.name = name;
+		this.roleIds = roleIds;
+		this.instances = instances;
+		this.isAdmin = isAdmin;
+		this.isBanned = isBanned;
+		this.isWhitelisted = isWhitelisted;
+		this.banReason = banReason;
+		this.updatedAtMs = updatedAtMs;
+		this.isDeleted = isDeleted;
+		this.instanceStats = instanceStats;
 		this.playerStats = UserDetails._calculatePlayerStats(this.instanceStats);
 	}
 

@@ -14,12 +14,17 @@ import type { Static } from "@sinclair/typebox";
  * Only use mutable when needing to change multiple values.
  */
 export default class User extends UserRecord implements IUser {
+	private _controllerUsers: SubscribableDatastore<UserRecord>;
+	private _controllerRoles: SubscribableDatastore<Role>;
+
 	constructor(
-		private _controllerUsers: SubscribableDatastore<UserRecord>,
-		private _controllerRoles: SubscribableDatastore<Role>,
+		_controllerUsers: SubscribableDatastore<UserRecord>,
+		_controllerRoles: SubscribableDatastore<Role>,
 		...args: ConstructorParameters<typeof UserRecord>
 	) {
 		super(...args);
+		this._controllerUsers = _controllerUsers;
+		this._controllerRoles = _controllerRoles;
 	}
 
 	static fromJSON(

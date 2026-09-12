@@ -48,14 +48,19 @@ void new lib.Gauge(
 );
 
 export class HostConnector extends lib.WebSocketClientConnector {
+	hostConfig: lib.HostConfig;
+	pluginInfos: lib.PluginNodeEnvInfo[];
+
 	constructor(
-		public hostConfig: lib.HostConfig,
-		public pluginInfos: lib.PluginNodeEnvInfo[]
+		hostConfig: lib.HostConfig,
+		pluginInfos: lib.PluginNodeEnvInfo[],
 	) {
 		super(
 			hostConfig.get("host.controller_url"),
 			hostConfig.get("host.max_reconnect_delay"),
 		);
+		this.hostConfig = hostConfig;
+		this.pluginInfos = pluginInfos;
 	}
 
 	register() {

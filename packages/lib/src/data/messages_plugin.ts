@@ -6,15 +6,31 @@ import type { IUser } from "./UserDetails.js";
 
 /* This is similar to other plugin definitions but with lots removed */
 export class PluginDetails {
+	name: string;
+	title: string;
+	version: string;
+	loaded: boolean;
+	enabled: boolean;
+	description?: string;
+	npmPackage?: string;
+
 	constructor(
-		public name: string,
-		public title: string,
-		public version: string,
-		public loaded: boolean,
-		public enabled: boolean,
-		public description?: string,
-		public npmPackage?: string,
-	) {}
+		name: string,
+		title: string,
+		version: string,
+		loaded: boolean,
+		enabled: boolean,
+		description?: string,
+		npmPackage?: string,
+	) {
+		this.name = name;
+		this.title = title;
+		this.version = version;
+		this.loaded = loaded;
+		this.enabled = enabled;
+		this.description = description;
+		this.npmPackage = npmPackage;
+	}
 
 	static jsonSchema = Type.Object({
 		name: Type.String(),
@@ -57,9 +73,13 @@ export class PluginUpdateRequest {
 	static dst = ["controller", "host"] as const;
 	static permission = "core.plugin.update";
 
+	pluginPackage: string;
+
 	constructor(
-		public pluginPackage: string,
-	) {}
+		pluginPackage: string,
+	) {
+		this.pluginPackage = pluginPackage;
+	}
 
 	static jsonSchema = Type.String();
 
@@ -79,9 +99,13 @@ export class PluginInstallRequest {
 	static dst = ["controller", "host"] as const;
 	static permission = "core.plugin.install";
 
+	pluginPackage: string;
+
 	constructor(
-		public pluginPackage: string,
-	) {}
+		pluginPackage: string,
+	) {
+		this.pluginPackage = pluginPackage;
+	}
 
 	static jsonSchema = Type.String();
 

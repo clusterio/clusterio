@@ -2,11 +2,18 @@ import { Type, type Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
 
 export class Item {
+	name: string;
+	count: number;
+	quality: string;
+
 	constructor(
-		public name: string,
-		public count: number,
-		public quality: string = "normal"
+		name: string,
+		count: number,
+		quality: string = "normal",
 	) {
+		this.name = name;
+		this.count = count;
+		this.quality = quality;
 	}
 
 	static jsonSchema = Type.Tuple([
@@ -32,9 +39,12 @@ export class PlaceEvent {
 	static dst = "controller" as const;
 	static plugin = "subspace_storage" as const;
 
+	items: Item[];
+
 	constructor(
-		public items: Item[]
+		items: Item[],
 	) {
+		this.items = items;
 	}
 
 	static jsonSchema = Type.Object({
@@ -53,9 +63,12 @@ export class RemoveRequest {
 	static dst = "controller" as const;
 	static plugin = "subspace_storage" as const;
 
+	items: Item[];
+
 	constructor(
-		public items: Item[]
+		items: Item[],
 	) {
+		this.items = items;
 	}
 
 	static jsonSchema = Type.Object({
@@ -86,9 +99,12 @@ export class UpdateStorageEvent {
 	static dst = ["instance", "control"] as const;
 	static plugin = "subspace_storage" as const;
 
+	items: Item[];
+
 	constructor(
-		public items: Item[]
+		items: Item[],
 	) {
+		this.items = items;
 	}
 
 	static jsonSchema = Type.Object({
@@ -108,9 +124,12 @@ export class SetStorageSubscriptionRequest {
 	static plugin = "subspace_storage" as const;
 	static permission = "subspace_storage.storage.view" as const;
 
+	storage: boolean;
+
 	constructor(
-		public storage: boolean
+		storage: boolean,
 	) {
+		this.storage = storage;
 	}
 
 	static jsonSchema = Type.Object({

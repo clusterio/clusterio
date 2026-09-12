@@ -213,6 +213,9 @@ export class Config<
 	/** A set of common validators and validator factories */
 	static validators = validators;
 
+	location: ConfigLocation;
+	private _filepath?: string;
+
 	/**
 	 * Handle migration between clusterio versions
 	 *
@@ -249,14 +252,16 @@ export class Config<
 	 *     Filepath for the config to save to.
 	 */
 	constructor(
-		public location: ConfigLocation,
+		location: ConfigLocation,
 		fields?: Static<typeof Config.jsonSchema>,
-		private _filepath?: string,
+		_filepath?: string,
 	) {
 		if (typeof location !== "string") {
 			throw new Error("location must be a string");
 		}
 		super();
+		this.location = location;
+		this._filepath = _filepath;
 
 		this.fields = Object.fromEntries(
 			Object.entries(

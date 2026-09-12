@@ -13,6 +13,7 @@ export interface ValueCacheFetch<T> {
  * Concurrent calls will share the same in-flight fetch
  */
 export default class ValueCache<T> {
+	private readonly fetch: ValueCacheFetch<T>;
 	private ongoingFetch: Promise<T> | null = null;
 	private timestamp: number | null = null;
 	private value: T | null = null; // Only valid when timestamp is not null
@@ -23,8 +24,10 @@ export default class ValueCache<T> {
 	 * @param fetch A function that fetches and returns a fresh value
 	 */
 	constructor(
-		private readonly fetch: ValueCacheFetch<T>,
-	) {}
+		fetch: ValueCacheFetch<T>,
+	) {
+		this.fetch = fetch;
+	}
 
 	/**
 	 * Get the cached value, will fetch a fresh value if stale or missing

@@ -58,6 +58,27 @@ type ControllerEvents = {
  * @alias module:controller/src/Controller
  */
 export default class Controller {
+	/**
+	 * If true indicates that there is a process monitor present that
+	 * will restart the controller on non-zero exit codes.
+	 */
+	canRestart: boolean;
+	/**
+	 * If true indicates the controller is in recovery mode and should
+	 * disable certain actions such as loading plugins or connecting to hosts
+	 */
+	recoveryMode: boolean;
+	systems: lib.SubscribableDatastore<lib.SystemInfo>;
+	/** Mapping of host id to host record */
+	hosts: lib.SubscribableDatastore<HostRecord>;
+	/** Mapping of save id to save details */
+	saves: lib.SubscribableDatastore<lib.SaveDetails>;
+	/** Mapping of mod pack id to mod pack */
+	modPacks: lib.SubscribableDatastore<lib.ModPack>;
+	/** Mods stored on the controller */
+	modStore: lib.ModStore;
+	/** Mapping of mod pack id to mod pack */
+	roles: lib.SubscribableDatastore<lib.Role>;
 	clusterLogger: winston.Logger;
 	/** Array of plugin info objects for known plugins */
 	pluginInfos: lib.PluginNodeEnvInfo[];
@@ -226,32 +247,34 @@ export default class Controller {
 		pluginInfos: lib.PluginNodeEnvInfo[],
 		config: lib.ControllerConfig,
 
-		/**
-		 * If true indicates that there is a process monitor present that
-		 * will restart the controller on non-zero exit codes.
-		 */
-		public canRestart: boolean = false,
-		/**
-		 * If true indicates the controller is in recovery mode and should
-		 * disable certain actions such as loading plugins or connecting to hosts
-		 */
-		public recoveryMode: boolean = false,
-		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
-		/** Mapping of host id to host record */
-		public hosts = new lib.SubscribableDatastore<HostRecord>(),
+		/** {@inheritDoc canRestart} */
+		canRestart: boolean = false,
+		/** {@inheritDoc recoveryMode} */
+		recoveryMode: boolean = false,
+		systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
+		/** {@inheritDoc hosts} */
+		hosts = new lib.SubscribableDatastore<HostRecord>(),
 		/** Mapping of instance id to instance record */
 		instances = new lib.SubscribableDatastore<InstanceRecord>(),
-		/** Mapping of save id to save details */
-		public saves = new lib.SubscribableDatastore<lib.SaveDetails>(),
-		/** Mapping of mod pack id to mod pack */
-		public modPacks = new lib.SubscribableDatastore<lib.ModPack>(),
-		/** Mods stored on the controller */
-		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
-		/** Mapping of mod pack id to mod pack */
-		public roles = new lib.SubscribableDatastore<lib.Role>(),
+		/** {@inheritDoc saves} */
+		saves = new lib.SubscribableDatastore<lib.SaveDetails>(),
+		/** {@inheritDoc modPacks} */
+		modPacks = new lib.SubscribableDatastore<lib.ModPack>(),
+		/** {@inheritDoc modStore} */
+		modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
+		/** {@inheritDoc roles} */
+		roles = new lib.SubscribableDatastore<lib.Role>(),
 		/** Mapping of user id to user record */
 		users = new lib.SubscribableDatastore<UserRecord>(),
 	) {
+		this.canRestart = canRestart;
+		this.recoveryMode = recoveryMode;
+		this.systems = systems;
+		this.hosts = hosts;
+		this.saves = saves;
+		this.modPacks = modPacks;
+		this.modStore = modStore;
+		this.roles = roles;
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
 		this.config = config;

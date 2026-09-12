@@ -9,11 +9,19 @@ export class PlayerAuthServer {
 		factorioVersion: Type.Optional(Type.String()),
 	});
 
+	name: string;
+	address?: string;
+	factorioVersion?: string;
+
 	constructor(
-		public name: string,
-		public address?: string,
-		public factorioVersion?: string,
-	) {}
+		name: string,
+		address?: string,
+		factorioVersion?: string,
+	) {
+		this.name = name;
+		this.address = address;
+		this.factorioVersion = factorioVersion;
+	}
 
 	toJSON(): Static<typeof PlayerAuthServer.jsonSchema> {
 		const json = { name: this.name } as Static<typeof PlayerAuthServer.jsonSchema>;
@@ -32,10 +40,15 @@ export class PlayerAuthServer {
 }
 
 class FetchPlayerCodeResponse {
+	playerCode: string;
+	controllerUrl: string;
+
 	constructor(
-		public playerCode: string,
-		public controllerUrl: string
+		playerCode: string,
+		controllerUrl: string,
 	) {
+		this.playerCode = playerCode;
+		this.controllerUrl = controllerUrl;
 	}
 
 	static jsonSchema = Type.Object({
@@ -56,9 +69,12 @@ export class FetchPlayerCodeRequest {
 	static plugin = "player_auth" as const;
 	static Response = FetchPlayerCodeResponse;
 
+	player: string;
+
 	constructor(
-		public player: string
+		player: string,
 	) {
+		this.player = player;
 	}
 
 	static jsonSchema = Type.Object({
@@ -77,10 +93,15 @@ export class SetVerifyCodeRequest {
 	static dst = "controller" as const;
 	static plugin = "player_auth" as const;
 
+	player: string;
+	verifyCode: string;
+
 	constructor(
-		public player: string,
-		public verifyCode: string
+		player: string,
+		verifyCode: string,
 	) {
+		this.player = player;
+		this.verifyCode = verifyCode;
 	}
 
 	static jsonSchema = Type.Object({

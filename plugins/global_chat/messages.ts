@@ -7,10 +7,15 @@ export class ChatEvent {
 	static plugin = "global_chat" as const;
 	static permission = null;
 
+	instanceName: string;
+	content: string;
+
 	constructor(
-		public instanceName: string,
-		public content: string,
+		instanceName: string,
+		content: string,
 	) {
+		this.instanceName = instanceName;
+		this.content = content;
 	}
 
 	static jsonSchema = Type.Object({

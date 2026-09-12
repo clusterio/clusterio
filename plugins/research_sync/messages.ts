@@ -8,11 +8,18 @@ export class ContributionEvent {
 	static dst = "controller" as const;
 	static plugin = "research_sync" as const;
 
+	name: string;
+	level: number;
+	contribution: number;
+
 	constructor(
-		public name: string,
-		public level: number,
-		public contribution: number
+		name: string,
+		level: number,
+		contribution: number,
 	) {
+		this.name = name;
+		this.level = level;
+		this.contribution = contribution;
 	}
 
 	static jsonSchema = Type.Object({
@@ -28,11 +35,18 @@ export class ContributionEvent {
 
 
 export class TechnologyProgress {
+	name: string;
+	level: number;
+	progress: number | null;
+
 	constructor(
-		public name: string,
-		public level: number,
-		public progress: number | null,
+		name: string,
+		level: number,
+		progress: number | null,
 	) {
+		this.name = name;
+		this.level = level;
+		this.progress = progress;
 	}
 
 	static jsonSchema = Type.Object({
@@ -49,9 +63,12 @@ export class ProgressEvent {
 	static dst = "instance" as const;
 	static plugin = "research_sync" as const;
 
+	technologies: TechnologyProgress[];
+
 	constructor(
-		public technologies: TechnologyProgress[],
+		technologies: TechnologyProgress[],
 	) {
+		this.technologies = technologies;
 	}
 
 	static jsonSchema = Type.Object({
@@ -72,10 +89,15 @@ export class FinishedEvent {
 	static dst = ["instance", "controller"] as const;
 	static plugin = "research_sync" as const;
 
+	name: string;
+	level: number;
+
 	constructor(
-		public name: string,
-		public level: number,
+		name: string,
+		level: number,
 	) {
+		this.name = name;
+		this.level = level;
 	}
 
 	static jsonSchema = Type.Object({
@@ -89,12 +111,21 @@ export class FinishedEvent {
 }
 
 export class TechnologySync {
+	name: string;
+	level: number;
+	progress: number | null;
+	researched: boolean;
+
 	constructor(
-		public name: string,
-		public level: number,
-		public progress: number | null,
-		public researched: boolean,
+		name: string,
+		level: number,
+		progress: number | null,
+		researched: boolean,
 	) {
+		this.name = name;
+		this.level = level;
+		this.progress = progress;
+		this.researched = researched;
 	}
 
 	static jsonSchema = Type.Tuple([
@@ -120,9 +151,12 @@ export class SyncTechnologiesRequest {
 	static dst = "controller" as const;
 	static plugin = "research_sync" as const;
 
+	technologies: TechnologySync[];
+
 	constructor(
-		public technologies: TechnologySync[]
+		technologies: TechnologySync[],
 	) {
+		this.technologies = technologies;
 	}
 
 	static jsonSchema = Type.Array(TechnologySync.jsonSchema);

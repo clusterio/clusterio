@@ -4,14 +4,18 @@ import type Instance from "./Instance.js";
 
 
 export default class InstanceConnection extends lib.Link {
+	host: Host;
+	instance: Instance;
 	plugins = new Map<string, string>();
 
 	constructor(
 		connector: lib.VirtualConnector,
-		public host: Host,
-		public instance: Instance,
+		host: Host,
+		instance: Instance,
 	) {
 		super(connector);
+		this.host = host;
+		this.instance = instance;
 		this.router = this.host.router;
 
 		this.handle(lib.InstanceInitialisedEvent, this.handleInstanceInitialisedEvent.bind(this));

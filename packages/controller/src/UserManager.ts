@@ -15,11 +15,18 @@ import UserRecord from "./UserRecord.js";
  * @alias module:controller/src/UserManager
  */
 export default class UserManager {
+	records: lib.SubscribableDatastore<UserRecord>;
+	private _controllerRoles: lib.SubscribableDatastore<lib.Role>;
+	private _controllerConfig: lib.ControllerConfig;
+
 	constructor(
-		public records: lib.SubscribableDatastore<UserRecord>,
-		private _controllerRoles: lib.SubscribableDatastore<lib.Role>,
-		private _controllerConfig: lib.ControllerConfig,
+		records: lib.SubscribableDatastore<UserRecord>,
+		_controllerRoles: lib.SubscribableDatastore<lib.Role>,
+		_controllerConfig: lib.ControllerConfig,
 	) {
+		this.records = records;
+		this._controllerRoles = _controllerRoles;
+		this._controllerConfig = _controllerConfig;
 	}
 
 	/**

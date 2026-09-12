@@ -13,14 +13,28 @@ export default class Role {
 	static DefaultAdminRoleId = 0 as const;
 	static DefaultPlayerRoleId = 1 as const;
 
+	id: number;
+	name: string;
+	description: string;
+	permissions: Set<string>;
+	updatedAtMs: number;
+	isDeleted: boolean;
+
 	constructor(
-		public id: number,
-		public name: string,
-		public description: string,
-		public permissions = new Set<string>(),
-		public updatedAtMs = 0,
-		public isDeleted = false,
-	) { }
+		id: number,
+		name: string,
+		description: string,
+		permissions = new Set<string>(),
+		updatedAtMs = 0,
+		isDeleted = false,
+	) {
+		this.id = id;
+		this.name = name;
+		this.description = description;
+		this.permissions = permissions;
+		this.updatedAtMs = updatedAtMs;
+		this.isDeleted = isDeleted;
+	}
 
 	static jsonSchema = Type.Object({
 		id: Type.Number(),

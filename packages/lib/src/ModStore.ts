@@ -37,11 +37,16 @@ interface ModPortalResponse {
 }
 
 export default class ModStore extends events.EventEmitter<ModStoreEvents> {
+	modsDirectory: string;
+	files: Map<string, ModInfo>;
+
 	constructor(
-		public modsDirectory: string,
-		public files: Map<string, ModInfo>,
+		modsDirectory: string,
+		files: Map<string, ModInfo>,
 	) {
 		super();
+		this.modsDirectory = modsDirectory;
+		this.files = files;
 	}
 
 	getMod(name: string, version: SourceVersion, sha1?: string) {

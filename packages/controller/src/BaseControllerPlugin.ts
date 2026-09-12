@@ -17,6 +17,9 @@ import type HostConnection from "./HostConnection.js";
  * `plugin` export.
  */
 export default class BaseControllerPlugin {
+	info: PluginNodeEnvInfo;
+	controller: Controller;
+	metrics: any;
 	/**
 	 * Logger for this plugin
 	 *
@@ -27,11 +30,14 @@ export default class BaseControllerPlugin {
 	logger: Logger;
 
 	constructor(
-		public info: PluginNodeEnvInfo,
-		public controller: Controller,
-		public metrics: any,
+		info: PluginNodeEnvInfo,
+		controller: Controller,
+		metrics: any,
 		logger: Logger
 	) {
+		this.info = info;
+		this.controller = controller;
+		this.metrics = metrics;
 		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
 	}
 

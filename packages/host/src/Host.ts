@@ -88,9 +88,13 @@ const instanceStartingMessages = new Set([
 ]);
 
 export class HostRouter {
+	host: Host;
+
 	constructor(
-		public host: Host
-	) { }
+		host: Host,
+	) {
+		this.host = host;
+	}
 
 	/**
 	 * Forward a message to the next hop towards its destination.
@@ -300,6 +304,18 @@ export default class Host extends lib.Link {
 		"_warning": "Changes to this file will be overwritten by the controller's copy.",
 	};
 
+	/**
+	 * If true indicates that there is a process monitor present that
+	 * will restart this host on a non-zero exit codes.
+	 */
+	canRestart: boolean;
+	/**
+	 * If true indicates the host is in recovery mode and should
+	 * disable certain actions such as loading plugins or instance autostart
+	 */
+	recoveryMode: boolean;
+	modStore: lib.ModStore;
+
 	static async bootstrap(hostConfig: lib.HostConfig) {
 		const modsDirectory = hostConfig.get("host.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
@@ -312,19 +328,16 @@ export default class Host extends lib.Link {
 		connector: HostConnector,
 		hostConfig: lib.HostConfig,
 		pluginInfos: lib.PluginNodeEnvInfo[],
-		/**
-		 * If true indicates that there is a process monitor present that
-		 * will restart this host on a non-zero exit codes.
-		 */
-		public canRestart = false,
-		/**
-		 * If true indicates the host is in recovery mode and should
-		 * disable certain actions such as loading plugins or instance autostart
-		 */
-		public recoveryMode = false,
-		public modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
+		/** {@inheritDoc canRestart} */
+		canRestart = false,
+		/** {@inheritDoc recoveryMode} */
+		recoveryMode = false,
+		modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
 	) {
 		super(connector);
+		this.canRestart = canRestart;
+		this.recoveryMode = recoveryMode;
+		this.modStore = modStore;
 
 		this.pluginInfos = pluginInfos;
 		this.config = hostConfig;

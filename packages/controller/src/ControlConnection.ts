@@ -25,6 +25,8 @@ const queryLogTime = new lib.Summary(
  * @alias module:controller/src/ControlConnection
  */
 export default class ControlConnection extends BaseConnection {
+	user: User;
+	id: number;
 	private _version: string;
 	logTransport: lib.LinkTransport | null = null;
 	logSubscriptions = {
@@ -41,10 +43,12 @@ export default class ControlConnection extends BaseConnection {
 		registerData: { version: string },
 		connector: WsServerConnector,
 		controller: Controller,
-		public user: User, // The user making this connection.
-		public id: number
+		user: User, // The user making this connection.
+		id: number,
 	) {
 		super(connector, controller);
+		this.user = user;
+		this.id = id;
 
 		this._version = registerData.version;
 

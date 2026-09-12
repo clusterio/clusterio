@@ -29,12 +29,21 @@ const jsonPlayerData = Type.Object({
 });
 
 export class AcquireResponse {
+	status: string;
+	generation?: number;
+	hasData?: boolean;
+	message?: string;
+
 	constructor(
-		public status: string,
-		public generation?: number,
-		public hasData?: boolean,
-		public message?: string,
+		status: string,
+		generation?: number,
+		hasData?: boolean,
+		message?: string,
 	) {
+		this.status = status;
+		this.generation = generation;
+		this.hasData = hasData;
+		this.message = message;
 	}
 
 	static jsonSchema = Type.Object({
@@ -56,10 +65,15 @@ export class AcquireRequest {
 	static plugin = "inventory_sync" as const;
 	static Response = AcquireResponse;
 
+	instanceId: number;
+	playerName: string;
+
 	constructor(
-		public instanceId: number,
-		public playerName: string,
+		instanceId: number,
+		playerName: string,
 	) {
+		this.instanceId = instanceId;
+		this.playerName = playerName;
 	}
 
 	static jsonSchema = Type.Object({
@@ -79,10 +93,15 @@ export class ReleaseRequest {
 	static dst = "controller" as const;
 	static plugin = "inventory_sync" as const;
 
+	instanceId: number;
+	playerName: string;
+
 	constructor(
-		public instanceId: number,
-		public playerName: string
+		instanceId: number,
+		playerName: string,
 	) {
+		this.instanceId = instanceId;
+		this.playerName = playerName;
 	}
 
 	static jsonSchema = Type.Object({
@@ -102,11 +121,18 @@ export class UploadRequest {
 	static dst = "controller" as const;
 	static plugin = "inventory_sync" as const;
 
+	instanceId: number;
+	playerName: string;
+	playerData: IpcPlayerData;
+
 	constructor(
-		public instanceId: number,
-		public playerName: string,
-		public playerData: IpcPlayerData,
+		instanceId: number,
+		playerName: string,
+		playerData: IpcPlayerData,
 	) {
+		this.instanceId = instanceId;
+		this.playerName = playerName;
+		this.playerData = playerData;
 	}
 
 	static jsonSchema = Type.Object({
@@ -121,9 +147,12 @@ export class UploadRequest {
 }
 
 export class DownloadResponse {
+	playerData: IpcPlayerData | null;
+
 	constructor(
-		public playerData: IpcPlayerData | null
+		playerData: IpcPlayerData | null,
 	) {
+		this.playerData = playerData;
 	}
 
 	static jsonSchema = Type.Object({
@@ -143,10 +172,15 @@ export class DownloadRequest {
 	static plugin = "inventory_sync" as const;
 	static Response = DownloadResponse;
 
+	instanceId: number;
+	playerName: string;
+
 	constructor(
-		public instanceId: number,
-		public playerName: string,
+		instanceId: number,
+		playerName: string,
 	) {
+		this.instanceId = instanceId;
+		this.playerName = playerName;
 	}
 
 	static jsonSchema = Type.Object({
@@ -160,11 +194,18 @@ export class DownloadRequest {
 }
 
 export class DatabaseStatsResponse {
+	databaseSize: number;
+	databaseEntries: number;
+	largestEntry: { name: string, size: number };
+
 	constructor(
-		public databaseSize: number,
-		public databaseEntries: number,
-		public largestEntry: { name: string, size: number },
+		databaseSize: number,
+		databaseEntries: number,
+		largestEntry: { name: string, size: number },
 	) {
+		this.databaseSize = databaseSize;
+		this.databaseEntries = databaseEntries;
+		this.largestEntry = largestEntry;
 	}
 
 	static jsonSchema = Type.Object({

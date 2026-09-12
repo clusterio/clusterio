@@ -3,14 +3,27 @@ import { type Static, Type } from "@sinclair/typebox";
 
 /** Underlying data class for instances on the controller */
 export default class InstanceRecord {
+	config: lib.InstanceConfig;
+	status: lib.InstanceStatus;
+	gamePort?: number;
+	factorioVersion?: lib.TargetVersion;
+	startedAtMs: number;
+	updatedAtMs: number;
+
 	constructor(
-		public config: lib.InstanceConfig,
-		public status: lib.InstanceStatus,
-		public gamePort?: number,
-		public factorioVersion?: lib.TargetVersion,
-		public startedAtMs = 0,
-		public updatedAtMs = 0,
+		config: lib.InstanceConfig,
+		status: lib.InstanceStatus,
+		gamePort?: number,
+		factorioVersion?: lib.TargetVersion,
+		startedAtMs = 0,
+		updatedAtMs = 0,
 	) {
+		this.config = config;
+		this.status = status;
+		this.gamePort = gamePort;
+		this.factorioVersion = factorioVersion;
+		this.startedAtMs = startedAtMs;
+		this.updatedAtMs = updatedAtMs;
 		this.config = config;
 		this.status = status;
 	}

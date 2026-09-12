@@ -29,10 +29,13 @@ export class MemoryDatastoreProvider<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > extends DatastoreProvider<K, V> {
+	private value: Map<K, V>;
+
 	constructor(
-		private value = new Map<K, V>()
+		value = new Map<K, V>(),
 	) {
 		super();
+		this.value = value;
 	}
 
 	async save(data: Map<K, V>) {
@@ -49,13 +52,22 @@ export class JsonDatastoreProvider<
 	V extends DatastoreValue,
 	J, // Intermediate type returned from migrations
 > extends DatastoreProvider<string, V> {
+	private filePath: string;
+	private fromJson: (json: J) => V;
+	private migrations: (rawJson: Record<string, unknown>) => Record<string, J>;
+	private finalise: (obj: V, map: Map<string, V>) => V | undefined;
+
 	constructor(
-		private filePath: string,
-		private fromJson: (json: J) => V = v => v as any as V,
-		private migrations: (rawJson: Record<string, unknown>) => Record<string, J> = v => v as Record<string, J>,
-		private finalise: (obj: V, map: Map<string, V>) => V | undefined = v => v,
+		filePath: string,
+		fromJson: (json: J) => V = v => v as any as V,
+		migrations: (rawJson: Record<string, unknown>) => Record<string, J> = v => v as Record<string, J>,
+		finalise: (obj: V, map: Map<string, V>) => V | undefined = v => v,
 	) {
 		super();
+		this.filePath = filePath;
+		this.fromJson = fromJson;
+		this.migrations = migrations;
+		this.finalise = finalise;
 	}
 
 	// Save the data to the json file
@@ -108,13 +120,22 @@ export class JsonIdDatastoreProvider<
 	V extends DatastoreValue & { id: DatastoreKey },
 	J, // Intermediate type returned from migrations
 > extends DatastoreProvider<V["id"], V> {
+	private filePath: string;
+	private fromJson: (json: J) => V;
+	private migrations: (rawJson: Array<unknown>) => Array<J>;
+	private finalise: (obj: V, map: Map<V["id"], V>) => V | undefined;
+
 	constructor(
-		private filePath: string,
-		private fromJson: (json: J) => V = v => v as any as V,
-		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as Array<J>,
-		private finalise: (obj: V, map: Map<V["id"], V>) => V | undefined = v => v,
+		filePath: string,
+		fromJson: (json: J) => V = v => v as any as V,
+		migrations: (rawJson: Array<unknown>) => Array<J> = v => v as Array<J>,
+		finalise: (obj: V, map: Map<V["id"], V>) => V | undefined = v => v,
 	) {
 		super();
+		this.filePath = filePath;
+		this.fromJson = fromJson;
+		this.migrations = migrations;
+		this.finalise = finalise;
 	}
 
 	// Save the data to the json file
@@ -171,12 +192,16 @@ export abstract class Datastore<
 		"update": [ updates: U[] ],
 	}> {
 	private dirty = false;
+	private provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider();
+	protected data = new Map<K, V>();
 
 	constructor(
-		private provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
-		protected data = new Map<K, V>(),
+		provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
+		data = new Map<K, V>(),
 	) {
 		super();
+		this.provider = provider;
+		this.data = data;
 	}
 
 	// Get the file path based on the controller config

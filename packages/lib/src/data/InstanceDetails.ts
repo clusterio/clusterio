@@ -31,18 +31,39 @@ export const InstanceStatus = StringEnum([
 export type InstanceStatus = Static<typeof InstanceStatus>;
 
 export default class InstanceDetails {
+	name: string;
+	id: number;
+	assignedHost: number | undefined;
+	gamePort: number | undefined;
+	status: InstanceStatus;
+	factorioVersion: TargetVersion | undefined;
+	startedAtMs: number;
+	/** Millisecond Unix timestamp this entry was last updated at */
+	updatedAtMs: number;
+	excludeFromStartAll: boolean;
+
 	constructor(
-		public name: string,
-		public id: number,
-		public assignedHost: number | undefined,
-		public gamePort: number | undefined,
-		public status: InstanceStatus,
-		public factorioVersion: TargetVersion | undefined,
-		public startedAtMs = 0,
-		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAtMs = 0,
-		public excludeFromStartAll = false
-	) {}
+		name: string,
+		id: number,
+		assignedHost: number | undefined,
+		gamePort: number | undefined,
+		status: InstanceStatus,
+		factorioVersion: TargetVersion | undefined,
+		startedAtMs = 0,
+		/** {@inheritDoc updatedAtMs} */
+		updatedAtMs = 0,
+		excludeFromStartAll = false,
+	) {
+		this.name = name;
+		this.id = id;
+		this.assignedHost = assignedHost;
+		this.gamePort = gamePort;
+		this.status = status;
+		this.factorioVersion = factorioVersion;
+		this.startedAtMs = startedAtMs;
+		this.updatedAtMs = updatedAtMs;
+		this.excludeFromStartAll = excludeFromStartAll;
+	}
 
 	get isDeleted() {
 		return this.status === "deleted";

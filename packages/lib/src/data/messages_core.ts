@@ -28,11 +28,19 @@ export class Address {
 	/** Broadcast */
 	static broadcast = 4;
 
+	type: number;
+	id: number;
+	requestId?: number;
+
 	constructor(
-		public type: number,
-		public id: number,
-		public requestId?: number,
-	) { }
+		type: number,
+		id: number,
+		requestId?: number,
+	) {
+		this.type = type;
+		this.id = id;
+		this.requestId = requestId;
+	}
 
 	/**
 	 * Convert from convenient shorthand notation to address.
@@ -172,9 +180,13 @@ type MessageType =
 	| "disconnect"
 ;
 export class Message {
+	type: MessageType;
+
 	constructor(
-		public type: MessageType,
-	) { }
+		type: MessageType,
+	) {
+		this.type = type;
+	}
 
 	static jsonSchema: TSchema;
 	static validate = messageValidate;
@@ -202,10 +214,16 @@ export class Message {
 export type MessageRoutable = MessageRequest | MessageResponse | MessageResponseError | MessageEvent;
 
 export class HelloData {
+	version: string;
+	plugins: Record<string, string>;
+
 	constructor(
-		public version: string,
-		public plugins: Record<string, string>,
-	) { }
+		version: string,
+		plugins: Record<string, string>,
+	) {
+		this.version = version;
+		this.plugins = plugins;
+	}
 
 	static jsonSchema = Type.Object({
 		"version": Type.String(),
@@ -218,10 +236,13 @@ export class HelloData {
 }
 
 export class MessageHello extends Message {
+	data: HelloData;
+
 	constructor(
-		public data: HelloData,
+		data: HelloData,
 	) {
 		super("hello");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -235,12 +256,22 @@ export class MessageHello extends Message {
 };
 
 export class RegisterHostData {
+	token: string;
+	version: string;
+	id: number;
+	plugins: Record<string, string>;
+
 	constructor(
-		public token: string,
-		public version: string,
-		public id: number,
-		public plugins: Record<string, string>,
-	) { }
+		token: string,
+		version: string,
+		id: number,
+		plugins: Record<string, string>,
+	) {
+		this.token = token;
+		this.version = version;
+		this.id = id;
+		this.plugins = plugins;
+	}
 
 	static jsonSchema = Type.Object({
 		"token": Type.String(),
@@ -255,10 +286,13 @@ export class RegisterHostData {
 }
 
 export class MessageRegisterHost extends Message {
+	data: RegisterHostData;
+
 	constructor(
-		public data: RegisterHostData,
+		data: RegisterHostData,
 	) {
 		super("registerHost");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -272,10 +306,16 @@ export class MessageRegisterHost extends Message {
 };
 
 export class RegisterControlData {
+	token: string;
+	version: string;
+
 	constructor(
-		public token: string,
-		public version: string,
-	) { }
+		token: string,
+		version: string,
+	) {
+		this.token = token;
+		this.version = version;
+	}
 
 	static jsonSchema = Type.Object({
 		"token": Type.String(),
@@ -288,10 +328,13 @@ export class RegisterControlData {
 }
 
 export class MessageRegisterControl extends Message {
+	data: RegisterControlData;
+
 	constructor(
-		public data: RegisterControlData,
+		data: RegisterControlData,
 	) {
 		super("registerControl");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -311,10 +354,16 @@ export type AccountRole = {
 };
 
 export class AccountDetails {
+	name: string;
+	roles: AccountRole[];
+
 	constructor(
-		public name: string,
-		public roles: AccountRole[],
-	) { }
+		name: string,
+		roles: AccountRole[],
+	) {
+		this.name = name;
+		this.roles = roles;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -333,13 +382,25 @@ export class AccountDetails {
 }
 
 export class ReadyData {
+	src: Address;
+	sessionToken: string;
+	sessionTimeout: number;
+	heartbeatInterval: number;
+	account?: AccountDetails;
+
 	constructor(
-		public src: Address,
-		public sessionToken: string,
-		public sessionTimeout: number,
-		public heartbeatInterval: number,
-		public account?: AccountDetails,
-	) { }
+		src: Address,
+		sessionToken: string,
+		sessionTimeout: number,
+		heartbeatInterval: number,
+		account?: AccountDetails,
+	) {
+		this.src = src;
+		this.sessionToken = sessionToken;
+		this.sessionTimeout = sessionTimeout;
+		this.heartbeatInterval = heartbeatInterval;
+		this.account = account;
+	}
 
 	static jsonSchema = Type.Object({
 		"src": Address.jsonSchema,
@@ -363,10 +424,13 @@ export class ReadyData {
 }
 
 export class MessageReady extends Message {
+	data: ReadyData;
+
 	constructor(
-		public data: ReadyData,
+		data: ReadyData,
 	) {
 		super("ready");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -380,10 +444,16 @@ export class MessageReady extends Message {
 }
 
 export class ResumeData {
+	sessionToken: string;
+	lastSeq?: number;
+
 	constructor(
-		public sessionToken: string,
-		public lastSeq?: number,
-	) { }
+		sessionToken: string,
+		lastSeq?: number,
+	) {
+		this.sessionToken = sessionToken;
+		this.lastSeq = lastSeq;
+	}
 
 	static jsonSchema = Type.Object({
 		"sessionToken": Type.String(),
@@ -397,10 +467,13 @@ export class ResumeData {
 
 
 export class MessageResume extends Message {
+	data: ResumeData;
+
 	constructor(
-		public data: ResumeData,
+		data: ResumeData,
 	) {
 		super("resume");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -414,11 +487,19 @@ export class MessageResume extends Message {
 }
 
 export class ContinueData {
+	sessionTimeout: number;
+	heartbeatInterval: number;
+	lastSeq?: number;
+
 	constructor(
-		public sessionTimeout: number,
-		public heartbeatInterval: number,
-		public lastSeq?: number,
-	) { }
+		sessionTimeout: number,
+		heartbeatInterval: number,
+		lastSeq?: number,
+	) {
+		this.sessionTimeout = sessionTimeout;
+		this.heartbeatInterval = heartbeatInterval;
+		this.lastSeq = lastSeq;
+	}
 
 	static jsonSchema = Type.Object({
 		"sessionTimeout": Type.Number(),
@@ -432,10 +513,13 @@ export class ContinueData {
 }
 
 export class MessageContinue extends Message {
+	data: ContinueData;
+
 	constructor(
-		public data: ContinueData,
+		data: ContinueData,
 	) {
 		super("continue");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -463,10 +547,13 @@ export class MessageInvalidate extends Message {
 }
 
 export class MessageHeartbeat extends Message {
+	seq?: number;
+
 	constructor(
-		public seq?: number,
+		seq?: number,
 	) {
 		super("heartbeat");
+		this.seq = seq;
 	}
 
 	static jsonSchema = Type.Object({
@@ -480,14 +567,25 @@ export class MessageHeartbeat extends Message {
 }
 
 export class MessageRequest<T = unknown> extends Message {
+	seq: number;
+	src: Address;
+	dst: Address;
+	name: string;
+	data?: T;
+
 	constructor(
-		public seq: number,
-		public src: Address,
-		public dst: Address,
-		public name: string,
-		public data?: T,
+		seq: number,
+		src: Address,
+		dst: Address,
+		name: string,
+		data?: T,
 	) {
 		super("request");
+		this.seq = seq;
+		this.src = src;
+		this.dst = dst;
+		this.name = name;
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -511,13 +609,22 @@ export class MessageRequest<T = unknown> extends Message {
 };
 
 export class MessageResponse<T = unknown> extends Message {
+	seq: number;
+	src: Address;
+	dst: Address;
+	data?: T;
+
 	constructor(
-		public seq: number,
-		public src: Address,
-		public dst: Address,
-		public data?: T,
+		seq: number,
+		src: Address,
+		dst: Address,
+		data?: T,
 	) {
 		super("response");
+		this.seq = seq;
+		this.src = src;
+		this.dst = dst;
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -539,11 +646,19 @@ export class MessageResponse<T = unknown> extends Message {
 };
 
 export class ResponseError {
+	message: string;
+	code?: string;
+	stack?: string;
+
 	constructor(
-		public message: string,
-		public code?: string,
-		public stack?: string,
-	) { }
+		message: string,
+		code?: string,
+		stack?: string,
+	) {
+		this.message = message;
+		this.code = code;
+		this.stack = stack;
+	}
 
 	static jsonSchema = Type.Object({
 		"message": Type.String(),
@@ -557,13 +672,22 @@ export class ResponseError {
 }
 
 export class MessageResponseError extends Message {
+	seq: number;
+	src: Address;
+	dst: Address;
+	data: ResponseError;
+
 	constructor(
-		public seq: number,
-		public src: Address,
-		public dst: Address,
-		public data: ResponseError,
+		seq: number,
+		src: Address,
+		dst: Address,
+		data: ResponseError,
 	) {
 		super("responseError");
+		this.seq = seq;
+		this.src = src;
+		this.dst = dst;
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -585,14 +709,25 @@ export class MessageResponseError extends Message {
 };
 
 export class MessageEvent<T = unknown> extends Message {
+	seq: number;
+	src: Address;
+	dst: Address;
+	name: string;
+	data?: T;
+
 	constructor(
-		public seq: number,
-		public src: Address,
-		public dst: Address,
-		public name: string,
-		public data?: T,
+		seq: number,
+		src: Address,
+		dst: Address,
+		name: string,
+		data?: T,
 	) {
 		super("event");
+		this.seq = seq;
+		this.src = src;
+		this.dst = dst;
+		this.name = name;
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -616,10 +751,13 @@ export class MessageEvent<T = unknown> extends Message {
 };
 
 export class MessageDisconnect extends Message {
+	data: string;
+
 	constructor(
-		public data: string,
+		data: string,
 	) {
 		super("disconnect");
+		this.data = data;
 	}
 
 	static jsonSchema = Type.Object({
@@ -662,9 +800,13 @@ export class AccountUpdateEvent {
 	static src = "controller" as const;
 	static dst = "control" as const;
 
+	roles?: AccountRole[];
+
 	constructor(
-		public roles?: AccountRole[],
-	) { }
+		roles?: AccountRole[],
+	) {
+		this.roles = roles;
+	}
 
 	static jsonSchema = Type.Object({
 		roles: Type.Array(

@@ -91,6 +91,7 @@ interface Router {
  * Common interface for server and client connections
  */
 export class Link {
+	connector: BaseConnector;
 	router?: Router = undefined;
 	validateSent = true;
 
@@ -103,8 +104,9 @@ export class Link {
 	_nextRequestId = 1;
 
 	constructor(
-		public connector: BaseConnector
+		connector: BaseConnector,
 	) {
+		this.connector = connector;
 		this.handle(libData.PingRequest, async () => {});
 
 		// Prevent warnings about possible memory leak due to large number of event listeners

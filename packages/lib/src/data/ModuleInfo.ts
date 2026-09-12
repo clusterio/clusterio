@@ -5,18 +5,35 @@ import { compile } from "../schema.js";
  * Information about a module stored in its module.json file
  */
 export default class ModuleInfo {
+	/** Name of the module */
+	name: string;
+	/** Version of this module */
+	version: string;
+	/** Paths into the module that should be loaded into the event handler */
+	load: string[];
+	/** Paths into the module that should be required by control.lua */
+	require: string[];
+	/** Dependencies of this module */
+	dependencies: Map<string, string>;
+
 	constructor(
-		/** Name of the module */
-		public name: string,
-		/** Version of this module */
-		public version: string,
-		/** Paths into the module that should be loaded into the event handler */
-		public load: string[] = [],
-		/** Paths into the module that should be required by control.lua */
-		public require: string[] = [],
-		/** Dependencies of this module */
-		public dependencies = new Map<string, string>(),
-	) { }
+		/** {@inheritDoc name} */
+		name: string,
+		/** {@inheritDoc version} */
+		version: string,
+		/** {@inheritDoc load} */
+		load: string[] = [],
+		/** {@inheritDoc require} */
+		require: string[] = [],
+		/** {@inheritDoc dependencies} */
+		dependencies = new Map<string, string>(),
+	) {
+		this.name = name;
+		this.version = version;
+		this.load = load;
+		this.require = require;
+		this.dependencies = dependencies;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),

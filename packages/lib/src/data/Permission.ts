@@ -4,12 +4,22 @@ import { type Static, Type } from "@sinclair/typebox";
  * Represents a permission that can be granted
  */
 export default class Permission {
+	name: string;
+	title: string;
+	description: string;
+	grantByDefault: boolean;
+
 	constructor(
-		public name: string,
-		public title: string,
-		public description: string,
-		public grantByDefault: boolean = false,
-	) { }
+		name: string,
+		title: string,
+		description: string,
+		grantByDefault: boolean = false,
+	) {
+		this.name = name;
+		this.title = title;
+		this.description = description;
+		this.grantByDefault = grantByDefault;
+	}
 
 	static jsonSchema = Type.Object({
 		name: Type.String(),

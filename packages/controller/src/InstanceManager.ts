@@ -5,6 +5,8 @@ import type HostConnection from "./HostConnection.js";
 import InstanceRecord from "./InstanceRecord.js";
 
 export default class InstanceManager {
+	readonly records: lib.SubscribableDatastore<InstanceRecord>;
+	private readonly _controller: Controller;
 	private static readonly DefaultFactorioSettings = {
 		tags: ["clusterio"],
 		max_players: 0,
@@ -25,9 +27,11 @@ export default class InstanceManager {
 	} as const;
 
 	constructor(
-		public readonly records: lib.SubscribableDatastore<InstanceRecord>,
-		private readonly _controller: Controller,
+		records: lib.SubscribableDatastore<InstanceRecord>,
+		_controller: Controller,
 	) {
+		this.records = records;
+		this._controller = _controller;
 		for (const instance of records.values()) {
 			this.addInstanceHooks(instance);
 		}

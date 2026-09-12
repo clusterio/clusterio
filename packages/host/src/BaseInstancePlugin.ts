@@ -19,6 +19,21 @@ import type Host from "./Host.js";
  */
 export default class BaseInstancePlugin {
 	/**
+	 * The plugin's own info module
+	 */
+	info: PluginNodeEnvInfo;
+	/**
+	 * Instance the plugin started for
+	 */
+	instance: Instance;
+	/**
+	 * Host running the instance
+	 *
+	 * With the exepction of accessing the host's config you should
+	 * avoid ineracting with the host object directly.
+	 */
+	host: Host;
+	/**
 	 * Logger for this plugin
 	 *
 	 * Instance of winston Logger for sending log messages from this
@@ -37,22 +52,16 @@ export default class BaseInstancePlugin {
 	private _sendingRconMessages = false;
 
 	constructor(
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginNodeEnvInfo,
-		/**
-		 * Instance the plugin started for
-		 */
-		public instance: Instance,
-		/**
-		 * Host running the instance
-		 *
-		 * With the exepction of accessing the host's config you should
-		 * avoid ineracting with the host object directly.
-		 */
-		public host: Host,
+		/** {@inheritDoc info} */
+		info: PluginNodeEnvInfo,
+		/** {@inheritDoc instance} */
+		instance: Instance,
+		/** {@inheritDoc host} */
+		host: Host,
 	) {
+		this.info = info;
+		this.instance = instance;
+		this.host = host;
 		this.logger = instance.logger.child({ plugin: this.info.name }) as unknown as Logger;
 
 		this._pendingRconMessages = [];

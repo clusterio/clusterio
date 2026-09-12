@@ -3,28 +3,60 @@ import { HostDetails } from "@clusterio/lib";
 
 /** Underlying data class for hosts on the controller */
 export default class HostRecord {
+	/** Id of this host */
+	id: number;
+	/** Name of this host */
+	name: string;
+	/** Version this host last connected with */
+	version: string;
+	/** Plugins this host last connected with */
+	plugins: Map<string, string>;
+	/** True if this host is currently connected to controller */
+	connected: boolean;
+	/** IP this host last connected from */
+	remoteAddress: string;
+	/** Value of host.public_address configured for this host */
+	publicAddress: string;
+	/** Unix timestamp in seconds host token must be issued after to be valid */
+	tokenValidAfter: number;
+	/** Millisecond Unix timestamp this entry was last updated at */
+	updatedAtMs: number;
+	/** True if this host has been deleted */
+	isDeleted: boolean;
+
 	constructor(
-		/** Id of this host */
-		public id: number,
-		/** Name of this host */
-		public name: string,
-		/** Version this host last connected with */
-		public version: string,
-		/** Plugins this host last connected with */
-		public plugins: Map<string, string>,
-		/** True if this host is currently connected to controller */
-		public connected: boolean = false,
-		/** IP this host last connected from */
-		public remoteAddress: string = "",
-		/** Value of host.public_address configured for this host */
-		public publicAddress: string = "",
-		/** Unix timestamp in seconds host token must be issued after to be valid */
-		public tokenValidAfter: number = 0,
-		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAtMs: number = 0,
-		/** True if this host has been deleted */
-		public isDeleted: boolean = false,
-	) { }
+		/** {@inheritDoc id} */
+		id: number,
+		/** {@inheritDoc name} */
+		name: string,
+		/** {@inheritDoc version} */
+		version: string,
+		/** {@inheritDoc plugins} */
+		plugins: Map<string, string>,
+		/** {@inheritDoc connected} */
+		connected: boolean = false,
+		/** {@inheritDoc remoteAddress} */
+		remoteAddress: string = "",
+		/** {@inheritDoc publicAddress} */
+		publicAddress: string = "",
+		/** {@inheritDoc tokenValidAfter} */
+		tokenValidAfter: number = 0,
+		/** {@inheritDoc updatedAtMs} */
+		updatedAtMs: number = 0,
+		/** {@inheritDoc isDeleted} */
+		isDeleted: boolean = false,
+	) {
+		this.id = id;
+		this.name = name;
+		this.version = version;
+		this.plugins = plugins;
+		this.connected = connected;
+		this.remoteAddress = remoteAddress;
+		this.publicAddress = publicAddress;
+		this.tokenValidAfter = tokenValidAfter;
+		this.updatedAtMs = updatedAtMs;
+		this.isDeleted = isDeleted;
+	}
 
 	static jsonSchema = Type.Object({
 		"id": Type.Number(),

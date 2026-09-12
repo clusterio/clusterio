@@ -181,12 +181,16 @@ export function isTargetVersion(input: string): input is TargetVersion {
  * Represents a mod version paired with an equality which can be tested against
  */
 export class ModVersionEquality {
+	equality: VersionEquality;
+	version: PartialVersion;
 	public integerVersion: IntegerVersion;
 
 	constructor(
-		public equality: VersionEquality,
-		public version: PartialVersion,
+		equality: VersionEquality,
+		version: PartialVersion,
 	) {
+		this.equality = equality;
+		this.version = version;
 		this.integerVersion = integerPartialVersion(version);
 		if (!isVersionEquality(this.equality)) {
 			throw new Error("Invalid equality");
@@ -251,10 +255,15 @@ export class ModVersionEquality {
  * Represents a range of mod versions which can be tested against
  */
 export class ModVersionRange {
+	minVersion: ModVersionEquality;
+	maxVersion: ModVersionEquality;
+
 	constructor(
-		public minVersion = new ModVersionEquality(">=", "0.0.0"),
-		public maxVersion = new ModVersionEquality("<=", "65535.65535.65535"),
+		minVersion = new ModVersionEquality(">=", "0.0.0"),
+		maxVersion = new ModVersionEquality("<=", "65535.65535.65535"),
 	) {
+		this.minVersion = minVersion;
+		this.maxVersion = maxVersion;
 		if (minVersion.equality === "<" || minVersion.equality === "<=") {
 			throw new Error("Minimum version can not use < or <=");
 		}

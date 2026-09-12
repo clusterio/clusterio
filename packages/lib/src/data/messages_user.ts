@@ -10,9 +10,13 @@ export class UserGetRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.get" as const;
 
+	name: string;
+
 	constructor(
-		public name: string,
-	) { }
+		name: string,
+	) {
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -41,9 +45,13 @@ export class UserCreateRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.create" as const;
 
+	name: string;
+
 	constructor(
-		public name: string,
-	) { }
+		name: string,
+	) {
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -61,9 +69,13 @@ export class UserRevokeTokenRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.revoke_token" as const;
 
+	name: string;
+
 	constructor(
-		public name: string,
-	) { }
+		name: string,
+	) {
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -81,10 +93,16 @@ export class UserUpdateRolesRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.update_roles" as const;
 
+	name: string;
+	roles: number[];
+
 	constructor(
-		public name: string,
-		public roles: number[],
-	) { }
+		name: string,
+		roles: number[],
+	) {
+		this.name = name;
+		this.roles = roles;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -103,11 +121,19 @@ export class UserSetAdminRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.set_admin" as const;
 
+	name: string;
+	create: boolean;
+	admin: boolean;
+
 	constructor(
-		public name: string,
-		public create: boolean,
-		public admin: boolean,
-	) { }
+		name: string,
+		create: boolean,
+		admin: boolean,
+	) {
+		this.name = name;
+		this.create = create;
+		this.admin = admin;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -127,11 +153,19 @@ export class UserSetWhitelistedRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.set_whitelisted" as const;
 
+	name: string;
+	create: boolean;
+	whitelisted: boolean;
+
 	constructor(
-		public name: string,
-		public create: boolean,
-		public whitelisted: boolean,
-	) { }
+		name: string,
+		create: boolean,
+		whitelisted: boolean,
+	) {
+		this.name = name;
+		this.create = create;
+		this.whitelisted = whitelisted;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -151,12 +185,22 @@ export class UserSetBannedRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.set_banned" as const;
 
+	name: string;
+	create: boolean;
+	banned: boolean;
+	reason: string;
+
 	constructor(
-		public name: string,
-		public create: boolean,
-		public banned: boolean,
-		public reason: string,
-	) { }
+		name: string,
+		create: boolean,
+		banned: boolean,
+		reason: string,
+	) {
+		this.name = name;
+		this.create = create;
+		this.banned = banned;
+		this.reason = reason;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -177,9 +221,13 @@ export class UserDeleteRequest {
 	static dst = "controller" as const;
 	static permission = "core.user.delete" as const;
 
+	name: string;
+
 	constructor(
-		public name: string,
-	) { }
+		name: string,
+	) {
+		this.name = name;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -197,9 +245,13 @@ export class UserUpdatesEvent {
 	static dst = "control" as const;
 	static permission = "core.user.subscribe" as const;
 
+	updates: UserDetails[];
+
 	constructor(
-		public updates: UserDetails[],
-	) { }
+		updates: UserDetails[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(UserDetails.jsonSchema),
@@ -234,9 +286,13 @@ export class ClusterioUserExport {
 		"users": Type.Array(this.clusterioUserSchema),
 	});
 
+	users: Static<typeof ClusterioUserExport.jsonSchema.properties.users>;
+
 	constructor(
-		public users: Static<typeof ClusterioUserExport.jsonSchema.properties.users>,
-	) { }
+		users: Static<typeof ClusterioUserExport.jsonSchema.properties.users>,
+	) {
+		this.users = users;
+	}
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		const obj = new this(json.users);
@@ -287,12 +343,19 @@ export class UserBulkImportRequest {
 		ClusterioUserExport.jsonSchema,
 	]));
 
+	importType: "users" | "bans" | "admins" | "whitelist";
+	users: Static<typeof ClusterioUserExport.clusterioUserSchema>[] | Static<typeof ClusterioUserExport.factorioUserSchema>[];
+	restore?: boolean;
+
 	constructor(
-		public importType: "users" | "bans" | "admins" | "whitelist",
-		public users: Static<typeof ClusterioUserExport.clusterioUserSchema>[]
-			| Static<typeof ClusterioUserExport.factorioUserSchema>[],
-		public restore?: boolean
-	) { }
+		importType: "users" | "bans" | "admins" | "whitelist",
+		users: Static<typeof ClusterioUserExport.clusterioUserSchema>[] | Static<typeof ClusterioUserExport.factorioUserSchema>[],
+		restore?: boolean,
+	) {
+		this.importType = importType;
+		this.users = users;
+		this.restore = restore;
+	}
 
 	static jsonSchema = Type.Union([
 		Type.Object({
@@ -323,9 +386,13 @@ export class UserBulkExportRequest {
 		ClusterioUserExport.jsonSchema,
 	]));
 
+	exportType: "users" | "bans" | "admins" | "whitelist";
+
 	constructor(
-		public exportType: "users" | "bans" | "admins" | "whitelist",
-	) { }
+		exportType: "users" | "bans" | "admins" | "whitelist",
+	) {
+		this.exportType = exportType;
+	}
 
 	static jsonSchema = Type.Object({
 		"exportType": StringEnum(["users", "bans", "admins", "whitelist"]),

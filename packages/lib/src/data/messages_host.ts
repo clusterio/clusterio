@@ -44,9 +44,13 @@ export class HostConfigSetRequest {
 	static dst = "host" as const;
 	static permission = "core.host.update_config" as const;
 
+	fields: Record<string, string | Record<string, unknown>>;
+
 	constructor(
-		public fields: Record<string, string | Record<string, unknown>>,
-	) { }
+		fields: Record<string, string | Record<string, unknown>>,
+	) {
+		this.fields = fields;
+	}
 
 	static jsonSchema = Type.Object({
 		"fields": Type.Record(Type.String(), Type.Union([
@@ -66,10 +70,16 @@ export class HostConfigSetFieldRequest {
 	static dst = "host" as const;
 	static permission = "core.host.update_config" as const;
 
+	field: string;
+	value: string;
+
 	constructor(
-		public field: string,
-		public value: string,
-	) { }
+		field: string,
+		value: string,
+	) {
+		this.field = field;
+		this.value = value;
+	}
 
 	static jsonSchema = Type.Object({
 		"field": Type.String(),
@@ -88,11 +98,19 @@ export class HostConfigSetPropRequest {
 	static dst = "host" as const;
 	static permission = "core.host.update_config" as const;
 
+	field: string;
+	prop: string;
+	value?: unknown;
+
 	constructor(
-		public field: string,
-		public prop: string,
-		public value?: unknown,
-	) { }
+		field: string,
+		prop: string,
+		value?: unknown,
+	) {
+		this.field = field;
+		this.prop = prop;
+		this.value = value;
+	}
 
 	static jsonSchema = Type.Object({
 		"field": Type.String(),
@@ -115,10 +133,16 @@ export class HostListRequest {
 }
 
 export class HostInfoUpdate {
+	name: string;
+	publicAddress: string;
+
 	constructor(
-		public name: string,
-		public publicAddress: string,
-	) { }
+		name: string,
+		publicAddress: string,
+	) {
+		this.name = name;
+		this.publicAddress = publicAddress;
+	}
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
@@ -139,9 +163,13 @@ export class HostInfoUpdateEvent {
 	static src = "host" as const;
 	static dst = "controller" as const;
 
+	update: HostInfoUpdate;
+
 	constructor(
-		public update: HostInfoUpdate,
-	) { }
+		update: HostInfoUpdate,
+	) {
+		this.update = update;
+	}
 
 	static jsonSchema = Type.Object({
 		"update": HostInfoUpdate.jsonSchema,
@@ -159,9 +187,13 @@ export class HostUpdatesEvent {
 	static dst = "control" as const;
 	static permission = "core.host.subscribe" as const;
 
+	updates: HostDetails[];
+
 	constructor(
-		public updates: HostDetails[],
-	) { }
+		updates: HostDetails[],
+	) {
+		this.updates = updates;
+	}
 
 	static jsonSchema = Type.Object({
 		"updates": Type.Array(HostDetails.jsonSchema),
@@ -178,9 +210,13 @@ export class HostMetricsRequest {
 	static src = "controller" as const;
 	static dst = "host" as const;
 	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
+		results: CollectorResultSerialized[];
+
 		constructor(
-			public results: CollectorResultSerialized[],
-		) { }
+			results: CollectorResultSerialized[],
+		) {
+			this.results = results;
+		}
 
 		static jsonSchema = Type.Object({
 			"results": Type.Array(CollectorResultSerialized),
@@ -198,9 +234,13 @@ export class ControllerConnectionEvent {
 	static src = "host" as const;
 	static dst = "instance" as const;
 
+	event: "connect" | "drop" | "resume" | "close";
+
 	constructor(
-		public event: "connect" | "drop" | "resume" | "close",
-	) { }
+		event: "connect" | "drop" | "resume" | "close",
+	) {
+		this.event = event;
+	}
 
 	static jsonSchema = Type.Object({
 		"event": StringEnum(["connect", "drop", "resume", "close"]),
@@ -224,11 +264,19 @@ export class SyncUserListsEvent {
 	static src = "controller" as const;
 	static dst = "host" as const;
 
+	adminlist: Set<string>;
+	banlist: Map<string, string>;
+	whitelist: Set<string>;
+
 	constructor(
-		public adminlist: Set<string>,
-		public banlist: Map<string, string>,
-		public whitelist: Set<string>,
-	) { }
+		adminlist: Set<string>,
+		banlist: Map<string, string>,
+		whitelist: Set<string>,
+	) {
+		this.adminlist = adminlist;
+		this.banlist = banlist;
+		this.whitelist = whitelist;
+	}
 
 	static jsonSchema = Type.Object({
 		"adminlist": Type.Array(Type.String()),
@@ -258,9 +306,13 @@ export class HostRevokeTokensRequest {
 	static dst = "controller" as const;
 	static permission = "core.host.revoke_token" as const;
 
+	hostId: number;
+
 	constructor(
-		public hostId: number,
-	) { }
+		hostId: number,
+	) {
+		this.hostId = hostId;
+	}
 
 	static jsonSchema = Type.Object({
 		"hostId": Type.Number(),
