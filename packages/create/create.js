@@ -234,7 +234,7 @@ async function migrateRename(args) {
 		if (await pathExists(source) && !await pathExists(destination)) {
 			await safeOutputFile(destination, JSON.stringify(
 				renameConfig(JSON.parse(await fs.readFile(source))), null, "\t"
-			));
+			), { mode: 0o600 });
 			logger.info(`Migrated ${source} to ${destination}`);
 		}
 	}

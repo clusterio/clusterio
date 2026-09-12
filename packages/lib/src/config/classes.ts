@@ -468,7 +468,7 @@ export class Config<
 		if (!this.filepath) {
 			throw new Error("Cannot save config which has no filepath");
 		}
-		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"));
+		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
 		this.dirty = false;
 	}
 

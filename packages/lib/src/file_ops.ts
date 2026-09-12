@@ -168,6 +168,10 @@ export async function safeOutputFile(
 			throw err;
 		}
 	}
+	if (options?.mode !== undefined) {
+		// writeFile only applies mode when creating, a leftover temporary keeps its old mode.
+		await fs.chmod(temporary, options.mode);
+	}
 	await fs.rename(temporary, file);
 }
 
