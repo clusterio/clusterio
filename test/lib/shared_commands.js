@@ -1,10 +1,9 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const { slowTest } = require("../integration");
+import * as lib from "@clusterio/lib";
+import { slowTest } from "../integration/index.js";
 
 
 describe("lib/shared_commands", function() {
