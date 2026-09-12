@@ -274,3 +274,28 @@ Remote updates are enabled by default but can be disabled on a per-machine basis
     controller> config set controller.allow_plugin_install true/false
 
 Remote installs are disabled by default but can be enabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the above commands locally while the remote is offline.
+
+
+## Prometheus Metrics
+
+The controller exports metrics for the whole cluster on the `/metrics` endpoint.
+Fetching it requires a token for a user with the `core.controller.metrics` permission, sent either as an `Authorization: Bearer <token>` header or as an `X-Access-Token` header.
+Requests without a valid token get a 401 response and requests for users lacking the permission get a 403 response.
+
+Create a role with just this permission, a user to hold it, and generate a token for that user:
+
+    ctl> role create Prometheus --permissions core.controller.metrics
+    ctl> user create prometheus
+    ctl> user set-roles prometheus Prometheus
+    $ npx clusteriocontroller bootstrap generate-user-token prometheus
+
+Then pass the token in the scrape job for the controller in `prometheus.yml`:
+
+    scrape_configs:
+      - job_name: clusterio
+        authorization:
+          credentials: <token>
+        static_configs:
+          - targets: ["localhost:8080"]
+
+Concurrent scrapes share a single round of metrics gathering from the hosts, so multiple scrapers polling the controller do not multiply the load on the hosts.

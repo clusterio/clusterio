@@ -3,7 +3,7 @@ import events from "node:events";
 import FormData from "form-data";
 import http from "node:http";
 
-import { wait } from "@clusterio/lib";
+import { wait, expositionContentType } from "@clusterio/lib";
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
 
@@ -70,6 +70,74 @@ describe("controller/src/routes", function() {
 			assert.equal(responses[0].status, 200);
 			assert.equal(responses[1].status, 200);
 			assert.equal(await responses[1].text(), "test content");
+		});
+	});
+	describe("/metrics", function() {
+		let endpoint, testToken;
+		beforeEach(function() {
+			endpoint = `http://localhost:${port}/metrics`;
+			testToken = controller.users.signUserToken({ id: "test" });
+		});
+		it("should respond with 401 without a valid token", async function() {
+			let response;
+			response = await fetch(endpoint);
+			assert.equal(response.status, 401);
+			response = await fetch(endpoint, { headers: { "X-Access-Token": "invalid" } });
+			assert.equal(response.status, 401);
+			response = await fetch(endpoint, { headers: { "Authorization": "Bearer invalid" } });
+			assert.equal(response.status, 401);
+			response = await fetch(endpoint, { headers: { "Authorization": `Basic ${testToken}` } });
+			assert.equal(response.status, 401);
+			const user = controller.users.getOrCreateUser("test");
+			user.tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
+			user.saveRecord();
+			response = await fetch(endpoint, { headers: { "Authorization": `Bearer ${testToken}` } });
+			assert.equal(response.status, 401);
+		});
+		it("should respond with 403 when user has insufficient permission", async function() {
+			const user = controller.users.getOrCreateUser("player");
+			let response = await fetch(endpoint, {
+				headers: { "Authorization": `Bearer ${controller.users.signUserToken(user)}` },
+			});
+			assert.equal(response.status, 403);
+		});
+		it("should respond with metrics to an authorized user", async function() {
+			for (const headers of [
+				{ "X-Access-Token": testToken },
+				{ "Authorization": `Bearer ${testToken}` },
+				{ "Authorization": `bearer ${testToken}` },
+			]) {
+				let response = await fetch(endpoint, { headers });
+				assert.equal(response.status, 200);
+				const contentType = response.headers.get("content-type");
+				for (const part of expositionContentType.split("; ")) {
+					assert(contentType.includes(part), `expected ${part} in content type ${contentType}`);
+				}
+				assert(/^# HELP /m.test(await response.text()), "expected exposition text");
+			}
+		});
+		it("should share one gather between concurrent requests", async function() {
+			let calls = 0;
+			controller.plugins.set("test", {
+				logger: { error() {} },
+				async onMetrics() {
+					calls += 1;
+					await wait(100);
+				},
+			});
+			const headers = { "X-Access-Token": testToken };
+			let responses = await Promise.all([
+				fetch(endpoint, { headers }),
+				fetch(endpoint, { headers }),
+				fetch(endpoint, { headers }),
+			]);
+			for (const response of responses) {
+				assert.equal(response.status, 200);
+			}
+			assert.equal(calls, 1);
+			let response = await fetch(endpoint, { headers });
+			assert.equal(response.status, 200);
+			assert.equal(calls, 2);
 		});
 	});
 	describe("stripStaticPrefix()", function() {

@@ -24,7 +24,8 @@ declare global {
 			mainBundle: string,
 			staticRoot: string | null,
 			devPlugins: Map<string, number>,
-			streams: Map<string, ProxyStream>
+			streams: Map<string, ProxyStream>,
+			pendingMetrics?: Promise<string>,
 		}
 	}
 }
@@ -44,10 +45,8 @@ function mergeSamples(destinationResult: lib.CollectorResultSerialized, sourceRe
 	}
 }
 
-// Prometheus polling endpoint
-async function getMetrics(req: Request, res: Response, next: any) {
-	const controller: Controller = req.app.locals.controller;
-
+// Collect metrics from the controller, its plugins and all connected hosts
+async function gatherMetrics(controller: Controller) {
 	let results: lib.CollectorResult[] = [];
 	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
@@ -99,7 +98,27 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		results.push(lib.deserializeResult(result));
 	}
 
-	let text = await lib.exposition(results);
+	return await lib.exposition(results);
+}
+
+// Prometheus polling endpoint
+async function getMetrics(req: Request, res: Response) {
+	try {
+		res.locals.user.checkPermission("core.controller.metrics");
+	} catch (err: any) {
+		res.status(403).json({ request_errors: [err.message] });
+		return;
+	}
+
+	// Concurrent scrapes share one gather so hosts see at most one
+	// metrics request at a time regardless of how many clients poll.
+	const locals = req.app.locals;
+	if (!locals.pendingMetrics) {
+		locals.pendingMetrics = gatherMetrics(locals.controller).finally(() => {
+			locals.pendingMetrics = undefined;
+		});
+	}
+	const text = await locals.pendingMetrics;
 	res.set("Content-Type", lib.expositionContentType);
 	res.send(text);
 }
@@ -152,8 +171,21 @@ function getClusterName(req: Request, res: Response) {
 	res.json({ name: clusterName });
 }
 
+// Reads the access token from X-Access-Token or Authorization: Bearer
+function getAccessToken(req: Request) {
+	const token = req.header("x-access-token");
+	if (token) {
+		return token;
+	}
+	const authorization = req.header("authorization");
+	if (authorization && /^Bearer /i.test(authorization)) {
+		return authorization.slice("Bearer ".length).trim();
+	}
+	return undefined;
+}
+
 function validateHostToken(req: Request, res: Response, next: any) {
-	let token = req.header("x-access-token");
+	let token = getAccessToken(req);
 	if (!token) {
 		res.sendStatus(401);
 		return;
@@ -180,7 +212,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 }
 
 function validateUserToken(req: Request, res: Response, next: any) {
-	let token = req.header("x-access-token");
+	let token = getAccessToken(req);
 	if (!token) {
 		res.sendStatus(401);
 		return;
@@ -653,7 +685,10 @@ async function uploadMod(req: Request, res: Response) {
 
 
 export function addRouteHandlers(app: Application) {
-	app.get("/metrics", (req:Request, res:Response, next:any) => getMetrics(req, res, next).catch(next));
+	app.get("/metrics",
+		validateUserToken,
+		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)
+	);
 	app.get("/api/plugins", getPlugins);
 	app.get("/api/cluster-name", getClusterName);
 	app.put("/api/upload-export",
