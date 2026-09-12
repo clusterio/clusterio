@@ -4,6 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
+const { slowTest } = require("../integration");
 
 
 describe("lib/shared_commands", function() {
@@ -71,7 +72,7 @@ describe("lib/shared_commands", function() {
 		});
 
 		it("should install and add an npm plugin", async function() {
-			this.timeout(60000);
+			slowTest(this);
 			await fs.writeFile("package.json", JSON.stringify({ name: "clusterio-install", private: true }));
 			await run("install", testPluginPath);
 			assert.equal(process.exitCode, undefined);
@@ -82,7 +83,7 @@ describe("lib/shared_commands", function() {
 		});
 
 		it("should report plugins that are already installed", async function() {
-			this.timeout(60000);
+			slowTest(this);
 			await fs.writeFile("package.json", JSON.stringify({ name: "clusterio-install", private: true }));
 			await run("install", testPluginPath);
 			assert.deepEqual([...pluginList], [["test_plugin", "test_plugin"]]);
@@ -94,7 +95,7 @@ describe("lib/shared_commands", function() {
 		});
 
 		it("should fail when the package is not a plugin", async function() {
-			this.timeout(60000);
+			slowTest(this);
 			await fs.writeFile("package.json", JSON.stringify({ name: "clusterio-install", private: true }));
 			const notAPlugin = path.resolve("not-a-plugin");
 			await fs.mkdir(notAPlugin);
@@ -105,7 +106,7 @@ describe("lib/shared_commands", function() {
 		});
 
 		it("should fail when npm install fails", async function() {
-			this.timeout(60000);
+			slowTest(this);
 			await fs.writeFile("package.json", JSON.stringify({ name: "clusterio-install", private: true }));
 			await run("install", path.resolve("does-not-exist"));
 			assert.equal(process.exitCode, 1);

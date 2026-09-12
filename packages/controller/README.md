@@ -44,9 +44,9 @@ Add plugin either by require path or relative/absolute path to the plugin direct
 A relative path must start with ./ or ../ (or .\ and ..\ on Windows) otherwise it will be assumed to be a require path for an installed package in node_modules.
 This is mainly useful for plugins under development, packages published on npm are better installed with `plugin install`.
 
-For example, adding a plugin checked out next to the Clusterio installation:
+For example, adding a plugin checked out in the external_plugins directory:
 
-    npx clusteriocontroller plugin add ../my_plugin
+    npx clusteriocontroller plugin add ./external_plugins/my_plugin
 
 
 #### `plugin remove <name>`

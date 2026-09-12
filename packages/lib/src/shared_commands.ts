@@ -74,8 +74,10 @@ async function packageNameFromSpec(packageSpec: string) {
 		if (typeof packageJson.name === "string") {
 			return packageJson.name;
 		}
-	} catch {
-		// Not a local directory, treat it as name@version
+	} catch (err: any) {
+		if (!["ENOENT", "ENOTDIR"].includes(err.code)) {
+			throw err;
+		}
 	}
 	return packageSpec.replace(/(?!^)@.*$/, "");
 }
