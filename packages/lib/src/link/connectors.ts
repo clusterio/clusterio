@@ -713,12 +713,14 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			this.emit("connect", data);
 
 		} else if (type === "continue") {
-			logger.info("Connector | resuming existing session");
 			this._state = "connected";
 			this._heartbeatInterval = data.heartbeatInterval;
 			this._sessionTimeout = data.sessionTimeout;
 			this.startHeartbeat();
 			this._dropSendBufferSeq(data.lastSeq);
+			logger.info(
+				`Connector | resuming existing session, resending ${this._sendBuffer.length} buffered messages`
+			);
 			for (let bufferedMessage of this._sendBuffer) {
 				this._sendInternal(bufferedMessage);
 			}
