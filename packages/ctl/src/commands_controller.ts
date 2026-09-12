@@ -5,9 +5,9 @@ import os from "os";
 import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
-import type { Control } from "../ctl";
-import { print } from "./command_ops";
-import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops";
+import type { Control } from "../ctl.js";
+import { print } from "./command_ops.js";
+import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 

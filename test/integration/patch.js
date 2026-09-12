@@ -1,17 +1,16 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const JSZip = require("jszip");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import JSZip from "jszip";
+import path from "node:path";
 
-const { patch, SaveModule } = require("@clusterio/host/dist/node/src/patch");
-const lib = require("@clusterio/lib");
+import { patch, SaveModule } from "@clusterio/host/dist/node/src/patch.js";
+import * as lib from "@clusterio/lib";
 
-const { slowTest } = require("./index");
+import { slowTest } from "./index.js";
 
 
 // The server integration test is required to run before this one
-require("./server");
+import "./server.js";
 
 describe("Integration of lib/factorio/patch", function() {
 	describe("patch()", function() {

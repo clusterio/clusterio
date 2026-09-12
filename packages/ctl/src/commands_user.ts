@@ -3,8 +3,8 @@ import asTableModule from "as-table";
 import path from "path";
 
 import * as lib from "@clusterio/lib";
-import type { Control } from "../ctl";
-import { print } from "./command_ops";
+import type { Control } from "../ctl.js";
+import { print } from "./command_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 

@@ -3,4 +3,4 @@
  * @module lib/factorio
  * @author Hornwitser
  */
-export * from "./exchange_string";
+export * from "./exchange_string.js";

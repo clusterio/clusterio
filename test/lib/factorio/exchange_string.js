@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const zlib = require("zlib");
+import assert from "node:assert/strict";
+import zlib from "node:zlib";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
-const testStrings = require("./test_strings");
-const testSettings = require("./test_settings");
+import * as testStrings from "./test_strings.js";
+import * as testSettings from "./test_settings.js";
 
 
 // Simple linear congruential random number generator

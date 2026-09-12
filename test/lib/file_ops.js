@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const http = require("node:http");
-const path = require("path");
-const util = require("node:util");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import http from "node:http";
+import path from "node:path";
+import util from "node:util";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 describe("lib/file_ops", function() {
 	let baseDir = path.join("temp", "test", "file_ops");
@@ -100,6 +99,16 @@ describe("lib/file_ops", function() {
 			await lib.safeOutputFile(target, "current", "utf8");
 			await assert.rejects(fs.access(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "current");
+		});
+		it("should apply mode to a leftover temporary file", async function() {
+			if (process.platform === "win32") {
+				this.skip();
+			}
+			let target = path.join(baseDir, "safe", "mode.txt");
+			await fs.writeFile(target.replace(".txt", ".tmp.txt"), "stale", { mode: 0o644 });
+			await lib.safeOutputFile(target, "private", { mode: 0o600 });
+			assert.equal((await fs.stat(target)).mode & 0o777, 0o600);
+			assert.equal(await fs.readFile(target, "utf8"), "private");
 		});
 		it("should handle creating file in current working directory", async function() {
 			let target = "temporary-file-made-to-test-cwd.txt";

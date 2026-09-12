@@ -1,27 +1,26 @@
 /* eslint-disable no-console */
-"use strict";
-const path = require("path");
-const fs = require("node:fs/promises");
-const { readFileSync } = require("node:fs");
-const child_process = require("child_process");
-const jwt = require("jsonwebtoken");
-const util = require("util");
-const events = require("events");
+import path from "node:path";
+import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import child_process from "node:child_process";
+import jwt from "jsonwebtoken";
+import util from "node:util";
+import events from "node:events";
 
-const lib = require("@clusterio/lib");
-const { LineSplitter, ConsoleTransport, logger } = lib;
+import * as lib from "@clusterio/lib";
+import { LineSplitter, ConsoleTransport, logger } from "@clusterio/lib";
 
-const { selectTargetCommand, initialize: initializeCtl } = require("@clusterio/ctl");
-const { _listFactorioVersions } = require("@clusterio/host/dist/node/src/server");
+import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
+import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
 
 // Make sure permissions from plugins are loaded
-require("../../plugins/global_chat/dist/node/index");
-require("../../plugins/player_auth/dist/node/index");
-require("../../plugins/research_sync/dist/node/index");
-require("../../plugins/statistics_exporter/dist/node/index");
-require("../../plugins/subspace_storage/dist/node/index");
+import "../../plugins/global_chat/dist/node/index.js";
+import "../../plugins/player_auth/dist/node/index.js";
+import "../../plugins/research_sync/dist/node/index.js";
+import "../../plugins/statistics_exporter/dist/node/index.js";
+import "../../plugins/subspace_storage/dist/node/index.js";
 
-class TestControl extends lib.Link {
+export class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
 		super(connector);
 		this.hostUpdates = [];
@@ -93,7 +92,7 @@ class TestControl extends lib.Link {
 	}
 }
 
-class TestControlConnector extends lib.WebSocketClientConnector {
+export class TestControlConnector extends lib.WebSocketClientConnector {
 	register() {
 		this.sendHandshake(
 			new lib.MessageRegisterControl(
@@ -105,7 +104,7 @@ class TestControlConnector extends lib.WebSocketClientConnector {
 	}
 }
 
-class TestHostConnector extends lib.WebSocketClientConnector {
+export class TestHostConnector extends lib.WebSocketClientConnector {
 	register() {
 		this.sendHandshake(
 			new lib.MessageRegisterHost(
@@ -119,7 +118,7 @@ class TestHostConnector extends lib.WebSocketClientConnector {
 }
 
 // Mark that this test takes a lot of time, or depends on a test that takes a lot of time.
-function slowTest(test) {
+export function slowTest(test) {
 
 	if (process.env.FAST_TEST) {
 		test.skip();
@@ -129,7 +128,7 @@ function slowTest(test) {
 }
 
 // Mark that this test depends on an external API and may be slow or flaky.
-function externalTest(test) {
+export function externalTest(test) {
 	if (process.env.NO_EXTERNAL_TEST) {
 		test.skip();
 	}
@@ -138,7 +137,7 @@ function externalTest(test) {
 }
 
 // Mark that this test or suite of tests requires a factorio install to run.
-function requiresFactorio(testOrSuite) {
+export function requiresFactorio(testOrSuite) {
 	if (testOrSuite.skip) {
 		if (!haveFactorioInstall) {
 			testOrSuite.skip();
@@ -152,11 +151,11 @@ function requiresFactorio(testOrSuite) {
 	}
 }
 
-function hasFactorio() {
+export function hasFactorio() {
 	return haveFactorioInstall;
 }
 
-async function get(urlPath) {
+export async function get(urlPath) {
 	const url = new URL("https://localhost:4443");
 	url.pathname = urlPath;
 	let res = await fetch(url);
@@ -191,16 +190,16 @@ let haveFactorioInstall;
 
 const baseHostConfig = loadJSON("config-host.json");
 
-let url = "https://localhost:4443/";
-let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
-let instancesDir = path.join("temp", "test", "instances");
-let modsDir = path.join("temp", "test", "mods");
-let databaseDir = path.join("temp", "test", "database");
-let factorioDir = getFactorioDir(baseHostConfig);
+export let url = "https://localhost:4443/";
+export let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
+export let instancesDir = path.join("temp", "test", "instances");
+export let modsDir = path.join("temp", "test", "mods");
+export let databaseDir = path.join("temp", "test", "database");
+export let factorioDir = getFactorioDir(baseHostConfig);
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
-let controllerConfigPath = path.join("temp", "test", "config-controller.json");
-let hostConfigPath = path.join("temp", "test", "config-host.json");
-let controlConfigPath = path.join("temp", "test", "config-control.json");
+export let controllerConfigPath = path.join("temp", "test", "config-controller.json");
+export let hostConfigPath = path.join("temp", "test", "config-host.json");
+export let controlConfigPath = path.join("temp", "test", "config-control.json");
 
 function childOptions(options) {
 	return {
@@ -210,29 +209,29 @@ function childOptions(options) {
 	};
 }
 
-function exec(command, options = {}) {
+export function exec(command, options = {}) {
 	// Uncomment to show commands run in tests
 	// console.log(command);
 	return util.promisify(child_process.exec)(command, childOptions(options));
 }
 
-function execController(...args) {
+export function execController(...args) {
 	args[0] = `node --enable-source-maps ../../packages/controller ${args[0]}`;
 	return exec(...args);
 }
 
-function execHost(...args) {
+export function execHost(...args) {
 	args[0] = `node --enable-source-maps ../../packages/host ${args[0]}`;
 	return exec(...args);
 }
 
-function execCtlProcess(...args) {
+export function execCtlProcess(...args) {
 	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
 	return exec(...args);
 }
 
 let inExecCtl = false;
-async function execCtl(command) {
+export async function execCtl(command) {
 	inExecCtl = true;
 	process.chdir("temp/test");
 	try {
@@ -257,16 +256,16 @@ afterEach(function() {
 	}
 });
 
-async function sendRcon(instanceId, command) {
+export async function sendRcon(instanceId, command) {
 	return await control.sendTo({ instanceId }, new lib.InstanceSendRconRequest(command));
 }
 
-function getControl() {
+export function getControl() {
 	return control;
 }
 
 /** @returns {Promise<child_process.ChildProcess>} */
-function spawn(name, cmd, waitFor, options = {}) {
+export function spawn(name, cmd, waitFor, options = {}) {
 
 	const silent = process.env.SILENT_TEST;
 	const bootstrap = !controllerProcess || !hostProcess;
@@ -303,7 +302,7 @@ function spawn(name, cmd, waitFor, options = {}) {
 	});
 }
 
-function spawnNode(name, cmd, waitFor, options) {
+export function spawnNode(name, cmd, waitFor, options) {
 	return spawn(name, `node --enable-source-maps ${cmd}`, waitFor, options);
 }
 
@@ -437,34 +436,3 @@ process.on("exit", () => {
 	if (hostProcess) { hostProcess.kill(); }
 	if (controllerProcess) { controllerProcess.kill(); }
 });
-
-
-module.exports = {
-	TestControl,
-	TestControlConnector,
-	TestHostConnector,
-	execController,
-	execCtlProcess,
-	slowTest,
-	externalTest,
-	requiresFactorio,
-	get,
-	exec,
-	execCtl,
-	execHost,
-	sendRcon,
-	getControl,
-	spawn,
-	spawnNode,
-
-	url,
-	controlToken,
-	instancesDir,
-	modsDir,
-	databaseDir,
-	factorioDir,
-	hasFactorio,
-	controllerConfigPath,
-	hostConfigPath,
-	controlConfigPath,
-};

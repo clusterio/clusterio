@@ -1,9 +1,8 @@
-"use strict";
-const { JsonBoolean, JsonString } = require("@clusterio/lib");
+import { JsonBoolean, JsonString } from "@clusterio/lib";
 
 // Sent from ctl to the controller, which answers with the text it was given
 // and broadcasts a HostEcho to the hosts.
-class ControllerEcho {
+export class ControllerEcho {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
@@ -21,7 +20,7 @@ class ControllerEcho {
 }
 
 // Broadcast from the controller to the hosts by broadcastEventToHosts.
-class HostEcho {
+export class HostEcho {
 	static type = "event";
 	static src = "controller";
 	static dst = "host";
@@ -39,7 +38,7 @@ class HostEcho {
 
 // Sent from ctl to a host, which answers with whether it received the given
 // text via a HostEcho.
-class HostEchoReceived {
+export class HostEchoReceived {
 	static type = "request";
 	static src = "control";
 	static dst = "host";
@@ -55,9 +54,3 @@ class HostEchoReceived {
 	toJSON() { return this.text; }
 	static fromJSON(json) { return new this(json); }
 }
-
-module.exports = {
-	ControllerEcho,
-	HostEcho,
-	HostEchoReceived,
-};

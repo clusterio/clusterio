@@ -1,9 +1,8 @@
-"use strict";
-const { logger } = require("./logging");
-const fs = require("node:fs/promises");
-const path = require("path");
+import { logger } from "./logging.js";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const _package = require("./package.json");
+import _package from "./package.json" with { type: "json" };
 
 async function copyTemplateFile(src, dst, properties) {
 	logger.verbose(`Writing ${dst} from template ${src}`);
@@ -79,7 +78,7 @@ async function copyTemplateFile(src, dst, properties) {
 	}
 }
 
-async function copyPluginTemplates(pluginName, templates) {
+export async function copyPluginTemplates(pluginName, templates) {
 	logger.info(`Please wait, coping templates for ${templates.join(", ")}`);
 	const files = new Map();
 	const prepare = [];
@@ -96,8 +95,11 @@ async function copyPluginTemplates(pluginName, templates) {
 
 	// Get the file extension and path to the templates
 	const ext = javascriptOnly ? "js" : "ts";
-	const templatePath = path.resolve(__dirname, javascriptOnly ? "./templates/plugin-js" : "./templates/plugin-ts");
-	const commonPath = path.resolve(__dirname, "./templates/common");
+	const templatePath = path.resolve(
+		import.meta.dirname,
+		javascriptOnly ? "./templates/plugin-js" : "./templates/plugin-ts"
+	);
+	const commonPath = path.resolve(import.meta.dirname, "./templates/common");
 
 	// Files included in all templates
 	files.set(".gitignore", path.join(commonPath, "template.gitignore"));
@@ -119,7 +121,7 @@ async function copyPluginTemplates(pluginName, templates) {
 	// Files and dependences to support webpack
 	if (webpack) {
 		prepare.push("webpack-cli --mode production");
-		files.set("webpack.config.js", path.join(commonPath, "webpack.config.js"));
+		files.set("webpack.config.cjs", path.join(commonPath, "webpack.config.cjs"));
 		if (templates.includes("web")) {
 			files.set(`web/index.${ext}x`, path.join(templatePath, `web/plugin.${ext}x`));
 			pluginContexts += 1;
@@ -202,7 +204,3 @@ async function copyPluginTemplates(pluginName, templates) {
 	await Promise.all(writes);
 	logger.info("Successfully wrote all template files");
 }
-
-module.exports = {
-	copyPluginTemplates,
-};

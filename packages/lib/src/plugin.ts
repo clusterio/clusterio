@@ -2,11 +2,11 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-import * as libHelpers from "./helpers";
-import type { Logger } from "./logging";
-import type { FieldDefinition } from "./config";
-import type { PlayerStats } from "./data";
-
+import * as libHelpers from "./helpers.js";
+import type { Logger } from "./logging.js";
+import type { FieldDefinition } from "./config/index.js";
+import type { PermissionDefinition } from "./permissions.js";
+import type { PlayerStats } from "./data/index.js";
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */
@@ -37,7 +37,25 @@ export type PluginDeclaration = {
 	features?: (typeof PluginFeatureFlags)[number][];
 
 	messages?: any[];
+	permissions?: PermissionDefinition[];
 	routes?: string[];
+}
+
+/**
+ * Check if a plugin is expected to ship a web build.
+ *
+ * Mirrors the rule used by the create tool: a web build is generated when the
+ * plugin has a web or controller entrypoint or defines config fields.
+ */
+export function pluginNeedsWebBuild(info: PluginDeclaration) {
+	return Boolean(
+		info.webEntrypoint
+		|| info.controllerEntrypoint
+		|| info.controllerConfigFields
+		|| info.hostConfigFields
+		|| info.instanceConfigFields
+		|| info.controlConfigFields
+	);
 }
 
 export type PluginNodeEnvInfo = PluginDeclaration & {
@@ -46,6 +64,10 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	 * server in order for the web interface to be able to load the plugin.
 	 */
 	webStaticPath: string;
+	/**
+	 * Absolute path to the package.json file for the plugin.
+	 */
+	packagePath: string;
 	requirePath: string;
 	version: string;
 	manifest: any;

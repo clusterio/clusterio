@@ -1,4 +1,4 @@
-import { InstallationError } from "./errors";
+import { InstallationError } from "./errors.js";
 declare global {
 	// eslint-disable-next-line vars-on-top
 	var _clusterioLibImportedFrom: string;

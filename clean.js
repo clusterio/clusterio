@@ -6,12 +6,11 @@
  * clean-all: Removes all build, test, and execution artifacts. Including cluster config and logs!
  */
 
-"use strict";
-const path = require("path");
-const fs = require("node:fs/promises");
-const yargs = require("yargs");
+import path from "node:path";
+import fs from "node:fs/promises";
+import yargs from "yargs";
 
-const npmPackage = require("./package.json");
+import npmPackage from "./package.json" with { type: "json" };
 const workspaces = npmPackage.workspaces
 	.map(p => p.slice(0, -2))
 	.filter(p => !p.includes("external_plugins"));
@@ -116,6 +115,6 @@ async function main() {
 }
 
 // Run main if started from command line
-if (module === require.main) {
+if (import.meta.main) {
 	main();
 }

@@ -1,5 +1,5 @@
 import type React from "react";
-import type { AccountRole, FieldDefinition, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { AccountRole, FieldDefinition, Logger, PermissionName, PluginWebpackEnvInfo } from "@clusterio/lib";
 import type { Control } from "./util/websocket";
 
 /**
@@ -37,11 +37,11 @@ export type UserAccount = {
 	/** Roles of the corrently logged in account. */
 	roles: AccountRole[];
 	/** Check if the currently logged in account has the given permission. */
-	hasPermission: (permission: string) => boolean | null;
+	hasPermission: (permission: PermissionName) => boolean | null;
 	/** Check if the currently logged in account has any of the given permissions. */
-	hasAnyPermission: (...permissions: string[]) => boolean | null;
+	hasAnyPermission: (...permissions: PermissionName[]) => boolean | null;
 	/** Check if the currently logged in account has all of given permissions. */
-	hasAllPermission: (...permissions: string[]) => boolean | null;
+	hasAllPermission: (...permissions: PermissionName[]) => boolean | null;
 	/** Logs out of the web interface. */
 	logOut: () => void;
 };
@@ -75,7 +75,7 @@ export interface PluginPage {
 	/**
 	 * Permission to access page. function are expected to throw an error if access is deny.
 	 */
-	permission?: string | ((account: UserAccount) => (boolean|null));
+	permission?: PermissionName | ((account: UserAccount) => (boolean|null));
 };
 
 /**

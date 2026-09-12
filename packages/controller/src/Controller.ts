@@ -1,6 +1,6 @@
 import type winston from "winston";
 import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
-import type { ControllerArgs } from "../controller";
+import type { ControllerArgs } from "../controller.js";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
@@ -14,22 +14,23 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import semver from "semver";
 import stream from "stream";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import * as lib from "@clusterio/lib";
-const { logger, Summary, Gauge } = lib;
+import { logger, Summary, Gauge } from "@clusterio/lib";
 
-import HttpCloser from "./HttpCloser";
-import InstanceRecord from "./InstanceRecord";
-import * as metrics from "./metrics";
-import * as routes from "./routes";
-import User from "./User";
-import UserRecord from "./UserRecord";
-import UserManager from "./UserManager";
-import WsServer from "./WsServer";
-import HostRecord from "./HostRecord";
-import BaseControllerPlugin from "./BaseControllerPlugin";
-import ControllerRouter from "./ControllerRouter";
-import InstanceManager from "./InstanceManager";
+import HttpCloser from "./HttpCloser.js";
+import InstanceRecord from "./InstanceRecord.js";
+import * as metrics from "./metrics.js";
+import * as routes from "./routes.js";
+import User from "./User.js";
+import UserRecord from "./UserRecord.js";
+import UserManager from "./UserManager.js";
+import WsServer from "./WsServer.js";
+import HostRecord from "./HostRecord.js";
+import BaseControllerPlugin from "./BaseControllerPlugin.js";
+import ControllerRouter from "./ControllerRouter.js";
+import InstanceManager from "./InstanceManager.js";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -345,7 +346,7 @@ export default class Controller {
 
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
-			this._startDevServer(args);
+			await this._startDevServer(args);
 		}
 
 		this.config.on("fieldChanged", (field, curr, prev) => {
@@ -383,7 +384,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json");
+			let manifestPath = path.join(import.meta.dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -458,12 +459,13 @@ export default class Controller {
 	async _startDevServer(args: ControllerArgs) {
 		logger.warn("Webpack development mode enabled");
 
-		const webpack = require("webpack");
-		const webpackDevMiddleware = require("webpack-dev-middleware");
+		const webpack = (await import("webpack")).default;
+		const webpackDevMiddleware = (await import("webpack-dev-middleware")).default;
 		const webpackConfigs = [];
 
 		if (args.dev) {
-			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
+			// @ts-expect-error this file is run from a different folder
+			webpackConfigs.push((await import("../../../webpack.config.cjs")).default({})); // Path outside of build
 		}
 		if (args.devPlugin) {
 			let devPlugins = new Map();
@@ -472,7 +474,10 @@ export default class Controller {
 				if (!info) {
 					throw new lib.StartupError(`No plugin named ${name}`);
 				}
-				let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
+				const webpackConfig = path.posix.join(info.requirePath, "webpack.config.cjs");
+				let config = (await import(
+					path.isAbsolute(webpackConfig) ? pathToFileURL(webpackConfig).href : webpackConfig
+				)).default({});
 				devPlugins.set(name, webpackConfigs.length);
 				webpackConfigs.push(config);
 			}
@@ -627,7 +632,9 @@ export default class Controller {
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("controller.version");
-			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJsonPath = fileURLToPath(
+				import.meta.resolve("@clusterio/controller/package.json"),
+			);
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
@@ -644,15 +651,14 @@ export default class Controller {
 				}
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
-				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-				const pluginPackageJson = JSON.parse(await fs.readFile(pluginPackageJsonPath, "utf8"));
+				const pluginPackageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;
 				}
 			}
 		} catch (err: any) {
-			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+			logger.warn(`Failed to read package.json for ${packageName}:\n${err.stack ?? err.message}`);
 		}
 
 		return false;
@@ -661,7 +667,7 @@ export default class Controller {
 	async checkRestartDowngrade() {
 		try {
 			const runningVersion = this.config.get("controller.version");
-			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJsonPath = fileURLToPath(import.meta.resolve("@clusterio/controller/package.json"));
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			const installedVersion = packageJson.version;
 
@@ -902,7 +908,7 @@ export default class Controller {
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
 		app.use("/static",
-			express.static(path.join(__dirname, "..", "..", "web", "static"), staticOptions)
+			express.static(path.join(import.meta.dirname, "..", "..", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
@@ -1125,9 +1131,11 @@ export default class Controller {
 		for (let pluginInfo of this.pluginInfos) {
 			try {
 				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
-				pluginInfo.manifest = await Controller.loadJsonObject(require.resolve(manifestPath), true);
+				pluginInfo.manifest = await Controller.loadJsonObject(import.meta.resolve(manifestPath), true);
 			} catch (err) {
-				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+				if (lib.pluginNeedsWebBuild(pluginInfo)) {
+					logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+				}
 			}
 
 			if (!this.config.get(`${pluginInfo.name}.load_plugin`)) {
@@ -1238,11 +1246,14 @@ export default class Controller {
 				mainBundle = res.app.locals.mainBundle;
 			} else {
 				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
-				mainBundle = stats.toJson().assetsByChunkName["main"];
+				mainBundle = stats.toJson().assetsByChunkName["main"][0];
 			}
 			mainBundle = routes.stripStaticPrefix(mainBundle);
 
-			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
+			fs.readFile(
+				path.join(import.meta.dirname, "..", "..", "..", "web", "index.html"),
+				"utf8",
+			).then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))

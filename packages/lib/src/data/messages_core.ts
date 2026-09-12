@@ -1,8 +1,8 @@
 // Note: Run compile_validator script after making changes to this file.
 import { TSchema, Type, Static } from "@sinclair/typebox";
 
-import messageValidate from "./message_validate"; // generated file
-import { StringEnum } from "./composites";
+import messageValidate from "./message_validate.js"; // generated file
+import { StringEnum } from "./composites.js";
 
 export type AddressType = "controller" | "host" | "instance" | "control" | "broadcast";
 export type AddressShorthand =

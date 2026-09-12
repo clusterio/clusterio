@@ -1,5 +1,5 @@
 import type { Application, Request, Response } from "express";
-import Controller from "./Controller";
+import Controller from "./Controller.js";
 
 import busboy from "busboy";
 import crypto from "crypto";
@@ -12,7 +12,7 @@ import nodeStream from "stream";
 import util from "util";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
 const finished = util.promisify(nodeStream.finished);
 
@@ -126,13 +126,13 @@ function getPlugins(req: Request, res: Response) {
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
 			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)!];
-			web.main = stats.toJson().assetsByChunkName[name];
+			web.main = stats.toJson().assetsByChunkName[name][0];
 		} else if (pluginInfo.manifest) {
 			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
 			if (!web.main) {
 				web.error = `Missing ${pluginInfo.name}.js entry in manifest.json`;
 			}
-		} else {
+		} else if (lib.pluginNeedsWebBuild(pluginInfo)) {
 			web.error = "Missing dist/web/manifest.json";
 		}
 		if (web.main === "remoteEntry.js") {

@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
+import assert from "node:assert/strict";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const { PlayerStats, wait } = lib;
-const Instance = require("@clusterio/host/dist/node/src/Instance").default;
-const { MockConnector, MockServer } = require("../mock");
+import * as lib from "@clusterio/lib";
+import { PlayerStats, wait } from "@clusterio/lib";
+import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { MockConnector, MockServer } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -36,6 +35,34 @@ describe("class Instance", function() {
 		});
 		it("should join path with arguments", function() {
 			assert.equal(instance.path("bar"), path.join("dir", "bar"));
+		});
+	});
+
+	describe(".checkModPackVersion()", function() {
+		function modPack(factorioVersion) {
+			return lib.ModPack.fromJSON({ name: "pack", factorio_version: factorioVersion });
+		}
+
+		it("should accept a mod pack for an older or equal Factorio version", function() {
+			instance.server.version = "1.1.91";
+			instance.checkModPackVersion(modPack("1.1"));
+			instance.checkModPackVersion(modPack("1.1.90"));
+			instance.checkModPackVersion(modPack("1.1.91"));
+		});
+
+		it("should reject a mod pack for a newer Factorio version", function() {
+			instance.server.version = "1.1.91";
+			assert.throws(
+				() => instance.checkModPackVersion(modPack("1.1.110")),
+				new lib.RequestError(
+					"Mod pack pack is for Factorio 1.1.110 which is newer than the Factorio 1.1.91 this instance runs"
+				)
+			);
+			assert.throws(() => instance.checkModPackVersion(modPack("2.0")), lib.RequestError);
+		});
+
+		it("should skip the check when the server version is unknown", function() {
+			instance.checkModPackVersion(modPack("2.0"));
 		});
 	});
 

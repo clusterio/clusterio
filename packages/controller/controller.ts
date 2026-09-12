@@ -27,12 +27,12 @@ import jwt from "jsonwebtoken";
 
 // homebrew modules
 import * as lib from "@clusterio/lib";
-const { ConsoleTransport, levels, logger } = lib;
+import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Controller from "./src/Controller";
-import UserManager from "./src/UserManager";
-import UserRecord from "./src/UserRecord";
-import { version } from "./package.json";
+import Controller from "./src/Controller.js";
+import UserManager from "./src/UserManager.js";
+import UserRecord from "./src/UserRecord.js";
+import packageConfig from "./package.json" with { type: "json" };
 
 // globals
 let controller: Controller;
@@ -206,7 +206,7 @@ async function handleBootstrapCommand(
 			console.log(content);
 		} else {
 			logger.info(`Writing ${args.output}`);
-			await lib.safeOutputFile(args.output, content);
+			await lib.safeOutputFile(args.output, content, { mode: 0o600 });
 		}
 	}
 }
@@ -216,7 +216,7 @@ async function handleCopyStaticCommand(
 	pluginInfos: lib.PluginNodeEnvInfo[],
 ) {
 	await fs.cp(
-		path.join(__dirname, "..", "web", "static"),
+		path.join(import.meta.dirname, "..", "web", "static"),
 		args.target,
 		{
 			recursive: true,
@@ -268,7 +268,7 @@ interface InitializeParameters {
 
 async function initialize(): Promise<InitializeParameters> {
 	// argument parsing
-	const args = await yargs
+	const args = await yargs(process.argv.slice(2))
 		.scriptName("controller")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
@@ -340,7 +340,7 @@ async function initialize(): Promise<InitializeParameters> {
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
-		.argv
+		.parse()
 	;
 
 	// Combined log stream of the whole cluster.
@@ -377,7 +377,7 @@ async function initialize(): Promise<InitializeParameters> {
 	let command = args._[0];
 	let shouldRun = false;
 	if (command === "run") {
-		logger.info(`Starting Clusterio controller ${version}`);
+		logger.info(`Starting Clusterio controller ${packageConfig.version}`);
 		if (args.recovery) {
 			logger.warn("Controller recovery mode enabled. Some features will be disabled.");
 		}
@@ -402,6 +402,7 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.info("Loading Plugin info");
 	const pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	const controllerConfigPath = args.config;
@@ -426,7 +427,7 @@ async function initialize(): Promise<InitializeParameters> {
 		}
 	}
 
-	controllerConfig.set("controller.version", version); // Allows tracking last loaded version
+	controllerConfig.set("controller.version", packageConfig.version); // Allows tracking last loaded version
 
 	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
@@ -537,6 +538,6 @@ ${err.stack}`
 	});
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

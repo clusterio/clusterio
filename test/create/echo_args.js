@@ -1,4 +1,3 @@
-"use strict";
-if (module === require.main) {
+if (import.meta.main) {
 	process.stdout.write(JSON.stringify(process.argv.slice(2)));
 }

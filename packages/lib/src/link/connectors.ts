@@ -2,12 +2,12 @@
 import { strict as assert } from "assert";
 import events from "events";
 
-import WebSocket from "./WebSocket";
-import * as libData from "../data";
-import * as libErrors from "../errors";
-import { logger } from "../logging";
-import ExponentialBackoff from "../ExponentialBackoff";
-import type { Request, Event } from "./link";
+import { WebSocket } from "#WebSocket";
+import * as libData from "../data/index.js";
+import * as libErrors from "../errors.js";
+import { logger } from "../logging.js";
+import ExponentialBackoff from "../ExponentialBackoff.js";
+import type { Request, Event } from "./link.js";
 
 /**
  * Numbered codes describing why a connection was closed
@@ -151,7 +151,7 @@ type WebSocketBaseConnectorEvents = {
 	"drop": [],
 };
 
-export type WebSocketClusterio = WebSocket.WebSocket & {
+export type WebSocketClusterio = WebSocket & {
 	clusterio_ignore_dump?: boolean;
 };
 
@@ -275,7 +275,9 @@ export abstract class WebSocketBaseConnector<
 			if (process.env.APP_ENV === "browser") {
 				this._socket!.close(ConnectionClosed.Timeout, "Heartbeat timeout");
 			} else {
-				this._socket!.terminate();
+				// This is only available in node, but the typechecking doesn't
+				// detect that this code is unreachable in the browser build.
+				(this._socket! as any).terminate();
 			}
 
 		} else {
@@ -635,7 +637,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			}
 		};
 
-		this._socket!.onerror = (event) => {
+		this._socket!.onerror = ((event: { error?: any, message?: string, }) => {
 			// It's assumed that close is always called by ws
 			let code = !event.error ? "" : `, code: ${event.error.code}`;
 			let message = `Connector | Socket error: ${event.message || "unknown error"}${code}`;
@@ -657,7 +659,8 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 					this._closing = true;
 				}
 			}
-		};
+		// The event paramater have conflicting types in the node and browser versions, ignore it.
+		}) as any;
 
 		this._socket!.onopen = () => {
 			logger.verbose("Connector | Open");
@@ -710,12 +713,14 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			this.emit("connect", data);
 
 		} else if (type === "continue") {
-			logger.info("Connector | resuming existing session");
 			this._state = "connected";
 			this._heartbeatInterval = data.heartbeatInterval;
 			this._sessionTimeout = data.sessionTimeout;
 			this.startHeartbeat();
 			this._dropSendBufferSeq(data.lastSeq);
+			logger.info(
+				`Connector | resuming existing session, resending ${this._sendBuffer.length} buffered messages`
+			);
 			for (let bufferedMessage of this._sendBuffer) {
 				this._sendInternal(bufferedMessage);
 			}

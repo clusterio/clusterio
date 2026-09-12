@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
-const { Controller, WsServer } = require("@clusterio/controller");
-const { ControllerConfig } = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import { Controller, WsServer } from "@clusterio/controller";
+import { ControllerConfig } from "@clusterio/lib";
 
 describe("controller/src/WsServer", function() {
 	describe("class WsServer", function() {

@@ -1,6 +1,5 @@
-"use strict";
-const assert = require("assert").strict;
-const { ControlConnection } = require("@clusterio/controller");
+import assert from "node:assert/strict";
+import { ControlConnection } from "@clusterio/controller";
 
 describe("controller/src/ControlConnection", function() {
 	describe(".handleControllerRestartRequest()", function() {

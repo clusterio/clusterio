@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 
 import { BaseWebPlugin, PageLayout, PageHeader, ControlContext } from "@clusterio/web_ui";
-import { DatabaseStatsRequest, DatabaseStatsResponse } from "../messages";
+import { DatabaseStatsRequest, DatabaseStatsResponse } from "../messages.js";
 
 import "./style.css";
 

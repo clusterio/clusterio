@@ -4,11 +4,10 @@ import util from "util";
 import jwt from "jsonwebtoken";
 
 import { Static } from "@sinclair/typebox";
-import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin } from "@clusterio/controller";
-const { basicType } = lib;
+import { basicType, RequestError } from "@clusterio/lib";
 
-import { FetchPlayerCodeRequest, PlayerAuthServer, SetVerifyCodeRequest } from "./messages";
+import { FetchPlayerCodeRequest, PlayerAuthServer, SetVerifyCodeRequest } from "./messages.js";
 
 
 async function generateCode(length: number): Promise<string> {
@@ -207,7 +206,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		let entry = this.players.get(player);
 		if (!entry || entry.expiresMs < Date.now()) {
-			throw new lib.RequestError("invalid player");
+			throw new RequestError("invalid player");
 		}
 
 		entry.verifyCode = verifyCode;

@@ -1,6 +1,5 @@
-"use strict";
-const mock = require("../mock");
-const controller = require("@clusterio/controller");
+import * as mock from "../mock.js";
+import * as controller from "@clusterio/controller";
 
 describe("controller/src/BaseControllerPlugin", function() {
 	describe("class BaseControllerPlugin", function() {

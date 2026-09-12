@@ -1,7 +1,7 @@
 import type {
 	CollectorResult, Logger, ParsedFactorioOutput, PlayerEvent, PluginNodeEnvInfo,
 } from "@clusterio/lib";
-import type Host from "./Host";
+import type Host from "./Host.js";
 
 /**
  * Base class for host plugins

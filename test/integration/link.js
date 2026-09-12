@@ -1,11 +1,9 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const fs = require("node:fs/promises");
-const jwt = require("jsonwebtoken");
+import assert from "node:assert/strict";
+import events from "node:events";
+import jwt from "jsonwebtoken";
 
-const { TestControlConnector, TestHostConnector, TestControl, get, exec, url, slowTest } = require("./index");
-const { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } = require("@clusterio/lib");
+import { TestControlConnector, TestHostConnector, TestControl, get, exec, url, slowTest } from "./index.js";
+import { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } from "@clusterio/lib";
 
 let token = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 let tokenHost = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));

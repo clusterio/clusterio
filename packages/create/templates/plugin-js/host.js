@@ -1,11 +1,10 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const { BaseHostPlugin } = require("@clusterio/host");
+import * as lib from "@clusterio/lib";
+import { BaseHostPlugin } from "@clusterio/host";
 //%if multi_context
-const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
+import { PluginExampleEvent, PluginExampleRequest } from "./messages.js";
 //%endif
 
-class HostPlugin extends BaseHostPlugin {
+export class HostPlugin extends BaseHostPlugin {
 //%if multi_context
 	async init() {
 		this.host.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
@@ -35,7 +34,3 @@ class HostPlugin extends BaseHostPlugin {
 	}
 //%endif
 }
-
-module.exports = {
-	HostPlugin,
-};

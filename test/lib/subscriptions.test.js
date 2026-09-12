@@ -1,9 +1,8 @@
-"use strict";
-const events = require("events");
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const { MockController, MockConnector, MockControl } = require("../mock");
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import events from "node:events";
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import { MockController, MockConnector, MockControl } from "../mock.js";
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 
 const addr = lib.Address.fromShorthand;
 

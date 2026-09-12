@@ -1,14 +1,13 @@
-"use strict";
-const path = require("path");
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const fs = require("node:fs/promises");
+import path from "node:path";
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import fs from "node:fs/promises";
 
-const { testMatrix } = require("../common");
-const {
+import { testMatrix } from "../common.js";
+import {
 	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
 	requiresFactorio, hasFactorio, instancesDir,
-} = require("./index");
+} from "./index.js";
 
 const instId = 48;
 const instName = "Integration";

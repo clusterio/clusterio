@@ -2,10 +2,10 @@ import type {
 	CollectorResult, Event, InstanceStatus, Logger,
 	ModPack, ModInfo, PlayerEvent, PluginNodeEnvInfo,
 } from "@clusterio/lib";
-import type Controller from "./Controller";
-import type InstanceRecord from "./InstanceRecord";
-import type ControlConnection from "./ControlConnection";
-import type HostConnection from "./HostConnection";
+import type Controller from "./Controller.js";
+import type InstanceRecord from "./InstanceRecord.js";
+import type ControlConnection from "./ControlConnection.js";
+import type HostConnection from "./HostConnection.js";
 
 /**
  * Base class for controller plugins

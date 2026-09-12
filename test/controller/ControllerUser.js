@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const { User } = require("@clusterio/controller");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import { User } from "@clusterio/controller";
 
 describe("controller/src/User", function() {
 	describe("class User", function() {

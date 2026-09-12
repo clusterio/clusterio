@@ -1,42 +1,9 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 //%if multi_context
-const Messages = require("./messages");
-
-lib.definePermission({
-	name: "__plugin_name__.example.permission.event",
-	title: "Example permission event",
-	description: "Example Description. Event. Change me in index.js",
-	grantByDefault: true,
-});
-
-lib.definePermission({
-	name: "__plugin_name__.example.permission.request",
-	title: "Example permission request",
-	description: "Example Description. Request. Change me in index.js",
-	grantByDefault: true,
-});
-//%endif
-//%if controller & web // Subscribing requires web content and the controller
-
-lib.definePermission({
-	name: "__plugin_name__.example.permission.subscribe",
-	title: "Example permission subscribe",
-	description: "Example Description. Subscribe. Change me in index.js",
-	grantByDefault: true,
-});
-//%endif
-//%if web
-
-lib.definePermission({
-	name: "__plugin_name__.page.view",
-	title: "Example page view permission",
-	description: "Example Description. View. Change me in index.js",
-	grantByDefault: true,
-});
+import Messages from "./messages.js";
 //%endif
 
-const plugin = {
+export const plugin = {
 	name: "__plugin_name__",
 	title: "__plugin_name__",
 	description: "Example Description. Plugin. Change me in index.js",
@@ -44,7 +11,7 @@ const plugin = {
 
 //%endif
 //%if controller
-	controllerEntrypoint: "./dist/node/controller",
+	controllerEntrypoint: "./dist/node/controller.js",
 //%endif
 //%if controller & config
 	controllerConfigFields: {
@@ -60,7 +27,7 @@ const plugin = {
 
 //%endif
 //%if host
-	hostEntrypoint: "./dist/node/host",
+	hostEntrypoint: "./dist/node/host.js",
 //%endif
 //%if host & config
 	hostConfigFields: {
@@ -76,7 +43,7 @@ const plugin = {
 
 //%endif
 //%if instance | module // Modules load an empty instance plugin
-	instanceEntrypoint: "./dist/node/instance",
+	instanceEntrypoint: "./dist/node/instance.js",
 //%endif
 //%if instance & config
 	instanceConfigFields: {
@@ -92,7 +59,7 @@ const plugin = {
 
 //%endif
 //%if ctl
-	ctlEntrypoint: "./dist/node/ctl",
+	ctlEntrypoint: "./dist/node/ctl.js",
 //%endif
 //%if ctl & config
 	controlConfigFields: {
@@ -116,6 +83,43 @@ const plugin = {
 //%if multi_context // Subscribing requires multi context
 	],
 //%endif
+//%if multi_context | web
+
+	permissions: [
+//%endif
+//%if multi_context
+		{
+			name: "__plugin_name__.example.permission.event",
+			title: "Example permission event",
+			description: "Example Description. Event. Change me in index.js",
+			grantByDefault: true,
+		},
+		{
+			name: "__plugin_name__.example.permission.request",
+			title: "Example permission request",
+			description: "Example Description. Request. Change me in index.js",
+			grantByDefault: true,
+		},
+//%endif
+//%if controller & web // Subscribing requires web content and the controller
+		{
+			name: "__plugin_name__.example.permission.subscribe",
+			title: "Example permission subscribe",
+			description: "Example Description. Subscribe. Change me in index.js",
+			grantByDefault: true,
+		},
+//%endif
+//%if web
+		{
+			name: "__plugin_name__.page.view",
+			title: "Example page view permission",
+			description: "Example Description. View. Change me in index.js",
+			grantByDefault: true,
+		},
+//%endif
+//%if multi_context | web
+	],
+//%endif
 //%if web // Web content template has an example route which is the plugin name
 
 	webEntrypoint: "./web",
@@ -123,8 +127,4 @@ const plugin = {
 		"/__plugin_name__",
 	],
 //%endif
-};
-
-module.exports = {
-	plugin,
 };
