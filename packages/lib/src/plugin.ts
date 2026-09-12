@@ -41,6 +41,23 @@ export type PluginDeclaration = {
 	routes?: string[];
 }
 
+/**
+ * Check if a plugin is expected to ship a web build.
+ *
+ * Mirrors the rule used by the create tool: a web build is generated when the
+ * plugin has a web or controller entrypoint or defines config fields.
+ */
+export function pluginNeedsWebBuild(info: PluginDeclaration) {
+	return Boolean(
+		info.webEntrypoint
+		|| info.controllerEntrypoint
+		|| info.controllerConfigFields
+		|| info.hostConfigFields
+		|| info.instanceConfigFields
+		|| info.controlConfigFields
+	);
+}
+
 export type PluginNodeEnvInfo = PluginDeclaration & {
 	/**
 	 * Path to the folder with the static files that should be hosted on the web
