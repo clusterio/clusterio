@@ -139,7 +139,7 @@ export function NpmButton(props: {
 		}
 	}, [hostId]);
 
-	const coreUpdatePermission = `core.${props.target === "controller" ? "controller" : "host"}.update`;
+	const coreUpdatePermission = `core.${props.target === "controller" ? "controller" : "host"}.update` as const;
 
 	function onValuesChange({ action } : { action?: string }) {
 		if (action) {
