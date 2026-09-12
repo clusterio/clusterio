@@ -28,7 +28,7 @@ import UserRecord from "./UserRecord.js";
 import UserManager from "./UserManager.js";
 import WsServer from "./WsServer.js";
 import HostRecord from "./HostRecord.js";
-import BaseControllerPlugin from "./BaseControllerPlugin.js";
+import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
 import ControllerRouter from "./ControllerRouter.js";
 import InstanceManager from "./InstanceManager.js";
 
@@ -70,8 +70,10 @@ export default class Controller {
 	httpsServer: https.Server | null = null;
 	httpsServerCloser: HttpCloser | null = null;
 
-	/** Mapping of plugin name to loaded plugin */
-	plugins: Map<string, BaseControllerPlugin> = new Map();
+	/** Hooks which plugins can attach to */
+	hooks = new ControllerHooks(logger);
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 	/** WebSocket server */
 	wsServer: WsServer;
@@ -359,7 +361,7 @@ export default class Controller {
 			} else if (field === "controller.static_url") {
 				this.app.locals.staticRoot = this.config.get("controller.static_url");
 			}
-			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
+			this.hooks.controllerConfigFieldChanged.invoke(field, curr, prev);
 		});
 
 		// Make sure we're actually going to listen on a port
@@ -542,7 +544,7 @@ export default class Controller {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
 		}
 
-		await lib.invokeHook(this.plugins, "onShutdown");
+		await this.hooks.shutdown.invoke();
 
 		await this.wsServer.stop();
 
@@ -732,9 +734,8 @@ export default class Controller {
 			this.modPacks.save(),
 			this.roles.save(),
 			this.users.records.save(),
+			this.hooks.save.invoke(),
 		]);
-
-		await lib.invokeHook(this.plugins, "onSaveData");
 	}
 
 	static migrateSystems(rawJson: unknown[]): Static<typeof lib.SystemInfo.jsonSchema>[] {
@@ -1034,7 +1035,7 @@ export default class Controller {
 
 	modPacksUpdated(modPacks: lib.ModPack[]) {
 		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
-		lib.invokeHook(this.plugins, "onModPacksUpdated", modPacks);
+		this.hooks.modPacksUpdated.invoke(modPacks);
 	}
 
 	async handleModPackSubscription(request: lib.SubscriptionRequest) {
@@ -1050,7 +1051,7 @@ export default class Controller {
 	modsUpdated(mods: lib.ModInfo[]) {
 		// ModStore sets updatedAtMs for mods
 		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
-		lib.invokeHook(this.plugins, "onModsUpdated", mods);
+		this.hooks.modsUpdated.invoke(mods);
 	}
 
 	async handleModSubscription(request: lib.SubscriptionRequest) {
@@ -1098,7 +1099,7 @@ export default class Controller {
 
 	rolesUpdated(roles: lib.Role[]) {
 		this.subscriptions.broadcast(new lib.RoleUpdatesEvent(roles));
-		// lib.invokeHook(this.plugins, "onRolesUpdated", roles); // This doesn't exist at the moment
+		this.hooks.rolesUpdated.invoke(roles);
 		// Notify connected control clients with the given role that the permissions may have changed.
 		for (const role of roles) {
 			for (let controlConnection of this.wsServer.controlConnections.values()) {
@@ -1128,6 +1129,7 @@ export default class Controller {
 	}
 
 	async loadPlugins() {
+		const context = { metrics, logger, controller: this };
 		for (let pluginInfo of this.pluginInfos) {
 			try {
 				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
@@ -1147,20 +1149,16 @@ export default class Controller {
 				continue;
 			}
 
-			let ControllerPluginClass = BaseControllerPlugin;
 			try {
-				if (pluginInfo.controllerEntrypoint) {
-					ControllerPluginClass = await lib.loadPluginClass(
-						pluginInfo.name,
-						path.posix.join(pluginInfo.requirePath, pluginInfo.controllerEntrypoint),
-						"ControllerPlugin",
-						BaseControllerPlugin,
-					);
-				}
+				await lib.loadPlugin(
+					pluginInfo,
+					"controller",
+					context,
+					"ControllerPlugin",
+					BaseControllerPlugin,
+				);
 
-				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);
-				await controllerPlugin.init();
-				this.plugins.set(pluginInfo.name, controllerPlugin);
+				this.loadedPlugins.add(pluginInfo);
 
 			} catch (err: any) {
 				if (err.code === "InstallationError") {

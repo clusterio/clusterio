@@ -6,7 +6,7 @@ export { default as HostConnection } from "./src/HostConnection.js";
 export { default as InstanceRecord } from "./src/InstanceRecord.js";
 export { default as InstanceManager } from "./src/InstanceManager.js";
 export { default as HostRecord } from "./src/HostRecord.js";
-export { default as BaseControllerPlugin } from "./src/BaseControllerPlugin.js";
+export { BaseControllerPlugin, ControllerHooks, type ControllerPluginContext } from "./src/BaseControllerPlugin.js";
 export { default as UserManager } from "./src/UserManager.js";
 export { default as UserRecord } from "./src/UserRecord.js";
 export { default as User } from "./src/User.js";

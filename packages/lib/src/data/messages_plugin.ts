@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { jsonArray } from "./composites.js";
-import { PluginNodeEnvInfo } from "../plugin.js";
+import type { PluginNodeEnvInfo } from "../plugin.js";
 import { Address, MessageRequest } from "./messages_core.js";
 import type { IUser } from "./UserDetails.js";
 

@@ -1,44 +1,23 @@
-import type {
-	CollectorResult, Logger, ParsedFactorioOutput, PlayerEvent, PluginNodeEnvInfo,
-} from "@clusterio/lib";
 import type Host from "./Host.js";
 
+import * as lib from "@clusterio/lib";
+
+export type HostPluginContext = lib.PluginLoadContext<{
+	host: Host;
+}>;
+
 /**
- * Base class for host plugins
- *
- * Host plugins are subclasses of this class which get instantiated by
- * the host when it starts up with the plugin enabled in the config.  To be
- * discovered the class must be exported under the name `HostPlugin` in the
- * module specified by the `hostEntrypoint` in the plugin's `plugin` export.
+ * Collection of host plugin hooks
  */
-export default class BaseHostPlugin {
-	/**
-	 * Logger for this plugin
-	 *
-	 * Instance of winston Logger for sending log messages from this
-	 * plugin.  Supported methods and their corresponding log levels are
-	 * `error`, `warn`, `audit`, `info` and `verbose`.
-	 */
-	logger: Logger;
-
-	constructor(
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginNodeEnvInfo,
-		/**
-		 * Host the plugin started for
-		 */
-		public host: Host,
-		logger: Logger,
-	) {
-		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
+export class HostHooks extends lib.AsyncHookCollection {
+	constructor(logger: lib.Logger) {
+		super(logger);
+		this.metrics = this.newHook();
+		this.shutdown = this.newHook();
+		this.hostConfigFieldChanged = this.newHook();
+		this.controllerConnectionEvent = this.newHook();
+		this.prepareControllerDisconnect = this.newHook();
 	}
-
-	/**
-	 * Called immediately after the class is instantiated
-	 */
-	async init() { }
 
 	/**
 	 * Called when the value of a host config field changed.
@@ -50,7 +29,7 @@ export default class BaseHostPlugin {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onHostConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
+	readonly hostConfigFieldChanged: lib.AsyncHook<[field: string, curr: unknown, prev: unknown]>;
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -67,12 +46,12 @@ export default class BaseHostPlugin {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
+	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult>>;
 
 	/**
 	 * Called when the host is shutting down
-	 */
-	async onShutdown() { }
+	*/
+	readonly shutdown: lib.AsyncHook<[]>;
 
 	/**
 	 * Called when an event on the controller connection happens
@@ -108,7 +87,7 @@ export default class BaseHostPlugin {
 	 *
 	 * @param event - one of connect, drop, resume and close
 	 */
-	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
+	readonly controllerConnectionEvent: lib.AsyncHook<[event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
 	 * Called when the controller is preparing to disconnect from the host
@@ -123,5 +102,60 @@ export default class BaseHostPlugin {
 	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	async onPrepareControllerDisconnect(connection: Host) { }
+	readonly prepareControllerDisconnect: lib.AsyncHook<[connection: Host]>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseHostPlugin {
+	onHostConfigFieldChanged?(field: string, curr: unknown, prev: unknown): Promise<void>;
+	onMetrics?(): Promise<void | AsyncIterable<lib.CollectorResult>>;
+	onShutdown?(): Promise<void>;
+	onControllerConnectionEvent?(event: "connect" | "drop" | "resume" | "close"): void;
+	onPrepareControllerDisconnect?(connection: Host): Promise<void>;
+}
+
+/**
+ * Base class for host plugins
+ *
+ * Host plugins are subclasses of this class which get instantiated by
+ * the host when it starts up with the plugin enabled in the config.  To be
+ * discovered the class must be exported under the name `HostPlugin` in the
+ * module specified by the `hostEntrypoint` in the plugin's `plugin` export.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class BaseHostPlugin {
+	constructor(
+		public info: lib.PluginNodeEnvInfo,
+		public host: Host,
+		public logger: lib.Logger,
+	) {
+		const attach = <Args extends unknown[], Return>(
+			hook: lib.AsyncHook<Args, Return>,
+			fn?: lib.HookHandler<Args, Return>,
+		) => {
+			if (fn) {
+				hook.attach(info.name, fn.bind(this));
+			}
+		};
+
+		attach(host.hooks.hostConfigFieldChanged, this.onHostConfigFieldChanged);
+		attach(host.hooks.metrics, this.onMetrics);
+		attach(host.hooks.shutdown, this.onShutdown);
+		attach(host.hooks.controllerConnectionEvent, this.onControllerConnectionEvent);
+		attach(host.hooks.prepareControllerDisconnect, this.onPrepareControllerDisconnect);
+	}
+
+	static fromContext(context: HostPluginContext): BaseHostPlugin {
+		const plugin = new this(context.plugin, context.host, context.logger);
+		return plugin;
+	}
+
+	detachHooks() {
+		this.host.hooks.detachAll(this.info.name);
+	}
+
+	/**
+	 * Called immediately after the class is instantiated
+	 */
+	async init() {}
 }

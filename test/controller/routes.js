@@ -85,7 +85,6 @@ describe("controller/src/routes", function() {
 		let endpoint;
 		beforeEach(function() {
 			endpoint = `http://localhost:${port}/api/plugins`;
-			controller.plugins = new Map([["foo", {}]]);
 			controller.mockConfigEntries.set("foo.load_plugin", true);
 		});
 		it("should strip static/ from the plugin bundle path", async function() {
@@ -93,6 +92,7 @@ describe("controller/src/routes", function() {
 				name: "foo", version: "1.0.0", npmPackage: "foo",
 				manifest: { "foo.js": "static/foo.abc.js" },
 			}];
+			controller.loadedPlugins = new Set(controller.pluginInfos);
 			let response = await fetch(endpoint);
 			assert.equal(response.status, 200);
 			assert.deepEqual(await response.json(), [{
@@ -106,6 +106,7 @@ describe("controller/src/routes", function() {
 				{ name: "bar", version: "1.0.0", npmPackage: "bar", manifest: {} },
 				{ name: "baz", version: "1.0.0", npmPackage: "baz", manifest: { "baz.js": "remoteEntry.js" } },
 			];
+			controller.loadedPlugins = new Set([controller.pluginInfos[0]]);
 			let response = await fetch(endpoint);
 			assert.equal(response.status, 200);
 			let data = await response.json();

@@ -16,7 +16,7 @@ import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import * as commands from "./src/commands.js";
-import BaseCtlPlugin from "./src/BaseCtlPlugin.js";
+import { BaseCtlPlugin, CtlHooks } from "./src/BaseCtlPlugin.js";
 
 
 /**
@@ -53,19 +53,15 @@ class ControlConnector extends lib.WebSocketClientConnector {
 export class Control extends lib.Link {
 	/** Control config used for connecting to the controller. */
 	config: lib.ControlConfig;
-	/** Mapping of plugin names to their instance for loaded plugins. */
-	plugins: Map<string, BaseCtlPlugin>;
 	/** Keep the control connection alive after the command completes. */
 	keepOpen = false;
 
 	constructor(
 		connector: ControlConnector,
 		controlConfig: lib.ControlConfig,
-		ctlPlugins: Map<string, BaseCtlPlugin>
 	) {
 		super(connector);
 		this.config = controlConfig;
-		this.plugins = ctlPlugins;
 
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
@@ -105,28 +101,23 @@ export class Control extends lib.Link {
 	}
 }
 
-async function loadPlugins(pluginList: Map<string, string>) {
+async function loadPlugins(pluginList: Map<string, string>, hooks: CtlHooks) {
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	let ctlPlugins = new Map<string, BaseCtlPlugin>();
+	const ctlPlugins = new Set<lib.PluginNodeEnvInfo>();
 	for (let pluginInfo of pluginInfos) {
 		if (!pluginInfo.ctlEntrypoint) {
 			continue;
 		}
 
-		let CtlPlugin = await lib.loadPluginClass(
-			pluginInfo.name,
-			path.posix.join(pluginInfo.requirePath, pluginInfo.ctlEntrypoint),
-			"CtlPlugin",
-			BaseCtlPlugin,
-		);
-		let ctlPlugin = new CtlPlugin(pluginInfo, logger);
-		ctlPlugins.set(pluginInfo.name, ctlPlugin);
-		await ctlPlugin.init();
+		const context = { hooks, logger, plugin: pluginInfo };
+		await lib.loadPlugin(pluginInfo, "ctl", context, "CtlPlugin", BaseCtlPlugin);
+		ctlPlugins.add(pluginInfo);
 	}
+
 	return ctlPlugins;
 }
 
@@ -142,14 +133,14 @@ interface CtlArguments {
 interface InitializeParameters {
 	args: CtlArguments;
 	shouldRun: boolean;
-	ctlPlugins?: Map<string, BaseCtlPlugin>;
+	ctlHooks: CtlHooks;
 	rootCommands?: lib.CommandTree;
 	controlConfig?: lib.ControlConfig;
 }
 
 export async function initialize(
 	argv: string | string[],
-	ctlPlugins?: Map<string, BaseCtlPlugin>,
+	ctlHooks: CtlHooks = new CtlHooks(logger),
 	noLoggerTransport?: boolean,
 ): Promise<InitializeParameters> {
 	// Build a fresh, isolated yargs parser each time this function is called.
@@ -208,23 +199,23 @@ export async function initialize(
 		lib.handleUnhandledErrors();
 	}
 
-	// Discover and load plugins. This check exists to allow tests to inject plugins.
-	if (!ctlPlugins || args._[0] === "plugin") {
+	// Discover and load plugins. ctlHooks.size check exists to allow tests to inject plugins.
+	if (ctlHooks.addCommands.size === 0 || args._[0] === "plugin") {
 		logger.verbose(`Loading available plugins from ${args.pluginList}`);
 		const pluginList = await lib.loadPluginList(args.pluginList);
 
 		// If the command is plugin management we don't try to load plugins
 		if (args._[0] === "plugin") {
 			await lib.handlePluginCommand(args, pluginList, args.pluginList);
-			return { args, shouldRun: false };
+			return { args, ctlHooks, shouldRun: false };
 		}
 
 		logger.verbose("Loading Plugins");
-		ctlPlugins = await loadPlugins(pluginList);
+		await loadPlugins(pluginList, ctlHooks);
 	}
 
 	// Add all commands including from plugins and reparse with help and strict checking.
-	const rootCommands = await commands.registerCommands(ctlPlugins, parser);
+	const rootCommands = await commands.registerCommands(ctlHooks, parser);
 	args = parser
 		.help()
 		.strict()
@@ -261,10 +252,10 @@ export async function initialize(
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
 		await lib.handleConfigCommand(args, controlConfig, controlConfigLock);
-		return { args, controlConfig, ctlPlugins, rootCommands, shouldRun: false };
+		return { args, controlConfig, ctlHooks, rootCommands, shouldRun: false };
 	}
 
-	return { args, controlConfig, ctlPlugins, rootCommands, shouldRun: true };
+	return { args, controlConfig, ctlHooks, rootCommands, shouldRun: true };
 }
 
 export function selectTargetCommand(args: CtlArguments, rootCommands: lib.CommandTree): lib.Command {
@@ -281,11 +272,10 @@ async function startControl() {
 	const {
 		args,
 		shouldRun,
-		ctlPlugins,
 		rootCommands,
 		controlConfig,
 	} = await initialize(process.argv.slice(2));
-	if (!shouldRun || !ctlPlugins || !rootCommands || !controlConfig) {
+	if (!shouldRun || !rootCommands || !controlConfig) {
 		return;
 	}
 
@@ -301,7 +291,7 @@ async function startControl() {
 		controlConfig.get("control.controller_token")!,
 	);
 
-	let control = new Control(controlConnector, controlConfig, ctlPlugins);
+	let control = new Control(controlConnector, controlConfig);
 	try {
 		await controlConnector.connect();
 	} catch (err) {

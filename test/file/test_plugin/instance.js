@@ -1,7 +1,8 @@
-import { BaseInstancePlugin } from "@clusterio/host";
+export default async function(context) {
+	const { instance, plugin, logger } = context;
+	logger.info("test_plugin instance loaded");
 
-export class InstancePlugin extends BaseInstancePlugin {
-	async init() {
-		this.logger.info("test_plugin instance loaded");
-	}
+	instance.hooks.start.attach(plugin.name, async () => {
+		logger.info("test_plugin instance started");
+	});
 }

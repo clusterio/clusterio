@@ -1,37 +1,17 @@
-import type { CommandTree, Logger, PluginNodeEnvInfo } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
+
+export type CtlPluginContext = lib.PluginLoadContext<{
+	hooks: CtlHooks
+}>;
 
 /**
- * Base class for clusterioctl plugins
- *
- * Ctl plugins are subclasses of this class which get instantiated by
- * clusterioctl in order to extend its functionallity.  To be discovered the
- * class must be exported under the name `CtlPlugin` in the module
- * specified by the `ctlEntrypoint` in the plugin's `plugin` export.
+ * Collection of clusterioctl plugin hooks
  */
-export default class BaseCtlPlugin {
-	/**
-	 * Logger for this plugin
-	 *
-	 * Instance of winston Logger for sending log messages from this
-	 * plugin.  Supported methods and their corresponding log levels are
-	 * `error`, `warn`, `audit`, `info` and `verbose`.
-	 */
-	logger: Logger;
-
-	constructor(
-		/**
-		 * The plugin's own info module
-		 */
-		public info: PluginNodeEnvInfo,
-		logger: Logger,
-	) {
-		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
+export class CtlHooks extends lib.AsyncHookCollection {
+	constructor(logger: lib.Logger) {
+		super(logger);
+		this.addCommands = this.newHook();
 	}
-
-	/**
-	 * Called immediately after the class is instantiated
-	 */
-	async init() { }
 
 	/**
 	 * Called to add commands to the command line interface.
@@ -43,5 +23,47 @@ export default class BaseCtlPlugin {
 	 * @param rootCommand -
 	 *     Root of the clusterioctl command tree.
 	 */
-	async addCommands(rootCommand: CommandTree) { }
+	readonly addCommands: lib.AsyncHook<[rootCommand: lib.CommandTree]>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export interface BaseCtlPlugin {
+	addCommands?(rootCommand: lib.CommandTree): Promise<void>;
+}
+
+/**
+ * Base class for clusterioctl plugins
+ *
+ * Ctl plugins are subclasses of this class which get instantiated by
+ * clusterioctl in order to extend its functionallity.  To be discovered the
+ * class must be exported under the name `CtlPlugin` in the module
+ * specified by the `ctlEntrypoint` in the plugin's `plugin` export.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class BaseCtlPlugin {
+	constructor(
+		/**
+		 * The plugin's own info module
+		 */
+		public info: lib.PluginNodeEnvInfo,
+		public logger: lib.Logger,
+		private hooks: CtlHooks,
+	) {
+		if (this.addCommands) {
+			hooks.addCommands.attach(info.name, this.addCommands.bind(this));
+		}
+	}
+
+	static fromContext(context: CtlPluginContext) {
+		return new this(context.plugin, context.logger, context.hooks);
+	}
+
+	detachHooks() {
+		this.hooks.detachAll(this.info.name);
+	}
+
+	/**
+	 * Called immediately after the class is instantiated
+	 */
+	async init() {}
 }
