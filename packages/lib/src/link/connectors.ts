@@ -15,26 +15,27 @@ import type { Request, Event } from "./link.js";
  * See: https://www.iana.org/assignments/websocket/websocket.xhtml#close-code-number
  * See: https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4
  */
-export enum ConnectionClosed {
+export const ConnectionClosed = {
 	// Codes between 1000 and 1015 are pre-assigned by IANA
 	// A browser client can only (on demand) send 1000 from this range
-	NormalClosure = 1000, // Purpose fulfilled
-	GoingAway = 1001, // Server quit or browser navigation
-	ProtocolError = 1002, // Protocol not followed
-	PolicyViolation = 1008, // Generic code for any endpoint policy
-	InternalError = 1011, // Endpoint failed to fulfil request
-	TryAgainLater = 1013, // Temporary server condition blocking requests
+	NormalClosure: 1000, // Purpose fulfilled
+	GoingAway: 1001, // Server quit or browser navigation
+	ProtocolError: 1002, // Protocol not followed
+	PolicyViolation: 1008, // Generic code for any endpoint policy
+	InternalError: 1011, // Endpoint failed to fulfil request
+	TryAgainLater: 1013, // Temporary server condition blocking requests
 
 	// Codes after 3000 are available for frameworks
 	// However they should be registered to IANA
-	Unauthorized = 3000,
-	Forbidden = 3003,
-	Timeout = 3008,
+	Unauthorized: 3000,
+	Forbidden: 3003,
+	Timeout: 3008,
 
 	// Codes after 4000 are available for applications
-	MalformedMessage = 4000,
-	RecoveryMode = 4001,
-};
+	MalformedMessage: 4000,
+	RecoveryMode: 4001,
+} as const;
+export type ConnectionClosed = typeof ConnectionClosed[keyof typeof ConnectionClosed];
 
 type BaseConnectorEvents = {
 	"message": [ message: libData.Message ],

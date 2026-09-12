@@ -179,11 +179,12 @@ export type ConfigEvents = {
 	fieldChanged: [ name: string, curr: FieldValue, prev: FieldValue ],
 }
 
-export enum ConfigAccess {
-	read = 0x1,
-	write = 0x2,
-	readWrite = 0x3,
-}
+export const ConfigAccess = {
+	read: 0x1,
+	write: 0x2,
+	readWrite: 0x3,
+} as const;
+export type ConfigAccess = typeof ConfigAccess[keyof typeof ConfigAccess]
 
 /**
  * Collection of config entries
