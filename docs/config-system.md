@@ -3,10 +3,10 @@
 <sub>This document describes the implementation and inner working of the configuration system in Clusterio, and unless you're developing Clusterio it's probably not going to be very useful for you.</sub>
 
 Clusterio uses a field based configuration system to manage settings for the controller, instances, hosts, and the clusterioctl utility.
-Plugins can add their own config fields for the controller and instances configs.
+Plugins can add their own config fields for the controller, host and instance configs.
 The fields are defined early in the startup, and fields for disabled plugins will still be created.
 
-The built-in config fields are defined in [packages/lib/src/config/definitions.ts](/packages/lib/src/config/definitions.ts) while plugins can add their own config field definitions to the `controllerConfigFields` and `instanceConfigFields` properties of the `plugin` export.
+The built-in config fields are defined in [packages/lib/src/config/definitions.ts](/packages/lib/src/config/definitions.ts) while plugins can add their own config field definitions to the `controllerConfigFields`, `hostConfigFields` and `instanceConfigFields` properties of the `plugin` export.
 A `<plugin_name>.load_plugin` field is automatically created for each plugin and it's used to enable/disable the loading plugins on startup.
 
 
@@ -45,6 +45,45 @@ For plugins the group name is the name of the plugin, e.g., the `level` field of
 **initialValue** (optional if optional is true):
     Value this config field should take in a newly initialized config.
     This can also be an async function returning the value to use.
+
+**validator** (optional):
+    Function called with the value being set and the config it belongs to.
+    It should throw an error if the value is not acceptable, and the message of the error is passed on to whoever tried to set it.
+    Common validators such as `greaterThanZero`, `greaterThanEqualZero`, `integer` and `filePath` are available on `Config.validators`, along with `optional` to skip null and `all` to combine several.
+    The config is read only while the validator runs.
+
+**dependsOn** (optional):
+    Names of other fields the validator reads the value of.
+    When one of those fields is changed the validator of this field is run again against the new value, and the change is rejected if it fails.
+
+**restartRequired** (optional):
+    True if a restart of the controller, host or instance the config belongs to is needed for changes to take effect.
+    Changing such a field sets the `restartRequired` flag on the config, which the web interface uses to show that a restart is pending.
+    Defaults to false.
+
+**restartRequiredProps** (optional):
+    For object fields, names of properties that have the opposite of `restartRequired`.
+    Only used by the web interface to show which properties need a restart, `factorio.settings` uses it to mark the settings that are applied live.
+
+**credential** (optional):
+    Locations allowed to read the value of this field.
+    Other locations can still change the value if allowed by `access`, which is what you want for tokens and passwords.
+
+**readonly** (optional):
+    Locations allowed to change the value of this field.
+    Other locations can still read the value if allowed by `access`.
+
+**hidden** (optional):
+    True if the web interface should not show this field.
+    Used for internal values that are managed by Clusterio.
+
+**autoComplete** (optional):
+    Value for the autocomplete attribute of the input in the web interface, e.g. `section-factorio new-password`.
+    Only used for string and number fields.
+
+**inputComponent** (optional):
+    Name of the input component the web interface should render for this field instead of the default for its type.
+    Plugins can add their own components through `inputComponents` on their web plugin class.
 
 If the value for a field stored in on disk somehow ends up being invalid the field will take on the initial\_value instead when the config is loaded.
 
