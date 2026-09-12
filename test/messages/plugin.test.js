@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
-const { Controller, ControlConnection } = require("@clusterio/controller");
-const { Host } = require("@clusterio/host");
+import { Controller, ControlConnection } from "@clusterio/controller";
+import { Host } from "@clusterio/host";
 
 describe("messages/plugin", function() {
 	/** @type {Host} */
@@ -129,6 +128,61 @@ describe("messages/plugin", function() {
 			host.config.set("host.allow_plugin_updates", false);
 			await assert.rejects(
 				host.handlePluginUpdateRequest(new lib.PluginUpdateRequest("foo")),
+				/Plugin updates are disabled on this machine/
+			);
+		});
+	});
+
+	describe("UpdateAllRequest", function() {
+		function checkedPermissions(dst) {
+			const permissions = [];
+			const user = { checkPermission(permission) { permissions.push(permission); } };
+			lib.UpdateAllRequest.permission(user, { dst: lib.Address.fromShorthand(dst) });
+			return permissions;
+		}
+		it("requires controller and plugin update permissions on the controller", function() {
+			assert.deepEqual(checkedPermissions("controller"), ["core.controller.update", "core.plugin.update"]);
+		});
+		it("requires host and plugin update permissions on a host", function() {
+			assert.deepEqual(checkedPermissions({ hostId: 1 }), ["core.host.update", "core.plugin.update"]);
+		});
+		it("runs on the controller", async function() {
+			controller.pluginInfos = [{ npmPackage: "foo" }];
+			controller.config.set("controller.allow_remote_updates", true);
+			controller.config.set("controller.allow_plugin_updates", true);
+			await controlConnection.handleUpdateAllRequest(new lib.UpdateAllRequest());
+		});
+		it("rejects if remote updates are disabled on the controller", async function() {
+			controller.config.set("controller.allow_remote_updates", false);
+			await assert.rejects(
+				controlConnection.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Remote updates are disabled on this machine/
+			);
+		});
+		it("rejects if plugin updates are disabled on the controller", async function() {
+			controller.config.set("controller.allow_plugin_updates", false);
+			await assert.rejects(
+				controlConnection.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Plugin updates are disabled on this machine/
+			);
+		});
+		it("runs on a host", async function() {
+			host.pluginInfos = [{ npmPackage: "foo" }];
+			host.config.set("host.allow_remote_updates", true);
+			host.config.set("host.allow_plugin_updates", true);
+			await host.handleUpdateAllRequest(new lib.UpdateAllRequest());
+		});
+		it("rejects if remote updates are disabled on the host", async function() {
+			host.config.set("host.allow_remote_updates", false);
+			await assert.rejects(
+				host.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Remote updates are disabled on this machine/
+			);
+		});
+		it("rejects if plugin updates are disabled on the host", async function() {
+			host.config.set("host.allow_plugin_updates", false);
+			await assert.rejects(
+				host.handleUpdateAllRequest(new lib.UpdateAllRequest()),
 				/Plugin updates are disabled on this machine/
 			);
 		});

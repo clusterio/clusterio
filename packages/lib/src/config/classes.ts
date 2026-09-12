@@ -3,13 +3,13 @@ import { Type, Static } from "@sinclair/typebox";
 import * as fs from "node:fs/promises";
 import events from "events";
 
-import isDeepStrictEqual from "../is_deep_strict_equal";
-import { basicType } from "../helpers";
-import * as libSchema from "../schema";
-import { StringEnum } from "../data/composites";
-import { safeOutputFile } from "../file_ops";
-import * as validators from "./validators";
-import { RequestError } from "../errors";
+import isDeepStrictEqual from "#is_deep_strict_equal";
+import { basicType } from "../helpers.js";
+import * as libSchema from "../schema.js";
+import { StringEnum } from "../data/composites.js";
+import { safeOutputFile } from "../file_ops.js";
+import * as validators from "./validators.js";
+import { RequestError } from "../errors.js";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -468,7 +468,7 @@ export class Config<
 		if (!this.filepath) {
 			throw new Error("Cannot save config which has no filepath");
 		}
-		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"));
+		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
 		this.dirty = false;
 	}
 

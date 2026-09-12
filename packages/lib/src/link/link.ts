@@ -1,15 +1,15 @@
 // Implementation of Link class
-import * as libData from "../data";
-import * as libErrors from "../errors";
-import { logger } from "../logging";
-import * as libSchema from "../schema";
-import { dataClasses } from "./messages";
-import { BaseConnector, WebSocketBaseConnector } from "./connectors";
+import * as libData from "../data/index.js";
+import * as libErrors from "../errors.js";
+import { logger } from "../logging.js";
+import * as libSchema from "../schema.js";
+import { dataClasses } from "./messages.js";
+import { BaseConnector, WebSocketBaseConnector } from "./connectors.js";
 import { strict as assert } from "assert";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
 import type {
 	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUser,
-} from "../data";
+} from "../data/index.js";
 
 export interface Request<Req, Res> {
 	constructor: Partial<JSONDeserialisable<Req & Request<Req, Res>>> & {
@@ -444,7 +444,7 @@ export class Link {
 		let pending = this._pendingRequests.get(message.dst.requestId!);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
-				`Received response ${message.dst.requestId} without a pending request`
+				`Received response ${message.dst.requestId} from ${message.src} without a pending request`
 			);
 		}
 
@@ -465,7 +465,7 @@ export class Link {
 		let pending = this._pendingRequests.get(message.dst.requestId!);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
-				`Received error response ${message.dst.requestId} without a pending request`
+				`Received error response ${message.dst.requestId} from ${message.src} without a pending request`
 			);
 		}
 

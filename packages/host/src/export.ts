@@ -5,9 +5,9 @@ import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
-import * as libBuildMod from "@clusterio/lib/dist/node/build_mod";
-import type { FactorioServer } from "./server";
-import { definesPrototypesFallback } from "./export_fallback";
+import * as libBuildMod from "@clusterio/lib/dist/node/build_mod.js";
+import type { FactorioServer } from "./server.js";
+import { definesPrototypesFallback } from "./export_fallback.js";
 
 interface SimpleIconSpecification {
 	icons?: never;
@@ -56,7 +56,7 @@ async function generateExportMod(server: FactorioServer) {
 		clean: false,
 		build: true,
 		pack: true,
-		sourceDir: path.join(__dirname, "..", "..", "..", "lua", "export"),
+		sourceDir: path.join(import.meta.dirname, "..", "..", "..", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version?.replace(/\.\d+$/, ""),

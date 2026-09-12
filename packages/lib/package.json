@@ -22,6 +22,17 @@
 		"access": "public"
 	},
 
+	"type": "module",
+	"imports": {
+		"#WebSocket": {
+			"node": "./src/link/WebSocket.node.ts",
+			"import": "./src/link/WebSocket.browser.ts"
+		},
+		"#is_deep_strict_equal": {
+			"node": "./src/is_deep_strict_equal.node.ts",
+			"import": "./src/is_deep_strict_equal.browser.ts"
+		}
+	},
 	"browser": "browser.ts",
 	"main": "dist/node/index.js",
 	"scripts": {

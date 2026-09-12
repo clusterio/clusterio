@@ -1,15 +1,15 @@
-import type WsServerConnector from "./WsServerConnector";
+import type WsServerConnector from "./WsServerConnector.js";
 
 import events from "events";
 
 import * as lib from "@clusterio/lib";
-const { logFilter, logger } = lib;
+import { logFilter, logger } from "@clusterio/lib";
 
-import BaseConnection from "./BaseConnection";
-import User from "./User";
-import UserRecord from "./UserRecord";
-import * as routes from "./routes";
-import Controller from "./Controller";
+import BaseConnection from "./BaseConnection.js";
+import User from "./User.js";
+import UserRecord from "./UserRecord.js";
+import * as routes from "./routes.js";
+import Controller from "./Controller.js";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -128,6 +128,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
+		this.handle(lib.UpdateAllRequest, this.handleUpdateAllRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
@@ -169,7 +170,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		if (typeof permission === "string") {
-			this.user.checkPermission(permission);
+			this.user.checkPermission(permission as lib.PermissionName);
 			return;
 		}
 
@@ -1307,6 +1308,16 @@ export default class ControlConnection extends BaseConnection {
 		return await lib.handlePluginInstall(request.pluginPackage);
 	}
 
+	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
+		if (!this._controller.config.get("controller.allow_remote_updates")) {
+			throw new lib.RequestError("Remote updates are disabled on this machine");
+		}
+		if (!this._controller.config.get("controller.allow_plugin_updates")) {
+			throw new lib.RequestError("Plugin updates are disabled on this machine");
+		}
+		return await lib.handleUpdateAll("@clusterio/controller", this._controller.pluginInfos);
+	}
+
 	async handlePluginListRequest(request: lib.PluginListRequest) {
 		return this._controller.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
 			pluginInfo,
@@ -1325,5 +1336,3 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.debugEvents.on("message", this.ws_dumper);
 	}
 }
-
-module.exports = ControlConnection;

@@ -1,12 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const os = require("node:os");
-const path = require("node:path");
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import * as lib from "@clusterio/lib";
 
-const { Controller, ControlConnection } = require("@clusterio/controller");
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import { Controller, ControlConnection } from "@clusterio/controller";
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 
 describe("messages/controller", function() {
 	/** @type {Controller} */

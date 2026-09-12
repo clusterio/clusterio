@@ -1,11 +1,18 @@
+import util from "util";
+import zlib from "zlib";
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
-} from "./messages";
+} from "./messages.js";
 
 type IpcPlayerName = {
 	player_name: string
+}
+
+type IpcDownloadRequest = {
+	player_name: string,
+	recipe_notifications?: string,
 }
 
 type IpcAcquireResponse = {
@@ -24,6 +31,49 @@ type IpcAcquireResponse = {
  */
 function chunkify(chunkSize: number, string: string): string[] {
 	return string.match(new RegExp(`.{1,${chunkSize}}`, "g")) || [];
+}
+
+const inflate = util.promisify(zlib.inflate);
+const deflate = util.promisify(zlib.deflate);
+
+/**
+ * Decode a string produced by helpers.encode_string in Factorio
+ */
+async function decodeLuaString(encoded: string): Promise<string> {
+	return (await inflate(Buffer.from(encoded, "base64"))).toString("utf8");
+}
+
+/**
+ * Encode a string so that helpers.decode_string in Factorio can read it
+ */
+async function encodeLuaString(text: string): Promise<string> {
+	return (await deflate(Buffer.from(text, "utf8"))).toString("base64");
+}
+
+export type RecipeNotificationDelta = {
+	add?: string[],
+	remove?: string[],
+}
+
+/**
+ * Compute the changes needed to turn the current cleared recipe list into the stored one
+ * @param stored - Cleared recipe names stored on the controller
+ * @param current - Cleared recipe names the instance currently has
+ * @returns names to add to and remove from the current list
+ */
+export function recipeNotificationDelta(stored: string[], current: string[]): RecipeNotificationDelta {
+	const storedSet = new Set(stored);
+	const currentSet = new Set(current);
+	const delta: RecipeNotificationDelta = {};
+	const add = stored.filter(name => !currentSet.has(name));
+	const remove = current.filter(name => !storedSet.has(name));
+	if (add.length) {
+		delta.add = add;
+	}
+	if (remove.length) {
+		delta.remove = remove;
+	}
+	return delta;
 }
 
 export class InstancePlugin extends BaseInstancePlugin {
@@ -55,7 +105,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		);
 		this.instance.server.on(
 			"ipc-inventory_sync_download",
-			(request: IpcPlayerName) => this.handleDownload(request).catch(
+			(request: IpcDownloadRequest) => this.handleDownload(request).catch(
 				err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)
 			),
 		);
@@ -163,7 +213,27 @@ export class InstancePlugin extends BaseInstancePlugin {
 		);
 	}
 
-	async handleDownload(request: IpcPlayerName) {
+	/**
+	 * Replace the stored recipe notifications with the difference from the
+	 * current state on the instance to reduce the amount of data sent to Lua.
+	 */
+	async applyRecipeNotificationDelta(playerData: IpcPlayerData, current?: string) {
+		if (!playerData.recipe_notifications) {
+			return;
+		}
+		try {
+			const delta = recipeNotificationDelta(
+				JSON.parse(await decodeLuaString(playerData.recipe_notifications)),
+				current ? JSON.parse(await decodeLuaString(current)) : [],
+			);
+			playerData.recipe_notifications = await encodeLuaString(JSON.stringify(delta));
+		} catch (err: any) {
+			this.logger.warn(`Dropping invalid recipe notifications for ${playerData.name}:\n${err.stack}`);
+			delete playerData.recipe_notifications;
+		}
+	}
+
+	async handleDownload(request: IpcDownloadRequest) {
 		const playerName = request.player_name;
 		this.logger.verbose(`Downloading ${playerName}`);
 
@@ -176,6 +246,8 @@ export class InstancePlugin extends BaseInstancePlugin {
 			await this.sendRcon(`/sc inventory_sync.download_inventory('${playerName}',nil,0,0)`, true);
 			return;
 		}
+
+		await this.applyRecipeNotificationDelta(response.playerData, request.recipe_notifications);
 
 		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));

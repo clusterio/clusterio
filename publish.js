@@ -2,10 +2,9 @@
  * Publish any mods that need to be published
  */
 
-"use strict";
-const FormData = require("form-data");
-const fs = require("node:fs/promises");
-const yargs = require("yargs");
+import FormData from "form-data";
+import fs from "node:fs/promises";
+import yargs from "yargs";
 
 let DRY = false;
 
@@ -129,6 +128,6 @@ async function main() {
 }
 
 // Run main if started from command line
-if (module === require.main) {
+if (import.meta.main) {
 	main();
 }

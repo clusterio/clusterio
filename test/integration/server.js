@@ -1,15 +1,14 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import events from "node:events";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const { InstanceManager } = require("@clusterio/controller");
-const { FactorioServer, _getFactorioVersion } = require("@clusterio/host/dist/node/src/server");
-const { logger } = lib;
+import * as lib from "@clusterio/lib";
+import { InstanceManager } from "@clusterio/controller";
+import { FactorioServer, _getFactorioVersion } from "@clusterio/host/dist/node/src/server.js";
+import { logger } from "@clusterio/lib";
 
-const { slowTest, factorioDir, requiresFactorio } = require("./index");
+import { slowTest, factorioDir, requiresFactorio } from "./index.js";
 
 
 describe("Integration of host/src/server", function() {

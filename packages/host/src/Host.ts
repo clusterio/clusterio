@@ -5,16 +5,17 @@ import pidusage from "pidusage";
 import semver from "semver";
 import setBlocking from "set-blocking";
 import stream from "stream";
+import { fileURLToPath } from "node:url";
 import util from "util";
 
 // internal libraries
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 
-import type { HostConnector } from "../host";
-import Instance from "./Instance";
-import InstanceConnection from "./InstanceConnection";
-import BaseHostPlugin from "./BaseHostPlugin";
+import type { HostConnector } from "../host.js";
+import Instance from "./Instance.js";
+import InstanceConnection from "./InstanceConnection.js";
+import BaseHostPlugin from "./BaseHostPlugin.js";
 
 const finished = util.promisify(stream.finished);
 
@@ -403,6 +404,7 @@ export default class Host extends lib.Link {
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
+		this.handle(lib.UpdateAllRequest, this.handleUpdateAllRequest.bind(this));
 
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.handleAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.handleBanlistUpdateEvent.bind(this));
@@ -859,7 +861,7 @@ export default class Host extends lib.Link {
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("host.version");
-			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJsonPath = fileURLToPath(import.meta.resolve("@clusterio/host/package.json"));
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
@@ -876,15 +878,14 @@ export default class Host extends lib.Link {
 				}
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
-				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-				const pluginPackageJson = JSON.parse(await fs.readFile(pluginPackageJsonPath, "utf8"));
+				const pluginPackageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;
 				}
 			}
 		} catch (err: any) {
-			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+			logger.warn(`Failed to read package.json for ${packageName}:\n${err.stack ?? err.message}`);
 		}
 
 		return false;
@@ -893,7 +894,7 @@ export default class Host extends lib.Link {
 	async checkRestartDowngrade() {
 		try {
 			const runningVersion = this.config.get("host.version");
-			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJsonPath = fileURLToPath(import.meta.resolve("@clusterio/host/package.json"));
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			const installedVersion = packageJson.version;
 
@@ -1149,6 +1150,16 @@ export default class Host extends lib.Link {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
 		return await lib.handlePluginInstall(request.pluginPackage);
+	}
+
+	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
+		if (!this.config.get("host.allow_remote_updates")) {
+			throw new lib.RequestError("Remote updates are disabled on this machine");
+		}
+		if (!this.config.get("host.allow_plugin_updates")) {
+			throw new lib.RequestError("Plugin updates are disabled on this machine");
+		}
+		return await lib.handleUpdateAll("@clusterio/host", this.pluginInfos);
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {

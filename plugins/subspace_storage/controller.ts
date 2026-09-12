@@ -4,10 +4,10 @@ import fs from "node:fs/promises";
 import path from "path";
 
 import * as lib from "@clusterio/lib";
-const { Counter, Gauge } = lib;
+import { Counter, Gauge } from "@clusterio/lib";
 
-import * as routes from "./routes";
-import * as dole from "./dole";
+import * as routes from "./routes.js";
+import * as dole from "./dole.js";
 
 import {
 	Item,
@@ -16,7 +16,7 @@ import {
 	GetStorageRequest,
 	UpdateStorageEvent,
 	SetStorageSubscriptionRequest,
-} from "./messages";
+} from "./messages.js";
 
 
 const exportCounter = new Counter(

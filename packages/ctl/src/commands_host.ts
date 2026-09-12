@@ -6,9 +6,9 @@ import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import type { Control } from "../ctl";
-import { print } from "./command_ops";
-import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops";
+import type { Control } from "../ctl.js";
+import { print } from "./command_ops.js";
+import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 
@@ -87,7 +87,7 @@ hostCommands.add(new lib.Command({
 		} else {
 			logger.info(`Writing ${args.output}`);
 			try {
-				await fs.writeFile(args.output, content, { flag: "wx" });
+				await fs.writeFile(args.output, content, { flag: "wx", mode: 0o600 });
 			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					throw new lib.CommandError(`File ${args.output} already exists`);
@@ -101,10 +101,15 @@ hostCommands.add(new lib.Command({
 	definition: ["update <host>", "Update the host", (yargs) => {
 		yargs.positional("host", { describe: "Host to update", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+		yargs.option("all", { alias: "a", type: "boolean", description: "Also update all plugins" });
 	}],
-	handler: async function(args: { host: string, restart: boolean }, control: Control) {
+	handler: async function(args: { host: string, restart: boolean, all: boolean }, control: Control) {
 		let hostId = await lib.resolveHost(control, args.host);
-		await control.sendTo({ hostId }, new lib.HostUpdateRequest());
+		if (args.all) {
+			await control.sendTo({ hostId }, new lib.UpdateAllRequest());
+		} else {
+			await control.sendTo({ hostId }, new lib.HostUpdateRequest());
+		}
 		if (args.restart) {
 			await control.sendTo({ hostId }, new lib.HostRestartRequest());
 		} else {

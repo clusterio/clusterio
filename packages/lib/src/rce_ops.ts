@@ -1,15 +1,15 @@
 import util from "util";
 import path from "path";
 import { exec } from "child_process";
-import { logger } from "./logging";
-import { RequestError } from "./errors";
-import { PluginNodeEnvInfo } from "./plugin";
+import { logger } from "./logging.js";
+import { RequestError } from "./errors.js";
+import { PluginNodeEnvInfo } from "./plugin.js";
 const execAsync = util.promisify(exec);
 
 function isDev() {
 	//  dev:                 <devRoot>/packages/lib/dist/src/rce_ops.js
 	// prod: <prodRoot>/node_modules/@clusterio/lib/dist/src/rce_ops.js
-	return __dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
+	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
 }
 
 async function logExec(cmd: string) {
@@ -19,8 +19,8 @@ async function logExec(cmd: string) {
 	}
 }
 
-export async function updatePackage(name: string) {
-	return logExec(`npm update --save ${name}`);
+export async function updatePackage(...names: string[]) {
+	return logExec(`npm update --save ${names.join(" ")}`);
 }
 
 export async function installPackage(name: string) {
@@ -33,6 +33,13 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 	}
 
 	return await updatePackage(pluginName);
+}
+
+export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNodeEnvInfo[]) {
+	const pluginPackages = pluginInfos
+		.map(plugin => plugin.npmPackage)
+		.filter((name): name is string => name !== undefined);
+	return await updatePackage(corePackage, ...pluginPackages);
 }
 
 export async function handlePluginInstall(pluginName: string) {

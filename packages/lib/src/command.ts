@@ -6,9 +6,9 @@
  * @author Hornwitser
  * @module lib/command
  */
-import * as libData from "./data";
-import * as libErrors from "./errors";
-import type { Link } from "./link";
+import * as libData from "./data/index.js";
+import * as libErrors from "./errors.js";
+import type { Link } from "./link/index.js";
 import type { Argv } from "yargs";
 
 export type CommandHandler = (args: any, control: any) => Promise<void>;
@@ -147,6 +147,22 @@ export class CommandTree {
 
 
 /**
+ * Resolve a string with either an id or a name to the id of an entry
+ *
+ * An integer like string is treated as an id if an entry with that id
+ * exists, otherwise it is looked up as a name.
+ */
+function resolveId(entries: { id: number, name: string }[], idOrName: string) {
+	if (/^-?\d+$/.test(idOrName)) {
+		const id = parseInt(idOrName, 10);
+		if (entries.some(entry => entry.id === id)) {
+			return id;
+		}
+	}
+	return entries.find(entry => entry.name === idOrName)?.id;
+}
+
+/**
  * Resolve a string into a host ID
  *
  * Resolves a string with either an host name or an id into an integer with
@@ -157,23 +173,11 @@ export class CommandTree {
  * @returns host ID.
  */
 export async function resolveHost(client: Link, hostName: string) {
-	let hostId: number | undefined;
-	if (/^-?\d+$/.test(hostName)) {
-		hostId = parseInt(hostName, 10);
-	} else {
-		let hosts = await client.sendTo("controller", new libData.HostListRequest());
-		for (let host of hosts) {
-			if (host.name === hostName) {
-				hostId = host.id;
-				break;
-			}
-		}
-
-		if (hostId === undefined) {
-			throw new libErrors.CommandError(`No host named ${hostName}`);
-		}
+	const hosts = await client.sendTo("controller", new libData.HostListRequest());
+	const hostId = resolveId(hosts, hostName);
+	if (hostId === undefined) {
+		throw new libErrors.CommandError(`No host named ${hostName}`);
 	}
-
 	return hostId;
 }
 
@@ -188,23 +192,11 @@ export async function resolveHost(client: Link, hostName: string) {
  * @returns instance ID.
  */
 export async function resolveInstance(client: Link, instanceName: string) {
-	let instanceId: number | undefined;
-	if (/^-?\d+$/.test(instanceName)) {
-		instanceId = parseInt(instanceName, 10);
-	} else {
-		let instances = await client.sendTo("controller", new libData.InstanceDetailsListRequest());
-		for (let instance of instances) {
-			if (instance.name === instanceName) {
-				instanceId = instance.id;
-				break;
-			}
-		}
-
-		if (instanceId === undefined) {
-			throw new libErrors.CommandError(`No instance named ${instanceName}`);
-		}
+	const instances = await client.sendTo("controller", new libData.InstanceDetailsListRequest());
+	const instanceId = resolveId(instances, instanceName);
+	if (instanceId === undefined) {
+		throw new libErrors.CommandError(`No instance named ${instanceName}`);
 	}
-
 	return instanceId;
 }
 
@@ -220,23 +212,11 @@ export async function resolveInstance(client: Link, instanceName: string) {
  * @returns mod pack ID.
  */
 export async function resolveModPack(client: Link, modPackName: string) {
-	let modPackId: number | undefined;
-	if (/^-?\d+/.test(modPackName)) {
-		modPackId = parseInt(modPackName, 10);
-	} else {
-		let modPacks = await client.sendTo("controller", new libData.ModPackListRequest());
-		for (let modPack of modPacks) {
-			if (modPack.name === modPackName) {
-				modPackId = modPack.id;
-				break;
-			}
-		}
-
-		if (modPackId === undefined) {
-			throw new libErrors.CommandError(`No mod pack named ${modPackName}`);
-		}
+	const modPacks = await client.sendTo("controller", new libData.ModPackListRequest());
+	const modPackId = resolveId(modPacks, modPackName);
+	if (modPackId === undefined) {
+		throw new libErrors.CommandError(`No mod pack named ${modPackName}`);
 	}
-
 	return modPackId;
 }
 
@@ -251,27 +231,9 @@ export async function resolveModPack(client: Link, modPackName: string) {
  * @returns Role info.
  */
 export async function retrieveRole(client: Link, roleName: string) {
-	let roles = await client.sendTo("controller", new libData.RoleListRequest());
-
-	let resolvedRole: libData.Role | undefined;
-	if (/^-?\d+$/.test(roleName)) {
-		let roleId = parseInt(roleName, 10);
-		for (let role of roles) {
-			if (role.id === roleId) {
-				resolvedRole = role;
-				break;
-			}
-		}
-
-	} else {
-		for (let role of roles) {
-			if (role.name === roleName) {
-				resolvedRole = role;
-				break;
-			}
-		}
-	}
-
+	const roles = await client.sendTo("controller", new libData.RoleListRequest());
+	const roleId = resolveId(roles, roleName);
+	const resolvedRole = roles.find(role => role.id === roleId);
 	if (!resolvedRole) {
 		throw new libErrors.CommandError(`No role named ${roleName}`);
 	}

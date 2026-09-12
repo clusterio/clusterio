@@ -1,7 +1,7 @@
 import { BaseCtlPlugin, type Control } from "@clusterio/ctl";
 import { CommandTree, Command } from "@clusterio/lib";
 //%// We do not check for multi context here because it doesn't make sense to have a ctl without messages
-import { PluginExampleEvent, PluginExampleRequest } from "./messages";
+import { PluginExampleEvent, PluginExampleRequest } from "./messages.js";
 /* eslint-disable no-console */
 
 const pluginCommands = new CommandTree({

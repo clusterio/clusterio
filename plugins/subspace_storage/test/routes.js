@@ -1,8 +1,7 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const routes = require("../dist/node/routes");
-const { get } = require("../../../test/integration");
+import * as routes from "../dist/node/routes.js";
+import { get } from "../../../test/integration/index.js";
 
 
 describe("subspace_storage endpoints", function() {

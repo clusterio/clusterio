@@ -1,7 +1,6 @@
-"use strict";
 // Exchange strings for testing with
 
-const default_ = `
+export default `
 >>>eNpjZGBkUGQAgwZ7EOZgSc5PzIHxQJgrOb+gILVIN78oFVmYM
 7moNCVVNz8TVXFqXmpupW5SYjGKYo7Movw8dBNYi0vy81BFSopSU
 4uRRbhLixLzMktz0fUyMF5imubZ0CLHAML/6xkU/v8HYSDrAdAvI
@@ -14,7 +13,7 @@ MPlQMQJEAG2EO4yRgjTod+B0UEeJiuJUALUb8SA7IYUhA9Pwqw9j
 GQ/mkMwIwLZH2giKg5YooELZGEKnHjBDHcNMDwvsMN4DvMdGJlBD
 JCqL0AxCA8kAzMKQgs4gIObmQEBgGmjrO/lHgDxa6G4<<<`;
 
-const modified = `
+export const modified = `
 >>>eNp1UzFs00AUvZ8mbRIEypCBSlCCyFAhOQqBKULxlQUxMCCxgnCc
 S2rh2On5LAgMZOjAgISEurQLXSmCBTGwRWKhEkgIJraiMgBiaGmFOiC
 FO5/PsUz6pfv+9/6/99+/kwEBOo2k6c83NhrZtOkaNkIDXa286fZ6hG
@@ -31,7 +30,7 @@ jnh3gmXQRElVwYyxI8x4FMqOzsu4edrKK6hNZ5wU7V9G+ufEFL+7yHi
 cySQMp7wDHnRsBW571ORGn6fH2fUDj/FwV0iUbXPMbmTP7akkt8ChiL
 /BPceEs3j1M3iz71/ObT9tA==<<<`;
 
-const modified_v2 = `
+export const modified_v2 = `
 >>>eNp1Uz9oU0EY/y5N2iRWzRCFitSAGURIjNEpSN7VRRwcBFeJl5dL
 +ujLe+3de9XoYIYODoogXdrFrlZ0EQe3gIsFBdHJrVIHBYdWi3QQ4l3
 u3csz1Q++7333+31/75IYAJwRCpNx0yU2QNfQmjbd+XnKCi6jgg/hlM
@@ -49,7 +48,7 @@ Ln6IET6h2alhiMgvQ3SGxnDDDd32daT/yCD5fQ8R3WMEyeN/PENaNmy
 E5utYOI24z/cT+oQf48FdgozaFZg6qX+1KqW+GYyy4qNZgFNY/0IAHj
 RI5Q/27QvL<<<`;
 
-const modified_v2_1 = `
+export const modified_v2_1 = `
 >>>eNp1U89rE0EUftM0NYlVc4iCIjWHHkRICNFTkezoRTx4ELxKnGwm
 unSz087uVlsP5uDBg1CQXvSiVyt6EY9CwIu9if4DlXqwt1aK9CDEeZm
 dyZrgg/f49nu/37BTQCAPGYDZaVcwH6DnGC24YmmJy4qQHAAsnXdl3O
@@ -65,7 +64,7 @@ JYkZplFakZG9jCkjt5gyQ4nHFv3qqTPmsjWiYeiVKOkP57RB9xB0Dvk
 X9skPmJ46b3GGNscC4FCtiwbc3PTPrUX46YL/qSDp8BMOqAJI8C+u/S
 peyl8e7GC3Ce2le3AIs019Y//gU3lOV1<<<`;
 
-const modified_space_age = `
+export const modified_space_age = `
 >>>eNp1VEFoE0EUnUkb27TWBomFSqkBexAhMVZPRbJbL+LBg+BV1slm
 kgzd7LYzs9HYgz304EEQpJf2Yq9W9CIevBW8WFAQPXmr1IOCh1aL9CD
 UmZ2dzW4aB2by972Z9//7MyQFALggJpjIogWfOJ5lU7+KLY84ACwZeg
@@ -86,7 +85,7 @@ Gx0+5gy4RUpPimXd3JJg0hSVAZVaD42oXlGs+OdLeL8NIjXUO043NJp
 38bydxUydeQi4j66kCmzxzUMyYTVaPneF1Uj+vlxQH+ZT82gl0Du2he
 Y+lJ/JEpK/WZNmBM/mgXgnKlfCACLzljjH+s/hYo=<<<`;
 
-const modified_v2_1_13 = `
+export const modified_v2_1_13 = `
 >>>eNp1U89rE0EUftMmNYm15hAFRWoOPYiQEKKgFMmOXsSDB0HwJHGy
 mejSzU47u1utHszBgwdBkF70olcrehHvAS/2JvUfqNSDvbVSpAehzsv
 sTNYEH7zHt9/7/YadAAIzSmE64wrmA/QcowVXLC5yWRGSA4Cl866M27
@@ -101,12 +100,3 @@ JYkZpmFakZGd1AkjtxhSQjYziizPKvHmmTPmUDWuYoiVKOgP57RB9yS
 0Dvo1NMEfJJWw1i+YLmuywM1C1jwbPKaGnjffEMETl1yE9Qxu/9C7rp
 u3nVP+RQebGLpzeY4SxwbkUKGDDtjU/J9P3/nrIfNHXdPAWgFF7JHkZ
 0L+YLmXPjcc3XoAz1D69BVjk1sULxb83nuUA<<<`;
-
-module.exports = {
-	default: default_,
-	modified,
-	modified_v2,
-	modified_v2_1,
-	modified_v2_1_13,
-	modified_space_age,
-};

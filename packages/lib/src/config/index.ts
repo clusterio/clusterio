@@ -3,5 +3,5 @@
  * @author Hornwitser
  * @module lib/config
  */
-export * from "./classes";
-export * from "./definitions";
+export * from "./classes.js";
+export * from "./definitions.js";

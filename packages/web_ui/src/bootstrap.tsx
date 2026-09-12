@@ -49,6 +49,9 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 			logger.error(`Failed to load plugin ${meta.name}: ${meta.web.error}`);
 			continue;
 		}
+		if (!meta.web.main) {
+			continue;
+		}
 		try {
 			await loadScript(`${staticRoot}${meta.web.main}`);
 			let container: any = (window as { [key: string]: any })[`plugin_${meta.name}`];
@@ -136,6 +139,7 @@ export default async function bootstrap() {
 	}));
 	let [pluginInfos, pluginSetKey] = await loadPluginInfos();
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);

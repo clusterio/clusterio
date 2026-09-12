@@ -1,12 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const lib = require("@clusterio/lib");
-const { Host, Instance, InstanceConnection } = require("@clusterio/host");
-const { ControlConnection, Controller, HostConnection, InstanceRecord } = require("@clusterio/controller");
+import * as lib from "@clusterio/lib";
+import { Host, Instance, InstanceConnection } from "@clusterio/host";
+import { ControlConnection, Controller, HostConnection, InstanceRecord } from "@clusterio/controller";
 
 // Although there are no imports, the file has side-effects such as "before" which can effect tests
-require("./index");
+import "./index.js";
 
 const addr = lib.Address.fromShorthand;
 

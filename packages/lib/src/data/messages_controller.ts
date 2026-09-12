@@ -1,8 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
-import { JsonString, StringEnum, StringKey, plainJson } from "./composites";
-import { levels } from "../logging";
-import { ControllerConfig, HostConfig } from "../config";
-import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external";
+import { JsonString, StringEnum, StringKey, plainJson } from "./composites.js";
+import { levels } from "../logging.js";
+import { ControllerConfig, HostConfig } from "../config/index.js";
+import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external/index.js";
 
 export class ControllerStopRequest {
 	declare ["constructor"]: typeof ControllerStopRequest;

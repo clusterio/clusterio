@@ -1,10 +1,10 @@
-import type WebSocket from "ws";
+import { type WebSocket } from "ws";
 
 import events from "events";
 import assert from "assert/strict";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
 
 /**
@@ -49,7 +49,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	 * @param account - account data to provide to control connection
 	 */
 	ready(
-		socket: WebSocket.WebSocket,
+		socket: WebSocket,
 		src: lib.Address,
 		sessionToken: string,
 		account: lib.AccountDetails | undefined
@@ -80,7 +80,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	 * @param lastSeq - The last message the client received.
 	 */
 	continue(
-		socket: WebSocket.WebSocket,
+		socket: WebSocket,
 		lastSeq: number
 	) {
 
@@ -106,6 +106,9 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		this._state = "connected";
 		this._attachSocketHandlers();
 		this._dropSendBufferSeq(lastSeq);
+		logger.verbose(
+			`Connector | resuming session with ${this.dst}, resending ${this._sendBuffer.length} buffered messages`
+		);
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
@@ -113,7 +116,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	}
 
 	_timedOut() {
-		logger.verbose("Connector | Connection timed out");
+		logger.verbose(`Connector | Connection to ${this.dst} timed out`);
 		this._close();
 	}
 

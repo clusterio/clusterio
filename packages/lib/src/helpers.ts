@@ -3,7 +3,7 @@
  * @module lib/helpers
  */
 
-import type { Logger } from "./logging";
+import type { Logger } from "./logging.js";
 import setBlocking from "set-blocking";
 
 /**

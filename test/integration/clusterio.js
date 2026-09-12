@@ -1,22 +1,21 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const events = require("events");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import jwt from "jsonwebtoken";
+import path from "node:path";
+import events from "node:events";
 
-const lib = require("@clusterio/lib");
-const libBuildMod = require("@clusterio/lib/build_mod");
-const { wait } = lib;
+import * as lib from "@clusterio/lib";
+import { wait } from "@clusterio/lib";
+import * as libBuildMod from "@clusterio/lib/build_mod.js";
 
-const testStrings = require("../lib/factorio/test_strings");
-const {
+import * as testStrings from "../lib/factorio/test_strings.js";
+import {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
 	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
-} = require("./index");
-const { ControllerEcho, HostEchoReceived } = require("../file/test_plugin/messages");
+} from "./index.js";
+import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 
 /** @returns {Promise<Map<number, lib.InstanceDetails>>} */
@@ -522,6 +521,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				await execCtl("controller update");
 			});
+			it("accepts --all", async function() {
+				await execCtl("controller update --all");
+			});
 			it("accepts --restart", async function() {
 				// We cannot restart the controller, so we check for controller error instead
 				await assert.rejects(
@@ -603,6 +605,9 @@ describe("Integration of Clusterio", function() {
 		describe("host update", function() {
 			it("runs", async function() {
 				await execCtl("host update 4");
+			});
+			it("accepts --all", async function() {
+				await execCtl("host update 4 --all");
 			});
 			it("accepts --restart", async function() {
 				// We cannot restart the host, so we check for host error instead

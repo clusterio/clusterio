@@ -3,6 +3,7 @@
 	"version": "0.0.1",
 	"description": "Plugin used to test the plugin system, see #342",
 	"private": true,
+	"type": "module",
 	"main": "index.js",
 	"keywords": [
 		"clusterio-plugin"
