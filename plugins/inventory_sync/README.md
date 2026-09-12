@@ -32,8 +32,8 @@ The greatly simplified data flow is as follows:
     3. If the player inventory was previously uploaded but is not the same then the player inventory is deleted and the player is turned into a spectator.
     4. Otherwise the player inventory is kept.
 
-5. Scenario script asks for the player inventory from the controller.
-6. Controller sends it to the scenario in a stream of chunks.
+5. Scenario script asks for the player inventory from the controller, including its current recipe notification state.
+6. Controller sends it to the scenario in a stream of chunks, with only the recipe notifications that differ from the current state.
 7. Scenario displays and updates a progress bar as each chunk is received.
 8. Once all chunks have loaded the player's synced inventory is recreated from the data and the player can start playing.
 
