@@ -796,6 +796,7 @@ end`.replace(/\r?\n/g, " ");
 		} else {
 			modPack = await this.sendTo("controller", new lib.ModPackGetRequest(modPackId));
 		}
+		this.checkModPackVersion(modPack);
 		this.activeModPack = modPack;
 
 		const mods = await this._host.fetchMods(modPack.mods.values(), modPack.factorioVersion);
@@ -845,6 +846,25 @@ end`.replace(/\r?\n/g, " ");
 
 		// Write mod-settings.dat
 		await fs.writeFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
+	}
+
+	/**
+	 * Check that the mod pack does not target a newer Factorio than the server
+	 *
+	 * The mod pack's Factorio version is written into mod-settings.dat and
+	 * Factorio refuses to read it if it is newer than the game.  It then
+	 * loads default settings instead, which can corrupt the save.
+	 *
+	 * @throws {lib.RequestError} if the mod pack version is higher than the server version.
+	 */
+	checkModPackVersion(modPack: lib.ModPack) {
+		const serverVersion = this.server.version;
+		if (serverVersion && modPack.integerFactorioVersion > lib.integerFullVersion(serverVersion)) {
+			throw new lib.RequestError(
+				`Mod pack ${modPack.name} is for Factorio ${modPack.factorioVersion} ` +
+				`which is newer than the Factorio ${serverVersion} this instance runs`
+			);
+		}
 	}
 
 	/**
