@@ -38,6 +38,14 @@
 		"@clusterio/host": "workspace:^",
 		"@clusterio/lib": "workspace:^"
 	},
+	"peerDependenciesMeta": {
+		"@clusterio/controller": {
+			"optional": true
+		},
+		"@clusterio/host": {
+			"optional": true
+		}
+	},
 	"dependencies": {
 		"@sinclair/typebox": "catalog:"
 	},

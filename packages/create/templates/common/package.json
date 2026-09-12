@@ -27,6 +27,31 @@
 //%endif
 		"@clusterio/lib": "^__clusterio_version__"
 	},
+//%if controller | host | ctl
+	"peerDependenciesMeta": {
+//%endif
+//%if controller
+		"@clusterio/controller": {
+			"optional": true
+//%endif
+//%if controller & host | controller & ctl
+		},
+//%endif
+//%if host
+		"@clusterio/host": {
+			"optional": true
+//%endif
+//%if host & ctl
+		},
+//%endif
+//%if ctl
+		"@clusterio/ctl": {
+			"optional": true
+//%endif
+//%if controller | host | ctl
+		}
+	},
+//%endif
 	"devDependencies": {
 //%// Typescript and type declarations
 //%if typescript
