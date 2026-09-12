@@ -19,8 +19,8 @@ async function logExec(cmd: string) {
 	}
 }
 
-export async function updatePackage(name: string) {
-	return logExec(`npm update --save ${name}`);
+export async function updatePackage(...names: string[]) {
+	return logExec(`npm update --save ${names.join(" ")}`);
 }
 
 export async function installPackage(name: string) {
@@ -33,6 +33,13 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 	}
 
 	return await updatePackage(pluginName);
+}
+
+export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNodeEnvInfo[]) {
+	const pluginPackages = pluginInfos
+		.map(plugin => plugin.npmPackage)
+		.filter((name): name is string => name !== undefined);
+	return await updatePackage(corePackage, ...pluginPackages);
 }
 
 export async function handlePluginInstall(pluginName: string) {

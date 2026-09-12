@@ -46,11 +46,14 @@ export default function PluginViewPage() {
 	}
 
 	const pluginError = pluginMeta.web.error ?? pluginInfo?.error;
+	const hasWebModule = Boolean(pluginMeta.web.main || pluginMeta.web.error);
 	if (!loadedPlugin) {
 		return <PageLayout nav={nav}>
 			<Descriptions bordered size="small" title={pluginTitle}>
 				<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
-				<Descriptions.Item label="Loaded in Web UI" span={2}>No</Descriptions.Item>
+				<Descriptions.Item label="Loaded in Web UI" span={2}>
+					{hasWebModule ? "No" : "No web module"}
+				</Descriptions.Item>
 				<Descriptions.Item label="Loaded on controller">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
 				<Descriptions.Item label="Enabled on controller" span={2}>
 					{pluginMeta.enabled ? "Yes" : "No"}

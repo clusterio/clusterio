@@ -38,6 +38,34 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe(".checkModPackVersion()", function() {
+		function modPack(factorioVersion) {
+			return lib.ModPack.fromJSON({ name: "pack", factorio_version: factorioVersion });
+		}
+
+		it("should accept a mod pack for an older or equal Factorio version", function() {
+			instance.server.version = "1.1.91";
+			instance.checkModPackVersion(modPack("1.1"));
+			instance.checkModPackVersion(modPack("1.1.90"));
+			instance.checkModPackVersion(modPack("1.1.91"));
+		});
+
+		it("should reject a mod pack for a newer Factorio version", function() {
+			instance.server.version = "1.1.91";
+			assert.throws(
+				() => instance.checkModPackVersion(modPack("1.1.110")),
+				new lib.RequestError(
+					"Mod pack pack is for Factorio 1.1.110 which is newer than the Factorio 1.1.91 this instance runs"
+				)
+			);
+			assert.throws(() => instance.checkModPackVersion(modPack("2.0")), lib.RequestError);
+		});
+
+		it("should skip the check when the server version is unknown", function() {
+			instance.checkModPackVersion(modPack("2.0"));
+		});
+	});
+
 	describe("._recordPlayerJoin()", function() {
 		it("should add player to playersOnline", function() {
 			instance._recordPlayerJoin("player");

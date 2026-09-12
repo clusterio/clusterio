@@ -1,6 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
 import { jsonArray } from "./composites.js";
 import type { PluginNodeEnvInfo } from "../plugin.js";
+import { Address, MessageRequest } from "./messages_core.js";
+import type { IUser } from "./UserDetails.js";
 
 /* This is similar to other plugin definitions but with lots removed */
 export class PluginDetails {
@@ -89,5 +91,16 @@ export class PluginInstallRequest {
 
 	toJSON() {
 		return this.pluginPackage;
+	}
+}
+
+export class UpdateAllRequest {
+	declare ["constructor"]: typeof UpdateAllRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = ["controller", "host"] as const;
+	static permission(user: IUser, message: MessageRequest) {
+		user.checkPermission(message.dst.type === Address.host ? "core.host.update" : "core.controller.update");
+		user.checkPermission("core.plugin.update");
 	}
 }

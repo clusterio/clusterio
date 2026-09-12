@@ -395,6 +395,15 @@ describe("lib/config/classes", function() {
 				const json = JSON.parse(await fs.readFile(filepath, "utf8"));
 				assert.deepEqual(json, testInstance.toJSON());
 			});
+			it("should not be readable by other users", async function() {
+				if (process.platform === "win32") {
+					this.skip();
+				}
+				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
+				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
+				await testInstance.save();
+				assert.equal((await fs.stat(filepath)).mode & 0o777, 0o600);
+			});
 			it("should clear the dirty flag after saving", async function() {
 				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
 				testInstance.set("alpha.foo", "b"); // Sets the dirty flag

@@ -132,7 +132,7 @@ function getPlugins(req: Request, res: Response) {
 			if (!web.main) {
 				web.error = `Missing ${pluginInfo.name}.js entry in manifest.json`;
 			}
-		} else {
+		} else if (lib.pluginNeedsWebBuild(pluginInfo)) {
 			web.error = "Missing dist/web/manifest.json";
 		}
 		if (web.main === "remoteEntry.js") {

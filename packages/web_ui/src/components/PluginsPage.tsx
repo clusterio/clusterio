@@ -86,6 +86,9 @@ export default function PluginsPage() {
 						if (!plugin.meta.enabled) {
 							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
 						}
+						if (!plugin.meta.web.main && !plugin.meta.web.error) {
+							return plugin.meta.version;
+						}
 						if (!plugin.meta.web.error && !control.pluginInfos.has(plugin.meta.name)) {
 							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
 						}
@@ -103,7 +106,15 @@ export default function PluginsPage() {
 				{
 					title: "Loaded",
 					key: "loaded",
-					render: (_, plugin) => (plugin.package ? "Yes" : null),
+					render: (_, plugin) => {
+						if (plugin.package) {
+							return "Yes";
+						}
+						if (!plugin.meta.web.main && !plugin.meta.web.error) {
+							return "No web module";
+						}
+						return null;
+					},
 					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
 					sortOrder: tableState.sortOrder("loaded"),
 					responsive: ["sm"],
