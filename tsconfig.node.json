@@ -6,6 +6,7 @@
 		"moduleResolution": "node16",
 		"target": "es2022",
 		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
 		"forceConsistentCasingInFileNames": true,
 		"outDir": "${configDir}/dist/node",
 	},
