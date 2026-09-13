@@ -1,6 +1,6 @@
 export interface BuildArgs {
 	factorioVersion?: string;
-	dependencies?: Record<string, string>;
+	dependencies?: string[];
 	clean?: boolean;
 	pack?: boolean;
 	build?: boolean;
