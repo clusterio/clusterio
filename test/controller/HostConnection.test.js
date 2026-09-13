@@ -39,13 +39,14 @@ describe("controller/src/HostConnection", function() {
 		// Instance 1 is on host 10, instance 2 is on host 20.
 		const assignments = new Map([[1, 10], [2, 20]]);
 
+		// Inherit the prototype, handlers call other methods on this.
 		function run(hostId, saves, event) {
 			const saveStore = new MockSaves(saves);
-			const ctx = {
-				id: hostId,
+			const ctx = Object.assign(Object.create(HostConnection.prototype), {
+				info: { id: hostId },
 				_controller: { instances: makeInstances(assignments), saves: saveStore },
-			};
-			HostConnection.prototype.handleInstanceSaveDetailsUpdatesEvent.call(ctx, event);
+			});
+			ctx.handleInstanceSaveDetailsUpdatesEvent(event);
 			return saveStore;
 		}
 
@@ -73,6 +74,52 @@ describe("controller/src/HostConnection", function() {
 		it("ignores updates for a nonexistent instance", async function() {
 			const store = run(30, [], new lib.InstanceSaveDetailsUpdatesEvent([makeSave(999, "x.zip")]));
 			assert.deepEqual([...store.values()], []);
+		});
+	});
+
+	describe(".handleLogMessageEvent()", function() {
+		// Instance 1 is on host 10, instance 2 is on host 20.
+		const assignments = new Map([[1, 10], [2, 20]]);
+
+		function run(hostId, info) {
+			const logged = [];
+			const ctx = Object.assign(Object.create(HostConnection.prototype), {
+				info: { id: hostId, name: `host-${hostId}` },
+				_controller: {
+					instances: makeInstances(assignments),
+					clusterLogger: { log(entry) { logged.push(entry); } },
+				},
+			});
+			ctx.handleLogMessageEvent(new lib.LogMessageEvent(info));
+			return logged;
+		}
+
+		it("keeps instance fields for an instance assigned to this host", async function() {
+			const logged = run(10, { level: "info", message: "hello", instance_id: 1, instance_name: "one" });
+			assert.deepEqual(logged, [{
+				level: "info", message: "hello", instance_id: 1, instance_name: "one",
+				host_id: 10, host_name: "host-10",
+			}]);
+		});
+
+		it("logs host level messages unchanged", async function() {
+			const logged = run(10, { level: "info", message: "hello" });
+			assert.deepEqual(logged, [{ level: "info", message: "hello", host_id: 10, host_name: "host-10" }]);
+		});
+
+		it("strips instance fields claiming an instance on another host", async function() {
+			const logged = run(30, { level: "info", message: "hi", instance_id: 1, instance_name: "one" });
+			assert.deepEqual(logged, [{ level: "info", message: "hi", host_id: 30, host_name: "host-30" }]);
+		});
+
+		it("strips instance fields claiming a nonexistent instance", async function() {
+			const logged = run(30, { level: "info", message: "hi", instance_id: 999, instance_name: "ghost" });
+			assert.deepEqual(logged, [{ level: "info", message: "hi", host_id: 30, host_name: "host-30" }]);
+		});
+
+		it("overrides host fields sent by the host", async function() {
+			const logged = run(10, { level: "info", message: "hi", host_id: 99, host_name: "spoofed" });
+			assert.deepEqual(logged, [{ level: "info", message: "hi", host_id: 10, host_name: "host-10" }]);
 		});
 	});
 });

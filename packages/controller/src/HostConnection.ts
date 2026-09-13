@@ -18,6 +18,8 @@ import HostRecord from "./HostRecord.js";
 export default class HostConnection extends BaseConnection {
 	private info: HostRecord;
 	plugins: Map<string, string>;
+	// Warn once per connection, a misbehaving host could log in a loop.
+	private _warnedBogusLogMessage = false;
 
 	constructor(
 		registerData: lib.RegisterHostData,
@@ -295,20 +297,22 @@ export default class HostConnection extends BaseConnection {
 		await this.send(new lib.SyncUserListsEvent(adminlist, banlist, whitelist));
 	}
 
-	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
-		// A host may only report saves for instances assigned to it. Otherwise
-		// any host could inject save records for, or wipe the save list of, an
-		// instance on a different host. See handleInstanceStatusChangedEvent.
-		const assignedHere = (instanceId: number) => {
-			const instance = this._controller.instances.get(instanceId);
-			return instance !== undefined && instance.config.get("instance.assigned_host") === this.id;
-		};
+	// A host may only report on instances assigned to it. Otherwise any host
+	// could speak for an instance on a different host. See
+	// handleInstanceStatusChangedEvent.
+	private _assignedHere(instanceId: number) {
+		const instance = this._controller.instances.get(instanceId);
+		return instance !== undefined && instance.config.get("instance.assigned_host") === this.id;
+	}
 
-		if (event.instanceId !== undefined && !assignedHere(event.instanceId)) {
+	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
+		// Otherwise any host could inject save records for, or wipe the save
+		// list of, an instance on a different host.
+		if (event.instanceId !== undefined && !this._assignedHere(event.instanceId)) {
 			logger.warn(`Got bogus save updates for instance id ${event.instanceId}`);
 			return;
 		}
-		if (event.updates.some(save => !assignedHere(save.instanceId))) {
+		if (event.updates.some(save => !this._assignedHere(save.instanceId))) {
 			logger.warn(`Got bogus save updates from host id ${this.id}`);
 			return;
 		}
@@ -337,8 +341,23 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
+		// Fields beyond level and message survive schema validation, so the
+		// instance a log line claims to come from is whatever the host sent.
+		const info: typeof event.info & { instance_id?: number, instance_name?: string } = { ...event.info };
+		if (info.instance_id !== undefined && !this._assignedHere(info.instance_id)) {
+			// Demote to a host level line instead of dropping it. The host did
+			// log this, it just does not get to pin it on someone else's
+			// instance, and a host racing a reassignment still gets heard.
+			if (!this._warnedBogusLogMessage) {
+				this._warnedBogusLogMessage = true;
+				logger.warn(`Got bogus log message for instance id ${info.instance_id}`);
+			}
+			delete info.instance_id;
+			delete info.instance_name;
+		}
+
 		this._controller.clusterLogger.log({
-			...event.info,
+			...info,
 			host_id: this.id,
 			host_name: this.info.name,
 		});
