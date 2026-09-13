@@ -208,9 +208,17 @@ export default class InstanceManager {
 		instance.config.set("instance.assigned_host", hostId);
 
 		if (newHostConnection) {
-			await newHostConnection.send(
-				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host")),
-			);
+			try {
+				await newHostConnection.send(
+					new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host")),
+				);
+			} catch (err) {
+				// Leave unassigned so the assign can be retried
+				instance.config.set("instance.assigned_host", null);
+				instance.status = "unassigned";
+				this.records.set(instance);
+				throw err;
+			}
 		} else {
 			instance.status = "unassigned";
 		}

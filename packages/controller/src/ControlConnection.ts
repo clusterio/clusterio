@@ -292,6 +292,9 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
+		if ((request.config["instance.assigned_host"] ?? null) !== null) {
+			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
+		}
 		const instanceConfig = new lib.InstanceConfig("controller");
 		if (request.cloneFromId) {
 			const baseInstance = this._controller.instances.get(request.cloneFromId);

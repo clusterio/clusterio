@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import events from "node:events";
 import * as lib from "@clusterio/lib";
-import { Controller, ControlConnection, ControllerHooks } from "@clusterio/controller";
+import { Controller, ControlConnection, ControllerHooks, InstanceManager } from "@clusterio/controller";
 import { MockConnector, MockController, MockLogger } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
@@ -73,6 +73,41 @@ describe("controller/src/ControlConnection", function() {
 			await assert.rejects(restart, /Stop the controller before starting the older version manually/);
 			assert.equal(mockController.shouldRestart, false);
 			assert.equal(mockController.stopped, false);
+		});
+	});
+
+	describe(".handleInstanceCreateRequest()", function() {
+		let mockController;
+
+		beforeEach(function() {
+			mockController = new MockController();
+			mockController.mockConfigEntries.set("controller.name", "Test");
+			mockController.instances = new InstanceManager(new lib.SubscribableDatastore(), mockController);
+		});
+
+		async function create(config, cloneFromId) {
+			await ControlConnection.prototype.handleInstanceCreateRequest.call(
+				{ _controller: mockController },
+				new lib.InstanceCreateRequest(config, cloneFromId),
+			);
+		}
+
+		it("rejects instance.assigned_host in the config", async function() {
+			await assert.rejects(
+				create({ "instance.id": 4001, "instance.name": "c1", "instance.assigned_host": 10 }),
+				new lib.RequestError("instance.assigned_host must be set through the assign-host interface"),
+			);
+			assert.equal(mockController.instances.has(4001), false);
+		});
+
+		it("creates an unassigned clone of an assigned instance", async function() {
+			await create({ "instance.id": 4001, "instance.name": "base" });
+			mockController.instances.getMutable(4001).config.set("instance.assigned_host", 10);
+
+			await create({ "instance.id": 4002, "instance.name": "clone", "instance.assigned_host": null }, 4001);
+			const clone = mockController.instances.get(4002);
+			assert.equal(clone.config.get("instance.name"), "clone");
+			assert.equal(clone.config.get("instance.assigned_host"), null);
 		});
 	});
 
