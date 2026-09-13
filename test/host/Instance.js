@@ -49,6 +49,7 @@ describe("class Instance", function() {
 			instance.logger = new MockLogger();
 			instance.logger.error = message => errors.push(message);
 			instance.server.exampleSettings = async () => ({});
+			instance.notifyStatus("running");
 			hookInvoked = new Promise(resolve => {
 				instance.hooks.instanceConfigFieldChanged.attach("test", field => resolve(field));
 			});
@@ -85,6 +86,81 @@ describe("class Instance", function() {
 			assert.deepEqual(rejections, []);
 			assert.deepEqual(errors, []);
 			assert.deepEqual(instance.server.rconCommands, ["/config set tags 1 a b"]);
+		});
+
+		it("should defer changes made while starting until the instance is running", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("running");
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, ["/config set tags a"]);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should drop changes made while starting if the instance stops", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should do nothing for changes made while stopped", async function() {
+			instance.notifyStatus("stopped");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should invoke the hook while starting without waiting for the instance", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			assert.equal(await hookInvoked, "factorio.settings");
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("stopped");
+			await wait(10);
+		});
+	});
+
+	describe("list update events", function() {
+		let errors;
+		beforeEach(function() {
+			errors = [];
+			instance.logger = new MockLogger();
+			instance.logger.error = message => errors.push(message);
+		});
+
+		it("should apply an update received while starting once running", async function() {
+			instance.notifyStatus("starting");
+			let handled = instance.handleInstanceAdminlistUpdateEvent(
+				new lib.InstanceAdminlistUpdateEvent("player", true)
+			);
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("running");
+			await handled;
+			assert.deepEqual(instance.server.rconCommands, ["/promote player"]);
+			assert.deepEqual(errors, []);
+		});
+
+		it("should drop an update received while starting if the instance stops", async function() {
+			instance.notifyStatus("starting");
+			let handled = instance.handleInstanceAdminlistUpdateEvent(
+				new lib.InstanceAdminlistUpdateEvent("player", true)
+			);
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await handled;
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
 		});
 	});
 
