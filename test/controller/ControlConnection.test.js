@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { ControlConnection } from "@clusterio/controller";
+import events from "node:events";
+import * as lib from "@clusterio/lib";
+import { ControlConnection, ControllerHooks } from "@clusterio/controller";
+import { MockConnector, MockLogger } from "../mock.js";
+
+const addr = lib.Address.fromShorthand;
 
 describe("controller/src/ControlConnection", function() {
 	describe(".handleControllerRestartRequest()", function() {
@@ -36,6 +41,54 @@ describe("controller/src/ControlConnection", function() {
 			await assert.rejects(restart, /Stop the controller before starting the older version manually/);
 			assert.equal(mockController.shouldRestart, false);
 			assert.equal(mockController.stopped, false);
+		});
+	});
+
+	describe("close cleanup", function() {
+		let connector;
+		let mockController;
+		let connection;
+
+		beforeEach(function() {
+			connector = new MockConnector(addr("controller"), addr({ controlId: 1 }));
+			connector._socket = {};
+			const transports = new Set();
+			mockController = {
+				hooks: new ControllerHooks(new MockLogger()),
+				router: null,
+				_registeredRequests: new Map(),
+				_fallbackedRequests: new Map(),
+				_registeredEvents: new Map(),
+				_snoopedEvents: new Map(),
+				subscriptions: { unsubscribeLink() {} },
+				clusterLogger: {
+					transports,
+					add(transport) { transports.add(transport); },
+					remove(transport) { transports.delete(transport); },
+				},
+				debugEvents: new events.EventEmitter(),
+				sendRequestToHostByInstanceId() {},
+			};
+			connection = new ControlConnection({ version: "test" }, connector, mockController, {}, 1);
+		});
+
+		it("removes the log transport from clusterLogger", async function() {
+			await connection.handleLogSetSubscriptionsRequest(
+				new lib.LogSetSubscriptionsRequest(true, false, [], [])
+			);
+			assert.equal(mockController.clusterLogger.transports.size, 1);
+			connector.emit("close");
+			assert.equal(mockController.clusterLogger.transports.size, 0);
+			assert.equal(connection.logTransport, null);
+		});
+
+		it("removes the debug dump listener after repeated requests", async function() {
+			await connection.handleDebugDumpWsRequest(new lib.DebugDumpWsRequest());
+			await connection.handleDebugDumpWsRequest(new lib.DebugDumpWsRequest());
+			assert.equal(mockController.debugEvents.listenerCount("message"), 1);
+			assert.equal(connector._socket.clusterio_ignore_dump, true);
+			connector.emit("close");
+			assert.equal(mockController.debugEvents.listenerCount("message"), 0);
 		});
 	});
 });

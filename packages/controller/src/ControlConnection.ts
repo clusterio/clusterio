@@ -53,7 +53,7 @@ export default class ControlConnection extends BaseConnection {
 		});
 		this.connector.on("close", () => {
 			if (this.logTransport) {
-				logger.remove(this.logTransport);
+				this._controller.clusterLogger.remove(this.logTransport);
 				this.logTransport = null;
 			}
 			if (this.ws_dumper) {
@@ -1325,6 +1325,9 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {
+		if (this.ws_dumper) {
+			return; // Already dumping
+		}
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
 				this.send(new lib.DebugWsMessageEvent(data.direction, data.content));
