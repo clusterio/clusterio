@@ -22,14 +22,14 @@ function createStartedServer() {
 	return server;
 }
 
-// Fail instead of hanging if stop() never resolves.
-async function waitForStop(stopped) {
+// Fail instead of hanging if the call never settles.
+async function withTimeout(promise, message) {
 	let timeoutId;
 	const timeout = new Promise((resolve, reject) => {
-		timeoutId = setTimeout(() => reject(new Error("stop() did not resolve")), 500);
+		timeoutId = setTimeout(() => reject(new Error(message)), 500);
 	});
 	try {
-		await Promise.race([stopped, timeout]);
+		return await Promise.race([promise, timeout]);
 	} finally {
 		clearTimeout(timeoutId);
 	}
@@ -41,7 +41,7 @@ describe("host/src/server", function() {
 			const server = createStartedServer();
 			const stopped = server.stop();
 			server._server.emit("exit", 1, null);
-			await waitForStop(stopped);
+			await withTimeout(stopped, "stop() did not resolve");
 			assert.equal(server._state, "init");
 			assert.equal(server.listenerCount("rcon-ready"), 0);
 		});
@@ -56,7 +56,22 @@ describe("host/src/server", function() {
 			const fakeProcess = server._server;
 			assert.equal(fakeProcess.killed, true);
 			fakeProcess.emit("exit", 0, null);
-			await waitForStop(stopped);
+			await withTimeout(stopped, "stop() did not resolve");
+		});
+	});
+
+	describe("FactorioServer.sendRcon()", function() {
+		it("throws if the process exits before RCON is ready", async function() {
+			const server = createStartedServer();
+			const sent = server.sendRcon("/version");
+			// kill() sets the state before killing, which suppresses the error event.
+			server._state = "stopping";
+			server._server.emit("exit", null, "SIGKILL");
+			await assert.rejects(
+				withTimeout(sent, "sendRcon() did not settle"),
+				new Error("RCON connection lost"),
+			);
+			assert.equal(server.listenerCount("rcon-ready"), 0);
 		});
 	});
 });

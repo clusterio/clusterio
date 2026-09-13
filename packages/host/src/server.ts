@@ -1318,6 +1318,23 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 
+	// Not using events.once here to avoid throwing on error events, which are
+	// not emitted when the process exits while stopping.
+	async _waitForRconReadyOrExit() {
+		await new Promise<void>(resolve => {
+			const onRconReady = () => {
+				this.off("exit", onExit);
+				resolve();
+			};
+			const onExit = () => {
+				this.off("rcon-ready", onRconReady);
+				resolve();
+			};
+			this.once("rcon-ready", onRconReady);
+			this.once("exit", onExit);
+		});
+	}
+
 	/**
 	 * Send message over RCON
 	 *
@@ -1333,7 +1350,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async sendRcon(message: string, expectEmpty?: boolean) {
 		this._check(["running", "stopping"]);
 		if (!this._rconReady) {
-			await events.once(this, "rcon-ready");
+			await this._waitForRconReadyOrExit();
 		}
 		if (!this._rconClient) {
 			throw new Error("RCON connection lost");
@@ -1404,20 +1421,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		// If RCON is not yet fully connected that operation needs to
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
-			// Not using events.once here to avoid throwing on error events.
-			// The process may also exit before RCON connects.
-			await new Promise<void>(resolve => {
-				const onRconReady = () => {
-					this.off("exit", onExit);
-					resolve();
-				};
-				const onExit = () => {
-					this.off("rcon-ready", onRconReady);
-					resolve();
-				};
-				this.once("rcon-ready", onRconReady);
-				this.once("exit", onExit);
-			});
+			await this._waitForRconReadyOrExit();
 		}
 
 		// The Factorio server may have decided to get ahead of us and
