@@ -328,4 +328,37 @@ describe("class Instance", function() {
 			}
 		});
 	});
+
+	describe("_watchServerLogActions()", function() {
+		beforeEach(function() {
+			instance.config.set("factorio.sync_banlist", "bidirectional");
+			instance._watchServerLogActions();
+		});
+		afterEach(function() {
+			clearInterval(instance._playerCheckInterval);
+		});
+		function emitAction(action, message) {
+			instance.server.emit("output", { type: "action", action, message }, "");
+		}
+		it("should record a normal JOIN action", function() {
+			emitAction("JOIN", "player joined the game");
+			assert(instance.playersOnline.has("player"), "player was not added");
+		});
+		it("should parse the reason of a normal BAN action", function() {
+			emitAction("BAN", "player was banned by <server>. Reason: griefing.");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceBanlistUpdateEvent",
+					new lib.InstanceBanlistUpdateEvent("player", true, "griefing"),
+				),
+			);
+		});
+		it("should not throw on a BAN action without a reason tail", function() {
+			assert.doesNotThrow(() => emitAction("BAN", "evil"));
+		});
+		it("should not throw on an action whose message starts with a space", function() {
+			assert.doesNotThrow(() => emitAction("JOIN", " "));
+		});
+	});
 });

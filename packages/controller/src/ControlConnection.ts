@@ -48,12 +48,16 @@ export default class ControlConnection extends BaseConnection {
 
 		this._version = registerData.version;
 
-		this.connector.on("connect", () => {
-			this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
-		});
+		// A resume installs a fresh socket, so re-apply the ignore flag or the
+		// dumper's own frames get echoed back into it and recurse forever.
+		for (let event of ["connect", "resume"] as const) {
+			this.connector.on(event, () => {
+				this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
+			});
+		}
 		this.connector.on("close", () => {
 			if (this.logTransport) {
-				logger.remove(this.logTransport);
+				this._controller.clusterLogger.remove(this.logTransport);
 				this.logTransport = null;
 			}
 			if (this.ws_dumper) {
@@ -288,6 +292,9 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
+		if ((request.config["instance.assigned_host"] ?? null) !== null) {
+			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
+		}
 		const instanceConfig = new lib.InstanceConfig("controller");
 		if (request.cloneFromId) {
 			const baseInstance = this._controller.instances.get(request.cloneFromId);
@@ -1070,6 +1077,11 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		this._controller.users.deleteUser(user);
+		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
+			if (controlConnection.user.id === user.id) {
+				controlConnection.connector.terminate();
+			}
+		}
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));
@@ -1325,6 +1337,9 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {
+		if (this.ws_dumper) {
+			return; // Already dumping
+		}
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
 				this.send(new lib.DebugWsMessageEvent(data.direction, data.content));

@@ -79,6 +79,23 @@ describe("controller/UserManager", function () {
 			const user = userManager.createUser("Eve");
 			assert(user.roleIds.has(1));
 		});
+
+		it("should set tokenValidAfter to the current time", function () {
+			const before = Math.floor(Date.now() / 1000);
+			const user = userManager.createUser("Mallory");
+			assert(user.tokenValidAfter >= before, "tokenValidAfter predates the call");
+			assert(user.tokenValidAfter <= Math.floor(Date.now() / 1000), "tokenValidAfter is in the future");
+		});
+
+		it("should invalidate tokens issued before a user of the same name was recreated", function () {
+			const user = userManager.createUser("Niaj");
+			const oldTokenIat = user.tokenValidAfter - 60;
+			userManager.deleteUser(user);
+
+			// WsServer.registerControl rejects the token when iat < tokenValidAfter
+			const recreated = userManager.createUser("Niaj");
+			assert(oldTokenIat < recreated.tokenValidAfter, "token from before the deletion is still valid");
+		});
 	});
 
 	describe(".getOrCreateUser()", function () {
