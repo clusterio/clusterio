@@ -5,7 +5,7 @@ import https from "node:https";
 import util from "node:util";
 import events from "node:events";
 
-import HttpCloser from "@clusterio/controller/dist/node/src/HttpCloser.js";
+import HttpCloser from "@clusterio/controller/src/HttpCloser.ts";
 
 // Time to wait during async operations to ensure they happened in order.
 const tick = 20;

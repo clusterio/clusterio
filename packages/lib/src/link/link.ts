@@ -1,15 +1,15 @@
 // Implementation of Link class
-import * as libData from "../data/index.js";
-import * as libErrors from "../errors.js";
-import { logger } from "../logging.js";
-import * as libSchema from "../schema.js";
-import { dataClasses } from "./messages.js";
-import { BaseConnector, WebSocketBaseConnector } from "./connectors.js";
+import * as libData from "../data/index.ts";
+import * as libErrors from "../errors.ts";
+import { logger } from "../logging.ts";
+import * as libSchema from "../schema.ts";
+import { dataClasses } from "./messages.ts";
+import { BaseConnector, WebSocketBaseConnector } from "./connectors.ts";
 import { strict as assert } from "assert";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.ts";
 import type {
 	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUser,
-} from "../data/index.js";
+} from "../data/index.ts";
 
 export interface Request<Req, Res> {
 	constructor: Partial<JSONDeserialisable<Req & Request<Req, Res>>> & {

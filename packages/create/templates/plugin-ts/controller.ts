@@ -9,7 +9,7 @@ import {
 	ExampleSubscribableUpdate, ExampleSubscribableValue,
 //%endif
 //%if multi_context // Messages requires multi context
-} from "./messages.js";
+} from "./messages.ts";
 //%endif
 
 export class ControllerPlugin extends BaseControllerPlugin {

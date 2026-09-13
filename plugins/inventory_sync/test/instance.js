@@ -4,9 +4,9 @@ import zlib from "node:zlib";
 import * as lib from "@clusterio/lib";
 
 import * as mock from "../../../test/mock.js";
-import { recipeNotificationDelta, InstancePlugin } from "../dist/node/instance.js";
-import { DownloadResponse } from "../dist/node/messages.js";
-import { plugin as info } from "../dist/node/index.js";
+import { recipeNotificationDelta, InstancePlugin } from "../instance.ts";
+import { DownloadResponse } from "../messages.ts";
+import { plugin as info } from "../index.ts";
 
 const inflate = util.promisify(zlib.inflate);
 const deflate = util.promisify(zlib.deflate);

@@ -1,8 +1,8 @@
 import * as lib from "@clusterio/lib";
 
-import type Controller from "./Controller.js";
-import type HostConnection from "./HostConnection.js";
-import InstanceRecord from "./InstanceRecord.js";
+import type Controller from "./Controller.ts";
+import type HostConnection from "./HostConnection.ts";
+import InstanceRecord from "./InstanceRecord.ts";
 
 export default class InstanceManager {
 	readonly records: lib.SubscribableDatastore<InstanceRecord>;

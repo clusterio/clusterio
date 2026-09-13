@@ -4,12 +4,12 @@ import * as fs from "node:fs/promises";
 import events from "events";
 
 import isDeepStrictEqual from "#is_deep_strict_equal";
-import { basicType } from "../helpers.js";
-import * as libSchema from "../schema.js";
-import { StringEnum } from "../data/composites.js";
-import { safeOutputFile } from "../file_ops.js";
-import * as validators from "./validators.js";
-import { RequestError } from "../errors.js";
+import { basicType } from "../helpers.ts";
+import * as libSchema from "../schema.ts";
+import { StringEnum } from "../data/composites.ts";
+import { safeOutputFile } from "../file_ops.ts";
+import * as validators from "./validators.ts";
+import { RequestError } from "../errors.ts";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;

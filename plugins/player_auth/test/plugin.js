@@ -3,10 +3,10 @@ import jwt from "jsonwebtoken";
 
 import * as mock from "../../../test/mock.js";
 
-import * as controller from "../dist/node/controller.js";
-import * as instance from "../dist/node/instance.js";
-import { plugin as info } from "../dist/node/index.js";
-import { FetchPlayerCodeRequest, SetVerifyCodeRequest, PlayerAuthServer } from "../dist/node/messages.js";
+import * as controller from "../controller.ts";
+import * as instance from "../instance.ts";
+import { plugin as info } from "../index.ts";
+import { FetchPlayerCodeRequest, SetVerifyCodeRequest, PlayerAuthServer } from "../messages.ts";
 import { testRoundTripJsonSerialisable, testMatrix } from "../../../test/common.js";
 import * as lib from "@clusterio/lib";
 

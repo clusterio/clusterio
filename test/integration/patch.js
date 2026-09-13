@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import JSZip from "jszip";
 import path from "node:path";
 
-import { patch, SaveModule } from "@clusterio/host/dist/node/src/patch.js";
+import { patch, SaveModule } from "@clusterio/host/src/patch.ts";
 import * as lib from "@clusterio/lib";
 
 import { slowTest } from "./index.js";

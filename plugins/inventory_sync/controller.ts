@@ -1,10 +1,10 @@
 import { BaseControllerPlugin, type InstanceRecord } from "@clusterio/controller";
-import type { IpcPlayerData } from "./messages.js";
+import type { IpcPlayerData } from "./messages.ts";
 
 import fs from "node:fs/promises";
 import path from "path";
 import * as lib from "@clusterio/lib";
-import * as msg from "./messages.js";
+import * as msg from "./messages.ts";
 
 async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 	let itemsPath = path.resolve(config.get("controller.database_directory"), "inventories.json");

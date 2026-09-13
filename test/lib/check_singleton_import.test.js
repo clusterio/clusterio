@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { checkSingletonImport } from "@clusterio/lib/dist/node/src/check_singleton_import.js";
+import { checkSingletonImport } from "@clusterio/lib/src/check_singleton_import.ts";
 // Import lib so it sets the global indicating lib has been imported.
 import "@clusterio/lib";
 

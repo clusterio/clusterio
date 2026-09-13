@@ -1,10 +1,10 @@
 import { Type, type Static } from "@sinclair/typebox";
-import { Link, type Event, type EventClass, type RequestHandler, WebSocketBaseConnector } from "./link/index.js";
-import { Address, MessageRequest, type IUser, JsonBoolean, StringEnum } from "./data/index.js";
+import { Link, type Event, type EventClass, type RequestHandler, WebSocketBaseConnector } from "./link/index.ts";
+import { Address, MessageRequest, type IUser, JsonBoolean, StringEnum } from "./data/index.ts";
 import isDeepStrictEqual from "#is_deep_strict_equal";
-import type { PermissionName } from "./permissions.js";
-import { RequestError } from "./errors.js";
-import { logger } from "./logging.js";
+import type { PermissionName } from "./permissions.ts";
+import { RequestError } from "./errors.ts";
+import { logger } from "./logging.ts";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void

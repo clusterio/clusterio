@@ -2,7 +2,7 @@
 import { type TSchema, Type, type Static } from "@sinclair/typebox";
 
 import messageValidate from "./message_validate.js"; // generated file
-import { StringEnum } from "./composites.js";
+import { StringEnum } from "./composites.ts";
 
 export type AddressType = "controller" | "host" | "instance" | "control" | "broadcast";
 export type AddressShorthand =

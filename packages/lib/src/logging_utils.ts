@@ -14,12 +14,12 @@ import Transport from "winston-transport";
 import { LEVEL, MESSAGE } from "triple-beam";
 import chalk from "chalk";
 
-import * as libData from "./data/index.js";
-import * as libErrors from "./errors.js";
-import * as libFileOps from "./file_ops.js";
-import { type LogFilter, levels, logFilter, logger } from "./logging.js";
-import * as libStream from "./stream.js";
-import type { Link } from "./link/index.js";
+import * as libData from "./data/index.ts";
+import * as libErrors from "./errors.ts";
+import * as libFileOps from "./file_ops.ts";
+import { type LogFilter, levels, logFilter, logger } from "./logging.ts";
+import * as libStream from "./stream.ts";
+import type { Link } from "./link/index.ts";
 
 const finished = util.promisify(stream.finished);
 

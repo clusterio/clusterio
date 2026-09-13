@@ -1,4 +1,4 @@
 import type { ValidateFunction } from "ajv";
-import type { Message } from "./messages_core.js";
+import type { Message } from "./messages_core.ts";
 const message_validate: ValidateFunction<Message>;
 export default message_validate;

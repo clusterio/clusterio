@@ -4,7 +4,7 @@ import FormData from "form-data";
 import http from "node:http";
 
 import { wait } from "@clusterio/lib";
-import * as routes from "@clusterio/controller/dist/node/src/routes.js";
+import * as routes from "@clusterio/controller/src/routes.ts";
 import * as mock from "../mock.js";
 
 describe("controller/src/routes", function() {

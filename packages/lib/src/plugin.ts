@@ -2,11 +2,11 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-import * as libHelpers from "./helpers.js";
-import type { Logger } from "./logging.js";
-import type { FieldDefinition } from "./config/index.js";
-import type { PermissionDefinition } from "./permissions.js";
-import type { PlayerStats } from "./data/index.js";
+import * as libHelpers from "./helpers.ts";
+import type { Logger } from "./logging.ts";
+import type { FieldDefinition } from "./config/index.ts";
+import type { PermissionDefinition } from "./permissions.ts";
+import type { PlayerStats } from "./data/index.ts";
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */

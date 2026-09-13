@@ -9,11 +9,11 @@ const execAsync = util.promisify(exec);
 // internal libraries
 import * as lib from "@clusterio/lib";
 
-import { FactorioServer } from "./server.js";
-import { SaveModule, patch } from "./patch.js";
-import { exportData } from "./export.js";
-import type Host from "./Host.js";
-import BaseInstancePlugin from "./BaseInstancePlugin.js";
+import { FactorioServer } from "./server.ts";
+import { SaveModule, patch } from "./patch.ts";
+import { exportData } from "./export.ts";
+import type Host from "./Host.ts";
+import BaseInstancePlugin from "./BaseInstancePlugin.ts";
 
 const scriptCommands = [
 	"/cheat", "/editor",

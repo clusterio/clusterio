@@ -11,12 +11,12 @@ import packageConfig from "./package.json" with { type: "json" };
 import { strict as assert } from "assert";
 
 // Reduce startup time by lazy compiling schemas.
-import "./src/set_lazy_schema_compliation.js";
+import "./src/set_lazy_schema_compliation.ts";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import * as commands from "./src/commands.js";
-import BaseCtlPlugin from "./src/BaseCtlPlugin.js";
+import * as commands from "./src/commands.ts";
+import BaseCtlPlugin from "./src/BaseCtlPlugin.ts";
 
 
 /**

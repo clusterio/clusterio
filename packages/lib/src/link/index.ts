@@ -3,5 +3,5 @@
  * @module lib/link
  * @author Hornwitser
  */
-export * from "./link.js";
-export * from "./connectors.js";
+export * from "./link.ts";
+export * from "./connectors.ts";

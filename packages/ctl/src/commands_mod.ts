@@ -7,8 +7,8 @@ import util from "util";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
-import { print } from "./command_ops.js";
+import type { Control } from "../ctl.ts";
+import { print } from "./command_ops.ts";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 const finished = util.promisify(stream.finished);

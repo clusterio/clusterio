@@ -1,6 +1,6 @@
 import type * as lib from "@clusterio/lib";
 
-import { ChatEvent } from "./messages.js";
+import { ChatEvent } from "./messages.ts";
 
 export const plugin: lib.PluginDeclaration = {
 	name: "global_chat",

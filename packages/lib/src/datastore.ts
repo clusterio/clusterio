@@ -2,10 +2,10 @@ import path from "path";
 import fs from "node:fs/promises";
 import { EventEmitter } from "events";
 
-import { safeOutputFile } from "./file_ops.js";
-import type { SubscribableValue } from "./subscriptions.js";
-import { logger } from "./logging.js";
-import { ControllerConfig } from "./config/index.js";
+import { safeOutputFile } from "./file_ops.ts";
+import type { SubscribableValue } from "./subscriptions.ts";
+import { logger } from "./logging.ts";
+import { ControllerConfig } from "./config/index.ts";
 
 type DatastoreKey = string | number;
 type DatastoreValue = string | number | boolean | object;

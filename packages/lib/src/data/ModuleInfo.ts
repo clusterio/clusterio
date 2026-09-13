@@ -1,5 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
-import { compile } from "../schema.js";
+import { compile } from "../schema.ts";
 
 /**
  * Information about a module stored in its module.json file

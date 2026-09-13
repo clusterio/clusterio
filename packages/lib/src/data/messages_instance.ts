@@ -1,12 +1,12 @@
 import { Type, type Static } from "@sinclair/typebox";
-import PlayerStats from "./PlayerStats.js";
-import { JsonString, StringEnum, jsonArray, plainJson } from "./composites.js";
-import { InstanceConfig } from "../config/index.js";
-import type { IUser } from "./UserDetails.js";
-import type { MessageRequest } from "./messages_core.js";
-import { CollectorResultSerialized } from "../prometheus.js";
-import { type TargetVersion, TargetVersionSchema, type PartialVersion, PartialVersionSchema } from "./version.js";
-import InstanceDetails, { InstanceStatus } from "./InstanceDetails.js";
+import PlayerStats from "./PlayerStats.ts";
+import { JsonString, StringEnum, jsonArray, plainJson } from "./composites.ts";
+import { InstanceConfig } from "../config/index.ts";
+import type { IUser } from "./UserDetails.ts";
+import type { MessageRequest } from "./messages_core.ts";
+import { CollectorResultSerialized } from "../prometheus.ts";
+import { type TargetVersion, TargetVersionSchema, type PartialVersion, PartialVersionSchema } from "./version.ts";
+import InstanceDetails, { InstanceStatus } from "./InstanceDetails.ts";
 
 export class InstanceDetailsGetRequest {
 	declare ["constructor"]: typeof InstanceDetailsGetRequest;

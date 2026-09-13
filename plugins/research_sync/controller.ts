@@ -12,7 +12,7 @@ import {
 	TechnologySync,
 	SyncTechnologiesRequest,
 	TechnologyProgress,
-} from "./messages.js";
+} from "./messages.ts";
 
 type Technology = {
 	level: number,

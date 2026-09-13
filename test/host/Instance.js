@@ -3,7 +3,7 @@ import path from "node:path";
 
 import * as lib from "@clusterio/lib";
 import { PlayerStats, wait } from "@clusterio/lib";
-import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import Instance from "@clusterio/host/src/Instance.ts";
 import { MockConnector, MockServer } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;

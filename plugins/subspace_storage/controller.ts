@@ -6,8 +6,8 @@ import path from "path";
 import * as lib from "@clusterio/lib";
 import { Counter, Gauge } from "@clusterio/lib";
 
-import * as routes from "./routes.js";
-import * as dole from "./dole.js";
+import * as routes from "./routes.ts";
+import * as dole from "./dole.ts";
 
 import {
 	Item,
@@ -16,7 +16,7 @@ import {
 	GetStorageRequest,
 	UpdateStorageEvent,
 	SetStorageSubscriptionRequest,
-} from "./messages.js";
+} from "./messages.ts";
 
 
 const exportCounter = new Counter(

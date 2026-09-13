@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 
 import * as mock from "../../../test/mock.js";
 import * as lines from "../../../test/lib/factorio/lines.js";
-import * as instance from "../dist/node/instance.js";
-import { plugin as info } from "../dist/node/index.js";
-import { ChatEvent } from "../dist/node/messages.js";
+import * as instance from "../instance.ts";
+import { plugin as info } from "../index.ts";
+import { ChatEvent } from "../messages.ts";
 
 describe("global_chat plugin", function() {
 	describe("removeTags()", function() {

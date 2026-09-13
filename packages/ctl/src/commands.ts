@@ -1,17 +1,17 @@
 import type { Argv } from "yargs";
 
 import * as lib from "@clusterio/lib";
-import type BaseCtlPlugin from "./BaseCtlPlugin.js";
-import { controllerCommands } from "./commands_controller.js";
-import { hostCommands } from "./commands_host.js";
-import { instanceCommands } from "./commands_instance.js";
-import { modPackCommands } from "./commands_mod_pack.js";
-import { modCommands } from "./commands_mod.js";
-import { permissionCommands } from "./commands_permission.js";
-import { roleCommands } from "./commands_role.js";
-import { userCommands } from "./commands_user.js";
-import { logCommands } from "./commands_log.js";
-import { debugCommands } from "./commands_debug.js";
+import type BaseCtlPlugin from "./BaseCtlPlugin.ts";
+import { controllerCommands } from "./commands_controller.ts";
+import { hostCommands } from "./commands_host.ts";
+import { instanceCommands } from "./commands_instance.ts";
+import { modPackCommands } from "./commands_mod_pack.ts";
+import { modCommands } from "./commands_mod.ts";
+import { permissionCommands } from "./commands_permission.ts";
+import { roleCommands } from "./commands_role.ts";
+import { userCommands } from "./commands_user.ts";
+import { logCommands } from "./commands_log.ts";
+import { debugCommands } from "./commands_debug.ts";
 
 export async function registerCommands(ctlPlugins: Map<string, BaseCtlPlugin>, yargs: Argv) {
 	const rootCommands = new lib.CommandTree({ name: "clusterioctl", description: "Manage cluster" });

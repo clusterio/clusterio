@@ -40,7 +40,7 @@
  * @module lib/prometheus
  */
 import { Type, type Static } from "@sinclair/typebox";
-import { StringEnum } from "./data/composites.js";
+import { StringEnum } from "./data/composites.ts";
 
 /**
  * Result from collecting a {@link Collector}

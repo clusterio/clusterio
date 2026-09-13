@@ -11,14 +11,14 @@ import * as lib from "@clusterio/lib";
 import { LineSplitter, ConsoleTransport, logger } from "@clusterio/lib";
 
 import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
-import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
+import { _listFactorioVersions } from "@clusterio/host/src/server.ts";
 
 // Make sure permissions from plugins are loaded
-import "../../plugins/global_chat/dist/node/index.js";
-import "../../plugins/player_auth/dist/node/index.js";
-import "../../plugins/research_sync/dist/node/index.js";
-import "../../plugins/statistics_exporter/dist/node/index.js";
-import "../../plugins/subspace_storage/dist/node/index.js";
+import "../../plugins/global_chat/index.ts";
+import "../../plugins/player_auth/index.ts";
+import "../../plugins/research_sync/index.ts";
+import "../../plugins/statistics_exporter/index.ts";
+import "../../plugins/subspace_storage/index.ts";
 
 export class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {

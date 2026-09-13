@@ -1,8 +1,8 @@
 import { Type, type Static } from "@sinclair/typebox";
-import { jsonArray } from "./composites.js";
-import type { PluginNodeEnvInfo } from "../plugin.js";
-import { Address, MessageRequest } from "./messages_core.js";
-import type { IUser } from "./UserDetails.js";
+import { jsonArray } from "./composites.ts";
+import type { PluginNodeEnvInfo } from "../plugin.ts";
+import { Address, MessageRequest } from "./messages_core.ts";
+import type { IUser } from "./UserDetails.ts";
 
 /* This is similar to other plugin definitions but with lots removed */
 export class PluginDetails {

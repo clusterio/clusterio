@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
-import type Host from "./Host.js";
-import type Instance from "./Instance.js";
+import type Host from "./Host.ts";
+import type Instance from "./Instance.ts";
 
 
 export default class InstanceConnection extends lib.Link {

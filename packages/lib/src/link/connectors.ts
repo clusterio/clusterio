@@ -3,11 +3,11 @@ import { strict as assert } from "assert";
 import events from "events";
 
 import { WebSocket } from "#WebSocket";
-import * as libData from "../data/index.js";
-import * as libErrors from "../errors.js";
-import { logger } from "../logging.js";
-import ExponentialBackoff from "../ExponentialBackoff.js";
-import type { Request, Event } from "./link.js";
+import * as libData from "../data/index.ts";
+import * as libErrors from "../errors.ts";
+import { logger } from "../logging.ts";
+import ExponentialBackoff from "../ExponentialBackoff.ts";
+import type { Request, Event } from "./link.ts";
 
 /**
  * Numbered codes describing why a connection was closed

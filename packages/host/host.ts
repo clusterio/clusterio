@@ -23,7 +23,7 @@ import "winston-daily-rotate-file";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Host from "./src/Host.js";
+import Host from "./src/Host.ts";
 
 let host: Host | undefined;
 

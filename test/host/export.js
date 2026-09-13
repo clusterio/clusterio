@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { FactorioServer } from "@clusterio/host/dist/node/src/server.js";
-import { _exportLocale } from "@clusterio/host/dist/node/src/export.js";
+import { FactorioServer } from "@clusterio/host/src/server.ts";
+import { _exportLocale } from "@clusterio/host/src/export.ts";
 
 
 describe("host/src/export", function() {

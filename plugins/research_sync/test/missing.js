@@ -1,5 +1,5 @@
 // These are libraries that does not have any units test, they are
 // required here in order to track coverage for them.
 
-import "../dist/node/instance.js";
-import "../dist/node/controller.js";
+import "../instance.ts";
+import "../controller.ts";

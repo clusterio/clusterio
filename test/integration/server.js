@@ -5,7 +5,7 @@ import path from "node:path";
 
 import * as lib from "@clusterio/lib";
 import { InstanceManager } from "@clusterio/controller";
-import { FactorioServer, _getFactorioVersion } from "@clusterio/host/dist/node/src/server.js";
+import { FactorioServer, _getFactorioVersion } from "@clusterio/host/src/server.ts";
 import { logger } from "@clusterio/lib";
 
 import { slowTest, factorioDir, requiresFactorio } from "./index.js";

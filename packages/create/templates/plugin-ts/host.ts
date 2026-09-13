@@ -1,7 +1,7 @@
 import * as lib from "@clusterio/lib";
 import { BaseHostPlugin } from "@clusterio/host";
 //%if multi_context
-import { PluginExampleEvent, PluginExampleRequest } from "./messages.js";
+import { PluginExampleEvent, PluginExampleRequest } from "./messages.ts";
 //%endif
 
 export class HostPlugin extends BaseHostPlugin {

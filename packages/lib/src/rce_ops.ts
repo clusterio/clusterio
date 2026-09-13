@@ -1,9 +1,9 @@
 import util from "util";
 import path from "path";
 import { exec } from "child_process";
-import { logger } from "./logging.js";
-import { RequestError } from "./errors.js";
-import type { PluginNodeEnvInfo } from "./plugin.js";
+import { logger } from "./logging.ts";
+import { RequestError } from "./errors.ts";
+import type { PluginNodeEnvInfo } from "./plugin.ts";
 const execAsync = util.promisify(exec);
 
 function isDev() {

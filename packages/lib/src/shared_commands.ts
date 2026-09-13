@@ -4,11 +4,11 @@
  */
 import path from "path";
 
-import * as libConfig from "./config/index.js";
-import * as libFileOps from "./file_ops.js";
-import { logger } from "./logging.js";
-import * as libHelpers from "./helpers.js";
-import { LockFile } from "./LockFile.js";
+import * as libConfig from "./config/index.ts";
+import * as libFileOps from "./file_ops.ts";
+import { logger } from "./logging.ts";
+import * as libHelpers from "./helpers.ts";
+import { LockFile } from "./LockFile.ts";
 import { pathToFileURL } from "url";
 
 

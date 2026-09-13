@@ -9,7 +9,7 @@ import { Type, type Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
-import BaseInstancePlugin from "./BaseInstancePlugin.js";
+import BaseInstancePlugin from "./BaseInstancePlugin.ts";
 
 
 /**

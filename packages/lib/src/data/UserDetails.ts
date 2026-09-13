@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { PermissionName } from "../permissions.js";
-import PlayerStats from "./PlayerStats.js";
+import type { PermissionName } from "../permissions.ts";
+import PlayerStats from "./PlayerStats.ts";
 
 /** Represents a user in the cluster */
 export default class UserDetails {

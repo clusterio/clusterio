@@ -5,9 +5,9 @@ import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
-import * as libBuildMod from "@clusterio/lib/dist/node/build_mod.js";
-import type { FactorioServer } from "./server.js";
-import { definesPrototypesFallback } from "./export_fallback.js";
+import * as libBuildMod from "@clusterio/lib/build_mod.ts";
+import type { FactorioServer } from "./server.ts";
+import { definesPrototypesFallback } from "./export_fallback.ts";
 
 interface SimpleIconSpecification {
 	icons?: never;

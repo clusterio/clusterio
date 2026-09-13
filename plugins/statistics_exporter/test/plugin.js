@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
 import * as mock from "../../../test/mock.js";
-import * as instance from "../dist/node/instance.js";
-import { plugin as info } from "../dist/node/index.js";
+import * as instance from "../instance.ts";
+import { plugin as info } from "../index.ts";
 
 
 describe("statistics_exporter plugin", function() {

@@ -1,4 +1,4 @@
-import * as doleNN from "./dole_nn_base.js";
+import * as doleNN from "./dole_nn_base.ts";
 
 import * as lib from "@clusterio/lib";
 import { Gauge } from "@clusterio/lib";

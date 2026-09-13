@@ -1,6 +1,6 @@
 import type winston from "winston";
 import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
-import type { ControllerArgs } from "../controller.js";
+import type { ControllerArgs } from "../controller.ts";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
@@ -19,18 +19,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as lib from "@clusterio/lib";
 import { logger, Summary, Gauge } from "@clusterio/lib";
 
-import HttpCloser from "./HttpCloser.js";
-import InstanceRecord from "./InstanceRecord.js";
-import * as metrics from "./metrics.js";
-import * as routes from "./routes.js";
-import User from "./User.js";
-import UserRecord from "./UserRecord.js";
-import UserManager from "./UserManager.js";
-import WsServer from "./WsServer.js";
-import HostRecord from "./HostRecord.js";
-import BaseControllerPlugin from "./BaseControllerPlugin.js";
-import ControllerRouter from "./ControllerRouter.js";
-import InstanceManager from "./InstanceManager.js";
+import HttpCloser from "./HttpCloser.ts";
+import InstanceRecord from "./InstanceRecord.ts";
+import * as metrics from "./metrics.ts";
+import * as routes from "./routes.ts";
+import User from "./User.ts";
+import UserRecord from "./UserRecord.ts";
+import UserManager from "./UserManager.ts";
+import WsServer from "./WsServer.ts";
+import HostRecord from "./HostRecord.ts";
+import BaseControllerPlugin from "./BaseControllerPlugin.ts";
+import ControllerRouter from "./ControllerRouter.ts";
+import InstanceManager from "./InstanceManager.ts";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",

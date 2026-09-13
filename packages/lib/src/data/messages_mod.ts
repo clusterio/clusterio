@@ -1,13 +1,13 @@
 import { Type, type Static } from "@sinclair/typebox";
-import ModInfo, { ModDependency } from "./ModInfo.js";
-import ModPack from "./ModPack.js";
-import { JsonString, jsonArray } from "./composites.js";
+import ModInfo, { ModDependency } from "./ModInfo.ts";
+import ModPack from "./ModPack.ts";
+import { JsonString, jsonArray } from "./composites.ts";
 
 import {
 	type MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion,
 	type SourceVersion, SourceVersionSchema,
 	ModVersionEquality,
-} from "./version.js";
+} from "./version.ts";
 
 
 export class ModPackGetRequest {

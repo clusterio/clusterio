@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data/version.js";
+import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data/version.ts";
 
 const ARCHIVE_URL = "https://factorio.com/download/archive/";
 

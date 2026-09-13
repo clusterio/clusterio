@@ -6,9 +6,9 @@
 import path from "path";
 import fs from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import * as libErrors from "./errors.js";
-import * as libPlugin from "./plugin.js";
-import { logger } from "./logging.js";
+import * as libErrors from "./errors.ts";
+import * as libPlugin from "./plugin.ts";
+import { logger } from "./logging.ts";
 
 
 /**

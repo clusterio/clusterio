@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import * as routes from "../dist/node/routes.js";
+import * as routes from "../routes.ts";
 import { get } from "../../../test/integration/index.js";
 
 

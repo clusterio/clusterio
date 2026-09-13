@@ -7,7 +7,7 @@ import type { Static } from "@sinclair/typebox";
 import { BaseControllerPlugin } from "@clusterio/controller";
 import { basicType, RequestError } from "@clusterio/lib";
 
-import { FetchPlayerCodeRequest, PlayerAuthServer, SetVerifyCodeRequest } from "./messages.js";
+import { FetchPlayerCodeRequest, PlayerAuthServer, SetVerifyCodeRequest } from "./messages.ts";
 
 
 async function generateCode(length: number): Promise<string> {

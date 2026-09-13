@@ -2,16 +2,16 @@ import fs from "node:fs/promises";
 import JSZip from "jszip";
 import { Type, type Static } from "@sinclair/typebox";
 
-import * as libHash from "../hash.js";
-import * as libSchema from "../schema.js";
-import { findRoot } from "../zip_ops.js";
-import type { ModRecord } from "./ModPack.js";
+import * as libHash from "../hash.ts";
+import * as libSchema from "../schema.ts";
+import { findRoot } from "../zip_ops.ts";
+import type { ModRecord } from "./ModPack.ts";
 
 import {
 	type MajorMinorVersion, MajorMinorVersionSchema, normaliseMajorMinorVersion, integerMajorMinorVersion,
 	type SourceVersion, SourceVersionSchema, isSourceVersion, normaliseSourceVersion, integerSourceVersion,
 	ModVersionEquality,
-} from "./version.js";
+} from "./version.ts";
 
 
 type ModDependencyType = "incompatible" | "optional" | "hidden" | "unordered" | "required" | "recommended";

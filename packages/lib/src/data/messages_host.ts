@@ -1,8 +1,8 @@
 import { Type, type Static } from "@sinclair/typebox";
-import { jsonArray, plainJson, StringEnum } from "./composites.js";
-import { CollectorResultSerialized } from "../prometheus.js";
-import { HostConfig } from "../config/definitions.js";
-import HostDetails from "./HostDetails.js";
+import { jsonArray, plainJson, StringEnum } from "./composites.ts";
+import { CollectorResultSerialized } from "../prometheus.ts";
+import { HostConfig } from "../config/definitions.ts";
+import HostDetails from "./HostDetails.ts";
 
 export class HostStopRequest {
 	declare ["constructor"]: typeof HostStopRequest;

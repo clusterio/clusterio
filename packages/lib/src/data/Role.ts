@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { permissions as globalPermissions } from "../permissions.js";
+import { permissions as globalPermissions } from "../permissions.ts";
 
 interface RoleCollection {
 	get(id: number): Role;

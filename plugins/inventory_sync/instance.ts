@@ -5,7 +5,7 @@ import { BaseInstancePlugin } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse,
 	type IpcPlayerData,
-} from "./messages.js";
+} from "./messages.ts";
 
 type IpcPlayerName = {
 	player_name: string

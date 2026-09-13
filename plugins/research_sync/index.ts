@@ -1,6 +1,6 @@
 import type * as lib from "@clusterio/lib";
 
-import * as messages from "./messages.js";
+import * as messages from "./messages.ts";
 
 export const plugin: lib.PluginDeclaration = {
 	name: "research_sync",

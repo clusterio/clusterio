@@ -4,7 +4,7 @@ This folder contains files used for performing manual tests that are non-trivial
 
 ## Setup test mod
 
-Run `node packages/lib/dist/node/build_mod.js --source-dir test/manual/test_mod/ --output-dir mods/` to create the test mod.
+Run `node packages/lib/build_mod.js --source-dir test/manual/test_mod/ --output-dir mods/` to create the test mod.
 
 ## Test handling of bad setting values
 

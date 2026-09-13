@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import os from "os";
 import util from "util";
-import { Gauge } from "./prometheus.js";
-import { SystemInfo } from "./data/index.js";
+import { Gauge } from "./prometheus.ts";
+import { SystemInfo } from "./data/index.ts";
 
 function filterCpuModel() {
 	const model = os.cpus()[0].model;

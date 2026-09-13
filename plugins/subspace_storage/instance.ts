@@ -7,7 +7,7 @@ import {
 	GetStorageRequest,
 	UpdateStorageEvent,
 	Item,
-} from "./messages.js";
+} from "./messages.ts";
 
 type IpcItems = [name: string, count: number, quality: string][];
 

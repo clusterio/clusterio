@@ -1,19 +1,19 @@
 import zlib from "zlib";
 import { Type, type Static } from "@sinclair/typebox";
 
-import * as libSchema from "../schema.js";
-import * as libLuaTools from "../lua_tools.js";
+import * as libSchema from "../schema.ts";
+import * as libLuaTools from "../lua_tools.ts";
 
-import ExportManifest from "./ExportManifest.js";
-import type { ExportSettings } from "../export.js";
-import type { Logger } from "../logging.js";
+import ExportManifest from "./ExportManifest.ts";
+import type { ExportSettings } from "../export.ts";
+import type { Logger } from "../logging.ts";
 
-import ModInfo, { type ModDependencyUnsatisfiedReason } from "./ModInfo.js";
+import ModInfo, { type ModDependencyUnsatisfiedReason } from "./ModInfo.ts";
 
 import {
 	type PartialVersion, PartialVersionSchema, integerPartialVersion,
 	type SourceVersion, SourceVersionSchema, normaliseFullVersion, integerSourceVersion,
-} from "./version.js";
+} from "./version.ts";
 
 
 export const ModSettingColor = Type.Object({

@@ -1,7 +1,7 @@
 import { Type, type Static } from "@sinclair/typebox";
-import { JsonNumber, jsonArray } from "./composites.js";
-import Permission from "./Permission.js";
-import Role from "./Role.js";
+import { JsonNumber, jsonArray } from "./composites.ts";
+import Permission from "./Permission.ts";
+import Role from "./Role.ts";
 
 export class PermissionListRequest {
 	declare ["constructor"]: typeof PermissionListRequest;

@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "path";
-import { logger } from "./logging.js";
-import * as libFileOps from "./file_ops.js";
+import { logger } from "./logging.ts";
+import * as libFileOps from "./file_ops.ts";
 import vm from "vm";
 
 /**

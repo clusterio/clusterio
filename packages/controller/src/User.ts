@@ -4,7 +4,7 @@ import {
 	PermissionError, type PermissionName, permissions,
 } from "@clusterio/lib";
 
-import UserRecord from "./UserRecord.js";
+import UserRecord from "./UserRecord.ts";
 import type { Static } from "@sinclair/typebox";
 
 /**

@@ -4,7 +4,7 @@ import JSZip from "jszip";
 import path from "node:path";
 
 import * as lib from "@clusterio/lib";
-import * as patch from "@clusterio/host/dist/node/src/patch.js";
+import * as patch from "@clusterio/host/src/patch.ts";
 
 
 describe("host/patch", function() {

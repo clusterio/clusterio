@@ -1,13 +1,13 @@
-import * as core from "../data/messages_core.js";
-import * as controller from "../data/messages_controller.js";
-import * as host from "../data/messages_host.js";
-import * as instance from "../data/messages_instance.js";
-import * as mod from "../data/messages_mod.js";
-import * as user from "../data/messages_user.js";
-import * as role from "../data/messages_role.js";
-import * as plugin from "../data/messages_plugin.js";
-import * as subscriptions from "../subscriptions.js";
-import type { RequestClass, EventClass } from "./link.js";
+import * as core from "../data/messages_core.ts";
+import * as controller from "../data/messages_controller.ts";
+import * as host from "../data/messages_host.ts";
+import * as instance from "../data/messages_instance.ts";
+import * as mod from "../data/messages_mod.ts";
+import * as user from "../data/messages_user.ts";
+import * as role from "../data/messages_role.ts";
+import * as plugin from "../data/messages_plugin.ts";
+import * as subscriptions from "../subscriptions.ts";
+import type { RequestClass, EventClass } from "./link.ts";
 
 /**
  * Event and Request payloads registered with the Link class. Used to decode

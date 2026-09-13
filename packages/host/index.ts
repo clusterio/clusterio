@@ -1,9 +1,9 @@
-import { bootstrap } from "./host.js";
-export { default as BaseHostPlugin } from "./src/BaseHostPlugin.js";
-export { default as BaseInstancePlugin } from "./src/BaseInstancePlugin.js";
-export { default as Host, HostRouter } from "./src/Host.js";
-export { default as Instance } from "./src/Instance.js";
-export { default as InstanceConnection } from "./src/InstanceConnection.js";
+import { bootstrap } from "./host.ts";
+export { default as BaseHostPlugin } from "./src/BaseHostPlugin.ts";
+export { default as BaseInstancePlugin } from "./src/BaseInstancePlugin.ts";
+export { default as Host, HostRouter } from "./src/Host.ts";
+export { default as Instance } from "./src/Instance.ts";
+export { default as InstanceConnection } from "./src/InstanceConnection.ts";
 
 if (import.meta.main) {
 	bootstrap();

@@ -1,12 +1,12 @@
 import path from "path";
 import fs from "node:fs/promises";
 
-import type Controller from "./Controller.js";
-import type WsServerConnector from "./WsServerConnector.js";
+import type Controller from "./Controller.ts";
+import type WsServerConnector from "./WsServerConnector.ts";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import * as routes from "./routes.js";
+import * as routes from "./routes.ts";
 
 
 /**

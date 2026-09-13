@@ -12,10 +12,10 @@ import util from "util";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 
-import type { HostConnector } from "../host.js";
-import Instance from "./Instance.js";
-import InstanceConnection from "./InstanceConnection.js";
-import BaseHostPlugin from "./BaseHostPlugin.js";
+import type { HostConnector } from "../host.ts";
+import Instance from "./Instance.ts";
+import InstanceConnection from "./InstanceConnection.ts";
+import BaseHostPlugin from "./BaseHostPlugin.ts";
 
 const finished = util.promisify(stream.finished);
 

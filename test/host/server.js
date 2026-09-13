@@ -3,7 +3,7 @@ import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import * as hostServer from "@clusterio/host/dist/node/src/server.js";
+import * as hostServer from "@clusterio/host/src/server.ts";
 import { Link, wait } from "@clusterio/lib";
 import { testLines } from "../lib/factorio/lines.js";
 import { slowTest, externalTest } from "../integration/index.js";

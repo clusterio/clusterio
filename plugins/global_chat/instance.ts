@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
-import { ChatEvent } from "./messages.js";
+import { ChatEvent } from "./messages.ts";
 
 /**
  * Removes server-specific tags from messages.

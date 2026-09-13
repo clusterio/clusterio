@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 //%if multi_context
-import * as Messages from "./messages.js";
+import * as Messages from "./messages.ts";
 //%endif
 //%if config | multi_context | web
 

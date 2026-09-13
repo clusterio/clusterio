@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import * as messages from "./messages.js";
+import * as messages from "./messages.ts";
 
 declare module "@clusterio/lib" {
 	export interface InstanceConfigFields {

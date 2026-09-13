@@ -1,6 +1,6 @@
 import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
-import type Controller from "./Controller.js";
+import type Controller from "./Controller.ts";
 
 import jwt from "jsonwebtoken";
 import WebSocket, { WebSocketServer } from "ws";
@@ -8,9 +8,9 @@ import WebSocket, { WebSocketServer } from "ws";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 
-import ControlConnection from "./ControlConnection.js";
-import HostConnection from "./HostConnection.js";
-import WsServerConnector from "./WsServerConnector.js";
+import ControlConnection from "./ControlConnection.ts";
+import HostConnection from "./HostConnection.ts";
+import WsServerConnector from "./WsServerConnector.ts";
 
 import packageConfig from "../package.json" with { type: "json" };
 

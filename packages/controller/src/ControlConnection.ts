@@ -1,15 +1,15 @@
-import type WsServerConnector from "./WsServerConnector.js";
+import type WsServerConnector from "./WsServerConnector.ts";
 
 import events from "events";
 
 import * as lib from "@clusterio/lib";
 import { logFilter, logger } from "@clusterio/lib";
 
-import BaseConnection from "./BaseConnection.js";
-import User from "./User.js";
-import UserRecord from "./UserRecord.js";
-import * as routes from "./routes.js";
-import Controller from "./Controller.js";
+import BaseConnection from "./BaseConnection.ts";
+import User from "./User.ts";
+import UserRecord from "./UserRecord.ts";
+import * as routes from "./routes.ts";
+import Controller from "./Controller.ts";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 

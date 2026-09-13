@@ -3,9 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as lib from "@clusterio/lib";
-import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
-import Instance from "@clusterio/host/dist/node/src/Instance.js";
-import { HostConnector } from "@clusterio/host/dist/node/host.js";
+import Host, { _discoverInstances } from "@clusterio/host/src/Host.ts";
+import Instance from "@clusterio/host/src/Instance.ts";
+import { HostConnector } from "@clusterio/host/host.ts";
 
 describe("Host testing", function() {
 	describe("discoverInstances()", function() {

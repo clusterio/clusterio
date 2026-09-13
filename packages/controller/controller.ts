@@ -29,9 +29,9 @@ import jwt from "jsonwebtoken";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Controller from "./src/Controller.js";
-import UserManager from "./src/UserManager.js";
-import UserRecord from "./src/UserRecord.js";
+import Controller from "./src/Controller.ts";
+import UserManager from "./src/UserManager.ts";
+import UserRecord from "./src/UserRecord.ts";
 import packageConfig from "./package.json" with { type: "json" };
 
 // globals
