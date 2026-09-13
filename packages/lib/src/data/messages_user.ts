@@ -344,12 +344,14 @@ export class UserBulkImportRequest {
 	]));
 
 	importType: "users" | "bans" | "admins" | "whitelist";
-	users: Static<typeof ClusterioUserExport.clusterioUserSchema>[] | Static<typeof ClusterioUserExport.factorioUserSchema>[];
+	users: Static<typeof ClusterioUserExport.clusterioUserSchema>[]
+		| Static<typeof ClusterioUserExport.factorioUserSchema>[];
 	restore?: boolean;
 
 	constructor(
 		importType: "users" | "bans" | "admins" | "whitelist",
-		users: Static<typeof ClusterioUserExport.clusterioUserSchema>[] | Static<typeof ClusterioUserExport.factorioUserSchema>[],
+		users: Static<typeof ClusterioUserExport.clusterioUserSchema>[]
+			| Static<typeof ClusterioUserExport.factorioUserSchema>[],
 		restore?: boolean,
 	) {
 		this.importType = importType;

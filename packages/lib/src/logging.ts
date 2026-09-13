@@ -68,7 +68,7 @@ export class ConsoleTransport extends Transport {
  * Formats winston log messages for the web console
  */
 export class WebConsoleFormat {
-	options: {};
+	options: object;
 
 	constructor(
 		options = {}
