@@ -1318,11 +1318,11 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 
-	// Not using events.once here to avoid throwing on error events, as they are
-	// not emitted when the process exits while stopping.  Returns the error
+	// Not using events.once here as it rejects on error events, which are not
+	// emitted when the process exits while stopping.  Rejects with the error
 	// emitted with the exit, if there was one, for the caller to report.
 	async _waitForRconReadyOrExit() {
-		return await new Promise<Error | undefined>(resolve => {
+		return await new Promise<void>((resolve, reject) => {
 			let exitError: Error | undefined;
 			const cleanup = () => {
 				this.off("error", onError);
@@ -1334,11 +1334,11 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			};
 			const onRconReady = () => {
 				cleanup();
-				resolve(undefined);
+				resolve();
 			};
 			const onExit = () => {
 				cleanup();
-				resolve(exitError);
+				reject(exitError ?? new Error("RCON connection lost"));
 			};
 			this.on("error", onError);
 			this.once("rcon-ready", onRconReady);
@@ -1361,11 +1361,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async sendRcon(message: string, expectEmpty?: boolean) {
 		this._check(["running", "stopping"]);
 		if (!this._rconReady) {
-			// Prefer the reason the server gave for exiting over the flat message below.
-			const exitError = await this._waitForRconReadyOrExit();
-			if (exitError) {
-				throw exitError;
-			}
+			// Rejects with the reason the server gave for exiting, if there was one.
+			await this._waitForRconReadyOrExit();
 		}
 		if (!this._rconClient) {
 			throw new Error("RCON connection lost");
@@ -1437,7 +1434,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
 			// An exit error is not reported here as stopping is done once the process is gone.
-			await this._waitForRconReadyOrExit();
+			await this._waitForRconReadyOrExit().catch(() => {});
 		}
 
 		// The Factorio server may have decided to get ahead of us and

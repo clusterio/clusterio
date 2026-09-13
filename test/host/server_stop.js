@@ -61,6 +61,19 @@ describe("host/src/server", function() {
 			assert.equal(server.listenerCount("error"), 1);
 		});
 
+		it("does not reject if the process exits with an error before RCON is ready", async function() {
+			const server = createStartedServer();
+			const stopped = server.stop();
+			// The wait rejects with this error, stopping succeeds regardless.
+			server.emit("error", new lib.EnvironmentError("Factorio server was killed"));
+			server._server.emit("exit", null, "SIGKILL");
+			await assert.doesNotReject(withTimeout(stopped, "stop() did not resolve"));
+			assert.equal(server._state, "init");
+			assert.equal(server.listenerCount("rcon-ready"), 0);
+			assert.equal(server.listenerCount("exit"), 0);
+			assert.equal(server.listenerCount("error"), 1);
+		});
+
 		it("stops the server if RCON becomes ready", async function() {
 			const server = createStartedServer();
 			const stopped = server.stop();
