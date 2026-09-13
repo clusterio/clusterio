@@ -42,15 +42,21 @@ function doFile(filePath: string) {
 			refPath = path.join(path.dirname(filePath), module);
 		}
 		const refPathAsTs = refPath.replace(/\.js$/, ".ts");
+		let keepAsJs = false;
 		if (fs.existsSync(refPath)) {
 			if (importName === module) {
 				continue
 			}
+			keepAsJs = true;
 		} else if (!fs.existsSync(refPathAsTs)) {
 			console.log("import does not exists", filePath, module, refPath);
 			continue;
 		}
-		lines[pos] = line.replace("/dist/node", "").replace(/\.js";?$/, '.ts";');
+		let replacement = line.replace("/dist/node", "");
+		if (!keepAsJs) {
+			replacement = replacement.replace(/\.js";?$/, '.ts";');
+		}
+		lines[pos] = replacement;
 		modified = true;
 	}
 	if (modified) {
