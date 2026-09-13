@@ -1318,18 +1318,29 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 
-	// Not using events.once here to avoid throwing on error events, which are
-	// not emitted when the process exits while stopping.
+	// Not using events.once here to avoid throwing on error events, as they are
+	// not emitted when the process exits while stopping.  Returns the error
+	// emitted with the exit, if there was one, for the caller to report.
 	async _waitForRconReadyOrExit() {
-		await new Promise<void>(resolve => {
-			const onRconReady = () => {
+		return await new Promise<Error | undefined>(resolve => {
+			let exitError: Error | undefined;
+			const cleanup = () => {
+				this.off("error", onError);
+				this.off("rcon-ready", onRconReady);
 				this.off("exit", onExit);
-				resolve();
+			};
+			const onError = (err: Error) => {
+				exitError = err;
+			};
+			const onRconReady = () => {
+				cleanup();
+				resolve(undefined);
 			};
 			const onExit = () => {
-				this.off("rcon-ready", onRconReady);
-				resolve();
+				cleanup();
+				resolve(exitError);
 			};
+			this.on("error", onError);
 			this.once("rcon-ready", onRconReady);
 			this.once("exit", onExit);
 		});
@@ -1350,7 +1361,11 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async sendRcon(message: string, expectEmpty?: boolean) {
 		this._check(["running", "stopping"]);
 		if (!this._rconReady) {
-			await this._waitForRconReadyOrExit();
+			// Prefer the reason the server gave for exiting over the flat message below.
+			const exitError = await this._waitForRconReadyOrExit();
+			if (exitError) {
+				throw exitError;
+			}
 		}
 		if (!this._rconClient) {
 			throw new Error("RCON connection lost");
@@ -1421,6 +1436,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		// If RCON is not yet fully connected that operation needs to
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
+			// An exit error is not reported here as stopping is done once the process is gone.
 			await this._waitForRconReadyOrExit();
 		}
 
