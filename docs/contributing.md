@@ -77,7 +77,7 @@ The documentation uses the binaries provided by the packages, but for the develo
 
 By default node does not enable source maps, to get stack traces pointing to the `.ts` files you will need to pass `--enable-source-maps` to `node` or set the environment variable `NODE_OPTIONS=--enable-source-maps`.
 
-Note that to use `clusterioctl` you will have to create a control config first:
+Note that to use `clusterioctl` you will have to create a ctl config first:
 
     node packages/controller bootstrap create-ctl-config [admin-user]
 

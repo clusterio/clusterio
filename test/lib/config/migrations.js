@@ -42,7 +42,7 @@ describe("lib/config/definitions/migrations", function() {
 			assert.equal(configFalse.get("factorio.sync_banlist"), "disabled", "sync_adminlist contains wrong value");
 		});
 	});
-	describe("Control Config", function() {
+	describe("Ctl Config", function() {
 
 	});
 });

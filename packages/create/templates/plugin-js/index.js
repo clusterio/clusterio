@@ -62,9 +62,9 @@ export const plugin = {
 	ctlEntrypoint: "./dist/node/ctl.js",
 //%endif
 //%if ctl & config
-	controlConfigFields: {
-		"__plugin_name__.myControlField": {
-			title: "My Control Field",
+	ctlConfigFields: {
+		"__plugin_name__.myCtlField": {
+			title: "My Ctl Field",
 			description: "This should be removed from index.js",
 			type: "string",
 			initialValue: "Remove Me",

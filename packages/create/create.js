@@ -887,8 +887,8 @@ async function main() {
 	}
 
 	if (answers.mode === "ctl") {
-		await execCtl(["control-config", "set", "control.controller_url", answers.controllerUrl]);
-		await execCtl(["control-config", "set", "control.controller_token", answers.controllerToken]);
+		await execCtl(["config", "set", "ctl.controller_url", answers.controllerUrl]);
+		await execCtl(["config", "set", "ctl.controller_token", answers.controllerToken]);
 	}
 
 	/* eslint-disable no-console */

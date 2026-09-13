@@ -74,7 +74,7 @@ async function removeTestArtifacts() {
 async function removeExecutionArtifacts() {
 	const artifacts = [
 		"database", "instances", "logs", "mods",
-		"config-control.json", "config-controller.json", "config-host.json",
+		"config-ctl.json", "config-controller.json", "config-host.json",
 		"FactorioAdminToken.txt", "plugin-list.json",
 	];
 

@@ -3,7 +3,7 @@ import asTableModule from "as-table";
 import path from "path";
 
 import * as lib from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
@@ -16,8 +16,8 @@ userCommands.add(new lib.Command({
 			"instance-stats": { describe: "include per-instance stats", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: { name: string, instanceStats: boolean }, control: Control) {
-		let user = await control.send(new lib.UserGetRequest(args.name));
+	handler: async function(args: { name: string, instanceStats: boolean }, ctl: Ctl) {
+		let user = await ctl.send(new lib.UserGetRequest(args.name));
 		Object.assign(user, user.playerStats);
 		// @ts-expect-error Terrible hack
 		delete user.playerStats;
@@ -27,7 +27,7 @@ userCommands.add(new lib.Command({
 		print(asTable(Object.entries(user).map(([property, value]) => ({ property, value }))));
 
 		if (args.instanceStats) {
-			let instances = await control.send(new lib.InstanceDetailsListRequest());
+			let instances = await ctl.send(new lib.InstanceDetailsListRequest());
 			function instanceName(id: number) {
 				let instance = instances.find(i => i.id === id);
 				if (instance) {
@@ -51,8 +51,8 @@ userCommands.add(new lib.Command({
 			"attributes": { describe: "include admin/whitelisted/banned", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: { stats: boolean, attributes: boolean }, control: Control) {
-		let users = await control.send(new lib.UserListRequest());
+	handler: async function(args: { stats: boolean, attributes: boolean }, ctl: Ctl) {
+		let users = await ctl.send(new lib.UserListRequest());
 		for (let user of users) {
 			if (args.stats) {
 				Object.assign(user, user.playerStats);
@@ -82,8 +82,8 @@ userCommands.add(new lib.Command({
 	definition: ["create <name>", "Create a user", (yargs) => {
 		yargs.positional("name", { describe: "Name of user to create", type: "string" });
 	}],
-	handler: async function(args: { name: string }, control: Control) {
-		await control.send(new lib.UserCreateRequest(args.name));
+	handler: async function(args: { name: string }, ctl: Ctl) {
+		await ctl.send(new lib.UserCreateRequest(args.name));
 	},
 }));
 
@@ -91,8 +91,8 @@ userCommands.add(new lib.Command({
 	definition: ["revoke-token <name>", "Revoke token for user", (yargs) => {
 		yargs.positional("name", { describe: "Name of user to revoke token for", type: "string" });
 	}],
-	handler: async function(args: { name: string }, control: Control) {
-		await control.send(new lib.UserRevokeTokenRequest(args.name));
+	handler: async function(args: { name: string }, ctl: Ctl) {
+		await ctl.send(new lib.UserRevokeTokenRequest(args.name));
 	},
 }));
 
@@ -104,8 +104,8 @@ userCommands.add(new lib.Command({
 			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: { user: string, revoke: boolean, create: boolean }, control: Control) {
-		await control.send(new lib.UserSetAdminRequest(args.user, args.create, !args.revoke));
+	handler: async function(args: { user: string, revoke: boolean, create: boolean }, ctl: Ctl) {
+		await ctl.send(new lib.UserSetAdminRequest(args.user, args.create, !args.revoke));
 	},
 }));
 
@@ -117,8 +117,8 @@ userCommands.add(new lib.Command({
 			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: { user: string, remove: boolean, create: boolean }, control: Control) {
-		await control.send(new lib.UserSetWhitelistedRequest(args.user, args.create, !args.remove));
+	handler: async function(args: { user: string, remove: boolean, create: boolean }, ctl: Ctl) {
+		await ctl.send(new lib.UserSetWhitelistedRequest(args.user, args.create, !args.remove));
 	},
 }));
 
@@ -138,9 +138,9 @@ userCommands.add(new lib.Command({
 			reason: string,
 			create: boolean
 		},
-		control: Control
+		ctl: Ctl
 	) {
-		await control.send(new lib.UserSetBannedRequest(args.user, args.create, !args.pardon, args.reason));
+		await ctl.send(new lib.UserSetBannedRequest(args.user, args.create, !args.pardon, args.reason));
 	},
 }));
 
@@ -149,8 +149,8 @@ userCommands.add(new lib.Command({
 		yargs.positional("user", { describe: "Name of user to change roles for", type: "string" });
 		yargs.positional("roles", { describe: "roles to assign", type: "string" });
 	}],
-	handler: async function(args: { user: string, roles: string[] }, control: Control) {
-		let roles = await control.send(new lib.RoleListRequest());
+	handler: async function(args: { user: string, roles: string[] }, ctl: Ctl) {
+		let roles = await ctl.send(new lib.RoleListRequest());
 
 		let resolvedRoles = [];
 		for (let roleName of args.roles) {
@@ -174,7 +174,7 @@ userCommands.add(new lib.Command({
 			}
 		}
 
-		await control.send(new lib.UserUpdateRolesRequest(args.user, resolvedRoles));
+		await ctl.send(new lib.UserUpdateRolesRequest(args.user, resolvedRoles));
 	},
 }));
 
@@ -182,8 +182,8 @@ userCommands.add(new lib.Command({
 	definition: ["delete <user>", "Delete user", (yargs) => {
 		yargs.positional("user", { describe: "Name of user to delete", type: "string" });
 	}],
-	handler: async function(args: { user: string }, control: Control) {
-		await control.send(new lib.UserDeleteRequest(args.user));
+	handler: async function(args: { user: string }, ctl: Ctl) {
+		await ctl.send(new lib.UserDeleteRequest(args.user));
 	},
 }));
 
@@ -194,7 +194,7 @@ async function handleImportOrRestore(args: {
 	admins: boolean,
 	whitelist: boolean,
 	noBackup?: boolean,
-}, control: Control, restore: boolean) {
+}, ctl: Ctl, restore: boolean) {
 	let importType: ConstructorParameters<typeof lib.UserBulkImportRequest>[0];
 	const data = JSON.parse((await fs.readFile(args.filepath)).toString());
 	const optionCount = [args.users, args.bans, args.admins, args.whitelist]
@@ -218,7 +218,7 @@ async function handleImportOrRestore(args: {
 		throw new lib.CommandError("Unknown json file, please specify an option");
 	}
 
-	const backup = await control.send(
+	const backup = await ctl.send(
 		new lib.UserBulkImportRequest(importType, importType === "users" ? data.users : data, restore)
 	);
 
@@ -239,8 +239,8 @@ userCommands.add(new lib.Command({
 			"whitelist": { describe: "Import whitelist json", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: any, control: any) {
-		await handleImportOrRestore(args, control, false);
+	handler: async function(args: any, ctl: any) {
+		await handleImportOrRestore(args, ctl, false);
 	},
 }));
 
@@ -255,8 +255,8 @@ userCommands.add(new lib.Command({
 			"no-backup": { describe: "Don't save a backup to the cwd", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: any, control: any) {
-		await handleImportOrRestore(args, control, true);
+	handler: async function(args: any, ctl: any) {
+		await handleImportOrRestore(args, ctl, true);
 	},
 }));
 
@@ -276,7 +276,7 @@ userCommands.add(new lib.Command({
 		bans: boolean,
 		admins: boolean,
 		whitelist: boolean,
-	}, control: Control) {
+	}, ctl: Ctl) {
 		let exportType = "users" as ConstructorParameters<typeof lib.UserBulkExportRequest>[0];
 		const optionCount = [args.bans, args.admins, args.whitelist]
 			.reduce((acc, bool) => (bool ? acc + 1 : acc), 0);
@@ -296,7 +296,7 @@ userCommands.add(new lib.Command({
 			exportType = "whitelist";
 		}
 
-		await fs.writeFile(args.filepath, JSON.stringify(await control.send(
+		await fs.writeFile(args.filepath, JSON.stringify(await ctl.send(
 			new lib.UserBulkExportRequest(exportType)
 		), undefined, "\t"));
 		print(`Exported ${exportType} to ${args.filepath}`);

@@ -9,7 +9,7 @@ import util from "util";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
 import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
 
@@ -21,8 +21,8 @@ export const instanceCommands = new lib.CommandTree({
 });
 instanceCommands.add(new lib.Command({
 	definition: [["list", "l"], "List instances known to the controller"],
-	handler: async function(args: object, control: Control) {
-		let list = await control.send(new lib.InstanceDetailsListRequest());
+	handler: async function(args: object, ctl: Ctl) {
+		let list = await ctl.send(new lib.InstanceDetailsListRequest());
 		print(asTable(list));
 	},
 }));
@@ -36,13 +36,13 @@ instanceCommands.add(new lib.Command({
 			"from": { type: "number", nargs: 1, describe: "Clone config from instance id" },
 		});
 	}],
-	handler: async function(args: { name: string, id?: number, from?: number, }, control: Control) {
+	handler: async function(args: { name: string, id?: number, from?: number, }, ctl: Ctl) {
 		let instanceConfig = new lib.InstanceConfig("control");
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		await control.send(new lib.InstanceCreateRequest(
+		await ctl.send(new lib.InstanceCreateRequest(
 			instanceConfig.toRemote("controller", [
 				"instance.id", "instance.name",
 			]),
@@ -58,9 +58,9 @@ instanceConfigCommands.add(new lib.Command({
 	definition: ["list <instance>", "List configuration for an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to list config for", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		let config = await control.send(new lib.InstanceConfigGetRequest(instanceId));
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		let config = await ctl.send(new lib.InstanceConfigGetRequest(instanceId));
 
 		for (let [name, value] of Object.entries(config)) {
 			print(`${name} ${JSON.stringify(value)}`);
@@ -79,15 +79,15 @@ instanceConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(
 		args: { instance: string, field: string, value?: string, stdin?: boolean },
-		control: Control,
+		ctl: Ctl,
 	) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await control.send(new lib.InstanceConfigSetFieldRequest(instanceId, args.field, args.value));
+		await ctl.send(new lib.InstanceConfigSetFieldRequest(instanceId, args.field, args.value));
 	},
 }));
 
@@ -103,9 +103,9 @@ instanceConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(
 		args: { instance: string, field: string, prop: string, value?: string, stdin?: boolean },
-		control: Control
+		ctl: Ctl
 	) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
@@ -136,7 +136,7 @@ instanceConfigCommands.add(new lib.Command({
 			}
 			value = args.value;
 		}
-		await control.send(new lib.InstanceConfigSetPropRequest(instanceId, args.field, args.prop, value));
+		await ctl.send(new lib.InstanceConfigSetPropRequest(instanceId, args.field, args.prop, value));
 	},
 }));
 
@@ -149,9 +149,9 @@ instanceConfigCommands.add(new lib.Command({
 			default: "",
 		});
 	}],
-	handler: async function(args: { instance: string, editor: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		let config = await control.send(new lib.InstanceConfigGetRequest(instanceId));
+	handler: async function(args: { instance: string, editor: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		let config = await ctl.send(new lib.InstanceConfigGetRequest(instanceId));
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
@@ -178,7 +178,7 @@ instanceConfigCommands.add(new lib.Command({
 		for (let index in final) {
 			if (index in final) {
 				try {
-					await control.send(new lib.InstanceConfigSetFieldRequest(
+					await ctl.send(new lib.InstanceConfigSetFieldRequest(
 						instanceId,
 						index,
 						final[index],
@@ -211,10 +211,10 @@ instanceCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to assign", type: "string" });
 		yargs.positional("host", { describe: "Host to assign to or unassign if none", type: "string" });
 	}],
-	handler: async function(args: { instance: string, host?: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		let hostId = args.host ? await lib.resolveHost(control, args.host) : undefined;
-		await control.send(new lib.InstanceAssignRequest(instanceId, hostId));
+	handler: async function(args: { instance: string, host?: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		let hostId = args.host ? await lib.resolveHost(ctl, args.host) : undefined;
+		await ctl.send(new lib.InstanceAssignRequest(instanceId, hostId));
 	},
 }));
 
@@ -250,9 +250,9 @@ instanceSaveCommands.add(new lib.Command({
 	definition: ["list <instance>", "list saves on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to list saves on", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		let saves = await control.sendTo("controller", new lib.InstanceSaveDetailsListRequest());
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		let saves = await ctl.sendTo("controller", new lib.InstanceSaveDetailsListRequest());
 		saves = saves.filter(save => save.instanceId === instanceId);
 		print(asTable(saves.map(
 			({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() })
@@ -280,12 +280,12 @@ instanceSaveCommands.add(new lib.Command({
 			mapGenSettings?: string,
 			mapSettings?: string,
 		},
-		control: Control
+		ctl: Ctl
 	) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo(
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo(
 			{ instanceId },
 			new lib.InstanceCreateSaveRequest(args.name, seed, mapGenSettings, mapSettings),
 		);
@@ -298,9 +298,9 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("old-name", { describe: "Old name of save.", type: "string" });
 		yargs.positional("new-name", { describe: "New name of save.", type: "string" });
 	}],
-	handler: async function(args: { instance: string, oldName: string, newName: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.send(new lib.InstanceRenameSaveRequest(instanceId, args.oldName, args.newName));
+	handler: async function(args: { instance: string, oldName: string, newName: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.send(new lib.InstanceRenameSaveRequest(instanceId, args.oldName, args.newName));
 	},
 }));
 
@@ -310,9 +310,9 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("source", { describe: "Save to copy.", type: "string" });
 		yargs.positional("destination", { describe: "Name of copy.", type: "string" });
 	}],
-	handler: async function(args: { instance: string, source: string, destination: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.send(new lib.InstanceCopySaveRequest(instanceId, args.source, args.destination));
+	handler: async function(args: { instance: string, source: string, destination: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.send(new lib.InstanceCopySaveRequest(instanceId, args.source, args.destination));
 	},
 }));
 
@@ -324,14 +324,14 @@ instanceSaveCommands.add(new lib.Command({
 			"name": { describe: "Name to give save on server", nargs: 1, type: "string" },
 		});
 	}],
-	handler: async function(args: { instance: string, filepath: string, name?: string }, control: Control) {
+	handler: async function(args: { instance: string, filepath: string, name?: string }, ctl: Ctl) {
 		let filename = args.name || path.basename(args.filepath);
 		if (!filename.endsWith(".zip")) {
 			throw new lib.CommandError("Save name must end with .zip");
 		}
 
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		let url = new URL(control.config.get("control.controller_url")!);
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		let url = new URL(ctl.config.get("ctl.controller_url")!);
 		url.pathname += "api/upload-save";
 		url.searchParams.append("instance_id", String(instanceId));
 		url.searchParams.append("filename", filename);
@@ -341,7 +341,7 @@ instanceSaveCommands.add(new lib.Command({
 			body: (await fs.open(args.filepath)).createReadStream(),
 			duplex: "half",
 			headers: {
-				"X-Access-Token": control.config.get("control.controller_token")!,
+				"X-Access-Token": ctl.config.get("ctl.controller_token")!,
 				"Content-Type": "application/zip",
 			},
 		});
@@ -389,11 +389,11 @@ instanceSaveCommands.add(new lib.Command({
 			targetSave: string,
 			copy: boolean,
 		},
-		control: Control
+		ctl: Ctl
 	) {
-		let sourceInstanceId = await lib.resolveInstance(control, args.sourceInstance);
-		let targetInstanceId = await lib.resolveInstance(control, args.targetInstance);
-		let storedName = await control.send(
+		let sourceInstanceId = await lib.resolveInstance(ctl, args.sourceInstance);
+		let targetInstanceId = await lib.resolveInstance(ctl, args.targetInstance);
+		let storedName = await ctl.send(
 			new lib.InstanceTransferSaveRequest(
 				sourceInstanceId,
 				args.sourceSave,
@@ -411,11 +411,11 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to download save from", type: "string" });
 		yargs.positional("save", { describe: "Save to download", type: "string" });
 	}],
-	handler: async function(args: { instance: string, save: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		let streamId = await control.send(new lib.InstanceDownloadSaveRequest(instanceId, args.save));
+	handler: async function(args: { instance: string, save: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		let streamId = await ctl.send(new lib.InstanceDownloadSaveRequest(instanceId, args.save));
 
-		let url = new URL(control.config.get("control.controller_url")!);
+		let url = new URL(ctl.config.get("ctl.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
 		const filename = await lib.downloadFile(url, args.save, "rename");
 
@@ -428,9 +428,9 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to delete save from", type: "string" });
 		yargs.positional("save", { describe: "Save to delete", type: "string" });
 	}],
-	handler: async function(args: { instance: string, save: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.send(new lib.InstanceDeleteSaveRequest(instanceId, args.save));
+	handler: async function(args: { instance: string, save: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.send(new lib.InstanceDeleteSaveRequest(instanceId, args.save));
 	},
 }));
 instanceCommands.add(instanceSaveCommands);
@@ -439,10 +439,10 @@ instanceCommands.add(new lib.Command({
 	definition: ["export-data <instance>", "Export item icons and locale from instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to export from", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceExportDataRequest());
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo({ instanceId }, new lib.InstanceExportDataRequest());
 	},
 }));
 
@@ -450,9 +450,9 @@ instanceCommands.add(new lib.Command({
 	definition: ["save-game <instance>", "Save the running game of an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to save the game on", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.sendTo({ instanceId }, new lib.InstanceSaveGameRequest());
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.sendTo({ instanceId }, new lib.InstanceSaveGameRequest());
 	},
 }));
 
@@ -460,10 +460,10 @@ instanceCommands.add(new lib.Command({
 	definition: ["extract-players <instance>", "Extract players from running save into the cluster.", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to extract players and online time from", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceExtractPlayersRequest());
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo({ instanceId }, new lib.InstanceExtractPlayersRequest());
 	},
 }));
 
@@ -475,11 +475,11 @@ instanceCommands.add(new lib.Command({
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, control: Control) {
-		const instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceStartRequest(args.save));
-		control.keepOpen = args.keepOpen;
+	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, ctl: Ctl) {
+		const instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo({ instanceId }, new lib.InstanceStartRequest(args.save));
+		ctl.keepOpen = args.keepOpen;
 	},
 }));
 instanceCommands.add(new lib.Command({
@@ -490,11 +490,11 @@ instanceCommands.add(new lib.Command({
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, control: Control) {
-		const instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceRestartRequest(args.save));
-		control.keepOpen = args.keepOpen;
+	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, ctl: Ctl) {
+		const instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo({ instanceId }, new lib.InstanceRestartRequest(args.save));
+		ctl.keepOpen = args.keepOpen;
 	},
 }));
 
@@ -509,9 +509,9 @@ instanceCommands.add(new lib.Command({
 			},
 		});
 	}],
-	handler: async function(args: { force: boolean }, control: Control) {
+	handler: async function(args: { force: boolean }, ctl: Ctl) {
 		// Get all instances
-		const instances = await control.send(new lib.InstanceDetailsListRequest());
+		const instances = await ctl.send(new lib.InstanceDetailsListRequest());
 
 		// Filter instances that should be started
 		const instancesToStart = instances.filter((instance: lib.InstanceDetails) => {
@@ -541,7 +541,7 @@ instanceCommands.add(new lib.Command({
 		// Start all filtered instances
 		const startPromises = instancesToStart.map(async (instance: lib.InstanceDetails) => {
 			try {
-				await control.sendTo({ instanceId: instance.id }, new lib.InstanceStartRequest());
+				await ctl.sendTo({ instanceId: instance.id }, new lib.InstanceStartRequest());
 				print(`✓ Started ${instance.name}`);
 			} catch (error) {
 				print(`✗ Failed to start ${instance.name}: ${error}`);
@@ -575,15 +575,15 @@ instanceCommands.add(new lib.Command({
 			mapSettings?: string,
 			keepOpen: boolean,
 		},
-		control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
-		await control.sendTo(
+		await ctl.sendTo(
 			{ instanceId },
 			new lib.InstanceLoadScenarioRequest(args.scenario, seed, mapGenSettings, mapSettings),
 		);
-		control.keepOpen = args.keepOpen;
+		ctl.keepOpen = args.keepOpen;
 	},
 }));
 
@@ -591,18 +591,18 @@ instanceCommands.add(new lib.Command({
 	definition: ["stop <instance>", "Stop instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to stop", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceStopRequest());
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo({ instanceId }, new lib.InstanceStopRequest());
 	},
 }));
 
 instanceCommands.add(new lib.Command({
 	definition: ["stop-all", "Stop all running instances", () => {}],
-	handler: async function(_args, control: Control) {
+	handler: async function(_args, ctl: Ctl) {
 		// Get all instances
-		const instances = await control.send(new lib.InstanceDetailsListRequest());
+		const instances = await ctl.send(new lib.InstanceDetailsListRequest());
 
 		// Filter instances that should be stopped
 		const instancesToStop = instances
@@ -621,7 +621,7 @@ instanceCommands.add(new lib.Command({
 		// Stop all filtered instances
 		const stopPromises = instancesToStop.map(async (instance: lib.InstanceDetails) => {
 			try {
-				await control.sendTo({ instanceId: instance.id }, new lib.InstanceStopRequest());
+				await ctl.sendTo({ instanceId: instance.id }, new lib.InstanceStopRequest());
 				print(`✓ Stopped ${instance.name}`);
 			} catch (error) {
 				print(`✗ Failed to stop ${instance.name}: ${error}`);
@@ -637,10 +637,10 @@ instanceCommands.add(new lib.Command({
 	definition: ["kill <instance>", "Kill instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to kill", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceKillRequest());
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.setLogSubscriptions({ instanceIds: [instanceId] });
+		await ctl.sendTo({ instanceId }, new lib.InstanceKillRequest());
 	},
 }));
 
@@ -648,9 +648,9 @@ instanceCommands.add(new lib.Command({
 	definition: ["delete <instance>", "Delete instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to delete", type: "string" });
 	}],
-	handler: async function(args: { instance: string }, control: Control) {
-		let instanceId = await lib.resolveInstance(control, args.instance);
-		await control.send(new lib.InstanceDeleteRequest(instanceId));
+	handler: async function(args: { instance: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.send(new lib.InstanceDeleteRequest(instanceId));
 	},
 }));
 
@@ -659,9 +659,9 @@ instanceCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to send to", type: "string" });
 		yargs.positional("command", { describe: "command to send", type: "string" });
 	}],
-	handler: async function(args: { instance: string, command: string }, control: Control) {
-		let result = await control.sendTo(
-			{ instanceId: await lib.resolveInstance(control, args.instance) },
+	handler: async function(args: { instance: string, command: string }, ctl: Ctl) {
+		let result = await ctl.sendTo(
+			{ instanceId: await lib.resolveInstance(ctl, args.instance) },
 			new lib.InstanceSendRconRequest(args.command),
 		);
 

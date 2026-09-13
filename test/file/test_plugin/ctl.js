@@ -8,7 +8,7 @@ testPluginCommands.add(new Command({
 	definition: ["echo <message>", "Print the message given to it", (yargs) => {
 		yargs.positional("message", { describe: "message to print", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args, ctl) {
 		// eslint-disable-next-line no-console
 		console.log(args.message);
 	},

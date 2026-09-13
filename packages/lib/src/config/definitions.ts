@@ -691,32 +691,32 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 	};
 }
 
-export interface ControlConfigFields {
-	"control.controller_url": string | null;
-	"control.controller_token": string | null;
-	"control.max_reconnect_delay": number;
+export interface CtlConfigFields {
+	"ctl.controller_url": string | null;
+	"ctl.controller_token": string | null;
+	"ctl.max_reconnect_delay": number;
 }
 
 /**
- * Control config class
+ * Ctl config class
  * @extends classes.Config
  */
-export class ControlConfig extends classes.Config<ControlConfigFields> {
-	declare static fromJSON: configFromJSON<ControlConfig>;
-	declare static fromFile: configFromFile<ControlConfig>;
-	static fieldDefinitions: classes.ConfigDefs<ControlConfigFields> = {
-		"control.controller_url": {
+export class CtlConfig extends classes.Config<CtlConfigFields> {
+	declare static fromJSON: configFromJSON<CtlConfig>;
+	declare static fromFile: configFromFile<CtlConfig>;
+	static fieldDefinitions: classes.ConfigDefs<CtlConfigFields> = {
+		"ctl.controller_url": {
 			description: "URL to connect to the controller at",
 			type: "string",
 			optional: true,
 		},
-		"control.controller_token": {
+		"ctl.controller_token": {
 			access: ["control"],
 			description: "Token to authenticate to controller with.",
 			type: "string",
 			optional: true,
 		},
-		"control.max_reconnect_delay": {
+		"ctl.max_reconnect_delay": {
 			title: "Max Reconnect Delay",
 			description: "Maximum delay to wait before attempting to reconnect WebSocket",
 			type: "number",

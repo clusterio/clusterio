@@ -1,12 +1,12 @@
 import * as lib from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 
 export const debugCommands = new lib.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new lib.Command({
 	definition: ["dump-ws", "Dump WebSocket messages sent and received by controller"],
-	handler: async function(args: object, control: Control) {
-		await control.send(new lib.DebugDumpWsRequest());
-		control.keepOpen = true;
+	handler: async function(args: object, ctl: Ctl) {
+		await ctl.send(new lib.DebugDumpWsRequest());
+		ctl.keepOpen = true;
 	},
 }));
 
@@ -18,7 +18,7 @@ debugCommands.add(new lib.Command({
 			yargs.positional("exchange-string", { describe: "String to parse", type: "string" });
 			yargs.option("pretty", { alias: "p", type: "boolean", description: "Pretty output" });
 		}],
-	handler: async function(args: { exchangeString: string, pretty: boolean }, control: Control) {
+	handler: async function(args: { exchangeString: string, pretty: boolean }, ctl: Ctl) {
 		const result = lib.readMapExchangeString(args.exchangeString);
 		if (args.pretty) {
 			// eslint-disable-next-line no-console

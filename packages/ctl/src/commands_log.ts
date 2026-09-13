@@ -2,7 +2,7 @@ import winston from "winston";
 
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 
 export const logCommands = new lib.CommandTree({ name: "log", description: "Log inspection" });
 logCommands.add(new lib.Command({
@@ -16,17 +16,17 @@ logCommands.add(new lib.Command({
 	}],
 	handler: async function(
 		args: { all: boolean, controller: boolean, host: string | null, instance: string | null },
-		control: Control
+		ctl: Ctl
 	) {
 		if (!args.all && !args.controller && !args.host && !args.instance) {
 			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
 			return;
 		}
-		let instanceIds = args.instance ? [await lib.resolveInstance(control, args.instance)] : [];
-		let hostIds = args.host ? [await lib.resolveHost(control, args.host)] : [];
-		await control.setLogSubscriptions({ all: args.all, controller: args.controller, hostIds, instanceIds });
-		control.keepOpen = true;
+		let instanceIds = args.instance ? [await lib.resolveInstance(ctl, args.instance)] : [];
+		let hostIds = args.host ? [await lib.resolveHost(ctl, args.host)] : [];
+		await ctl.setLogSubscriptions({ all: args.all, controller: args.controller, hostIds, instanceIds });
+		ctl.keepOpen = true;
 	},
 }));
 
@@ -52,16 +52,16 @@ logCommands.add(new lib.Command({
 			limit: number,
 			start: boolean,
 		},
-		control: Control
+		ctl: Ctl
 	) {
 		if (!args.all && !args.controller && !args.host && !args.instance) {
 			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
 			return;
 		}
-		let instanceIds = args.instance ? [await lib.resolveInstance(control, args.instance)] : [];
-		let hostIds = args.host ? [await lib.resolveHost(control, args.host)] : [];
-		let result = await control.send(new lib.LogQueryRequest(
+		let instanceIds = args.instance ? [await lib.resolveInstance(ctl, args.instance)] : [];
+		let hostIds = args.host ? [await lib.resolveHost(ctl, args.host)] : [];
+		let result = await ctl.send(new lib.LogQueryRequest(
 			args.all,
 			args.controller,
 			hostIds,

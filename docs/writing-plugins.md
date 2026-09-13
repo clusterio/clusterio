@@ -28,7 +28,7 @@ The basic file structure of a plugin is the following.
       +- package.json
       +- controller.js
       +- instance.js
-      +- control.js
+      +- ctl.js
       +- test/
       |  +- plugin.js
       +- module/
@@ -643,7 +643,7 @@ controller.hooks.metrics.attach(plugin.name, async () => fooRegistry.collect());
 
 ## Adding Custom Commands to clusterioctl
 
-The control entrypoint for plugins allows you to extend clustectl with your own commands.
+The ctl entrypoint for plugins allows you to extend clustectl with your own commands.
 The creation of custom commands typically starts with defining a command tree for the plugin:
 
 ```js
@@ -664,8 +664,8 @@ fooFrobberCommands.add(new Command({
             describe: "type of frobnication", type: "string"
         });
     }],
-    handler: async function(args, control) {
-        await info.messages.frobnicate.send(control, {
+    handler: async function(args, ctl) {
+        await info.messages.frobnicate.send(ctl, {
             instance_name: "Console",
             content: args.message,
         });
@@ -674,7 +674,7 @@ fooFrobberCommands.add(new Command({
 ```
 
 For a command the `definition` is the arguments to pass to [yargs.command](http://yargs.js.org/docs/#api-reference-commandcmd-desc-builder-handler) (see also [yargs.positional](http://yargs.js.org/docs/#api-reference-positionalkey-opt) and [yargs.options](http://yargs.js.org/docs/#api-reference-optionskey-opt) for setting up positional and optional arguments to commands).
-The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Control` class of clusterioctl.
+The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Ctl` class of clusterioctl.
 Note that messages sent from clusterioctl needs to have `"control-controller"` as a part of the links array for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
 
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in the `addCommands` hook of the ctl entrypoint:

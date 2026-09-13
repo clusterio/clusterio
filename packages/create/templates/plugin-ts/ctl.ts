@@ -1,4 +1,4 @@
-import type { Control, CtlPluginContext } from "@clusterio/ctl";
+import type { Ctl, CtlPluginContext } from "@clusterio/ctl";
 import { CommandTree, Command } from "@clusterio/lib";
 //%// We do not check for multi context here because it doesn't make sense to have a ctl without messages
 import { PluginExampleEvent, PluginExampleRequest } from "./messages.js";
@@ -12,8 +12,8 @@ pluginCommands.add(new Command({
 	definition: ["my-command <foo>", "My command description that I really should change", (yargs) => {
 		yargs.positional("foo", { describe: "foo is foo!", type: "string" });
 	}],
-	handler: async function(args: { foo: string }, control: Control) {
-		const response = await control.sendTo("controller", new PluginExampleRequest(args.foo, [1, 2, 3]));
+	handler: async function(args: { foo: string }, ctl: Ctl) {
+		const response = await ctl.sendTo("controller", new PluginExampleRequest(args.foo, [1, 2, 3]));
 		console.log(response);
 		console.log(args);
 	},

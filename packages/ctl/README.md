@@ -17,7 +17,7 @@ Common options:
    See the `plugin` command for managing this list.
 
  * `--config <file>` JSON file to use for storing configuration for ctl.
-   Defaults to `config-control.json` and will be created if it does not exist.
+   Defaults to `config-ctl.json` and will be created if it does not exist.
    See the `config` command for inspecting and modifying the configuration.
 
 
@@ -70,13 +70,13 @@ Since the `plugin-list.json` is shared between controller, host and ctl you usua
 Lists the plugins set up to be available by name followed by path.
 
 
-### `config-control`
+### `config`
 
 Manage the ctl configuration.
 This allows setting the url and token to the controller to manage.
 
 
-#### `config-control set <config-entry> [value]`
+#### `config set <config-entry> [value]`
 
 Set a config entry to the given value.
 If value is not provided the entry is set to null.
@@ -85,12 +85,12 @@ If the config entry is of type object the value must be a valid JSON serializati
 See docs/configuration.md in the main repositiory for the available configuration.
 
 
-#### `config-control show <config-entry>`
+#### `config show <config-entry>`
 
 Shows the value for a single config entry.
 
 
-#### `config-control list`
+#### `config list`
 
 Lists up all configuration entries with their currently configured values.
 

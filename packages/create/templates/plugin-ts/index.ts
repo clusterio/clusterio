@@ -22,8 +22,8 @@ declare module "@clusterio/lib" {
 	}
 //%endif
 //%if ctl & config
-	export interface ControlConfigFields {
-		"__plugin_name__.myControlField": string;
+	export interface CtlConfigFields {
+		"__plugin_name__.myCtlField": string;
 	}
 //%endif
 //%if multi_context | web
@@ -106,9 +106,9 @@ export const plugin: lib.PluginDeclaration = {
 	ctlEntrypoint: "./dist/node/ctl.js",
 //%endif
 //%if ctl & config
-	controlConfigFields: {
-		"__plugin_name__.myControlField": {
-			title: "My Control Field",
+	ctlConfigFields: {
+		"__plugin_name__.myCtlField": {
+			title: "My Ctl Field",
 			description: "This should be removed from index.js",
 			type: "string",
 			initialValue: "Remove Me",

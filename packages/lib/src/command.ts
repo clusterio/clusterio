@@ -11,7 +11,7 @@ import * as libErrors from "./errors.js";
 import type { Link } from "./link/index.js";
 import type { Argv } from "yargs";
 
-export type CommandHandler = (args: any, control: any) => Promise<void>;
+export type CommandHandler = (args: any, ctl: any) => Promise<void>;
 export type CommandDefinition = [string | string[], string?, ((yargs: Argv) => void)?];
 
 /**
@@ -34,7 +34,7 @@ export class Command {
 	 * @param cmd.handler -
 	 *     Async function invoked when the command is executed.  Is given
 	 *     the parsed args and a reference to the {@link
-	 *     module:ctl/ctl.Control} instance.
+	 *     module:ctl/ctl.Ctl} instance.
 	 */
 	constructor({ definition, handler }: { definition: CommandDefinition, handler: CommandHandler }) {
 		if (definition[0] instanceof Array) {
@@ -52,8 +52,8 @@ export class Command {
 		yargs.command(...this._definition);
 	}
 
-	async run(args: Record<string, unknown>, control: Link) {
-		await this._handler(args, control);
+	async run(args: Record<string, unknown>, ctl: Link) {
+		await this._handler(args, ctl);
 	}
 }
 
@@ -62,7 +62,7 @@ export class Command {
  *
  * Container which can contain {@link module:lib.Command}s and other
  * CommandTrees.  This is used by clusterioctl to hold the full tree of
- * available commands, you may extend this tree by using a control plugin,
+ * available commands, you may extend this tree by using a ctl plugin,
  * see {@link module:lib.BaseControlPlugin#addCommands}
  */
 export class CommandTree {

@@ -6,7 +6,7 @@ import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
 import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
 
@@ -17,9 +17,9 @@ hostCommands.add(new lib.Command({
 	definition: ["stop <host>", "Stop the given host", (yargs) => {
 		yargs.positional("host", { describe: "Host to stop", type: "string" });
 	}],
-	handler: async function(args: { host: string }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		await control.sendTo({ hostId }, new lib.HostStopRequest());
+	handler: async function(args: { host: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		await ctl.sendTo({ hostId }, new lib.HostStopRequest());
 	},
 }));
 
@@ -27,16 +27,16 @@ hostCommands.add(new lib.Command({
 	definition: ["restart <host>", "Restart the given host", (yargs) => {
 		yargs.positional("host", { describe: "Host to restart", type: "string" });
 	}],
-	handler: async function(args: { host: string }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		await control.sendTo({ hostId }, new lib.HostRestartRequest());
+	handler: async function(args: { host: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
 	},
 }));
 
 hostCommands.add(new lib.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
-	handler: async function(args: object, control: Control) {
-		let hosts = await control.send(new lib.HostListRequest());
+	handler: async function(args: object, ctl: Ctl) {
+		let hosts = await ctl.send(new lib.HostListRequest());
 		print(asTable(hosts));
 	},
 }));
@@ -45,9 +45,9 @@ hostCommands.add(new lib.Command({
 	definition: ["generate-token", "Generate token for a host", (yargs) => {
 		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
 	}],
-	handler: async function(args: { id?: number }, control: Control) {
+	handler: async function(args: { id?: number }, ctl: Ctl) {
 		let hostId = typeof args.id === "number" ? args.id : undefined;
-		let response = await control.send(new lib.HostGenerateTokenRequest(hostId));
+		let response = await ctl.send(new lib.HostGenerateTokenRequest(hostId));
 		print(response);
 	},
 }));
@@ -56,9 +56,9 @@ hostCommands.add(new lib.Command({
 	definition: ["revoke-token <host>", "Revoke all tokens for a host", (yargs) => {
 		yargs.positional("host", { describe: "Host to revoke tokens for", type: "string" });
 	}],
-	handler: async function(args: { host: string }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		await control.send(new lib.HostRevokeTokensRequest(hostId));
+	handler: async function(args: { host: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		await ctl.send(new lib.HostRevokeTokensRequest(hostId));
 	},
 }));
 
@@ -75,9 +75,9 @@ hostCommands.add(new lib.Command({
 	}],
 	handler: async function(
 		args: { id?: number, name?: string, generateToken: boolean, output: string },
-		control: Control
+		ctl: Ctl
 	) {
-		let config = await control.send(
+		let config = await ctl.send(
 			new lib.HostConfigCreateRequest(args.id, args.name, args.generateToken)
 		);
 
@@ -103,15 +103,15 @@ hostCommands.add(new lib.Command({
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 		yargs.option("all", { alias: "a", type: "boolean", description: "Also update all plugins" });
 	}],
-	handler: async function(args: { host: string, restart: boolean, all: boolean }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
+	handler: async function(args: { host: string, restart: boolean, all: boolean }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
 		if (args.all) {
-			await control.sendTo({ hostId }, new lib.UpdateAllRequest());
+			await ctl.sendTo({ hostId }, new lib.UpdateAllRequest());
 		} else {
-			await control.sendTo({ hostId }, new lib.HostUpdateRequest());
+			await ctl.sendTo({ hostId }, new lib.HostUpdateRequest());
 		}
 		if (args.restart) {
-			await control.sendTo({ hostId }, new lib.HostRestartRequest());
+			await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
 		} else {
 			print("Host updated; a restart is required to apply the changes.");
 		}
@@ -126,9 +126,9 @@ hostConfigCommands.add(new lib.Command({
 	definition: ["list <host>", "List configuration for a host", (yargs) => {
 		yargs.positional("host", { describe: "Host to list config for", type: "string" });
 	}],
-	handler: async function(args: { host: string }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		let config = await control.sendTo({ hostId }, new lib.HostConfigGetRequest());
+	handler: async function(args: { host: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		let config = await ctl.sendTo({ hostId }, new lib.HostConfigGetRequest());
 
 		for (let [name, value] of Object.entries(config)) {
 			print(`${name} ${JSON.stringify(value)}`);
@@ -147,15 +147,15 @@ hostConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(
 		args: { host: string, field: string, value?: string, stdin?: boolean },
-		control: Control,
+		ctl: Ctl,
 	) {
-		let hostId = await lib.resolveHost(control, args.host);
+		let hostId = await lib.resolveHost(ctl, args.host);
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await control.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(args.field, args.value));
+		await ctl.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(args.field, args.value));
 	},
 }));
 
@@ -171,9 +171,9 @@ hostConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(
 		args: { host: string, field: string, prop: string, value?: string, stdin?: boolean },
-		control: Control
+		ctl: Ctl
 	) {
-		let hostId = await lib.resolveHost(control, args.host);
+		let hostId = await lib.resolveHost(ctl, args.host);
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
@@ -189,7 +189,7 @@ hostConfigCommands.add(new lib.Command({
 			}
 			value = args.value;
 		}
-		await control.sendTo({ hostId }, new lib.HostConfigSetPropRequest(args.field, args.prop, value));
+		await ctl.sendTo({ hostId }, new lib.HostConfigSetPropRequest(args.field, args.prop, value));
 	},
 }));
 
@@ -202,9 +202,9 @@ hostConfigCommands.add(new lib.Command({
 			default: "",
 		});
 	}],
-	handler: async function(args: { host: string, editor: string }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		let config = await control.sendTo({ hostId }, new lib.HostConfigGetRequest());
+	handler: async function(args: { host: string, editor: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		let config = await ctl.sendTo({ hostId }, new lib.HostConfigGetRequest());
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
@@ -231,7 +231,7 @@ hostConfigCommands.add(new lib.Command({
 		for (let index in final) {
 			if (index in final) {
 				try {
-					await control.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(
+					await ctl.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(
 						index,
 						final[index],
 					));
@@ -267,9 +267,9 @@ hostPluginCommands.add(new lib.Command({
 	definition: ["list <host>", "List plugins on a host", (yargs) => {
 		yargs.positional("host", { describe: "Host to list for", type: "string" });
 	}],
-	handler: async function(args: { host: string }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		const plugins = await control.sendTo({ hostId }, new lib.PluginListRequest());
+	handler: async function(args: { host: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		const plugins = await ctl.sendTo({ hostId }, new lib.PluginListRequest());
 		print(asTable(plugins.map(p => ({
 			title: p.title, version: p.version, loaded: p.loaded, enabled: p.enabled, npmPackage: p.npmPackage,
 		}))));
@@ -281,11 +281,11 @@ hostPluginCommands.add(new lib.Command({
 		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
-	handler: async function(args: { host: string, plugin: string, restart: boolean }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		await control.sendTo({ hostId }, new lib.PluginUpdateRequest(args.plugin));
+	handler: async function(args: { host: string, plugin: string, restart: boolean }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		await ctl.sendTo({ hostId }, new lib.PluginUpdateRequest(args.plugin));
 		if (args.restart) {
-			await control.sendTo({ hostId }, new lib.HostRestartRequest());
+			await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
 		} else {
 			print("Plugin updated; a restart is required to apply the changes.");
 		}
@@ -297,11 +297,11 @@ hostPluginCommands.add(new lib.Command({
 		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
-	handler: async function(args: { host: string, plugin: string, restart: boolean }, control: Control) {
-		let hostId = await lib.resolveHost(control, args.host);
-		await control.sendTo({ hostId }, new lib.PluginInstallRequest(args.plugin));
+	handler: async function(args: { host: string, plugin: string, restart: boolean }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		await ctl.sendTo({ hostId }, new lib.PluginInstallRequest(args.plugin));
 		if (args.restart) {
-			await control.sendTo({ hostId }, new lib.HostRestartRequest());
+			await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
 		} else {
 			print("Plugin installed; a restart is required to apply the changes.");
 		}

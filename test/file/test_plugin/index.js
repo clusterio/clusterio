@@ -11,7 +11,7 @@ export const plugin = {
 	controllerEntrypoint: "controller.js",
 	hostEntrypoint: "host.js",
 	instanceEntrypoint: "instance.js",
-	ctlEntrypoint: "control.js",
+	ctlEntrypoint: "ctl.js",
 
 	messages: [
 		ControllerEcho,
