@@ -135,12 +135,10 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(admin.connector.terminated, false);
 		});
 
-		it("terminates its own connection after the handler returns", async function() {
+		it("terminates its own connection when deleting itself", async function() {
 			const player = connect("player");
 
 			await deleteUser(player, "player");
-			assert.equal(player.connector.terminated, false);
-			await new Promise(resolve => setImmediate(resolve));
 			assert.equal(player.connector.terminated, true);
 		});
 	});

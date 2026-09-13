@@ -1071,13 +1071,7 @@ export default class ControlConnection extends BaseConnection {
 
 		this._controller.users.deleteUser(user);
 		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
-			if (controlConnection.user.id !== user.id) {
-				continue;
-			}
-			if (controlConnection === this) {
-				// Let the response go out before dropping our own session
-				setImmediate(() => controlConnection.connector.terminate());
-			} else {
+			if (controlConnection.user.id === user.id) {
 				controlConnection.connector.terminate();
 			}
 		}
