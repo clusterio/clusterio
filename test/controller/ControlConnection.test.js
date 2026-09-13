@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import events from "node:events";
 import * as lib from "@clusterio/lib";
 import { ControlConnection, ControllerHooks } from "@clusterio/controller";
-import { MockConnector, MockLogger } from "../mock.js";
+import { MockConnector, MockController, MockLogger } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -89,6 +89,59 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(connector._socket.clusterio_ignore_dump, true);
 			connector.emit("close");
 			assert.equal(mockController.debugEvents.listenerCount("message"), 0);
+		});
+	});
+
+	describe(".handleUserDeleteRequest()", function() {
+		let mockController;
+		let nextId;
+
+		beforeEach(function() {
+			mockController = new MockController();
+			mockController.sendTo = () => {};
+			mockController.wsServer.controlConnections = new Map();
+			nextId = 1;
+		});
+
+		function connect(name) {
+			const connection = {
+				_controller: mockController,
+				user: mockController.users.getByName(name),
+				connector: {
+					terminated: false,
+					terminate() { this.terminated = true; },
+				},
+			};
+			mockController.wsServer.controlConnections.set(nextId, connection);
+			nextId += 1;
+			return connection;
+		}
+
+		async function deleteUser(connection, name) {
+			await ControlConnection.prototype.handleUserDeleteRequest.call(
+				connection, new lib.UserDeleteRequest(name)
+			);
+		}
+
+		it("terminates connections of the deleted user", async function() {
+			const admin = connect("test");
+			const player1 = connect("player");
+			const player2 = connect("player");
+
+			await deleteUser(admin, "player");
+			assert.equal(mockController.users.getByName("player"), undefined);
+			assert.equal(player1.connector.terminated, true);
+			assert.equal(player2.connector.terminated, true);
+			assert.equal(admin.connector.terminated, false);
+		});
+
+		it("terminates its own connection after the handler returns", async function() {
+			const player = connect("player");
+
+			await deleteUser(player, "player");
+			assert.equal(player.connector.terminated, false);
+			await new Promise(resolve => setImmediate(resolve));
+			assert.equal(player.connector.terminated, true);
 		});
 	});
 });
