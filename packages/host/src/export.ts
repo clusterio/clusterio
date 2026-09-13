@@ -5,7 +5,7 @@ import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
-import * as libBuildMod from "@clusterio/lib/build_mod.ts";
+import * as libBuildMod from "@clusterio/lib/build_mod.js";
 import type { FactorioServer } from "./server.ts";
 import { definesPrototypesFallback } from "./export_fallback.ts";
 
