@@ -84,8 +84,6 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
     - name: Prepare and install
       run: pnpm i --no-frozen-lockfile
-    - name: Build
-      run: pnpm run build
     - name: Test ${{ matrix.controller }} controller with ${{ matrix.host }} host
       run: >
         node scripts/version-compat-test.js
@@ -104,6 +102,8 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
     - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
+    - name: typecheck
+      run: pnpm run build
 
   build:
     runs-on: ubuntu-latest
