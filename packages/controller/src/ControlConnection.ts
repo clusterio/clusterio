@@ -1074,6 +1074,11 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		this._controller.users.deleteUser(user);
+		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
+			if (controlConnection.user.id === user.id) {
+				controlConnection.connector.terminate();
+			}
+		}
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));

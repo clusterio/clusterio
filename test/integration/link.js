@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import events from "node:events";
 import jwt from "jsonwebtoken";
 
-import { TestControlConnector, TestHostConnector, TestControl, get, exec, url, slowTest } from "./index.js";
+import {
+	TestControlConnector, TestHostConnector, TestControl, get, exec, url, controlToken, slowTest,
+} from "./index.js";
 import { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } from "@clusterio/lib";
 
-let token = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 let tokenHost = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 describe("Integration of lib/link", function() {
@@ -14,7 +15,7 @@ describe("Integration of lib/link", function() {
 	let hostConnector;
 	beforeEach(async function() {
 		controlConnector = new TestControlConnector(url, 0.2);
-		controlConnector.token = token;
+		controlConnector.token = controlToken;
 		control = new TestControl(controlConnector, false);
 		hostConnector = new TestHostConnector(url, 0.2);
 		hostConnector.token = tokenHost;
@@ -100,7 +101,7 @@ describe("Integration of lib/link", function() {
 	});
 
 	it("should refuse connection with incorrect audience", async function() {
-		hostConnector.token = token;
+		hostConnector.token = controlToken;
 		await assert.rejects(
 			hostConnector.connect(),
 			new Error("Authentication failed: jwt audience invalid. expected: host or slave")

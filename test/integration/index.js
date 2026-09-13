@@ -191,7 +191,8 @@ let haveFactorioInstall;
 const baseHostConfig = loadJSON("config-host.json");
 
 export let url = "https://localhost:4443/";
-export let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
+// Signed in the root before hook, as the user has to exist before the token is issued
+export let controlToken;
 export let instancesDir = path.join("temp", "test", "instances");
 export let modsDir = path.join("temp", "test", "mods");
 export let databaseDir = path.join("temp", "test", "database");
@@ -373,6 +374,7 @@ before(async function() {
 	console.log("Bootstrapping");
 	await execController("bootstrap create-admin test");
 	await execController("bootstrap create-ctl-config test");
+	controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
