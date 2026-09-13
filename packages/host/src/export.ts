@@ -56,7 +56,7 @@ async function generateExportMod(server: FactorioServer) {
 		clean: false,
 		build: true,
 		pack: true,
-		sourceDir: path.join(import.meta.dirname, "..", "..", "..", "lua", "export"),
+		sourceDir: path.join(import.meta.dirname, "..", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version?.replace(/\.\d+$/, ""),

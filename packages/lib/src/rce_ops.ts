@@ -7,9 +7,9 @@ import type { PluginNodeEnvInfo } from "./plugin.ts";
 const execAsync = util.promisify(exec);
 
 function isDev() {
-	//  dev:                 <devRoot>/packages/lib/dist/src/rce_ops.js
-	// prod: <prodRoot>/node_modules/@clusterio/lib/dist/src/rce_ops.js
-	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
+	//  dev:                 <devRoot>/packages/lib/src/rce_ops.js
+	// prod: <prodRoot>/node_modules/@clusterio/lib/src/rce_ops.js
+	return import.meta.dirname.split(path.sep).at(-3) === "packages"; // opposed to "@clusterio"
 }
 
 async function logExec(cmd: string) {

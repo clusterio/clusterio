@@ -216,7 +216,7 @@ async function handleCopyStaticCommand(
 	pluginInfos: lib.PluginNodeEnvInfo[],
 ) {
 	await fs.cp(
-		path.join(import.meta.dirname, "..", "web", "static"),
+		path.join(import.meta.dirname, "dist", "web", "static"),
 		args.target,
 		{
 			recursive: true,
