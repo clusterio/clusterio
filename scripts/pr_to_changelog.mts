@@ -257,20 +257,19 @@ function printMarkdown(
 		}
 	}
 
-	console.log("Contributors");
-	console.log();
+	console.log("### Contributors\n");
 	console.log(`Many thanks to the following for contributing to this release:`);
 	console.log(users.map(userText).join(", "));
 
 	const format = (value: number) => value.toLocaleString("en-US");
-	console.log();
-	console.log("Statistics");
-	console.log();
-	console.log(`Commits: ${format(statistics.commits)}`);
-	console.log(`Pull Requests: ${format(statistics.pullRequests)}`);
-	console.log(`Files Changed: ${format(statistics.filesChanged)}`);
-	console.log(`Line Additions: ${format(statistics.lineAdditions)}`);
-	console.log(`Line Deletions: ${format(statistics.lineDeletions)}`);
+	console.log("\n### Statistics\n");
+	console.log([
+		`Commits: ${format(statistics.commits)}`,
+		`Pull Requests: ${format(statistics.pullRequests)}`,
+		`Files Changed: ${format(statistics.filesChanged)}`,
+		`Additions: +${format(statistics.lineAdditions)}`,
+		`Deletions: -${format(statistics.lineDeletions)}`,
+	].join("  "));
 }
 
 async function main() {
