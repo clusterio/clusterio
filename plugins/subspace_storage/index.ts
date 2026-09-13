@@ -18,7 +18,7 @@ export const plugin: lib.PluginDeclaration = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
-	instanceEntrypoint: "dist/node/instance.js",
+	instanceEntrypoint: "./instance.ts",
 	instanceConfigFields: {
 		"subspace_storage.log_item_transfers": {
 			title: "Log Item Transfers",
@@ -28,7 +28,7 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
-	controllerEntrypoint: "dist/node/controller.js",
+	controllerEntrypoint: "./controller.ts",
 	controllerConfigFields: {
 		"subspace_storage.division_method": {
 			title: "Division Method",

@@ -55,7 +55,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if controller
-	controllerEntrypoint: "./dist/node/controller.js",
+	controllerEntrypoint: "./controller.ts",
 //%endif
 //%if controller & config
 	controllerConfigFields: {
@@ -71,7 +71,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if host
-	hostEntrypoint: "./dist/node/host.js",
+	hostEntrypoint: "./host.ts",
 //%endif
 //%if host & config
 	hostConfigFields: {
@@ -87,7 +87,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if instance | module // Modules load an empty instance plugin
-	instanceEntrypoint: "./dist/node/instance.js",
+	instanceEntrypoint: "./instance.ts",
 //%endif
 //%if instance & config
 	instanceConfigFields: {
@@ -103,7 +103,7 @@ export const plugin: lib.PluginDeclaration = {
 
 //%endif
 //%if ctl
-	ctlEntrypoint: "./dist/node/ctl.js",
+	ctlEntrypoint: "./ctl.ts",
 //%endif
 //%if ctl & config
 	controlConfigFields: {

@@ -117,8 +117,8 @@ describe("controller/src/routes", function() {
 		});
 		it("should not report a missing manifest for plugins without a web build", async function() {
 			controller.pluginInfos = [
-				{ name: "foo", version: "1.0.0", npmPackage: "foo", hostEntrypoint: "dist/node/host.js" },
-				{ name: "bar", version: "1.0.0", npmPackage: "bar", controllerEntrypoint: "dist/node/controller.js" },
+				{ name: "foo", version: "1.0.0", npmPackage: "foo", hostEntrypoint: "./host.ts" },
+				{ name: "bar", version: "1.0.0", npmPackage: "bar", controllerEntrypoint: "./controller.ts" },
 				{ name: "baz", version: "1.0.0", npmPackage: "baz", instanceConfigFields: {} },
 			];
 			let response = await fetch(endpoint);

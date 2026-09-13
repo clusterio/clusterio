@@ -11,7 +11,7 @@ export const plugin = {
 
 //%endif
 //%if controller
-	controllerEntrypoint: "./dist/node/controller.js",
+	controllerEntrypoint: "./controller.js",
 //%endif
 //%if controller & config
 	controllerConfigFields: {
@@ -27,7 +27,7 @@ export const plugin = {
 
 //%endif
 //%if host
-	hostEntrypoint: "./dist/node/host.js",
+	hostEntrypoint: "./host.js",
 //%endif
 //%if host & config
 	hostConfigFields: {
@@ -43,7 +43,7 @@ export const plugin = {
 
 //%endif
 //%if instance | module // Modules load an empty instance plugin
-	instanceEntrypoint: "./dist/node/instance.js",
+	instanceEntrypoint: "./instance.js",
 //%endif
 //%if instance & config
 	instanceConfigFields: {
@@ -59,7 +59,7 @@ export const plugin = {
 
 //%endif
 //%if ctl
-	ctlEntrypoint: "./dist/node/ctl.js",
+	ctlEntrypoint: "./ctl.js",
 //%endif
 //%if ctl & config
 	controlConfigFields: {

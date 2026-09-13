@@ -16,8 +16,8 @@ export const plugin: lib.PluginDeclaration = {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",
-	controllerEntrypoint: "dist/node/controller.js",
-	instanceEntrypoint: "dist/node/instance.js",
+	controllerEntrypoint: "./controller.ts",
+	instanceEntrypoint: "./instance.ts",
 	webEntrypoint: "./web",
 	controllerConfigFields: {
 		"player_auth.code_length": {

@@ -18,7 +18,7 @@ export const plugin: lib.PluginDeclaration = {
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",
 
-	instanceEntrypoint: "dist/node/instance.js",
+	instanceEntrypoint: "./instance.ts",
 	instanceConfigFields: {
 		"inventory_sync.rcon_chunk_size": {
 			title: "Rcon inventory chunk size",
@@ -29,7 +29,7 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
-	controllerEntrypoint: "dist/node/controller.js",
+	controllerEntrypoint: "./controller.ts",
 	controllerConfigFields: {
 		"inventory_sync.player_lock_timeout": {
 			title: "Player Lock Timeout",

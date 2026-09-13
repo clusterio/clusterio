@@ -34,7 +34,7 @@
 		}
 	},
 	"browser": "browser.ts",
-	"main": "dist/node/index.js",
+	"main": "index.ts",
 	"scripts": {
 		"prepare": "tsc --build && pnpm run compile_validator",
 		"compile_validator": "node scripts/compile_validator.js"

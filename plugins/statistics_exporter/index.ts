@@ -12,7 +12,7 @@ export const plugin: lib.PluginDeclaration = {
 	description:
 		"Provides in-game item/fluid production, builds, kills, and pollution "+
 		"statistics to the cluster's Prometheus endpoint.",
-	instanceEntrypoint: "dist/node/instance.js",
+	instanceEntrypoint: "./instance.ts",
 	instanceConfigFields: {
 		"statistics_exporter.command_timeout": {
 			title: "Command Timeout",

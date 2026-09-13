@@ -23,13 +23,13 @@
 	},
 
 	"type": "module",
-	"main": "dist/node/index.js",
+	"main": "index.ts",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --mode production",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
-		"clusteriocontroller": "./dist/node/controller.js"
+		"clusteriocontroller": "./controller.ts"
 	},
 	"engines": {
 		"node": ">=22"

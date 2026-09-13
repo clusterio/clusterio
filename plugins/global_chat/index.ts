@@ -6,8 +6,8 @@ export const plugin: lib.PluginDeclaration = {
 	name: "global_chat",
 	title: "Global Chat",
 	description: "Forwards chat between instances.",
-	instanceEntrypoint: "dist/node/instance.js",
-	ctlEntrypoint: "dist/node/control.js",
+	instanceEntrypoint: "./instance.ts",
+	ctlEntrypoint: "./control.js",
 
 	features: [
 		"ScriptCommands",
