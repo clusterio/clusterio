@@ -1318,6 +1318,34 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 
+	// Not using events.once here as it rejects on error events, which are not
+	// emitted when the process exits while stopping.  Rejects with the error
+	// emitted with the exit, if there was one, for the caller to report.
+	async _waitForRconReadyOrExit() {
+		return await new Promise<void>((resolve, reject) => {
+			let exitError: Error | undefined;
+			const cleanup = () => {
+				this.off("error", onError);
+				this.off("rcon-ready", onRconReady);
+				this.off("exit", onExit);
+			};
+			const onError = (err: Error) => {
+				exitError = err;
+			};
+			const onRconReady = () => {
+				cleanup();
+				resolve();
+			};
+			const onExit = () => {
+				cleanup();
+				reject(exitError ?? new Error("RCON connection lost"));
+			};
+			this.on("error", onError);
+			this.once("rcon-ready", onRconReady);
+			this.once("exit", onExit);
+		});
+	}
+
 	/**
 	 * Send message over RCON
 	 *
@@ -1333,7 +1361,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async sendRcon(message: string, expectEmpty?: boolean) {
 		this._check(["running", "stopping"]);
 		if (!this._rconReady) {
-			await events.once(this, "rcon-ready");
+			// Rejects with the reason the server gave for exiting, if there was one.
+			await this._waitForRconReadyOrExit();
 		}
 		if (!this._rconClient) {
 			throw new Error("RCON connection lost");
@@ -1404,8 +1433,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		// If RCON is not yet fully connected that operation needs to
 		// complete before the RCON connection can be used
 		if (!this._rconReady) {
-			// Not using events.once here to avoid throwing on error events.
-			await new Promise<void>(resolve => this.once("rcon-ready", resolve));
+			// An exit error is not reported here as stopping is done once the process is gone.
+			await this._waitForRconReadyOrExit().catch(() => {});
 		}
 
 		// The Factorio server may have decided to get ahead of us and
