@@ -200,24 +200,18 @@ export default class Instance extends lib.Link {
 		this.hooks = new InstanceHooks(this.logger);
 
 		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
-			let hook = () => this.hooks.instanceConfigFieldChanged.invoke(field, curr, prev);
-
 			if (field === "factorio.shutdown_timeout") {
 				this.server.shutdownTimeoutMs = curr as number * 1000;
+			} else if (field === "factorio.max_concurrent_commands") {
+				this.server.maxConcurrentCommands = curr as number;
 			} else if (field === "factorio.settings") {
 				this._applyWhenRunning(
 					"server settings", () => this.updateFactorioSettings(curr as any, prev as any)
 				);
-				hook();
 			} else if (field === "factorio.enable_whitelist") {
 				this._applyWhenRunning("whitelist", () => this.updateFactorioWhitelist(curr as any));
-				hook();
-			} else {
-				if (field === "factorio.max_concurrent_commands") {
-					this.server.maxConcurrentCommands = curr as number;
-				}
-				hook();
 			}
+			this.hooks.instanceConfigFieldChanged.invoke(field, curr, prev);
 		};
 		this.config.on("fieldChanged", this._configFieldChanged);
 

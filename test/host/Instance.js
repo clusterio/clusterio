@@ -128,6 +128,35 @@ describe("class Instance", function() {
 			instance.notifyStatus("stopped");
 			await wait(10);
 		});
+
+		it("should invoke the hook for fields applied to the server directly", async function() {
+			instance.config.set("factorio.shutdown_timeout", 30);
+			assert.equal(await hookInvoked, "factorio.shutdown_timeout");
+			assert.equal(instance.server.shutdownTimeoutMs, 30000);
+			await wait(10);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should invoke the hook exactly once per field changed", async function() {
+			let invoked = [];
+			instance._host.whitelist = new Set();
+			instance.hooks.instanceConfigFieldChanged.attach("count", field => { invoked.push(field); });
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			instance.config.set("factorio.enable_whitelist", true);
+			instance.config.set("factorio.shutdown_timeout", 30);
+			instance.config.set("factorio.max_concurrent_commands", 3);
+			await wait(10);
+			assert.deepEqual(invoked, [
+				"factorio.settings",
+				"factorio.enable_whitelist",
+				"factorio.shutdown_timeout",
+				"factorio.max_concurrent_commands",
+			]);
+			assert.equal(instance.server.maxConcurrentCommands, 3);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
 	});
 
 	describe("list update events", function() {
