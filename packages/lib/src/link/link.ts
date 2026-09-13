@@ -196,16 +196,20 @@ export class Link {
 
 		let entry = this._validateMessage(message);
 		if (entry && this.connector.dst.type === libData.Address.control) {
+			let permissionMessage = message as libData.MessageRequest | libData.MessageEvent;
 			try {
-				this.validatePermission(
-					message as libData.MessageRequest | libData.MessageEvent,
-					entry
-				); // Somewhat hacky, defined in ControlConnection
+				this.validatePermission(permissionMessage, entry); // Somewhat hacky, defined in ControlConnection
 			} catch (err) {
-				if (err instanceof libErrors.PermissionError) {
-					return;
+				// A non-PermissionError means the permission check itself is
+				// broken.  validatePermission (control connections only) already
+				// sent a response error, so log and drop instead of crashing.
+				if (!(err instanceof libErrors.PermissionError)) {
+					logger.error(
+						`Unexpected error checking permission for ${permissionMessage.name}:\n` +
+						`${(err as Error).stack ?? (err as Error).message}`
+					);
 				}
-				throw err;
+				return;
 			}
 		}
 
