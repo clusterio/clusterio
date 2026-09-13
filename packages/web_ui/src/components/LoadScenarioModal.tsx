@@ -44,7 +44,7 @@ export default function LoadScenarioModal(props: LoadScenarioModalProps) {
 		}
 		if (values.mapSettings && values.mapSettings.trim()) {
 			try {
-				mapSettings = JSON.parse(values.mapGenSettings);
+				mapSettings = JSON.parse(values.mapSettings);
 			} catch (err: any) {
 				form.setFields([{ name: "mapSettings", errors: [err.message] }]);
 				return;

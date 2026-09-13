@@ -310,7 +310,12 @@ export default class Instance extends lib.Link {
 				return;
 			}
 
-			let name = /^([^ ]+)/.exec(parsed.message)![1];
+			// Guard against lines that classify as actions but lack a name
+			let nameMatch = /^([^ ]+)/.exec(parsed.message);
+			if (!nameMatch) {
+				return;
+			}
+			let name = nameMatch[1];
 
 			// Detect player leave and join
 			if (parsed.action === "JOIN") {
@@ -326,7 +331,9 @@ export default class Instance extends lib.Link {
 
 			// Detect banned and admin state change, whitelist changes are not logged
 			if (parsed.action === "BAN") {
-				const reason = /\. Reason: (.+)\.$/.exec(parsed.message)![1];
+				// Ban lines without a ". Reason: X." tail default to no reason
+				const reasonMatch = /\. Reason: (.+)\.$/.exec(parsed.message);
+				const reason = reasonMatch ? reasonMatch[1] : "";
 				this._recordUserUpdate(parsed.action, name, reason !== "unspecified" ? reason : "");
 			} else if (["UNBANNED", "PROMOTE", "DEMOTE"].includes(parsed.action)) {
 				this._recordUserUpdate(parsed.action as "UNBANNED" | "PROMOTE" | "DEMOTE", name);
@@ -352,8 +359,11 @@ export default class Instance extends lib.Link {
 				return;
 			}
 
-			const name = /^([^ ]+)/.exec(parsed.message)![1];
-			this._recordUserUpdate(parsed.action as "PROMOTE" | "DEMOTE", name);
+			const nameMatch = /^([^ ]+)/.exec(parsed.message);
+			if (!nameMatch) {
+				return;
+			}
+			this._recordUserUpdate(parsed.action as "PROMOTE" | "DEMOTE", nameMatch[1]);
 		});
 	}
 
