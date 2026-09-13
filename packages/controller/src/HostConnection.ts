@@ -9,6 +9,9 @@ import InstanceRecord from "./InstanceRecord.js";
 import HostRecord from "./HostRecord.js";
 
 
+// How long log message warnings are suppressed for after one is logged.
+const logMessageWarnIntervalMs = 5 * 60 * 1000;
+
 /**
  * Represents the connection to a host
  *
@@ -18,8 +21,8 @@ import HostRecord from "./HostRecord.js";
 export default class HostConnection extends BaseConnection {
 	private info: HostRecord;
 	plugins: Map<string, string>;
-	// Warn once per connection, a misbehaving host could log in a loop.
-	private _warnedBogusLogMessage = false;
+	// Shared by all log message warnings, a misbehaving host could log in a loop.
+	private _lastLogMessageWarnMs = Number.NEGATIVE_INFINITY;
 
 	constructor(
 		registerData: lib.RegisterHostData,
@@ -300,19 +303,30 @@ export default class HostConnection extends BaseConnection {
 	// A host may only report on instances assigned to it. Otherwise any host
 	// could speak for an instance on a different host. See
 	// handleInstanceStatusChangedEvent.
-	private _assignedHere(instanceId: number) {
+	private _assignedInstance(instanceId: number) {
 		const instance = this._controller.instances.get(instanceId);
-		return instance !== undefined && instance.config.get("instance.assigned_host") === this.id;
+		return instance?.config.get("instance.assigned_host") === this.id ? instance : undefined;
+	}
+
+	// Host connections live for days, so the suppression expires instead of
+	// latching for the life of the connection.
+	private _warnLogMessage(message: string) {
+		const now = Date.now();
+		if (now - this._lastLogMessageWarnMs < logMessageWarnIntervalMs) {
+			return;
+		}
+		this._lastLogMessageWarnMs = now;
+		logger.warn(message);
 	}
 
 	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
 		// Otherwise any host could inject save records for, or wipe the save
 		// list of, an instance on a different host.
-		if (event.instanceId !== undefined && !this._assignedHere(event.instanceId)) {
+		if (event.instanceId !== undefined && !this._assignedInstance(event.instanceId)) {
 			logger.warn(`Got bogus save updates for instance id ${event.instanceId}`);
 			return;
 		}
-		if (event.updates.some(save => !this._assignedHere(save.instanceId))) {
+		if (event.updates.some(save => !this._assignedInstance(save.instanceId))) {
 			logger.warn(`Got bogus save updates from host id ${this.id}`);
 			return;
 		}
@@ -344,16 +358,26 @@ export default class HostConnection extends BaseConnection {
 		// Fields beyond level and message survive schema validation, so the
 		// instance a log line claims to come from is whatever the host sent.
 		const info: typeof event.info & { instance_id?: number, instance_name?: string } = { ...event.info };
-		if (info.instance_id !== undefined && !this._assignedHere(info.instance_id)) {
-			// Demote to a host level line instead of dropping it. The host did
-			// log this, it just does not get to pin it on someone else's
-			// instance, and a host racing a reassignment still gets heard.
-			if (!this._warnedBogusLogMessage) {
-				this._warnedBogusLogMessage = true;
-				logger.warn(`Got bogus log message for instance id ${info.instance_id}`);
+		if (info.instance_id !== undefined) {
+			const instance = this._assignedInstance(info.instance_id);
+			if (!instance) {
+				// Demote to a host level line instead of dropping it. The host did
+				// log this, it just does not get to pin it on someone else's
+				// instance, and a host racing a reassignment still gets heard.
+				this._warnLogMessage(`Got bogus log message for instance id ${info.instance_id}`);
+				delete info.instance_id;
+				delete info.instance_name;
+			} else {
+				// The name the host sent may be stale or made up, ours is authoritative.
+				const name = instance.config.get("instance.name");
+				if (info.instance_name !== name) {
+					this._warnLogMessage(
+						`Got log message for instance id ${info.instance_id} named ` +
+						`${info.instance_name} which is named ${name} on the controller`
+					);
+					info.instance_name = name;
+				}
 			}
-			delete info.instance_id;
-			delete info.instance_name;
 		}
 
 		this._controller.clusterLogger.log({
