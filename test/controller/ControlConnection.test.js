@@ -1,12 +1,44 @@
 import assert from "node:assert/strict";
 import events from "node:events";
 import * as lib from "@clusterio/lib";
-import { ControlConnection, ControllerHooks, InstanceManager } from "@clusterio/controller";
-import { MockConnector, MockLogger } from "../mock.js";
+import { Controller, ControlConnection, ControllerHooks, InstanceManager } from "@clusterio/controller";
+import { MockConnector, MockController, MockLogger } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
 
 describe("controller/src/ControlConnection", function() {
+	describe(".handleDebugDumpWsRequest()", function() {
+		function makeConnection() {
+			const controllerConfig = new lib.ControllerConfig("controller");
+			const connector = new lib.VirtualConnector(
+				lib.Address.fromShorthand("controller"),
+				lib.Address.fromShorthand({ controlId: 1 }),
+			);
+			connector._socket = {};
+			const controller = new Controller(lib.logger, [], controllerConfig);
+			const user = controller.users.getOrCreateUser("test");
+			return new ControlConnection({ version: "2.0.0" }, connector, controller, user, 1);
+		}
+
+		it("re-applies clusterio_ignore_dump to the socket on resume", async function() {
+			const connection = makeConnection();
+			await connection.handleDebugDumpWsRequest(new lib.DebugDumpWsRequest());
+			// A resume installs a fresh socket without the flag.
+			const resumedSocket = {};
+			connection.connector._socket = resumedSocket;
+			connection.connector.emit("resume");
+			assert.equal(resumedSocket.clusterio_ignore_dump, true);
+		});
+
+		it("leaves the flag off on resume without a dumper", function() {
+			const connection = makeConnection();
+			const resumedSocket = {};
+			connection.connector._socket = resumedSocket;
+			connection.connector.emit("resume");
+			assert.equal(resumedSocket.clusterio_ignore_dump, false);
+		});
+	});
+
 	describe(".handleControllerRestartRequest()", function() {
 		let mockController;
 
@@ -76,8 +108,8 @@ describe("controller/src/ControlConnection", function() {
 			const clone = mockController.instances.get(4002);
 			assert.equal(clone.config.get("instance.name"), "clone");
 			assert.equal(clone.config.get("instance.assigned_host"), null);
-    });
-  });
+		});
+	});
 
 	describe("close cleanup", function() {
 		let connector;
@@ -124,6 +156,57 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(connector._socket.clusterio_ignore_dump, true);
 			connector.emit("close");
 			assert.equal(mockController.debugEvents.listenerCount("message"), 0);
+		});
+	});
+
+	describe(".handleUserDeleteRequest()", function() {
+		let mockController;
+		let nextId;
+
+		beforeEach(function() {
+			mockController = new MockController();
+			mockController.sendTo = () => {};
+			mockController.wsServer.controlConnections = new Map();
+			nextId = 1;
+		});
+
+		function connect(name) {
+			const connection = {
+				_controller: mockController,
+				user: mockController.users.getByName(name),
+				connector: {
+					terminated: false,
+					terminate() { this.terminated = true; },
+				},
+			};
+			mockController.wsServer.controlConnections.set(nextId, connection);
+			nextId += 1;
+			return connection;
+		}
+
+		async function deleteUser(connection, name) {
+			await ControlConnection.prototype.handleUserDeleteRequest.call(
+				connection, new lib.UserDeleteRequest(name)
+			);
+		}
+
+		it("terminates connections of the deleted user", async function() {
+			const admin = connect("test");
+			const player1 = connect("player");
+			const player2 = connect("player");
+
+			await deleteUser(admin, "player");
+			assert.equal(mockController.users.getByName("player"), undefined);
+			assert.equal(player1.connector.terminated, true);
+			assert.equal(player2.connector.terminated, true);
+			assert.equal(admin.connector.terminated, false);
+		});
+
+		it("terminates its own connection when deleting itself", async function() {
+			const player = connect("player");
+
+			await deleteUser(player, "player");
+			assert.equal(player.connector.terminated, true);
 		});
 	});
 });

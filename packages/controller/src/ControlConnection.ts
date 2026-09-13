@@ -48,9 +48,13 @@ export default class ControlConnection extends BaseConnection {
 
 		this._version = registerData.version;
 
-		this.connector.on("connect", () => {
-			this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
-		});
+		// A resume installs a fresh socket, so re-apply the ignore flag or the
+		// dumper's own frames get echoed back into it and recurse forever.
+		for (let event of ["connect", "resume"] as const) {
+			this.connector.on(event, () => {
+				this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
+			});
+		}
 		this.connector.on("close", () => {
 			if (this.logTransport) {
 				this._controller.clusterLogger.remove(this.logTransport);
@@ -1073,6 +1077,11 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		this._controller.users.deleteUser(user);
+		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
+			if (controlConnection.user.id === user.id) {
+				controlConnection.connector.terminate();
+			}
+		}
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));

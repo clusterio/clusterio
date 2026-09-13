@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import UserDetails, { IUser } from "./UserDetails.js";
 import { StringEnum, jsonArray, plainJson } from "./composites.js";
 import { MessageRequest } from "./messages_core.js";
+import { PermissionError } from "../errors.js";
 
 export class UserGetRequest {
 	declare ["constructor"]: typeof UserGetRequest;
@@ -276,8 +277,9 @@ export class UserBulkImportRequest {
 					user.checkPermission("core.user.set_whitelisted");
 					break;
 				default:
+					// Unvalidated input during permission check: deny, don't throw a bare Error
 					// @ts-expect-error Unreachable
-					throw new Error(`Unknown import / restore type: ${data.importType}`);
+					throw new PermissionError(`Unknown import / restore type: ${data.importType}`);
 			}
 		}
 	}
