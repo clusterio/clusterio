@@ -7,7 +7,7 @@ export const plugin: lib.PluginDeclaration = {
 	title: "Global Chat",
 	description: "Forwards chat between instances.",
 	instanceEntrypoint: "./instance.ts",
-	ctlEntrypoint: "./control.js",
+	ctlEntrypoint: "./control.ts",
 
 	features: [
 		"ScriptCommands",
