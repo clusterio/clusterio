@@ -11,8 +11,8 @@ export async function githubFetch(
 	init = {
 		...init,
 		headers: {
-			...init.headers as Record<string, string> ?? {},
 			"Accept": "application/vnd.github+json",
+			...init.headers as Record<string, string> ?? {},
 		}
 	};
 	if (process.env.GH_TOKEN) {
@@ -24,7 +24,9 @@ export async function githubFetch(
 		console.log(response.headers);
 		throw new Error(`GitHub replied with ${response.status} ${response.statusText}: ${await response.text()}`);
 	}
-	if (!response.headers.get("Content-Type")?.startsWith("application/json")) {
+	const accept = init.headers!["Accept"];
+	const contentType = accept === "application/vnd.github+json" ? "application/json" : accept;
+	if (!response.headers.get("Content-Type")?.startsWith(contentType)) {
 		throw new Error(
 			`GitHub replied with ${response.status} ${response.statusText}: ${response.headers.get("Content-Type")}`
 		);
@@ -39,6 +41,15 @@ export async function githubFetchJson<T>(
 ): Promise<T> {
 	const response = await githubFetch(path, query, init);
 	return await response.json();
+}
+
+export async function githubFetchText(
+	path: string,
+	query: Record<string, string> = {},
+	init: RequestInit & { headers?: Record<string, string> } = {},
+): Promise<string> {
+	const response = await githubFetch(path, query, init);
+	return await response.text();
 }
 
 export async function githubFetchJsonPaginated<T>(
@@ -115,6 +126,10 @@ export interface Release {
 	created_at: string,
 	published_at: string | null,
 	updated_at?: string | null,
+}
+
+export interface Comparison {
+	total_commits: number,
 }
 
 export interface Commit {
