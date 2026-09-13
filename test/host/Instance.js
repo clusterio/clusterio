@@ -4,7 +4,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { PlayerStats, wait } from "@clusterio/lib";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
-import { MockConnector, MockServer } from "../mock.js";
+import { MockConnector, MockLogger, MockServer } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -35,6 +35,161 @@ describe("class Instance", function() {
 		});
 		it("should join path with arguments", function() {
 			assert.equal(instance.path("bar"), path.join("dir", "bar"));
+		});
+	});
+
+	describe("config fieldChanged", function() {
+		let errors;
+		let rejections;
+		let hookInvoked;
+		function onRejection(err) { rejections.push(err); }
+		beforeEach(function() {
+			errors = [];
+			rejections = [];
+			instance.logger = new MockLogger();
+			instance.logger.error = message => errors.push(message);
+			instance.server.exampleSettings = async () => ({});
+			instance.notifyStatus("running");
+			hookInvoked = new Promise(resolve => {
+				instance.hooks.instanceConfigFieldChanged.attach("test", field => resolve(field));
+			});
+			process.on("unhandledRejection", onRejection);
+		});
+		afterEach(function() {
+			process.off("unhandledRejection", onRejection);
+		});
+
+		it("should log whitelist update errors and invoke the hook", async function() {
+			instance.server.sendRcon = async () => { throw new Error("Expected state running,stopping"); };
+			instance.config.set("factorio.enable_whitelist", true);
+			assert.equal(await hookInvoked, "factorio.enable_whitelist");
+			await wait(10);
+			assert.deepEqual(rejections, []);
+			assert.equal(errors.length, 1);
+			assert.match(errors[0], /^Error updating whitelist:\nError: Expected state running,stopping/);
+		});
+
+		it("should log server settings update errors and invoke the hook", async function() {
+			instance.server.exampleSettings = async () => { throw new Error("no example settings"); };
+			instance.config.set("factorio.settings", { name: "bar" });
+			assert.equal(await hookInvoked, "factorio.settings");
+			await wait(10);
+			assert.deepEqual(rejections, []);
+			assert.equal(errors.length, 1);
+			assert.match(errors[0], /^Error updating server settings:\nError: no example settings/);
+		});
+
+		it("should apply tags with non-string elements", async function() {
+			instance.config.set("factorio.settings", { tags: [1, "a b"] });
+			await hookInvoked;
+			await wait(10);
+			assert.deepEqual(rejections, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(instance.server.rconCommands, ["/config set tags 1 a b"]);
+		});
+
+		it("should defer changes made while starting until the instance is running", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("running");
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, ["/config set tags a"]);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should drop changes made while starting if the instance stops", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should do nothing for changes made while stopped", async function() {
+			instance.notifyStatus("stopped");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should invoke the hook while starting without waiting for the instance", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			assert.equal(await hookInvoked, "factorio.settings");
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("stopped");
+			await wait(10);
+		});
+
+		it("should invoke the hook for fields applied to the server directly", async function() {
+			instance.config.set("factorio.shutdown_timeout", 30);
+			assert.equal(await hookInvoked, "factorio.shutdown_timeout");
+			assert.equal(instance.server.shutdownTimeoutMs, 30000);
+			await wait(10);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should invoke the hook exactly once per field changed", async function() {
+			let invoked = [];
+			instance._host.whitelist = new Set();
+			instance.hooks.instanceConfigFieldChanged.attach("count", field => { invoked.push(field); });
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			instance.config.set("factorio.enable_whitelist", true);
+			instance.config.set("factorio.shutdown_timeout", 30);
+			instance.config.set("factorio.max_concurrent_commands", 3);
+			await wait(10);
+			assert.deepEqual(invoked, [
+				"factorio.settings",
+				"factorio.enable_whitelist",
+				"factorio.shutdown_timeout",
+				"factorio.max_concurrent_commands",
+			]);
+			assert.equal(instance.server.maxConcurrentCommands, 3);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+	});
+
+	describe("list update events", function() {
+		let errors;
+		beforeEach(function() {
+			errors = [];
+			instance.logger = new MockLogger();
+			instance.logger.error = message => errors.push(message);
+		});
+
+		it("should apply an update received while starting once running", async function() {
+			instance.notifyStatus("starting");
+			let handled = instance.handleInstanceAdminlistUpdateEvent(
+				new lib.InstanceAdminlistUpdateEvent("player", true)
+			);
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("running");
+			await handled;
+			assert.deepEqual(instance.server.rconCommands, ["/promote player"]);
+			assert.deepEqual(errors, []);
+		});
+
+		it("should drop an update received while starting if the instance stops", async function() {
+			instance.notifyStatus("starting");
+			let handled = instance.handleInstanceAdminlistUpdateEvent(
+				new lib.InstanceAdminlistUpdateEvent("player", true)
+			);
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await handled;
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
 		});
 	});
 

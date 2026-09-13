@@ -22,6 +22,11 @@ const scriptCommands = [
 	"/silent-command", "/sc",
 ];
 
+// Statuses the instance passes through on its way to running or stopped.
+const transitoryStatuses: ReadonlySet<Instance["_status"]> = new Set([
+	"starting", "stopping", "creating_save", "exporting_data",
+]);
+
 const instanceRconCommandDuration = new lib.Histogram(
 	"clusterio_instance_rcon_command_duration_seconds",
 	"Histogram of the RCON command duration from request to response.",
@@ -61,7 +66,7 @@ function applyAsConfig(name: string) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
 			// be a way to include a space into a tag from the console.
-			value = value.map(tag => tag.replace(/ /g, "\u00a0")).join(" ");
+			value = value.map(tag => String(tag).replace(/ /g, "\u00a0")).join(" ");
 		}
 		try {
 			await instance.sendRcon(`/config set ${name} ${value}`);
@@ -170,6 +175,7 @@ export default class Instance extends lib.Link {
 	_hadPlayersOnline = false;
 	_playerAutosaveSlot = 1;
 	_expectedUserUpdates: { action: string, name: string, reason: string }[] = [];
+	_settleWaiters: (() => void)[] = [];
 
 	constructor(
 		host: Host,
@@ -194,20 +200,18 @@ export default class Instance extends lib.Link {
 		this.hooks = new InstanceHooks(this.logger);
 
 		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
-			let hook = () => this.hooks.instanceConfigFieldChanged.invoke(field, curr, prev);
-
 			if (field === "factorio.shutdown_timeout") {
 				this.server.shutdownTimeoutMs = curr as number * 1000;
+			} else if (field === "factorio.max_concurrent_commands") {
+				this.server.maxConcurrentCommands = curr as number;
 			} else if (field === "factorio.settings") {
-				this.updateFactorioSettings(curr as any, prev as any).finally(hook);
+				this._applyWhenRunning(
+					"server settings", () => this.updateFactorioSettings(curr as any, prev as any)
+				);
 			} else if (field === "factorio.enable_whitelist") {
-				this.updateFactorioWhitelist(curr as any).finally(hook);
-			} else {
-				if (field === "factorio.max_concurrent_commands") {
-					this.server.maxConcurrentCommands = curr as number;
-				}
-				hook();
+				this._applyWhenRunning("whitelist", () => this.updateFactorioWhitelist(curr as any));
 			}
+			this.hooks.instanceConfigFieldChanged.invoke(field, curr, prev);
 		};
 		this.config.on("fieldChanged", this._configFieldChanged);
 
@@ -562,6 +566,13 @@ end`.replace(/\r?\n/g, " ");
 
 	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
+		if (!transitoryStatuses.has(status)) {
+			const waiters = this._settleWaiters;
+			this._settleWaiters = [];
+			for (const resolve of waiters) {
+				resolve();
+			}
+		}
 		this.sendTo(
 			"controller",
 			new lib.InstanceStatusChangedEvent(
@@ -581,6 +592,26 @@ end`.replace(/\r?\n/g, " ");
 	 */
 	get status() {
 		return this._status;
+	}
+
+	/** Wait for a transitory status to settle and return the status settled on */
+	async _waitForSettledStatus() {
+		while (transitoryStatuses.has(this._status)) {
+			await new Promise<void>(resolve => this._settleWaiters.push(resolve));
+		}
+		return this._status;
+	}
+
+	/** Apply work to the running server, waiting out transitory statuses and skipping it if it stopped */
+	async _applyWhenRunning(description: string, fn: () => Promise<void>) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+		try {
+			await fn();
+		} catch (err: any) {
+			this.logger.error(`Error updating ${description}:\n${err.stack}`);
+		}
 	}
 
 	notifyExit() {
@@ -1140,6 +1171,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceAdminlistUpdateEvent(request: lib.InstanceAdminlistUpdateEvent) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+
 		const { name, admin } = request;
 		const sync = this.config.get("factorio.sync_adminlist");
 		if (sync === "disabled") {
@@ -1153,6 +1188,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceBanlistUpdateEvent(request: lib.InstanceBanlistUpdateEvent) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+
 		const { name, banned, reason } = request;
 		const sync = this.config.get("factorio.sync_banlist");
 		if (sync === "disabled") {
@@ -1166,6 +1205,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceWhitelistUpdateEvent(request: lib.InstanceWhitelistUpdateEvent) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+
 		const { name, whitelisted } = request;
 		const sync = this.config.get("factorio.sync_whitelist");
 		if (this.config.get("factorio.sync_whitelist") === "disabled") {
