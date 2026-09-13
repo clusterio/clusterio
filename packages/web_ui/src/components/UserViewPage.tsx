@@ -146,6 +146,13 @@ export default function UserViewPage() {
 							new lib.UserDeleteRequest(userName)
 						).then(() => {
 							navigate("/users");
+						}, err => {
+							if (err instanceof lib.SessionLost && userName === account.name) {
+								// Got kicked out after deleting our own account
+								navigate("/users");
+								return;
+							}
+							throw err;
 						}).catch(notifyErrorHandler("Error deleting user"));
 					}}
 				>
