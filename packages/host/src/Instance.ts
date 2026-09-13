@@ -10,7 +10,7 @@ const execAsync = util.promisify(exec);
 import * as lib from "@clusterio/lib";
 
 import { FactorioServer } from "./server.js";
-import { SaveModule, patch } from "./patch.js";
+import { loadModules, patch } from "./patch.js";
 import { exportData } from "./export.js";
 import type Host from "./Host.js";
 import { BaseInstancePlugin, InstanceHooks } from "./BaseInstancePlugin.js";
@@ -976,29 +976,7 @@ end`.replace(/\r?\n/g, " ");
 		// Patch save with lua modules from plugins
 		this.logger.verbose("Patching save");
 
-		// Find plugin modules to patch in
-		let modules: Map<string, SaveModule> = new Map();
-		for (const pluginInfo of this.loadedPlugins) {
-			let module = await SaveModule.fromPluginInfo(pluginInfo);
-			if (!module) {
-				continue;
-			}
-			modules.set(module.info.name, module);
-		}
-
-		// Find stand alone modules to load
-		// XXX for now only the included clusterio module is loaded
-		let modulesDirectory = path.join(import.meta.dirname, "..", "..", "..", "modules");
-		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
-			if (entry.isDirectory()) {
-				if (modules.has(entry.name)) {
-					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
-				}
-				let module = await SaveModule.fromDirectory(path.join(modulesDirectory, entry.name));
-				modules.set(module.info.name, module);
-			}
-		}
-
+		let modules = await loadModules(this.loadedPlugins);
 		await patch(this.path("saves", saveName), [...modules.values()]);
 		return saveName;
 	}
