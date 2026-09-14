@@ -841,6 +841,7 @@ async function main() {
 	let adminToken = null;
 	if (["standalone", "controller"].includes(answers.mode)) {
 		logger.info("Setting up controller");
+		await execController(["config", "create"]);
 		await execController(["bootstrap", "create-admin", answers.admin]);
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
 		await execController(["config", "set", "controller.allow_remote_updates", answers.remoteNpm]);
@@ -851,6 +852,7 @@ async function main() {
 
 	if (answers.mode === "standalone") {
 		logger.info("Setting up host");
+		await execHost(["config", "create"]);
 		await execHost(["config", "set", "host.name", "local"]);
 
 		let result = await execHost(["config", "show", "host.id"]);
@@ -871,6 +873,7 @@ async function main() {
 	if (answers.mode === "host") {
 		logger.info("Setting up host");
 		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
+		await execHost(["config", "create"]);
 		await execHost(["config", "set", "host.id", hostId]);
 		await execHost(["config", "set", "host.name", answers.hostName]);
 		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
@@ -887,6 +890,7 @@ async function main() {
 	}
 
 	if (answers.mode === "ctl") {
+		await execCtl(["config", "create"]);
 		await execCtl(["config", "set", "ctl.controller_url", answers.controllerUrl]);
 		await execCtl(["config", "set", "ctl.controller_token", answers.controllerToken]);
 	}

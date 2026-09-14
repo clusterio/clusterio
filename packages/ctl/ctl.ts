@@ -128,6 +128,8 @@ interface CtlArguments {
 	logLevel: keyof typeof levels,
 	config: string,
 	pluginList: string,
+	bypassLockFile: boolean,
+	createConfig: boolean,
 }
 
 interface InitializeParameters {
@@ -169,6 +171,12 @@ export async function initialize(
 			default: "config-ctl.json",
 			defaultDescription: "auto",
 			type: "string",
+		})
+		.option("create-config", {
+			nargs: 0,
+			describe: "Create config file if it does not exist",
+			default: false,
+			type: "boolean",
 		})
 		.option("plugin-list", {
 			nargs: 1,
@@ -222,27 +230,11 @@ export async function initialize(
 		.parse(argv) as CtlArguments
 	;
 
-	const ctlConfigPath = args.config;
-	const ctlConfigLockPath = `${ctlConfigPath}.lock`;
-	if (args.bypassLockFile) {
-		await fs.unlink(ctlConfigLockPath).catch(() => {}); // ignore error, file might not exist
-	}
-
-	let ctlConfig;
-	const ctlConfigLock = new lib.LockFile(ctlConfigLockPath);
-	logger.verbose(`Loading config from ${ctlConfigPath}`);
-	try {
-		ctlConfig = await lib.CtlConfig.fromFile("control", ctlConfigPath);
-
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.verbose("Config not found, initializing new config");
-			ctlConfig = new lib.CtlConfig("control", undefined, ctlConfigPath);
-
-		} else {
-			throw new lib.StartupError(`Failed to load ${args.config}: ${err.stack ?? err.message ?? err}`);
-		}
-	}
+	const [ctlConfig, ctlConfigLock] = await lib.loadConfigFromArgs(
+		args,
+		lib.CtlConfig,
+		"control",
+	);
 
 	if (args._.length === 0) {
 		parser.showHelp();

@@ -354,6 +354,7 @@ before(async function() {
 	});
 
 	console.log("Setting Controller Config");
+	await execController("config create");
 	await execController("config set controller.auth_secret TestSecretDoNotUse");
 	await execController("config set controller.http_port 8880");
 	await execController("config set controller.https_port 4443");
@@ -385,6 +386,7 @@ before(async function() {
 
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
+	await execHost("config create");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
 
 	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
@@ -394,7 +396,7 @@ before(async function() {
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
 
-	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} config list`, undefined, true);
+	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} config create`, undefined, true);
 	control.config = initArgs.ctlConfig;
 	control.hooks = initArgs.ctlHooks;
 

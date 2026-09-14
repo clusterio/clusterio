@@ -4,6 +4,7 @@
  */
 export * from "./build_mod.js";
 export * from "./src/api.js";
+export * from "./src/bootstrap.js";
 export * from "./src/command.js";
 export * from "./src/config/index.js";
 export * from "./src/data/index.js";

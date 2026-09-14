@@ -299,6 +299,12 @@ async function initialize(): Promise<InitializeParameters> {
 			default: "config-controller.json",
 			type: "string",
 		})
+		.option("create-config", {
+			nargs: 0,
+			describe: "Create config file if it does not exist",
+			default: false,
+			type: "boolean",
+		})
 		.option("plugin-list", {
 			nargs: 1,
 			describe: "File containing list of plugins available with their install path",
@@ -414,27 +420,11 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	const controllerConfigPath = args.config;
-	const controllerConfigLockPath = `${controllerConfigPath}.lock`;
-	if (args.bypassLockFile) {
-		await fs.unlink(controllerConfigLockPath).catch(() => {}); // ignore error, file might not exist
-	}
-
-	let controllerConfig;
-	const controllerConfigLock = new lib.LockFile(controllerConfigLockPath);
-	logger.info(`Loading config from ${controllerConfigPath}`);
-	try {
-		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);
-
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.info("Config not found, initializing new config");
-			controllerConfig = new lib.ControllerConfig("controller", undefined, controllerConfigPath);
-
-		} else {
-			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.stack ?? err.message ?? err}`);
-		}
-	}
+	const [controllerConfig, controllerConfigLock] = await lib.loadConfigFromArgs(
+		args,
+		lib.ControllerConfig,
+		"controller",
+	);
 
 	controllerConfig.set("controller.version", packageConfig.version); // Allows tracking last loaded version
 

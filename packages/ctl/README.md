@@ -17,8 +17,11 @@ Common options:
    See the `plugin` command for managing this list.
 
  * `--config <file>` JSON file to use for storing configuration for ctl.
-   Defaults to `config-ctl.json` and will be created if it does not exist.
+   Defaults to `config-ctl.json` and is required for operation.
    See the `config` command for inspecting and modifying the configuration.
+
+ * `--create-config` If the config file is missing, create a new one and carry on instead of exiting with an error.
+   Alternative to the `config create` command.
 
 
 ### `plugin <command>`
@@ -74,6 +77,13 @@ Lists the plugins set up to be available by name followed by path.
 
 Manage the ctl configuration.
 This allows setting the url and token to the controller to manage.
+
+
+#### `config create`
+
+Create a new config file with the default options inserted into if it doesn't already exist.
+
+See also the `--create-config` option.
 
 
 #### `config set <config-entry> [value]`

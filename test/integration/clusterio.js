@@ -212,26 +212,32 @@ describe("Integration of Clusterio", function() {
 				const lockFilePath = `${controllerConfigPath}.lock`;
 				await fs.copyFile(lockFilePath, "temp.lock");
 				try {
-					await execController("run --bypass-lock-file");
+					await execController("run --create-config --bypass-lock-file");
 				} catch (err) {
 					assert.equal(/Error: Server listening failed/.test(err.stderr), true);
 				}
 				await fs.rename("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
 			});
-			it("should refuse to start when no users are loaded", async function() {
+			it("should refuse to start if the config is missing and --create-config is not passed", async function() {
 				const dir = path.join("temp", "test", "empty_controller");
 				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
 				await fs.mkdir(dir, { recursive: true });
 				await assert.rejects(execController("run", { cwd: dir }));
 			});
-			it("should start when no users are loaded if bypass option given", async function() {
+			it("should refuse to start when no users are loaded", async function() {
+				const dir = path.join("temp", "test", "empty_controller");
+				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
+				await fs.mkdir(dir, { recursive: true });
+				await assert.rejects(execController("run --create-config", { cwd: dir }));
+			});
+			it("should start when no users are loaded and bypass options are given", async function() {
 				slowTest(this);
 				const dir = path.join("temp", "test", "empty_controller");
 				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
 				await fs.mkdir(dir, { recursive: true });
 				const child = await spawnNode(
 					"altController",
-					"../../../packages/controller run --no-check-user-count",
+					"../../../packages/controller run --create-config --no-check-user-count",
 					/Started controller/,
 					{ cwd: dir },
 				);
