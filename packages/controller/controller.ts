@@ -201,15 +201,15 @@ async function handleBootstrapCommand(
 			process.exitCode = 1;
 			return;
 		}
-		let controlConfig = new lib.ControlConfig("control");
+		let ctlConfig = new lib.CtlConfig("control");
 
-		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
-		controlConfig.set(
-			"control.controller_token",
+		ctlConfig.set("ctl.controller_url", Controller.calculateControllerUrl(controllerConfig));
+		ctlConfig.set(
+			"ctl.controller_token",
 			userManager.signUserToken(admin),
 		);
 
-		let content = JSON.stringify(controlConfig, null, "\t");
+		let content = JSON.stringify(ctlConfig, null, "\t");
 		if (args.output === "-") {
 			// eslint-disable-next-line no-console
 			console.log(content);
@@ -322,7 +322,7 @@ async function initialize(): Promise<InitializeParameters> {
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {
 						describe: "Path to output config (- for stdout)", type: "string",
-						nargs: 1, default: "config-control.json",
+						nargs: 1, default: "config-ctl.json",
 					});
 				})
 				.demandCommand(1, "You need to specify a command to run");

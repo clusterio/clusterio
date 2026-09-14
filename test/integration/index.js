@@ -200,7 +200,7 @@ export let factorioDir = getFactorioDir(baseHostConfig);
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
 export let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 export let hostConfigPath = path.join("temp", "test", "config-host.json");
-export let controlConfigPath = path.join("temp", "test", "config-control.json");
+export let ctlConfigPath = path.join("temp", "test", "config-ctl.json");
 
 function childOptions(options) {
 	return {
@@ -241,7 +241,7 @@ export async function execCtl(command) {
 			return;
 		}
 
-		control.config = initArgs.controlConfig;
+		control.config = initArgs.ctlConfig;
 		const targetCommand = selectTargetCommand(initArgs.args, initArgs.rootCommands);
 		await targetCommand.run(initArgs.args, control);
 	} finally {
@@ -340,7 +340,7 @@ before(async function() {
 	await fs.rm(pluginListPath, { force: true });
 	await fs.rm(controllerConfigPath, { force: true });
 	await fs.rm(hostConfigPath, { force: true });
-	await fs.rm(controlConfigPath, { force: true });
+	await fs.rm(ctlConfigPath, { force: true });
 
 	await fs.mkdir(path.join("temp", "test"), { recursive: true });
 
@@ -394,8 +394,8 @@ before(async function() {
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
 
-	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} control-config list`, undefined, true);
-	control.config = initArgs.controlConfig;
+	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} config list`, undefined, true);
+	control.config = initArgs.ctlConfig;
 	control.hooks = initArgs.ctlHooks;
 
 	const testPack = lib.ModPack.fromJSON({});

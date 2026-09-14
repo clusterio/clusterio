@@ -18,7 +18,7 @@ describe("lib/plugin", function() {
 				name: "foo", title: "Foo", controllerEntrypoint: "controller.js",
 			}), true);
 			for (const field of [
-				"controllerConfigFields", "hostConfigFields", "instanceConfigFields", "controlConfigFields",
+				"controllerConfigFields", "hostConfigFields", "instanceConfigFields", "ctlConfigFields",
 			]) {
 				assert.equal(lib.pluginNeedsWebBuild({ name: "foo", title: "Foo", [field]: {} }), true, field);
 			}

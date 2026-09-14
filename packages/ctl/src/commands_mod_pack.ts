@@ -2,7 +2,7 @@ import asTableModule from "as-table";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
@@ -12,12 +12,12 @@ modPackCommands.add(new lib.Command({
 	definition: ["show <mod-pack>", "Show details of mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to show", type: "string" });
 	}],
-	handler: async function(args: { modPack: string }, control: Control) {
+	handler: async function(args: { modPack: string }, ctl: Ctl) {
 		let mods = new Map(
-			(await control.send(new lib.ModListRequest())).map(m => [m.id, m])
+			(await ctl.send(new lib.ModListRequest())).map(m => [m.id, m])
 		);
-		let modPack = await control.send(
-			new lib.ModPackGetRequest(await lib.resolveModPack(control, args.modPack))
+		let modPack = await ctl.send(
+			new lib.ModPackGetRequest(await lib.resolveModPack(ctl, args.modPack))
 		);
 
 		for (let [field, value] of Object.entries(modPack)) {
@@ -57,8 +57,8 @@ modPackCommands.add(new lib.Command({
 
 modPackCommands.add(new lib.Command({
 	definition: [["list", "l"], "List mod packs in the cluster"],
-	handler: async function(args: object, control: Control) {
-		let modPacks = await control.send(new lib.ModPackListRequest());
+	handler: async function(args: object, ctl: Ctl) {
+		let modPacks = await ctl.send(new lib.ModPackListRequest());
 		let fields = ["id", "name", "factorioVersion"];
 		for (let entry of modPacks) {
 			for (let field of Object.keys(entry)) {
@@ -179,7 +179,7 @@ modPackCommands.add(new lib.Command({
 			stringSetting?: string[],
 			colorSetting?: string[],
 		},
-		control: Control,
+		ctl: Ctl,
 	) {
 		const modPack = new lib.ModPack();
 		modPack.name = args.name;
@@ -193,7 +193,7 @@ modPackCommands.add(new lib.Command({
 		setModPackMods(modPack, args.mods);
 		setModPackModsEnabled(modPack, args.disabledMods, false);
 		setModPackSettings(modPack, args);
-		await control.send(new lib.ModPackCreateRequest(modPack));
+		await ctl.send(new lib.ModPackCreateRequest(modPack));
 		print(`Created mod pack ${modPack.name} (${modPack.id})`);
 	},
 }));
@@ -202,9 +202,9 @@ modPackCommands.add(new lib.Command({
 	definition: ["import <string>", "Import mod pack string", (yargs) => {
 		yargs.positional("string", { describe: "Mod pack string to import", type: "string" });
 	}],
-	handler: async function(args: { string: string }, control: Control) {
+	handler: async function(args: { string: string }, ctl: Ctl) {
 		const modPack = lib.ModPack.fromModPackString(args.string);
-		await control.send(new lib.ModPackCreateRequest(modPack));
+		await ctl.send(new lib.ModPackCreateRequest(modPack));
 		print(`Created mod pack ${modPack.name} (${modPack.id})`);
 	},
 }));
@@ -213,9 +213,9 @@ modPackCommands.add(new lib.Command({
 	definition: ["export <mod-pack>", "Export mod pack string", (yargs) => {
 		yargs.positional("string", { describe: "Mod pack to export", type: "string" });
 	}],
-	handler: async function(args: { modPack: string }, control: Control) {
-		const modPack = await control.send(
-			new lib.ModPackGetRequest(await lib.resolveModPack(control, args.modPack))
+	handler: async function(args: { modPack: string }, ctl: Ctl) {
+		const modPack = await ctl.send(
+			new lib.ModPackGetRequest(await lib.resolveModPack(ctl, args.modPack))
 		);
 		print(modPack.toModPackString());
 	},
@@ -257,10 +257,10 @@ modPackCommands.add(new lib.Command({
 			colorSetting?: string[],
 			removeSetting?: string[],
 		},
-		control: Control,
+		ctl: Ctl,
 	) {
-		const modPack = await control.send(
-			new lib.ModPackGetRequest(await lib.resolveModPack(control, args.modPack))
+		const modPack = await ctl.send(
+			new lib.ModPackGetRequest(await lib.resolveModPack(ctl, args.modPack))
 		);
 
 		if (args.name) { modPack.name = args.name; }
@@ -300,7 +300,7 @@ modPackCommands.add(new lib.Command({
 				}
 			}
 		}
-		await control.send(new lib.ModPackUpdateRequest(modPack));
+		await ctl.send(new lib.ModPackUpdateRequest(modPack));
 	},
 }));
 
@@ -308,8 +308,8 @@ modPackCommands.add(new lib.Command({
 	definition: ["delete <mod-pack>", "Delete mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to delete", type: "string" });
 	}],
-	handler: async function(args: { modPack: string }, control: Control) {
-		const id = await lib.resolveModPack(control, args.modPack);
-		await control.send(new lib.ModPackDeleteRequest(id));
+	handler: async function(args: { modPack: string }, ctl: Ctl) {
+		const id = await lib.resolveModPack(ctl, args.modPack);
+		await ctl.send(new lib.ModPackDeleteRequest(id));
 	},
 }));

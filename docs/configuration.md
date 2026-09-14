@@ -706,16 +706,16 @@ Loading a plugin that requires save patching or script commands is rejected whil
 Defaults to true.
 
 
-## Control Configuration
+## Ctl Configuration
 
-### control.controller_url
+### ctl.controller_url
 
 URL to connect to the controller to.
 
 Defaults to null meaning complain about it not being set and exit.
 
 
-### control.controller_token
+### ctl.controller_token
 
 Access token used for authenticating with the controller.
 You can generate an access token with `clusteriocontroller bootstrap generate-user-token <username>`, or use the `clusteriocontroller bootstrap create-ctl-config <username>` to create a new ctl config with the correct url and token in it.
@@ -723,7 +723,7 @@ You can generate an access token with `clusteriocontroller bootstrap generate-us
 Defaults to null meaning complain about it not being set and exit.
 
 
-### control.max_reconnect_delay
+### ctl.max_reconnect_delay
 
 Max duration in seconds to wait before attempting to reconnect with the controller after the connection is dropped.
 The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all clients trying to reconnect at the same time.

@@ -9,8 +9,8 @@ globalChatCommands.add(new Command({
 	definition: ["shout <message>", "Send message to all instances", (yargs) => {
 		yargs.positional("message", { describe: "message to send", type: "string" });
 	}],
-	handler: async function(args, control) {
-		await control.sendTo("allInstances", new ChatEvent("Console", args.message));
+	handler: async function(args, ctl) {
+		await ctl.sendTo("allInstances", new ChatEvent("Console", args.message));
 	},
 }));
 

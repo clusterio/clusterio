@@ -31,7 +31,7 @@ export type PluginDeclaration = {
 
 	ctlEntrypoint?: string;
 	webEntrypoint?: string;
-	controlConfigFields?: Record<string, FieldDefinition>;
+	ctlConfigFields?: Record<string, FieldDefinition>;
 
 	features?: (typeof PluginFeatureFlags)[number][];
 
@@ -53,7 +53,7 @@ export function pluginNeedsWebBuild(info: PluginDeclaration) {
 		|| info.controllerConfigFields
 		|| info.hostConfigFields
 		|| info.instanceConfigFields
-		|| info.controlConfigFields
+		|| info.ctlConfigFields
 	);
 }
 

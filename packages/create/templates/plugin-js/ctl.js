@@ -11,8 +11,8 @@ pluginCommands.add(new Command({
 	definition: ["my-command <foo>", "My command description that I really should change", (yargs) => {
 		yargs.positional("foo", { describe: "foo is foo!", type: "string" });
 	}],
-	handler: async function(args, control) {
-		const response = await control.sendTo("controller", new PluginExampleRequest(args.foo, [1, 2, 3]));
+	handler: async function(args, ctl) {
+		const response = await ctl.sendTo("controller", new PluginExampleRequest(args.foo, [1, 2, 3]));
 		console.log(response);
 		console.log(args);
 	},

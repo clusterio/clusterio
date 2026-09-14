@@ -16,7 +16,7 @@ import { DraggingContext } from "../model/is_dragging";
 import webUiPackage from "../../package.json";
 import logo from "../images/logo.png";
 
-import { ControlConfig } from "@clusterio/lib";
+import { CtlConfig } from "@clusterio/lib";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -77,11 +77,11 @@ export default function SiteLayout() {
 			if (key === "user") {
 				navigate(`/users/${account.name}/view`);
 			} else if (key === "ctlConfig") {
-				const config = new ControlConfig("control", {
-					"control.controller_token": control.connector.token,
-					"control.controller_url": (new URL(webRoot, document.location.href)).href,
+				const config = new CtlConfig("control", {
+					"ctl.controller_token": control.connector.token,
+					"ctl.controller_url": (new URL(webRoot, document.location.href)).href,
 				});
-				saveJson("config-control.json", config.toJSON());
+				saveJson("config-ctl.json", config.toJSON());
 			} else if (key === "about") {
 				setAboutOpen(true);
 			} else if (key === "logOut") {

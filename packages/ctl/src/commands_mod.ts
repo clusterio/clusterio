@@ -7,7 +7,7 @@ import util from "util";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
@@ -19,11 +19,11 @@ modCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Mod name to show details for", type: "string" });
 		yargs.positional("mod-version", { describe: "Version of the mod", type: "string" });
 	}],
-	handler: async function(args: { name: string, modVersion: string }, control: Control) {
+	handler: async function(args: { name: string, modVersion: string }, ctl: Ctl) {
 		if (!lib.isSourceVersion(args.modVersion)) {
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
-		let modInfo = await control.send(new lib.ModGetRequest(args.name, args.modVersion));
+		let modInfo = await ctl.send(new lib.ModGetRequest(args.name, args.modVersion));
 		for (let [field, value] of Object.entries(modInfo)) {
 			if (value instanceof Array) {
 				print(`${field}:`);
@@ -48,8 +48,8 @@ modCommands.add(new lib.Command({
 			},
 		});
 	}],
-	handler: async function(args: { fields: string[] }, control: Control) {
-		let mods = await control.send(new lib.ModListRequest());
+	handler: async function(args: { fields: string[] }, ctl: Ctl) {
+		let mods = await ctl.send(new lib.ModListRequest());
 		if (!args.fields.includes("all")) {
 			for (let entry of mods) {
 				for (let field of Object.keys(entry)) {
@@ -106,13 +106,13 @@ modCommands.add(new lib.Command({
 			sortOrder: "asc" | "desc",
 			fields: string[],
 		},
-		control: Control
+		ctl: Ctl
 	) {
 		const searchVersion = lib.normaliseSourceVersion(String(args.factorioVersion));
 		if (searchVersion === undefined) {
 			throw new Error(`Invalid factorio version "${args.factorioVersion}"`);
 		}
-		let response = await control.send(new lib.ModSearchRequest(
+		let response = await ctl.send(new lib.ModSearchRequest(
 			args.query,
 			lib.normaliseMajorMinorVersion(searchVersion),
 			args.page,
@@ -143,13 +143,13 @@ modCommands.add(new lib.Command({
 	definition: ["upload <file>", "Upload mod to the cluster", (yargs) => {
 		yargs.positional("file", { describe: "File to upload", type: "string" });
 	}],
-	handler: async function(args: { file: string }, control: Control) {
+	handler: async function(args: { file: string }, ctl: Ctl) {
 		let filename = path.basename(args.file);
 		if (!filename.endsWith(".zip")) {
 			throw new lib.CommandError("Mod filename must end with .zip");
 		}
 
-		let url = new URL(control.config.get("control.controller_url")!);
+		let url = new URL(ctl.config.get("ctl.controller_url")!);
 		url.pathname += "api/upload-mod";
 		url.searchParams.append("filename", filename);
 
@@ -158,7 +158,7 @@ modCommands.add(new lib.Command({
 			body: (await fs.open(args.file)).createReadStream(),
 			duplex: "half",
 			headers: {
-				"X-Access-Token": control.config.get("control.controller_token")!,
+				"X-Access-Token": ctl.config.get("ctl.controller_token")!,
 				"Content-Type": "application/zip",
 			},
 		});
@@ -190,13 +190,13 @@ modCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Internal name of mod to download", type: "string" });
 		yargs.positional("mod-version", { describe: "Version of mod to download", type: "string" });
 	}],
-	handler: async function(args: { name: string, modVersion: string }, control: Control) {
+	handler: async function(args: { name: string, modVersion: string }, ctl: Ctl) {
 		if (!lib.isSourceVersion(args.modVersion)) {
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
-		let streamId = await control.send(new lib.ModDownloadRequest(args.name, args.modVersion));
+		let streamId = await ctl.send(new lib.ModDownloadRequest(args.name, args.modVersion));
 
-		let url = new URL(control.config.get("control.controller_url")!);
+		let url = new URL(ctl.config.get("ctl.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
 		let filename = `${args.name}_${args.modVersion}.zip`;
 		await lib.downloadFile(url, filename, "overwrite");
@@ -210,10 +210,10 @@ modCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Name of mod to delete", type: "string" });
 		yargs.positional("mod-version", { describe: "Version of mod to delete", type: "string" });
 	}],
-	handler: async function(args: { name: string, modVersion: string }, control: Control) {
+	handler: async function(args: { name: string, modVersion: string }, ctl: Ctl) {
 		if (!lib.isSourceVersion(args.modVersion)) {
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
-		await control.send(new lib.ModDeleteRequest(args.name, args.modVersion));
+		await ctl.send(new lib.ModDeleteRequest(args.name, args.modVersion));
 	},
 }));
