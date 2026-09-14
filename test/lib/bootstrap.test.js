@@ -4,6 +4,8 @@ import path from "node:path";
 
 import * as lib from "@clusterio/lib";
 
+import "../setup_logging.js";
+
 describe("lib/bootstrap", function() {
 	describe("loadConfigFromArgs()", function() {
 		const folder = path.join("temp", "test", "bootstrap");

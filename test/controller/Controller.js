@@ -12,6 +12,8 @@ import {
 	addPluginConfigFields,
 } from "@clusterio/lib";
 
+import "../setup_logging.js";
+
 class MockEvent {}
 
 class MockInstanceConfig extends EventEmitter {

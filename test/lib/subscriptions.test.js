@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
 import { MockController, MockConnector, MockControl } from "../mock.js";
 import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
+import "../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 

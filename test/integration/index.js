@@ -8,10 +8,12 @@ import util from "node:util";
 import events from "node:events";
 
 import * as lib from "@clusterio/lib";
-import { LineSplitter, ConsoleTransport, logger } from "@clusterio/lib";
+import { LineSplitter, logger } from "@clusterio/lib";
 
 import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
 import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
+
+import "../setup_logging.js";
 
 // Make sure permissions from plugins are loaded
 import "../../plugins/global_chat/dist/node/index.js";
@@ -315,13 +317,6 @@ before(async function() {
 	if (silent) {
 		console.log("SILENT_TEST is present in env, loggers after bootstrap will be muted.");
 	}
-
-	// Some integration tests may cause log events
-	logger.add(new ConsoleTransport({
-		level: "info",
-		format: new lib.TerminalFormat(),
-		filter: () => !silent,
-	}));
 
 	// If fast test is enabled then output that it is
 

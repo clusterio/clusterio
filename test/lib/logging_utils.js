@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { testLines } from "./factorio/lines.js";
 import * as lib from "@clusterio/lib";
+import "../setup_logging.js";
 
 
 describe("lib/logging_utils.js", function() {

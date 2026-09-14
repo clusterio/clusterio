@@ -7,6 +7,7 @@ import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 
 import { Controller, ControlConnection } from "@clusterio/controller";
 import { externalTest } from "../integration/index.js";
+import "../setup_logging.js";
 
 describe("messages/mod", function() {
 	/** @type {Controller} */

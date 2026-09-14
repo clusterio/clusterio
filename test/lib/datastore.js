@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
 import fs from "node:fs/promises";
 import path from "node:path";
+import "../setup_logging.js";
 
 class MockDatastoreProvider extends lib.DatastoreProvider {
 	constructor() {

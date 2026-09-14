@@ -6,6 +6,7 @@ import * as lib from "@clusterio/lib";
 import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
+import "./setup_logging.js";
 
 describe("Host testing", function() {
 	describe("discoverInstances()", function() {
