@@ -10,11 +10,12 @@ import * as libBuildMod from "@clusterio/lib/build_mod.js";
 
 import * as testStrings from "../lib/factorio/test_strings.js";
 import {
-	TestControl, TestControlConnector, url, controlToken, slowTest,
+	TestControl, TestControlConnector, url, controlToken,
 	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
 } from "./index.js";
+import { slowTest } from "../common.js";
 import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 

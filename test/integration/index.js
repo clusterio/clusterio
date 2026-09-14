@@ -119,25 +119,6 @@ export class TestHostConnector extends lib.WebSocketClientConnector {
 	}
 }
 
-// Mark that this test takes a lot of time, or depends on a test that takes a lot of time.
-export function slowTest(test) {
-
-	if (process.env.FAST_TEST) {
-		test.skip();
-	}
-
-	test.timeout(30000);
-}
-
-// Mark that this test depends on an external API and may be slow or flaky.
-export function externalTest(test) {
-	if (process.env.NO_EXTERNAL_TEST) {
-		test.skip();
-	}
-
-	test.timeout(60000);
-}
-
 // Mark that this test or suite of tests requires a factorio install to run.
 export function requiresFactorio(testOrSuite) {
 	if (testOrSuite.skip) {

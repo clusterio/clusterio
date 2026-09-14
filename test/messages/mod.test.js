@@ -2,11 +2,9 @@ import assert from "node:assert/strict";
 
 import * as lib from "@clusterio/lib";
 import { ModDependencyResolveRequest, ModDependency, ModInfo } from "@clusterio/lib";
-
-import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
-
 import { Controller, ControlConnection } from "@clusterio/controller";
-import { externalTest } from "../integration/index.js";
+
+import { externalTest, testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 import "../setup_logging.js";
 
 describe("messages/mod", function() {

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
 import fs from "node:fs/promises";
 
-import { testMatrix } from "../common.js";
+import { slowTest, testMatrix } from "../common.js";
 import {
-	slowTest, exec, execCtl, execCtlProcess, sendRcon, getControl,
+	execCtl, execCtlProcess, sendRcon, getControl,
 	requiresFactorio, hasFactorio, instancesDir,
 } from "./index.js";
 
