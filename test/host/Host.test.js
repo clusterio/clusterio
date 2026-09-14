@@ -6,9 +6,9 @@ import * as lib from "@clusterio/lib";
 import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
-import "./setup_logging.js";
+import "../setup_logging.js";
 
-describe("Host testing", function() {
+describe("host/src/Host", function() {
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
 			const instancePath = path.join("test", "file", "instances");
