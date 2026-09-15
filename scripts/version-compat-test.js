@@ -248,6 +248,7 @@ async function main() {
 	console.log(`Testing controller ${await packageVersion("controller", options.controller)} `
 		+ `with host ${await packageVersion("host", options.host)}`);
 
+	await run("controller", controller, ["config", "create"], controllerDir);
 	await run("controller", controller, ["config", "set", "controller.http_port", String(httpPort)], controllerDir);
 	await run("controller", controller, ["bootstrap", "create-admin", "test"], controllerDir);
 	await run("controller", controller, ["bootstrap", "create-ctl-config", "test"], controllerDir);
