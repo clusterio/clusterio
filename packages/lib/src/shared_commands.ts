@@ -229,6 +229,7 @@ export async function handlePluginCommand(
  */
 export function configCommand(yargs: any) {
 	yargs
+		.command("create", "Create a new config file if not present")
 		.command("set <field> [value]", "Set config field", (yargs: any) => {
 			yargs.options({
 				"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
@@ -258,7 +259,10 @@ export async function handleConfigCommand(
 ) {
 	let command = (args._ as string[])[1];
 
-	if (command === "list") {
+	if (command === "create") {
+		// By the time we get here loadConfigFromArgs will have already created the config.
+
+	} else if (command === "list") {
 		for (const name of Object.keys(instance.constructor.fieldDefinitions)) {
 			print(`${name} ${JSON.stringify(instance.get(name))}`);
 		}

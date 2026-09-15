@@ -104,6 +104,12 @@ async function startHost() {
 			default: "config-host.json",
 			type: "string",
 		})
+		.option("create-config", {
+			nargs: 0,
+			describe: "Create config file if it does not exist",
+			default: false,
+			type: "boolean",
+		})
 		.option("plugin-list", {
 			nargs: 1,
 			describe: "File containing list of plugins available with their install path",
@@ -166,27 +172,11 @@ async function startHost() {
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	const hostConfigPath = args.config;
-	const hostConfigLockPath = `${hostConfigPath}.lock`;
-	if (args.bypassLockFile) {
-		await fs.unlink(hostConfigLockPath).catch(() => {}); // ignore error, file might not exist
-	}
-
-	let hostConfig;
-	const hostConfigLock = new lib.LockFile(hostConfigLockPath);
-	logger.info(`Loading config from ${hostConfigPath}`);
-	try {
-		hostConfig = await lib.HostConfig.fromFile("host", hostConfigPath);
-
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.info("Config not found, initializing new config");
-			hostConfig = new lib.HostConfig("host", undefined, hostConfigPath);
-
-		} else {
-			throw new lib.StartupError(`Failed to load ${args.config}: ${err.stack ?? err.message ?? err}`);
-		}
-	}
+	const [hostConfig, hostConfigLock] = await lib.loadConfigFromArgs(
+		args,
+		lib.HostConfig,
+		"host",
+	);
 
 	hostConfig.set("host.version", packageConfig.version); // Allows tracking last loaded version
 

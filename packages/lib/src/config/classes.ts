@@ -460,9 +460,12 @@ export class Config<
 		return this.fromJSON(fields, location, filepath);
 	}
 
-	/** Saves this config to file if there are unsaved changes */
-	async save() {
-		if (!this.dirty) {
+	/**
+	 * Saves this config to file if there are unsaved changes
+	 * @param force - Set to true to save the file even if no changes have been made.
+	 */
+	async save(force = false) {
+		if (!force && !this.dirty) {
 			return;
 		}
 		if (!this.filepath) {
