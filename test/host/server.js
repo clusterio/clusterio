@@ -6,7 +6,8 @@ import path from "node:path";
 import * as hostServer from "@clusterio/host/dist/node/src/server.js";
 import { Link, wait } from "@clusterio/lib";
 import { testLines } from "../lib/factorio/lines.js";
-import { slowTest, externalTest } from "../integration/index.js";
+import { slowTest, externalTest } from "../common.js";
+import "../setup_logging.js";
 
 
 describe("host/server", function() {

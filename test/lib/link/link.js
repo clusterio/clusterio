@@ -3,6 +3,7 @@ import events from "node:events";
 
 import * as lib from "@clusterio/lib";
 import * as mock from "../../mock.js";
+import "../../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 

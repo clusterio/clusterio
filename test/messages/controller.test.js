@@ -6,6 +6,7 @@ import * as lib from "@clusterio/lib";
 
 import { Controller, ControlConnection } from "@clusterio/controller";
 import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
+import "../setup_logging.js";
 
 describe("messages/controller", function() {
 	/** @type {Controller} */

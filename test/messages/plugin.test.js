@@ -4,6 +4,8 @@ import * as lib from "@clusterio/lib";
 import { Controller, ControlConnection } from "@clusterio/controller";
 import { Host } from "@clusterio/host";
 
+import "../setup_logging.js";
+
 describe("messages/plugin", function() {
 	/** @type {Host} */
 	let host;

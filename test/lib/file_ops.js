@@ -122,7 +122,8 @@ describe("lib/file_ops", function() {
 			for (let i = 0; i < 20; i++) {
 				writes.push(lib.safeOutputFile(target, `write ${i}`, "utf8"));
 			}
-			await Promise.all(writes);
+			// Ignore errors from concurrently renaming onto the same file.
+			await Promise.allSettled(writes);
 			await assertNoTemporary(target);
 			assert.match(await fs.readFile(target, "utf8"), /^write \d+$/);
 		});

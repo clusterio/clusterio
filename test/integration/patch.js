@@ -6,7 +6,7 @@ import path from "node:path";
 import { patch, SaveModule } from "@clusterio/host/dist/node/src/patch.js";
 import * as lib from "@clusterio/lib";
 
-import { slowTest } from "./index.js";
+import { slowTest } from "../common.js";
 
 
 // The server integration test is required to run before this one

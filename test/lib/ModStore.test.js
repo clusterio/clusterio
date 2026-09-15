@@ -8,7 +8,8 @@ import JSZip from "jszip"; // Added for creating mock zips
 const nativeFetch = global.fetch;
 
 import { ModStore, ModInfo, ModVersionEquality } from "@clusterio/lib"; // Adjust path based on compiled output
-import { externalTest } from "../integration/index.js";
+import { externalTest } from "../common.js";
+import "../setup_logging.js";
 
 const MODS_DIR = path.join("temp", "test", "mod_store", "mods");
 const CACHE_FILE = path.join(MODS_DIR, "mod-info-cache.json");

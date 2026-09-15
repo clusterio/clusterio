@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import events from "node:events";
 
-import * as mock from "../../mock.js";
 import * as lib from "@clusterio/lib";
+import * as mock from "../../mock.js";
+import "../../setup_logging.js";
 
 
 describe("lib/link/connectors", function() {

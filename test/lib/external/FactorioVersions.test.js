@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import { fetchFactorioVersions } from "@clusterio/lib";
-import { slowTest, externalTest } from "../../integration/index.js";
+import { slowTest, externalTest } from "../../common.js";
 
 describe("FactorioVersions", function() {
 	describe("fetchFactorioVersions", function() {

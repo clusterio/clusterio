@@ -3,9 +3,10 @@ import events from "node:events";
 import jwt from "jsonwebtoken";
 
 import {
-	TestControlConnector, TestHostConnector, TestControl, get, exec, url, controlToken, slowTest,
+	TestControlConnector, TestHostConnector, TestControl, url, controlToken,
 } from "./index.js";
 import { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } from "@clusterio/lib";
+import { slowTest } from "../common.js";
 
 let tokenHost = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));
 

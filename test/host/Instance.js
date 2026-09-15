@@ -6,6 +6,8 @@ import { PlayerStats, wait } from "@clusterio/lib";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { MockConnector, MockLogger, MockServer } from "../mock.js";
 
+import "../setup_logging.js";
+
 const addr = lib.Address.fromShorthand;
 
 

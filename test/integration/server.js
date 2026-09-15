@@ -8,7 +8,8 @@ import { InstanceManager } from "@clusterio/controller";
 import { FactorioServer, _getFactorioVersion } from "@clusterio/host/dist/node/src/server.js";
 import { logger } from "@clusterio/lib";
 
-import { slowTest, factorioDir, requiresFactorio } from "./index.js";
+import { factorioDir, requiresFactorio } from "./index.js";
+import { slowTest } from "../common.js";
 
 
 describe("Integration of host/src/server", function() {

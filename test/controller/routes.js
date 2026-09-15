@@ -7,6 +7,8 @@ import { wait, expositionContentType } from "@clusterio/lib";
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
 
+import "../setup_logging.js";
+
 describe("controller/src/routes", function() {
 	let controller;
 	let server;

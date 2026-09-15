@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { fetchLatestReleases, resolveReleaseChannel } from "@clusterio/lib";
-import { slowTest, externalTest } from "../../integration/index.js";
+import { slowTest, externalTest } from "../../common.js";
 
 describe("LatestReleases", function() {
 	describe("fetchLatestReleases", function() {

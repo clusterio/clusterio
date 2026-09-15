@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
+import "../setup_logging.js";
 
 describe("rce_ops", function() {
 	describe("updatePackage", function() {

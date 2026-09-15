@@ -8,10 +8,12 @@ import util from "node:util";
 import events from "node:events";
 
 import * as lib from "@clusterio/lib";
-import { LineSplitter, ConsoleTransport, logger } from "@clusterio/lib";
+import { LineSplitter, logger } from "@clusterio/lib";
 
 import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
 import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
+
+import "../setup_logging.js";
 
 // Make sure permissions from plugins are loaded
 import "../../plugins/global_chat/dist/node/index.js";
@@ -115,25 +117,6 @@ export class TestHostConnector extends lib.WebSocketClientConnector {
 			)
 		);
 	}
-}
-
-// Mark that this test takes a lot of time, or depends on a test that takes a lot of time.
-export function slowTest(test) {
-
-	if (process.env.FAST_TEST) {
-		test.skip();
-	}
-
-	test.timeout(30000);
-}
-
-// Mark that this test depends on an external API and may be slow or flaky.
-export function externalTest(test) {
-	if (process.env.NO_EXTERNAL_TEST) {
-		test.skip();
-	}
-
-	test.timeout(60000);
 }
 
 // Mark that this test or suite of tests requires a factorio install to run.
@@ -315,13 +298,6 @@ before(async function() {
 	if (silent) {
 		console.log("SILENT_TEST is present in env, loggers after bootstrap will be muted.");
 	}
-
-	// Some integration tests may cause log events
-	logger.add(new ConsoleTransport({
-		level: "info",
-		format: new lib.TerminalFormat(),
-		filter: () => !silent,
-	}));
 
 	// If fast test is enabled then output that it is
 

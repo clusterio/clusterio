@@ -3,7 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import * as lib from "@clusterio/lib";
-import { slowTest } from "../integration/index.js";
+import { slowTest } from "../common.js";
+import "../setup_logging.js";
 
 
 describe("lib/shared_commands", function() {

@@ -3,6 +3,7 @@ import * as lib from "@clusterio/lib";
 
 import { Host } from "@clusterio/host";
 import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
+import "../setup_logging.js";
 
 describe("messages/host", function() {
 	/** @type {Host} */
