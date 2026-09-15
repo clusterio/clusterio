@@ -26,7 +26,7 @@ export async function loadConfigFromArgs<T extends typeof Config<any>>(
 	let config;
 	const configLock = new LockFile(configLockPath);
 	const message = `${create ? "Creating" : "Loading"} config at ${args.config}`;
-	if (location === "control") {
+	if (location === "control" && !create) {
 		// Ctl uses a verbose level here to avoid spamming the console.
 		// A better idea would probably be to set Ctl's default level to warn.
 		logger.verbose(message);
