@@ -76,6 +76,46 @@ describe("controller/src/ControlConnection", function() {
 		});
 	});
 
+	describe(".handlePluginInstallRequest()", function() {
+		let mockController;
+		let _fetch;
+
+		beforeEach(function() {
+			mockController = {
+				config: new lib.ControllerConfig("controller", { "controller.allow_plugin_install": true }),
+				pluginInfos: [{ name: "restart_test", npmPackage: "restart_test", version: "1.0.0" }],
+			};
+			_fetch = global.fetch;
+			global.fetch = async () => ({ ok: true });
+		});
+		afterEach(function() {
+			global.fetch = _fetch;
+		});
+
+		async function install(name) {
+			await ControlConnection.prototype.handlePluginInstallRequest.call(
+				{ _controller: mockController },
+				new lib.PluginInstallRequest(name),
+			);
+		}
+
+		it("marks a restart as required for a new plugin", async function() {
+			await install("new_plugin");
+			assert.equal(mockController.config.restartRequired, true);
+		});
+		it("leaves the flag alone for an already loaded plugin", async function() {
+			await install("restart_test");
+			assert.equal(mockController.config.restartRequired, false);
+		});
+		it("rejects when installs are disabled", async function() {
+			mockController.config = new lib.ControllerConfig(
+				"controller", { "controller.allow_plugin_install": false }
+			);
+			await assert.rejects(install("new_plugin"), /Plugin installs are disabled/);
+			assert.equal(mockController.config.restartRequired, false);
+		});
+	});
+
 	describe(".handleInstanceCreateRequest()", function() {
 		let mockController;
 

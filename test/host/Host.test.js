@@ -179,6 +179,38 @@ describe("host/src/Host", function() {
 				assert.equal(host.config.restartRequired, true);
 			});
 		});
+		describe(".handlePluginInstallRequest()", function() {
+			let host;
+			let _fetch;
+			beforeEach(function() {
+				const pluginInfos = [{ name: "restart_test", npmPackage: "restart_test", version: "1.0.0" }];
+				const hostConfig = new lib.HostConfig("host", { "host.allow_plugin_install": true });
+				const hostConnector = new HostConnector(hostConfig, pluginInfos);
+				host = new Host(hostConnector, hostConfig, pluginInfos);
+				_fetch = global.fetch;
+				global.fetch = async () => ({ ok: true });
+			});
+			afterEach(function() {
+				global.fetch = _fetch;
+			});
+			it("marks a restart as required for a new plugin", async function() {
+				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("new_plugin"));
+				assert.equal(host.config.restartRequired, true);
+			});
+			it("leaves the flag alone for an already loaded plugin", async function() {
+				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("restart_test"));
+				assert.equal(host.config.restartRequired, false);
+			});
+			it("rejects when installs are disabled", async function() {
+				host.config.set("host.allow_plugin_install", false);
+				host.config.restartRequired = false; // Setting allow_plugin_install requires a restart
+				await assert.rejects(
+					host.handlePluginInstallRequest(new lib.PluginInstallRequest("new_plugin")),
+					/Plugin installs are disabled/
+				);
+				assert.equal(host.config.restartRequired, false);
+			});
+		});
 		describe(".checkRestartDowngrade()", async function() {
 			let host;
 			const hostVersion = (
