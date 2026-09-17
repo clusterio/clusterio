@@ -29,6 +29,15 @@ describe("messages/controller", function() {
 		controlConnection = new ControlConnection({ version: "2.0.0" }, connection, controller, user, 1);
 	});
 
+	describe("ControllerMarkRestartRequiredRequest", function() {
+		it("runs", async function() {
+			await controlConnection.handleControllerMarkRestartRequiredRequest(
+				new lib.ControllerMarkRestartRequiredRequest()
+			);
+			assert.equal(controller.config.restartRequired, true);
+		});
+	});
+
 	describe("ControllerUpdateRequest", function() {
 		it("runs", async function() {
 			controller.config.set("controller.allow_remote_updates", true);

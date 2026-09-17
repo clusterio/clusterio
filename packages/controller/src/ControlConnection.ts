@@ -73,6 +73,9 @@ export default class ControlConnection extends BaseConnection {
 
 		this.handle(lib.ControllerStopRequest, this.handleControllerStopRequest.bind(this));
 		this.handle(lib.ControllerRestartRequest, this.handleControllerRestartRequest.bind(this));
+		this.handle(
+			lib.ControllerMarkRestartRequiredRequest, this.handleControllerMarkRestartRequiredRequest.bind(this)
+		);
 		this.handle(lib.ControllerUpdateRequest, this.handleControllerUpdateRequest.bind(this));
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetRequest, this.handleControllerConfigSetRequest.bind(this));
@@ -1295,6 +1298,10 @@ export default class ControlConnection extends BaseConnection {
 			}
 		}
 		return usersToSend;
+	}
+
+	async handleControllerMarkRestartRequiredRequest() {
+		this._controller.config.restartRequired = true;
 	}
 
 	async handleControllerUpdateRequest(request: lib.ControllerUpdateRequest) {

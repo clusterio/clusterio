@@ -26,6 +26,12 @@ controllerCommands.add(new lib.Command({
 	},
 }));
 controllerCommands.add(new lib.Command({
+	definition: ["mark-restart-required", "Mark the controller as requiring a restart"],
+	handler: async function(_args: object, ctl: Ctl) {
+		await ctl.send(new lib.ControllerMarkRestartRequiredRequest());
+	},
+}));
+controllerCommands.add(new lib.Command({
 	definition: ["update", "Update the controller", (yargs) => {
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 		yargs.option("all", { alias: "a", type: "boolean", description: "Also update all plugins" });

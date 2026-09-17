@@ -390,6 +390,7 @@ export default class Host extends lib.Link {
 
 		this.handle(lib.HostStopRequest, this.handleHostStopRequest.bind(this));
 		this.handle(lib.HostRestartRequest, this.handleHostRestartRequest.bind(this));
+		this.handle(lib.HostMarkRestartRequiredRequest, this.handleHostMarkRestartRequiredRequest.bind(this));
 		this.handle(lib.HostUpdateRequest, this.handleHostUpdateRequest.bind(this));
 		this.handle(lib.HostConfigGetRequest, this.handleHostConfigGetRequest.bind(this));
 		this.handle(lib.HostConfigSetRequest, this.handleHostConfigSetRequest.bind(this));
@@ -509,6 +510,10 @@ export default class Host extends lib.Link {
 		}
 		process.exitCode = 1;
 		this.shutdown();
+	}
+
+	async handleHostMarkRestartRequiredRequest() {
+		this.config.restartRequired = true;
 	}
 
 	async handleHostConfigGetRequest() {

@@ -43,6 +43,14 @@ The controller also supports remote updates, following the same logic. The corre
     ctl> controller update [--restart]
     controller> config set controller.allow_remote_updates true/false
 
+### Mark restart required
+
+    ctl> host mark-restart-required <host>
+
+Marks the host as requiring a restart, the same way a plugin update does. Use it after installing or changing a plugin by other means than `host plugin install`, such as a plugin checked out into `external_plugins`. The mark shows up in the web interface on the next system metrics poll. The controller has the same command:
+
+    ctl> controller mark-restart-required
+
 ## Instances
 
 ### List Instances

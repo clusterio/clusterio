@@ -34,6 +34,16 @@ hostCommands.add(new lib.Command({
 }));
 
 hostCommands.add(new lib.Command({
+	definition: ["mark-restart-required <host>", "Mark the given host as requiring a restart", (yargs) => {
+		yargs.positional("host", { describe: "Host to mark", type: "string" });
+	}],
+	handler: async function(args: { host: string }, ctl: Ctl) {
+		let hostId = await lib.resolveHost(ctl, args.host);
+		await ctl.sendTo({ hostId }, new lib.HostMarkRestartRequiredRequest());
+	},
+}));
+
+hostCommands.add(new lib.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
 	handler: async function(args: object, ctl: Ctl) {
 		let hosts = await ctl.send(new lib.HostListRequest());
