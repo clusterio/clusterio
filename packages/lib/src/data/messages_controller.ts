@@ -20,6 +20,14 @@ export class ControllerRestartRequest {
 	static permission = "core.controller.restart" as const;
 }
 
+export class ControllerMarkRestartRequiredRequest {
+	declare ["constructor"]: typeof ControllerMarkRestartRequiredRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.restart" as const;
+}
+
 export class ControllerUpdateRequest {
 	declare ["constructor"]: typeof ControllerUpdateRequest;
 	static type = "request" as const;

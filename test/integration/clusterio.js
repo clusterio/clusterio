@@ -550,6 +550,12 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("controller mark-restart-required", function() {
+			it("runs", async function() {
+				await execCtl("controller mark-restart-required");
+			});
+		});
+
 		describe("host list", function() {
 			it("runs", async function() {
 				await execCtl("host list");
@@ -632,6 +638,12 @@ describe("Integration of Clusterio", function() {
 					execCtl("host restart 4"),
 					/Cannot restart, host does not have a process monitor to restart it./
 				);
+			});
+		});
+
+		describe("host mark-restart-required", function() {
+			it("runs", async function() {
+				await execCtl("host mark-restart-required 4");
 			});
 		});
 

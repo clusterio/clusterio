@@ -21,6 +21,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	controller.ControllerStopRequest,
 	controller.ControllerRestartRequest,
+	controller.ControllerMarkRestartRequiredRequest,
 	controller.ControllerUpdateRequest,
 	controller.ControllerConfigGetRequest,
 	controller.ControllerConfigSetRequest,
@@ -43,6 +44,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	host.HostStopRequest,
 	host.HostRestartRequest,
+	host.HostMarkRestartRequiredRequest,
 	host.HostUpdateRequest,
 	host.HostConfigGetRequest,
 	host.HostConfigSetRequest,

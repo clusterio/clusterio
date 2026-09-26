@@ -52,6 +52,21 @@ function HostControlButton({ hostId, canRestart, restartRequired }: HostControlB
 		});
 	}
 
+	if (account.hasPermission("core.host.restart") && !restartRequired) {
+		actions.push({
+			key: "mark-restart-required",
+			label: "Mark Restart Required",
+			onClick: () => {
+				control.sendTo(
+					{ hostId },
+					new lib.HostMarkRestartRequiredRequest()
+				).then(() => {
+					notify("Host marked as requiring a restart", "success");
+				}).catch(notifyErrorHandler("Error marking host"));
+			},
+		});
+	}
+
 	if (account.hasPermission("core.host.stop")) {
 		actions.push({
 			key: "stop",

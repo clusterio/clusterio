@@ -32,6 +32,13 @@ describe("messages/host", function() {
 		});
 	});
 
+	describe("HostMarkRestartRequiredRequest", function() {
+		it("runs", async function() {
+			await host.handleHostMarkRestartRequiredRequest(new lib.HostMarkRestartRequiredRequest());
+			assert.equal(host.config.restartRequired, true);
+		});
+	});
+
 	describe("HostConfigGetRequest", function() {
 		it("runs", async function() {
 			const config = await host.handleHostConfigGetRequest(new lib.HostConfigGetRequest());
