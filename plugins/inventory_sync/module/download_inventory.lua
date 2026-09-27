@@ -2,6 +2,7 @@ local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local ensure_character = require("modules/inventory_sync/ensure_character")
 local restore_position = require("modules/inventory_sync/restore_position")
 local get_script_data = require("modules/inventory_sync/get_script_data")
+local serialize = require("modules/inventory_sync/serialize")
 
 
 local function download_inventory(player_name, data, number, total)
@@ -33,7 +34,10 @@ local function download_inventory(player_name, data, number, total)
 		progress_dialog.remove(player)
 
 		-- Give the player a character and pretend that's the synced player data
-		ensure_character(player)
+		if serialize.syncs(script_data.components, "inventories") then
+			ensure_character(player)
+		end
+		player_record.local_controller = nil
 
 		-- Restore player position and driving state
 		restore_position(record, player)

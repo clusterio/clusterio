@@ -5,6 +5,7 @@ import type { InstancePluginContext } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
 } from "./messages.js";
+import { enabledComponents, stripPlayerData } from "./components.js";
 
 type IpcPlayerName = {
 	player_name: string
@@ -198,6 +199,7 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
+		stripPlayerData(response.playerData, enabledComponents(instance.config));
 		await applyRecipeNotificationDelta(response.playerData, request.recipe_notifications, logger);
 
 		const chunkSize = instance.config.get("inventory_sync.rcon_chunk_size");
@@ -238,6 +240,21 @@ export default async function(context: InstancePluginContext) {
 			err => logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)
 		),
 	);
+
+	/** Tell the scenario which components are synced. */
+	async function sendComponents() {
+		const enabled = Object.fromEntries([...enabledComponents(instance.config)].map(name => [name, true]));
+		const json = lib.escapeString(JSON.stringify(enabled));
+		await instance.sendRcon(`/sc inventory_sync.set_components("${json}")`, true, plugin.name);
+	}
+
+	instance.hooks.start.attach(plugin.name, sendComponents);
+
+	instance.hooks.instanceConfigFieldChanged.attach(plugin.name, async (field) => {
+		if (field.startsWith("inventory_sync.sync_") && instance.status === "running") {
+			await sendComponents();
+		}
+	});
 
 	instance.hooks.prepareControllerDisconnect.attach(plugin.name, async () => {
 		disconnecting = true;

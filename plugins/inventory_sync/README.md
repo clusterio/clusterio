@@ -40,6 +40,9 @@ The greatly simplified data flow is as follows:
 When the player leaves the inventory is uploaded if it's a synced inventory and the exclusive access the scenario script holds is released.
 Should an error occur during this process the player is given the option to use a temporary inventory instead, which will be merged back into the synced inventory the next time the sync succeeds on that instance.
 
+Instances can leave parts of the player out of the sync with the `inventory_sync.sync_*` options below.
+A part which is not synced is left as it is when the player joins, and the instance's copy of it is not uploaded, so the stored copy from other instances stays as it was.
+
 Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the controller goes over websockets.
 Overall, we are able to achieve a latency between 3 and infinite ticks from server join, depending on the size of the inventory. The major limiter is rcon transfer speeds with larger inventories, especially if they contain blueprints.
@@ -64,3 +67,53 @@ Size in characters of the chunks the serialized inventory is split into when sen
 Smaller chunks take more commands to transfer an inventory but hold up the RCON command pipe for less time each.
 
 Defaults to `1000`.
+
+### inventory_sync.sync_controller
+
+Sync whether the player is a character, god or spectator, their respawn timer and cheat mode.
+Switching controller can destroy the character holding the inventory, so this only takes effect while `inventory_sync.sync_inventories` is also enabled.
+
+Defaults to `true`.
+
+### inventory_sync.sync_force
+
+Sync the force the player is on.
+
+Defaults to `true`.
+
+### inventory_sync.sync_appearance
+
+Sync the player colour, chat colour and tag.
+
+Defaults to `true`.
+
+### inventory_sync.sync_inventories
+
+Sync the character and god inventories, the character bonuses and the crafting queue.
+While the controller is not synced only the inventory of a character is synced, a player without a character keeps the inventory they have on the instance and does not change the stored one.
+
+Defaults to `true`.
+
+### inventory_sync.sync_logistics
+
+Sync the personal logistic requests.
+
+Defaults to `true`.
+
+### inventory_sync.sync_quick_bar
+
+Sync the quick bar.
+
+Defaults to `true`.
+
+### inventory_sync.sync_settings
+
+Sync the shortcut toggles, game view settings and flashlight.
+
+Defaults to `true`.
+
+### inventory_sync.sync_recipe_notifications
+
+Sync which new recipe notifications have been seen.
+
+Defaults to `true`.

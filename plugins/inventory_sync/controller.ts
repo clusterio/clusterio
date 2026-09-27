@@ -1,5 +1,6 @@
 import type { ControllerPluginContext, InstanceRecord } from "@clusterio/controller";
 import type { IpcPlayerData } from "./messages.js";
+import { enabledComponents, mergePlayerData } from "./components.js";
 
 import fs from "node:fs/promises";
 import path from "path";
@@ -124,7 +125,8 @@ export default async function(context: ControllerPluginContext) {
 
 	controller.handle(msg.UploadRequest, async (request: msg.UploadRequest) => {
 		let { instanceId, playerName, playerData } = request;
-		let instanceName = controller.instances.get(instanceId)!.config.get("instance.name");
+		let instanceConfig = controller.instances.get(instanceId)!.config;
+		let instanceName = instanceConfig.get("instance.name");
 		let store = true;
 		let acquisitionRecord = acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
@@ -152,7 +154,9 @@ export default async function(context: ControllerPluginContext) {
 
 		if (store) {
 			logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
-			playerDatastore.set(playerName, playerData);
+			playerDatastore.set(
+				playerName, mergePlayerData(oldPlayerData, playerData, enabledComponents(instanceConfig))
+			);
 			playerDatastoreDirty = true;
 		}
 	});
