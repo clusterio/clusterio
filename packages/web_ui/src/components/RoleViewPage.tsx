@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Checkbox, Input, Popconfirm, Space, Spin, Tooltip } from "antd";
+import { Button, Checkbox, Col, Input, Popconfirm, Row, Space, Spin, Tooltip } from "antd";
 import { ExclamationCircleOutlined, StarOutlined, DeleteOutlined} from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -109,7 +109,9 @@ function PermissionGroup({
 	}
 
 	return (
-		<div style={{ border: "1px solid #424242", padding: 12, borderRadius: 6 }}>
+		<div id={`permission-group-${groupName}`} style={{
+			border: "1px solid #424242", padding: 12, borderRadius: 6, scrollMarginTop: 80,
+		}}>
 			<Space style={{ width: "100%", justifyContent: "space-between" }}>
 				<strong>{formatGroupTitle(groupName)}</strong>
 				<Space>
@@ -130,6 +132,30 @@ function PermissionGroup({
 					/>
 				))}
 			</div>
+		</div>
+	);
+}
+
+/** An entry in the group list; the dot is blue when any permission in the group is granted */
+function PermissionGroupNav({ groupName, granted }: { groupName: string; granted: boolean }) {
+	function scrollToGroup() {
+		document.getElementById(`permission-group-${groupName}`)?.scrollIntoView({ behavior: "smooth" });
+	}
+
+	return (
+		<div
+			role="button"
+			onClick={scrollToGroup}
+			style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", cursor: "pointer" }}
+		>
+			<span style={{
+				width: 8,
+				height: 8,
+				borderRadius: "50%",
+				flexShrink: 0,
+				background: granted ? "#1677ff" : "#595959",
+			}} />
+			{formatGroupTitle(groupName)}
 		</div>
 	);
 }
@@ -208,6 +234,9 @@ export default function RoleViewPage() {
 	for (let [, permissions] of sortedGroups) {
 		permissions.sort((a, b) => a.title.localeCompare(b.title));
 	}
+
+	// Groups with at least one granted permission, including those hidden by the search
+	const grantedGroups = new Set(allPermissions.filter(p => permissionState[p.name]).map(p => getGroupName(p.name)));
 
 	// Check if any changes have been made to the permissions or role metadata
 	const permissionChanged = Object.keys(permissionState).some(k => permissionState[k] !== baselineState[k]);
@@ -300,19 +329,35 @@ export default function RoleViewPage() {
 			<Input.Search placeholder="Search permissions" allowClear
 				onChange={e => setSearch(e.target.value)} style={{ marginBottom: 16 }} />
 
-			<Space direction="vertical" style={{ width: "100%" }}>
-				{sortedGroups.map(([groupName, permissions]) => (
-					<PermissionGroup
-						key={groupName}
-						groupName={groupName}
-						permissions={permissions}
-						permissionState={permissionState}
-						baselineState={baselineState}
-						setPermissionState={setPermissionState}
-						canUpdate={canUpdate}
-					/>
-				))}
-			</Space>
+			<Row gutter={16} wrap={false}>
+				<Col flex="200px">
+					{/* Clear of the fixed page header */}
+					<div style={{ position: "sticky", top: 80 }}>
+						{sortedGroups.map(([groupName]) => (
+							<PermissionGroupNav
+								key={groupName}
+								groupName={groupName}
+								granted={grantedGroups.has(groupName)}
+							/>
+						))}
+					</div>
+				</Col>
+				<Col flex="auto" style={{ minWidth: 0 }}>
+					<Space direction="vertical" style={{ width: "100%" }}>
+						{sortedGroups.map(([groupName, permissions]) => (
+							<PermissionGroup
+								key={groupName}
+								groupName={groupName}
+								permissions={permissions}
+								permissionState={permissionState}
+								baselineState={baselineState}
+								setPermissionState={setPermissionState}
+								canUpdate={canUpdate}
+							/>
+						))}
+					</Space>
+				</Col>
+			</Row>
 
 			<PluginExtra component="RoleViewPage" role={role} search={search}/>
 		</PageLayout>
