@@ -123,6 +123,13 @@ export type ExtensionSlotProps = {
 		role: lib.Role;
 		search?: string;
 	};
+	/**
+	 * Placed on each role page between the role details and the permissions.
+	 * `role` is the role the page is displayed for.
+	 */
+	RoleViewPageBeforePermissions: {
+		role: lib.Role;
+	};
 };
 
 export type PluginExtensionSlot = keyof ExtensionSlotProps;
