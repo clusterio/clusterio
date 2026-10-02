@@ -145,6 +145,40 @@ export class SaveModule {
 	}
 }
 
+/**
+ * Load the modules to patch into a save
+ *
+ * Collects the modules provided by the given plugins together with the
+ * modules bundled with the host package.
+ *
+ * @param pluginInfos - Plugins to load modules from.
+ * @returns Map of module name to module.
+ */
+export async function loadModules(pluginInfos: Iterable<lib.PluginNodeEnvInfo>) {
+	let modules: Map<string, SaveModule> = new Map();
+	for (let pluginInfo of pluginInfos) {
+		let module = await SaveModule.fromPluginInfo(pluginInfo);
+		if (!module) {
+			continue;
+		}
+		modules.set(module.info.name, module);
+	}
+
+	// Find stand alone modules to load
+	// XXX for now only the included clusterio module is loaded
+	let modulesDirectory = path.join(import.meta.dirname, "..", "..", "..", "modules");
+	for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
+		if (entry.isDirectory()) {
+			if (modules.has(entry.name)) {
+				throw new Error(`Module with name ${entry.name} already exists in a plugin`);
+			}
+			let module = await SaveModule.fromDirectory(path.join(modulesDirectory, entry.name));
+			modules.set(module.info.name, module);
+		}
+	}
+	return modules;
+}
+
 export class PatchInfo {
 	static currentVersion = 1;
 
