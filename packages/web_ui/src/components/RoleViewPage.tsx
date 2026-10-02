@@ -295,6 +295,8 @@ export default function RoleViewPage() {
 				<Input value={description} disabled={!canUpdate} onChange={e => setDescription(e.target.value)} />
 			</div>
 
+			<PluginExtra component="RoleViewPageBeforePermissions" role={role} />
+
 			<h3>Permissions</h3>
 
 			<Input.Search placeholder="Search permissions" allowClear
