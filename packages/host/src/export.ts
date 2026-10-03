@@ -549,15 +549,29 @@ export async function exportData(server: FactorioServer) {
 		}
 	}
 
-	let locale = await exportLocale(server, modVersions, modOrder, "en");
+	let languages = ["en"];
+	try {
+		const localePath = server.dataPath("core", "locale");
+		const entries = await fs.readdir(localePath, { withFileTypes: true });
+		languages = entries
+			.filter(entry => entry.isDirectory())
+			.map(entry => entry.name);
+	} catch (err: any) {
+		server._logger.warn(`Unable to detect available languages, defaulting to "en": ${err.message}`);
+	}
+
+	let zip = new JSZip();
+	for (const lang of languages) {
+		const langLocale = await exportLocale(server, modVersions, modOrder, lang);
+		const exportName = lang === "en" ? "locale" : `locale-${lang}`;
+		zip.file(`export/${exportName}.json`, JSON.stringify([...langLocale.entries()] satisfies lib.ExportLocale));
+	}
 
 	// Free up the memory used by zip files loaded during the export.
 	zipCache.clear();
 
-	let zip = new JSZip();
 	zip.file("export/settings.json", JSON.stringify(settings satisfies lib.ExportSettings));
 	zip.file("export/prototypes.json", JSON.stringify(prototypes satisfies lib.ExportPrototypes));
-	zip.file("export/locale.json", JSON.stringify([...locale.entries()] satisfies lib.ExportLocale));
 	zip.file("export/defines.json", JSON.stringify(defines satisfies lib.ExportDefines));
 
 	// Build a single unified spritesheet across all prototypes with icons.
