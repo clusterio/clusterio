@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Checkbox, Col, Input, Popconfirm, Row, Space, Spin, Tooltip } from "antd";
+import { Button, Checkbox, Col, Grid, Input, Popconfirm, Row, Space, Spin, Tooltip } from "antd";
 import { ExclamationCircleOutlined, StarOutlined, DeleteOutlined} from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -175,6 +175,9 @@ export default function RoleViewPage() {
 	const [permissionState, setPermissionState] = useState<Record<string, boolean>>({});
 	const [baselineState, setBaselineState] = useState<Record<string, boolean>>({});
 	const [search, setSearch] = useState("");
+	// Hidden below lg, where the site sider leaves too little room; undefined until measured
+	const screens = Grid.useBreakpoint();
+	const showGroupList = screens.lg !== false;
 
 	const allPermissions = useMemo(() => [...lib.permissions.values()], []);
 	const canUpdate = Boolean(account.hasPermission("core.role.update"));
@@ -332,9 +335,13 @@ export default function RoleViewPage() {
 				onChange={e => setSearch(e.target.value)} style={{ marginBottom: 16 }} />
 
 			<Row gutter={16} wrap={false}>
-				<Col flex="200px">
+				{showGroupList && <Col flex="200px">
 					{/* Clear of the fixed page header */}
-					<div style={{ position: "sticky", top: 80 }}>
+					<div style={{
+						position: "sticky", top: 80, maxHeight: "calc(100vh - 96px)", overflowY: "auto",
+						// Keep the last groups reachable above the unsaved changes bar
+						paddingBottom: edited ? 76 : 0,
+					}}>
 						{sortedGroups.map(([groupName]) => (
 							<PermissionGroupNav
 								key={groupName}
@@ -343,7 +350,7 @@ export default function RoleViewPage() {
 							/>
 						))}
 					</div>
-				</Col>
+				</Col>}
 				<Col flex="auto" style={{ minWidth: 0 }}>
 					<Space direction="vertical" style={{ width: "100%" }}>
 						{sortedGroups.map(([groupName, permissions]) => (
