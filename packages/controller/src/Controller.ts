@@ -1134,7 +1134,7 @@ export default class Controller {
 			try {
 				const manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
 				const resolvedUrl = import.meta.resolve(manifestPath);
-				const resolvedPath = resolvedUrl.startsWith('file://') ? fileURLToPath(resolvedUrl) : resolvedUrl;
+				const resolvedPath = resolvedUrl.startsWith("file://") ? fileURLToPath(resolvedUrl) : resolvedUrl;
 				pluginInfo.manifest = await Controller.loadJsonObject(resolvedPath, true);
 			} catch (err) {
 				if (lib.pluginNeedsWebBuild(pluginInfo)) {
