@@ -1133,11 +1133,13 @@ export default class Controller {
 		for (let pluginInfo of this.pluginInfos) {
 			try {
 				const manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
-				const resolvedManifestPath = fileURLToPath(import.meta.resolve(manifestPath));
-				pluginInfo.manifest = await Controller.loadJsonObject(resolvedManifestPath, true);
+				const resolvedUrl = import.meta.resolve(manifestPath);
+				const resolvedPath = resolvedUrl.startsWith('file://') ? fileURLToPath(resolvedUrl) : resolvedUrl;
+				pluginInfo.manifest = await Controller.loadJsonObject(resolvedPath, true);
 			} catch (err) {
 				if (lib.pluginNeedsWebBuild(pluginInfo)) {
-					logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+					const stack = (err as Error).stack ?? (err as Error).message;
+					logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}\n${stack}`);
 				}
 			}
 
