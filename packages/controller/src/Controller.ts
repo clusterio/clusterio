@@ -842,7 +842,7 @@ export default class Controller {
 		try {
 			manifest = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
-			if (!throwOnMissing && err.code !== "ENOENT") {
+			if (throwOnMissing && err.code !== "ENOENT") {
 				throw err;
 			}
 		}
@@ -1132,8 +1132,9 @@ export default class Controller {
 		const context = { metrics, logger, controller: this };
 		for (let pluginInfo of this.pluginInfos) {
 			try {
-				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
-				pluginInfo.manifest = await Controller.loadJsonObject(import.meta.resolve(manifestPath), true);
+				const manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
+				const resolvedManifestPath = fileURLToPath(import.meta.resolve(manifestPath));
+				pluginInfo.manifest = await Controller.loadJsonObject(resolvedManifestPath, true);
 			} catch (err) {
 				if (lib.pluginNeedsWebBuild(pluginInfo)) {
 					logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
