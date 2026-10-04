@@ -34,7 +34,7 @@ local function download_inventory(player_name, data, number, total)
 		progress_dialog.remove(player)
 
 		-- Give the player a character and pretend that's the synced player data
-		if serialize.syncs(script_data.components, "inventories") then
+		if serialize.syncs(script_data.components, "controller") or player_record.local_controller then
 			ensure_character(player)
 		end
 		player_record.local_controller = nil

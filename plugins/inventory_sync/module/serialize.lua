@@ -860,10 +860,16 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 	local state = local_controller
 	if restore_controller then
 		state = { controller = serialized.controller, ticks_to_respawn = serialized.ticks_to_respawn }
+	elseif state and state.controller == "ghost" and sync_inventories and serialized.character then
+		-- Respawn now, a ghost would drop the synced character and upload an empty one after respawning
+		state = { controller = "character" }
 	end
 
 	local target_controller = state and defines.controllers[state.controller]
-	if state and (player.controller_type ~= target_controller or state.controller == "ghost") then
+	if state and (
+		player.controller_type ~= target_controller
+		or restore_controller and state.controller == "ghost"
+	) then
 		if state.controller == "character" then
 			-- Create a character but do not destroy an existing one
 			ensure_character(player)

@@ -477,7 +477,8 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 
 	-- If this is a synced player turn them into a spectator while the
 	-- player data is downloading
-	if player_record.sync and syncs("inventories") then
+	-- Without the controller synced a player without a character has nothing synced to protect
+	if player_record.sync and syncs("inventories") and (syncs("controller") or player.character) then
 		-- Store original position to teleport back to
 		if v2_remote_controller then
 			record.surface = player.physical_surface

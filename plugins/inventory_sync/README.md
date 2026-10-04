@@ -91,6 +91,7 @@ Defaults to `true`.
 
 Sync the character and god inventories, the character bonuses and the crafting queue.
 While the controller is not synced only the inventory of a character is synced, a player without a character keeps the inventory they have on the instance and does not change the stored one.
+A player waiting to respawn is respawned straight away if there is a synced character to give them.
 
 Defaults to `true`.
 
