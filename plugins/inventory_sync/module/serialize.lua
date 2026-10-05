@@ -603,6 +603,7 @@ end
 --- @field shortcuts table<string, boolean>?
 --- @field game_view_settings table<string, boolean>?
 --- @field ticks_to_respawn number?
+--- @field components SyncComponents Components this was serialized with
 --- @field character table<string, any>?
 --- @field inventories table<string, table>?
 --- @field hotbar table<string, string>?
@@ -668,6 +669,23 @@ local function syncs(components, name)
 end
 serialize.syncs = syncs
 
+local component_names = {
+	"controller", "force", "appearance", "inventories", "logistics", "quick_bar", "settings", "recipe_notifications",
+}
+
+--- True if a component synced in new_components was not synced in old_components
+--- @param old_components SyncComponents
+--- @param new_components SyncComponents
+--- @return boolean
+function serialize.newly_synced(old_components, new_components)
+	for _, name in ipairs(component_names) do
+		if syncs(new_components, name) and not syncs(old_components, name) then
+			return true
+		end
+	end
+	return false
+end
+
 --- @param player LuaPlayer
 --- @param failed_deserialization FailedDeserializationPlayerData
 --- @param components SyncComponents
@@ -681,6 +699,7 @@ function serialize.serialize_player(player, failed_deserialization, components)
 	local serialized = {
 		generation = 0, -- Gets replaced later
 		name = player.name,
+		components = components,
 	}
 
 	if sync_controller then

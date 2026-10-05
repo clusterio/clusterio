@@ -169,5 +169,14 @@ describe("inventory_sync", function() {
 			await instance.hooks.instanceConfigFieldChanged.invoke("inventory_sync.sync_force", false, true);
 			assert.equal(instance.server.rconCommands.length, 1);
 		});
+		it("should not send the components when the instance is not running", async function() {
+			instance.status = "stopped";
+			try {
+				await instance.hooks.instanceConfigFieldChanged.invoke("inventory_sync.sync_force", false, true);
+			} finally {
+				instance.status = "running";
+			}
+			assert.equal(instance.server.rconCommands.length, 0);
+		});
 	});
 });

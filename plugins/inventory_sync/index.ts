@@ -38,8 +38,8 @@ export const plugin: lib.PluginDeclaration = {
 		"inventory_sync.sync_controller": {
 			title: "Sync controller",
 			description:
-				"Sync whether the player is a character, god or spectator, their respawn timer and cheat " +
-				"mode. Only synced while inventories are synced too.",
+				"Sync whether the player is a character, god or spectator, their respawn timer, cheat mode " +
+				"and god inventory. Only synced while inventories are synced too.",
 			type: "boolean",
 			initialValue: true,
 		},
@@ -58,8 +58,8 @@ export const plugin: lib.PluginDeclaration = {
 		"inventory_sync.sync_inventories": {
 			title: "Sync inventories",
 			description:
-				"Sync the character and god inventories, character bonuses and crafting queue. Without the " +
-				"controller synced only the inventory of a character is synced.",
+				"Sync the character inventories, character bonuses and crafting queue. Without the " +
+				"controller synced a player without a character keeps their local inventory.",
 			type: "boolean",
 			initialValue: true,
 		},

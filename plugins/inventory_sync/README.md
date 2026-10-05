@@ -42,6 +42,8 @@ Should an error occur during this process the player is given the option to use 
 
 Instances can leave parts of the player out of the sync with the `inventory_sync.sync_*` options below.
 A part which is not synced is left as it is when the player joins, and the instance's copy of it is not uploaded, so the stored copy from other instances stays as it was.
+A player online when the options change keeps the old ones until they leave and join again, and a part that was turned on is downloaded when they join.
+Turning off `inventory_sync.sync_inventories` leaves the items players have on the instance in place while the stored inventory still holds them too.
 
 Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the controller goes over websockets.
@@ -70,7 +72,7 @@ Defaults to `1000`.
 
 ### inventory_sync.sync_controller
 
-Sync whether the player is a character, god or spectator, their respawn timer and cheat mode.
+Sync whether the player is a character, god or spectator, their respawn timer, cheat mode, the god inventory and the inventory filters of a dead player.
 Switching controller can destroy the character holding the inventory, so this only takes effect while `inventory_sync.sync_inventories` is also enabled.
 
 Defaults to `true`.
@@ -89,8 +91,8 @@ Defaults to `true`.
 
 ### inventory_sync.sync_inventories
 
-Sync the character and god inventories, the character bonuses and the crafting queue.
-While the controller is not synced only the inventory of a character is synced, a player without a character keeps the inventory they have on the instance and does not change the stored one.
+Sync the character inventories, the character bonuses and the crafting queue.
+While the controller is not synced a player without a character keeps what they have on the instance and does not change the stored character.
 A player waiting to respawn is respawned straight away if there is a synced character to give them.
 
 Defaults to `true`.

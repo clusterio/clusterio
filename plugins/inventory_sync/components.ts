@@ -3,10 +3,11 @@ import type { IpcPlayerData } from "./messages.js";
 
 /** Parts of the player data an instance can choose to sync, and the fields of the player data holding them. */
 export const components = {
-	controller: ["controller", "ticks_to_respawn", "cheat_mode"],
+	// inventories holds the god inventory and the hidden ghost inventory, both belong to the controller
+	controller: ["controller", "ticks_to_respawn", "cheat_mode", "inventories"],
 	force: ["force"],
 	appearance: ["color", "chat_color", "tag"],
-	inventories: ["character", "inventories", "crafting_queue"],
+	inventories: ["character", "crafting_queue"],
 	logistics: ["personal_logistic_slots"],
 	quick_bar: ["quick_bar", "hotbar"],
 	settings: ["flashlight", "shortcuts", "game_view_settings"],
@@ -19,15 +20,15 @@ export type Component = keyof typeof components;
 const characterFields = ["character", "crafting_queue", "personal_logistic_slots"] as const;
 
 /**
- * Components synced on an instance.
+ * Build the set of synced components.
  *
  * The controller is only synced together with the inventories, as
  * switching controller can destroy the character holding them.
  */
-export function enabledComponents(config: lib.InstanceConfig) {
+function componentSet(isEnabled: (component: Component) => boolean) {
 	const enabled = new Set<Component>();
 	for (const component of Object.keys(components) as Component[]) {
-		if (config.get(`inventory_sync.sync_${component}`)) {
+		if (isEnabled(component)) {
 			enabled.add(component);
 		}
 	}
@@ -35,6 +36,23 @@ export function enabledComponents(config: lib.InstanceConfig) {
 		enabled.delete("controller");
 	}
 	return enabled;
+}
+
+/** Components synced on an instance. */
+export function enabledComponents(config: lib.InstanceConfig) {
+	return componentSet(component => Boolean(config.get(`inventory_sync.sync_${component}`)));
+}
+
+/**
+ * Components an upload was serialized with, all of them when not given.
+ *
+ * Lua may encode an empty table as an array, which reads as no components.
+ */
+export function uploadedComponents(uploaded: Record<string, boolean> | unknown[] | undefined) {
+	if (uploaded === undefined) {
+		return componentSet(() => true);
+	}
+	return componentSet(component => !Array.isArray(uploaded) && uploaded[component] === true);
 }
 
 /** Remove the fields of components which are not synced. */
@@ -53,13 +71,13 @@ export function stripPlayerData(playerData: IpcPlayerData, enabled: Set<Componen
 /**
  * Combine data uploaded by an instance with the stored data.
  *
- * Components the instance does not sync keep the stored fields. Without
- * the controller synced the god and ghost inventories are left as the
- * synced controller had them, and character fields are only taken from a
+ * Components the upload was not serialized with keep the stored fields.
+ * Without the controller synced character fields are only taken from a
  * player which has a character.
  */
-export function mergePlayerData(stored: IpcPlayerData | undefined, uploaded: IpcPlayerData, enabled: Set<Component>) {
-	const merged: Record<string, unknown> = { ...uploaded };
+export function mergePlayerData(stored: IpcPlayerData | undefined, uploaded: IpcPlayerData) {
+	const { components: uploadComponents, ...merged } = uploaded as IpcPlayerData & Record<string, unknown>;
+	const enabled = uploadedComponents(uploadComponents);
 	function keep(keys: readonly string[]) {
 		for (const key of keys) {
 			const value = (stored as Record<string, unknown> | undefined)?.[key];
@@ -76,11 +94,8 @@ export function mergePlayerData(stored: IpcPlayerData | undefined, uploaded: Ipc
 			keep(keys);
 		}
 	}
-	if (!enabled.has("controller")) {
-		keep(["inventories"]);
-		if (!uploaded.character) {
-			keep(characterFields);
-		}
+	if (!enabled.has("controller") && !uploaded.character) {
+		keep(characterFields);
 	}
 	return merged as IpcPlayerData;
 }

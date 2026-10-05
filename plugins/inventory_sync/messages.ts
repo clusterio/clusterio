@@ -22,6 +22,8 @@ export type IpcPlayerData = {
 	personal_logistic_slots?: {name:string, min:number, max:number}[],
 	crafting_queue?: any,
 	recipe_notifications?: string,
+	// Components the upload was serialized with, all when missing
+	components?: Record<string, boolean> | unknown[],
 }
 
 const jsonPlayerData = Type.Object({
