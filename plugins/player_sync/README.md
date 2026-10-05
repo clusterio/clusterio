@@ -98,7 +98,7 @@ Defaults to `true`.
 
 ### player_sync.sync_appearance
 
-Sync the player colour, chat colour and tag.
+Sync the player color, chat color and tag.
 
 Defaults to `true`.
 

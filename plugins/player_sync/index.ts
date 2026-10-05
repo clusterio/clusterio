@@ -52,7 +52,7 @@ export const plugin: lib.PluginDeclaration = {
 		},
 		"player_sync.sync_appearance": {
 			title: "Sync appearance",
-			description: "Sync the player colour, chat colour and tag.",
+			description: "Sync the player color, chat color and tag.",
 			type: "boolean",
 			initialValue: true,
 		},
