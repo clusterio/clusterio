@@ -93,7 +93,7 @@ Defaults to `true`.
 
 Sync the character inventories, the character bonuses and the crafting queue.
 While the controller is not synced a player without a character keeps what they have on the instance and does not change the stored character.
-A player waiting to respawn is respawned straight away if there is a synced character to give them.
+A player who died on the instance uploads the character they will respawn with, and a player waiting to respawn when joining is respawned straight away if there is a synced character to give them.
 
 Defaults to `true`.
 

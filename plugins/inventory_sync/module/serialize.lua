@@ -730,21 +730,23 @@ function serialize.serialize_player(player, failed_deserialization, components)
 	end
 
 	-- For the waiting to respawn state the inventory logistic requests and filters are hidden on the player
-	if sync_controller and (sync_inventories or sync_logistics)
-		and player.controller_type == defines.controllers.ghost and player.ticks_to_respawn
-	then
+	if sync_inventories and player.controller_type == defines.controllers.ghost and player.ticks_to_respawn then
+		local ticks_to_respawn = player.ticks_to_respawn
 		player.ticks_to_respawn = nil -- Respawn now
 
 		if sync_logistics then
 			serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
 		end
-		if sync_inventories then
+		if sync_controller then
 			serialized.inventories = serialize.serialize_inventories(player, character_inventories)
+		elseif player.character then
+			-- Without the controller the death is synced by uploading the respawned character
+			serialized.character = serialize.serialize_character(player.character)
 		end
 
 		-- Go back to waiting for respawn
 		local character = player.character
-		player.ticks_to_respawn = serialized.ticks_to_respawn
+		player.ticks_to_respawn = ticks_to_respawn
 		if character and character.valid then
 			character.destroy()
 		end
