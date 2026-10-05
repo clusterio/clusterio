@@ -5,6 +5,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import * as mock from "../../../test/mock.js";
 import controllerEntrypoint from "../dist/node/controller.js";
+import { components as allComponents } from "../dist/node/components.js";
 import { plugin as info } from "../dist/node/index.js";
 import { DatabaseStatsRequest, DownloadRequest, UploadRequest } from "../dist/node/messages.js";
 
@@ -75,14 +76,15 @@ describe("player_sync controller", function() {
 				.playerData;
 		}
 
-		it("should store the upload as is when everything is synced", async function() {
+		it("should store the upload as is when it has no components", async function() {
 			const playerData = { generation: 2, name: "test", force: "enemy", tag: "uploaded" };
 			assert.deepEqual(await upload(playerData), playerData);
 		});
-		it("should keep stored fields the uploading instance does not sync", async function() {
-			disabled = ["force"];
+		it("should merge by the payload's components and ignore the instance config", async function() {
+			disabled = ["appearance"];
+			const components = Object.fromEntries(Object.keys(allComponents).map(c => [c, c !== "force"]));
 			assert.deepEqual(
-				await upload({ generation: 2, name: "test", tag: "uploaded" }),
+				await upload({ generation: 2, name: "test", tag: "uploaded", components }),
 				{ generation: 2, name: "test", force: "player", tag: "uploaded" },
 			);
 		});
