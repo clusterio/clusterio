@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { Controller, HostRecord, InstanceRecord, UserRecord } from "@clusterio/controller";
@@ -55,6 +57,35 @@ describe("controller/src/Controller", function() {
 				assert(list.check(ip), `${ip} missing from list`);
 			}
 		}
+		describe(".loadJsonObject()", function() {
+			let dir;
+			before(async function() {
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-load-json-"));
+				await fs.writeFile(path.join(dir, "valid.json"), JSON.stringify({ "main.js": "main.123.js" }));
+				await fs.writeFile(path.join(dir, "invalid.json"), "{ not json");
+			});
+			after(async function() {
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			it("should parse an existing file", async function() {
+				assert.deepEqual(
+					await Controller.loadJsonObject(path.join(dir, "valid.json")),
+					{ "main.js": "main.123.js" },
+				);
+			});
+			it("should return an empty object for a missing file by default", async function() {
+				assert.deepEqual(await Controller.loadJsonObject(path.join(dir, "missing.json")), {});
+			});
+			it("should throw for a missing file when throwOnMissing is set", async function() {
+				await assert.rejects(
+					Controller.loadJsonObject(path.join(dir, "missing.json"), true),
+					{ code: "ENOENT" },
+				);
+			});
+			it("should throw for invalid JSON", async function() {
+				await assert.rejects(Controller.loadJsonObject(path.join(dir, "invalid.json")), SyntaxError);
+			});
+		});
 		describe(".serveWeb()", function() {
 			let server, port;
 			before(async function() {
