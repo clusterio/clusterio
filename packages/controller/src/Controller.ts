@@ -842,7 +842,7 @@ export default class Controller {
 		try {
 			manifest = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
-			if (throwOnMissing && err.code !== "ENOENT") {
+			if (throwOnMissing || err.code !== "ENOENT") {
 				throw err;
 			}
 		}
