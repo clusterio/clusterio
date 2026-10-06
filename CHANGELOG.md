@@ -47,7 +47,6 @@ Many thanks to the following for contributing to this release:
 
 ### Fixes
 
-- A plugin whose web build is expected but missing is reported again: `Controller.loadJsonObject(path, true)` throws on a missing file instead of returning `{}`, and a malformed JSON file always throws. [#1046](<https://github.com/clusterio/clusterio/issues/1046>)
 - Allow player online autosave slots to be disabled while autosaves are enabled. [#966](<https://github.com/clusterio/clusterio/issues/966>)
 - Silenced two Ant Design console warnings in the Web UI: the deprecated Modal `destroyOnClose` prop, and a duplicate-value warning from the instance version selector. [#940](<https://github.com/clusterio/clusterio/pull/940>)
 - Surface the mod portal's own error when downloading mods for an unsupported Factorio version. [#941](<https://github.com/clusterio/clusterio/pull/941>)
