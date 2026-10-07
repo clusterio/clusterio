@@ -16,7 +16,7 @@ export async function configToKeyVal(data: string) {
 	for (let index in filtered) {
 		if (index in filtered) {
 			let split = filtered[index].split("=");
-			let finalIndex = filtered[index][0].trim();
+			let finalIndex = split[0].trim();
 			// split on the = we added earlier, giving us both value and key
 			let part = "";
 			try {
