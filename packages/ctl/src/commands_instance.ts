@@ -156,7 +156,7 @@ instanceConfigCommands.add(new lib.Command({
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
-							  Try "ctl controller config edit <editor of choice>"`);
+							  Try "ctl instance config edit <editor of choice>"`);
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
 		let allConfigElements = serializedConfigToString(
