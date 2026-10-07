@@ -219,7 +219,7 @@ hostConfigCommands.add(new lib.Command({
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
-							  Try "ctl controller config edit <editor of choice>"`);
+							  Try "ctl host config edit <editor of choice>"`);
 		}
 		let disallowedList = {"host.id": 0};
 		let allConfigElements = serializedConfigToString(
