@@ -552,6 +552,57 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe(".checkLinkPermissions()", function() {
+			class DenyingUser {
+				constructor(denied) {
+					this.denied = denied;
+				}
+
+				checkPermission(permission) {
+					if (permission === this.denied) {
+						throw new lib.PermissionError("Permission denied");
+					}
+				}
+			}
+			beforeEach(async function() {
+				subscriptions.handle(StringPermissionEvent);
+				subscriptions.handle(FunctionPermissionEvent);
+				for (const connectorData of connectorSetupDate) {
+					for (const Event of [StringPermissionEvent, FunctionPermissionEvent]) {
+						const request = new lib.SubscriptionRequest(Event.name, "subscribe");
+						await subscriptions.handleRequest(getLink(connectorData.id), request, connectorData.dst);
+					}
+				}
+			});
+
+			it("should remove subscriptions with a string permission the user lost", async function() {
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser("StringPermission"));
+				subscriptions.broadcast(new StringPermissionEvent());
+				await onceConnectorSend(1);
+				assertNoEvent(0);
+				subscriptions.broadcast(new FunctionPermissionEvent());
+				await onceConnectorSend(0);
+				assertLastEvent(0, FunctionPermissionEvent);
+			});
+
+			it("should remove subscriptions with a function permission the user lost", async function() {
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser("FunctionPermission"));
+				subscriptions.broadcast(new FunctionPermissionEvent());
+				await onceConnectorSend(1);
+				assertNoEvent(0);
+				subscriptions.broadcast(new StringPermissionEvent());
+				await onceConnectorSend(0);
+				assertLastEvent(0, StringPermissionEvent);
+			});
+
+			it("should keep subscriptions the user still has permission for", async function() {
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser(null));
+				subscriptions.broadcast(new StringPermissionEvent());
+				await onceConnectorSend(0);
+				assertLastEvent(0, StringPermissionEvent);
+			});
+		});
+
 		describe(".handleRequest()", function() {
 			beforeEach(function() {
 				subscriptions.handle(RegisteredEvent);
