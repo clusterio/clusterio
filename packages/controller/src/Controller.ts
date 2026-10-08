@@ -1086,6 +1086,7 @@ export default class Controller {
 	userPermissionsUpdated(user: Readonly<User>) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
+				this.subscriptions.unsubscribeUnpermitted(controlConnection, user);
 				controlConnection.send(
 					new lib.AccountUpdateEvent([...user.roles].map(r => ({
 						name: r.name,
@@ -1104,6 +1105,7 @@ export default class Controller {
 		for (const role of roles) {
 			for (let controlConnection of this.wsServer.controlConnections.values()) {
 				if (controlConnection.user.roles.has(role)) {
+					this.subscriptions.unsubscribeUnpermitted(controlConnection, controlConnection.user);
 					controlConnection.send(
 						new lib.AccountUpdateEvent(
 							[...controlConnection.user.roles].map(r => ({

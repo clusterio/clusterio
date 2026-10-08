@@ -261,6 +261,31 @@ describe("controller/src/Controller", function() {
 			});
 		});
 
+		describe("permission changes", function() {
+			let role, connection, checked, originalWsServer;
+			beforeEach(function() {
+				role = new Role(1, "Test", "", new Set());
+				const user = { roles: new Set([role]) };
+				connection = { user, send() {} };
+				originalWsServer = controller.wsServer;
+				controller.wsServer = { controlConnections: new Map([[1, connection]]) };
+				checked = [];
+				controller.subscriptions.unsubscribeUnpermitted = (link, linkUser) => checked.push([link, linkUser]);
+			});
+			afterEach(function() {
+				controller.wsServer = originalWsServer;
+				delete controller.subscriptions.unsubscribeUnpermitted;
+			});
+			it("should recheck subscriptions when a user's permissions change", function() {
+				controller.userPermissionsUpdated(connection.user);
+				assert.deepEqual(checked, [[connection, connection.user]]);
+			});
+			it("should recheck subscriptions of users with an updated role", function() {
+				controller.rolesUpdated([role]);
+				assert.deepEqual(checked, [[connection, connection.user]]);
+			});
+		});
+
 		describe(".instances", function() {
 			it("should set the dirty flag if the config is updated", function() {
 				controller.instances.records.dirty = false;

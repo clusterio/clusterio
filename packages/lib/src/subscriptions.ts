@@ -330,6 +330,31 @@ export class SubscriptionController {
 	}
 
 	/**
+	 * Unsubscribe a link from all events the user no longer has permission to subscribe to.
+	 * Used when the permissions of a user changes.
+	 * @param link - Link to check the subscriptions of.
+	 * @param user - User the link is authenticated as.
+	 */
+	unsubscribeUnpermitted(link: Link, user: IUser) {
+		for (const [eventName, eventData] of this._events) {
+			for (const [addressIndex, subscriber] of eventData.subscriptions) {
+				if (subscriber.link !== link) {
+					continue;
+				}
+				const request = new SubscriptionRequest(eventName, "subscribe", 0, subscriber.filters);
+				const message = new MessageRequest(
+					0, subscriber.address, new Address(Address.controller, 0), "SubscriptionRequest", request.toJSON(),
+				);
+				try {
+					SubscriptionRequest.permission(user, message);
+				} catch {
+					eventData.subscriptions.delete(addressIndex);
+				}
+			}
+		}
+	}
+
+	/**
 	 * Handle incoming subscription requests on a link
 	 * @param link - Link message was received on
 	 * @param request - incoming request.
