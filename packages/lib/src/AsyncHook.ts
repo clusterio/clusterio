@@ -111,7 +111,7 @@ export class AsyncHook<
 	 *
 	 * Returns all successful results.
 	 */
-	async collect(...args: Args): Promise<Result[]> {
+	async collect(...args: Args): Promise<Exclude<Awaited<Result>, void>[]> {
 		const results = await Promise.all(
 			[...this._handlers.entries()].map(
 				([name, handler]) => this._invokeHandler(name, handler, args)
@@ -119,7 +119,7 @@ export class AsyncHook<
 		);
 
 		return results.filter(
-			(result): result is Awaited<Result> => result !== undefined
+			(result): result is Exclude<Awaited<Result>, void> => result !== undefined
 		);
 	}
 
