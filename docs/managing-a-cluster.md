@@ -5,7 +5,7 @@ This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` s
 Mandatory parameters are shown in `<angles bracket>` and optional pameters are in `[square brackets]`.
 
 Before `clusterioctl` can be used it needs to be configured for the cluster it will connect to.
-The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-control.json` for managing the cluster as the given user.
+The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-ctl.json` for managing the cluster as the given user.
 
 
 ## Hosts

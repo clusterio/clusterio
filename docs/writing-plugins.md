@@ -7,7 +7,7 @@ Each entrypoint of a plugin exports a function that attaches handlers to hooks c
 ## Contents
 
 - [Plugin Structure](#plugin-structure)
-- [Defining the plugin class](#defining-the-plugin-class)
+- [Defining the plugin entrypoint](#defining-the-plugin-entrypoint)
 - [Logging Messages](#logging-messages)
 - [Plugin Configuration](#plugin-configuration)
 - [Plugin Permissions](#plugin-permissions)
@@ -162,6 +162,7 @@ For TypeScript the context types are exported as `ControllerPluginContext`, `Hos
 
 Plugins written as classes deriving from `BaseControllerPlugin`, `BaseHostPlugin`, `BaseInstancePlugin`, `BaseCtlPlugin` or `BaseWebPlugin` still load, but this way of defining plugins is deprecated and a warning is logged when such a plugin is loaded.
 The base class constructor attaches the `on*` methods overridden by the plugin to the corresponding hooks, and the async `init` method is called immediately after.
+See [Migrating Plugins to 2.0](devs/plugin-migration-to-2.0.md) for how to convert them.
 
 
 ## Logging Messages
@@ -176,7 +177,7 @@ export default async function(context) {
 }
 ```
 
-Metadata covering which plugin and instance (for instance plugin classes) the log event happened on will automatically be attached to the log message.
+Metadata covering which plugin and instance (for instance entrypoints) the log event happened on will automatically be attached to the log message.
 
 The available levels are fatal, error, warn, audit, info, and verbose.
 These levels have roughly the following meanings:
@@ -226,7 +227,7 @@ declare module "@clusterio/lib" {
     }
 }
 
-export default {
+export const plugin = {
     ...
     controllerConfigFields: {
         "foo_frobber.level": {
@@ -288,7 +289,7 @@ declare module "@clusterio/lib" {
     }
 }
 
-export default {
+export const plugin = {
     ...
     permissions: [
         {
@@ -592,7 +593,7 @@ const fooMetric = new Counter(
 fooMetric.inc();
 ```
 
-This works for controller plugins, and the metric will be automatically available through the /metric HTTP endpoint.
+This works for controller plugins, and the metric will be automatically available through the /metrics HTTP endpoint.
 It's recommended that plugin metrics follow `clusterio_<plugin_name>_<metric_name>` as the naming scheme.
 
 For metrics that are per-instance, you must define an `instance_id` label and set it accordingly, for example:
@@ -656,26 +657,23 @@ const fooFrobberCommands = new CommandTree({
 Then commands are added to the the plugin's command tree:
 
 ```js
-import { messages } from "./index.js";
+import * as messages from "./messages.js";
 
 fooFrobberCommands.add(new Command({
     definition: ["frobnicate <type>", "Do frobnications", (yargs) => {
-        yargs.positional("level", {
+        yargs.positional("type", {
             describe: "type of frobnication", type: "string"
         });
     }],
     handler: async function(args, ctl) {
-        await info.messages.frobnicate.send(ctl, {
-            instance_name: "Console",
-            content: args.message,
-        });
+        await ctl.sendTo("controller", new messages.FrobnicateRequest(args.type));
     },
 }));
 ```
 
 For a command the `definition` is the arguments to pass to [yargs.command](http://yargs.js.org/docs/#api-reference-commandcmd-desc-builder-handler) (see also [yargs.positional](http://yargs.js.org/docs/#api-reference-positionalkey-opt) and [yargs.options](http://yargs.js.org/docs/#api-reference-optionskey-opt) for setting up positional and optional arguments to commands).
 The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Ctl` class of clusterioctl.
-Note that messages sent from clusterioctl needs to have `"control-controller"` as a part of the links array for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
+Note that messages sent from clusterioctl needs to have `"control"` as a part of `src` for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
 
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in the `addCommands` hook of the ctl entrypoint:
 

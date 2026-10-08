@@ -361,16 +361,16 @@ While we have considered alternatives since, transitioning to another solution w
 
 ### Breaking Changes
 
-🧾 Time Immemorial
+🧾 7th October 2026
 
-> We follow symver versioning for breaking changes.
-> In our alpha stage, we allow every alpha to contain breaking changes as long as their are documented and provide migration actions.
-> Once we enter beta, breaking changes will be more restricted.
+> From 2.0.0 onwards, major versions contain breaking changes for end users, while minor versions may contain breaking changes for the plugin API.
+> All breaking changes are documented in the changelog along with migration actions.
 
 We aim to be highly transparent with breaking changes and maintain compatibility with as many existing installations as possible.
-However, as we are currently in the alpha stage, things are unstable, and breaking changes occur frequently.
-As such, we have decided to document all breaking changes and provide migration steps where the changes are non-trivial.
-Once we enter the beta stage, we will implement stricter restrictions on breaking changes.
+During the alpha stage every alpha was allowed to contain breaking changes, as long as they were documented and provided migration actions.
+From 2.0 onwards changes which require action from people running a cluster, such as changes to configs, stored data or the command line, are held back for the next major version.
+Changes to the plugin API may still be made in minor versions.
+Plugin authors should check the changelog when a new minor version is released, non-trivial changes come with a migration guide such as [Migrating Plugins to 2.0](/docs/devs/plugin-migration-to-2.0.md).
 
 
 ### Distribution
