@@ -248,3 +248,23 @@ export async function createInstancePlugin(InstancePluginClass, info) {
 	await plugin.init();
 	return plugin;
 }
+
+export async function loadControllerPlugin(entrypoint, info) {
+	const controller = new MockController();
+	await entrypoint({ controller, metrics: {}, logger: new MockLogger(), plugin: info });
+	return controller;
+}
+
+export async function loadInstancePlugin(entrypoint, info) {
+	const instance = new MockInstance();
+	const host = new MockHost();
+	await entrypoint({ instance, host, logger: new MockLogger(), plugin: info });
+	return { instance, host };
+}
+
+export function getHandler(link, Class) {
+	if (link instanceof MockController) {
+		return link.handles.get(Class);
+	}
+	return link._requestHandlers.get(Class) ?? link._eventHandlers.get(Class);
+}

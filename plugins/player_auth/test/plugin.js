@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import * as mock from "../../../test/mock.js";
 
 import * as controller from "../dist/node/controller.js";
-import * as instance from "../dist/node/instance.js";
+import * as instancePlugin from "../dist/node/instance.js";
 import { plugin as info } from "../dist/node/index.js";
 import { FetchPlayerCodeRequest, SetVerifyCodeRequest, PlayerAuthServer } from "../dist/node/messages.js";
 import { testRoundTripJsonSerialisable, testMatrix } from "../../../test/common.js";
@@ -81,27 +81,54 @@ describe("player_auth", function() {
 			});
 		});
 
-		describe("ControllerPlugin", function() {
-			let controllerPlugin;
+		describe("entrypoint", function() {
+			let mockController;
 			let controllerUrl;
 			let endpoint;
+			let fetchPlayerCode;
+			let setVerifyCode;
+
+			// Adds a pending code for player through the request handlers
+			async function addPlayer(player, { timeout = 1, verifyCode } = {}) {
+				mockController.mockConfigEntries.set("player_auth.code_timeout", timeout);
+				try {
+					const { playerCode } = await fetchPlayerCode(new FetchPlayerCodeRequest(player));
+					if (verifyCode) {
+						await setVerifyCode(new SetVerifyCodeRequest(player, verifyCode));
+					}
+					return playerCode;
+				} finally {
+					mockController.mockConfigEntries.set("player_auth.code_timeout", 1);
+				}
+			}
+
+			function signVerifyToken(playerCode, verifyCode) {
+				return jwt.sign({
+					aud: "player_auth.verify_code",
+					player_code: playerCode,
+					verify_code: verifyCode,
+				}, Buffer.from("TestSecretDoNotUse", "base64"));
+			}
+
 			before(async function() {
-				controllerPlugin = await mock.createControllerPlugin(controller.ControllerPlugin, info);
-				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_length", 10);
-				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_timeout", 1);
-				controllerPlugin.controller.mockConfigEntries.set("player_auth.show_connect_address", true);
-				controllerUrl = await controllerPlugin.controller.startServer();
+				mockController = await mock.loadControllerPlugin(controller.default, info);
+				mockController.mockConfigEntries.set("player_auth.code_length", 10);
+				mockController.mockConfigEntries.set("player_auth.code_timeout", 1);
+				mockController.mockConfigEntries.set("player_auth.show_connect_address", true);
+				fetchPlayerCode = mock.getHandler(mockController, FetchPlayerCodeRequest);
+				setVerifyCode = mock.getHandler(mockController, SetVerifyCodeRequest);
+				controllerUrl = await mockController.startServer();
 			});
 			after(async function() {
-				if (controllerPlugin) {
-					await controllerPlugin.controller.stopServer();
+				if (mockController) {
+					await mockController.stopServer();
 				}
 			});
 
 			describe("/api/player_auth/servers", function() {
 				it("should return a list of running servers with player_auth loaded", async function() {
 					function addInstance(id, status, load, name, version, gamePort, host=1) {
-						controllerPlugin.controller.instances.records.set(id, {
+						mockController.instances.records.set(id, {
 							config: {
 								get(field) {
 									if (field === "player_auth.load_plugin") {
@@ -135,7 +162,7 @@ describe("player_auth", function() {
 					addInstance(8, "running", true, "invalid host", "1.1.8", 34197, 2);
 					addInstance(9, "running", true, "no version", undefined, 34197);
 
-					controllerPlugin.controller.hosts.set(1, {
+					mockController.hosts.set(1, {
 						publicAddress: "127.0.0.1",
 					});
 
@@ -170,15 +197,13 @@ describe("player_auth", function() {
 					}
 				});
 				it("should return invalid player_code if the code is expired", async function() {
-					let expiresMs = Date.now() - 1000;
-					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: null, expiresMs });
-					const result = await postJSON(endpoint, { player_code: "expired" });
+					const playerCode = await addPlayer("expired", { timeout: -1 });
+					const result = await postJSON(endpoint, { player_code: playerCode });
 					assert.deepEqual(await result.json(), { error: true, message: "invalid player_code" });
 				});
 				it("should return a verify code and token if code is valid", async function() {
-					let expiresMs = Date.now() + 1000;
-					controllerPlugin.players.set("valid", { playerCode: "valid", verifyCode: null, expiresMs });
-					const result = await postJSON(endpoint, { player_code: "valid" });
+					const playerCode = await addPlayer("valid");
+					const result = await postJSON(endpoint, { player_code: playerCode });
 					const body = await result.json();
 					assert.equal(typeof body.verify_code, "string");
 					assert.equal(typeof body.verify_token, "string");
@@ -232,61 +257,38 @@ describe("player_auth", function() {
 					await verify({ aud: "not_player_auth" });
 				});
 				it("should return invalid player_code if the code is expired", async function() {
-					let expiresMs = Date.now() - 1000;
-					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: "verify", expiresMs });
+					const playerCode = await addPlayer("expired", { timeout: -1 });
 					const result = await postJSON(endpoint, {
-						player_code: "expired",
+						player_code: playerCode,
 						verify_code: "verify",
-						verify_token: jwt.sign({
-							aud: "player_auth.verify_code",
-							player_code: "expired",
-							verify_code: "verify",
-						}, Buffer.from("TestSecretDoNotUse", "base64")),
+						verify_token: signVerifyToken(playerCode, "verify"),
 					});
 					assert.deepEqual(await result.json(), { error: true, message: "invalid player_code" });
 				});
 				it("should return verified false if verify code has not yet been set", async function() {
-					let expiresMs = Date.now() + 1000;
-					controllerPlugin.players.set(
-						"unverified",
-						{ playerCode: "unverified", verifyCode: null, expiresMs },
-					);
+					const playerCode = await addPlayer("unverified");
 					const result = await postJSON(endpoint, {
-						player_code: "unverified",
+						player_code: playerCode,
 						verify_code: "verify",
-						verify_token: jwt.sign({
-							aud: "player_auth.verify_code",
-							player_code: "unverified",
-							verify_code: "verify",
-						}, Buffer.from("TestSecretDoNotUse", "base64")),
+						verify_token: signVerifyToken(playerCode, "verify"),
 					});
 					assert.deepEqual(await result.json(), { verified: false });
 				});
 				it("should return error if user is missing", async function() {
-					let expiresMs = Date.now() + 1000;
-					controllerPlugin.players.set("missing", { playerCode: "missing", verifyCode: "verify", expiresMs });
+					const playerCode = await addPlayer("missing", { verifyCode: "verify" });
 					const result = await postJSON(endpoint, {
-						player_code: "missing",
+						player_code: playerCode,
 						verify_code: "verify",
-						verify_token: jwt.sign({
-							aud: "player_auth.verify_code",
-							player_code: "missing",
-							verify_code: "verify",
-						}, Buffer.from("TestSecretDoNotUse", "base64")),
+						verify_token: signVerifyToken(playerCode, "verify"),
 					});
 					assert.deepEqual(await result.json(), { error: true, message: "invalid user" });
 				});
 				it("should return verified true with token if valid verification", async function() {
-					let expiresMs = Date.now() + 1000;
-					controllerPlugin.players.set("player", { playerCode: "player", verifyCode: "verify", expiresMs });
+					const playerCode = await addPlayer("player", { verifyCode: "verify" });
 					const result = await postJSON(endpoint, {
-						player_code: "player",
+						player_code: playerCode,
 						verify_code: "verify",
-						verify_token: jwt.sign({
-							aud: "player_auth.verify_code",
-							player_code: "player",
-							verify_code: "verify",
-						}, Buffer.from("TestSecretDoNotUse", "base64")),
+						verify_token: signVerifyToken(playerCode, "verify"),
 					});
 					const body = await result.json();
 					assert.equal(body.verified, true);
@@ -294,35 +296,37 @@ describe("player_auth", function() {
 				});
 			});
 
-			describe(".handleFetchPlayerCodeRequest()", function() {
+			describe("FetchPlayerCodeRequest handler", function() {
 				it("should return a code", async function() {
-					let result = await controllerPlugin.handleFetchPlayerCodeRequest(
-						new FetchPlayerCodeRequest("test")
-					);
+					let result = await fetchPlayerCode(new FetchPlayerCodeRequest("test"));
 					assert(typeof result.playerCode === "string", "no code returned");
 					assert(result.playerCode.length === 10, "incorrect code length returned");
-					let expiresMs = controllerPlugin.players.get("test").expiresMs;
-					let msFromExpected = Math.abs(expiresMs - Date.now() - 1000);
-					assert(msFromExpected < 100, `expiry time expected outside window (${msFromExpected}ms)`);
+					assert.equal(result.controllerUrl, "http://controller.example/");
+				});
+				it("should expire the code after the timeout", async function() {
+					const start = Date.now();
+					const playerCode = await addPlayer("test", { timeout: 10 });
+					const end = Date.now();
+					const result = await postJSON(
+						`${controllerUrl}/api/player_auth/player_code`, { player_code: playerCode }
+					);
+					const { exp } = jwt.decode((await result.json()).verify_token);
+					assert(exp >= Math.floor((start + 10e3) / 1000), "expiry before expected window");
+					assert(exp <= Math.floor((end + 10e3) / 1000), "expiry after expected window");
 				});
 			});
 
-			describe(".handleSetVerifyCodeRequest()", function() {
+			describe("SetVerifyCodeRequest handler", function() {
 				it("should throw if player does not exist", async function() {
 					await assert.rejects(
-						controllerPlugin.handleSetVerifyCodeRequest(
-							new SetVerifyCodeRequest("invalid", "invalid")
-						),
+						setVerifyCode(new SetVerifyCodeRequest("invalid", "invalid")),
 						new lib.RequestError("invalid player")
 					);
 				});
 				it("should throw if player code has expired", async function() {
-					let expiresMs = Date.now() - 1000;
-					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: null, expiresMs });
+					await addPlayer("expired", { timeout: -1 });
 					await assert.rejects(
-						controllerPlugin.handleSetVerifyCodeRequest(
-							new SetVerifyCodeRequest("expired", "expired")
-						),
+						setVerifyCode(new SetVerifyCodeRequest("expired", "expired")),
 						new lib.RequestError("invalid player")
 					);
 				});
@@ -330,10 +334,7 @@ describe("player_auth", function() {
 
 			describe("integration", function() {
 				it("should verify a full login flow", async function() {
-					let app = controllerPlugin.controller.app;
-					let { playerCode } = await controllerPlugin.handleFetchPlayerCodeRequest(
-						new FetchPlayerCodeRequest("test")
-					);
+					let { playerCode } = await fetchPlayerCode(new FetchPlayerCodeRequest("test"));
 
 					const playerCodeResult = await postJSON(
 						`${controllerUrl}/api/player_auth/player_code`,
@@ -341,12 +342,10 @@ describe("player_auth", function() {
 					);
 
 					let { verify_code, verify_token } = await playerCodeResult.json();
-					await controllerPlugin.handleSetVerifyCodeRequest(
-						new SetVerifyCodeRequest("test", verify_code)
-					);
+					await setVerifyCode(new SetVerifyCodeRequest("test", verify_code));
 
-					const user = controllerPlugin.controller.users.getByName("test");
-					const token = controllerPlugin.controller.users.signUserToken(user);
+					const user = mockController.users.getByName("test");
+					const token = mockController.users.signUserToken(user);
 					const verifyResult = await postJSON(
 						`${controllerUrl}/api/player_auth/verify`,
 						{ player_code: playerCode, verify_code, verify_token }
@@ -359,76 +358,78 @@ describe("player_auth", function() {
 	});
 
 	describe("instance.js", function() {
-		describe("class InstancePlugin", function() {
-			let instancePlugin;
+		describe("entrypoint", function() {
+			let instance;
+			let host;
 			before(async function() {
-				instancePlugin = await mock.createInstancePlugin(instance.InstancePlugin, info);
+				try {
+					lib.registerPluginMessages([info]);
+				} catch (err) {
+					// Already registered by the full test suite
+				}
+				({ instance, host } = await mock.loadInstancePlugin(instancePlugin.default, info));
 			});
 
-			describe(".handleEvent()", async function() {
-				describe("open_dialog", async function() {
+			// Emits an ipc-player_auth event and returns the first RCON command it sent
+			async function emitIpc(event) {
+				instance.server.reset();
+				instance.server.emit("ipc-player_auth", event);
+				while (!instance.server.rconCommands.length) {
+					await new Promise(resolve => setImmediate(resolve));
+				}
+				return instance.server.rconCommands[0];
+			}
+
+			describe("ipc-player_auth", function() {
+				describe("open_dialog", function() {
 					it("should call /web-login error if not connected to controller", async function() {
-						instancePlugin.instance.server.reset();
-						instancePlugin.host.connector.connected = false;
-						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
-						let command = instancePlugin.instance.server.rconCommands[0];
-						instancePlugin.host.connector.connected = true;
+						host.connector.connected = false;
+						let command = await emitIpc({ type: "open_dialog", player: "test" });
+						host.connector.connected = true;
 						assert.equal(command, "/web-login error test login is temporarily unavailable");
 					});
 					it("should call /web-login error after error from the controller", async function() {
-						instancePlugin.instance.server.reset();
-						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message",
+						instance.connector.once("send", message => {
+							instance.connector.emit("message",
 								new lib.MessageResponseError(1, message.dst, message.src,
 									new lib.ResponseError("controller error")
 								)
 							);
 						});
-						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
-						let command = instancePlugin.instance.server.rconCommands[0];
+						let command = await emitIpc({ type: "open_dialog", player: "test" });
 						assert.equal(command, "/web-login error test controller error");
 					});
 					it("should call /web-login open after a valid response from the controller", async function() {
-						instancePlugin.instance.server.reset();
-						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message",
+						instance.connector.once("send", message => {
+							instance.connector.emit("message",
 								new lib.MessageResponse(1, message.dst, message.src,
 									new FetchPlayerCodeRequest.Response("code", "controller-url")
 								)
 							);
 						});
-						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
-						let command = instancePlugin.instance.server.rconCommands[0];
+						let command = await emitIpc({ type: "open_dialog", player: "test" });
 						assert.equal(command, "/web-login open test controller-url code");
 					});
 				});
-				describe("open_dialog", async function() {
+				describe("set_verify_code", function() {
 					it("should call /web-login code_set after a valid response from the controller", async function() {
-						instancePlugin.instance.server.reset();
-						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message",
+						instance.connector.once("send", message => {
+							instance.connector.emit("message",
 								new lib.MessageResponse(1, message.dst, message.src)
 							);
 						});
-						await instancePlugin.handleEvent(
-							{ type: "set_verify_code", player: "test", verify_code: "verify" }
-						);
-						let command = instancePlugin.instance.server.rconCommands[0];
+						let command = await emitIpc({ type: "set_verify_code", player: "test", verify_code: "verify" });
 						assert.equal(command, "/web-login code_set test");
 					});
 					it("should call /web-login error after error from the controller", async function() {
-						instancePlugin.instance.server.reset();
-						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message",
+						instance.connector.once("send", message => {
+							instance.connector.emit("message",
 								new lib.MessageResponseError(1, message.dst, message.src,
 									new lib.ResponseError("controller error")
 								)
 							);
 						});
-						await instancePlugin.handleEvent(
-							{ type: "set_verify_code", player: "test", verify_code: "verify" }
-						);
-						let command = instancePlugin.instance.server.rconCommands[0];
+						let command = await emitIpc({ type: "set_verify_code", player: "test", verify_code: "verify" });
 						assert.equal(command, "/web-login error test controller error");
 					});
 				});

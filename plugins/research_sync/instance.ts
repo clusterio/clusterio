@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { BaseInstancePlugin } from "@clusterio/host";
+import type { InstancePluginContext } from "@clusterio/host";
 import {
 	ContributionEvent,
 	ProgressEvent,
@@ -19,54 +19,57 @@ type IpcFinished = {
 	level: number,
 };
 
-export class InstancePlugin extends BaseInstancePlugin {
-	syncStarted!: boolean;
+export default async function(context: InstancePluginContext) {
+	const { instance, logger, plugin } = context;
+	let syncStarted = false;
 
-	unexpectedError(err: Error) {
-		this.logger.error(`Unexpected error:\n${err.stack}`);
+	// Commands are sent one at a time so they execute in order
+	let rconQueue: Promise<unknown> = Promise.resolve();
+	function sendOrderedRcon(message: string, expectEmpty = false) {
+		const result = rconQueue.then(() => instance.sendRcon(message, expectEmpty, plugin.name));
+		rconQueue = result.catch(() => {});
+		return result;
 	}
 
-	async init() {
-		this.instance.server.on("ipc-research_sync:contribution", (tech: IpcContribution) => {
-			this.researchContribution(tech).catch(err => this.unexpectedError(err));
-		});
-		this.instance.server.on("ipc-research_sync:finished", (tech: IpcFinished) => {
-			this.researchFinished(tech).catch(err => this.unexpectedError(err));
-		});
-
-		this.syncStarted = false;
-		this.instance.handle(ProgressEvent, this.handleProgressEvent.bind(this));
-		this.instance.handle(FinishedEvent, this.handleFinishedEvent.bind(this));
+	function unexpectedError(err: Error) {
+		logger.error(`Unexpected error:\n${err.stack}`);
 	}
 
-	async researchContribution(tech: IpcContribution) {
-		this.instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
+	async function researchContribution(tech: IpcContribution) {
+		instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
 	}
 
-	async handleProgressEvent(event: ProgressEvent) {
-		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
+	async function researchFinished(tech: IpcFinished) {
+		instance.sendTo("controller", new FinishedEvent(tech.name, tech.level));
+	}
+
+	instance.server.on("ipc-research_sync:contribution", (tech: IpcContribution) => {
+		researchContribution(tech).catch(err => unexpectedError(err));
+	});
+	instance.server.on("ipc-research_sync:finished", (tech: IpcFinished) => {
+		researchFinished(tech).catch(err => unexpectedError(err));
+	});
+
+	instance.handle(ProgressEvent, async (event: ProgressEvent) => {
+		if (!syncStarted || !["starting", "running"].includes(instance.status)) {
 			return;
 		}
 		let techsJson = lib.escapeString(JSON.stringify(event.technologies));
-		await this.sendOrderedRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
-	}
+		await sendOrderedRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
+	});
 
-	async researchFinished(tech: IpcFinished) {
-		this.instance.sendTo("controller", new FinishedEvent(tech.name, tech.level));
-	}
-
-	async handleFinishedEvent(event: FinishedEvent) {
-		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
+	instance.handle(FinishedEvent, async (event: FinishedEvent) => {
+		if (!syncStarted || !["starting", "running"].includes(instance.status)) {
 			return;
 		}
 		let { name, level } = event;
-		await this.sendOrderedRcon(
+		await sendOrderedRcon(
 			`/sc research_sync.research_technology("${lib.escapeString(name)}", ${level})`, true
 		);
-	}
+	});
 
-	async onStart() {
-		let dumpJson = await this.sendOrderedRcon("/sc research_sync.dump_technologies()");
+	instance.hooks.start.attach(plugin.name, async () => {
+		let dumpJson = await sendOrderedRcon("/sc research_sync.dump_technologies()");
 		let techsToSend = [];
 		let instanceTechs = new Map();
 		for (let tech of JSON.parse(dumpJson)) {
@@ -79,8 +82,8 @@ export class InstancePlugin extends BaseInstancePlugin {
 			instanceTechs.set(tech.name, tech);
 		}
 
-		let controllerTechs = await this.instance.sendTo("controller", new SyncTechnologiesRequest(techsToSend));
-		this.syncStarted = true;
+		let controllerTechs = await instance.sendTo("controller", new SyncTechnologiesRequest(techsToSend));
+		syncStarted = true;
 		let techsToSync = [];
 		for (let controllerTech of controllerTechs) {
 			let { name, level, progress, researched } = controllerTech;
@@ -97,7 +100,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 
 		if (techsToSync.length) {
 			let syncJson = lib.escapeString(JSON.stringify(techsToSync));
-			await this.sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
+			await sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
 		}
-	}
+	});
 }

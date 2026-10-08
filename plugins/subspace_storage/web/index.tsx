@@ -1,41 +1,99 @@
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Table } from "antd";
 
 import {
-	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext, notifyErrorHandler,
+	PageLayout, PageHeader, Control, notifyErrorHandler,
 	useExportLocale, useExportPrototypeMetadata, useDefaultModPack, FactorioIcon,
-	useTableQueryState, useColumnSearch,
+	useTableQueryState, useColumnSearch, type WebPluginContext,
 } from "@clusterio/web_ui";
 import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages.js";
 
 import "./style.css";
 
 
-function useStorage(control: Control) {
-	let plugin = control.plugins.get("subspace_storage") as WebPlugin;
-	let [storage, setStorage] = useState([...plugin.storage]);
+class StorageSubscriber {
+	storage = new Map<string, Item>();
+	callbacks: (() => void)[] = [];
+
+	constructor(
+		private control: Control,
+	) { }
+
+	onUpdate(callback: () => void) {
+		this.callbacks.push(callback);
+		if (this.callbacks.length) {
+			this.updateSubscription();
+		}
+	}
+
+	offUpdate(callback: () => void) {
+		let index = this.callbacks.lastIndexOf(callback);
+		if (index === -1) {
+			throw new Error("callback is not registered");
+		}
+
+		this.callbacks.splice(index, 1);
+		if (!this.callbacks.length) {
+			this.updateSubscription();
+		}
+	}
+
+	updateStorage(items: Item[]) {
+		for (let item of items) {
+			this.storage.set(`${item.name}:${item.quality}`, item);
+		}
+		for (let callback of this.callbacks) {
+			callback();
+		}
+	}
+
+	updateSubscription() {
+		if (!this.control.connector.connected) {
+			return;
+		}
+
+		this.control.send(
+			new SetStorageSubscriptionRequest(Boolean(this.callbacks.length))
+		).catch(notifyErrorHandler("Error subscribing to storage"));
+
+		if (this.callbacks.length) {
+			this.control.send(new GetStorageRequest()).then(
+				items => {
+					this.updateStorage(items);
+				}
+			).catch(notifyErrorHandler("Error updating storage"));
+		} else {
+			this.storage.clear();
+		}
+	}
+}
+
+// Created when the plugin is loaded, before any page is rendered
+let storageSubscriber: StorageSubscriber;
+
+function useStorage() {
+	let [storage, setStorage] = useState([...storageSubscriber.storage]);
 
 	useEffect(() => {
 		function update() {
-			setStorage([...plugin.storage]);
+			setStorage([...storageSubscriber.storage]);
 		}
 
-		plugin.onUpdate(update);
+		storageSubscriber.onUpdate(update);
 		return () => {
-			plugin.offUpdate(update);
+			storageSubscriber.offUpdate(update);
 		};
 	}, []);
 	return storage;
 }
 
 function StoragePage() {
-	let control = useContext(ControlContext);
 	const modPack = useDefaultModPack();
 	let locale = useExportLocale(modPack);
 	const prototypes = useExportPrototypeMetadata(modPack);
 	let itemMetadata = prototypes?.get("item");
 	let fluidMetadata = prototypes?.get("fluid");
-	let storage = useStorage(control);
+	let storage = useStorage();
 	const tableState = useTableQueryState<[string, Item]>({
 		namespace: "storage", defaultSortKey: "quantity", defaultSortOrder: "descend", pagination: false,
 	});
@@ -136,77 +194,26 @@ function StoragePage() {
 	</PageLayout>;
 }
 
-export class WebPlugin extends BaseWebPlugin {
-	storage = new Map<string, Item>();
-	callbacks: (() => void)[] = [];
+export default async function(context: WebPluginContext) {
+	const { control, plugin } = context;
+	storageSubscriber = new StorageSubscriber(control);
 
-	async init() {
-		this.pages = [
-			{
-				path: "/storage",
-				sidebarName: "Storage",
-				permission: "subspace_storage.storage.view",
-				content: <StoragePage/>,
-			},
-		];
-		this.control.handle(UpdateStorageEvent, this.handleUpdateStorageEvent.bind(this));
-	}
+	control.hooks.pages.attach(plugin.name, () => [
+		{
+			path: "/storage",
+			sidebarName: "Storage",
+			permission: "subspace_storage.storage.view",
+			content: <StoragePage/>,
+		},
+	]);
 
-	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
+	control.handle(UpdateStorageEvent, async (event: UpdateStorageEvent) => {
+		storageSubscriber.updateStorage(event.items);
+	});
+
+	control.hooks.controllerConnectionEvent.attach(plugin.name, (event) => {
 		if (event === "connect") {
-			this.updateSubscription();
+			storageSubscriber.updateSubscription();
 		}
-	}
-
-	async handleUpdateStorageEvent(event: UpdateStorageEvent) {
-		this.updateStorage(event.items);
-	}
-
-	onUpdate(callback: () => void) {
-		this.callbacks.push(callback);
-		if (this.callbacks.length) {
-			this.updateSubscription();
-		}
-	}
-
-	offUpdate(callback: () => void) {
-		let index = this.callbacks.lastIndexOf(callback);
-		if (index === -1) {
-			throw new Error("callback is not registered");
-		}
-
-		this.callbacks.splice(index, 1);
-		if (!this.callbacks.length) {
-			this.updateSubscription();
-		}
-	}
-
-	updateStorage(items: Item[]) {
-		for (let item of items) {
-			this.storage.set(`${item.name}:${item.quality}`, item);
-		}
-		for (let callback of this.callbacks) {
-			callback();
-		}
-	}
-
-	updateSubscription() {
-		if (!this.control.connector.connected) {
-			return;
-		}
-
-		this.control.send(
-			new SetStorageSubscriptionRequest(Boolean(this.callbacks.length))
-		).catch(notifyErrorHandler("Error subscribing to storage"));
-
-		if (this.callbacks.length) {
-			this.control!.send(new GetStorageRequest()).then(
-				items => {
-					this.updateStorage(items);
-				}
-			).catch(notifyErrorHandler("Error updating storage"));
-		} else {
-			this.storage.clear();
-		}
-	}
+	});
 }

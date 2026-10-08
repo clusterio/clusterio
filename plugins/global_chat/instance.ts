@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { BaseInstancePlugin } from "@clusterio/host";
+import type { InstancePluginContext } from "@clusterio/host";
 import { ChatEvent } from "./messages.js";
 
 /**
@@ -12,41 +12,38 @@ function removeTags(content: string): string {
 	return content.replace(/\[(?:gps|special-item|train|train-stop)=\S*?\]/gm, "");
 }
 
-export class InstancePlugin extends BaseInstancePlugin {
-	messageQueue: string[] = [];
+export default async function(context: InstancePluginContext) {
+	const { instance, host, plugin } = context;
+	let messageQueue: string[] = [];
 
-	async init() {
-		this.instance.handle(ChatEvent, this.handleChatEvent.bind(this));
+	function sendChat(message: string) {
+		instance.sendTo("allInstances", new ChatEvent(instance.name, message));
 	}
 
-	onControllerConnectionEvent(event: string) {
-		if (event === "connect") {
-			for (let message of this.messageQueue) {
-				this.sendChat(message);
-			}
-			this.messageQueue = [];
-		}
-	}
-
-	async handleChatEvent(event: ChatEvent) {
+	instance.handle(ChatEvent, async (event: ChatEvent) => {
 		// TODO check if cross server chat is enabled
 		let content = `[${event.instanceName}] ${removeTags(event.content)}`;
-		await this.sendRcon(`/sc game.print('${lib.escapeString(content)}')`, true);
-	}
+		await instance.sendRcon(`/sc game.print('${lib.escapeString(content)}')`, true, plugin.name);
+	});
 
-	sendChat(message: string) {
-		this.instance.sendTo("allInstances", new ChatEvent(this.instance.name, message));
-	}
+	instance.hooks.controllerConnectionEvent.attach(plugin.name, (event) => {
+		if (event === "connect") {
+			for (let message of messageQueue) {
+				sendChat(message);
+			}
+			messageQueue = [];
+		}
+	});
 
-	async onOutput(output: lib.ParsedFactorioOutput) {
+	instance.hooks.output.attach(plugin.name, async (output) => {
 		if (output.type === "action" && output.action === "CHAT") {
-			if (this.host.connector.connected) {
-				this.sendChat(output.message);
+			if (host.connector.connected) {
+				sendChat(output.message);
 			} else {
-				this.messageQueue.push(output.message);
+				messageQueue.push(output.message);
 			}
 		}
-	}
+	});
 
 	// TODO implement info command in lua?
 }

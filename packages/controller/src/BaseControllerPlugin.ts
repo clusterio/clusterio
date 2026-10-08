@@ -125,7 +125,7 @@ export class ControllerHooks extends lib.AsyncHookCollection {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult>>;
+	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult> | void>;
 
 	/**
 	 * Called when the controller is shutting down

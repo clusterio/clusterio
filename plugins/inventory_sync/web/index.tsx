@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 
-import { BaseWebPlugin, PageLayout, PageHeader, ControlContext } from "@clusterio/web_ui";
+import { PageLayout, PageHeader, ControlContext, type WebPluginContext } from "@clusterio/web_ui";
 import { DatabaseStatsRequest, DatabaseStatsResponse } from "../messages.js";
 
 import "./style.css";
@@ -27,15 +27,15 @@ function InventoryPage() {
 	</PageLayout>;
 }
 
-export class WebPlugin extends BaseWebPlugin {
-	async init() {
-		this.pages = [
-			{
-				path: "/inventory",
-				sidebarName: "Inventory sync",
-				permission: "inventory_sync.inventory.view",
-				content: <InventoryPage />,
-			},
-		];
-	}
+export default async function(context: WebPluginContext) {
+	const { control, plugin } = context;
+
+	control.hooks.pages.attach(plugin.name, () => [
+		{
+			path: "/inventory",
+			sidebarName: "Inventory sync",
+			permission: "inventory_sync.inventory.view",
+			content: <InventoryPage />,
+		},
+	]);
 }

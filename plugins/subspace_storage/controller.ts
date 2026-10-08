@@ -1,4 +1,4 @@
-import { BaseControllerPlugin, type ControlConnection } from "@clusterio/controller";
+import type { ControlConnection, ControllerPluginContext } from "@clusterio/controller";
 
 import fs from "node:fs/promises";
 import path from "path";
@@ -70,58 +70,21 @@ async function saveDatabase(
 	}
 }
 
-export class ControllerPlugin extends BaseControllerPlugin {
-	items!: lib.ItemDatabase;
-	itemUpdateRateLimiter!: lib.RateLimiter;
-	itemsLastUpdate: Map<string, lib.ItemCountWithQuality> = new Map();
-	subscribedControlLinks!: Set<ControlConnection>;
-	doleMagicId!: ReturnType<typeof setInterval>;
-	neuralDole!: dole.NeuralDole;
-	storageDirty = false;
+export default async function(context: ControllerPluginContext) {
+	const { controller, logger, plugin } = context;
 
-	async init() {
-		this.items = await loadDatabase(this.controller.config, this.logger);
-		this.itemUpdateRateLimiter = new lib.RateLimiter({
-			maxRate: 1,
-			action: () => {
-				try {
-					this.broadcastStorage();
-				} catch (err: any) {
-					this.logger.error(`Unexpected error sending storage update:\n${err.stack}`);
-				}
-			},
-		});
-		this.itemsLastUpdate = new Map();
-		for (const [name, qualities] of this.items.getEntries()) {
-			this.itemsLastUpdate.set(name, { ...qualities });
-		}
-
-		this.neuralDole = new dole.NeuralDole({ items: this.items });
-		this.doleMagicId = setInterval(() => {
-			if (this.controller.config.get("subspace_storage.division_method") === "neural_dole") {
-				this.neuralDole.doMagic();
-			}
-		}, 1000);
-
-		this.subscribedControlLinks = new Set();
-
-		routes.addApiRoutes(this.controller.app, this.items);
-
-		this.controller.handle(GetStorageRequest, this.handleGetStorageRequest.bind(this));
-		this.controller.handle(PlaceEvent, this.handlePlaceEvent.bind(this));
-		this.controller.handle(RemoveRequest, this.handleRemoveRequest.bind(this));
-		this.controller.handle(SetStorageSubscriptionRequest, this.handleSetStorageSubscriptionRequest.bind(this));
+	const items = await loadDatabase(controller.config, logger);
+	let storageDirty = false;
+	let itemsLastUpdate = new Map<string, lib.ItemCountWithQuality>();
+	for (const [name, qualities] of items.getEntries()) {
+		itemsLastUpdate.set(name, { ...qualities });
 	}
+	const subscribedControlLinks = new Set<ControlConnection>();
 
-	updateStorage() {
-		this.itemUpdateRateLimiter.activate();
-		this.storageDirty = true;
-	}
-
-	broadcastStorage() {
+	function broadcastStorage() {
 		let itemsToUpdate: Item[] = [];
-		for (const [name, qualities] of this.items.getEntries()) {
-			const lastQualities = this.itemsLastUpdate.get(name);
+		for (const [name, qualities] of items.getEntries()) {
+			const lastQualities = itemsLastUpdate.get(name);
 			for (const [quality, count] of Object.entries(qualities)) {
 				if (!lastQualities || lastQualities[quality] !== count) {
 					itemsToUpdate.push(new Item(name, count, quality));
@@ -134,68 +97,93 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		let update = new UpdateStorageEvent(itemsToUpdate);
-		this.controller.sendTo("allInstances", update);
-		for (let link of this.subscribedControlLinks) {
+		controller.sendTo("allInstances", update);
+		for (let link of subscribedControlLinks) {
 			link.send(update);
 		}
 
-		this.itemsLastUpdate = new Map();
-		for (const [name, qualities] of this.items.getEntries()) {
-			this.itemsLastUpdate.set(name, { ...qualities });
+		itemsLastUpdate = new Map();
+		for (const [name, qualities] of items.getEntries()) {
+			itemsLastUpdate.set(name, { ...qualities });
 		}
 	}
 
-	async handleGetStorageRequest() {
+	const itemUpdateRateLimiter = new lib.RateLimiter({
+		maxRate: 1,
+		action: () => {
+			try {
+				broadcastStorage();
+			} catch (err: any) {
+				logger.error(`Unexpected error sending storage update:\n${err.stack}`);
+			}
+		},
+	});
+
+	function updateStorage() {
+		itemUpdateRateLimiter.activate();
+		storageDirty = true;
+	}
+
+	const neuralDole = new dole.NeuralDole({ items });
+	const doleMagicId = setInterval(() => {
+		if (controller.config.get("subspace_storage.division_method") === "neural_dole") {
+			neuralDole.doMagic();
+		}
+	}, 1000);
+
+	routes.addApiRoutes(controller.app, items);
+
+	controller.handle(GetStorageRequest, async () => {
 		const result: Item[] = [];
-		for (const [name, qualities] of this.items.getEntries()) {
+		for (const [name, qualities] of items.getEntries()) {
 			for (const [quality, count] of Object.entries(qualities)) {
 				result.push(new Item(name, count, quality));
 			}
 		}
 		return result;
-	}
+	});
 
-	async handlePlaceEvent(request: PlaceEvent, src: lib.Address) {
+	controller.handle(PlaceEvent, async (request: PlaceEvent, src: lib.Address) => {
 		let instanceId = src.id;
 
 		for (let item of request.items) {
-			this.items.addItem(item.name, item.count, item.quality || "normal");
+			items.addItem(item.name, item.count, item.quality || "normal");
 			exportCounter.labels(String(instanceId), item.name, item.quality || "normal").inc(item.count);
 		}
 
-		this.updateStorage();
+		updateStorage();
 
-		if (this.controller.config.get("subspace_storage.log_item_transfers")) {
-			this.logger.verbose(
+		if (controller.config.get("subspace_storage.log_item_transfers")) {
+			logger.verbose(
 				`Imported the following from ${instanceId}:\n${JSON.stringify(request.items)}`
 			);
 		}
-	}
+	});
 
-	async handleRemoveRequest(request: RemoveRequest, src: lib.Address) {
-		let method = this.controller.config.get("subspace_storage.division_method");
+	controller.handle(RemoveRequest, async (request: RemoveRequest, src: lib.Address) => {
+		let method = controller.config.get("subspace_storage.division_method");
 		let instanceId = src.id;
 
 		let itemsRemoved = [];
 		if (method === "simple") {
 			for (let item of request.items) {
 				const quality = item.quality || "normal";
-				let count = this.items.getItemCount(item.name, quality);
+				let count = items.getItemCount(item.name, quality);
 				let toRemove = Math.min(count, item.count);
 				if (toRemove > 0) {
-					this.items.removeItem(item.name, toRemove, quality);
+					items.removeItem(item.name, toRemove, quality);
 					itemsRemoved.push(new Item(item.name, toRemove, quality));
 				}
 			}
 		} else {
-			let instance = this.controller.instances.get(instanceId);
+			let instance = controller.instances.get(instanceId);
 			let instanceName = instance ? instance.config.get("instance.name") : "unknown";
 
 			// use fancy neural net to calculate a "fair" dole division rate.
 			if (method === "neural_dole") {
 				for (let item of request.items) {
 					const quality = item.quality || "normal";
-					let count = this.neuralDole.divider(
+					let count = neuralDole.divider(
 						{ name: item.name, quality, count: item.count, instanceId, instanceName }
 					);
 					if (count > 0) {
@@ -209,9 +197,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					const quality = item.quality || "normal";
 					let count = dole.doleDivider({
 						object: { name: item.name, quality, count: item.count, instanceId, instanceName },
-						items: this.items,
-						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers"),
-						logger: this.logger,
+						items,
+						logItemTransfers: controller.config.get("subspace_storage.log_item_transfers"),
+						logger,
 					});
 					if (count > 0) {
 						itemsRemoved.push(new Item(item.name, count, quality));
@@ -229,50 +217,51 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				importCounter.labels(String(instanceId), item.name, item.quality || "normal").inc(item.count);
 			}
 
-			this.updateStorage();
+			updateStorage();
 
-			if (itemsRemoved.length && this.controller.config.get("subspace_storage.log_item_transfers")) {
-				this.logger.verbose(`Exported the following to ${instanceId}:\n${JSON.stringify(itemsRemoved)}`);
+			if (itemsRemoved.length && controller.config.get("subspace_storage.log_item_transfers")) {
+				logger.verbose(`Exported the following to ${instanceId}:\n${JSON.stringify(itemsRemoved)}`);
 			}
 		}
 
 		return itemsRemoved;
-	}
+	});
 
-	async handleSetStorageSubscriptionRequest(request: SetStorageSubscriptionRequest, src: lib.Address) {
-		let link = this.controller.wsServer.controlConnections.get(src.id)!;
+	controller.handle(SetStorageSubscriptionRequest, async (
+		request: SetStorageSubscriptionRequest,
+		src: lib.Address,
+	) => {
+		let link = controller.wsServer.controlConnections.get(src.id)!;
 		if (request.storage) {
-			this.subscribedControlLinks.add(link);
+			subscribedControlLinks.add(link);
 		} else {
-			this.subscribedControlLinks.delete(link);
+			subscribedControlLinks.delete(link);
 		}
-	}
+	});
 
-	onControlConnectionEvent(connection: ControlConnection, event: string) {
+	controller.hooks.controlConnectionEvent.attach(plugin.name, (connection, event) => {
 		if (event === "close") {
-			this.subscribedControlLinks.delete(connection);
+			subscribedControlLinks.delete(connection);
 		}
-	}
+	});
 
-	async onMetrics() {
-		if (this.items) {
-			for (const [name, qualities] of this.items.getEntries()) {
-				for (const [quality, count] of Object.entries(qualities)) {
-					controllerInventoryGauge.labels(name, quality).set(Number(count) || 0);
-				}
+	controller.hooks.metrics.attach(plugin.name, async () => {
+		for (const [name, qualities] of items.getEntries()) {
+			for (const [quality, count] of Object.entries(qualities)) {
+				controllerInventoryGauge.labels(name, quality).set(Number(count) || 0);
 			}
 		}
-	}
+	});
 
-	async onShutdown() {
-		this.itemUpdateRateLimiter.cancel();
-		clearInterval(this.doleMagicId);
-	}
+	controller.hooks.shutdown.attach(plugin.name, async () => {
+		itemUpdateRateLimiter.cancel();
+		clearInterval(doleMagicId);
+	});
 
-	async onSaveData() {
-		if (this.storageDirty) {
-			this.storageDirty = false;
-			await saveDatabase(this.controller.config, this.items, this.logger);
+	controller.hooks.save.attach(plugin.name, async () => {
+		if (storageDirty) {
+			storageDirty = false;
+			await saveDatabase(controller.config, items, logger);
 		}
-	}
+	});
 }

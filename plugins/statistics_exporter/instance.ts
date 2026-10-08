@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { BaseInstancePlugin } from "@clusterio/host";
+import type { Instance, InstancePluginContext } from "@clusterio/host";
 
 import { Gauge } from "@clusterio/lib";
 
@@ -103,79 +103,81 @@ function setForceFlowStatistic(
 }
 
 
-export class InstancePlugin extends BaseInstancePlugin {
-	async gatherMetrics() {
-		let string = await this.sendRcon("/sc statistics_exporter.export()");
-		let stats: IpcStats;
-		try {
-			stats = JSON.parse(string);
-		} catch (err: any) {
-			throw new Error(`Error parsing statistics JSON: ${err.message}, content "${string}"`);
-		}
+export async function gatherMetrics(instance: Instance, pluginName: string) {
+	let string = await instance.sendRcon("/sc statistics_exporter.export()", false, pluginName);
+	let stats: IpcStats;
+	try {
+		stats = JSON.parse(string);
+	} catch (err: any) {
+		throw new Error(`Error parsing statistics JSON: ${err.message}, content "${string}"`);
+	}
 
-		let instanceId = this.instance.id;
-		instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
-		instancePlayerCount.labels(String(instanceId)).set(stats.player_count);
+	let instanceId = instance.id;
+	instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
+	instancePlayerCount.labels(String(instanceId)).set(stats.player_count);
 
-		// Remove existing platform mappings and stats for this instance
-		instancePlatformMapping.removeAll({ instance_id: String(instanceId) });
-		instancePlatformSpeed.removeAll({ instance_id: String(instanceId) });
-		instancePlatformWeight.removeAll({ instance_id: String(instanceId) });
+	// Remove existing platform mappings and stats for this instance
+	instancePlatformMapping.removeAll({ instance_id: String(instanceId) });
+	instancePlatformSpeed.removeAll({ instance_id: String(instanceId) });
+	instancePlatformWeight.removeAll({ instance_id: String(instanceId) });
 
-		// Set new platform mappings and stats
-		for (let [platformName, platform] of Object.entries(stats.platforms)) {
-			instancePlatformMapping.labels(
-				String(instanceId),
-				platformName,
-				platform.force,
-				platform.surface
-			).set(1);
+	// Set new platform mappings and stats
+	for (let [platformName, platform] of Object.entries(stats.platforms)) {
+		instancePlatformMapping.labels(
+			String(instanceId),
+			platformName,
+			platform.force,
+			platform.surface
+		).set(1);
 
-			instancePlatformSpeed.labels(
-				String(instanceId),
-				platform.force,
-				platform.surface
-			).set(platform.speed);
+		instancePlatformSpeed.labels(
+			String(instanceId),
+			platform.force,
+			platform.surface
+		).set(platform.speed);
 
-			instancePlatformWeight.labels(
-				String(instanceId),
-				platform.force,
-				platform.surface
-			).set(platform.weight);
-		}
+		instancePlatformWeight.labels(
+			String(instanceId),
+			platform.force,
+			platform.surface
+		).set(platform.weight);
+	}
 
-		for (let [surfaceName, surfaceStats] of Object.entries(stats.surface_statistics)) {
-			for (let [forceName, flowStatistics] of Object.entries(surfaceStats.force_flow_statistics)) {
-				for (let [statisticName, statistic] of Object.entries(flowStatistics)) {
-					for (let [direction, counts] of Object.entries(statistic)) {
-						// eslint-disable-next-line max-depth
-						for (let [item, value] of Object.entries(counts)) {
-							setForceFlowStatistic(
-								instanceId,
-								surfaceName,
-								forceName,
-								statisticName,
-								direction,
-								item,
-								value
-							);
-						}
+	for (let [surfaceName, surfaceStats] of Object.entries(stats.surface_statistics)) {
+		for (let [forceName, flowStatistics] of Object.entries(surfaceStats.force_flow_statistics)) {
+			for (let [statisticName, statistic] of Object.entries(flowStatistics)) {
+				for (let [direction, counts] of Object.entries(statistic)) {
+					// eslint-disable-next-line max-depth
+					for (let [item, value] of Object.entries(counts)) {
+						setForceFlowStatistic(
+							instanceId,
+							surfaceName,
+							forceName,
+							statisticName,
+							direction,
+							item,
+							value
+						);
 					}
 				}
 			}
+		}
 
-			for (let [direction, counts] of Object.entries(surfaceStats.game_flow_statistics.pollution_statistics)) {
-				for (let [item, value] of Object.entries(counts)) {
-					instanceGameFlowStatistics.labels(
-						String(instanceId), surfaceName, "pollution_statistics", direction, item
-					).set(value);
-				}
+		for (let [direction, counts] of Object.entries(surfaceStats.game_flow_statistics.pollution_statistics)) {
+			for (let [item, value] of Object.entries(counts)) {
+				instanceGameFlowStatistics.labels(
+					String(instanceId), surfaceName, "pollution_statistics", direction, item
+				).set(value);
 			}
 		}
 	}
+}
 
-	async onMetrics() {
-		if (this.instance.status !== "running") {
+export default async function(context: InstancePluginContext) {
+	const { instance, plugin } = context;
+
+	instance.hooks.metrics.attach(plugin.name, async () => {
+		if (instance.status !== "running") {
 			return;
 		}
 
@@ -183,9 +185,9 @@ export class InstancePlugin extends BaseInstancePlugin {
 		// take a long time for the command to go through if the command
 		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to controller.
-		let timeoutMs = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
-		await lib.timeout(this.gatherMetrics(), timeoutMs, undefined);
-	}
+		let timeoutMs = instance.config.get("statistics_exporter.command_timeout") * 1000;
+		await lib.timeout(gatherMetrics(instance, plugin.name), timeoutMs, undefined);
+	});
 }
 
 export const _instancePlayerCount = instancePlayerCount;

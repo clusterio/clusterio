@@ -1,4 +1,4 @@
-import { BaseControllerPlugin, type InstanceRecord } from "@clusterio/controller";
+import type { ControllerPluginContext, InstanceRecord } from "@clusterio/controller";
 import type { IpcPlayerData } from "./messages.js";
 
 import fs from "node:fs/promises";
@@ -35,35 +35,40 @@ async function saveDatabase(
 	}
 }
 
-export class ControllerPlugin extends BaseControllerPlugin {
-	acquiredPlayers!: Map<string, { instanceId: number, expiresMs?: number }>;
-	playerDatastore!: Map<string, IpcPlayerData>;
-	playerDatastoreDirty = false;
+export default async function(context: ControllerPluginContext) {
+	const { controller, logger, plugin } = context;
+	const acquiredPlayers = new Map<string, { instanceId: number, expiresMs?: number }>();
+	const playerDatastore: Map<string, IpcPlayerData> = await loadDatabase(controller.config, logger);
+	let playerDatastoreDirty = false;
 
-	async init() {
-		this.acquiredPlayers = new Map();
-		this.playerDatastore = await loadDatabase(this.controller.config, this.logger);
+	function acquire(instanceId: number, playerName: string): boolean {
+		let acquisitionRecord = acquiredPlayers.get(playerName);
+		if (
+			!acquisitionRecord
+			|| acquisitionRecord.instanceId === instanceId
+			|| !controller.instances.has(acquisitionRecord.instanceId)
+			|| acquisitionRecord.expiresMs && acquisitionRecord.expiresMs < Date.now()
+		) {
+			acquiredPlayers.set(playerName, { instanceId });
+			return true;
+		}
 
-		this.controller.handle(msg.AcquireRequest, this.handleAcquireRequest.bind(this));
-		this.controller.handle(msg.ReleaseRequest, this.handleReleaseRequest.bind(this));
-		this.controller.handle(msg.UploadRequest, this.handleUploadRequest.bind(this));
-		this.controller.handle(msg.DownloadRequest, this.handleDownloadRequest.bind(this));
-		this.controller.handle(msg.DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
+		return false;
 	}
 
-	async onInstanceStatusChanged(instance: InstanceRecord) {
+	controller.hooks.instanceStatusChanged.attach(plugin.name, async (instance: InstanceRecord) => {
 		let instanceId = instance.id;
 		if (["unassigned", "deleted"].includes(instance.status)) {
-			for (let [playerName, acquisitionRecord] of this.acquiredPlayers) {
+			for (let [playerName, acquisitionRecord] of acquiredPlayers) {
 				if (acquisitionRecord.instanceId === instanceId) {
-					this.acquiredPlayers.delete(playerName);
+					acquiredPlayers.delete(playerName);
 				}
 			}
 		}
 
 		if (["unknown", "stopped"].includes(instance.status)) {
-			let timeoutMs = this.controller.config.get("inventory_sync.player_lock_timeout") * 1000;
-			for (let acquisitonRecord of this.acquiredPlayers.values()) {
+			let timeoutMs = controller.config.get("inventory_sync.player_lock_timeout") * 1000;
+			for (let acquisitonRecord of acquiredPlayers.values()) {
 				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expiresMs) {
 					acquisitonRecord.expiresMs = Date.now() + timeoutMs;
 				}
@@ -71,82 +76,74 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		if (instance.status === "running") {
-			for (let acquisitonRecord of this.acquiredPlayers.values()) {
+			for (let acquisitonRecord of acquiredPlayers.values()) {
 				if (acquisitonRecord.instanceId === instanceId && acquisitonRecord.expiresMs) {
 					delete acquisitonRecord.expiresMs;
 				}
 			}
 		}
-	}
+	});
 
-	acquire(instanceId: number, playerName: string): boolean {
-		let acquisitionRecord = this.acquiredPlayers.get(playerName);
-		if (
-			!acquisitionRecord
-			|| acquisitionRecord.instanceId === instanceId
-			|| !this.controller.instances.has(acquisitionRecord.instanceId)
-			|| acquisitionRecord.expiresMs && acquisitionRecord.expiresMs < Date.now()
-		) {
-			this.acquiredPlayers.set(playerName, { instanceId });
-			return true;
+	controller.hooks.save.attach(plugin.name, async () => {
+		if (playerDatastoreDirty) {
+			playerDatastoreDirty = false;
+			await saveDatabase(controller.config, playerDatastore, logger);
 		}
+	});
 
-		return false;
-	}
-
-	async handleAcquireRequest(request: msg.AcquireRequest) {
+	controller.handle(msg.AcquireRequest, async (request: msg.AcquireRequest) => {
 		let { instanceId, playerName } = request;
-		if (!this.acquire(instanceId, playerName)) {
-			let acquisitionRecord = this.acquiredPlayers.get(playerName);
-			let instance = this.controller.instances.get(acquisitionRecord!.instanceId)!;
+		if (!acquire(instanceId, playerName)) {
+			let acquisitionRecord = acquiredPlayers.get(playerName);
+			let instance = controller.instances.get(acquisitionRecord!.instanceId)!;
 			return {
 				status: "busy",
 				message: instance.config.get("instance.name"),
 			};
 		}
 
-		let playerData = this.playerDatastore.get(playerName);
+		let playerData = playerDatastore.get(playerName);
 		return new msg.AcquireRequest.Response(
 			"acquired",
 			playerData ? playerData.generation : 0,
 			Boolean(playerData),
 		);
-	}
+	});
 
-	async handleReleaseRequest(request: msg.ReleaseRequest) {
+	controller.handle(msg.ReleaseRequest, async (request: msg.ReleaseRequest) => {
 		let { instanceId, playerName } = request;
-		let acquisitionRecord = this.acquiredPlayers.get(playerName);
+		let acquisitionRecord = acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
 			return;
 		}
 
 		if (acquisitionRecord.instanceId === instanceId) {
-			this.acquiredPlayers.delete(playerName);
+			acquiredPlayers.delete(playerName);
 		}
-	}
+	});
 
-	async handleUploadRequest(request: msg.UploadRequest) {
+	controller.handle(msg.UploadRequest, async (request: msg.UploadRequest) => {
 		let { instanceId, playerName, playerData } = request;
-		let instanceName = this.controller.instances.get(instanceId)!.config.get("instance.name");
+		let instanceName = controller.instances.get(instanceId)!.config.get("instance.name");
 		let store = true;
-		let acquisitionRecord = this.acquiredPlayers.get(playerName);
+		let acquisitionRecord = acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
-			this.logger.warn(`${instanceName} uploaded ${playerName} without an acquisition`);
+			logger.warn(`${instanceName} uploaded ${playerName} without an acquisition`);
 			// Allow upload in this case as it might come from a crashed instance that restarted and is now
 			// uploading the player data for all the players that were online during the last autosave.
 
 		} else if (acquisitionRecord.instanceId !== instanceId) {
-			this.logger.warn(`${instanceName} uploaded ${playerName} while another instance has acquired it`);
+			logger.warn(`${instanceName} uploaded ${playerName} while another instance has acquired it`);
 			store = false;
 
 		} else {
-			this.acquiredPlayers.delete(playerName);
+			acquiredPlayers.delete(playerName);
 		}
 
-		this.acquiredPlayers.delete(playerName);
-		let oldPlayerData = this.playerDatastore.get(playerName);
+		acquiredPlayers.delete(playerName);
+		let oldPlayerData = playerDatastore.get(playerName);
 		if (store && oldPlayerData && oldPlayerData.generation >= playerData.generation) {
-			this.logger.warn(
+			logger.warn(
 				`${instanceName} uploaded generation ${playerData.generation} while the stored` +
 				`generation is ${oldPlayerData.generation} for ${playerName}`
 			);
@@ -154,48 +151,41 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		if (store) {
-			this.logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
-			this.playerDatastore.set(playerName, playerData);
-			this.playerDatastoreDirty = true;
+			logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
+			playerDatastore.set(playerName, playerData);
+			playerDatastoreDirty = true;
 		}
-	}
+	});
 
-	async handleDownloadRequest(request: msg.DownloadRequest) {
+	controller.handle(msg.DownloadRequest, async (request: msg.DownloadRequest) => {
 		let { instanceId, playerName } = request;
-		let instanceName = this.controller.instances.get(instanceId)!.config.get("instance.name");
+		let instanceName = controller.instances.get(instanceId)!.config.get("instance.name");
 
-		let acquisitionRecord = this.acquiredPlayers.get(playerName);
+		let acquisitionRecord = acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
-			this.logger.warn(`${instanceName} downloaded ${playerName} without an acquisition`);
+			logger.warn(`${instanceName} downloaded ${playerName} without an acquisition`);
 		} else if (acquisitionRecord.instanceId !== instanceId) {
-			this.logger.warn(`${instanceName} downloaded ${playerName} while another instance has acquired it`);
+			logger.warn(`${instanceName} downloaded ${playerName} while another instance has acquired it`);
 		}
 
-		this.logger.verbose(`Sending player data for ${playerName} to ${instanceName}`);
-		return new msg.DownloadRequest.Response(this.playerDatastore.get(playerName) || null);
-	}
+		logger.verbose(`Sending player data for ${playerName} to ${instanceName}`);
+		return new msg.DownloadRequest.Response(playerDatastore.get(playerName) || null);
+	});
 
-	async onSaveData() {
-		if (this.playerDatastoreDirty) {
-			this.playerDatastoreDirty = false;
-			await saveDatabase(this.controller.config, this.playerDatastore, this.logger);
-		}
-	}
-
-	async handleDatabaseStatsRequest() {
-		let playerDatastore = Array.from(this.playerDatastore.keys())
+	controller.handle(msg.DatabaseStatsRequest, async () => {
+		let entries = Array.from(playerDatastore.keys())
 			.map(name => ({
 				name,
-				length: JSON.stringify(this.playerDatastore.get(name)).length,
+				length: JSON.stringify(playerDatastore.get(name)).length,
 			}))
 			.sort((a, b) => b.length - a.length);
 		return new msg.DatabaseStatsRequest.Response(
-			playerDatastore.map(x => x.length).reduce((acc, val) => acc + val, 0),
-			playerDatastore.length,
+			entries.map(x => x.length).reduce((acc, val) => acc + val, 0),
+			entries.length,
 			{
-				name: playerDatastore[0] && playerDatastore[0].name || "-",
-				size: playerDatastore[0] && playerDatastore[0].length || 0,
+				name: entries[0] && entries[0].name || "-",
+				size: entries[0] && entries[0].length || 0,
 			},
 		);
-	}
+	});
 }
