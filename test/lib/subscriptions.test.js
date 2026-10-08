@@ -552,7 +552,7 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
-		describe(".unsubscribeUnpermitted()", function() {
+		describe(".checkLinkPermissions()", function() {
 			class DenyingUser {
 				constructor(denied) {
 					this.denied = denied;
@@ -576,7 +576,7 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should remove subscriptions with a string permission the user lost", async function() {
-				subscriptions.unsubscribeUnpermitted(getLink(0), new DenyingUser("StringPermission"));
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser("StringPermission"));
 				subscriptions.broadcast(new StringPermissionEvent());
 				await onceConnectorSend(1);
 				assertNoEvent(0);
@@ -586,7 +586,7 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should remove subscriptions with a function permission the user lost", async function() {
-				subscriptions.unsubscribeUnpermitted(getLink(0), new DenyingUser("FunctionPermission"));
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser("FunctionPermission"));
 				subscriptions.broadcast(new FunctionPermissionEvent());
 				await onceConnectorSend(1);
 				assertNoEvent(0);
@@ -596,7 +596,7 @@ describe("lib/subscriptions", function() {
 			});
 
 			it("should keep subscriptions the user still has permission for", async function() {
-				subscriptions.unsubscribeUnpermitted(getLink(0), new DenyingUser(null));
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser(null));
 				subscriptions.broadcast(new StringPermissionEvent());
 				await onceConnectorSend(0);
 				assertLastEvent(0, StringPermissionEvent);

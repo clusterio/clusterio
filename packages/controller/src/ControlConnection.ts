@@ -875,6 +875,16 @@ export default class ControlConnection extends BaseConnection {
 		this.updateLogSubscriptions();
 	}
 
+	/** Stop following logs if the user no longer has permission to */
+	checkLogPermission() {
+		try {
+			this.user.checkPermission("core.log.follow");
+		} catch {
+			this.logSubscriptions = { all: false, controller: false, hostIds: [], instanceIds: [] };
+			this.updateLogSubscriptions();
+		}
+	}
+
 	updateLogSubscriptions() {
 		let { all, controller, hostIds, instanceIds } = this.logSubscriptions;
 		if (all || controller || hostIds.length || instanceIds.length) {

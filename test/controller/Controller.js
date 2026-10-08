@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import {
 	ControllerConfig, Address, RequestError,
-	InstanceConfig, SystemInfo, Role, ModPack,
+	InstanceConfig, SystemInfo, Role, ModPack, AccountUpdateEvent,
 	addPluginConfigFields,
 } from "@clusterio/lib";
 
@@ -261,28 +261,68 @@ describe("controller/src/Controller", function() {
 			});
 		});
 
-		describe("permission changes", function() {
-			let role, connection, checked, originalWsServer;
-			beforeEach(function() {
-				role = new Role(1, "Test", "", new Set());
-				const user = { roles: new Set([role]) };
-				connection = { user, send() {} };
-				originalWsServer = controller.wsServer;
-				controller.wsServer = { controlConnections: new Map([[1, connection]]) };
-				checked = [];
-				controller.subscriptions.unsubscribeUnpermitted = (link, linkUser) => checked.push([link, linkUser]);
+		function mockPermissionChanges() {
+			const role = new Role(1, "Test", "", new Set(["core.log.follow"]));
+			const otherRole = new Role(2, "Other", "", new Set());
+			const user = { roles: new Set([role]) };
+			const otherUser = { roles: new Set([otherRole]) };
+			const sent = [];
+			const checked = [];
+			const connection = {
+				user,
+				logChecked: false,
+				send(message) { sent.push(message); },
+				checkLogPermission() { this.logChecked = true; },
+			};
+			const otherConnection = {
+				user: otherUser,
+				send(message) { sent.push(message); },
+				checkLogPermission() {},
+			};
+			const originalWsServer = controller.wsServer;
+			controller.wsServer = { controlConnections: new Map([[1, connection], [2, otherConnection]]) };
+			controller.subscriptions.checkLinkPermissions = (link, linkUser) => checked.push([link, linkUser]);
+			return {
+				role, user, connection, sent, checked,
+				restore() {
+					controller.wsServer = originalWsServer;
+					delete controller.subscriptions.checkLinkPermissions;
+				},
+			};
+		}
+		function assertAccountUpdate(sent, role) {
+			assert.equal(sent.length, 1);
+			assert(sent[0] instanceof AccountUpdateEvent);
+			assert.deepEqual(sent[0].roles, [{ name: role.name, id: role.id, permissions: [...role.permissions] }]);
+		}
+
+		describe(".userPermissionsUpdated()", function() {
+			let mocked;
+			beforeEach(function() { mocked = mockPermissionChanges(); });
+			afterEach(function() { mocked.restore(); });
+			it("should send an account update to connections of the user", function() {
+				controller.userPermissionsUpdated(mocked.user);
+				assertAccountUpdate(mocked.sent, mocked.role);
 			});
-			afterEach(function() {
-				controller.wsServer = originalWsServer;
-				delete controller.subscriptions.unsubscribeUnpermitted;
+			it("should recheck subscriptions and log following of the user", function() {
+				controller.userPermissionsUpdated(mocked.user);
+				assert.deepEqual(mocked.checked, [[mocked.connection, mocked.user]]);
+				assert(mocked.connection.logChecked, "log permission was not checked");
 			});
-			it("should recheck subscriptions when a user's permissions change", function() {
-				controller.userPermissionsUpdated(connection.user);
-				assert.deepEqual(checked, [[connection, connection.user]]);
+		});
+
+		describe(".rolesUpdated()", function() {
+			let mocked;
+			beforeEach(function() { mocked = mockPermissionChanges(); });
+			afterEach(function() { mocked.restore(); });
+			it("should send an account update to connections with the role", function() {
+				controller.rolesUpdated([mocked.role]);
+				assertAccountUpdate(mocked.sent, mocked.role);
 			});
-			it("should recheck subscriptions of users with an updated role", function() {
-				controller.rolesUpdated([role]);
-				assert.deepEqual(checked, [[connection, connection.user]]);
+			it("should recheck subscriptions and log following of users with the role", function() {
+				controller.rolesUpdated([mocked.role]);
+				assert.deepEqual(mocked.checked, [[mocked.connection, mocked.user]]);
+				assert(mocked.connection.logChecked, "log permission was not checked");
 			});
 		});
 

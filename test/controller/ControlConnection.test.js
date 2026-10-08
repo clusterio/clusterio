@@ -189,6 +189,25 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(connection.logTransport, null);
 		});
 
+		it("stops following logs when the user loses permission", async function() {
+			await connection.handleLogSetSubscriptionsRequest(
+				new lib.LogSetSubscriptionsRequest(true, false, [], [])
+			);
+			connection.user = { checkPermission() { throw new lib.PermissionError("Permission denied"); } };
+			connection.checkLogPermission();
+			assert.equal(mockController.clusterLogger.transports.size, 0);
+			assert.equal(connection.logTransport, null);
+		});
+
+		it("keeps following logs when the user has permission", async function() {
+			await connection.handleLogSetSubscriptionsRequest(
+				new lib.LogSetSubscriptionsRequest(true, false, [], [])
+			);
+			connection.user = { checkPermission() {} };
+			connection.checkLogPermission();
+			assert.equal(mockController.clusterLogger.transports.size, 1);
+		});
+
 		it("removes the debug dump listener after repeated requests", async function() {
 			await connection.handleDebugDumpWsRequest(new lib.DebugDumpWsRequest());
 			await connection.handleDebugDumpWsRequest(new lib.DebugDumpWsRequest());

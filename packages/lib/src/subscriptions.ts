@@ -330,12 +330,13 @@ export class SubscriptionController {
 	}
 
 	/**
-	 * Unsubscribe a link from all events the user no longer has permission to subscribe to.
+	 * Check the subscriptions of a link against the permissions of a user,
+	 * removing those the user no longer has permission for.
 	 * Used when the permissions of a user changes.
 	 * @param link - Link to check the subscriptions of.
 	 * @param user - User the link is authenticated as.
 	 */
-	unsubscribeUnpermitted(link: Link, user: IUser) {
+	checkLinkPermissions(link: Link, user: IUser) {
 		for (const [eventName, eventData] of this._events) {
 			for (const [addressIndex, subscriber] of eventData.subscriptions) {
 				if (subscriber.link !== link) {

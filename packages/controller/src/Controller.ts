@@ -1,6 +1,7 @@
 import type winston from "winston";
 import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller.js";
+import type ControlConnection from "./ControlConnection.js";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
@@ -1086,16 +1087,22 @@ export default class Controller {
 	userPermissionsUpdated(user: Readonly<User>) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
-				this.subscriptions.unsubscribeUnpermitted(controlConnection, user);
-				controlConnection.send(
-					new lib.AccountUpdateEvent([...user.roles].map(r => ({
-						name: r.name,
-						id: r.id,
-						permissions: [...r.permissions],
-					})))
-				);
+				this._controlPermissionsUpdated(controlConnection);
 			}
 		}
+	}
+
+	_controlPermissionsUpdated(controlConnection: ControlConnection) {
+		const user = controlConnection.user;
+		this.subscriptions.checkLinkPermissions(controlConnection, user);
+		controlConnection.checkLogPermission();
+		controlConnection.send(
+			new lib.AccountUpdateEvent([...user.roles].map(r => ({
+				name: r.name,
+				id: r.id,
+				permissions: [...r.permissions],
+			})))
+		);
 	}
 
 	rolesUpdated(roles: lib.Role[]) {
@@ -1105,16 +1112,7 @@ export default class Controller {
 		for (const role of roles) {
 			for (let controlConnection of this.wsServer.controlConnections.values()) {
 				if (controlConnection.user.roles.has(role)) {
-					this.subscriptions.unsubscribeUnpermitted(controlConnection, controlConnection.user);
-					controlConnection.send(
-						new lib.AccountUpdateEvent(
-							[...controlConnection.user.roles].map(r => ({
-								name: r.name,
-								id: r.id,
-								permissions: [...r.permissions],
-							}))
-						)
-					);
+					this._controlPermissionsUpdated(controlConnection);
 				}
 			}
 		}
