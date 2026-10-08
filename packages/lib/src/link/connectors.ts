@@ -171,7 +171,11 @@ export abstract class WebSocketBaseConnector<
 	_heartbeatId: ReturnType<typeof setInterval> | null = null;
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
-	_sendBuffer: (libData.MessageRoutable)[] = [];
+	/** Serialised messages sent but not yet acknowledged by the other side */
+	_sendBuffer: { seq: number, text: string }[] = [];
+	_sendBufferSize = 0;
+	/** Connection is closed if the unacknowledged messages exceed this many characters */
+	maxSendBufferSize = Infinity;
 
 	_reset() {
 		this._state = "closed";
@@ -182,6 +186,7 @@ export abstract class WebSocketBaseConnector<
 		this._heartbeatInterval = null;
 		this._lastReceivedSeq = undefined;
 		this._sendBuffer.length = 0;
+		this._sendBufferSize = 0;
 		super._reset();
 	}
 
@@ -194,6 +199,7 @@ export abstract class WebSocketBaseConnector<
 		this._heartbeatInterval = null;
 		this._lastReceivedSeq = undefined;
 		this._sendBuffer.length = 0;
+		this._sendBufferSize = 0;
 		super._invalidate();
 	}
 
@@ -219,6 +225,7 @@ export abstract class WebSocketBaseConnector<
 		for (let index = 0; index < this._sendBuffer.length; index++) {
 			if (this._sendBuffer[index].seq <= seq) {
 				dropCount += 1;
+				this._sendBufferSize -= this._sendBuffer[index].text.length;
 			} else {
 				break;
 			}
@@ -326,9 +333,30 @@ export abstract class WebSocketBaseConnector<
 			throw new libErrors.SessionLost("No session");
 		}
 
-		this._sendBuffer.push(message);
+		const text = JSON.stringify(message);
+		this._sendBuffer.push({ seq: message.seq, text });
+		this._sendBufferSize += text.length;
+		if (this._sendBufferSize > this.maxSendBufferSize) {
+			this._sendBufferOverflow();
+			return;
+		}
 		if (this._state === "connected") {
-			this._sendInternal(message);
+			this._socket!.send(text);
+		}
+	}
+
+	_sendBufferOverflow() {
+		logger.warn(
+			`Connector | closing connection to ${this.dst} after ${this._sendBuffer.length} messages ` +
+			"were left unacknowledged"
+		);
+		// Resuming is no longer possible, free the memory right away.
+		this._sendBuffer.length = 0;
+		this._sendBufferSize = 0;
+		if (!this._closing) {
+			this.close(ConnectionClosed.PolicyViolation, "Send buffer limit exceeded").catch(err => {
+				logger.error(`Connector | error closing connection:\n${err.stack}`);
+			});
 		}
 	}
 
@@ -708,7 +736,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			this._heartbeatInterval = data.heartbeatInterval;
 			this.startHeartbeat();
 			for (let bufferedMessage of this._sendBuffer) {
-				this._sendInternal(bufferedMessage);
+				this._socket!.send(bufferedMessage.text);
 			}
 			this.emit("connect", data);
 
@@ -722,7 +750,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 				`Connector | resuming existing session, resending ${this._sendBuffer.length} buffered messages`
 			);
 			for (let bufferedMessage of this._sendBuffer) {
-				this._sendInternal(bufferedMessage);
+				this._socket!.send(bufferedMessage.text);
 			}
 			this._startedResumingMs = null;
 			this.emit("resume");

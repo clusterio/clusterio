@@ -13,6 +13,9 @@ import { logger } from "@clusterio/lib";
  * @extends module:lib.WebSocketBaseConnector
  * @alias module:controller/src/WsServerConnector
  */
+// Clients that leave this much unacknowledged are dropped rather than buffered for.
+const maxSendBufferSize = 64 * 1024 * 1024;
+
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	_timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -23,6 +26,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		public _heartbeatInterval: number,
 	) {
 		super(new lib.Address(lib.Address.controller, 0), dst);
+		this.maxSendBufferSize = maxSendBufferSize;
 
 		// The following states are used in the server connector
 		// closed: Connection is closed
@@ -110,7 +114,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 			`Connector | resuming session with ${this.dst}, resending ${this._sendBuffer.length} buffered messages`
 		);
 		for (let message of this._sendBuffer) {
-			this._socket.send(JSON.stringify(message));
+			this._socket.send(message.text);
 		}
 		this.emit("resume");
 	}
