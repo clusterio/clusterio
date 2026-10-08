@@ -1232,6 +1232,66 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe(".handleAccountEvent()", function() {
+			it("should send replace(all) if subscribed", async function() {
+				eventSubscriber.subscribe(() => {});
+				await onceConnectorSend();
+
+				eventSubscriber.handleAccountEvent();
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
+				));
+			});
+
+			it("should send replace(filters) when only filters exist", async function() {
+				eventSubscriber.addFilters("foo");
+				await onceConnectorSend();
+
+				eventSubscriber.handleAccountEvent();
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.fromShorthand("foo")
+				));
+			});
+
+			it("should send nothing if not subscribed", async function() {
+				eventSubscriber.handleAccountEvent();
+				await new Promise(r => setImmediate(r));
+				assertNoMessageSent();
+			});
+
+			it("should send once when connecting and the account is reported", async function() {
+				eventSubscriber.subscribe(() => {});
+				await onceConnectorSend();
+				mockControl.connector.sentMessages.pop();
+
+				eventSubscriber.handleAccountEvent();
+				mockControl.connector.emit("connect");
+				await new Promise(r => setImmediate(r));
+				assert.equal(mockControl.connector.sentMessages.length, 1);
+			});
+
+			it("should be called on account updates from the control", async function() {
+				const handlers = [];
+				mockControl = new MockControl(new MockConnector(
+					addr({ controlId: 0 }),
+					addr("controller"),
+				));
+				mockControl.onAccountUpdate = handler => { handlers.push(handler); };
+				const subscriber = new lib.EventSubscriber(RegisteredEvent, mockControl);
+				assert.equal(handlers.length, 1);
+
+				subscriber.subscribe(() => {});
+				await onceConnectorSend();
+				handlers[0]({ name: "test", roles: [] });
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
+				));
+			});
+		});
+
 		describe("._sendRequest()", function() {
 			it("should do nothing if connection is not valid", async function() {
 				mockControl.connector.valid = false;
@@ -1311,6 +1371,26 @@ describe("lib/subscriptions", function() {
 					lib.logger.error = originalError;
 				}
 				assert.equal(logged, undefined);
+			});
+
+			it("should notify callbacks as not synced when the request fails", async function() {
+				let calledWith;
+				eventSubscriber.subscribe((e, s) => { calledWith = [e, s]; });
+				const [msg] = await onceConnectorSend();
+				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src,
+					lib.SubscriptionRequest.Response.fromJSON(false)
+				));
+				await new Promise(r => setImmediate(r));
+				assert.equal(eventSubscriber.synced, true);
+
+				mockControl.sendTo = async function() {
+					throw new lib.PermissionError("Permission denied");
+				};
+				eventSubscriber.handleAccountEvent();
+				await new Promise(r => setImmediate(r));
+				assert.equal(eventSubscriber.synced, false);
+				assert.deepEqual(calledWith, [null, false]);
+				assert.ok(eventSubscriber.error instanceof lib.PermissionError);
 			});
 
 			it("should expose errors through the snapshot", async function() {

@@ -473,6 +473,8 @@ export class EventSubscriber<E, S = null> {
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
 	/** Filters applied to the filtered handler, if empty the filtered handler will not be called */
 	private _filters = SubscriptionFilters.empty();
+	/** True if a resend of the subscription is queued for the current tick */
+	private _resendQueued = false;
 
 	constructor(
 		protected Event: EventClass<E>,
@@ -488,6 +490,13 @@ export class EventSubscriber<E, S = null> {
 		webSocketConnector.on("close", () => {
 			this.handleConnectionEvent("close");
 		});
+		// Only the web Control reports account changes
+		const accountControl = control as Link & { onAccountUpdate?: (handler: () => void) => void };
+		if (typeof accountControl.onAccountUpdate === "function") {
+			accountControl.onAccountUpdate(() => {
+				this.handleAccountEvent();
+			});
+		}
 	}
 
 	/**
@@ -497,11 +506,36 @@ export class EventSubscriber<E, S = null> {
 	 */
 	handleConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
 		if (event === "connect" || event === "resume") {
-			this._sendRequest("replace", this._callbacks.length > 0 ? SubscriptionFilters.all() : this._filters);
+			this._queueResend();
 		} else if (this.synced) {
 			this.synced = false;
 			this._notify(null);
 		}
+	}
+
+	/**
+	 * Handle the permissions of the account changing
+	 * Resends the subscription so it fails if permission was lost, or syncs if it was granted.
+	 */
+	handleAccountEvent() {
+		if (this._hasSubscriptions()) {
+			this._queueResend();
+		}
+	}
+
+	/**
+	 * Resend the current subscription at the end of the tick, the web Control
+	 * reports the account on connect so both would otherwise send it.
+	 */
+	private _queueResend() {
+		if (this._resendQueued) {
+			return;
+		}
+		this._resendQueued = true;
+		queueMicrotask(() => {
+			this._resendQueued = false;
+			this._sendRequest("replace", this._callbacks.length > 0 ? SubscriptionFilters.all() : this._filters);
+		});
 	}
 
 	/**
@@ -657,6 +691,8 @@ export class EventSubscriber<E, S = null> {
 			if (err instanceof Error) {
 				this.error = err;
 			}
+			this.synced = false;
+			this._notify(null);
 		}
 	}
 }
