@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
+import { notifyErrorHandler, type WebPluginContext } from "@clusterio/web_ui";
 import { Alert, Button, Form, Input, Modal, Space, Spin, Typography } from "antd";
 
 import { PlayerAuthServer } from "../messages.js";
@@ -251,13 +251,12 @@ function LoginForm(props: LoginFormProps) {
 }
 
 
-export class WebPlugin extends BaseWebPlugin {
-	async init() {
-		this.logger.info("Player Auth init");
-		this.loginForms = [{
-			name: "player_auth.factorio",
-			title: "Factorio",
-			Component: LoginForm,
-		}];
-	}
+export default async function loadWebPlugin(context: WebPluginContext) {
+	const { control, logger, plugin } = context;
+	logger.info("Player Auth init");
+	control.hooks.loginForms.attach(plugin.name, () => [{
+		name: "player_auth.factorio",
+		title: "Factorio",
+		Component: LoginForm,
+	}]);
 }
