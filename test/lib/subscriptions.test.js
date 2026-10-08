@@ -391,7 +391,7 @@ describe("lib/subscriptions", function() {
 					return [connectorData.id, new lib.Link(new MockConnector(connectorData.src, connectorData.dst))];
 				})),
 			};
-			subscriptions = new lib.SubscriptionController(mockController);
+			subscriptions = new lib.SubscriptionController();
 		});
 
 		describe(".handle()", function() {
@@ -628,7 +628,7 @@ describe("lib/subscriptions", function() {
 				}
 
 				it("should strip the request id from broadcast events", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent);
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -646,7 +646,7 @@ describe("lib/subscriptions", function() {
 				});
 
 				it("should strip the request id from the replayed event", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent, async () => new RegisteredEvent());
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -661,7 +661,7 @@ describe("lib/subscriptions", function() {
 				});
 
 				it("should strip the request id when replacing filters creates the subscription", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent);
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -729,6 +729,64 @@ describe("lib/subscriptions", function() {
 					subscriptions.broadcast(new RegisteredEvent(), "baz");
 					await onceConnectorSend(0);
 					assertLastEvent(0, RegisteredEvent);
+				});
+
+				it("should reject filters over the limit", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request0 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, ["foo", "bar"]);
+					await ownSubscriptions.handleRequest(link, request0, connectorData.dst, connectorData.src);
+
+					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, "baz");
+					await assert.rejects(
+						ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src),
+						lib.RequestError,
+					);
+
+					ownSubscriptions.broadcast(new RegisteredEvent(), "baz");
+					await new Promise(r => setImmediate(r));
+					assertNoEvent(0);
+				});
+
+				it("should not count existing filters towards the limit", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request0 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, ["foo", "bar"]);
+					await ownSubscriptions.handleRequest(link, request0, connectorData.dst, connectorData.src);
+
+					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, "foo");
+					await ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src);
+				});
+
+				it("should not limit filters when subscribed to all", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request0 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe");
+					await ownSubscriptions.handleRequest(link, request0, connectorData.dst, connectorData.src);
+
+					const request1 = new lib.SubscriptionRequest(
+						RegisteredEvent.name, "subscribe", 0, ["foo", "bar", "baz"]
+					);
+					await ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src);
+				});
+
+				it("should not limit filters when the limit is 0", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+
+					const request = new lib.SubscriptionRequest(
+						RegisteredEvent.name, "subscribe", 0, ["foo", "bar", "baz"]
+					);
+					await subscriptions.handleRequest(link, request, connectorData.dst, connectorData.src);
 				});
 			});
 
@@ -851,6 +909,21 @@ describe("lib/subscriptions", function() {
 					subscriptions.broadcast(new RegisteredEvent());
 					await new Promise(r => setImmediate(r));
 					assertNoEvent(0);
+				});
+
+				it("should reject filters over the limit", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request = new lib.SubscriptionRequest(
+						RegisteredEvent.name, "replace", 0, ["foo", "bar", "baz"]
+					);
+					await assert.rejects(
+						ownSubscriptions.handleRequest(link, request, connectorData.dst, connectorData.src),
+						lib.RequestError,
+					);
 				});
 			});
 		});
