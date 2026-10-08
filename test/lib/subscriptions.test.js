@@ -1232,7 +1232,7 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
-		describe("handleAccountEvent", function() {
+		describe(".handleAccountEvent()", function() {
 			it("should send replace(all) if subscribed", async function() {
 				eventSubscriber.subscribe(() => {});
 				await onceConnectorSend();
