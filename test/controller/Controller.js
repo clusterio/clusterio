@@ -86,6 +86,24 @@ describe("controller/src/Controller", function() {
 				await assert.rejects(Controller.loadJsonObject(path.join(dir, "invalid.json")), SyntaxError);
 			});
 		});
+		describe(".loggableHeaders()", function() {
+			it("should redact credentials and keep other headers", function() {
+				const headers = {
+					"authorization": "Bearer secret",
+					"x-access-token": "secret",
+					"cookie": "a=secret",
+					"user-agent": "test",
+				};
+				assert.deepEqual(Controller.loggableHeaders(headers), {
+					"authorization": "[redacted]",
+					"x-access-token": "[redacted]",
+					"cookie": "[redacted]",
+					"user-agent": "test",
+				});
+				assert.equal(headers["x-access-token"], "secret");
+			});
+		});
+
 		describe(".serveWeb()", function() {
 			let server, port;
 			before(async function() {

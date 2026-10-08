@@ -409,7 +409,7 @@ export default class Controller {
 					method: req.method,
 					url: req.originalUrl,
 					httpVersion: req.httpVersion,
-					headers: req.headers,
+					headers: Controller.loggableHeaders(req.headers),
 					query: req.query,
 				},
 			});
@@ -897,7 +897,7 @@ export default class Controller {
 						statusCode: res.statusCode,
 						responseTime: durationMs,
 						httpVersion: req.httpVersion,
-						headers: req.headers,
+						headers: Controller.loggableHeaders(req.headers),
 						query: req.query,
 					},
 				});
@@ -1224,6 +1224,22 @@ export default class Controller {
 			}
 		}
 		return url;
+	}
+
+	/**
+	 * Copy of request headers with credentials masked for logging
+	 *
+	 * @param headers - headers of the incoming request.
+	 * @returns headers safe to write to the log.
+	 */
+	static loggableHeaders(headers: http.IncomingHttpHeaders) {
+		const result = { ...headers };
+		for (const name of ["authorization", "cookie", "proxy-authorization", "x-access-token"]) {
+			if (result[name] !== undefined) {
+				result[name] = "[redacted]";
+			}
+		}
+		return result;
 	}
 
 	/**
