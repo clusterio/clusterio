@@ -256,6 +256,14 @@ export class SubscriptionController {
 	_events = new Map<string, EventData>();
 
 	/**
+	 * @param maxFilters -
+	 *     Optional function returning the max number of filters a subscriber can hold for one event.
+	 */
+	constructor(
+		private _maxFilters: () => number = () => Infinity,
+	) { }
+
+	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
 	 * Has an optional subscription update handler which is called when a client subscribes
 	 * @param Event - Event class which is sent out as updates.
@@ -329,6 +337,24 @@ export class SubscriptionController {
 		}
 	}
 
+	private _checkFilterCount(filters: SubscriptionFilters, existing?: SubscriptionFilters) {
+		if (existing?.isAll()) {
+			return; // union into all is a noop
+		}
+		let count = filters.size;
+		if (existing) {
+			count = existing.size;
+			for (const filter of filters) {
+				if (!existing.has(filter)) {
+					count += 1;
+				}
+			}
+		}
+		if (count > this._maxFilters()) {
+			throw new RequestError(`Subscription exceeds the limit of ${this._maxFilters()} filters`);
+		}
+	}
+
 	/**
 	 * Handle incoming subscription requests on a link
 	 * @param link - Link message was received on
@@ -359,6 +385,7 @@ export class SubscriptionController {
 				break;
 
 			case "subscribe":
+				this._checkFilterCount(request.filters, subscriber?.filters);
 				if (!subscriber) {
 					eventData.subscriptions.set(index, { link, address, filters: request.filters });
 				} else {
@@ -367,6 +394,7 @@ export class SubscriptionController {
 				break;
 
 			case "replace":
+				this._checkFilterCount(request.filters);
 				if (request.filters.isEmpty()) {
 					if (!subscriber) {
 						return false;

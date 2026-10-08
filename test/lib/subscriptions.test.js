@@ -391,7 +391,7 @@ describe("lib/subscriptions", function() {
 					return [connectorData.id, new lib.Link(new MockConnector(connectorData.src, connectorData.dst))];
 				})),
 			};
-			subscriptions = new lib.SubscriptionController(mockController);
+			subscriptions = new lib.SubscriptionController();
 		});
 
 		describe(".handle()", function() {
@@ -628,7 +628,7 @@ describe("lib/subscriptions", function() {
 				}
 
 				it("should strip the request id from broadcast events", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent);
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -646,7 +646,7 @@ describe("lib/subscriptions", function() {
 				});
 
 				it("should strip the request id from the replayed event", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent, async () => new RegisteredEvent());
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -661,7 +661,7 @@ describe("lib/subscriptions", function() {
 				});
 
 				it("should strip the request id when replacing filters creates the subscription", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent);
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -729,6 +729,51 @@ describe("lib/subscriptions", function() {
 					subscriptions.broadcast(new RegisteredEvent(), "baz");
 					await onceConnectorSend(0);
 					assertLastEvent(0, RegisteredEvent);
+				});
+			});
+
+			describe("filter limit", function() {
+				const connectorData = connectorSetupDate[0];
+				function request(action, filters) {
+					return new lib.SubscriptionRequest(
+						RegisteredEvent.name, action, 0, lib.SubscriptionFilters.fromShorthand(filters)
+					);
+				}
+				beforeEach(function() {
+					subscriptions = new lib.SubscriptionController(() => 2);
+					subscriptions.handle(RegisteredEvent);
+				});
+
+				it("should reject a subscribe that goes over the limit", async function() {
+					const link = getLink(0);
+					await subscriptions.handleRequest(link, request("subscribe", ["a", "b"]), connectorData.dst);
+					await assert.rejects(
+						subscriptions.handleRequest(link, request("subscribe", ["c"]), connectorData.dst),
+						lib.RequestError,
+					);
+					subscriptions.broadcast(new RegisteredEvent(), "c");
+					await new Promise(r => setImmediate(r));
+					assertNoEvent(0);
+				});
+
+				it("should not count filters already subscribed to", async function() {
+					const link = getLink(0);
+					await subscriptions.handleRequest(link, request("subscribe", ["a", "b"]), connectorData.dst);
+					await subscriptions.handleRequest(link, request("subscribe", ["a"]), connectorData.dst);
+				});
+
+				it("should reject a replace that goes over the limit", async function() {
+					await assert.rejects(
+						subscriptions.handleRequest(getLink(0), request("replace", ["a", "b", "c"]), connectorData.dst),
+						lib.RequestError,
+					);
+				});
+
+				it("should allow subscribing to all", async function() {
+					const link = getLink(0);
+					await subscriptions.handleRequest(link, request("subscribe", ["a", "b"]), connectorData.dst);
+					await subscriptions.handleRequest(link, request("subscribe"), connectorData.dst);
+					await subscriptions.handleRequest(link, request("subscribe", ["c", "d", "e"]), connectorData.dst);
 				});
 			});
 

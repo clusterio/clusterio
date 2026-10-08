@@ -83,7 +83,7 @@ export default class Controller {
 	private _events = new events.EventEmitter<ControllerEvents>();
 
 	/** Event subscription controller */
-	subscriptions = new lib.SubscriptionController();
+	subscriptions = new lib.SubscriptionController(() => this.config.get("controller.max_subscription_filters"));
 	/** User manager for the cluster, also contains access to the user records */
 	users: UserManager;
 	/** Instance manager for the cluster, also contains access to the user records */

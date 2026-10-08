@@ -174,6 +174,15 @@ Must be greater than 0.
 Defaults to 8.
 
 
+### controller.max_subscription_filters
+
+Maximum number of filters one connection can hold for a single subscribed event.
+Subscription requests that would go over this limit are rejected.
+Must be an integer greater than 0.
+
+Defaults to 10000.
+
+
 ### controller.system_metrics_interval
 
 Interval in seconds the controller gathers CPU, memory and disk usage from itself and every connected host for display in the web interface.

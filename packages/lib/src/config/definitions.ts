@@ -26,6 +26,7 @@ export interface ControllerConfigFields {
 	"controller.heartbeat_interval": number;
 	"controller.session_timeout": number;
 	"controller.metrics_timeout": number;
+	"controller.max_subscription_filters": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
 	"controller.factorio_username": string | null;
@@ -207,6 +208,13 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 8,
 			validator: validators.greaterThanZero,
+		},
+		"controller.max_subscription_filters": {
+			title: "Max Subscription Filters",
+			description: "Maximum number of filters a single connection can hold for one subscribed event.",
+			type: "number",
+			initialValue: 10000,
+			validator: validators.all(validators.integer, validators.greaterThanZero),
 		},
 		"controller.system_metrics_interval": {
 			title: "System Metrics Interval",
