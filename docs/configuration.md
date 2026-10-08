@@ -178,7 +178,8 @@ Defaults to 8.
 
 Maximum number of filters one connection can hold for a single subscribed event.
 Subscription requests that would go over this limit are rejected.
-Must be an integer greater than 0.
+Set to 0 for no limit.
+Lowering the limit does not remove filters connections already hold.
 
 Defaults to 10000.
 

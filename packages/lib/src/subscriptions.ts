@@ -256,11 +256,11 @@ export class SubscriptionController {
 	_events = new Map<string, EventData>();
 
 	/**
-	 * @param maxFilters -
-	 *     Optional function returning the max number of filters a subscriber can hold for one event.
+	 * @param _maxFilters -
+	 *     Max number of filters a subscriber can hold for one event, 0 for no limit.
 	 */
 	constructor(
-		private _maxFilters: () => number = () => Infinity,
+		private _maxFilters = 0,
 	) { }
 
 	/**
@@ -338,7 +338,7 @@ export class SubscriptionController {
 	}
 
 	private _checkFilterCount(filters: SubscriptionFilters, existing?: SubscriptionFilters) {
-		if (existing?.isAll()) {
+		if (this._maxFilters === 0 || existing?.isAll()) {
 			return; // union into all is a noop
 		}
 		let count = filters.size;
@@ -350,8 +350,8 @@ export class SubscriptionController {
 				}
 			}
 		}
-		if (count > this._maxFilters()) {
-			throw new RequestError(`Subscription exceeds the limit of ${this._maxFilters()} filters`);
+		if (count > this._maxFilters) {
+			throw new RequestError(`Subscription exceeds the limit of ${this._maxFilters} filters`);
 		}
 	}
 

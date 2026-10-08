@@ -211,10 +211,11 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		},
 		"controller.max_subscription_filters": {
 			title: "Max Subscription Filters",
-			description: "Maximum number of filters a single connection can hold for one subscribed event.",
+			description: "Maximum number of filters a connection can hold for one subscribed event, 0 for no limit.",
 			type: "number",
 			initialValue: 10000,
-			validator: validators.all(validators.integer, validators.greaterThanZero),
+			restartRequired: true,
+			validator: validators.all(validators.integer, validators.greaterThanEqualZero),
 		},
 		"controller.system_metrics_interval": {
 			title: "System Metrics Interval",
