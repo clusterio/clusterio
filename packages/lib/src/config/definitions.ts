@@ -25,6 +25,7 @@ export interface ControllerConfigFields {
 	"controller.auth_secret": string | null;
 	"controller.heartbeat_interval": number;
 	"controller.session_timeout": number;
+	"controller.max_send_buffer_size": number;
 	"controller.metrics_timeout": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
@@ -200,6 +201,14 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 60,
 			validator: validators.greaterThanZero,
+		},
+		"controller.max_send_buffer_size": {
+			title: "Max Send Buffer Size",
+			description:
+				"MiB of unacknowledged messages to keep for a connection before ending its session, 0 for no limit.",
+			type: "number",
+			initialValue: 64,
+			validator: validators.greaterThanEqualZero,
 		},
 		"controller.metrics_timeout": {
 			title: "Metrics Timeout",

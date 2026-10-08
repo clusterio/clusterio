@@ -174,8 +174,8 @@ export abstract class WebSocketBaseConnector<
 	/** Serialised messages sent but not yet acknowledged by the other side */
 	_sendBuffer: { seq: number, text: string }[] = [];
 	_sendBufferSize = 0;
-	/** Connection is closed if the unacknowledged messages exceed this many characters */
-	maxSendBufferSize = Infinity;
+	/** Session is ended if the unacknowledged messages exceed this many characters, 0 for no limit */
+	maxSendBufferSize = 0;
 
 	_reset() {
 		this._state = "closed";
@@ -336,7 +336,7 @@ export abstract class WebSocketBaseConnector<
 		const text = JSON.stringify(message);
 		this._sendBuffer.push({ seq: message.seq, text });
 		this._sendBufferSize += text.length;
-		if (this._sendBufferSize > this.maxSendBufferSize) {
+		if (this.maxSendBufferSize && this._sendBufferSize > this.maxSendBufferSize) {
 			this._sendBufferOverflow();
 			return;
 		}
@@ -350,11 +350,12 @@ export abstract class WebSocketBaseConnector<
 			`Connector | closing connection to ${this.dst} after ${this._sendBuffer.length} messages ` +
 			"were left unacknowledged"
 		);
-		// Resuming is no longer possible, free the memory right away.
+		// Resuming is no longer possible, free the memory right away. The
+		// other side sees a normal drop and gets a new session when it reconnects.
 		this._sendBuffer.length = 0;
 		this._sendBufferSize = 0;
 		if (!this._closing) {
-			this.close(ConnectionClosed.PolicyViolation, "Send buffer limit exceeded").catch(err => {
+			this.close(ConnectionClosed.TryAgainLater, "Send buffer limit exceeded").catch(err => {
 				logger.error(`Connector | error closing connection:\n${err.stack}`);
 			});
 		}

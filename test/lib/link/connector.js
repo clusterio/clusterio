@@ -65,7 +65,7 @@ describe("lib/link/connectors", function() {
 
 		describe("send buffer limit", function() {
 			afterEach(function() {
-				testConnector.maxSendBufferSize = Infinity;
+				testConnector.maxSendBufferSize = 0;
 				testConnector._closing = false;
 			});
 			it("should keep unacknowledged messages under the limit", function() {

@@ -226,7 +226,8 @@ ${err.stack}`
 		let sessionToken = jwt.sign({ aud: this.sessionAud, sid: sessionId }, this.controller.authSecret);
 		let sessionTimeout = this.controller.config.get("controller.session_timeout");
 		let heartbeatInterval = this.controller.config.get("controller.heartbeat_interval");
-		let connector = new WsServerConnector(dst, sessionId, sessionTimeout, heartbeatInterval);
+		let maxSendBufferSize = this.controller.config.get("controller.max_send_buffer_size") * 1024 * 1024;
+		let connector = new WsServerConnector(dst, sessionId, sessionTimeout, heartbeatInterval, maxSendBufferSize);
 		this.activeConnectors.set(sessionId, connector);
 		connector.on("close", () => {
 			this.activeConnectors.delete(sessionId);

@@ -13,9 +13,6 @@ import { logger } from "@clusterio/lib";
  * @extends module:lib.WebSocketBaseConnector
  * @alias module:controller/src/WsServerConnector
  */
-// Clients that leave this much unacknowledged are dropped rather than buffered for.
-const maxSendBufferSize = 64 * 1024 * 1024;
-
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	_timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -24,6 +21,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		private _sessionId: number,
 		private _sessionTimeout: number,
 		public _heartbeatInterval: number,
+		maxSendBufferSize = 0,
 	) {
 		super(new lib.Address(lib.Address.controller, 0), dst);
 		this.maxSendBufferSize = maxSendBufferSize;
