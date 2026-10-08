@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -234,6 +235,47 @@ describe("host/src/Host", function() {
 					installedVersion: hostVersion,
 					runningVersion: "999.0.0",
 				});
+			});
+		});
+		describe(".handleInstanceAssignInternalRequest()", function() {
+			const instancesDir = path.join("temp", "test", "host_assign");
+			let host;
+			beforeEach(async function() {
+				await fs.rm(instancesDir, { recursive: true, force: true });
+				await fs.mkdir(instancesDir, { recursive: true });
+				const hostConfig = new lib.HostConfig("host", { "host.instances_directory": instancesDir });
+				const hostConnector = new HostConnector(hostConfig, []);
+				host = new Host(hostConnector, hostConfig, []);
+				host.send = () => {};
+			});
+			function assignRequest(id, name) {
+				const config = new lib.InstanceConfig("controller", { "instance.id": id, "instance.name": name });
+				return new lib.InstanceAssignInternalRequest(id, config.toRemote("host"));
+			}
+
+			it("creates the folders for a new instance", async function() {
+				await host.handleInstanceAssignInternalRequest(assignRequest(1, "new"));
+				const instancePath = path.join(instancesDir, "new");
+				assert.equal(host.discoveredInstances.get(1).path, instancePath);
+				await fs.access(path.join(instancePath, "saves"));
+				await fs.access(path.join(instancePath, "script-output"));
+			});
+			it("recreates missing folders for a discovered instance", async function() {
+				const instancePath = path.join(instancesDir, "existing");
+				await fs.mkdir(instancePath);
+				const configPath = path.join(instancePath, "instance.json");
+				host.discoveredInstances.set(2, {
+					path: instancePath,
+					config: new lib.InstanceConfig("host", {
+						...Host.instanceConfigWarning,
+						"instance.id": 2,
+						"instance.name": "existing",
+					}, configPath),
+				});
+
+				await host.handleInstanceAssignInternalRequest(assignRequest(2, "existing"));
+				await fs.access(path.join(instancePath, "saves"));
+				await fs.access(path.join(instancePath, "script-output"));
 			});
 		});
 		describe(".handleHostRestartRequest()", function() {

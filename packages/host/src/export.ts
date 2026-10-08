@@ -160,7 +160,7 @@ async function loadSimpleIcon(
 	item: SimpleIconSpecification,
 	size: number,
 	iconCache: IconCache,
-) {
+): Promise<Image | null> {
 	let icon = await loadIcon(server, modVersions, item.icon, item.icon_size ?? 64, 0, iconCache);
 	if (icon) {
 		let iconScale = size / (item.icon_size ?? 64);
@@ -178,7 +178,7 @@ async function loadLayeredIcon(
 	item: LayeredIconSpecification,
 	size: number,
 	iconCache: IconCache,
-) {
+): Promise<Image> {
 	let baseLayerSize = (item.icons[0].icon_size || item.icon_size) ?? 64;
 	let icon = new Jimp({ width: size, height: size });
 
@@ -590,3 +590,5 @@ export async function exportData(server: FactorioServer) {
 
 // For testing only
 export const _exportLocale = exportLocale;
+export const _loadSimpleIcon = loadSimpleIcon;
+export const _loadLayeredIcon = loadLayeredIcon;
