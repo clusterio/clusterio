@@ -4,7 +4,7 @@ import zlib from "node:zlib";
 import * as lib from "@clusterio/lib";
 
 import * as mock from "../../../test/mock.js";
-import { recipeNotificationDelta, InstancePlugin } from "../dist/node/instance.js";
+import loadInstancePlugin, { recipeNotificationDelta, applyRecipeNotificationDelta } from "../dist/node/instance.js";
 import { DownloadResponse } from "../dist/node/messages.js";
 import { plugin as info } from "../dist/node/index.js";
 
@@ -38,10 +38,10 @@ describe("inventory_sync", function() {
 		});
 	});
 
-	describe("InstancePlugin.applyRecipeNotificationDelta()", function() {
+	describe("applyRecipeNotificationDelta()", function() {
 		const warnings = [];
-		const plugin = { logger: { warn: msg => warnings.push(msg) } };
-		const apply = InstancePlugin.prototype.applyRecipeNotificationDelta.bind(plugin);
+		const logger = { warn: msg => warnings.push(msg) };
+		const apply = (playerData, current) => applyRecipeNotificationDelta(playerData, current, logger);
 
 		it("should replace the stored list with an encoded delta", async function() {
 			const playerData = { name: "test", recipe_notifications: await encode(["a", "b"]) };
@@ -71,27 +71,34 @@ describe("inventory_sync", function() {
 		});
 	});
 
-	describe("InstancePlugin.handleDownload()", function() {
-		let instancePlugin;
+	describe("ipc-inventory_sync_download", function() {
+		let instance;
 		before(async function() {
 			try {
 				lib.registerPluginMessages([info]);
 			} catch (err) {
 				// Already registered by the full test suite
 			}
-			instancePlugin = await mock.createInstancePlugin(InstancePlugin, info);
-			instancePlugin.instance.mockConfigEntries.set("inventory_sync.rcon_chunk_size", 100000);
+			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+			instance.mockConfigEntries.set("inventory_sync.rcon_chunk_size", 100000);
 		});
 		beforeEach(function() {
-			instancePlugin.instance.server.reset();
+			instance.server.reset();
 		});
 
 		function respondWith(playerData) {
-			instancePlugin.instance.connector.once("send", message => {
-				instancePlugin.instance.connector.emit("message", new lib.MessageResponse(
+			instance.connector.once("send", message => {
+				instance.connector.emit("message", new lib.MessageResponse(
 					1, message.dst, message.src, new DownloadResponse(playerData)
 				));
 			});
+		}
+		async function download(request) {
+			instance.server.emit("ipc-inventory_sync_download", request);
+			// zlib runs on the threadpool, so poll on timers rather than setImmediate
+			for (let i = 0; i < 1000 && !instance.server.rconCommands.length; i++) {
+				await lib.wait(1);
+			}
 		}
 		function downloadCommand(playerData) {
 			const json = lib.escapeString(JSON.stringify(playerData));
@@ -100,31 +107,23 @@ describe("inventory_sync", function() {
 
 		it("should send an empty download when the controller has no data", async function() {
 			respondWith(undefined);
-			await instancePlugin.handleDownload({ player_name: "test" });
+			await download({ player_name: "test" });
 			assert.deepEqual(
-				instancePlugin.instance.server.rconCommands,
+				instance.server.rconCommands,
 				["/sc inventory_sync.download_inventory('test',nil,0,0)"]
 			);
 		});
 		it("should send everything as a delta when no snapshot was given", async function() {
 			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a"]) });
-			await instancePlugin.handleDownload({ player_name: "test" });
+			await download({ player_name: "test" });
 			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
-			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(expected)]);
+			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 		it("should send a delta when a snapshot was given", async function() {
 			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a", "b"]) });
-			await instancePlugin.handleDownload({ player_name: "test", recipe_notifications: await encode(["b"]) });
+			await download({ player_name: "test", recipe_notifications: await encode(["b"]) });
 			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
-			assert.deepEqual(instancePlugin.instance.server.rconCommands, [downloadCommand(expected)]);
-		});
-		it("should be invoked by the download ipc", async function() {
-			respondWith(undefined);
-			instancePlugin.instance.server.emit("ipc-inventory_sync_download", { player_name: "test" });
-			for (let i = 0; i < 100 && !instancePlugin.instance.server.rconCommands.length; i++) {
-				await new Promise(resolve => setImmediate(resolve));
-			}
-			assert.equal(instancePlugin.instance.server.rconCommands.length, 1);
+			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 	});
 });
