@@ -15,6 +15,15 @@ import { exportData } from "./export.js";
 import type Host from "./Host.js";
 import { BaseInstancePlugin, InstanceHooks } from "./BaseInstancePlugin.js";
 
+// Reject save names that would escape the instance's saves directory.
+function checkRequestSaveName(name: string) {
+	try {
+		lib.checkFilename(name);
+	} catch (err: any) {
+		throw new lib.RequestError(`Save name ${err.message}`);
+	}
+}
+
 const scriptCommands = [
 	"/cheat", "/editor",
 	"/command", "/c",
@@ -1268,6 +1277,9 @@ end`.replace(/\r?\n/g, " ");
 
 	async handleInstanceStartRequest(request: lib.InstanceStartRequest) {
 		let saveName = request.save;
+		if (saveName !== undefined) {
+			checkRequestSaveName(saveName);
+		}
 		try {
 			try {
 				await this.prepare();
@@ -1327,6 +1339,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceCreateSaveRequest(request: lib.InstanceCreateSaveRequest) {
+		checkRequestSaveName(request.name);
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");

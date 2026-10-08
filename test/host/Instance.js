@@ -223,6 +223,23 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe("save name checks", function() {
+		it("should reject a start save outside the saves directory", async function() {
+			await assert.rejects(
+				instance.handleInstanceStartRequest(new lib.InstanceStartRequest("../escape.zip")),
+				lib.RequestError,
+			);
+		});
+		it("should reject a created save outside the saves directory", async function() {
+			await assert.rejects(
+				instance.handleInstanceCreateSaveRequest(
+					new lib.InstanceCreateSaveRequest("../escape.zip"),
+				),
+				lib.RequestError,
+			);
+		});
+	});
+
 	describe("._recordPlayerJoin()", function() {
 		it("should add player to playersOnline", function() {
 			instance._recordPlayerJoin("player");
