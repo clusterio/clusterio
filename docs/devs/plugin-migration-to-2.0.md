@@ -128,6 +128,49 @@ The code from `init()` goes into the body of the function, and state that lived 
 The context types are `ControllerPluginContext`, `HostPluginContext`, `InstancePluginContext`, `CtlPluginContext` and `WebPluginContext` from the respective packages.
 
 
+### Keeping a class for state
+
+If the plugin has enough state that a class is still the better fit, give the class a private constructor and an async `static fromContext` that creates it from the context.
+The entrypoint calls `fromContext` and attaches the hooks to methods on the returned object.
+Instances are kept in a static `WeakMap` keyed by the controller, host or instance they belong to, which lets other code look them up without holding a reference to them.
+
+```ts
+import type { Controller, ControllerPluginContext } from "@clusterio/controller";
+import type * as lib from "@clusterio/lib";
+
+export class Frobber {
+    private static instances = new WeakMap<Controller, Frobber>();
+    private frobnications = new Map<string, number>();
+
+    private constructor(
+        private controller: Controller,
+        private logger: lib.Logger,
+    ) { }
+
+    static async fromContext(context: ControllerPluginContext) {
+        const frobber = new Frobber(context.controller, context.logger);
+        await frobber.load();
+        Frobber.instances.set(context.controller, frobber);
+        return frobber;
+    }
+
+    static get(controller: Controller) {
+        return Frobber.instances.get(controller);
+    }
+
+    async load() { /* ... */ }
+    async save() { /* ... */ }
+}
+
+export default async function(context: ControllerPluginContext) {
+    const frobber = await Frobber.fromContext(context);
+    context.controller.hooks.save.attach(context.plugin.name, () => frobber.save());
+}
+```
+
+Don't extend the deprecated base classes for this, they attach `on*` methods to hooks themselves and log a warning.
+
+
 ### Method to hook names
 
 Each `on*` method has a hook of the same name without the `on` prefix and with the first letter lowercased, so `onInstanceStatusChanged` becomes `controller.hooks.instanceStatusChanged`.
@@ -196,31 +239,29 @@ Each hook accepts one handler per name, attach it under `plugin.name`.
 
 The `plugins` map on `Controller`, `Host` and `Instance` has been removed.
 It's replaced with `loadedPlugins`, a set of the plugin info objects for the plugins that loaded.
-To check if a plugin is loaded on the controller:
+The set holds info objects rather than names, so look the info up in `pluginInfos` by name first to check if a plugin is loaded on the controller or host:
 
 ```js
-const loaded = [...controller.loadedPlugins].some(info => info.name === "other_plugin");
+const info = controller.pluginInfos.find(info => info.name === "other_plugin");
+const loaded = info !== undefined && controller.loadedPlugins.has(info);
 ```
 
 In the web interface `control.loadedPlugins` is a map from plugin name to plugin info.
 `control.plugins` is deprecated and only holds plugins still using the class export.
 
 With no plugin class instances, `controller.plugins.get("other_plugin")` has no direct replacement.
-If one plugin needs to call into another, have the other plugin export functions from its module and import them.
-State that's tied to a particular controller, host or instance can be kept in a `WeakMap` keyed by that object:
+If one plugin needs to call into another, have the other plugin export its class and use the static lookup from [Keeping a class for state](#keeping-a-class-for-state):
 
-```js
-// In other_plugin/controller.js
-const frobbers = new WeakMap();
+```ts
+import { Frobber } from "other_plugin/dist/node/controller.js";
 
-export function getFrobber(controller) {
-    return frobbers.get(controller);
-}
-
-export default async function(context) {
-    frobbers.set(context.controller, new Frobber(context));
+const frobber = Frobber.get(controller);
+if (!frobber) {
+    throw new Error("other_plugin is not loaded");
 }
 ```
+
+This only works if both plugins resolve `other_plugin` to the same file on disk, otherwise the lookup goes to a different copy of the class and returns undefined.
 
 For state shared between components of a web plugin, assign it to a module level variable in the entrypoint.
 The web plugin template created by `@clusterio/create` shows this for a subscriber.
