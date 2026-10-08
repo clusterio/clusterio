@@ -130,8 +130,8 @@ The context types are `ControllerPluginContext`, `HostPluginContext`, `InstanceP
 
 ### Keeping a class for state
 
-If the plugin has enough state that a class is still the better fit, give the class a private constructor and an async `static fromContext` that creates it from the context.
-The entrypoint calls `fromContext` and attaches the hooks to methods on the returned object.
+If the plugin has enough state that a class is still the better fit, give the class a private constructor and an async `static fromContext` that creates it from the context and attaches its hooks.
+`fromContext` can then be the default export of the entrypoint.
 Instances are kept in a static `WeakMap` keyed by the controller, host or instance they belong to, which lets other code look them up without holding a reference to them.
 
 ```ts
@@ -150,6 +150,7 @@ export class Frobber {
     static async fromContext(context: ControllerPluginContext) {
         const frobber = new Frobber(context.controller, context.logger);
         await frobber.load();
+        context.controller.hooks.save.attach(context.plugin.name, () => frobber.save());
         Frobber.instances.set(context.controller, frobber);
         return frobber;
     }
@@ -162,12 +163,10 @@ export class Frobber {
     async save() { /* ... */ }
 }
 
-export default async function(context: ControllerPluginContext) {
-    const frobber = await Frobber.fromContext(context);
-    context.controller.hooks.save.attach(context.plugin.name, () => frobber.save());
-}
+export default Frobber.fromContext;
 ```
 
+The loader calls the default export without `this`, so refer to the class by name inside `fromContext` rather than using `this`.
 Don't extend the deprecated base classes for this, they attach `on*` methods to hooks themselves and log a warning.
 
 
