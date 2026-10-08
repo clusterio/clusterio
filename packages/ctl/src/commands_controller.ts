@@ -127,9 +127,7 @@ controllerConfigCommands.add(new lib.Command({
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let allConfigElements = serializedConfigToString(
-			config, lib.ControllerConfig, {}
-		);
+		let allConfigElements = serializedConfigToString(config, lib.ControllerConfig);
 		await fs.writeFile(tmpFile, allConfigElements);
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
 			stdio: "inherit",

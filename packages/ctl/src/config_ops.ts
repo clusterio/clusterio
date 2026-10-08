@@ -15,18 +15,14 @@ export async function configToKeyVal(data: string) {
 	// the last filter removes empty elements left by the first. Not done on one line due to readability.
 	for (let index in filtered) {
 		if (index in filtered) {
-			let split = filtered[index].split("=");
-			let finalIndex = split[0].trim();
-			// split on the = we added earlier, giving us both value and key
-			let part = "";
-			try {
-				part = split[1].trim();
-				// it's a string if we can read it
-			} catch (err) {
-				// if we can't read it, it's a empty field and therefor null
-				part = "";
+			// split on the first = only, values may contain = themselves
+			let split = filtered[index].indexOf("=");
+			if (split === -1) {
+				// no value given, it's a empty field and therefor null
+				final[filtered[index].trim()] = "";
+				continue;
 			}
-			final[finalIndex] = part;
+			final[filtered[index].slice(0, split).trim()] = filtered[index].slice(split + 1).trim();
 		}
 	}
 	return final;
@@ -34,25 +30,26 @@ export async function configToKeyVal(data: string) {
 
 export function serializedConfigToString(
 	serializedConfig: lib.ConfigSchema,
-	configGroup: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig,
-	disallowedList: Record<string, unknown>,
+	configClass: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig,
 ) {
+	const config = configClass.fromJSON({}, "control");
 	let allConfigElements = "";
 	for (let [name, value] of Object.entries(serializedConfig)) {
-		if (name in disallowedList) {
+		const def = (configClass.fieldDefinitions as lib.ConfigDefs<any>)[name];
+		try {
+			if (!config.canAccess(name, lib.ConfigAccess.readWrite) || def.hidden) {
+				continue;
+			}
+		} catch (err) {
+			// Field does not exist in the config class
 			continue;
 		}
-		let desc = "";
-		try {
-			desc += (configGroup.fieldDefinitions as any)[name]!.description;
-		} catch (err) {
-			desc += "No description found";
-		}
-		// split onto two lines for readability and es-lint
-		if (String(value) === "null") {
+		if (value === null) {
 			value = "";
+		} else if (typeof value === "object") {
+			value = JSON.stringify(value);
 		}
-		allConfigElements += `${name} = ${value}\n\n`;
+		allConfigElements += `# ${def.description ?? "No description found"}\n${name} = ${value}\n\n`;
 	}
 	return allConfigElements;
 }
