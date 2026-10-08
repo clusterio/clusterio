@@ -165,6 +165,17 @@ Must be greater than 0.
 Defaults to 60.
 
 
+### controller.max_send_buffer_size
+
+Size in MiB of messages sent to a connection that it has not yet acknowledged before the controller ends its session.
+The controller keeps these so they can be resent if the connection drops and resumes.
+A client that stops acknowledging messages, or falls far behind, gets disconnected and starts a new session when it reconnects.
+Changes apply to new sessions.
+Set to 0 for no limit.
+
+Defaults to 64.
+
+
 ### controller.metrics_timeout
 
 Timeout in seconds before a call to gather metrics from a host times out.

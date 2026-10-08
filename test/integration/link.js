@@ -3,8 +3,9 @@ import events from "node:events";
 import jwt from "jsonwebtoken";
 
 import {
-	TestControlConnector, TestHostConnector, TestControl, url, controlToken,
+	TestControlConnector, TestHostConnector, TestControl, url, controlToken, getControl,
 } from "./index.js";
+import * as lib from "@clusterio/lib";
 import { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } from "@clusterio/lib";
 import { slowTest } from "../common.js";
 
@@ -90,6 +91,33 @@ describe("Integration of lib/link", function() {
 		controlConnector.stopHeartbeat();
 		await events.once(controlConnector, "invalidate");
 		await events.once(controlConnector, "connect");
+	});
+
+	it("should start a new session when the send buffer limit is exceeded", async function() {
+		await getControl().send(new lib.ControllerConfigSetFieldRequest("controller.max_send_buffer_size", "0.01"));
+		try {
+			await controlConnector.connect();
+		} finally {
+			await getControl().send(new lib.ControllerConfigSetFieldRequest("controller.max_send_buffer_size", "64"));
+		}
+
+		// Never acknowledge received messages
+		controlConnector._doHeartbeat = function() {
+			this._sendInternal(new lib.MessageHeartbeat());
+		};
+		let invalidated = false;
+		controlConnector.once("invalidate", () => { invalidated = true; });
+		const connected = events.once(controlConnector, "invalidate").then(
+			() => events.once(controlConnector, "connect")
+		);
+		for (let i = 0; i < 100; i++) {
+			if (invalidated) {
+				break;
+			}
+			await control.send(new lib.ControllerConfigGetRequest()).catch(() => {});
+		}
+		assert(invalidated, "session was not invalidated");
+		await connected;
 	});
 
 	it("should properly close connector if close is called during reconnect wait", async function() {

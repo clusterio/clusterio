@@ -13,10 +13,11 @@ describe("lib/link/connectors", function() {
 		describe("._dropSendBufferSeq()", function() {
 			beforeEach(function() {
 				testConnector._sendBuffer = [
-					{ seq: 1, type: "test", data: {} },
-					{ seq: 2, type: "test", data: {} },
-					{ seq: 4, type: "test", data: {} },
+					{ seq: 1, text: "a" },
+					{ seq: 2, text: "bb" },
+					{ seq: 4, text: "cccc" },
 				];
+				testConnector._sendBufferSize = 7;
 			});
 			it("should do nothing if passed null", function() {
 				testConnector._dropSendBufferSeq(null);
@@ -25,6 +26,7 @@ describe("lib/link/connectors", function() {
 			it("should drop up to sequence", function() {
 				testConnector._dropSendBufferSeq(2);
 				assert.equal(testConnector._sendBuffer.length, 1, "incorrect number of entries dropped");
+				assert.equal(testConnector._sendBufferSize, 4);
 			});
 			it("should ignore holes", function() {
 				testConnector._dropSendBufferSeq(3);
@@ -58,6 +60,37 @@ describe("lib/link/connectors", function() {
 					testConnector._socket.sentMessages.map(JSON.parse),
 					[{ seq: 1, type: "heartbeat"}]
 				);
+			});
+		});
+
+		describe("send buffer limit", function() {
+			afterEach(function() {
+				testConnector.maxSendBufferSize = 0;
+				testConnector._closing = false;
+			});
+			it("should keep unacknowledged messages under the limit", function() {
+				testConnector._state = "connected";
+				testConnector._sendBuffer = [];
+				testConnector._sendBufferSize = 0;
+				testConnector._socket.closeCalled = false;
+				testConnector.maxSendBufferSize = 1000;
+				testConnector.send(new lib.MessageHeartbeat(1));
+				assert.equal(testConnector._sendBuffer.length, 1);
+				assert(!testConnector._socket.closeCalled, "Close was called on the socket");
+			});
+			it("should clear the buffer and close when the limit is exceeded", function() {
+				testConnector._state = "connected";
+				testConnector._sendBuffer = [];
+				testConnector._sendBufferSize = 0;
+				testConnector._socket.closeCalled = false;
+				testConnector._socket.sentMessages = [];
+				testConnector.maxSendBufferSize = 30;
+				testConnector.send(new lib.MessageHeartbeat(1));
+				testConnector.send(new lib.MessageHeartbeat(2));
+				assert.equal(testConnector._sendBuffer.length, 0);
+				assert.equal(testConnector._sendBufferSize, 0);
+				assert(testConnector._socket.closeCalled, "Close was not called on the socket");
+				assert.equal(testConnector._socket.sentMessages.length, 1);
 			});
 		});
 

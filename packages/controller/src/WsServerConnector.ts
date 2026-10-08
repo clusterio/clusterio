@@ -21,8 +21,10 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		private _sessionId: number,
 		private _sessionTimeout: number,
 		public _heartbeatInterval: number,
+		maxSendBufferSize = 0,
 	) {
 		super(new lib.Address(lib.Address.controller, 0), dst);
+		this.maxSendBufferSize = maxSendBufferSize;
 
 		// The following states are used in the server connector
 		// closed: Connection is closed
@@ -110,7 +112,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 			`Connector | resuming session with ${this.dst}, resending ${this._sendBuffer.length} buffered messages`
 		);
 		for (let message of this._sendBuffer) {
-			this._socket.send(JSON.stringify(message));
+			this._socket.send(message.text);
 		}
 		this.emit("resume");
 	}
