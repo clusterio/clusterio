@@ -6,25 +6,23 @@ import { plugin as info } from "../dist/node/index.js";
 
 
 describe("statistics_exporter plugin", function() {
-	describe("class InstancePlugin", function() {
-		let instancePlugin;
-		let mockInstance = new mock.MockInstance();
-		mockInstance.mockConfigEntries.set("statistics_exporter.command_timeout", 1);
+	describe("instance entrypoint", function() {
+		let mockInstance;
 		before(async function() {
-			instancePlugin = new instance.InstancePlugin(info, mockInstance);
-			await instancePlugin.init();
+			({ instance: mockInstance } = await mock.loadInstancePlugin(instance.default, info));
+			mockInstance.mockConfigEntries.set("statistics_exporter.command_timeout", 1);
 		});
 
-		describe(".onMetrics()", function() {
+		describe("metrics hook", function() {
 			it("should not send commands before running", async function() {
-				instancePlugin.instance.server.rconCommands.length = 0;
-				instancePlugin.instance.status = "starting";
-				await instancePlugin.onMetrics();
-				assert(instancePlugin.instance.server.rconCommands.length === 0, "commands were run");
+				mockInstance.server.rconCommands.length = 0;
+				mockInstance.status = "starting";
+				await mockInstance.hooks.metrics.invoke();
+				assert(mockInstance.server.rconCommands.length === 0, "commands were run");
 			});
 			it("should record statistics", async function() {
-				instancePlugin.instance.status = "running";
-				instancePlugin.instance.server.rconCommandResults.set(
+				mockInstance.status = "running";
+				mockInstance.server.rconCommandResults.set(
 					"/sc statistics_exporter.export()",
 					JSON.stringify({
 						game_tick: 100,
@@ -58,7 +56,7 @@ describe("statistics_exporter plugin", function() {
 					})
 				);
 
-				await instancePlugin.onMetrics();
+				await mockInstance.hooks.metrics.invoke();
 
 				assert.equal(instance._instancePlayerCount.labels("7357").get(), 3);
 				assert.equal(instance._instanceGameTicksTotal.labels("7357").get(), 100);
@@ -90,7 +88,7 @@ describe("statistics_exporter plugin", function() {
 			});
 			it("should pass on JSON parse errors", async function() {
 				let string = "An error occured\n";
-				instancePlugin.instance.server.rconCommandResults.set(
+				mockInstance.server.rconCommandResults.set(
 					"/sc statistics_exporter.export()", string
 				);
 
@@ -102,7 +100,7 @@ describe("statistics_exporter plugin", function() {
 				}
 
 				await assert.rejects(
-					instancePlugin.onMetrics(),
+					instance.gatherMetrics(mockInstance, info.name),
 					new Error(`Error parsing statistics JSON: ${errorMessage}, content "${string}"`)
 				);
 			});

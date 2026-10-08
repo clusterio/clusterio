@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "path";
-import { BaseControllerPlugin } from "@clusterio/controller";
+import type { ControllerPluginContext } from "@clusterio/controller";
 import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
@@ -49,61 +49,39 @@ async function saveTechnologies(
 	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
 }
 
-export class ControllerPlugin extends BaseControllerPlugin {
-	technologies!: Map<string, Technology>;
-	technologiesDirty = true;
-	progressRateLimiter!: lib.RateLimiter;
-	progressBroadcastId!: ReturnType<typeof setInterval> | null;
-	progressToBroadcast!: Set<string>;
+export default async function(context: ControllerPluginContext) {
+	const { controller, logger, plugin } = context;
+	const technologies = await loadTechnologies(controller.config, logger);
+	let technologiesDirty = true;
+	const progressToBroadcast = new Set<string>();
 
-	async init() {
-		this.technologies = await loadTechnologies(this.controller.config, this.logger);
-		this.progressRateLimiter = new RateLimiter({
-			maxRate: 1,
-			action: () => this.broadcastProgress(),
-		});
-
-		this.progressBroadcastId = null;
-		this.progressToBroadcast = new Set();
-
-		this.controller.handle(ContributionEvent, this.handleContributionEvent.bind(this));
-		this.controller.handle(FinishedEvent, this.handleFinishedEvent.bind(this));
-		this.controller.handle(SyncTechnologiesRequest, this.handleSyncTechnologiesRequest.bind(this));
-	}
-
-	async onSaveData() {
-		if (this.technologiesDirty) {
-			this.technologiesDirty = false;
-			await saveTechnologies(this.controller.config, this.technologies, this.logger);
-		}
-	}
-
-	async onShutdown() {
-		this.progressRateLimiter.cancel();
-	}
-
-	broadcastProgress() {
+	function broadcastProgress() {
 		let techs = [];
-		for (let name of this.progressToBroadcast) {
-			let tech = this.technologies.get(name);
+		for (let name of progressToBroadcast) {
+			let tech = technologies.get(name);
 			if (tech && tech.progress) {
 				techs.push(new TechnologyProgress(name, tech.level, tech.progress));
 			}
 		}
-		this.progressToBroadcast.clear();
+		progressToBroadcast.clear();
 
 		if (techs.length) {
-			this.controller.sendTo("allInstances", new ProgressEvent(techs));
+			controller.sendTo("allInstances", new ProgressEvent(techs));
 		}
 	}
 
-	async handleContributionEvent(event: ContributionEvent) {
+	const progressRateLimiter = new RateLimiter({
+		maxRate: 1,
+		action: broadcastProgress,
+	});
+
+	controller.handle(ContributionEvent, async (event: ContributionEvent) => {
 		let { name, level, contribution } = event;
-		let tech = this.technologies.get(name);
+		let tech = technologies.get(name);
 		if (!tech) {
 			tech = { level, progress: 0, researched: false };
-			this.technologies.set(name, tech);
-			this.technologiesDirty = true;
+			technologies.set(name, tech);
+			technologiesDirty = true;
 
 		// Ignore contribution to already researched technologies
 		} else if (tech.level > level || tech.level === level && tech.researched) {
@@ -124,31 +102,31 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		let newProgress = tech.progress! + contribution;
 		if (newProgress < 1) {
 			tech.progress = newProgress;
-			this.progressToBroadcast.add(name);
-			this.progressRateLimiter!.activate();
+			progressToBroadcast.add(name);
+			progressRateLimiter.activate();
 
 		} else {
 			tech.researched = true;
 			tech.progress = null;
-			this.progressToBroadcast.delete(name);
+			progressToBroadcast.delete(name);
 
-			this.controller.sendTo("allInstances", new FinishedEvent(name, tech.level));
+			controller.sendTo("allInstances", new FinishedEvent(name, tech.level));
 		}
-		this.technologiesDirty = true;
-	}
+		technologiesDirty = true;
+	});
 
-	async handleFinishedEvent(event: FinishedEvent) {
+	controller.handle(FinishedEvent, async (event: FinishedEvent) => {
 		let { name, level } = event;
-		let tech = this.technologies.get(name);
+		let tech = technologies.get(name);
 		if (!tech || tech.level <= level) {
-			this.controller.sendTo("allInstances", event);
-			this.progressToBroadcast.delete(name);
-			this.technologies.set(name, { level, progress: null, researched: true });
-			this.technologiesDirty = true;
+			controller.sendTo("allInstances", event);
+			progressToBroadcast.delete(name);
+			technologies.set(name, { level, progress: null, researched: true });
+			technologiesDirty = true;
 		}
-	}
+	});
 
-	async handleSyncTechnologiesRequest(request: SyncTechnologiesRequest): Promise<TechnologySync[]> {
+	controller.handle(SyncTechnologiesRequest, async (request: SyncTechnologiesRequest): Promise<TechnologySync[]> => {
 		function baseLevel(name: string): number {
 			let match = /-(\d+)$/.exec(name);
 			if (!match) {
@@ -159,14 +137,14 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		for (let instanceTech of request.technologies) {
 			let { name, level, progress, researched } = instanceTech;
-			let tech = this.technologies.get(name);
+			let tech = technologies.get(name);
 			if (!tech) {
-				this.technologies.set(name, { level, progress, researched });
-				this.technologiesDirty = true;
+				technologies.set(name, { level, progress, researched });
+				technologiesDirty = true;
 				if (progress) {
-					this.progressToBroadcast.add(name);
+					progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
-					this.controller.sendTo("allInstances", new FinishedEvent(name, level));
+					controller.sendTo("allInstances", new FinishedEvent(name, level));
 				}
 
 			} else {
@@ -177,33 +155,44 @@ export class ControllerPlugin extends BaseControllerPlugin {
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
 					if (level - Number(!researched) > tech.level - Number(!tech.researched)) {
-						this.controller.sendTo("allInstances", new FinishedEvent(name, level - Number(!researched)));
+						controller.sendTo("allInstances", new FinishedEvent(name, level - Number(!researched)));
 					}
 					tech.level = level;
 					tech.progress = progress;
 					tech.researched = researched;
 
 					if (progress) {
-						this.progressToBroadcast.add(name);
+						progressToBroadcast.add(name);
 					} else {
-						this.progressToBroadcast.delete(name);
+						progressToBroadcast.delete(name);
 					}
-					this.technologiesDirty = true;
+					technologiesDirty = true;
 
 				} else if (tech.progress && progress && tech.progress < progress) {
 					tech.progress = progress;
-					this.progressToBroadcast.add(name);
-					this.technologiesDirty = true;
+					progressToBroadcast.add(name);
+					technologiesDirty = true;
 				}
 			}
 		}
-		this.progressRateLimiter.activate();
+		progressRateLimiter.activate();
 
-		let technologies = [];
-		for (let [name, tech] of this.technologies) {
-			technologies.push(new TechnologySync(name, tech.level, tech.progress, tech.researched));
+		let result = [];
+		for (let [name, tech] of technologies) {
+			result.push(new TechnologySync(name, tech.level, tech.progress, tech.researched));
 		}
 
-		return technologies;
-	}
+		return result;
+	});
+
+	controller.hooks.save.attach(plugin.name, async () => {
+		if (technologiesDirty) {
+			technologiesDirty = false;
+			await saveTechnologies(controller.config, technologies, logger);
+		}
+	});
+
+	controller.hooks.shutdown.attach(plugin.name, async () => {
+		progressRateLimiter.cancel();
+	});
 }
