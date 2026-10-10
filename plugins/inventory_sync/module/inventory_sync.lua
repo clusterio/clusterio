@@ -132,12 +132,14 @@ function inventory_sync.deserialize_player(player, finished_record)
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
 	assert(type(serialized_player) == "table", "wrong type for serialized_player")
-	script_data.failed_deserialization[player.name] =
+	local failed, spill =
 		serialize.deserialize_player(player, serialized_player, finished_record.components, local_controller)
+	script_data.failed_deserialization[player.name] = failed
 	player_record.local_controller = nil
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
+	serialize.spill_items(player, spill)
 
 	-- Transfer items from stashed inventory
 	if stashed_corpse then
@@ -485,11 +487,7 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 
 	-- If this is a synced player turn them into a spectator while the
 	-- player data is downloading
-	-- Without the controller synced a player without a character has nothing synced to protect
-	local components = record.components
-	if player_record.sync and serialize.syncs(components, "inventories")
-		and (serialize.syncs(components, "controller") or player.character)
-	then
+	if player_record.sync and serialize.syncs(record.components, "inventories") then
 		-- Store original position to teleport back to
 		if v2_remote_controller then
 			record.surface = player.physical_surface

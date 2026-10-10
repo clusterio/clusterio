@@ -44,6 +44,7 @@ Instances can leave parts of the player out of the sync with the `inventory_sync
 A part which is not synced is left as it is when the player joins, and the instance's copy of it is not uploaded, so the stored copy from other instances stays as it was.
 A player online when the options change keeps the old ones until they leave and join again, and a part that was turned on is downloaded when they join.
 Turning off `inventory_sync.sync_inventories` leaves the items players have on the instance in place while the stored inventory still holds them too.
+Items follow the player to whatever controller they end up with, a character, god or ghost, and what does not fit is put into a corpse below them.
 
 Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the controller goes over websockets.
@@ -72,8 +73,7 @@ Defaults to `1000`.
 
 ### inventory_sync.sync_controller
 
-Sync whether the player is a character, god or spectator, their respawn timer, cheat mode, the god inventory and the inventory filters of a dead player.
-Switching controller can destroy the character holding the inventory, so this only takes effect while `inventory_sync.sync_inventories` is also enabled.
+Sync whether the player is a character, god or spectator, their respawn timer and cheat mode.
 
 Defaults to `true`.
 
@@ -91,9 +91,10 @@ Defaults to `true`.
 
 ### inventory_sync.sync_inventories
 
-Sync the character inventories, the character bonuses and the crafting queue.
-While the controller is not synced a player without a character keeps what they have on the instance and does not change the stored character.
-A player who died on the instance uploads the character they will respawn with, and a player waiting to respawn when joining is respawned straight away if there is a synced character to give them.
+Sync the items the player holds, the character bonuses and the crafting queue.
+This covers the character inventories, the god inventory and the items a dead player will respawn with.
+A spectator holds no items, so the synced items are put into a corpse when the player is a spectator on the instance.
+A player without a character gets the ingredients of the crafting queue as items instead.
 
 Defaults to `true`.
 

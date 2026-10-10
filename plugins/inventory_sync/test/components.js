@@ -51,9 +51,9 @@ describe("inventory_sync components", function() {
 			assert.equal(enabled.has("quick_bar"), false);
 			assert.equal(enabled.size, allComponents.length - 2);
 		});
-		it("should not sync the controller without the inventories", function() {
+		it("should sync the controller without the inventories", function() {
 			const enabled = enabledComponents(configWith(["inventories"]));
-			assert.equal(enabled.has("controller"), false);
+			assert.equal(enabled.has("controller"), true);
 		});
 	});
 
@@ -71,12 +71,11 @@ describe("inventory_sync components", function() {
 			}
 			assert.equal(playerData.force, "enemy");
 		});
-		it("should remove the god inventory with the controller", function() {
+		it("should remove the god inventory with the inventories", function() {
 			const playerData = structuredClone(stored);
-			stripPlayerData(playerData, new Set(allComponents.filter(c => c !== "controller")));
+			stripPlayerData(playerData, new Set(allComponents.filter(c => c !== "inventories")));
 			assert.equal("inventories" in playerData, false);
-			assert.equal("controller" in playerData, false);
-			assert.equal(playerData.tag, "stored");
+			assert.equal(playerData.controller, "god");
 		});
 	});
 
@@ -91,8 +90,8 @@ describe("inventory_sync components", function() {
 		it("should sync nothing for an empty table encoded as an array", function() {
 			assert.equal(uploadedComponents([]).size, 0);
 		});
-		it("should not sync the controller without the inventories", function() {
-			assert.equal(uploadedComponents({ controller: true }).has("controller"), false);
+		it("should sync the controller without the inventories", function() {
+			assert.deepEqual([...uploadedComponents({ controller: true })], ["controller"]);
 		});
 	});
 
@@ -121,26 +120,33 @@ describe("inventory_sync components", function() {
 			assert.equal("force" in merged, false);
 			assert.equal(merged.tag, "uploaded");
 		});
-		it("should take the character but not the controller when the controller is not synced", function() {
+		it("should take the items but not the controller when the controller is not synced", function() {
 			const merged = mergePlayerData(stored, withComponents(uploaded, ["controller"]));
 			assert.equal(merged.controller, "god");
 			assert.equal(merged.cheat_mode, true);
 			assert.equal(merged.character, character);
-			assert.deepEqual(merged.inventories, { main: ["stored god item"] }, "god inventory is kept");
+			assert.equal("inventories" in merged, false, "the god inventory moved to the character");
 		});
-		it("should keep the character data for a player without one when the controller is not synced", function() {
+		it("should take the items of a player without a character", function() {
 			const storedCharacter = {
 				...stored, character, crafting_queue: ["stored"], personal_logistic_slots: [{ name: "stored" }],
 			};
 			const god = { ...uploaded, controller: "god", inventories: { main: ["new god item"] } };
 			delete god.character;
 			delete god.crafting_queue;
-			god.personal_logistic_slots = [{ name: "uploaded" }];
+			delete god.personal_logistic_slots;
 			const merged = mergePlayerData(storedCharacter, withComponents(god, ["controller"]));
-			assert.equal(merged.character, character);
-			assert.deepEqual(merged.crafting_queue, ["stored"]);
-			assert.deepEqual(merged.personal_logistic_slots, [{ name: "stored" }], "logistics stay with the character");
-			assert.deepEqual(merged.inventories, { main: ["stored god item"] });
+			assert.equal("character" in merged, false);
+			assert.equal("crafting_queue" in merged, false);
+			assert.deepEqual(merged.inventories, { main: ["new god item"] });
+			assert.deepEqual(merged.personal_logistic_slots, [{ name: "stored" }], "nowhere to hold logistics");
+		});
+		it("should drop logistic requests a character uploaded without", function() {
+			const storedSlots = { ...stored, personal_logistic_slots: [{ name: "stored" }] };
+			const noSlots = { ...uploaded };
+			delete noSlots.personal_logistic_slots;
+			const merged = mergePlayerData(storedSlots, withComponents(noSlots, []));
+			assert.equal("personal_logistic_slots" in merged, false);
 		});
 	});
 });
