@@ -6,6 +6,7 @@ import * as lib from "@clusterio/lib";
 import * as mock from "../../../test/mock.js";
 import loadInstancePlugin, { recipeNotificationDelta, applyRecipeNotificationDelta } from "../dist/node/instance.js";
 import { DownloadResponse } from "../dist/node/messages.js";
+import { components } from "../dist/node/components.js";
 import { plugin as info } from "../dist/node/index.js";
 
 const inflate = util.promisify(zlib.inflate);
@@ -84,6 +85,9 @@ describe("inventory_sync", function() {
 		});
 		beforeEach(function() {
 			instance.server.reset();
+			for (const component of Object.keys(components)) {
+				instance.mockConfigEntries.set(`inventory_sync.sync_${component}`, true);
+			}
 		});
 
 		function respondWith(playerData) {
@@ -124,6 +128,55 @@ describe("inventory_sync", function() {
 			await download({ player_name: "test", recipe_notifications: await encode(["b"]) });
 			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
+		});
+		it("should leave out components the instance does not sync", async function() {
+			instance.mockConfigEntries.set("inventory_sync.sync_force", false);
+			instance.mockConfigEntries.set("inventory_sync.sync_recipe_notifications", false);
+			respondWith({ generation: 1, name: "test", force: "enemy", tag: "tag", recipe_notifications: "x" });
+			await download({ player_name: "test" });
+			const expected = { generation: 1, name: "test", tag: "tag" };
+			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
+		});
+	});
+
+	describe("set_components", function() {
+		let instance;
+		before(async function() {
+			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+		});
+		beforeEach(function() {
+			instance.server.reset();
+			for (const component of Object.keys(components)) {
+				instance.mockConfigEntries.set(`inventory_sync.sync_${component}`, true);
+			}
+		});
+
+		it("should send the synced components on start", async function() {
+			instance.mockConfigEntries.set("inventory_sync.sync_quick_bar", false);
+			await instance.hooks.start.invoke();
+			const enabled = Object.fromEntries(
+				Object.keys(components).filter(c => c !== "quick_bar").map(c => [c, true])
+			);
+			const json = lib.escapeString(JSON.stringify(enabled));
+			assert.deepEqual(
+				instance.server.rconCommands,
+				[`/sc inventory_sync.set_components("${json}")`]
+			);
+		});
+		it("should send the synced components when one is changed", async function() {
+			await instance.hooks.instanceConfigFieldChanged.invoke("inventory_sync.rcon_chunk_size", 1, 2);
+			assert.equal(instance.server.rconCommands.length, 0);
+			await instance.hooks.instanceConfigFieldChanged.invoke("inventory_sync.sync_force", false, true);
+			assert.equal(instance.server.rconCommands.length, 1);
+		});
+		it("should not send the components when the instance is not running", async function() {
+			instance.status = "stopped";
+			try {
+				await instance.hooks.instanceConfigFieldChanged.invoke("inventory_sync.sync_force", false, true);
+			} finally {
+				instance.status = "running";
+			}
+			assert.equal(instance.server.rconCommands.length, 0);
 		});
 	});
 });

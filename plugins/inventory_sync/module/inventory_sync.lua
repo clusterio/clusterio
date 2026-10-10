@@ -24,6 +24,19 @@ local function is_in_cutscene(player)
 	return player.controller_type == defines.controllers.cutscene
 end
 
+-- Remember the components a player's synced session uses, uploads are serialized with these
+local function start_sync(player_record, components)
+	player_record.sync = true
+	player_record.components = components
+end
+
+-- Remember the controller the player had before sync code replaced it, restored when the controller is not synced
+local function save_local_controller(player, player_record)
+	if not player_record.local_controller then
+		player_record.local_controller = serialize.serialize_local_controller(player)
+	end
+end
+
 -- Create player record for bookkeeping
 local function create_player(player, dirty)
 	local script_data = get_script_data(true) -- no early return to support loading from single player
@@ -50,6 +63,11 @@ end
 inventory_sync = {}
 -- This function is called by instance.js as /sc inventory_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
 inventory_sync.download_inventory = download_inventory
+
+-- This function is called by instance.js with the components synced on this instance
+function inventory_sync.set_components(data)
+	get_script_data().components = assert(compat.json_to_table(data))
+end
 
 -- This function is called internally when a player leaves the game to
 -- serialize the player for upload.
@@ -78,7 +96,7 @@ function inventory_sync.serialize_player(player, player_record)
 	end
 
 	local failed_deserialization = get_script_data().failed_deserialization[player.name] or {}
-	local serialized_player = serialize.serialize_player(player, failed_deserialization)
+	local serialized_player = serialize.serialize_player(player, failed_deserialization, player_record.components)
 	serialized_player.generation = player_record.generation
 
 	return serialized_player
@@ -95,11 +113,13 @@ function inventory_sync.deserialize_player(player, finished_record)
 		return
 	end
 
-	-- Stash temporary inventory if it exists
-	local stashed_corpse
 	local script_data = get_script_data()
 	local player_record = script_data.players[player.name]
-	if player_record.dirty and player.character then
+	local local_controller = player_record.local_controller or serialize.serialize_local_controller(player)
+
+	-- Stash temporary inventory if it exists, without inventory sync the current inventory is the one to keep
+	local stashed_corpse
+	if serialize.syncs(finished_record.components, "inventories") and player_record.dirty and player.character then
 		local character = player.character
 		local surface = character.surface
 		local position = character.position
@@ -112,10 +132,14 @@ function inventory_sync.deserialize_player(player, finished_record)
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
 	assert(type(serialized_player) == "table", "wrong type for serialized_player")
-	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
+	local failed, spill =
+		serialize.deserialize_player(player, serialized_player, finished_record.components, local_controller)
+	script_data.failed_deserialization[player.name] = failed
+	player_record.local_controller = nil
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
+	serialize.spill_items(player, spill)
 
 	-- Transfer items from stashed inventory
 	if stashed_corpse then
@@ -283,7 +307,10 @@ function inventory_sync.sync_player(acquire_response)
 	local player_record = script_data.players[acquire_response.player_name]
 	if acquire_response.status ~= "acquired" then
 		if player_record.sync and not player_record.dirty then
-			if player.controller_type == defines.controllers.character then
+			if serialize.syncs(player_record.components, "inventories")
+				and player.controller_type == defines.controllers.character
+			then
+				save_local_controller(player, player_record)
 				local character = player.character
 				player.set_controller({ type = defines.controllers.spectator })
 				if character then character.destroy() end
@@ -296,7 +323,11 @@ function inventory_sync.sync_player(acquire_response)
 
 	if
 		acquire_response.has_data
-		and (not player_record.sync or acquire_response.generation > player_record.generation)
+		and (
+			not player_record.sync
+			or acquire_response.generation > player_record.generation
+			or serialize.newly_synced(player_record.components, script_data.components)
+		)
 	then
 		inventory_sync.initiate_inventory_download(player, player_record, acquire_response.generation)
 
@@ -309,7 +340,7 @@ function inventory_sync.sync_player(acquire_response)
 			)
 		end
 
-		player_record.sync = true
+		start_sync(player_record, script_data.components)
 		player_record.dirty = true
 	end
 end
@@ -330,7 +361,7 @@ function inventory_sync.finish_download(player, finished_record)
 	end
 
 	player_record.dirty = true
-	player_record.sync = true
+	start_sync(player_record, finished_record.components)
 	player_record.generation = finished_record.generation
 end
 
@@ -437,14 +468,15 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 		started = game.ticks_played,
 		last_active = game.ticks_played,
 		generation = generation,
-		data = ""
+		data = "",
 	}
 	local script_data = get_script_data()
+	record.components = script_data.components
 	script_data.active_downloads[player.name] = record
 
 	-- The plugin only sends back what differs from the current notification state
 	local recipe_notifications
-	if recipe_notifications_api then
+	if recipe_notifications_api and serialize.syncs(record.components, "recipe_notifications") then
 		recipe_notifications = serialize.serialize_crafting_notifications(player)
 	end
 
@@ -455,7 +487,7 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 
 	-- If this is a synced player turn them into a spectator while the
 	-- player data is downloading
-	if player_record.sync then
+	if player_record.sync and serialize.syncs(record.components, "inventories") then
 		-- Store original position to teleport back to
 		if v2_remote_controller then
 			record.surface = player.physical_surface
@@ -468,6 +500,7 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 			record.vehicle = player.vehicle
 		end
 
+		save_local_controller(player, player_record)
 		local character = player.character
 		player.set_controller({ type = defines.controllers.spectator })
 		if character ~= nil then character.destroy() end

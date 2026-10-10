@@ -131,6 +131,7 @@ dialog_failed_download.events = {
 			player.gui.screen.dialog_failed_download.destroy()
 			inventory_sync.players[player.name].dirty = true
 			inventory_sync.players[player.name].sync = false
+			inventory_sync.players[player.name].local_controller = nil
 
 		elseif event.element.name == "inventory_sync_failed_download_retry" then
 			-- Retry acquiring the player from the controller

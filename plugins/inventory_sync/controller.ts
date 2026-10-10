@@ -1,5 +1,6 @@
 import type { ControllerPluginContext, InstanceRecord } from "@clusterio/controller";
 import type { IpcPlayerData } from "./messages.js";
+import { mergePlayerData } from "./components.js";
 
 import fs from "node:fs/promises";
 import path from "path";
@@ -152,7 +153,7 @@ export default async function(context: ControllerPluginContext) {
 
 		if (store) {
 			logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
-			playerDatastore.set(playerName, playerData);
+			playerDatastore.set(playerName, mergePlayerData(oldPlayerData, playerData));
 			playerDatastoreDirty = true;
 		}
 	});
