@@ -3,11 +3,11 @@ import type { IpcPlayerData } from "./messages.js";
 
 /** Parts of the player data an instance can choose to sync, and the fields of the player data holding them. */
 export const components = {
-	// inventories holds the god inventory and the hidden ghost inventory, both belong to the controller
-	controller: ["controller", "ticks_to_respawn", "cheat_mode", "inventories"],
+	controller: ["controller", "ticks_to_respawn", "cheat_mode"],
 	force: ["force"],
 	appearance: ["color", "chat_color", "tag"],
-	inventories: ["character", "crafting_queue"],
+	// inventories holds the god inventory and the hidden ghost inventory
+	inventories: ["character", "crafting_queue", "inventories"],
 	logistics: ["personal_logistic_slots"],
 	quick_bar: ["quick_bar", "hotbar"],
 	settings: ["flashlight", "shortcuts", "game_view_settings"],
@@ -16,26 +16,8 @@ export const components = {
 
 export type Component = keyof typeof components;
 
-// Fields only a player with a character has
-const characterFields = ["character", "crafting_queue", "personal_logistic_slots"] as const;
-
-/**
- * Build the set of synced components.
- *
- * The controller is only synced together with the inventories, as
- * switching controller can destroy the character holding them.
- */
 function componentSet(isEnabled: (component: Component) => boolean) {
-	const enabled = new Set<Component>();
-	for (const component of Object.keys(components) as Component[]) {
-		if (isEnabled(component)) {
-			enabled.add(component);
-		}
-	}
-	if (!enabled.has("inventories")) {
-		enabled.delete("controller");
-	}
-	return enabled;
+	return new Set((Object.keys(components) as Component[]).filter(isEnabled));
 }
 
 /** Components synced on an instance. */
@@ -72,8 +54,7 @@ export function stripPlayerData(playerData: IpcPlayerData, enabled: Set<Componen
  * Combine data uploaded by an instance with the stored data.
  *
  * Components the upload was not serialized with keep the stored fields.
- * Without the controller synced character fields are only taken from a
- * player which has a character.
+ * Logistic requests are kept when the player has nowhere to hold them.
  */
 export function mergePlayerData(stored: IpcPlayerData | undefined, uploaded: IpcPlayerData) {
 	const { components: uploadComponents, ...merged } = uploaded as IpcPlayerData & Record<string, unknown>;
@@ -94,8 +75,8 @@ export function mergePlayerData(stored: IpcPlayerData | undefined, uploaded: Ipc
 			keep(keys);
 		}
 	}
-	if (!enabled.has("controller") && !uploaded.character) {
-		keep(characterFields);
+	if (!uploaded.character && !uploaded.personal_logistic_slots) {
+		keep(["personal_logistic_slots"]);
 	}
 	return merged as IpcPlayerData;
 }
