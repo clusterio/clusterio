@@ -17,6 +17,25 @@ describe("rce_ops", function() {
 		});
 	});
 
+	describe("package operations", function() {
+		it("rejects while another operation is in progress", async function() {
+			const audit = lib.logger.audit;
+			let nested;
+			lib.logger.audit = function() {
+				lib.logger.audit = audit;
+				nested = lib.installPackage("bar");
+			};
+			try {
+				await lib.installPackage("foo");
+			} finally {
+				lib.logger.audit = audit;
+			}
+			await assert.rejects(nested, /Another package operation is already in progress/);
+			// The lock is released once the operation finishes
+			await lib.installPackage("foo");
+		});
+	});
+
 	describe("handlePluginUpdate", function() {
 		it("runs", async function() {
 			await lib.handlePluginUpdate("foo", [{ npmPackage: "foo" }]);

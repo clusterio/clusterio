@@ -13,10 +13,21 @@ function isDev() {
 	return __dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
 }
 
+// npm operations on the same installation must not overlap, so only one is allowed at a time.
+let npmBusy = false;
+
 async function logExec(cmd: string) {
-	logger.audit(`RCE | ${cmd}`);
-	if (!isDev()) {
-		await execAsync(cmd);
+	if (npmBusy) {
+		throw new RequestError("Another package operation is already in progress on this machine");
+	}
+	npmBusy = true;
+	try {
+		logger.audit(`RCE | ${cmd}`);
+		if (!isDev()) {
+			await execAsync(cmd);
+		}
+	} finally {
+		npmBusy = false;
 	}
 }
 
