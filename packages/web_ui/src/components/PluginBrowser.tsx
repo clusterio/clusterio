@@ -53,13 +53,16 @@ function useInstallAllowed() {
 	};
 }
 
-function InstallControls(props: { plugin: lib.PluginSearchResult }) {
+type InstallState = { installing: boolean, setInstalling: (installing: boolean) => void };
+
+// Install state is owned by the browser so it survives switching between plugins and pages.
+function InstallControls(props: { plugin: lib.PluginSearchResult } & InstallState) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [hosts] = useHosts();
 	const allowed = useInstallAllowed();
 	const [selectedHostIds, setSelectedHostIds] = useState<number[]>([]);
-	const [installing, setInstalling] = useState(false);
+	const { installing, setInstalling } = props;
 
 	const connectedHosts = [...hosts.values()].filter(host => host.connected);
 	const eligibleHosts = connectedHosts.filter(host => allowed.host(host.id));
@@ -101,6 +104,7 @@ function InstallControls(props: { plugin: lib.PluginSearchResult }) {
 			mode="multiple"
 			style={{ minWidth: 200 }}
 			placeholder="Select hosts"
+			optionFilterProp="label"
 			value={selectedHostIds}
 			onChange={setSelectedHostIds}
 			options={connectedHosts.map(host => ({
@@ -124,7 +128,7 @@ function InstallControls(props: { plugin: lib.PluginSearchResult }) {
 	</Space>;
 }
 
-function PluginDetails(props: { plugin: lib.PluginSearchResult }) {
+function PluginDetails(props: { plugin: lib.PluginSearchResult } & InstallState) {
 	const { plugin } = props;
 	return <>
 		<Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
@@ -143,7 +147,7 @@ function PluginDetails(props: { plugin: lib.PluginSearchResult }) {
 				</Space>
 			</Descriptions.Item>
 		</Descriptions>
-		<InstallControls plugin={plugin} />
+		<InstallControls plugin={plugin} installing={props.installing} setInstalling={props.setInstalling} />
 	</>;
 }
 
@@ -159,6 +163,7 @@ export function PluginBrowserButton() {
 	const [results, setResults] = useState<lib.PluginSearchResult[]>([]);
 	const [selected, setSelected] = useState<lib.PluginSearchResult | undefined>();
 	const [installed, setInstalled] = useState(new Set<string>());
+	const [installing, setInstalling] = useState(false);
 
 	useEffect(() => {
 		if (!open) {
@@ -238,7 +243,7 @@ export function PluginBrowserButton() {
 				]}
 			/>
 			{selected
-				? <PluginDetails plugin={selected} />
+				? <PluginDetails plugin={selected} installing={installing} setInstalling={setInstalling} />
 				: <Text type="secondary">Select a plugin to see details and install it.</Text>
 			}
 		</Modal>
