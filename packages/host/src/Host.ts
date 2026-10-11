@@ -218,7 +218,7 @@ export class HostRouter {
 		this.host._connectInstance(dst.id).then(instanceConnection => {
 			instanceConnection.connector.forward(message);
 		}).catch(err => {
-			logger.error(`Error starting instance:\n${err.stack}`, this.host.instanceLogMeta(dst.id));
+			logger.error(`Error starting instance:\n${err.stack ?? err.message}`, this.host.instanceLogMeta(dst.id));
 			origin.connector.sendResponseError(
 				new lib.ResponseError(err.message, err.code, err.stack), message.src
 			);
