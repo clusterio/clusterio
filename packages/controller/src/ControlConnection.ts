@@ -1320,11 +1320,11 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
-		return this._controller.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
-			pluginInfo,
-			this._controller.plugins.has(pluginInfo.name),
-			this._controller.config.get(`${pluginInfo.name}.load_plugin`),
-		));
+		return await lib.listPluginDetails(
+			this._controller.pluginInfos,
+			name => this._controller.plugins.has(name),
+			name => this._controller.config.get(`${name}.load_plugin`),
+		);
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {

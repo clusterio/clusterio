@@ -132,6 +132,7 @@ describe("lib/plugin_loader", function() {
 
 		const nodeModules = path.join(baseDir, "node_modules");
 		const npmPluginPath = path.join(nodeModules, "plugin-npm");
+		const npmPluginPathAbs = path.resolve(npmPluginPath);
 		const aliasedPluginPath = path.join(nodeModules, "plugin-aliased");
 		const deepPluginPath = path.join(nodeModules, "plugin-deep");
 		const transitivePluginPath = path.join(nodeModules, "plugin-transitive");
@@ -244,6 +245,28 @@ describe("lib/plugin_loader", function() {
 			assert.strictEqual(pluginList.get("transitive"), "plugin-transitive");
 			assert.strictEqual(pluginList.get("nested"), undefined);
 			assert.strictEqual(pluginList.get("hidden"), undefined);
+		});
+
+		it("should list installed versions and plugins pending a restart", async function() {
+			const pluginInfos = [{
+				name: "npm", title: "NPM", version: "0.0.0", requirePath: npmPluginPathAbs, npmPackage: "plugin-npm",
+			}];
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
+			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage, plugin]));
+
+			const loaded = byPackage.get("plugin-npm");
+			assert.equal(loaded.version, "0.0.0");
+			assert.equal(loaded.installedVersion, "0.0.1");
+			assert.equal(loaded.pendingInstall, undefined);
+
+			for (const packageName of ["plugin-aliased", "plugin-deep"]) {
+				const pending = byPackage.get(packageName);
+				assert.equal(pending.pendingInstall, true, packageName);
+				assert.equal(pending.installedVersion, "0.0.1", packageName);
+				assert.equal(pending.loaded, false, packageName);
+			}
+			assert.equal(byPackage.has("not-a-plugin"), false);
+			assert.equal(plugins.length, 3);
 		});
 
 		it("should load existing plugin list", async function() {
