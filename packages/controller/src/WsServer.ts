@@ -116,6 +116,13 @@ export default class WsServer {
 	handleConnection(socket: lib.WebSocketClusterio, req: IncomingMessage) {
 		logger.verbose(`WsServer | new connection from ${this.remoteAddr(req)}`);
 
+		// ws emits errors like invalid frames on the socket, and an error with
+		// no listener crashes the controller. The connector adds its own
+		// listener, but only once the handshake has completed.
+		socket.on("error", (err: Error) => {
+			logger.verbose(`WsServer | error on connection from ${this.remoteAddr(req)}: ${err.message}`);
+		});
+
 		// Track statistics
 		wsConnectionsCounter.inc();
 		socket.on("message", (message: WebSocket.RawData) => {
