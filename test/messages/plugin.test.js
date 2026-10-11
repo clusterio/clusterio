@@ -179,9 +179,21 @@ describe("messages/plugin", function() {
 			const reconstructed = lib.PluginInstallRequest.fromJSON(JSON.parse(json));
 			assert.deepEqual(reconstructed, request);
 		});
+		afterEach(function() {
+			controller.config.restartRequired = false;
+			host.config.restartRequired = false;
+		});
+
 		it("runs on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", true);
 			await controlConnection.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
+		});
+		it("flags the controller as requiring a restart", async function() {
+			controller.config.set("controller.allow_plugin_install", true);
+			controller.config.set("controller.version", require("@clusterio/controller/package.json").version);
+			assert.equal(await controller.checkRestartRequired(), false);
+			await controlConnection.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
+			assert.equal(await controller.checkRestartRequired(), true);
 		});
 		it("rejects if installs are disabled on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", false);
@@ -193,6 +205,13 @@ describe("messages/plugin", function() {
 		it("runs on a host", async function() {
 			host.config.set("host.allow_plugin_install", true);
 			await host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
+		});
+		it("flags a host as requiring a restart", async function() {
+			host.config.set("host.allow_plugin_install", true);
+			host.config.set("host.version", require("@clusterio/host/package.json").version);
+			assert.equal(await host.checkRestartRequired(), false);
+			await host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
+			assert.equal(await host.checkRestartRequired(), true);
 		});
 		it("rejects if installs are disabled on the host", async function() {
 			host.config.set("host.allow_plugin_install", false);

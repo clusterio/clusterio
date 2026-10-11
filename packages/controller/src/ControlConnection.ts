@@ -1305,7 +1305,9 @@ export default class ControlConnection extends BaseConnection {
 		if (!this._controller.config.get("controller.allow_plugin_install")) {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
-		return await lib.handlePluginInstall(request.pluginPackage);
+		await lib.handlePluginInstall(request.pluginPackage);
+		// Newly installed plugins are only loaded on startup
+		this._controller.config.restartRequired = true;
 	}
 
 	async handlePluginSearchRequest(request: lib.PluginSearchRequest) {

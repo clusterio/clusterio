@@ -1148,7 +1148,9 @@ export default class Host extends lib.Link {
 		if (!this.config.get("host.allow_plugin_install")) {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
-		return await lib.handlePluginInstall(request.pluginPackage);
+		await lib.handlePluginInstall(request.pluginPackage);
+		// Newly installed plugins are only loaded on startup
+		this.config.restartRequired = true;
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
