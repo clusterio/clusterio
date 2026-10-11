@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { mock as nodeMock } from "node:test";
 
 import * as lib from "@clusterio/lib";
 import * as mock from "../../../test/mock.js";
@@ -90,6 +91,43 @@ describe("subspace_storage plugin", function() {
 			await new Promise(resolve => setImmediate(resolve));
 			const message = instance.connector.sentMessages.find(m => m.data instanceof RemoveRequest);
 			assert.equal(message, undefined);
+		});
+
+		it("should send the full inventory before delta updates and keep the time ticking", async function() {
+			nodeMock.timers.enable({ apis: ["setInterval", "Date"], now: 1000000 });
+			const { instance: startedInstance } = await mock.loadInstancePlugin(instanceEntrypoint, info);
+			const items = [
+				new Item("iron-plate", 100, "normal"),
+				new Item("iron-plate", 5, "rare"),
+				new Item("copper-plate", 50, "normal"),
+			];
+			startedInstance.sendTo = async (dst, request) => {
+				assert.equal(dst, "controller");
+				assert(request instanceof GetStorageRequest);
+				return items;
+			};
+			function updateCommand(payload, full = false) {
+				const json = lib.escapeString(JSON.stringify(payload));
+				return `/sc __subspace_storage__ UpdateInvData("${json}"${full ? ", true" : ""})`;
+			}
+			try {
+				await startedInstance.hooks.start.invoke();
+				assert.deepEqual(startedInstance.server.rconCommands, [updateCommand(items, true)]);
+
+				const changedItems = [new Item("iron-plate", 110, "normal")];
+				nodeMock.timers.tick(100);
+				await mock.getHandler(startedInstance, UpdateStorageEvent)(new UpdateStorageEvent(changedItems));
+				nodeMock.timers.tick(900);
+				nodeMock.timers.tick(1000);
+				assert.deepEqual(startedInstance.server.rconCommands, [
+					updateCommand(items, true),
+					updateCommand([...changedItems, new Item("signal-unixtime", 1001)]),
+					updateCommand([...changedItems, new Item("signal-unixtime", 1002)]),
+				]);
+			} finally {
+				await startedInstance.hooks.stop.invoke();
+				nodeMock.timers.reset();
+			}
 		});
 	});
 });
