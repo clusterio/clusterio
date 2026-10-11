@@ -53,7 +53,7 @@ export class AcquireRequest {
 	static type = "request" as const;
 	static src = "instance" as const;
 	static dst = "controller" as const;
-	static plugin = "inventory_sync" as const;
+	static plugin = "player_sync" as const;
 	static Response = AcquireResponse;
 
 	constructor(
@@ -77,7 +77,7 @@ export class ReleaseRequest {
 	static type = "request" as const;
 	static src = "instance" as const;
 	static dst = "controller" as const;
-	static plugin = "inventory_sync" as const;
+	static plugin = "player_sync" as const;
 
 	constructor(
 		public instanceId: number,
@@ -100,7 +100,7 @@ export class UploadRequest {
 	static type = "request" as const;
 	static src = "instance" as const;
 	static dst = "controller" as const;
-	static plugin = "inventory_sync" as const;
+	static plugin = "player_sync" as const;
 
 	constructor(
 		public instanceId: number,
@@ -140,7 +140,7 @@ export class DownloadRequest {
 	static type = "request" as const;
 	static src = "instance" as const;
 	static dst = "controller" as const;
-	static plugin = "inventory_sync" as const;
+	static plugin = "player_sync" as const;
 	static Response = DownloadResponse;
 
 	constructor(
@@ -186,7 +186,7 @@ export class DatabaseStatsRequest {
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static plugin = "inventory_sync" as const;
-	static permission = "inventory_sync.inventory.view" as const;
+	static plugin = "player_sync" as const;
+	static permission = "player_sync.inventory.view" as const;
 	static Response = DatabaseStatsResponse;
 }

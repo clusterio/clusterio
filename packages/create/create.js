@@ -30,8 +30,8 @@ if (process.platform === "win32") {
 
 const availablePlugins = [
 	{ name: "Global Chat", value: "@clusterio/plugin-global_chat" },
-	{ name: "Inventory Sync", value: "@clusterio/plugin-inventory_sync" },
 	{ name: "Player Auth", value: "@clusterio/plugin-player_auth" },
+	{ name: "Player Sync", value: "@clusterio/plugin-player_sync" },
 	{ name: "Research Sync", value: "@clusterio/plugin-research_sync" },
 	{ name: "Statistics Exporter", value: "@clusterio/plugin-statistics_exporter" },
 	{ name: "Subspace Storage", value: "@clusterio/plugin-subspace_storage" },

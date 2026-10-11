@@ -13,8 +13,8 @@ module.exports = (env = {}, argv = {}) => merge(common(env, argv), {
 	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
-			name: "inventory_sync",
-			library: { type: "var", name: "plugin_inventory_sync" },
+			name: "player_sync",
+			library: { type: "var", name: "plugin_player_sync" },
 			exposes: {
 				"./": "./index.ts",
 				"./package.json": "./package.json",

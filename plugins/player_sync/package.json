@@ -1,5 +1,5 @@
 {
-	"name": "@clusterio/plugin-inventory_sync",
+	"name": "@clusterio/plugin-player_sync",
 	"version": "2.0.0-alpha.27",
 	"description": "Clusterio plugin forwarding between Factorio servers",
 	"homepage": "https://github.com/clusterio/clusterio#readme",

@@ -17,8 +17,8 @@ function InventoryPage() {
 		})();
 	}, []);
 
-	return <PageLayout nav={[{ name: "Inventory sync" }]}>
-		<PageHeader title="Inventory sync" />
+	return <PageLayout nav={[{ name: "Player sync" }]}>
+		<PageHeader title="Player sync" />
 		{statsData && <>
 			<p>Database size: {Math.round(statsData.databaseSize / 1000)}kB</p>
 			<p>Database entries: {statsData.databaseEntries}</p>
@@ -33,8 +33,8 @@ export default async function(context: WebPluginContext) {
 	control.hooks.pages.attach(plugin.name, () => [
 		{
 			path: "/inventory",
-			sidebarName: "Inventory sync",
-			permission: "inventory_sync.inventory.view",
+			sidebarName: "Player sync",
+			permission: "player_sync.inventory.view",
 			content: <InventoryPage />,
 		},
 	]);

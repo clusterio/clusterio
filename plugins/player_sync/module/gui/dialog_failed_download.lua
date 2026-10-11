@@ -1,5 +1,5 @@
-local ensure_character = require("modules/inventory_sync/ensure_character")
-local get_script_data = require("modules/inventory_sync/get_script_data")
+local ensure_character = require("modules/player_sync/ensure_character")
+local get_script_data = require("modules/player_sync/get_script_data")
 
 local dialog_failed_download = {}
 
@@ -21,7 +21,7 @@ function dialog_failed_download.create(player, acquire_response)
 	}
 	titlebar.drag_target = frame
 
-	local title_caption = "Inventory sync download failed"
+	local title_caption = "Player sync download failed"
 	if acquire_response.status == "busy" then
 		title_caption = "Inventory is in use on " .. acquire_response.message
 	end
@@ -43,7 +43,7 @@ function dialog_failed_download.create(player, acquire_response)
 	filler.drag_target = frame
 
 	local content = frame.add {
-		name = "inventory_sync_failed_download_content",
+		name = "player_sync_failed_download_content",
 		type = "frame",
 		direction = "vertical",
 		style = "inside_shallow_frame_with_padding",
@@ -90,7 +90,7 @@ function dialog_failed_download.create(player, acquire_response)
 	dialog_row.drag_target = frame
 
 	local abort = dialog_row.add {
-		name = "inventory_sync_failed_download_abort",
+		name = "player_sync_failed_download_abort",
 		type = "button",
 		style = "back_button",
 		caption = "Use temporary inventory",
@@ -107,7 +107,7 @@ function dialog_failed_download.create(player, acquire_response)
 	dialog_filler.drag_target = frame
 
 	local retry = dialog_row.add {
-		name = "inventory_sync_failed_download_retry",
+		name = "player_sync_failed_download_retry",
 		type = "button",
 		style = "forward_button",
 		caption = "Retry",
@@ -123,19 +123,19 @@ dialog_failed_download.events = {
 			return
 		end
 
-		if event.element.name == "inventory_sync_failed_download_abort" then
+		if event.element.name == "player_sync_failed_download_abort" then
 			-- Give the player a character and let them play with that
 			local player = assert(game.get_player(event.player_index))
 			ensure_character(player)
-			local inventory_sync = get_script_data()
+			local player_sync = get_script_data()
 			player.gui.screen.dialog_failed_download.destroy()
-			inventory_sync.players[player.name].dirty = true
-			inventory_sync.players[player.name].sync = false
+			player_sync.players[player.name].dirty = true
+			player_sync.players[player.name].sync = false
 
-		elseif event.element.name == "inventory_sync_failed_download_retry" then
+		elseif event.element.name == "player_sync_failed_download_retry" then
 			-- Retry acquiring the player from the controller
 			local player = assert(game.get_player(event.player_index))
-			inventory_sync.acquire(player)
+			player_sync.acquire(player)
 			player.gui.screen.dialog_failed_download.destroy()
 		end
 	end,

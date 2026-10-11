@@ -6,7 +6,7 @@ local progress_dialog = {}
 --- @param total number
 function progress_dialog.create(player, progress, total)
 	local frame = player.gui.screen.add {
-		name = "inventory_sync_progress",
+		name = "player_sync_progress",
 		type = "frame",
 		direction = "vertical",
 	}
@@ -19,7 +19,7 @@ function progress_dialog.create(player, progress, total)
 	local title = titlebar.add {
 		type = "label",
 		style = "frame_title",
-		caption = "Inventory sync",
+		caption = "Player sync",
 	}
 	title.drag_target = frame
 
@@ -33,7 +33,7 @@ function progress_dialog.create(player, progress, total)
 	filler.drag_target = frame
 
 	local content = frame.add {
-		name = "inventory_sync_progress_dialog_content",
+		name = "player_sync_progress_dialog_content",
 		type = "frame",
 		direction = "vertical",
 		style = "inside_shallow_frame_with_padding",
@@ -59,8 +59,8 @@ end
 
 --- @param player LuaPlayer
 function progress_dialog.remove(player)
-	if player.gui.screen.inventory_sync_progress then
-		player.gui.screen.inventory_sync_progress.destroy()
+	if player.gui.screen.player_sync_progress then
+		player.gui.screen.player_sync_progress.destroy()
 	end
 end
 
@@ -69,12 +69,12 @@ end
 --- @param total number
 function progress_dialog.update(player, progress, total)
 	-- Be defensive here in case an old GUI is present
-	local frame = player.gui.screen.inventory_sync_progress
+	local frame = player.gui.screen.player_sync_progress
 	if not frame then
 		return false
 	end
 
-	local content = frame.inventory_sync_progress_dialog_content
+	local content = frame.player_sync_progress_dialog_content
 	if not content then
 		return false
 	end

@@ -7,7 +7,7 @@
 		{ "path": "./packages/ctl/" },
 		{ "path": "./packages/web_ui/" },
 		{ "path": "./plugins/global_chat/" },
-		{ "path": "./plugins/inventory_sync/" },
+		{ "path": "./plugins/player_sync/" },
 		{ "path": "./plugins/player_auth/" },
 		{ "path": "./plugins/research_sync/" },
 		{ "path": "./plugins/statistics_exporter/" },

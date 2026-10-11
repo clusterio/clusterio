@@ -3,24 +3,25 @@ import * as messages from "./messages.js";
 
 declare module "@clusterio/lib" {
 	export interface InstanceConfigFields {
-		"inventory_sync.rcon_chunk_size": number;
+		"player_sync.rcon_chunk_size": number;
 	}
 	export interface ControllerConfigFields {
-		"inventory_sync.player_lock_timeout": number;
+		"player_sync.player_lock_timeout": number;
 	}
 	export interface Permissions {
-		"inventory_sync.inventory.view": never;
+		"player_sync.inventory.view": never;
 	}
 }
 
 export const plugin: lib.PluginDeclaration = {
-	name: "inventory_sync",
-	title: "Inventory sync",
-	description: "Synchronizes players inventories between instances",
+	name: "player_sync",
+	title: "Player sync",
+	description: "Synchronizes player inventories and settings between instances",
+	migrationEntrypoint: "dist/node/migrations.js",
 
 	instanceEntrypoint: "dist/node/instance.js",
 	instanceConfigFields: {
-		"inventory_sync.rcon_chunk_size": {
+		"player_sync.rcon_chunk_size": {
 			title: "Rcon inventory chunk size",
 			description:
 				"Divide inventories into chunks of this size before sending with rcon to prevent blocking the pipe",
@@ -31,7 +32,7 @@ export const plugin: lib.PluginDeclaration = {
 
 	controllerEntrypoint: "dist/node/controller.js",
 	controllerConfigFields: {
-		"inventory_sync.player_lock_timeout": {
+		"player_sync.player_lock_timeout": {
 			title: "Player Lock Timeout",
 			description:
 				"Time in seconds before the lock on a player inventory expires after an instance stops " +
@@ -55,7 +56,7 @@ export const plugin: lib.PluginDeclaration = {
 	],
 	permissions: [
 		{
-			name: "inventory_sync.inventory.view",
+			name: "player_sync.inventory.view",
 			title: "View player inventories",
 			description: "View player inventories",
 			grantByDefault: true,

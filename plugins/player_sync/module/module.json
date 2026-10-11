@@ -1,0 +1,4 @@
+{
+    "name": "player_sync",
+    "load": ["player_sync.lua", "gui/dialog_failed_download.lua"]
+}
