@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Button, Descriptions, Input, Modal, Select, Space, Table, Tag, Typography } from "antd";
+import { Alert, Button, Descriptions, Input, Modal, Select, Space, Table, Tag, Typography } from "antd";
 import SearchOutlined from "@ant-design/icons/SearchOutlined";
 
 import * as lib from "@clusterio/lib";
@@ -92,40 +92,69 @@ function InstallControls(props: { plugin: lib.PluginSearchResult } & InstallStat
 	}
 
 	const hostTarget = (host: lib.HostDetails): InstallTarget => ({ name: host.name, address: { hostId: host.id } });
+	const disabledHosts = connectedHosts.filter(host => !allowed.host(host.id));
 
-	return <Space wrap>
-		<Button
-			type="primary"
-			loading={installing}
-			disabled={!canInstall || !allowed.controller}
-			onClick={() => { install([{ name: "controller", address: "controller" }]); }}
-		>Install to controller</Button>
-		<Select
-			mode="multiple"
-			style={{ minWidth: 200 }}
-			placeholder="Select hosts"
-			optionFilterProp="label"
-			value={selectedHostIds}
-			onChange={setSelectedHostIds}
-			options={connectedHosts.map(host => ({
-				value: host.id,
-				label: allowed.host(host.id) ? host.name : `${host.name} (remote install disabled)`,
-				disabled: !allowed.host(host.id),
-			}))}
-		/>
-		<Button
-			loading={installing}
-			disabled={!canInstall || !selectedHostIds.length}
-			onClick={() => {
-				install(connectedHosts.filter(host => selectedHostIds.includes(host.id)).map(hostTarget));
-			}}
-		>Install to selected hosts</Button>
-		<Button
-			loading={installing}
-			disabled={!canInstall || !eligibleHosts.length}
-			onClick={() => { install(eligibleHosts.map(hostTarget)); }}
-		>Install to all hosts</Button>
+	return <Space direction="vertical" style={{ width: "100%" }}>
+		<Space wrap>
+			<Button
+				type="primary"
+				loading={installing}
+				disabled={!canInstall || !allowed.controller}
+				onClick={() => { install([{ name: "controller", address: "controller" }]); }}
+			>Install to controller</Button>
+			<Select
+				mode="multiple"
+				style={{ minWidth: 200 }}
+				placeholder="Select hosts"
+				optionFilterProp="label"
+				value={selectedHostIds}
+				onChange={setSelectedHostIds}
+				options={connectedHosts.map(host => ({
+					value: host.id,
+					label: allowed.host(host.id) ? host.name : `${host.name} (remote install disabled)`,
+					disabled: !allowed.host(host.id),
+				}))}
+			/>
+			<Button
+				loading={installing}
+				disabled={!canInstall || !selectedHostIds.length}
+				onClick={() => {
+					install(connectedHosts.filter(host => selectedHostIds.includes(host.id)).map(hostTarget));
+				}}
+			>Install to selected hosts</Button>
+			<Button
+				loading={installing}
+				disabled={!canInstall || !eligibleHosts.length}
+				onClick={() => { install(eligibleHosts.map(hostTarget)); }}
+			>Install to all hosts</Button>
+		</Space>
+		{(!allowed.controller || disabledHosts.length > 0) && <RemoteInstallDisabledNotice
+			controller={!allowed.controller}
+			hosts={disabledHosts.map(host => host.name)}
+		/>}
 	</Space>;
+}
+
+// Remote installs can only be enabled locally on each machine, so tell the user how.
+function RemoteInstallDisabledNotice(props: { controller: boolean, hosts: string[] }) {
+	const names = [...(props.controller ? ["the controller"] : []), ...props.hosts];
+	return <Alert
+		type="info"
+		showIcon
+		message={`Remote plugin installs are disabled on ${names.join(", ")}`}
+		description={<>
+			For security reasons this can't be changed from the web UI. To allow installs, stop the machine
+			and run the following in its installation directory, then start it again:
+			{props.controller && <div>
+				<Text type="secondary">Controller: </Text>
+				<Text code copyable>npx clusteriocontroller config set controller.allow_plugin_install true</Text>
+			</div>}
+			{props.hosts.length > 0 && <div>
+				<Text type="secondary">Host: </Text>
+				<Text code copyable>npx clusteriohost config set host.allow_plugin_install true</Text>
+			</div>}
+		</>}
+	/>;
 }
 
 function PluginDetails(props: { plugin: lib.PluginSearchResult } & InstallState) {
