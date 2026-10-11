@@ -66,6 +66,43 @@ describe("lib/plugin_loader", function() {
 				{ message: `PluginError: ${brokenMessage}` }
 			);
 		});
+		describe("plugin installed from npm", function() {
+			// Plugins from npm are listed by package name, so they must be resolved like a dependency
+			const packageDir = path.resolve("node_modules", "@clusterio-test", "npm_plugin");
+			before(async function() {
+				await fs.mkdir(path.join(packageDir, "dist"), { recursive: true });
+				await fs.writeFile(path.join(packageDir, "package.json"), JSON.stringify({
+					name: "@clusterio-test/npm_plugin", version: "0.0.2", main: "dist/index.js", type: "module",
+				}));
+				await fs.writeFile(
+					path.join(packageDir, "dist", "index.js"),
+					'export const plugin = { name: "npm_plugin", controllerEntrypoint: "dist/controller.js" };',
+				);
+				await fs.writeFile(
+					path.join(packageDir, "dist", "controller.js"),
+					"export default async function(context) { context.controller.loadedNpmPlugin = true; }",
+				);
+			});
+			after(async function() {
+				await fs.rm(path.dirname(packageDir), { recursive: true, force: true });
+			});
+
+			it("should load the plugin and its entrypoints", async function() {
+				const [pluginInfo] = await lib.loadPluginInfos(
+					new Map([["npm_plugin", "@clusterio-test/npm_plugin"]])
+				);
+				assert.equal(pluginInfo.name, "npm_plugin");
+				assert.equal(pluginInfo.npmPackage, "@clusterio-test/npm_plugin");
+				assert.equal(pluginInfo.packagePath, path.join(packageDir, "package.json"));
+
+				const controller = new mock.MockController();
+				await lib.loadPlugin(
+					pluginInfo, "controller", { controller, metrics: {}, logger: new mock.MockLogger() },
+					"ControllerPlugin", BaseControllerPlugin,
+				);
+				assert.equal(controller.loadedNpmPlugin, true);
+			});
+		});
 		it("should reject on invalid plugin", async function() {
 			await assert.rejects(
 				lib.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
@@ -122,7 +159,12 @@ describe("lib/plugin_loader", function() {
 		});
 
 		function info(requirePath, entrypoint = "controller.js") {
-			return { name: "test", requirePath, controllerEntrypoint: entrypoint };
+			return {
+				name: "test",
+				requirePath,
+				packagePath: path.join(requirePath, "package.json"),
+				controllerEntrypoint: entrypoint,
+			};
 		}
 
 		it("should do nothing when the entrypoint is not set", async function() {
