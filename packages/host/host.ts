@@ -15,7 +15,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import yargs from "yargs";
-import packageConfig from "./package.json" with { type: "json" };
+import packageConfig from "@clusterio/host/package.json" with { type: "json" };
 import winston from "winston";
 import "winston-daily-rotate-file";
 

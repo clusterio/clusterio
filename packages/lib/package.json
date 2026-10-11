@@ -25,11 +25,17 @@
 	"type": "module",
 	"imports": {
 		"#WebSocket": {
-			"node": "./src/link/WebSocket.node.ts",
+			"node": {
+				"types": "./src/link/WebSocket.node.ts",
+				"default": "./dist/node/src/link/WebSocket.node.js"
+			},
 			"import": "./src/link/WebSocket.browser.ts"
 		},
 		"#is_deep_strict_equal": {
-			"node": "./src/is_deep_strict_equal.node.ts",
+			"node": {
+				"types": "./src/is_deep_strict_equal.node.ts",
+				"default": "./dist/node/src/is_deep_strict_equal.node.js"
+			},
 			"import": "./src/is_deep_strict_equal.browser.ts"
 		}
 	},
