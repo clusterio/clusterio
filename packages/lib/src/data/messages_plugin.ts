@@ -163,3 +163,39 @@ export class PluginSearchRequest {
 		}
 	};
 }
+
+/* Latest version of each package published on npm, used to offer plugin updates */
+export class PluginLatestVersionsRequest {
+	declare ["constructor"]: typeof PluginLatestVersionsRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.plugin.list";
+
+	constructor(
+		public packages: string[],
+	) {}
+
+	static jsonSchema = Type.Object({
+		packages: Type.Array(Type.String()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.packages);
+	}
+
+	static Response = class Response {
+		constructor(
+			/** Package name to its latest version, packages not found on npm are left out */
+			public versions: Record<string, string>,
+		) {}
+
+		static jsonSchema = Type.Object({
+			versions: Type.Record(Type.String(), Type.String()),
+		});
+
+		static fromJSON(json: Static<typeof this.jsonSchema>) {
+			return new this(json.versions);
+		}
+	};
+}

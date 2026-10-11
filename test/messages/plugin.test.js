@@ -221,4 +221,32 @@ describe("messages/plugin", function() {
 			);
 		});
 	});
+	describe("PluginLatestVersionsRequest", function() {
+		const _fetch = global.fetch;
+		before(function() {
+			global.fetch = async function() { return { ok: true, json: async () => ({ version: "4.5.6" }) }; };
+		});
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("has round trip json serialisation", function() {
+			const request = new lib.PluginLatestVersionsRequest(["foo", "@scope/bar"]);
+			const reconstructed = lib.PluginLatestVersionsRequest.fromJSON(JSON.parse(JSON.stringify(request)));
+			assert.deepEqual(reconstructed, request);
+		});
+		it("has round trip json serialisation of the response", function() {
+			const response = new lib.PluginLatestVersionsRequest.Response({ foo: "1.0.0" });
+			const reconstructed = lib.PluginLatestVersionsRequest.Response.fromJSON(
+				JSON.parse(JSON.stringify(response))
+			);
+			assert.deepEqual(reconstructed, response);
+		});
+		it("runs on the controller", async function() {
+			const response = await controlConnection.handlePluginLatestVersionsRequest(
+				new lib.PluginLatestVersionsRequest(["latest-message-test"])
+			);
+			assert.deepEqual(response.versions, { "latest-message-test": "4.5.6" });
+		});
+	});
 });

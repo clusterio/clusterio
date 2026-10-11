@@ -39,40 +39,99 @@ export async function installPackage(name: string) {
 	return logExec(`npm install --save ${name}`);
 }
 
-export async function handlePluginUpdate(pluginName: string, pluginInfos: PluginNodeEnvInfo[]) {
-	if (!pluginInfos.some(plugin => plugin.npmPackage === pluginName)) {
-		throw new RequestError(`Plugin ${pluginName} is not installed on this machine`);
-	}
-
-	return await updatePackage(pluginName);
-}
-
-export async function handlePluginInstall(pluginName: string) {
-	if (pluginName.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(pluginName)) {
+/**
+ * Split a package spec into its name and optional version, as in name@version. The name itself
+ * may start with @ for scoped packages.
+ */
+function parsePackageSpec(spec: string) {
+	if (spec.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(spec)) {
 		// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
 		// https://www.npmjs.com/package/validate-npm-package-name
-		throw new RequestError(`Invalid plugin name: ${pluginName}`);
+		throw new RequestError(`Invalid plugin name: ${spec}`);
 	}
 
-	// Optionally pinned to a version as name@version, the name itself may start with @ for scoped packages
-	const versionSeparator = pluginName.lastIndexOf("@");
+	const versionSeparator = spec.lastIndexOf("@");
 	const [name, version] = versionSeparator > 0
-		? [pluginName.slice(0, versionSeparator), pluginName.slice(versionSeparator + 1)]
-		: [pluginName, undefined];
+		? [spec.slice(0, versionSeparator), spec.slice(versionSeparator + 1)]
+		: [spec, undefined];
 	if (version !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9\-.+]*$/.test(version)) {
 		throw new RequestError(`Invalid plugin version: ${version}`);
 	}
+	return { name, version };
+}
 
+/** Throws unless the package, and version if given, is published on npm, returns the spec to install */
+async function checkRegistry(name: string, version?: string) {
 	const packageName = encodeURI(name);
+	const spec = version !== undefined ? `${packageName}@${version}` : packageName;
 	const registryPath = version !== undefined ? `${packageName}/${encodeURIComponent(version)}` : packageName;
 	const npmRequest = await fetch(`https://registry.npmjs.com/${registryPath}`, {
 		method: "HEAD",
 	});
 	if (!npmRequest.ok) {
-		throw new RequestError(`Unknown plugin: ${version !== undefined ? `${packageName}@${version}` : packageName}`);
+		throw new RequestError(`Unknown plugin: ${spec}`);
+	}
+	return spec;
+}
+
+export async function handlePluginUpdate(pluginName: string, pluginInfos: PluginNodeEnvInfo[]) {
+	// Optionally pinned to a version as name@version to update past the range in package.json
+	const { name, version } = parsePackageSpec(pluginName);
+	if (!pluginInfos.some(plugin => plugin.npmPackage === name)) {
+		throw new RequestError(`Plugin ${name} is not installed on this machine`);
 	}
 
-	return await installPackage(version !== undefined ? `${packageName}@${version}` : packageName);
+	if (version === undefined) {
+		return await updatePackage(name);
+	}
+	return await installPackage(await checkRegistry(name, version));
+}
+
+export async function handlePluginInstall(pluginName: string) {
+	// Optionally pinned to a version as name@version
+	const { name, version } = parsePackageSpec(pluginName);
+	return await installPackage(await checkRegistry(name, version));
+}
+
+const latestVersionCacheMs = 5 * 60e3;
+const latestVersionCache = new Map<string, { version?: string, fetchedAt: number }>();
+
+/**
+ * Look up the latest published version of each package on npm, packages that can't be
+ * found are left out. Results are cached for a few minutes.
+ */
+export async function fetchLatestVersions(packages: string[]) {
+	if (packages.length > 500) {
+		throw new RequestError("Too many packages");
+	}
+	const now = Date.now();
+	const versions: Record<string, string> = {};
+	await Promise.all(packages.map(async packageName => {
+		const { name, version: pinned } = parsePackageSpec(packageName);
+		if (pinned !== undefined) {
+			throw new RequestError(`Invalid plugin name: ${packageName}`);
+		}
+		let cached = latestVersionCache.get(name);
+		if (!cached || now - cached.fetchedAt > latestVersionCacheMs) {
+			let version: string | undefined;
+			try {
+				const response = await fetch(`https://registry.npmjs.com/${encodeURI(name)}/latest`);
+				if (response.ok) {
+					version = (await response.json() as { version?: string }).version;
+				}
+			} catch (err: any) {
+				// Left out until the registry can be reached again
+				logger.warn(`Failed to look up latest version of ${name}: ${err.message}`);
+				return;
+			}
+			cached = { version, fetchedAt: now };
+			latestVersionCache.set(name, cached);
+		}
+		if (cached.version) {
+			versions[name] = cached.version;
+		}
+	}));
+	return versions;
 }
 
 const npmSearchMaxSize = 250; // Limit imposed by the registry

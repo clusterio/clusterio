@@ -45,6 +45,72 @@ describe("rce_ops", function() {
 				lib.handlePluginUpdate("foo", []),
 				/Plugin foo is not installed on this machine/
 			);
+			await assert.rejects(
+				lib.handlePluginUpdate("foo@1.2.3", []),
+				/Plugin foo is not installed on this machine/
+			);
+		});
+		it("updates to a pinned version", async function() {
+			const _fetch = global.fetch;
+			let calledWith = "";
+			global.fetch = function(url) {
+				calledWith = url;
+				return { ok: true };
+			};
+			try {
+				await lib.handlePluginUpdate("@scope/foo@1.2.3", [{ npmPackage: "@scope/foo" }]);
+				assert.equal(calledWith, "https://registry.npmjs.com/@scope/foo/1.2.3");
+				global.fetch = function() { return { ok: false }; };
+				await assert.rejects(
+					lib.handlePluginUpdate("foo@9.9.9", [{ npmPackage: "foo" }]),
+					/Unknown plugin: foo@9.9.9/,
+				);
+			} finally {
+				global.fetch = _fetch;
+			}
+		});
+	});
+
+	describe("fetchLatestVersions", function() {
+		const _fetch = global.fetch;
+		let calls;
+		beforeEach(function() {
+			calls = [];
+			global.fetch = async function(url) {
+				calls.push(url);
+				if (url.includes("broken")) {
+					throw new Error("network down");
+				}
+				if (url.includes("missing")) {
+					return { ok: false };
+				}
+				return { ok: true, json: async () => ({ version: "1.2.3" }) };
+			};
+		});
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("returns the latest version of found packages", async function() {
+			const versions = await lib.fetchLatestVersions(["latest-a", "@scope/latest-b", "missing-a", "broken-a"]);
+			assert.deepEqual(versions, { "latest-a": "1.2.3", "@scope/latest-b": "1.2.3" });
+			assert.ok(calls.includes("https://registry.npmjs.com/@scope/latest-b/latest"));
+		});
+		it("caches lookups", async function() {
+			await lib.fetchLatestVersions(["cached-a", "missing-b"]);
+			calls = [];
+			assert.deepEqual(await lib.fetchLatestVersions(["cached-a", "missing-b"]), { "cached-a": "1.2.3" });
+			assert.deepEqual(calls, []);
+		});
+		it("retries packages the registry couldn't be reached for", async function() {
+			await lib.fetchLatestVersions(["broken-b"]);
+			calls = [];
+			await lib.fetchLatestVersions(["broken-b"]);
+			assert.equal(calls.length, 1);
+		});
+		it("rejects invalid names", async function() {
+			await assert.rejects(lib.fetchLatestVersions(["foo@1.0.0"]), /Invalid plugin name/);
+			await assert.rejects(lib.fetchLatestVersions(["foo bar"]), /Invalid plugin name/);
 		});
 	});
 

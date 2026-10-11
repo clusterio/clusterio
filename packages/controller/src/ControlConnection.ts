@@ -129,6 +129,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
 		this.handle(lib.PluginSearchRequest, this.handlePluginSearchRequest.bind(this));
+		this.handle(lib.PluginLatestVersionsRequest, this.handlePluginLatestVersionsRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
@@ -1312,6 +1313,10 @@ export default class ControlConnection extends BaseConnection {
 
 	async handlePluginSearchRequest(request: lib.PluginSearchRequest) {
 		return await lib.searchPlugins(request.query, request.page, request.pageSize);
+	}
+
+	async handlePluginLatestVersionsRequest(request: lib.PluginLatestVersionsRequest) {
+		return new lib.PluginLatestVersionsRequest.Response(await lib.fetchLatestVersions(request.packages));
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
