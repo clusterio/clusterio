@@ -1,15 +1,15 @@
-import type WsServerConnector from "./WsServerConnector";
+import type WsServerConnector from "./WsServerConnector.js";
 
 import events from "events";
 
 import * as lib from "@clusterio/lib";
-const { logFilter, logger } = lib;
+import { logFilter, logger } from "@clusterio/lib";
 
-import BaseConnection from "./BaseConnection";
-import User from "./User";
-import UserRecord from "./UserRecord";
-import * as routes from "./routes";
-import Controller from "./Controller";
+import BaseConnection from "./BaseConnection.js";
+import User from "./User.js";
+import UserRecord from "./UserRecord.js";
+import * as routes from "./routes.js";
+import Controller from "./Controller.js";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -48,12 +48,16 @@ export default class ControlConnection extends BaseConnection {
 
 		this._version = registerData.version;
 
-		this.connector.on("connect", () => {
-			this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
-		});
+		// A resume installs a fresh socket, so re-apply the ignore flag or the
+		// dumper's own frames get echoed back into it and recurse forever.
+		for (let event of ["connect", "resume"] as const) {
+			this.connector.on(event, () => {
+				this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
+			});
+		}
 		this.connector.on("close", () => {
 			if (this.logTransport) {
-				logger.remove(this.logTransport);
+				this._controller.clusterLogger.remove(this.logTransport);
 				this.logTransport = null;
 			}
 			if (this.ws_dumper) {
@@ -63,14 +67,15 @@ export default class ControlConnection extends BaseConnection {
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			this.connector.on(event, () => {
-				for (let controllerPlugin of this._controller.plugins.values()) {
-					controllerPlugin.onControlConnectionEvent(this, event);
-				}
+				this._controller.hooks.controlConnectionEvent.invoke(this, event);
 			});
 		}
 
 		this.handle(lib.ControllerStopRequest, this.handleControllerStopRequest.bind(this));
 		this.handle(lib.ControllerRestartRequest, this.handleControllerRestartRequest.bind(this));
+		this.handle(
+			lib.ControllerMarkRestartRequiredRequest, this.handleControllerMarkRestartRequiredRequest.bind(this)
+		);
 		this.handle(lib.ControllerUpdateRequest, this.handleControllerUpdateRequest.bind(this));
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetRequest, this.handleControllerConfigSetRequest.bind(this));
@@ -130,6 +135,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
 		this.handle(lib.PluginSearchRequest, this.handlePluginSearchRequest.bind(this));
 		this.handle(lib.PluginLatestVersionsRequest, this.handlePluginLatestVersionsRequest.bind(this));
+		this.handle(lib.UpdateAllRequest, this.handleUpdateAllRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
@@ -171,7 +177,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		if (typeof permission === "string") {
-			this.user.checkPermission(permission);
+			this.user.checkPermission(permission as lib.PermissionName);
 			return;
 		}
 
@@ -291,6 +297,9 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
+		if ((request.config["instance.assigned_host"] ?? null) !== null) {
+			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
+		}
 		const instanceConfig = new lib.InstanceConfig("controller");
 		if (request.cloneFromId) {
 			const baseInstance = this._controller.instances.get(request.cloneFromId);
@@ -868,6 +877,16 @@ export default class ControlConnection extends BaseConnection {
 		this.updateLogSubscriptions();
 	}
 
+	/** Stop following logs if the user no longer has permission to */
+	checkLogPermission() {
+		try {
+			this.user.checkPermission("core.log.follow");
+		} catch {
+			this.logSubscriptions = { all: false, controller: false, hostIds: [], instanceIds: [] };
+			this.updateLogSubscriptions();
+		}
+	}
+
 	updateLogSubscriptions() {
 		let { all, controller, hostIds, instanceIds } = this.logSubscriptions;
 		if (all || controller || hostIds.length || instanceIds.length) {
@@ -1073,6 +1092,11 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		this._controller.users.deleteUser(user);
+		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
+			if (controlConnection.user.id === user.id) {
+				controlConnection.connector.terminate();
+			}
+		}
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));
@@ -1288,6 +1312,10 @@ export default class ControlConnection extends BaseConnection {
 		return usersToSend;
 	}
 
+	async handleControllerMarkRestartRequiredRequest() {
+		this._controller.config.restartRequired = true;
+	}
+
 	async handleControllerUpdateRequest(request: lib.ControllerUpdateRequest) {
 		if (!this._controller.config.get("controller.allow_remote_updates")) {
 			throw new lib.RequestError("Remote updates are disabled on this machine");
@@ -1307,8 +1335,20 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
 		await lib.handlePluginInstall(request.pluginPackage);
-		// Newly installed plugins are only loaded on startup
-		this._controller.config.restartRequired = true;
+		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it
+		if (!this._controller.pluginInfos.some(pluginInfo => pluginInfo.npmPackage === request.pluginPackage)) {
+			this._controller.config.restartRequired = true;
+		}
+	}
+
+	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
+		if (!this._controller.config.get("controller.allow_remote_updates")) {
+			throw new lib.RequestError("Remote updates are disabled on this machine");
+		}
+		if (!this._controller.config.get("controller.allow_plugin_updates")) {
+			throw new lib.RequestError("Plugin updates are disabled on this machine");
+		}
+		return await lib.handleUpdateAll("@clusterio/controller", this._controller.pluginInfos);
 	}
 
 	async handlePluginSearchRequest(request: lib.PluginSearchRequest) {
@@ -1322,12 +1362,15 @@ export default class ControlConnection extends BaseConnection {
 	async handlePluginListRequest(request: lib.PluginListRequest) {
 		return await lib.listPluginDetails(
 			this._controller.pluginInfos,
-			name => this._controller.plugins.has(name),
-			name => this._controller.config.get(`${name}.load_plugin`),
+			pluginInfo => this._controller.loadedPlugins.has(pluginInfo),
+			pluginInfo => this._controller.config.get(`${pluginInfo.name}.load_plugin`),
 		);
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {
+		if (this.ws_dumper) {
+			return; // Already dumping
+		}
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
 				this.send(new lib.DebugWsMessageEvent(data.direction, data.content));
@@ -1337,5 +1380,3 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.debugEvents.on("message", this.ws_dumper);
 	}
 }
-
-module.exports = ControlConnection;

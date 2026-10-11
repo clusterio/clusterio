@@ -32,8 +32,8 @@ The greatly simplified data flow is as follows:
     3. If the player inventory was previously uploaded but is not the same then the player inventory is deleted and the player is turned into a spectator.
     4. Otherwise the player inventory is kept.
 
-5. Scenario script asks for the player inventory from the controller.
-6. Controller sends it to the scenario in a stream of chunks.
+5. Scenario script asks for the player inventory from the controller, including its current recipe notification state.
+6. Controller sends it to the scenario in a stream of chunks, with only the recipe notifications that differ from the current state.
 7. Scenario displays and updates a progress bar as each chunk is received.
 8. Once all chunks have loaded the player's synced inventory is recreated from the data and the player can start playing.
 
@@ -43,3 +43,24 @@ Should an error occur during this process the player is given the option to use 
 Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the controller goes over websockets.
 Overall, we are able to achieve a latency between 3 and infinite ticks from server join, depending on the size of the inventory. The major limiter is rcon transfer speeds with larger inventories, especially if they contain blueprints.
+
+
+## Controller Configuration
+
+### inventory_sync.player_lock_timeout
+
+Time in seconds before the exclusive access an instance holds on a player's inventory expires after the instance stops or its host disconnects.
+Until it expires the player is told the inventory is in use on that instance when joining another one.
+The timeout is cancelled if the instance comes back before it runs out.
+
+Defaults to `60`.
+
+
+## Instance Configuration
+
+### inventory_sync.rcon_chunk_size
+
+Size in characters of the chunks the serialized inventory is split into when sent to the game over RCON.
+Smaller chunks take more commands to transfer an inventory but hold up the RCON command pipe for less time each.
+
+Defaults to `1000`.

@@ -1,22 +1,22 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const events = require("events");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import jwt from "jsonwebtoken";
+import path from "node:path";
+import events from "node:events";
 
-const lib = require("@clusterio/lib");
-const libBuildMod = require("@clusterio/lib/build_mod");
-const { wait } = lib;
+import * as lib from "@clusterio/lib";
+import { wait } from "@clusterio/lib";
+import * as libBuildMod from "@clusterio/lib/build_mod.js";
 
-const testStrings = require("../lib/factorio/test_strings");
-const {
-	TestControl, TestControlConnector, url, controlToken, slowTest,
+import * as testStrings from "../lib/factorio/test_strings.js";
+import {
+	TestControl, TestControlConnector, url, controlToken,
 	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
-} = require("./index");
-const { ControllerEcho, HostEchoReceived } = require("../file/test_plugin/messages");
+} from "./index.js";
+import { slowTest } from "../common.js";
+import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 
 /** @returns {Promise<Map<number, lib.InstanceDetails>>} */
@@ -213,26 +213,32 @@ describe("Integration of Clusterio", function() {
 				const lockFilePath = `${controllerConfigPath}.lock`;
 				await fs.copyFile(lockFilePath, "temp.lock");
 				try {
-					await execController("run --bypass-lock-file");
+					await execController("run --create-config --bypass-lock-file");
 				} catch (err) {
 					assert.equal(/Error: Server listening failed/.test(err.stderr), true);
 				}
 				await fs.rename("temp.lock", lockFilePath); // Replace the lockfile after it is deleted
 			});
-			it("should refuse to start when no users are loaded", async function() {
+			it("should refuse to start if the config is missing and --create-config is not passed", async function() {
 				const dir = path.join("temp", "test", "empty_controller");
 				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
 				await fs.mkdir(dir, { recursive: true });
 				await assert.rejects(execController("run", { cwd: dir }));
 			});
-			it("should start when no users are loaded if bypass option given", async function() {
+			it("should refuse to start when no users are loaded", async function() {
+				const dir = path.join("temp", "test", "empty_controller");
+				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
+				await fs.mkdir(dir, { recursive: true });
+				await assert.rejects(execController("run --create-config", { cwd: dir }));
+			});
+			it("should start when no users are loaded and bypass options are given", async function() {
 				slowTest(this);
 				const dir = path.join("temp", "test", "empty_controller");
 				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
 				await fs.mkdir(dir, { recursive: true });
 				const child = await spawnNode(
 					"altController",
-					"../../../packages/controller run --no-check-user-count",
+					"../../../packages/controller run --create-config --no-check-user-count",
 					/Started controller/,
 					{ cwd: dir },
 				);
@@ -257,6 +263,19 @@ describe("Integration of Clusterio", function() {
 	});
 
 	describe("clusteriohost", function() {
+		describe("create-scenario", function() {
+			it("should create a patched scenario", async function() {
+				slowTest(this);
+				requiresFactorio(this);
+				const output = path.join("temp", "test", "patched-scenario");
+				await fs.rm(output, { recursive: true, force: true });
+				await execHost("create-scenario patched-scenario --plugins research_sync");
+				const control = await fs.readFile(path.join(output, "control.lua"), "utf8");
+				assert(control.includes('require("modules/research_sync/sync")'));
+				await fs.access(path.join(output, "scenario.lua"));
+			});
+		});
+
 		describe("hostUpdateEventHandler()", function() {
 			it("should trigger when a new host is added", async function() {
 				slowTest(this);
@@ -534,6 +553,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				await execCtl("controller update");
 			});
+			it("accepts --all", async function() {
+				await execCtl("controller update --all");
+			});
 			it("accepts --restart", async function() {
 				// We cannot restart the controller, so we check for controller error instead
 				await assert.rejects(
@@ -550,6 +572,12 @@ describe("Integration of Clusterio", function() {
 					execCtl("controller restart"),
 					/Cannot restart, controller does not have a process monitor to restart it./
 				);
+			});
+		});
+
+		describe("controller mark-restart-required", function() {
+			it("runs", async function() {
+				await execCtl("controller mark-restart-required");
 			});
 		});
 
@@ -616,6 +644,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				await execCtl("host update 4");
 			});
+			it("accepts --all", async function() {
+				await execCtl("host update 4 --all");
+			});
 			it("accepts --restart", async function() {
 				// We cannot restart the host, so we check for host error instead
 				await assert.rejects(
@@ -632,6 +663,12 @@ describe("Integration of Clusterio", function() {
 					execCtl("host restart 4"),
 					/Cannot restart, host does not have a process monitor to restart it./
 				);
+			});
+		});
+
+		describe("host mark-restart-required", function() {
+			it("runs", async function() {
+				await execCtl("host mark-restart-required 4");
 			});
 		});
 

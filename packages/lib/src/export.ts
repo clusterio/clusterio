@@ -1,4 +1,4 @@
-import { FactorioColor } from "./lua_tools";
+import { FactorioColor } from "./lua_tools.js";
 
 /**
  * A localised string.

@@ -1,9 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
-const { Controller, ControlConnection } = require("@clusterio/controller");
-const { Host } = require("@clusterio/host");
+import { Controller, ControlConnection } from "@clusterio/controller";
+import { Host } from "@clusterio/host";
+
+import "../setup_logging.js";
 
 describe("messages/plugin", function() {
 	/** @type {Host} */
@@ -75,7 +76,7 @@ describe("messages/plugin", function() {
 				description: "Description", npmPackage: "Npm Package",
 			}];
 
-			controller.plugins.set("Name", {});
+			controller.loadedPlugins.add(controller.pluginInfos[0]);
 			controller.config.set("Name.load_plugin", true);
 
 			const response = await controlConnection.handlePluginListRequest(new lib.PluginListRequest());
@@ -90,7 +91,7 @@ describe("messages/plugin", function() {
 				description: "Description", npmPackage: "Npm Package",
 			}];
 
-			host.plugins.set("Name", {});
+			host.loadedPlugins.add(host.pluginInfos[0]);
 			host.config.set("Name.load_plugin", true);
 
 			const response = await host.handlePluginListRequest(new lib.PluginListRequest());
@@ -163,6 +164,61 @@ describe("messages/plugin", function() {
 		});
 	});
 
+	describe("UpdateAllRequest", function() {
+		function checkedPermissions(dst) {
+			const permissions = [];
+			const user = { checkPermission(permission) { permissions.push(permission); } };
+			lib.UpdateAllRequest.permission(user, { dst: lib.Address.fromShorthand(dst) });
+			return permissions;
+		}
+		it("requires controller and plugin update permissions on the controller", function() {
+			assert.deepEqual(checkedPermissions("controller"), ["core.controller.update", "core.plugin.update"]);
+		});
+		it("requires host and plugin update permissions on a host", function() {
+			assert.deepEqual(checkedPermissions({ hostId: 1 }), ["core.host.update", "core.plugin.update"]);
+		});
+		it("runs on the controller", async function() {
+			controller.pluginInfos = [{ npmPackage: "foo" }];
+			controller.config.set("controller.allow_remote_updates", true);
+			controller.config.set("controller.allow_plugin_updates", true);
+			await controlConnection.handleUpdateAllRequest(new lib.UpdateAllRequest());
+		});
+		it("rejects if remote updates are disabled on the controller", async function() {
+			controller.config.set("controller.allow_remote_updates", false);
+			await assert.rejects(
+				controlConnection.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Remote updates are disabled on this machine/
+			);
+		});
+		it("rejects if plugin updates are disabled on the controller", async function() {
+			controller.config.set("controller.allow_plugin_updates", false);
+			await assert.rejects(
+				controlConnection.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Plugin updates are disabled on this machine/
+			);
+		});
+		it("runs on a host", async function() {
+			host.pluginInfos = [{ npmPackage: "foo" }];
+			host.config.set("host.allow_remote_updates", true);
+			host.config.set("host.allow_plugin_updates", true);
+			await host.handleUpdateAllRequest(new lib.UpdateAllRequest());
+		});
+		it("rejects if remote updates are disabled on the host", async function() {
+			host.config.set("host.allow_remote_updates", false);
+			await assert.rejects(
+				host.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Remote updates are disabled on this machine/
+			);
+		});
+		it("rejects if plugin updates are disabled on the host", async function() {
+			host.config.set("host.allow_plugin_updates", false);
+			await assert.rejects(
+				host.handleUpdateAllRequest(new lib.UpdateAllRequest()),
+				/Plugin updates are disabled on this machine/
+			);
+		});
+	});
+
 	describe("PluginInstallRequest", function() {
 		const _fetch = global.fetch;
 		before(function() {
@@ -179,21 +235,9 @@ describe("messages/plugin", function() {
 			const reconstructed = lib.PluginInstallRequest.fromJSON(JSON.parse(json));
 			assert.deepEqual(reconstructed, request);
 		});
-		afterEach(function() {
-			controller.config.restartRequired = false;
-			host.config.restartRequired = false;
-		});
-
 		it("runs on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", true);
 			await controlConnection.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
-		});
-		it("flags the controller as requiring a restart", async function() {
-			controller.config.set("controller.allow_plugin_install", true);
-			controller.config.set("controller.version", require("@clusterio/controller/package.json").version);
-			assert.equal(await controller.checkRestartRequired(), false);
-			await controlConnection.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
-			assert.equal(await controller.checkRestartRequired(), true);
 		});
 		it("rejects if installs are disabled on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", false);
@@ -205,13 +249,6 @@ describe("messages/plugin", function() {
 		it("runs on a host", async function() {
 			host.config.set("host.allow_plugin_install", true);
 			await host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
-		});
-		it("flags a host as requiring a restart", async function() {
-			host.config.set("host.allow_plugin_install", true);
-			host.config.set("host.version", require("@clusterio/host/package.json").version);
-			assert.equal(await host.checkRestartRequired(), false);
-			await host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo"));
-			assert.equal(await host.checkRestartRequired(), true);
 		});
 		it("rejects if installs are disabled on the host", async function() {
 			host.config.set("host.allow_plugin_install", false);

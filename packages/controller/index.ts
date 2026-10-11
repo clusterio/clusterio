@@ -1,17 +1,17 @@
-import { bootstrap } from "./controller";
-export { default as Controller } from "./src/Controller";
-export { default as ControllerRouter } from "./src/ControllerRouter";
-export { default as ControlConnection } from "./src/ControlConnection";
-export { default as HostConnection } from "./src/HostConnection";
-export { default as InstanceRecord } from "./src/InstanceRecord";
-export { default as InstanceManager } from "./src/InstanceManager";
-export { default as HostRecord } from "./src/HostRecord";
-export { default as BaseControllerPlugin } from "./src/BaseControllerPlugin";
-export { default as UserManager } from "./src/UserManager";
-export { default as UserRecord } from "./src/UserRecord";
-export { default as User } from "./src/User";
-export { default as WsServer } from "./src/WsServer";
+import { bootstrap } from "./controller.js";
+export { default as Controller } from "./src/Controller.js";
+export { default as ControllerRouter } from "./src/ControllerRouter.js";
+export { default as ControlConnection } from "./src/ControlConnection.js";
+export { default as HostConnection } from "./src/HostConnection.js";
+export { default as InstanceRecord } from "./src/InstanceRecord.js";
+export { default as InstanceManager } from "./src/InstanceManager.js";
+export { default as HostRecord } from "./src/HostRecord.js";
+export { BaseControllerPlugin, ControllerHooks, type ControllerPluginContext } from "./src/BaseControllerPlugin.js";
+export { default as UserManager } from "./src/UserManager.js";
+export { default as UserRecord } from "./src/UserRecord.js";
+export { default as User } from "./src/User.js";
+export { default as WsServer } from "./src/WsServer.js";
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

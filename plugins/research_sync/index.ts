@@ -1,13 +1,13 @@
 import type * as lib from "@clusterio/lib";
 
-import * as messages from "./messages";
+import * as messages from "./messages.js";
 
 export const plugin: lib.PluginDeclaration = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",
-	instanceEntrypoint: "dist/node/instance",
-	controllerEntrypoint: "dist/node/controller",
+	instanceEntrypoint: "dist/node/instance.js",
+	controllerEntrypoint: "dist/node/controller.js",
 
 	features: [
 		"SavePatching",

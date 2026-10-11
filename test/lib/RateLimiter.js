@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const { RateLimiter, wait } = require("@clusterio/lib");
+import { RateLimiter, wait } from "@clusterio/lib";
 
 
 describe("lib/RateLimiter", function() {

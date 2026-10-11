@@ -1,6 +1,5 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const assert = require("assert").strict;
+import * as lib from "@clusterio/lib";
+import assert from "node:assert/strict";
 
 // Each migration test should indicate which version introduced the migration
 
@@ -43,7 +42,7 @@ describe("lib/config/definitions/migrations", function() {
 			assert.equal(configFalse.get("factorio.sync_banlist"), "disabled", "sync_adminlist contains wrong value");
 		});
 	});
-	describe("Control Config", function() {
+	describe("Ctl Config", function() {
 
 	});
 });

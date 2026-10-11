@@ -1,8 +1,7 @@
-"use strict";
-const assert = require("assert").strict;
-const { InstanceDetails } = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import { InstanceDetails } from "@clusterio/lib";
 
-const { testMatrix, testRoundTripJsonSerialisable } = require("../../common");
+import { testMatrix, testRoundTripJsonSerialisable } from "../../common.js";
 
 describe("lib/data/InstanceDetails", function () {
 

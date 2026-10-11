@@ -1,10 +1,10 @@
 
 import {
 	IUser, Role, SubscribableDatastore,
-	PermissionError, permissions,
+	PermissionError, PermissionName, permissions,
 } from "@clusterio/lib";
 
-import UserRecord from "./UserRecord";
+import UserRecord from "./UserRecord.js";
 import { Static } from "@sinclair/typebox";
 
 /**
@@ -126,7 +126,7 @@ export default class User extends UserRecord implements IUser {
 		this.saveRecord();
 	}
 
-	checkPermission(permission: string) {
+	checkPermission(permission: PermissionName) {
 		if (!permissions.has(permission)) {
 			throw new Error(`permission ${permission} does not exist`);
 		}

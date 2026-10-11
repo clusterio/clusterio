@@ -1,8 +1,7 @@
-"use strict";
-const { plainJson, jsonArray, JsonBoolean, JsonNumber, JsonString, StringEnum } = require("@clusterio/lib");
-const { Type } = require("@sinclair/typebox");
+import { plainJson, jsonArray, JsonBoolean, JsonNumber, JsonString, StringEnum } from "@clusterio/lib";
+import { Type } from "@sinclair/typebox";
 
-class PluginExampleEvent {
+export class PluginExampleEvent {
 	static type = "event";
 	static src = ["host", "control"];
 	static dst = ["controller", "host", "instance"];
@@ -24,7 +23,7 @@ class PluginExampleEvent {
 	}
 }
 
-class PluginExampleRequest {
+export class PluginExampleRequest {
 	static type = "request";
 	static src = ["host", "control"];
 	static dst = ["controller", "host", "instance"];
@@ -52,7 +51,7 @@ class PluginExampleRequest {
 }
 //%if controller & web // Subscribing requires web content and the controller
 
-class ExampleSubscribableValue {
+export class ExampleSubscribableValue {
 	constructor(id, updatedAtMs, isDeleted) {
 		this.id = id;
 		this.updatedAtMs = updatedAtMs;
@@ -70,7 +69,7 @@ class ExampleSubscribableValue {
 	}
 }
 
-class ExampleSubscribableUpdate {
+export class ExampleSubscribableUpdate {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
@@ -90,12 +89,3 @@ class ExampleSubscribableUpdate {
 	}
 }
 //%endif
-
-module.exports = {
-	PluginExampleEvent,
-	PluginExampleRequest,
-//%if controller & web // Subscribing requires web content and the controller
-	ExampleSubscribableValue,
-	ExampleSubscribableUpdate,
-//%endif
-};

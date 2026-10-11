@@ -1,11 +1,10 @@
 /* eslint-disable no-console */
-"use strict";
-const fs = require("node:fs/promises");
-const JSZip = require("jszip");
-const path = require("path");
-const stream = require("stream");
-const util = require("util");
-const yargs = require("yargs");
+import fs from "node:fs/promises";
+import JSZip from "jszip";
+import path from "node:path";
+import stream from "node:stream";
+import util from "node:util";
+import yargs from "yargs";
 
 const finished = util.promisify(stream.finished);
 
@@ -79,7 +78,7 @@ async function buildMod(args, info, modName) {
 	}
 }
 
-async function build(args) {
+export async function build(args) {
 	let info = JSON.parse(await fs.readFile(path.join(args.sourceDir, "info.json")));
 
 	if (args.factorioVersion) {
@@ -121,7 +120,7 @@ async function build(args) {
 
 
 async function main() {
-	const args = yargs
+	const args = yargs(process.argv.slice(2))
 		.scriptName("build")
 		.options({
 			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
@@ -144,16 +143,12 @@ async function main() {
 			},
 		})
 		.strict()
-		.argv
+		.parse()
 	;
 
 	await build(args);
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	main().catch(err => { console.log(err); });
 }
-
-module.exports = {
-	build,
-};

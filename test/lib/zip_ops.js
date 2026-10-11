@@ -1,8 +1,7 @@
-"use strict";
-const assert = require("assert").strict;
-const JSZip = require("jszip");
+import assert from "node:assert/strict";
+import JSZip from "jszip";
 
-const { findRoot } = require("@clusterio/lib");
+import { findRoot } from "@clusterio/lib";
 
 
 describe("lib/factorio", function() {

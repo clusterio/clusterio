@@ -1,9 +1,9 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
+import assert from "node:assert/strict";
+import events from "node:events";
 
-const lib = require("@clusterio/lib");
-const mock = require("../../mock");
+import * as lib from "@clusterio/lib";
+import * as mock from "../../mock.js";
+import "../../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -538,6 +538,51 @@ describe("lib/link/link", function() {
 					() => testLink._processMessage(new lib.MessageEvent(1, dst, src, "StringEvent", 99)),
 					{ message: "Event StringEvent failed validation" }
 				);
+			});
+
+			describe("permission checking", function() {
+				// A control connection has connector.dst.type === control, which is
+				// what gates permission checking, see link.js _processMessage.
+				function controlSetup() {
+					const connector = new mock.MockConnector(dst, src);
+					const link = new lib.Link(connector);
+					const message = new lib.MessageRequest(1, src, dst, "SimpleRequest");
+					return { connector, link, message };
+				}
+
+				it("should silently deny on PermissionError from the permission check", function() {
+					const { connector, link, message } = controlSetup();
+					let handled = false;
+					let errored = false;
+					connector.on("error", () => { errored = true; });
+					link.handle(SimpleRequest, async () => { handled = true; });
+					link.validatePermission = () => { throw new lib.PermissionError("Denied"); };
+					connector.emit("message", message);
+					assert(!handled, "handler ran despite denial");
+					assert(!errored, "connector emitted error on denial");
+					assert.deepEqual(connector.sentMessages, [], "denial sent a message");
+				});
+
+				it("should not crash when the permission check throws a non-PermissionError", function() {
+					const { connector, link, message } = controlSetup();
+					let handled = false;
+					let errored = false;
+					const logged = [];
+					const originalError = lib.logger.error;
+					lib.logger.error = msg => { logged.push(msg); };
+					connector.on("error", () => { errored = true; });
+					try {
+						link.handle(SimpleRequest, async () => { handled = true; });
+						link.validatePermission = () => { throwSimple("check is broken"); };
+						connector.emit("message", message);
+					} finally {
+						lib.logger.error = originalError;
+					}
+					assert(!errored, "non-PermissionError escaped to the connector error path");
+					assert(!handled, "handler ran after the permission check threw");
+					assert.equal(logged.length, 1);
+					assert(logged[0].startsWith("Unexpected error checking permission for SimpleRequest:\n"));
+				});
 			});
 
 			describe("Broadcast handling", function() {

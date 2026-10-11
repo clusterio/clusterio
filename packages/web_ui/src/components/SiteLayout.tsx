@@ -10,14 +10,13 @@ import ChangeLogModal from "./ChangeLogModal";
 import AboutModal from "./AboutModal";
 import Link from "./Link";
 
-import { pages } from "../pages";
 import { saveJson } from "../util/save_file";
 import { useAccount } from "../model/account";
 import { DraggingContext } from "../model/is_dragging";
 import webUiPackage from "../../package.json";
 import logo from "../images/logo.png";
 
-import { ControlConfig } from "@clusterio/lib";
+import { CtlConfig } from "@clusterio/lib";
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -60,7 +59,6 @@ export default function SiteLayout() {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [collapsed, setCollapsed] = useState(false);
 	let account = useAccount();
-	let plugins = useContext(ControlContext).plugins;
 	const control = useContext(ControlContext);
 	const [dragging, setDragging] = useState(0);
 	const [aboutOpen, setAboutOpen] = useState(false);
@@ -79,11 +77,11 @@ export default function SiteLayout() {
 			if (key === "user") {
 				navigate(`/users/${account.name}/view`);
 			} else if (key === "ctlConfig") {
-				const config = new ControlConfig("control", {
-					"control.controller_token": control.connector.token,
-					"control.controller_url": (new URL(webRoot, document.location.href)).href,
+				const config = new CtlConfig("control", {
+					"ctl.controller_token": control.connector.token,
+					"ctl.controller_url": (new URL(webRoot, document.location.href)).href,
 				});
-				saveJson("config-control.json", config.toJSON());
+				saveJson("config-ctl.json", config.toJSON());
 			} else if (key === "about") {
 				setAboutOpen(true);
 			} else if (key === "logOut") {
@@ -110,13 +108,9 @@ export default function SiteLayout() {
 		],
 	};
 
-	let combinedPages = [...pages];
-	for (let plugin of plugins.values()) {
-		combinedPages.push(...plugin.pages);
-	}
-
 	let menuItems: MenuItem[] = [];
 	let menuGroups = new Map();
+	const combinedPages = [...control.pages];
 	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
 		if (
 			!sidebarName || permission && (

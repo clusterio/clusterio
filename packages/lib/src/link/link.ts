@@ -1,15 +1,15 @@
 // Implementation of Link class
-import * as libData from "../data";
-import * as libErrors from "../errors";
-import { logger } from "../logging";
-import * as libSchema from "../schema";
-import { dataClasses } from "./messages";
-import { BaseConnector, WebSocketBaseConnector } from "./connectors";
+import * as libData from "../data/index.js";
+import * as libErrors from "../errors.js";
+import { logger } from "../logging.js";
+import * as libSchema from "../schema.js";
+import { dataClasses } from "./messages.js";
+import { BaseConnector, WebSocketBaseConnector } from "./connectors.js";
 import { strict as assert } from "assert";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
 import type {
 	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUser,
-} from "../data";
+} from "../data/index.js";
 
 export interface Request<Req, Res> {
 	constructor: Partial<JSONDeserialisable<Req & Request<Req, Res>>> & {
@@ -196,16 +196,20 @@ export class Link {
 
 		let entry = this._validateMessage(message);
 		if (entry && this.connector.dst.type === libData.Address.control) {
+			let permissionMessage = message as libData.MessageRequest | libData.MessageEvent;
 			try {
-				this.validatePermission(
-					message as libData.MessageRequest | libData.MessageEvent,
-					entry
-				); // Somewhat hacky, defined in ControlConnection
+				this.validatePermission(permissionMessage, entry); // Somewhat hacky, defined in ControlConnection
 			} catch (err) {
-				if (err instanceof libErrors.PermissionError) {
-					return;
+				// A non-PermissionError means the permission check itself is
+				// broken.  validatePermission (control connections only) already
+				// sent a response error, so log and drop instead of crashing.
+				if (!(err instanceof libErrors.PermissionError)) {
+					logger.error(
+						`Unexpected error checking permission for ${permissionMessage.name}:\n` +
+						`${(err as Error).stack ?? (err as Error).message}`
+					);
 				}
-				throw err;
+				return;
 			}
 		}
 
@@ -444,7 +448,7 @@ export class Link {
 		let pending = this._pendingRequests.get(message.dst.requestId!);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
-				`Received response ${message.dst.requestId} without a pending request`
+				`Received response ${message.dst.requestId} from ${message.src} without a pending request`
 			);
 		}
 
@@ -465,7 +469,7 @@ export class Link {
 		let pending = this._pendingRequests.get(message.dst.requestId!);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
-				`Received error response ${message.dst.requestId} without a pending request`
+				`Received error response ${message.dst.requestId} from ${message.src} without a pending request`
 			);
 		}
 

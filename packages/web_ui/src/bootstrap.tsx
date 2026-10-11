@@ -6,12 +6,13 @@ import { createRoot } from "react-dom/client";
 import * as lib from "@clusterio/lib";
 
 import App from "./components/App";
-import BaseWebPlugin, { InputComponent } from "./BaseWebPlugin";
 import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
 import { loadedPluginSetKey } from "./util/pluginSet";
+import * as WebPlugin from "./BaseWebPlugin";
+import { pages } from "./pages";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
@@ -49,6 +50,9 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 			logger.error(`Failed to load plugin ${meta.name}: ${meta.web.error}`);
 			continue;
 		}
+		if (!meta.web.main) {
+			continue;
+		}
 		try {
 			await loadScript(`${staticRoot}${meta.web.main}`);
 			let container: any = (window as { [key: string]: any })[`plugin_${meta.name}`];
@@ -78,26 +82,44 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 	return [pluginInfos, pluginSetKey];
 }
 
-async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Control) {
-	let plugins = new Map<string, BaseWebPlugin>();
-	for (let pluginInfo of pluginInfos) {
-		if (!pluginInfo.enabled) {
+async function loadPlugins(
+	pluginInfos: lib.PluginWebpackEnvInfo[],
+	control: Control
+) {
+	const plugins = new Map<string, WebPlugin.BaseWebPlugin>();
+
+	for (const pluginInfo of pluginInfos) {
+		if (!pluginInfo.enabled || !pluginInfo.webEntrypoint) {
 			continue;
 		}
+
 		try {
-			let WebPluginClass = BaseWebPlugin;
-			if (pluginInfo.webEntrypoint) {
-				let webModule = (await pluginInfo.container.get(pluginInfo.webEntrypoint))();
-				if (!webModule.WebPlugin) {
-					pluginInfo.error = "Plugin webEntrypoint does not export WebPlugin class";
-					throw new Error(pluginInfo.error);
-				}
-				WebPluginClass = webModule.WebPlugin;
+			const moduleFactory = await pluginInfo.container.get(pluginInfo.webEntrypoint);
+			const webModule = moduleFactory();
+
+			const pluginContext: WebPlugin.WebPluginContext = {
+				control,
+				plugin: pluginInfo,
+				container: pluginInfo.container,
+				package: pluginInfo.package,
+				logger: logger.child({ plugin: pluginInfo.name }),
+			};
+
+			if (typeof webModule.default === "function") {
+				await lib.loadPluginEntrypoint(pluginInfo, "web", pluginContext, webModule);
+				continue;
 			}
 
-			let plugin = new WebPluginClass(pluginInfo.container, pluginInfo.package, pluginInfo, control, logger);
-			await plugin.init();
-			plugins.set(pluginInfo.name, plugin);
+			// migrate: accept plugins which export classes
+			if (webModule.WebPlugin) {
+				logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks`);
+				plugins.set(pluginInfo.name, await lib.loadPluginClass(
+					pluginInfo, "web", pluginContext, webModule, "WebPlugin", WebPlugin.BaseWebPlugin
+				));
+				continue;
+			}
+
+			throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
 
 		} catch (err: any) {
 			pluginInfo.error = `Error loading plugin: ${err.message}`;
@@ -107,26 +129,80 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 			}
 		}
 	}
+
 	return plugins;
 }
 
-function inputComponentsFromPlugins(plugins: Map<string, BaseWebPlugin>) {
-	const inputComponents: Record<string, InputComponent> = {
+function mergeWithWarning<V>(
+	entries: Iterable<[string, Iterable<V>]>,
+	getKey: (item: V) => string,
+	label: string
+): V[] {
+	const map = new Map<string, V>();
+	const sources = new Map<string, string>();
+
+	for (const [source, items] of entries) {
+		for (const item of items) {
+			const key = getKey(item);
+			if (sources.has(key)) {
+				lib.logger.warn(
+					`Plugin ${source} is redefining ${label} "${key}" previously defined by ${sources.get(key)}`
+				);
+			}
+
+			sources.set(key, source);
+			map.set(key, item);
+		}
+	}
+
+	return [...map.values()];
+}
+
+async function inputComponentsFromHooks(control: Control) {
+	const result = await control.hooks.inputComponents.collectEntries();
+
+	result.unshift(["core", {
 		"full_version": InputFullVersion,
 		"partial_version": InputPartialVersion,
 		"target_version": InputTargetVersion,
 		"mod_pack": InputModPack,
 		"role": InputRole,
-	};
-	for (let [pluginName, plugin] of plugins) {
-		for (const [name, Component] of Object.entries(plugin.inputComponents)) {
-			if (Object.prototype.hasOwnProperty.call(inputComponents, name)) {
-				lib.logger.warn(`Plugin ${pluginName} is redefining config inputComponent ${name}`);
+	}]);
+
+	const iterable = result.map(
+		v => [v[0], Object.entries(v[1])] as [string, Iterable<[string, WebPlugin.InputComponent]>]
+	);
+
+	return new Map(mergeWithWarning(iterable, ([key]) => key, "input component"));
+}
+
+async function extensionComponentsFromHooks(control: Control) {
+	const extensionComponents = {} as WebPlugin.ExtensionComponents;
+
+	const result = await control.hooks.extensionComponents.collectEntries();
+	for (const [source, record] of result) {
+		for (const [slot, Component] of Object.entries(record) as [
+			WebPlugin.PluginExtensionSlot, React.ComponentType,
+		][]) {
+			if (!extensionComponents[slot]) {
+				extensionComponents[slot] = new Map();
 			}
-			inputComponents[name] = Component;
+			extensionComponents[slot].set(source, Component as any);
 		}
 	}
-	return inputComponents;
+
+	return extensionComponents;
+}
+
+async function loginFormsFromHooks(control: Control) {
+	const results = await control.hooks.loginForms.collectEntries();
+	return mergeWithWarning<WebPlugin.PluginLoginForm>(results, item => item.name, "login form");
+}
+
+async function pagesFromHooks(control: Control) {
+	const results = await control.hooks.pages.collectEntries();
+	results.unshift(["core", pages]);
+	return mergeWithWarning<WebPlugin.PluginPage>(results, item => item.path, "page");
 }
 
 export default async function bootstrap() {
@@ -134,15 +210,24 @@ export default async function bootstrap() {
 		level: "verbose",
 		format: new WebConsoleFormat(),
 	}));
-	let [pluginInfos, pluginSetKey] = await loadPluginInfos();
+	const [pluginInfos, pluginSetKey] = await loadPluginInfos();
+	const pluginInfoEntries = pluginInfos.map(p => [p.name, p] as const);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120);
-	let control = new Control(controlConnector, new Map(pluginInfos.map(p => [p.name, p])), pluginSetKey);
+	let control = new Control(controlConnector, new Map(pluginInfoEntries), pluginSetKey);
 	control.plugins = await loadPlugins(pluginInfos, control);
-	control.inputComponents = inputComponentsFromPlugins(control.plugins);
+	control.loadedPlugins = new Map(pluginInfoEntries.filter(
+		([_, info]) => info.enabled && info.webEntrypoint && !info.error
+	));
+
+	control.inputComponents = await inputComponentsFromHooks(control);
+	control.extensionComponents = await extensionComponentsFromHooks(control);
+	control.loginForms = await loginFormsFromHooks(control);
+	control.pages = await pagesFromHooks(control);
 
 	const root = createRoot(document.getElementById("root") as HTMLDivElement);
 	root.render(<App control={control}/>);

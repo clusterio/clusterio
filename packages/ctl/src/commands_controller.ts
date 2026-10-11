@@ -5,34 +5,45 @@ import os from "os";
 import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
-import type { Control } from "../ctl";
-import { print } from "./command_ops";
-import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops";
+import type { Ctl } from "../ctl.js";
+import { print } from "./command_ops.js";
+import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 
 export const controllerCommands = new lib.CommandTree({ name: "controller", description: "Controller management" });
 controllerCommands.add(new lib.Command({
 	definition: ["stop", "Stop controller"],
-	handler: async function(_args: object, control: Control) {
-		await control.send(new lib.ControllerStopRequest());
+	handler: async function(_args: object, ctl: Ctl) {
+		await ctl.send(new lib.ControllerStopRequest());
 	},
 }));
 
 controllerCommands.add(new lib.Command({
 	definition: ["restart", "Restart controller"],
-	handler: async function(_args: object, control: Control) {
-		await control.send(new lib.ControllerRestartRequest());
+	handler: async function(_args: object, ctl: Ctl) {
+		await ctl.send(new lib.ControllerRestartRequest());
+	},
+}));
+controllerCommands.add(new lib.Command({
+	definition: ["mark-restart-required", "Mark the controller as requiring a restart"],
+	handler: async function(_args: object, ctl: Ctl) {
+		await ctl.send(new lib.ControllerMarkRestartRequiredRequest());
 	},
 }));
 controllerCommands.add(new lib.Command({
 	definition: ["update", "Update the controller", (yargs) => {
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
+		yargs.option("all", { alias: "a", type: "boolean", description: "Also update all plugins" });
 	}],
-	handler: async function(args: { restart: boolean }, control: Control) {
-		await control.send(new lib.ControllerUpdateRequest());
+	handler: async function(args: { restart: boolean, all: boolean }, ctl: Ctl) {
+		if (args.all) {
+			await ctl.send(new lib.UpdateAllRequest());
+		} else {
+			await ctl.send(new lib.ControllerUpdateRequest());
+		}
 		if (args.restart) {
-			await control.send(new lib.ControllerRestartRequest());
+			await ctl.send(new lib.ControllerRestartRequest());
 		} else {
 			print("Controller updated; a restart is required to apply the changes.");
 		}
@@ -45,8 +56,8 @@ const controllerConfigCommands = new lib.CommandTree({
 
 controllerConfigCommands.add(new lib.Command({
 	definition: ["list", "List controller configuration"],
-	handler: async function(args: object, control: Control) {
-		let config = await control.send(new lib.ControllerConfigGetRequest());
+	handler: async function(args: object, ctl: Ctl) {
+		let config = await ctl.send(new lib.ControllerConfigGetRequest());
 
 		for (let [name, value] of Object.entries(config)) {
 			print(`${name} ${JSON.stringify(value)}`);
@@ -62,13 +73,13 @@ controllerConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args: { field: string, value?: string, stdin?: boolean }, control: Control) {
+	handler: async function(args: { field: string, value?: string, stdin?: boolean }, ctl: Ctl) {
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await control.send(new lib.ControllerConfigSetFieldRequest(args.field, args.value));
+		await ctl.send(new lib.ControllerConfigSetFieldRequest(args.field, args.value));
 	},
 }));
 
@@ -81,7 +92,7 @@ controllerConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args: { field: string, prop: string, value?: string, stdin?: boolean }, control: Control) {
+	handler: async function(args: { field: string, prop: string, value?: string, stdin?: boolean }, ctl: Ctl) {
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
@@ -97,7 +108,7 @@ controllerConfigCommands.add(new lib.Command({
 			}
 			value = args.value;
 		}
-		await control.send(new lib.ControllerConfigSetPropRequest(args.field, args.prop, value));
+		await ctl.send(new lib.ControllerConfigSetPropRequest(args.field, args.prop, value));
 	},
 }));
 controllerConfigCommands.add(new lib.Command({
@@ -108,17 +119,15 @@ controllerConfigCommands.add(new lib.Command({
 			default: "",
 		});
 	}],
-	handler: async function(args: { editor: string }, control: Control) {
-		let config = await control.send(new lib.ControllerConfigGetRequest());
+	handler: async function(args: { editor: string }, ctl: Ctl) {
+		let config = await ctl.send(new lib.ControllerConfigGetRequest());
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let allConfigElements = serializedConfigToString(
-			config, lib.ControllerConfig, {}
-		);
+		let allConfigElements = serializedConfigToString(config, lib.ControllerConfig);
 		await fs.writeFile(tmpFile, allConfigElements);
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
 			stdio: "inherit",
@@ -133,7 +142,7 @@ controllerConfigCommands.add(new lib.Command({
 		for (let index in final) {
 			if (index in final) {
 				try {
-					await control.send(new lib.ControllerConfigSetFieldRequest(
+					await ctl.send(new lib.ControllerConfigSetFieldRequest(
 						index,
 						final[index],
 					));
@@ -162,8 +171,8 @@ const controllerPluginCommands = new lib.CommandTree({
 });
 controllerPluginCommands.add(new lib.Command({
 	definition: ["list", "List plugins on controller"],
-	handler: async function(args: object, control: Control) {
-		let url = new URL(control.config.get("control.controller_url")!);
+	handler: async function(args: object, ctl: Ctl) {
+		let url = new URL(ctl.config.get("ctl.controller_url")!);
 		url.pathname += "api/plugins";
 		let response = await fetch(url);
 		print(asTable(await response.json() as []));
@@ -174,10 +183,10 @@ controllerPluginCommands.add(new lib.Command({
 		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
-	handler: async function(args: { plugin: string, restart: boolean }, control: Control) {
-		await control.sendTo("controller", new lib.PluginUpdateRequest(args.plugin));
+	handler: async function(args: { plugin: string, restart: boolean }, ctl: Ctl) {
+		await ctl.sendTo("controller", new lib.PluginUpdateRequest(args.plugin));
 		if (args.restart) {
-			await control.send(new lib.ControllerRestartRequest());
+			await ctl.send(new lib.ControllerRestartRequest());
 		} else {
 			print("Plugin updated; a restart is required to apply the changes.");
 		}
@@ -189,8 +198,8 @@ controllerPluginCommands.add(new lib.Command({
 		yargs.option("page", { type: "number", description: "Page of results to show", default: 1 });
 		yargs.option("page-size", { type: "number", description: "Results per page", default: 20 });
 	}],
-	handler: async function(args: { query: string, page: number, pageSize: number }, control: Control) {
-		const response = await control.sendTo(
+	handler: async function(args: { query: string, page: number, pageSize: number }, ctl: Ctl) {
+		const response = await ctl.sendTo(
 			"controller", new lib.PluginSearchRequest(args.query, args.page, args.pageSize)
 		);
 		print(asTable(response.results.map(plugin => ({
@@ -207,10 +216,10 @@ controllerPluginCommands.add(new lib.Command({
 		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
-	handler: async function(args: { plugin: string, restart: boolean }, control: Control) {
-		await control.sendTo("controller", new lib.PluginInstallRequest(args.plugin));
+	handler: async function(args: { plugin: string, restart: boolean }, ctl: Ctl) {
+		await ctl.sendTo("controller", new lib.PluginInstallRequest(args.plugin));
 		if (args.restart) {
-			await control.send(new lib.ControllerRestartRequest());
+			await ctl.send(new lib.ControllerRestartRequest());
 		} else {
 			print("Plugin installed; a restart is required to apply the changes.");
 		}

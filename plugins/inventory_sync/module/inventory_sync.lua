@@ -17,6 +17,7 @@ local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local dialog_failed_download = require("modules/inventory_sync/gui/dialog_failed_download")
 
 local v2_remote_controller = compat.version_ge("2.0.0")
+local recipe_notifications_api = compat.version_ge("2.0.67")
 
 -- Returns true if the player is currently in a cutscene
 local function is_in_cutscene(player)
@@ -441,8 +442,15 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	local script_data = get_script_data()
 	script_data.active_downloads[player.name] = record
 
+	-- The plugin only sends back what differs from the current notification state
+	local recipe_notifications
+	if recipe_notifications_api then
+		recipe_notifications = serialize.serialize_crafting_notifications(player)
+	end
+
 	clusterio_api.send_json("inventory_sync_download", {
-		player_name = player.name
+		player_name = player.name,
+		recipe_notifications = recipe_notifications,
 	})
 
 	-- If this is a synced player turn them into a spectator while the

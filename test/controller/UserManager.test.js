@@ -1,10 +1,9 @@
-"use strict";
-const path = require("path");
-const fs = require("node:fs/promises");
-const assert = require("assert").strict;
-const jwt = require("jsonwebtoken");
-const { Role, SubscribableDatastore, ControllerConfig } = require("@clusterio/lib");
-const { UserRecord, UserManager } = require("@clusterio/controller");
+import path from "node:path";
+import fs from "node:fs/promises";
+import assert from "node:assert/strict";
+import jwt from "jsonwebtoken";
+import { Role, SubscribableDatastore, ControllerConfig } from "@clusterio/lib";
+import { UserRecord, UserManager } from "@clusterio/controller";
 
 const TEMP_DIR = path.join("temp", "test", "UserManager");
 
@@ -79,6 +78,23 @@ describe("controller/UserManager", function () {
 			config.set("controller.default_role_id", 1);
 			const user = userManager.createUser("Eve");
 			assert(user.roleIds.has(1));
+		});
+
+		it("should set tokenValidAfter to the current time", function () {
+			const before = Math.floor(Date.now() / 1000);
+			const user = userManager.createUser("Mallory");
+			assert(user.tokenValidAfter >= before, "tokenValidAfter predates the call");
+			assert(user.tokenValidAfter <= Math.floor(Date.now() / 1000), "tokenValidAfter is in the future");
+		});
+
+		it("should invalidate tokens issued before a user of the same name was recreated", function () {
+			const user = userManager.createUser("Niaj");
+			const oldTokenIat = user.tokenValidAfter - 60;
+			userManager.deleteUser(user);
+
+			// WsServer.registerControl rejects the token when iat < tokenValidAfter
+			const recreated = userManager.createUser("Niaj");
+			assert(oldTokenIat < recreated.tokenValidAfter, "token from before the deletion is still valid");
 		});
 	});
 

@@ -1,0 +1,53 @@
+name: Install dependencies
+description: Set up pnpm and Node.js, restore caches and run pnpm install
+
+inputs:
+  node-version:
+    description: Node.js version passed to actions/setup-node
+    required: true
+  ignore-scripts:
+    description: Skip the prepare scripts that build the workspace packages
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    # The lockfile is not committed, so the usual lockfile hash key does not
+    # apply. Instead a new store snapshot is saved whenever a package.json
+    # changes or a week passes, and every run restores the most recent one.
+    - id: store
+      shell: bash
+      run: |
+        echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v6
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ steps.store.outputs.week }}-${{ hashFiles('**/package.json', 'pnpm-workspace.yaml') }}
+        restore-keys: pnpm-store-${{ runner.os }}-
+
+    # The prepare scripts run tsc --build and webpack, both incremental when
+    # their previous output is present. Every run saves its output and the
+    # next run starts from the most recent one.
+    - if: inputs.ignore-scripts != 'true'
+      uses: actions/cache@v6
+      with:
+        path: |
+          packages/*/dist
+          plugins/*/dist
+          packages/*/node_modules/.cache
+          plugins/*/node_modules/.cache
+        key: build-${{ runner.os }}-${{ github.sha }}
+        restore-keys: build-${{ runner.os }}-
+
+    - shell: bash
+      run: pnpm i --no-frozen-lockfile ${{ inputs.ignore-scripts == 'true' && '--ignore-scripts' || '' }}
+    # Drop packages the restored store had but this install did not use, so
+    # the snapshot does not grow with every version bump.
+    - shell: bash
+      run: pnpm store prune

@@ -1,10 +1,10 @@
-import type Controller from "./Controller";
-import type BaseConnection from "./BaseConnection";
+import type Controller from "./Controller.js";
+import type BaseConnection from "./BaseConnection.js";
 
 import * as lib from "@clusterio/lib";
-import HostConnection from "./HostConnection";
-import ControlConnection from "./ControlConnection";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
+import HostConnection from "./HostConnection.js";
+import ControlConnection from "./ControlConnection.js";
 
 export default class ControllerRouter {
 	constructor(

@@ -6,8 +6,8 @@
  */
 import fs from "node:fs/promises";
 
-import * as libFileOps from "./file_ops";
-import { basicType } from "./helpers";
+import * as libFileOps from "./file_ops.js";
+import { basicType } from "./helpers.js";
 
 export type ItemCountWithQuality = { [quality: string]: number };
 

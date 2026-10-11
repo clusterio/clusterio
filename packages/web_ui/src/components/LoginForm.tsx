@@ -5,6 +5,7 @@ import LockOutlined from "@ant-design/icons/LockOutlined";
 import notify from "../util/notify";
 import logo from "../images/logo.png";
 import ControlContext from "./ControlContext";
+import { PluginLoginForm } from "../BaseWebPlugin";
 
 const { Paragraph } = Typography;
 
@@ -36,7 +37,7 @@ function TokenAuth(props: SetTokenProps) {
 }
 
 export default function LoginForm(props: SetTokenProps) {
-	let plugins = useContext(ControlContext).plugins;
+	const control = useContext(ControlContext);
 	const [clusterName, setClusterName] = useState<string>("Clusterio");
 
 	useEffect(() => {
@@ -55,16 +56,14 @@ export default function LoginForm(props: SetTokenProps) {
 		})();
 	}, []);
 
-	let loginForms = [];
-	for (let plugin of plugins.values()) {
-		loginForms.push(...plugin.loginForms);
-	}
-
-	loginForms.push({
-		name: "core.token",
-		title: "Token",
-		Component: TokenAuth,
-	});
+	const loginForms: PluginLoginForm[] = [
+		...control.loginForms,
+		{
+			name: "core.token",
+			title: "Token",
+			Component: TokenAuth,
+		},
+	];
 
 	return <Card style={{ maxWidth: "30em" }}>
 		<Space style={{ width: "100%" }} direction="vertical" align="center">

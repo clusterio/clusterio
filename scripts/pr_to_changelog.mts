@@ -1,11 +1,21 @@
 import {
+	type Comparison,
 	type Release,
 	type Issue,
 	githubFetchJson,
 	githubFetchJsonPaginated,
+	githubFetchText,
 } from "./github_api.mts";
 
 type Changelog = Record<string, string[]>;
+
+type Statistics = {
+	commits: number,
+	pullRequests: number,
+	filesChanged: number,
+	lineAdditions: number,
+	lineDeletions: number,
+};
 
 const repository = "clusterio/clusterio";
 const branch = "master";
@@ -187,10 +197,41 @@ async function fetchIssuesUpdatedSince(since: string) {
 	);
 }
 
+async function fetchStatistics(lastRelease: Release, pullRequests: Issue[]): Promise<Statistics> {
+	const path = `/repos/${repository}/compare/${lastRelease.tag_name}...${branch}`;
+	const comparison = await githubFetchJson<Comparison>(path, { per_page: "1" });
+	// The JSON response lists at most 300 files, the diff has all of them.
+	const diff = await githubFetchText(path, {}, { headers: { "Accept": "application/vnd.github.diff" } });
+	let filesChanged = 0;
+	let lineAdditions = 0;
+	let lineDeletions = 0;
+	let inHunk = false; // Skips the ---/+++ file headers
+	for (const line of diff.split("\n")) {
+		if (line.startsWith("diff --git ")) {
+			filesChanged += 1;
+			inHunk = false;
+		} else if (line.startsWith("@@")) {
+			inHunk = true;
+		} else if (inHunk && line.startsWith("+")) {
+			lineAdditions += 1;
+		} else if (inHunk && line.startsWith("-")) {
+			lineDeletions += 1;
+		}
+	}
+	return {
+		commits: comparison.total_commits,
+		pullRequests: pullRequests.length,
+		filesChanged,
+		lineAdditions,
+		lineDeletions,
+	};
+}
+
 function printMarkdown(
 	changelog: Changelog,
 	issues: Issue[],
 	users: Issue["user"][],
+	statistics: Statistics,
 	refText: (issue: Issue) => string,
 	userText: (user: Issue["user"]) => string,
 ) {
@@ -216,8 +257,19 @@ function printMarkdown(
 		}
 	}
 
+	console.log("### Contributors\n");
 	console.log(`Many thanks to the following for contributing to this release:`);
-	console.log(users.map(userText).join("\n"))
+	console.log(users.map(userText).join(", "));
+
+	const format = (value: number) => value.toLocaleString("en-US");
+	console.log("\n### Statistics\n");
+	console.log([
+		`Commits: ${format(statistics.commits)}`,
+		`Pull Requests: ${format(statistics.pullRequests)}`,
+		`Files Changed: ${format(statistics.filesChanged)}`,
+		`Additions: +${format(statistics.lineAdditions)}`,
+		`Deletions: -${format(statistics.lineDeletions)}`,
+	].join("  "));
 }
 
 async function main() {
@@ -232,17 +284,18 @@ async function main() {
 
 	const changelog = changelogFromPullRequests(pullRequests, issues);
 	const users = [...new Map(pullRequests.map(issue => [issue.user.login, issue.user])).values()]
+	const statistics = await fetchStatistics(lastRelease, pullRequests);
 
 	console.log();
 	console.log("=== Github Release Markdown ===");
-	printMarkdown(changelog, issues, users,
+	printMarkdown(changelog, issues, users, statistics,
 		issue => `${repository}#${issue.number}`,
 		user => `@${user.login}`,
 	);
 
 	console.log();
 	console.log("=== Discord / Changelog Markdown ===");
-	printMarkdown(changelog, issues, users,
+	printMarkdown(changelog, issues, users, statistics,
 		issue => `[#${issue.number}](<${issue.html_url}>)`,
 		user => `[@${user.login}](<${user.html_url}>)`
 	);

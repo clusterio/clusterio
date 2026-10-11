@@ -1,7 +1,7 @@
-import { BaseCtlPlugin, type Control } from "@clusterio/ctl";
+import type { Ctl, CtlPluginContext } from "@clusterio/ctl";
 import { CommandTree, Command } from "@clusterio/lib";
 //%// We do not check for multi context here because it doesn't make sense to have a ctl without messages
-import { PluginExampleEvent, PluginExampleRequest } from "./messages";
+import { PluginExampleEvent, PluginExampleRequest } from "./messages.js";
 /* eslint-disable no-console */
 
 const pluginCommands = new CommandTree({
@@ -12,16 +12,16 @@ pluginCommands.add(new Command({
 	definition: ["my-command <foo>", "My command description that I really should change", (yargs) => {
 		yargs.positional("foo", { describe: "foo is foo!", type: "string" });
 	}],
-	handler: async function(args: { foo: string }, control: Control) {
-		const response = await control.sendTo("controller", new PluginExampleRequest(args.foo, [1, 2, 3]));
+	handler: async function(args: { foo: string }, ctl: Ctl) {
+		const response = await ctl.sendTo("controller", new PluginExampleRequest(args.foo, [1, 2, 3]));
 		console.log(response);
 		console.log(args);
 	},
 }));
 
 /* eslint-enable no-console */
-export class CtlPlugin extends BaseCtlPlugin {
-	async addCommands(rootCommand: CommandTree) {
+export default async function loadCtlPlugin(context: CtlPluginContext) {
+	context.hooks.addCommands.attach(context.plugin.name, async (rootCommand) => {
 		rootCommand.add(pluginCommands);
-	}
+	});
 }

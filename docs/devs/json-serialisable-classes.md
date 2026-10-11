@@ -14,7 +14,7 @@ See the following example code for a hypothetical `Data` class with a single pro
  * A Data class example
  * @alias module:Data
  */
-class Data {
+export class Data {
     /** @type {string} */
     member = "foo";
 
@@ -41,8 +41,6 @@ class Data {
         return json;
     }
 }
-
-module.exports = Data;
 ```
 
 Serialising an instance of `Data` for JSON is as simple as doing `serialised = JSON.stringify(data)` as the `toJSON` method is automatically called by `JSON.stringify` to create a suitable object.
@@ -53,14 +51,13 @@ For example a class holding a data property with an instance of the Data class f
 
 ```js
 // Composed.js
-"use strict";
-const Data = require("./Data");
+import Data from "./Data";
 
 /**
  * Composed data class example
  * @alias module:Data
  */
-class Composed {
+export class Composed {
     /** @type {module:Data|undefined} */
     data;
 
@@ -83,8 +80,6 @@ class Composed {
 
     // toJSON is optional and not needed for this particular class
 }
-
-module.exports = Composed;
 ```
 
 It's easy to create a new instance of Composed by calling `new Composed(new Data("spam"))` and serialising to and from JSON is the same as for Data.

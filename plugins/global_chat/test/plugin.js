@@ -1,13 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
-const mock = require("../../../test/mock");
-const lines = require("../../../test/lib/factorio/lines");
-const instance = require("../dist/node/instance");
-const info = require("../dist/node/index").plugin;
-const { ChatEvent } = require("../dist/node/messages");
-
+import * as mock from "../../../test/mock.js";
+import * as lines from "../../../test/lib/factorio/lines.js";
+import * as instance from "../dist/node/instance.js";
+import { plugin as info } from "../dist/node/index.js";
+import { ChatEvent } from "../dist/node/messages.js";
 
 describe("global_chat plugin", function() {
 	describe("removeTags()", function() {
@@ -34,40 +32,44 @@ describe("global_chat plugin", function() {
 		});
 	});
 
-	describe("class InstancePlugin", function() {
-		let instancePlugin;
+	describe("instance entrypoint", function() {
+		let mockInstance;
 
 		before(async function() {
-			instancePlugin = new instance.InstancePlugin(info, new mock.MockInstance(), new mock.MockHost());
-			await instancePlugin.init();
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			({ instance: mockInstance } = await mock.loadInstancePlugin(instance.default, info));
 		});
 
-		describe(".handleChatEvent()", function() {
+		describe("ChatEvent handler", function() {
 			it("should send received chat as command", async function() {
-				instancePlugin.instance.server.rconCommands = [];
-				await instancePlugin.handleChatEvent(new ChatEvent("test", "User: message"));
+				mockInstance.server.rconCommands = [];
+				await mock.getHandler(mockInstance, ChatEvent)(new ChatEvent("test", "User: message"));
 				assert.deepEqual(
-					instancePlugin.instance.server.rconCommands,
+					mockInstance.server.rconCommands,
 					["/sc game.print('[test] User: message')"],
 				);
 			});
 			it("should filter server-specific tags from received chat", async function() {
-				instancePlugin.instance.server.rconCommands = [];
-				await instancePlugin.handleChatEvent(new ChatEvent("test", "Train [train=1235]"));
+				mockInstance.server.rconCommands = [];
+				await mock.getHandler(mockInstance, ChatEvent)(new ChatEvent("test", "Train [train=1235]"));
 				assert.deepEqual(
-					instancePlugin.instance.server.rconCommands,
+					mockInstance.server.rconCommands,
 					["/sc game.print('[test] Train ')"],
 				);
 			});
 		});
-		describe(".onOutput()", function() {
+		describe("output hook", function() {
 			it("should forward chat", async function() {
 				let count = 0;
-				for (let [_, output] of lines.testLines) {
+				for (let [line, output] of lines.testLines) {
 					if (output.type === "action" && output.action === "CHAT") {
-						instancePlugin.instance.connector.sentMessages = [];
-						await instancePlugin.onOutput(output);
-						assert(instancePlugin.instance.connector.sentMessages.length, "message was not sent");
+						mockInstance.connector.sentMessages = [];
+						await mockInstance.hooks.output.invoke(output, line);
+						assert(mockInstance.connector.sentMessages.length, "message was not sent");
 						count += 1;
 					}
 				}
@@ -75,11 +77,11 @@ describe("global_chat plugin", function() {
 			});
 			it("should ignore regular output", async function() {
 				let count = 0;
-				for (let [_, output] of lines.testLines) {
+				for (let [line, output] of lines.testLines) {
 					if (output.type !== "action" || output.action !== "CHAT") {
-						instancePlugin.instance.connector.sentMessages = [];
-						await instancePlugin.onOutput(output);
-						assert(!instancePlugin.instance.connector.sentMessages.length, "message was sent");
+						mockInstance.connector.sentMessages = [];
+						await mockInstance.hooks.output.invoke(output, line);
+						assert(!mockInstance.connector.sentMessages.length, "message was sent");
 						count += 1;
 					}
 				}

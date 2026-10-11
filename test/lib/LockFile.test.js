@@ -1,10 +1,9 @@
 /* eslint-disable node/no-sync */
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const { LockFile } = require("@clusterio/lib");
+import { LockFile } from "@clusterio/lib";
 
 const baseDir = path.join("temp", "test", "lock_file");
 

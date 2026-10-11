@@ -14,7 +14,7 @@ All messages sent and received are validated with JSON schemas to catch potentia
 Messages are sent by calling the `.send()` method of the message instance and passing a `Link` instance to send it over and the data to send.
 For the controller there's a `Link` instance for each host and control connection stored in the `WsServer` class.
 For hosts the `Host` instance is a link to the controller, and each `Instance` instance is an in-memory link to the `Host` instance and has a corresponding `InstanceConnection` link stored on the `Host` instance.
-For ctl and web_ui there's a `Control` instance that acts as the link to the controller.
+For ctl there's a `Ctl` instance and web_ui there's a `Control` instance that acts as the link to the controller.
 
 Messages received invokes message handlers that were registered when the link was brought up.
 These handlers are named after the name of the property the message is stored under with `EventHandler` appended for events and `RequestHandler` appended for requests.

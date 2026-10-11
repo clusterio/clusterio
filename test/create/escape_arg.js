@@ -1,17 +1,16 @@
-"use strict";
-const child_process = require("child_process");
-const util = require("util");
-const assert = require("assert").strict;
-const path = require("path");
+import child_process from "node:child_process";
+import util from "node:util";
+import assert from "node:assert/strict";
+import path from "node:path";
 
-const { escapeArg } = require("../../packages/create/escape_arg");
+import { escapeArg } from "../../packages/create/escape_arg.js";
 const execFile = util.promisify(child_process.execFile);
 
 async function exec(file, args) {
 	const command = [file, ...args.map(escapeArg)].join(" ");
 	const { stdout, stderr } = await execFile(
 		command,
-		{ shell: true, cwd: __dirname, env: { ...process.env, pct: "%"} }
+		{ shell: true, cwd: import.meta.dirname, env: { ...process.env, pct: "%"} }
 	);
 	return { stdout: JSON.parse(stdout), stderr };
 }

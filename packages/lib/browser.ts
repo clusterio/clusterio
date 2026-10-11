@@ -1,4 +1,5 @@
 export * from "./src/api";
+export * from "./src/AsyncHook";
 export * from "./src/config";
 export * from "./src/data";
 export * from "./src/errors";
@@ -10,14 +11,14 @@ export * from "./src/link";
 export * from "./src/lua_tools";
 export * from "./src/logging";
 export * from "./src/permissions";
-export * from "./src/plugin";
+export * from "./src/loadPlugin";
 export * from "./src/schema";
 export * from "./src/subscriptions";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as RateLimiter } from "./src/RateLimiter";
 export { default as ValueCache } from "./src/ValueCache";
-export { default as isDeepStrictEqual } from "./src/is_deep_strict_equal";
+export { default as isDeepStrictEqual } from "#is_deep_strict_equal";
 
 import { checkSingletonImport } from "./src/check_singleton_import";
 checkSingletonImport(import.meta.url);

@@ -27,6 +27,17 @@ function NpmRemoteUpdate({ setApplyAction, form, target }: NpmActionProps) {
 	</>;
 }
 
+function NpmUpdateAll({ setApplyAction, form, target }: NpmActionProps) {
+	const control = useContext(ControlContext);
+
+	setApplyAction(async () => {
+		await control.sendTo(target, new lib.UpdateAllRequest());
+	});
+
+	return <>
+	</>;
+}
+
 function NpmPluginUpdate({ setApplyAction, form, target }: NpmActionProps) {
 	const control = useContext(ControlContext);
 	const [plugins, setPlugins] = useState<lib.PluginDetails[]>([]);
@@ -128,6 +139,8 @@ export function NpmButton(props: {
 		}
 	}, [hostId]);
 
+	const coreUpdatePermission = `core.${props.target === "controller" ? "controller" : "host"}.update` as const;
+
 	function onValuesChange({ action } : { action?: string }) {
 		if (action) {
 			setFormAction(action);
@@ -175,10 +188,17 @@ export function NpmButton(props: {
 			<Form form={form} onValuesChange={onValuesChange} clearOnDestroy>
 				<Form.Item label="Action" name="action">
 					<Radio.Group value={formAction}>
-						{account.hasPermission(`core.${props.target === "controller" ? "controller" : "host"}.update`)
+						{account.hasPermission(coreUpdatePermission)
 							? <Radio.Button value="remote_update" disabled={!allows.remoteUpdates}>
 								Update Clusterio
 							</Radio.Button>: undefined}
+						{account.hasPermission(coreUpdatePermission) && account.hasPermission("core.plugin.update")
+							? <Radio.Button
+								value="update_all"
+								disabled={!allows.remoteUpdates || !allows.pluginUpdates}
+							>
+								Update All
+							</Radio.Button> : undefined}
 						{account.hasPermission("core.plugin.update")
 							? <Radio.Button value="plugin_update" disabled={!allows.pluginUpdates}>
 								Update Plugin
@@ -198,6 +218,8 @@ export function NpmButton(props: {
 				}
 				{formAction === "remote_update"
 					? <NpmRemoteUpdate {...{setApplyAction, form, target: props.target}}/> : undefined}
+				{formAction === "update_all"
+					? <NpmUpdateAll {...{setApplyAction, form, target: props.target}}/> : undefined}
 				{formAction === "plugin_update"
 					? <NpmPluginUpdate {...{setApplyAction, form, target: props.target}}/> : undefined}
 				{formAction === "plugin_install"

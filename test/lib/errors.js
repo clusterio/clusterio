@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 describe("lib/errors", function() {
 	describe("class InvalidMessage", function() {

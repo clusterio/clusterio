@@ -1,14 +1,14 @@
-"use strict";
-const events = require("events");
-const http = require("http");
-const express = require("express");
+import events from "node:events";
+import http from "node:http";
+import express from "express";
 
-const lib = require("@clusterio/lib");
-const { User, UserManager, UserRecord, InstanceManager } = require("@clusterio/controller");
+import * as lib from "@clusterio/lib";
+import { User, UserManager, UserRecord, InstanceManager, ControllerHooks } from "@clusterio/controller";
+import { HostHooks, InstanceHooks } from "@clusterio/host";
 
 const addr = lib.Address.fromShorthand;
 
-class MockLogger {
+export class MockLogger {
 	child() { return this; }
 
 	fatal() { }
@@ -26,7 +26,7 @@ class MockLogger {
 	verbose() { }
 }
 
-class MockSocket {
+export class MockSocket {
 	constructor() {
 		this.sentMessages = [];
 		this.events = new Map();
@@ -66,7 +66,7 @@ class MockSocket {
 	}
 }
 
-class MockConnector extends lib.BaseConnector {
+export class MockConnector extends lib.BaseConnector {
 	constructor(src, dst) {
 		super(src, dst);
 
@@ -86,7 +86,7 @@ class MockConnector extends lib.BaseConnector {
 	}
 }
 
-class MockServer extends events.EventEmitter {
+export class MockServer extends events.EventEmitter {
 	constructor() {
 		super();
 		this.reset();
@@ -116,7 +116,7 @@ class MockServer extends events.EventEmitter {
 	}
 }
 
-class MockInstance extends lib.Link {
+export class MockInstance extends lib.Link {
 	constructor() {
 		super(new MockConnector(addr({ instanceId: 7357 }), addr({ hostId: 1 })));
 		this.logger = new MockLogger();
@@ -124,6 +124,8 @@ class MockInstance extends lib.Link {
 		this.name = "test";
 		this.id = 7357;
 		this.status = "running";
+		this.hooks = new InstanceHooks(this.logger);
+		this.loadedPlugins = new Set();
 		this.mockConfigEntries = new Map([
 			["instance.id", 7357],
 			["factorio.enable_save_patching", true],
@@ -144,15 +146,17 @@ class MockInstance extends lib.Link {
 	}
 }
 
-class MockHost extends lib.Link {
+export class MockHost extends lib.Link {
 	constructor() {
 		super(new MockConnector(addr({ hostId: 1 }), addr("controller")));
+		this.hooks = new HostHooks(new MockLogger());
+		this.loadedPlugins = new Set();
 	}
 }
 
-class MockControl extends lib.Link { }
+export class MockControl extends lib.Link { }
 
-class MockController {
+export class MockController {
 	constructor() {
 		this.app = express();
 		this.app.locals.controller = this;
@@ -161,6 +165,7 @@ class MockController {
 			["controller.public_url", "test"],
 			["controller.auth_secret", "TestSecretDoNotUse"],
 			["controller.proxy_stream_timeout", 1],
+			["controller.metrics_timeout", 1],
 		]);
 		this.config = {
 			get: (name) => {
@@ -193,6 +198,9 @@ class MockController {
 
 		this.hosts = new lib.KeyValueDatastore();
 		this.handles = new Map();
+		this.hooks = new ControllerHooks(new MockLogger());
+		this.loadedPlugins = new Set();
+		this.wsServer = { hostConnections: new Map() };
 	}
 
 	get authSecret() {
@@ -224,7 +232,7 @@ class MockController {
 	}
 }
 
-async function createControllerPlugin(ControllerPluginClass, info) {
+export async function createControllerPlugin(ControllerPluginClass, info) {
 	let controller = new MockController();
 	let metrics = {};
 	let logger = new MockLogger();
@@ -233,25 +241,30 @@ async function createControllerPlugin(ControllerPluginClass, info) {
 	return plugin;
 }
 
-async function createInstancePlugin(InstancePluginClass, info) {
+export async function createInstancePlugin(InstancePluginClass, info) {
 	let instance = new MockInstance();
 	let host = new MockHost();
-	let plugin = new InstancePluginClass(info, instance, host);
+	let plugin = new InstancePluginClass(info, instance, host, new MockLogger());
 	await plugin.init();
 	return plugin;
 }
 
+export async function loadControllerPlugin(entrypoint, info) {
+	const controller = new MockController();
+	await entrypoint({ controller, metrics: {}, logger: new MockLogger(), plugin: info });
+	return controller;
+}
 
-module.exports = {
-	MockLogger,
-	MockSocket,
-	MockConnector,
-	MockServer,
-	MockInstance,
-	MockHost,
-	MockControl,
-	MockController,
+export async function loadInstancePlugin(entrypoint, info) {
+	const instance = new MockInstance();
+	const host = new MockHost();
+	await entrypoint({ instance, host, logger: new MockLogger(), plugin: info });
+	return { instance, host };
+}
 
-	createControllerPlugin,
-	createInstancePlugin,
-};
+export function getHandler(link, Class) {
+	if (link instanceof MockController) {
+		return link.handles.get(Class);
+	}
+	return link._requestHandlers.get(Class) ?? link._eventHandlers.get(Class);
+}

@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
-const { HostDetails } = require("@clusterio/lib");
-const { HostRecord } = require("@clusterio/controller");
+import assert from "node:assert/strict";
+import { HostDetails } from "@clusterio/lib";
+import { HostRecord } from "@clusterio/controller";
 
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
 
 describe("controller/HostRecord", function () {
 	const samplePlugins = new Map([

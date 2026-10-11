@@ -1,7 +1,7 @@
-import * as doleNN from "./dole_nn_base";
+import * as doleNN from "./dole_nn_base.js";
 
 import * as lib from "@clusterio/lib";
-const { Gauge } = lib;
+import { Gauge } from "@clusterio/lib";
 
 
 const prometheusNNDoleGauge = new Gauge(

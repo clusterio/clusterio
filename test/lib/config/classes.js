@@ -1,8 +1,7 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const fs = require("node:fs/promises");
-const path = require("path");
-const assert = require("assert").strict;
+import * as lib from "@clusterio/lib";
+import fs from "node:fs/promises";
+import path from "node:path";
+import assert from "node:assert/strict";
 const CA = lib.ConfigAccess;
 
 
@@ -395,6 +394,15 @@ describe("lib/config/classes", function() {
 				await testInstance.save();
 				const json = JSON.parse(await fs.readFile(filepath, "utf8"));
 				assert.deepEqual(json, testInstance.toJSON());
+			});
+			it("should not be readable by other users", async function() {
+				if (process.platform === "win32") {
+					this.skip();
+				}
+				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);
+				testInstance.set("alpha.foo", "b"); // Sets the dirty flag
+				await testInstance.save();
+				assert.equal((await fs.stat(filepath)).mode & 0o777, 0o600);
 			});
 			it("should clear the dirty flag after saving", async function() {
 				const testInstance = new TestConfig("local", { "alpha.foo": "a" }, filepath);

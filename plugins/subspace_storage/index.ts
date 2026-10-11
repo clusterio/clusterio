@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import * as messages from "./messages";
+import * as messages from "./messages.js";
 
 declare module "@clusterio/lib" {
 	export interface ControllerConfigFields {
@@ -9,20 +9,16 @@ declare module "@clusterio/lib" {
 	export interface InstanceConfigFields {
 		"subspace_storage.log_item_transfers": boolean;
 	}
+	export interface Permissions {
+		"subspace_storage.storage.view": never;
+	}
 }
-
-lib.definePermission({
-	name: "subspace_storage.storage.view",
-	title: "View Subspace Storage",
-	description: "View the items and fluids stored in the shared subspace.",
-	grantByDefault: true,
-});
 
 export const plugin: lib.PluginDeclaration = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
-	instanceEntrypoint: "dist/node/instance",
+	instanceEntrypoint: "dist/node/instance.js",
 	instanceConfigFields: {
 		"subspace_storage.log_item_transfers": {
 			title: "Log Item Transfers",
@@ -32,7 +28,7 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 
-	controllerEntrypoint: "dist/node/controller",
+	controllerEntrypoint: "dist/node/controller.js",
 	controllerConfigFields: {
 		"subspace_storage.division_method": {
 			title: "Division Method",
@@ -59,6 +55,14 @@ export const plugin: lib.PluginDeclaration = {
 		messages.GetStorageRequest,
 		messages.UpdateStorageEvent,
 		messages.SetStorageSubscriptionRequest,
+	],
+	permissions: [
+		{
+			name: "subspace_storage.storage.view",
+			title: "View Subspace Storage",
+			description: "View the items and fluids stored in the shared subspace.",
+			grantByDefault: true,
+		},
 	],
 	webEntrypoint: "./web",
 	routes: ["/storage"],

@@ -1,15 +1,16 @@
 # Writing Plugins
 
-Plugins for Clusterio are classes written in JavaScript that run under Node.js.
-The plugin classes have pre-defined hooks that are called during various stages and operations of Clusterio.
+Plugins for Clusterio are JavaScript modules that run under Node.js.
+Each entrypoint of a plugin exports a function that attaches handlers to hooks called during various stages and operations of Clusterio.
 
 
 ## Contents
 
 - [Plugin Structure](#plugin-structure)
-- [Defining the plugin class](#defining-the-plugin-class)
+- [Defining the plugin entrypoint](#defining-the-plugin-entrypoint)
 - [Logging Messages](#logging-messages)
 - [Plugin Configuration](#plugin-configuration)
+- [Plugin Permissions](#plugin-permissions)
 - [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
 - [Sending Link Messages](#sending-link-messages)
@@ -27,7 +28,7 @@ The basic file structure of a plugin is the following.
       +- package.json
       +- controller.js
       +- instance.js
-      +- control.js
+      +- ctl.js
       +- test/
       |  +- plugin.js
       +- module/
@@ -48,12 +49,12 @@ By default the main entrypoint is the `index.js` file, but this may be changed b
 Here's an example of `index.js`:
 
 ```js
-module.exports.plugin = {
+export const plugin = {
     name: "foo_frobber",
     title: "Foo Frobber",
     description: "Does advanced frobnication",
-    instanceEntrypoint: "instance",
-    controllerEntrypoint: "controller",
+    instanceEntrypoint: "instance.js",
+    controllerEntrypoint: "controller.js",
     messages: {
         /* See below */
     },
@@ -75,7 +76,7 @@ The following properties are recognized:
     Currently not used.
 
 **instanceEntrypoint**:
-    Path to a Node.js module relative to the plugin directory which contains the InstancePlugin class definition for this plugin.
+    Path to a Node.js module relative to the plugin directory which exports the instance entrypoint function for this plugin.
     This is an optional paramater.
     A plugin may have code only for instances but it must still be loaded on the controller in order for it to be possible to load it on an instance.
 
@@ -84,7 +85,7 @@ The following properties are recognized:
     See [Plugin Configuration](#plugin-configuration)
 
 **controllerEntrypoint**:
-    Path to a Node.js module relative to the plugin directory which contains the ControllerPlugin class definiton for this plugin.
+    Path to a Node.js module relative to the plugin directory which exports the controller entrypoint function for this plugin.
     This is an optional parameter.
     A plugin can be made that only runs on the controller.
 
@@ -93,77 +94,90 @@ The following properties are recognized:
     See [Plugin Configuration](#plugin-configuration)
 
 **ctlEntrypoint**:
-    Path to a Node.js module relative to the plugin directory which contains the CtlPlugin class definition for this plugin.
+    Path to a Node.js module relative to the plugin directory which exports the clusterioctl entrypoint function for this plugin.
     This is an optional paramater.
     A plugin can be made that only runs on the clusterioctl side.
+
+**features**:
+    Array of features the plugin needs from the instances it is loaded on, `"SavePatching"` and/or `"ScriptCommands"`.
+    See [Handling Invalid Configuration](#handling-invalid-configuration)
 
 **messages**:
     Object with link messages definitions for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
 
+**permissions**:
+    Array of permission definitions for this plugin.
+    See [Plugin Permissions](#plugin-permissions)
+
 The optional module folder contains a Clusterio module that will be patched into the save when the plugin is loaded.
 See the section on [Clusterio Modules](developing-for-clusterio.md) in the Developing for Clusterio document.
 The only restriction imposed on modules embedded into plugins is that they must be named the same as the plugin.
 
-While there is no standard for how to organize a plugin it's recommended to put the ControllerPlugin class definition into controller.js and the InstancePlugin class definition into instance.js.
+While there is no standard for how to organize a plugin it's recommended to put the controller entrypoint into controller.js and the instance entrypoint into instance.js.
 You can put them into whatever file you want (even the same one for both).
 
-For both instanceEntrypoint and controllerEntrypoint the path should not end with .js and it should use forward slashes for directory separators if any.
+The entrypoint paths must include the .js extension and use forward slashes for directory separators if any.
 
 
-## Defining the plugin class
+## Defining the plugin entrypoint
 
-The plugin class should derive from its respective base class defined in `lib/plugin`.
-For example, to define a ControllerPlugin class the following code can be used:
+Each entrypoint module exports a default async function which is called once when the plugin is loaded.
+It is passed a context object with what the plugin needs to interact with Clusterio, and attaches handlers to the hooks it is interested in.
+For example, a controller entrypoint can look like this:
 
 ```js
-const { BaseControllerPlugin } = require("@clusterio/controller");
+export default async function(context) {
+    const { controller, logger, plugin } = context;
 
-class ControllerPlugin extends BaseControllerPlugin {
-    async init() {
-        this.foo = 42;
-        await this.startFrobnication();
-    }
+    controller.hooks.save.attach(plugin.name, async () => {
+        await saveFrobnicationData();
+    });
 
-    // ...
-}
-
-module.exports = {
-    ControllerPlugin,
+    controller.hooks.shutdown.attach(plugin.name, async () => {
+        logger.info("Stopping frobnication");
+    });
 }
 ```
 
-For the instance plugin it's exactly the same except "Controller" is replaced with "Instance", for host plugins "Host" is used and for the clusterioctl plugin "Ctl" is used.
-The available hooks that you can override are documented in the base classes.
+The context has the following properties:
 
-It's best to avoid defining a constructor, but if you insist on defining one, forward all arguments to the base class.
-E.g.:
+**plugin**:
+    The plugin's own info, as exported from the main entrypoint.
 
-```js
-constructor(...args) {
-    super(...args);
+**logger**:
+    Logger for this plugin, see [Logging Messages](#logging-messages).
 
-    // Code here
-}
-```
+**controller**, **host**, **instance**, **hooks** or **control**:
+    The object the entrypoint is loaded for.
+    Controller entrypoints get `controller`, host entrypoints get `host`, instance entrypoints get both `instance` and `host`, clusterioctl entrypoints get `hooks` and web entrypoints get `control`.
 
-The arguments passed may change, and attempting to modify them will result in unpredicatable behaviour.
-The async init method is always called immediatly after the constructor, so there's little reason to do this.
+The available hooks are documented on the `ControllerHooks`, `HostHooks`, `InstanceHooks`, `CtlHooks` and `WebHooks` classes.
+Handlers are attached under a name, which should be the name of the plugin, and a hook only accepts one handler per name.
+An error thrown by a handler is logged and does not affect the other handlers, the same goes for handlers that take more than 15 seconds to complete.
+
+For TypeScript the context types are exported as `ControllerPluginContext`, `HostPluginContext`, `InstancePluginContext`, `CtlPluginContext` and `WebPluginContext` from their respective packages.
+
+### Class based plugins
+
+Plugins written as classes deriving from `BaseControllerPlugin`, `BaseHostPlugin`, `BaseInstancePlugin`, `BaseCtlPlugin` or `BaseWebPlugin` still load, but this way of defining plugins is deprecated and a warning is logged when such a plugin is loaded.
+The base class constructor attaches the `on*` methods overridden by the plugin to the corresponding hooks, and the async `init` method is called immediately after.
+See [Migrating Plugins to 2.0](devs/plugin-migration-to-2.0.md) for how to convert them.
 
 
 ## Logging Messages
 
-The base plugin classes provide a winston logger for logging messages to the shared cluster log.
+The load context provides a winston logger for logging messages to the shared cluster log.
 For instances a copy of the log is also stored on the host the instance is on.
 To use it, pass a string to one of the log levels functions, for example:
 
 ```js
-async init() {
-    this.logger.info("Initializing frobbing");
+export default async function(context) {
+    context.logger.info("Initializing frobbing");
 }
 ```
 
-Metadata covering which plugin and instance (for instance plugin classes) the log event happened on will automatically be attached to the log message.
+Metadata covering which plugin and instance (for instance entrypoints) the log event happened on will automatically be attached to the log message.
 
 The available levels are fatal, error, warn, audit, info, and verbose.
 These levels have roughly the following meanings:
@@ -189,7 +203,7 @@ For guarding unexpected errors the best option is to log a short description alo
 try {
     // Operation that should not throw but may end up throwing
 } catch (err) {
-    this.logger.error(`Operation failed:\n${err.stack}`);
+    logger.error(`Operation failed:\n${err.stack}`);
 )
 ```
 
@@ -213,7 +227,7 @@ declare module "@clusterio/lib" {
     }
 }
 
-export default {
+export const plugin = {
     ...
     controllerConfigFields: {
         "foo_frobber.level": {
@@ -225,12 +239,12 @@ export default {
 } satisfies lib.PluginDeclaration;
 ```
 
-Code inside the `ControllerPlugin` class will then be able to access the level config field through the `Config` object at `this.controller.config`, for example in the ControllerPluginClass:
+The controller entrypoint will then be able to access the level config field through the `Config` object at `controller.config`:
 
 ```ts
-async init() {
-    let level = this.controller.config.get("foo_frobber.level");
-    this.logger.info(`I got a frobnication level of ${level}`);
+export default async function(context: ControllerPluginContext) {
+    const level = context.controller.config.get("foo_frobber.level");
+    context.logger.info(`I got a frobnication level of ${level}`);
 }
 ```
 
@@ -240,33 +254,76 @@ See [Configuration System](config-system.md) for more details on how this system
 
 ### Handling Invalid Configuration
 
-If the plugin requires a certain feature to be enabled to function it should throw an error during init if this is not the case.
-The most common such feature is the save patching, which can be disabled to run vanilla or scenarios not compatible with Clusterio.
-For example:
+If the plugin requires save patching or script commands to function, which can be disabled to run vanilla or scenarios not compatible with Clusterio, declare it under `features` in the `plugin` export:
 
 ```js
-async init() {
-    if (!this.instance.config.get("factorio.enable_save_patching")) {
-        throw new Error("foo_frobber plugin requires save patching.");
+export const plugin = {
+    name: "foo_frobber",
+    // ...
+    features: ["SavePatching"],
+};
+```
+
+Enabling the plugin on an instance that has the feature turned off then fails config validation, so the mistake is caught when the config is edited instead of when the instance starts.
+
+Other constraints on config fields are expressed with a `validator` on the field definition, which throws when the value is not acceptable.
+Use `dependsOn` when the check involves other fields so that the validator runs when those change too.
+See [Configuration System](config-system.md) for details.
+
+
+## Plugin Permissions
+
+Permissions are granted to roles and checked on users, both on the controller and in the web UI.
+A plugin declares the permissions it uses under `permissions` in the `plugin` export.
+Names must start with the plugin name followed by a dot.
+For example in index.ts:
+
+```ts
+import type * as lib from "@clusterio/lib";
+
+declare module "@clusterio/lib" {
+    // Extend the interface of known permission names so that
+    // user.checkPermission(...) accepts our permission.
+    export interface Permissions {
+        "foo_frobber.frobnicate": never;
     }
 }
+
+export const plugin = {
+    ...
+    permissions: [
+        {
+            name: "foo_frobber.frobnicate",
+            title: "Frobnicate",
+            description: "Run frobnication on instances.",
+            grantByDefault: false, // Whether the generated Player role is granted this permission
+        },
+    ],
+} satisfies lib.PluginDeclaration;
 ```
+
+The `Permissions` interface only exists at the type level, its values are always `never` and only the keys are used.
+Adding your permission names to it gives you autocomplete and a compile error on typos when calling `user.checkPermission`, `account.hasPermission` or setting the `permission` of a web UI page.
+In JavaScript the `declare module` block is not needed.
+
+Permissions declared this way are registered when the plugin is loaded.
+The older `lib.definePermission()` function still works, but a plugin should not use both for the same permission name.
 
 
 ## Communicating with Factorio
 
 For pushing data into Factorio there's RCON, which lets you send arbitrary Lua commands to invoke whatever code you want in the game.
-This is done by calling the `sendRcon` method on the plugin object.
+This is done by calling the `sendRcon` method on the instance.
 For example:
 
 ```js
-async onStart() {
-    let response = await this.sendRcon(
+instance.hooks.start.attach(plugin.name, async () => {
+    const response = await instance.sendRcon(
         "/sc rcon.print('data')"
     );
 
     // Do stuff with response.
-}
+});
 ```
 
 Because data into Factorio is streamed at a rate of 3-6 kB/s by default, it is recommended to avoid sending large commands as much as possible, and to strip down the data on the ones you send to only what's strictly necessary.
@@ -279,15 +336,16 @@ From a plugin you listen for an event named `ipc-channel_name` in order to get d
 For example in the plugin code:
 
 ```js
-async init() {
-    this.instance.server.on("ipc-my_plugin_foo", content =>
-        this.handleFoo(content).catch(err => this.logger.error(
+export default async function(context) {
+    const { instance, logger } = context;
+    instance.server.on("ipc-my_plugin_foo", content =>
+        handleFoo(content).catch(err => logger.error(
             `Error handling foo:\n${err.stack}`
         ))
     );
 }
 
-async handleFoo(content) {
+async function handleFoo(content) {
     // Do stuff with content
 }
 ```
@@ -304,11 +362,11 @@ clusterio_api.send_json("my_plugin_foo", { data = 123 })
 For convience a helper function is exposed on server specifically for handling IPC events.
 
 ```js
-async init() {
-    this.instance.server.handle("my_plugin_foo", this.handleFoo.bind(this));
+export default async function(context) {
+    context.instance.server.handle("my_plugin_foo", handleFoo);
 }
 
-async handleFoo(content) {
+async function handleFoo(content) {
     // Do stuff with content
 }
 ```
@@ -445,9 +503,9 @@ Link messages are sent by calling the `.sendTo()` method on a connection object 
 For example:
 
 ```js
-// In an InstancePlugin class
-async frobnicate() {
-    const response = await this.instance.sendTo("controller", new messages.Frobnicate({ 
+// In an instance entrypoint
+async function frobnicate(instance) {
+    const response = await instance.sendTo("controller", new messages.Frobnicate({ 
         verbosity: 2,
         special: false,
     }));
@@ -464,14 +522,14 @@ Here is what that looks like in practice:
 
 ```js
 // ❌ BAD: The extracted method loses its `this` binding and crashes when called.
-const send = this.instance.sendTo;
+const send = instance.sendTo;
 send("controller", new messages.Frobnicate({ foo: "bar" }));
 
 // ✅ GOOD: Call it directly on the connection object. (Cast args/results here if needed).
-this.instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
+instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
 
 // ✅ GOOD: Explicitly bind the receiver if you need to pass a method as a value (like a handler).
-this.instance.handle(messages.Frobnicate, this.handleFrobnicate.bind(this));
+instance.handle(messages.Frobnicate, plugin.handleFrobnicate.bind(plugin));
 ```
 
 For classes with `static type = "request"` the send method is async and returns a promise that resolves to the response data received from the target it was sent to, or rejects with an error if the request failed.
@@ -493,23 +551,23 @@ sendTo({ controlId: 123 }, message);
 
 There are a few connection related events that plugins neeed to repsond to in order to avoid data loss and connection problems.
 The most important is the prepare disconnect for the link between controller and host.
-This is signaled to `ControllerPlugin` classes via the `onPrepareHostDisconnect` hook and to `InstancePlugin` classes via the `onPrepareControllerDisconnect` hook.
+This is signaled to controller plugins via the `prepareHostDisconnect` hook and to instance plugins via the `prepareControllerDisconnect` hook.
 
 After the prepare disconnect the connection will be closed, which will result in pending requests and events being dropped.
 Plugins must respond to the prepare disconnect by stopping any processess it does that send events or requests over the link in question.
 This can be accomplished either through listening for the prepare disconnect hook, or by checking the `connected` property of the `HostConnection` class and `Host` class on the controller and host respectively.
-For example the sending of an event from an `InstancePlugin` class can be stopped while the connection is not connected, not in the dropped state, and not in the process of discunnecting by using the following code:
+For example the sending of an event from an instance plugin can be stopped while the connection is not connected, not in the dropped state, and not in the process of discunnecting by using the following code:
 
 ```js
-if (this.host.connected) {
-    this.instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
+if (host.connected) {
+    instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
 }
 ```
 
-If the event or request needs to be sent to the controller it can be put into a queue stored on the plugin instance and sent out when the connection is established again.
-The re-establishement of the connection is  notified to plugins via the `connect` event to the `onControllerConnectionEvent` and `onHostConnectionEvent` hooks.
+If the event or request needs to be sent to the controller it can be put into a queue and sent out when the connection is established again.
+The re-establishement of the connection is  notified to plugins via the `connect` event to the `controllerConnectionEvent` and `hostConnectionEvent` hooks.
 
-The second connection event which is of lesser importance to respond to is the `drop` connection event served through `onControllerConnectionEvent` for `InstancePlugin` classes and through `onHostConnectionEvent` for `ControllerPlugin` classes.
+The second connection event which is of lesser importance to respond to is the `drop` connection event served through `controllerConnectionEvent` for instance plugins and through `hostConnectionEvent` for controller plugins.
 This is raised when the connection between the controller and host in question is lost, most likely due to networking issues.
 When in the dropped state the host will keep trying to reconnect to the controller in order to re-establish it, and if successful no events or requests will be lost.
 However while in the dropped state any requests and events sent gets queued up in memory until the connection is either re-established or the session times out.
@@ -525,7 +583,7 @@ In its simplest form collecting data from plugins consists of defining the metri
 For example:
 
 ```js
-const { Counter } = require("@clusterio/lib");
+import { Counter } from "@clusterio/lib";
 
 const fooMetric = new Counter(
     "clusterio_foo_frobber_foo_metric", "Measures the level of foo",
@@ -535,13 +593,13 @@ const fooMetric = new Counter(
 fooMetric.inc();
 ```
 
-This works for controller plugins, and the metric will be automatically available through the /metric HTTP endpoint.
+This works for controller plugins, and the metric will be automatically available through the /metrics HTTP endpoint.
 It's recommended that plugin metrics follow `clusterio_<plugin_name>_<metric_name>` as the naming scheme.
 
 For metrics that are per-instance, you must define an `instance_id` label and set it accordingly, for example:
 
 ```js
-const { Counter } = require("@clusterio/lib");
+import { Counter } from "@clusterio/lib";
 
 const barMetric = new Gauge(
     "clusterio_foo_frobber_bar_metric", "Bar instance level",
@@ -549,23 +607,48 @@ const barMetric = new Gauge(
 );
 
 // Somewhere in the instance plugin code
-barMetric.labels(String(this.instance.id)).set(someValue);
+barMetric.labels(String(instance.id)).set(someValue);
 ```
 
 Metrics are automatically registered to the default registry, and this default registry is automatically polled by the controller on hosts.
 This means that it's important that you place the definition of the metric at module level so that it's not created more than once over the lifetime of a host.
 Since the metrics remember their values and would continue to be exported after an instance is shutdown, there's code at instance shutdown that removes all the values where the `instance_id` label matches the id of the instance shut down.
 
-For statistics you need to update on collection there's an `onMetrics` hook on both controller and instance plugins that is run before the metrics in the default registry are collected.
+For statistics you need to update on collection there's a `metrics` hook on the controller, host and instance that is run before the metrics in the default registry are collected.
+
+```js
+import { Gauge } from "@clusterio/lib";
+
+const frobnicationsMetric = new Gauge(
+    "clusterio_foo_frobber_frobnications", "Frobnications currently in progress"
+);
+
+// In the controller entrypoint
+controller.hooks.metrics.attach(plugin.name, async () => {
+    frobnicationsMetric.set(frobnications.size);
+});
+```
+
+A handler may also return the results of collecting collectors that are not in the default registry, and they are added to the response.
+
+```js
+import { CollectorRegistry, Counter } from "@clusterio/lib";
+
+const fooRegistry = new CollectorRegistry();
+const fooCounter = new Counter("clusterio_foo_frobber_foos", "Foos frobbed", { register: false });
+fooRegistry.register(fooCounter);
+
+controller.hooks.metrics.attach(plugin.name, async () => fooRegistry.collect());
+```
 
 
 ## Adding Custom Commands to clusterioctl
 
-The control entrypoint for plugins allows you to extend clustectl with your own commands.
+The ctl entrypoint for plugins allows you to extend clustectl with your own commands.
 The creation of custom commands typically starts with defining a command tree for the plugin:
 
 ```js
-const { Command, CommandTree } = require("@clusterio/lib");
+import { Command, CommandTree } from "@clusterio/lib";
 const fooFrobberCommands = new CommandTree({
     name: "foo-frobber", description: "Foo Frobber Plugin commands"
 });
@@ -574,41 +657,30 @@ const fooFrobberCommands = new CommandTree({
 Then commands are added to the the plugin's command tree:
 
 ```js
-const info = require("./info");
+import * as messages from "./messages.js";
 
 fooFrobberCommands.add(new Command({
     definition: ["frobnicate <type>", "Do frobnications", (yargs) => {
-        yargs.positional("level", {
+        yargs.positional("type", {
             describe: "type of frobnication", type: "string"
         });
     }],
-    handler: async function(args, control) {
-        await info.messages.frobnicate.send(control, {
-            instance_name: "Console",
-            content: args.message,
-        });
+    handler: async function(args, ctl) {
+        await ctl.sendTo("controller", new messages.FrobnicateRequest(args.type));
     },
 }));
 ```
 
 For a command the `definition` is the arguments to pass to [yargs.command](http://yargs.js.org/docs/#api-reference-commandcmd-desc-builder-handler) (see also [yargs.positional](http://yargs.js.org/docs/#api-reference-positionalkey-opt) and [yargs.options](http://yargs.js.org/docs/#api-reference-optionskey-opt) for setting up positional and optional arguments to commands).
-The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Control` class of clusterioctl.
-It's possible to optain a reference to the plugin class with `control.plugins.get(info.name)`.
+The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Ctl` class of clusterioctl.
+Note that messages sent from clusterioctl needs to have `"control"` as a part of `src` for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
 
-Note that messages sent from clusterioctl needs to have `"control-controller"` as a part of the links array for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
-
-To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in `addCommands` callback of the Ctl plugin:
+To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in the `addCommands` hook of the ctl entrypoint:
 
 ```js
-const { BaseCtlPlugin } = require("@clusterio/ctl");
-
-class CtlPlugin extends BaseCtlPlugin {
-    async addCommands(rootCommand) {
+export default async function(context) {
+    context.hooks.addCommands.attach(context.plugin.name, async (rootCommand) => {
         rootCommand.add(fooFrobberCommands);
-    }
-}
-
-module.exports = {
-    CtlPlugin,
+    });
 }
 ```

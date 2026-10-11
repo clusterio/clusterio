@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const prometheus = require("@clusterio/lib");
+import * as prometheus from "@clusterio/lib";
 
 
 describe("lib/prometheus", function() {

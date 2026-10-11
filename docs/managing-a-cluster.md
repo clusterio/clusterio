@@ -5,7 +5,7 @@ This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` s
 Mandatory parameters are shown in `<angles bracket>` and optional pameters are in `[square brackets]`.
 
 Before `clusterioctl` can be used it needs to be configured for the cluster it will connect to.
-The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-control.json` for managing the cluster as the given user.
+The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-ctl.json` for managing the cluster as the given user.
 
 
 ## Hosts
@@ -42,6 +42,14 @@ The controller also supports remote updates, following the same logic. The corre
 
     ctl> controller update [--restart]
     controller> config set controller.allow_remote_updates true/false
+
+### Mark restart required
+
+    ctl> host mark-restart-required <host>
+
+Marks the host as requiring a restart, the same way a plugin update does. Use it after installing or changing a plugin by other means than `host plugin install`, such as a plugin checked out into `external_plugins`. The mark shows up in the web interface on the next system metrics poll. The controller has the same command:
+
+    ctl> controller mark-restart-required
 
 ## Instances
 
@@ -247,6 +255,13 @@ This command lists all plugins currently known to the remote. Newly installed pl
 
 If remote plugin updates are enabled on the remote, this will execute `npm update --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
 
+### Update All
+
+    ctl> controller update --all [--restart]
+    ctl> host update <host> --all [--restart]
+
+Updates the Clusterio package and all plugins installed from npm in a single `npm update --save` command. Updating everything at once avoids ending up with multiple versions of `@clusterio/lib` in the installation. Requires both remote updates and remote plugin updates to be enabled on the remote.
+
 ### Install
 
     ctl> controller plugin install <name> [--restart]
@@ -276,3 +291,29 @@ Remote updates are enabled by default but can be disabled on a per-machine basis
     controller> config set controller.allow_plugin_install true/false
 
 Remote installs are disabled by default but can be enabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the above commands locally while the remote is offline.
+
+
+## Prometheus Metrics
+
+The controller exports metrics for the whole cluster on the `/metrics` endpoint.
+Fetching it requires a token for a user with the `core.controller.metrics` permission, sent either as an `Authorization: Bearer <token>` header or as an `X-Access-Token` header.
+Requests without a valid token get a 401 response and requests for users lacking the permission get a 403 response.
+
+Create a role with just this permission, a user to hold it, and generate a token for that user.
+Give the user a name that is not a valid Factorio player name, such as one starting with `#`, so a player joining the cluster can never claim the account and its token:
+
+    ctl> role create Prometheus --permissions core.controller.metrics
+    ctl> user create #prometheus
+    ctl> user set-roles #prometheus Prometheus
+    $ npx clusteriocontroller bootstrap generate-user-token '#prometheus'
+
+Then pass the token in the scrape job for the controller in `prometheus.yml`:
+
+    scrape_configs:
+      - job_name: clusterio
+        authorization:
+          credentials: <token>
+        static_configs:
+          - targets: ["localhost:8080"]
+
+Concurrent scrapes share a single round of metrics gathering from the hosts, so multiple scrapers polling the controller do not multiply the load on the hosts.

@@ -1,9 +1,9 @@
 // Core definitions for the configuration system
-import * as classes from "./classes";
-import * as validators from "./validators";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
+import * as classes from "./classes.js";
+import * as validators from "./validators.js";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
 import { Static } from "@sinclair/typebox";
-import { isTargetVersion } from "../data/version";
+import { isTargetVersion } from "../data/version.js";
 
 type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;
 type configFromFile<T> = (...args: Parameters<typeof classes.Config.fromFile>) => Promise<T>;
@@ -25,7 +25,9 @@ export interface ControllerConfigFields {
 	"controller.auth_secret": string | null;
 	"controller.heartbeat_interval": number;
 	"controller.session_timeout": number;
+	"controller.max_send_buffer_size": number;
 	"controller.metrics_timeout": number;
+	"controller.max_subscription_filters": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
 	"controller.factorio_username": string | null;
@@ -201,12 +203,28 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			initialValue: 60,
 			validator: validators.greaterThanZero,
 		},
+		"controller.max_send_buffer_size": {
+			title: "Max Send Buffer Size",
+			description:
+				"MiB of unacknowledged messages to keep for a connection before ending its session, 0 for no limit.",
+			type: "number",
+			initialValue: 64,
+			validator: validators.greaterThanEqualZero,
+		},
 		"controller.metrics_timeout": {
 			title: "Metrics Timeout",
 			description: "Timeout in seconds for metrics gathering from hosts.",
 			type: "number",
 			initialValue: 8,
 			validator: validators.greaterThanZero,
+		},
+		"controller.max_subscription_filters": {
+			title: "Max Subscription Filters",
+			description: "Maximum number of filters a connection can hold for one subscribed event, 0 for no limit.",
+			type: "number",
+			initialValue: 10000,
+			restartRequired: true,
+			validator: validators.all(validators.integer, validators.greaterThanEqualZero),
 		},
 		"controller.system_metrics_interval": {
 			title: "System Metrics Interval",
@@ -691,32 +709,32 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 	};
 }
 
-export interface ControlConfigFields {
-	"control.controller_url": string | null;
-	"control.controller_token": string | null;
-	"control.max_reconnect_delay": number;
+export interface CtlConfigFields {
+	"ctl.controller_url": string | null;
+	"ctl.controller_token": string | null;
+	"ctl.max_reconnect_delay": number;
 }
 
 /**
- * Control config class
+ * Ctl config class
  * @extends classes.Config
  */
-export class ControlConfig extends classes.Config<ControlConfigFields> {
-	declare static fromJSON: configFromJSON<ControlConfig>;
-	declare static fromFile: configFromFile<ControlConfig>;
-	static fieldDefinitions: classes.ConfigDefs<ControlConfigFields> = {
-		"control.controller_url": {
+export class CtlConfig extends classes.Config<CtlConfigFields> {
+	declare static fromJSON: configFromJSON<CtlConfig>;
+	declare static fromFile: configFromFile<CtlConfig>;
+	static fieldDefinitions: classes.ConfigDefs<CtlConfigFields> = {
+		"ctl.controller_url": {
 			description: "URL to connect to the controller at",
 			type: "string",
 			optional: true,
 		},
-		"control.controller_token": {
+		"ctl.controller_token": {
 			access: ["control"],
 			description: "Token to authenticate to controller with.",
 			type: "string",
 			optional: true,
 		},
-		"control.max_reconnect_delay": {
+		"ctl.max_reconnect_delay": {
 			title: "Max Reconnect Delay",
 			description: "Maximum delay to wait before attempting to reconnect WebSocket",
 			type: "number",

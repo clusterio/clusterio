@@ -1,8 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
-import { jsonArray, plainJson, StringEnum } from "./composites";
-import { CollectorResultSerialized } from "../prometheus";
-import { HostConfig } from "../config/definitions";
-import HostDetails from "./HostDetails";
+import { jsonArray, plainJson, StringEnum } from "./composites.js";
+import { CollectorResultSerialized } from "../prometheus.js";
+import { HostConfig } from "../config/definitions.js";
+import HostDetails from "./HostDetails.js";
 
 export class HostStopRequest {
 	declare ["constructor"]: typeof HostStopRequest;
@@ -14,6 +14,14 @@ export class HostStopRequest {
 
 export class HostRestartRequest {
 	declare ["constructor"]: typeof HostRestartRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.restart" as const;
+}
+
+export class HostMarkRestartRequiredRequest {
+	declare ["constructor"]: typeof HostMarkRestartRequiredRequest;
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
 	static dst = "host" as const;

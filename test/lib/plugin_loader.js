@@ -1,10 +1,11 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const lib = require("@clusterio/lib");
-const { BaseControllerPlugin } = require("@clusterio/controller");
+import * as mock from "../mock.js";
+import * as lib from "@clusterio/lib";
+import { BaseControllerPlugin } from "@clusterio/controller";
 
 
 describe("lib/plugin_loader", function() {
@@ -19,7 +20,7 @@ describe("lib/plugin_loader", function() {
 				await fs.mkdir(pluginPath, { recursive: true });
 				await fs.writeFile(
 					path.join(pluginPath, "index.js"),
-					`module.exports.plugin = { name: "${infoName}" };`
+					`export const plugin = { name: "${infoName}" };`
 				);
 				await fs.writeFile(
 					path.join(pluginPath, "package.json"),
@@ -47,6 +48,7 @@ describe("lib/plugin_loader", function() {
 					name: "test",
 					version: "0.0.1",
 					npmPackage: undefined,
+					packagePath: path.resolve(path.join(testPlugin, "package.json")),
 					requirePath: path.resolve(testPlugin),
 					webStaticPath: path.resolve(path.join(testPlugin, "dist", "web", "static")),
 				}]
@@ -55,7 +57,7 @@ describe("lib/plugin_loader", function() {
 		it("should reject on broken plugin", async function() {
 			let brokenMessage;
 			try {
-				require(path.resolve(brokenPlugin));
+				await import(pathToFileURL(path.resolve(path.join(brokenPlugin, "index.js"))));
 			} catch (err) {
 				brokenMessage = err.message;
 			}
@@ -71,51 +73,104 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 	});
-	describe("loadPluginClass()", function() {
-		let baseDir = path.join("temp", "test", "plugin");
-		let missingClass = path.join(baseDir, "missing_class_plugin");
-		let wrongParentClass = path.join(baseDir, "wrong_parent_class_plugin");
+	describe("loadPlugin()", function() {
+		const baseDir = path.join("temp", "test", "plugin");
+		const functionPlugin = path.resolve(baseDir, "function_plugin");
+		const classPlugin = path.resolve(baseDir, "class_plugin");
+		const throwingClassPlugin = path.resolve(baseDir, "throwing_class_plugin");
+		const missingClassPlugin = path.resolve(baseDir, "missing_class_plugin");
+		const wrongParentClassPlugin = path.resolve(baseDir, "wrong_parent_class_plugin");
+		let controller;
+		let logger;
+		let context;
+
 		before(async function() {
 			async function writeEntrypoint(pluginPath, content) {
 				await fs.mkdir(pluginPath, { recursive: true });
 				await fs.writeFile(path.join(pluginPath, "controller.js"), content);
 			}
 
-			await writeEntrypoint(missingClass, "");
-			await writeEntrypoint(
-				wrongParentClass, "class ControllerPlugin {}\n module.exports = { ControllerPlugin };\n"
+			await writeEntrypoint(functionPlugin, `
+				export default async function(context) {
+					context.controller.loadedWith = context;
+				}
+			`);
+			await writeEntrypoint(classPlugin, `
+				import { BaseControllerPlugin } from "@clusterio/controller";
+				export class ControllerPlugin extends BaseControllerPlugin {
+					async init() { this.controller.loadedWith = this; }
+					async onSaveData() { }
+				}
+			`);
+			await writeEntrypoint(throwingClassPlugin, `
+				import { BaseControllerPlugin } from "@clusterio/controller";
+				export class ControllerPlugin extends BaseControllerPlugin {
+					async init() { throw new Error("init failed"); }
+					async onSaveData() { }
+				}
+			`);
+			await writeEntrypoint(missingClassPlugin, "");
+			await writeEntrypoint(wrongParentClassPlugin, "export class ControllerPlugin {};\n");
+		});
+
+		beforeEach(function() {
+			controller = new mock.MockController();
+			logger = new mock.MockLogger();
+			logger.warnings = [];
+			logger.warn = msg => logger.warnings.push(msg);
+			context = { controller, metrics: {}, logger };
+		});
+
+		function info(requirePath, entrypoint = "controller.js") {
+			return { name: "test", requirePath, controllerEntrypoint: entrypoint };
+		}
+
+		it("should do nothing when the entrypoint is not set", async function() {
+			await lib.loadPlugin(
+				{ name: "test", requirePath: missingClassPlugin }, "controller", context,
+				"ControllerPlugin", BaseControllerPlugin,
+			);
+			assert.equal(controller.loadedWith, undefined);
+		});
+		it("should call the default export with the load context", async function() {
+			const pluginInfo = info(functionPlugin);
+			await lib.loadPlugin(pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin);
+			assert.equal(controller.loadedWith.controller, controller);
+			assert.equal(controller.loadedWith.plugin, pluginInfo);
+			assert.equal(controller.loadedWith.logger, logger);
+			assert.deepEqual(logger.warnings, []);
+		});
+		it("should load a deprecated class export", async function() {
+			const pluginInfo = info(classPlugin);
+			await lib.loadPlugin(pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin);
+			assert(controller.loadedWith instanceof BaseControllerPlugin);
+			assert.equal(controller.loadedWith.info, pluginInfo);
+			assert.deepEqual([...controller.hooks.save.attached], ["test"]);
+			assert.deepEqual(logger.warnings, ["Plugin test is using deprecated class export"]);
+		});
+		it("should detach hooks if init throws", async function() {
+			await assert.rejects(
+				lib.loadPlugin(
+					info(throwingClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
+				),
+				new Error("init failed")
+			);
+			assert.equal(controller.hooks.size, 0);
+		});
+		it("should throw if neither a function nor a class is exported", async function() {
+			await assert.rejects(
+				lib.loadPlugin(
+					info(missingClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
+				),
+				new Error("Plugin test must export either a default function or ControllerPlugin class")
 			);
 		});
-		it("should throw if class is missing from entrypoint", async function() {
-			const requirePath = path.resolve(missingClass);
+		it("should throw if the class is not a subclass of the base class", async function() {
 			await assert.rejects(
-				lib.loadPluginClass(
-					"test",
-					path.posix.join(requirePath, "controller"),
-					"ControllerPlugin",
-					BaseControllerPlugin,
+				lib.loadPlugin(
+					info(wrongParentClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
 				),
-				{
-					message:
-						`PluginError: Expected ${path.posix.join(requirePath, "controller")} ` +
-						"to export a class named ControllerPlugin",
-				}
-			);
-		});
-		it("should throw if class is not a subclass of BaseControllerPlugin", async function() {
-			const requirePath = path.resolve(wrongParentClass);
-			await assert.rejects(
-				lib.loadPluginClass(
-					"test",
-					path.posix.join(requirePath, "controller"),
-					"ControllerPlugin",
-					BaseControllerPlugin,
-				),
-				{
-					message:
-						"PluginError: Expected ControllerPlugin exported from " +
-						`${path.posix.join(requirePath, "controller")} to be a subclass of BaseControllerPlugin`,
-				}
+				new Error("Expected ControllerPlugin exported from test to extend BaseControllerPlugin")
 			);
 		});
 	});
@@ -152,7 +207,7 @@ describe("lib/plugin_loader", function() {
 				await fs.mkdir(pluginPath, { recursive: true });
 				await fs.writeFile(
 					path.join(pluginPath, "index.js"),
-					`module.exports.plugin = { name: "${name}" };`
+					`export const plugin = { name: "${name}" };`
 				);
 				await fs.writeFile(
 					path.join(pluginPath, "package.json"),
@@ -195,7 +250,7 @@ describe("lib/plugin_loader", function() {
 			await fs.mkdir(path.join(deepPluginPath, "dist"));
 			await fs.writeFile(
 				path.join(deepPluginPath, "dist", "index.js"),
-				'module.exports.plugin = { name: "deep" };'
+				'export const plugin = { name: "deep" };'
 			);
 
 			// Create an npm module that is not a plugin
@@ -249,7 +304,12 @@ describe("lib/plugin_loader", function() {
 
 		it("should list installed versions and plugins pending a restart", async function() {
 			const pluginInfos = [{
-				name: "npm", title: "NPM", version: "0.0.0", requirePath: npmPluginPathAbs, npmPackage: "plugin-npm",
+				name: "npm",
+				title: "NPM",
+				version: "0.0.0",
+				requirePath: npmPluginPathAbs,
+				packagePath: path.join(npmPluginPathAbs, "package.json"),
+				npmPackage: "plugin-npm",
 			}];
 			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
 			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage, plugin]));

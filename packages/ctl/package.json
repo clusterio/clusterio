@@ -22,6 +22,7 @@
 		"access": "public"
 	},
 
+	"type": "module",
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
@@ -38,11 +39,11 @@
 		"@clusterio/lib": "workspace:^",
 		"as-table": "^1.0.55",
 		"winston": "catalog:",
-		"yargs": "^17.7.2"
+		"yargs": "catalog:"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",
-		"@types/yargs": "^17.0.33",
+		"@types/yargs": "catalog:",
 		"typescript": "catalog:"
 	}
 }

@@ -22,13 +22,13 @@ export function useAccount(): UserAccount {
 		};
 	}, [control]);
 
-	function checkPermissionExists(permission: string) {
+	function checkPermissionExists(permission: lib.PermissionName) {
 		if (!lib.permissions.has(permission)) {
 			throw new Error(`permission ${permission} does not exist`);
 		}
 	}
 
-	function hasPermission(permission: string): boolean {
+	function hasPermission(permission: lib.PermissionName): boolean {
 		for (let role of roles) {
 			if (role.permissions.includes("core.admin") || role.permissions.includes(permission)) {
 				return true;
@@ -40,14 +40,14 @@ export function useAccount(): UserAccount {
 	return {
 		name,
 		roles,
-		hasPermission(permission: string): boolean | null {
+		hasPermission(permission: lib.PermissionName): boolean | null {
 			if (!roles) {
 				return null;
 			}
 			checkPermissionExists(permission);
 			return hasPermission(permission);
 		},
-		hasAnyPermission(...permissions: string[]): boolean | null {
+		hasAnyPermission(...permissions: lib.PermissionName[]): boolean | null {
 			if (!roles) {
 				return null;
 			}
@@ -61,7 +61,7 @@ export function useAccount(): UserAccount {
 			}
 			return false;
 		},
-		hasAllPermission(...permissions: string[]): boolean | null {
+		hasAllPermission(...permissions: lib.PermissionName[]): boolean | null {
 			if (!roles) {
 				return null;
 			}

@@ -1,9 +1,10 @@
 import { Type, Static } from "@sinclair/typebox";
-import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest, IUser, JsonBoolean, StringEnum, AccountDetails } from "./data";
-import isDeepStrictEqual from "./is_deep_strict_equal";
-import { RequestError } from "./errors";
-import { logger } from "./logging";
+import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link/index.js";
+import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data/index.js";
+import isDeepStrictEqual from "#is_deep_strict_equal";
+import type { PermissionName } from "./permissions.js";
+import { RequestError } from "./errors.js";
+import { logger } from "./logging.js";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void
@@ -155,7 +156,7 @@ export class SubscriptionRequest {
 			const entry = Link._eventsByName.get(data[0]);
 			if (entry && entry.Event.permission) {
 				if (typeof entry.Event.permission === "string") {
-					user.checkPermission(entry.Event.permission);
+					user.checkPermission(entry.Event.permission as PermissionName);
 				} else {
 					entry.Event.permission(user, message);
 				}
@@ -255,6 +256,14 @@ export class SubscriptionController {
 	_events = new Map<string, EventData>();
 
 	/**
+	 * @param _maxFilters -
+	 *     Max number of filters a subscriber can hold for one event, 0 for no limit.
+	 */
+	constructor(
+		private _maxFilters = 0,
+	) { }
+
+	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
 	 * Has an optional subscription update handler which is called when a client subscribes
 	 * @param Event - Event class which is sent out as updates.
@@ -328,6 +337,50 @@ export class SubscriptionController {
 		}
 	}
 
+	private _checkFilterCount(filters: SubscriptionFilters, existing?: SubscriptionFilters) {
+		if (this._maxFilters === 0 || existing?.isAll()) {
+			return; // union into all is a noop
+		}
+		let count = filters.size;
+		if (existing) {
+			count = existing.size;
+			for (const filter of filters) {
+				if (!existing.has(filter)) {
+					count += 1;
+				}
+			}
+		}
+		if (count > this._maxFilters) {
+			throw new RequestError(`Subscription exceeds the limit of ${this._maxFilters} filters`);
+		}
+	}
+
+	/**
+	 * Check the subscriptions of a link against the permissions of a user,
+	 * removing those the user no longer has permission for.
+	 * Used when the permissions of a user changes.
+	 * @param link - Link to check the subscriptions of.
+	 * @param user - User the link is authenticated as.
+	 */
+	checkLinkPermissions(link: Link, user: IUser) {
+		for (const [eventName, eventData] of this._events) {
+			for (const [addressIndex, subscriber] of eventData.subscriptions) {
+				if (subscriber.link !== link) {
+					continue;
+				}
+				const request = new SubscriptionRequest(eventName, "subscribe", 0, subscriber.filters);
+				const message = new MessageRequest(
+					0, subscriber.address, new Address(Address.controller, 0), "SubscriptionRequest", request.toJSON(),
+				);
+				try {
+					SubscriptionRequest.permission(user, message);
+				} catch {
+					eventData.subscriptions.delete(addressIndex);
+				}
+			}
+		}
+	}
+
 	/**
 	 * Handle incoming subscription requests on a link
 	 * @param link - Link message was received on
@@ -358,6 +411,7 @@ export class SubscriptionController {
 				break;
 
 			case "subscribe":
+				this._checkFilterCount(request.filters, subscriber?.filters);
 				if (!subscriber) {
 					eventData.subscriptions.set(index, { link, address, filters: request.filters });
 				} else {
@@ -366,6 +420,7 @@ export class SubscriptionController {
 				break;
 
 			case "replace":
+				this._checkFilterCount(request.filters);
 				if (request.filters.isEmpty()) {
 					if (!subscriber) {
 						return false;
@@ -418,6 +473,8 @@ export class EventSubscriber<E, S = null> {
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
 	/** Filters applied to the filtered handler, if empty the filtered handler will not be called */
 	private _filters = SubscriptionFilters.empty();
+	/** True if a resend of the subscription is queued for the current tick */
+	private _resendQueued = false;
 
 	constructor(
 		protected Event: EventClass<E>,
@@ -433,6 +490,13 @@ export class EventSubscriber<E, S = null> {
 		webSocketConnector.on("close", () => {
 			this.handleConnectionEvent("close");
 		});
+		// Only the web Control reports account changes
+		const accountControl = control as Link & { onAccountUpdate?: (handler: () => void) => void };
+		if (typeof accountControl.onAccountUpdate === "function") {
+			accountControl.onAccountUpdate(() => {
+				this.handleAccountEvent();
+			});
+		}
 	}
 
 	/**
@@ -442,11 +506,36 @@ export class EventSubscriber<E, S = null> {
 	 */
 	handleConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
 		if (event === "connect" || event === "resume") {
-			this._sendRequest("replace", this._callbacks.length > 0 ? SubscriptionFilters.all() : this._filters);
+			this._queueResend();
 		} else if (this.synced) {
 			this.synced = false;
 			this._notify(null);
 		}
+	}
+
+	/**
+	 * Handle the permissions of the account changing
+	 * Resends the subscription so it fails if permission was lost, or syncs if it was granted.
+	 */
+	handleAccountEvent() {
+		if (this._hasSubscriptions()) {
+			this._queueResend();
+		}
+	}
+
+	/**
+	 * Resend the current subscription at the end of the tick, the web Control
+	 * reports the account on connect so both would otherwise send it.
+	 */
+	private _queueResend() {
+		if (this._resendQueued) {
+			return;
+		}
+		this._resendQueued = true;
+		queueMicrotask(() => {
+			this._resendQueued = false;
+			this._sendRequest("replace", this._callbacks.length > 0 ? SubscriptionFilters.all() : this._filters);
+		});
 	}
 
 	/**
@@ -602,6 +691,8 @@ export class EventSubscriber<E, S = null> {
 			if (err instanceof Error) {
 				this.error = err;
 			}
+			this.synced = false;
+			this._notify(null);
 		}
 	}
 }

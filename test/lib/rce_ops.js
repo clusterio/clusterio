@@ -1,6 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import "../setup_logging.js";
 
 describe("rce_ops", function() {
 	describe("updatePackage", function() {
@@ -111,6 +111,20 @@ describe("rce_ops", function() {
 		it("rejects invalid names", async function() {
 			await assert.rejects(lib.fetchLatestVersions(["foo@1.0.0"]), /Invalid plugin name/);
 			await assert.rejects(lib.fetchLatestVersions(["foo bar"]), /Invalid plugin name/);
+		});
+	});
+
+	describe("handleUpdateAll", function() {
+		it("updates the core package and all npm plugins in one command", async function() {
+			const _audit = lib.logger.audit;
+			const messages = [];
+			lib.logger.audit = (msg) => { messages.push(msg); };
+			try {
+				await lib.handleUpdateAll("core", [{ npmPackage: "foo" }, { name: "local" }, { npmPackage: "bar" }]);
+			} finally {
+				lib.logger.audit = _audit;
+			}
+			assert.deepEqual(messages, ["RCE | npm update --save core foo bar"]);
 		});
 	});
 

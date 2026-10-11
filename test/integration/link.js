@@ -1,13 +1,14 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const fs = require("node:fs/promises");
-const jwt = require("jsonwebtoken");
+import assert from "node:assert/strict";
+import events from "node:events";
+import jwt from "jsonwebtoken";
 
-const { TestControlConnector, TestHostConnector, TestControl, get, exec, url, slowTest } = require("./index");
-const { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } = require("@clusterio/lib");
+import {
+	TestControlConnector, TestHostConnector, TestControl, url, controlToken, getControl,
+} from "./index.js";
+import * as lib from "@clusterio/lib";
+import { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } from "@clusterio/lib";
+import { slowTest } from "../common.js";
 
-let token = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 let tokenHost = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 describe("Integration of lib/link", function() {
@@ -16,7 +17,7 @@ describe("Integration of lib/link", function() {
 	let hostConnector;
 	beforeEach(async function() {
 		controlConnector = new TestControlConnector(url, 0.2);
-		controlConnector.token = token;
+		controlConnector.token = controlToken;
 		control = new TestControl(controlConnector, false);
 		hostConnector = new TestHostConnector(url, 0.2);
 		hostConnector.token = tokenHost;
@@ -92,6 +93,33 @@ describe("Integration of lib/link", function() {
 		await events.once(controlConnector, "connect");
 	});
 
+	it("should start a new session when the send buffer limit is exceeded", async function() {
+		await getControl().send(new lib.ControllerConfigSetFieldRequest("controller.max_send_buffer_size", "0.01"));
+		try {
+			await controlConnector.connect();
+		} finally {
+			await getControl().send(new lib.ControllerConfigSetFieldRequest("controller.max_send_buffer_size", "64"));
+		}
+
+		// Never acknowledge received messages
+		controlConnector._doHeartbeat = function() {
+			this._sendInternal(new lib.MessageHeartbeat());
+		};
+		let invalidated = false;
+		controlConnector.once("invalidate", () => { invalidated = true; });
+		const connected = events.once(controlConnector, "invalidate").then(
+			() => events.once(controlConnector, "connect")
+		);
+		for (let i = 0; i < 100; i++) {
+			if (invalidated) {
+				break;
+			}
+			await control.send(new lib.ControllerConfigGetRequest()).catch(() => {});
+		}
+		assert(invalidated, "session was not invalidated");
+		await connected;
+	});
+
 	it("should properly close connector if close is called during reconnect wait", async function() {
 		await controlConnector.connect();
 		controlConnector._socket.close(ConnectionClosed.Normal, "Test");
@@ -102,7 +130,7 @@ describe("Integration of lib/link", function() {
 	});
 
 	it("should refuse connection with incorrect audience", async function() {
-		hostConnector.token = token;
+		hostConnector.token = controlToken;
 		await assert.rejects(
 			hostConnector.connect(),
 			new Error("Authentication failed: jwt audience invalid. expected: host or slave")

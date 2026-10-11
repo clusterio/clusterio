@@ -77,7 +77,7 @@ The documentation uses the binaries provided by the packages, but for the develo
 
 By default node does not enable source maps, to get stack traces pointing to the `.ts` files you will need to pass `--enable-source-maps` to `node` or set the environment variable `NODE_OPTIONS=--enable-source-maps`.
 
-Note that to use `clusterioctl` you will have to create a control config first:
+Note that to use `clusterioctl` you will have to create a ctl config first:
 
     node packages/controller bootstrap create-ctl-config [admin-user]
 
@@ -229,8 +229,8 @@ Files containing and exporting a single class should be named the same as the cl
 Relative imports in lib package are prefixed with lib to make them easier to distinguish, as the names tend to be very generic.
 E.g.:
 
-    const libLink = require("./link");
-    const libLuaTools = require("./lua_tools");
+    import libLink from "./link";
+    import libLuaTools from "./lua_tools";
 
 Note that no sub-modules of the lib package is imported directly from the outside of it with the exception of `build_mod`.
 

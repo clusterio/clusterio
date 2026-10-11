@@ -42,6 +42,9 @@ function WebUiStatus(props: { plugin: PluginRow }) {
 	if (!meta.enabled) {
 		return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
 	}
+	if (!meta.web.main && !meta.web.error) {
+		return <Typography.Text type="secondary">No web module</Typography.Text>;
+	}
 	if (!meta.web.error && !control.pluginInfos.has(meta.name)) {
 		return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
 	}
@@ -87,14 +90,14 @@ export default function PluginsPage() {
 	let tableContents: PluginRow[] = [];
 	for (let meta of pluginList) {
 		const key = pluginStatusKey(meta);
-		const plugin = control.plugins.get(meta.name);
-		const info = plugin ? plugin.info : control.pluginInfos.get(meta.name);
+		const loaded = control.loadedPlugins.get(meta.name);
+		const info = loaded ?? control.pluginInfos.get(meta.name);
 		tableContents.push({
 			key,
 			title: info ? info.title : meta.name,
 			meta,
 			info,
-			package: plugin?.package,
+			package: loaded?.package,
 			status: statuses.get(key),
 		});
 	}

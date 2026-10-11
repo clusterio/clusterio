@@ -1,8 +1,8 @@
 import * as lib from "@clusterio/lib";
 
-import type Controller from "./Controller";
-import type HostConnection from "./HostConnection";
-import InstanceRecord from "./InstanceRecord";
+import type Controller from "./Controller.js";
+import type HostConnection from "./HostConnection.js";
+import InstanceRecord from "./InstanceRecord.js";
 
 export default class InstanceManager {
 	private static readonly DefaultFactorioSettings = {
@@ -83,12 +83,7 @@ export default class InstanceManager {
 		instance: InstanceRecord,
 		prev?: lib.InstanceStatus,
 	): Promise<void> {
-		await lib.invokeHook(
-			this._controller.plugins,
-			"onInstanceStatusChanged",
-			instance,
-			prev,
-		);
+		await this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 	}
 
 	private async _notifyConfigFieldChanged(
@@ -97,14 +92,7 @@ export default class InstanceManager {
 		curr: unknown,
 		prev: unknown,
 	): Promise<void> {
-		await lib.invokeHook(
-			this._controller.plugins,
-			"onInstanceConfigFieldChanged",
-			instance,
-			field,
-			curr,
-			prev,
-		);
+		await this._controller.hooks.instanceConfigFieldChanged.invoke(instance, field, curr, prev);
 	}
 
 	/**
@@ -220,9 +208,17 @@ export default class InstanceManager {
 		instance.config.set("instance.assigned_host", hostId);
 
 		if (newHostConnection) {
-			await newHostConnection.send(
-				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host")),
-			);
+			try {
+				await newHostConnection.send(
+					new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host")),
+				);
+			} catch (err) {
+				// Leave unassigned so the assign can be retried
+				instance.config.set("instance.assigned_host", null);
+				instance.status = "unassigned";
+				this.records.set(instance);
+				throw err;
+			}
 		} else {
 			instance.status = "unassigned";
 		}

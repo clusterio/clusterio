@@ -1,13 +1,16 @@
-import type Controller from "./Controller";
-import type WsServerConnector from "./WsServerConnector";
+import type Controller from "./Controller.js";
+import type WsServerConnector from "./WsServerConnector.js";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
-import BaseConnection from "./BaseConnection";
-import InstanceRecord from "./InstanceRecord";
-import HostRecord from "./HostRecord";
+import BaseConnection from "./BaseConnection.js";
+import InstanceRecord from "./InstanceRecord.js";
+import HostRecord from "./HostRecord.js";
 
+
+// How long log message warnings are suppressed for after one is logged.
+const logMessageWarnIntervalMs = 5 * 60 * 1000;
 
 /**
  * Represents the connection to a host
@@ -18,6 +21,8 @@ import HostRecord from "./HostRecord";
 export default class HostConnection extends BaseConnection {
 	private info: HostRecord;
 	plugins: Map<string, string>;
+	// Shared by all log message warnings, a misbehaving host could log in a loop.
+	private _lastLogMessageWarnMs = Number.NEGATIVE_INFINITY;
 
 	constructor(
 		registerData: lib.RegisterHostData,
@@ -47,12 +52,7 @@ export default class HostConnection extends BaseConnection {
 		this._checkPluginVersions();
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
-
-			this.connector.on(event, () => {
-				for (let plugin of this._controller.plugins.values()) {
-					plugin.onHostConnectionEvent(this, event);
-				}
-			});
+			this.connector.on(event, () => this._controller.hooks.hostConnectionEvent.invoke(this, event));
 		}
 
 		this.connector.on("close", () => {
@@ -66,7 +66,7 @@ export default class HostConnection extends BaseConnection {
 				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
-				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
+				this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 			}
 			this._controller.instances.records.setMany(instances);
 
@@ -143,7 +143,7 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async prepareDisconnect() {
-		await lib.invokeHook(this._controller.plugins, "onPrepareHostDisconnect", this);
+		await this._controller.hooks.prepareHostDisconnect.invoke(this);
 		return await super.prepareDisconnect();
 	}
 
@@ -216,7 +216,7 @@ export default class HostConnection extends BaseConnection {
 		instance.factorioVersion = request.factorioVersion;
 		this._controller.instances.records.set(instance);
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
+		await this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 	}
 
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
@@ -256,9 +256,7 @@ export default class HostConnection extends BaseConnection {
 					}
 					instanceUpdates.push(controllerInstance);
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					await lib.invokeHook(
-						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
-					);
+					await this._controller.hooks.instanceStatusChanged.invoke(controllerInstance, prev);
 				}
 				continue;
 			}
@@ -274,7 +272,7 @@ export default class HostConnection extends BaseConnection {
 		// We suppress the changes made by createInstance so we must manually make them here
 		this._controller.instances.records.setMany(instanceUpdates);
 		await Promise.all(instanceUpdates.flatMap(newInstance => [
-			lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance),
+			this._controller.hooks.instanceStatusChanged.invoke(newInstance, undefined),
 			this.send(
 				new lib.InstanceAssignInternalRequest(
 					newInstance.config.get("instance.id"), newInstance.config.toRemote("host")
@@ -302,7 +300,37 @@ export default class HostConnection extends BaseConnection {
 		await this.send(new lib.SyncUserListsEvent(adminlist, banlist, whitelist));
 	}
 
+	// A host may only report on instances assigned to it. Otherwise any host
+	// could speak for an instance on a different host. See
+	// handleInstanceStatusChangedEvent.
+	private _assignedInstance(instanceId: number) {
+		const instance = this._controller.instances.get(instanceId);
+		return instance?.config.get("instance.assigned_host") === this.id ? instance : undefined;
+	}
+
+	// Host connections live for days, so the suppression expires instead of
+	// latching for the life of the connection.
+	private _warnLogMessage(message: string) {
+		const now = Date.now();
+		if (now - this._lastLogMessageWarnMs < logMessageWarnIntervalMs) {
+			return;
+		}
+		this._lastLogMessageWarnMs = now;
+		logger.warn(message);
+	}
+
 	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
+		// Otherwise any host could inject save records for, or wipe the save
+		// list of, an instance on a different host.
+		if (event.instanceId !== undefined && !this._assignedInstance(event.instanceId)) {
+			logger.warn(`Got bogus save updates for instance id ${event.instanceId}`);
+			return;
+		}
+		if (event.updates.some(save => !this._assignedInstance(save.instanceId))) {
+			logger.warn(`Got bogus save updates from host id ${this.id}`);
+			return;
+		}
+
 		const updates: lib.SaveDetails[] = [];
 		const deletes: lib.SaveDetails[] = [];
 		for (const save of event.updates) {
@@ -327,8 +355,33 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
+		// Fields beyond level and message survive schema validation, so the
+		// instance a log line claims to come from is whatever the host sent.
+		const info: typeof event.info & { instance_id?: number, instance_name?: string } = { ...event.info };
+		if (info.instance_id !== undefined) {
+			const instance = this._assignedInstance(info.instance_id);
+			if (!instance) {
+				// Demote to a host level line instead of dropping it. The host did
+				// log this, it just does not get to pin it on someone else's
+				// instance, and a host racing a reassignment still gets heard.
+				this._warnLogMessage(`Got bogus log message for instance id ${info.instance_id}`);
+				delete info.instance_id;
+				delete info.instance_name;
+			} else {
+				// The name the host sent may be stale or made up, ours is authoritative.
+				const name = instance.config.get("instance.name");
+				if (info.instance_name !== name) {
+					this._warnLogMessage(
+						`Got log message for instance id ${info.instance_id} named ` +
+						`${info.instance_name} which is named ${name} on the controller`
+					);
+					info.instance_name = name;
+				}
+			}
+		}
+
 		this._controller.clusterLogger.log({
-			...event.info,
+			...info,
 			host_id: this.id,
 			host_name: this.info.name,
 		});
@@ -350,7 +403,7 @@ export default class HostConnection extends BaseConnection {
 		user.saveRecord();
 
 		let instance = this._controller.instances.get(instanceId)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.type,
 			name: event.name,
 			reason: event.reason,
@@ -367,7 +420,7 @@ export default class HostConnection extends BaseConnection {
 		user.set("isAdmin", event.admin);
 
 		const instance = this._controller.instances.get(src.id)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.admin ? "promote" : "demote" as lib.PlayerEvent["type"],
 			name: event.name,
 			stats: user.instanceStats.get(src.id)!,
@@ -385,11 +438,11 @@ export default class HostConnection extends BaseConnection {
 		user.saveRecord();
 
 		const instance = this._controller.instances.get(src.id)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.banned ? "ban" : "unban" as lib.PlayerEvent["type"],
 			name: event.name,
 			stats: user.instanceStats.get(src.id)!,
-			resaon: event.reason,
+			reason: event.reason,
 		});
 	}
 
@@ -402,7 +455,7 @@ export default class HostConnection extends BaseConnection {
 		user.set("isWhitelisted", event.whitelisted);
 
 		const instance = this._controller.instances.get(src.id)!;
-		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+		await this._controller.hooks.playerEvent.invoke(instance, {
 			type: event.whitelisted ? "whitelisted" : "unwhitelisted" as lib.PlayerEvent["type"],
 			name: event.name,
 			stats: user.instanceStats.get(src.id)!,

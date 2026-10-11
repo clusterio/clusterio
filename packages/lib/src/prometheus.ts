@@ -12,7 +12,7 @@
  * the listed interfaces for more information.
  *
  * @example
- * const { Counter, exposition } = require("@clusterio/lib");
+ * import { Counter, exposition } from "@clusterio/lib";
  *
  * // Collectors are by default registered to the default collector regitry.
  * const totalRequests = new Counter(
@@ -27,7 +27,8 @@
  *
  * // Code handling the /metrics HTTP request, here shown for express
  * // but any http framework may be used
- * const app = require("express")();
+ * import express from "express";
+ * const app = express();
  * async function getMetrics(req, res) {
  *     // By default exposition uses the default collector registry
  *     let text = await exposition();
@@ -39,7 +40,7 @@
  * @module lib/prometheus
  */
 import { Type, Static } from "@sinclair/typebox";
-import { StringEnum } from "./data/composites";
+import { StringEnum } from "./data/composites.js";
 
 /**
  * Result from collecting a {@link Collector}
@@ -1669,7 +1670,8 @@ async function* expositionLines(
  * express.js.
  *
  * @example
- * const app = require("express")();
+ * import express from "express";
+ * const app = express();
  * async function getMetrics(req, res) {
  *     // By default exposition uses the default collector registry
  *     let text = await exposition();

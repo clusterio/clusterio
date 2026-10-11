@@ -2,7 +2,8 @@
 	"name": "root",
 	"private": true,
 	"files": [],
-	"packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316",
+	"packageManager": "pnpm@12.4.1+sha512.2e81e399d73fe8390dab25e06aa788ab7a5908248d2f5a370f82b481147a6a7a367bf8048f9a6fdb6460f21a66f0542dedb8b94ca2c8723596741920b1656d4c",
+	"type": "module",
 	"scripts": {
 		"build": "tsc --build",
 		"watch": "tsc --build --watch",
@@ -11,19 +12,20 @@
 		"silent-test": "SILENT_TEST=y pnpm test",
 		"fast-test": "FAST_TEST=y pnpm test",
 		"no-external-test": "NO_EXTERNAL_TEST=y pnpm test",
-		"cover": "nyc pnpm test",
-		"fast-cover": "FAST_TEST=y nyc pnpm test",
-		"ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
+		"cover": "c8 pnpm test",
+		"fast-cover": "FAST_TEST=y c8 pnpm test",
+		"ci-cover": "c8 --reporter=lcovonly pnpm test",
 		"lint": "eslint packages plugins test",
 		"lint-fix": "eslint --fix packages plugins test",
 		"clean": "node ./clean.js",
 		"docs": "typedoc",
 		"bundle-dependencies": "bundle-dependencies"
 	},
-	"nyc": {
+	"c8": {
 		"exclude": [
 			"test/**",
-			"plugins/*/test/**"
+			"plugins/*/test/**",
+			"temp/**"
 		]
 	},
 	"engines": {
@@ -41,24 +43,24 @@
 		"@clusterio/host": "workspace:^",
 		"@clusterio/lib": "workspace:^",
 		"@clusterio/web_ui": "workspace:^",
-		"@eslint/eslintrc": "^3.3.1",
-		"@eslint/js": "^9.32.0",
-		"@stylistic/eslint-plugin": "^5.2.2",
-		"@swc/core": "^1.13.3",
+		"@eslint/eslintrc": "^3.3.7",
+		"@eslint/js": "^10.0.1",
+		"@stylistic/eslint-plugin": "^5.10.0",
+		"@swc/core": "catalog:",
 		"@types/node": "catalog:",
-		"@typescript-eslint/eslint-plugin": "^8.38.0",
-		"@typescript-eslint/parser": "^8.38.0",
-		"eslint": "^9.32.0",
+		"c8": "^12.0.0",
+		"@typescript-eslint/eslint-plugin": "^8.70.0",
+		"@typescript-eslint/parser": "^8.70.0",
+		"eslint": "^10.10.0",
 		"eslint-plugin-node": "^11.1.0",
-		"express": "^5.1.0",
-		"form-data": "^4.0.4",
-		"globals": "^16.3.0",
-		"jsonwebtoken": "^9.0.2",
-		"jszip": "^3.10.1",
-		"mocha": "^11.7.1",
-		"nyc": "^17.1.0",
-		"typedoc": "^0.28.9",
-		"typescript": "^5.9.2",
-		"yargs": "^18.0.0"
+		"express": "catalog:",
+		"form-data": "^4.0.6",
+		"globals": "^17.12.0",
+		"jsonwebtoken": "catalog:",
+		"jszip": "catalog:",
+		"mocha": "^11.8.0",
+		"typedoc": "^0.28.20",
+		"typescript": "catalog:",
+		"yargs": "catalog:"
 	}
 }

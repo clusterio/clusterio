@@ -4,7 +4,8 @@ export type PluginWebApi = {
 	enabled: boolean;
 	loaded: boolean;
 	web: {
-		main: string;
+		/** Path to the web bundle, not present if the plugin has no web build. */
+		main?: string;
 		error?: string;
 	};
 	/**

@@ -1,13 +1,13 @@
-import * as core from "../data/messages_core";
-import * as controller from "../data/messages_controller";
-import * as host from "../data/messages_host";
-import * as instance from "../data/messages_instance";
-import * as mod from "../data/messages_mod";
-import * as user from "../data/messages_user";
-import * as role from "../data/messages_role";
-import * as plugin from "../data/messages_plugin";
-import * as subscriptions from "../subscriptions";
-import type { RequestClass, EventClass } from "./link";
+import * as core from "../data/messages_core.js";
+import * as controller from "../data/messages_controller.js";
+import * as host from "../data/messages_host.js";
+import * as instance from "../data/messages_instance.js";
+import * as mod from "../data/messages_mod.js";
+import * as user from "../data/messages_user.js";
+import * as role from "../data/messages_role.js";
+import * as plugin from "../data/messages_plugin.js";
+import * as subscriptions from "../subscriptions.js";
+import type { RequestClass, EventClass } from "./link.js";
 
 /**
  * Event and Request payloads registered with the Link class. Used to decode
@@ -21,6 +21,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	controller.ControllerStopRequest,
 	controller.ControllerRestartRequest,
+	controller.ControllerMarkRestartRequiredRequest,
 	controller.ControllerUpdateRequest,
 	controller.ControllerConfigGetRequest,
 	controller.ControllerConfigSetRequest,
@@ -43,6 +44,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	host.HostStopRequest,
 	host.HostRestartRequest,
+	host.HostMarkRestartRequiredRequest,
 	host.HostUpdateRequest,
 	host.HostConfigGetRequest,
 	host.HostConfigSetRequest,
@@ -142,4 +144,5 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	plugin.PluginInstallRequest,
 	plugin.PluginSearchRequest,
 	plugin.PluginLatestVersionsRequest,
+	plugin.UpdateAllRequest,
 ];

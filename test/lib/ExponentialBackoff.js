@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
+import assert from "node:assert/strict";
 
-const { ExponentialBackoff } = require("@clusterio/lib");
+import { ExponentialBackoff } from "@clusterio/lib";
 
 describe("lib/ExponentialBackoff", function() {
 	describe("class ExponentialBackoff", function() {

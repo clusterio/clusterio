@@ -1,14 +1,13 @@
-"use strict";
-const assert = require("assert").strict;
-const events = require("events");
-const fs = require("node:fs/promises");
-const path = require("path");
+import assert from "node:assert/strict";
+import events from "node:events";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-const hostServer = require("@clusterio/host/dist/node/src/server");
-const lib = require("@clusterio/lib");
-const { wait } = lib;
-const { testLines } = require("../lib/factorio/lines");
-const { slowTest, externalTest } = require("../integration");
+import * as hostServer from "@clusterio/host/dist/node/src/server.js";
+import { Link, wait } from "@clusterio/lib";
+import { testLines } from "../lib/factorio/lines.js";
+import { slowTest, externalTest } from "../common.js";
+import "../setup_logging.js";
 
 
 describe("host/server", function() {
@@ -42,26 +41,26 @@ describe("host/server", function() {
 		describe("direct install", function() {
 			it("should search given directory for latest Factorio install", async function() {
 				const installDir = path.join("test", "file", "factorio", "0.1.2");
-				const [dir, version] = await hostServer._findVersion(installDir, "latest");
+				const [dir, version] = await hostServer.findVersion(installDir, "latest");
 				assert.equal(dir, path.join(installDir, "data"));
 				assert.equal(version, "0.1.2");
 			});
 			it("should search given directory for given Factorio install", async function() {
 				const installDir = path.join("test", "file", "factorio", "0.1.1");
-				const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
+				const [dir, version] = await hostServer.findVersion(installDir, "0.1.1");
 				assert.equal(dir, path.join(installDir, "data"));
 				assert.equal(version, "0.1.1");
 			});
 			it("should search given directory for partly given Factorio install", async function() {
 				const installDir = path.join("test", "file", "factorio", "0.1.2");
-				const [dir, version] = await hostServer._findVersion(installDir, "0.1");
+				const [dir, version] = await hostServer.findVersion(installDir, "0.1");
 				assert.equal(dir, path.join(installDir, "data"));
 				assert.equal(version, "0.1.2");
 			});
 			it("should reject if the version does not match", async function() {
 				let installDir = path.join("test", "file", "factorio", "0.1.1");
 				await assert.rejects(
-					hostServer._findVersion(installDir, "0.1.2"),
+					hostServer.findVersion(installDir, "0.1.2"),
 					new Error(
 						`Unable to find Factorio version 0.1.2: ${installDir} is a direct (single-version) ` +
 						`install of 0.1.1. Use a versioned layout, where ${installDir} contains a subdirectory ` +
@@ -74,33 +73,33 @@ describe("host/server", function() {
 			it("should reject if no factorio install with the given version was found", async function() {
 				let installDir = path.join("test", "file", "factorio");
 				await assert.rejects(
-					hostServer._findVersion(installDir, "0.1.3"),
+					hostServer.findVersion(installDir, "0.1.3"),
 					new Error("Unable to find Factorio version 0.1.3")
 				);
 			});
 			it("should search given directory for given Factorio install", async function() {
 				const installDir = path.join("test", "file", "factorio");
-				const [dir, version] = await hostServer._findVersion(installDir, "0.1.1");
+				const [dir, version] = await hostServer.findVersion(installDir, "0.1.1");
 				assert.equal(dir, path.join(installDir, "0.1.1", "data"));
 				assert.equal(version, "0.1.1");
 			});
 			it("should search given directory for partly given Factorio install", async function() {
 				const installDir = path.join("test", "file", "factorio");
-				const [dir, version] = await hostServer._findVersion(installDir, "0.1");
+				const [dir, version] = await hostServer.findVersion(installDir, "0.1");
 				assert.equal(dir, path.join(installDir, "0.1.2", "data"));
 				assert.equal(version, "0.1.2");
 			});
 			it("should reject if no factorio install with the given version was found", async function() {
 				let installDir = path.join("test", "file", "factorio");
 				await assert.rejects(
-					hostServer._findVersion(installDir, "0.1.3"),
+					hostServer.findVersion(installDir, "0.1.3"),
 					new Error("Unable to find Factorio version 0.1.3")
 				);
 			});
 			it("should reject if no factorio install was found", async function() {
 				let installDir = path.join("test", "file");
 				await assert.rejects(
-					hostServer._findVersion(installDir, "0.0.0"),
+					hostServer.findVersion(installDir, "0.0.0"),
 					new Error(`Unable to find any Factorio install in ${installDir}`)
 				);
 			});
@@ -326,7 +325,7 @@ describe("host/server", function() {
 					static jsonSchema = { type: "number" };
 					static fromJSON(json) { return new this(json); }
 				}
-				let eventFromJSON = lib.Link.eventFromJSON(NumberEvent, "NumberEvent");
+				let eventFromJSON = Link.eventFromJSON(NumberEvent, "NumberEvent");
 				ipcServer.handle("bad_event", async () => { eventFromJSON("not a number"); });
 				ipcServer.emit("ipc-bad_event", {});
 				await new Promise(resolve => setImmediate(resolve));

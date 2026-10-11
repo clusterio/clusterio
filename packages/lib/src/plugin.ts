@@ -2,11 +2,10 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-import * as libHelpers from "./helpers";
-import type { Logger } from "./logging";
-import type { FieldDefinition } from "./config";
-import type { PlayerStats } from "./data";
-
+import type { Logger } from "./logging.js";
+import type { FieldDefinition } from "./config/index.js";
+import type { PermissionDefinition } from "./permissions.js";
+import type { PlayerStats } from "./data/index.js";
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */
@@ -32,12 +31,30 @@ export type PluginDeclaration = {
 
 	ctlEntrypoint?: string;
 	webEntrypoint?: string;
-	controlConfigFields?: Record<string, FieldDefinition>;
+	ctlConfigFields?: Record<string, FieldDefinition>;
 
 	features?: (typeof PluginFeatureFlags)[number][];
 
 	messages?: any[];
+	permissions?: PermissionDefinition[];
 	routes?: string[];
+}
+
+/**
+ * Check if a plugin is expected to ship a web build.
+ *
+ * Mirrors the rule used by the create tool: a web build is generated when the
+ * plugin has a web or controller entrypoint or defines config fields.
+ */
+export function pluginNeedsWebBuild(info: PluginDeclaration) {
+	return Boolean(
+		info.webEntrypoint
+		|| info.controllerEntrypoint
+		|| info.controllerConfigFields
+		|| info.hostConfigFields
+		|| info.instanceConfigFields
+		|| info.ctlConfigFields
+	);
 }
 
 export type PluginNodeEnvInfo = PluginDeclaration & {
@@ -46,6 +63,10 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	 * server in order for the web interface to be able to load the plugin.
 	 */
 	webStaticPath: string;
+	/**
+	 * Absolute path to the package.json file for the plugin.
+	 */
+	packagePath: string;
 	requirePath: string;
 	version: string;
 	manifest: any;
@@ -85,42 +106,24 @@ export interface PlayerEvent {
 	stats: PlayerStats,
 }
 
-/**
- * Invokes the given hook on all plugins
- *
- * @param plugins -
- *     Mapping of plugin names to plugins to invoke the hook on.
- * @param hook - Name of hook to invoke.
- * @param args - Arguments to pass on to the hook.
- * @returns Non-undefined return values from the hooks.
- */
-export async function invokeHook<
-	Hook extends string,
-	R,
-	Args extends [...any],
-	Plugin extends { logger: Logger } & Record<Hook, (...hookArgs: Args) => R | Promise<R>>
->(
-	plugins: Map<string, Plugin>,
-	hook: Hook,
-	...args: Args
-): Promise<Exclude<Awaited<ReturnType<Plugin[Hook]>>, void>[]> {
-	let results: any[] = [];
-	for (let [name, plugin] of plugins) {
-		try {
-			const timeout = Symbol("timeout-token");
-			let result = await libHelpers.timeout<R | typeof timeout>(
-				plugin[hook](...args) as Promise<R>,
-				15000,
-				timeout
-			);
-			if (result === timeout) {
-				throw new Error(`Invoking hook ${hook} timed out for plugin ${name}`);
-			} else if (result !== undefined) {
-				results.push(result);
-			}
-		} catch (err: any) {
-			plugin.logger.error(`Ignoring error from plugin ${name} in ${hook}:\n${err.stack}`);
-		}
-	}
-	return results;
-}
+export type PluginLoadContext<
+	Context extends object,
+	Info extends PluginDeclaration = PluginNodeEnvInfo
+> = Context & {
+	logger: Logger;
+	plugin: Info;
+};
+
+export type PluginClass<
+	Context extends object,
+	Info extends PluginDeclaration,
+> = {
+	new (...args: any[]): any;
+	fromContext(context: PluginLoadContext<Context, Info>): {
+		init(): Promise<void>;
+		detachHooks(): void;
+	};
+};
+
+export type PluginType =
+	Extract<keyof PluginDeclaration, `${string}Entrypoint`> extends `${infer P}Entrypoint` ? P : never;

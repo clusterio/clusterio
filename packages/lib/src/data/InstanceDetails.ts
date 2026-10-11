@@ -1,6 +1,6 @@
 import { Static, Type } from "@sinclair/typebox";
-import { StringEnum } from "./composites";
-import { TargetVersion, TargetVersionSchema } from "./version";
+import { StringEnum } from "./composites.js";
+import { TargetVersion, TargetVersionSchema } from "./version.js";
 
 export const InstanceStatus = StringEnum([
 	"unknown",

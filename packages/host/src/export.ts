@@ -5,9 +5,9 @@ import { Jimp, JimpMime, type JimpInstance } from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
-import * as libBuildMod from "@clusterio/lib/dist/node/build_mod";
-import type { FactorioServer } from "./server";
-import { definesPrototypesFallback } from "./export_fallback";
+import * as libBuildMod from "@clusterio/lib/dist/node/build_mod.js";
+import type { FactorioServer } from "./server.js";
+import { definesPrototypesFallback } from "./export_fallback.js";
 
 interface SimpleIconSpecification {
 	icons?: never;
@@ -56,7 +56,7 @@ async function generateExportMod(server: FactorioServer) {
 		clean: false,
 		build: true,
 		pack: true,
-		sourceDir: path.join(__dirname, "..", "..", "..", "lua", "export"),
+		sourceDir: path.join(import.meta.dirname, "..", "..", "..", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version?.replace(/\.\d+$/, ""),
@@ -160,7 +160,7 @@ async function loadSimpleIcon(
 	item: SimpleIconSpecification,
 	size: number,
 	iconCache: IconCache,
-) {
+): Promise<Image | null> {
 	let icon = await loadIcon(server, modVersions, item.icon, item.icon_size ?? 64, 0, iconCache);
 	if (icon) {
 		let iconScale = size / (item.icon_size ?? 64);
@@ -178,7 +178,7 @@ async function loadLayeredIcon(
 	item: LayeredIconSpecification,
 	size: number,
 	iconCache: IconCache,
-) {
+): Promise<Image> {
 	let baseLayerSize = (item.icons[0].icon_size || item.icon_size) ?? 64;
 	let icon = new Jimp({ width: size, height: size });
 
@@ -590,3 +590,5 @@ export async function exportData(server: FactorioServer) {
 
 // For testing only
 export const _exportLocale = exportLocale;
+export const _loadSimpleIcon = loadSimpleIcon;
+export const _loadLayeredIcon = loadLayeredIcon;

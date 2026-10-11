@@ -2,6 +2,7 @@
 	"name": "__plugin_name__",
 	"version": "0.1.0",
 	"description": "Example Description. Package. Change me in package.json",
+	"type": "module",
 //%if typescript
 	"main": "dist/node/index.js",
 //%endif
@@ -18,9 +19,6 @@
 //%if controller
 		"@clusterio/controller": "^__clusterio_version__",
 //%endif
-//%if webpack
-		"@clusterio/web_ui": "^__clusterio_version__",
-//%endif
 //%if host
 		"@clusterio/host": "^__clusterio_version__",
 //%endif
@@ -29,24 +27,49 @@
 //%endif
 		"@clusterio/lib": "^__clusterio_version__"
 	},
+//%if controller | host | ctl
+	"peerDependenciesMeta": {
+//%endif
+//%if controller
+		"@clusterio/controller": {
+			"optional": true
+//%endif
+//%if controller & host | controller & ctl
+		},
+//%endif
+//%if host
+		"@clusterio/host": {
+			"optional": true
+//%endif
+//%if host & ctl
+		},
+//%endif
+//%if ctl
+		"@clusterio/ctl": {
+			"optional": true
+//%endif
+//%if controller | host | ctl
+		}
+	},
+//%endif
 	"devDependencies": {
 //%// Typescript and type declarations
 //%if typescript
-		"typescript": "^5.5.3",
-		"@types/node": "^20.4.5",
+		"typescript": "^5.9.3",
+		"@types/node": "^24.13.4",
 //%endif
 //%if typescript & web
-		"@types/react": "^18.2.21",
+		"@types/react": "^18.3.31",
 //%endif
 //%// Everything else
 //%if web
-		"antd": "^5.13.0",
+		"antd": "^5.29.3",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 //%endif
 //%if webpack
-		"webpack": "^5.88.2",
-		"webpack-cli": "^5.1.4",
+		"webpack": "^5.110.3",
+		"webpack-cli": "^7.2.3",
 		"webpack-merge": "^5.9.0",
 //%endif
 //%if controller
@@ -64,7 +87,7 @@
 		"@clusterio/lib": "^__clusterio_version__"
 	},
 	"dependencies": {
-		"@sinclair/typebox": "^0.30.4"
+		"@sinclair/typebox": "^0.30.6"
 	},
 	"publishConfig": {
 		"access": "public"

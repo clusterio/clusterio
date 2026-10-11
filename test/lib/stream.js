@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const path = require("path");
-const stream = require("stream");
-const util = require("util");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import stream from "node:stream";
+import util from "node:util";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 const finished = util.promisify(stream.finished);
 

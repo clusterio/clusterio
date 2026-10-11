@@ -1,8 +1,7 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
-const { Controller, InstanceRecord, InstanceManager } = require("@clusterio/controller");
+import { Controller, InstanceRecord, InstanceManager } from "@clusterio/controller";
 
 describe("controller/InstanceManager", function () {
 	/** @type {Controller} */
@@ -296,6 +295,45 @@ describe("controller/InstanceManager", function () {
 			await instances.assignInstance(1, 6);
 
 			assert.equal(unassignRequest, undefined);
+			assert(assignRequest instanceof lib.InstanceAssignInternalRequest);
+			assert.equal(assignRequest.instanceId, 1);
+		});
+
+		it("should leave instance unassigned if the new host fails the assign", async function () {
+			let unassignRequest;
+			controller.wsServer.hostConnections.set(5, {
+				send: async (request) => {
+					unassignRequest = request;
+				},
+				connector: { closing: false },
+			});
+			let failAssign = true;
+			let assignRequest;
+			controller.wsServer.hostConnections.set(6, {
+				send: async (request) => {
+					if (failAssign) {
+						throw new lib.RequestError("EACCES: permission denied");
+					}
+					assignRequest = request;
+				},
+				connector: { closing: false },
+			});
+
+			instance.config.set("instance.assigned_host", 5);
+			instance.status = "stopped";
+			await assert.rejects(
+				() => instances.assignInstance(1, 6),
+				{ message: "EACCES: permission denied" }
+			);
+
+			assert(unassignRequest instanceof lib.InstanceUnassignInternalRequest);
+			const stored = instances.records.get(1);
+			assert.equal(stored.config.get("instance.assigned_host"), null);
+			assert.equal(stored.status, "unassigned");
+
+			failAssign = false;
+			await instances.assignInstance(1, 6);
+			assert.equal(instance.config.get("instance.assigned_host"), 6);
 			assert(assignRequest instanceof lib.InstanceAssignInternalRequest);
 			assert.equal(assignRequest.instanceId, 1);
 		});

@@ -9,11 +9,20 @@ const execAsync = util.promisify(exec);
 // internal libraries
 import * as lib from "@clusterio/lib";
 
-import { FactorioServer } from "./server";
-import { SaveModule, patch } from "./patch";
-import { exportData } from "./export";
-import type Host from "./Host";
-import BaseInstancePlugin from "./BaseInstancePlugin";
+import { FactorioServer } from "./server.js";
+import { loadModules, patch } from "./patch.js";
+import { exportData } from "./export.js";
+import type Host from "./Host.js";
+import { BaseInstancePlugin, InstanceHooks } from "./BaseInstancePlugin.js";
+
+// Reject save names that would escape the instance's saves directory.
+function checkRequestSaveName(name: string) {
+	try {
+		lib.checkFilename(name);
+	} catch (err: any) {
+		throw new lib.RequestError(`Save name ${err.message}`);
+	}
+}
 
 const scriptCommands = [
 	"/cheat", "/editor",
@@ -21,6 +30,11 @@ const scriptCommands = [
 	"/measured-command", "/mc",
 	"/silent-command", "/sc",
 ];
+
+// Statuses the instance passes through on its way to running or stopped.
+const transitoryStatuses: ReadonlySet<Instance["_status"]> = new Set([
+	"starting", "stopping", "creating_save", "exporting_data",
+]);
 
 const instanceRconCommandDuration = new lib.Histogram(
 	"clusterio_instance_rcon_command_duration_seconds",
@@ -61,7 +75,7 @@ function applyAsConfig(name: string) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
 			// be a way to include a space into a tag from the console.
-			value = value.map(tag => tag.replace(/ /g, "\u00a0")).join(" ");
+			value = value.map(tag => String(tag).replace(/ /g, "\u00a0")).join(" ");
 		}
 		try {
 			await instance.sendRcon(`/config set ${name} ${value}`);
@@ -140,7 +154,6 @@ export default class Instance extends lib.Link {
 	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
 	 */
 	readonly id: number;
-	plugins: Map<string, BaseInstancePlugin>;
 	config: lib.InstanceConfig;
 	logger: lib.Logger;
 	server: FactorioServer;
@@ -156,6 +169,10 @@ export default class Instance extends lib.Link {
 	 * Players currently online on the instance.
 	 */
 	playersOnline: Set<string> = new Set();
+	/** Hooks which plugins can attach to */
+	hooks: InstanceHooks;
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 
 	_host: Host;
@@ -167,6 +184,7 @@ export default class Instance extends lib.Link {
 	_hadPlayersOnline = false;
 	_playerAutosaveSlot = 1;
 	_expectedUserUpdates: { action: string, name: string, reason: string }[] = [];
+	_settleWaiters: (() => void)[] = [];
 
 	constructor(
 		host: Host,
@@ -179,7 +197,6 @@ export default class Instance extends lib.Link {
 		this._host = host;
 		this._dir = dir;
 
-		this.plugins = new Map();
 		this.config = instanceConfig;
 
 		this.id = this.config.get("instance.id");
@@ -189,21 +206,21 @@ export default class Instance extends lib.Link {
 			instance_name: this.name,
 		});
 
-		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
-			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", field, curr, prev);
+		this.hooks = new InstanceHooks(this.logger);
 
+		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
 			if (field === "factorio.shutdown_timeout") {
 				this.server.shutdownTimeoutMs = curr as number * 1000;
+			} else if (field === "factorio.max_concurrent_commands") {
+				this.server.maxConcurrentCommands = curr as number;
 			} else if (field === "factorio.settings") {
-				this.updateFactorioSettings(curr as any, prev as any).finally(hook);
+				this._applyWhenRunning(
+					"server settings", () => this.updateFactorioSettings(curr as any, prev as any)
+				);
 			} else if (field === "factorio.enable_whitelist") {
-				this.updateFactorioWhitelist(curr as any).finally(hook);
-			} else {
-				if (field === "factorio.max_concurrent_commands") {
-					this.server.maxConcurrentCommands = curr as number;
-				}
-				hook();
+				this._applyWhenRunning("whitelist", () => this.updateFactorioWhitelist(curr as any));
 			}
+			this.hooks.instanceConfigFieldChanged.invoke(field, curr, prev);
 		};
 		this.config.on("fieldChanged", this._configFieldChanged);
 
@@ -231,7 +248,7 @@ export default class Instance extends lib.Link {
 		this.server.on("output", (parsed, line) => {
 			this.logger.log("server", { message: line, instance_id: this.id, parsed });
 
-			lib.invokeHook(this.plugins, "onOutput", parsed, line);
+			this.hooks.output.invoke(parsed, line);
 		});
 
 		this.server.on("error", err => {
@@ -302,7 +319,12 @@ export default class Instance extends lib.Link {
 				return;
 			}
 
-			let name = /^([^ ]+)/.exec(parsed.message)![1];
+			// Guard against lines that classify as actions but lack a name
+			let nameMatch = /^([^ ]+)/.exec(parsed.message);
+			if (!nameMatch) {
+				return;
+			}
+			let name = nameMatch[1];
 
 			// Detect player leave and join
 			if (parsed.action === "JOIN") {
@@ -318,7 +340,9 @@ export default class Instance extends lib.Link {
 
 			// Detect banned and admin state change, whitelist changes are not logged
 			if (parsed.action === "BAN") {
-				const reason = /\. Reason: (.+)\.$/.exec(parsed.message)![1];
+				// Ban lines without a ". Reason: X." tail default to no reason
+				const reasonMatch = /\. Reason: (.+)\.$/.exec(parsed.message);
+				const reason = reasonMatch ? reasonMatch[1] : "";
 				this._recordUserUpdate(parsed.action, name, reason !== "unspecified" ? reason : "");
 			} else if (["UNBANNED", "PROMOTE", "DEMOTE"].includes(parsed.action)) {
 				this._recordUserUpdate(parsed.action as "UNBANNED" | "PROMOTE" | "DEMOTE", name);
@@ -344,8 +368,11 @@ export default class Instance extends lib.Link {
 				return;
 			}
 
-			const name = /^([^ ]+)/.exec(parsed.message)![1];
-			this._recordUserUpdate(parsed.action as "PROMOTE" | "DEMOTE", name);
+			const nameMatch = /^([^ ]+)/.exec(parsed.message);
+			if (!nameMatch) {
+				return;
+			}
+			this._recordUserUpdate(parsed.action as "PROMOTE" | "DEMOTE", nameMatch[1]);
 		});
 	}
 
@@ -398,7 +425,7 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
-		lib.invokeHook(this.plugins, "onPlayerEvent", event);
+		this.hooks.playerEvent.invoke(event);
 	}
 
 	_recordPlayerLeave(name: string, reason: string) {
@@ -419,7 +446,7 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, stats, reason));
-		lib.invokeHook(this.plugins, "onPlayerEvent", event);
+		this.hooks.playerEvent.invoke(event);
 	}
 
 	async handleInstanceExtractPlayersRequest() {
@@ -450,7 +477,7 @@ end`.replace(/\r?\n/g, " ");
 				stats,
 			};
 			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, stats));
-			lib.invokeHook(this.plugins, "onPlayerEvent", event);
+			this.hooks.playerEvent.invoke(event);
 			count += 1;
 		}
 		this.logger.info(`Extracted data for ${count} player(s)`);
@@ -548,6 +575,13 @@ end`.replace(/\r?\n/g, " ");
 
 	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
+		if (!transitoryStatuses.has(status)) {
+			const waiters = this._settleWaiters;
+			this._settleWaiters = [];
+			for (const resolve of waiters) {
+				resolve();
+			}
+		}
 		this.sendTo(
 			"controller",
 			new lib.InstanceStatusChangedEvent(
@@ -569,6 +603,26 @@ end`.replace(/\r?\n/g, " ");
 		return this._status;
 	}
 
+	/** Wait for a transitory status to settle and return the status settled on */
+	async _waitForSettledStatus() {
+		while (transitoryStatuses.has(this._status)) {
+			await new Promise<void>(resolve => this._settleWaiters.push(resolve));
+		}
+		return this._status;
+	}
+
+	/** Apply work to the running server, waiting out transitory statuses and skipping it if it stopped */
+	async _applyWhenRunning(description: string, fn: () => Promise<void>) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+		try {
+			await fn();
+		} catch (err: any) {
+			this.logger.error(`Error updating ${description}:\n${err.stack}`);
+		}
+	}
+
 	notifyExit() {
 		this._loadedSave = null;
 		this.notifyStatus("stopped");
@@ -588,29 +642,12 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		// Notify plugins of exit
-		for (let pluginInstance of this.plugins.values()) {
-			pluginInstance.onExit();
-		}
+		this.hooks.exit.invoke();
 
 		for (let player of this.playersOnline) {
 			this._recordPlayerLeave(player, "server_quit");
 		}
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
-	}
-
-	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
-		let pluginLoadStartedMs = Date.now();
-		let InstancePluginClass = await lib.loadPluginClass(
-			pluginInfo.name,
-			path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint!),
-			"InstancePlugin",
-			BaseInstancePlugin,
-		);
-		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
-		this.plugins.set(pluginInfo.name, instancePlugin);
-		await instancePlugin.init();
-
-		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 	}
 
 	async _loadStats() {
@@ -667,6 +704,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		// load plugins
+		const plugins: Record<string, string> = {};
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
@@ -682,7 +720,18 @@ end`.replace(/\r?\n/g, " ");
 			}
 
 			try {
-				await this._loadPlugin(pluginInfo, this._host);
+				let pluginLoadStartedMs = Date.now();
+				await lib.loadPlugin(
+					pluginInfo,
+					"instance",
+					{ logger: this.logger, host: this._host, instance: this },
+					"InstancePlugin",
+					BaseInstancePlugin,
+				);
+
+				this.loadedPlugins.add(pluginInfo);
+				plugins[pluginInfo.name] = pluginInfo.version;
+				this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 			} catch (err) {
 				this.notifyExit();
 				await this.sendSaveListUpdate();
@@ -690,10 +739,6 @@ end`.replace(/\r?\n/g, " ");
 			}
 		}
 
-		let plugins: Record<string, string> = {};
-		for (let [name, plugin] of this.plugins) {
-			plugins[name] = plugin.info.version;
-		}
 		this.send(new lib.InstanceInitialisedEvent(plugins));
 	}
 
@@ -796,6 +841,7 @@ end`.replace(/\r?\n/g, " ");
 		} else {
 			modPack = await this.sendTo("controller", new lib.ModPackGetRequest(modPackId));
 		}
+		this.checkModPackVersion(modPack);
 		this.activeModPack = modPack;
 
 		const mods = await this._host.fetchMods(modPack.mods.values(), modPack.factorioVersion);
@@ -845,6 +891,25 @@ end`.replace(/\r?\n/g, " ");
 
 		// Write mod-settings.dat
 		await fs.writeFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
+	}
+
+	/**
+	 * Check that the mod pack does not target a newer Factorio than the server
+	 *
+	 * The mod pack's Factorio version is written into mod-settings.dat and
+	 * Factorio refuses to read it if it is newer than the game.  It then
+	 * loads default settings instead, which can corrupt the save.
+	 *
+	 * @throws {lib.RequestError} if the mod pack version is higher than the server version.
+	 */
+	checkModPackVersion(modPack: lib.ModPack) {
+		const serverVersion = this.server.version;
+		if (serverVersion && modPack.integerFactorioVersion > lib.integerFullVersion(serverVersion)) {
+			throw new lib.RequestError(
+				`Mod pack ${modPack.name} is for Factorio ${modPack.factorioVersion} ` +
+				`which is newer than the Factorio ${serverVersion} this instance runs`
+			);
+		}
 	}
 
 	/**
@@ -951,29 +1016,7 @@ end`.replace(/\r?\n/g, " ");
 		// Patch save with lua modules from plugins
 		this.logger.verbose("Patching save");
 
-		// Find plugin modules to patch in
-		let modules: Map<string, SaveModule> = new Map();
-		for (let plugin of this.plugins.values()) {
-			let module = await SaveModule.fromPlugin(plugin);
-			if (!module) {
-				continue;
-			}
-			modules.set(module.info.name, module);
-		}
-
-		// Find stand alone modules to load
-		// XXX for now only the included clusterio module is loaded
-		let modulesDirectory = path.join(__dirname, "..", "..", "..", "modules");
-		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
-			if (entry.isDirectory()) {
-				if (modules.has(entry.name)) {
-					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
-				}
-				let module = await SaveModule.fromDirectory(path.join(modulesDirectory, entry.name));
-				modules.set(module.info.name, module);
-			}
-		}
-
+		let modules = await loadModules(this.loadedPlugins);
 		await patch(this.path("saves", saveName), [...modules.values()]);
 		return saveName;
 	}
@@ -1008,7 +1051,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		await this.sendSaveListUpdate();
-		await lib.invokeHook(this.plugins, "onStart");
+		await this.hooks.start.invoke();
 
 		this.notifyStatus("running");
 	}
@@ -1033,7 +1076,7 @@ end`.replace(/\r?\n/g, " ");
 		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
 		this._watchServerLogActions();
 
-		await lib.invokeHook(this.plugins, "onStart");
+		await this.hooks.start.invoke();
 
 		this.notifyStatus("running");
 	}
@@ -1115,6 +1158,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceAdminlistUpdateEvent(request: lib.InstanceAdminlistUpdateEvent) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+
 		const { name, admin } = request;
 		const sync = this.config.get("factorio.sync_adminlist");
 		if (sync === "disabled") {
@@ -1128,6 +1175,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceBanlistUpdateEvent(request: lib.InstanceBanlistUpdateEvent) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+
 		const { name, banned, reason } = request;
 		const sync = this.config.get("factorio.sync_banlist");
 		if (sync === "disabled") {
@@ -1141,6 +1192,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceWhitelistUpdateEvent(request: lib.InstanceWhitelistUpdateEvent) {
+		if (await this._waitForSettledStatus() !== "running") {
+			return;
+		}
+
 		const { name, whitelisted } = request;
 		const sync = this.config.get("factorio.sync_whitelist");
 		if (this.config.get("factorio.sync_whitelist") === "disabled") {
@@ -1169,7 +1224,7 @@ end`.replace(/\r?\n/g, " ");
 
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
-			await lib.invokeHook(this.plugins, "onStop");
+			await this.hooks.stop.invoke();
 			await this.server.stop();
 			await this.sendSaveListUpdate();
 		} else if (
@@ -1188,17 +1243,17 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleControllerConnectionEvent(event: lib.ControllerConnectionEvent) {
-		await lib.invokeHook(this.plugins, "onControllerConnectionEvent", event.event);
+		await this.hooks.controllerConnectionEvent.invoke(event.event);
 	}
 
 	async handlePrepareControllerDisconnectRequest() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
+		await this.hooks.prepareControllerDisconnect.invoke(this);
 	}
 
 	async handleInstanceMetricsRequest() {
 		let results: ReturnType<typeof lib.serializeResult>[] = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
-			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
+			let pluginResults = await this.hooks.metrics.collect();
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
 					results.push(lib.serializeResult(metric));
@@ -1222,6 +1277,9 @@ end`.replace(/\r?\n/g, " ");
 
 	async handleInstanceStartRequest(request: lib.InstanceStartRequest) {
 		let saveName = request.save;
+		if (saveName !== undefined) {
+			checkRequestSaveName(saveName);
+		}
 		try {
 			try {
 				await this.prepare();
@@ -1281,6 +1339,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceCreateSaveRequest(request: lib.InstanceCreateSaveRequest) {
+		checkRequestSaveName(request.name);
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");

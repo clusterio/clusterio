@@ -1,27 +1,28 @@
 /* eslint-disable no-console */
-"use strict";
-const path = require("path");
-const fs = require("node:fs/promises");
-const { readFileSync } = require("node:fs");
-const child_process = require("child_process");
-const jwt = require("jsonwebtoken");
-const util = require("util");
-const events = require("events");
+import path from "node:path";
+import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import child_process from "node:child_process";
+import jwt from "jsonwebtoken";
+import util from "node:util";
+import events from "node:events";
 
-const lib = require("@clusterio/lib");
-const { LineSplitter, ConsoleTransport, logger } = lib;
+import * as lib from "@clusterio/lib";
+import { LineSplitter, logger } from "@clusterio/lib";
 
-const { selectTargetCommand, initialize: initializeCtl } = require("@clusterio/ctl");
-const { _listFactorioVersions } = require("@clusterio/host/dist/node/src/server");
+import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
+import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
+
+import "../setup_logging.js";
 
 // Make sure permissions from plugins are loaded
-require("../../plugins/global_chat/dist/node/index");
-require("../../plugins/player_auth/dist/node/index");
-require("../../plugins/research_sync/dist/node/index");
-require("../../plugins/statistics_exporter/dist/node/index");
-require("../../plugins/subspace_storage/dist/node/index");
+import "../../plugins/global_chat/dist/node/index.js";
+import "../../plugins/player_auth/dist/node/index.js";
+import "../../plugins/research_sync/dist/node/index.js";
+import "../../plugins/statistics_exporter/dist/node/index.js";
+import "../../plugins/subspace_storage/dist/node/index.js";
 
-class TestControl extends lib.Link {
+export class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
 		super(connector);
 		this.hostUpdates = [];
@@ -93,7 +94,7 @@ class TestControl extends lib.Link {
 	}
 }
 
-class TestControlConnector extends lib.WebSocketClientConnector {
+export class TestControlConnector extends lib.WebSocketClientConnector {
 	register() {
 		this.sendHandshake(
 			new lib.MessageRegisterControl(
@@ -105,7 +106,7 @@ class TestControlConnector extends lib.WebSocketClientConnector {
 	}
 }
 
-class TestHostConnector extends lib.WebSocketClientConnector {
+export class TestHostConnector extends lib.WebSocketClientConnector {
 	register() {
 		this.sendHandshake(
 			new lib.MessageRegisterHost(
@@ -118,27 +119,8 @@ class TestHostConnector extends lib.WebSocketClientConnector {
 	}
 }
 
-// Mark that this test takes a lot of time, or depends on a test that takes a lot of time.
-function slowTest(test) {
-
-	if (process.env.FAST_TEST) {
-		test.skip();
-	}
-
-	test.timeout(30000);
-}
-
-// Mark that this test depends on an external API and may be slow or flaky.
-function externalTest(test) {
-	if (process.env.NO_EXTERNAL_TEST) {
-		test.skip();
-	}
-
-	test.timeout(60000);
-}
-
 // Mark that this test or suite of tests requires a factorio install to run.
-function requiresFactorio(testOrSuite) {
+export function requiresFactorio(testOrSuite) {
 	if (testOrSuite.skip) {
 		if (!haveFactorioInstall) {
 			testOrSuite.skip();
@@ -152,11 +134,11 @@ function requiresFactorio(testOrSuite) {
 	}
 }
 
-function hasFactorio() {
+export function hasFactorio() {
 	return haveFactorioInstall;
 }
 
-async function get(urlPath) {
+export async function get(urlPath) {
 	const url = new URL("https://localhost:4443");
 	url.pathname = urlPath;
 	let res = await fetch(url);
@@ -191,16 +173,17 @@ let haveFactorioInstall;
 
 const baseHostConfig = loadJSON("config-host.json");
 
-let url = "https://localhost:4443/";
-let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
-let instancesDir = path.join("temp", "test", "instances");
-let modsDir = path.join("temp", "test", "mods");
-let databaseDir = path.join("temp", "test", "database");
-let factorioDir = getFactorioDir(baseHostConfig);
+export let url = "https://localhost:4443/";
+// Signed in the root before hook, as the user has to exist before the token is issued
+export let controlToken;
+export let instancesDir = path.join("temp", "test", "instances");
+export let modsDir = path.join("temp", "test", "mods");
+export let databaseDir = path.join("temp", "test", "database");
+export let factorioDir = getFactorioDir(baseHostConfig);
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
-let controllerConfigPath = path.join("temp", "test", "config-controller.json");
-let hostConfigPath = path.join("temp", "test", "config-host.json");
-let controlConfigPath = path.join("temp", "test", "config-control.json");
+export let controllerConfigPath = path.join("temp", "test", "config-controller.json");
+export let hostConfigPath = path.join("temp", "test", "config-host.json");
+export let ctlConfigPath = path.join("temp", "test", "config-ctl.json");
 
 function childOptions(options) {
 	return {
@@ -210,38 +193,38 @@ function childOptions(options) {
 	};
 }
 
-function exec(command, options = {}) {
+export function exec(command, options = {}) {
 	// Uncomment to show commands run in tests
 	// console.log(command);
 	return util.promisify(child_process.exec)(command, childOptions(options));
 }
 
-function execController(...args) {
+export function execController(...args) {
 	args[0] = `node --enable-source-maps ../../packages/controller ${args[0]}`;
 	return exec(...args);
 }
 
-function execHost(...args) {
+export function execHost(...args) {
 	args[0] = `node --enable-source-maps ../../packages/host ${args[0]}`;
 	return exec(...args);
 }
 
-function execCtlProcess(...args) {
+export function execCtlProcess(...args) {
 	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
 	return exec(...args);
 }
 
 let inExecCtl = false;
-async function execCtl(command) {
+export async function execCtl(command) {
 	inExecCtl = true;
 	process.chdir("temp/test");
 	try {
-		const initArgs = await initializeCtl(command, control.plugins, true);
+		const initArgs = await initializeCtl(command, control.hooks, true);
 		if (!initArgs.shouldRun) {
 			return;
 		}
 
-		control.config = initArgs.controlConfig;
+		control.config = initArgs.ctlConfig;
 		const targetCommand = selectTargetCommand(initArgs.args, initArgs.rootCommands);
 		await targetCommand.run(initArgs.args, control);
 	} finally {
@@ -257,16 +240,16 @@ afterEach(function() {
 	}
 });
 
-async function sendRcon(instanceId, command) {
+export async function sendRcon(instanceId, command) {
 	return await control.sendTo({ instanceId }, new lib.InstanceSendRconRequest(command));
 }
 
-function getControl() {
+export function getControl() {
 	return control;
 }
 
 /** @returns {Promise<child_process.ChildProcess>} */
-function spawn(name, cmd, waitFor, options = {}) {
+export function spawn(name, cmd, waitFor, options = {}) {
 
 	const silent = process.env.SILENT_TEST;
 	const bootstrap = !controllerProcess || !hostProcess;
@@ -303,7 +286,7 @@ function spawn(name, cmd, waitFor, options = {}) {
 	});
 }
 
-function spawnNode(name, cmd, waitFor, options) {
+export function spawnNode(name, cmd, waitFor, options) {
 	return spawn(name, `node --enable-source-maps ${cmd}`, waitFor, options);
 }
 
@@ -315,13 +298,6 @@ before(async function() {
 	if (silent) {
 		console.log("SILENT_TEST is present in env, loggers after bootstrap will be muted.");
 	}
-
-	// Some integration tests may cause log events
-	logger.add(new ConsoleTransport({
-		level: "info",
-		format: new lib.TerminalFormat(),
-		filter: () => !silent,
-	}));
 
 	// If fast test is enabled then output that it is
 
@@ -340,7 +316,7 @@ before(async function() {
 	await fs.rm(pluginListPath, { force: true });
 	await fs.rm(controllerConfigPath, { force: true });
 	await fs.rm(hostConfigPath, { force: true });
-	await fs.rm(controlConfigPath, { force: true });
+	await fs.rm(ctlConfigPath, { force: true });
 
 	await fs.mkdir(path.join("temp", "test"), { recursive: true });
 
@@ -354,6 +330,7 @@ before(async function() {
 	});
 
 	console.log("Setting Controller Config");
+	await execController("config create");
 	await execController("config set controller.auth_secret TestSecretDoNotUse");
 	await execController("config set controller.http_port 8880");
 	await execController("config set controller.https_port 4443");
@@ -374,6 +351,7 @@ before(async function() {
 	console.log("Bootstrapping");
 	await execController("bootstrap create-admin test");
 	await execController("bootstrap create-ctl-config test");
+	controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
@@ -384,6 +362,7 @@ before(async function() {
 
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
 	await execCtlProcess("host create-config --id 4 --name host --generate-token");
+	await execHost("config create");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
 
 	hostProcess = await spawnNode("host:", "../../packages/host run", /Started host/);
@@ -393,9 +372,9 @@ before(async function() {
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
 
-	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} control-config list`, undefined, true);
-	control.config = initArgs.controlConfig;
-	control.plugins = initArgs.ctlPlugins;
+	const initArgs = await initializeCtl(`--plugin-list ${pluginListPath} config create`, undefined, true);
+	control.config = initArgs.ctlConfig;
+	control.hooks = initArgs.ctlHooks;
 
 	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
@@ -437,34 +416,3 @@ process.on("exit", () => {
 	if (hostProcess) { hostProcess.kill(); }
 	if (controllerProcess) { controllerProcess.kill(); }
 });
-
-
-module.exports = {
-	TestControl,
-	TestControlConnector,
-	TestHostConnector,
-	execController,
-	execCtlProcess,
-	slowTest,
-	externalTest,
-	requiresFactorio,
-	get,
-	exec,
-	execCtl,
-	execHost,
-	sendRcon,
-	getControl,
-	spawn,
-	spawnNode,
-
-	url,
-	controlToken,
-	instancesDir,
-	modsDir,
-	databaseDir,
-	factorioDir,
-	hasFactorio,
-	controllerConfigPath,
-	hostConfigPath,
-	controlConfigPath,
-};

@@ -17,8 +17,11 @@ Common options:
    See the `plugin` command for managing this list.
 
  * `--config <file>` JSON file to use for storing configuration for ctl.
-   Defaults to `config-control.json` and will be created if it does not exist.
+   Defaults to `config-ctl.json` and is required for operation.
    See the `config` command for inspecting and modifying the configuration.
+
+ * `--create-config` If the config file is missing, create a new one and carry on instead of exiting with an error.
+   Alternative to the `config create` command.
 
 
 ### `plugin <command>`
@@ -27,17 +30,28 @@ Configure plugins available to be loaded by ctl.
 The available plugins will be automatically loaded and the commands they provide will be added to the ctl utility.
 
 
+#### `plugin install <package>`
+
+Install a plugin from npm and add it to the plugin list.
+The package is passed to `npm install --save` so anything npm accepts works, including a version like `@clusterio/plugin-subspace_storage@2.0.0`.
+This command refuses to run outside the directory Clusterio was installed in, as the plugin has to end up in that directory's node_modules to be found.
+
+For example, installing the Subspace Storage plugin:
+
+    npx clusterioctl plugin install @clusterio/plugin-subspace_storage
+
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
+
+
 #### `plugin add <path>`
 
 Add plugin either by require path or relative/absolute path to the plugin directory.
 A relative path must start with ./ or ../ (or .\ and ..\ on Windows) otherwise it will be assumed to be a require path for an installed package in node_modules.
+This is mainly useful for plugins under development, packages published on npm are better installed with `plugin install`.
 
-For example, installing the Subspace Storage plugin:
+For example, adding a plugin checked out in the external_plugins directory:
 
-    npm install @clusterio/plugin-subspace_storage
-    npx clusterioctl plugin add @clusterio/plugin-subspace_storage
-
-Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
+    npx clusterioctl plugin add ./external_plugins/my_plugin
 
 
 #### `plugin remove <name>`
@@ -59,13 +73,20 @@ Since the `plugin-list.json` is shared between controller, host and ctl you usua
 Lists the plugins set up to be available by name followed by path.
 
 
-### `config-control`
+### `config`
 
 Manage the ctl configuration.
 This allows setting the url and token to the controller to manage.
 
 
-#### `config-control set <config-entry> [value]`
+#### `config create`
+
+Create a new config file with the default options inserted into if it doesn't already exist.
+
+See also the `--create-config` option.
+
+
+#### `config set <config-entry> [value]`
 
 Set a config entry to the given value.
 If value is not provided the entry is set to null.
@@ -74,12 +95,12 @@ If the config entry is of type object the value must be a valid JSON serializati
 See docs/configuration.md in the main repositiory for the available configuration.
 
 
-#### `config-control show <config-entry>`
+#### `config show <config-entry>`
 
 Shows the value for a single config entry.
 
 
-#### `config-control list`
+#### `config list`
 
 Lists up all configuration entries with their currently configured values.
 

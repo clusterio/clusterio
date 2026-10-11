@@ -2,5 +2,5 @@
  * Library for interfacing with external apis
  * @module lib/external
  */
-export * from "./FactorioVersions";
-export * from "./LatestReleases";
+export * from "./FactorioVersions.js";
+export * from "./LatestReleases.js";

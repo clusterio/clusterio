@@ -1,6 +1,5 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
 describe("lib/data/Role", function() {
 	let defaultPermissions;

@@ -1,9 +1,9 @@
-"use strict";
-const events = require("events");
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
-const { MockController, MockConnector, MockControl } = require("../mock");
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import events from "node:events";
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
+import { MockController, MockConnector, MockControl } from "../mock.js";
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
+import "../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -391,7 +391,7 @@ describe("lib/subscriptions", function() {
 					return [connectorData.id, new lib.Link(new MockConnector(connectorData.src, connectorData.dst))];
 				})),
 			};
-			subscriptions = new lib.SubscriptionController(mockController);
+			subscriptions = new lib.SubscriptionController();
 		});
 
 		describe(".handle()", function() {
@@ -552,6 +552,57 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe(".checkLinkPermissions()", function() {
+			class DenyingUser {
+				constructor(denied) {
+					this.denied = denied;
+				}
+
+				checkPermission(permission) {
+					if (permission === this.denied) {
+						throw new lib.PermissionError("Permission denied");
+					}
+				}
+			}
+			beforeEach(async function() {
+				subscriptions.handle(StringPermissionEvent);
+				subscriptions.handle(FunctionPermissionEvent);
+				for (const connectorData of connectorSetupDate) {
+					for (const Event of [StringPermissionEvent, FunctionPermissionEvent]) {
+						const request = new lib.SubscriptionRequest(Event.name, "subscribe");
+						await subscriptions.handleRequest(getLink(connectorData.id), request, connectorData.dst);
+					}
+				}
+			});
+
+			it("should remove subscriptions with a string permission the user lost", async function() {
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser("StringPermission"));
+				subscriptions.broadcast(new StringPermissionEvent());
+				await onceConnectorSend(1);
+				assertNoEvent(0);
+				subscriptions.broadcast(new FunctionPermissionEvent());
+				await onceConnectorSend(0);
+				assertLastEvent(0, FunctionPermissionEvent);
+			});
+
+			it("should remove subscriptions with a function permission the user lost", async function() {
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser("FunctionPermission"));
+				subscriptions.broadcast(new FunctionPermissionEvent());
+				await onceConnectorSend(1);
+				assertNoEvent(0);
+				subscriptions.broadcast(new StringPermissionEvent());
+				await onceConnectorSend(0);
+				assertLastEvent(0, StringPermissionEvent);
+			});
+
+			it("should keep subscriptions the user still has permission for", async function() {
+				subscriptions.checkLinkPermissions(getLink(0), new DenyingUser(null));
+				subscriptions.broadcast(new StringPermissionEvent());
+				await onceConnectorSend(0);
+				assertLastEvent(0, StringPermissionEvent);
+			});
+		});
+
 		describe(".handleRequest()", function() {
 			beforeEach(function() {
 				subscriptions.handle(RegisteredEvent);
@@ -628,7 +679,7 @@ describe("lib/subscriptions", function() {
 				}
 
 				it("should strip the request id from broadcast events", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent);
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -646,7 +697,7 @@ describe("lib/subscriptions", function() {
 				});
 
 				it("should strip the request id from the replayed event", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent, async () => new RegisteredEvent());
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -661,7 +712,7 @@ describe("lib/subscriptions", function() {
 				});
 
 				it("should strip the request id when replacing filters creates the subscription", async function() {
-					const ownSubscriptions = new lib.SubscriptionController(mockController);
+					const ownSubscriptions = new lib.SubscriptionController();
 					ownSubscriptions.handle(RegisteredEvent);
 					await ownSubscriptions.handleRequest(
 						getLink(connectorData.id),
@@ -729,6 +780,64 @@ describe("lib/subscriptions", function() {
 					subscriptions.broadcast(new RegisteredEvent(), "baz");
 					await onceConnectorSend(0);
 					assertLastEvent(0, RegisteredEvent);
+				});
+
+				it("should reject filters over the limit", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request0 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, ["foo", "bar"]);
+					await ownSubscriptions.handleRequest(link, request0, connectorData.dst, connectorData.src);
+
+					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, "baz");
+					await assert.rejects(
+						ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src),
+						lib.RequestError,
+					);
+
+					ownSubscriptions.broadcast(new RegisteredEvent(), "baz");
+					await new Promise(r => setImmediate(r));
+					assertNoEvent(0);
+				});
+
+				it("should not count existing filters towards the limit", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request0 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, ["foo", "bar"]);
+					await ownSubscriptions.handleRequest(link, request0, connectorData.dst, connectorData.src);
+
+					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, "foo");
+					await ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src);
+				});
+
+				it("should not limit filters when subscribed to all", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request0 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe");
+					await ownSubscriptions.handleRequest(link, request0, connectorData.dst, connectorData.src);
+
+					const request1 = new lib.SubscriptionRequest(
+						RegisteredEvent.name, "subscribe", 0, ["foo", "bar", "baz"]
+					);
+					await ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src);
+				});
+
+				it("should not limit filters when the limit is 0", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+
+					const request = new lib.SubscriptionRequest(
+						RegisteredEvent.name, "subscribe", 0, ["foo", "bar", "baz"]
+					);
+					await subscriptions.handleRequest(link, request, connectorData.dst, connectorData.src);
 				});
 			});
 
@@ -851,6 +960,21 @@ describe("lib/subscriptions", function() {
 					subscriptions.broadcast(new RegisteredEvent());
 					await new Promise(r => setImmediate(r));
 					assertNoEvent(0);
+				});
+
+				it("should reject filters over the limit", async function() {
+					const link = getLink(0);
+					const connectorData = connectorSetupDate[0];
+					const ownSubscriptions = new lib.SubscriptionController(2);
+					ownSubscriptions.handle(RegisteredEvent);
+
+					const request = new lib.SubscriptionRequest(
+						RegisteredEvent.name, "replace", 0, ["foo", "bar", "baz"]
+					);
+					await assert.rejects(
+						ownSubscriptions.handleRequest(link, request, connectorData.dst, connectorData.src),
+						lib.RequestError,
+					);
 				});
 			});
 		});
@@ -1108,6 +1232,66 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe(".handleAccountEvent()", function() {
+			it("should send replace(all) if subscribed", async function() {
+				eventSubscriber.subscribe(() => {});
+				await onceConnectorSend();
+
+				eventSubscriber.handleAccountEvent();
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
+				));
+			});
+
+			it("should send replace(filters) when only filters exist", async function() {
+				eventSubscriber.addFilters("foo");
+				await onceConnectorSend();
+
+				eventSubscriber.handleAccountEvent();
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.fromShorthand("foo")
+				));
+			});
+
+			it("should send nothing if not subscribed", async function() {
+				eventSubscriber.handleAccountEvent();
+				await new Promise(r => setImmediate(r));
+				assertNoMessageSent();
+			});
+
+			it("should send once when connecting and the account is reported", async function() {
+				eventSubscriber.subscribe(() => {});
+				await onceConnectorSend();
+				mockControl.connector.sentMessages.pop();
+
+				eventSubscriber.handleAccountEvent();
+				mockControl.connector.emit("connect");
+				await new Promise(r => setImmediate(r));
+				assert.equal(mockControl.connector.sentMessages.length, 1);
+			});
+
+			it("should be called on account updates from the control", async function() {
+				const handlers = [];
+				mockControl = new MockControl(new MockConnector(
+					addr({ controlId: 0 }),
+					addr("controller"),
+				));
+				mockControl.onAccountUpdate = handler => { handlers.push(handler); };
+				const subscriber = new lib.EventSubscriber(RegisteredEvent, mockControl);
+				assert.equal(handlers.length, 1);
+
+				subscriber.subscribe(() => {});
+				await onceConnectorSend();
+				handlers[0]({ name: "test", roles: [] });
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
+				));
+			});
+		});
+
 		describe("._sendRequest()", function() {
 			it("should do nothing if connection is not valid", async function() {
 				mockControl.connector.valid = false;
@@ -1187,6 +1371,26 @@ describe("lib/subscriptions", function() {
 					lib.logger.error = originalError;
 				}
 				assert.equal(logged, undefined);
+			});
+
+			it("should notify callbacks as not synced when the request fails", async function() {
+				let calledWith;
+				eventSubscriber.subscribe((e, s) => { calledWith = [e, s]; });
+				const [msg] = await onceConnectorSend();
+				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src,
+					lib.SubscriptionRequest.Response.fromJSON(false)
+				));
+				await new Promise(r => setImmediate(r));
+				assert.equal(eventSubscriber.synced, true);
+
+				mockControl.sendTo = async function() {
+					throw new lib.PermissionError("Permission denied");
+				};
+				eventSubscriber.handleAccountEvent();
+				await new Promise(r => setImmediate(r));
+				assert.equal(eventSubscriber.synced, false);
+				assert.deepEqual(calledWith, [null, false]);
+				assert.ok(eventSubscriber.error instanceof lib.PermissionError);
 			});
 
 			it("should expose errors through the snapshot", async function() {

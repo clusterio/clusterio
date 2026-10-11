@@ -23,6 +23,7 @@
 		"access": "public"
 	},
 
+	"type": "module",
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --mode production",
@@ -35,8 +36,15 @@
 	"peerDependencies": {
 		"@clusterio/ctl": "workspace:^",
 		"@clusterio/host": "workspace:^",
-		"@clusterio/lib": "workspace:^",
-		"@clusterio/web_ui": "workspace:^"
+		"@clusterio/lib": "workspace:^"
+	},
+	"peerDependenciesMeta": {
+		"@clusterio/ctl": {
+			"optional": true
+		},
+		"@clusterio/host": {
+			"optional": true
+		}
 	},
 	"dependencies": {
 		"@sinclair/typebox": "catalog:"

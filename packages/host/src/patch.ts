@@ -9,9 +9,6 @@ import { Type, Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
-import BaseInstancePlugin from "./BaseInstancePlugin";
-
-
 /**
  * Describes a module that can be patched into a save
  */
@@ -90,9 +87,8 @@ export class SaveModule {
 		return module;
 	}
 
-	static async fromPlugin(plugin: BaseInstancePlugin) {
-		let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
-		let moduleDirectory = path.join(path.dirname(pluginPackagePath), "module");
+	static async fromPluginInfo(pluginInfo: lib.PluginNodeEnvInfo) {
+		let moduleDirectory = path.join(path.dirname(pluginInfo.packagePath), "module");
 		try {
 			await fs.access(moduleDirectory);
 		} catch (err: any) {
@@ -103,17 +99,17 @@ export class SaveModule {
 		let moduleJson;
 		try {
 			moduleJson = {
-				name: plugin.info.name,
-				version: plugin.info.version,
+				name: pluginInfo.name,
+				version: pluginInfo.version,
 				dependencies: { "clusterio": "*" },
 				...JSON.parse(await fs.readFile(moduleJsonPath, "utf8")),
 			};
 		} catch (err: any) {
-			throw new Error(`Loading module/module.json in plugin ${plugin.info.name} failed: ${err.message}`);
+			throw new Error(`Loading module/module.json in plugin ${pluginInfo.name} failed: ${err.message}`);
 		}
 		if (!lib.ModuleInfo.validate(moduleJson)) {
 			throw new Error(
-				`module/module.json in plugin ${plugin.info.name} failed validation:\n` +
+				`module/module.json in plugin ${pluginInfo.name} failed validation:\n` +
 				`${JSON.stringify(lib.ModuleInfo.validate.errors, null, "\t")}`
 			);
 		}
@@ -147,6 +143,40 @@ export class SaveModule {
 		await module.loadFiles(moduleDirectory);
 		return module;
 	}
+}
+
+/**
+ * Load the modules to patch into a save
+ *
+ * Collects the modules provided by the given plugins together with the
+ * modules bundled with the host package.
+ *
+ * @param pluginInfos - Plugins to load modules from.
+ * @returns Map of module name to module.
+ */
+export async function loadModules(pluginInfos: Iterable<lib.PluginNodeEnvInfo>) {
+	let modules: Map<string, SaveModule> = new Map();
+	for (let pluginInfo of pluginInfos) {
+		let module = await SaveModule.fromPluginInfo(pluginInfo);
+		if (!module) {
+			continue;
+		}
+		modules.set(module.info.name, module);
+	}
+
+	// Find stand alone modules to load
+	// XXX for now only the included clusterio module is loaded
+	let modulesDirectory = path.join(import.meta.dirname, "..", "..", "..", "modules");
+	for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
+		if (entry.isDirectory()) {
+			if (modules.has(entry.name)) {
+				throw new Error(`Module with name ${entry.name} already exists in a plugin`);
+			}
+			let module = await SaveModule.fromDirectory(path.join(modulesDirectory, entry.name));
+			modules.set(module.info.name, module);
+		}
+	}
+	return modules;
 }
 
 export class PatchInfo {

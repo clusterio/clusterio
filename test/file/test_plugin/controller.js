@@ -1,9 +1,8 @@
-"use strict";
-const { BaseControllerPlugin } = require("@clusterio/controller");
+import { BaseControllerPlugin } from "@clusterio/controller";
 
-const { ControllerEcho, HostEcho } = require("./messages");
+import { ControllerEcho, HostEcho } from "./messages.js";
 
-class ControllerPlugin extends BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
 	async init() {
 		this.logger.info("test_plugin controller loaded");
 		this.controller.handle(ControllerEcho, this.handleControllerEcho.bind(this));
@@ -15,7 +14,3 @@ class ControllerPlugin extends BaseControllerPlugin {
 		return request.text;
 	}
 }
-
-module.exports = {
-	ControllerPlugin,
-};

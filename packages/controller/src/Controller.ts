@@ -1,6 +1,7 @@
 import type winston from "winston";
 import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
-import type { ControllerArgs } from "../controller";
+import type { ControllerArgs } from "../controller.js";
+import type ControlConnection from "./ControlConnection.js";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
@@ -14,22 +15,23 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import semver from "semver";
 import stream from "stream";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import * as lib from "@clusterio/lib";
-const { logger, Summary, Gauge } = lib;
+import { logger, Summary, Gauge } from "@clusterio/lib";
 
-import HttpCloser from "./HttpCloser";
-import InstanceRecord from "./InstanceRecord";
-import * as metrics from "./metrics";
-import * as routes from "./routes";
-import User from "./User";
-import UserRecord from "./UserRecord";
-import UserManager from "./UserManager";
-import WsServer from "./WsServer";
-import HostRecord from "./HostRecord";
-import BaseControllerPlugin from "./BaseControllerPlugin";
-import ControllerRouter from "./ControllerRouter";
-import InstanceManager from "./InstanceManager";
+import HttpCloser from "./HttpCloser.js";
+import InstanceRecord from "./InstanceRecord.js";
+import * as metrics from "./metrics.js";
+import * as routes from "./routes.js";
+import User from "./User.js";
+import UserRecord from "./UserRecord.js";
+import UserManager from "./UserManager.js";
+import WsServer from "./WsServer.js";
+import HostRecord from "./HostRecord.js";
+import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
+import ControllerRouter from "./ControllerRouter.js";
+import InstanceManager from "./InstanceManager.js";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -69,8 +71,10 @@ export default class Controller {
 	httpsServer: https.Server | null = null;
 	httpsServerCloser: HttpCloser | null = null;
 
-	/** Mapping of plugin name to loaded plugin */
-	plugins: Map<string, BaseControllerPlugin> = new Map();
+	/** Hooks which plugins can attach to */
+	hooks = new ControllerHooks(logger);
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 	/** WebSocket server */
 	wsServer: WsServer;
@@ -80,7 +84,7 @@ export default class Controller {
 	private _events = new events.EventEmitter<ControllerEvents>();
 
 	/** Event subscription controller */
-	subscriptions = new lib.SubscriptionController();
+	subscriptions: lib.SubscriptionController;
 	/** User manager for the cluster, also contains access to the user records */
 	users: UserManager;
 	/** Instance manager for the cluster, also contains access to the user records */
@@ -270,6 +274,7 @@ export default class Controller {
 		});
 
 		// Handle subscriptions for all internal properties
+		this.subscriptions = new lib.SubscriptionController(config.get("controller.max_subscription_filters"));
 		this.subscriptions.handle(lib.SystemInfoUpdateEvent, this.handleSystemInfoSubscription.bind(this));
 		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
@@ -345,7 +350,7 @@ export default class Controller {
 
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
-			this._startDevServer(args);
+			await this._startDevServer(args);
 		}
 
 		this.config.on("fieldChanged", (field, curr, prev) => {
@@ -358,7 +363,7 @@ export default class Controller {
 			} else if (field === "controller.static_url") {
 				this.app.locals.staticRoot = this.config.get("controller.static_url");
 			}
-			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
+			this.hooks.controllerConfigFieldChanged.invoke(field, curr, prev);
 		});
 
 		// Make sure we're actually going to listen on a port
@@ -383,7 +388,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json");
+			let manifestPath = path.join(import.meta.dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -406,7 +411,7 @@ export default class Controller {
 					method: req.method,
 					url: req.originalUrl,
 					httpVersion: req.httpVersion,
-					headers: req.headers,
+					headers: Controller.loggableHeaders(req.headers),
 					query: req.query,
 				},
 			});
@@ -458,12 +463,13 @@ export default class Controller {
 	async _startDevServer(args: ControllerArgs) {
 		logger.warn("Webpack development mode enabled");
 
-		const webpack = require("webpack");
-		const webpackDevMiddleware = require("webpack-dev-middleware");
+		const webpack = (await import("webpack")).default;
+		const webpackDevMiddleware = (await import("webpack-dev-middleware")).default;
 		const webpackConfigs = [];
 
 		if (args.dev) {
-			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
+			// @ts-expect-error this file is run from a different folder
+			webpackConfigs.push((await import("../../../webpack.config.cjs")).default({})); // Path outside of build
 		}
 		if (args.devPlugin) {
 			let devPlugins = new Map();
@@ -472,7 +478,10 @@ export default class Controller {
 				if (!info) {
 					throw new lib.StartupError(`No plugin named ${name}`);
 				}
-				let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
+				const webpackConfig = path.posix.join(info.requirePath, "webpack.config.cjs");
+				let config = (await import(
+					path.isAbsolute(webpackConfig) ? pathToFileURL(webpackConfig).href : webpackConfig
+				)).default({});
 				devPlugins.set(name, webpackConfigs.length);
 				webpackConfigs.push(config);
 			}
@@ -537,7 +546,7 @@ export default class Controller {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
 		}
 
-		await lib.invokeHook(this.plugins, "onShutdown");
+		await this.hooks.shutdown.invoke();
 
 		await this.wsServer.stop();
 
@@ -627,7 +636,9 @@ export default class Controller {
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("controller.version");
-			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJsonPath = fileURLToPath(
+				import.meta.resolve("@clusterio/controller/package.json"),
+			);
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
@@ -644,15 +655,14 @@ export default class Controller {
 				}
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
-				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-				const pluginPackageJson = JSON.parse(await fs.readFile(pluginPackageJsonPath, "utf8"));
+				const pluginPackageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;
 				}
 			}
 		} catch (err: any) {
-			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+			logger.warn(`Failed to read package.json for ${packageName}:\n${err.stack ?? err.message}`);
 		}
 
 		return false;
@@ -661,7 +671,7 @@ export default class Controller {
 	async checkRestartDowngrade() {
 		try {
 			const runningVersion = this.config.get("controller.version");
-			const packageJsonPath = require.resolve("@clusterio/controller/package.json");
+			const packageJsonPath = fileURLToPath(import.meta.resolve("@clusterio/controller/package.json"));
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			const installedVersion = packageJson.version;
 
@@ -726,9 +736,8 @@ export default class Controller {
 			this.modPacks.save(),
 			this.roles.save(),
 			this.users.records.save(),
+			this.hooks.save.invoke(),
 		]);
-
-		await lib.invokeHook(this.plugins, "onSaveData");
 	}
 
 	static migrateSystems(rawJson: unknown[]): Static<typeof lib.SystemInfo.jsonSchema>[] {
@@ -835,7 +844,7 @@ export default class Controller {
 		try {
 			manifest = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
-			if (!throwOnMissing && err.code !== "ENOENT") {
+			if (throwOnMissing || err.code !== "ENOENT") {
 				throw err;
 			}
 		}
@@ -890,7 +899,7 @@ export default class Controller {
 						statusCode: res.statusCode,
 						responseTime: durationMs,
 						httpVersion: req.httpVersion,
-						headers: req.headers,
+						headers: Controller.loggableHeaders(req.headers),
 						query: req.query,
 					},
 				});
@@ -902,7 +911,7 @@ export default class Controller {
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
 		app.use("/static",
-			express.static(path.join(__dirname, "..", "..", "web", "static"), staticOptions)
+			express.static(path.join(import.meta.dirname, "..", "..", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
@@ -1028,7 +1037,7 @@ export default class Controller {
 
 	modPacksUpdated(modPacks: lib.ModPack[]) {
 		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
-		lib.invokeHook(this.plugins, "onModPacksUpdated", modPacks);
+		this.hooks.modPacksUpdated.invoke(modPacks);
 	}
 
 	async handleModPackSubscription(request: lib.SubscriptionRequest) {
@@ -1044,7 +1053,7 @@ export default class Controller {
 	modsUpdated(mods: lib.ModInfo[]) {
 		// ModStore sets updatedAtMs for mods
 		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
-		lib.invokeHook(this.plugins, "onModsUpdated", mods);
+		this.hooks.modsUpdated.invoke(mods);
 	}
 
 	async handleModSubscription(request: lib.SubscriptionRequest) {
@@ -1079,33 +1088,32 @@ export default class Controller {
 	userPermissionsUpdated(user: Readonly<User>) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
-				controlConnection.send(
-					new lib.AccountUpdateEvent([...user.roles].map(r => ({
-						name: r.name,
-						id: r.id,
-						permissions: [...r.permissions],
-					})))
-				);
+				this._controlPermissionsUpdated(controlConnection);
 			}
 		}
 	}
 
+	_controlPermissionsUpdated(controlConnection: ControlConnection) {
+		const user = controlConnection.user;
+		this.subscriptions.checkLinkPermissions(controlConnection, user);
+		controlConnection.checkLogPermission();
+		controlConnection.send(
+			new lib.AccountUpdateEvent([...user.roles].map(r => ({
+				name: r.name,
+				id: r.id,
+				permissions: [...r.permissions],
+			})))
+		);
+	}
+
 	rolesUpdated(roles: lib.Role[]) {
 		this.subscriptions.broadcast(new lib.RoleUpdatesEvent(roles));
-		// lib.invokeHook(this.plugins, "onRolesUpdated", roles); // This doesn't exist at the moment
+		this.hooks.rolesUpdated.invoke(roles);
 		// Notify connected control clients with the given role that the permissions may have changed.
 		for (const role of roles) {
 			for (let controlConnection of this.wsServer.controlConnections.values()) {
 				if (controlConnection.user.roles.has(role)) {
-					controlConnection.send(
-						new lib.AccountUpdateEvent(
-							[...controlConnection.user.roles].map(r => ({
-								name: r.name,
-								id: r.id,
-								permissions: [...r.permissions],
-							}))
-						)
-					);
+					this._controlPermissionsUpdated(controlConnection);
 				}
 			}
 		}
@@ -1122,12 +1130,18 @@ export default class Controller {
 	}
 
 	async loadPlugins() {
+		const context = { metrics, logger, controller: this };
 		for (let pluginInfo of this.pluginInfos) {
 			try {
-				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
-				pluginInfo.manifest = await Controller.loadJsonObject(require.resolve(manifestPath), true);
+				const manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
+				const resolvedUrl = import.meta.resolve(manifestPath);
+				const resolvedPath = resolvedUrl.startsWith("file://") ? fileURLToPath(resolvedUrl) : resolvedUrl;
+				pluginInfo.manifest = await Controller.loadJsonObject(resolvedPath, true);
 			} catch (err) {
-				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+				if (lib.pluginNeedsWebBuild(pluginInfo)) {
+					const stack = (err as Error).stack ?? (err as Error).message;
+					logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}\n${stack}`);
+				}
 			}
 
 			if (!this.config.get(`${pluginInfo.name}.load_plugin`)) {
@@ -1139,20 +1153,16 @@ export default class Controller {
 				continue;
 			}
 
-			let ControllerPluginClass = BaseControllerPlugin;
 			try {
-				if (pluginInfo.controllerEntrypoint) {
-					ControllerPluginClass = await lib.loadPluginClass(
-						pluginInfo.name,
-						path.posix.join(pluginInfo.requirePath, pluginInfo.controllerEntrypoint),
-						"ControllerPlugin",
-						BaseControllerPlugin,
-					);
-				}
+				await lib.loadPlugin(
+					pluginInfo,
+					"controller",
+					context,
+					"ControllerPlugin",
+					BaseControllerPlugin,
+				);
 
-				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);
-				await controllerPlugin.init();
-				this.plugins.set(pluginInfo.name, controllerPlugin);
+				this.loadedPlugins.add(pluginInfo);
 
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
@@ -1218,6 +1228,22 @@ export default class Controller {
 	}
 
 	/**
+	 * Copy of request headers with credentials masked for logging
+	 *
+	 * @param headers - headers of the incoming request.
+	 * @returns headers safe to write to the log.
+	 */
+	static loggableHeaders(headers: http.IncomingHttpHeaders) {
+		const result = { ...headers };
+		for (const name of ["authorization", "cookie", "proxy-authorization", "x-access-token"]) {
+			if (result[name] !== undefined) {
+				result[name] = "[redacted]";
+			}
+		}
+		return result;
+	}
+
+	/**
 	 * Serves the web interface with the root path set appropriately
 	 *
 	 * @param route - route the interface is served under.
@@ -1238,11 +1264,14 @@ export default class Controller {
 				mainBundle = res.app.locals.mainBundle;
 			} else {
 				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
-				mainBundle = stats.toJson().assetsByChunkName["main"];
+				mainBundle = stats.toJson().assetsByChunkName["main"][0];
 			}
 			mainBundle = routes.stripStaticPrefix(mainBundle);
 
-			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
+			fs.readFile(
+				path.join(import.meta.dirname, "..", "..", "..", "web", "index.html"),
+				"utf8",
+			).then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))

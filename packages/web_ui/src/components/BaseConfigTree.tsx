@@ -33,11 +33,11 @@ function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	return initialValues;
 }
 
-function renderInput(inputComponents: Record<string, InputComponent>, def: lib.FieldDefinition, readonly: boolean) {
-	if (def.inputComponent && Object.prototype.hasOwnProperty.call(inputComponents, def.inputComponent)) {
+function renderInput(inputComponents: Map<string, InputComponent>, def: lib.FieldDefinition, readonly: boolean) {
+	if (def.inputComponent && inputComponents.has(def.inputComponent)) {
 		// Field.Item will provide the value and onChange props to the component.
 		type InputPartial = React.ComponentClass<Omit<InputComponentProps, "value" | "onChange">>;
-		const CustomInput = inputComponents[def.inputComponent] as unknown as InputPartial;
+		const CustomInput = inputComponents.get(def.inputComponent) as unknown as InputPartial;
 		return <CustomInput fieldDefinition={def} disabled={readonly} />;
 	}
 	if (def.type === "boolean") {
@@ -291,7 +291,7 @@ function computeTreeData(
 				children: [],
 			};
 
-			if (def.type === "object" && !Object.keys(control.inputComponents).includes(def.inputComponent!)) {
+			if (def.type === "object" && !control.inputComponents.has(def.inputComponent!)) {
 				let restartRequiredProps = new Set(def.restartRequiredProps || []);
 				childNode.title = <Form.Item
 					label={<>

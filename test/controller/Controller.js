@@ -1,16 +1,20 @@
-"use strict";
-const path = require("node:path");
-const assert = require("assert").strict;
-const { Controller, HostRecord, InstanceRecord, UserRecord } = require("@clusterio/controller");
-const { EventEmitter } = require("stream");
-const events = require("node:events");
-const http = require("node:http");
-const express = require("express");
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import assert from "node:assert/strict";
+import { Controller, HostRecord, InstanceRecord, UserRecord } from "@clusterio/controller";
+import events, { EventEmitter } from "node:events";
+import http from "node:http";
+import express from "express";
+import { fileURLToPath } from "node:url";
 
-const {
+import {
 	ControllerConfig, Address, RequestError,
-	InstanceConfig, SystemInfo, Role, ModPack,
-} = require("@clusterio/lib");
+	InstanceConfig, SystemInfo, Role, ModPack, AccountUpdateEvent,
+	addPluginConfigFields,
+} from "@clusterio/lib";
+
+import "../setup_logging.js";
 
 class MockEvent {}
 
@@ -32,10 +36,12 @@ class MockInstanceConfig extends EventEmitter {
 }
 
 describe("controller/src/Controller", function() {
-	describe("class Controller", function() {
+	describe("class Controller", async function() {
 		/** @type {Controller} */
 		let controller, mockInstanceConfig;
-		const controllerVersion = require("@clusterio/controller/package.json").version;
+		const controllerVersion = (
+			await import("@clusterio/controller/package.json", { with: { type: "json" }})
+		).default.version;
 		before(async function() {
 			const controllerConfig = new ControllerConfig("controller", { "controller.version": controllerVersion });
 			controller = new Controller({}, [], controllerConfig);
@@ -51,6 +57,53 @@ describe("controller/src/Controller", function() {
 				assert(list.check(ip), `${ip} missing from list`);
 			}
 		}
+		describe(".loadJsonObject()", function() {
+			let dir;
+			before(async function() {
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-load-json-"));
+				await fs.writeFile(path.join(dir, "valid.json"), JSON.stringify({ "main.js": "main.123.js" }));
+				await fs.writeFile(path.join(dir, "invalid.json"), "{ not json");
+			});
+			after(async function() {
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			it("should parse an existing file", async function() {
+				assert.deepEqual(
+					await Controller.loadJsonObject(path.join(dir, "valid.json")),
+					{ "main.js": "main.123.js" },
+				);
+			});
+			it("should return an empty object for a missing file by default", async function() {
+				assert.deepEqual(await Controller.loadJsonObject(path.join(dir, "missing.json")), {});
+			});
+			it("should throw for a missing file when throwOnMissing is set", async function() {
+				await assert.rejects(
+					Controller.loadJsonObject(path.join(dir, "missing.json"), true),
+					{ code: "ENOENT" },
+				);
+			});
+			it("should throw for invalid JSON", async function() {
+				await assert.rejects(Controller.loadJsonObject(path.join(dir, "invalid.json")), SyntaxError);
+			});
+		});
+		describe(".loggableHeaders()", function() {
+			it("should redact credentials and keep other headers", function() {
+				const headers = {
+					"authorization": "Bearer secret",
+					"x-access-token": "secret",
+					"cookie": "a=secret",
+					"user-agent": "test",
+				};
+				assert.deepEqual(Controller.loggableHeaders(headers), {
+					"authorization": "[redacted]",
+					"x-access-token": "[redacted]",
+					"cookie": "[redacted]",
+					"user-agent": "test",
+				});
+				assert.equal(headers["x-access-token"], "secret");
+			});
+		});
+
 		describe(".serveWeb()", function() {
 			let server, port;
 			before(async function() {
@@ -226,6 +279,71 @@ describe("controller/src/Controller", function() {
 			});
 		});
 
+		function mockPermissionChanges() {
+			const role = new Role(1, "Test", "", new Set(["core.log.follow"]));
+			const otherRole = new Role(2, "Other", "", new Set());
+			const user = { roles: new Set([role]) };
+			const otherUser = { roles: new Set([otherRole]) };
+			const sent = [];
+			const checked = [];
+			const connection = {
+				user,
+				logChecked: false,
+				send(message) { sent.push(message); },
+				checkLogPermission() { this.logChecked = true; },
+			};
+			const otherConnection = {
+				user: otherUser,
+				send(message) { sent.push(message); },
+				checkLogPermission() {},
+			};
+			const originalWsServer = controller.wsServer;
+			controller.wsServer = { controlConnections: new Map([[1, connection], [2, otherConnection]]) };
+			controller.subscriptions.checkLinkPermissions = (link, linkUser) => checked.push([link, linkUser]);
+			return {
+				role, user, connection, sent, checked,
+				restore() {
+					controller.wsServer = originalWsServer;
+					delete controller.subscriptions.checkLinkPermissions;
+				},
+			};
+		}
+		function assertAccountUpdate(sent, role) {
+			assert.equal(sent.length, 1);
+			assert(sent[0] instanceof AccountUpdateEvent);
+			assert.deepEqual(sent[0].roles, [{ name: role.name, id: role.id, permissions: [...role.permissions] }]);
+		}
+
+		describe(".userPermissionsUpdated()", function() {
+			let mocked;
+			beforeEach(function() { mocked = mockPermissionChanges(); });
+			afterEach(function() { mocked.restore(); });
+			it("should send an account update to connections of the user", function() {
+				controller.userPermissionsUpdated(mocked.user);
+				assertAccountUpdate(mocked.sent, mocked.role);
+			});
+			it("should recheck subscriptions and log following of the user", function() {
+				controller.userPermissionsUpdated(mocked.user);
+				assert.deepEqual(mocked.checked, [[mocked.connection, mocked.user]]);
+				assert(mocked.connection.logChecked, "log permission was not checked");
+			});
+		});
+
+		describe(".rolesUpdated()", function() {
+			let mocked;
+			beforeEach(function() { mocked = mockPermissionChanges(); });
+			afterEach(function() { mocked.restore(); });
+			it("should send an account update to connections with the role", function() {
+				controller.rolesUpdated([mocked.role]);
+				assertAccountUpdate(mocked.sent, mocked.role);
+			});
+			it("should recheck subscriptions and log following of users with the role", function() {
+				controller.rolesUpdated([mocked.role]);
+				assert.deepEqual(mocked.checked, [[mocked.connection, mocked.user]]);
+				assert(mocked.connection.logChecked, "log permission was not checked");
+			});
+		});
+
 		describe(".instances", function() {
 			it("should set the dirty flag if the config is updated", function() {
 				controller.instances.records.dirty = false;
@@ -234,14 +352,17 @@ describe("controller/src/Controller", function() {
 			});
 		});
 		describe(".checkRestartRequired()", function() {
+			before(function() {
+				addPluginConfigFields([{ name: "restart_test" }]);
+			});
 			beforeEach(function() {
 				// Would not be needed if controller setup was beforeEach
-				controller.config.restartRequired = false;
 				controller.config.set("controller.version", controllerVersion);
-				controller.config.set("global_chat.load_plugin", true);
+				controller.config.set("restart_test.load_plugin", true);
+				controller.config.restartRequired = false;
 				controller.pluginInfos[0] = {
-					name: "global_chat",
-					requirePath: path.dirname(require.resolve("@clusterio/controller/package.json")),
+					name: "restart_test",
+					packagePath: fileURLToPath(import.meta.resolve("@clusterio/controller/package.json")),
 					version: controllerVersion,
 				};
 			});
@@ -256,7 +377,7 @@ describe("controller/src/Controller", function() {
 				controller.pluginInfos[0].version = "0.0.0";
 				controller.pluginInfos[0].webEntrypoint = true;
 				controller.pluginInfos[0].controllerEntrypoint = true;
-				controller.config.set("global_chat.load_plugin", false);
+				controller.config.set("restart_test.load_plugin", false);
 				controller.config.restartRequired = false; // Setting load_plugin requires a restart
 				const result = await controller.checkRestartRequired();
 				assert.equal(result, false);

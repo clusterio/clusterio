@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import packageJson from "../../package.json";
-import BaseWebPlugin, { type InputComponent } from "../BaseWebPlugin";
+import * as WebPlugin from "../BaseWebPlugin";
 
 const { logFilter, logger } = lib;
 
@@ -51,9 +51,14 @@ export class Control extends lib.Link {
 	/** Roles of the account this control link is connected as. */
 	accountRoles: lib.AccountRole[] | null = null;
 
-	/** Plugins loaded in the web interface */
-	public plugins = new Map<string, BaseWebPlugin>();
-	public inputComponents: Record<string, InputComponent> = {};
+	public hooks = new WebPlugin.WebHooks(logger);
+	/** @deprecated Only holds plugins using the class export, use loadedPlugins and hooks instead */
+	public plugins = new Map<string, WebPlugin.BaseWebPlugin>();
+	public loadedPlugins = new Map<string, lib.PluginWebpackEnvInfo>();
+	public inputComponents = new Map<string, WebPlugin.InputComponent>();
+	public extensionComponents: Partial<WebPlugin.ExtensionComponents> = {};
+	public loginForms: WebPlugin.PluginLoginForm[] = [];
+	public pages: WebPlugin.PluginPage[] = [];
 
 	/** Updates not handled by the subscription service */
 	accountUpdateHandlers: accountHandler[] = [];
@@ -101,11 +106,7 @@ export class Control extends lib.Link {
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
-			this.connector.on(event, () => {
-				for (let plugin of this.plugins.values()) {
-					plugin.onControllerConnectionEvent(event);
-				}
-			});
+			this.connector.on(event, this.hooks.controllerConnectionEvent.listener);
 		}
 
 		this.handle(lib.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));

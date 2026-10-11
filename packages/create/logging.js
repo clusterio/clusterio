@@ -1,8 +1,7 @@
 /* eslint-disable no-console */
-"use strict";
-const chalk = require("chalk");
+import chalk from "chalk";
 
-const levels = Object.freeze({
+export const levels = Object.freeze({
 	fatal: 0,
 	error: 1,
 	warn: 2,
@@ -11,7 +10,7 @@ const levels = Object.freeze({
 	verbose: 6,
 });
 
-const colors = {
+export const colors = {
 	fatal: "inverse red",
 	error: "bold redBright",
 	warn: "bold yellowBright",
@@ -21,7 +20,7 @@ const colors = {
 };
 
 let maxLogLevel = levels.info;
-const logger = {};
+export const logger = {};
 for (let [name, level] of Object.entries(levels)) {
 	// eslint-disable-next-line no-loop-func
 	logger[name] = message => {
@@ -42,10 +41,6 @@ for (let [name, level] of Object.entries(levels)) {
 	};
 }
 
-module.exports = {
-	colors,
-	levels,
-	setLogLevel: (level) => { maxLogLevel = level; },
-	logger,
-};
-
+export function setLogLevel(level) {
+	maxLogLevel = level;
+}

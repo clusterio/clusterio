@@ -1,9 +1,8 @@
-"use strict";
-const assert = require("assert").strict;
-const zlib = require("zlib");
+import assert from "node:assert/strict";
+import zlib from "node:zlib";
 
-const lib = require("@clusterio/lib");
-const { ModInfo, ModPack, getInstalledModUpdates, applyModRecordAdvisories } = lib;
+import * as lib from "@clusterio/lib";
+import { ModInfo, ModPack, getInstalledModUpdates, applyModRecordAdvisories } from "@clusterio/lib";
 
 
 describe("lib/data/ModPack", function() {

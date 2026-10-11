@@ -1,5 +1,5 @@
 import type { Application, Request, Response } from "express";
-import Controller from "./Controller";
+import Controller from "./Controller.js";
 
 import busboy from "busboy";
 import crypto from "crypto";
@@ -12,7 +12,7 @@ import nodeStream from "stream";
 import util from "util";
 
 import * as lib from "@clusterio/lib";
-const { logger } = lib;
+import { logger } from "@clusterio/lib";
 
 const finished = util.promisify(nodeStream.finished);
 
@@ -24,7 +24,8 @@ declare global {
 			mainBundle: string,
 			staticRoot: string | null,
 			devPlugins: Map<string, number>,
-			streams: Map<string, ProxyStream>
+			streams: Map<string, ProxyStream>,
+			pendingMetrics?: Promise<string>,
 		}
 	}
 }
@@ -44,12 +45,10 @@ function mergeSamples(destinationResult: lib.CollectorResultSerialized, sourceRe
 	}
 }
 
-// Prometheus polling endpoint
-async function getMetrics(req: Request, res: Response, next: any) {
-	const controller: Controller = req.app.locals.controller;
-
+// Collect metrics from the controller, its plugins and all connected hosts
+async function gatherMetrics(controller: Controller) {
 	let results: lib.CollectorResult[] = [];
-	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics");
+	let pluginResults = await controller.hooks.metrics.collect();
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
@@ -99,7 +98,27 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		results.push(lib.deserializeResult(result));
 	}
 
-	let text = await lib.exposition(results);
+	return await lib.exposition(results);
+}
+
+// Prometheus polling endpoint
+async function getMetrics(req: Request, res: Response) {
+	try {
+		res.locals.user.checkPermission("core.controller.metrics");
+	} catch (err: any) {
+		res.status(403).json({ request_errors: [err.message] });
+		return;
+	}
+
+	// Concurrent scrapes share one gather so hosts see at most one
+	// metrics request at a time regardless of how many clients poll.
+	const locals = req.app.locals;
+	if (!locals.pendingMetrics) {
+		locals.pendingMetrics = gatherMetrics(locals.controller).finally(() => {
+			locals.pendingMetrics = undefined;
+		});
+	}
+	const text = await locals.pendingMetrics;
 	res.set("Content-Type", lib.expositionContentType);
 	res.send(text);
 }
@@ -117,8 +136,8 @@ function getPlugins(req: Request, res: Response) {
 	let plugins: lib.PluginWebApi[] = [];
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
-		let loaded = req.app.locals.controller.plugins.has(name);
-		let enabled = loaded && req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
+		const loaded = req.app.locals.controller.loadedPlugins.has(pluginInfo);
+		const enabled = loaded && req.app.locals.controller.config.get(`${pluginInfo.name}.load_plugin`);
 		// Note: Cast through unknown is needed because load_plugin is
 		// defined at runtime and no other fields in the controller config
 		// currently have the boolean type.
@@ -126,13 +145,13 @@ function getPlugins(req: Request, res: Response) {
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
 			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)!];
-			web.main = stats.toJson().assetsByChunkName[name];
+			web.main = stats.toJson().assetsByChunkName[name][0];
 		} else if (pluginInfo.manifest) {
 			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
 			if (!web.main) {
 				web.error = `Missing ${pluginInfo.name}.js entry in manifest.json`;
 			}
-		} else {
+		} else if (lib.pluginNeedsWebBuild(pluginInfo)) {
 			web.error = "Missing dist/web/manifest.json";
 		}
 		if (web.main === "remoteEntry.js") {
@@ -152,8 +171,21 @@ function getClusterName(req: Request, res: Response) {
 	res.json({ name: clusterName });
 }
 
+// Reads the access token from X-Access-Token or Authorization: Bearer
+function getAccessToken(req: Request) {
+	const token = req.header("x-access-token");
+	if (token) {
+		return token;
+	}
+	const authorization = req.header("authorization");
+	if (authorization && /^Bearer /i.test(authorization)) {
+		return authorization.slice("Bearer ".length).trim();
+	}
+	return undefined;
+}
+
 function validateHostToken(req: Request, res: Response, next: any) {
-	let token = req.header("x-access-token");
+	let token = getAccessToken(req);
 	if (!token) {
 		res.sendStatus(401);
 		return;
@@ -180,7 +212,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 }
 
 function validateUserToken(req: Request, res: Response, next: any) {
-	let token = req.header("x-access-token");
+	let token = getAccessToken(req);
 	if (!token) {
 		res.sendStatus(401);
 		return;
@@ -317,7 +349,7 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 	return stream;
 }
 
-async function putStream(req: Request, res: Response) {
+async function putStream(req: Request<{ id: string }>, res: Response) {
 	const stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.source) {
 		res.sendStatus(404);
@@ -356,7 +388,7 @@ function startStream(res: Response, stream: ProxyStream) {
 	clearTimeout(stream.timeout);
 }
 
-async function getStream(req: Request, res: Response) {
+async function getStream(req: Request<{ id: string }>, res: Response) {
 	const stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.flowing) {
 		res.sendStatus(404);
@@ -653,15 +685,22 @@ async function uploadMod(req: Request, res: Response) {
 
 
 export function addRouteHandlers(app: Application) {
-	app.get("/metrics", (req:Request, res:Response, next:any) => getMetrics(req, res, next).catch(next));
+	app.get("/metrics",
+		validateUserToken,
+		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)
+	);
 	app.get("/api/plugins", getPlugins);
 	app.get("/api/cluster-name", getClusterName);
 	app.put("/api/upload-export",
 		validateHostToken,
 		(req:Request, res:Response, next:any) => uploadExport(req, res).catch(next)
 	);
-	app.put("/api/stream/:id", (req:Request, res:Response, next:any) => putStream(req, res).catch(next));
-	app.get("/api/stream/:id", (req:Request, res:Response, next:any) => getStream(req, res).catch(next));
+	app.put("/api/stream/:id",
+		(req:Request<{ id: string }>, res:Response, next:any) => putStream(req, res).catch(next)
+	);
+	app.get("/api/stream/:id",
+		(req:Request<{ id: string }>, res:Response, next:any) => getStream(req, res).catch(next)
+	);
 	app.post("/api/upload-save",
 		validateUserToken,
 		(req:Request, res:Response, next:any) => uploadSave(req, res).catch(next)

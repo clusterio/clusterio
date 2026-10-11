@@ -1,5 +1,4 @@
-"use strict";
-const { ModPack } = require("@clusterio/lib");
+import { ModPack } from "@clusterio/lib";
 
 const pack = new ModPack();
 pack.name = "test-settings";

@@ -1,8 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
-import { JsonString, StringEnum, StringKey, plainJson } from "./composites";
-import { levels } from "../logging";
-import { ControllerConfig, HostConfig } from "../config";
-import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external";
+import { JsonString, StringEnum, StringKey, plainJson } from "./composites.js";
+import { levels } from "../logging.js";
+import { ControllerConfig, HostConfig } from "../config/index.js";
+import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external/index.js";
 
 export class ControllerStopRequest {
 	declare ["constructor"]: typeof ControllerStopRequest;
@@ -14,6 +14,14 @@ export class ControllerStopRequest {
 
 export class ControllerRestartRequest {
 	declare ["constructor"]: typeof ControllerRestartRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.restart" as const;
+}
+
+export class ControllerMarkRestartRequiredRequest {
+	declare ["constructor"]: typeof ControllerMarkRestartRequiredRequest;
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;

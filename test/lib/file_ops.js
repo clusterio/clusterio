@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const http = require("node:http");
-const path = require("path");
-const util = require("node:util");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import http from "node:http";
+import path from "node:path";
+import util from "node:util";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 describe("lib/file_ops", function() {
 	let baseDir = path.join("temp", "test", "file_ops");
@@ -88,18 +87,51 @@ describe("lib/file_ops", function() {
 	});
 
 	describe("safeOutputFile()", function() {
+		async function assertNoTemporary(target) {
+			let { dir, name } = path.parse(target);
+			let entries = (await fs.readdir(dir)).filter(
+				entry => entry.startsWith(`${name}.`) && entry !== path.basename(target)
+			);
+			assert.deepEqual(entries, [], "temporary was left behind");
+		}
 		it("should write new target file", async function() {
 			let target = path.join(baseDir, "safe", "simple.txt");
 			await lib.safeOutputFile(target, "a text file", "utf8");
-			await assert.rejects(fs.access(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
+			await assertNoTemporary(target);
 			assert.equal(await fs.readFile(target, "utf8"), "a text file");
 		});
 		it("should overwrite existing target file", async function() {
 			let target = path.join(baseDir, "safe", "exists.txt");
 			await fs.writeFile(target, "previous", "utf8");
 			await lib.safeOutputFile(target, "current", "utf8");
-			await assert.rejects(fs.access(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
+			await assertNoTemporary(target);
 			assert.equal(await fs.readFile(target, "utf8"), "current");
+		});
+		it("should apply mode to the target file", async function() {
+			if (process.platform === "win32") {
+				this.skip();
+			}
+			let target = path.join(baseDir, "safe", "mode.txt");
+			await lib.safeOutputFile(target, "private", { mode: 0o600 });
+			assert.equal((await fs.stat(target)).mode & 0o777, 0o600);
+			assert.equal(await fs.readFile(target, "utf8"), "private");
+		});
+		it("should not interfere between concurrent writes to the same file", async function() {
+			let target = path.join(baseDir, "safe", "concurrent.txt");
+			let writes = [];
+			for (let i = 0; i < 20; i++) {
+				writes.push(lib.safeOutputFile(target, `write ${i}`, "utf8"));
+			}
+			// Ignore errors from concurrently renaming onto the same file.
+			await Promise.allSettled(writes);
+			await assertNoTemporary(target);
+			assert.match(await fs.readFile(target, "utf8"), /^write \d+$/);
+		});
+		it("should remove the temporary file when the rename fails", async function() {
+			let target = path.join(baseDir, "safe", "rename-fails");
+			await fs.mkdir(target, { recursive: true });
+			await assert.rejects(lib.safeOutputFile(target, "data", "utf8"));
+			await assertNoTemporary(target);
 		});
 		it("should handle creating file in current working directory", async function() {
 			let target = "temporary-file-made-to-test-cwd.txt";

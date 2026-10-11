@@ -1,9 +1,9 @@
-"use strict";
-const assert = require("assert").strict;
-const lib = require("@clusterio/lib");
+import assert from "node:assert/strict";
+import * as lib from "@clusterio/lib";
 
-const { Host } = require("@clusterio/host");
-const { testMatrix, testRoundTripJsonSerialisable } = require("../common");
+import { Host } from "@clusterio/host";
+import { testMatrix, testRoundTripJsonSerialisable } from "../common.js";
+import "../setup_logging.js";
 
 describe("messages/host", function() {
 	/** @type {Host} */
@@ -29,6 +29,13 @@ describe("messages/host", function() {
 				host.handleHostUpdateRequest(new lib.HostUpdateRequest()),
 				/Remote updates are disabled on this machine/
 			);
+		});
+	});
+
+	describe("HostMarkRestartRequiredRequest", function() {
+		it("runs", async function() {
+			await host.handleHostMarkRestartRequiredRequest(new lib.HostMarkRestartRequiredRequest());
+			assert.equal(host.config.restartRequired, true);
 		});
 	});
 

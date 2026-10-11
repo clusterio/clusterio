@@ -1,22 +1,20 @@
 import fs from "node:fs/promises";
 import path from "path";
-import events from "events";
 import pidusage from "pidusage";
 import semver from "semver";
 import setBlocking from "set-blocking";
 import stream from "stream";
+import { fileURLToPath } from "node:url";
 import util from "util";
 
 // internal libraries
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 
-import type { HostConnector } from "../host";
-import Instance from "./Instance";
-import InstanceConnection from "./InstanceConnection";
-import BaseHostPlugin from "./BaseHostPlugin";
-
-const finished = util.promisify(stream.finished);
+import type { HostConnector } from "../host.js";
+import Instance from "./Instance.js";
+import InstanceConnection from "./InstanceConnection.js";
+import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
 
 
 function checkRequestSaveName(name: string) {
@@ -272,8 +270,10 @@ export default class Host extends lib.Link {
 	pluginInfos: lib.PluginNodeEnvInfo[];
 	config: lib.HostConfig;
 
-	/** Mapping of plugin name to loaded plugin */
-	plugins: Map<string, BaseHostPlugin> = new Map();
+	/** Hooks which plugins can attach to */
+	hooks = new HostHooks(logger);
+	/** Plugins which are currently loaded */
+	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
 
 	/** A map from instance id to instance connection. Only present when instance is running. */
 	instanceConnections = new Map<number, InstanceConnection>();
@@ -332,7 +332,7 @@ export default class Host extends lib.Link {
 			if (name === "host.name" || name === "host.public_address") {
 				this.sendHostUpdate();
 			}
-			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", name, curr, prev);
+			this.hooks.hostConfigFieldChanged.invoke(name, curr, prev);
 		});
 
 		this.connector.on("hello", data => {
@@ -384,14 +384,13 @@ export default class Host extends lib.Link {
 				for (let instanceConnection of this.instanceConnections.values()) {
 					instanceConnection.send(message);
 				}
-				for (let plugin of this.plugins.values()) {
-					plugin.onControllerConnectionEvent(event);
-				}
+				this.hooks.controllerConnectionEvent.invoke(event);
 			});
 		}
 
 		this.handle(lib.HostStopRequest, this.handleHostStopRequest.bind(this));
 		this.handle(lib.HostRestartRequest, this.handleHostRestartRequest.bind(this));
+		this.handle(lib.HostMarkRestartRequiredRequest, this.handleHostMarkRestartRequiredRequest.bind(this));
 		this.handle(lib.HostUpdateRequest, this.handleHostUpdateRequest.bind(this));
 		this.handle(lib.HostConfigGetRequest, this.handleHostConfigGetRequest.bind(this));
 		this.handle(lib.HostConfigSetRequest, this.handleHostConfigSetRequest.bind(this));
@@ -403,6 +402,7 @@ export default class Host extends lib.Link {
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
+		this.handle(lib.UpdateAllRequest, this.handleUpdateAllRequest.bind(this));
 
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.handleAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.handleBanlistUpdateEvent.bind(this));
@@ -423,6 +423,7 @@ export default class Host extends lib.Link {
 	}
 
 	async loadPlugins() {
+		const context = { logger, host: this };
 		for (let pluginInfo of this.pluginInfos) {
 			if (
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
@@ -436,20 +437,16 @@ export default class Host extends lib.Link {
 				continue;
 			}
 
-			let HostPluginClass = BaseHostPlugin;
 			try {
-				if (pluginInfo.hostEntrypoint) {
-					HostPluginClass = await lib.loadPluginClass(
-						pluginInfo.name,
-						path.posix.join(pluginInfo.requirePath, pluginInfo.hostEntrypoint),
-						"HostPlugin",
-						BaseHostPlugin,
-					);
-				}
+				await lib.loadPlugin(
+					pluginInfo,
+					"host",
+					context,
+					"HostPlugin",
+					BaseHostPlugin,
+				);
 
-				let hostPlugin = new HostPluginClass(pluginInfo, this, logger);
-				await hostPlugin.init();
-				this.plugins.set(pluginInfo.name, hostPlugin);
+				this.loadedPlugins.add(pluginInfo);
 
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
@@ -513,6 +510,10 @@ export default class Host extends lib.Link {
 		}
 		process.exitCode = 1;
 		this.shutdown();
+	}
+
+	async handleHostMarkRestartRequiredRequest() {
+		this.config.restartRequired = true;
 	}
 
 	async handleHostConfigGetRequest() {
@@ -859,7 +860,7 @@ export default class Host extends lib.Link {
 		try {
 			// First check the clusterio version
 			const runningVersion = this.config.get("host.version");
-			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJsonPath = fileURLToPath(import.meta.resolve("@clusterio/host/package.json"));
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			if (runningVersion !== packageJson.version) {
 				this.config.restartRequired = true;
@@ -876,15 +877,14 @@ export default class Host extends lib.Link {
 				}
 
 				packageName = pluginInfo.npmPackage ?? pluginInfo.name;
-				const pluginPackageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-				const pluginPackageJson = JSON.parse(await fs.readFile(pluginPackageJsonPath, "utf8"));
+				const pluginPackageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
 				if (pluginInfo.version !== pluginPackageJson.version) {
 					this.config.restartRequired = true;
 					return true;
 				}
 			}
 		} catch (err: any) {
-			logger.warn(`Failed to read package json for ${packageName}:\n${err.stack ?? err.message}`);
+			logger.warn(`Failed to read package.json for ${packageName}:\n${err.stack ?? err.message}`);
 		}
 
 		return false;
@@ -893,7 +893,7 @@ export default class Host extends lib.Link {
 	async checkRestartDowngrade() {
 		try {
 			const runningVersion = this.config.get("host.version");
-			const packageJsonPath = require.resolve("@clusterio/host/package.json");
+			const packageJsonPath = fileURLToPath(import.meta.resolve("@clusterio/host/package.json"));
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf8"));
 			const installedVersion = packageJson.version;
 
@@ -922,7 +922,7 @@ export default class Host extends lib.Link {
 		}
 
 		let results = [];
-		let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
+		let pluginResults = await this.hooks.metrics.collect();
 		for (let metricIterator of pluginResults) {
 			for await (let metric of metricIterator) {
 				results.push(metric);
@@ -1149,15 +1149,27 @@ export default class Host extends lib.Link {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
 		await lib.handlePluginInstall(request.pluginPackage);
-		// Newly installed plugins are only loaded on startup
-		this.config.restartRequired = true;
+		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it
+		if (!this.pluginInfos.some(pluginInfo => pluginInfo.npmPackage === request.pluginPackage)) {
+			this.config.restartRequired = true;
+		}
+	}
+
+	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
+		if (!this.config.get("host.allow_remote_updates")) {
+			throw new lib.RequestError("Remote updates are disabled on this machine");
+		}
+		if (!this.config.get("host.allow_plugin_updates")) {
+			throw new lib.RequestError("Plugin updates are disabled on this machine");
+		}
+		return await lib.handleUpdateAll("@clusterio/host", this.pluginInfos);
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
 		return await lib.listPluginDetails(
 			this.pluginInfos,
-			name => this.plugins.has(name),
-			name => this.config.get(`${name}.load_plugin`),
+			pluginInfo => this.loadedPlugins.has(pluginInfo),
+			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
 		);
 	}
 
@@ -1217,7 +1229,7 @@ export default class Host extends lib.Link {
 	}
 
 	async prepareDisconnect() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
+		await this.hooks.prepareControllerDisconnect.invoke(this);
 		for (let instanceConnection of this.instanceConnections.values()) {
 			await instanceConnection.send(new lib.PrepareControllerDisconnectRequest());
 		}
@@ -1234,7 +1246,7 @@ export default class Host extends lib.Link {
 		}
 		this._shuttingDown = true;
 
-		await lib.invokeHook(this.plugins, "onShutdown");
+		await this.hooks.shutdown.invoke();
 
 		for (let instanceConnection of this.instanceConnections.values()) {
 			try {

@@ -1,11 +1,10 @@
-"use strict";
-const assert = require("assert").strict;
-const fs = require("node:fs/promises");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const events = require("events");
-const child_process = require("child_process");
-const util = require("util");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import jwt from "jsonwebtoken";
+import path from "node:path";
+import events from "node:events";
+import child_process from "node:child_process";
+import util from "node:util";
 
 const cwd = path.join("temp", "test_integration");
 

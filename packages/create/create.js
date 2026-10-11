@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 
-"use strict";
-const child_process = require("child_process");
-const fs = require("node:fs/promises");
-const inquirer = require("inquirer");
-const os = require("os");
-const path = require("path");
-const stream = require("stream");
-const util = require("util");
-const yargs = require("yargs");
+import child_process from "node:child_process";
+import fs from "node:fs/promises";
+import inquirer from "inquirer";
+import os from "node:os";
+import path from "node:path";
+import stream from "node:stream";
+import util from "node:util";
+import yargs from "yargs";
 
-const { levels, logger, setLogLevel } = require("./logging");
-const { copyPluginTemplates } = require("./template");
+import { levels, logger, setLogLevel } from "./logging.js";
+import { copyPluginTemplates } from "./template.js";
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
-const { escapeArg } = require("./escape_arg");
+import { escapeArg } from "./escape_arg.js";
 
 // I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
 // See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
@@ -147,21 +146,21 @@ async function execFile(cmd, args) {
 
 async function execController(args) {
 	if (dev) {
-		return await execFile("node", [path.join(__dirname, "..", "controller"), ...args]);
+		return await execFile("node", [path.join(import.meta.dirname, "..", "controller"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`), args);
 }
 
 async function execHost(args) {
 	if (dev) {
-		return await execFile("node", [path.join(__dirname, "..", "host"), ...args]);
+		return await execFile("node", [path.join(import.meta.dirname, "..", "host"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusteriohost${scriptExt}`), args);
 }
 
 async function execCtl(args) {
 	if (dev) {
-		return await execFile("node", [path.join(__dirname, "..", "ctl"), ...args]);
+		return await execFile("node", [path.join(import.meta.dirname, "..", "ctl"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
@@ -235,7 +234,7 @@ async function migrateRename(args) {
 		if (await pathExists(source) && !await pathExists(destination)) {
 			await safeOutputFile(destination, JSON.stringify(
 				renameConfig(JSON.parse(await fs.readFile(source))), null, "\t"
-			));
+			), { mode: 0o600 });
 			logger.info(`Migrated ${source} to ${destination}`);
 		}
 	}
@@ -408,7 +407,7 @@ async function installClusterio(mode, plugins) {
 		for (let plugin of plugins) {
 			if (!pluginList.has(plugin)) {
 
-				let pluginInfo = require(require.resolve(plugin, { paths: [process.cwd()] })).plugin;
+				let pluginInfo = (await import(plugin)).plugin;
 				pluginList.set(pluginInfo.name, plugin);
 			}
 		}
@@ -750,7 +749,7 @@ async function inquirerMissingArgs(args) {
 }
 
 async function main() {
-	let args = yargs
+	let yarg = yargs(process.argv.slice(2))
 		.option("log-level", {
 			nargs: 1, describe: "Log level to print to stdout", default: "info",
 			choices: ["none"].concat(Object.keys(levels)), type: "string",
@@ -805,14 +804,14 @@ async function main() {
 	;
 
 	if (process.platform === "linux") {
-		args = args
+		yarg = yarg
 			.option("allow-install-as-root", {
 				nargs: 0, describe: "(Linux only) Allow installing as root (not recommended)", type: "boolean",
 			})
 		;
 	}
 
-	args = args.argv;
+	const args = yarg.parse();
 
 	setLogLevel(args.logLevel === "none" ? -1 : levels[args.logLevel]);
 	dev = args.dev;
@@ -842,6 +841,7 @@ async function main() {
 	let adminToken = null;
 	if (["standalone", "controller"].includes(answers.mode)) {
 		logger.info("Setting up controller");
+		await execController(["config", "create"]);
 		await execController(["bootstrap", "create-admin", answers.admin]);
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
 		await execController(["config", "set", "controller.allow_remote_updates", answers.remoteNpm]);
@@ -852,6 +852,7 @@ async function main() {
 
 	if (answers.mode === "standalone") {
 		logger.info("Setting up host");
+		await execHost(["config", "create"]);
 		await execHost(["config", "set", "host.name", "local"]);
 
 		let result = await execHost(["config", "show", "host.id"]);
@@ -872,6 +873,7 @@ async function main() {
 	if (answers.mode === "host") {
 		logger.info("Setting up host");
 		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
+		await execHost(["config", "create"]);
 		await execHost(["config", "set", "host.id", hostId]);
 		await execHost(["config", "set", "host.name", answers.hostName]);
 		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
@@ -888,8 +890,9 @@ async function main() {
 	}
 
 	if (answers.mode === "ctl") {
-		await execCtl(["control-config", "set", "control.controller_url", answers.controllerUrl]);
-		await execCtl(["control-config", "set", "control.controller_token", answers.controllerToken]);
+		await execCtl(["config", "create"]);
+		await execCtl(["config", "set", "ctl.controller_url", answers.controllerUrl]);
+		await execCtl(["config", "set", "ctl.controller_token", answers.controllerToken]);
 	}
 
 	/* eslint-disable no-console */
@@ -900,7 +903,7 @@ async function main() {
 	/* eslint-enable no-console */
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	main().catch(err => {
 		if (err instanceof InstallError) {
 			logger.error(err.message);

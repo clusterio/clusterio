@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import path from "path";
 import stream from "stream";
 
-import { redactUrl } from "./helpers";
+import { redactUrl } from "./helpers.js";
 
 
 /**
@@ -137,11 +137,11 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
  * file.  If the operation fails because the parent directory does not exist, it
  * attempts to create the directory, including any ancestors and then retries
  * the operation.  The name of the temporary file is the same as the target file
- * with the suffix `.tmp` added before the extension.
+ * with a random tag and the suffix `.tmp` added before the extension, so
+ * concurrent writes to the same file do not interfere with each other.
  *
- * If the operation fails it may leave behind the temporary file.  This
- * should not be too much of an issue as the next time the same file is
- * written the temporary will be overwritten and renamed to the target file.
+ * If the operation fails the temporary file is removed.  Should the process
+ * die in the middle of writing the temporary file it is left behind.
  *
  * @param file - Path to file to write.
  * @param data - Content to write.
@@ -156,19 +156,24 @@ export async function safeOutputFile(
 	>,
 ) {
 	let { dir, name, ext } = path.parse(file);
-	let temporary = path.join(dir, `${name}.tmp${ext}`);
+	let temporary = path.join(dir, `${name}.${crypto.randomBytes(8).toString("hex")}.tmp${ext}`);
 	try {
-		await fs.writeFile(temporary, data, { ...options, flush: true });
+		await fs.writeFile(temporary, data, { ...options, flag: "wx", flush: true });
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			// Try creating the folder and then retry the operation.
 			await fs.mkdir(dir, { recursive: true });
-			await fs.writeFile(temporary, data, { ...options, flush: true });
+			await fs.writeFile(temporary, data, { ...options, flag: "wx", flush: true });
 		} else {
 			throw err;
 		}
 	}
-	await fs.rename(temporary, file);
+	try {
+		await fs.rename(temporary, file);
+	} catch (err: any) {
+		await fs.unlink(temporary).catch(() => {});
+		throw err;
+	}
 }
 
 // Reserved names by almost all filesystems

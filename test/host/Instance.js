@@ -1,11 +1,12 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
+import assert from "node:assert/strict";
+import path from "node:path";
 
-const lib = require("@clusterio/lib");
-const { PlayerStats, wait } = lib;
-const Instance = require("@clusterio/host/dist/node/src/Instance").default;
-const { MockConnector, MockServer } = require("../mock");
+import * as lib from "@clusterio/lib";
+import { PlayerStats, wait } from "@clusterio/lib";
+import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { MockConnector, MockLogger, MockServer } from "../mock.js";
+
+import "../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -36,6 +37,206 @@ describe("class Instance", function() {
 		});
 		it("should join path with arguments", function() {
 			assert.equal(instance.path("bar"), path.join("dir", "bar"));
+		});
+	});
+
+	describe("config fieldChanged", function() {
+		let errors;
+		let rejections;
+		let hookInvoked;
+		function onRejection(err) { rejections.push(err); }
+		beforeEach(function() {
+			errors = [];
+			rejections = [];
+			instance.logger = new MockLogger();
+			instance.logger.error = message => errors.push(message);
+			instance.server.exampleSettings = async () => ({});
+			instance.notifyStatus("running");
+			hookInvoked = new Promise(resolve => {
+				instance.hooks.instanceConfigFieldChanged.attach("test", field => resolve(field));
+			});
+			process.on("unhandledRejection", onRejection);
+		});
+		afterEach(function() {
+			process.off("unhandledRejection", onRejection);
+		});
+
+		it("should log whitelist update errors and invoke the hook", async function() {
+			instance.server.sendRcon = async () => { throw new Error("Expected state running,stopping"); };
+			instance.config.set("factorio.enable_whitelist", true);
+			assert.equal(await hookInvoked, "factorio.enable_whitelist");
+			await wait(10);
+			assert.deepEqual(rejections, []);
+			assert.equal(errors.length, 1);
+			assert.match(errors[0], /^Error updating whitelist:\nError: Expected state running,stopping/);
+		});
+
+		it("should log server settings update errors and invoke the hook", async function() {
+			instance.server.exampleSettings = async () => { throw new Error("no example settings"); };
+			instance.config.set("factorio.settings", { name: "bar" });
+			assert.equal(await hookInvoked, "factorio.settings");
+			await wait(10);
+			assert.deepEqual(rejections, []);
+			assert.equal(errors.length, 1);
+			assert.match(errors[0], /^Error updating server settings:\nError: no example settings/);
+		});
+
+		it("should apply tags with non-string elements", async function() {
+			instance.config.set("factorio.settings", { tags: [1, "a b"] });
+			await hookInvoked;
+			await wait(10);
+			assert.deepEqual(rejections, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(instance.server.rconCommands, ["/config set tags 1 a b"]);
+		});
+
+		it("should defer changes made while starting until the instance is running", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("running");
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, ["/config set tags a"]);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should drop changes made while starting if the instance stops", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should do nothing for changes made while stopped", async function() {
+			instance.notifyStatus("stopped");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should invoke the hook while starting without waiting for the instance", async function() {
+			instance.notifyStatus("starting");
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			assert.equal(await hookInvoked, "factorio.settings");
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("stopped");
+			await wait(10);
+		});
+
+		it("should invoke the hook for fields applied to the server directly", async function() {
+			instance.config.set("factorio.shutdown_timeout", 30);
+			assert.equal(await hookInvoked, "factorio.shutdown_timeout");
+			assert.equal(instance.server.shutdownTimeoutMs, 30000);
+			await wait(10);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+
+		it("should invoke the hook exactly once per field changed", async function() {
+			let invoked = [];
+			instance._host.whitelist = new Set();
+			instance.hooks.instanceConfigFieldChanged.attach("count", field => { invoked.push(field); });
+			instance.config.set("factorio.settings", { tags: ["a"] });
+			instance.config.set("factorio.enable_whitelist", true);
+			instance.config.set("factorio.shutdown_timeout", 30);
+			instance.config.set("factorio.max_concurrent_commands", 3);
+			await wait(10);
+			assert.deepEqual(invoked, [
+				"factorio.settings",
+				"factorio.enable_whitelist",
+				"factorio.shutdown_timeout",
+				"factorio.max_concurrent_commands",
+			]);
+			assert.equal(instance.server.maxConcurrentCommands, 3);
+			assert.deepEqual(errors, []);
+			assert.deepEqual(rejections, []);
+		});
+	});
+
+	describe("list update events", function() {
+		let errors;
+		beforeEach(function() {
+			errors = [];
+			instance.logger = new MockLogger();
+			instance.logger.error = message => errors.push(message);
+		});
+
+		it("should apply an update received while starting once running", async function() {
+			instance.notifyStatus("starting");
+			let handled = instance.handleInstanceAdminlistUpdateEvent(
+				new lib.InstanceAdminlistUpdateEvent("player", true)
+			);
+			await wait(10);
+			assert.deepEqual(instance.server.rconCommands, [], "command sent while starting");
+			instance.notifyStatus("running");
+			await handled;
+			assert.deepEqual(instance.server.rconCommands, ["/promote player"]);
+			assert.deepEqual(errors, []);
+		});
+
+		it("should drop an update received while starting if the instance stops", async function() {
+			instance.notifyStatus("starting");
+			let handled = instance.handleInstanceAdminlistUpdateEvent(
+				new lib.InstanceAdminlistUpdateEvent("player", true)
+			);
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await handled;
+			assert.deepEqual(instance.server.rconCommands, []);
+			assert.deepEqual(errors, []);
+		});
+	});
+
+	describe(".checkModPackVersion()", function() {
+		function modPack(factorioVersion) {
+			return lib.ModPack.fromJSON({ name: "pack", factorio_version: factorioVersion });
+		}
+
+		it("should accept a mod pack for an older or equal Factorio version", function() {
+			instance.server.version = "1.1.91";
+			instance.checkModPackVersion(modPack("1.1"));
+			instance.checkModPackVersion(modPack("1.1.90"));
+			instance.checkModPackVersion(modPack("1.1.91"));
+		});
+
+		it("should reject a mod pack for a newer Factorio version", function() {
+			instance.server.version = "1.1.91";
+			assert.throws(
+				() => instance.checkModPackVersion(modPack("1.1.110")),
+				new lib.RequestError(
+					"Mod pack pack is for Factorio 1.1.110 which is newer than the Factorio 1.1.91 this instance runs"
+				)
+			);
+			assert.throws(() => instance.checkModPackVersion(modPack("2.0")), lib.RequestError);
+		});
+
+		it("should skip the check when the server version is unknown", function() {
+			instance.checkModPackVersion(modPack("2.0"));
+		});
+	});
+
+	describe("save name checks", function() {
+		it("should reject a start save outside the saves directory", async function() {
+			await assert.rejects(
+				instance.handleInstanceStartRequest(new lib.InstanceStartRequest("../escape.zip")),
+				lib.RequestError,
+			);
+		});
+		it("should reject a created save outside the saves directory", async function() {
+			await assert.rejects(
+				instance.handleInstanceCreateSaveRequest(
+					new lib.InstanceCreateSaveRequest("../escape.zip"),
+				),
+				lib.RequestError,
+			);
 		});
 	});
 
@@ -299,6 +500,39 @@ describe("class Instance", function() {
 					assert.equal(connector.sentMessages[0], undefined);
 				}
 			}
+		});
+	});
+
+	describe("_watchServerLogActions()", function() {
+		beforeEach(function() {
+			instance.config.set("factorio.sync_banlist", "bidirectional");
+			instance._watchServerLogActions();
+		});
+		afterEach(function() {
+			clearInterval(instance._playerCheckInterval);
+		});
+		function emitAction(action, message) {
+			instance.server.emit("output", { type: "action", action, message }, "");
+		}
+		it("should record a normal JOIN action", function() {
+			emitAction("JOIN", "player joined the game");
+			assert(instance.playersOnline.has("player"), "player was not added");
+		});
+		it("should parse the reason of a normal BAN action", function() {
+			emitAction("BAN", "player was banned by <server>. Reason: griefing.");
+			assert.deepEqual(
+				connector.sentMessages[0],
+				new lib.MessageEvent(
+					1, src, addr("allInstances"), "InstanceBanlistUpdateEvent",
+					new lib.InstanceBanlistUpdateEvent("player", true, "griefing"),
+				),
+			);
+		});
+		it("should not throw on a BAN action without a reason tail", function() {
+			assert.doesNotThrow(() => emitAction("BAN", "evil"));
+		});
+		it("should not throw on an action whose message starts with a space", function() {
+			assert.doesNotThrow(() => emitAction("JOIN", " "));
 		});
 	});
 });

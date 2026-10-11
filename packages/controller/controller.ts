@@ -27,12 +27,12 @@ import jwt from "jsonwebtoken";
 
 // homebrew modules
 import * as lib from "@clusterio/lib";
-const { ConsoleTransport, levels, logger } = lib;
+import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Controller from "./src/Controller";
-import UserManager from "./src/UserManager";
-import UserRecord from "./src/UserRecord";
-import { version } from "./package.json";
+import Controller from "./src/Controller.js";
+import UserManager from "./src/UserManager.js";
+import UserRecord from "./src/UserRecord.js";
+import packageConfig from "./package.json" with { type: "json" };
 
 // globals
 let controller: Controller;
@@ -101,6 +101,9 @@ void new lib.Gauge(
 	"clusterio_controller_websocket_active_connections",
 	"How many WebSocket connections are currently open to the controller",
 	{ callback: function(gauge:lib.Gauge) {
+		if (!controller) {
+			return;
+		}
 		gauge.set(controller.wsServer.activeConnectors.size);
 	}}
 );
@@ -109,6 +112,9 @@ void new lib.Gauge(
 	"clusterio_controller_active_hosts",
 	"How many hosts are currently connected to the controller",
 	{ callback: function(gauge:lib.Gauge) {
+		if (!controller) {
+			return;
+		}
 		gauge.set(controller.wsServer.hostConnections.size);
 	}}
 );
@@ -118,6 +124,9 @@ void new lib.Gauge(
 	"How many clients are currently connected to this controller",
 	{
 		labels: ["type"], callback: async function(gauge:lib.Gauge) {
+			if (!controller) {
+				return;
+			}
 			gauge.labels("host").set(controller.wsServer.hostConnections.size);
 			gauge.labels("control").set(controller.wsServer.controlConnections.size);
 		},
@@ -192,21 +201,21 @@ async function handleBootstrapCommand(
 			process.exitCode = 1;
 			return;
 		}
-		let controlConfig = new lib.ControlConfig("control");
+		let ctlConfig = new lib.CtlConfig("control");
 
-		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
-		controlConfig.set(
-			"control.controller_token",
+		ctlConfig.set("ctl.controller_url", Controller.calculateControllerUrl(controllerConfig));
+		ctlConfig.set(
+			"ctl.controller_token",
 			userManager.signUserToken(admin),
 		);
 
-		let content = JSON.stringify(controlConfig, null, "\t");
+		let content = JSON.stringify(ctlConfig, null, "\t");
 		if (args.output === "-") {
 			// eslint-disable-next-line no-console
 			console.log(content);
 		} else {
 			logger.info(`Writing ${args.output}`);
-			await lib.safeOutputFile(args.output, content);
+			await lib.safeOutputFile(args.output, content, { mode: 0o600 });
 		}
 	}
 }
@@ -216,7 +225,7 @@ async function handleCopyStaticCommand(
 	pluginInfos: lib.PluginNodeEnvInfo[],
 ) {
 	await fs.cp(
-		path.join(__dirname, "..", "web", "static"),
+		path.join(import.meta.dirname, "..", "web", "static"),
 		args.target,
 		{
 			recursive: true,
@@ -268,7 +277,7 @@ interface InitializeParameters {
 
 async function initialize(): Promise<InitializeParameters> {
 	// argument parsing
-	const args = await yargs
+	const args = await yargs(process.argv.slice(2))
 		.scriptName("controller")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
@@ -289,6 +298,12 @@ async function initialize(): Promise<InitializeParameters> {
 			describe: "controller config file to use",
 			default: "config-controller.json",
 			type: "string",
+		})
+		.option("create-config", {
+			nargs: 0,
+			describe: "Create config file if it does not exist",
+			default: false,
+			type: "boolean",
 		})
 		.option("plugin-list", {
 			nargs: 1,
@@ -313,7 +328,7 @@ async function initialize(): Promise<InitializeParameters> {
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {
 						describe: "Path to output config (- for stdout)", type: "string",
-						nargs: 1, default: "config-control.json",
+						nargs: 1, default: "config-ctl.json",
 					});
 				})
 				.demandCommand(1, "You need to specify a command to run");
@@ -340,7 +355,7 @@ async function initialize(): Promise<InitializeParameters> {
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
-		.argv
+		.parse()
 	;
 
 	// Combined log stream of the whole cluster.
@@ -377,7 +392,7 @@ async function initialize(): Promise<InitializeParameters> {
 	let command = args._[0];
 	let shouldRun = false;
 	if (command === "run") {
-		logger.info(`Starting Clusterio controller ${version}`);
+		logger.info(`Starting Clusterio controller ${packageConfig.version}`);
 		if (args.recovery) {
 			logger.warn("Controller recovery mode enabled. Some features will be disabled.");
 		}
@@ -402,31 +417,16 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.info("Loading Plugin info");
 	const pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	const controllerConfigPath = args.config;
-	const controllerConfigLockPath = `${controllerConfigPath}.lock`;
-	if (args.bypassLockFile) {
-		await fs.unlink(controllerConfigLockPath).catch(() => {}); // ignore error, file might not exist
-	}
+	const [controllerConfig, controllerConfigLock] = await lib.loadConfigFromArgs(
+		args,
+		lib.ControllerConfig,
+		"controller",
+	);
 
-	let controllerConfig;
-	const controllerConfigLock = new lib.LockFile(controllerConfigLockPath);
-	logger.info(`Loading config from ${controllerConfigPath}`);
-	try {
-		controllerConfig = await lib.ControllerConfig.fromFile("controller", controllerConfigPath);
-
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.info("Config not found, initializing new config");
-			controllerConfig = new lib.ControllerConfig("controller", undefined, controllerConfigPath);
-
-		} else {
-			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.stack ?? err.message ?? err}`);
-		}
-	}
-
-	controllerConfig.set("controller.version", version); // Allows tracking last loaded version
+	controllerConfig.set("controller.version", packageConfig.version); // Allows tracking last loaded version
 
 	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
@@ -537,6 +537,6 @@ ${err.stack}`
 	});
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

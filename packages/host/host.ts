@@ -15,7 +15,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import yargs from "yargs";
-import { version } from "./package.json";
+import packageConfig from "./package.json" with { type: "json" };
 import winston from "winston";
 import "winston-daily-rotate-file";
 
@@ -23,7 +23,8 @@ import "winston-daily-rotate-file";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Host from "./src/Host";
+import Host from "./src/Host.js";
+import { createScenarioCommand, handleCreateScenarioCommand } from "./src/create_scenario.js";
 
 let host: Host | undefined;
 
@@ -69,7 +70,7 @@ export class HostConnector extends lib.WebSocketClientConnector {
 			new lib.MessageRegisterHost(
 				new lib.RegisterHostData(
 					this.hostConfig.get("host.controller_token"),
-					version,
+					packageConfig.version,
 					this.hostConfig.get("host.id"),
 					plugins,
 				)
@@ -82,7 +83,7 @@ export class HostConnector extends lib.WebSocketClientConnector {
 async function startHost() {
 	// argument parsing
 	// eslint-disable-next-line node/no-sync
-	const args = yargs
+	const args = yargs(process.argv.slice(2))
 		.scriptName("host")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
@@ -104,6 +105,12 @@ async function startHost() {
 			default: "config-host.json",
 			type: "string",
 		})
+		.option("create-config", {
+			nargs: 0,
+			describe: "Create config file if it does not exist",
+			default: false,
+			type: "boolean",
+		})
 		.option("plugin-list", {
 			nargs: 1,
 			describe: "File containing list of plugins available with their install path",
@@ -113,6 +120,11 @@ async function startHost() {
 		.option("bypass-lock-file", { hidden: true, type: "boolean", nargs: 0, default: false })
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("config", "Manage Host config", lib.configCommand)
+		.command(
+			"create-scenario <output>",
+			"Create a scenario patched with modules for use outside Clusterio",
+			createScenarioCommand,
+		)
 		.command("run", "Run host", yargs => {
 			yargs.option("can-restart", {
 				type: "boolean", nargs: 0, default: false,
@@ -145,7 +157,7 @@ async function startHost() {
 
 	let command = args._[0];
 	if (command === "run") {
-		logger.info(`Starting Clusterio host ${version}`);
+		logger.info(`Starting Clusterio host ${packageConfig.version}`);
 		if (args.recovery) {
 			logger.warn("Host recovery mode enabled. Some features will be disabled.");
 		}
@@ -163,34 +175,24 @@ async function startHost() {
 	logger.info("Loading Plugin info");
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	const hostConfigPath = args.config;
-	const hostConfigLockPath = `${hostConfigPath}.lock`;
-	if (args.bypassLockFile) {
-		await fs.unlink(hostConfigLockPath).catch(() => {}); // ignore error, file might not exist
-	}
+	const [hostConfig, hostConfigLock] = await lib.loadConfigFromArgs(
+		args,
+		lib.HostConfig,
+		"host",
+	);
 
-	let hostConfig;
-	const hostConfigLock = new lib.LockFile(hostConfigLockPath);
-	logger.info(`Loading config from ${hostConfigPath}`);
-	try {
-		hostConfig = await lib.HostConfig.fromFile("host", hostConfigPath);
-
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.info("Config not found, initializing new config");
-			hostConfig = new lib.HostConfig("host", undefined, hostConfigPath);
-
-		} else {
-			throw new lib.StartupError(`Failed to load ${args.config}: ${err.stack ?? err.message ?? err}`);
-		}
-	}
-
-	hostConfig.set("host.version", version); // Allows tracking last loaded version
+	hostConfig.set("host.version", packageConfig.version); // Allows tracking last loaded version
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);
+		return;
+	}
+
+	if (command === "create-scenario") {
+		await handleCreateScenarioCommand(args, hostConfig, pluginInfos);
 		return;
 	}
 
@@ -308,6 +310,6 @@ ${err.stack}`
 	});
 }
 
-if (module === require.main) {
+if (import.meta.main) {
 	bootstrap();
 }

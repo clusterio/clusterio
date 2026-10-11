@@ -1,14 +1,15 @@
-"use strict";
-const assert = require("assert").strict;
-const path = require("path");
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const lib = require("@clusterio/lib");
-const Host = require("@clusterio/host/dist/node/src/Host").default;
-const Instance = require("@clusterio/host/dist/node/src/Instance").default;
-const { _discoverInstances } = require("@clusterio/host/dist/node/src/Host");
-const { HostConnector } = require("@clusterio/host/dist/node/host");
+import * as lib from "@clusterio/lib";
+import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
+import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { HostConnector } from "@clusterio/host/dist/node/host.js";
+import "../setup_logging.js";
 
-describe("Host testing", function() {
+describe("host/src/Host", function() {
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
 			const instancePath = path.join("test", "file", "instances");
@@ -116,14 +117,19 @@ describe("Host testing", function() {
 				]);
 			});
 		});
-		describe(".checkRestartRequired()", function() {
+		describe(".checkRestartRequired()", async function() {
 			let host;
-			const hostVersion = require("@clusterio/host/package.json").version;
+			const hostVersion = (
+				await import("@clusterio/host/package.json", { with: { type: "json" }})
+			).default.version;
+			before(function() {
+				lib.addPluginConfigFields([{ name: "restart_test", hostEntrypoint: "host.js" }]);
+			});
 			beforeEach(function() {
 				// This can be used more generally, but i did not want to interfere with handleSyncUserListsEvent
 				const pluginInfos = [{
-					name: "global_chat",
-					requirePath: path.dirname(require.resolve("@clusterio/host/package.json")),
+					name: "restart_test",
+					packagePath: fileURLToPath(import.meta.resolve("@clusterio/host/package.json")),
 					version: hostVersion,
 				}];
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
@@ -141,7 +147,7 @@ describe("Host testing", function() {
 				host.pluginInfos[0].version = "0.0.0";
 				host.pluginInfos[0].hostEntrypoint = true;
 				host.pluginInfos[0].instanceEntrypoint = true;
-				host.config.set("global_chat.load_plugin", false);
+				host.config.set("restart_test.load_plugin", false);
 				host.config.restartRequired = false; // Setting load_plugin requires a restart
 				const result = await host.checkRestartRequired();
 				assert.equal(result, false);
@@ -174,9 +180,43 @@ describe("Host testing", function() {
 				assert.equal(host.config.restartRequired, true);
 			});
 		});
-		describe(".checkRestartDowngrade()", function() {
+		describe(".handlePluginInstallRequest()", function() {
 			let host;
-			const hostVersion = require("@clusterio/host/package.json").version;
+			let _fetch;
+			beforeEach(function() {
+				const pluginInfos = [{ name: "restart_test", npmPackage: "restart_test", version: "1.0.0" }];
+				const hostConfig = new lib.HostConfig("host", { "host.allow_plugin_install": true });
+				const hostConnector = new HostConnector(hostConfig, pluginInfos);
+				host = new Host(hostConnector, hostConfig, pluginInfos);
+				_fetch = global.fetch;
+				global.fetch = async () => ({ ok: true });
+			});
+			afterEach(function() {
+				global.fetch = _fetch;
+			});
+			it("marks a restart as required for a new plugin", async function() {
+				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("new_plugin"));
+				assert.equal(host.config.restartRequired, true);
+			});
+			it("leaves the flag alone for an already loaded plugin", async function() {
+				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("restart_test"));
+				assert.equal(host.config.restartRequired, false);
+			});
+			it("rejects when installs are disabled", async function() {
+				host.config.set("host.allow_plugin_install", false);
+				host.config.restartRequired = false; // Setting allow_plugin_install requires a restart
+				await assert.rejects(
+					host.handlePluginInstallRequest(new lib.PluginInstallRequest("new_plugin")),
+					/Plugin installs are disabled/
+				);
+				assert.equal(host.config.restartRequired, false);
+			});
+		});
+		describe(".checkRestartDowngrade()", async function() {
+			let host;
+			const hostVersion = (
+				await import("@clusterio/host/package.json", { with: { type: "json" }})
+			).default.version;
 			beforeEach(function() {
 				const hostConfig = new lib.HostConfig("host", { "host.version": hostVersion });
 				const hostConnector = new HostConnector(hostConfig, []);
@@ -195,6 +235,47 @@ describe("Host testing", function() {
 					installedVersion: hostVersion,
 					runningVersion: "999.0.0",
 				});
+			});
+		});
+		describe(".handleInstanceAssignInternalRequest()", function() {
+			const instancesDir = path.join("temp", "test", "host_assign");
+			let host;
+			beforeEach(async function() {
+				await fs.rm(instancesDir, { recursive: true, force: true });
+				await fs.mkdir(instancesDir, { recursive: true });
+				const hostConfig = new lib.HostConfig("host", { "host.instances_directory": instancesDir });
+				const hostConnector = new HostConnector(hostConfig, []);
+				host = new Host(hostConnector, hostConfig, []);
+				host.send = () => {};
+			});
+			function assignRequest(id, name) {
+				const config = new lib.InstanceConfig("controller", { "instance.id": id, "instance.name": name });
+				return new lib.InstanceAssignInternalRequest(id, config.toRemote("host"));
+			}
+
+			it("creates the folders for a new instance", async function() {
+				await host.handleInstanceAssignInternalRequest(assignRequest(1, "new"));
+				const instancePath = path.join(instancesDir, "new");
+				assert.equal(host.discoveredInstances.get(1).path, instancePath);
+				await fs.access(path.join(instancePath, "saves"));
+				await fs.access(path.join(instancePath, "script-output"));
+			});
+			it("recreates missing folders for a discovered instance", async function() {
+				const instancePath = path.join(instancesDir, "existing");
+				await fs.mkdir(instancePath);
+				const configPath = path.join(instancePath, "instance.json");
+				host.discoveredInstances.set(2, {
+					path: instancePath,
+					config: new lib.InstanceConfig("host", {
+						...Host.instanceConfigWarning,
+						"instance.id": 2,
+						"instance.name": "existing",
+					}, configPath),
+				});
+
+				await host.handleInstanceAssignInternalRequest(assignRequest(2, "existing"));
+				await fs.access(path.join(instancePath, "saves"));
+				await fs.access(path.join(instancePath, "script-output"));
 			});
 		});
 		describe(".handleHostRestartRequest()", function() {

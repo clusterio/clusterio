@@ -1,7 +1,6 @@
-"use strict";
-const assert = require("assert").strict;
-const { Role, SubscribableDatastore } = require("@clusterio/lib");
-const { User } = require("@clusterio/controller");
+import assert from "node:assert/strict";
+import { Role, SubscribableDatastore } from "@clusterio/lib";
+import { User } from "@clusterio/controller";
 
 describe("controller/User", function () {
 	/** @type {SubscribableDatastore<UserRecord>} */

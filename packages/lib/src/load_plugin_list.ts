@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "path";
-import { logger } from "./logging";
-import * as libFileOps from "./file_ops";
+import { logger } from "./logging.js";
+import * as libFileOps from "./file_ops.js";
 import vm from "vm";
-import { PluginDetails } from "./data/messages_plugin";
-import type { PluginNodeEnvInfo } from "./plugin";
+import { PluginDetails } from "./data/messages_plugin.js";
+import type { PluginNodeEnvInfo } from "./plugin.js";
 
 /**
  * Searches for local plugins in the plugins/ and external_plugins/ directories
@@ -69,6 +69,7 @@ async function findLocalPlugins(pluginList: Map<string, string>): Promise<boolea
 	return hasChanged > 0;
 }
 
+const require = createRequire(import.meta.url);
 function getPluginName(requireSpec: string) {
 	const context = vm.createContext({ require: require, pluginInfo: null });
 	const code = `pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;
@@ -246,14 +247,14 @@ async function readPackageJson(packageJsonPath: string): Promise<any> {
  * including npm plugins installed since startup that will only be loaded after a restart.
  *
  * @param pluginInfos - Plugins discovered when this machine started
- * @param isLoaded - Whether the named plugin is loaded
- * @param isEnabled - Whether the named plugin is enabled
+ * @param isLoaded - Whether the plugin is loaded
+ * @param isEnabled - Whether the plugin is enabled
  * @returns Details of every plugin on this machine
  */
 export async function listPluginDetails(
 	pluginInfos: PluginNodeEnvInfo[],
-	isLoaded: (name: string) => boolean,
-	isEnabled: (name: string) => boolean,
+	isLoaded: (pluginInfo: PluginNodeEnvInfo) => boolean,
+	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
 	const knownPackages = new Set<string>();
@@ -262,16 +263,9 @@ export async function listPluginDetails(
 		if (pluginInfo.npmPackage) {
 			knownPackages.add(pluginInfo.npmPackage);
 		}
-		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo.name), isEnabled(pluginInfo.name));
-		let packageJsonPath;
-		try {
-			packageJsonPath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-		} catch (err: any) {
-			// Uninstalled since startup
-		}
-		if (packageJsonPath) {
-			plugin.installedVersion = (await readPackageJson(packageJsonPath))?.version;
-		}
+		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo), isEnabled(pluginInfo));
+		// Not present if uninstalled since startup
+		plugin.installedVersion = (await readPackageJson(pluginInfo.packagePath))?.version;
 		plugins.push(plugin);
 	}
 

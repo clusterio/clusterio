@@ -19,16 +19,16 @@
  * The repository must be built (pnpm run build) before running with a local side.
  */
 "use strict";
-const child_process = require("child_process");
-const events = require("events");
-const fs = require("fs/promises");
-const path = require("path");
-const readline = require("readline");
-const util = require("util");
+import child_process from "node:child_process";
+import events from "node:events";
+import fs from "node:fs/promises";
+import path from "node:path";
+import readline from "node:readline";
+import util from "node:util";
 
 const execFile = util.promisify(child_process.execFile);
 
-const repoRoot = path.join(__dirname, "..");
+const repoRoot = path.join(import.meta.dirname, "..");
 const workDir = path.join(repoRoot, "temp", "compat-test");
 const controllerDir = path.join(workDir, "controller");
 const hostDir = path.join(workDir, "host");
@@ -248,6 +248,11 @@ async function main() {
 	console.log(`Testing controller ${await packageVersion("controller", options.controller)} `
 		+ `with host ${await packageVersion("host", options.host)}`);
 
+	try {
+		await run("controller", controller, ["config", "create"], controllerDir);
+	} catch {
+		// Ignore failure on previous version where config create does not exist and is not needed.
+	}
 	await run("controller", controller, ["config", "set", "controller.http_port", String(httpPort)], controllerDir);
 	await run("controller", controller, ["bootstrap", "create-admin", "test"], controllerDir);
 	await run("controller", controller, ["bootstrap", "create-ctl-config", "test"], controllerDir);

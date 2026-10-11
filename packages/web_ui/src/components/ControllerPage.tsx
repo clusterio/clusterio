@@ -16,7 +16,7 @@ import ControlContext from "./ControlContext";
 import ControllerConfigTree from "./ControllerConfigTree";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
-import { notifyErrorHandler } from "../util/notify";
+import notify, { notifyErrorHandler } from "../util/notify";
 import webUiPackage from "../../package.json";
 import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
 import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableDropdownButton";
@@ -43,6 +43,20 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 				control.send(
 					new lib.ControllerRestartRequest()
 				).catch(notifyErrorHandler("Error restarting controller"));
+			},
+		});
+	}
+
+	if (account.hasPermission("core.controller.restart") && !restartRequired) {
+		actions.push({
+			key: "mark-restart-required",
+			label: "Mark Restart Required",
+			onClick: () => {
+				control.send(
+					new lib.ControllerMarkRestartRequiredRequest()
+				).then(() => {
+					notify("Controller marked as requiring a restart", "success");
+				}).catch(notifyErrorHandler("Error marking controller"));
 			},
 		});
 	}
