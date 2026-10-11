@@ -1,168 +1,86 @@
 import { useContext, useEffect, useState } from "react";
-import { Alert, Button, Descriptions, Input, Modal, Select, Space, Table, Tag, Typography } from "antd";
+import { Button, Descriptions, Input, Modal, Select, Space, Table, Typography } from "antd";
 import SearchOutlined from "@ant-design/icons/SearchOutlined";
 
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useHosts } from "../model/host";
-import notify, { notifyErrorHandler } from "../util/notify";
+import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
+import { InstallTarget, PluginInstaller, RemoteInstallDisabledNotice, addressKey } from "./PluginInstall";
+import { PluginInstalledTag, PluginStatus, PluginUpdateButton, PluginVersions } from "./PluginClusterStatus";
 
 const { Text, Link } = Typography;
 
-type InstallTarget = { name: string, address: lib.AddressShorthand };
+/** Statuses are undefined until the plugin lists of the machines have loaded */
+type BrowserProps = { statuses?: Map<string, PluginStatus>, installer: PluginInstaller };
 
-// Which targets accept remote plugin installs, assumed true when the config can't be read.
-function useInstallAllowed() {
-	const control = useContext(ControlContext);
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+// Installs on the chosen machines, defaulting to every connected machine that allows installs.
+function InstallControls(props: { plugin: lib.PluginSearchResult, installer: PluginInstaller }) {
 	const account = useAccount();
 	const [hosts] = useHosts();
-	const [controllerAllowed, setControllerAllowed] = useState(true);
-	const [hostsAllowed, setHostsAllowed] = useState(new Map<number, boolean>());
-	const connectedHostIds = [...hosts.values()].filter(host => host.connected).map(host => host.id);
+	// Tracks what was deselected so machines connecting later, or allowing installs, start selected
+	const [deselected, setDeselected] = useState(new Set<string>());
+	const { access, installing } = props.installer;
 
-	useEffect(() => {
-		if (!account.hasPermission("core.controller.get_config")) {
-			return;
-		}
-		control.send(new lib.ControllerConfigGetRequest()).then(serializedConfig => {
-			const config = lib.ControllerConfig.fromJSON(serializedConfig, "control");
-			setControllerAllowed(config.get("controller.allow_plugin_install"));
-		}).catch(notifyErrorHandler("Failed to fetch controller config"));
-	}, []);
-
-	useEffect(() => {
-		if (!account.hasPermission("core.host.get_config")) {
-			return;
-		}
-		Promise.all(connectedHostIds.map(async hostId => {
-			try {
-				const serializedConfig = await control.sendTo({ hostId }, new lib.HostConfigGetRequest());
-				const config = lib.HostConfig.fromJSON(serializedConfig, "control");
-				return [hostId, config.get("host.allow_plugin_install")] as const;
-			} catch (err) {
-				return [hostId, true] as const;
-			}
-		})).then(entries => { setHostsAllowed(new Map(entries)); });
-	}, [connectedHostIds.join(",")]);
-
-	return {
-		controller: controllerAllowed,
-		host: (hostId: number) => hostsAllowed.get(hostId) ?? true,
-	};
-}
-
-type InstallState = { installing: boolean, setInstalling: (installing: boolean) => void };
-
-// Install state is owned by the browser so it survives switching between plugins and pages.
-function InstallControls(props: { plugin: lib.PluginSearchResult } & InstallState) {
-	const control = useContext(ControlContext);
-	const account = useAccount();
-	const [hosts] = useHosts();
-	const allowed = useInstallAllowed();
-	const [selectedHostIds, setSelectedHostIds] = useState<number[]>([]);
-	const { installing, setInstalling } = props;
-
-	const connectedHosts = [...hosts.values()].filter(host => host.connected);
-	const eligibleHosts = connectedHosts.filter(host => allowed.host(host.id));
-	const canInstall = account.hasPermission("core.plugin.install");
-
-	async function install(targets: InstallTarget[]) {
-		setInstalling(true);
-		try {
-			const results = await Promise.allSettled(targets.map(
-				target => control.sendTo(target.address, new lib.PluginInstallRequest(props.plugin.name))
-			));
-			const installed = targets.filter((_, i) => results[i].status === "fulfilled");
-			if (installed.length) {
-				notify(
-					`Installed ${props.plugin.name}`, "success",
-					`Installed on ${installed.map(t => t.name).join(", ")}. A restart is required to load it.`,
-				);
-			}
-			results.forEach((result, i) => {
-				if (result.status === "rejected") {
-					notifyErrorHandler(`Failed to install ${props.plugin.name} on ${targets[i].name}`)(result.reason);
-				}
-			});
-		} finally {
-			setInstalling(false);
-		}
-	}
-
-	const hostTarget = (host: lib.HostDetails): InstallTarget => ({ name: host.name, address: { hostId: host.id } });
-	const disabledHosts = connectedHosts.filter(host => !allowed.host(host.id));
+	const machines: (InstallTarget & { key: string, allowed: boolean })[] = [
+		{ name: "Controller", address: "controller" as lib.AddressShorthand },
+		...[...hosts.values()]
+			.filter(host => host.connected)
+			.sort((a, b) => strcmp(a.name, b.name))
+			.map(host => ({ name: host.name, address: { hostId: host.id } as lib.AddressShorthand })),
+	].map(target => ({ ...target, key: addressKey(target.address), allowed: access.canInstall(target.address) }));
+	const selected = machines.filter(machine => machine.allowed && !deselected.has(machine.key));
+	const blocked = machines.filter(machine => !machine.allowed);
 
 	return <Space direction="vertical" style={{ width: "100%" }}>
 		<Space wrap>
-			<Button
-				type="primary"
-				loading={installing}
-				disabled={!canInstall || !allowed.controller}
-				onClick={() => { install([{ name: "controller", address: "controller" }]); }}
-			>Install to controller</Button>
+			<Text>Install on</Text>
 			<Select
 				mode="multiple"
-				style={{ minWidth: 200 }}
-				placeholder="Select hosts"
+				style={{ minWidth: 260 }}
+				placeholder="Select machines"
 				optionFilterProp="label"
-				value={selectedHostIds}
-				onChange={setSelectedHostIds}
-				options={connectedHosts.map(host => ({
-					value: host.id,
-					label: allowed.host(host.id) ? host.name : `${host.name} (remote install disabled)`,
-					disabled: !allowed.host(host.id),
+				value={selected.map(machine => machine.key)}
+				onChange={keys => {
+					setDeselected(new Set(machines.filter(machine => !keys.includes(machine.key)).map(m => m.key)));
+				}}
+				options={machines.map(machine => ({
+					value: machine.key,
+					label: machine.allowed ? machine.name : `${machine.name} (remote installs disabled)`,
+					disabled: !machine.allowed,
 				}))}
 			/>
 			<Button
+				type="primary"
 				loading={installing}
-				disabled={!canInstall || !selectedHostIds.length}
-				onClick={() => {
-					install(connectedHosts.filter(host => selectedHostIds.includes(host.id)).map(hostTarget));
-				}}
-			>Install to selected hosts</Button>
-			<Button
-				loading={installing}
-				disabled={!canInstall || !eligibleHosts.length}
-				onClick={() => { install(eligibleHosts.map(hostTarget)); }}
-			>Install to all hosts</Button>
+				disabled={!account.hasPermission("core.plugin.install") || !selected.length}
+				onClick={() => { props.installer.install(props.plugin.name, selected); }}
+			>Install</Button>
 		</Space>
-		{(!allowed.controller || disabledHosts.length > 0) && <RemoteInstallDisabledNotice
-			controller={!allowed.controller}
-			hosts={disabledHosts.map(host => host.name)}
+		{blocked.length > 0 && <RemoteInstallDisabledNotice
+			controller={blocked.some(machine => machine.address === "controller")}
+			hosts={blocked.filter(machine => machine.address !== "controller").map(machine => machine.name)}
 		/>}
 	</Space>;
 }
 
-// Remote installs can only be enabled locally on each machine, so tell the user how.
-function RemoteInstallDisabledNotice(props: { controller: boolean, hosts: string[] }) {
-	const names = [...(props.controller ? ["the controller"] : []), ...props.hosts];
-	return <Alert
-		type="info"
-		showIcon
-		message={`Remote plugin installs are disabled on ${names.join(", ")}`}
-		description={<>
-			For security reasons this can't be changed from the web UI. To allow installs, stop the machine
-			and run the following in its installation directory, then start it again:
-			{props.controller && <div>
-				<Text type="secondary">Controller: </Text>
-				<Text code copyable>npx clusteriocontroller config set controller.allow_plugin_install true</Text>
-			</div>}
-			{props.hosts.length > 0 && <div>
-				<Text type="secondary">Host: </Text>
-				<Text code copyable>npx clusteriohost config set host.allow_plugin_install true</Text>
-			</div>}
-		</>}
-	/>;
-}
-
-function PluginDetails(props: { plugin: lib.PluginSearchResult } & InstallState) {
+function PluginDetails(props: { plugin: lib.PluginSearchResult } & BrowserProps) {
 	const { plugin } = props;
+	const status = props.statuses?.get(plugin.name);
 	return <>
 		<Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
 			<Descriptions.Item label="Package">{plugin.name}</Descriptions.Item>
 			<Descriptions.Item label="Version">{plugin.version}</Descriptions.Item>
+			{status && <Descriptions.Item label="Installed">
+				<PluginVersions status={status} latest={plugin.version} />
+				<div style={{ marginTop: 4 }}>
+					<PluginUpdateButton status={status} latest={plugin.version} installer={props.installer} />
+				</div>
+			</Descriptions.Item>}
 			{plugin.description && <Descriptions.Item label="Description">{plugin.description}</Descriptions.Item>}
 			{plugin.publisher && <Descriptions.Item label="Publisher">{plugin.publisher}</Descriptions.Item>}
 			{plugin.date && <Descriptions.Item label="Published">
@@ -176,13 +94,13 @@ function PluginDetails(props: { plugin: lib.PluginSearchResult } & InstallState)
 				</Space>
 			</Descriptions.Item>
 		</Descriptions>
-		<InstallControls plugin={plugin} installing={props.installing} setInstalling={props.setInstalling} />
+		{/* Installed plugins are brought in line by the update action above instead */}
+		{props.statuses && !status && <InstallControls plugin={plugin} installer={props.installer} />}
 	</>;
 }
 
-export function PluginBrowserButton() {
+export function PluginBrowserButton(props: BrowserProps) {
 	const control = useContext(ControlContext);
-	const account = useAccount();
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [page, setPage] = useState(1);
@@ -191,8 +109,6 @@ export function PluginBrowserButton() {
 	const [total, setTotal] = useState(0);
 	const [results, setResults] = useState<lib.PluginSearchResult[]>([]);
 	const [selected, setSelected] = useState<lib.PluginSearchResult | undefined>();
-	const [installed, setInstalled] = useState(new Set<string>());
-	const [installing, setInstalling] = useState(false);
 
 	useEffect(() => {
 		if (!open) {
@@ -211,15 +127,6 @@ export function PluginBrowserButton() {
 		// eslint-disable-next-line consistent-return
 		return () => { canceled = true; };
 	}, [open, query, page, pageSize]);
-
-	useEffect(() => {
-		if (!open || !account.hasPermission("core.plugin.list")) {
-			return;
-		}
-		control.send(new lib.PluginListRequest()).then(plugins => {
-			setInstalled(new Set(plugins.flatMap(p => (p.npmPackage ? [p.npmPackage] : []))));
-		}).catch(notifyErrorHandler("Error fetching installed plugins"));
-	}, [open]);
 
 	return <>
 		<Button icon={<SearchOutlined />} onClick={() => { setOpen(true); }}>Browse plugins</Button>
@@ -255,10 +162,15 @@ export function PluginBrowserButton() {
 					{
 						title: "Name",
 						key: "name",
-						render: (_, plugin) => <>
-							{plugin.name}
-							{installed.has(plugin.name) && <Tag style={{ marginLeft: 8 }}>Installed on controller</Tag>}
-						</>,
+						render: (_, plugin) => {
+							const status = props.statuses?.get(plugin.name);
+							return <>
+								{plugin.name}
+								{status && <span style={{ marginLeft: 8 }}>
+									<PluginInstalledTag status={status} latest={plugin.version} />
+								</span>}
+							</>;
+						},
 					},
 					{ title: "Version", dataIndex: "version", key: "version", width: 120 },
 					{ title: "Publisher", dataIndex: "publisher", key: "publisher", width: 160, responsive: ["md"] },
@@ -272,7 +184,7 @@ export function PluginBrowserButton() {
 				]}
 			/>
 			{selected
-				? <PluginDetails plugin={selected} installing={installing} setInstalling={setInstalling} />
+				? <PluginDetails plugin={selected} statuses={props.statuses} installer={props.installer} />
 				: <Text type="secondary">Select a plugin to see details and install it.</Text>
 			}
 		</Modal>

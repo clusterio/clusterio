@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Table } from "antd";
+import { Space, Table, Typography } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
@@ -9,6 +9,11 @@ import notify from "../util/notify";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { PluginBrowserButton } from "./PluginBrowser";
+import { usePluginInstaller } from "./PluginInstall";
+import {
+	PluginStatus, PluginUpdateButton, PluginVersions, RestartPendingButton, UpdateAllButton,
+	computePluginStatuses, pluginStatusKey, useLatestVersions, useMachinePlugins,
+} from "./PluginClusterStatus";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
 import useTableQueryState from "../util/useTableQueryState";
@@ -19,10 +24,35 @@ import Link from "./Link";
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 type PluginRow = {
-	meta: PluginWebApi;
+	key: string;
+	title: string;
+	/** Not present for plugins the controller hasn't loaded */
+	meta?: PluginWebApi;
 	info?: PluginWebpackEnvInfo;
 	package?: any;
+	status?: PluginStatus;
 };
+
+function WebUiStatus(props: { plugin: PluginRow }) {
+	const control = useContext(ControlContext);
+	const { meta } = props.plugin;
+	if (!meta) {
+		return <Typography.Text type="secondary">Not on controller</Typography.Text>;
+	}
+	if (!meta.enabled) {
+		return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
+	}
+	if (!meta.web.error && !control.pluginInfos.has(meta.name)) {
+		return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
+	}
+	if (!props.plugin.package) {
+		return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
+	}
+	if (props.plugin.package.version !== meta.version) {
+		return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Version mis-matched</>;
+	}
+	return <>Loaded</>;
+}
 
 
 export default function PluginsPage() {
@@ -33,7 +63,13 @@ export default function PluginsPage() {
 		namespace: "plugin", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<PluginRow>(
-		tableState, "name", plugin => (plugin.info ? plugin.info.title : plugin.meta.name), "Search plugins"
+		tableState, "name", plugin => plugin.title, "Search plugins"
+	);
+	const { machines, refresh } = useMachinePlugins();
+	const installer = usePluginInstaller(refresh);
+	const statuses = machines ? computePluginStatuses(machines) : new Map<string, PluginStatus>();
+	const latestVersions = useLatestVersions(
+		[...statuses.values()].flatMap(status => (status.npmPackage ? [status.npmPackage] : []))
 	);
 	const rowNav = useRowNavigation();
 
@@ -50,25 +86,43 @@ export default function PluginsPage() {
 
 	let tableContents: PluginRow[] = [];
 	for (let meta of pluginList) {
-		if (control.plugins.has(meta.name)) {
-			let plugin = control.plugins.get(meta.name)!;
-			tableContents.push({
-				meta,
-				info: plugin.info,
-				package: plugin.package,
-			});
-		} else {
-			tableContents.push({
-				meta,
-				info: control.pluginInfos.get(meta.name),
-			});
+		const key = pluginStatusKey(meta);
+		const plugin = control.plugins.get(meta.name);
+		const info = plugin ? plugin.info : control.pluginInfos.get(meta.name);
+		tableContents.push({
+			key,
+			title: info ? info.title : meta.name,
+			meta,
+			info,
+			package: plugin?.package,
+			status: statuses.get(key),
+		});
+	}
+	// Plugins installed on hosts, or waiting for a restart, that the controller hasn't loaded
+	const listedKeys = new Set(tableContents.map(row => row.key));
+	for (const status of statuses.values()) {
+		if (!listedKeys.has(status.key)) {
+			tableContents.push({ key: status.key, title: status.title, status });
 		}
 	}
+	const latestOf = (plugin: PluginRow) => (
+		plugin.status?.npmPackage ? latestVersions[plugin.status.npmPackage] : undefined
+	);
 
 	return <PageLayout nav={[{ name: "Plugins" }]}>
 		<PageHeader
 			title="Plugins"
-			extra={account.hasPermission("core.plugin.search") ? <PluginBrowserButton /> : undefined}
+			extra={<Space wrap>
+				{machines && <RestartPendingButton statuses={[...statuses.values()]} machines={machines} />}
+				<UpdateAllButton
+					statuses={[...statuses.values()]}
+					titles={new Map(tableContents.map(row => [row.key, row.title]))}
+					latestVersions={latestVersions}
+					installer={installer}
+				/>
+				{account.hasPermission("core.plugin.search")
+					&& <PluginBrowserButton statuses={machines && statuses} installer={installer} />}
+			</Space>}
 		/>
 		<Table
 			columns={[
@@ -76,52 +130,53 @@ export default function PluginsPage() {
 					title: "Name",
 					key: "name",
 					className: "table-link-cell",
-					render: (_, plugin) => <Link
-						to={`/plugins/${plugin.meta.name}/view`}
-						style={{ color: "inherit" }}
-					>
-						{plugin.info ? plugin.info.title : plugin.meta.name}
-					</Link>,
-					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
+					render: (_, plugin) => (plugin.meta
+						? <Link to={`/plugins/${plugin.meta.name}/view`} style={{ color: "inherit" }}>
+							{plugin.title}
+						</Link>
+						: plugin.title
+					),
+					sorter: (a, b) => strcmp(a.title, b.title),
 					sortOrder: tableState.sortOrder("name"),
 					filteredValue: tableState.filteredValue("name"),
 					...nameSearch,
 				},
 				{
-					title: "Version",
-					key: "version",
-					render: (_, plugin) => {
-						if (!plugin.meta.enabled) {
-							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
-						}
-						if (!plugin.meta.web.error && !control.pluginInfos.has(plugin.meta.name)) {
-							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
-						}
-						if (!plugin.package) {
-							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
-						}
-						if (plugin.package.version !== plugin.meta.version) {
-							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Version mis-matched</>;
-						}
-						return plugin.package.version;
-					},
-					sorter: (a, b) => strcmp(a.meta.version, b.meta.version),
-					sortOrder: tableState.sortOrder("version"),
+					title: "Versions",
+					key: "versions",
+					render: (_, plugin) => (plugin.status
+						? <PluginVersions status={plugin.status} latest={latestOf(plugin)} />
+						: plugin.meta?.version
+					),
 				},
 				{
-					title: "Loaded",
-					key: "loaded",
-					render: (_, plugin) => (plugin.package ? "Yes" : null),
-					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
-					sortOrder: tableState.sortOrder("loaded"),
+					title: "Web UI",
+					key: "web",
+					render: (_, plugin) => <WebUiStatus plugin={plugin} />,
 					responsive: ["sm"],
+				},
+				{
+					key: "actions",
+					align: "right",
+					render: (_, plugin) => (plugin.status
+						// Keep clicks on the update action from opening the plugin
+						? <span onClick={event => { event.stopPropagation(); }}>
+							<PluginUpdateButton
+								status={plugin.status}
+								title={plugin.title}
+								latest={latestOf(plugin)}
+								installer={installer}
+							/>
+						</span>
+						: null
+					),
 				},
 			]}
 			dataSource={tableContents}
-			rowKey={plugin => plugin.meta.name}
+			rowKey={plugin => plugin.key}
 			pagination={tableState.pagination}
 			onChange={tableState.onChange}
-			onRow={plugin => rowNav(`/plugins/${plugin.meta.name}/view`)}
+			onRow={plugin => (plugin.meta ? rowNav(`/plugins/${plugin.meta.name}/view`) : {})}
 		/>
 	</PageLayout>;
 }

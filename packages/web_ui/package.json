@@ -54,6 +54,7 @@
 		"react-dom": "^18.2.0",
 		"react-markdown": "catalog:",
 		"react-router-dom": "^6.29.0",
+		"semver": "^7.7.1",
 		"stream-browserify": "^3.0.0",
 		"style-loader": "^3.3.3",
 		"swc-loader": "^0.2.6",
@@ -67,6 +68,7 @@
 	"devDependencies": {
 		"@types/node": "^20.17.19",
 		"@types/react": "^18.3.18",
-		"@types/react-dom": "^18.3.5"
+		"@types/react-dom": "^18.3.5",
+		"@types/semver": "^7.5.0"
 	}
 }
