@@ -67,6 +67,28 @@ describe("rce_ops", function() {
 			await lib.handlePluginInstall("foo");
 			assert.equal(calledWith, "https://registry.npmjs.com/foo");
 		});
+		it("installs a pinned version", async function() {
+			let calledWith = "";
+			global.fetch = function(url) {
+				calledWith = url;
+				return { ok: true };
+			};
+
+			await lib.handlePluginInstall("foo@1.2.3");
+			assert.equal(calledWith, "https://registry.npmjs.com/foo/1.2.3");
+			await lib.handlePluginInstall("@scope/foo@1.0.0-alpha.1");
+			assert.equal(calledWith, "https://registry.npmjs.com/@scope/foo/1.0.0-alpha.1");
+			await lib.handlePluginInstall("@scope/foo");
+			assert.equal(calledWith, "https://registry.npmjs.com/@scope/foo");
+		});
+		it("rejects unregistered versions", async function() {
+			global.fetch = function() { return { ok: false }; };
+			await assert.rejects(lib.handlePluginInstall("foo@9.9.9"), /Unknown plugin: foo@9.9.9/);
+		});
+		it("rejects invalid versions", async function() {
+			await assert.rejects(lib.handlePluginInstall("foo@"), /Invalid plugin version: /);
+			await assert.rejects(lib.handlePluginInstall("foo@-1"), /Invalid plugin version: -1/);
+		});
 		it("rejects when name too long", async function() {
 			const pluginName = "a".repeat(215);
 			await assert.rejects(

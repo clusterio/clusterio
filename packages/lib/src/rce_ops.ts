@@ -54,15 +54,25 @@ export async function handlePluginInstall(pluginName: string) {
 		throw new RequestError(`Invalid plugin name: ${pluginName}`);
 	}
 
-	const packageName = encodeURI(pluginName);
-	const npmRequest = await fetch(`https://registry.npmjs.com/${packageName}`, {
+	// Optionally pinned to a version as name@version, the name itself may start with @ for scoped packages
+	const versionSeparator = pluginName.lastIndexOf("@");
+	const [name, version] = versionSeparator > 0
+		? [pluginName.slice(0, versionSeparator), pluginName.slice(versionSeparator + 1)]
+		: [pluginName, undefined];
+	if (version !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9\-.+]*$/.test(version)) {
+		throw new RequestError(`Invalid plugin version: ${version}`);
+	}
+
+	const packageName = encodeURI(name);
+	const registryPath = version !== undefined ? `${packageName}/${encodeURIComponent(version)}` : packageName;
+	const npmRequest = await fetch(`https://registry.npmjs.com/${registryPath}`, {
 		method: "HEAD",
 	});
 	if (!npmRequest.ok) {
-		throw new RequestError(`Unknown plugin: ${packageName}`);
+		throw new RequestError(`Unknown plugin: ${version !== undefined ? `${packageName}@${version}` : packageName}`);
 	}
 
-	return await installPackage(packageName);
+	return await installPackage(version !== undefined ? `${packageName}@${version}` : packageName);
 }
 
 const npmSearchMaxSize = 250; // Limit imposed by the registry
