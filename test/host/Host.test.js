@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as lib from "@clusterio/lib";
-import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
+import Host, { _discoverInstances, HostRouter } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
 import "../setup_logging.js";
@@ -31,6 +31,34 @@ describe("host/src/Host", function() {
 		});
 	});
 
+	describe("class HostRouter", function() {
+		describe(".wakeInstance()", function() {
+			it("should log the message of a start error that has no stack", async function() {
+				// RequestError leaves its stack undefined
+				const err = new lib.RequestError("No available port left to assign from host.factorio_port_range");
+				const mockHost = {
+					_shuttingDown: false,
+					_connectInstance: async () => { throw err; },
+					instanceLogMeta: () => ({}),
+				};
+				const responses = [];
+				const origin = { connector: { sendResponseError: response => responses.push(response) } };
+				const message = { dst: lib.Address.fromShorthand({ instanceId: 1 }) };
+				const logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = text => { logged.push(text); };
+				try {
+					new HostRouter(mockHost).wakeInstance(origin, message);
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(responses.length, 1);
+				assert.equal(logged.length, 1);
+				assert.match(logged[0], /No available port left to assign/);
+			});
+		});
+	});
 	describe("class Host", function() {
 		describe(".handleSyncUserListsEvent()", function() {
 			const hostAddress = lib.Address.fromShorthand({ hostId: 1 });
