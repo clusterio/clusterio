@@ -99,8 +99,9 @@ export default async function(context: InstancePluginContext) {
 
 		let items = await instance.sendTo("controller", new GetStorageRequest());
 
-		// Cache items for periodic time updates
-		cachedInventoryItems = items;
+		// Send the full inventory before a delta update can replace the cached items.
+		const itemsJson = lib.escapeString(JSON.stringify(items));
+		await instance.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true, plugin.name);
 
 		// Ensure a payload with updated time is sent every second
 		timeUpdateId = setInterval(() => {
