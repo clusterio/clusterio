@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import events from "node:events";
 import { Controller, WsServer } from "@clusterio/controller";
 import { ControllerConfig } from "@clusterio/lib";
 
@@ -66,6 +67,24 @@ describe("controller/src/WsServer", function() {
 					headers: { "x-forwarded-for": "::1" },
 				});
 				assert.equal(ipv6, "2000::1");
+			});
+		});
+		describe(".handleConnection()", function() {
+			it("should handle socket errors before the handshake completes", function() {
+				// A ws socket emits "error" for e.g. a close frame with the reserved code 1006
+				const socket = new events.EventEmitter();
+				socket.send = () => {};
+				socket.close = () => {};
+				socket.terminate = () => {};
+				const req = { socket: { remoteAddress: "1.2.3.4", remoteFamily: "IPv4" }, headers: {} };
+				wsServer.handleConnection(socket, req);
+				try {
+					assert.doesNotThrow(() => {
+						socket.emit("error", new RangeError("Invalid WebSocket frame: invalid status code 1006"));
+					});
+				} finally {
+					socket.emit("message", "not json"); // ends the handshake and its timeout
+				}
 			});
 		});
 	});
