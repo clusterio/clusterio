@@ -32,7 +32,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 import Controller from "./src/Controller.js";
 import UserManager from "./src/UserManager.js";
 import UserRecord from "./src/UserRecord.js";
-import packageConfig from "./package.json" with { type: "json" };
+import packageConfig from "@clusterio/controller/package.json" with { type: "json" };
 
 // globals
 let controller: Controller;

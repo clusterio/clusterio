@@ -51,8 +51,9 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 
 		try {
 			pluginPackage = (await import(pathToFileURL(packagePath).href, { with: { type: "json" }})).default;
+			// pluginPath is a package name for plugins installed from npm, so resolve from the package itself
 			pluginInfo = (await import(
-				pathToFileURL(path.posix.join(pluginPath, pluginPackage.main ?? "index.js")).href
+				pathToFileURL(path.join(path.dirname(packagePath), pluginPackage.main ?? "index.js")).href
 			)).plugin;
 		} catch (err: any) {
 			if (err.code === "InstallationError") {
@@ -106,7 +107,7 @@ export async function loadPlugin<
 		return;
 	}
 
-	const module = await import(pathToFileURL(path.posix.join(pluginInfo.requirePath, requirePath)).href);
+	const module = await import(pathToFileURL(path.join(path.dirname(pluginInfo.packagePath), requirePath)).href);
 	const pluginContext: libPlugin.PluginLoadContext<Context> = {
 		...context,
 		plugin: pluginInfo,
