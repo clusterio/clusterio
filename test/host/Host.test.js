@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import dgram from "node:dgram";
+import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -206,6 +208,43 @@ describe("host/src/Host", function() {
 				const result = await host.checkRestartRequired();
 				assert.equal(result, true);
 				assert.equal(host.config.restartRequired, true);
+			});
+		});
+		describe(".assignFreeGamePort()", function() {
+			let host;
+			let held;
+			let instanceConfig;
+			beforeEach(async function() {
+				const hostConfig = new lib.HostConfig("host");
+				host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				instanceConfig = new lib.InstanceConfig("host", { "instance.id": 1 });
+				host.assignedInstances.set(1, { config: instanceConfig, path: "" });
+				held = dgram.createSocket("udp4");
+				held.bind(0, "127.0.0.1");
+				await events.once(held, "listening");
+			});
+			afterEach(function() {
+				held.close();
+			});
+			it("replaces a stored port another process is bound to", async function() {
+				const port = held.address().port;
+				host.config.set("host.factorio_port_range", `${port}-${port + 1}`);
+				instanceConfig.set("factorio.host_assigned_game_port", port);
+				assert.equal(await host.assignFreeGamePort(1), port + 1);
+				assert.equal(instanceConfig.get("factorio.host_assigned_game_port"), port + 1);
+			});
+			it("keeps a stored port that is free", async function() {
+				const port = held.address().port;
+				host.config.set("host.factorio_port_range", `${port}-${port + 1}`);
+				instanceConfig.set("factorio.host_assigned_game_port", port + 1);
+				assert.equal(await host.assignFreeGamePort(1), port + 1);
+			});
+			it("rejects when every port in the range is taken", async function() {
+				host.config.set("host.factorio_port_range", String(held.address().port));
+				await assert.rejects(
+					host.assignFreeGamePort(1),
+					/No available port left to assign from host.factorio_port_range \(1 in use by other processes\)/
+				);
 			});
 		});
 		describe(".handlePluginInstallRequest()", function() {

@@ -678,6 +678,9 @@ end`.replace(/\r?\n/g, " ");
 		// After changing the status this function is responsible for calling notifyExit if it throws.
 		this.notifyStatus("starting");
 		try {
+			if (this.config.get("factorio.game_port") === null) {
+				this.server.gamePort = await this._host.assignFreeGamePort(this.id);
+			}
 			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 			await this._loadStats();
 			// Resolve a release channel target (e.g. "stable") to a concrete
