@@ -83,8 +83,9 @@ There's also plugins developed and maintained by the community:
   By Hornwitser.
 - [Server Select](https://github.com/Hornwitser/server_select/tree/clusterio-2.0) (@hornwitser/server_select): In-game GUI for connecting to other servers in the cluster.
   Originally by Godmave, ported to 2.0 by Hornwitser.
-- [Exp Cluster](https://github.com/explosivegaming/ExpCluster): A collection of different scenario features.
-- [Chat Relay](https://github.com/PHIDIAS0303/chat_relay): Chat relay of Discord and Factorio, seperate channel.
+- [ExpCluster](https://github.com/explosivegaming/ExpCluster) (@expcluster/*): A collection of plugins and scenario features including role and group syncing, moderation tools, quality of life additions, and discord account linking.
+  See repo readme for plugin breakdown. Maintained by Cooldude2606.
+- [Chat Relay](https://github.com/PHIDIAS0303/chat_relay) (@PHIDIAS0303/chat_relay): Chat relay of Discord and Factorio, seperate channel.
 
 Want to make your own plugin?
 Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for where to start.
