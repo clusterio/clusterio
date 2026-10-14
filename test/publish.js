@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { publishMods, uploadModRelease } from "../publish.js";
+
+const execFileAsync = promisify(execFile);
 
 
 describe("mod publishing", function() {
@@ -75,5 +79,25 @@ describe("mod publishing", function() {
 			[`${name}_1.0.9.zip`, "1.0.9"],
 			[`${name}_1.0.10.zip`, "1.0.10"],
 		]);
+	});
+
+	it("runs the CLI in dry-run mode without uploading unpublished archives", async function() {
+		const filename = "cli_publish_test_1.0.0.zip";
+		await fs.writeFile(path.join(directory, filename), "dry-run archive");
+		const mockFetch = `
+			import assert from "node:assert/strict";
+			global.fetch = async (url, options = {}) => {
+				assert.equal(url, "https://mods.factorio.com/api/mods/cli_publish_test");
+				assert.equal(options.method ?? "GET", "GET", "dry-run must not upload");
+				return Response.json({ releases: [] });
+			};
+		`;
+		const { stdout, stderr } = await execFileAsync(process.execPath, [
+			"--import", `data:text/javascript,${encodeURIComponent(mockFetch)}`,
+			"publish.js", "factorio", directory, "--dry-run",
+		]);
+		assert.equal(stderr, "");
+		assert(stdout.includes("Requesting current releases of cli_publish_test"));
+		assert(stdout.includes(path.join(directory, filename)));
 	});
 });
