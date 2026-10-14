@@ -2,8 +2,9 @@
  * Publish any mods that need to be published
  */
 
-import FormData from "form-data";
+import { openAsBlob } from "node:fs";
 import fs from "node:fs/promises";
+import path from "node:path";
 import yargs from "yargs";
 
 let DRY = false;
@@ -34,7 +35,7 @@ async function requestModReleases(mod) {
 /**
  * Upload a mod to the mod portal
  */
-async function uploadModRelease(file, name) {
+export async function uploadModRelease(file, name) {
 	// eslint-disable-next-line no-console
 	console.log(`Uploading new release ${file}`);
 	if (DRY) {
@@ -61,7 +62,7 @@ async function uploadModRelease(file, name) {
 	// Upload the new version of the mod
 	const uploadUrl = (await initResponse.json()).upload_url;
 	const uploadFormData = new FormData();
-	uploadFormData.append("file", (await fs.open(file)).createReadStream(file));
+	uploadFormData.append("file", await openAsBlob(file), path.basename(file));
 
 	const uploadResponse = await fetch(uploadUrl, {
 		method: "POST",
@@ -77,25 +78,25 @@ const regexModZip = /(\w+)_\d+.\d+.\d+\.zip/;
 /**
  * Publishes all mods that require publishing
  */
-async function publishMods(dir) {
+export async function publishMods(dir) {
 	const files = await fs.readdir(dir);
 	const mods = files
+		.sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
 		.map(file => regexModZip.exec(file))
 		.filter(file => Boolean(file));
 
-	const uploading = [];
 	for (const mod of mods) {
 		const [file, name] = mod;
 		const releases = await requestModReleases(name);
 		if (!releases.some(release => release.file_name === file)) {
-			uploading.push(uploadModRelease(file, name));
+			// Upload in version order so the newest variant is published last.
+			await uploadModRelease(path.join(dir, file), name);
 		} else {
 			// eslint-disable-next-line no-console
 			console.log(`Skipped ${file}`);
 		}
 	}
 
-	await Promise.all(uploading);
 }
 
 /**
@@ -121,7 +122,7 @@ async function main() {
 				.demandOption("mods-dir", "A path to the mods dir must be specified");
 		}, async argv => {
 			DRY = argv.dry;
-			publishMods(argv.modsDir);
+			await publishMods(argv.modsDir);
 		})
 		.strict()
 		.parse();
