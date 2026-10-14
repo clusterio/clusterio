@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-research_sync",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Clusterio plugin for synchronizing research between Factorio servers",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser <github@hornwitser.no>",
