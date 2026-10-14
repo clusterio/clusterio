@@ -3,9 +3,11 @@
 import child_process from "node:child_process";
 import fs from "node:fs/promises";
 import inquirer from "inquirer";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import stream from "node:stream";
+import { pathToFileURL } from "node:url";
 import util from "node:util";
 import yargs from "yargs";
 
@@ -404,10 +406,13 @@ async function installClusterio(mode, plugins) {
 				throw new InstallError(`Error loading plugin-list.json: ${err.message}`);
 			}
 		}
+		// The installer may run from npm's cache; plugins belong to the installation directory.
+		const requireFromInstall = createRequire(path.resolve("package.json"));
 		for (let plugin of plugins) {
 			if (!pluginList.has(plugin)) {
 
-				let pluginInfo = (await import(plugin)).plugin;
+				let pluginUrl = pathToFileURL(requireFromInstall.resolve(plugin));
+				let pluginInfo = (await import(pluginUrl.href)).plugin;
 				pluginList.set(pluginInfo.name, plugin);
 			}
 		}
@@ -905,6 +910,7 @@ async function main() {
 
 if (import.meta.main) {
 	main().catch(err => {
+		process.exitCode = 1;
 		if (err instanceof InstallError) {
 			logger.error(err.message);
 		} else {
