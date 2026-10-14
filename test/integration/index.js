@@ -382,7 +382,7 @@ before(async function() {
 	testPack.factorioVersion = latestFactorioVersion;
 
 	const [major, minor] = lib.normaliseMajorMinorVersion(latestFactorioVersion).split(".");
-	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.0.${major}${minor}` });
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.1.${major}${minor}` });
 
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
