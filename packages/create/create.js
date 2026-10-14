@@ -392,31 +392,7 @@ async function installClusterio(mode, plugins) {
 		throw new InstallError(`Failed to install: ${err.message}`);
 	}
 
-	if (plugins.length) {
-		logger.info("Setting up plugins");
-		let pluginList;
-		try {
-			pluginList = new Map(JSON.parse(await fs.readFile("plugin-list.json")));
-		} catch (err) {
-			if (err.code === "ENOENT") {
-				pluginList = new Map();
-			} else {
-				throw new InstallError(`Error loading plugin-list.json: ${err.message}`);
-			}
-		}
-		for (let plugin of plugins) {
-			if (!pluginList.has(plugin)) {
-
-				let pluginInfo = (await import(plugin)).plugin;
-				pluginList.set(pluginInfo.name, plugin);
-			}
-		}
-		try {
-			await safeOutputFile("plugin-list.json", JSON.stringify([...pluginList], null, "\t"));
-		} catch (err) {
-			throw new InstallError(`Error writing plugin-list.json: ${err.message}`);
-		}
-	}
+	// Controller, host and ctl discover installed plugins when loading their configuration.
 }
 
 async function groupIdToName(gid) {
@@ -905,6 +881,7 @@ async function main() {
 
 if (import.meta.main) {
 	main().catch(err => {
+		process.exitCode = 1;
 		if (err instanceof InstallError) {
 			logger.error(err.message);
 		} else {
