@@ -812,10 +812,10 @@ export function addPluginFieldDefinitions(
 
 	Config.fieldDefinitions[`${pluginInfo.name}.load_plugin`] = fieldDef;
 
-	// Version of the plugin the config was last loaded with, see setPluginVersions
+	// Version of the plugin the config was last loaded with, see Config.pluginVersions
 	Config.fieldDefinitions[`${pluginInfo.name}.version`] = {
 		type: "string",
-		initialValue: "version" in pluginInfo ? pluginInfo.version : "",
+		initialValue: "",
 		readonly: ["controller", "host"],
 		hidden: true,
 	};
@@ -845,24 +845,3 @@ export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginW
 	}
 }
 
-/**
- * Set the version field of each plugin to the version that was loaded
- *
- * Done after loading a config so the plugin migrations can compare the
- * stored version against the one now running.
- *
- * @param config - Config to update.
- * @param pluginInfos - Plugins loaded.
- * @returns true if any version changed.
- */
-export function setPluginVersions(config: classes.Config<any>, pluginInfos: PluginNodeEnvInfo[]) {
-	let changed = false;
-	for (const pluginInfo of pluginInfos) {
-		const name = `${pluginInfo.name}.version`;
-		if (config.constructor.fieldDefinitions[name] && config.get(name) !== pluginInfo.version) {
-			config.set(name, pluginInfo.version);
-			changed = true;
-		}
-	}
-	return changed;
-}

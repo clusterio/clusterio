@@ -148,15 +148,7 @@ export default class Controller {
 		}
 	});
 
-	/**
-	 * Load the controller datastores
-	 *
-	 * @param config - Controller config.
-	 * @param pluginInfos -
-	 *     Plugins whose migrations ran, their versions are saved to the
-	 *     instance configs.
-	 */
-	static async bootstrap(config: lib.ControllerConfig, pluginInfos: lib.PluginNodeEnvInfo[] = []) {
+	static async bootstrap(config: lib.ControllerConfig) {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.mkdir(databaseDirectory, { recursive: true });
 
@@ -183,8 +175,9 @@ export default class Controller {
 			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
 		).bootstrap());
+		// Save plugin versions written while loading
 		for (const instance of instances.values()) {
-			if (lib.setPluginVersions(instance.config, pluginInfos)) {
+			if (instance.config.dirty) {
 				instances.set(instance);
 			}
 		}

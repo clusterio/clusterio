@@ -45,7 +45,7 @@ describe("lib/config/definitions/migrations", function() {
 	describe("Ctl Config", function() {
 
 	});
-	describe("Plugin migrations", function() {
+	describe("Plugin Config", function() {
 		const pluginInfo = {
 			name: "test_plugin",
 			version: "1.2.0",
@@ -59,6 +59,7 @@ describe("lib/config/definitions/migrations", function() {
 		});
 		afterEach(function() {
 			lib.InstanceConfig.pluginMigrations.clear();
+			lib.Config.pluginVersions.clear();
 		});
 		after(function() {
 			for (const Config of [lib.ControllerConfig, lib.HostConfig, lib.InstanceConfig]) {
@@ -70,44 +71,81 @@ describe("lib/config/definitions/migrations", function() {
 			}
 		});
 
-		it("should run attached migrations on load", function() {
-			lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => (
-				lib.renameConfigPrefix(config, "old_plugin.", "test_plugin.")
-			));
-			const config = lib.InstanceConfig.fromJSON({
-				"old_plugin.load_plugin": false,
-				"old_plugin.delay": 5,
-			}, "controller");
-			assert.equal(config.get("test_plugin.load_plugin"), false);
-			assert.equal(config.get("test_plugin.delay"), 5);
-			assert.equal(config.toJSON()["old_plugin.delay"], undefined);
-		});
-		it("should run plugin migrations after core migrations", function() {
-			lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
-				assert.equal(config["factorio.sync_adminlist"], "enabled");
-				return config;
+		describe("static .pluginMigrations", function() {
+			it("should run on load", function() {
+				lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => (
+					lib.renameConfigPrefix(config, "old_plugin.", "test_plugin.")
+				));
+				const config = lib.InstanceConfig.fromJSON({
+					"old_plugin.load_plugin": false,
+					"old_plugin.delay": 5,
+				}, "controller");
+				assert.equal(config.get("test_plugin.load_plugin"), false);
+				assert.equal(config.get("test_plugin.delay"), 5);
+				assert.equal(config.toJSON()["old_plugin.delay"], undefined);
 			});
-			lib.InstanceConfig.fromJSON({ "factorio.sync_adminlist": true }, "controller");
-		});
-		it("should give migrations the version the config was saved with", function() {
-			let seen;
-			lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
-				seen = config["test_plugin.version"];
-				return config;
+			it("should run after core migrations", function() {
+				lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
+					assert.equal(config["factorio.sync_adminlist"], "enabled");
+					return config;
+				});
+				lib.InstanceConfig.fromJSON({ "factorio.sync_adminlist": true }, "controller");
 			});
-			const config = lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.1.0" }, "controller");
-			assert.equal(seen, "1.1.0");
-			assert.equal(config.get("test_plugin.version"), "1.1.0");
+			it("should see the version the config was saved with", function() {
+				let seen;
+				lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
+					seen = config["test_plugin.version"];
+					return config;
+				});
+				lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.1.0" }, "controller");
+				assert.equal(seen, "1.1.0");
+			});
+			it("should not run again when the config is changed", function() {
+				lib.Config.pluginVersions.set("test_plugin", "1.2.0");
+				let calls = 0;
+				lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
+					calls += 1;
+					if (config["test_plugin.version"] === "1.1.0") {
+						config["test_plugin.delay"] *= 60;
+					}
+					return config;
+				});
+				const config = lib.InstanceConfig.fromJSON({
+					"test_plugin.version": "1.1.0",
+					"test_plugin.delay": 2,
+				}, "controller");
+				config.set("instance.name", "changed");
+				assert.equal(config.get("test_plugin.delay"), 120);
+				assert.equal(calls, 1);
+			});
 		});
-		it("should default the version of new configs to the loaded plugin version", function() {
-			const config = new lib.InstanceConfig("controller");
-			assert.equal(config.get("test_plugin.version"), "1.2.0");
-		});
-		it("should update versions with setPluginVersions", function() {
-			const config = lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.1.0" }, "controller");
-			assert.equal(lib.setPluginVersions(config, [pluginInfo]), true);
-			assert.equal(config.get("test_plugin.version"), "1.2.0");
-			assert.equal(lib.setPluginVersions(config, [pluginInfo]), false);
+		describe("static .pluginVersions", function() {
+			it("should write the version after migrations run", function() {
+				lib.Config.pluginVersions.set("test_plugin", "1.2.0");
+				const config = lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.1.0" }, "controller");
+				assert.equal(config.get("test_plugin.version"), "1.2.0");
+				assert.equal(config.dirty, true);
+			});
+			it("should mark configs saved without a version as dirty", function() {
+				lib.Config.pluginVersions.set("test_plugin", "1.2.0");
+				const config = lib.InstanceConfig.fromJSON({}, "controller");
+				assert.equal(config.get("test_plugin.version"), "1.2.0");
+				assert.equal(config.dirty, true);
+			});
+			it("should not mark configs already at the version as dirty", function() {
+				lib.Config.pluginVersions.set("test_plugin", "1.2.0");
+				const config = lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.2.0" }, "controller");
+				assert.equal(config.dirty, false);
+			});
+			it("should write the version to new configs", function() {
+				lib.Config.pluginVersions.set("test_plugin", "1.2.0");
+				const config = new lib.InstanceConfig("controller");
+				assert.equal(config.get("test_plugin.version"), "1.2.0");
+			});
+			it("should leave the version empty when no versions are registered", function() {
+				const config = new lib.InstanceConfig("controller");
+				assert.equal(config.get("test_plugin.version"), "");
+			});
 		});
 	});
 });

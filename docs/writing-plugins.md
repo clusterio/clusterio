@@ -357,8 +357,28 @@ hooks.instanceConfig.attach(plugin.name, config => {
 });
 ```
 
-The version field is missing in configs saved before the plugin was loaded with Clusterio versions that track it.
-Roles have no version.
+The version field is missing or empty in configs saved before Clusterio tracked it, and in configs last loaded in recovery mode.
+
+Roles have no version of their own.
+They are stored on the controller, so use the version in the controller config, which is loaded before the roles:
+
+```js
+let controllerVersion;
+hooks.controllerConfig.attach(plugin.name, config => {
+    controllerVersion ??= config["foo_frobber.version"] ?? "";
+    return config;
+});
+hooks.role.attach(plugin.name, role => {
+    // foo_frobber.edit was split out of foo_frobber.view in 1.2.0
+    if (
+        controllerVersion && lib.integerFullVersion(controllerVersion) < lib.integerFullVersion("1.2.0")
+        && role.permissions.includes("foo_frobber.view")
+    ) {
+        role.permissions.push("foo_frobber.edit");
+    }
+    return role;
+});
+```
 
 Data the plugin stores itself, like files in the database directory or values in the save, is up to the plugin to migrate from its other entrypoints.
 Modules don't need migrating, save patching replaces the files of every module when an instance starts.

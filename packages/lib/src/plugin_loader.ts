@@ -10,6 +10,7 @@ import * as libErrors from "./errors.js";
 import * as libPlugin from "./plugin.js";
 import { type Logger, logger } from "./logging.js";
 import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin.js";
+import { Config } from "./config/classes.js";
 import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
 import Role from "./data/Role.js";
 
@@ -97,7 +98,8 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
  *
  * Must be called before configs and roles are loaded for the migrations
  * to run on them. Loaded for every plugin, including those disabled with
- * load_plugin.
+ * load_plugin. Also registers the plugin versions written to each config
+ * after the migrations run.
  *
  * @param pluginInfos - Plugins to load migrations for.
  */
@@ -110,6 +112,7 @@ export async function loadPluginMigrations(pluginInfos: libPlugin.PluginNodeEnvI
 	};
 
 	for (const pluginInfo of pluginInfos) {
+		Config.pluginVersions.set(pluginInfo.name, pluginInfo.version);
 		if (!pluginInfo.migrationEntrypoint) {
 			continue;
 		}

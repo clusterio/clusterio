@@ -128,11 +128,13 @@ describe("lib/plugin_loader", function() {
 		});
 		afterEach(function() {
 			lib.ControllerConfig.pluginMigrations.clear();
+			lib.Config.pluginVersions.clear();
 		});
 
 		function info(entrypoint) {
 			return {
 				name: "test",
+				version: "1.0.0",
 				packagePath: path.join(baseDir, "package.json"),
 				migrationEntrypoint: entrypoint,
 			};
@@ -142,6 +144,10 @@ describe("lib/plugin_loader", function() {
 			await lib.loadPluginMigrations([info("migrations.js"), { name: "other" }]);
 			assert.deepEqual([...lib.ControllerConfig.pluginMigrations.attached], ["test"]);
 			assert.deepEqual(lib.ControllerConfig.pluginMigrations.reduce({}), { migratedBy: "test" });
+		});
+		it("should register the version of every plugin", async function() {
+			await lib.loadPluginMigrations([info("migrations.js"), { name: "other", version: "2.0.0" }]);
+			assert.deepEqual([...lib.Config.pluginVersions], [["test", "1.0.0"], ["other", "2.0.0"]]);
 		});
 		it("should reject with a PluginError if the entrypoint throws", async function() {
 			await assert.rejects(

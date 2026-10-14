@@ -188,9 +188,6 @@ async function startHost() {
 	);
 
 	hostConfig.set("host.version", packageConfig.version); // Allows tracking last loaded version
-	if (!args.recovery) {
-		lib.setPluginVersions(hostConfig, pluginInfos);
-	}
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);
