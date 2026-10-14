@@ -10,9 +10,10 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 ## Important notice
 
-Clusterio 2.0 is still in alpha, however the previous stable has been abandoned and is no longer supported.
-Despite being alpha it's reasonably stable now and there's no major breakages expected before a stable release of 2.0.
-If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
+Clusterio 2.0 is the current stable release and requires Node.js 22 or newer.
+The previous stable series is no longer supported.
+If you are upgrading from a 2.0 alpha, review the [changelog](CHANGELOG.md) before upgrading.
+Plugin authors should also follow the [2.0 migration guide](docs/devs/plugin-migration-to-2.0.md).
 
 
 ### Ways to support me/the project:
