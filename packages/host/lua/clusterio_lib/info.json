@@ -2,30 +2,30 @@
 	"name": "clusterio_lib",
 	"variants": [
 		{
-			"version": "2.0.17",
+			"version": "2.1.17",
 			"factorio_version": "0.17"
 		},
 		{
-			"version": "2.0.18",
+			"version": "2.1.18",
 			"factorio_version": "0.18"
 		},
 		{
-			"version": "2.0.11",
+			"version": "2.1.11",
 			"factorio_version": "1.1"
 		},
 		{
-			"version": "2.0.20",
+			"version": "2.1.20",
 			"factorio_version": "2.0"
 		},
 		{
-			"version": "2.0.21",
+			"version": "2.1.21",
 			"factorio_version": "2.1"
 		}
 	],
-	"title": "Clusterio Library (Alpha)",
+	"title": "Clusterio Library",
 	"author": "Clusterio Team",
 	"homepage": "https://github.com/clusterio/clusterio",
-	"description": "Library for interfacing with Clusterio.  Warning: work in progress alpha.",
+	"description": "Library for interfacing with Clusterio.",
 	"additional_files": {
 		"compat.lua": ["..", "..", "modules", "clusterio", "compat.lua"],
 		"serialize.lua": ["..", "..", "modules", "clusterio", "serialize.lua"],

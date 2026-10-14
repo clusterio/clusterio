@@ -1,4 +1,29 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.1.21
+Date: 2026-10-14
+  Changes:
+    - Removed the obsolete alpha label and development warning from the mod title and description.
+---------------------------------------------------------------------------------------------------
+Version: 2.1.20
+Date: 2026-10-14
+  Changes:
+    - Removed the obsolete alpha label and development warning from the mod title and description.
+---------------------------------------------------------------------------------------------------
+Version: 2.1.18
+Date: 2026-10-14
+  Changes:
+    - Removed the obsolete alpha label and development warning from the mod title and description.
+---------------------------------------------------------------------------------------------------
+Version: 2.1.17
+Date: 2026-10-14
+  Changes:
+    - Removed the obsolete alpha label and development warning from the mod title and description.
+---------------------------------------------------------------------------------------------------
+Version: 2.1.11
+Date: 2026-10-14
+  Changes:
+    - Removed the obsolete alpha label and development warning from the mod title and description.
+---------------------------------------------------------------------------------------------------
 Version: 2.0.20
 Date: 25. 02. 2025
   Features:
