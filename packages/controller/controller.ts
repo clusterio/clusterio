@@ -503,14 +503,6 @@ async function startup() {
 }
 
 export function bootstrap() {
-	// eslint-disable-next-line no-console
-	console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`
-	);
 	startup().catch(err => {
 		if (err instanceof lib.StartupError || err.code === "InstallationError") {
 			logger.fatal(`
