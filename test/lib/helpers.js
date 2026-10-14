@@ -241,7 +241,7 @@ describe("lib/helpers", function() {
 				lib.redactUrl("https://mods.factorio.com/download/mod?username=user&token=secret"),
 				"https://mods.factorio.com/download/mod?username=user&token=REDACTED"
 			);
-			for (const name of ["access_token", "api_key", "apikey", "password", "secret", "token"]) {
+			for (const name of ["access_token", "api_key", "apikey", "code", "password", "secret", "token"]) {
 				assert.equal(
 					lib.redactUrl(`https://example.com/?${name}=secret`),
 					`https://example.com/?${name}=REDACTED`
@@ -271,6 +271,24 @@ describe("lib/helpers", function() {
 		it("should return unparsable input unchanged", function() {
 			assert.equal(lib.redactUrl("not a url?token=secret"), "not a url?token=secret");
 			assert.equal(lib.redactUrl(""), "");
+		});
+		it("should redact a path with a query string and return a path", function() {
+			assert.equal(
+				lib.redactUrl("/api/plugin/callback?code=secret&state=abc"),
+				"/api/plugin/callback?code=REDACTED&state=abc"
+			);
+			assert.equal(lib.redactUrl("/api/plugin?page=2"), "/api/plugin?page=2");
+		});
+		it("should keep the original encoding when there is nothing to redact", function() {
+			assert.equal(lib.redactUrl("/search?q=a%20b"), "/search?q=a%20b");
+		});
+	});
+
+	describe("redactQuery()", function() {
+		it("should redact credential parameters and keep the rest", function() {
+			const query = { code: "secret", Token: "secret", state: "abc" };
+			assert.deepEqual(lib.redactQuery(query), { code: "REDACTED", Token: "REDACTED", state: "abc" });
+			assert.equal(query.code, "secret");
 		});
 	});
 

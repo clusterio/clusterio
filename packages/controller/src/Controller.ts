@@ -403,16 +403,17 @@ export default class Controller {
 
 		// Log all express errors from middleware or routes (app.use is missing the type overload)
 		this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction): void => {
+			const url = lib.redactUrl(req.originalUrl);
 			logger.log({
 				level: "error",
 				message: "Error while handling HTTP" +
-					`${req.httpVersion} ${req.method} ${req.originalUrl}:\n${err.stack}`,
+					`${req.httpVersion} ${req.method} ${url}:\n${err.stack}`,
 				meta: {
 					method: req.method,
-					url: req.originalUrl,
+					url,
 					httpVersion: req.httpVersion,
 					headers: Controller.loggableHeaders(req.headers),
-					query: req.query,
+					query: lib.redactQuery(req.query),
 				},
 			});
 
@@ -889,18 +890,19 @@ export default class Controller {
 				const endNs = process.hrtime.bigint();
 				const durationMs = (Number(endNs - startNs) / 1e6);
 				endpointDurationSummary.labels(routePath).observe(durationMs / 1e3);
+				const url = lib.redactUrl(req.originalUrl);
 				logger.log({
 					level: "http",
-					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
+					message: `HTTP${req.httpVersion} ${req.method} ${url}` +
 						` (Status ${res.statusCode} in ${durationMs}ms)`,
 					meta: {
 						method: req.method,
-						url: req.originalUrl,
+						url,
 						statusCode: res.statusCode,
 						responseTime: durationMs,
 						httpVersion: req.httpVersion,
 						headers: Controller.loggableHeaders(req.headers),
-						query: req.query,
+						query: lib.redactQuery(req.query),
 					},
 				});
 			});
