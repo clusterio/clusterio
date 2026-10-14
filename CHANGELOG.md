@@ -31,6 +31,17 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.1
+
+### Fixes
+
+- Removed obsolete development-branch warnings from controller, host and ctl startup. [#1078](<https://github.com/clusterio/clusterio/pull/1078>)
+- Removed the obsolete alpha label and development warning from the Clusterio Library mod title and description. [#1079](<https://github.com/clusterio/clusterio/pull/1079>)
+- Fixed Factorio mod release uploads to use valid multipart requests and files from the requested output directory, uploading variants in version order. [#1080](<https://github.com/clusterio/clusterio/pull/1080>)
+
+Many thanks to the following for contributing to this release:
+[@psihius](<https://github.com/psihius>)
+
 ## Version 2.0.0
 
 ### Features
