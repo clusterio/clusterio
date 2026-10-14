@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/lib",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"description": "Shared library for Clusterio",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser <github@hornwitser.no>",
