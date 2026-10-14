@@ -3,11 +3,9 @@
 import child_process from "node:child_process";
 import fs from "node:fs/promises";
 import inquirer from "inquirer";
-import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import stream from "node:stream";
-import { pathToFileURL } from "node:url";
 import util from "node:util";
 import yargs from "yargs";
 
@@ -394,34 +392,7 @@ async function installClusterio(mode, plugins) {
 		throw new InstallError(`Failed to install: ${err.message}`);
 	}
 
-	if (plugins.length) {
-		logger.info("Setting up plugins");
-		let pluginList;
-		try {
-			pluginList = new Map(JSON.parse(await fs.readFile("plugin-list.json")));
-		} catch (err) {
-			if (err.code === "ENOENT") {
-				pluginList = new Map();
-			} else {
-				throw new InstallError(`Error loading plugin-list.json: ${err.message}`);
-			}
-		}
-		// The installer may run from npm's cache; plugins belong to the installation directory.
-		const requireFromInstall = createRequire(path.resolve("package.json"));
-		for (let plugin of plugins) {
-			if (!pluginList.has(plugin)) {
-
-				let pluginUrl = pathToFileURL(requireFromInstall.resolve(plugin));
-				let pluginInfo = (await import(pluginUrl.href)).plugin;
-				pluginList.set(pluginInfo.name, plugin);
-			}
-		}
-		try {
-			await safeOutputFile("plugin-list.json", JSON.stringify([...pluginList], null, "\t"));
-		} catch (err) {
-			throw new InstallError(`Error writing plugin-list.json: ${err.message}`);
-		}
-	}
+	// Controller, host and ctl discover installed plugins when loading their configuration.
 }
 
 async function groupIdToName(gid) {
