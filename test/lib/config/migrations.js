@@ -45,4 +45,69 @@ describe("lib/config/definitions/migrations", function() {
 	describe("Ctl Config", function() {
 
 	});
+	describe("Plugin migrations", function() {
+		const pluginInfo = {
+			name: "test_plugin",
+			version: "1.2.0",
+			instanceEntrypoint: "instance.js",
+			instanceConfigFields: {
+				"test_plugin.delay": { type: "number", initialValue: 1 },
+			},
+		};
+		before(function() {
+			lib.addPluginConfigFields([pluginInfo]);
+		});
+		afterEach(function() {
+			lib.InstanceConfig.pluginMigrations.clear();
+		});
+		after(function() {
+			for (const Config of [lib.ControllerConfig, lib.HostConfig, lib.InstanceConfig]) {
+				for (const name of Object.keys(Config.fieldDefinitions)) {
+					if (name.startsWith("test_plugin.")) {
+						delete Config.fieldDefinitions[name];
+					}
+				}
+			}
+		});
+
+		it("should run attached migrations on load", function() {
+			lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => (
+				lib.renameConfigPrefix(config, "old_plugin.", "test_plugin.")
+			));
+			const config = lib.InstanceConfig.fromJSON({
+				"old_plugin.load_plugin": false,
+				"old_plugin.delay": 5,
+			}, "controller");
+			assert.equal(config.get("test_plugin.load_plugin"), false);
+			assert.equal(config.get("test_plugin.delay"), 5);
+			assert.equal(config.toJSON()["old_plugin.delay"], undefined);
+		});
+		it("should run plugin migrations after core migrations", function() {
+			lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
+				assert.equal(config["factorio.sync_adminlist"], "enabled");
+				return config;
+			});
+			lib.InstanceConfig.fromJSON({ "factorio.sync_adminlist": true }, "controller");
+		});
+		it("should give migrations the version the config was saved with", function() {
+			let seen;
+			lib.InstanceConfig.pluginMigrations.attach("test_plugin", config => {
+				seen = config["test_plugin.version"];
+				return config;
+			});
+			const config = lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.1.0" }, "controller");
+			assert.equal(seen, "1.1.0");
+			assert.equal(config.get("test_plugin.version"), "1.1.0");
+		});
+		it("should default the version of new configs to the loaded plugin version", function() {
+			const config = new lib.InstanceConfig("controller");
+			assert.equal(config.get("test_plugin.version"), "1.2.0");
+		});
+		it("should update versions with setPluginVersions", function() {
+			const config = lib.InstanceConfig.fromJSON({ "test_plugin.version": "1.1.0" }, "controller");
+			assert.equal(lib.setPluginVersions(config, [pluginInfo]), true);
+			assert.equal(config.get("test_plugin.version"), "1.2.0");
+			assert.equal(lib.setPluginVersions(config, [pluginInfo]), false);
+		});
+	});
 });

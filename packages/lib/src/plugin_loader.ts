@@ -10,6 +10,8 @@ import * as libErrors from "./errors.js";
 import * as libPlugin from "./plugin.js";
 import { type Logger, logger } from "./logging.js";
 import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin.js";
+import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
+import Role from "./data/Role.js";
 
 
 /**
@@ -88,6 +90,44 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		plugins.push(pluginInfo);
 	}
 	return plugins;
+}
+
+/**
+ * Load the migration entrypoints of plugins
+ *
+ * Must be called before configs and roles are loaded for the migrations
+ * to run on them. Loaded for every plugin, including those disabled with
+ * load_plugin.
+ *
+ * @param pluginInfos - Plugins to load migrations for.
+ */
+export async function loadPluginMigrations(pluginInfos: libPlugin.PluginNodeEnvInfo[]) {
+	const hooks: libPlugin.MigrationHooks = {
+		controllerConfig: ControllerConfig.pluginMigrations,
+		hostConfig: HostConfig.pluginMigrations,
+		instanceConfig: InstanceConfig.pluginMigrations,
+		role: Role.pluginMigrations,
+	};
+
+	for (const pluginInfo of pluginInfos) {
+		if (!pluginInfo.migrationEntrypoint) {
+			continue;
+		}
+
+		try {
+			const module = await import(pathToFileURL(
+				path.join(path.dirname(pluginInfo.packagePath), pluginInfo.migrationEntrypoint)
+			).href);
+			const context: libPlugin.MigrationContext = {
+				hooks,
+				plugin: pluginInfo,
+				logger: logger.child({ plugin: pluginInfo.name }),
+			};
+			await loadPluginEntrypoint(pluginInfo, "migration", context, module);
+		} catch (err: any) {
+			throw new libErrors.PluginError(pluginInfo.name, err);
+		}
+	}
 }
 
 export async function loadPlugin<

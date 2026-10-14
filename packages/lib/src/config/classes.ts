@@ -10,6 +10,7 @@ import { StringEnum } from "../data/composites.js";
 import { safeOutputFile } from "../file_ops.js";
 import * as validators from "./validators.js";
 import { RequestError } from "../errors.js";
+import type { SyncHook } from "../SyncHook.js";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -224,6 +225,12 @@ export class Config<
 		return config;
 	}
 
+	/**
+	 * Migrations attached by plugins, run after {@link Config.migrations}.
+	 * Declared by each subclass that plugins can add fields to.
+	 */
+	declare static pluginMigrations?: SyncHook<ConfigSchema>;
+
 	/** Defines the default access locations for the config class */
 	static defaultAccess: ConfigLocation[] = ["controller", "host", "control"];
 
@@ -269,7 +276,11 @@ export class Config<
 		) as Fields;
 
 		if (fields) {
-			this.update(this.constructor.migrations(fields), false, location);
+			let migrated = this.constructor.migrations(fields);
+			if (this.constructor.pluginMigrations) {
+				migrated = this.constructor.pluginMigrations.reduce(migrated);
+			}
+			this.update(migrated, false, location);
 		}
 	}
 

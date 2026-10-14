@@ -11,6 +11,7 @@ Each entrypoint of a plugin exports a function that attaches handlers to hooks c
 - [Logging Messages](#logging-messages)
 - [Plugin Configuration](#plugin-configuration)
 - [Plugin Permissions](#plugin-permissions)
+- [Migrating Stored Data](#migrating-stored-data)
 - [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
 - [Sending Link Messages](#sending-link-messages)
@@ -97,6 +98,11 @@ The following properties are recognized:
     Path to a Node.js module relative to the plugin directory which exports the clusterioctl entrypoint function for this plugin.
     This is an optional paramater.
     A plugin can be made that only runs on the clusterioctl side.
+
+**migrationEntrypoint**:
+    Path to a Node.js module relative to the plugin directory which exports the migration entrypoint function for this plugin.
+    This is an optional parameter.
+    See [Migrating Stored Data](#migrating-stored-data)
 
 **features**:
     Array of features the plugin needs from the instances it is loaded on, `"SavePatching"` and/or `"ScriptCommands"`.
@@ -308,6 +314,54 @@ In JavaScript the `declare module` block is not needed.
 
 Permissions declared this way are registered when the plugin is loaded.
 The older `lib.definePermission()` function still works, but a plugin should not use both for the same permission name.
+
+
+## Migrating Stored Data
+
+Clusterio stores the config fields and permissions of plugins, so a plugin that renames them needs to migrate the stored values or users lose what they had set.
+This is done from the migration entrypoint, which is loaded on the controller and hosts before any config or role is read, for all plugins in the plugin list including those disabled with `load_plugin`.
+It is passed a context with `hooks` and attaches handlers for the data it needs to migrate:
+
+```js
+import * as lib from "@clusterio/lib";
+
+export default function(context) {
+    const { hooks, plugin } = context;
+    // Plugin was renamed from frobber in 2.0.0
+    const renameFields = config => lib.renameConfigPrefix(config, "frobber.", "foo_frobber.");
+    hooks.controllerConfig.attach(plugin.name, renameFields);
+    hooks.hostConfig.attach(plugin.name, renameFields);
+    hooks.instanceConfig.attach(plugin.name, renameFields);
+    hooks.role.attach(plugin.name, role => lib.renamePermissionPrefix(role, "frobber.", "foo_frobber."));
+}
+```
+
+The handlers get the serialized config or role after the core migrations and return the migrated version.
+They run synchronously, a handler that throws stops the controller or host from starting.
+`lib.renameConfigField`, `lib.renameConfigPrefix`, `lib.renamePermission` and `lib.renamePermissionPrefix` cover the common case of renaming.
+
+Handlers run every time the data is loaded and must leave data that is already migrated unchanged.
+For changes that can't be repeated, each config has a hidden `<plugin>.version` field with the version of the plugin it was last loaded with, which is updated after the migrations have run:
+
+```js
+hooks.instanceConfig.attach(plugin.name, config => {
+    const version = config["foo_frobber.version"];
+    // The default delay went from 1 to 2 in 1.2.0, update configs still on the old default
+    if (
+        version && lib.integerFullVersion(version) < lib.integerFullVersion("1.2.0")
+        && config["foo_frobber.delay"] === 1
+    ) {
+        config["foo_frobber.delay"] = 2;
+    }
+    return config;
+});
+```
+
+The version field is missing in configs saved before the plugin was loaded with Clusterio versions that track it.
+Roles have no version.
+
+Data the plugin stores itself, like files in the database directory or values in the save, is up to the plugin to migrate from its other entrypoints.
+Modules don't need migrating, save patching replaces the files of every module when an instance starts.
 
 
 ## Communicating with Factorio

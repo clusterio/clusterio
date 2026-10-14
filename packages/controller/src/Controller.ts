@@ -148,7 +148,15 @@ export default class Controller {
 		}
 	});
 
-	static async bootstrap(config: lib.ControllerConfig) {
+	/**
+	 * Load the controller datastores
+	 *
+	 * @param config - Controller config.
+	 * @param pluginInfos -
+	 *     Plugins whose migrations ran, their versions are saved to the
+	 *     instance configs.
+	 */
+	static async bootstrap(config: lib.ControllerConfig, pluginInfos: lib.PluginNodeEnvInfo[] = []) {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.mkdir(databaseDirectory, { recursive: true });
 
@@ -175,6 +183,11 @@ export default class Controller {
 			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
 		).bootstrap());
+		for (const instance of instances.values()) {
+			if (lib.setPluginVersions(instance.config, pluginInfos)) {
+				instances.set(instance);
+			}
+		}
 
 		const saves = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "saves.json"),
@@ -822,7 +835,7 @@ export default class Controller {
 				}
 				return permission;
 			});
-			return json;
+			return lib.Role.pluginMigrations.reduce(json);
 		});
 	}
 

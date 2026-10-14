@@ -177,6 +177,9 @@ async function startHost() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
+	if (!args.recovery) {
+		await lib.loadPluginMigrations(pluginInfos);
+	}
 
 	const [hostConfig, hostConfigLock] = await lib.loadConfigFromArgs(
 		args,
@@ -185,6 +188,9 @@ async function startHost() {
 	);
 
 	hostConfig.set("host.version", packageConfig.version); // Allows tracking last loaded version
+	if (!args.recovery) {
+		lib.setPluginVersions(hostConfig, pluginInfos);
+	}
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);

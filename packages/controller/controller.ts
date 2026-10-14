@@ -419,6 +419,9 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
+	if (!args.recovery) {
+		await lib.loadPluginMigrations(pluginInfos);
+	}
 
 	const [controllerConfig, controllerConfigLock] = await lib.loadConfigFromArgs(
 		args,
@@ -427,6 +430,9 @@ async function initialize(): Promise<InitializeParameters> {
 	);
 
 	controllerConfig.set("controller.version", packageConfig.version); // Allows tracking last loaded version
+	if (!args.recovery) {
+		lib.setPluginVersions(controllerConfig, pluginInfos);
+	}
 
 	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
@@ -477,7 +483,7 @@ async function startup() {
 		controllerConfig,
 		Boolean(args.canRestart),
 		Boolean(args.recovery),
-		...await Controller.bootstrap(controllerConfig)
+		...await Controller.bootstrap(controllerConfig, args.recovery ? [] : pluginInfos)
 	);
 
 	// Refuse to start if there are no users loaded
