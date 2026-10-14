@@ -267,14 +267,6 @@ async function startHost() {
 }
 
 export function bootstrap() {
-	// eslint-disable-next-line no-console
-	console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`
-	);
 	startHost().catch(err => {
 		if (err instanceof lib.WebSocketError) {
 			// Already handled by connector.on("error") within Host

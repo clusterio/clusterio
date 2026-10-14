@@ -327,14 +327,6 @@ async function startCtl() {
 }
 
 export function bootstrap() {
-	// eslint-disable-next-line no-console
-	console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`
-	);
 	startCtl().catch(err => {
 		if (err.errors) {
 			logger.fatal(JSON.stringify(err.errors, null, "\t"));
