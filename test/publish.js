@@ -61,9 +61,9 @@ describe("mod publishing", function() {
 			const form = await new Request(url, options).formData();
 			if (url.endsWith("/init_upload")) {
 				assert.equal(uploading, false, "previous upload must complete first");
+				uploading = true;
 				return Response.json({ upload_url: "https://upload.example.test/release" });
 			}
-			uploading = true;
 			const file = form.get("file");
 			uploaded.push([file.name, await file.text()]);
 			await new Promise(resolve => setImmediate(resolve));

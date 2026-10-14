@@ -96,7 +96,6 @@ export async function publishMods(dir) {
 			console.log(`Skipped ${file}`);
 		}
 	}
-
 }
 
 /**
