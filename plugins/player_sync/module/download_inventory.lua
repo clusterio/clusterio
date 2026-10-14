@@ -1,7 +1,7 @@
-local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
-local ensure_character = require("modules/inventory_sync/ensure_character")
-local restore_position = require("modules/inventory_sync/restore_position")
-local get_script_data = require("modules/inventory_sync/get_script_data")
+local progress_dialog = require("modules/player_sync/gui/progress_dialog")
+local ensure_character = require("modules/player_sync/ensure_character")
+local restore_position = require("modules/player_sync/restore_position")
+local get_script_data = require("modules/player_sync/get_script_data")
 
 
 local function download_inventory(player_name, data, number, total)
@@ -21,14 +21,14 @@ local function download_inventory(player_name, data, number, total)
 	local player_record = script_data.players[player_name]
 	if record.restart then
 		rcon.print("Restarting outdated download")
-		inventory_sync.initiate_inventory_download(player, player_record, record.generation)
+		player_sync.initiate_inventory_download(player, player_record, record.generation)
 		return
 	end
 
 	if total == 0 then
 		-- Download was requested but the player had no data stored.
-		log("ERROR: Inventory sync failed, got empty player data for " .. player.name .. " from the controller")
-		player.print("ERROR: Inventory sync failed, got empty player data from the controller")
+		log("ERROR: Player sync failed, got empty player data for " .. player.name .. " from the controller")
+		player.print("ERROR: Player sync failed, got empty player data from the controller")
 
 		progress_dialog.remove(player)
 
@@ -70,7 +70,7 @@ local function download_inventory(player_name, data, number, total)
 	log("Imported player data for " .. player_name .. " in " .. ticks .. " ticks")
 
 	if player.connected then
-		inventory_sync.finish_download(player, record)
+		player_sync.finish_download(player, record)
 	end
 end
 

@@ -909,7 +909,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance send-rcon", function() {
 			requiresFactorio(this);
 			const plugins = [
-				"global_chat", "inventory_sync", "player_auth",
+				"global_chat", "player_sync", "player_auth",
 				"research_sync", "statistics_exporter", "subspace_storage",
 			];
 			this.beforeAll(async function() {
@@ -1276,7 +1276,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance config set 44 research_sync.load_plugin false");
 				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
 				await execCtl("instance config set 44 subspace_storage.load_plugin false");
-				await execCtl("instance config set 44 inventory_sync.load_plugin false");
+				await execCtl("instance config set 44 player_sync.load_plugin false");
 				await execCtl("instance config set 44 factorio.enable_save_patching false");
 
 				await execCtl("instance start 44");

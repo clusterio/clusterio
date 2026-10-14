@@ -136,7 +136,7 @@ export default async function(context: InstancePluginContext) {
 		}
 
 		let json = lib.escapeString(JSON.stringify(response));
-		await instance.sendRcon(`/sc inventory_sync.acquire_response("${json}")`, true, plugin.name);
+		await instance.sendRcon(`/sc player_sync.acquire_response("${json}")`, true, plugin.name);
 	}
 
 	async function handleRelease(request: IpcPlayerName) {
@@ -178,7 +178,7 @@ export default async function(context: InstancePluginContext) {
 		}
 
 		await instance.sendRcon(
-			`/sc inventory_sync.confirm_upload("${player_data.name}", ${player_data.generation})`, true, plugin.name
+			`/sc player_sync.confirm_upload("${player_data.name}", ${player_data.generation})`, true, plugin.name
 		);
 	}
 
@@ -193,20 +193,20 @@ export default async function(context: InstancePluginContext) {
 
 		if (!response.playerData) {
 			await instance.sendRcon(
-				`/sc inventory_sync.download_inventory('${playerName}',nil,0,0)`, true, plugin.name
+				`/sc player_sync.download_inventory('${playerName}',nil,0,0)`, true, plugin.name
 			);
 			return;
 		}
 
 		await applyRecipeNotificationDelta(response.playerData, request.recipe_notifications, logger);
 
-		const chunkSize = instance.config.get("inventory_sync.rcon_chunk_size");
+		const chunkSize = instance.config.get("player_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));
 		logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
 		for (let i = 0; i < chunks.length; i++) {
 			const chunk = lib.escapeString(chunks[i]);
 			await instance.sendRcon(
-				`/sc inventory_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length})`,
+				`/sc player_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length})`,
 				true,
 				plugin.name,
 			);
@@ -215,27 +215,27 @@ export default async function(context: InstancePluginContext) {
 
 	// Handle IPC from scenario script
 	instance.server.on(
-		"ipc-inventory_sync_acquire",
+		"ipc-player_sync_acquire",
 		(request: IpcPlayerName) => handleAcquire(request).catch(
-			err => logger.error(`Error handling ipc-inventory_sync_acquire:\n${err.stack}`)
+			err => logger.error(`Error handling ipc-player_sync_acquire:\n${err.stack}`)
 		),
 	);
 	instance.server.on(
-		"ipc-inventory_sync_release",
+		"ipc-player_sync_release",
 		(request: IpcPlayerName) => handleRelease(request).catch(
-			err => logger.error(`Error handling ipc-inventory_sync_release:\n${err.stack}`)
+			err => logger.error(`Error handling ipc-player_sync_release:\n${err.stack}`)
 		),
 	);
 	instance.server.on(
-		"ipc-inventory_sync_upload",
+		"ipc-player_sync_upload",
 		(player_data: IpcPlayerData) => handleUpload(player_data).catch(
-			err => logger.error(`Error handling ipc-inventory_sync_upload:\n${err.stack}`)
+			err => logger.error(`Error handling ipc-player_sync_upload:\n${err.stack}`)
 		),
 	);
 	instance.server.on(
-		"ipc-inventory_sync_download",
+		"ipc-player_sync_download",
 		(request: IpcDownloadRequest) => handleDownload(request).catch(
-			err => logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)
+			err => logger.error(`Error handling ipc-player_sync_download:\n${err.stack}`)
 		),
 	);
 

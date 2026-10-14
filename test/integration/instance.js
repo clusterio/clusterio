@@ -43,7 +43,7 @@ describe("Clusterio Instance", function() {
 		await execCtl(`instance config set ${instName} instance.exclude_from_start_all true`);
 
 		for (const plugin of [
-			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth", "inventory_sync",
+			"global_chat", "research_sync", "statistics_exporter", "subspace_storage", "player_auth", "player_sync",
 		]) {
 			await execCtl(`instance config set ${instName} ${plugin}.load_plugin false`);
 		}
@@ -255,7 +255,7 @@ describe("start-all and stop-all commands", function() {
 		for (const instanceName of [testInstName1, testInstName2, testInstName3]) {
 			for (const plugin of [
 				"global_chat", "research_sync", "statistics_exporter",
-				"subspace_storage", "player_auth", "inventory_sync",
+				"subspace_storage", "player_auth", "player_sync",
 			]) {
 				await execCtl(`instance config set ${instanceName} ${plugin}.load_plugin false`);
 			}

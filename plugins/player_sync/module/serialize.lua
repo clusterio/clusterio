@@ -1,8 +1,8 @@
 local compat = require("modules/clusterio/compat")
 local clusterio_serialize = require("modules/clusterio/serialize")
-local character_inventories = require("modules/inventory_sync/define_player_inventories")
-local character_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
-local game_view_settings_keys = require("modules/inventory_sync/define_game_view_settings")
+local character_inventories = require("modules/player_sync/define_player_inventories")
+local character_stat_keys = require("modules/player_sync/define_player_stat_keys")
+local game_view_settings_keys = require("modules/player_sync/define_game_view_settings")
 local serialize = {}
 
 local v2_logistic_api = compat.version_ge("2.0.0")

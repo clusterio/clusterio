@@ -1,6 +1,6 @@
 --[[
 
-Inventory Sync
+Player Sync
 
 When a player leaves the game, serialize the player state and upload it to the controller.
 When a player joins the game, request the player data from controller and deserialize the player state from it.
@@ -9,12 +9,12 @@ When a player joins the game, request the player data from controller and deseri
 
 local compat = require("modules/clusterio/compat")
 local clusterio_api = require("modules/clusterio/api")
-local download_inventory = require("modules/inventory_sync/download_inventory")
-local serialize = require("modules/inventory_sync/serialize")
-local restore_position = require("modules/inventory_sync/restore_position")
-local get_script_data = require("modules/inventory_sync/get_script_data")
-local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
-local dialog_failed_download = require("modules/inventory_sync/gui/dialog_failed_download")
+local download_inventory = require("modules/player_sync/download_inventory")
+local serialize = require("modules/player_sync/serialize")
+local restore_position = require("modules/player_sync/restore_position")
+local get_script_data = require("modules/player_sync/get_script_data")
+local progress_dialog = require("modules/player_sync/gui/progress_dialog")
+local dialog_failed_download = require("modules/player_sync/gui/dialog_failed_download")
 
 local v2_remote_controller = compat.version_ge("2.0.0")
 local recipe_notifications_api = compat.version_ge("2.0.67")
@@ -47,13 +47,13 @@ local function remove_player(player)
 end
 
 
-inventory_sync = {}
--- This function is called by instance.js as /sc inventory_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
-inventory_sync.download_inventory = download_inventory
+player_sync = {}
+-- This function is called by instance.js as /sc player_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
+player_sync.download_inventory = download_inventory
 
 -- This function is called internally when a player leaves the game to
 -- serialize the player for upload.
-function inventory_sync.serialize_player(player, player_record)
+function player_sync.serialize_player(player, player_record)
 	-- Editor mode is not supported.
 	if player.controller_type == defines.controllers.editor then
 		player.toggle_map_editor()
@@ -84,7 +84,7 @@ function inventory_sync.serialize_player(player, player_record)
 	return serialized_player
 end
 
-function inventory_sync.deserialize_player(player, finished_record)
+function player_sync.deserialize_player(player, finished_record)
 	-- Editor mode is not supported.
 	if player.controller_type == defines.controllers.editor then
 		player.toggle_map_editor()
@@ -146,8 +146,8 @@ function inventory_sync.deserialize_player(player, finished_record)
 	end
 end
 
-inventory_sync.events = {}
-inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
+player_sync.events = {}
+player_sync.events[clusterio_api.events.on_server_startup] = function(event)
 	local script_data = get_script_data(true)
 	script_data.players_waiting_for_acquire = {}
 	script_data.players_in_cutscene_to_sync = {}
@@ -156,34 +156,43 @@ inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
 		if not script_data.players[player.name] then
 			create_player(player, true)
 		end
+
+		-- migrate: dialogs created before inventory_sync was renamed to player_sync
+		local screen = player.gui.screen
+		if screen.inventory_sync_progress then
+			screen.inventory_sync_progress.destroy()
+		end
+		if screen.dialog_failed_download and screen.dialog_failed_download.inventory_sync_failed_download_content then
+			screen.dialog_failed_download.destroy()
+		end
 	end
 end
 
 -- Cleanup
-inventory_sync.events[defines.events.on_pre_player_removed] = function(event)
+player_sync.events[defines.events.on_pre_player_removed] = function(event)
 	remove_player(game.get_player(event.player_index))
 end
 
-inventory_sync.events[defines.events.on_player_created] = function(event)
+player_sync.events[defines.events.on_player_created] = function(event)
 	create_player(game.get_player(event.player_index), false)
 end
 
-function inventory_sync.acquire(player)
+function player_sync.acquire(player)
 	local script_data = get_script_data()
 	script_data.players_waiting_for_acquire[player.name] = {
 		start_tick = game.ticks_played,
 	}
-	clusterio_api.send_json("inventory_sync_acquire", {
+	clusterio_api.send_json("player_sync_acquire", {
 		player_name = player.name,
 	})
 end
 
-function inventory_sync.check_players_waiting_for_acquire()
+function player_sync.check_players_waiting_for_acquire()
 	local script_data = get_script_data()
 	for player_name, record in pairs(script_data.players_waiting_for_acquire) do
 		-- Check if the acquire player request timed out
 		if game.ticks_played > record.start_tick + 600 then
-			inventory_sync.acquire_response(compat.table_to_json({
+			player_sync.acquire_response(compat.table_to_json({
 				status = "timeout",
 				player_name = player_name,
 			}))
@@ -191,11 +200,11 @@ function inventory_sync.check_players_waiting_for_acquire()
 	end
 end
 
-function inventory_sync.acquire_response(data)
+function player_sync.acquire_response(data)
 	local script_data = get_script_data()
 	local response = assert(compat.json_to_table(data))
 	if not script_data.players_waiting_for_acquire[response.player_name] then
-		clusterio_api.send_json("inventory_sync_release", { player_name = response.player_name })
+		clusterio_api.send_json("player_sync_release", { player_name = response.player_name })
 		return
 	end
 	script_data.players_waiting_for_acquire[response.player_name] = nil
@@ -205,21 +214,21 @@ function inventory_sync.acquire_response(data)
 		response.player = player
 		script_data.players_in_cutscene_to_sync[response.player_name] = response
 	else
-		inventory_sync.sync_player(response)
+		player_sync.sync_player(response)
 	end
 end
 
-function inventory_sync.check_players_in_cutscene()
+function player_sync.check_players_in_cutscene()
 	local script_data = get_script_data()
 	for player_name, response in pairs(script_data.players_in_cutscene_to_sync) do
 		if not is_in_cutscene(response.player) then
 			script_data.players_in_cutscene_to_sync[player_name] = nil
-			inventory_sync.sync_player(response)
+			player_sync.sync_player(response)
 		end
 	end
 end
 
-function inventory_sync.sync_player(acquire_response)
+function player_sync.sync_player(acquire_response)
 	local player = assert(game.get_player(acquire_response.player_name))
 
 	-- Editor mode is not supported.
@@ -228,8 +237,8 @@ function inventory_sync.sync_player(acquire_response)
 	end
 
 	if player.controller_type == defines.controllers.editor then
-		log("ERROR: Inventory sync failed, unable to switch " .. player.name .. " out of editor mode")
-		player.print("ERROR: Inventory sync failed, unable to switch out of editor mode")
+		log("ERROR: Player sync failed, unable to switch " .. player.name .. " out of editor mode")
+		player.print("ERROR: Player sync failed, unable to switch out of editor mode")
 		return
 	end
 
@@ -237,7 +246,7 @@ function inventory_sync.sync_player(acquire_response)
 	local finished_record = script_data.finished_downloads[acquire_response.player_name]
 	if finished_record then
 		if acquire_response.status == "acquired" and finished_record.generation == acquire_response.generation then
-			inventory_sync.finish_download(player, finished_record)
+			player_sync.finish_download(player, finished_record)
 			return
 		end
 
@@ -298,7 +307,7 @@ function inventory_sync.sync_player(acquire_response)
 		acquire_response.has_data
 		and (not player_record.sync or acquire_response.generation > player_record.generation)
 	then
-		inventory_sync.initiate_inventory_download(player, player_record, acquire_response.generation)
+		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation)
 
 	else
 		if acquire_response.generation == 0 then
@@ -314,12 +323,12 @@ function inventory_sync.sync_player(acquire_response)
 	end
 end
 
-function inventory_sync.finish_download(player, finished_record)
+function player_sync.finish_download(player, finished_record)
 	local script_data = get_script_data()
 	script_data.finished_downloads[player.name] = nil
 	local player_record = script_data.players[player.name]
 
-	local status, result = xpcall(inventory_sync.deserialize_player, debug.traceback, player, finished_record)
+	local status, result = xpcall(player_sync.deserialize_player, debug.traceback, player, finished_record)
 	if not status then
 		log("ERROR: Deserializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Deserializing player data failed: " .. result)
@@ -335,43 +344,44 @@ function inventory_sync.finish_download(player, finished_record)
 end
 
 -- Download inventory from controller
-inventory_sync.events[defines.events.on_player_joined_game] = function(event)
+player_sync.events[defines.events.on_player_joined_game] = function(event)
 	local player = assert(game.get_player(event.player_index))
 	local script_data = get_script_data()
 
 	if not game.is_multiplayer() then
-		return player.print("Inventory sync deactivated: game is single player")
+		return player.print("Player sync deactivated: game is single player")
 	end
 
 	-- Send acquire request even if an active download is currently in progress
-	inventory_sync.acquire(player)
+	player_sync.acquire(player)
 
 	-- Clear active upload if it exists
 	script_data.active_uploads[player.name] = nil
 end
 
-inventory_sync.on_nth_tick = {}
-inventory_sync.on_nth_tick[33] = function(event)
+player_sync.on_nth_tick = {}
+player_sync.on_nth_tick[33] = function(event)
 	-- Periodically check players currently in the process of syncing
-	inventory_sync.check_players_waiting_for_acquire()
-	inventory_sync.check_players_in_cutscene()
-	inventory_sync.check_active_downloads()
-	inventory_sync.check_active_uploads()
+	player_sync.check_players_waiting_for_acquire()
+	player_sync.check_players_in_cutscene()
+	player_sync.check_active_downloads()
+	player_sync.check_active_uploads()
 end
 
-inventory_sync.events[defines.events.on_cutscene_waypoint_reached] = function(event)
-	inventory_sync.check_players_in_cutscene()
+player_sync.events[defines.events.on_cutscene_waypoint_reached] = function(event)
+	player_sync.check_players_in_cutscene()
 end
 
-inventory_sync.events[defines.events.on_cutscene_cancelled] = function(event)
-	inventory_sync.check_players_in_cutscene()
+player_sync.events[defines.events.on_cutscene_cancelled] = function(event)
+	player_sync.check_players_in_cutscene()
 end
 
 -- Upload inventory when a player leaves the game. Triggers on restart after crash if player was online during crash.
-inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
+player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	-- for some reason, on_pre_player_left_game gets called before on_server_startup so script_data isn't ready yet
-	if not compat.script_data.inventory_sync then
-		log("ERROR: script data for inventory sync is not defined")
+	-- migrate: saves from before the rename still have their data under inventory_sync
+	if not compat.script_data.player_sync and not compat.script_data.inventory_sync then
+		log("ERROR: script data for player sync is not defined")
 		return
 	end
 
@@ -381,18 +391,18 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 
 	-- If player has an active download release our acquisition but let the download continue
 	if script_data.active_downloads[player.name] then
-		clusterio_api.send_json("inventory_sync_release", { player_name = player.name })
+		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
 	end
 
 	if not player_record.dirty or not player_record.sync then
 		-- Nothing to upload, release the acquisition so other instances are not blocked
-		clusterio_api.send_json("inventory_sync_release", { player_name = player.name })
+		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
 	end
 
 	player_record.generation = player_record.generation + 1
-	local status, result = xpcall(inventory_sync.serialize_player, debug.traceback, player, player_record)
+	local status, result = xpcall(player_sync.serialize_player, debug.traceback, player, player_record)
 	if not status then
 		log("ERROR: Serializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Serializing player data failed: " .. result)
@@ -404,11 +414,11 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		timeout = math.random(600, 1200), -- Start with 10-20 seconds for the timeout
 	}
 
-	clusterio_api.send_json("inventory_sync_upload", result)
+	clusterio_api.send_json("player_sync_upload", result)
 end
 
 -- Invoked by the instance code to confirm the controller has received the uploaded data
-function inventory_sync.confirm_upload(player_name, generation)
+function player_sync.confirm_upload(player_name, generation)
 	local player = game.get_player(player_name)
 	if not player or player.connected then
 		log("no player, or player connected")
@@ -431,7 +441,7 @@ function inventory_sync.confirm_upload(player_name, generation)
 	player_record.dirty = false
 end
 
-function inventory_sync.initiate_inventory_download(player, player_record, generation)
+function player_sync.initiate_inventory_download(player, player_record, generation)
 	player.print("Initiating inventory download...")
 	local record = {
 		started = game.ticks_played,
@@ -448,7 +458,7 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 		recipe_notifications = serialize.serialize_crafting_notifications(player)
 	end
 
-	clusterio_api.send_json("inventory_sync_download", {
+	clusterio_api.send_json("player_sync_download", {
 		player_name = player.name,
 		recipe_notifications = recipe_notifications,
 	})
@@ -479,7 +489,7 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	progress_dialog.display(player, 0, 1)
 end
 
-function inventory_sync.check_active_downloads()
+function player_sync.check_active_downloads()
 	-- Used for detecting the inventory download failing, like when the map is saved and
 	-- re-loaded in the middle of a download. The player will be returned to a playable state.
 	local script_data = get_script_data()
@@ -503,7 +513,7 @@ function inventory_sync.check_active_downloads()
 	end
 end
 
-function inventory_sync.check_active_uploads()
+function player_sync.check_active_uploads()
 	local script_data = get_script_data()
 	for player_name, record in pairs(script_data.active_uploads) do
 		if record.last_attempt + record.timeout < game.ticks_played then
@@ -515,10 +525,10 @@ function inventory_sync.check_active_uploads()
 				log("Retrying upload for " .. player_name)
 				record.last_attempt = game.ticks_played
 				record.timeout = math.random(record.timeout, record.timeout * 2)
-				clusterio_api.send_json("inventory_sync_upload", record.serialized)
+				clusterio_api.send_json("player_sync_upload", record.serialized)
 			end
 		end
 	end
 end
 
-return inventory_sync
+return player_sync

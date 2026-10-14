@@ -7,7 +7,20 @@ import * as lib from "@clusterio/lib";
 import * as msg from "./messages.js";
 
 async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
-	let itemsPath = path.resolve(config.get("controller.database_directory"), "inventories.json");
+	let databaseDirectory = config.get("controller.database_directory");
+	let itemsPath = path.resolve(databaseDirectory, "player_sync.json");
+	// migrate: inventory_sync stored its data in inventories.json before alpha 28
+	let legacyPath = path.resolve(databaseDirectory, "inventories.json");
+	if (!await fs.access(itemsPath).then(() => true, () => false)) {
+		try {
+			await fs.rename(legacyPath, itemsPath);
+			logger.info(`Moved ${legacyPath} to ${itemsPath}`);
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+		}
+	}
 	logger.verbose(`Loading ${itemsPath}`);
 	try {
 		let content = await fs.readFile(itemsPath, { encoding: "utf8" });
@@ -28,7 +41,7 @@ async function saveDatabase(
 	logger: lib.Logger,
 ) {
 	if (playerDatastore) {
-		let file = path.resolve(controllerConfig.get("controller.database_directory"), "inventories.json");
+		let file = path.resolve(controllerConfig.get("controller.database_directory"), "player_sync.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(Array.from(playerDatastore));
 		await lib.safeOutputFile(file, content);
@@ -67,7 +80,7 @@ export default async function(context: ControllerPluginContext) {
 		}
 
 		if (["unknown", "stopped"].includes(instance.status)) {
-			let timeoutMs = controller.config.get("inventory_sync.player_lock_timeout") * 1000;
+			let timeoutMs = controller.config.get("player_sync.player_lock_timeout") * 1000;
 			for (let acquisitonRecord of acquiredPlayers.values()) {
 				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expiresMs) {
 					acquisitonRecord.expiresMs = Date.now() + timeoutMs;

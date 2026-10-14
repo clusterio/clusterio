@@ -1,6 +1,6 @@
-# Clusterio inventory sync plugin
+# Clusterio player sync plugin
 
-Carry over player inventory between servers
+Carry over player inventories and settings between servers
 
 As a player, it mostly just works. Most important to know is that factorio data transfer is slow, which means if you have "big" items (blueprints mostly) in your inventory it will take a long time to transfer when joining servers. For this reason it is recommended to keep blueprints in the blueprint library.
 
@@ -12,10 +12,23 @@ When a server crashes while you are online there won't be time to immediately up
 
 Run the following commands in the folder Clusterio is installed to:
 
-    npm install @clusterio/plugin-inventory_sync
-    npx clusteriocontroller plugin add @clusterio/plugin-inventory_sync
+    npm install @clusterio/plugin-player_sync
+    npx clusteriocontroller plugin add @clusterio/plugin-player_sync
 
 Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicated host or ctl installation respectively.
+
+## Upgrading from inventory_sync
+
+This plugin was called inventory_sync before 2.0.0-alpha.28.
+Remove the old package and install the new one in its place:
+
+    npm uninstall @clusterio/plugin-inventory_sync
+    npm install @clusterio/plugin-player_sync
+    npx clusteriocontroller plugin remove inventory_sync
+    npx clusteriocontroller plugin add @clusterio/plugin-player_sync
+
+The `inventory_sync.*` config fields and the `inventory_sync.inventory.view` permission are renamed on load.
+The controller moves `inventories.json` in the database directory to `player_sync.json`, and saves keep their player data the next time they are started with the new module.
 
 ## Method of operation
 
@@ -47,7 +60,7 @@ Overall, we are able to achieve a latency between 3 and infinite ticks from serv
 
 ## Controller Configuration
 
-### inventory_sync.player_lock_timeout
+### player_sync.player_lock_timeout
 
 Time in seconds before the exclusive access an instance holds on a player's inventory expires after the instance stops or its host disconnects.
 Until it expires the player is told the inventory is in use on that instance when joining another one.
@@ -58,7 +71,7 @@ Defaults to `60`.
 
 ## Instance Configuration
 
-### inventory_sync.rcon_chunk_size
+### player_sync.rcon_chunk_size
 
 Size in characters of the chunks the serialized inventory is split into when sent to the game over RCON.
 Smaller chunks take more commands to transfer an inventory but hold up the RCON command pipe for less time each.

@@ -19,7 +19,7 @@ async function decode(encoded) {
 	return JSON.parse((await inflate(Buffer.from(encoded, "base64"))).toString());
 }
 
-describe("inventory_sync", function() {
+describe("player_sync", function() {
 	describe("recipeNotificationDelta()", function() {
 		it("should be empty when the lists match", function() {
 			assert.deepEqual(recipeNotificationDelta(["a", "b"], ["b", "a"]), {});
@@ -71,7 +71,7 @@ describe("inventory_sync", function() {
 		});
 	});
 
-	describe("ipc-inventory_sync_download", function() {
+	describe("ipc-player_sync_download", function() {
 		let instance;
 		before(async function() {
 			try {
@@ -80,7 +80,7 @@ describe("inventory_sync", function() {
 				// Already registered by the full test suite
 			}
 			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
-			instance.mockConfigEntries.set("inventory_sync.rcon_chunk_size", 100000);
+			instance.mockConfigEntries.set("player_sync.rcon_chunk_size", 100000);
 		});
 		beforeEach(function() {
 			instance.server.reset();
@@ -94,7 +94,7 @@ describe("inventory_sync", function() {
 			});
 		}
 		async function download(request) {
-			instance.server.emit("ipc-inventory_sync_download", request);
+			instance.server.emit("ipc-player_sync_download", request);
 			// zlib runs on the threadpool, so poll on timers rather than setImmediate
 			for (let i = 0; i < 1000 && !instance.server.rconCommands.length; i++) {
 				await lib.wait(1);
@@ -102,7 +102,7 @@ describe("inventory_sync", function() {
 		}
 		function downloadCommand(playerData) {
 			const json = lib.escapeString(JSON.stringify(playerData));
-			return `/sc inventory_sync.download_inventory('test','${json}',1,1)`;
+			return `/sc player_sync.download_inventory('test','${json}',1,1)`;
 		}
 
 		it("should send an empty download when the controller has no data", async function() {
@@ -110,7 +110,7 @@ describe("inventory_sync", function() {
 			await download({ player_name: "test" });
 			assert.deepEqual(
 				instance.server.rconCommands,
-				["/sc inventory_sync.download_inventory('test',nil,0,0)"]
+				["/sc player_sync.download_inventory('test',nil,0,0)"]
 			);
 		});
 		it("should send everything as a delta when no snapshot was given", async function() {

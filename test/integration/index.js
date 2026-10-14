@@ -345,7 +345,7 @@ before(async function() {
 	await execCtlProcess("plugin add ../../plugins/research_sync");
 	await execCtlProcess("plugin add ../../plugins/statistics_exporter");
 	await execCtlProcess("plugin add ../../plugins/subspace_storage");
-	await execCtlProcess("plugin add ../../plugins/inventory_sync");
+	await execCtlProcess("plugin add ../../plugins/player_sync");
 	await execCtlProcess("plugin add ../../plugins/player_auth");
 
 	console.log("Bootstrapping");
