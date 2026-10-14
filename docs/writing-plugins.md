@@ -39,6 +39,8 @@ The basic file structure of a plugin is the following.
 Clusterio plugins are Node.js packages that can be published on npm for ease of installation and distribution.
 The usual guides for creating such packages apply.
 At minimum the `package.json` file must contain a version entry.
+For automatic discovery, include `"clusterio-plugin"` in the package's `"keywords"` array.
+Installed npm plugins are discovered from the installation's dependencies when controller, host or ctl loads its configuration, and added to `plugin-list.json`.
 
 A possible workflow for developing plugins is to place the plugin in a sub-directory of where clusterio has been installed, and rely on Node.js searching up the folder heirarchy for it to find `@clusterio/lib`.
 After creating a directory for your plugin, the boilerplate can be generated automaticlly from a set of tempaltes using `npm exec @clusterio/create -y -- --plugin-template` after which you will be asked which areas your plugin will interact with and your plugin's name.
@@ -47,6 +49,28 @@ Note that it's important that the path starts with ./ or ../ (use .\ or ..\ on W
 
 For a plugin to be recognised by Clusterio it needs to export an entry named `plugin` from its main entrypoint.
 By default the main entrypoint is the `index.js` file, but this may be changed by setting the `"main"` entry to a different file in `package.json`.
+Keep this `"main"` entry when using a package `"exports"` map: Clusterio currently loads the plugin implementation from `"main"` (or `index.js`), rather than selecting a conditional export.
+
+If a plugin published on npm defines an `"exports"` map, it must also expose `"./package.json"`.
+Both automatic discovery and runtime loading resolve `<package-name>/package.json` to read the plugin's metadata.
+Packages that hide this file are currently skipped by discovery, and manually adding their package names to `plugin-list.json` does not make them loadable.
+The generated plugin templates omit `"exports"`, which leaves `package.json` accessible.
+For example, a plugin that needs an export map can use:
+
+```json
+{
+    "name": "example-clusterio-plugin",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "./index.js",
+    "keywords": ["clusterio-plugin"],
+    "exports": {
+        ".": "./index.js",
+        "./package.json": "./package.json"
+    }
+}
+```
+
 Here's an example of `index.js`:
 
 ```js
