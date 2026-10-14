@@ -2,10 +2,12 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
+import type { Static } from "@sinclair/typebox";
 import type { Logger } from "./logging.js";
-import type { FieldDefinition } from "./config/index.js";
+import type { ConfigSchema, FieldDefinition } from "./config/index.js";
 import type { PermissionDefinition } from "./permissions.js";
-import type { PlayerStats } from "./data/index.js";
+import type { PlayerStats, Role } from "./data/index.js";
+import type { SyncHook } from "./SyncHook.js";
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */
@@ -32,6 +34,8 @@ export type PluginDeclaration = {
 	ctlEntrypoint?: string;
 	webEntrypoint?: string;
 	ctlConfigFields?: Record<string, FieldDefinition>;
+
+	migrationEntrypoint?: string;
 
 	features?: (typeof PluginFeatureFlags)[number][];
 
@@ -113,6 +117,16 @@ export type PluginLoadContext<
 	logger: Logger;
 	plugin: Info;
 };
+
+/** Hooks for migrating data that Clusterio stores on behalf of plugins */
+export type MigrationHooks = {
+	controllerConfig: SyncHook<ConfigSchema>;
+	hostConfig: SyncHook<ConfigSchema>;
+	instanceConfig: SyncHook<ConfigSchema>;
+	role: SyncHook<Static<typeof Role.jsonSchema>>;
+};
+
+export type MigrationContext = PluginLoadContext<{ hooks: MigrationHooks }>;
 
 export type PluginClass<
 	Context extends object,

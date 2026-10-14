@@ -419,6 +419,9 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
+	if (!args.recovery) {
+		await lib.loadPluginMigrations(pluginInfos);
+	}
 
 	const [controllerConfig, controllerConfigLock] = await lib.loadConfigFromArgs(
 		args,

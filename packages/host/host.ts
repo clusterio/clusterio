@@ -177,6 +177,9 @@ async function startHost() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
+	if (!args.recovery) {
+		await lib.loadPluginMigrations(pluginInfos);
+	}
 
 	const [hostConfig, hostConfigLock] = await lib.loadConfigFromArgs(
 		args,

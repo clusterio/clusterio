@@ -175,6 +175,12 @@ export default class Controller {
 			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
 		).bootstrap());
+		// Save plugin versions written while loading
+		for (const instance of instances.values()) {
+			if (instance.config.dirty) {
+				instances.set(instance);
+			}
+		}
 
 		const saves = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "saves.json"),
@@ -822,7 +828,7 @@ export default class Controller {
 				}
 				return permission;
 			});
-			return json;
+			return lib.Role.pluginMigrations.reduce(json);
 		});
 	}
 

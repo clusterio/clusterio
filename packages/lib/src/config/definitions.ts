@@ -4,6 +4,7 @@ import * as validators from "./validators.js";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
 import { Static } from "@sinclair/typebox";
 import { isTargetVersion } from "../data/version.js";
+import { SyncHook } from "../SyncHook.js";
 
 type configFromJSON<T> = (...args: Parameters<typeof classes.Config.fromJSON>) => T;
 type configFromFile<T> = (...args: Parameters<typeof classes.Config.fromFile>) => Promise<T>;
@@ -42,6 +43,7 @@ export interface ControllerConfigFields {
 	"controller.allow_plugin_updates": boolean;
 	"controller.allow_plugin_install": boolean;
 	[key: `${string}.load_plugin`]: boolean;
+	[key: `${string}.version`]: string;
 }
 
 /**
@@ -51,6 +53,7 @@ export interface ControllerConfigFields {
 export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 	declare static fromJSON: configFromJSON<ControllerConfig>;
 	declare static fromFile: configFromFile<ControllerConfig>;
+	static pluginMigrations = new SyncHook<classes.ConfigSchema>();
 	static migrations(config: Static<typeof this.jsonSchema>) {
 		if (config.hasOwnProperty("controller.external_address")) {
 			config["controller.public_url"] = config["controller.external_address"];
@@ -334,6 +337,7 @@ export interface HostConfigFields {
 	"host.allow_plugin_updates": boolean;
 	"host.allow_plugin_install": boolean;
 	[key: `${string}.load_plugin`]: boolean;
+	[key: `${string}.version`]: string;
 }
 
 /**
@@ -343,6 +347,7 @@ export interface HostConfigFields {
 export class HostConfig extends classes.Config<HostConfigFields> {
 	declare static fromJSON: configFromJSON<HostConfig>;
 	declare static fromFile: configFromFile<HostConfig>;
+	static pluginMigrations = new SyncHook<classes.ConfigSchema>();
 	static fieldDefinitions: classes.ConfigDefs<HostConfigFields> = {
 		"host.version": {
 			type: "string",
@@ -468,6 +473,7 @@ export interface InstanceConfigFields {
 	"instance.auto_start": boolean;
 	"instance.exclude_from_start_all": boolean;
 	[key: `${string}.load_plugin`]: boolean;
+	[key: `${string}.version`]: string;
 
 	"factorio.version": string;
 	"factorio.executable_path": string | null;
@@ -500,6 +506,7 @@ export interface InstanceConfigFields {
 export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 	declare static fromJSON: configFromJSON<InstanceConfig>;
 	declare static fromFile: configFromFile<InstanceConfig>;
+	static pluginMigrations = new SyncHook<classes.ConfigSchema>();
 	static migrations(config: Static<typeof this.jsonSchema>) {
 		function boolToEnableDisable(name: string) {
 			if (config.hasOwnProperty(name) && typeof config[name] === "boolean") {
@@ -805,6 +812,14 @@ export function addPluginFieldDefinitions(
 
 	Config.fieldDefinitions[`${pluginInfo.name}.load_plugin`] = fieldDef;
 
+	// Version of the plugin the config was last loaded with, see Config.pluginVersions
+	Config.fieldDefinitions[`${pluginInfo.name}.version`] = {
+		type: "string",
+		initialValue: "",
+		readonly: ["controller", "host"],
+		hidden: true,
+	};
+
 	// Merge in other fields from the plugin
 	const fields = pluginInfo[kind];
 	if (fields) {
@@ -829,3 +844,4 @@ export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginW
 		}
 	}
 }
+

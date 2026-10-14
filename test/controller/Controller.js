@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
 	ControllerConfig, Address, RequestError,
 	InstanceConfig, SystemInfo, Role, ModPack, AccountUpdateEvent,
-	addPluginConfigFields,
+	addPluginConfigFields, renamePermissionPrefix,
 } from "@clusterio/lib";
 
 import "../setup_logging.js";
@@ -713,6 +713,17 @@ describe("controller/src/Controller", function() {
 					{ permissions: ["bar", "core.instance.save.subscribe"] },
 					{ permissions: ["core.instance.save.subscribe"] },
 				]);
+			});
+			it("runs plugin role migrations", function() {
+				Role.pluginMigrations.attach("test", role => (
+					renamePermissionPrefix(role, "old_name.", "new_name.")
+				));
+				try {
+					const result = Controller.migrateRoles([{ permissions: ["foo", "old_name.view"] }]);
+					assert.deepEqual(result, [{ permissions: ["foo", "new_name.view"] }]);
+				} finally {
+					Role.pluginMigrations.clear();
+				}
 			});
 			it("does nothing for upto date data", function() {
 				const role = new Role(

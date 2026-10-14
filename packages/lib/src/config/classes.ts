@@ -10,6 +10,7 @@ import { StringEnum } from "../data/composites.js";
 import { safeOutputFile } from "../file_ops.js";
 import * as validators from "./validators.js";
 import { RequestError } from "../errors.js";
+import type { SyncHook } from "../SyncHook.js";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
@@ -224,6 +225,18 @@ export class Config<
 		return config;
 	}
 
+	/**
+	 * Migrations attached by plugins, run after {@link Config.migrations}.
+	 * Declared by each subclass that plugins can add fields to.
+	 */
+	declare static pluginMigrations?: SyncHook<ConfigSchema>;
+
+	/**
+	 * Versions of the plugins whose migrations are attached, keyed by
+	 * plugin name. Written to `<plugin>.version` after the migrations run.
+	 */
+	static pluginVersions = new Map<string, string>();
+
 	/** Defines the default access locations for the config class */
 	static defaultAccess: ConfigLocation[] = ["controller", "host", "control"];
 
@@ -234,9 +247,14 @@ export class Config<
 	/** Set to true during validators to prevent edits */
 	private _readonly = false; // TODO replace with "using config.asReadonly()"
 	/** Set to true when a field in the config is changed. */
-	private dirty = false;
+	private _dirty = false;
 	/** Set to true when a 'restart required' field in the config is changed. */
 	restartRequired = false;
+
+	/** True if the config has changes that have not been saved. */
+	get dirty() {
+		return this._dirty;
+	}
 
 	/**
 	 * Create a new instance of the given config
@@ -269,7 +287,21 @@ export class Config<
 		) as Fields;
 
 		if (fields) {
-			this.update(this.constructor.migrations(fields), false, location);
+			let migrated = this.constructor.migrations(fields);
+			if (this.constructor.pluginMigrations) {
+				migrated = this.constructor.pluginMigrations.reduce(migrated);
+			}
+			this.update(migrated, false, location);
+		}
+
+		for (const [pluginName, version] of this.constructor.pluginVersions) {
+			const name = `${pluginName}.version` as keyof Fields & string;
+			if (name in this.fields && this.fields[name] !== version) {
+				this.fields[name] = version as Fields[typeof name];
+				if (fields) {
+					this._dirty = true;
+				}
+			}
 		}
 	}
 
@@ -278,7 +310,7 @@ export class Config<
 	}
 
 	set filepath(filepath: string | undefined) {
-		this.dirty = true;
+		this._dirty = true;
 		this._filepath = filepath;
 	}
 
@@ -289,7 +321,9 @@ export class Config<
 	// TODO replace with "using config.startStating()"
 	get staging(): Config<Fields> {
 		if (this._staging) { return this._staging.config; }
-		const config = new this.constructor(this.location, this.fields);
+		// Copied with update so migrations don't run again on the live fields
+		const config = new this.constructor(this.location);
+		config.update(this.fields, false);
 		const changes = new Set<string>();
 		config.on("fieldChanged", name => changes.add(name));
 		this._staging = { config, changes };
@@ -443,7 +477,7 @@ export class Config<
 			if (def.restartRequired) {
 				this.restartRequired = true;
 			}
-			this.dirty = true;
+			this._dirty = true;
 			this.emit("fieldChanged", name, value, prev);
 		}
 	}
@@ -465,14 +499,14 @@ export class Config<
 	 * @param force - Set to true to save the file even if no changes have been made.
 	 */
 	async save(force = false) {
-		if (!force && !this.dirty) {
+		if (!force && !this._dirty) {
 			return;
 		}
 		if (!this.filepath) {
 			throw new Error("Cannot save config which has no filepath");
 		}
 		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
-		this.dirty = false;
+		this._dirty = false;
 	}
 
 	static jsonSchema = ConfigSchema;
