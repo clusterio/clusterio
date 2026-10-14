@@ -842,6 +842,10 @@ export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginW
 		if (pluginInfo.instanceEntrypoint) {
 			addPluginFieldDefinitions(pluginInfo, "instanceConfigFields", InstanceConfig);
 		}
+		if (pluginInfo.ctlConfigFields) {
+			validateFieldNames(pluginInfo.name, pluginInfo.ctlConfigFields);
+			Object.assign(CtlConfig.fieldDefinitions, pluginInfo.ctlConfigFields);
+		}
 	}
 }
 
