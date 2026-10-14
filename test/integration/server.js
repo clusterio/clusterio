@@ -40,6 +40,8 @@ describe("Integration of host/src/server", function() {
 	describe("class FactorioServer", function() {
 		let writePath = path.join("temp", "test", "integration");
 		let server = new FactorioServer(factorioDir, writePath, {});
+		// Let Factorio bind an OS-assigned UDP port instead of guessing a free one.
+		server.gamePort = 0;
 		let logFile;
 
 		before(async function() {
