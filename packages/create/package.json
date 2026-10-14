@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/create",
-	"version": "2.0.0-alpha.27",
+	"version": "2.0.0",
 	"description": "Installer for clusterio",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser <github@hornwitser.no>",
