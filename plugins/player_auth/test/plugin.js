@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mock as nodeMock } from "node:test";
 import jwt from "jsonwebtoken";
 
 import * as mock from "../../../test/mock.js";
@@ -87,6 +88,17 @@ describe("player_auth", function() {
 			let endpoint;
 			let fetchPlayerCode;
 			let setVerifyCode;
+			let now;
+			let dateNow;
+
+			beforeEach(function() {
+				// Keep code expiry and JWT timestamps independent of HTTP request timing.
+				now = Date.now();
+				dateNow = nodeMock.method(Date, "now", () => now);
+			});
+			afterEach(function() {
+				dateNow.mock.restore();
+			});
 
 			// Adds a pending code for player through the request handlers
 			async function addPlayer(player, { timeout = 1, verifyCode } = {}) {
@@ -334,6 +346,8 @@ describe("player_auth", function() {
 
 			describe("integration", function() {
 				it("should verify a full login flow", async function() {
+					// A one-second timeout leaves only 1ms before the JWT's rounded expiry here.
+					now = Math.floor(now / 1000) * 1000 + 999;
 					let { playerCode } = await fetchPlayerCode(new FetchPlayerCodeRequest("test"));
 
 					const playerCodeResult = await postJSON(
@@ -352,6 +366,22 @@ describe("player_auth", function() {
 					);
 					assert.equal(verifyResult.status, 200);
 					assert.deepEqual(await verifyResult.json(), { verified: true, token: token });
+				});
+				it("should reject a verification token at its expiry", async function() {
+					const playerCode = await addPlayer("test");
+					const playerCodeResult = await postJSON(
+						`${controllerUrl}/api/player_auth/player_code`, { player_code: playerCode }
+					);
+					const { verify_code, verify_token } = await playerCodeResult.json();
+					await setVerifyCode(new SetVerifyCodeRequest("test", verify_code));
+
+					now = jwt.decode(verify_token).exp * 1000;
+					const verifyResult = await postJSON(
+						`${controllerUrl}/api/player_auth/verify`,
+						{ player_code: playerCode, verify_code, verify_token }
+					);
+					assert.equal(verifyResult.status, 200);
+					assert.deepEqual(await verifyResult.json(), { error: true, message: "jwt expired" });
 				});
 			});
 		});
