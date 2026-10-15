@@ -90,7 +90,8 @@ The following properties are recognized:
 
 **name**:
     Stable internal identifier of the plugin, used as its key in the plugin list.
-    It does not have to match the npm package name or directory name.
+    For local plugins automatically discovered under `plugins/` or `external_plugins/`, it must match the plugin's directory name.
+    It does not have to match the npm package name.
     For example, the package `@clusterio/plugin-subspace_storage` declares the name `subspace_storage`.
 
 **title**:

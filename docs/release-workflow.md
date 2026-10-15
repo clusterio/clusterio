@@ -36,7 +36,7 @@ The steps below describe publishing npm packages manually instead.
     pnpm install --no-frozen-lockfile
     ```
 
-3. Review and commit the version, lockfile and changelog changes, then open and merge a release pull request.
+3. Review and commit the version and changelog changes, then open and merge a release pull request.
 
     ```sh
     git add -p
@@ -54,9 +54,11 @@ The steps below describe publishing npm packages manually instead.
 
 5. For manual publication, perform a clean install and publish the packages. For automated publication, publish the GitHub release as described above instead.
 
+    The repository does not track `pnpm-lock.yaml`, so allow pnpm to generate or update it during installation.
+
     ```sh
     pnpm clean
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
     pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match publish
     ```
 
