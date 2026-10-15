@@ -106,7 +106,7 @@ export class Control extends lib.Link {
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
-			this.connector.on(event, this.hooks.controllerConnectionEvent.listener);
+			this.connector.on(event, () => this.hooks.controllerConnectionEvent.invoke(event));
 		}
 
 		this.handle(lib.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));
