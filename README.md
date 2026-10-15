@@ -42,7 +42,7 @@ Plugin authors should also follow the [2.0 migration guide](docs/devs/plugin-mig
 * [Setting up remote hosts](#setting-up-remote-hosts)
 * [Setting up clusterioctl](#setting-up-clusterioctl)
 * [Known issues](#known-issues)
-* [Common problems](#Common-problems)
+* [Common problems](#common-problems)
 
 
 ## Introduction

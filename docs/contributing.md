@@ -19,7 +19,7 @@ Although, we recomend checking out out our [past decisions](/docs/decisions.md) 
     - [Updating Your GitHub Fork](#updating-your-github-fork)
     - [Publishing releases to npm](#publishing-releases-to-npm)
 - [Changelog](#changelog)
-- [Supported Node.js and Factorio Version](#supported-node.js-and-factorio-version)
+- [Supported Node.js and Factorio Versions](#supported-nodejs-and-factorio-versions)
 - [Code Style](#code-style)
     - [Naming Style](#naming-style)
     - [Units](#units)
@@ -203,7 +203,7 @@ The format of this log should be self explanatory, please follow it carefully. P
 Clusterio requires Node.js 22 or newer and supports LTS releases in their active and maintenance phases.
 For a new development environment, install the latest LTS release using the [installation instructions](../README.md#installation).
 Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
-The GitHub Actions tests currently run on Node.js 22 and 24; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
+The GitHub Actions tests currently run on Node.js 24 and 26 across the Factorio matrix, with Node.js 22 used for coverage; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
 
 For Factorio, active support covers the latest stable version and the previous major version, using version lines such as 2.1, 2.0 and 1.1 as described in the [Factorio support policy](decisions.md#factorio).
 Older versions from 0.17 onwards receive passive support where it does not restrict actively supported versions.
