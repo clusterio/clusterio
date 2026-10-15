@@ -142,6 +142,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("copy-static", function() {
 			it("should copy the files from dist/web/static", async function() {
+				slowTest(this);
 				const dir = "temp/test/copy-static";
 				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
 				await execController("copy-static copy-static");
