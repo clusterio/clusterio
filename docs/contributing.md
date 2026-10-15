@@ -3,16 +3,20 @@
 You are probably reading this because you want to contribute code to Clusterio.
 Great!  We need people like you.
 Though we have some conventions and workflows that we kindly ask you to follow.
-We have included all the pratical considerations in this document.
-Although, we recomend checking out out our [past decisions](/docs/decisions.md) if you have the time.
+This document covers the development workflow, commands, and repository layout.
+Read our [past decisions](/docs/decisions.md) for compatibility policies and design rationale.
 
 
 ## Contents
 
+- [Project map](#project-map)
 - [Workflow](#workflow)
     - [Starting a Feature Branch](#starting-a-feature-branch)
     - [Setting up the Development Environment](#setting-up-the-development-environment)
+    - [Build outputs](#build-outputs)
+    - [Debugging](#debugging)
     - [Checking your code for errors](#checking-your-code-for-errors)
+    - [Cleaning generated and runtime files](#cleaning-generated-and-runtime-files)
     - [Submitting a Pull Request](#submitting-a-pull-request)
     - [Editing your Feature Branch](#editing-your-feature-branch)
     - [Resolving Merge Conflicts](#resolving-merge-conflicts)
@@ -26,6 +30,29 @@ Although, we recomend checking out out our [past decisions](/docs/decisions.md) 
     - [Indenting](#indenting)
     - [Line Length](#line-length)
     - [Markdown](#markdown)
+
+
+## Project map
+
+Clusterio manages distributed Factorio servers through a controller, hosts, and plugins.
+
+| Location | Responsibility |
+| --- | --- |
+| `packages/controller/` | Cluster state, users and roles, connections, HTTP API, and serving the web UI. Start with `src/Controller.ts` and `src/ControlConnection.ts`. |
+| `packages/host/` | Instance lifecycle, Factorio processes, save patching, and exports. Start with `src/Host.ts`, `src/Instance.ts`, `src/server.ts`, and `src/patch.ts`. |
+| `packages/ctl/` | Command-line administration and plugin commands. |
+| `packages/lib/` | Shared messages, routing, config, permissions, plugin loading, logging, and utilities for Node and browser consumers. |
+| `packages/web_ui/` | React/Ant Design interface and browser control connection; bundled through the controller's webpack build. |
+| `packages/create/` | Installer and JavaScript/TypeScript plugin templates. |
+| `plugins/` | Bundled plugins, including their Node, web, Lua, and test code. |
+| `external_plugins/` | Separately developed workspace plugins; these may be independent repositories. |
+| `packages/host/modules/` | Lua modules injected into saves. |
+| `packages/host/lua/` | Factorio mod sources, including `clusterio_lib`. |
+| `test/` | Root Mocha suite, fixtures, helpers, integration harness, and manual tests. Plugin tests also live under `plugins/*/test/`. |
+
+Start with [how it works](how-it-works.md), [communication](communication.md), and the [config system](config-system.md) for architecture.
+See [writing plugins](writing-plugins.md) and [developing for Clusterio](developing-for-clusterio.md) for plugin and Factorio contracts.
+Read the relevant implementation and tests before changing behavior.
 
 
 ## Workflow
@@ -52,15 +79,21 @@ Do not run `git pull upstream` it will mess thing up!
 
 ### Setting up the Development Environment
 
-The project is organized into several packages that are all tied together using pnpm's workspace feature.
-In order to get the development environment up and running you will need to run the following command:
+Run commands from the repository root unless stated otherwise.
+Use a Node.js release meeting the [development requirements](#supported-nodejs-and-factorio-versions) and the pnpm version pinned by `packageManager` in root `package.json`.
+The packages are linked through pnpm workspaces.
+The workspace layout and shared dependency catalog are in `pnpm-workspace.yaml`; follow its existing `catalog:` and `workspace:` conventions.
+Install dependencies with:
 
-    pnpm install
+    pnpm install --no-frozen-lockfile
 
-This installs dependencies needed by tests and links the packages up so they work from the git work tree.
-To start a cluster from the repo you will first need to initialize it, this can be done using the installer:
+This links workspace packages and runs their preparation scripts.
+`pnpm-lock.yaml` is intentionally ignored; do not force-add it or assume a frozen-lockfile install is supported.
+To initialize a fresh development cluster, use the installer:
 
     node packages/create --dev
+
+Inspect existing configuration before reinitializing an established checkout.
 
 To add plugins to use in the development environment use
 
@@ -79,9 +112,10 @@ By default node does not enable source maps, to get stack traces pointing to the
 
 Note that to use `clusterioctl` you will have to create a ctl config first:
 
-    node packages/controller bootstrap create-ctl-config [admin-user]
+    node packages/controller bootstrap create-ctl-config <admin-user>
 
-Once you've set up the cluster you can use `node packages/controller run` to run the controller and `node packages/host run` to run the host which connects to the controller.
+Use the name of an existing admin user.
+Run `node --enable-source-maps packages/controller run` and `node --enable-source-maps packages/host run` in separate terminals.
 
 When editing TypeScript files ran by Node.js you need to run `pnpm build` to compile the files to JavaScript before restarting the controller/host/ctl for changes take effect.
 To have TypeScript watch for changes and rebuild immediadly you may run `pnpm watch` instead.
@@ -97,11 +131,50 @@ Keep in mind if you're working on external plugins the `--dev-plugin` option is 
 Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present prepare` before you start the controller without these flags again.
 
 
+### Build outputs
+
+| Command | Output |
+| --- | --- |
+| `pnpm build` | TypeScript project references. |
+| `pnpm watch` | TypeScript compilation as files change; restart affected Node processes afterward. |
+| `pnpm run -r --if-present prepare` | Package preparation, including generated validators and production web bundles where defined. |
+| `pnpm --filter @clusterio/lib run prepare` | Lib compilation followed by core wire-message validator generation. |
+| `pnpm --filter @clusterio/controller run prepare` | Controller compilation and its production web bundle. |
+| `pnpm build-mod` | Factorio mod archives in root `dist/`. |
+| `pnpm docs` | Generated API documentation. |
+
+`pnpm build` alone does not regenerate the standalone validator or webpack bundles.
+After changing `packages/lib/src/data/messages_core.ts`, run lib's `prepare`: the validator generator reads the compiled schema, so invoking it against an old build generates an old validator.
+Edit source files and regenerate outputs through their scripts; do not hand-edit `dist/`, generated API docs, or `message_validate.js`.
+For recursive operations targeting release packages, use explicit `--filter='./packages/*' --filter='./plugins/*' --fail-if-no-match` selectors.
+A quoted pnpm filter containing brace syntax is not shell brace expansion and does not select these two directories.
+
+
+### Debugging
+
+Establish the controller, host, instance, Factorio version, enabled plugins, and exact reproduction first.
+Enable source maps and confirm the affected process is running rebuilt code.
+Use the contextual logger so host, instance, and plugin metadata remain available.
+Development logs are in `logs/`; integration logs are in `temp/test/logs/` and are uploaded by CI.
+
+Trace a request through its sender, shared message definition, router, permission check, and destination handler; see [communication](communication.md).
+Instance-starting requests can wake an instance in the host router before reaching its handler.
+For game-side failures, follow `Instance.ts` into `server.ts`, save patching, and the relevant Lua module or mod.
+Distinguish RCON commands into Factorio from IPC events coming back out; asynchronous responses need not arrive in order.
+
+For connection and recovery bugs, test disconnect, reconnect, timeout, and shutdown as applicable.
+A cached controller status does not prove the current state of a host or Factorio process.
+Recovery mode disables normal plugin loading; account for it when diagnosing missing plugin behavior and [Lua state migrations](developing-for-clusterio.md#initialisation-and-recovery).
+Verify UI behavior in the browser: successful compilation does not verify rendering, permissions, or subscriptions.
+
+
 ### Starting a Feature Branch
 
 Development is done exclusively in feature branches.
-This means the first thing to do before starting any development at all is to make a new branch starting from the master branch of the main repository.
-To do this check out that branch from the main repository.
+For a new task, create a feature branch from the main repository's current master.
+Inspect `git status` first and preserve unrelated work, including external plugin checkouts.
+Continue an existing task branch rather than switching or recreating it to follow this setup recipe.
+For a new branch in a clean checkout, first check out master from the main repository.
 
     git fetch upstream
     git checkout upstream/master
@@ -117,18 +190,65 @@ But it's nice to have its name be somewhat descriptive of what it implements.
 
 ### Checking your code for errors
 
-There's automated tests and linting setup for the project.
-Please do add tests for any code you add and run both:
+Tests use Mocha and Node assertions, mostly as JavaScript ESM importing compiled packages.
+For behavior changes, add a regression test at the layer that owns the behavior, including relevant failure paths.
+Start with focused tests, then run the root suite and lint when the environment permits:
 
     pnpm run test
     pnpm run lint
 
-To check that your changes pass the integration tests as well as the ESLint rules set up for the project.
+`pnpm test` builds TypeScript and runs root and bundled-plugin tests, excluding `test/manual/`.
+Run tests from the root: individual package `test` scripts are often placeholders that deliberately fail.
+Use `pnpm cover` for the full suite with c8 coverage.
 
 The full test suite can take a while to run.
 Use `pnpm run fast-test` to skip tests marked as slow, or `pnpm run no-external-test` to skip tests that depend on external APIs such as the Factorio mod portal or GitHub.
 These correspond to setting the `FAST_TEST` and `NO_EXTERNAL_TEST` environment variables and can be combined.
-When writing tests that take a lot of time call `slowTest(this)` at the start of the test, and for tests that call out to external APIs call `externalTest(this)`, both are exported from `test/integration/index.js`.
+For example, `FAST_TEST=y NO_EXTERNAL_TEST=y pnpm test` combines both exclusions.
+These flags still run the remaining integration setup and tests; neither produces an isolated unit-test run.
+When writing slow tests call `slowTest(this)`, and for external API tests call `externalTest(this)`; both are exported from `test/common.js`.
+Reuse that file's JSON round-trip/schema helpers and the mocks in `test/mock.js`.
+
+For a focused test, build first and select the file explicitly instead of appending it to the full-suite script:
+
+```sh
+pnpm build
+NODE_EXTRA_CA_CERTS="$PWD/test/file/tls/cert.pem" pnpm exec mocha \
+  --enable-source-maps --check-leaks test/lib/helpers.js
+```
+
+Replace the example file with the relevant test; use `--grep` to narrow it further.
+Preserve the test TLS CA configuration for HTTPS integration tests.
+Use `--require ./test/setup_logging.js` when an isolated test needs the shared logger configured.
+Some tests import `test/integration/index.js`, which installs root hooks and starts a controller and host even for a targeted invocation.
+
+The integration harness recreates its configs, database, mods, and instances under `temp/test/` and uses HTTP port 8880 and HTTPS port 4443.
+Do not run competing integration suites in the same checkout or on those ports.
+It locates Factorio through `host.factorio_directory` in root `config-host.json`, defaulting to `factorio/`.
+The full harness currently requires a usable Factorio installation: a missing directory fails discovery, and an empty directory fails setup while selecting a version.
+Some individual tests have conditional skips, but these do not make a full run without Factorio succeed.
+Report setup failures and skipped coverage explicitly.
+
+For wire compatibility changes, inspect `scripts/version-compat-test.js` and the CI `version-compat` job, which tests local/published controller and host combinations and requires npm access.
+Use the relevant production bundle, mod build, or [manual scenario](../test/manual/README.md) for changes affecting those surfaces.
+Consult the [CI workflow](../.github/workflows/node.js.yml) for the current Node/Factorio matrix.
+For documentation-only changes, verify paths, commands, and formatting; a full application test run is unnecessary.
+Report exactly what ran, failures, skips, and unverified behavior; keep local results distinct from hosted CI and runtime validation.
+
+
+### Cleaning generated and runtime files
+
+Inspect `node clean.js --help` and preview the selected scope with `--dry-run` before cleaning.
+
+| Command | Removal scope |
+| --- | --- |
+| `node clean.js --dry-run` | Preview workspace package/plugin build output and webpack caches; omit `--dry-run` to clean, or use `pnpm clean`. |
+| `node clean.js tests --dry-run` | Also preview root `.nyc_output/`, `coverage/`, the whole `temp/` directory, and `static/`. |
+| `node clean.js all --dry-run` | Also preview runtime databases, instances, logs, mods, local configs, `FactorioAdminToken.txt`, and `plugin-list.json`. |
+
+`all` deletes cluster runtime data; use it only when that deletion is intended and authorized.
+The cleaner excludes `external_plugins/` and does not remove mod archives in root `dist/`.
+Do not commit local configs, tokens, databases, saves, logs, or generated build output.
 
 
 ### Submitting a Pull Request
@@ -200,8 +320,11 @@ The format of this log should be self explanatory, please follow it carefully. P
 
 ## Supported Node.js and Factorio Versions
 
-Clusterio requires Node.js 22 or newer and supports LTS releases in their active and maintenance phases.
-For a new development environment, install the latest LTS release using the [installation instructions](../README.md#installation).
+The package engine declaration is `node >=22`; the support policy covers LTS releases in their active and maintenance phases.
+Repository tooling also uses `import.meta.main`, which requires Node.js 22.18+ on the 22 line or 24.2+ on the 24 line; see the [Node.js API history](https://nodejs.org/docs/latest-v22.x/api/esm.html#importmetamain).
+Earlier Node 22 releases satisfy the package declaration but can silently skip CLI entrypoints such as `clean.js`.
+This is an unresolved mismatch between the engine declaration and the tooling requirements.
+For development, use a current supported LTS release with this API, following the [installation instructions](../README.md#installation).
 Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
 The GitHub Actions tests currently run on Node.js 24 and 26 across the Factorio matrix, with Node.js 22 used for coverage; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
 
@@ -229,13 +352,10 @@ Fields in configs uses lowercase_underscore.
 JavaScript files are named using lowercase_underscore for files that export multiple items.
 Files containing and exporting a single class should be named the same as the class in PascalCase.
 
-Relative imports in lib package are prefixed with lib to make them easier to distinguish, as the names tend to be very generic.
-E.g.:
-
-    import libLink from "./link";
-    import libLuaTools from "./lua_tools";
-
-Note that no sub-modules of the lib package is imported directly from the outside of it with the exception of `build_mod`.
+Use ESM imports, including `.js` extensions in TypeScript relative imports.
+For namespace imports within lib, use the `lib` prefix to distinguish generic module names, for example `import * as libFileOps from "./file_ops.js";`.
+Production consumers should import shared public APIs through `@clusterio/lib` rather than reaching into its internals.
+When adding public shared exports, check both `packages/lib/index.ts` and `packages/lib/browser.ts` and keep Node-only dependencies out of browser code.
 
 For lua code lowercase_underscore is used for everything.
 
@@ -244,7 +364,7 @@ For lua code lowercase_underscore is used for everything.
 When naming variables whos unit is not a base SI unit like seconds or metres the unit used should be suffixed in the variable name:
 E.g.:
 
-    const startTimeMs = date.now();
+    const startTimeMs = Date.now();
     const endNs = process.hrtime();
 
 This makes it easier to spot different unit bases are being mixed in the code.
@@ -285,7 +405,7 @@ For example:
 ### Markdown
 
 Markdown files are formatted using one line per sentence to improve diff reports when making changes.
-Headings have two spaces before them and on space after them to make them stand out, the heading at the top of the file does not have any spaces before it, and heading immediadly followed by another heading have one space between them.
+Headings have two blank lines before them and one after them; the top heading has no blank lines before it, and consecutive headings have one blank line between them.
 For example:
 
 ```md

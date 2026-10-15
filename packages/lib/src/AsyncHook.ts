@@ -30,6 +30,10 @@ export class AsyncHook<
 	 * for the lifetime of the hook instance. It can safely be passed directly
 	 * into event emitters (e.g. EventEmitter.on / off) without losing context
 	 * or requiring re-binding.
+	 * Arguments are forwarded unchanged: use this only when the emitter's arguments
+	 * match the hook's argument list. It does not insert an event name or adapt a payload.
+	 * Otherwise, use an adapter that calls invoke with the required arguments and keep
+	 * that adapter's reference if it must later be removed with off.
 	 *
 	 * Example:
 	 * `eventEmitter.on("change", hook.listener);`

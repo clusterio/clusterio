@@ -10,7 +10,9 @@ This document describes the various different types of content that can be creat
     - [event_handler interface](#event_handler-interface)
 - [Communicating with Clusterio](#communicating-with-clusterio)
 - [Clusterio Modules](#clusterio-modules)
+    - [Initialisation and recovery](#initialisation-and-recovery)
 - [Clusterio Lua API](#clusterio-lua-api)
+    - [Compatibility library](#compatibility-library)
 - [Clusterio Plugins](#clusterio-plugins)
 
 
@@ -73,7 +75,7 @@ The following entries are recognized by `add_lib`, all of which are optional:
     Callback called when the callback of `script.on_configuration_changed` is invoked.
 - `events`:
     Table mapping event ids as defined in `defines.events` to callbacks.
-    For example the table `{ [defines.events.on_player_died] = foo }` will call bar with the usual `event` table as argument every time a player dies.
+    For example the table `{ [defines.events.on_player_died] = foo }` will call foo with the usual `event` table as argument every time a player dies.
 - `on_nth_tick`:
     Table mapping the nth tick number to a callback.
     For example the table `{ [30] = bar }` will call bar every 30th tick.
@@ -92,7 +94,7 @@ For example a module could be defined as
 ```lua
 -- example.lua
 local function my_handler(event)
-    local name = game.player[event.player_index].name
+    local name = game.get_player(event.player_index).name
     game.print("It appears that " .. name .. " has died")
 end
 
@@ -176,18 +178,56 @@ This means always declearing your top level variables and functions local and ex
 You can require other files in your module by prefixing your require paths with `modules/your_module_name/`.
 It's also possible to require files from other modules this way too.
 
-The global variables and data stored in the global table is shared by all Clusterio modules as well as the scenario, so it's important that you use unique names.
-It's recommended to prefix the global variables and data in the global table that your module has with the name of your module.
+Persistent state is shared by all save-patched modules and the scenario.
+Use `compat.script_data` to access the version-appropriate persistent table (`global` or `storage`), and keep your state under a unique module name.
+See the [compatibility library](#compatibility-library) below.
+
+
+### Initialisation and recovery
 
 Because modules can be patched into an existing game you cannot rely on the `on_init` callback to be called in Clusterio Modules.
 Nor can you rely on the `on_configuration_changed` callback, as this is not called when level code changes.
-The Clusterio Lua API provides the custom `on_server_startup` event that can be used as a substitute, see the next section.
+The Clusterio Lua API provides `on_server_startup` for setup and migrations, but some Factorio events can run before it.
+In particular, player-leaving, console-command, and configuration-change handlers must not assume startup has initialized their state.
+
+Use an idempotent state accessor in handlers that can run early.
+It should migrate any legacy namespace before creating fresh state, fill missing fields, and return the same state on repeated calls.
+A guard that returns early because the new namespace is absent can silently discard recovery work on an older save.
+See [player_sync's state accessor](../plugins/player_sync/module/get_script_data.lua) for an implementation that handles a renamed namespace and [the module template](../packages/create/templates/common/module/control.lua) for lifecycle setup.
+
+Use `on_load` only to restore local references and other operations permitted by Factorio's load lifecycle; do not create or migrate persistent state there.
+Perform state changes in startup or other events that permit them.
+Recovery mode skips normal Node plugin loading, so save data may still use an older plugin namespace when Lua handlers run.
+Test old and current saves, early events, repeated access, and save/load behavior on the relevant supported Factorio versions.
 
 
 ## Clusterio Lua API
 
 Clusterio provides a save patched module as well as a regular Factorio mod for interfacing with Clusterio.
 This includes tools sending data to plugins, script events to listen for, and an item serialization module.
+
+
+### Compatibility library
+
+Use the compatibility helpers for APIs that differ between supported Factorio versions:
+
+```lua
+-- In a save-patched module:
+local compat = require("modules/clusterio/compat")
+-- In a mod, use require("__clusterio_lib__/compat") instead.
+
+local function encode_example()
+    local script_data = compat.script_data
+    local encoded = compat.table_to_json({ example = true })
+    local decoded = compat.json_to_table(encoded)
+end
+```
+
+`script_data` selects the persistent state table, while the JSON helpers select the available runtime API.
+Access persistent state from the appropriate lifecycle callbacks, after initialisation or loading has made it available.
+The JSON helpers also work before runtime; other compatibility helpers may require `game` to be available.
+Legacy examples using `global` or `game.table_to_json` directly are version-specific.
+See [compat.lua](../packages/host/modules/clusterio/compat.lua) and the [Factorio support policy](decisions.md#factorio) before introducing version checks.
 
 
 ### clusterio_api library
@@ -228,7 +268,8 @@ Event data:
 
 Raised when Clusterio is starting up the server.
 It can be used to initialize clusterio related features in a mod, and as a stand-in for the `on_init` and `on_configuration_changed` event for modules.
-It is invoked on the first tick the server runs after the save has been patched, before most other events.
+It is invoked on the first tick the server runs after the save has been patched, before most other events but not all of them.
+See [initialisation and recovery](#initialisation-and-recovery) for handlers that can run earlier.
 
 Use this event to initialize and/or migrate the data structures you need.
 Keep in mind that both mods and Clusterio modules can switch from any version to any version so it should be able to handle both forwards and backwards migrations gracefully.
@@ -236,7 +277,7 @@ Keep in mind that both mods and Clusterio modules can switch from any version to
 #### clusterio_api.send_json(channel, data)
 
 Send JSON data to Clusterio over the given channel.
-The `data` argument should be table that can be serialized with `game.table_to_json`.
+The `data` argument should be a table that can be serialized with `compat.table_to_json`.
 Clusterio plugins can listen to channels and will receive an event with the data sent here.
 See the [Communicating with Factorio section](writing-plugins.md#communicating-with-factorio) in the Writing Plugins document for more information.
 
@@ -249,7 +290,7 @@ Strings embedded into the tables sent must be valid UTF-8 text.
 
 Parameters:
 - `channel`: string identifying which channel to send it on.
-- `data`: table that can be converted to JSON with game.table_to_json
+- `data`: table that can be converted to JSON with `compat.table_to_json`
 
 
 ### serialize library
@@ -260,7 +301,7 @@ From a module
 From a mod  
 `local serialize = require("__clusterio_lib__/serialize")`
 
-Serializes inventories and item stacks into a table that in turn can be converted into JSON with `game.table_to_json`.
+Serializes inventories and item stacks into a table that in turn can be converted into JSON with `compat.table_to_json`.
 Properly handles the extra data for most items.
 
 #### serialize.serialize_equipment_grid(LuaEquipmentGrid)

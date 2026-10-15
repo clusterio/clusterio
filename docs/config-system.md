@@ -3,18 +3,19 @@
 <sub>This document describes the implementation and inner working of the configuration system in Clusterio, and unless you're developing Clusterio it's probably not going to be very useful for you.</sub>
 
 Clusterio uses a field based configuration system to manage settings for the controller, instances, hosts, and the clusterioctl utility.
-Plugins can add their own config fields for the controller, host and instance configs.
+Plugins can add their own config fields for the controller, host, instance, and ctl configs.
 The fields are defined early in the startup, and fields for disabled plugins will still be created.
 
-The built-in config fields are defined in [packages/lib/src/config/definitions.ts](/packages/lib/src/config/definitions.ts) while plugins can add their own config field definitions to the `controllerConfigFields`, `hostConfigFields` and `instanceConfigFields` properties of the `plugin` export.
-A `<plugin_name>.load_plugin` field is automatically created for each plugin and it's used to enable/disable the loading plugins on startup.
+The built-in config fields are defined in [packages/lib/src/config/definitions.ts](/packages/lib/src/config/definitions.ts) while plugins add fields through `controllerConfigFields`, `hostConfigFields`, `instanceConfigFields`, and `ctlConfigFields` on the `plugin` export.
+Controller, host, and instance configs also receive `<plugin_name>.load_plugin` to enable/disable loading on startup and a hidden `<plugin_name>.version` for migrations.
+These automatic fields are not added to ctl configs.
 
 
-## Defing Fields
+## Defining Fields
 
 Fields are defined as POJS object properties where the name of the property correspond to the name of the configuration field.
 The property name is the primary way the field is accessed both in code and on the command line, as such it should follow the lower\_case\_underscore style and consist of a group name and a field name separated by a dot.
-For plugins the group name is the name of the plugin, e.g., the `level` field of the `foo_frobber` plugin would be named `foo_frobber.lavel`.
+For plugins the group name is the name of the plugin, e.g., the `level` field of the `foo_frobber` plugin would be named `foo_frobber.level`.
 
 **access**:
     The locations this config field can be read and modified from.
@@ -44,7 +45,9 @@ For plugins the group name is the name of the plugin, e.g., the `level` field of
 
 **initialValue** (optional if optional is true):
     Value this config field should take in a newly initialized config.
-    This can also be an async function returning the value to use.
+    This can also be a synchronous function returning the value to use.
+    The current implementation calls this function without awaiting its result; an async function stores a Promise instead of the intended value.
+    Earlier documentation advertised async defaults, but these are not implemented correctly and must not be used until that mismatch is resolved.
 
 **validator** (optional):
     Function called with the value being set and the config it belongs to.
@@ -83,7 +86,23 @@ For plugins the group name is the name of the plugin, e.g., the `level` field of
 
 **inputComponent** (optional):
     Name of the input component the web interface should render for this field instead of the default for its type.
-    Plugins can add their own components through `inputComponents` on their web plugin class.
+    Plugins register components with the `control.hooks.inputComponents` hook in their web entrypoint.
+    The hook returns an object whose keys match the field's `inputComponent` value.
+    The old `BaseWebPlugin.inputComponents` property remains supported for compatibility but is deprecated with the class-based entrypoint.
+
+For example, with `inputComponent: "foo_frobber_level"` on a field:
+
+```js
+import LevelInput from "./LevelInput.js";
+
+export default async function({ control, plugin }) {
+    control.hooks.inputComponents.attach(plugin.name, () => ({
+        foo_frobber_level: LevelInput,
+    }));
+}
+```
+
+`LevelInput` must implement the `InputComponent` contract exported by `@clusterio/web_ui`.
 
 If the value for a field stored in on disk somehow ends up being invalid the field will take on the initial\_value instead when the config is loaded.
 
