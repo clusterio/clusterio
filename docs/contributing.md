@@ -19,7 +19,7 @@ Although, we recomend checking out out our [past decisions](/docs/decisions.md) 
     - [Updating Your GitHub Fork](#updating-your-github-fork)
     - [Publishing releases to npm](#publishing-releases-to-npm)
 - [Changelog](#changelog)
-- [Supported Node.js and Factorio Version](#supported-node.js-and-factorio-version)
+- [Supported Node.js and Factorio Versions](#supported-nodejs-and-factorio-versions)
 - [Code Style](#code-style)
     - [Naming Style](#naming-style)
     - [Units](#units)
@@ -200,12 +200,15 @@ The format of this log should be self explanatory, please follow it carefully. P
 
 ## Supported Node.js and Factorio Versions
 
-Clusterio run on Node.js v18 and up, make sure to check that the Node builtin API's and npm packages you use are supported on these versions.
-The GitHub Actions tests are run on whatever version of Node.js v18 and v20 is the default.
+Clusterio requires Node.js 22 or newer and supports LTS releases in their active and maintenance phases.
+For a new development environment, install the latest LTS release using the [installation instructions](../README.md#installation).
+Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
+The GitHub Actions tests currently run on Node.js 24 and 26 across the Factorio matrix, with Node.js 22 used for coverage; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
 
-For Factorio Clusterio 2.0 aims to support version 0.17.69 and up, including the latest experimental release.
-It's recommended that you use the lua API reference for 0.17.69, as there's no information on what version Factorio API's were introduced in.
-The GitHub Actions tests are run against the latest experimental release.
+For Factorio, active support covers the latest stable version and the previous major version, using version lines such as 2.1, 2.0 and 1.1 as described in the [Factorio support policy](decisions.md#factorio).
+Older versions from 0.17 onwards receive passive support where it does not restrict actively supported versions.
+Check the Lua API documentation for the Factorio versions your changes target and preserve compatibility with the actively supported versions.
+The GitHub Actions tests use pinned Factorio releases; see the [CI workflow](../.github/workflows/node.js.yml) for the current version matrix.
 
 Check out all our of decisions for [node, factorio, and operation support](/docs/decisions.md#supportability).
 

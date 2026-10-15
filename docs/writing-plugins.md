@@ -89,8 +89,10 @@ export const plugin = {
 The following properties are recognized:
 
 **name**:
-    Internal name of the plugin.
-    Must be the same as the plugin's directory name
+    Stable internal identifier of the plugin, used as its key in the plugin list.
+    For local plugins automatically discovered under `plugins/` or `external_plugins/`, it must match the plugin's directory name.
+    It does not have to match the npm package name.
+    For example, the package `@clusterio/plugin-subspace_storage` declares the name `subspace_storage`.
 
 **title**:
     Name of the plugin as shown to users.
@@ -114,8 +116,8 @@ The following properties are recognized:
     This is an optional parameter.
     A plugin can be made that only runs on the controller.
 
-**ControllerConfigGroup**:
-    Object mapping controller configuration fields to `FieldDefinitions`for this plugin.
+**controllerConfigFields**:
+    Object mapping controller configuration fields to `FieldDefinition` objects for this plugin.
     See [Plugin Configuration](#plugin-configuration)
 
 **ctlEntrypoint**:

@@ -673,7 +673,7 @@ Many thanks to the following for contributing to this release:
 ## Version 2.0.0-alpha.14
 
 This release does not retain backwards compatibility with 2.0.0-alpha.13 meaning all parts of the cluster needs to updated at the same time.
-See the [migration guide](/docs/migrating-from-2.0.0-alpha.13.md) for how to update.
+See the [migration guide](https://github.com/clusterio/clusterio/blob/e0755cb4ee7bce0068c844ab6271da481a843e62/docs/migrating-from-2.0.0-alpha.13.md) for how to update.
 
 ### Major Features
 
