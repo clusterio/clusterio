@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/host",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Implementation of Clusterio host server",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser <github@hornwitser.no>",
