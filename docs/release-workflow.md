@@ -28,24 +28,35 @@ The steps below describe publishing npm packages manually instead.
     git status
     ```
 
-2. Bump the version in the `package.json` files
+2. Create a release branch and bump the version in the `package.json` files. The commands below use 2.0.1 to 2.0.2 as an example; substitute the versions for the release you are preparing.
 
     ```sh
-    sed -i 's/2\.0\.0-alpha\.XX/2\.0\.0-alpha\.YY/' {packages,plugins}/*/package.json
-    ````
+    git switch -c release/2.0.2
+    sed -i 's/"version": "2\.0\.1"/"version": "2.0.2"/' {packages,plugins}/*/package.json
+    pnpm install --no-frozen-lockfile
+    ```
 
-3. Tag and push the release to github
+3. Review and commit the version, lockfile and changelog changes, then open and merge a release pull request.
 
     ```sh
     git add -p
-    git commit -m v2.0.0-alpha.XX
-    git tag v2.0.0-alpha.XX
+    git commit -m "Prepare 2.0.2 release"
     ```
 
-4. Perform a clean install and publish the packages.
+4. After the release pull request is merged, tag the merged commit and push the tag.
+
+    ```sh
+    git switch master
+    git pull --ff-only upstream master
+    git tag v2.0.2
+    git push upstream v2.0.2
+    ```
+
+5. For manual publication, perform a clean install and publish the packages. For automated publication, publish the GitHub release as described above instead.
 
     ```sh
     pnpm clean
+    pnpm install --frozen-lockfile
     pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match publish
     ```
 

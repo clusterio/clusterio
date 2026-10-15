@@ -30,9 +30,10 @@ Create a host config. `--id` id the host id. `--name` is the host name. `--gener
 
 ### Update Clusterio
 
-    ctl> host update [--id <host id>] [--name <host name>] [--restart]
+    ctl> host update <host> [--all] [--restart]
 
-If remote updates are enabled on the host, this will attempt to update `@clusterio/host` on the machine. Changes will not be applied until the host is restarted. If the `--restart` flag is provided, the host will automatically restart once the update is complete.
+Specify the host by name or ID.
+If remote updates are enabled on the host, this will attempt to update `@clusterio/host` on the machine. Add `--all` to also update all npm-installed plugins. Changes will not be applied until the host is restarted. If the `--restart` flag is provided, the host will automatically restart once the update is complete.
 
 Remote updates are enabled by default but can be disabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the following command locally while the host is offline:
 
@@ -40,7 +41,7 @@ Remote updates are enabled by default but can be disabled on a per-machine basis
 
 The controller also supports remote updates, following the same logic. The corresponding commands are:
 
-    ctl> controller update [--restart]
+    ctl> controller update [--all] [--restart]
     controller> config set controller.allow_remote_updates true/false
 
 ### Mark restart required
@@ -116,7 +117,7 @@ Edit instance config in a text editor. Once file is saved and editor has been ex
 
 ### Assign instance to host
 
-    ctl> instace assign <instance> [host]
+    ctl> instance assign <instance> [host]
 
 Assigns instance to host. `instance` is instance to assign, `host` is host to assign to. If `host` is not provided, instance will be unassigned.
 
