@@ -31,6 +31,22 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.2
+
+### Fixes
+
+- Fixed installation with selected plugins by relying on automatic plugin discovery, and ensured installer failures return a nonzero exit status. [#1082](<https://github.com/clusterio/clusterio/pull/1082>), [#1084](<https://github.com/clusterio/clusterio/issues/1084>)
+- Fixed web plugin `controllerConnectionEvent` handlers receiving the connector's event data instead of the event name. [#1083](<https://github.com/clusterio/clusterio/issues/1083>)
+- Updated installation instructions to recommend latest Node.js LTS and corrected outdated mod management, CLI, plugin, and release documentation. [#1086](<https://github.com/clusterio/clusterio/pull/1086>)
+
+### Meta
+
+- Made player-auth login tests independent of wall-clock timing and added verification-token expiry coverage. [#1087](<https://github.com/clusterio/clusterio/pull/1087>)
+- Added Node.js 26 to the CI test matrix across all tested Factorio versions. [#1088](<https://github.com/clusterio/clusterio/pull/1088>)
+
+Many thanks to the following for contributing to this release:
+[@psihius](<https://github.com/psihius>), [@bbassie](<https://github.com/bbassie>)
+
 ## Version 2.0.1
 
 ### Fixes

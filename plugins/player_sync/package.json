@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/plugin-player_sync",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Clusterio plugin forwarding between Factorio servers",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Danielv <danielv@danielv.no>",
