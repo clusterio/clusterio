@@ -36,7 +36,7 @@ local function download_inventory(player_name, data, number, total)
 		ensure_character(player)
 
 		-- Restore player position and driving state
-		restore_position(record, player)
+		restore_position(player, record)
 
 		script_data.active_downloads[player_name] = nil
 		player_record.dirty = player.connected
