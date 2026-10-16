@@ -1,6 +1,6 @@
 # Clusterio Subspace Storage Plugin
 
-Plugin for the Subpsace Storage mod.
+Plugin for the [Subspace Storage mod](https://github.com/clusterio/subspace_storage).
 
 
 ## Installation
@@ -40,3 +40,17 @@ Defaults to `false`.
 Log every item transfer in and out of the storage to the host console at verbose level.
 
 Defaults to `false`.
+
+
+## Development: inventory updates
+
+The Node sender is in [instance.ts](instance.ts); the Factorio receiver is `UpdateInvData` in the separate mod repository's [src/control.lua](https://github.com/clusterio/subspace_storage/blob/master/src/control.lua).
+Check both ends when changing inventory synchronization.
+
+Each entry is `[name, count, quality]` and replaces the absolute count for that name/quality pair; it is not an amount to add or subtract.
+With `full=true`, the receiver clears the previous inventory before applying entries, so an empty full snapshot clears all old state.
+Without `full=true`, entries update only the listed pairs; omitted pairs retain their previous values, and an explicit zero records a zero count.
+
+A new or restarted instance needs a complete snapshot before incremental updates.
+Keep a complete inventory cache separate from any latest-delta cache: one delta is not enough to initialize a new receiver, and changes across several update windows must not overwrite each other before delivery.
+Verify empty snapshots, zero counts, multiple qualities, and consecutive deltas when changing this path.

@@ -109,8 +109,8 @@ export interface FieldDefinition<
 	 */
 	autoComplete?: string;
 	/**
-	 * Web UI component to use for rending this input. Can be extended by
-	 * @{link "@clusterio/web_ui".BaseWebPlugin.inputComponents}
+	 * Web UI component to use for rendering this input. Plugins register components
+	 * through the inputComponents hook on control.hooks in their web entrypoint.
 	 */
 	inputComponent?: string;
 	/**
@@ -119,7 +119,8 @@ export interface FieldDefinition<
 	optional?: Type extends null ? true : false;
 	/**
 	 * Value this config field should take in a newly initialized config.
-	 * This can also be an function returning the value to use.
+	 * This can also be a synchronous function returning the value to use.
+	 * Promise results are not awaited.
 	 */
 	initialValue?: unknown | (() => unknown);
 	/**

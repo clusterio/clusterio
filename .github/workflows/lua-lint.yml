@@ -8,7 +8,12 @@ env:
   EMMYLUA_CHECK_VERSION: "0.25.1"
 
 jobs:
+  changes:
+    uses: ./.github/workflows/ci-changes.yml
+
   lint:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.lua_lint != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

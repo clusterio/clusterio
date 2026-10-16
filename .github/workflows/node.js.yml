@@ -11,7 +11,12 @@ env:
   NODE_VERSION: 24.x
 
 jobs:
+  changes:
+    uses: ./.github/workflows/ci-changes.yml
+
   test:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -58,6 +63,8 @@ jobs:
         path: temp/test/logs
 
   version-compat:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -90,6 +97,8 @@ jobs:
         --published-version "$PUBLISHED_VERSION"
 
   lint:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.js_lint != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -101,6 +110,8 @@ jobs:
     - run: pnpm run lint
 
   build:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
