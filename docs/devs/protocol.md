@@ -9,22 +9,6 @@ Events are messages sent by one party and received by the other and offer no not
 Requests are pairs of request-response messages where one side sends the requests and the other side replies with a response.
 Apart from the handshake used to establish connections the protocol is directionless, and either party can send or receive both requests and events.
 
-Events and requests are instances of registered message classes whose static properties specify the message type, allowed source and destination types, and payload schema.
-Plugin messages also specify a plugin name; see [defining link messages](../writing-plugins.md#defining-link-messages).
-Connectors validate the message structure, including its type and addresses.
-At the destination, links validate the message's `data` against its registered schema before passing it to `fromJSON`.
-Controller permission callbacks run before payload validation and therefore receive untrusted data; see [message permissions](../writing-plugins.md#static-permission).
-
-Messages are sent by calling `link.sendTo(destination, message)`, where `message` is an instance of a registered class.
-Requests return a promise for the response; events do not return a handler result.
-For the controller there's a `Link` instance for each host and control connection stored in the `WsServer` class.
-For hosts the `Host` instance is a link to the controller, and each `Instance` instance is an in-memory link to the `Host` instance and has a corresponding `InstanceConnection` link stored on the `Host` instance.
-For ctl there's a `Ctl` instance and web_ui there's a `Control` instance that acts as the link to the controller.
-
-Incoming messages invoke handlers registered with `link.handle(MessageClass, handler)`.
-Message classes are registered separately with `Link.register`; core classes are registered by the link module, and `registerPluginMessages` registers each plugin's `messages` array.
-Plugins attach handlers from their entrypoint functions rather than relying on method-name conventions.
-
 
 ## Connection flow
 
@@ -43,6 +27,7 @@ The client then re-sends buffered messages newer than the `lastSeq` in `continue
 The server likewise re-sends messages newer than the `lastSeq` supplied by the client in `resume`.
 Otherwise the server responds with `invalidate`, and the client discards the old send buffer and registers a new session.
 Session expiry, buffer overflow, or process failure can lose pending work; plugins must not treat transport recovery as an application-level exactly-once guarantee.
+The [send-buffer setting](../configuration.md#controllermax_send_buffer_size) documents its current accounting limitation.
 
 ![Connection flow](../assets/connection_flow.svg)
 
@@ -62,11 +47,14 @@ For the WebSocket connectors there's four states they can exist in:
 
 Along with the following events emitted when transition between states:
 
-- `connect` From `connecting` (client) or `closed` (server) to `connected`
-- `drop` - From `connected` to `resuming`
-- `resume` - From `resuming` to `connected`
-- `invalidate` - From `resuming` to `connecting` (client only); server session expiry emits `close` instead.
-- `close` - From any state to `closed`
+- `connect` - A new session is established, moving from `connecting` (client) or `closed` (server) to `connected`.
+- `drop` - The transport was lost but the session is retained for resumption, moving from `connected` to `resuming`.
+- `resume` - The retained session is reconnected and unacknowledged buffered messages are replayed, moving from `resuming` to `connected`.
+- `invalidate` - The previous session cannot be reused, moving from `resuming` to `connecting` (client only); server session expiry emits `close` instead.
+- `close` - The connector is closed, moving from any state to `closed`.
+
+Invalidation or closure rejects pending requests with `SessionLost`.
+Plugins must handle lost sessions, stale state, and application retries where required; see [connection handling](../writing-plugins.md#handling-connection-events) for the plugin hooks and queueing behavior.
 
 ![Conector States](../assets/connector_states.svg)
 
@@ -75,14 +63,14 @@ Along with the following events emitted when transition between states:
 
 The client connector, named `WebSocketClientConnector` in the source, keeps trying to establish and maintain a connection after `.connect()` is called, stopping on terminal failures such as authentication or policy rejection, or when `.close()`/`.setClosing()` is called.
 For example, policy violation (1008) stops retries, while try-again-later (1013), used for send-buffer overflow, permits reconnecting.
-Other than that, the logic is pretty straight forward.
+Connection retries use exponential backoff.
 
 ![WsClientConnector](../assets/WsClientConnector.svg)
 
 
 ### WsServerConnector
 
-The server connector doesn't do the work of connecting or validating the handshake.
+The [server connector](/packages/controller/src/WsServerConnector.ts) doesn't do the work of connecting or validating the handshake.
 Instead it's handed over a WebSocket connection from `WsServer` once there's only the step of sending the final message left to do.
 Because of this there's no `connecting` state, and once a session times out from the `resuming` state it goes directly to closed.
 
@@ -104,7 +92,6 @@ Broadcast destinations are for events.
 
 A request puts its request ID in `src`; the response returns that ID in `dst` so the sender can match it to the pending request.
 This ID is separate from transport `seq`, which is used for acknowledgements and buffering.
-When using a request's source as a later event destination, remove its request ID with `Address.withoutRequestId()`.
 
 
 ### Handshake Messages
