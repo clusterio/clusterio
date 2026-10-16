@@ -76,20 +76,48 @@ function serialize.serialize_character(character)
 	return serialized
 end
 
+local armor_inventory = { armor = character_inventories.armor }
+local inventories_after_armor = {}
+for name, index in pairs(character_inventories) do
+	if name ~= "armor" then
+		inventories_after_armor[name] = index
+	end
+end
+
+--- Index of the last slot used by a serialized inventory
+local function last_slot_index(serialized)
+	local last = 0
+	for _, entry in ipairs(serialized.i) do
+		last = (entry.s or last + 1) + (entry.r or 0)
+	end
+	return last
+end
+
+--- @return integer raise Slots added to character_inventory_slots_bonus, to be removed again on the next tick
 function serialize.deserialize_character(character, serialized)
 	-- Deserialize character stats
 	for _, key in pairs(character_stat_keys) do
 		character[key] = serialized[key]
 	end
 
-	-- Deserialize character inventories
-	serialize.deserialize_inventories(character, serialized.inventories, character_inventories)
+	-- Deserialize character inventories, armor first for its inventory bonus. The bonus of the armor's
+	-- equipment (toolbelts) only applies on the next tick, so the main inventory is raised to fit the data.
+	local inventories = serialized.inventories
+	serialize.deserialize_inventories(character, inventories, armor_inventory)
+	local raise = 0
+	if inventories.main then
+		raise = math.max(0, last_slot_index(inventories.main) - #character.get_main_inventory())
+		character.character_inventory_slots_bonus = character.character_inventory_slots_bonus + raise
+	end
+	serialize.deserialize_inventories(character, inventories, inventories_after_armor)
 
 	-- Deserialize armor grid state, the grid exists after the armor inventory is restored
 	local grid = character.grid
 	if grid and serialized.inhibit_movement_bonus ~= nil then
 		grid.inhibit_movement_bonus = serialized.inhibit_movement_bonus
 	end
+
+	return raise
 end
 
 -- Personal logistic slots is a table mapping string indexes to a table with the following fields:
@@ -794,8 +822,10 @@ end
 --- @param player LuaPlayer
 --- @param serialized SerializedPlayerData
 --- @return FailedDeserializationPlayerData?
+--- @return integer? inventory_bonus_raise See deserialize_character
 function serialize.deserialize_player(player, serialized)
 	local failed_deserialization = {}
+	local inventory_bonus_raise
 
 	local target_controller = defines.controllers[serialized.controller]
 	if player.controller_type ~= target_controller or serialized.controller == "ghost" then
@@ -864,7 +894,7 @@ function serialize.deserialize_player(player, serialized)
 
 	-- Deserialize character
 	if player.character then
-		serialize.deserialize_character(player.character, serialized.character)
+		inventory_bonus_raise = serialize.deserialize_character(player.character, serialized.character)
 		serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
 	end
 
@@ -887,7 +917,7 @@ function serialize.deserialize_player(player, serialized)
 			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
 	end
 
-	return next(failed_deserialization) and failed_deserialization or nil
+	return next(failed_deserialization) and failed_deserialization or nil, inventory_bonus_raise
 end
 
 return serialize

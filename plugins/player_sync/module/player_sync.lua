@@ -46,6 +46,19 @@ local function remove_player(player)
 	script_data.players[player.name] = nil
 end
 
+-- Remove the temporary inventory bonus a deserialized character got to fit its main inventory
+local function remove_inventory_bonus_raise(script_data, player_name)
+	local raises = script_data.inventory_bonus_raises
+	local raise = raises and raises[player_name]
+	if raise then
+		raises[player_name] = nil
+		local character = raise.character
+		if character.valid then
+			character.character_inventory_slots_bonus = character.character_inventory_slots_bonus - raise.bonus
+		end
+	end
+end
+
 
 player_sync = {}
 -- This function is called by instance.js as /sc player_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
@@ -54,6 +67,9 @@ player_sync.download_inventory = download_inventory
 -- This function is called internally when a player leaves the game to
 -- serialize the player for upload.
 function player_sync.serialize_player(player, player_record)
+	-- Leaving on the tick of a download, the temporary bonus must not be uploaded
+	remove_inventory_bonus_raise(get_script_data(), player.name)
+
 	-- Editor mode is not supported.
 	if player.controller_type == defines.controllers.editor then
 		player.toggle_map_editor()
@@ -112,7 +128,15 @@ function player_sync.deserialize_player(player, finished_record)
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
 	assert(type(serialized_player) == "table", "wrong type for serialized_player")
-	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
+	local failed_deserialization, inventory_bonus_raise = serialize.deserialize_player(player, serialized_player)
+	script_data.failed_deserialization[player.name] = failed_deserialization
+	if inventory_bonus_raise and inventory_bonus_raise > 0 then
+		script_data.inventory_bonus_raises[player.name] = {
+			character = player.character,
+			bonus = inventory_bonus_raise,
+			tick = game.tick,
+		}
+	end
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
@@ -357,6 +381,20 @@ player_sync.events[defines.events.on_player_joined_game] = function(event)
 
 	-- Clear active upload if it exists
 	script_data.active_uploads[player.name] = nil
+end
+
+-- The inventory bonus of armor equipment applies on the tick after a download, the temporary bonus is no longer needed
+player_sync.events[defines.events.on_tick] = function(event)
+	local script_data = get_script_data()
+	local raises = script_data.inventory_bonus_raises
+	if not raises or next(raises) == nil then
+		return
+	end
+	for player_name, raise in pairs(raises) do
+		if raise.tick < event.tick then
+			remove_inventory_bonus_raise(script_data, player_name)
+		end
+	end
 end
 
 player_sync.on_nth_tick = {}
