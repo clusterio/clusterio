@@ -217,12 +217,33 @@ end
 --- @alias QuickBarSlotEncoded.name string
 --- @alias QuickBarSlotEncoded.filter { t: "f", n: string, q: string, c: string }
 --- @alias QuickBarSlotEncoded.item { t: "i", n: string, s: integer }
---- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter | QuickBarSlotEncoded.item
+--- @alias QuickBarSlotEncoded.record { t: "r", p: integer[], y: string, l: string? }
+--- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter | QuickBarSlotEncoded.item | QuickBarSlotEncoded.record
 
 --- Inventories of the player that can hold the item a quick bar slot points at
 --- @param player LuaPlayer
 local function get_quick_bar_inventories(player)
 	return player.character and character_inventories or { main = defines.inventory.god_main }
+end
+
+--- Path of indices from the player's blueprint library down through books to the record
+--- @param records table<integer, LuaRecord>
+--- @param target LuaRecord
+--- @return integer[]?
+local function find_record_path(records, target)
+	for index, record in pairs(records) do
+		if record == target then
+			return { index }
+		end
+		if record.valid and record.type == "blueprint-book" then
+			local path = find_record_path(record.contents, target)
+			if path then
+				table.insert(path, 1, index)
+				return path
+			end
+		end
+	end
+	return nil
 end
 
 --- @param filter ItemFilter
@@ -265,6 +286,18 @@ function serialize.serialize_quick_bar_slot(slot, player)
 			end
 
 			print("Warning: Could not find the item of quick bar slot of type 'item' in the inventories")
+			return nil
+		end
+
+		if slot.type == "record" then
+			-- ponytail: one library walk per record slot per upload, a huge library makes the leave tick longer
+			local record = slot.record --[[@as LuaRecord]]
+			local path = find_record_path(player.blueprints, record)
+			if path then
+				return { t = "r", p = path, y = record.type, l = record.label }
+			end
+
+			print("Warning: Quick bar slot record is not in the player's blueprint library")
 			return nil
 		end
 
@@ -324,6 +357,26 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 			return nil
 		end
 
+		if entry.t == "r" then
+			-- The record must still be what was stored, a shifted library must not set the wrong one
+			local records = player.blueprints
+			local record --[[@as LuaRecord?]]
+			for _, index in ipairs(entry.p) do
+				record = records[index]
+				if not (record and record.valid) then
+					record = nil
+					break
+				end
+				records = record.type == "blueprint-book" and record.contents or {}
+			end
+			if record and record.valid and record.type == entry.y and (record.label or "") == (entry.l or "") then
+				return { type = "record", record = record } --[[@as QuickBarSlot]]
+			end
+
+			print("Warning: Could not find the record of quick bar slot at library path " .. table.concat(entry.p, "/"))
+			return nil
+		end
+
 		print("Warning: Unsupported serialized quick bar slot type '" .. tostring(entry.t) .. "'")
 		return nil
 	end
@@ -338,6 +391,7 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 		end
 
 		-- entry.t == "f" is only remaining case for 2.0
+		--- @cast entry QuickBarSlotEncoded.filter
 		return {
 			name = entry.n,
 			quality = entry.q,
