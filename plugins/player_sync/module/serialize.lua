@@ -418,7 +418,10 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 			}
 		end
 
-		-- entry.t == "f" is only remaining case for 2.0
+		-- 2.1 entries (items, records) can not be represented on 2.0, clearing the slot
+		if entry.t ~= "f" then
+			return nil
+		end
 		--- @cast entry QuickBarSlotEncoded.filter
 		return {
 			name = entry.n,
@@ -427,7 +430,10 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 	end
 
 	-- Return a string (member of ItemPrototypeIdentification)
-	-- Pre 2.0 this was the only method of encoding used
+	-- Pre 2.0 this was the only method of encoding used, anything else is from a newer version
+	if type(entry) ~= "string" then
+		return nil
+	end
 	return entry --[[@as string]]
 end
 
