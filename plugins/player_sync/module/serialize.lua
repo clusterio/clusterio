@@ -808,6 +808,8 @@ function serialize.deserialize_player(player, serialized)
 
 		elseif serialized.controller == "ghost" then
 			-- Ghost state stores hidden logistic and filters which are only accessible in the character controller
+			-- The force first, so the character and the logistic groups are on the restored player's force
+			player.force = serialized.force
 			local character = ensure_character(player)
 			if serialized.personal_logistic_slots then
 				serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
