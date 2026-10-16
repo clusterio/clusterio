@@ -370,7 +370,7 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 			-- The inventories have been restored, the stack points the slot at the item in it
 			local inventory_id = get_quick_bar_inventories(player)[entry.n]
 			local inventory = inventory_id and player.get_inventory(inventory_id)
-			local stack = inventory and inventory[entry.s]
+			local stack = inventory and entry.s <= #inventory and inventory[entry.s] or nil
 			-- Walk down through the books to a stack kept inside them
 			for _, index in ipairs(entry.b or {}) do
 				local inner = stack and stack.valid_for_read and stack.is_blueprint_book
