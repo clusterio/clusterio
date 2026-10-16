@@ -2,7 +2,7 @@
 
 Clusterio uses links, connectors, and message classes to communicate between controllers, hosts, instances, and control clients.
 A link sends and receives messages through a connector, while message classes define the requests and events that can be exchanged.
-See the [protocol reference](devs/protocol.md) for wire formats and session flow.
+See the [system overview](how-it-works.md#system-overview) for a diagram of the processes and their connections, and the [protocol reference](devs/protocol.md) for wire formats and session flow.
 
 
 ## Links and routing
