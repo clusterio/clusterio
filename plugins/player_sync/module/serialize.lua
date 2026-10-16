@@ -216,7 +216,8 @@ end
 -- name is a custom type where quality is "normal" and comparator is "=" (most common case)
 --- @alias QuickBarSlotEncoded.name string
 --- @alias QuickBarSlotEncoded.filter { t: "f", n: string, q: string, c: string }
---- @alias QuickBarSlotEncoded.item { t: "i", n: string, s: integer }
+--- b is the slot indices inside blueprint books, from the book in slot s down to the item, absent for a top-level item
+--- @alias QuickBarSlotEncoded.item { t: "i", n: string, s: integer, b: integer[]? }
 --- @alias QuickBarSlotEncoded.record { t: "r", p: integer[], y: string, l: string? }
 --- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter | QuickBarSlotEncoded.item | QuickBarSlotEncoded.record
 
@@ -239,6 +240,28 @@ local function find_record_path(records, target)
 			local path = find_record_path(record.contents, target)
 			if path then
 				table.insert(path, 1, index)
+				return path
+			end
+		end
+	end
+	return nil
+end
+
+--- Path of slot indices to the item with the item number, descending into blueprint books
+--- @param inventory LuaInventory
+--- @param item_number integer
+--- @return integer[]?
+local function find_item_path(inventory, item_number)
+	for i = 1, #inventory do
+		local stack = inventory[i] --[[@as LuaItemStack]]
+		if stack.valid_for_read then
+			if stack.item_number == item_number then
+				return { i }
+			end
+			local inner = stack.is_blueprint_book and stack.get_inventory(defines.inventory.item_main)
+			local path = inner and find_item_path(inner, item_number)
+			if path then
+				table.insert(path, 1, i)
 				return path
 			end
 		end
@@ -277,11 +300,10 @@ function serialize.serialize_quick_bar_slot(slot, player)
 			local item_number = slot.item --[[@as LuaItem]].item_number
 			for name, inventory_id in pairs(get_quick_bar_inventories(player)) do
 				local inventory = player.get_inventory(inventory_id)
-				for i = 1, inventory and #inventory or 0 do
-					local stack = inventory[i] --[[@as LuaItemStack]]
-					if stack.valid_for_read and stack.item_number == item_number then
-						return { t = "i", n = name, s = i }
-					end
+				local path = inventory and find_item_path(inventory, item_number)
+				if path then
+					local top = table.remove(path, 1)
+					return { t = "i", n = name, s = top, b = path[1] and path or nil }
 				end
 			end
 
@@ -349,6 +371,12 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 			local inventory_id = get_quick_bar_inventories(player)[entry.n]
 			local inventory = inventory_id and player.get_inventory(inventory_id)
 			local stack = inventory and inventory[entry.s]
+			-- Walk down through the books to a stack kept inside them
+			for _, index in ipairs(entry.b or {}) do
+				local inner = stack and stack.valid_for_read and stack.is_blueprint_book
+					and stack.get_inventory(defines.inventory.item_main)
+				stack = inner and index <= #inner and inner[index] or nil
+			end
 			if stack and stack.valid_for_read then
 				return stack
 			end
