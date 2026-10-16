@@ -196,8 +196,13 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 				sec.active = section.active
 				sec.multiplier = section.multiplier
 				if section.group ~= "" then -- "" is the default group name, which is truthy
-					-- Named groups get added with name only - this avoids overwriting existing groups on the server
+					-- Named groups that have filters on the server get added with name only - this avoids
+					-- overwriting existing groups. Missing or empty groups get the filters of the player.
+					local existing = force.get_logistic_group(section.group)
 					sec.group = section.group
+					if not existing or #existing.filters == 0 then
+						sec.filters = section.filters
+					end
 				else
 					-- Unnamed groups get added with filters
 					sec.filters = section.filters
