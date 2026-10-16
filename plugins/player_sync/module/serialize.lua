@@ -1088,17 +1088,24 @@ function serialize.serialize_player(player, failed_deserialization, components)
 end
 
 --- The controller a player has on this instance, restored in place of the synced one when it is not synced
+---
+--- Logistic requests and the flashlight are kept on the character, which sync code may replace.
 --- @class LocalControllerState
 --- @field controller string?
 --- @field ticks_to_respawn number?
+--- @field personal_logistic_slots table?
+--- @field flashlight boolean?
 
 --- @param player LuaPlayer
 --- @return LocalControllerState
 function serialize.serialize_local_controller(player)
 	local controller_type = v2_remote_controller and player.physical_controller_type or player.controller_type
+	local character = player.character
 	return {
 		controller = controller_to_name[controller_type],
 		ticks_to_respawn = player.ticks_to_respawn,
+		personal_logistic_slots = character and serialize.serialize_personal_logistic_slots(player),
+		flashlight = character and player.is_flashlight_enabled(),
 	}
 end
 
@@ -1182,17 +1189,35 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 		state = { controller = serialized.controller, ticks_to_respawn = serialized.ticks_to_respawn }
 	end
 
-	-- Items can come from a character, a god or a ghost and go to whatever controller the player ends up with
-	local inventories = serialized.character and serialized.character.inventories or serialized.inventories
-	local queue = serialized.crafting_queue
-	local spill
-
 	local target_controller = state and defines.controllers[state.controller]
 	local to_ghost = state and state.controller == "ghost"
-	if state and (
+	local change_controller = state and (
 		player.controller_type ~= target_controller
 		or to_ghost and (restore_controller or sync_inventories or sync_logistics)
-	) then
+	)
+
+	-- Items can come from a character, a god or a ghost and go to whatever controller the player ends up with
+	local items = serialized
+	local place = sync_inventories
+	if change_controller and not sync_inventories then
+		-- The local items are kept, but they have to move to the new controller
+		items = serialize.serialize_player(player, {}, { inventories = true })
+		place = true
+	end
+	local inventories = items.character and items.character.inventories or items.inventories
+	local queue = items.crafting_queue
+	local spill
+
+	local logistic_slots = serialized.personal_logistic_slots
+	if not sync_logistics then
+		logistic_slots = local_controller and local_controller.personal_logistic_slots
+	end
+	local flashlight = serialized.flashlight
+	if not syncs(components, "settings") then
+		flashlight = local_controller and local_controller.flashlight
+	end
+
+	if state and change_controller then
 		if state.controller == "character" then
 			-- Create a character but do not destroy an existing one
 			ensure_character(player)
@@ -1205,10 +1230,8 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 			-- The force first, so the character and the logistic groups are on the restored player's force
 			player.force = serialized.force
 			local character = ensure_character(player)
-			if sync_logistics and serialized.personal_logistic_slots then
-				serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
-			end
-			if sync_inventories then
+			serialize.deserialize_personal_logistic_slots(player, logistic_slots)
+			if place then
 				spill = serialize.place_items(
 					serialize.item_destinations(player), inventories, queue and queue.ingredients
 				)
@@ -1252,12 +1275,12 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 	if restore_controller and serialized.cheat_mode ~= nil then
 		player.cheat_mode = serialized.cheat_mode
 	end
+	if flashlight == true then
+		player.enable_flashlight()
+	elseif flashlight == false then
+		player.disable_flashlight()
+	end
 	if syncs(components, "settings") then
-		if serialized.flashlight == true then
-			player.enable_flashlight()
-		elseif serialized.flashlight == false then
-			player.disable_flashlight()
-		end
 		if serialized.shortcuts then
 			serialize.deserialize_shortcuts(player, serialized.shortcuts)
 		end
@@ -1268,8 +1291,8 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 
 	-- Deserialize items, a ghost got them while it had a character above
 	local character = player.character
-	if sync_inventories and not to_ghost then
-		local stats = character and serialized.character
+	if place and not to_ghost then
+		local stats = character and items.character
 		if stats then
 			serialize.deserialize_character(character, stats)
 		end
@@ -1284,8 +1307,8 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 			serialize.deserialize_crafting_queue(player, queue)
 		end
 	end
-	if character and sync_logistics then
-		serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
+	if character then
+		serialize.deserialize_personal_logistic_slots(player, logistic_slots)
 	end
 
 	-- Deserialize quick bar (named hotbar in old data)

@@ -108,6 +108,7 @@ Sync the items the player holds, the character bonuses and the crafting queue.
 This covers the character inventories, the god inventory and the items a dead player will respawn with.
 A spectator holds no items, so the synced items are put into a corpse when the player is a spectator on the instance.
 A player without a character gets the ingredients of the crafting queue as items instead.
+With this off and the controller synced, the items the player has on the instance move to the synced controller the same way.
 
 Defaults to `true`.
 
