@@ -8,18 +8,22 @@ local compat = require("modules/clusterio/compat")
 
 --- @param components string? JSON of the components the instance sent the data with, given with the first part
 local function download_inventory(player_name, data, number, total, components)
+	local script_data = get_script_data()
+	local record = script_data.active_downloads[player_name]
 	local player = game.get_player(player_name)
-	if player == nil then
+	-- A prefetched copy (player_sync.prefetch_inventory) may be for a player who doesn't exist here yet
+	if player == nil and not (record and record.prefetch) then
 		rcon.print("Player " .. player_name .. " does not exist")
 		return
 	end
 
-	local script_data = get_script_data()
-	local record = script_data.active_downloads[player_name]
 	if record == nil then
 		rcon.print("No active download is in progress for " .. player_name)
 		return
 	end
+	-- For the linter, which can't narrow through the check above. A prefetch record never reaches a line that indexes
+	-- player while it is nil: it has no restart, never gets total 0, and shown below is false for it.
+	--- @cast player LuaPlayer
 
 	local player_record = script_data.players[player_name]
 	-- The components changed after the download was started
@@ -60,30 +64,40 @@ local function download_inventory(player_name, data, number, total, components)
 	end
 
 	record.data = record.data .. data
+	-- A prefetched copy shows progress, and is applied, only once the acquire reply has confirmed it for the player
+	-- online here (player_sync.sync_player). A copy that finishes before then waits in finished_downloads for that reply.
+	local shown = not record.prefetch or (record.confirmed and player.connected)
 
 	-- Show progress in console
 	-- player.print("Downloaded "..(number + 1).."/"..total.." parts")
 	if number ~= total then
 		-- Show progress in GUI
-		progress_dialog.display(player, number, total)
+		if shown then
+			progress_dialog.display(player, number, total)
+		end
 
 		-- Update activity to indicate this session is still going
 		record.last_active = game.ticks_played
 		return
 	end
 
-	-- Download is complete
-	progress_dialog.remove(player)
+	-- Download is complete. The dialog goes even when this copy isn't shown now: it may have been shown before a leave
+	if player then
+		progress_dialog.remove(player)
+	end
 
 	-- Remove download session and store finished download
 	script_data.active_downloads[player_name] = nil
 	script_data.finished_downloads[player_name] = record
 
 	local ticks = game.ticks_played - record.started
-	player.print("Imported player data in " .. ticks .. " ticks")
-	log("Imported player data for " .. player_name .. " in " .. ticks .. " ticks")
+	if shown then
+		player.print("Imported player data in " .. ticks .. " ticks")
+	end
+	local kind = record.prefetch and "Prefetched" or "Imported"
+	log(kind .. " player data for " .. player_name .. " in " .. ticks .. " ticks")
 
-	if player.connected then
+	if shown and player.connected then
 		player_sync.finish_download(player, record)
 	end
 end

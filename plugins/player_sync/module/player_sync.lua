@@ -73,6 +73,36 @@ local function remove_inventory_bonus_raise(script_data, player_name)
 	end
 end
 
+-- Turn a synced player into a spectator while their player data is downloaded or applied, if this instance syncs
+-- inventories, and keep where their body stood in record for restore_position. The old body goes, with its crafting
+-- queue. Until the data is applied, the player's state isn't persisted.
+local function spectate(player, player_record, record)
+	-- Indicate the current state shouldn't be persisted
+	player_record.sync_in_progress = true
+
+	if player_record.sync and serialize.syncs(record.components, "inventories") then
+		-- Store original position to teleport back to. Only once per record: a rejoin while a prefetched copy is held
+		-- spectates again, and the spectator's position then isn't where the body stood
+		if record.position == nil then
+			if v2_remote_controller then
+				record.surface = player.physical_surface
+				record.position = player.physical_position
+			else
+				record.surface = player.surface
+				record.position = player.position
+			end
+			if player.driving then
+				record.vehicle = player.vehicle
+			end
+		end
+
+		save_local_controller(player, player_record, record.components)
+		local character = player.character
+		player.set_controller({ type = defines.controllers.spectator })
+		if character ~= nil then character.destroy() end
+	end
+end
+
 
 player_sync = {}
 -- This function is called by instance.js as /sc player_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
@@ -321,6 +351,19 @@ function player_sync.sync_player(acquire_response)
 	local script_data = get_script_data()
 	-- Epoch is bumped when an admin replaces or deletes the stored data
 	local epoch = acquire_response.epoch or 0
+	-- A prefetched copy (player_sync.prefetch_inventory) is used only if this reply acquires the player at the copy's
+	-- generation and the copy was sent with the components synced here now. Otherwise it goes, and the join carries on
+	-- as if it had never come: today's download or failure dialog, never the restart path below.
+	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
+		local record = downloads[acquire_response.player_name]
+		if record and record.prefetch and not (
+			acquire_response.status == "acquired" and record.generation == acquire_response.generation
+			and serialize.same_components(record.components, script_data.components)
+		) then
+			downloads[acquire_response.player_name] = nil
+		end
+	end
+
 	local finished_record = script_data.finished_downloads[acquire_response.player_name]
 	if finished_record then
 		if
@@ -328,6 +371,14 @@ function player_sync.sync_player(acquire_response)
 			and finished_record.generation == acquire_response.generation
 			and (finished_record.epoch or 0) == epoch
 		then
+			if finished_record.prefetch then
+				-- As a download does: the body left here goes, and the copy makes a new character where it stood
+				spectate(player, script_data.players[player.name], finished_record)
+				if player_sync.finish_download(player, finished_record) then
+					log("Applied prefetched player data for " .. player.name)
+				end
+				return
+			end
 			player_sync.finish_download(player, finished_record)
 			return
 		end
@@ -345,6 +396,13 @@ function player_sync.sync_player(acquire_response)
 			and download_record.generation == acquire_response.generation
 			and (download_record.epoch or 0) == epoch
 		then
+			if download_record.prefetch then
+				-- The copy is still arriving: spectate as a download does, and its last chunk applies it
+				spectate(player, script_data.players[player.name], download_record)
+				progress_dialog.display(player, 0, 1)
+				download_record.confirmed = true
+				return
+			end
 			game.print("Continuing active download")
 			return
 		end
@@ -430,6 +488,7 @@ function player_sync.sync_player(acquire_response)
 	end
 end
 
+--- @return boolean? applied true when the player data was deserialized
 function player_sync.finish_download(player, finished_record)
 	local script_data = get_script_data()
 	script_data.finished_downloads[player.name] = nil
@@ -451,6 +510,7 @@ function player_sync.finish_download(player, finished_record)
 	start_sync(player_record, finished_record.components)
 	player_record.generation = finished_record.generation
 	player_record.epoch = finished_record.epoch
+	return true
 end
 
 -- Download inventory from controller
@@ -510,6 +570,8 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 
 	-- If player has an active download release our acquisition but let the download continue
 	if script_data.active_downloads[player.name] then
+		-- A prefetched copy is confirmed per join: the next join's acquire reply confirms it again
+		script_data.active_downloads[player.name].confirmed = nil
 		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
 	end
@@ -589,29 +651,7 @@ function player_sync.initiate_inventory_download(player, player_record, generati
 		recipe_notifications = recipe_notifications,
 	})
 
-	-- Indicate the current state shouldn't be persisted
-	player_record.sync_in_progress = true
-
-	-- If this is a synced player turn them into a spectator while the
-	-- player data is downloading
-	if player_record.sync and serialize.syncs(record.components, "inventories") then
-		-- Store original position to teleport back to
-		if v2_remote_controller then
-			record.surface = player.physical_surface
-			record.position = player.physical_position
-		else
-			record.surface = player.surface
-			record.position = player.position
-		end
-		if player.driving then
-			record.vehicle = player.vehicle
-		end
-
-		save_local_controller(player, player_record, record.components)
-		local character = player.character
-		player.set_controller({ type = defines.controllers.spectator })
-		if character ~= nil then character.destroy() end
-	end
+	spectate(player, player_record, record)
 
 	progress_dialog.display(player, 0, 1)
 end
@@ -656,6 +696,53 @@ function player_sync.check_active_uploads()
 			end
 		end
 	end
+end
+
+-- Called by instance.ts as /sc player_sync.prefetch_inventory('name', generation, 'chunk', number, total) with a copy
+-- of a player's stored data that the controller sent ahead (PrefetchEvent) while they switch to this server. It holds
+-- the copy for a player who is offline here or doesn't exist yet. It prints only when it refuses or ignores a chunk,
+-- which stops the host sending the rest.
+--- @param components string? JSON of the components the instance stripped the copy by, given with the first chunk
+function player_sync.prefetch_inventory(player_name, generation, data, number, total, components)
+	local script_data = get_script_data()
+	if number == 1 then
+		local player = game.get_player(player_name)
+		local active = script_data.active_downloads[player_name]
+		local finished = script_data.finished_downloads[player_name]
+		if player and player.connected then
+			rcon.print("Refused prefetch for " .. player_name .. ": online here, their join downloads")
+			return
+		end
+		if active and not active.prefetch then
+			-- download_inventory has no generation check, so its remaining chunks would land in the copy
+			rcon.print("Refused prefetch for " .. player_name .. ": a download is in progress")
+			return
+		end
+		-- Two copies can reach here out of order (applyRecipeNotificationDelta awaits zlib). A held finished copy of the
+		-- same generation is replaced: it can be one the controller lost (a crash before its save), and the newer copy
+		-- of the same number is what the controller holds now
+		if (active and active.generation >= generation) or (finished and finished.generation > generation) then
+			rcon.print("Refused prefetch for " .. player_name .. ": generation " .. generation .. " is not newer")
+			return
+		end
+		script_data.finished_downloads[player_name] = nil
+		script_data.active_downloads[player_name] = {
+			started = game.ticks_played,
+			last_active = game.ticks_played,
+			generation = generation,
+			data = "",
+			prefetch = true,
+			components = components and compat.json_to_table(components),
+		}
+	end
+
+	local record = script_data.active_downloads[player_name]
+	if not (record and record.prefetch and record.generation == generation) then
+		-- Refused at chunk 1, dropped by the acquire reply or the inactivity check, or replaced by a newer copy
+		rcon.print("Ignored prefetch chunk " .. number .. " for " .. player_name)
+		return
+	end
+	download_inventory(player_name, data, number, total)
 end
 
 return player_sync
