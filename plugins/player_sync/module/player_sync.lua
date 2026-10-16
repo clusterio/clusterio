@@ -493,6 +493,7 @@ function player_sync.initiate_inventory_download(player, player_record, generati
 	clusterio_api.send_json("player_sync_download", {
 		player_name = player.name,
 		recipe_notifications = recipe_notifications,
+		components = record.components,
 	})
 
 	-- If this is a synced player turn them into a spectator while the

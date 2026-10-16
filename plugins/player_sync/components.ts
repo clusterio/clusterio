@@ -26,15 +26,15 @@ export function enabledComponents(config: lib.InstanceConfig) {
 }
 
 /**
- * Components an upload was serialized with, all of them when not given.
+ * Components the scenario sent with an upload or download, all of them when not given.
  *
  * Lua may encode an empty table as an array, which reads as no components.
  */
-export function uploadedComponents(uploaded: Record<string, boolean> | unknown[] | undefined) {
-	if (uploaded === undefined) {
+export function scenarioComponents(sent: Record<string, boolean> | unknown[] | undefined) {
+	if (sent === undefined) {
 		return componentSet(() => true);
 	}
-	return componentSet(component => !Array.isArray(uploaded) && uploaded[component] === true);
+	return componentSet(component => !Array.isArray(sent) && sent[component] === true);
 }
 
 /** Remove the fields of components which are not synced. */
@@ -58,7 +58,7 @@ export function stripPlayerData(playerData: IpcPlayerData, enabled: Set<Componen
  */
 export function mergePlayerData(stored: IpcPlayerData | undefined, uploaded: IpcPlayerData) {
 	const { components: uploadComponents, ...merged } = uploaded as IpcPlayerData & Record<string, unknown>;
-	const enabled = uploadedComponents(uploadComponents);
+	const enabled = scenarioComponents(uploadComponents);
 	function keep(keys: readonly string[]) {
 		for (const key of keys) {
 			const value = (stored as Record<string, unknown> | undefined)?.[key];

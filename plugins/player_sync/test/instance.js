@@ -129,12 +129,17 @@ describe("player_sync", function() {
 			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
-		it("should leave out components the instance does not sync", async function() {
-			instance.mockConfigEntries.set("player_sync.sync_force", false);
-			instance.mockConfigEntries.set("player_sync.sync_recipe_notifications", false);
+		it("should leave out components the download was not started with", async function() {
 			respondWith({ generation: 1, name: "test", force: "enemy", tag: "tag", recipe_notifications: "x" });
-			await download({ player_name: "test" });
+			await download({ player_name: "test", components: { appearance: true } });
 			const expected = { generation: 1, name: "test", tag: "tag" };
+			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
+		});
+		it("should ignore config changes made after the download was started", async function() {
+			instance.mockConfigEntries.set("player_sync.sync_force", false);
+			respondWith({ generation: 1, name: "test", force: "enemy", tag: "tag" });
+			await download({ player_name: "test", components: { force: true } });
+			const expected = { generation: 1, name: "test", force: "enemy" };
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 	});

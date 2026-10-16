@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
-	components, enabledComponents, mergePlayerData, stripPlayerData, uploadedComponents,
+	components, enabledComponents, mergePlayerData, stripPlayerData, scenarioComponents,
 } from "../dist/node/components.js";
 
 const allComponents = Object.keys(components);
@@ -79,19 +79,19 @@ describe("player_sync components", function() {
 		});
 	});
 
-	describe("uploadedComponents()", function() {
-		it("should sync everything when the upload has no components", function() {
-			assert.deepEqual([...uploadedComponents(undefined)], allComponents);
+	describe("scenarioComponents()", function() {
+		it("should sync everything when no components are sent", function() {
+			assert.deepEqual([...scenarioComponents(undefined)], allComponents);
 		});
 		it("should sync the components marked true", function() {
-			const enabled = uploadedComponents({ force: true, quick_bar: true, settings: false });
+			const enabled = scenarioComponents({ force: true, quick_bar: true, settings: false });
 			assert.deepEqual([...enabled], ["force", "quick_bar"]);
 		});
 		it("should sync nothing for an empty table encoded as an array", function() {
-			assert.equal(uploadedComponents([]).size, 0);
+			assert.equal(scenarioComponents([]).size, 0);
 		});
 		it("should sync the controller without the inventories", function() {
-			assert.deepEqual([...uploadedComponents({ controller: true })], ["controller"]);
+			assert.deepEqual([...scenarioComponents({ controller: true })], ["controller"]);
 		});
 	});
 

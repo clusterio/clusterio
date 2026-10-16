@@ -5,7 +5,7 @@ import type { InstancePluginContext } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
 } from "./messages.js";
-import { enabledComponents, stripPlayerData } from "./components.js";
+import { enabledComponents, scenarioComponents, stripPlayerData } from "./components.js";
 
 type IpcPlayerName = {
 	player_name: string
@@ -14,6 +14,8 @@ type IpcPlayerName = {
 type IpcDownloadRequest = {
 	player_name: string,
 	recipe_notifications?: string,
+	// Components the download was started with, all when missing
+	components?: Record<string, boolean> | unknown[],
 }
 
 type IpcAcquireResponse = {
@@ -199,7 +201,7 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
-		stripPlayerData(response.playerData, enabledComponents(instance.config));
+		stripPlayerData(response.playerData, scenarioComponents(request.components));
 		await applyRecipeNotificationDelta(response.playerData, request.recipe_notifications, logger);
 
 		const chunkSize = instance.config.get("player_sync.rcon_chunk_size");
