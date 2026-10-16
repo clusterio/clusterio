@@ -27,7 +27,7 @@ The client then re-sends buffered messages newer than the `lastSeq` in `continue
 The server likewise re-sends messages newer than the `lastSeq` supplied by the client in `resume`.
 Otherwise the server responds with `invalidate`, and the client discards the old send buffer and registers a new session.
 Session expiry, buffer overflow, or process failure can lose pending work; plugins must not treat transport recovery as an application-level exactly-once guarantee.
-The [send-buffer setting](../configuration.md#controllermax_send_buffer_size) documents its current accounting limitation.
+The [send-buffer setting](../configuration.md#controllermax_send_buffer_size) controls how much unacknowledged message data the controller retains for a connection.
 
 ![Connection flow](../assets/connection_flow.svg)
 

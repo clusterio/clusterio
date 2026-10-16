@@ -167,17 +167,13 @@ Defaults to 60.
 
 ### controller.max_send_buffer_size
 
-Intended limit in MiB for messages sent to a connection that it has not yet acknowledged before the controller ends its session.
+Size in MiB of messages sent to a connection that it has not yet acknowledged before the controller ends its session.
 The controller keeps these so they can be resent if the connection drops and resumes.
 A client that stops acknowledging messages, or falls far behind, gets disconnected and starts a new session when it reconnects.
 Changes apply to new sessions.
 Set to 0 for no limit.
 
 Defaults to 64.
-
-**Current implementation discrepancy:** the configured value is multiplied by 2^20, but [connector accounting](../packages/lib/src/link/connectors.ts) counts JavaScript string lengths (UTF-16 code units), not UTF-8 bytes.
-Non-ASCII messages can therefore exceed the advertised byte limit before the session ends.
-This is not an exact heap-memory cap; the implementation and intended MiB contract still need to be reconciled.
 
 
 ### controller.metrics_timeout
