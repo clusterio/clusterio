@@ -1,0 +1,90 @@
+name: Classify CI changes
+
+on:
+  workflow_call:
+    outputs:
+      heavy:
+        value: ${{ jobs.changes.outputs.heavy }}
+      lint:
+        value: ${{ jobs.changes.outputs.lint }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      heavy: ${{ steps.syntax.outputs.heavy || steps.paths.outputs.code }}
+      lint: ${{ steps.paths.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v4
+        id: paths
+        with:
+          token: ''
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ref: ${{ github.sha }}
+          list-files: json
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!*.md'
+              - '!docs/**/*.{md,png,jpg,svg,gif}'
+              - '!{packages,plugins}/*/{README,AGENTS,CHANGELOG}.md'
+            syntax:
+              - modified: '**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}'
+              - '!**/{file,fixtures}/**'
+              - '!packages/create/templates/**'
+              - '!.github/**'
+              - '!**/{eslint,webpack,babel,rollup,vite,jest}.config.*'
+      - name: Install Difftastic
+        if: steps.paths.outputs.syntax == 'true'
+        env:
+          DIFFT_VERSION: 0.71.0
+          DIFFT_SHA256: 61aea5394a53c56f144637cf39b3a0c0dafa27769731745e5851ff276e6478da
+        run: |
+          mkdir -p "$RUNNER_TEMP/difftastic"
+          curl -fsSL "https://github.com/Wilfred/difftastic/releases/download/$DIFFT_VERSION/difft-$DIFFT_VERSION-x86_64-unknown-linux-gnu.tar.gz" -o "$RUNNER_TEMP/difftastic.tar.gz"
+          echo "$DIFFT_SHA256  $RUNNER_TEMP/difftastic.tar.gz" | sha256sum -c
+          tar -xzf "$RUNNER_TEMP/difftastic.tar.gz" -C "$RUNNER_TEMP/difftastic"
+          echo "$RUNNER_TEMP/difftastic" >> "$GITHUB_PATH"
+      - name: Check for substantive changes
+        id: syntax
+        if: steps.paths.outputs.code == 'true'
+        env:
+          CODE_FILES: ${{ steps.paths.outputs.code_files }}
+          SYNTAX_FILES: ${{ steps.paths.outputs.syntax_files }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # Skip only when every non-documentation file is an ordinary source edit.
+          echo 'heavy=true' >> "$GITHUB_OUTPUT"
+          if ! jq -en --argjson code "$CODE_FILES" --argjson syntax "$SYNTAX_FILES" \
+            '$code - $syntax | length == 0' > /dev/null; then
+            exit 0
+          fi
+          git cat-file -e "$BASE^{commit}"
+          jq -j '.[] | ., "\u0000"' <<< "$SYNTAX_FILES" > "$RUNNER_TEMP/syntax-files"
+          while IFS= read -r -d '' file; do
+            # Mode changes and symlinks are substantive even when text is identical.
+            [[ -z "$(git diff --summary --no-renames "$BASE" "$HEAD_SHA" -- "$file")" ]] || exit 0
+            git ls-tree "$HEAD_SHA" -- "$file" | grep -qE '^100(644|755) blob ' || exit 0
+            before="$RUNNER_TEMP/before.${file##*.}"
+            after="$RUNNER_TEMP/after.${file##*.}"
+            git show "$BASE:$file" > "$before"
+            git show "$HEAD_SHA:$file" > "$after"
+            # Difftastic ignores ALL comments; retain compiler/bundler/coverage directives.
+            if grep -Eq '@ts-|@jsx|@internal|<reference\b|<amd-|sourceMappingURL|sourceURL|webpack|vite|[#@]__|/\*!|(istanbul|c8|v8)[[:space:]]+ignore' "$before" "$after"; then
+              exit 0
+            fi
+            case "$file" in
+              *.js|*.cjs|*.mjs|*.jsx)
+                if grep -Fq '/**' "$before" "$after"; then exit 0; fi ;;
+            esac
+            if ! difft --ignore-comments --check-only --exit-code "$before" "$after"; then
+              exit 0
+            fi
+          done < "$RUNNER_TEMP/syntax-files"
+          echo 'heavy=false' >> "$GITHUB_OUTPUT"

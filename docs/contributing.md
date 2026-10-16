@@ -232,6 +232,15 @@ Report setup failures and skipped coverage explicitly.
 For wire compatibility changes, inspect `scripts/version-compat-test.js` and the CI `version-compat` job, which tests local/published controller and host combinations and requires npm access.
 Use the relevant production bundle, mod build, or [manual scenario](../test/manual/README.md) for changes affecting those surfaces.
 Consult the [CI workflow](../.github/workflows/node.js.yml) for the current Node/Factorio matrix.
+CI uses [dorny/paths-filter](https://github.com/dorny/paths-filter) for changed-file selection and [Difftastic](https://difftastic.wilfred.me.uk/usage.html) for syntax-aware comparisons, configured in the [shared classification workflow](../.github/workflows/ci-changes.yml).
+It compares pull-request merge results with their base and pushes with the previous commit before the push.
+Documentation-only changes skip the test/coverage matrix, compatibility tests, mod build, and linters.
+Ordinary JavaScript/TypeScript comment and formatting changes run both linters but skip the heavy jobs when their parsed code is unchanged; type changes still run those jobs.
+Files containing compiler/bundler/coverage directives or JavaScript JSDoc conservatively receive full code validation.
+Lua changes, test fixtures, dependency/build/workflow configuration, unknown file types, and unavailable comparison history retain heavy validation and both linters.
+Additions, deletions, and renames of code files run heavy validation even if their contents are only comments.
+The classification job installs Difftastic only when source comparisons are needed, without installing or building the workspace.
+Only explicit skip decisions bypass jobs; classification failures fall back to running the checks.
 For documentation-only changes, verify paths, commands, and formatting; a full application test run is unnecessary.
 Report exactly what ran, failures, skips, and unverified behavior; keep local results distinct from hosted CI and runtime validation.
 

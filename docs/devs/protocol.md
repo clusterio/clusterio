@@ -255,7 +255,8 @@ Only after this process is done should the response be sent.
 #### `disconnect` with `data: "ready"`
 
 The frame `{"type":"disconnect","data":"ready"}` signals that preparation is complete and the connection can be closed.
-The initiator can finish its own pending work before closing.
+When using `WebSocketBaseConnector.disconnect()`, the initiator must stop producing new work and await its own `Link.prepareDisconnect()` before calling `disconnect()`.
+The connector closes as soon as the peer sends `ready` or the timeout expires; it does not drain the initiator's pending requests itself.
 There is no error-response variant; the connector also has a timeout so an unresponsive peer cannot block shutdown indefinitely.
 
 
