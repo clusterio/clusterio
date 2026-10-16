@@ -386,4 +386,75 @@ describe("player_sync controller", function() {
 			});
 		});
 	});
+
+	describe("UploadRequest with destinationInstanceId", function() {
+		// Instances 1-3 run player_sync, 4 is stopped, 5 runs with player_sync off; 1 is the source in every case
+		async function setup() {
+			const controller = await load();
+			for (const [id, status, loadPlugin] of [
+				[1, "running", true], [2, "running", true], [3, "running", true],
+				[4, "stopped", true], [5, "running", false],
+			]) {
+				const fields = { "instance.name": `instance ${id}`, "player_sync.load_plugin": loadPlugin };
+				controller.instances.records.set(id, { id, status, config: { get: field => fields[field] } });
+			}
+			const sent = [];
+			controller.sendTo = (address, message) => { sent.push({ address, message }); };
+			return { controller, sent, upload: mock.getHandler(controller, msg.UploadRequest) };
+		}
+		const data = generation => ({ name: "test", generation });
+		async function stored(controller) {
+			return (await mock.getHandler(controller, msg.DownloadRequest)(new msg.DownloadRequest(2, "test"))).playerData;
+		}
+
+		it("should send the stored data to a running destination with player_sync on", async function() {
+			const { sent, upload } = await setup();
+			await upload(new msg.UploadRequest(1, "test", data(1), 2));
+			assert.equal(sent.length, 1);
+			assert.deepEqual(sent[0].address, { instanceId: 2 });
+			assert.ok(sent[0].message instanceof msg.PrefetchEvent);
+			assert.deepEqual(sent[0].message.playerData, data(1));
+		});
+		it("should send the stored copy, with the parts the upload's components left out", async function() {
+			const { sent, upload } = await setup();
+			await upload(new msg.UploadRequest(1, "test", { ...data(1), force: "player", tag: "first" }));
+			const components = Object.fromEntries(Object.keys(allComponents).map(c => [c, c !== "force"]));
+			await upload(new msg.UploadRequest(1, "test", { ...data(2), tag: "second", components }, 2));
+			assert.equal(sent.length, 1);
+			assert.deepEqual(sent[0].message.playerData, { ...data(2), force: "player", tag: "second" });
+		});
+		it("should send nothing without a destination", async function() {
+			const { sent, upload } = await setup();
+			await upload(new msg.UploadRequest(1, "test", data(1)));
+			assert.equal(sent.length, 0);
+		});
+		it("should send nothing when an older generation isn't stored", async function() {
+			const { sent, upload } = await setup();
+			await upload(new msg.UploadRequest(1, "test", data(3)));
+			await upload(new msg.UploadRequest(1, "test", data(2), 2));
+			assert.equal(sent.length, 0);
+		});
+		it("should send nothing when another instance's lock rejects the upload", async function() {
+			const { controller, sent, upload } = await setup();
+			await mock.getHandler(controller, msg.AcquireRequest)(new msg.AcquireRequest(3, "test"));
+			await upload(new msg.UploadRequest(1, "test", data(1), 2));
+			assert.equal(sent.length, 0);
+		});
+		it("should store but not send to a stopped, source, plugin-off or unknown instance", async function() {
+			const { controller, sent, upload } = await setup();
+			let generation = 0;
+			for (const id of [4, 1, 5, 99]) {
+				generation += 1;
+				await upload(new msg.UploadRequest(1, "test", data(generation), id));
+			}
+			assert.equal(sent.length, 0);
+			assert.equal((await stored(controller)).generation, 4);
+		});
+		it("should store the upload and not fail it when sending throws", async function() {
+			const { controller, upload } = await setup();
+			controller.sendTo = () => { throw new Error("Host containing instance is not connected"); };
+			await upload(new msg.UploadRequest(1, "test", data(1), 2));
+			assert.deepEqual(await stored(controller), data(1));
+		});
+	});
 });
