@@ -6,9 +6,12 @@ on:
       heavy:
         description: Run the test and coverage matrix, compatibility tests, and mod build.
         value: ${{ jobs.changes.outputs.heavy }}
-      lint:
-        description: Run both the JavaScript/TypeScript and Lua linters.
-        value: ${{ jobs.changes.outputs.lint }}
+      js_lint:
+        description: Run the JavaScript/TypeScript linter.
+        value: ${{ jobs.changes.outputs.js_lint }}
+      lua_lint:
+        description: Run the Lua linter.
+        value: ${{ jobs.changes.outputs.lua_lint }}
 
 jobs:
   changes:
@@ -16,7 +19,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       heavy: ${{ steps.syntax.outputs.heavy || steps.paths.outputs.code }}
-      lint: ${{ steps.paths.outputs.code }}
+      js_lint: ${{ steps.lint.outputs.js_lint }}
+      lua_lint: ${{ steps.lint.outputs.lua_lint }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,6 +39,15 @@ jobs:
               - '**'
               - '!**/*.md'
               - '!docs/**/*.{png,jpg,svg,gif}'
+            # Sources and configuration owned by each linter.
+            # Workflow scripts and shared build configuration run both linters.
+            js:
+              - '**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}'
+              - '!.github/**'
+              - '!**/{webpack,babel,rollup,vite,jest}.config.*'
+            lua:
+              - '{*.lua,**/*.lua,.emmyrc.json}'
+              - '!.github/**'
             # Modified JS/TS source eligible for the comment-only shortcut.
             # TypeScript type changes still count as substantive changes.
             syntax:
@@ -44,6 +57,19 @@ jobs:
               - '!packages/create/templates/**'
               - '!.github/**'
               - '!**/{eslint,webpack,babel,rollup,vite,jest}.config.*'
+      - name: Select linters
+        id: lint
+        env:
+          CODE_FILES: ${{ steps.paths.outputs.code_files }}
+          JS_FILES: ${{ steps.paths.outputs.js_files }}
+          LUA_FILES: ${{ steps.paths.outputs.lua_files }}
+        run: |
+          # Unclassified non-documentation files can affect either language.
+          jq -nr --argjson code "$CODE_FILES" --argjson js "$JS_FILES" --argjson lua "$LUA_FILES" '
+            ($code - $js - $lua | length > 0) as $shared |
+            "js_lint=\($shared or ($js | length > 0))",
+            "lua_lint=\($shared or ($lua | length > 0))"
+          ' >> "$GITHUB_OUTPUT"
       - name: Install Difftastic
         if: steps.paths.outputs.syntax == 'true'
         env:

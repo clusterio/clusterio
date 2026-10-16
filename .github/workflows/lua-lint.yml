@@ -13,7 +13,7 @@ jobs:
 
   lint:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.lint != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.lua_lint != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
