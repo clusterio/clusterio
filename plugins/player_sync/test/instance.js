@@ -135,9 +135,14 @@ describe("player_sync", function() {
 			const expected = { generation: 1, name: "test", tag: "tag" };
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
-		it("should ignore config changes made after the download was started", async function() {
-			instance.mockConfigEntries.set("player_sync.sync_force", false);
-			respondWith({ generation: 1, name: "test", force: "enemy", tag: "tag" });
+		it("should ignore config changes made while the controller responds", async function() {
+			instance.connector.once("send", message => {
+				instance.mockConfigEntries.set("player_sync.sync_force", false);
+				instance.connector.emit("message", new lib.MessageResponse(
+					1, message.dst, message.src,
+					new DownloadResponse({ generation: 1, name: "test", force: "enemy", tag: "tag" }),
+				));
+			});
 			await download({ player_name: "test", components: { force: true } });
 			const expected = { generation: 1, name: "test", force: "enemy" };
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);

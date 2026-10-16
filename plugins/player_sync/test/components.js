@@ -148,5 +148,14 @@ describe("player_sync components", function() {
 			const merged = mergePlayerData(storedSlots, withComponents(noSlots, []));
 			assert.equal("personal_logistic_slots" in merged, false);
 		});
+		it("should take cleared logistic requests from an upload without inventories", function() {
+			const storedSlots = { ...stored, personal_logistic_slots: [{ name: "stored" }] };
+			// Factorio 1.1 serializes a character without requests as an empty table
+			const cleared = { ...uploaded, personal_logistic_slots: {} };
+			delete cleared.character;
+			delete cleared.crafting_queue;
+			const merged = mergePlayerData(storedSlots, withComponents(cleared, ["inventories"]));
+			assert.deepEqual(merged.personal_logistic_slots, {});
+		});
 	});
 });
