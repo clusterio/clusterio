@@ -216,7 +216,14 @@ end
 -- name is a custom type where quality is "normal" and comparator is "=" (most common case)
 --- @alias QuickBarSlotEncoded.name string
 --- @alias QuickBarSlotEncoded.filter { t: "f", n: string, q: string, c: string }
---- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter
+--- @alias QuickBarSlotEncoded.item { t: "i", n: string, s: integer }
+--- @alias QuickBarSlotEncoded QuickBarSlotEncoded.name | QuickBarSlotEncoded.filter | QuickBarSlotEncoded.item
+
+--- Inventories of the player that can hold the item a quick bar slot points at
+--- @param player LuaPlayer
+local function get_quick_bar_inventories(player)
+	return player.character and character_inventories or { main = defines.inventory.god_main }
+end
 
 --- @param filter ItemFilter
 --- @return QuickBarSlotEncoded
@@ -234,13 +241,31 @@ local function serialize_filter(filter)
 end
 
 --- @param slot QuickBarSlot | ItemFilter | LuaItemPrototype
+--- @param player LuaPlayer
 --- @return QuickBarSlotEncoded | nil
-function serialize.serialize_quick_bar_slot(slot)
+function serialize.serialize_quick_bar_slot(slot, player)
 	if v2_1_quick_bar_api then
 		-- 2.1 has a dedicated type for quick bar slots
 		--- @cast slot QuickBarSlot
 		if slot.type == "filter" then
 			return serialize_filter(slot.filter)
+		end
+
+		if slot.type == "item" then
+			-- A specific item (blueprint, spidertron remote) is stored as the inventory slot that holds it
+			local item_number = slot.item --[[@as LuaItem]].item_number
+			for name, inventory_id in pairs(get_quick_bar_inventories(player)) do
+				local inventory = player.get_inventory(inventory_id)
+				for i = 1, inventory and #inventory or 0 do
+					local stack = inventory[i] --[[@as LuaItemStack]]
+					if stack.valid_for_read and stack.item_number == item_number then
+						return { t = "i", n = name, s = i }
+					end
+				end
+			end
+
+			print("Warning: Could not find the item of quick bar slot of type 'item' in the inventories")
+			return nil
 		end
 
 		print("Warning: Unsupported quick bar slot type '" .. slot.type .. "'")
@@ -259,8 +284,9 @@ function serialize.serialize_quick_bar_slot(slot)
 end
 
 --- @param entry string | QuickBarSlotEncoded
---- @return QuickBarSlot | ItemWithQualityID | nil
-function serialize.deserialize_quick_bar_slot(entry)
+--- @param player LuaPlayer
+--- @return QuickBarSlot | ItemWithQualityID | LuaItemStack | nil
+function serialize.deserialize_quick_bar_slot(entry, player)
 	if v2_1_quick_bar_api then
 		-- Return a quick bar slot
 		if type(entry) == "string" then
@@ -283,6 +309,19 @@ function serialize.deserialize_quick_bar_slot(entry)
 					comparator = entry.c,
 				},
 			} --[[@as QuickBarSlot]]
+		end
+
+		if entry.t == "i" then
+			-- The inventories have been restored, the stack points the slot at the item in it
+			local inventory_id = get_quick_bar_inventories(player)[entry.n]
+			local inventory = inventory_id and player.get_inventory(inventory_id)
+			local stack = inventory and inventory[entry.s]
+			if stack and stack.valid_for_read then
+				return stack
+			end
+
+			print("Warning: Could not find the item of quick bar slot in " .. entry.n .. " slot " .. entry.s)
+			return nil
 		end
 
 		print("Warning: Unsupported serialized quick bar slot type '" .. tostring(entry.t) .. "'")
@@ -329,7 +368,7 @@ function serialize.serialize_quick_bar(player)
 		end
 
 		if slot ~= nil then
-			local entry = serialize.serialize_quick_bar_slot(slot)
+			local entry = serialize.serialize_quick_bar_slot(slot, player)
 			if entry ~= nil then
 				serialized = serialized or {}
 				serialized[tostring(i)] = entry
@@ -351,7 +390,7 @@ function serialize.deserialize_quick_bar(player, serialized)
 	for i = 1, 100 do
 		local entry = serialized[tostring(i)]
 		if entry ~= nil then
-			local slot = serialize.deserialize_quick_bar_slot(entry)
+			local slot = serialize.deserialize_quick_bar_slot(entry, player)
 			if slot ~= nil then
 				if v2_1_quick_bar_api then
 					local page = math.floor((i - 1) / width) + 1
