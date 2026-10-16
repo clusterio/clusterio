@@ -452,16 +452,13 @@ While we aim to increase the number of useful checks performed by CI in the futu
 
 🧾 Time Immemorial
 
-> We do not use any CD actions, and have no plans of implementing them.
+> We publish packages and mods when a maintainer publishes a stable GitHub release.
 
-Unlike CI, we do not find continuous deployment useful at our current stage of the project.
-This is due to the frequent breaking changes merged into the main branch, which we prefer to bundle together as a single version.
-In the future, we may automate the deployment process, but it will always require manual activation.
-
-**Current implementation:** the historical no-CD statement above predates the [Publish workflow](../.github/workflows/publish.yml).
-Publishing a stable GitHub release now triggers npm package and Factorio mod publication through the `released` event; publishing a prerelease or pushing a tag alone does not.
-This release-triggered automation does not deploy running clusters or publish every merge to master.
-See the [release workflow](release-workflow.md) for the current procedure.
+Changes merged into the main branch are bundled into releases before publication.
+Publishing a stable GitHub release triggers the [Publish workflow](../.github/workflows/publish.yml), which publishes npm packages and Factorio mods.
+Publishing a prerelease or pushing a tag alone does not trigger publication.
+Running clusters are updated by their operators.
+See the [release workflow](release-workflow.md) for the publication procedure.
 
 
 ### Mocha
@@ -480,5 +477,5 @@ However, we are always looking for a better framework which is worth the effort 
 
 > We perform all tests through GitHub actions using Ubuntu latest, using all supported versions of node and all supported versions of factorio.
 
-The [current CI workflow](../.github/workflows/node.js.yml) selects Node.js major versions and pinned Factorio releases; it does not exercise every supported patch release.
+The [current CI workflow](../.github/workflows/node.js.yml) tests selected Node.js major versions and pinned Factorio releases.
 However, we do not conduct tests on all supported operating systems, as the added demand on our testing resources would be significant, and the value it would provide for a cross-platform engine like NodeJS would be limited.

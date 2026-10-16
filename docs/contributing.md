@@ -45,14 +45,13 @@ Clusterio manages distributed Factorio servers through a controller, hosts, and 
 | `packages/web_ui/` | React/Ant Design interface and browser control connection; bundled through the controller's webpack build. |
 | `packages/create/` | Installer and JavaScript/TypeScript plugin templates. |
 | `plugins/` | Bundled plugins, including their Node, web, Lua, and test code. |
-| `external_plugins/` | Separately developed workspace plugins; these may be independent repositories. |
+| `external_plugins/` | Plugins developed in independent repositories and included in the local workspace. |
 | `packages/host/modules/` | Lua modules injected into saves. |
 | `packages/host/lua/` | Factorio mod sources, including `clusterio_lib`. |
-| `test/` | Root Mocha suite, fixtures, helpers, integration harness, and manual tests. Plugin tests also live under `plugins/*/test/`. |
+| `test/` | Root test suite, fixtures, helpers, integration harness, and manual tests. Plugin tests also live under `plugins/*/test/`. |
 
 Start with [how it works](how-it-works.md), [communication](communication.md), and the [config system](config-system.md) for architecture.
 See [writing plugins](writing-plugins.md) and [developing for Clusterio](developing-for-clusterio.md) for plugin and Factorio contracts.
-Read the relevant implementation and tests before changing behavior.
 
 
 ## Workflow
@@ -80,20 +79,18 @@ Do not run `git pull upstream` it will mess thing up!
 ### Setting up the Development Environment
 
 Run commands from the repository root unless stated otherwise.
-Use a Node.js release meeting the [development requirements](#supported-nodejs-and-factorio-versions) and the pnpm version pinned by `packageManager` in root `package.json`.
-The packages are linked through pnpm workspaces.
-The workspace layout and shared dependency catalog are in `pnpm-workspace.yaml`; follow its existing `catalog:` and `workspace:` conventions.
+Use the latest Node.js LTS release and the pnpm version pinned by `packageManager` in root `package.json`.
 Install dependencies with:
 
     pnpm install --no-frozen-lockfile
 
-This links workspace packages and runs their preparation scripts.
+This installs dependencies and builds the packages.
 `pnpm-lock.yaml` is intentionally ignored; do not force-add it or assume a frozen-lockfile install is supported.
-To initialize a fresh development cluster, use the installer:
+For a fresh development cluster, run the installer and select standalone mode to create `config-controller.json`, `config-host.json`, and the credentials needed to connect them:
 
     node packages/create --dev
 
-Inspect existing configuration before reinitializing an established checkout.
+You can skip this step if you already have a working controller and host configuration.
 
 To add plugins to use in the development environment use
 
@@ -128,26 +125,21 @@ For web development on the controller there are also the following flags:
 
 These options can be combined and multiple plugins can be actived for dev mode.
 Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
-Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present prepare` before you start the controller without these flags again.
+Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm -r run prepare` before you start the controller without these flags again.
 
 
 ### Build outputs
 
 | Command | Output |
 | --- | --- |
-| `pnpm build` | TypeScript project references. |
+| `pnpm build` | Compiled JavaScript and type declarations in each package's `dist/node/` and, where applicable, `dist/browser/`. |
 | `pnpm watch` | TypeScript compilation as files change; restart affected Node processes afterward. |
-| `pnpm run -r --if-present prepare` | Package preparation, including generated validators and production web bundles where defined. |
-| `pnpm --filter @clusterio/lib run prepare` | Lib compilation followed by core wire-message validator generation. |
-| `pnpm --filter @clusterio/controller run prepare` | Controller compilation and its production web bundle. |
+| `pnpm -r run prepare` | Compiled packages, generated validators, and production web bundles. |
 | `pnpm build-mod` | Factorio mod archives in root `dist/`. |
 | `pnpm docs` | Generated API documentation. |
 
 `pnpm build` alone does not regenerate the standalone validator or webpack bundles.
-After changing `packages/lib/src/data/messages_core.ts`, run lib's `prepare`: the validator generator reads the compiled schema, so invoking it against an old build generates an old validator.
-Edit source files and regenerate outputs through their scripts; do not hand-edit `dist/`, generated API docs, or `message_validate.js`.
-For recursive operations targeting release packages, use explicit `--filter='./packages/*' --filter='./plugins/*' --fail-if-no-match` selectors.
-A quoted pnpm filter containing brace syntax is not shell brace expansion and does not select these two directories.
+After changing `packages/lib/src/data/messages_core.ts`, run `pnpm -r run prepare` to compile the schema and regenerate its validator.
 
 
 ### Debugging
@@ -171,10 +163,7 @@ Verify UI behavior in the browser: successful compilation does not verify render
 ### Starting a Feature Branch
 
 Development is done exclusively in feature branches.
-For a new task, create a feature branch from the main repository's current master.
-Inspect `git status` first and preserve unrelated work, including external plugin checkouts.
-Continue an existing task branch rather than switching or recreating it to follow this setup recipe.
-For a new branch in a clean checkout, first check out master from the main repository.
+To start a new feature branch, first check out master from the main repository.
 
     git fetch upstream
     git checkout upstream/master
@@ -191,8 +180,7 @@ But it's nice to have its name be somewhat descriptive of what it implements.
 ### Checking your code for errors
 
 Tests use Mocha and Node assertions, mostly as JavaScript ESM importing compiled packages.
-For behavior changes, add a regression test at the layer that owns the behavior, including relevant failure paths.
-Start with focused tests, then run the root suite and lint when the environment permits:
+Run the test suite and linter from the repository root:
 
     pnpm run test
     pnpm run lint
@@ -207,7 +195,8 @@ These correspond to setting the `FAST_TEST` and `NO_EXTERNAL_TEST` environment v
 For example, `FAST_TEST=y NO_EXTERNAL_TEST=y pnpm test` combines both exclusions.
 These flags still run the remaining integration setup and tests; neither produces an isolated unit-test run.
 When writing slow tests call `slowTest(this)`, and for external API tests call `externalTest(this)`; both are exported from `test/common.js`.
-Reuse that file's JSON round-trip/schema helpers and the mocks in `test/mock.js`.
+For tests that need a Factorio installation, call `requiresFactorio(this)` in the test or pass the suite to `requiresFactorio`, imported from `test/integration/index.js`.
+`test/common.js` also provides JSON round-trip/schema helpers, and `test/mock.js` provides shared mocks.
 
 For a focused test, build first and select the file explicitly instead of appending it to the full-suite script:
 
@@ -227,22 +216,9 @@ Do not run competing integration suites in the same checkout or on those ports.
 It locates Factorio through `host.factorio_directory` in root `config-host.json`, defaulting to `factorio/`.
 The full harness currently requires a usable Factorio installation: a missing directory fails discovery, and an empty directory fails setup while selecting a version.
 Some individual tests have conditional skips, but these do not make a full run without Factorio succeed.
-Report setup failures and skipped coverage explicitly.
 
-For wire compatibility changes, inspect `scripts/version-compat-test.js` and the CI `version-compat` job, which tests local/published controller and host combinations and requires npm access.
 Use the relevant production bundle, mod build, or [manual scenario](../test/manual/README.md) for changes affecting those surfaces.
-Consult the [CI workflow](../.github/workflows/node.js.yml) for the current Node/Factorio matrix.
-CI uses [dorny/paths-filter](https://github.com/dorny/paths-filter) for changed-file selection and [Difftastic](https://difftastic.wilfred.me.uk/usage.html) for syntax-aware comparisons, configured in the [shared classification workflow](../.github/workflows/ci-changes.yml).
-It compares pull-request merge results with their base and pushes with the previous commit before the push.
-Documentation-only changes skip the test/coverage matrix, compatibility tests, mod build, and linters.
-Ordinary JavaScript/TypeScript comment and formatting changes run both linters but skip the heavy jobs when their parsed code is unchanged; type changes still run those jobs.
-Files containing compiler/bundler/coverage directives or JavaScript JSDoc conservatively receive full code validation.
-Lua changes, test fixtures, dependency/build/workflow configuration, unknown file types, and unavailable comparison history retain heavy validation and both linters.
-Additions, deletions, and renames of code files run heavy validation even if their contents are only comments.
-The classification job installs Difftastic only when source comparisons are needed, without installing or building the workspace.
-Only explicit skip decisions bypass jobs; classification failures fall back to running the checks.
-For documentation-only changes, verify paths, commands, and formatting; a full application test run is unnecessary.
-Report exactly what ran, failures, skips, and unverified behavior; keep local results distinct from hosted CI and runtime validation.
+For documentation changes, check that links, paths, and example commands are correct.
 
 
 ### Cleaning generated and runtime files
@@ -255,7 +231,7 @@ Inspect `node clean.js --help` and preview the selected scope with `--dry-run` b
 | `node clean.js tests --dry-run` | Also preview root `.nyc_output/`, `coverage/`, the whole `temp/` directory, and `static/`. |
 | `node clean.js all --dry-run` | Also preview runtime databases, instances, logs, mods, local configs, `FactorioAdminToken.txt`, and `plugin-list.json`. |
 
-`all` deletes cluster runtime data; use it only when that deletion is intended and authorized.
+`all` deletes cluster runtime data, including configurations and saves; back up anything you want to keep before using it.
 The cleaner excludes `external_plugins/` and does not remove mod archives in root `dist/`.
 Do not commit local configs, tokens, databases, saves, logs, or generated build output.
 

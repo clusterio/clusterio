@@ -8,7 +8,6 @@ The fields are defined early in the startup, and fields for disabled plugins wil
 
 The built-in config fields are defined in [packages/lib/src/config/definitions.ts](/packages/lib/src/config/definitions.ts) while plugins add fields through `controllerConfigFields`, `hostConfigFields`, `instanceConfigFields`, and `ctlConfigFields` on the `plugin` export.
 Controller, host, and instance configs also receive `<plugin_name>.load_plugin` to enable/disable loading on startup and a hidden `<plugin_name>.version` for migrations.
-These automatic fields are not added to ctl configs.
 
 
 ## Defining Fields
@@ -46,8 +45,6 @@ For plugins the group name is the name of the plugin, e.g., the `level` field of
 **initialValue** (optional if optional is true):
     Value this config field should take in a newly initialized config.
     This can also be a synchronous function returning the value to use.
-    The current implementation calls this function without awaiting its result; an async function stores a Promise instead of the intended value.
-    Earlier documentation advertised async defaults, but these are not implemented correctly and must not be used until that mismatch is resolved.
 
 **validator** (optional):
     Function called with the value being set and the config it belongs to.
@@ -88,7 +85,6 @@ For plugins the group name is the name of the plugin, e.g., the `level` field of
     Name of the input component the web interface should render for this field instead of the default for its type.
     Plugins register components with the `control.hooks.inputComponents` hook in their web entrypoint.
     The hook returns an object whose keys match the field's `inputComponent` value.
-    The old `BaseWebPlugin.inputComponents` property remains supported for compatibility but is deprecated with the class-based entrypoint.
 
 For example, with `inputComponent: "foo_frobber_level"` on a field:
 

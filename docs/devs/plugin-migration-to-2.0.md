@@ -212,23 +212,6 @@ export default async function(context) {
 ```
 
 
-### Forwarding EventEmitter events to hooks
-
-`AsyncHook.listener` is a stable, bound reference to `invoke`; it forwards arguments unchanged.
-Use it directly only when the emitter and hook have matching argument lists.
-It does not turn an emitted connection payload into the string `"connect"`, or add the emitter's event name.
-For a custom hook that expects an event name, use an adapter and keep its reference for removal:
-
-```js
-const onConnect = () => hook.invoke("connect");
-emitter.on("connect", onConnect);
-// During teardown:
-emitter.off("connect", onConnect);
-```
-
-Clusterio already forwards its own connection events to the plugin hooks; attach your plugin handler to those hooks instead of forwarding the core events again.
-
-
 ### Replacing other class members
 
 The class properties are on the context object passed to the entrypoint:

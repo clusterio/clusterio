@@ -11,9 +11,9 @@ Its connector identifies the local and remote endpoints through `connector.src` 
 Controller connections have one link per host or control client.
 Hosts and instances share a Node.js process and communicate through paired virtual connectors.
 
-For a routed request, trace the sender, message class, each router, controller permission check, and destination handler.
-The receiving link checks the message name, allowed endpoint types, and ingress constraints before routing it.
-Control-origin permission checks run on the controller before destination payload validation; callbacks therefore see raw, untrusted data.
+Requests can pass through several links before reaching their destination.
+Each receiving link checks the message name, allowed endpoint types, and source address before routing it.
+The controller checks the user's permissions before validating the message data; permission callbacks therefore receive untrusted data.
 See [message permissions](writing-plugins.md#static-permission).
 
 At the destination, the registered schema validates the payload and `fromJSON` restores the message before its handler runs.
@@ -27,7 +27,7 @@ A handler-only trace can miss this behavior.
 
 ## Connectors and sessions
 
-[Connectors](../packages/lib/src/link/connectors.ts) transport wire envelopes, assign sequence numbers, and deliver incoming messages to links.
+[Connectors](../packages/lib/src/link/connectors.ts) transport messages, assign sequence numbers, and deliver incoming messages to links.
 WebSocket connectors implement handshakes, heartbeats, acknowledgements, send buffers, and session recovery.
 The client connector retries connections with backoff; the [server connector](../packages/controller/src/WsServerConnector.ts) retains resumable sessions until they expire.
 `VirtualConnector` connects links in memory without WebSocket session machinery.
@@ -53,8 +53,8 @@ The [send-buffer setting](configuration.md#controllermax_send_buffer_size) docum
 
 ## Message definitions and registration
 
-Wire envelopes and their schemas live in [messages_core.ts](../packages/lib/src/data/messages_core.ts).
-Operation-specific core request and event classes live under [packages/lib/src/data/](../packages/lib/src/data/).
+The message structures sent over a connection and their schemas are defined in [messages_core.ts](../packages/lib/src/data/messages_core.ts).
+Core request and event classes live under [packages/lib/src/data/](../packages/lib/src/data/).
 Their `type`, `src`, `dst`, schema, and permission fields define the contract; plugin classes also supply a `plugin` name.
 
 `Link.register` registers request and event classes and compiles their payload validators.
@@ -63,6 +63,6 @@ Handlers are attached explicitly with `handle(MessageClass, handler)`.
 Send through `sendTo(destination, new MessageClass(...))`; use broadcast destinations only for events.
 See [writing plugins](writing-plugins.md#defining-link-messages) for a complete example.
 
-When changing a wire envelope, regenerate the standalone validator after compiling the schema.
-When changing an operation, keep serialization, allowed endpoints, permission checks, registration, and handlers consistent.
-The [validation guide](contributing.md#checking-your-code-for-errors) covers focused tests and cross-version checks.
+When changing a message structure in `messages_core.ts`, rebuild the packages with `pnpm -r run prepare` to regenerate the standalone validator.
+When changing a request or event class, keep serialization, allowed endpoints, permission checks, registration, and handlers consistent.
+The [contributor guide](contributing.md#checking-your-code-for-errors) explains how to run focused tests.

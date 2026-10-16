@@ -11,7 +11,8 @@ Apart from the handshake used to establish connections the protocol is direction
 
 Events and requests are instances of registered message classes whose static properties specify the message type, allowed source and destination types, and payload schema.
 Plugin messages also specify a plugin name; see [defining link messages](../writing-plugins.md#defining-link-messages).
-Connectors validate wire envelopes, while links validate operation payloads at the destination before deserializing them with `fromJSON`.
+Connectors validate the message structure, including its type and addresses.
+At the destination, links validate the message's `data` against its registered schema before passing it to `fromJSON`.
 Controller permission callbacks run before payload validation and therefore receive untrusted data; see [message permissions](../writing-plugins.md#static-permission).
 
 Messages are sent by calling `link.sendTo(destination, message)`, where `message` is an instance of a registered class.
@@ -92,9 +93,8 @@ Because of this there's no `connecting` state, and once a session times out from
 
 All communication uses WebSocket text frames containing a JSON object.
 Every frame has a `type` string; the other fields depend on that type.
-Handshake messages do not use a `seq: null` placeholder.
 Requests, responses, and events carry an integer transport sequence number in `seq`, plus source and destination addresses in `src` and `dst`.
-Operation-specific payloads are carried in `data` when present.
+Message-specific data is carried in `data` when present.
 
 An address is `[type, id]`, optionally followed by a request ID: `[type, id, requestId]`.
 Address types are 0 for controller, 1 for host, 2 for instance, 3 for control, and 4 for broadcast.

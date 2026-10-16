@@ -4,8 +4,10 @@ on:
   workflow_call:
     outputs:
       heavy:
+        description: Run the test and coverage matrix, compatibility tests, and mod build.
         value: ${{ jobs.changes.outputs.heavy }}
       lint:
+        description: Run both the JavaScript/TypeScript and Lua linters.
         value: ${{ jobs.changes.outputs.lint }}
 
 jobs:
@@ -28,14 +30,18 @@ jobs:
           list-files: json
           predicate-quantifier: every
           filters: |
+            # Files requiring validation beyond documentation checks.
             code:
               - '**'
               - '!*.md'
               - '!docs/**/*.{md,png,jpg,svg,gif}'
               - '!{packages,plugins}/*/{README,AGENTS,CHANGELOG}.md'
+            # Modified JS/TS source eligible for the comment-only shortcut.
+            # TypeScript type changes still count as substantive changes.
             syntax:
               - modified: '**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}'
-              - '!**/{file,fixtures}/**'
+              # Fixtures and templates always receive full validation.
+              - '!test/file/**'
               - '!packages/create/templates/**'
               - '!.github/**'
               - '!**/{eslint,webpack,babel,rollup,vite,jest}.config.*'
@@ -61,6 +67,10 @@ jobs:
         run: |
           # Skip only when every non-documentation file is an ordinary source edit.
           echo 'heavy=true' >> "$GITHUB_OUTPUT"
+          # A new branch has no previous commit; keep full validation on its first push.
+          if [[ "$BASE" == 0000000000000000000000000000000000000000 ]]; then
+            exit 0
+          fi
           if ! jq -en --argjson code "$CODE_FILES" --argjson syntax "$SYNTAX_FILES" \
             '$code - $syntax | length == 0' > /dev/null; then
             exit 0
@@ -81,6 +91,7 @@ jobs:
             fi
             case "$file" in
               *.js|*.cjs|*.mjs|*.jsx)
+                # JavaScript JSDoc can contain type information.
                 if grep -Fq '/**' "$before" "$after"; then exit 0; fi ;;
             esac
             if ! difft --ignore-comments --check-only --exit-code "$before" "$after"; then
