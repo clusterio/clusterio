@@ -306,11 +306,7 @@ The format of this log should be self explanatory, please follow it carefully. P
 
 ## Supported Node.js and Factorio Versions
 
-The package engine declaration is `node >=22`; the support policy covers LTS releases in their active and maintenance phases.
-Repository tooling also uses `import.meta.main`, which requires Node.js 22.18+ on the 22 line or 24.2+ on the 24 line; see the [Node.js API history](https://nodejs.org/docs/latest-v22.x/api/esm.html#importmetamain).
-Earlier Node 22 releases satisfy the package declaration but can silently skip CLI entrypoints such as `clean.js`.
-This is an unresolved mismatch between the engine declaration and the tooling requirements.
-For development, use a current supported LTS release with this API, following the [installation instructions](../README.md#installation).
+For development, use the latest Node.js LTS release, following the [installation instructions](../README.md#installation).
 Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
 The GitHub Actions tests currently run on Node.js 24 and 26 across the Factorio matrix, with Node.js 22 used for coverage; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
 
