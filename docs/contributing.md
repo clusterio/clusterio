@@ -149,10 +149,11 @@ Enable source maps and confirm the affected process is running rebuilt code.
 Use the contextual logger so host, instance, and plugin metadata remain available.
 Development logs are in `logs/`; integration logs are in `temp/test/logs/` and are uploaded by CI.
 
-Trace a request through its sender, shared message definition, router, permission check, and destination handler; see [communication](communication.md).
-Instance-starting requests can wake an instance in the host router before reaching its handler.
-For game-side failures, follow `Instance.ts` into `server.ts`, save patching, and the relevant Lua module or mod.
-Distinguish RCON commands into Factorio from IPC events coming back out; asynchronous responses need not arrive in order.
+For a failing request or event, start with its handler and the input that triggers the failure.
+Handlers are registered with `handle(MessageClass, handler)`; searching for the message class will help you find its handler.
+Inspect the input and the state used by the failing operation, then try to reproduce the failure in a [focused test](#checking-your-code-for-errors).
+If the handler is never reached, investigate message registration, routing, and permission checks using the [communication guide](communication.md).
+For errors reported by Factorio, start with the Lua stack trace and the module or mod it identifies; the [developing-for-Clusterio guide](developing-for-clusterio.md) explains how that code communicates with the host.
 
 For connection and recovery bugs, test disconnect, reconnect, timeout, and shutdown as applicable.
 A cached controller status does not prove the current state of a host or Factorio process.
