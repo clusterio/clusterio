@@ -33,14 +33,13 @@ jobs:
             # Files requiring validation beyond documentation checks.
             code:
               - '**'
-              - '!*.md'
-              - '!docs/**/*.{md,png,jpg,svg,gif}'
-              - '!{packages,plugins}/*/{README,AGENTS,CHANGELOG}.md'
+              - '!**/*.md'
+              - '!docs/**/*.{png,jpg,svg,gif}'
             # Modified JS/TS source eligible for the comment-only shortcut.
             # TypeScript type changes still count as substantive changes.
             syntax:
               - modified: '**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}'
-              # Fixtures and templates always receive full validation.
+              # Source fixtures and templates always receive full validation.
               - '!test/file/**'
               - '!packages/create/templates/**'
               - '!.github/**'
