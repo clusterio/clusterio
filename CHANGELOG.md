@@ -31,6 +31,12 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Unreleased
+
+### Fixes
+
+- Removed incompatible Server Select and Discord Bridge releases from the installer's plugin choices so selecting all offered plugins no longer installs them. [#1102](<https://github.com/clusterio/clusterio/issues/1102>)
+
 ## Version 2.0.2
 
 ### Fixes

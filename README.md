@@ -89,6 +89,9 @@ There's also plugins developed and maintained by the community:
   See repo readme for plugin breakdown. Maintained by Cooldude2606.
 - [Chat Relay](https://github.com/PHIDIAS0303/chat_relay) (@PHIDIAS0303/chat_relay): Chat relay of Discord and Factorio, seperate channel.
 
+The installer offers the six plugins maintained in this repository.
+Community plugins are versioned and released independently of Clusterio; check their compatibility before installing them manually.
+
 Want to make your own plugin?
 Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for where to start.
 If you have a plugin written for an earlier 2.0 alpha, see [Migrating Plugins to 2.0](/docs/devs/plugin-migration-to-2.0.md).
@@ -286,8 +289,11 @@ If you want to use a different user for the command line interface, you can gene
 
 ## Known Issues
 
-- When the `server_select` plugin is installed you may see `[error] Unhandled event server_select:UpdateInstancesEvent` logged when starting an instance.
-  This should be ignored as it does not indicate an error occured.
+- `@hornwitser/server_select@2.0.1` fails to load with Clusterio 2.0 because its entrypoints omit the required `.js` extension.
+  `@hornwitser/discord_bridge@0.2.5` is not automatically discovered because it lacks the `clusterio-plugin` keyword.
+  The Clusterio 2.0.2 installer still offers these versions; leave them unchecked until compatible plugin releases are available.
+  If already installed, stop the controller and host, run `npm uninstall @hornwitser/server_select @hornwitser/discord_bridge` in each affected installation directory, and restart them to continue with the core plugins.
+  See [#1102](https://github.com/clusterio/clusterio/issues/1102).
 - After updating Factorio you may get the error `Error: Expected empty response but got "Cannot execute command. Error: [string "clusterio_private.update_instance(..."]:1: attempt to index global 'clusterio_private' (a nil value)?` on instance start.
   This is due to Factorio applying a migration replacing the patched content of the save with the original scenario, attempting to start the instance again should resolve the issue.
 

@@ -12,6 +12,8 @@ If the script fails due to GitHub's 60/hour public access rate limit, you can se
 ## Packages
 
 The [Publish workflow](../.github/workflows/publish.yml) publishes npm packages and Lua mods when a GitHub release is published.
+The npm release includes the packages under `packages/` and the six core plugins under `plugins/`.
+Community plugins hosted in separate repositories have independent versions and releases.
 For this workflow, first merge the changelog and package version updates into `master`, then create and push the release tag on that merged commit.
 Create a draft GitHub release for the existing tag and use the GitHub Release Markdown from `scripts/pr_to_changelog.mts` as its notes.
 Publishing the draft triggers the workflow; pushing a tag alone does not.
