@@ -5,7 +5,7 @@ import * as lib from "@clusterio/lib";
 
 import * as mock from "../../../test/mock.js";
 import loadInstancePlugin, { recipeNotificationDelta, applyRecipeNotificationDelta } from "../dist/node/instance.js";
-import { DownloadResponse } from "../dist/node/messages.js";
+import { DownloadResponse, PrefetchEvent } from "../dist/node/messages.js";
 import { components } from "../dist/node/components.js";
 import { plugin as info } from "../dist/node/index.js";
 
@@ -209,6 +209,98 @@ describe("player_sync", function() {
 				instance.status = "running";
 			}
 			assert.equal(instance.server.rconCommands.length, 0);
+		});
+	});
+
+	describe("ipc-player_sync_upload", function() {
+		let instance;
+		before(async function() {
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+		});
+		beforeEach(function() {
+			instance.connector.sentMessages = [];
+		});
+
+		// The UploadRequest the instance sends the controller (no response is given; only the request is checked)
+		async function upload(playerData) {
+			instance.server.emit("ipc-player_sync_upload", playerData);
+			for (let i = 0; i < 100 && !instance.connector.sentMessages.length; i++) {
+				await lib.wait(1);
+			}
+			return instance.connector.sentMessages[0].data;
+		}
+
+		it("should pass destination_instance_id on as destinationInstanceId, not as player data", async function() {
+			const request = await upload({ name: "test", generation: 2, destination_instance_id: 7 });
+			assert.equal(request.destinationInstanceId, 7);
+			assert.deepEqual(request.playerData, { name: "test", generation: 2 });
+		});
+		it("should send no destination without the field", async function() {
+			const request = await upload({ name: "test", generation: 2 });
+			assert.equal(request.destinationInstanceId, undefined);
+		});
+	});
+
+	describe("PrefetchEvent", function() {
+		let instance;
+		before(async function() {
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+			instance.mockConfigEntries.set("player_sync.rcon_chunk_size", 10);
+		});
+		beforeEach(function() {
+			instance.server.reset();
+			for (const component of Object.keys(components)) {
+				instance.mockConfigEntries.set(`player_sync.sync_${component}`, true);
+			}
+		});
+
+		const prefetch = playerData => mock.getHandler(instance, PrefetchEvent)(new PrefetchEvent(playerData));
+		function prefetchCommands(playerData, enabled = Object.keys(components)) {
+			const chunks = JSON.stringify(playerData).match(/.{1,10}/g);
+			const sent = lib.escapeString(JSON.stringify(Object.fromEntries(enabled.map(c => [c, true]))));
+			return chunks.map((chunk, i) => "/sc player_sync.prefetch_inventory(" +
+				`'test',${playerData.generation},'${lib.escapeString(chunk)}',${i + 1},${chunks.length}` +
+				`${i === 0 ? `,'${sent}'` : ""})`);
+		}
+
+		it("should send prefetch_inventory chunks with the generation and the full recipe list", async function() {
+			await prefetch({ generation: 3, name: "test", recipe_notifications: await encode(["a"]) });
+			const expected = { generation: 3, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
+			assert.ok(instance.server.rconCommands.length > 1, "more than one chunk");
+			assert.deepEqual(instance.server.rconCommands, prefetchCommands(expected));
+		});
+		it("should leave out components which are not synced and send the components with chunk 1", async function() {
+			instance.mockConfigEntries.set("player_sync.sync_force", false);
+			await prefetch({ generation: 3, name: "test", force: "enemy", tag: "tag" });
+			const enabled = Object.keys(components).filter(c => c !== "force");
+			const commands = prefetchCommands({ generation: 3, name: "test", tag: "tag" }, enabled);
+			assert.ok(commands.length > 1, "more than one chunk");
+			assert.deepEqual(instance.server.rconCommands, commands);
+		});
+		it("should stop when the save refuses the first chunk", async function() {
+			const playerData = { generation: 3, name: "test" };
+			const commands = prefetchCommands(playerData);
+			instance.server.rconCommandResults.set(commands[0], "Refused prefetch for test: online here");
+			await prefetch(playerData);
+			assert.deepEqual(instance.server.rconCommands, commands.slice(0, 1));
+		});
+		it("should stop at the first non-empty reply mid-stream", async function() {
+			const playerData = { generation: 3, name: "test" };
+			const commands = prefetchCommands(playerData);
+			assert.equal(commands.length, 3);
+			instance.server.rconCommandResults.set(commands[1], "Ignored prefetch chunk 2 for test");
+			await prefetch(playerData);
+			assert.deepEqual(instance.server.rconCommands, commands.slice(0, 2));
 		});
 	});
 });

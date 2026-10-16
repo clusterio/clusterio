@@ -4,6 +4,7 @@ import * as lib from "@clusterio/lib";
 import type { InstancePluginContext } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
+	PrefetchEvent,
 } from "./messages.js";
 import { type Component, enabledComponents, stripPlayerData } from "./components.js";
 
@@ -172,11 +173,16 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
+		// Set by the Lua module when the player left to switch servers (set_destination, which only records integers).
+		// It isn't player data.
+		const destinationInstanceId = player_data.destination_instance_id;
+		delete player_data.destination_instance_id;
+
 		logger.verbose(`Uploading ${player_data.name} (${JSON.stringify(player_data).length / 1000}kB)`);
 		try {
 			await instance.sendTo(
 				"controller",
-				new UploadRequest(instance.id, player_data.name, player_data),
+				new UploadRequest(instance.id, player_data.name, player_data, destinationInstanceId),
 			);
 
 		} catch (err: any) {
@@ -189,6 +195,39 @@ export default async function(context: InstancePluginContext) {
 		await instance.sendRcon(
 			`/sc player_sync.confirm_upload("${player_data.name}", ${player_data.generation})`, true, plugin.name
 		);
+	}
+
+	/**
+	 * Send player data to the save in chunks of player_sync.rcon_chunk_size, stripped to the components synced here
+	 * and with its recipe notifications as a delta from current. command(chunk, number, total, extra) gives the RCON
+	 * command for each escaped chunk, numbered from 1; extra passes the components the data was stripped by with
+	 * chunk 1 and is empty for the rest. With stopOnReply a non-empty reply (the save refusing or ignoring the data)
+	 * ends the transfer; without it any reply throws, as sendRcon's expectEmpty does.
+	 */
+	async function sendPlayerData(
+		playerData: IpcPlayerData,
+		current: string | undefined,
+		command: (chunk: string, number: number, total: number, extra: string) => string,
+		stopOnReply: boolean,
+	) {
+		const enabled = enabledComponents(instance.config);
+		stripPlayerData(playerData, enabled);
+		await applyRecipeNotificationDelta(playerData, current, logger);
+
+		const chunks = chunkify(instance.config.get("player_sync.rcon_chunk_size"), JSON.stringify(playerData));
+		logger.verbose(`Sending inventory for ${playerData.name} in ${chunks.length} chunks`);
+		// The scenario restarts a download, and drops a prefetched copy at the join, sent with other components
+		const components = componentsJson(enabled);
+		for (let i = 0; i < chunks.length; i++) {
+			const extra = i === 0 ? `,'${components}'` : "";
+			const reply = await instance.sendRcon(
+				command(lib.escapeString(chunks[i]), i + 1, chunks.length, extra), !stopOnReply, plugin.name,
+			);
+			if (stopOnReply && reply !== "") {
+				logger.verbose(`Stopped sending ${playerData.name}: ${reply.trim()}`);
+				return;
+			}
+		}
 	}
 
 	async function handleDownload(request: IpcDownloadRequest) {
@@ -207,24 +246,9 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
-		const enabled = enabledComponents(instance.config);
-		stripPlayerData(response.playerData, enabled);
-		await applyRecipeNotificationDelta(response.playerData, request.recipe_notifications, logger);
-
-		const chunkSize = instance.config.get("player_sync.rcon_chunk_size");
-		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));
-		logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
-		// The scenario restarts the download if it was started with other components
-		const components = componentsJson(enabled);
-		for (let i = 0; i < chunks.length; i++) {
-			const chunk = lib.escapeString(chunks[i]);
-			const extra = i === 0 ? `,'${components}'` : "";
-			await instance.sendRcon(
-				`/sc player_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length}${extra})`,
-				true,
-				plugin.name,
-			);
-		}
+		await sendPlayerData(response.playerData, request.recipe_notifications, (chunk, number, total, extra) => (
+			`/sc player_sync.download_inventory('${playerName}','${chunk}',${number},${total}${extra})`
+		), false);
 	}
 
 	// Handle IPC from scenario script
@@ -252,6 +276,18 @@ export default async function(context: InstancePluginContext) {
 			err => logger.error(`Error handling ipc-player_sync_download:\n${err.stack}`)
 		),
 	);
+
+	// A copy of a player's stored data, sent ahead while they switch to this instance (player_sync.prefetch_inventory)
+	async function handlePrefetch(event: PrefetchEvent) {
+		const { playerData } = event;
+		const { name, generation } = playerData;
+		logger.verbose(`Prefetching ${name}`);
+		// This side doesn't know the save's cleared recipe list, so the whole stored list goes as the delta's add
+		await sendPlayerData(playerData, undefined, (chunk, number, total, extra) => (
+			`/sc player_sync.prefetch_inventory('${name}',${generation},'${chunk}',${number},${total}${extra})`
+		), true);
+	}
+	instance.handle(PrefetchEvent, handlePrefetch);
 
 	/** Tell the scenario which components are synced. */
 	async function sendComponents() {
