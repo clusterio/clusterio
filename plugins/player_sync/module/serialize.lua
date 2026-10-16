@@ -291,7 +291,8 @@ function serialize.serialize_personal_logistic_slots(player)
 		return serialized
 	end
 
-	local serialized = nil
+	-- Empty when there are no requests, nil means the player has nowhere to hold them
+	local serialized = {}
 
 	-- Serialize personal logistic slots
 	local last_valid = 0
@@ -299,9 +300,6 @@ function serialize.serialize_personal_logistic_slots(player)
 		local slot = player.get_personal_logistic_slot(i)
 		if slot.name then
 			last_valid = i
-			if not serialized then
-				serialized = {}
-			end
 			serialized[tostring(i)] = {
 				name = slot.name,
 				min = slot.min,
@@ -341,7 +339,9 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 		end
 
 		-- If this is an array instead of a table, migrate to v2 format
-		if serialized[1] ~= nil then
+		if next(serialized) == nil then
+			return
+		elseif serialized[1] ~= nil then
 			local section = logistic_point.add_section()
 			for i, slot in pairs(serialized) do
 				section.set_slot(i, {
@@ -376,10 +376,17 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 			end
 		end
 	else
-		for i, slot in pairs(serialized) do
-			if slot ~= nil then
-				player.set_personal_slogistic_slot(tonumber(i), slot)
+		local last_valid = 0
+		for i = 1, 65536 do
+			if player.get_personal_logistic_slot(i).name then
+				last_valid = i
+				player.clear_personal_logistic_slot(i)
+			elseif last_valid + 100 <= i then
+				break
 			end
+		end
+		for i, slot in pairs(serialized) do
+			player.set_personal_logistic_slot(tonumber(i), slot)
 		end
 	end
 end
