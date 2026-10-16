@@ -1004,8 +1004,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			return;
 		}
 
+		// A version that is still being extracted can already look installed
+		const dst = path.join(this._factorioDir, latestVersion.version);
 		const installedVersions = await listFactorioVersions(this._factorioDir);
-		if (!installedVersions.versions.has(latestVersion.version)) {
+		if (!installedVersions.versions.has(latestVersion.version) || downloadsInProgress.has(dst)) {
 			const v = latestVersion.version;
 			// Can't download if not linux or this is a direct install
 			if (installedVersions.direct) {
@@ -1026,7 +1028,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			}
 
 			// Download the newer version, or wait for another server already downloading it
-			const dst = path.join(this._factorioDir, latestVersion.version);
 			let download = downloadsInProgress.get(dst);
 			if (download) {
 				this._logger.info(`A newer version of factorio is available (${v}), waiting for download...`);

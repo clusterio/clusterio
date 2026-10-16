@@ -505,22 +505,61 @@ describe("host/server", function() {
 				});
 				/* eslint-enable no-loop-func */
 			}
-			it("should download once when servers check at the same time", async function() {
-				let fetches = 0;
-				global.fetch = async function() {
-					fetches += 1;
-					await wait(50);
-					return { ok: false, status: -1, statusText: "Fetch called" };
-				};
-				Object.defineProperty(process, "platform", { value: "linux" });
-
-				server._targetVersion = "latest";
-				const other = new hostServer.FactorioServer(server._factorioDir, writePath, {});
+			describe("concurrent downloads", function() {
 				const versions = [{ stable: true, version: "0.1.5", headlessUrl: "test1" }];
-				await Promise.all([server, other].map(
-					s => assert.rejects(s.checkForUpdates(versions), /Fetch called/)
-				));
-				assert.equal(fetches, 1);
+
+				// Holds the mocked download open until release() and resolves waiting once a server waits for it
+				function holdDownload(factorioDir) {
+					const held = { fetches: 0 };
+					const release = new Promise(resolve => { held.release = resolve; });
+					held.fetching = new Promise(resolve => {
+						global.fetch = async function() {
+							held.fetches += 1;
+							resolve();
+							await release;
+							return { ok: false, status: -1, statusText: "Fetch called" };
+						};
+					});
+					let waited;
+					held.waiting = new Promise(resolve => { waited = resolve; });
+					const logger = { info: line => line.endsWith("waiting for download...") && waited() };
+					held.servers = [0, 1].map(() => new hostServer.FactorioServer(factorioDir, writePath, { logger }));
+					Object.defineProperty(process, "platform", { value: "linux" });
+					return held;
+				}
+
+				it("should download once when servers check at the same time", async function() {
+					const held = holdDownload(path.join("test", "file", "factorio"));
+					let settled = 0;
+					const checks = held.servers.map(s => s.checkForUpdates(versions).finally(() => { settled += 1; }));
+
+					await held.waiting;
+					assert.equal(held.fetches, 1);
+					assert.equal(settled, 0);
+
+					held.release();
+					await Promise.all(checks.map(check => assert.rejects(check, /Fetch called/)));
+					assert.equal(held.fetches, 1);
+				});
+				it("should wait for a download in progress whose version already looks installed", async function() {
+					const factorioDir = path.join("temp", "test", "download-lock");
+					await fs.rm(factorioDir, { force: true, recursive: true });
+					await fs.mkdir(factorioDir, { recursive: true });
+					const held = holdDownload(factorioDir);
+					const first = held.servers[0].checkForUpdates(versions);
+					await held.fetching;
+
+					// The extraction has written the changelog but has not finished
+					const dataDir = path.join(factorioDir, "0.1.5", "data");
+					await fs.mkdir(dataDir, { recursive: true });
+					await fs.writeFile(path.join(dataDir, "changelog.txt"), "Version: 0.1.5\n");
+					const second = held.servers[1].checkForUpdates(versions);
+
+					await held.waiting;
+					held.release();
+					await Promise.all([first, second].map(check => assert.rejects(check, /Fetch called/)));
+					assert.equal(held.fetches, 1);
+				});
 			});
 			it("should download a version correctly (live api)", async function() {
 				slowTest(this);
