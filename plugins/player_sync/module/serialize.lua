@@ -73,6 +73,23 @@ function serialize.deserialize_character(character, serialized)
 	end
 end
 
+--- Index of the last slot used by a serialized inventory
+local function last_slot_index(serialized)
+	local last = 0
+	for _, entry in ipairs(serialized.i) do
+		last = (entry.s or last + 1) + (entry.r or 0)
+	end
+	return last
+end
+
+--- Raise the inventory bonus of a character with its armor restored to fit a serialized main inventory
+--- @return integer raise Slots added to character_inventory_slots_bonus, to be removed again on the next tick
+local function raise_inventory_bonus(character, main)
+	local raise = math.max(0, last_slot_index(main) - #character.get_main_inventory())
+	character.character_inventory_slots_bonus = character.character_inventory_slots_bonus + raise
+	return raise
+end
+
 --- Restore the armor grid state, the grid exists after the armor inventory is restored
 function serialize.deserialize_character_grid(character, serialized)
 	local grid = character.grid
@@ -190,15 +207,18 @@ end
 --- @param destinations table<string, LuaInventory>
 --- @param inventories table<string, table>?
 --- @param items { name: string, count: integer, quality: string? }[]?
+--- @param after_armor fun()? Called once the armor is restored, before the other inventories
 --- @return table[] leftovers
-function serialize.place_items(destinations, inventories, items)
+function serialize.place_items(destinations, inventories, items, after_armor)
 	for _, destination in pairs(destinations) do
 		destination.clear()
 	end
 
-	-- Every inventory is restored before inserting into them, as restoring a slot replaces what is in it
+	-- Every inventory is restored before inserting into them, as restoring a slot replaces what is in it.
+	-- The armor first, its inventory bonus changes the size of the main inventory.
+	inventories = inventories or {}
 	local pending = {}
-	for name, serialized in pairs(inventories or {}) do
+	local function restore(name, serialized)
 		local destination = destinations[name]
 		local fitting, rest = split_inventory(serialized, destination and #destination or 0)
 		if destination then
@@ -206,6 +226,17 @@ function serialize.place_items(destinations, inventories, items)
 		end
 		for _, stack in ipairs(rest) do
 			table.insert(pending, { from = destination, stack = stack })
+		end
+	end
+	if inventories.armor then
+		restore("armor", inventories.armor)
+	end
+	if after_armor then
+		after_armor()
+	end
+	for name, serialized in pairs(inventories) do
+		if name ~= "armor" then
+			restore(name, serialized)
 		end
 	end
 	for _, item in pairs(items or {}) do
@@ -1226,6 +1257,7 @@ end
 --- @param components SyncComponents
 --- @param local_controller LocalControllerState? Controller to restore when the controller is not synced
 --- @return FailedDeserializationPlayerData?, table[]? Serialized stacks which did not fit, see spill_items
+--- @return integer? inventory_bonus_raise See raise_inventory_bonus
 function serialize.deserialize_player(player, serialized, components, local_controller)
 	local failed_deserialization = {}
 	local sync_controller = syncs(components, "controller")
@@ -1347,14 +1379,22 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 
 	-- Deserialize items, a ghost got them while it had a character above
 	local character = player.character
+	local inventory_bonus_raise
 	if place and not to_ghost then
 		local stats = character and items.character
 		if stats then
 			serialize.deserialize_character(character, stats)
 		end
 		local craft = character and queue
+		-- The bonus of the armor's equipment (toolbelts) only applies on the next tick, so once the armor is
+		-- restored the main inventory is raised to fit the data
 		spill = serialize.place_items(
-			serialize.item_destinations(player), inventories, not craft and queue and queue.ingredients or nil
+			serialize.item_destinations(player), inventories, not craft and queue and queue.ingredients or nil,
+			function()
+				if stats and inventories.main then
+					inventory_bonus_raise = raise_inventory_bonus(character, inventories.main)
+				end
+			end
 		)
 		if stats then
 			serialize.deserialize_character_grid(character, stats)
@@ -1378,7 +1418,7 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
 	end
 
-	return next(failed_deserialization) and failed_deserialization or nil, spill
+	return next(failed_deserialization) and failed_deserialization or nil, spill, inventory_bonus_raise
 end
 
 return serialize
