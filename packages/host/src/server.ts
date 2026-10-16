@@ -170,6 +170,9 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 	}
 }
 
+// Factorio downloads in progress by target directory, shared by every server in the process
+const downloadsInProgress = new Map<string, Promise<void>>();
+
 /**
  * Find factorio data directory of the given version
  *
@@ -1001,8 +1004,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			return;
 		}
 
+		// A version that is still being extracted can already look installed
+		const dst = path.join(this._factorioDir, latestVersion.version);
 		const installedVersions = await listFactorioVersions(this._factorioDir);
-		if (!installedVersions.versions.has(latestVersion.version)) {
+		if (!installedVersions.versions.has(latestVersion.version) || downloadsInProgress.has(dst)) {
 			const v = latestVersion.version;
 			// Can't download if not linux or this is a direct install
 			if (installedVersions.direct) {
@@ -1022,10 +1027,18 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 				return;
 			}
 
-			// Download the newer version
-			this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
-			const dst = path.join(this._factorioDir, latestVersion.version);
-			await downloadAndExtractTar(latestVersion.headlessUrl, dst);
+			// Download the newer version, or wait for another server already downloading it
+			let download = downloadsInProgress.get(dst);
+			if (download) {
+				this._logger.info(`A newer version of factorio is available (${v}), waiting for download...`);
+			} else {
+				this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
+				download = downloadAndExtractTar(latestVersion.headlessUrl, dst).finally(() => {
+					downloadsInProgress.delete(dst);
+				});
+				downloadsInProgress.set(dst, download);
+			}
+			await download;
 			this._logger.info(`Downloaded factorio version ${v}`);
 		}
 	}
