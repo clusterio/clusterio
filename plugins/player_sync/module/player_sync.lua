@@ -83,6 +83,24 @@ function player_sync.set_components(data)
 	get_script_data().components = assert(compat.json_to_table(data))
 end
 
+-- For plugins that move players to another instance: remote.call("player_sync", "set_destination", player_name,
+-- instance_id) just before LuaPlayer.connect_to_server, with the destination's Clusterio instance id. It only records
+-- it; if the player then leaves to switch servers, the upload carries it and the controller sends the player's data
+-- on to that instance (README, "Sending player data ahead"). A later call replaces it, and every leave clears it.
+remote.add_interface("player_sync", {
+	set_destination = function(player_name, instance_id)
+		-- Integers only: table_to_json writes inf and nan bare, which the host can't parse, so the upload carrying it
+		-- would fail on every retry and the session would be lost (inf % 1 and nan % 1 are nan, never 0)
+		if type(instance_id) ~= "number" or instance_id % 1 ~= 0 then
+			return
+		end
+		local player_record = get_script_data().players[player_name]
+		if player_record then
+			player_record.destination = instance_id
+		end
+	end,
+})
+
 -- This function is called internally when a player leaves the game to
 -- serialize the player for upload.
 function player_sync.serialize_player(player, player_record)
@@ -486,6 +504,9 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	local script_data = get_script_data()
 	local player = assert(game.get_player(event.player_index))
 	local player_record = script_data.players[player.name]
+	-- Recorded by set_destination. Every leave clears it; only an uploading switching_servers leave sends it on.
+	local destination = player_record.destination
+	player_record.destination = nil
 
 	-- If player has an active download release our acquisition but let the download continue
 	if script_data.active_downloads[player.name] then
@@ -505,6 +526,11 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		log("ERROR: Serializing player " .. player.name .. " failed: " .. result)
 		player.print("ERROR: Serializing player data failed: " .. result)
 		return
+	end
+	-- The controller sends the stored data on to that instance while the client reconnects. In the serialized table,
+	-- so a retried upload (check_active_uploads) carries it too.
+	if destination and event.reason == defines.disconnect_reason.switching_servers then
+		result.destination_instance_id = destination
 	end
 	script_data.active_uploads[player.name] = {
 		serialized = result,

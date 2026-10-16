@@ -959,6 +959,7 @@ end
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
+--- @field destination_instance_id integer? Only on a leave upload, for instance.ts, which strips it
 
 --- @param player LuaPlayer
 --- @return table<string, boolean>
