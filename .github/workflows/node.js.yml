@@ -16,7 +16,7 @@ jobs:
 
   test:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -64,7 +64,7 @@ jobs:
 
   version-compat:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -111,7 +111,7 @@ jobs:
 
   build:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.heavy != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

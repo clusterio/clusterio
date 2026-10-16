@@ -3,9 +3,9 @@ name: Classify CI changes
 on:
   workflow_call:
     outputs:
-      heavy:
+      build_and_test:
         description: Run the test and coverage matrix, compatibility tests, and mod build.
-        value: ${{ jobs.changes.outputs.heavy }}
+        value: ${{ jobs.changes.outputs.build_and_test }}
       js_lint:
         description: Run the JavaScript/TypeScript linter.
         value: ${{ jobs.changes.outputs.js_lint }}
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      heavy: ${{ steps.syntax.outputs.heavy || steps.paths.outputs.code }}
+      build_and_test: ${{ steps.syntax.outputs.build_and_test || steps.paths.outputs.code }}
       js_lint: ${{ steps.lint.outputs.js_lint }}
       lua_lint: ${{ steps.lint.outputs.lua_lint }}
     steps:
@@ -91,7 +91,7 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           # Skip only when every non-documentation file is an ordinary source edit.
-          echo 'heavy=true' >> "$GITHUB_OUTPUT"
+          echo 'build_and_test=true' >> "$GITHUB_OUTPUT"
           # A new branch has no previous commit; keep full validation on its first push.
           if [[ "$BASE" == 0000000000000000000000000000000000000000 ]]; then
             exit 0
@@ -123,4 +123,4 @@ jobs:
               exit 0
             fi
           done < "$RUNNER_TEMP/syntax-files"
-          echo 'heavy=false' >> "$GITHUB_OUTPUT"
+          echo 'build_and_test=false' >> "$GITHUB_OUTPUT"
