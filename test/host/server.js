@@ -505,6 +505,23 @@ describe("host/server", function() {
 				});
 				/* eslint-enable no-loop-func */
 			}
+			it("should download once when servers check at the same time", async function() {
+				let fetches = 0;
+				global.fetch = async function() {
+					fetches += 1;
+					await wait(50);
+					return { ok: false, status: -1, statusText: "Fetch called" };
+				};
+				Object.defineProperty(process, "platform", { value: "linux" });
+
+				server._targetVersion = "latest";
+				const other = new hostServer.FactorioServer(server._factorioDir, writePath, {});
+				const versions = [{ stable: true, version: "0.1.5", headlessUrl: "test1" }];
+				await Promise.all([server, other].map(
+					s => assert.rejects(s.checkForUpdates(versions), /Fetch called/)
+				));
+				assert.equal(fetches, 1);
+			});
 			it("should download a version correctly (live api)", async function() {
 				slowTest(this);
 				externalTest(this);

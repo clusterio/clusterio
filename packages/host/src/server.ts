@@ -170,6 +170,9 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 	}
 }
 
+// Factorio downloads in progress by target directory, shared by every server in the process
+const downloadsInProgress = new Map<string, Promise<void>>();
+
 /**
  * Find factorio data directory of the given version
  *
@@ -1022,10 +1025,19 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 				return;
 			}
 
-			// Download the newer version
-			this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
+			// Download the newer version, or wait for another server already downloading it
 			const dst = path.join(this._factorioDir, latestVersion.version);
-			await downloadAndExtractTar(latestVersion.headlessUrl, dst);
+			let download = downloadsInProgress.get(dst);
+			if (download) {
+				this._logger.info(`A newer version of factorio is available (${v}), waiting for download...`);
+			} else {
+				this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
+				download = downloadAndExtractTar(latestVersion.headlessUrl, dst).finally(() => {
+					downloadsInProgress.delete(dst);
+				});
+				downloadsInProgress.set(dst, download);
+			}
+			await download;
 			this._logger.info(`Downloaded factorio version ${v}`);
 		}
 	}
