@@ -436,25 +436,20 @@ end
 --- @param player LuaPlayer
 --- @param serialized table<string, string | QuickBarSlotEncoded>?
 function serialize.deserialize_quick_bar(player, serialized)
-	if not serialized then
-		return
-	end
-
+	-- Every slot is set, and the ones not in the data are cleared, so a slot moved or cleared on the
+	-- previous server does not come back from this server's old copy
+	serialized = serialized or {}
 	local width = v2_1_quick_bar_api and player.quick_bar_width
 	for i = 1, 100 do
 		local entry = serialized[tostring(i)]
-		if entry ~= nil then
-			local slot = serialize.deserialize_quick_bar_slot(entry, player)
-			if slot ~= nil then
-				if v2_1_quick_bar_api then
-					local page = math.floor((i - 1) / width) + 1
-					local page_slot = ((i - 1) % width) + 1
-					player.set_quick_bar_slot(page, page_slot, slot)
-				else
-					--- @diagnostic disable-next-line: param-type-mismatch
-					player.set_quick_bar_slot(i, slot)
-				end
-			end
+		local slot = entry ~= nil and serialize.deserialize_quick_bar_slot(entry, player) or nil
+		if v2_1_quick_bar_api then
+			local page = math.floor((i - 1) / width) + 1
+			local page_slot = ((i - 1) % width) + 1
+			player.set_quick_bar_slot(page, page_slot, slot)
+		else
+			--- @diagnostic disable-next-line: param-type-mismatch
+			player.set_quick_bar_slot(i, slot)
 		end
 	end
 end
