@@ -124,6 +124,7 @@ describe("player_sync plugin", function() {
 					["shortcuts", { "toggle-personal-roboport": "yes" }],
 					["character", { character_health_bonus: "100" }],
 					["character", { character_inventory_slots_bonus: -1 }],
+					["character", { character_reach_distance_bonus: -1 }],
 					["character", { character_crafting_speed_modifier: -5 }],
 					["quick_bar", { 1: { t: "f", n: "iron-plate", q: "normal", c: "~" } }],
 					["crafting_queue", {}],
