@@ -110,6 +110,24 @@ describe("host/create_scenario", function() {
 		);
 	});
 
+	it("should throw if a scenario file is unreadable", async function() {
+		if (process.platform === "win32" || process.getuid?.() === 0) {
+			this.skip();
+		}
+		const scenario = path.join(tempDir, "unreadable");
+		await fs.cp(path.join(tempDir, "scenario"), scenario, { recursive: true });
+		await fs.writeFile(path.join(scenario, "unreadable.lua"), "");
+		await fs.chmod(path.join(scenario, "unreadable.lua"), 0o000);
+		for (let i = 0; i < 20; i++) {
+			await fs.mkdir(path.join(scenario, `dir${i}`));
+			await fs.writeFile(path.join(scenario, `dir${i}`, "file.lua"), "");
+		}
+		await assert.rejects(
+			createScenario(scenario, path.join(tempDir, "from_unreadable"), [module]),
+			{ code: "EACCES" },
+		);
+	});
+
 	describe("createScenarioCommand()", function() {
 		it("should define the output positional and options", function() {
 			const positionals = [];

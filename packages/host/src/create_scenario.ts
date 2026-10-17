@@ -64,22 +64,31 @@ async function zipDirectory(dirPath: string, zipPath: string) {
 	const root = path.basename(path.resolve(dirPath));
 	const zip = new yazl.ZipFile();
 	const output = lib.zipOutputStream(zip);
-	let dirs: [string, string][] = [[dirPath, root]];
-	while (dirs.length) {
-		let [dir, relativeDir] = dirs.pop()!;
-		for (let entry of await fs.readdir(dir, { withFileTypes: true })) {
-			let fsPath = path.join(dir, entry.name);
-			let relativePath = path.posix.join(relativeDir, entry.name);
-			if (entry.isFile()) {
-				zip.addFile(fsPath, relativePath);
-			} else if (entry.isDirectory()) {
-				dirs.push([fsPath, relativePath]);
+	const fd = await fs.open(zipPath, "w");
+	// addFile() can fail before the traversal is done, so start writing first.
+	const writing = pipeline(output, fd.createWriteStream());
+	writing.catch(() => {});
+	try {
+		let dirs: [string, string][] = [[dirPath, root]];
+		while (dirs.length) {
+			let [dir, relativeDir] = dirs.pop()!;
+			for (let entry of await fs.readdir(dir, { withFileTypes: true })) {
+				let fsPath = path.join(dir, entry.name);
+				let relativePath = path.posix.join(relativeDir, entry.name);
+				if (entry.isFile()) {
+					zip.addFile(fsPath, relativePath);
+				} else if (entry.isDirectory()) {
+					dirs.push([fsPath, relativePath]);
+				}
 			}
 		}
+		zip.end();
+	} catch (err) {
+		output.destroy();
+		await writing.catch(() => {});
+		throw err;
 	}
-	zip.end();
-	const fd = await fs.open(zipPath, "w");
-	await pipeline(output, fd.createWriteStream());
+	await writing;
 }
 
 async function extractZip(zipPath: string, dirPath: string) {
