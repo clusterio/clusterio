@@ -33,7 +33,7 @@
 
 	"dependencies": {
 		"chalk": "catalog:",
-		"inquirer": "^8.2.4",
+		"inquirer": "^8.2.7",
 		"yargs": "catalog:"
 	}
 }
