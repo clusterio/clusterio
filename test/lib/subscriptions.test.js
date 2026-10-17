@@ -1045,6 +1045,24 @@ describe("lib/subscriptions", function() {
 				));
 			});
 
+			it("should unsubscribe without setImmediate, which browsers lack", async function() {
+				const unsubscribe = eventSubscriber.subscribe(() => {});
+				await onceConnectorSend();
+
+				const setImmediate = globalThis.setImmediate;
+				delete globalThis.setImmediate;
+				try {
+					unsubscribe();
+				} finally {
+					globalThis.setImmediate = setImmediate;
+				}
+				await onceConnectorSend();
+
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.empty()
+				));
+			});
+
 			it("should notify all callbacks", async function() {
 				let called1, called2;
 				const event = new RegisteredEvent();
@@ -1066,7 +1084,7 @@ describe("lib/subscriptions", function() {
 				eventSubscriber.subscribe((e, s) => { called2 = [e, s]; });
 
 				unsubscribe();
-				await new Promise(r => setImmediate(r));
+				await new Promise(r => setTimeout(r));
 				await eventSubscriber._handleEvent(event);
 
 				assert.deepEqual(called1, undefined);
@@ -1407,7 +1425,7 @@ describe("lib/subscriptions", function() {
 
 				eventSubscriber.control.sendTo = function() {};
 				unsubscribe();
-				await new Promise(r => setImmediate(r));
+				await new Promise(r => setTimeout(r));
 				const [,, error2] = eventSubscriber.getSnapshot();
 				assert.deepEqual(error2, null);
 			});

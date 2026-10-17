@@ -598,7 +598,7 @@ export class EventSubscriber<E, S = null> {
 			// By delaying the unsubscription here the subscription happens
 			// before the unsubscription, thus preventing the redundant
 			// updates from being sent out.
-			setImmediate(() => {
+			setTimeout(() => {
 				let index = this._callbacks.lastIndexOf(handler);
 				if (index === -1) {
 					return;
