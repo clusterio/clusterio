@@ -51,6 +51,57 @@ describe("player_sync plugin", function() {
 				assert(!validate(request), `accepted ${generation}`);
 			}
 		});
+		describe("SetPlayerDataRequest schema", function() {
+			const validate = lib.compile(msg.SetPlayerDataRequest.jsonSchema);
+			// Shaped like module/serialize.lua output
+			const exported = playerData("player", 7, {
+				epoch: 2,
+				color: { r: 1, g: 0.5, b: 0, a: 0.5 },
+				chat_color: { r: 1, g: 0.5, b: 0, a: 1 },
+				tag: "",
+				cheat_mode: false,
+				flashlight: true,
+				shortcuts: { "toggle-personal-roboport": true },
+				game_view_settings: { show_minimap: true },
+				character: {
+					character_running_speed_modifier: 0,
+					inventories: {
+						main: { b: 80, i: [{ n: "iron-plate", c: 100, r: 2 }, { s: 10, f: { name: "coal" } }] },
+						armor: { i: {} },
+					},
+				},
+				personal_logistic_slots: [],
+				quick_bar: { 1: { n: "iron-plate" } },
+				crafting_queue: { crafting_queue: [], ingredients: [] },
+				recipe_notifications: "",
+				components: { controller: true, inventories: true },
+			});
+			function accepts(data) {
+				return validate({ playerName: "player", playerData: data });
+			}
+
+			it("should accept exported and partial player data", function() {
+				assert(accepts(exported), JSON.stringify(validate.errors));
+				assert(accepts({ name: "player", generation: 0 }));
+				assert(accepts(playerData("player", 0, { controller: "ghost", ticks_to_respawn: 300 })));
+				assert(accepts(playerData("player", 0, { color: [1, 0, 0] })));
+			});
+			it("should reject data the scenario can't restore", function() {
+				for (const [field, value] of [
+					["controller", "not-a-controller"],
+					["controller", "remote"],
+					["color", "red"],
+					["force", 1],
+					["ticks_to_respawn", -1],
+					["inventories", { main: { i: "iron-plate" } }],
+					["inventories", { main: [] }],
+					["character", { inventories: { main: { i: [{ s: 0 }] } } }],
+					["shortcuts", { "toggle-personal-roboport": "yes" }],
+				]) {
+					assert(!accepts({ ...exported, [field]: value }), `accepted ${field} ${JSON.stringify(value)}`);
+				}
+			});
+		});
 		it("SetPlayerDataResponse should be round trip json serialisable", function() {
 			testRoundTripJsonSerialisable(msg.SetPlayerDataResponse, testMatrix([1, 5]));
 		});

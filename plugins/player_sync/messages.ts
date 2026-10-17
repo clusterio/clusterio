@@ -34,6 +34,49 @@ const jsonPlayerData = Type.Object({
 	name: Type.String(),
 });
 
+// The parts of an import that module/serialize.lua relies on, item stacks are checked by the Lua deserializer
+const jsonInventory = Type.Object({
+	b: Type.Optional(Type.Integer({ minimum: 0 })),
+	// An empty Lua table is encoded as an object
+	i: Type.Union([
+		Type.Array(Type.Object({
+			s: Type.Optional(Type.Integer({ minimum: 1 })),
+			r: Type.Optional(Type.Integer({ minimum: 0 })),
+		})),
+		Type.Object({}, { maxProperties: 0 }),
+	]),
+});
+const jsonInventories = Type.Record(Type.String(), jsonInventory);
+const jsonColor = Type.Union([
+	Type.Object({ r: Type.Number(), g: Type.Number(), b: Type.Number(), a: Type.Optional(Type.Number()) }),
+	Type.Array(Type.Number(), { minItems: 3, maxItems: 4 }),
+]);
+const jsonTable = Type.Union([Type.Array(Type.Unknown()), Type.Object({})]);
+const jsonImportedPlayerData = Type.Object({
+	generation: Type.Integer({ minimum: 0 }),
+	epoch: Type.Optional(Type.Integer({ minimum: 0 })),
+	name: Type.String(),
+	// Any physical controller, remote view is never stored
+	controller: Type.Optional(StringEnum(["character", "god", "editor", "cutscene", "spectator", "ghost"])),
+	color: Type.Optional(jsonColor),
+	chat_color: Type.Optional(jsonColor),
+	tag: Type.Optional(Type.String()),
+	force: Type.Optional(Type.String()),
+	cheat_mode: Type.Optional(Type.Boolean()),
+	flashlight: Type.Optional(Type.Boolean()),
+	shortcuts: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
+	game_view_settings: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
+	ticks_to_respawn: Type.Optional(Type.Integer({ minimum: 0 })),
+	character: Type.Optional(Type.Object({ inventories: Type.Optional(jsonInventories) })),
+	inventories: Type.Optional(jsonInventories),
+	quick_bar: Type.Optional(jsonTable),
+	hotbar: Type.Optional(jsonTable),
+	personal_logistic_slots: Type.Optional(jsonTable),
+	crafting_queue: Type.Optional(jsonTable),
+	recipe_notifications: Type.Optional(Type.String()),
+	components: Type.Optional(jsonTable),
+});
+
 export class AcquireResponse {
 	constructor(
 		public status: string,
@@ -302,7 +345,7 @@ export class SetPlayerDataRequest {
 
 	static jsonSchema = Type.Object({
 		"playerName": Type.String(),
-		"playerData": jsonPlayerData,
+		"playerData": jsonImportedPlayerData,
 	});
 
 	static fromJSON(json: Static<typeof SetPlayerDataRequest.jsonSchema>) {
