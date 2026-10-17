@@ -116,7 +116,7 @@ E.g.:
     let value = configInstance.fields["group.field"]
 
 The set method also takes an extra argument, which is the value to set the field to.
-If the value is not valid this will throw an InvalidValue exception, if the field doesn't exist it will throw an InvalidField exception.
+If the value is not valid this will throw an InvalidValueError exception, if the field doesn't exist it will throw an InvalidFieldError exception.
 
 
 ## Config Lifecycle
