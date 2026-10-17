@@ -84,20 +84,30 @@ function InventoryTable(props: { name: string, items: ItemSummary[] }) {
 }
 
 function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChange: () => void }) {
+	return <Drawer
+		title={props.playerName}
+		open={props.playerName !== undefined}
+		onClose={props.onClose}
+		size="large"
+	>
+		{/* Keyed so a request that finishes after switching players can only update the old player's view */}
+		{props.playerName !== undefined
+			&& <PlayerDetails key={props.playerName} playerName={props.playerName} onChange={props.onChange} />}
+	</Drawer>;
+}
+
+function PlayerDetails(props: { playerName: string, onChange: () => void }) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const instanceName = useInstanceName();
 	const [response, setResponse] = useState<GetPlayerDataResponse>();
 	const { playerName } = props;
-	// Only the latest request may set the response, older ones may be for another player
+	// Only the latest request may set the response, an import or delete can finish after a reload
 	const requestId = useRef(0);
 
 	const reload = useCallback(() => {
 		requestId.current += 1;
 		let id = requestId.current;
-		if (playerName === undefined) {
-			return;
-		}
 		control.send(new GetPlayerDataRequest(playerName)).then(result => {
 			if (id === requestId.current) {
 				setResponse(result);
@@ -106,10 +116,7 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 			notifyErrorHandler("Error loading player data")
 		);
 	}, [control, playerName]);
-	useEffect(() => {
-		setResponse(undefined);
-		reload();
-	}, [reload]);
+	useEffect(reload, [reload]);
 
 	function changed() {
 		reload();
@@ -124,9 +131,9 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 			notify("Invalid JSON", "error", err.message);
 			return;
 		}
-		playerData.name = playerName!;
+		playerData.name = playerName;
 		playerData.generation ??= 0;
-		let result = await control.send(new SetPlayerDataRequest(playerName!, playerData));
+		let result = await control.send(new SetPlayerDataRequest(playerName, playerData));
 		notify(`Stored player data for ${playerName} as generation ${result.generation}`);
 		changed();
 	}
@@ -144,12 +151,7 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 	const canModify = account.hasPermission("player_sync.inventory.modify");
 	const playerData = response?.playerData;
 	const acquiredBy = response?.instanceId !== undefined ? instanceName(response.instanceId) : undefined;
-	return <Drawer
-		title={playerName}
-		open={playerName !== undefined}
-		onClose={props.onClose}
-		size="large"
-	>
+	return <>
 		{response && <Space direction="vertical" size="middle" style={{ width: "100%" }}>
 			{acquiredBy !== undefined && <Alert
 				type="info"
@@ -161,7 +163,7 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 				}
 				action={canModify && <Popconfirm
 					title="Release the lock on this player?"
-					onConfirm={() => control.send(new ForceReleaseRequest(playerName!)).then(changed).catch(
+					onConfirm={() => control.send(new ForceReleaseRequest(playerName)).then(changed).catch(
 						notifyErrorHandler("Error releasing lock")
 					)}
 				>
@@ -195,7 +197,7 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 					}
 					okText="Delete"
 					okButtonProps={{ danger: true }}
-					onConfirm={() => control.send(new DeletePlayerDataRequest(playerName!)).then(changed).catch(
+					onConfirm={() => control.send(new DeletePlayerDataRequest(playerName)).then(changed).catch(
 						notifyErrorHandler("Error deleting player data")
 					)}
 				>
@@ -207,7 +209,7 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 				inventory => <InventoryTable key={inventory.name} {...inventory} />
 			)}
 		</Space>}
-	</Drawer>;
+	</>;
 }
 
 function InventoryPage() {
