@@ -897,6 +897,7 @@ end
 
 --- @class SerializedPlayerData
 --- @field generation number
+--- @field epoch number?
 --- @field name string
 --- @field controller string?
 --- @field color Color?

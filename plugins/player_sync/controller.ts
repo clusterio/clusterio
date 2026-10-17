@@ -22,38 +22,46 @@ async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 			}
 		}
 	}
-	logger.verbose(`Loading ${itemsPath}`);
+	return await loadMap<IpcPlayerData>(itemsPath, logger);
+}
+
+async function loadMap<V>(file: string, logger: lib.Logger): Promise<Map<string, V>> {
+	logger.verbose(`Loading ${file}`);
 	try {
-		let content = await fs.readFile(itemsPath, { encoding: "utf8" });
+		let content = await fs.readFile(file, { encoding: "utf8" });
 		return new Map(JSON.parse(content));
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
-			logger.verbose("Creating new player data database");
+			logger.verbose(`Creating new ${path.basename(file)}`);
 			return new Map();
 		}
 		throw err;
 	}
 }
 
-async function saveDatabase(
-	controllerConfig: lib.ControllerConfig,
-	playerDatastore: Map<string, IpcPlayerData> | undefined,
-	logger: lib.Logger,
-) {
-	if (playerDatastore) {
-		let file = path.resolve(controllerConfig.get("controller.database_directory"), "player_sync.json");
-		logger.verbose(`writing ${file}`);
-		let content = JSON.stringify(Array.from(playerDatastore));
-		await lib.safeOutputFile(file, content);
-	}
+async function saveMap(file: string, map: Map<string, unknown>, logger: lib.Logger) {
+	logger.verbose(`writing ${file}`);
+	await lib.safeOutputFile(file, JSON.stringify(Array.from(map)));
 }
+
+// Left behind by deleted player data so instances can tell their copy is stale
+type Tombstone = { generation: number, epoch: number };
 
 export default async function(context: ControllerPluginContext) {
 	const { controller, logger, plugin } = context;
 	const acquiredPlayers = new Map<string, { instanceId: number, expiresMs?: number }>();
+	const databaseDirectory = controller.config.get("controller.database_directory");
 	const playerDatastore: Map<string, IpcPlayerData> = await loadDatabase(controller.config, logger);
+	const tombstonesPath = path.resolve(databaseDirectory, "player_sync_deleted.json");
+	const tombstones = await loadMap<Tombstone>(tombstonesPath, logger);
 	let playerDatastoreDirty = false;
+
+	// Generation and epoch instances should compare their copy against
+	function storedVersion(playerName: string) {
+		let stored = playerDatastore.get(playerName) ?? tombstones.get(playerName);
+		return { generation: stored?.generation ?? 0, epoch: stored?.epoch ?? 0 };
+	}
 
 	// Returns the acquisition record for the player if it's still in effect
 	function getAcquisition(playerName: string) {
@@ -122,7 +130,8 @@ export default async function(context: ControllerPluginContext) {
 	controller.hooks.save.attach(plugin.name, async () => {
 		if (playerDatastoreDirty) {
 			playerDatastoreDirty = false;
-			await saveDatabase(controller.config, playerDatastore, logger);
+			await saveMap(path.resolve(databaseDirectory, "player_sync.json"), playerDatastore, logger);
+			await saveMap(tombstonesPath, tombstones, logger);
 		}
 	});
 
@@ -137,11 +146,13 @@ export default async function(context: ControllerPluginContext) {
 			};
 		}
 
-		let playerData = playerDatastore.get(playerName);
+		let { generation, epoch } = storedVersion(playerName);
 		return new msg.AcquireRequest.Response(
 			"acquired",
-			playerData ? playerData.generation : 0,
-			Boolean(playerData),
+			generation,
+			playerDatastore.has(playerName),
+			undefined,
+			epoch || undefined,
 		);
 	});
 
@@ -176,18 +187,26 @@ export default async function(context: ControllerPluginContext) {
 		}
 
 		acquiredPlayers.delete(playerName);
-		let oldPlayerData = playerDatastore.get(playerName);
-		if (store && oldPlayerData && oldPlayerData.generation >= playerData.generation) {
+		let stored = storedVersion(playerName);
+		if (store && (playerData.epoch ?? 0) !== stored.epoch) {
 			logger.warn(
-				`${instanceName} uploaded generation ${playerData.generation} while the stored` +
-				`generation is ${oldPlayerData.generation} for ${playerName}`
+				`${instanceName} uploaded ${playerName} from epoch ${playerData.epoch ?? 0} while the stored ` +
+				`epoch is ${stored.epoch}, discarding the outdated copy`
+			);
+			store = false;
+
+		} else if (store && stored.generation >= playerData.generation) {
+			logger.warn(
+				`${instanceName} uploaded generation ${playerData.generation} while the stored ` +
+				`generation is ${stored.generation} for ${playerName}`
 			);
 			store = false;
 		}
 
 		if (store) {
 			logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
-			playerDatastore.set(playerName, mergePlayerData(oldPlayerData, playerData));
+			playerDatastore.set(playerName, mergePlayerData(playerDatastore.get(playerName), playerData));
+			tombstones.delete(playerName);
 			playerDatastoreDirty = true;
 		}
 	});
@@ -253,11 +272,13 @@ export default async function(context: ControllerPluginContext) {
 		let { playerName, playerData } = request;
 		checkNotAcquired(playerName);
 
-		// Bump the generation so instances holding an older copy download this one
-		let oldPlayerData = playerDatastore.get(playerName);
+		// A new epoch makes every instance drop its copy, including ones with an unconfirmed upload
+		let stored = storedVersion(playerName);
 		playerData.name = playerName;
-		playerData.generation = Math.max(playerData.generation, (oldPlayerData?.generation ?? 0) + 1);
+		playerData.generation = Math.max(playerData.generation, stored.generation + 1);
+		playerData.epoch = stored.epoch + 1;
 		playerDatastore.set(playerName, playerData);
+		tombstones.delete(playerName);
 		playerDatastoreDirty = true;
 		logger.info(`Replaced player data for ${playerName} with generation ${playerData.generation}`);
 		return new msg.SetPlayerDataRequest.Response(playerData.generation);
@@ -270,6 +291,8 @@ export default async function(context: ControllerPluginContext) {
 		}
 		checkNotAcquired(playerName);
 
+		let { generation, epoch } = storedVersion(playerName);
+		tombstones.set(playerName, { generation, epoch: epoch + 1 });
 		playerDatastore.delete(playerName);
 		playerDatastoreDirty = true;
 		logger.info(`Deleted player data for ${playerName}`);

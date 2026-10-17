@@ -104,9 +104,15 @@ describe("player_sync controller", function() {
 			const response = await handler(msg.AcquireRequest)(new msg.AcquireRequest(instanceId, playerName));
 			return response.status === "acquired";
 		}
-		async function saved() {
+		async function saved(file = "player_sync.json") {
 			await controller.hooks.save.invoke();
-			return new Map(JSON.parse(await fs.readFile(path.join(databaseDir, "player_sync.json"), "utf8")));
+			return new Map(JSON.parse(await fs.readFile(path.join(databaseDir, file), "utf8")));
+		}
+		async function upload(instanceId, data) {
+			await handler(msg.UploadRequest)(new msg.UploadRequest(instanceId, data.name, data));
+		}
+		async function acquireResponse(instanceId, playerName) {
+			return await handler(msg.AcquireRequest)(new msg.AcquireRequest(instanceId, playerName));
 		}
 
 		beforeEach(async function() {
@@ -170,10 +176,25 @@ describe("player_sync controller", function() {
 			async function release(name) {
 				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest(name));
 			}
-			it("should store data with a bumped generation", async function() {
+			it("should store data with a bumped generation and epoch", async function() {
 				await release("stored");
 				assert.deepEqual(await set("stored", playerData("other", 1)), new msg.SetPlayerDataResponse(4));
-				assert.deepEqual((await saved()).get("stored"), playerData("stored", 4));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 4, { epoch: 1 }));
+			});
+			it("should invalidate unconfirmed uploads from instances", async function() {
+				// Instance 1 left with generation 4 but the upload never reached the controller
+				await release("stored");
+				await set("stored", playerData("stored", 0));
+				await upload(1, playerData("stored", 4));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 4, { epoch: 1 }));
+				assert.deepEqual(
+					await acquireResponse(1, "stored"), new msg.AcquireResponse("acquired", 4, true, undefined, 1),
+				);
+			});
+			it("should ignore the epoch in imported data", async function() {
+				await release("stored");
+				await set("stored", playerData("stored", 0, { epoch: 7 }));
+				assert.equal((await saved()).get("stored").epoch, 1);
 			});
 			it("should keep a higher provided generation", async function() {
 				await release("stored");
@@ -197,6 +218,32 @@ describe("player_sync controller", function() {
 				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
 				await del("stored");
 				assert(!(await saved()).has("stored"));
+			});
+			it("should keep the generation and bump the epoch", async function() {
+				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
+				await del("stored");
+				assert.deepEqual(
+					await acquireResponse(2, "stored"), new msg.AcquireResponse("acquired", 3, false, undefined, 1),
+				);
+				assert.deepEqual((await saved("player_sync_deleted.json")).get("stored"), { generation: 3, epoch: 1 });
+
+				controller = await load();
+				assert.deepEqual(
+					await acquireResponse(2, "stored"), new msg.AcquireResponse("acquired", 3, false, undefined, 1),
+				);
+			});
+			it("should accept the next upload from the new epoch only", async function() {
+				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
+				await del("stored");
+				await upload(1, playerData("stored", 11));
+				assert(!(await saved()).has("stored"));
+				await upload(2, playerData("stored", 4, { epoch: 1 }));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 4, { epoch: 1 }));
+				assert(!(await saved("player_sync_deleted.json")).has("stored"));
+
+				// The other instance downloads the baseline instead of uploading its stale copy
+				await upload(1, playerData("stored", 11));
+				assert.equal((await saved()).get("stored").generation, 4);
 			});
 			it("should reject unknown players", async function() {
 				await assert.rejects(del("unknown"), new lib.RequestError("No player data stored for unknown"));

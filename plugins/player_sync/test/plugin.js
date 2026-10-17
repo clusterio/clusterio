@@ -34,6 +34,23 @@ describe("player_sync plugin", function() {
 				[undefined, 1], // instanceId
 			));
 		});
+		it("AcquireResponse should be round trip json serialisable", function() {
+			testRoundTripJsonSerialisable(msg.AcquireResponse, testMatrix(
+				["acquired", "busy"], // status
+				[undefined, 3], // generation
+				[undefined, true], // hasData
+				[undefined, "Instance"], // message
+				[undefined, 2], // epoch
+			));
+		});
+		it("should reject non-integer generations", function() {
+			const validate = lib.compile(msg.SetPlayerDataRequest.jsonSchema);
+			assert(validate({ playerName: "player", playerData: playerData("player", 5) }));
+			for (const generation of [5.5, -1, "5"]) {
+				const request = { playerName: "player", playerData: playerData("player", generation) };
+				assert(!validate(request), `accepted ${generation}`);
+			}
+		});
 		it("SetPlayerDataResponse should be round trip json serialisable", function() {
 			testRoundTripJsonSerialisable(msg.SetPlayerDataResponse, testMatrix([1, 5]));
 		});

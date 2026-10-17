@@ -4,6 +4,8 @@ import { StringEnum, jsonArray } from "@clusterio/lib";
 // .\module\serialize.lua:serialize.serialize_player()
 export type IpcPlayerData = {
 	generation: number,
+	/** Bumped when the stored data is imported or deleted, invalidating copies held by instances */
+	epoch?: number,
 	name: string,
 	controller?: string,
 	color?: number[],
@@ -27,7 +29,8 @@ export type IpcPlayerData = {
 }
 
 const jsonPlayerData = Type.Object({
-	generation: Type.Number(),
+	generation: Type.Integer({ minimum: 0 }),
+	epoch: Type.Optional(Type.Integer({ minimum: 0 })),
 	name: Type.String(),
 });
 
@@ -37,6 +40,7 @@ export class AcquireResponse {
 		public generation?: number,
 		public hasData?: boolean,
 		public message?: string,
+		public epoch?: number,
 	) {
 	}
 
@@ -45,10 +49,11 @@ export class AcquireResponse {
 		"generation": Type.Optional(Type.Integer()),
 		"hasData": Type.Optional(Type.Boolean()),
 		"message": Type.Optional(Type.String()),
+		"epoch": Type.Optional(Type.Integer()),
 	});
 
 	static fromJSON(json: Static<typeof AcquireResponse.jsonSchema>): AcquireResponse {
-		return new this(json.status, json.generation, json.hasData, json.message);
+		return new this(json.status, json.generation, json.hasData, json.message, json.epoch);
 	}
 };
 export class AcquireRequest {
