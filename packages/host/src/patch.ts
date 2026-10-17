@@ -469,6 +469,8 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 		let writeStream;
 		[tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
 		const writing = pipeline(output.outputStream, writeStream);
+		// Awaited below, but a write error can reject it before then.
+		writing.catch(() => {});
 		try {
 			for (const entry of zip.entries.values()) {
 				const name = entry.fileName;
