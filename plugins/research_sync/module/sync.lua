@@ -114,7 +114,7 @@ end
 --- @param event EventData.on_research_finished
 sync.events[defines.events.on_research_finished] = function(event)
 	local script_data = get_script_data()
-	if research_sync.ignore_research_finished then
+	if script_data.ignore_research_finished then
 		return
 	end
 
