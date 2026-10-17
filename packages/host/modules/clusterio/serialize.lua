@@ -292,10 +292,10 @@ function serialize.deserialize_inventory(inventory, serialized)
 			if entry.f then
 				local call_success, call_return = pcall(inventory.set_filter, index, entry.f)
 				if not call_success then
-					print("Error: '" .. call_return .. "' thrown setting filter " .. entry.f)
+					print("Error: '" .. call_return .. "' thrown setting filter " .. serpent.line(entry.f))
 
 				elseif not call_return then
-					print("Error: Failed to set filter " .. entry.f)
+					print("Error: Failed to set filter " .. serpent.line(entry.f))
 				end
 			end
 

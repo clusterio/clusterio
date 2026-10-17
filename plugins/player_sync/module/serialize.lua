@@ -81,36 +81,88 @@ function serialize.deserialize_character_grid(character, serialized)
 	end
 end
 
--- Inventories by the names used in serialized data in the order they are filled, armor first as it adds slots to main
-local fill_order = { "armor", "guns", "ammo", "main", "trash" }
 -- Inventories items which do not fit into the inventory they came from are inserted into, in order
 local overflow_order = { "main", "guns", "ammo", "armor" }
 
---- Number of slots a serialized inventory uses
---- @param serialized table
---- @return number
-local function serialized_size(serialized)
-	local last = 0
-	for _, entry in ipairs(serialized.i) do
-		last = (entry.s or last + 1) + (entry.r or 0)
+--- Copy of a serialized item entry without the slot index, repeat count and filter
+--- @param entry table
+--- @return table
+local function stack_entry(entry)
+	local stack = {}
+	for key, value in pairs(entry) do
+		stack[key] = value
 	end
-	return last
+	stack.s = nil
+	stack.r = nil
+	stack.f = nil
+	return stack
 end
 
---- Copy of a serialized inventory without slot filters, for inventories which do not support them
+--- Split a serialized inventory into the slots which fit into an inventory of size and the stacks of those which do not
 --- @param serialized table
---- @return table
-local function without_filters(serialized)
-	local copy = { i = {} }
+--- @param size number
+--- @return table fitting, table[] rest
+local function split_inventory(serialized, size)
+	local fitting = { b = serialized.b, i = {} }
+	local rest = {}
+	local last = 0
 	for _, entry in ipairs(serialized.i) do
-		local item = {}
-		for key, value in pairs(entry) do
-			item[key] = value
+		local first = entry.s or last + 1
+		last = first + (entry.r or 0)
+		if last <= size then
+			table.insert(fitting.i, entry)
+		else
+			if first <= size then
+				local part = stack_entry(entry)
+				part.s = first
+				part.r = size > first and size - first or nil
+				part.f = entry.f
+				table.insert(fitting.i, part)
+			end
+			if entry.n or entry.e then
+				for _ = math.max(first, size + 1), last do
+					table.insert(rest, stack_entry(entry))
+				end
+			end
 		end
-		item.f = nil
-		table.insert(copy.i, item)
 	end
-	return copy
+	return fitting, rest
+end
+
+local stack_definition_keys = { n = true, c = true, q = true, h = true, p = true, d = true, a = true }
+
+--- Insert as much of a serialized stack as possible into an inventory, reducing its count by what was inserted
+--- @param inventory LuaInventory
+--- @param stack table
+--- @return boolean placed true if all of it was inserted
+local function insert_stack(inventory, stack)
+	local plain = true
+	for key in pairs(stack) do
+		plain = plain and stack_definition_keys[key] or false
+	end
+
+	-- Stacks without labels, grids, inventories or export strings can be merged with what is in the inventory
+	if plain then
+		local inserted = inventory.insert({
+			name = stack.n, count = stack.c, quality = stack.q, health = stack.h,
+			spoil_percent = stack.p, durability = stack.d, ammo = stack.a,
+		})
+		stack.c = stack.c - inserted
+		return stack.c <= 0
+	end
+
+	-- Export strings have no name, and 1.1 does not take nil for it
+	local slot
+	if stack.n then
+		slot = inventory.find_empty_stack(stack.n)
+	else
+		slot = inventory.find_empty_stack()
+	end
+	if not slot or stack.n and not slot.can_set_stack({ name = stack.n, count = stack.c, quality = stack.q }) then
+		return false
+	end
+	clusterio_serialize.deserialize_item_stack(slot, stack)
+	return slot.valid_for_read
 end
 
 --- Inventories the items of a player go into, by the names used in serialized data
@@ -131,131 +183,84 @@ function serialize.item_destinations(player)
 	return destinations
 end
 
---- Insert as much of a stack as possible, starting with the inventory it came from
---- @param stack LuaItemStack
---- @param destinations table<string, LuaInventory>
---- @param from string?
-local function insert_stack(stack, destinations, from)
-	local function insert(destination)
-		if destination and stack.valid_for_read then
-			local inserted = destination.insert(stack)
-			if inserted >= stack.count then
-				stack.clear()
-			elseif inserted > 0 then
-				stack.count = stack.count - inserted
-			end
-		end
-	end
-	if from then
-		insert(destinations[from])
-	end
-	for _, name in ipairs(overflow_order) do
-		insert(destinations[name])
-	end
-end
-
 --- Replace the items in destinations with the serialized inventories and loose items
 ---
---- Each inventory goes slot for slot into the destination of the same name when it fits, otherwise its items are
---- inserted where there is space. Returns a script inventory with what did not fit, to be put into a corpse.
+--- Each inventory goes slot for slot into the destination of the same name as far as it fits, the slots past its
+--- size are inserted where there is space. Returns the serialized stacks which did not fit, see spill_items.
 --- @param destinations table<string, LuaInventory>
 --- @param inventories table<string, table>?
 --- @param items { name: string, count: integer, quality: string? }[]?
---- @return LuaInventory?
+--- @return table[] leftovers
 function serialize.place_items(destinations, inventories, items)
 	for _, destination in pairs(destinations) do
 		destination.clear()
 	end
 
-	local leftovers = {}
-	for _, name in ipairs(fill_order) do
-		local serialized = inventories and inventories[name]
-		local size = serialized and serialized_size(serialized) or 0
+	-- Every inventory is restored before inserting into them, as restoring a slot replaces what is in it
+	local pending = {}
+	for name, serialized in pairs(inventories or {}) do
 		local destination = destinations[name]
-		if serialized and destination and size <= #destination then
-			if not destination.supports_filters() then
-				serialized = without_filters(serialized)
-			end
-			clusterio_serialize.deserialize_inventory(destination, serialized)
-		elseif serialized and size > 0 then
-			-- Slot filters belong to the slot they were set on
-			local inventory = game.create_inventory(size)
-			clusterio_serialize.deserialize_inventory(inventory, without_filters(serialized))
-			table.insert(leftovers, { from = name, inventory = inventory })
+		local fitting, rest = split_inventory(serialized, destination and #destination or 0)
+		if destination then
+			clusterio_serialize.deserialize_inventory(destination, fitting)
 		end
+		for _, stack in ipairs(rest) do
+			table.insert(pending, { from = destination, stack = stack })
+		end
+	end
+	for _, item in pairs(items or {}) do
+		table.insert(pending, { stack = { n = item.name, c = item.count, q = item.quality } })
 	end
 
-	if items and next(items) then
-		local inventory = game.create_inventory(#items)
-		for _, item in pairs(items) do
-			local remaining = item.count
-			while remaining > 0 do
-				local inserted = inventory.insert({ name = item.name, count = remaining, quality = item.quality })
-				remaining = remaining - inserted
-				if remaining > 0 then
-					if inserted == 0 and not inventory.is_full() then
-						log("ERROR: Unable to place " .. remaining .. " " .. item.name .. ", voiding it")
-						break
-					end
-					inventory.resize(#inventory * 2)
-				end
-			end
+	local leftovers = {}
+	for _, entry in ipairs(pending) do
+		local stack = entry.stack
+		local placed = entry.from and insert_stack(entry.from, stack)
+		for _, name in ipairs(overflow_order) do
+			placed = placed or destinations[name] and insert_stack(destinations[name], stack)
 		end
-		table.insert(leftovers, { inventory = inventory })
-	end
-
-	local spill
-	local spilled = 0
-	for _, leftover in ipairs(leftovers) do
-		local inventory = leftover.inventory
-		for i = 1, #inventory do
-			local stack = inventory[i]
-			if stack.valid_for_read then
-				insert_stack(stack, destinations, leftover.from)
-			end
-			if stack.valid_for_read then
-				spill = spill or game.create_inventory(1)
-				if spilled == #spill then
-					spill.resize(#spill * 2)
-				end
-				spilled = spilled + 1
-				spill[spilled].transfer_stack(stack)
-			end
+		if not placed then
+			table.insert(leftovers, stack)
 		end
-		inventory.destroy()
 	end
-	return spill
+	return leftovers
 end
 
---- Put items which did not fit into a corpse below the player
+--- Put serialized stacks which did not fit into a corpse below the player
 --- @param player LuaPlayer
---- @param spill LuaInventory?
-function serialize.spill_items(player, spill)
-	if not spill then
+--- @param stacks table[]?
+function serialize.spill_items(player, stacks)
+	if not stacks or not next(stacks) then
 		return
 	end
-	spill.sort_and_merge()
-	local count = #spill - spill.count_empty_stacks()
+
+	-- Plain stacks can hold more than a stack's worth
+	local slots = 0
+	for _, stack in ipairs(stacks) do
+		local prototype = stack.n and compat.prototypes.item[stack.n]
+		slots = slots + (prototype and math.ceil((stack.c or 1) / prototype.stack_size) or 1)
+	end
+
 	local corpse = player.surface.create_entity({
 		name = "character-corpse",
 		position = player.position,
-		inventory_size = count,
+		inventory_size = slots,
 		player_index = player.index,
 	})
-	if corpse then
-		local inventory = assert(corpse.get_inventory(defines.inventory.character_corpse))
-		for i = 1, #spill do
-			if spill[i].valid_for_read then
-				assert(inventory.find_empty_stack()).transfer_stack(spill[i])
-			end
-		end
-		player.print(
-			"Some of your synced items do not fit into your inventory here and have been placed in a corpse below you."
-		)
-	else
-		log("ERROR: Unable to create a corpse for " .. player.name .. ", voiding " .. count .. " stacks of items")
+	if not corpse then
+		log("ERROR: Unable to create a corpse for " .. player.name .. ", voiding " .. #stacks .. " stacks of items")
+		return
 	end
-	spill.destroy()
+
+	local inventory = assert(corpse.get_inventory(defines.inventory.character_corpse))
+	for _, stack in ipairs(stacks) do
+		if not insert_stack(inventory, stack) then
+			log("ERROR: Unable to place " .. (stack.n or "an exported item") .. " into the corpse of " .. player.name)
+		end
+	end
+	player.print(
+		"Some of your synced items do not fit into your inventory here and have been placed in a corpse below you."
+	)
 end
 
 -- Personal logistic slots is a table mapping string indexes to a table with the following fields:
@@ -1173,7 +1178,7 @@ end
 --- @param serialized SerializedPlayerData
 --- @param components SyncComponents
 --- @param local_controller LocalControllerState? Controller to restore when the controller is not synced
---- @return FailedDeserializationPlayerData?, LuaInventory? Items which did not fit, see spill_items
+--- @return FailedDeserializationPlayerData?, table[]? Serialized stacks which did not fit, see spill_items
 function serialize.deserialize_player(player, serialized, components, local_controller)
 	local failed_deserialization = {}
 	local sync_controller = syncs(components, "controller")
