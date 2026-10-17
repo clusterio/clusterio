@@ -83,7 +83,7 @@ local function last_slot_index(serialized)
 end
 
 --- Raise the inventory bonus of a character with its armor restored to fit a serialized main inventory
---- @return integer raise Slots added to character_inventory_slots_bonus, to be removed again on the next tick
+--- @return integer raise Slots added to character_inventory_slots_bonus, removed again once the armor's bonus applies
 local function raise_inventory_bonus(character, main)
 	local raise = math.max(0, last_slot_index(main) - #character.get_main_inventory())
 	character.character_inventory_slots_bonus = character.character_inventory_slots_bonus + raise
@@ -1386,12 +1386,13 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 			serialize.deserialize_character(character, stats)
 		end
 		local craft = character and queue
-		-- The bonus of the armor's equipment (toolbelts) only applies on the next tick, so once the armor is
-		-- restored the main inventory is raised to fit the data
+		-- The bonus of the armor's equipment (toolbelts) only applies at the end of the tick, so once the armor is
+		-- restored the main inventory is raised to fit the data. Only for armor with a grid, restoring it raises
+		-- on_player_armor_inventory_changed which removes the raise.
 		spill = serialize.place_items(
 			serialize.item_destinations(player), inventories, not craft and queue and queue.ingredients or nil,
 			function()
-				if stats and inventories.main then
+				if stats and inventories.main and character and character.grid then
 					inventory_bonus_raise = raise_inventory_bonus(character, inventories.main)
 				end
 			end
