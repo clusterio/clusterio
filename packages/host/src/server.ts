@@ -771,9 +771,14 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	handleUdp(channel: string, handler: (data: Buffer) => Promise<void>) {
-		this.on(`udp-${channel}`, (data) => handler(data).catch((err: Error) => {
-			this._logger.error(`Error handling udp event:\n${err.stack ?? err.message}`);
-		}));
+		// Runs from the socket callback, so synchronous throws must be caught here too
+		this.on(`udp-${channel}`, async (data) => {
+			try {
+				await handler(data);
+			} catch (err: any) {
+				this._logger.error(`Error handling udp event:\n${err.stack ?? err.message}`);
+			}
+		});
 	}
 
 	async _handleIpc(line: Buffer) {

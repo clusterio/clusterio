@@ -471,6 +471,20 @@ describe("host/server", function() {
 				assert.equal(lines.length, 1);
 				assert(lines[0].startsWith("Error handling udp event:\nError: boom"), lines[0]);
 			});
+			it("should log errors thrown synchronously by handleUdp handlers", async function() {
+				await server._startUdp();
+				server.handleUdp("sync", () => { throw new Error("sync boom"); });
+				const { lines, restore } = captureLogger("error");
+				try {
+					sendFromGame("sync?data");
+					while (lines.length < 1) {
+						await wait(1);
+					}
+				} finally {
+					restore();
+				}
+				assert(lines[0].startsWith("Error handling udp event:\nError: sync boom"), lines[0]);
+			});
 			it("should forward socket errors", async function() {
 				await server._startUdp();
 				let waiter = events.once(server, "error");
