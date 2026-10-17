@@ -9,6 +9,9 @@ type SerializedItem = {
 	e?: string,
 };
 
+// Factorio serializes an empty table as {}
+type SerializedInventory = { i?: SerializedItem[] | Record<string, SerializedItem> };
+
 export type ItemSummary = {
 	name: string,
 	quality?: string,
@@ -22,10 +25,10 @@ export type InventorySummary = {
 	items: ItemSummary[],
 };
 
-export function summarizeInventory(inventory: { i?: SerializedItem[] }): ItemSummary[] {
+export function summarizeInventory(inventory: SerializedInventory): ItemSummary[] {
 	let items: ItemSummary[] = [];
 	let stacks = new Map<string, ItemSummary>();
-	for (let entry of inventory.i ?? []) {
+	for (let entry of Object.values(inventory.i ?? [])) {
 		let repeat = (entry.r ?? 0) + 1;
 		if (entry.e !== undefined) {
 			for (let i = 0; i < repeat; i++) {
@@ -51,6 +54,6 @@ export function summarizeInventory(inventory: { i?: SerializedItem[] }): ItemSum
 export function summarizePlayerInventories(playerData: IpcPlayerData): InventorySummary[] {
 	let inventories = playerData.character?.inventories ?? playerData.inventories ?? {};
 	return Object.entries(inventories).map(
-		([name, inventory]) => ({ name, items: summarizeInventory(inventory as { i?: SerializedItem[] }) })
+		([name, inventory]) => ({ name, items: summarizeInventory(inventory as SerializedInventory) })
 	);
 }

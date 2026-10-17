@@ -65,6 +65,7 @@ describe("player_sync plugin", function() {
 		});
 		it("should handle empty inventories", function() {
 			assert.deepEqual(summarizeInventory({}), []);
+			assert.deepEqual(summarizeInventory(JSON.parse('{"i":{}}')), []);
 			assert.deepEqual(
 				summarizeInventory({ i: [{ n: "wood" }] }),
 				[{ name: "wood", quality: undefined, count: 0 }],
@@ -87,6 +88,10 @@ describe("player_sync plugin", function() {
 			assert.deepEqual(summarizePlayerInventories(data), [
 				{ name: "main", items: [{ name: "stone", quality: undefined, count: 1 }] },
 			]);
+		});
+		it("should handle empty serialized inventories", function() {
+			const data = JSON.parse('{"generation":1,"name":"player","character":{"inventories":{"armor":{"i":{}}}}}');
+			assert.deepEqual(summarizePlayerInventories(data), [{ name: "armor", items: [] }]);
 		});
 		it("should handle missing inventories", function() {
 			assert.deepEqual(summarizePlayerInventories(playerData("player", 1)), []);
