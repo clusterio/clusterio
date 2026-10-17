@@ -346,13 +346,13 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 			logistic_point.remove_section(i)
 		end
 
-		-- If this is an array instead of a table, migrate to v2 format
+		-- Data from before 2.0 maps slot indices to requests, migrate it to a section
 		if next(serialized) == nil then
 			return
-		elseif serialized[1] ~= nil then
+		elseif serialized.sections == nil then
 			local section = logistic_point.add_section()
 			for i, slot in pairs(serialized) do
-				section.set_slot(i, {
+				section.set_slot(tonumber(i), {
 					value = {
 						name = slot.name,
 						quality = "normal",

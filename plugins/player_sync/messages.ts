@@ -23,8 +23,8 @@ export type IpcPlayerData = {
 	character?: any,
 	inventories?: any,
 	quick_bar?: any,
-	hotbar?: string[],
-	personal_logistic_slots?: {name:string, min:number, max:number}[],
+	hotbar?: Record<string, string>,
+	personal_logistic_slots?: any,
 	crafting_queue?: any,
 	recipe_notifications?: string,
 	// Components the upload was serialized with, all when missing
@@ -54,22 +54,22 @@ const jsonColor = Type.Union([
 	Type.Object({ r: Type.Number(), g: Type.Number(), b: Type.Number(), a: Type.Optional(Type.Number()) }),
 	Type.Array(Type.Number(), { minItems: 3, maxItems: 4 }),
 ]);
-// module/define_player_stat_keys.lua, missing stats are left as they are
+// Missing stats are left as they are, the minimums are the ones Factorio enforces
 const jsonCharacter = Type.Object({
-	character_crafting_speed_modifier: Type.Optional(Type.Number()),
-	character_mining_speed_modifier: Type.Optional(Type.Number()),
+	character_crafting_speed_modifier: Type.Optional(Type.Number({ minimum: -1 })),
+	character_mining_speed_modifier: Type.Optional(Type.Number({ minimum: -1 })),
 	character_additional_mining_categories: Type.Optional(jsonList(Type.String())),
-	character_running_speed_modifier: Type.Optional(Type.Number()),
+	character_running_speed_modifier: Type.Optional(Type.Number({ minimum: -1 })),
 	character_build_distance_bonus: Type.Optional(Type.Number()),
 	character_item_drop_distance_bonus: Type.Optional(Type.Number()),
 	character_reach_distance_bonus: Type.Optional(Type.Number()),
 	character_resource_reach_distance_bonus: Type.Optional(Type.Number()),
 	character_item_pickup_distance_bonus: Type.Optional(Type.Number()),
 	character_loot_pickup_distance_bonus: Type.Optional(Type.Number()),
-	character_inventory_slots_bonus: Type.Optional(Type.Number()),
-	character_trash_slot_count_bonus: Type.Optional(Type.Number()),
-	character_maximum_following_robot_count_bonus: Type.Optional(Type.Number()),
-	character_health_bonus: Type.Optional(Type.Number()),
+	character_inventory_slots_bonus: Type.Optional(Type.Integer({ minimum: 0 })),
+	character_trash_slot_count_bonus: Type.Optional(Type.Integer({ minimum: 0 })),
+	character_maximum_following_robot_count_bonus: Type.Optional(Type.Integer({ minimum: 0 })),
+	character_health_bonus: Type.Optional(Type.Number({ minimum: 0 })),
 	character_personal_logistic_requests_enabled: Type.Optional(Type.Boolean()),
 	allow_dispatching_robots: Type.Optional(Type.Boolean()),
 	inhibit_movement_bonus: Type.Optional(Type.Boolean()),
@@ -88,7 +88,7 @@ const jsonPersonalLogisticSlots = Type.Union([
 			group: Type.String(),
 			active: Type.Boolean(),
 			multiplier: Type.Number({ minimum: 0 }),
-			filters: jsonList(Type.Object({})),
+			filters: jsonList(Type.Object({ value: Type.Optional(Type.Object({})) })),
 		})),
 	}),
 	// From before 2.0, slot index to request
@@ -98,7 +98,12 @@ const jsonPersonalLogisticSlots = Type.Union([
 // QuickBarSlotEncoded in module/serialize.lua
 const jsonQuickBarSlot = Type.Union([
 	Type.String(),
-	Type.Object({ t: Type.Literal("f"), n: Type.String(), q: Type.String(), c: Type.String() }),
+	Type.Object({
+		t: Type.Literal("f"),
+		n: Type.String(),
+		q: Type.Optional(Type.String()),
+		c: Type.Optional(StringEnum(["=", ">", "<", "≥", ">=", "≤", "<=", "≠", "!="])),
+	}),
 	Type.Object({
 		t: Type.Literal("i"),
 		n: Type.String(),

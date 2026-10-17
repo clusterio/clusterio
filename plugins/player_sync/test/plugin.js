@@ -75,7 +75,12 @@ describe("player_sync plugin", function() {
 				personal_logistic_slots: {
 					enabled: true,
 					trash_not_requested: false,
-					sections: [{ group: "", active: true, multiplier: 1, filters: [{ index: 1, min: 50 }] }],
+					sections: [{
+						group: "",
+						active: true,
+						multiplier: 1,
+						filters: [{ value: { name: "iron-plate", type: "item" }, min: 3 }],
+					}],
 				},
 				quick_bar: {
 					1: "iron-plate",
@@ -118,6 +123,9 @@ describe("player_sync plugin", function() {
 					["character", { inventories: { main: { i: [{ s: 0 }] } } }],
 					["shortcuts", { "toggle-personal-roboport": "yes" }],
 					["character", { character_health_bonus: "100" }],
+					["character", { character_inventory_slots_bonus: -1 }],
+					["character", { character_crafting_speed_modifier: -5 }],
+					["quick_bar", { 1: { t: "f", n: "iron-plate", q: "normal", c: "~" } }],
 					["crafting_queue", {}],
 					["crafting_queue", { crafting_queue: [], crafting_queue_progress: 0 }],
 					["crafting_queue", {
@@ -129,6 +137,11 @@ describe("player_sync plugin", function() {
 					["personal_logistic_slots", { enabled: true, sections: [] }],
 					["personal_logistic_slots", { enabled: true, trash_not_requested: false, sections: [{}] }],
 					["personal_logistic_slots", { 1: { min: 50 } }],
+					["personal_logistic_slots", {
+						enabled: true,
+						trash_not_requested: false,
+						sections: [{ group: "", active: true, multiplier: 1, filters: [{ value: 5 }] }],
+					}],
 				]) {
 					assert(!accepts({ ...exported, [field]: value }), `accepted ${field} ${JSON.stringify(value)}`);
 				}
