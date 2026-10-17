@@ -31,9 +31,9 @@ local function start_sync(player_record, components)
 end
 
 -- Remember the controller the player had before sync code replaced it, restored when the controller is not synced
-local function save_local_controller(player, player_record)
+local function save_local_controller(player, player_record, components)
 	if not player_record.local_controller then
-		player_record.local_controller = serialize.serialize_local_controller(player)
+		player_record.local_controller = serialize.serialize_local_controller(player, components)
 	end
 end
 
@@ -42,6 +42,7 @@ local function create_player(player, dirty)
 	local script_data = get_script_data(true) -- no early return to support loading from single player
 	script_data.players[player.name] = {
 		dirty = dirty, -- Player inventory has changes that should be persisted
+		sync_in_progress = false, -- Player data is being downloaded, the current state should not be persisted
 		sync = false, -- Player inventory is synced from the controller
 		generation = 0,
 	}
@@ -115,7 +116,8 @@ function player_sync.deserialize_player(player, finished_record)
 
 	local script_data = get_script_data()
 	local player_record = script_data.players[player.name]
-	local local_controller = player_record.local_controller or serialize.serialize_local_controller(player)
+	local local_controller = player_record.local_controller
+		or serialize.serialize_local_controller(player, finished_record.components)
 
 	-- Stash temporary inventory if it exists, without inventory sync the current inventory is the one to keep
 	local stashed_corpse
@@ -315,17 +317,18 @@ function player_sync.sync_player(acquire_response)
 
 	local player_record = script_data.players[acquire_response.player_name]
 	if acquire_response.status ~= "acquired" then
-		if player_record.sync and not player_record.dirty then
+		if player_record.sync and (not player_record.dirty or player_record.sync_in_progress) then
 			if serialize.syncs(player_record.components, "inventories")
 				and player.controller_type == defines.controllers.character
 			then
-				save_local_controller(player, player_record)
+				save_local_controller(player, player_record, player_record.components)
 				local character = player.character
 				player.set_controller({ type = defines.controllers.spectator })
 				if character then character.destroy() end
 			end
 			player_record.sync = false
 		end
+		player_record.sync_in_progress = false
 		dialog_failed_download.create(player, acquire_response)
 		return
 	end
@@ -351,6 +354,7 @@ function player_sync.sync_player(acquire_response)
 
 		start_sync(player_record, script_data.components)
 		player_record.dirty = true
+		player_record.sync_in_progress = false
 	end
 end
 
@@ -366,10 +370,12 @@ function player_sync.finish_download(player, finished_record)
 		-- Treat this as a temporary inventory so the incomplete state is not uploaded over the synced data
 		player_record.dirty = true
 		player_record.sync = false
+		player_record.sync_in_progress = false
 		return
 	end
 
 	player_record.dirty = true
+	player_record.sync_in_progress = false
 	start_sync(player_record, finished_record.components)
 	player_record.generation = finished_record.generation
 end
@@ -426,7 +432,7 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		return
 	end
 
-	if not player_record.dirty or not player_record.sync then
+	if not player_record.dirty or not player_record.sync or player_record.sync_in_progress then
 		-- Nothing to upload, release the acquisition so other instances are not blocked
 		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
@@ -493,8 +499,10 @@ function player_sync.initiate_inventory_download(player, player_record, generati
 	clusterio_api.send_json("player_sync_download", {
 		player_name = player.name,
 		recipe_notifications = recipe_notifications,
-		components = record.components,
 	})
+
+	-- Indicate the current state shouldn't be persisted
+	player_record.sync_in_progress = true
 
 	-- If this is a synced player turn them into a spectator while the
 	-- player data is downloading
@@ -511,13 +519,10 @@ function player_sync.initiate_inventory_download(player, player_record, generati
 			record.vehicle = player.vehicle
 		end
 
-		save_local_controller(player, player_record)
+		save_local_controller(player, player_record, record.components)
 		local character = player.character
 		player.set_controller({ type = defines.controllers.spectator })
 		if character ~= nil then character.destroy() end
-
-		-- Indicate this state shouldn't be persisted
-		player_record.dirty = false
 	end
 
 	progress_dialog.display(player, 0, 1)

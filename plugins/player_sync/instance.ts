@@ -5,7 +5,7 @@ import type { InstancePluginContext } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
 } from "./messages.js";
-import { enabledComponents, scenarioComponents, stripPlayerData } from "./components.js";
+import { type Component, enabledComponents, stripPlayerData } from "./components.js";
 
 type IpcPlayerName = {
 	player_name: string
@@ -14,8 +14,11 @@ type IpcPlayerName = {
 type IpcDownloadRequest = {
 	player_name: string,
 	recipe_notifications?: string,
-	// Components the download was started with, all when missing
-	components?: Record<string, boolean> | unknown[],
+}
+
+/** Components as an escaped JSON object for the scenario. */
+function componentsJson(enabled: Set<Component>) {
+	return lib.escapeString(JSON.stringify(Object.fromEntries([...enabled].map(name => [name, true]))));
 }
 
 type IpcAcquireResponse = {
@@ -201,16 +204,20 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
-		stripPlayerData(response.playerData, scenarioComponents(request.components));
+		const enabled = enabledComponents(instance.config);
+		stripPlayerData(response.playerData, enabled);
 		await applyRecipeNotificationDelta(response.playerData, request.recipe_notifications, logger);
 
 		const chunkSize = instance.config.get("player_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));
 		logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
+		// The scenario restarts the download if it was started with other components
+		const components = componentsJson(enabled);
 		for (let i = 0; i < chunks.length; i++) {
 			const chunk = lib.escapeString(chunks[i]);
+			const extra = i === 0 ? `,'${components}'` : "";
 			await instance.sendRcon(
-				`/sc player_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length})`,
+				`/sc player_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length}${extra})`,
 				true,
 				plugin.name,
 			);
@@ -245,8 +252,7 @@ export default async function(context: InstancePluginContext) {
 
 	/** Tell the scenario which components are synced. */
 	async function sendComponents() {
-		const enabled = Object.fromEntries([...enabledComponents(instance.config)].map(name => [name, true]));
-		const json = lib.escapeString(JSON.stringify(enabled));
+		const json = componentsJson(enabledComponents(instance.config));
 		await instance.sendRcon(`/sc player_sync.set_components("${json}")`, true, plugin.name);
 	}
 

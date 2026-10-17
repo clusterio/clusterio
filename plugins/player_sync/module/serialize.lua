@@ -963,20 +963,44 @@ function serialize.deserialize_game_view_settings(player, serialized)
 	end
 end
 
+--- @alias SyncComponent
+--- | "controller"
+--- | "force"
+--- | "appearance"
+--- | "inventories"
+--- | "logistics"
+--- | "quick_bar"
+--- | "settings"
+--- | "recipe_notifications"
+
 --- Components which are synced, nil when all of them are
---- @alias SyncComponents table<string, boolean>?
+--- @alias SyncComponents table<SyncComponent, boolean>?
 
 --- @param components SyncComponents
---- @param name string
+--- @param name SyncComponent
 --- @return boolean
 local function syncs(components, name)
 	return components == nil or components[name] == true
 end
 serialize.syncs = syncs
 
+--- @type SyncComponent[]
 local component_names = {
 	"controller", "force", "appearance", "inventories", "logistics", "quick_bar", "settings", "recipe_notifications",
 }
+
+--- True if the same components are synced in both
+--- @param a SyncComponents
+--- @param b SyncComponents
+--- @return boolean
+function serialize.same_components(a, b)
+	for _, name in ipairs(component_names) do
+		if syncs(a, name) ~= syncs(b, name) then
+			return false
+		end
+	end
+	return true
+end
 
 --- True if a component synced in new_components was not synced in old_components
 --- @param old_components SyncComponents

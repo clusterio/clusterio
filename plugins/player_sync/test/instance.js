@@ -104,9 +104,10 @@ describe("player_sync", function() {
 				await lib.wait(1);
 			}
 		}
-		function downloadCommand(playerData) {
+		function downloadCommand(playerData, enabled = Object.keys(components)) {
 			const json = lib.escapeString(JSON.stringify(playerData));
-			return `/sc player_sync.download_inventory('test','${json}',1,1)`;
+			const sent = lib.escapeString(JSON.stringify(Object.fromEntries(enabled.map(c => [c, true]))));
+			return `/sc player_sync.download_inventory('test','${json}',1,1,'${sent}')`;
 		}
 
 		it("should send an empty download when the controller has no data", async function() {
@@ -129,13 +130,16 @@ describe("player_sync", function() {
 			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
-		it("should leave out components the download was not started with", async function() {
+		it("should leave out components which are not synced", async function() {
+			for (const component of Object.keys(components)) {
+				instance.mockConfigEntries.set(`player_sync.sync_${component}`, component === "appearance");
+			}
 			respondWith({ generation: 1, name: "test", force: "enemy", tag: "tag", recipe_notifications: "x" });
-			await download({ player_name: "test", components: { appearance: true } });
+			await download({ player_name: "test" });
 			const expected = { generation: 1, name: "test", tag: "tag" };
-			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
+			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected, ["appearance"])]);
 		});
-		it("should ignore config changes made while the controller responds", async function() {
+		it("should send the components it stripped by when the config changes during the download", async function() {
 			instance.connector.once("send", message => {
 				instance.mockConfigEntries.set("player_sync.sync_force", false);
 				instance.connector.emit("message", new lib.MessageResponse(
@@ -143,9 +147,27 @@ describe("player_sync", function() {
 					new DownloadResponse({ generation: 1, name: "test", force: "enemy", tag: "tag" }),
 				));
 			});
-			await download({ player_name: "test", components: { force: true } });
-			const expected = { generation: 1, name: "test", force: "enemy" };
-			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
+			await download({ player_name: "test" });
+			const expected = { generation: 1, name: "test", tag: "tag" };
+			const enabled = Object.keys(components).filter(c => c !== "force");
+			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected, enabled)]);
+		});
+		it("should only send the components with the first chunk", async function() {
+			instance.mockConfigEntries.set("player_sync.rcon_chunk_size", 10);
+			try {
+				respondWith({ generation: 1, name: "test" });
+				await download({ player_name: "test" });
+				for (let i = 0; i < 50 && instance.server.rconCommands.length < 3; i++) {
+					await lib.wait(1);
+				}
+				const [first, ...rest] = instance.server.rconCommands;
+				assert.match(first, /,1,3,'.+'\)$/);
+				for (const command of rest) {
+					assert.match(command, /,\d,3\)$/);
+				}
+			} finally {
+				instance.mockConfigEntries.set("player_sync.rcon_chunk_size", 100000);
+			}
 		});
 	});
 
