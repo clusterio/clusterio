@@ -5,6 +5,7 @@ import * as instance from "../data/messages_instance.js";
 import * as mod from "../data/messages_mod.js";
 import * as user from "../data/messages_user.js";
 import * as role from "../data/messages_role.js";
+import * as note from "../data/messages_note.js";
 import * as plugin from "../data/messages_plugin.js";
 import * as subscriptions from "../subscriptions.js";
 import type { RequestClass, EventClass } from "./link.js";
@@ -125,6 +126,10 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	role.RoleUpdateRequest,
 	role.RoleGrantDefaultPermissionsRequest,
 	role.RoleDeleteRequest,
+
+	note.NoteListRequest,
+	note.NoteUpdatesEvent,
+	note.NoteSetRequest,
 
 	user.UserGetRequest,
 	user.UserListRequest,
