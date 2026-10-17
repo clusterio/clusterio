@@ -155,7 +155,7 @@ export default class ControlConnection extends BaseConnection {
 		try {
 			this.checkPermission(message, entry);
 		} catch (err: any) {
-			this.connector.sendResponseError(new lib.ResponseError(err.message, err.code), message.src);
+			this.connector.sendResponseError(lib.Link.errorToResponse(err, false), message.src);
 			logger.audit(`Permission denied for ${message.name} by ${this.user.id} from ${this.connector.dst}`);
 			throw err;
 		}
@@ -197,7 +197,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleControllerRestartRequest() {
 		if (!this._controller.canRestart) {
-			throw new lib.RequestError("Cannot restart, controller does not have a process monitor to restart it.");
+			throw new lib.ConflictError("Cannot restart, controller does not have a process monitor to restart it.");
 		}
 		if (await lib.packageOperationRunning()) {
 			throw new lib.RequestError("Cannot restart while a plugin install or update is running on this machine.");
@@ -205,7 +205,7 @@ export default class ControlConnection extends BaseConnection {
 		const downgrade = await this._controller.checkRestartDowngrade();
 		if (downgrade) {
 			const { installedVersion, runningVersion } = downgrade;
-			throw new lib.RequestError(
+			throw new lib.ConflictError(
 				`Cannot restart controller with installed Clusterio version ${installedVersion} because it ` +
 				`is older than running version ${runningVersion}. ` +
 				"Stop the controller before starting the older version manually."
@@ -303,13 +303,13 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
 		if ((request.config["instance.assigned_host"] ?? null) !== null) {
-			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
+			throw new lib.ValidationError("instance.assigned_host must be set through the assign-host interface");
 		}
 		const instanceConfig = new lib.InstanceConfig("controller");
 		if (request.cloneFromId) {
 			const baseInstance = this._controller.instances.get(request.cloneFromId);
 			if (!baseInstance) {
-				throw new lib.RequestError(`Instance with ID ${request.cloneFromId} does not exist`);
+				throw new lib.NotFoundError(`Instance with ID ${request.cloneFromId} does not exist`);
 			}
 			instanceConfig.update(baseInstance.config.toJSON(), false);
 			instanceConfig.set("instance.assigned_host", null); // New instances are unassigned
@@ -330,12 +330,12 @@ export default class ControlConnection extends BaseConnection {
 
 	private static validateInstanceConfigSetField(fieldName: string) {
 		if (fieldName === "instance.assigned_host") {
-			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
+			throw new lib.ValidationError("instance.assigned_host must be set through the assign-host interface");
 		}
 
 		if (fieldName === "instance.id") {
 			// XXX is this worth implementing?  It's race condition galore.
-			throw new lib.RequestError("Setting instance.id is not supported");
+			throw new lib.ValidationError("Setting instance.id is not supported");
 		}
 	}
 
@@ -393,7 +393,7 @@ export default class ControlConnection extends BaseConnection {
 		let ready = new Promise<void>((resolve, reject) => {
 			stream.events.on("source", resolve);
 			stream.events.on("timeout", () => reject(
-				new lib.RequestError("Timed out establishing stream from host")
+				new lib.TimeoutError("Timed out establishing stream from host")
 			));
 		});
 		ready.catch(() => {});
@@ -410,17 +410,17 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
 		if (request.sourceInstanceId === request.targetInstanceId) {
-			throw new lib.RequestError("Source and target instance may not be the same");
+			throw new lib.ValidationError("Source and target instance may not be the same");
 		}
 		let sourceInstance = this._controller.instances.getForRequest(request.sourceInstanceId);
 		let targetInstance = this._controller.instances.getForRequest(request.targetInstanceId);
 		let sourceHostId = sourceInstance.config.get("instance.assigned_host");
 		let targetHostId = targetInstance.config.get("instance.assigned_host");
 		if (sourceHostId === null) {
-			throw new lib.RequestError("Source instance is not assigned a host");
+			throw new lib.ConflictError("Source instance is not assigned a host");
 		}
 		if (targetHostId === null) {
-			throw new lib.RequestError("Target instance is not assigned a host");
+			throw new lib.ConflictError("Target instance is not assigned a host");
 		}
 
 		// Let host handle request if source and target is on the same host.
@@ -431,12 +431,12 @@ export default class ControlConnection extends BaseConnection {
 		// Check connectivity
 		let sourceHostConnection = this._controller.wsServer.hostConnections.get(sourceHostId);
 		if (!sourceHostConnection || sourceHostConnection.connector.closing) {
-			throw new lib.RequestError("Source host is not connected to the controller");
+			throw new lib.ConflictError("Source host is not connected to the controller");
 		}
 
 		let targetHostConnection = this._controller.wsServer.hostConnections.get(targetHostId);
 		if (!targetHostConnection || targetHostConnection.connector.closing) {
-			throw new lib.RequestError("Target host is not connected to the controller");
+			throw new lib.ConflictError("Target host is not connected to the controller");
 		}
 
 		// Create stream to proxy from target to source
@@ -445,7 +445,7 @@ export default class ControlConnection extends BaseConnection {
 			if (stream.source) {
 				stream.source.destroy();
 			}
-			stream.events.emit("error", new lib.RequestError("Timed out establishing transfer stream"));
+			stream.events.emit("error", new lib.TimeoutError("Timed out establishing transfer stream"));
 		});
 
 		// Ignore errors if not listening for them to avoid crash.
@@ -485,10 +485,10 @@ export default class ControlConnection extends BaseConnection {
 	async handleModPackCreateRequest(request: lib.ModPackCreateRequest) {
 		let modPack = request.modPack;
 		if (modPack.id === undefined) {
-			throw new lib.RequestError("Mod pack need an ID to be created");
+			throw new lib.ValidationError("Mod pack need an ID to be created");
 		}
 		if (this._controller.modPacks.has(modPack.id)) {
-			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
+			throw new lib.ConflictError(`Mod pack with ID ${modPack.id} already exist`);
 		}
 		this._controller.modPacks.set(modPack);
 	}
@@ -496,7 +496,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
 		let modPack = request.modPack;
 		if (modPack.id === undefined || !this._controller.modPacks.has(modPack.id)) {
-			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
+			throw new lib.NotFoundError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
 		this._controller.modPacks.set(modPack);
 	}
@@ -505,7 +505,7 @@ export default class ControlConnection extends BaseConnection {
 		let { id } = request;
 		let modPack = this._controller.modPacks.getMutable(id);
 		if (!modPack) {
-			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
+			throw new lib.NotFoundError(`Mod pack with ID ${id} does not exist`);
 		}
 		this._controller.modPacks.delete(modPack);
 		this._controller.deleteNote("mod_pack", id);
@@ -587,7 +587,7 @@ export default class ControlConnection extends BaseConnection {
 				author: (a:ModVersions, b:ModVersions) => strcmp(a.versions[0].author, b.versions[0].author),
 			};
 			if (!Object.prototype.hasOwnProperty.call(sorters, sort)) {
-				throw new lib.RequestError(`Invalid value for sort: ${sort}`);
+				throw new lib.ValidationError(`Invalid value for sort: ${sort}`);
 			}
 			resultList.sort(sorters[sort as keyof typeof sorters]);
 			let order = request.sortOrder;
@@ -634,7 +634,7 @@ export default class ControlConnection extends BaseConnection {
 		} catch (error: any) {
 			logger.error(`Error fetching all mods from portal (${request.factorioVersion}): ${error}`);
 			// Propagate a user-friendly error back to the client
-			throw new lib.RequestError(`Portal mod fetch failed: ${error}`);
+			throw new lib.InternalServerError(`Portal mod fetch failed: ${error}`);
 		}
 	}
 
@@ -652,7 +652,7 @@ export default class ControlConnection extends BaseConnection {
 			const token = this._controller.config.get("controller.factorio_token");
 
 			if (!username || username === "" || !token || token === "") {
-				throw new lib.RequestError("Factorio credentials (username, token) not configured on the controller.");
+				throw new lib.ConflictError("Factorio credentials (username, token) not configured on the controller.");
 			}
 
 			try {
@@ -661,18 +661,16 @@ export default class ControlConnection extends BaseConnection {
 
 			} catch (error: any) {
 				logger.error(`Error downloading mods from portal: ${error.message}`);
-				// Improve error message clarity
-				let errorMessage = "Mod portal download failed";
-				if (error instanceof lib.RequestError) {
-					errorMessage += `: ${error.message}`;
-				} else if (error.message.includes("401") || error.message.includes("Unauthorized")) {
-					errorMessage += ": Authentication failed. Check Factorio username/token in controller config.";
-				} else if (error.message.includes("404") || error.message.includes("Not Found")) {
-					errorMessage += ": Mod version not found on the portal.";
-				} else {
-					errorMessage += `: ${error.message}`;
+				const errorMessage = "Mod portal download failed";
+				if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+					throw new lib.ConflictError(
+						`${errorMessage}: Authentication failed. Check Factorio username/token in controller config.`
+					);
 				}
-				throw new lib.RequestError(errorMessage);
+				if (error.message.includes("404") || error.message.includes("Not Found")) {
+					throw new lib.NotFoundError(`${errorMessage}: Mod version not found on the portal.`);
+				}
+				throw new lib.InternalServerError(`${errorMessage}: ${error.message}`);
 			}
 		}
 
@@ -682,7 +680,7 @@ export default class ControlConnection extends BaseConnection {
 		for (const mod of request.mods) {
 			const modInfo = installedMods.find(m => m.name === mod.name && mod.version.testVersion(m.version));
 			if (!modInfo) {
-				throw new lib.RequestError(`Failed to find mod ${mod.name} in store after download attempt.`);
+				throw new lib.InternalServerError(`Failed to find mod ${mod.name} in store after download attempt.`);
 			}
 			modInfos.push(modInfo);
 		}
@@ -716,7 +714,7 @@ export default class ControlConnection extends BaseConnection {
 				} catch (error: any) {
 					if (!error.message.includes("404") && !error.message.includes("Not Found")) {
 						logger.error(`Error fetching mod from portal: ${error.message}`);
-						throw new lib.RequestError(`Dependency resolution failed: ${error.message}`);
+						throw new lib.InternalServerError(`Dependency resolution failed: ${error.message}`);
 					} else {
 						releases = null;
 					}
@@ -956,7 +954,7 @@ export default class ControlConnection extends BaseConnection {
 		let { id, name, description, permissions } = request;
 		let role = this._controller.roles.getMutable(id);
 		if (!role) {
-			throw new lib.RequestError(`Role with ID ${id} does not exist`);
+			throw new lib.NotFoundError(`Role with ID ${id} does not exist`);
 		}
 
 		role.name = name;
@@ -968,7 +966,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleRoleGrantDefaultPermissionsRequest(request: lib.RoleGrantDefaultPermissionsRequest) {
 		let role = this._controller.roles.get(request.id);
 		if (!role) {
-			throw new lib.RequestError(`Role with ID ${request.id} does not exist`);
+			throw new lib.NotFoundError(`Role with ID ${request.id} does not exist`);
 		}
 
 		role.grantDefaultPermissions();
@@ -980,7 +978,7 @@ export default class ControlConnection extends BaseConnection {
 
 		const role = this._controller.roles.get(id);
 		if (!role) {
-			throw new lib.RequestError(`Role with ID ${id} does not exist`);
+			throw new lib.NotFoundError(`Role with ID ${id} does not exist`);
 		}
 		this._controller.roles.delete(role);
 		this._controller.deleteNote("role", id);
@@ -1008,7 +1006,7 @@ export default class ControlConnection extends BaseConnection {
 		let name = request.name;
 		let user = this._controller.users.getByName(name);
 		if (!user) {
-			throw new lib.RequestError(`User ${name} does not exist`);
+			throw new lib.NotFoundError(`User ${name} does not exist`);
 		}
 
 		return user.toUserDetails();
@@ -1025,7 +1023,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleUserRevokeTokenRequest(request: lib.UserRevokeTokenRequest) {
 		let user = this._controller.users.getByName(request.name);
 		if (!user) {
-			throw new lib.RequestError(`User '${request.name}' does not exist`);
+			throw new lib.NotFoundError(`User '${request.name}' does not exist`);
 		}
 		if (user.id !== this.user.id) {
 			this.user.checkPermission("core.user.revoke_other_token");
@@ -1042,12 +1040,12 @@ export default class ControlConnection extends BaseConnection {
 	async handleUserUpdateRolesRequest(request: lib.UserUpdateRolesRequest) {
 		let user = this._controller.users.getByName(request.name);
 		if (!user) {
-			throw new lib.RequestError(`User '${request.name}' does not exist`);
+			throw new lib.NotFoundError(`User '${request.name}' does not exist`);
 		}
 
 		for (let roleId of request.roles) {
 			if (!this._controller.roles.has(roleId)) {
-				throw new lib.RequestError(`Role with ID ${roleId} does not exist`);
+				throw new lib.NotFoundError(`Role with ID ${roleId} does not exist`);
 			}
 		}
 
@@ -1063,7 +1061,7 @@ export default class ControlConnection extends BaseConnection {
 				this.user.checkPermission("core.user.create");
 				user = this._controller.users.createUser(name);
 			} else {
-				throw new lib.RequestError(`User '${name}' does not exist`);
+				throw new lib.NotFoundError(`User '${name}' does not exist`);
 			}
 		}
 
@@ -1079,7 +1077,7 @@ export default class ControlConnection extends BaseConnection {
 				this.user.checkPermission("core.user.create");
 				user = this._controller.users.createUser(name);
 			} else {
-				throw new lib.RequestError(`User '${name}' does not exist`);
+				throw new lib.NotFoundError(`User '${name}' does not exist`);
 			}
 		}
 
@@ -1097,7 +1095,7 @@ export default class ControlConnection extends BaseConnection {
 				this.user.checkPermission("core.user.create");
 				user = this._controller.users.createUser(name);
 			} else {
-				throw new lib.RequestError(`User '${name}' does not exist`);
+				throw new lib.NotFoundError(`User '${name}' does not exist`);
 			}
 		}
 
@@ -1109,7 +1107,7 @@ export default class ControlConnection extends BaseConnection {
 		let name = request.name;
 		let user = this._controller.users.getByName(name);
 		if (!user) {
-			throw new lib.RequestError(`User '${name}' does not exist`);
+			throw new lib.NotFoundError(`User '${name}' does not exist`);
 		}
 
 		this._controller.users.deleteUser(user);
@@ -1340,21 +1338,21 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleControllerUpdateRequest(request: lib.ControllerUpdateRequest) {
 		if (!this._controller.config.get("controller.allow_remote_updates")) {
-			throw new lib.RequestError("Remote updates are disabled on this machine");
+			throw new lib.ForbiddenError("Remote updates are disabled on this machine");
 		}
 		return await lib.updatePackage("@clusterio/controller");
 	}
 
 	async handlePluginUpdateRequest(request: lib.PluginUpdateRequest) {
 		if (!this._controller.config.get("controller.allow_plugin_updates")) {
-			throw new lib.RequestError("Plugin updates are disabled on this machine");
+			throw new lib.ForbiddenError("Plugin updates are disabled on this machine");
 		}
 		return await lib.handlePluginUpdate(request.pluginPackage, this._controller.pluginInfos);
 	}
 
 	async handlePluginInstallRequest(request: lib.PluginInstallRequest) {
 		if (!this._controller.config.get("controller.allow_plugin_install")) {
-			throw new lib.RequestError("Plugin installs are disabled on this machine");
+			throw new lib.ForbiddenError("Plugin installs are disabled on this machine");
 		}
 		const npmPackage = await lib.handlePluginInstall(request.pluginPackage);
 		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it. Version
@@ -1366,10 +1364,10 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
 		if (!this._controller.config.get("controller.allow_remote_updates")) {
-			throw new lib.RequestError("Remote updates are disabled on this machine");
+			throw new lib.ForbiddenError("Remote updates are disabled on this machine");
 		}
 		if (!this._controller.config.get("controller.allow_plugin_updates")) {
-			throw new lib.RequestError("Plugin updates are disabled on this machine");
+			throw new lib.ForbiddenError("Plugin updates are disabled on this machine");
 		}
 		return await lib.handleUpdateAll("@clusterio/controller", this._controller.pluginInfos);
 	}

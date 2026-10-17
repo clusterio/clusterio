@@ -162,7 +162,7 @@ export interface IUser extends UserDetails {
 	 *
 	 * @param permission - The permission to check for.
 	 * @throws {Error} If the given permission does not exist.
-	 * @throws {libErrors.PermissionError} if the user does noh have the given permission.
+	 * @throws {libErrors.PermissionDeniedError} if the user does noh have the given permission.
 	 */
 	checkPermission(permission: PermissionName): void
 }

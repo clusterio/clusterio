@@ -22,7 +22,7 @@ function checkRequestSaveName(name: string) {
 	try {
 		lib.checkFilename(name);
 	} catch (err: any) {
-		throw new lib.RequestError(`Save name ${err.message}`);
+		throw new lib.ValidationError(`Save name ${err.message}`);
 	}
 }
 
@@ -203,7 +203,7 @@ export class HostRouter {
 						return false;
 					}
 					origin.connector.sendResponseError(
-						new lib.ResponseError(msg || "Instance is not running."), message.src
+						new lib.ResponseError(msg || "Instance is not running.", "ConflictError"), message.src
 					);
 				}
 				return true;
@@ -265,13 +265,13 @@ export class HostRouter {
 		let dst = message.dst;
 		if (nextHop) {
 			origin.connector.sendResponseError(
-				new lib.ResponseError("Instance is already running."), message.src
+				new lib.ResponseError("Instance is already running.", "ConflictError"), message.src
 			);
 			return;
 		}
 		if (this.host._shuttingDown) {
 			origin.connector.sendResponseError(
-				new lib.ResponseError("Host is shutting down."), message.src
+				new lib.ResponseError("Host is shutting down.", "ConflictError"), message.src
 			);
 			return;
 		}
@@ -280,9 +280,7 @@ export class HostRouter {
 			instanceConnection.connector.forward(message);
 		}).catch(err => {
 			logger.error(`Error starting instance:\n${err.stack ?? err.message}`, this.host.instanceLogMeta(dst.id));
-			origin.connector.sendResponseError(
-				new lib.ResponseError(err.message, err.code, err.stack), message.src
-			);
+			origin.connector.sendResponseError(lib.Link.errorToResponse(err), message.src);
 		});
 	}
 
@@ -295,9 +293,7 @@ export class HostRouter {
 			}
 		} catch (err: any) {
 			if (message.type === "request") {
-				origin.connector.sendResponseError(
-					new lib.ResponseError(err.message, err.code, err.stack), message.src
-				);
+				origin.connector.sendResponseError(lib.Link.errorToResponse(err), message.src);
 			}
 			logger.warn(`Failed to deliver ${(message as any).name || "message"} (${message.type}): ${err.message}`);
 			if (err instanceof lib.InvalidMessage && err.errors) {
@@ -566,15 +562,15 @@ export default class Host extends lib.Link {
 
 	async handleHostRestartRequest() {
 		if (!this.canRestart) {
-			throw new lib.RequestError("Cannot restart, host does not have a process monitor to restart it.");
+			throw new lib.ConflictError("Cannot restart, host does not have a process monitor to restart it.");
 		}
 		if (await lib.packageOperationRunning()) {
-			throw new lib.RequestError("Cannot restart while a plugin install or update is running on this machine.");
+			throw new lib.ConflictError("Cannot restart while a plugin install or update is running on this machine.");
 		}
 		const downgrade = await this.checkRestartDowngrade();
 		if (downgrade) {
 			const { installedVersion, runningVersion } = downgrade;
-			throw new lib.RequestError(
+			throw new lib.ConflictError(
 				`Cannot restart host with installed Clusterio version ${installedVersion} because it is older than ` +
 				`running version ${runningVersion}. Stop the host before starting the older version manually.`
 			);
@@ -595,7 +591,7 @@ export default class Host extends lib.Link {
 		if (fieldName === "host.id") {
 			// Changing host.id at runtime is not worth the effort to
 			// support and will break a lot of things if it is allowed.
-			throw new lib.RequestError("Setting 'host.id' while host is running is not supported");
+			throw new lib.ConflictError("Setting 'host.id' while host is running is not supported");
 		}
 	}
 
@@ -840,7 +836,7 @@ export default class Host extends lib.Link {
 	getRequestInstance(instanceId: number) {
 		let instance = this.assignedInstances.get(instanceId);
 		if (!instance) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new lib.NotFoundError(`Instance with ID ${instanceId} does not exist`);
 		}
 		return instance;
 	}
@@ -886,7 +882,7 @@ export default class Host extends lib.Link {
 		}
 		if (!availablePorts.size) {
 			const others = inUse.size ? ` (${inUse.size} in use by other processes)` : "";
-			throw new lib.RequestError(`No available port left to assign from host.factorio_port_range${others}`);
+			throw new lib.ConflictError(`No available port left to assign from host.factorio_port_range${others}`);
 		}
 		const [newPort] = availablePorts;
 		instanceToAssign.config.set("factorio.host_assigned_game_port", newPort);
@@ -929,7 +925,7 @@ export default class Host extends lib.Link {
 	async _connectInstance(instanceId: number) {
 		let unloadedInstance = this.getRequestInstance(instanceId);
 		if (this.instanceConnections.has(instanceId) || this._startingInstances.has(instanceId)) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
+			throw new lib.ConflictError(`Instance with ID ${instanceId} is running`);
 		}
 
 		let hostAddress = new lib.Address(lib.Address.host, this.config.get("host.id"));
@@ -1084,10 +1080,10 @@ export default class Host extends lib.Link {
 			);
 		} catch (err: any) {
 			if (err.code === "EEXIST") {
-				throw new lib.RequestError(`${newName} already exists`);
+				throw new lib.ConflictError(`${newName} already exists`);
 			}
 			if (err.code === "ENOENT") {
-				throw new lib.RequestError(`${oldName} does not exist`);
+				throw new lib.NotFoundError(`${oldName} does not exist`);
 			}
 			throw err;
 		}
@@ -1107,7 +1103,7 @@ export default class Host extends lib.Link {
 			);
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				throw new lib.RequestError(`${source} does not exist`);
+				throw new lib.NotFoundError(`${source} does not exist`);
 			}
 			throw err;
 		}
@@ -1156,7 +1152,7 @@ export default class Host extends lib.Link {
 		} catch (err: any) {
 			// ENOENT may also come from a missing target saves folder.
 			if (err.code === "ENOENT" && !await fs.access(sourcePath).then(() => true, () => false)) {
-				throw new lib.RequestError(`${sourceName} does not exist`);
+				throw new lib.NotFoundError(`${sourceName} does not exist`);
 			}
 			throw err;
 		}
@@ -1188,7 +1184,7 @@ export default class Host extends lib.Link {
 			await fs.unlink(path.join(instance.path, "saves", name));
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				throw new lib.RequestError(`${name} does not exist`);
+				throw new lib.NotFoundError(`${name} does not exist`);
 			}
 			throw err;
 		}
@@ -1219,7 +1215,7 @@ export default class Host extends lib.Link {
 			content = (await fs.open(path.join(instance.path, "saves", name))).createReadStream();
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				throw new lib.RequestError(`${name} does not exist`);
+				throw new lib.NotFoundError(`${name} does not exist`);
 			}
 			throw err;
 		}
@@ -1238,12 +1234,12 @@ export default class Host extends lib.Link {
 	async handleInstanceDeleteInternalRequest(request: lib.InstanceDeleteInternalRequest) {
 		let instanceId = request.instanceId;
 		if (this.instanceConnections.has(instanceId)) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
+			throw new lib.ConflictError(`Instance with ID ${instanceId} is running`);
 		}
 
 		let instance = this.discoveredInstances.get(instanceId);
 		if (!instance) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new lib.NotFoundError(`Instance with ID ${instanceId} does not exist`);
 		}
 
 		this.discoveredInstances.delete(instanceId);
@@ -1253,21 +1249,21 @@ export default class Host extends lib.Link {
 
 	async handleHostUpdateRequest(request: lib.HostUpdateRequest) {
 		if (!this.config.get("host.allow_remote_updates")) {
-			throw new lib.RequestError("Remote updates are disabled on this machine");
+			throw new lib.ForbiddenError("Remote updates are disabled on this machine");
 		}
 		return await lib.updatePackage("@clusterio/host");
 	}
 
 	async handlePluginUpdateRequest(request: lib.PluginUpdateRequest) {
 		if (!this.config.get("host.allow_plugin_updates")) {
-			throw new lib.RequestError("Plugin updates are disabled on this machine");
+			throw new lib.ForbiddenError("Plugin updates are disabled on this machine");
 		}
 		return await lib.handlePluginUpdate(request.pluginPackage, this.pluginInfos);
 	}
 
 	async handlePluginInstallRequest(request: lib.PluginInstallRequest) {
 		if (!this.config.get("host.allow_plugin_install")) {
-			throw new lib.RequestError("Plugin installs are disabled on this machine");
+			throw new lib.ForbiddenError("Plugin installs are disabled on this machine");
 		}
 		const npmPackage = await lib.handlePluginInstall(request.pluginPackage);
 		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it. Version
@@ -1279,10 +1275,10 @@ export default class Host extends lib.Link {
 
 	async handleUpdateAllRequest(request: lib.UpdateAllRequest) {
 		if (!this.config.get("host.allow_remote_updates")) {
-			throw new lib.RequestError("Remote updates are disabled on this machine");
+			throw new lib.ForbiddenError("Remote updates are disabled on this machine");
 		}
 		if (!this.config.get("host.allow_plugin_updates")) {
-			throw new lib.RequestError("Plugin updates are disabled on this machine");
+			throw new lib.ForbiddenError("Plugin updates are disabled on this machine");
 		}
 		return await lib.handleUpdateAll("@clusterio/host", this.pluginInfos);
 	}

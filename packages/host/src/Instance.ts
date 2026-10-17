@@ -21,7 +21,7 @@ function checkRequestSaveName(name: string) {
 	try {
 		lib.checkFilename(name);
 	} catch (err: any) {
-		throw new lib.RequestError(`Save name ${err.message}`);
+		throw new lib.ValidationError(`Save name ${err.message}`);
 	}
 }
 
@@ -952,12 +952,12 @@ end`.replace(/\r?\n/g, " ");
 	 * Factorio refuses to read it if it is newer than the game.  It then
 	 * loads default settings instead, which can corrupt the save.
 	 *
-	 * @throws {lib.RequestError} if the mod pack version is higher than the server version.
+	 * @throws {lib.ConflictError} if the mod pack version is higher than the server version.
 	 */
 	checkModPackVersion(modPack: lib.ModPack) {
 		const serverVersion = this.server.version;
 		if (serverVersion && modPack.integerFactorioVersion > lib.integerFullVersion(serverVersion)) {
-			throw new lib.RequestError(
+			throw new lib.ConflictError(
 				`Mod pack ${modPack.name} is for Factorio ${modPack.factorioVersion} ` +
 				`which is newer than the Factorio ${serverVersion} this instance runs`
 			);
@@ -1360,7 +1360,7 @@ end`.replace(/\r?\n/g, " ");
 	async handleInstanceLoadScenarioRequest(request: lib.InstanceLoadScenarioRequest) {
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
-			throw new lib.RequestError("Load scenario cannot be used with save patching enabled");
+			throw new lib.ConflictError("Load scenario cannot be used with save patching enabled");
 		}
 
 		try {
@@ -1422,7 +1422,7 @@ end`.replace(/\r?\n/g, " ");
 
 	async handleInstanceSaveGameRequest() {
 		if (this._status !== "running") {
-			throw new lib.RequestError("Instance is not running");
+			throw new lib.ConflictError("Instance is not running");
 		}
 
 		const saved = new Promise<void>((resolve, reject) => {
@@ -1432,7 +1432,7 @@ end`.replace(/\r?\n/g, " ");
 			};
 			const onExit = () => {
 				this.server.off("save-finished", onSaved);
-				reject(new lib.RequestError("Instance stopped before the save finished"));
+				reject(new lib.ConflictError("Instance stopped before the save finished"));
 			};
 			this.server.once("save-finished", onSaved);
 			this.server.once("exit", onExit);

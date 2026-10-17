@@ -18,40 +18,76 @@ export class InstallationError extends Error {
 }
 
 /**
- * Thrown from requests sent when an error occured handling it
+ * Base class for errors caused by the request, such as invalid input,
+ * missing permissions or a missing resource. Corresponds to the HTTP 4xx
+ * range.
+ *
+ * Link does not log these as unexpected when a request handler throws them.
  */
-export class RequestError extends Error {
-	constructor(
-		message: string,
-		public code = "RequestError",
-		public stack?: string,
-	) {
-		super(message);
-	}
-}
+export class ClientError extends Error { }
 
 /**
- * Thrown when a permission check fails.
- *
- * Is a subclass of RequestError to prevent logging stack traces when
- * requests fail due to permission denied.
- *
+ * Thrown when the request contains invalid data (HTTP 400)
  */
-export class PermissionError extends RequestError {
-	constructor(
-		message: string,
-		code = "PermissionError",
-		stack?: string,
-	) {
-		super(message, code, stack);
-	}
+export class ValidationError extends ClientError { }
 
-}
+/**
+ * Thrown when a config value cannot be used for its field
+ */
+export class InvalidValueError extends ValidationError { }
+
+/**
+ * Thrown when a config field does not exist
+ */
+export class InvalidFieldError extends ValidationError { }
+
+/**
+ * Thrown when the request is not allowed (HTTP 403)
+ */
+export class ForbiddenError extends ClientError { }
+
+/**
+ * Thrown when a permission check fails
+ */
+export class PermissionDeniedError extends ForbiddenError { }
+
+/**
+ * Thrown when a config field is not accessible from the current location
+ */
+export class InvalidAccessError extends ForbiddenError { }
+
+/**
+ * Thrown when a resource the request refers to does not exist (HTTP 404)
+ */
+export class NotFoundError extends ClientError { }
+
+/**
+ * Thrown when an operation for a request timed out (HTTP 408)
+ */
+export class TimeoutError extends ClientError { }
+
+/**
+ * Thrown when the request conflicts with the current state, such as an
+ * instance that is running or a host that is not connected (HTTP 409)
+ */
+export class ConflictError extends ClientError { }
+
+/**
+ * Base class for errors caused by the side handling the request.
+ * Corresponds to the HTTP 5xx range.
+ */
+export class ServerError extends Error { }
+
+/**
+ * Received in place of an error response whose class is not registered,
+ * such as a TypeError thrown by a request handler (HTTP 500)
+ */
+export class InternalServerError extends ServerError { }
 
 /**
  * Signal for messages that fail validation
  */
-export class InvalidMessage extends Error {
+export class InvalidMessage extends ValidationError {
 	code = "InvalidMessage";
 	constructor(
 		message: string,

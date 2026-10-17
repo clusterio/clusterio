@@ -345,7 +345,7 @@ describe("lib/link/link", function() {
 				assert.deepEqual(
 					await message,
 					[new lib.MessageResponseError(
-						1, src, dst, new lib.ResponseError("Error", undefined, "Error")
+						1, src, dst, new lib.ResponseError("Error", "InternalServerError", "Error")
 					)]
 				);
 			});
@@ -361,7 +361,7 @@ describe("lib/link/link", function() {
 						1, src, dst,
 						new lib.ResponseError(
 							"Request NumberRequest failed validation",
-							response.data.code,
+							"InvalidMessage",
 							response.data.stack,
 						)
 					)
@@ -550,20 +550,20 @@ describe("lib/link/link", function() {
 					return { connector, link, message };
 				}
 
-				it("should silently deny on PermissionError from the permission check", function() {
+				it("should silently deny on ClientError from the permission check", function() {
 					const { connector, link, message } = controlSetup();
 					let handled = false;
 					let errored = false;
 					connector.on("error", () => { errored = true; });
 					link.handle(SimpleRequest, async () => { handled = true; });
-					link.validatePermission = () => { throw new lib.PermissionError("Denied"); };
+					link.validatePermission = () => { throw new lib.PermissionDeniedError("Denied"); };
 					connector.emit("message", message);
 					assert(!handled, "handler ran despite denial");
 					assert(!errored, "connector emitted error on denial");
 					assert.deepEqual(connector.sentMessages, [], "denial sent a message");
 				});
 
-				it("should not crash when the permission check throws a non-PermissionError", function() {
+				it("should not crash when the permission check throws a non-ClientError", function() {
 					const { connector, link, message } = controlSetup();
 					let handled = false;
 					let errored = false;
@@ -578,7 +578,7 @@ describe("lib/link/link", function() {
 					} finally {
 						lib.logger.error = originalError;
 					}
-					assert(!errored, "non-PermissionError escaped to the connector error path");
+					assert(!errored, "non-ClientError escaped to the connector error path");
 					assert(!handled, "handler ran after the permission check threw");
 					assert.equal(logged.length, 1);
 					assert(logged[0].startsWith("Unexpected error checking permission for SimpleRequest:\n"));
@@ -661,6 +661,109 @@ describe("lib/link/link", function() {
 
 				nextHop._clearPendingRequests(new lib.SessionLost("Session Lost"));
 				assert.equal(originConnector.sentMessages.length, answers, "request was answered twice");
+			});
+		});
+
+		describe("Error responses", function() {
+			class ErrorTestRequest {
+				static type = "request";
+				static src = "control";
+				static dst = "host";
+				static permission = null;
+			}
+			lib.Link.register(ErrorTestRequest);
+			class TestPluginError extends lib.ConflictError {
+				static plugin = "error_test";
+			}
+			lib.registerPluginMessages([{ name: "error_test", errors: [TestPluginError] }]);
+
+			// control 1 <-> controller <-> host 1, with the controller forwarding between the two
+			function forwardingSetup() {
+				const [clientConnector, controlConnector] = lib.VirtualConnector.makePair(
+					addr({ controlId: 1 }), addr("controller")
+				);
+				const [hostSideConnector, hostConnector] = lib.VirtualConnector.makePair(
+					addr("controller"), addr({ hostId: 1 })
+				);
+				const client = new lib.Link(clientConnector);
+				const controlSide = new lib.Link(controlConnector);
+				const hostSide = new lib.Link(hostSideConnector);
+				const host = new lib.Link(hostConnector);
+				controlSide.router = { forwardMessage(origin, message) {
+					hostSide.forwardRequest(message, origin);
+					return true;
+				} };
+				hostSide.router = { forwardMessage(origin, message) {
+					controlSide.connector.forward(message);
+					return true;
+				} };
+				return { client, host };
+			}
+
+			async function rejectionFor(err) {
+				const { client, host } = forwardingSetup();
+				host.handle(ErrorTestRequest, async () => { throw err; });
+				const logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = msg => { logged.push(msg); };
+				try {
+					await client.sendTo({ hostId: 1 }, new ErrorTestRequest());
+				} catch (received) {
+					return { received, logged };
+				} finally {
+					lib.logger.error = originalError;
+				}
+				throw new Error("Request did not reject");
+			}
+
+			it("should reject with the class thrown by the handler", async function() {
+				const err = new lib.NotFoundError("Thing does not exist");
+				const { received, logged } = await rejectionFor(err);
+				assert(received instanceof lib.NotFoundError);
+				assert.equal(received.message, "Thing does not exist");
+				assert.equal(received.stack, err.stack);
+				assert.deepEqual(logged, []);
+			});
+			it("should reject with a registered plugin error class", async function() {
+				const { received, logged } = await rejectionFor(new TestPluginError("Plugin conflict"));
+				assert(received instanceof TestPluginError);
+				assert.equal(received.message, "Plugin conflict");
+				assert.deepEqual(logged, []);
+			});
+			it("should reject with the closest registered class of an unregistered error", async function() {
+				class UnregisteredError extends lib.ConflictError { }
+				const { received } = await rejectionFor(new UnregisteredError("Busy"));
+				assert.equal(received.constructor, lib.ConflictError);
+			});
+			it("should reject with InternalServerError and log for unregistered errors", async function() {
+				const err = new TypeError("x is not a function");
+				const { received, logged } = await rejectionFor(err);
+				assert(received instanceof lib.InternalServerError);
+				assert.equal(received.message, "x is not a function");
+				assert.equal(received.stack, err.stack);
+				assert.equal(logged.length, 1);
+				assert(logged[0].startsWith("Unexpected error responding to ErrorTestRequest:\n"));
+			});
+			it("should reject with InternalServerError for an unknown error name", async function() {
+				const received = lib.Link.errorFromResponse(new lib.ResponseError("Gone", "other_plugin:GoneError"));
+				assert(received instanceof lib.InternalServerError);
+				assert.equal(received.message, "Gone");
+			});
+			it("should require plugin errors to set the plugin property", function() {
+				class MissingPluginError extends lib.ClientError { }
+				assert.throws(
+					() => lib.registerPluginMessages([{ name: "error_test_2", errors: [MissingPluginError] }]),
+					new Error(
+						"Expected error MissingPluginError from error_test_2 to have a static plugin property " +
+						"set to \"error_test_2\""
+					)
+				);
+			});
+			it("should throw when registering an error name twice", function() {
+				assert.throws(
+					() => lib.Link.registerError(lib.NotFoundError),
+					new Error("Error NotFoundError is already registered")
+				);
 			});
 		});
 

@@ -139,7 +139,7 @@ describe("controller/src/ControlConnection", function() {
 		it("rejects instance.assigned_host in the config", async function() {
 			await assert.rejects(
 				create({ "instance.id": 4001, "instance.name": "c1", "instance.assigned_host": 10 }),
-				new lib.RequestError("instance.assigned_host must be set through the assign-host interface"),
+				new lib.ValidationError("instance.assigned_host must be set through the assign-host interface"),
 			);
 			assert.equal(mockController.instances.has(4001), false);
 		});
@@ -197,7 +197,7 @@ describe("controller/src/ControlConnection", function() {
 			await connection.handleLogSetSubscriptionsRequest(
 				new lib.LogSetSubscriptionsRequest(true, false, [], [])
 			);
-			connection.user = { checkPermission() { throw new lib.PermissionError("Permission denied"); } };
+			connection.user = { checkPermission() { throw new lib.PermissionDeniedError("Permission denied"); } };
 			connection.checkLogPermission();
 			assert.equal(mockController.clusterLogger.transports.size, 0);
 			assert.equal(connection.logTransport, null);

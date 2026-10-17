@@ -10,11 +10,11 @@ describe("lib/data/messages_user", function() {
 			return { checked, checkPermission(permission) { checked.push(permission); } };
 		}
 
-		it("should deny an unknown importType with a PermissionError", function() {
+		it("should deny an unknown importType with a ValidationError", function() {
 			const user = grantAllUser();
 			assert.throws(
 				() => lib.UserBulkImportRequest.permission(user, { data: { importType: "foo", users: [] } }),
-				lib.PermissionError,
+				lib.ValidationError,
 			);
 		});
 

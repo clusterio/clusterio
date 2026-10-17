@@ -560,7 +560,7 @@ describe("lib/subscriptions", function() {
 
 				checkPermission(permission) {
 					if (permission === this.denied) {
-						throw new lib.PermissionError("Permission denied");
+						throw new lib.PermissionDeniedError("Permission denied");
 					}
 				}
 			}
@@ -794,7 +794,7 @@ describe("lib/subscriptions", function() {
 					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, "baz");
 					await assert.rejects(
 						ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src),
-						lib.RequestError,
+						lib.ValidationError,
 					);
 
 					ownSubscriptions.broadcast(new RegisteredEvent(), "baz");
@@ -973,7 +973,7 @@ describe("lib/subscriptions", function() {
 					);
 					await assert.rejects(
 						ownSubscriptions.handleRequest(link, request, connectorData.dst, connectorData.src),
-						lib.RequestError,
+						lib.ValidationError,
 					);
 				});
 			});
@@ -1371,15 +1371,13 @@ describe("lib/subscriptions", function() {
 				assert.notEqual(logged, undefined);
 			});
 
-			it("should not log error when sendTo throws SessionLost RequestError", async function() {
+			it("should not log error when sendTo throws SessionLost", async function() {
 				let logged;
 				const originalError = lib.logger.error;
 				lib.logger.error = msg => { logged = msg; };
 
 				mockControl.sendTo = async function() {
-					const err = new lib.RequestError("Session lost");
-					err.code = "SessionLost";
-					throw err;
+					throw new lib.SessionLost("Session lost");
 				};
 
 				try {
@@ -1402,26 +1400,26 @@ describe("lib/subscriptions", function() {
 				assert.equal(eventSubscriber.synced, true);
 
 				mockControl.sendTo = async function() {
-					throw new lib.PermissionError("Permission denied");
+					throw new lib.PermissionDeniedError("Permission denied");
 				};
 				eventSubscriber.handleAccountEvent();
 				await new Promise(r => setImmediate(r));
 				assert.equal(eventSubscriber.synced, false);
 				assert.deepEqual(calledWith, [null, false]);
-				assert.ok(eventSubscriber.error instanceof lib.PermissionError);
+				assert.ok(eventSubscriber.error instanceof lib.PermissionDeniedError);
 			});
 
 			it("should expose errors through the snapshot", async function() {
 				eventSubscriber.control.sendTo = function() {
-					throw new lib.PermissionError("Permission denied");
+					throw new lib.PermissionDeniedError("Permission denied");
 				};
 
 				const unsubscribe = eventSubscriber.subscribe(() => {});
 				await new Promise(r => setImmediate(r));
 				const [,, error1] = eventSubscriber.getSnapshot();
-				assert.ok(error1 instanceof lib.PermissionError);
+				assert.ok(error1 instanceof lib.PermissionDeniedError);
 				assert.equal(error1.message, "Permission denied");
-				assert.equal(error1.code, "PermissionError");
+				assert.equal(lib.Link.errorName(error1), "PermissionDeniedError");
 
 				eventSubscriber.control.sendTo = function() {};
 				unsubscribe();

@@ -307,12 +307,12 @@ async function startCtl() {
 			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
 
-		} else if (err instanceof lib.RequestError) {
-			if (err.stack) {
-				logger.error(`Error sending request:\n${err.stack}`);
-			} else {
-				logger.error(`Error sending request: ${err.message}`);
-			}
+		} else if (err instanceof lib.ClientError) {
+			logger.error(`Error sending request: ${err.message}`);
+			process.exitCode = 1;
+
+		} else if (err instanceof lib.ServerError) {
+			logger.error(`Error sending request:\n${err.stack ?? err.message}`);
 			process.exitCode = 1;
 
 		} else {
