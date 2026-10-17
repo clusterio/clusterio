@@ -65,14 +65,29 @@ describe("player_sync plugin", function() {
 				game_view_settings: { show_minimap: true },
 				character: {
 					character_running_speed_modifier: 0,
+					character_additional_mining_categories: {},
+					allow_dispatching_robots: true,
 					inventories: {
 						main: { b: 80, i: [{ n: "iron-plate", c: 100, r: 2 }, { s: 10, f: { name: "coal" } }] },
 						armor: { i: {} },
 					},
 				},
-				personal_logistic_slots: [],
-				quick_bar: { 1: { n: "iron-plate" } },
-				crafting_queue: { crafting_queue: [], ingredients: [] },
+				personal_logistic_slots: {
+					enabled: true,
+					trash_not_requested: false,
+					sections: [{ group: "", active: true, multiplier: 1, filters: [{ index: 1, min: 50 }] }],
+				},
+				quick_bar: {
+					1: "iron-plate",
+					2: { t: "f", n: "iron-gear-wheel", q: "normal", c: "=" },
+					3: { t: "i", n: "main", s: 4, b: [2] },
+					4: { t: "r", p: [1], y: "blueprint" },
+				},
+				crafting_queue: {
+					crafting_queue: [{ recipe: "iron-gear-wheel", count: 5 }],
+					crafting_queue_progress: 0.25,
+					ingredients: [{ name: "iron-plate", count: 10 }],
+				},
 				recipe_notifications: "",
 				components: { controller: true, inventories: true },
 			});
@@ -85,6 +100,11 @@ describe("player_sync plugin", function() {
 				assert(accepts({ name: "player", generation: 0 }));
 				assert(accepts(playerData("player", 0, { controller: "ghost", ticks_to_respawn: 300 })));
 				assert(accepts(playerData("player", 0, { color: [1, 0, 0] })));
+				assert(accepts(playerData("player", 0, {
+					crafting_queue: { crafting_queue: {}, crafting_queue_progress: 0, ingredients: {} },
+					personal_logistic_slots: { 1: { name: "iron-plate", min: 50 } },
+					hotbar: { 1: "iron-plate" },
+				})));
 			});
 			it("should reject data the scenario can't restore", function() {
 				for (const [field, value] of [
@@ -97,6 +117,18 @@ describe("player_sync plugin", function() {
 					["inventories", { main: [] }],
 					["character", { inventories: { main: { i: [{ s: 0 }] } } }],
 					["shortcuts", { "toggle-personal-roboport": "yes" }],
+					["character", { character_health_bonus: "100" }],
+					["crafting_queue", {}],
+					["crafting_queue", { crafting_queue: [], crafting_queue_progress: 0 }],
+					["crafting_queue", {
+						crafting_queue: [{ recipe: "iron-gear-wheel" }], crafting_queue_progress: 0, ingredients: [],
+					}],
+					["quick_bar", { 1: { t: "i", n: "main" } }],
+					["quick_bar", { 1: { t: "r", y: "blueprint" } }],
+					["quick_bar", { 1: 5 }],
+					["personal_logistic_slots", { enabled: true, sections: [] }],
+					["personal_logistic_slots", { enabled: true, trash_not_requested: false, sections: [{}] }],
+					["personal_logistic_slots", { 1: { min: 50 } }],
 				]) {
 					assert(!accepts({ ...exported, [field]: value }), `accepted ${field} ${JSON.stringify(value)}`);
 				}

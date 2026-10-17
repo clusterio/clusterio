@@ -69,7 +69,10 @@ end
 --- Restore the stats of a character, the inventories are restored with place_items
 function serialize.deserialize_character(character, serialized)
 	for _, key in pairs(character_stat_keys) do
-		character[key] = serialized[key]
+		-- Missing from imports and from data saved by another Factorio version
+		if serialized[key] ~= nil then
+			character[key] = serialized[key]
+		end
 	end
 end
 

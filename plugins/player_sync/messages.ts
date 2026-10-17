@@ -1,4 +1,4 @@
-import { Type, Static } from "@sinclair/typebox";
+import { Type, Static, TSchema } from "@sinclair/typebox";
 import { StringEnum, jsonArray } from "@clusterio/lib";
 
 // .\module\serialize.lua:serialize.serialize_player()
@@ -38,22 +38,89 @@ const jsonPlayerData = Type.Object({
 });
 
 // The parts of an import that module/serialize.lua relies on, item stacks are checked by the Lua deserializer
+// An empty Lua table is encoded as an object
+function jsonList<T extends TSchema>(item: T) {
+	return Type.Union([Type.Array(item), Type.Object({}, { maxProperties: 0 })]);
+}
 const jsonInventory = Type.Object({
 	b: Type.Optional(Type.Integer({ minimum: 0 })),
-	// An empty Lua table is encoded as an object
-	i: Type.Union([
-		Type.Array(Type.Object({
-			s: Type.Optional(Type.Integer({ minimum: 1 })),
-			r: Type.Optional(Type.Integer({ minimum: 0 })),
-		})),
-		Type.Object({}, { maxProperties: 0 }),
-	]),
+	i: jsonList(Type.Object({
+		s: Type.Optional(Type.Integer({ minimum: 1 })),
+		r: Type.Optional(Type.Integer({ minimum: 0 })),
+	})),
 });
 const jsonInventories = Type.Record(Type.String(), jsonInventory);
 const jsonColor = Type.Union([
 	Type.Object({ r: Type.Number(), g: Type.Number(), b: Type.Number(), a: Type.Optional(Type.Number()) }),
 	Type.Array(Type.Number(), { minItems: 3, maxItems: 4 }),
 ]);
+// module/define_player_stat_keys.lua, missing stats are left as they are
+const jsonCharacter = Type.Object({
+	character_crafting_speed_modifier: Type.Optional(Type.Number()),
+	character_mining_speed_modifier: Type.Optional(Type.Number()),
+	character_additional_mining_categories: Type.Optional(jsonList(Type.String())),
+	character_running_speed_modifier: Type.Optional(Type.Number()),
+	character_build_distance_bonus: Type.Optional(Type.Number()),
+	character_item_drop_distance_bonus: Type.Optional(Type.Number()),
+	character_reach_distance_bonus: Type.Optional(Type.Number()),
+	character_resource_reach_distance_bonus: Type.Optional(Type.Number()),
+	character_item_pickup_distance_bonus: Type.Optional(Type.Number()),
+	character_loot_pickup_distance_bonus: Type.Optional(Type.Number()),
+	character_inventory_slots_bonus: Type.Optional(Type.Number()),
+	character_trash_slot_count_bonus: Type.Optional(Type.Number()),
+	character_maximum_following_robot_count_bonus: Type.Optional(Type.Number()),
+	character_health_bonus: Type.Optional(Type.Number()),
+	character_personal_logistic_requests_enabled: Type.Optional(Type.Boolean()),
+	allow_dispatching_robots: Type.Optional(Type.Boolean()),
+	inhibit_movement_bonus: Type.Optional(Type.Boolean()),
+	inventories: Type.Optional(jsonInventories),
+});
+const jsonLogisticSlot = Type.Object({
+	name: Type.String(),
+	min: Type.Optional(Type.Integer({ minimum: 0 })),
+	max: Type.Optional(Type.Integer({ minimum: 0 })),
+});
+const jsonPersonalLogisticSlots = Type.Union([
+	Type.Object({
+		enabled: Type.Boolean(),
+		trash_not_requested: Type.Boolean(),
+		sections: jsonList(Type.Object({
+			group: Type.String(),
+			active: Type.Boolean(),
+			multiplier: Type.Number({ minimum: 0 }),
+			filters: jsonList(Type.Object({})),
+		})),
+	}),
+	// From before 2.0, slot index to request
+	Type.Record(Type.String({ pattern: "^[1-9][0-9]*$" }), jsonLogisticSlot, { additionalProperties: false }),
+	Type.Array(jsonLogisticSlot),
+]);
+// QuickBarSlotEncoded in module/serialize.lua
+const jsonQuickBarSlot = Type.Union([
+	Type.String(),
+	Type.Object({ t: Type.Literal("f"), n: Type.String(), q: Type.String(), c: Type.String() }),
+	Type.Object({
+		t: Type.Literal("i"),
+		n: Type.String(),
+		s: Type.Integer({ minimum: 1 }),
+		b: Type.Optional(jsonList(Type.Integer({ minimum: 1 }))),
+	}),
+	Type.Object({
+		t: Type.Literal("r"),
+		p: jsonList(Type.Integer({ minimum: 1 })),
+		y: Type.String(),
+		l: Type.Optional(Type.String()),
+	}),
+]);
+const jsonCraftingQueue = Type.Object({
+	crafting_queue: jsonList(Type.Object({ recipe: Type.String(), count: Type.Integer({ minimum: 1 }) })),
+	crafting_queue_progress: Type.Number({ minimum: 0, maximum: 1 }),
+	ingredients: jsonList(Type.Object({
+		name: Type.String(),
+		count: Type.Integer({ minimum: 1 }),
+		quality: Type.Optional(Type.String()),
+	})),
+});
 const jsonTable = Type.Union([Type.Array(Type.Unknown()), Type.Object({})]);
 const jsonImportedPlayerData = Type.Object({
 	generation: Type.Integer({ minimum: 0 }),
@@ -70,12 +137,12 @@ const jsonImportedPlayerData = Type.Object({
 	shortcuts: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
 	game_view_settings: Type.Optional(Type.Record(Type.String(), Type.Boolean())),
 	ticks_to_respawn: Type.Optional(Type.Integer({ minimum: 0 })),
-	character: Type.Optional(Type.Object({ inventories: Type.Optional(jsonInventories) })),
+	character: Type.Optional(jsonCharacter),
 	inventories: Type.Optional(jsonInventories),
-	quick_bar: Type.Optional(jsonTable),
-	hotbar: Type.Optional(jsonTable),
-	personal_logistic_slots: Type.Optional(jsonTable),
-	crafting_queue: Type.Optional(jsonTable),
+	quick_bar: Type.Optional(Type.Record(Type.String(), jsonQuickBarSlot)),
+	hotbar: Type.Optional(Type.Record(Type.String(), Type.String())),
+	personal_logistic_slots: Type.Optional(jsonPersonalLogisticSlots),
+	crafting_queue: Type.Optional(jsonCraftingQueue),
 	recipe_notifications: Type.Optional(Type.String()),
 	components: Type.Optional(jsonTable),
 });
