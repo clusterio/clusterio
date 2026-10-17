@@ -12,14 +12,17 @@ local function check_patch()
 	end
 end
 
+-- Added in Factorio 2.0.59, indexing a missing key on a LuaObject errors
+local has_recv_udp = helpers ~= nil and pcall(function() return helpers.recv_udp end)
+
 local impl = {}
 impl.events = {}
 
 impl.events[defines.events.on_tick] = function()
 	check_patch()
-	-- Dispatch on_udp_packet_received for packets sent by the host
-	local clusterio = compat.script_data.clusterio
-	if clusterio and clusterio.host_udp_port then
+	-- Dispatch on_udp_packet_received for packets sent by the host, this is
+	-- a no-op when the server was started without --enable-lua-udp
+	if has_recv_udp then
 		helpers.recv_udp(0)
 	end
 end
@@ -115,7 +118,9 @@ remote.add_interface('clusterio_api', {
 	end,
 
 	get_host_udp_port = function()
-		return compat.script_data.clusterio.host_udp_port
+		-- Not initialised until the first tick after the save is patched
+		local clusterio = compat.script_data.clusterio
+		return clusterio and clusterio.host_udp_port
 	end,
 
 	get_file_no = function()

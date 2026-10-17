@@ -1,4 +1,6 @@
 import path from "node:path";
+import dgram from "node:dgram";
+import events from "node:events";
 import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
 import fs from "node:fs/promises";
@@ -24,6 +26,14 @@ const requireApi = [
 // Lua UDP needs Factorio 2.1.10, see docs/configuration.md
 function hasLuaUdp() {
 	return lib.integerFullVersion(getFactorioVersion()) >= lib.integerFullVersion("2.1.10");
+}
+
+async function freeUdpPort() {
+	const socket = dgram.createSocket("udp4");
+	await events.once(socket.bind(0, "127.0.0.1"), "listening");
+	const port = socket.address().port;
+	socket.close();
+	return port;
 }
 
 function getUser(name) {
@@ -110,6 +120,7 @@ describe("Clusterio Instance", function() {
 			}
 		}
 		describe(`Integration - ${strSavePatching}, ${strScriptCommands}`, function() {
+			let luaUdpPort;
 			before(async function() {
 				this.timeout(20000);
 				// Create and start a patched save
@@ -117,6 +128,8 @@ describe("Clusterio Instance", function() {
 				await execCtl(`${instSetConfig} factorio.enable_save_patching ${savePatchingEnabled}`);
 				await execCtl(`${instSetConfig} factorio.enable_script_commands ${scriptCommandsEnabled}`);
 				await execCtl(`${instSetConfig} factorio.enable_lua_udp ${hasLuaUdp()}`);
+				luaUdpPort = await freeUdpPort();
+				await execCtl(`${instSetConfig} factorio.lua_udp_port ${luaUdpPort}`);
 				await execCtl(`instance save create ${instName}`);
 				await execCtl(`instance start ${instName}`);
 			});
@@ -131,6 +144,46 @@ describe("Clusterio Instance", function() {
 					assert.equal(res === "Disabled\n", scriptCommandsEnabled);
 				});
 			});
+			if (savePatchingEnabled) {
+				describe("Lua UDP", function() {
+					it("should drop send_udp before the module is initialised", async function() {
+						// Mods can call send_udp from on_init, before the first tick sets up script data
+						await allowSendingScriptCommands();
+						const res = await sendRcon(instId,
+							`/sc ${requireApi} local data = storage or global ` +
+							"local saved = data.clusterio data.clusterio = nil " +
+							"local module_ok = pcall(api.send_udp, 'early', 'data') " +
+							"local mod_ok, port = pcall(remote.call, 'clusterio_api', 'get_host_udp_port') " +
+							"data.clusterio = saved " +
+							"rcon.print(tostring(module_ok) .. ' ' .. tostring(mod_ok) .. ' ' .. tostring(port))"
+						);
+						assert.equal(res, "true true nil\n");
+					});
+					it("should dispatch packets sent to the game", async function() {
+						if (!hasLuaUdp()) {
+							this.skip();
+						}
+						await allowSendingScriptCommands();
+						await sendRcon(instId,
+							"/sc script.on_event(defines.events.on_udp_packet_received, " +
+							"function(event) storage.udp_test = event.payload end)"
+						);
+						const socket = dgram.createSocket("udp4");
+						let payload;
+						try {
+							for (let i = 0; i < 10 && payload !== "hello\n"; i++) {
+								socket.send("hello", luaUdpPort, "127.0.0.1");
+								await lib.wait(10);
+								// The server does not tick without players, commands make it tick
+								payload = await sendRcon(instId, "/sc rcon.print(tostring(storage.udp_test))");
+							}
+						} finally {
+							socket.close();
+						}
+						assert.equal(payload, "hello\n");
+					});
+				});
+			}
 			describe("Player events", function() {
 				if (savePatchingEnabled) {
 					// IPC expects save patching to be enabled

@@ -44,7 +44,8 @@ function api.send_json(channel, data)
 end
 
 function api.send_udp(channel, data)
-	local port = compat.script_data.clusterio.host_udp_port
+	local clusterio = compat.script_data.clusterio
+	local port = clusterio and clusterio.host_udp_port
 	if not port then
 		return -- Lua UDP is not enabled for this instance
 	end
