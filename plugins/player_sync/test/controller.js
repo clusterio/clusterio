@@ -104,9 +104,9 @@ describe("player_sync controller", function() {
 			const response = await handler(msg.AcquireRequest)(new msg.AcquireRequest(instanceId, playerName));
 			return response.status === "acquired";
 		}
-		async function saved(file = "player_sync.json") {
+		async function saved() {
 			await controller.hooks.save.invoke();
-			return new Map(JSON.parse(await fs.readFile(path.join(databaseDir, file), "utf8")));
+			return new Map(JSON.parse(await fs.readFile(path.join(databaseDir, "player_sync.json"), "utf8")));
 		}
 		async function upload(instanceId, data) {
 			await handler(msg.UploadRequest)(new msg.UploadRequest(instanceId, data.name, data));
@@ -217,7 +217,8 @@ describe("player_sync controller", function() {
 			it("should delete stored data", async function() {
 				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
 				await del("stored");
-				assert(!(await saved()).has("stored"));
+				const response = await handler(msg.GetPlayerDataRequest)(new msg.GetPlayerDataRequest("stored"));
+				assert.equal(response.playerData, null);
 			});
 			it("should keep the generation and bump the epoch", async function() {
 				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
@@ -225,7 +226,8 @@ describe("player_sync controller", function() {
 				assert.deepEqual(
 					await acquireResponse(2, "stored"), new msg.AcquireResponse("acquired", 3, false, undefined, 1),
 				);
-				assert.deepEqual((await saved("player_sync_deleted.json")).get("stored"), { generation: 3, epoch: 1 });
+				// In the same file as the player data so the delete and its tombstone are written together
+				assert.deepEqual((await saved()).get("stored"), { generation: 3, epoch: 1, deleted: true });
 
 				controller = await load();
 				assert.deepEqual(
@@ -236,10 +238,9 @@ describe("player_sync controller", function() {
 				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
 				await del("stored");
 				await upload(1, playerData("stored", 11));
-				assert(!(await saved()).has("stored"));
+				assert((await saved()).get("stored").deleted);
 				await upload(2, playerData("stored", 4, { epoch: 1 }));
 				assert.deepEqual((await saved()).get("stored"), playerData("stored", 4, { epoch: 1 }));
-				assert(!(await saved("player_sync_deleted.json")).has("stored"));
 
 				// The other instance downloads the baseline instead of uploading its stale copy
 				await upload(1, playerData("stored", 11));

@@ -49,7 +49,7 @@ Importing and deleting both start a new epoch for the player.
 An instance holding a copy from an earlier epoch throws it away the next time the player joins, even if it is newer than what the controller has, and an upload from an earlier epoch is discarded.
 After an import the instance downloads the new data.
 After a delete the next join turns whatever the player has on that instance into the new synced inventory.
-Deleted players stay listed in `player_sync_deleted.json` in the database directory so their epoch survives a controller restart.
+Deleted players stay in `player_sync.json` as an entry with `deleted: true` so their epoch survives a controller restart.
 Both are refused while an instance holds the lock on the player, because the instance uploads its own copy when the player leaves and that would undo the change.
 Have the player leave first, or release the lock if the instance is stuck holding it.
 

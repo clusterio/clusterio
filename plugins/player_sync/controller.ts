@@ -7,6 +7,9 @@ import path from "path";
 import * as lib from "@clusterio/lib";
 import * as msg from "./messages.js";
 
+// Left behind by deleted player data so instances can tell their copy is stale
+type Tombstone = { generation: number, epoch: number, deleted: true };
+
 async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 	let databaseDirectory = config.get("controller.database_directory");
 	let itemsPath = path.resolve(databaseDirectory, "player_sync.json");
@@ -22,39 +25,48 @@ async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 			}
 		}
 	}
-	return await loadMap<IpcPlayerData>(itemsPath, logger);
-}
-
-async function loadMap<V>(file: string, logger: lib.Logger): Promise<Map<string, V>> {
-	logger.verbose(`Loading ${file}`);
+	let entries: [string, IpcPlayerData | Tombstone][] = [];
+	logger.verbose(`Loading ${itemsPath}`);
 	try {
-		let content = await fs.readFile(file, { encoding: "utf8" });
-		return new Map(JSON.parse(content));
+		let content = await fs.readFile(itemsPath, { encoding: "utf8" });
+		entries = JSON.parse(content);
 
 	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.verbose(`Creating new ${path.basename(file)}`);
-			return new Map();
+		if (err.code !== "ENOENT") {
+			throw err;
 		}
-		throw err;
+		logger.verbose("Creating new player data database");
 	}
+
+	let playerDatastore = new Map<string, IpcPlayerData>();
+	let tombstones = new Map<string, Tombstone>();
+	for (let [name, entry] of entries) {
+		if ("deleted" in entry) {
+			tombstones.set(name, entry);
+		} else {
+			playerDatastore.set(name, entry);
+		}
+	}
+	return { playerDatastore, tombstones };
 }
 
-async function saveMap(file: string, map: Map<string, unknown>, logger: lib.Logger) {
+// Tombstones share the file with the player data so a delete is written in one go
+async function saveDatabase(
+	controllerConfig: lib.ControllerConfig,
+	playerDatastore: Map<string, IpcPlayerData>,
+	tombstones: Map<string, Tombstone>,
+	logger: lib.Logger,
+) {
+	let file = path.resolve(controllerConfig.get("controller.database_directory"), "player_sync.json");
 	logger.verbose(`writing ${file}`);
-	await lib.safeOutputFile(file, JSON.stringify(Array.from(map)));
+	let content = JSON.stringify([...playerDatastore, ...tombstones]);
+	await lib.safeOutputFile(file, content);
 }
-
-// Left behind by deleted player data so instances can tell their copy is stale
-type Tombstone = { generation: number, epoch: number };
 
 export default async function(context: ControllerPluginContext) {
 	const { controller, logger, plugin } = context;
 	const acquiredPlayers = new Map<string, { instanceId: number, expiresMs?: number }>();
-	const databaseDirectory = controller.config.get("controller.database_directory");
-	const playerDatastore: Map<string, IpcPlayerData> = await loadDatabase(controller.config, logger);
-	const tombstonesPath = path.resolve(databaseDirectory, "player_sync_deleted.json");
-	const tombstones = await loadMap<Tombstone>(tombstonesPath, logger);
+	const { playerDatastore, tombstones } = await loadDatabase(controller.config, logger);
 	let playerDatastoreDirty = false;
 
 	// Generation and epoch instances should compare their copy against
@@ -130,8 +142,7 @@ export default async function(context: ControllerPluginContext) {
 	controller.hooks.save.attach(plugin.name, async () => {
 		if (playerDatastoreDirty) {
 			playerDatastoreDirty = false;
-			await saveMap(path.resolve(databaseDirectory, "player_sync.json"), playerDatastore, logger);
-			await saveMap(tombstonesPath, tombstones, logger);
+			await saveDatabase(controller.config, playerDatastore, tombstones, logger);
 		}
 	});
 
@@ -292,7 +303,7 @@ export default async function(context: ControllerPluginContext) {
 		checkNotAcquired(playerName);
 
 		let { generation, epoch } = storedVersion(playerName);
-		tombstones.set(playerName, { generation, epoch: epoch + 1 });
+		tombstones.set(playerName, { generation, epoch: epoch + 1, deleted: true });
 		playerDatastore.delete(playerName);
 		playerDatastoreDirty = true;
 		logger.info(`Deleted player data for ${playerName}`);
