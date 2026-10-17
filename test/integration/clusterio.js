@@ -15,7 +15,7 @@ import {
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
 } from "./index.js";
-import { slowTest } from "../common.js";
+import { externalTest, slowTest } from "../common.js";
 import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 
@@ -539,6 +539,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("controller plugin search", function() {
 			it("runs", async function() {
+				externalTest(this);
 				await execCtl("controller plugin search global_chat --page-size 5");
 			});
 			it("rejects invalid paging", async function() {
