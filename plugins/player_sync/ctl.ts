@@ -13,8 +13,13 @@ async function instanceName(ctl: Ctl, instanceId: number | undefined) {
 	if (instanceId === undefined) {
 		return "-";
 	}
-	let instance = await ctl.send(new lib.InstanceDetailsGetRequest(instanceId));
-	return `${instance.name} (${instanceId})`;
+	try {
+		let instance = await ctl.send(new lib.InstanceDetailsGetRequest(instanceId));
+		return `${instance.name} (${instanceId})`;
+	} catch (err) {
+		// Viewing player data does not require core.instance.get
+		return String(instanceId);
+	}
 }
 
 const playerSyncCommands = new lib.CommandTree({

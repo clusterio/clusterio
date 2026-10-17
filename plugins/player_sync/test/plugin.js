@@ -181,6 +181,16 @@ describe("player_sync plugin", function() {
 				`  1 exported item ${lib.formatBytes(4)}`,
 			]);
 		});
+		it("should show the instance ID when details can't be fetched", async function() {
+			responses.set(lib.InstanceDetailsGetRequest, () => {
+				throw new lib.PermissionError("Permission denied");
+			});
+			await run("list");
+			assert.equal(printed[2], "bob | - | - | 1");
+			printed = [];
+			await run("show", { player: "alice" });
+			assert.equal(printed[0], "acquired by: 1");
+		});
 		it("show should handle players without data", async function() {
 			await run("show", { player: "carol" });
 			assert.deepEqual(printed, ["acquired by: -", "No player data stored for carol"]);
