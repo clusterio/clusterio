@@ -10,7 +10,8 @@
  * the local and published versions of the lib.  A message whose serialization
  * (src, dst, data schema or response schema) changed fails the test, while
  * added and removed messages are only warned about since breaking
- * compatibility is unavoidable there.
+ * compatibility is unavoidable there.  Changes that were checked to be
+ * compatible are listed in acceptedChanges below.
  *
  * Usage:
  *   node scripts/version-compat-test.js --controller local --host published
@@ -137,6 +138,33 @@ function stableStringify(value) {
 	));
 }
 
+// Link messages whose serialization changed since the published release after checking that both
+// versions can still talk to each other.  Each entry holds the reviewed local spec of the changed
+// fields, so any further change fails again.  Remove entries once they are part of a release.
+const acceptedChanges = {
+	// Optional installedVersion and pendingInstall added to plugin details, which older versions ignore
+	"request PluginListRequest": {
+		response: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					name: { type: "string" },
+					title: { type: "string" },
+					version: { type: "string" },
+					loaded: { type: "boolean" },
+					enabled: { type: "boolean" },
+					description: { type: "string" },
+					npmPackage: { type: "string" },
+					installedVersion: { type: "string" },
+					pendingInstall: { type: "boolean" },
+				},
+				required: ["name", "title", "version", "loaded", "enabled"],
+			},
+		},
+	},
+};
+
 // Runs in a child process because only one copy of the lib may be loaded per process.
 const dumpMessageSpecs = `
 	const { Link } = require(process.argv[1]);
@@ -180,6 +208,13 @@ async function checkMessageCompat(publishedVersion) {
 		const fields = Object.keys(localSpec).filter(
 			field => stableStringify(localSpec[field]) !== stableStringify(publishedSpec[field])
 		);
+		const accepted = fields.filter(
+			field => stableStringify(localSpec[field]) === stableStringify(acceptedChanges[name]?.[field])
+		);
+		if (accepted.length) {
+			console.log(`| Link ${name} changed ${accepted.join(", ")} since ${publishedVersion}, accepted`);
+			fields.splice(0, fields.length, ...fields.filter(field => !accepted.includes(field)));
+		}
 		if (fields.length) {
 			changed.push({ name, fields, localSpec, publishedSpec });
 		}

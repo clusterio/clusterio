@@ -142,5 +142,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	plugin.PluginListRequest,
 	plugin.PluginUpdateRequest,
 	plugin.PluginInstallRequest,
+	plugin.PluginSearchRequest,
+	plugin.PluginLatestVersionsRequest,
 	plugin.UpdateAllRequest,
 ];

@@ -4,6 +4,8 @@ import path from "path";
 import { logger } from "./logging.js";
 import * as libFileOps from "./file_ops.js";
 import vm from "vm";
+import { PluginDetails } from "./data/messages_plugin.js";
+import type { PluginNodeEnvInfo } from "./plugin.js";
 
 /**
  * Searches for local plugins in the plugins/ and external_plugins/ directories
@@ -118,13 +120,6 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 		parentPath: process.cwd(),
 		isRootDependency: true,
 	}));
-	const corePackages = new Set([
-		"@clusterio/controller",
-		"@clusterio/ctl",
-		"@clusterio/host",
-		"@clusterio/lib",
-		"@clusterio/web_ui",
-	]);
 	const visitedPackages = new Set<string>();
 
 	while (pendingPackages.length) {
@@ -230,3 +225,66 @@ async function checkPackageJson(pluginPath: string): Promise<boolean> {
 	// Check if package has the clusterio-plugin keyword
 	return packageJson.keywords?.includes("clusterio-plugin");
 }
+
+const corePackages = new Set([
+	"@clusterio/controller",
+	"@clusterio/ctl",
+	"@clusterio/host",
+	"@clusterio/lib",
+	"@clusterio/web_ui",
+]);
+
+async function readPackageJson(packageJsonPath: string): Promise<any> {
+	try {
+		return JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
+	} catch (err: any) {
+		return undefined;
+	}
+}
+
+/**
+ * Lists the plugins on this machine along with the versions currently installed on disk,
+ * including npm plugins installed since startup that will only be loaded after a restart.
+ *
+ * @param pluginInfos - Plugins discovered when this machine started
+ * @param isLoaded - Whether the plugin is loaded
+ * @param isEnabled - Whether the plugin is enabled
+ * @returns Details of every plugin on this machine
+ */
+export async function listPluginDetails(
+	pluginInfos: PluginNodeEnvInfo[],
+	isLoaded: (pluginInfo: PluginNodeEnvInfo) => boolean,
+	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
+): Promise<PluginDetails[]> {
+	const plugins: PluginDetails[] = [];
+	const knownPackages = new Set<string>();
+	for (const pluginInfo of pluginInfos) {
+		knownPackages.add(pluginInfo.requirePath);
+		if (pluginInfo.npmPackage) {
+			knownPackages.add(pluginInfo.npmPackage);
+		}
+		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo), isEnabled(pluginInfo));
+		// Not present if uninstalled since startup
+		plugin.installedVersion = (await readPackageJson(pluginInfo.packagePath))?.version;
+		plugins.push(plugin);
+	}
+
+	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
+	for (const packageName of Object.keys(rootPackageJson?.dependencies ?? {})) {
+		if (knownPackages.has(packageName) || corePackages.has(packageName)) {
+			continue;
+		}
+		const packagePath = resolvePackagePath(packageName, process.cwd());
+		if (!packagePath || !await checkPackageJson(packagePath)) {
+			continue;
+		}
+		const packageJson = await readPackageJson(path.join(packagePath, "package.json"));
+		plugins.push(new PluginDetails(
+			packageName, packageName, packageJson.version, false, false,
+			packageJson.description, packageName, packageJson.version, true,
+		));
+	}
+
+	return plugins;
+}
+

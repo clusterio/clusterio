@@ -3,7 +3,9 @@ import path from "path";
 import { exec } from "child_process";
 import { logger } from "./logging.js";
 import { RequestError } from "./errors.js";
+import { LockFile, LockFileExistsError } from "./LockFile.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
+import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
 const execAsync = util.promisify(exec);
 
 function isDev() {
@@ -13,9 +15,23 @@ function isDev() {
 }
 
 async function logExec(cmd: string) {
-	logger.audit(`RCE | ${cmd}`);
-	if (!isDev()) {
-		await execAsync(cmd);
+	// npm runs in the working directory, which a standalone controller and host may share
+	const lock = new LockFile(path.resolve("npm-operation.lock"));
+	try {
+		await lock.acquire();
+	} catch (err) {
+		if (err instanceof LockFileExistsError) {
+			throw new RequestError("Another package operation is already in progress on this machine");
+		}
+		throw err;
+	}
+	try {
+		logger.audit(`RCE | ${cmd}`);
+		if (!isDev()) {
+			await execAsync(cmd);
+		}
+	} finally {
+		await lock.release();
 	}
 }
 
@@ -27,14 +43,6 @@ export async function installPackage(name: string) {
 	return logExec(`npm install --save ${name}`);
 }
 
-export async function handlePluginUpdate(pluginName: string, pluginInfos: PluginNodeEnvInfo[]) {
-	if (!pluginInfos.some(plugin => plugin.npmPackage === pluginName)) {
-		throw new RequestError(`Plugin ${pluginName} is not installed on this machine`);
-	}
-
-	return await updatePackage(pluginName);
-}
-
 export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNodeEnvInfo[]) {
 	const pluginPackages = pluginInfos
 		.map(plugin => plugin.npmPackage)
@@ -42,20 +50,140 @@ export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNo
 	return await updatePackage(corePackage, ...pluginPackages);
 }
 
-export async function handlePluginInstall(pluginName: string) {
-	if (pluginName.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(pluginName)) {
+/**
+ * Split a package spec into its name and optional version, as in name@version. The name itself
+ * may start with @ for scoped packages.
+ */
+function parsePackageSpec(spec: string) {
+	if (spec.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(spec)) {
 		// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
 		// https://www.npmjs.com/package/validate-npm-package-name
-		throw new RequestError(`Invalid plugin name: ${pluginName}`);
+		throw new RequestError(`Invalid plugin name: ${spec}`);
 	}
 
-	const packageName = encodeURI(pluginName);
-	const npmRequest = await fetch(`https://registry.npmjs.com/${packageName}`, {
+	const versionSeparator = spec.lastIndexOf("@");
+	const [name, version] = versionSeparator > 0
+		? [spec.slice(0, versionSeparator), spec.slice(versionSeparator + 1)]
+		: [spec, undefined];
+	if (version !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9\-.+]*$/.test(version)) {
+		throw new RequestError(`Invalid plugin version: ${version}`);
+	}
+	return { name, version };
+}
+
+/** Throws unless the package, and version if given, is published on npm, returns the spec to install */
+async function checkRegistry(name: string, version?: string) {
+	const packageName = encodeURI(name);
+	const spec = version !== undefined ? `${packageName}@${version}` : packageName;
+	const registryPath = version !== undefined ? `${packageName}/${encodeURIComponent(version)}` : packageName;
+	const npmRequest = await fetch(`https://registry.npmjs.com/${registryPath}`, {
 		method: "HEAD",
 	});
 	if (!npmRequest.ok) {
-		throw new RequestError(`Unknown plugin: ${packageName}`);
+		throw new RequestError(`Unknown plugin: ${spec}`);
+	}
+	return spec;
+}
+
+export async function handlePluginUpdate(pluginName: string, pluginInfos: PluginNodeEnvInfo[]) {
+	// Optionally pinned to a version as name@version to update past the range in package.json
+	const { name, version } = parsePackageSpec(pluginName);
+	if (!pluginInfos.some(plugin => plugin.npmPackage === name)) {
+		throw new RequestError(`Plugin ${name} is not installed on this machine`);
 	}
 
-	return await installPackage(packageName);
+	if (version === undefined) {
+		return await updatePackage(name);
+	}
+	return await installPackage(await checkRegistry(name, version));
+}
+
+export async function handlePluginInstall(pluginName: string) {
+	// Optionally pinned to a version as name@version
+	const { name, version } = parsePackageSpec(pluginName);
+	return await installPackage(await checkRegistry(name, version));
+}
+
+const latestVersionCacheMs = 5 * 60e3;
+const latestVersionCache = new Map<string, { version?: string, fetchedAt: number }>();
+
+/**
+ * Look up the latest published version of each package on npm, packages that can't be
+ * found are left out. Results are cached for a few minutes.
+ */
+export async function fetchLatestVersions(packages: string[]) {
+	if (packages.length > 500) {
+		throw new RequestError("Too many packages");
+	}
+	const now = Date.now();
+	const versions: Record<string, string> = {};
+	await Promise.all(packages.map(async packageName => {
+		const { name, version: pinned } = parsePackageSpec(packageName);
+		if (pinned !== undefined) {
+			throw new RequestError(`Invalid plugin name: ${packageName}`);
+		}
+		let cached = latestVersionCache.get(name);
+		if (!cached || now - cached.fetchedAt > latestVersionCacheMs) {
+			let version: string | undefined;
+			try {
+				const response = await fetch(`https://registry.npmjs.com/${encodeURI(name)}/latest`);
+				if (response.ok) {
+					version = (await response.json() as { version?: string }).version;
+				}
+			} catch (err: any) {
+				// Left out until the registry can be reached again
+				logger.warn(`Failed to look up latest version of ${name}: ${err.message}`);
+				return;
+			}
+			cached = { version, fetchedAt: now };
+			latestVersionCache.set(name, cached);
+		}
+		if (cached.version) {
+			versions[name] = cached.version;
+		}
+	}));
+	return versions;
+}
+
+const npmSearchMaxSize = 250; // Limit imposed by the registry
+
+export async function searchPlugins(query: string, page: number, pageSize: number) {
+	if (query.length > 214) {
+		throw new RequestError("Search query too long");
+	}
+	if (page < 1 || pageSize < 1 || pageSize > npmSearchMaxSize) {
+		throw new RequestError("Invalid page or page size");
+	}
+
+	const url = new URL("https://registry.npmjs.com/-/v1/search");
+	url.searchParams.set("text", `keywords:clusterio-plugin ${query}`.trim());
+	url.searchParams.set("size", String(pageSize));
+	url.searchParams.set("from", String((page - 1) * pageSize));
+
+	const response = await fetch(url);
+	if (!response.ok) {
+		throw new RequestError(`npm registry search failed: ${response.status} ${response.statusText}`);
+	}
+
+	const json = await response.json() as {
+		total: number,
+		objects: {
+			package: {
+				name: string,
+				version: string,
+				description?: string,
+				date?: string,
+				publisher?: { username?: string },
+				links?: { npm?: string, homepage?: string, repository?: string },
+			},
+		}[],
+	};
+
+	return new PluginSearchRequest.Response(
+		json.total,
+		json.objects.map(({ package: pkg }) => new PluginSearchResult(
+			pkg.name, pkg.version, pkg.description, pkg.publisher?.username,
+			pkg.date, pkg.links?.homepage, pkg.links?.repository, pkg.links?.npm,
+		)),
+	);
 }

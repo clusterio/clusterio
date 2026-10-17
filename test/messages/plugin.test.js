@@ -36,7 +36,7 @@ describe("messages/plugin", function() {
 		it("has round trip json serialisation", function() {
 			const pluginDetails = new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package",
+				"Description", "Npm Package", "Installed Version", true,
 			);
 
 			const json = JSON.stringify(pluginDetails);
@@ -135,6 +135,35 @@ describe("messages/plugin", function() {
 		});
 	});
 
+	describe("PluginSearchRequest", function() {
+		const _fetch = global.fetch;
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("has round trip json serialisation", function() {
+			const request = new lib.PluginSearchRequest("foo", 2, 10);
+			const json = JSON.stringify(request);
+			const reconstructed = lib.PluginSearchRequest.fromJSON(JSON.parse(json));
+			assert.deepEqual(reconstructed, request);
+		});
+		it("has round trip json serialisation of the response", function() {
+			const response = new lib.PluginSearchRequest.Response(1, [
+				new lib.PluginSearchResult("foo", "1.0.0", "Foo", "bar", "date", "home", "repo", "npm"),
+			]);
+			const json = JSON.stringify(response);
+			const reconstructed = lib.PluginSearchRequest.Response.fromJSON(JSON.parse(json));
+			assert.deepEqual(reconstructed, response);
+		});
+		it("runs on the controller", async function() {
+			global.fetch = function() {
+				return { ok: true, json: async () => ({ total: 0, objects: [] }) };
+			};
+			const response = await controlConnection.handlePluginSearchRequest(new lib.PluginSearchRequest());
+			assert.deepEqual(response, new lib.PluginSearchRequest.Response(0, []));
+		});
+	});
+
 	describe("UpdateAllRequest", function() {
 		function checkedPermissions(dst) {
 			const permissions = [];
@@ -227,6 +256,34 @@ describe("messages/plugin", function() {
 				host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo")),
 				/Plugin installs are disabled on this machine/
 			);
+		});
+	});
+	describe("PluginLatestVersionsRequest", function() {
+		const _fetch = global.fetch;
+		before(function() {
+			global.fetch = async function() { return { ok: true, json: async () => ({ version: "4.5.6" }) }; };
+		});
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("has round trip json serialisation", function() {
+			const request = new lib.PluginLatestVersionsRequest(["foo", "@scope/bar"]);
+			const reconstructed = lib.PluginLatestVersionsRequest.fromJSON(JSON.parse(JSON.stringify(request)));
+			assert.deepEqual(reconstructed, request);
+		});
+		it("has round trip json serialisation of the response", function() {
+			const response = new lib.PluginLatestVersionsRequest.Response({ foo: "1.0.0" });
+			const reconstructed = lib.PluginLatestVersionsRequest.Response.fromJSON(
+				JSON.parse(JSON.stringify(response))
+			);
+			assert.deepEqual(reconstructed, response);
+		});
+		it("runs on the controller", async function() {
+			const response = await controlConnection.handlePluginLatestVersionsRequest(
+				new lib.PluginLatestVersionsRequest(["latest-message-test"])
+			);
+			assert.deepEqual(response.versions, { "latest-message-test": "4.5.6" });
 		});
 	});
 });

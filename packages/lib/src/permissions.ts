@@ -565,6 +565,11 @@ export const corePermissions = [
 		title: "Install plugin",
 		description: "Remotely install a plugin if the target allows remote installs of plugins.",
 	},
+	{
+		name: "core.plugin.search",
+		title: "Search plugins",
+		description: "Search the npm registry for plugins via the controller.",
+	},
 
 	{
 		name: "core.debug.dump_ws",

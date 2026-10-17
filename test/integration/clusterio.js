@@ -15,7 +15,7 @@ import {
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio,
 } from "./index.js";
-import { slowTest } from "../common.js";
+import { externalTest, slowTest } from "../common.js";
 import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 
@@ -536,6 +536,19 @@ describe("Integration of Clusterio", function() {
 				);
 			});
 			// Install always fails, we can not test restart option
+		});
+
+		describe("controller plugin search", function() {
+			it("runs", async function() {
+				externalTest(this);
+				await execCtl("controller plugin search global_chat --page-size 5");
+			});
+			it("rejects invalid paging", async function() {
+				await assert.rejects(
+					execCtl("controller plugin search --page 0"),
+					/Invalid page or page size/
+				);
+			});
 		});
 
 		describe("controller update", function() {

@@ -54,6 +54,7 @@
 		"react-dom": "catalog:",
 		"react-markdown": "catalog:",
 		"react-router-dom": "catalog:",
+		"semver": "catalog:",
 		"stream-browserify": "^3.0.0",
 		"style-loader": "^4.0.0",
 		"swc-loader": "^0.2.7",
@@ -67,6 +68,7 @@
 	"devDependencies": {
 		"@types/node": "catalog:",
 		"@types/react": "catalog:",
-		"@types/react-dom": "^18.3.7"
+		"@types/react-dom": "^18.3.7",
+		"@types/semver": "catalog:"
 	}
 }

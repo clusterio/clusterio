@@ -133,6 +133,8 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
 		this.handle(lib.PluginUpdateRequest, this.handlePluginUpdateRequest.bind(this));
 		this.handle(lib.PluginInstallRequest, this.handlePluginInstallRequest.bind(this));
+		this.handle(lib.PluginSearchRequest, this.handlePluginSearchRequest.bind(this));
+		this.handle(lib.PluginLatestVersionsRequest, this.handlePluginLatestVersionsRequest.bind(this));
 		this.handle(lib.UpdateAllRequest, this.handleUpdateAllRequest.bind(this));
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
@@ -1349,12 +1351,20 @@ export default class ControlConnection extends BaseConnection {
 		return await lib.handleUpdateAll("@clusterio/controller", this._controller.pluginInfos);
 	}
 
+	async handlePluginSearchRequest(request: lib.PluginSearchRequest) {
+		return await lib.searchPlugins(request.query, request.page, request.pageSize);
+	}
+
+	async handlePluginLatestVersionsRequest(request: lib.PluginLatestVersionsRequest) {
+		return new lib.PluginLatestVersionsRequest.Response(await lib.fetchLatestVersions(request.packages));
+	}
+
 	async handlePluginListRequest(request: lib.PluginListRequest) {
-		return this._controller.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
-			pluginInfo,
-			this._controller.loadedPlugins.has(pluginInfo),
-			this._controller.config.get(`${pluginInfo.name}.load_plugin`),
-		));
+		return await lib.listPluginDetails(
+			this._controller.pluginInfos,
+			pluginInfo => this._controller.loadedPlugins.has(pluginInfo),
+			pluginInfo => this._controller.config.get(`${pluginInfo.name}.load_plugin`),
+		);
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {
