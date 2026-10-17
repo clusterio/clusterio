@@ -13,7 +13,7 @@ import { PluginInstalledTag, PluginStatus, PluginUpdateButton, PluginVersions } 
 
 const { Text, Link } = Typography;
 
-/** Statuses are undefined until the plugin lists of the machines have loaded */
+/** Statuses are undefined until the plugin lists of the machines have loaded, or without core.plugin.list */
 type BrowserProps = { statuses?: Map<string, PluginStatus>, installer: PluginInstaller };
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
@@ -69,8 +69,11 @@ function InstallControls(props: { plugin: lib.PluginSearchResult, installer: Plu
 }
 
 function PluginDetails(props: { plugin: lib.PluginSearchResult } & BrowserProps) {
+	const account = useAccount();
 	const { plugin } = props;
 	const status = props.statuses?.get(plugin.name);
+	// Without list permission the statuses never load, so offer installs without them
+	const statusesKnown = props.statuses !== undefined || !account.hasPermission("core.plugin.list");
 	return <>
 		<Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
 			<Descriptions.Item label="Package">{plugin.name}</Descriptions.Item>
@@ -95,7 +98,7 @@ function PluginDetails(props: { plugin: lib.PluginSearchResult } & BrowserProps)
 			</Descriptions.Item>
 		</Descriptions>
 		{/* Installed plugins are brought in line by the update action above instead */}
-		{props.statuses && !status && <InstallControls plugin={plugin} installer={props.installer} />}
+		{statusesKnown && !status && <InstallControls plugin={plugin} installer={props.installer} />}
 	</>;
 }
 
