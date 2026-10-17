@@ -40,7 +40,7 @@
 		"@clusterio/lib": "workspace:^",
 		"@sinclair/typebox": "catalog:",
 		"jimp": "^1.6.1",
-		"pidusage": "^4.0.1",
+		"pidusage": "^4.1.0",
 		"rcon-client": "^4.2.5",
 		"semver": "catalog:",
 		"set-blocking": "catalog:",

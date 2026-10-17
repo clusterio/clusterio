@@ -52,7 +52,7 @@
 	"devDependencies": {
 		"@clusterio/web_ui": "workspace:^",
 		"@swc/core": "catalog:",
-		"@types/busboy": "^1.5.4",
+		"@types/busboy": "^1.5.5",
 		"@types/compression": "^1.8.1",
 		"@types/express": "catalog:",
 		"@types/finalhandler": "catalog:",
@@ -67,7 +67,7 @@
 		"typescript": "catalog:",
 		"webpack": "catalog:",
 		"webpack-cli": "catalog:",
-		"webpack-dev-middleware": "^6.1.3",
+		"webpack-dev-middleware": "^8.3.0",
 		"webpack-merge": "catalog:"
 	}
 }
