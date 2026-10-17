@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Alert, Button, Descriptions, Drawer, Popconfirm, Space, Table, Typography, Upload } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -89,17 +89,27 @@ function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChang
 	const instanceName = useInstanceName();
 	const [response, setResponse] = useState<GetPlayerDataResponse>();
 	const { playerName } = props;
+	// Only the latest request may set the response, older ones may be for another player
+	const requestId = useRef(0);
 
 	const reload = useCallback(() => {
+		requestId.current += 1;
+		let id = requestId.current;
 		if (playerName === undefined) {
-			setResponse(undefined);
 			return;
 		}
-		control.send(new GetPlayerDataRequest(playerName)).then(setResponse).catch(
+		control.send(new GetPlayerDataRequest(playerName)).then(result => {
+			if (id === requestId.current) {
+				setResponse(result);
+			}
+		}).catch(
 			notifyErrorHandler("Error loading player data")
 		);
 	}, [control, playerName]);
-	useEffect(reload, [reload]);
+	useEffect(() => {
+		setResponse(undefined);
+		reload();
+	}, [reload]);
 
 	function changed() {
 		reload();
