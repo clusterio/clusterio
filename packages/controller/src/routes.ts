@@ -548,7 +548,7 @@ function checkModName(name: string) {
 	try {
 		lib.checkFilename(name);
 	} catch (err: any) {
-		throw new lib.RequestError(`Mod name ${err.message}`);
+		throw new lib.ValidationError(`Mod name ${err.message}`);
 	}
 }
 

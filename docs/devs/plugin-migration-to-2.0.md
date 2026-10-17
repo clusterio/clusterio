@@ -305,6 +305,30 @@ The remaining uses of "control" for clusterioctl were renamed to "ctl":
 The term "control" is still used in message `src` and `dst` and in config field locations, where it covers both ctl and the web interface.
 
 
+## Request errors
+
+`RequestError` is gone.
+Errors thrown by request handlers are now received by the requester as the same class, see [Request errors](/docs/writing-plugins.md#request-errors).
+Replace `RequestError` with the class that fits:
+
+- Invalid input: `ValidationError`.
+- Operation disabled by config: `ForbiddenError`.
+- Missing instance, user, save etc.: `NotFoundError`.
+- Instance running, host not connected, name taken etc.: `ConflictError`.
+- Timeouts: `TimeoutError`.
+
+`catch` blocks that check `err instanceof RequestError` should check `ClientError` instead, or the specific class.
+Checks of `err.code` for remote errors can use `instanceof`, e.g. `err instanceof lib.SessionLost`.
+
+Other renames:
+
+- `PermissionError` is `PermissionDeniedError`.
+- `lib.InvalidValue`, `lib.InvalidField` and `lib.InvalidAccess` are `lib.InvalidValueError`, `lib.InvalidFieldError` and `lib.InvalidAccessError`.
+
+Errors of classes that are not registered, like a `TypeError` from a bug, are received as `InternalServerError`.
+Plugins that define their own error classes need to list them in `errors` of the plugin declaration.
+
+
 ## Static assets in the web interface
 
 `staticRoot` now includes the `static/` prefix.

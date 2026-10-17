@@ -9,6 +9,7 @@ import { spawn } from "child_process";
 import { loadPluginList } from "./load_plugin_list.js";
 import * as libConfig from "./config/index.js";
 import * as libFileOps from "./file_ops.js";
+import { InvalidFieldError, InvalidValueError } from "./errors.js";
 import { logger } from "./logging.js";
 import * as libHelpers from "./helpers.js";
 import { LockFile } from "./LockFile.js";
@@ -271,7 +272,7 @@ export async function handleConfigCommand(
 		try {
 			print(instance.get(args.field as string));
 		} catch (err) {
-			if (err instanceof libConfig.InvalidField) {
+			if (err instanceof InvalidFieldError) {
 				logger.error(err.message);
 			} else {
 				throw err;
@@ -292,7 +293,7 @@ export async function handleConfigCommand(
 			instance.set(args.field as string, args.value);
 			await instance.save();
 		} catch (err) {
-			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
+			if (err instanceof InvalidFieldError || err instanceof InvalidValueError) {
 				logger.error(err.message);
 			} else {
 				throw err;

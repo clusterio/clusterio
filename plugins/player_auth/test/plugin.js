@@ -332,14 +332,14 @@ describe("player_auth", function() {
 				it("should throw if player does not exist", async function() {
 					await assert.rejects(
 						setVerifyCode(new SetVerifyCodeRequest("invalid", "invalid")),
-						new lib.RequestError("invalid player")
+						new lib.NotFoundError("invalid player")
 					);
 				});
 				it("should throw if player code has expired", async function() {
 					await addPlayer("expired", { timeout: -1 });
 					await assert.rejects(
 						setVerifyCode(new SetVerifyCodeRequest("expired", "expired")),
-						new lib.RequestError("invalid player")
+						new lib.NotFoundError("invalid player")
 					);
 				});
 			});

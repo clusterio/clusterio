@@ -3,7 +3,7 @@ import * as libData from "../data/index.js";
 import * as libErrors from "../errors.js";
 import { logger } from "../logging.js";
 import * as libSchema from "../schema.js";
-import { dataClasses } from "./messages.js";
+import { dataClasses, errorClasses } from "./messages.js";
 import { BaseConnector, WebSocketBaseConnector } from "./connectors.js";
 import { strict as assert } from "assert";
 import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
@@ -37,6 +37,12 @@ export interface Event<T> {
 	}
 }
 export type EventClass<T> = Event<T>["constructor"];
+
+export interface ErrorClass {
+	new (message: string): Error;
+	name: string;
+	plugin?: string;
+}
 
 export interface RequestEntry {
 	Request: RequestClass<unknown, unknown>;
@@ -156,7 +162,7 @@ export class Link {
 		return this._pendingRequests.size + this._forwardedRequests.size;
 	}
 
-	_clearPendingRequests(err: Error & { code?: string }) {
+	_clearPendingRequests(err: Error) {
 		for (let pending of this._pendingRequests.values()) {
 			pending.reject(err);
 		}
@@ -170,9 +176,7 @@ export class Link {
 			) {
 				continue;
 			}
-			pending.origin.connector.sendResponseError(
-				new libData.ResponseError(err.message, err.code), pending.src, pending.dst
-			);
+			pending.origin.connector.sendResponseError(Link.errorToResponse(err, false), pending.src, pending.dst);
 		}
 		this._pendingRequests.clear();
 		this._forwardedRequests.clear();
@@ -200,10 +204,10 @@ export class Link {
 			try {
 				this.validatePermission(permissionMessage, entry); // Somewhat hacky, defined in ControlConnection
 			} catch (err) {
-				// A non-PermissionError means the permission check itself is
+				// A non-ClientError means the permission check itself is
 				// broken.  validatePermission (control connections only) already
 				// sent a response error, so log and drop instead of crashing.
-				if (!(err instanceof libErrors.PermissionError)) {
+				if (!(err instanceof libErrors.ClientError)) {
 					logger.error(
 						`Unexpected error checking permission for ${permissionMessage.name}:\n` +
 						`${(err as Error).stack ?? (err as Error).message}`
@@ -280,7 +284,7 @@ export class Link {
 			this.validateIngress(message);
 		} catch (err: any) {
 			if (message.type === "request") {
-				this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
+				this.connector.sendResponseError(Link.errorToResponse(err, false), message.src);
 			}
 			throw err;
 		}
@@ -290,17 +294,17 @@ export class Link {
 			let entry = Link._requestsByName.get(message.name);
 			if (!entry) {
 				let err = new libErrors.InvalidMessage(`Unrecognized request ${message.name}`);
-				this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
+				this.connector.sendResponseError(Link.errorToResponse(err, false), message.src);
 				throw err;
 			}
 			if (!entry.allowedSrcTypes.has(message.src.type)) {
 				let err = new libErrors.InvalidMessage(`Source ${message.src} is not allowed for ${message.name}`);
-				this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
+				this.connector.sendResponseError(Link.errorToResponse(err, false), message.src);
 				throw err;
 			}
 			if (!entry.allowedDstTypes.has(message.dst.type)) {
 				let err = new libErrors.InvalidMessage(`Destination ${message.dst} is not allowed for ${message.name}`);
-				this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
+				this.connector.sendResponseError(Link.errorToResponse(err, false), message.src);
 				throw err;
 			}
 			return entry;
@@ -344,7 +348,7 @@ export class Link {
 	 *
 	 * @param message - Message to check.
 	 * @param entry - Request or Event entry for this Message.
-	 * @throws {libErrors.PermissionError} if unauthorized.
+	 * @throws {libErrors.PermissionDeniedError} if unauthorized.
 	 */
 	validatePermission(message: libData.MessageRequest | libData.MessageEvent, entry: RequestEntry | EventEntry) { }
 
@@ -356,7 +360,7 @@ export class Link {
 			);
 			if (message.type === "request") {
 				this.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code), (message as libData.MessageRequest).src
+					Link.errorToResponse(err, false), (message as libData.MessageRequest).src
 				);
 			}
 			throw err;
@@ -399,13 +403,7 @@ export class Link {
 		try {
 			response = handler(entry.requestFromJSON(message.data), message.src, message.dst);
 		} catch (err: any) {
-			if (err.errors) {
-				logger.error(JSON.stringify(err.errors, null, "\t"));
-			}
-			this.connector.sendResponseError(
-				new libData.ResponseError(err.message, err.code, err.stack), message.src
-			);
-			return;
+			response = Promise.reject(err);
 		}
 
 		if (!(response instanceof Promise)) {
@@ -424,19 +422,17 @@ export class Link {
 				this.connector.sendResponse(result, message.src, spoofedSrc);
 			}
 		).catch(
-			(err: Error & { code?: string }) => {
+			(err: Error) => {
 				if (err instanceof libErrors.InvalidMessage) {
 					logger.error(err.message);
 					if (err.errors) {
 						logger.error(JSON.stringify(err.errors, null, "\t"));
 					}
-				} else if (!(err instanceof libErrors.RequestError)) {
+				} else if (Link.errorName(err) === undefined) {
 					logger.error(`Unexpected error responding to ${message.name}:\n${err.stack}`);
 				}
 				try {
-					this.connector.sendResponseError(
-						new libData.ResponseError(err.message, err.code, err.stack), message.src, spoofedSrc
-					);
+					this.connector.sendResponseError(Link.errorToResponse(err), message.src, spoofedSrc);
 				} catch (subErr: any) {
 					logger.error(`Unexpected error sending error response for ${message.name}:\n${subErr.stack}`);
 				}
@@ -474,7 +470,7 @@ export class Link {
 		}
 
 		this._pendingRequests.delete(message.dst.requestId!);
-		pending.reject(new libErrors.RequestError(message.data.message, message.data.code, message.data.stack));
+		pending.reject(Link.errorFromResponse(message.data));
 	}
 
 	_processEvent(message: libData.MessageEvent, entry: EventEntry) {
@@ -823,10 +819,80 @@ export class Link {
 		this._eventsByName.set(name, entry);
 		this._eventsByClass.set(Event as EventClass<unknown>, entry);
 	}
+
+	static _errorsByName = new Map<string, ErrorClass>();
+	static _errorNamesByClass = new Map<ErrorClass, string>();
+
+	/**
+	 * Register an error class to be sent and received over links
+	 *
+	 * Error responses carry the registered name of the thrown error and the
+	 * receiving side rejects the request with an instance of the same class.
+	 *
+	 * @param Class - Error class, must take the message as the first
+	 *     constructor argument.
+	 */
+	static registerError(Class: ErrorClass) {
+		const name = Class.plugin ? `${Class.plugin}:${Class.name}` : Class.name;
+		if (this._errorsByName.has(name)) {
+			throw new Error(`Error ${name} is already registered`);
+		}
+		this._errorsByName.set(name, Class);
+		this._errorNamesByClass.set(Class, name);
+	}
+
+	/**
+	 * Registered name of the closest registered class of an error
+	 *
+	 * @param err - Error to look up.
+	 * @returns name or undefined if no class in its prototype chain is registered.
+	 */
+	static errorName(err: Error) {
+		for (let proto = Object.getPrototypeOf(err); proto; proto = Object.getPrototypeOf(proto)) {
+			const name = this._errorNamesByClass.get(proto.constructor);
+			if (name) {
+				return name;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Convert an error into the data of an error response
+	 *
+	 * Errors with no registered class are sent as InternalServerError.
+	 *
+	 * @param err - Error to convert.
+	 * @param withStack - Include the stack trace of the error.
+	 */
+	static errorToResponse(err: Error, withStack = true) {
+		return new libData.ResponseError(
+			err.message, this.errorName(err) ?? "InternalServerError", withStack ? err.stack : undefined
+		);
+	}
+
+	/**
+	 * Convert the data of an error response back into an error
+	 *
+	 * @param response - Received error response data.
+	 * @returns instance of the registered class, or InternalServerError if
+	 *     the class is not registered on this side.
+	 */
+	static errorFromResponse(response: libData.ResponseError) {
+		const Class = response.code && this._errorsByName.get(response.code) || libErrors.InternalServerError;
+		const err = new Class(response.message);
+		if (response.stack !== undefined) {
+			err.stack = response.stack;
+		}
+		return err;
+	}
 }
 
 for (let Class of dataClasses) {
 	Link.register(Class as RequestClass<unknown, unknown>);
+}
+for (let Class of errorClasses) {
+	Link.registerError(Class);
 }
 
 export function registerPluginMessages(pluginInfos: PluginNodeEnvInfo[]|PluginWebpackEnvInfo[]) {
@@ -839,6 +905,15 @@ export function registerPluginMessages(pluginInfos: PluginNodeEnvInfo[]|PluginWe
 				);
 			}
 			Link.register(Class);
+		}
+		for (let Class of pluginInfo.errors || []) {
+			if (Class.plugin !== pluginInfo.name) {
+				throw new Error(
+					`Expected error ${Class.name} from ${pluginInfo.name} to have a static ` +
+					`plugin property set to "${pluginInfo.name}"`
+				);
+			}
+			Link.registerError(Class);
 		}
 	}
 }
