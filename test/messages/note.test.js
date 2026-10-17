@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import events from "node:events";
 
 import * as lib from "@clusterio/lib";
 import { Controller, ControlConnection } from "@clusterio/controller";
@@ -51,12 +52,28 @@ describe("messages/note", function() {
 			assert.equal(note.content, "second");
 			assert(note.updatedAtMs > first);
 		});
-		it("removes the note when content is empty", async function() {
+		it("leaves a tombstone when content is empty", async function() {
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "text"));
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
-			assert.equal(controller.notes.has("host/1"), false);
+			const note = controller.notes.get("host/1");
+			assert.equal(note.isDeleted, true);
+			assert.equal(note.content, "");
 			assert.equal(broadcasts.length, 2);
 			assert.equal(broadcasts[1].updates[0].isDeleted, true);
+		});
+		it("restores a deleted note", async function() {
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "text"));
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "again"));
+			const note = controller.notes.get("host/1");
+			assert.equal(note.isDeleted, false);
+			assert.equal(note.content, "again");
+		});
+		it("ignores empty content for a deleted note", async function() {
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "text"));
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
+			assert.equal(broadcasts.length, 2);
 		});
 		it("ignores empty content for a resource without a note", async function() {
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
@@ -82,6 +99,11 @@ describe("messages/note", function() {
 			const notes = await controlConnection.handleNoteListRequest();
 			assert.deepEqual(notes.map(n => n.id).sort(), ["host/1", "user/player"]);
 		});
+		it("leaves out deleted notes", async function() {
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "a"));
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
+			assert.deepEqual(await controlConnection.handleNoteListRequest(), []);
+		});
 	});
 
 	describe("NoteUpdatesEvent", function() {
@@ -105,6 +127,46 @@ describe("messages/note", function() {
 			const none = await controller.handleNoteSubscription({ action: "unsubscribe", lastRequestTimeMs: 0 });
 			assert.equal(none, null);
 		});
+		it("replays deletions only to clients that may have the note", async function() {
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "a"));
+			const createdMs = controller.notes.get("host/1").updatedAtMs;
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
+
+			const fresh = await controller.handleNoteSubscription({ action: "subscribe", lastRequestTimeMs: -1 });
+			assert.equal(fresh, null);
+			const resumed = await controller.handleNoteSubscription({
+				action: "subscribe", lastRequestTimeMs: createdMs,
+			});
+			assert.deepEqual(resumed.updates.map(n => [n.id, n.isDeleted]), [["host/1", true]]);
+		});
+		it("removes a note deleted while a subscriber was unsubscribed", async function() {
+			let deliver;
+			const link = { sendTo: (address, event) => { deliver(event); } };
+			const control = {
+				connector: Object.assign(new events.EventEmitter(), { valid: true }),
+				handle(Event, handler) { deliver = handler; },
+				sendTo: (dst, request) => controller.subscriptions.handleRequest(
+					link, request, lib.Address.fromShorthand({ controlId: 2 }), lib.Address.fromShorthand("controller"),
+				),
+			};
+			const subscriber = new lib.MapSubscriber(lib.NoteUpdatesEvent, control);
+			const tick = () => new Promise(resolve => setImmediate(resolve));
+
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "text"));
+			let unsubscribe = subscriber.subscribe(() => {});
+			await tick();
+			assert.equal(subscriber.values.get("host/1").content, "text");
+
+			unsubscribe();
+			await tick();
+			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", ""));
+
+			unsubscribe = subscriber.subscribe(() => {});
+			await tick();
+			assert.equal(subscriber.synced, true);
+			assert.equal(subscriber.values.has("host/1"), false);
+			unsubscribe();
+		});
 	});
 
 	describe("resource deletion", function() {
@@ -116,14 +178,14 @@ describe("messages/note", function() {
 			const id = await controlConnection.handleRoleCreateRequest(new lib.RoleCreateRequest("r", "", []));
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("role", String(id), "text"));
 			await controlConnection.handleRoleDeleteRequest(new lib.RoleDeleteRequest(id));
-			assert.equal(controller.notes.has(`role/${id}`), false);
+			assert.equal(controller.notes.get(`role/${id}`).isDeleted, true);
 		});
 		it("removes the note of a deleted user", async function() {
 			controller.users.getOrCreateUser("Player");
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("user", "player", "text"));
 			controller.sendTo = () => {};
 			await controlConnection.handleUserDeleteRequest(new lib.UserDeleteRequest("Player"));
-			assert.equal(controller.notes.has("user/player"), false);
+			assert.equal(controller.notes.get("user/player").isDeleted, true);
 		});
 		it("removes the note of a deleted instance", async function() {
 			const instanceConfig = new lib.InstanceConfig("controller");
@@ -131,7 +193,7 @@ describe("messages/note", function() {
 			const id = instanceConfig.get("instance.id");
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("instance", String(id), "text"));
 			await controlConnection.handleInstanceDeleteRequest(new lib.InstanceDeleteRequest(id));
-			assert.equal(controller.notes.has(`instance/${id}`), false);
+			assert.equal(controller.notes.get(`instance/${id}`).isDeleted, true);
 		});
 	});
 });

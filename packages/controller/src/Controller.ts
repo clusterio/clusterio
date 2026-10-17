@@ -1156,8 +1156,9 @@ export default class Controller {
 		if (request.action === "unsubscribe") {
 			return null;
 		}
+		// Deleted notes are kept as tombstones so resubscribing clients learn of the deletion
 		const notes = [...this.notes.values()].filter(
-			note => note.updatedAtMs > request.lastRequestTimeMs,
+			note => note.updatedAtMs > request.lastRequestTimeMs && (request.lastRequestTimeMs > 0 || !note.isDeleted),
 		);
 		return notes.length ? new lib.NoteUpdatesEvent(notes) : null;
 	}
@@ -1172,14 +1173,13 @@ export default class Controller {
 	setNote(resourceType: string, resourceId: string, content: string, updatedBy = "") {
 		const existing = this.notes.getMutable(lib.Note.idFor(resourceType, resourceId));
 		if (content === "") {
-			if (existing) {
-				this.notes.delete(existing);
-			}
+			this.deleteNote(resourceType, resourceId, updatedBy);
 			return;
 		}
 		if (existing) {
 			existing.content = content;
 			existing.updatedBy = updatedBy;
+			existing.isDeleted = false;
 			this.notes.set(existing);
 		} else {
 			this.notes.set(new lib.Note(resourceType, resourceId, content, updatedBy));
@@ -1190,11 +1190,15 @@ export default class Controller {
 	 * Remove the note attached to a resource, if any
 	 * @param resourceType - Type of resource the note belongs to.
 	 * @param resourceId - Id of the resource within its type.
+	 * @param updatedBy - Name of the user making the change.
 	 */
-	deleteNote(resourceType: string, resourceId: string | number) {
-		const note = this.notes.get(lib.Note.idFor(resourceType, resourceId));
-		if (note) {
-			this.notes.delete(note);
+	deleteNote(resourceType: string, resourceId: string | number, updatedBy = "") {
+		const note = this.notes.getMutable(lib.Note.idFor(resourceType, resourceId));
+		if (note && !note.isDeleted) {
+			note.content = "";
+			note.updatedBy = updatedBy;
+			note.isDeleted = true;
+			this.notes.set(note);
 		}
 	}
 

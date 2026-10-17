@@ -988,7 +988,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleNoteListRequest() {
-		return [...this._controller.notes.values()];
+		return [...this._controller.notes.values()].filter(note => !note.isDeleted);
 	}
 
 	async handleNoteSetRequest(request: lib.NoteSetRequest) {
