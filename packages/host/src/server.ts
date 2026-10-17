@@ -1,9 +1,11 @@
 // Factorio Server interface
 import fs from "node:fs/promises";
-import { type FSWatcher, watch as fsWatch, writeFileSync } from "node:fs";
+import { type FSWatcher, createWriteStream, watch as fsWatch, writeFileSync } from "node:fs";
 import child_process from "child_process";
 import path from "path";
-import JSZip from "jszip";
+import stream from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { ReadableStream } from "node:stream/web";
 import events from "events";
 import util from "util";
 import crypto from "crypto";
@@ -112,29 +114,38 @@ async function downloadAndExtractZip(url: string, targetDir: string) {
 		throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
 	}
 
-  	// Load the ZIP with JSZip
-	const buffer = Buffer.from(await res.arrayBuffer());
-	const zip = await JSZip.loadAsync(buffer);
+	if (!res.body) {
+		throw new Error(`Failed to fetch ${url}: empty response`);
+	}
 
-  	// Extract each file/folder
-	await fs.mkdir(targetDir, { recursive: true });
-	await Promise.all(
-		Object.values(zip.files).map(async (entry) => {
-			const parts = entry.name.split("/").filter(Boolean);
-			const strippedPath = parts.slice(1).join("/");
-			if (!strippedPath) {
-				return; // This copies the behaviour of tar --strip-components 1
-			}
+	// Write the download to a temp file, zip files need random access to read
+	const tmpFilePath = `${targetDir}.tmp`;
+	await fs.writeFile(tmpFilePath, stream.Readable.fromWeb(res.body as ReadableStream));
+	try {
+		const zip = await lib.ZipArchive.fromFile(tmpFilePath);
+		try {
+			await fs.mkdir(targetDir, { recursive: true });
+			for (const entry of zip.entries.values()) {
+				const parts = entry.fileName.split("/").filter(Boolean);
+				const strippedPath = parts.slice(1).join("/");
+				if (!strippedPath) {
+					continue; // This copies the behaviour of tar --strip-components 1
+				}
 
-			const entryPath = path.join(targetDir, strippedPath);
-			if (entry.dir) {
-				await fs.mkdir(entryPath, { recursive: true });
-			} else {
-				await fs.mkdir(path.dirname(entryPath), { recursive: true });
-				await fs.writeFile(entryPath, await entry.async("nodebuffer"));
+				const entryPath = path.join(targetDir, strippedPath);
+				if (entry.fileName.endsWith("/")) {
+					await fs.mkdir(entryPath, { recursive: true });
+				} else {
+					await fs.mkdir(path.dirname(entryPath), { recursive: true });
+					await pipeline(await zip.openStream(entry), createWriteStream(entryPath));
+				}
 			}
-		})
-	);
+		} finally {
+			zip.close();
+		}
+	} finally {
+		await fs.rm(tmpFilePath);
+	}
 }
 
 /**

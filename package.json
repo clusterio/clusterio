@@ -57,10 +57,11 @@
 		"form-data": "^4.0.6",
 		"globals": "^17.12.0",
 		"jsonwebtoken": "catalog:",
-		"jszip": "catalog:",
 		"mocha": "^11.8.0",
 		"typedoc": "^0.28.20",
 		"typescript": "catalog:",
-		"yargs": "catalog:"
+		"yargs": "catalog:",
+		"yauzl": "catalog:",
+		"yazl": "catalog:"
 	}
 }

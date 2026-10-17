@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import JSZip from "jszip";
 import path from "node:path";
 
 import * as lib from "@clusterio/lib";
@@ -8,6 +7,7 @@ import {
 	createScenario, createScenarioCommand, handleCreateScenarioCommand,
 } from "@clusterio/host/dist/node/src/create_scenario.js";
 import { SaveModule, PatchInfo } from "@clusterio/host/dist/node/src/patch.js";
+import { createZipBuffer } from "../common.js";
 
 
 describe("host/create_scenario", function() {
@@ -48,14 +48,15 @@ describe("host/create_scenario", function() {
 	before(async function() {
 		await fs.rm(tempDir, { recursive: true, force: true });
 		await fs.mkdir(path.join(tempDir, "scenario"), { recursive: true });
-		const zip = new JSZip();
 		for (const [name, content] of scenarioFiles) {
 			const fsPath = path.join(tempDir, "scenario", name);
 			await fs.mkdir(path.dirname(fsPath), { recursive: true });
 			await fs.writeFile(fsPath, content);
-			zip.file(`scenario/${name}`, content);
 		}
-		await fs.writeFile(path.join(tempDir, "scenario.zip"), await zip.generateAsync({ type: "nodebuffer" }));
+		await fs.writeFile(
+			path.join(tempDir, "scenario.zip"),
+			await createZipBuffer([...scenarioFiles].map(([name, content]) => [`scenario/${name}`, content])),
+		);
 	});
 
 	it("should patch a scenario directory", async function() {
@@ -73,12 +74,16 @@ describe("host/create_scenario", function() {
 	it("should write a zip file when asked to", async function() {
 		const output = path.join(tempDir, "zipped.zip");
 		await createScenario(path.join(tempDir, "scenario"), output, [module], true);
-		const zip = await JSZip.loadAsync(await fs.readFile(output));
+		const zip = await lib.ZipArchive.fromFile(output);
 		const files = new Map();
-		for (const file of Object.values(zip.files)) {
-			if (!file.dir) {
-				files.set(file.name.replace(/^scenario\//, ""), await file.async("string"));
+		try {
+			for (const entry of zip.entries.values()) {
+				if (!entry.fileName.endsWith("/")) {
+					files.set(entry.fileName.replace(/^scenario\//, ""), (await zip.readEntry(entry)).toString());
+				}
 			}
+		} finally {
+			zip.close();
 		}
 		checkOutput(files);
 	});
@@ -102,6 +107,24 @@ describe("host/create_scenario", function() {
 		await assert.rejects(
 			createScenario(path.join(tempDir, "unknown"), path.join(tempDir, "from_unknown"), [module]),
 			new Error("Unable to patch save, unknown scenario (3acc3be3861144e55604f5ac2f2555071885ebc4)")
+		);
+	});
+
+	it("should throw if a scenario file is unreadable", async function() {
+		if (process.platform === "win32" || process.getuid?.() === 0) {
+			this.skip();
+		}
+		const scenario = path.join(tempDir, "unreadable");
+		await fs.cp(path.join(tempDir, "scenario"), scenario, { recursive: true });
+		await fs.writeFile(path.join(scenario, "unreadable.lua"), "");
+		await fs.chmod(path.join(scenario, "unreadable.lua"), 0o000);
+		for (let i = 0; i < 20; i++) {
+			await fs.mkdir(path.join(scenario, `dir${i}`));
+			await fs.writeFile(path.join(scenario, `dir${i}`, "file.lua"), "");
+		}
+		await assert.rejects(
+			createScenario(scenario, path.join(tempDir, "from_unreadable"), [module]),
+			{ code: "EACCES" },
 		);
 	});
 
