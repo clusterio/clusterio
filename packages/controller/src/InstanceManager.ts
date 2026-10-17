@@ -65,12 +65,12 @@ export default class InstanceManager {
 	 *
 	 * @param instanceId - ID of instance to get.
 	 * @returns The instance record.
-	 * @throws {module:lib.RequestError} if the instance does not exist.
+	 * @throws {module:lib.NotFoundError} if the instance does not exist.
 	 */
 	getForRequest(instanceId: number): InstanceRecord {
 		const instance = this.records.get(instanceId);
 		if (!instance) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new lib.NotFoundError(`Instance with ID ${instanceId} does not exist`);
 		}
 		return instance;
 	}
@@ -125,7 +125,7 @@ export default class InstanceManager {
 	 * @param instanceConfig - Config to base the newly created instance on.
 	 * @param _suppressChanges - When true, side effects are suppressed, caller takes ownership.
 	 * @returns The created instance record.
-	 * @throws {module:lib.RequestError} if an instance with the same ID already exists.
+	 * @throws {module:lib.ConflictError} if an instance with the same ID already exists.
 	 */
 	async createInstance(
 		instanceConfig: lib.InstanceConfig,
@@ -133,7 +133,7 @@ export default class InstanceManager {
 	): Promise<InstanceRecord> {
 		const instanceId = instanceConfig.get("instance.id");
 		if (this.records.has(instanceId)) {
-			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
+			throw new lib.ConflictError(`Instance with ID ${instanceId} already exists`);
 		}
 
 		const controllerName = this._controller.config.get("controller.name");
@@ -172,8 +172,8 @@ export default class InstanceManager {
 	 * @param hostId - ID of host to assign the instance to. If undefined,
 	 * the instance will be unassigned.
 	 *
-	 * @throws {module:lib.RequestError} if the instance does not exist.
-	 * @throws {module:lib.RequestError} if the target host is not connected.
+	 * @throws {module:lib.NotFoundError} if the instance does not exist.
+	 * @throws {module:lib.ConflictError} if the target host is not connected.
 	 */
 	async assignInstance(
 		instanceId: number,
@@ -191,7 +191,7 @@ export default class InstanceManager {
 		if (hostId !== null) {
 			newHostConnection = hostConnections.get(hostId);
 			if (!newHostConnection) {
-				throw new lib.RequestError("Target host is not connected to the controller");
+				throw new lib.ConflictError("Target host is not connected to the controller");
 			}
 		}
 
@@ -247,7 +247,7 @@ export default class InstanceManager {
 	 *
 	 * @param instanceId - ID of instance to delete.
 	 *
-	 * @throws {module:lib.RequestError} if the instance does not exist.
+	 * @throws {module:lib.NotFoundError} if the instance does not exist.
 	 */
 	async deleteInstance(instanceId: number): Promise<void> {
 		const instance = this.getForRequest(instanceId);

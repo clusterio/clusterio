@@ -154,6 +154,10 @@ The following properties are recognized:
     Array of request and event classes for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
 
+**errors**:
+    Array of error classes for this plugin.
+    See [Request errors](#request-errors).
+
 **permissions**:
     Array of permission definitions for this plugin.
     See [Plugin Permissions](#plugin-permissions)
@@ -641,16 +645,16 @@ Registration rejects control-origin messages with no permission declaration.
 
 A callback receives `(user, message)`, where `message` is the raw wire envelope.
 It runs on the controller before destination payload validation and deserialization, so `message.data` is untrusted and may be missing or malformed.
-Check any required payload shape before inspecting fields, and use `user.checkPermission(...)` or throw `PermissionError` for a normal denial.
+Check any required payload shape before inspecting fields, and use `user.checkPermission(...)` or throw a `ClientError` such as `PermissionDeniedError` for a normal denial.
 For example, this checks the payload shape needed to choose a permission; the destination schema still validates the full payload:
 
 ```js
-import { PermissionError } from "@clusterio/lib";
+import { ValidationError } from "@clusterio/lib";
 
 function checkFrobnicatePermission(user, message) {
     const data = message.data;
     if (!data || typeof data !== "object" || typeof data.special !== "boolean") {
-        throw new PermissionError("Expected a boolean special field");
+        throw new ValidationError("Expected a boolean special field");
     }
     user.checkPermission(data.special ? "foo_frobber.special" : "foo_frobber.frobnicate");
 }
@@ -739,6 +743,53 @@ connection.sendTo({ hostId: 123 }, message);
 connection.sendTo({ instanceId: 123 }, message);
 connection.sendTo({ controlId: 123 }, message);
 ```
+
+### Request errors
+
+An error thrown by a request handler is sent back to the requester, and the promise returned by `.sendTo()` rejects with an instance of the same class.
+The error classes follow the HTTP status codes:
+
+```
+Error
+├── ClientError (4xx)
+│   ├── ValidationError (400)
+│   │   ├── InvalidValueError
+│   │   └── InvalidFieldError
+│   ├── ForbiddenError (403)
+│   │   ├── PermissionDeniedError
+│   │   └── InvalidAccessError
+│   ├── NotFoundError (404)
+│   ├── TimeoutError (408)
+│   └── ConflictError (409)
+└── ServerError (5xx)
+    └── InternalServerError (500)
+```
+
+Throw a `ClientError` subclass when the request can't be done as asked, for example:
+
+```js
+controller.handle(messages.Frobnicate, async request => {
+    if (!frobnicators.has(request.id)) {
+        throw new lib.NotFoundError(`Frobnicator ${request.id} does not exist`);
+    }
+    // ...
+});
+```
+
+Errors of a class that is not registered are logged as unexpected by the side that threw them and are received as `InternalServerError`.
+Registered errors are not logged.
+The message and stack trace of the original error are kept in both cases.
+
+Plugins can define their own error classes by listing them in `errors` of the plugin declaration.
+They need a static `plugin` property set to the plugin name and must take the message as the first constructor argument:
+
+```js
+export class FrobnicatorJammed extends lib.ConflictError {
+    static plugin = "foo_frobber";
+}
+```
+
+A subclass that is not registered is received as its closest registered parent class.
 
 ### Handling connection events
 

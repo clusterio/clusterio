@@ -223,7 +223,8 @@ Plugins may define their own requests as well.
 - `src: Address` - Responding endpoint.
 - `dst: Address` - Requester's address, including the original request ID.
 - `data.message: string` - Human-readable error description.
-- `data.code: string` (optional) - Error code.
+- `data.code: string` (optional) - Registered name of the error class, `<plugin>:<class>` for plugin errors.
+  Missing or unknown names are received as `InternalServerError`.
 - `data.stack: string` (optional) - Error stack.
 
 
