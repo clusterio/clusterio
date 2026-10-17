@@ -93,7 +93,7 @@ local function last_slot_index(serialized)
 	return last
 end
 
---- @return integer raise Slots added to character_inventory_slots_bonus, to be removed again on the next tick
+--- @return integer raise Slots added to character_inventory_slots_bonus, removed again once the armor's bonus applies
 function serialize.deserialize_character(character, serialized)
 	-- Deserialize character stats
 	for _, key in pairs(character_stat_keys) do
@@ -101,11 +101,12 @@ function serialize.deserialize_character(character, serialized)
 	end
 
 	-- Deserialize character inventories, armor first for its inventory bonus. The bonus of the armor's
-	-- equipment (toolbelts) only applies on the next tick, so the main inventory is raised to fit the data.
+	-- equipment (toolbelts) only applies at the end of the tick, so the main inventory is raised to fit the data.
+	-- Only for armor with a grid, restoring it raises on_player_armor_inventory_changed which removes the raise.
 	local inventories = serialized.inventories
 	serialize.deserialize_inventories(character, inventories, armor_inventory)
 	local raise = 0
-	if inventories.main then
+	if inventories.main and character.grid then
 		raise = math.max(0, last_slot_index(inventories.main) - #character.get_main_inventory())
 		character.character_inventory_slots_bonus = character.character_inventory_slots_bonus + raise
 	end
