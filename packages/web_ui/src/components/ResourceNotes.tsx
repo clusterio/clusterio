@@ -25,9 +25,14 @@ type ResourceNotesProps = {
  * have the core.note.update permission.
  */
 export default function ResourceNotes(props: ResourceNotesProps) {
+	// Remount on resource change so a draft is never saved to another resource
+	return <ResourceNotesEditor key={lib.Note.idFor(props.resourceType, props.resourceId)} {...props} />;
+}
+
+function ResourceNotesEditor(props: ResourceNotesProps) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
-	const [note] = useNote(props.resourceType, props.resourceId);
+	const [note, synced] = useNote(props.resourceType, props.resourceId);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState("");
 	const [saving, setSaving] = useState(false);
@@ -64,7 +69,9 @@ export default function ResourceNotes(props: ResourceNotesProps) {
 			<Button size="small" onClick={cancel} disabled={saving}>Cancel</Button>
 			<Button size="small" type="primary" onClick={save} loading={saving}>Save</Button>
 		</Space>
-		: <Button size="small" onClick={() => setEditing(true)}>{note ? "Edit" : "Add note"}</Button>;
+		: <Button size="small" onClick={() => setEditing(true)} disabled={!synced}>
+			{note ? "Edit" : "Add note"}
+		</Button>;
 
 	const body = editing
 		? <Input.TextArea
@@ -84,7 +91,7 @@ export default function ResourceNotes(props: ResourceNotesProps) {
 		: <>
 			{note
 				? <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{note.content}</div>
-				: <Text type="secondary">No note</Text>
+				: <Text type="secondary">{synced ? "No note" : "Loading"}</Text>
 			}
 			{note && (note.updatedBy || note.updatedAtMs) && <div>
 				<Text type="secondary" style={{ fontSize: "0.85em" }}>
