@@ -992,6 +992,32 @@ function serialize.newly_synced(old_components, new_components)
 end
 
 --- @param player LuaPlayer
+--- @return boolean
+local function waiting_to_respawn(player)
+	return player.controller_type == defines.controllers.ghost and player.ticks_to_respawn ~= nil
+end
+
+--- Call fn with a player waiting to respawn temporarily respawned
+---
+--- For the waiting to respawn state the inventory logistic requests and filters are hidden on the player, and are
+--- only accessible in the character controller.
+--- @param player LuaPlayer
+--- @param fn fun()
+local function with_respawned(player, fn)
+	local ticks_to_respawn = player.ticks_to_respawn
+	player.ticks_to_respawn = nil -- Respawn now
+
+	fn()
+
+	-- Go back to waiting for respawn
+	local character = player.character
+	player.ticks_to_respawn = ticks_to_respawn
+	if character and character.valid then
+		character.destroy()
+	end
+end
+
+--- @param player LuaPlayer
 --- @param failed_deserialization FailedDeserializationPlayerData
 --- @param components SyncComponents
 --- @return SerializedPlayerData
@@ -1034,26 +1060,15 @@ function serialize.serialize_player(player, failed_deserialization, components)
 		serialized.game_view_settings = serialize.serialize_game_view_settings(player)
 	end
 
-	-- For the waiting to respawn state the inventory logistic requests and filters are hidden on the player
-	if (sync_inventories or sync_logistics)
-		and player.controller_type == defines.controllers.ghost and player.ticks_to_respawn
-	then
-		local ticks_to_respawn = player.ticks_to_respawn
-		player.ticks_to_respawn = nil -- Respawn now
-
-		if sync_logistics then
-			serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
-		end
-		if sync_inventories then
-			serialized.inventories = serialize.serialize_inventories(player, character_inventories)
-		end
-
-		-- Go back to waiting for respawn
-		local character = player.character
-		player.ticks_to_respawn = ticks_to_respawn
-		if character and character.valid then
-			character.destroy()
-		end
+	if (sync_inventories or sync_logistics) and waiting_to_respawn(player) then
+		with_respawned(player, function()
+			if sync_logistics then
+				serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+			end
+			if sync_inventories then
+				serialized.inventories = serialize.serialize_inventories(player, character_inventories)
+			end
+		end)
 	end
 
 	-- Serialize character
@@ -1102,16 +1117,24 @@ end
 --- @field flashlight boolean?
 
 --- @param player LuaPlayer
+--- @param components SyncComponents
 --- @return LocalControllerState
-function serialize.serialize_local_controller(player)
+function serialize.serialize_local_controller(player, components)
 	local controller_type = v2_remote_controller and player.physical_controller_type or player.controller_type
-	local character = player.character
-	return {
+	--- @type LocalControllerState
+	local state = {
 		controller = controller_to_name[controller_type],
 		ticks_to_respawn = player.ticks_to_respawn,
-		personal_logistic_slots = character and serialize.serialize_personal_logistic_slots(player),
-		flashlight = character and player.is_flashlight_enabled(),
 	}
+	if player.character then
+		state.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+		state.flashlight = player.is_flashlight_enabled()
+	elseif not syncs(components, "logistics") and waiting_to_respawn(player) then
+		with_respawned(player, function()
+			state.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+		end)
+	end
+	return state
 end
 
 --- Find a surface characters can exist on, used when the player is on a space platform surface
@@ -1194,10 +1217,12 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 		state = { controller = serialized.controller, ticks_to_respawn = serialized.ticks_to_respawn }
 	end
 
+	-- A player in remote view keeps their physical controller
+	local current_controller = v2_remote_controller and player.physical_controller_type or player.controller_type
 	local target_controller = state and defines.controllers[state.controller]
 	local to_ghost = state and state.controller == "ghost"
 	local change_controller = state and (
-		player.controller_type ~= target_controller
+		current_controller ~= target_controller
 		or to_ghost and (restore_controller or sync_inventories or sync_logistics)
 	)
 
@@ -1233,7 +1258,9 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 		elseif state.controller == "ghost" then
 			-- Ghost state stores hidden logistic and filters which are only accessible in the character controller
 			-- The force first, so the character and the logistic groups are on the restored player's force
-			player.force = serialized.force
+			if syncs(components, "force") and serialized.force then
+				player.force = serialized.force
+			end
 			local character = ensure_character(player)
 			serialize.deserialize_personal_logistic_slots(player, logistic_slots)
 			if place then
