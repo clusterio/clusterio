@@ -199,9 +199,16 @@ export default async function(context: ControllerPluginContext) {
 
 		acquiredPlayers.delete(playerName);
 		let stored = storedVersion(playerName);
+		if (playerData.epoch === undefined) {
+			// Instances from before epochs were added never send one, they keep the rules they had before
+			stored.generation = playerDatastore.get(playerName)?.generation ?? 0;
+			if (stored.epoch) {
+				playerData.epoch = stored.epoch;
+			}
+		}
 		if (store && (playerData.epoch ?? 0) !== stored.epoch) {
 			logger.warn(
-				`${instanceName} uploaded ${playerName} from epoch ${playerData.epoch ?? 0} while the stored ` +
+				`${instanceName} uploaded ${playerName} from epoch ${playerData.epoch} while the stored ` +
 				`epoch is ${stored.epoch}, discarding the outdated copy`
 			);
 			store = false;

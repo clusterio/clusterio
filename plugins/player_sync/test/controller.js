@@ -93,7 +93,7 @@ describe("player_sync controller", function() {
 
 	describe("player data tools", function() {
 		function playerData(name, generation, extra = {}) {
-			return { generation, name, controller: "character", force: "player", ...extra };
+			return { generation, epoch: 0, name, controller: "character", force: "player", ...extra };
 		}
 
 		let controller;
@@ -251,7 +251,37 @@ describe("player_sync controller", function() {
 			});
 			it("should reject when the player is acquired", async function() {
 				await assert.rejects(del("stored"), acquiredError);
-				assert((await saved()).has("stored"));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 3));
+			});
+		});
+
+		describe("uploads without an epoch", function() {
+			// What instances running a version from before epochs send
+			function legacyData(generation) {
+				const data = playerData("stored", generation);
+				delete data.epoch;
+				return data;
+			}
+			beforeEach(async function() {
+				await handler(msg.ForceReleaseRequest)(new msg.ForceReleaseRequest("stored"));
+			});
+			it("should store them by generation", async function() {
+				await upload(1, legacyData(3));
+				await upload(1, legacyData(4));
+				assert.deepEqual((await saved()).get("stored"), legacyData(4));
+			});
+			it("should keep accepting them after an import", async function() {
+				const request = new msg.SetPlayerDataRequest("stored", playerData("stored", 0));
+				await handler(msg.SetPlayerDataRequest)(request);
+				await upload(1, legacyData(4));
+				assert.equal((await saved()).get("stored").epoch, 1);
+				await upload(1, legacyData(5));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 5, { epoch: 1 }));
+			});
+			it("should accept any generation after a delete", async function() {
+				await handler(msg.DeletePlayerDataRequest)(new msg.DeletePlayerDataRequest("stored"));
+				await upload(1, legacyData(1));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 1, { epoch: 1 }));
 			});
 		});
 

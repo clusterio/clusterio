@@ -4,7 +4,10 @@ import { StringEnum, jsonArray } from "@clusterio/lib";
 // .\module\serialize.lua:serialize.serialize_player()
 export type IpcPlayerData = {
 	generation: number,
-	/** Bumped when the stored data is imported or deleted, invalidating copies held by instances */
+	/**
+	 * Bumped when the stored data is imported or deleted, invalidating copies held by instances.
+	 * Instances from before epochs were added leave it out of uploads.
+	 */
 	epoch?: number,
 	name: string,
 	controller?: string,

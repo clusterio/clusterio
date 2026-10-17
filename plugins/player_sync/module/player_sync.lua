@@ -99,7 +99,8 @@ function player_sync.serialize_player(player, player_record)
 	local failed_deserialization = get_script_data().failed_deserialization[player.name] or {}
 	local serialized_player = serialize.serialize_player(player, failed_deserialization, player_record.components)
 	serialized_player.generation = player_record.generation
-	serialized_player.epoch = player_record.epoch
+	-- Always sent so the controller can tell this instance supports epochs
+	serialized_player.epoch = player_record.epoch or 0
 
 	return serialized_player
 end

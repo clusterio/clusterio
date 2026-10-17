@@ -50,6 +50,8 @@ An instance holding a copy from an earlier epoch throws it away the next time th
 After an import the instance downloads the new data.
 After a delete the next join turns whatever the player has on that instance into the new synced inventory.
 Deleted players stay in `player_sync.json` as an entry with `deleted: true` so their epoch survives a controller restart.
+Hosts running a version of this plugin from before epochs keep comparing generations only, so they can still overwrite an import with a copy they failed to upload.
+Update the plugin on every host to get the full guarantee.
 Both are refused while an instance holds the lock on the player, because the instance uploads its own copy when the player leaves and that would undo the change.
 Have the player leave first, or release the lock if the instance is stuck holding it.
 
