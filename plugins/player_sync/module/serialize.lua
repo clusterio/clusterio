@@ -69,7 +69,10 @@ end
 --- Restore the stats of a character, the inventories are restored with place_items
 function serialize.deserialize_character(character, serialized)
 	for _, key in pairs(character_stat_keys) do
-		character[key] = serialized[key]
+		-- Missing from imports and from data saved by another Factorio version
+		if serialized[key] ~= nil then
+			character[key] = serialized[key]
+		end
 	end
 end
 
@@ -343,13 +346,13 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 			logistic_point.remove_section(i)
 		end
 
-		-- If this is an array instead of a table, migrate to v2 format
+		-- Data from before 2.0 maps slot indices to requests, migrate it to a section
 		if next(serialized) == nil then
 			return
-		elseif serialized[1] ~= nil then
+		elseif serialized.sections == nil then
 			local section = logistic_point.add_section()
 			for i, slot in pairs(serialized) do
-				section.set_slot(i, {
+				section.set_slot(tonumber(i), {
 					value = {
 						name = slot.name,
 						quality = "normal",
@@ -897,6 +900,7 @@ end
 
 --- @class SerializedPlayerData
 --- @field generation number
+--- @field epoch number?
 --- @field name string
 --- @field controller string?
 --- @field color Color?

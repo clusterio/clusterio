@@ -99,6 +99,8 @@ function player_sync.serialize_player(player, player_record)
 	local failed_deserialization = get_script_data().failed_deserialization[player.name] or {}
 	local serialized_player = serialize.serialize_player(player, failed_deserialization, player_record.components)
 	serialized_player.generation = player_record.generation
+	-- Always sent so the controller can tell this instance supports epochs
+	serialized_player.epoch = player_record.epoch or 0
 
 	return serialized_player
 end
@@ -269,9 +271,15 @@ function player_sync.sync_player(acquire_response)
 	end
 
 	local script_data = get_script_data()
+	-- Epoch is bumped when an admin replaces or deletes the stored data
+	local epoch = acquire_response.epoch or 0
 	local finished_record = script_data.finished_downloads[acquire_response.player_name]
 	if finished_record then
-		if acquire_response.status == "acquired" and finished_record.generation == acquire_response.generation then
+		if
+			acquire_response.status == "acquired"
+			and finished_record.generation == acquire_response.generation
+			and (finished_record.epoch or 0) == epoch
+		then
 			player_sync.finish_download(player, finished_record)
 			return
 		end
@@ -284,7 +292,11 @@ function player_sync.sync_player(acquire_response)
 	local download_record = script_data.active_downloads[acquire_response.player_name]
 	if download_record then
 		-- Ignore the response if it affirms the current active download
-		if acquire_response.status == "acquired" and download_record.generation == acquire_response.generation then
+		if
+			acquire_response.status == "acquired"
+			and download_record.generation == acquire_response.generation
+			and (download_record.epoch or 0) == epoch
+		then
 			game.print("Continuing active download")
 			return
 		end
@@ -305,6 +317,8 @@ function player_sync.sync_player(acquire_response)
 			-- download was started. Restart it.
 			game.print("Restarting download")
 			download_record.restart = true
+			download_record.generation = acquire_response.generation
+			download_record.epoch = epoch
 			return
 		end
 
@@ -333,15 +347,17 @@ function player_sync.sync_player(acquire_response)
 		return
 	end
 
+	local stale = (player_record.epoch or 0) ~= epoch
 	if
 		acquire_response.has_data
 		and (
 			not player_record.sync
+			or stale
 			or acquire_response.generation > player_record.generation
 			or serialize.newly_synced(player_record.components, script_data.components)
 		)
 	then
-		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation)
+		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation, epoch)
 
 	else
 		if acquire_response.generation == 0 then
@@ -355,6 +371,9 @@ function player_sync.sync_player(acquire_response)
 		start_sync(player_record, script_data.components)
 		player_record.dirty = true
 		player_record.sync_in_progress = false
+		-- Deleted data keeps its generation and epoch so the next upload is accepted as the new baseline
+		player_record.epoch = epoch
+		player_record.generation = math.max(player_record.generation, acquire_response.generation)
 	end
 end
 
@@ -378,6 +397,7 @@ function player_sync.finish_download(player, finished_record)
 	player_record.sync_in_progress = false
 	start_sync(player_record, finished_record.components)
 	player_record.generation = finished_record.generation
+	player_record.epoch = finished_record.epoch
 end
 
 -- Download inventory from controller
@@ -478,12 +498,13 @@ function player_sync.confirm_upload(player_name, generation)
 	player_record.dirty = false
 end
 
-function player_sync.initiate_inventory_download(player, player_record, generation)
+function player_sync.initiate_inventory_download(player, player_record, generation, epoch)
 	player.print("Initiating inventory download...")
 	local record = {
 		started = game.ticks_played,
 		last_active = game.ticks_played,
 		generation = generation,
+		epoch = epoch,
 		data = "",
 	}
 	local script_data = get_script_data()

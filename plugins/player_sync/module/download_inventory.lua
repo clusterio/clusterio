@@ -29,7 +29,7 @@ local function download_inventory(player_name, data, number, total, components)
 	end
 	if record.restart then
 		rcon.print("Restarting outdated download")
-		player_sync.initiate_inventory_download(player, player_record, record.generation)
+		player_sync.initiate_inventory_download(player, player_record, record.generation, record.epoch)
 		return
 	end
 
@@ -55,6 +55,7 @@ local function download_inventory(player_name, data, number, total, components)
 		player_record.sync = true
 		player_record.components = record.components
 		player_record.generation = record.generation
+		player_record.epoch = record.epoch
 		return
 	end
 
