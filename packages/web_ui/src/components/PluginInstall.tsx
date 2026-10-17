@@ -21,7 +21,7 @@ export type PluginInstaller = {
 	installing: boolean,
 	/** Install a package, optionally pinned as name@version, on every target */
 	install: (packageSpec: string, targets: InstallTarget[]) => Promise<void>,
-	/** Run package operations, one at a time per machine since a machine only runs one npm operation at once */
+	/** Run package operations one at a time, a standalone controller and host share one installation */
 	run: (operations: PackageOperation[]) => Promise<void>,
 };
 
@@ -92,28 +92,20 @@ export function usePluginInstaller(onDone?: () => void): PluginInstaller {
 	const [installing, setInstalling] = useState(false);
 
 	async function run(operations: PackageOperation[]) {
-		const byMachine = new Map<string, PackageOperation[]>();
-		for (const operation of operations) {
-			const key = addressKey(operation.target.address);
-			byMachine.set(key, [...byMachine.get(key) ?? [], operation]);
-		}
-
 		setInstalling(true);
 		const done: string[] = [];
 		try {
-			await Promise.all([...byMachine.values()].map(async machineOperations => {
-				for (const { kind, target, packageSpec } of machineOperations) {
-					const request = kind === "install"
-						? new lib.PluginInstallRequest(packageSpec)
-						: new lib.PluginUpdateRequest(packageSpec);
-					try {
-						await control.sendTo(target.address, request);
-						done.push(`${kind === "install" ? "Installed" : "Updated"} ${packageSpec} on ${target.name}`);
-					} catch (err: any) {
-						notifyErrorHandler(`Failed to ${kind} ${packageSpec} on ${target.name}`)(err);
-					}
+			for (const { kind, target, packageSpec } of operations) {
+				const request = kind === "install"
+					? new lib.PluginInstallRequest(packageSpec)
+					: new lib.PluginUpdateRequest(packageSpec);
+				try {
+					await control.sendTo(target.address, request);
+					done.push(`${kind === "install" ? "Installed" : "Updated"} ${packageSpec} on ${target.name}`);
+				} catch (err: any) {
+					notifyErrorHandler(`Failed to ${kind} ${packageSpec} on ${target.name}`)(err);
 				}
-			}));
+			}
 			if (done.length) {
 				notify(
 					done.length === 1 ? done[0] : `Completed ${done.length} plugin changes`, "success",

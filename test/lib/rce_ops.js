@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import * as lib from "@clusterio/lib";
 import "../setup_logging.js";
 
@@ -33,6 +34,23 @@ describe("rce_ops", function() {
 			await assert.rejects(nested, /Another package operation is already in progress/);
 			// The lock is released once the operation finishes
 			await lib.installPackage("foo");
+		});
+		it("rejects while another process holds the lock", async function() {
+			// A standalone controller and host share the installation directory
+			await fs.writeFile("npm-operation.lock", `${process.ppid}\n`);
+			try {
+				await assert.rejects(
+					lib.installPackage("foo"),
+					/Another package operation is already in progress/,
+				);
+			} finally {
+				await fs.unlink("npm-operation.lock");
+			}
+		});
+		it("ignores a lock left by a process that exited", async function() {
+			await fs.writeFile("npm-operation.lock", "999999999\n");
+			await lib.installPackage("foo");
+			await assert.rejects(fs.access("npm-operation.lock"));
 		});
 	});
 

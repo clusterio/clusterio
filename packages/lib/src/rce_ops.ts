@@ -3,6 +3,7 @@ import path from "path";
 import { exec } from "child_process";
 import { logger } from "./logging.js";
 import { RequestError } from "./errors.js";
+import { LockFile, LockFileExistsError } from "./LockFile.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
 import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
 const execAsync = util.promisify(exec);
@@ -13,21 +14,24 @@ function isDev() {
 	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
 }
 
-// npm operations on the same installation must not overlap, so only one is allowed at a time.
-let npmBusy = false;
-
 async function logExec(cmd: string) {
-	if (npmBusy) {
-		throw new RequestError("Another package operation is already in progress on this machine");
+	// npm runs in the working directory, which a standalone controller and host may share
+	const lock = new LockFile(path.resolve("npm-operation.lock"));
+	try {
+		await lock.acquire();
+	} catch (err) {
+		if (err instanceof LockFileExistsError) {
+			throw new RequestError("Another package operation is already in progress on this machine");
+		}
+		throw err;
 	}
-	npmBusy = true;
 	try {
 		logger.audit(`RCE | ${cmd}`);
 		if (!isDev()) {
 			await execAsync(cmd);
 		}
 	} finally {
-		npmBusy = false;
+		await lock.release();
 	}
 }
 
