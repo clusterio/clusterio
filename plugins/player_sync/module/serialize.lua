@@ -27,16 +27,6 @@ function serialize.serialize_inventories(source, inventories)
 	return serialized
 end
 
-function serialize.deserialize_inventories(destination, serialized, inventories)
-	for name, index in pairs(inventories) do
-		local inventory = destination.get_inventory(index)
-		if inventory ~= nil and serialized[name] ~= nil then
-			inventory.clear()
-			clusterio_serialize.deserialize_inventory(inventory, serialized[name])
-		end
-	end
-end
-
 -- Characters are serialized into a table with the following fields:
 --   character_crafting_speed_modifier
 --   character_mining_speed_modifier
@@ -76,20 +66,201 @@ function serialize.serialize_character(character)
 	return serialized
 end
 
+--- Restore the stats of a character, the inventories are restored with place_items
 function serialize.deserialize_character(character, serialized)
-	-- Deserialize character stats
 	for _, key in pairs(character_stat_keys) do
 		character[key] = serialized[key]
 	end
+end
 
-	-- Deserialize character inventories
-	serialize.deserialize_inventories(character, serialized.inventories, character_inventories)
-
-	-- Deserialize armor grid state, the grid exists after the armor inventory is restored
+--- Restore the armor grid state, the grid exists after the armor inventory is restored
+function serialize.deserialize_character_grid(character, serialized)
 	local grid = character.grid
 	if grid and serialized.inhibit_movement_bonus ~= nil then
 		grid.inhibit_movement_bonus = serialized.inhibit_movement_bonus
 	end
+end
+
+-- Inventories items which do not fit into the inventory they came from are inserted into, in order
+local overflow_order = { "main", "guns", "ammo", "armor" }
+
+--- Copy of a serialized item entry without the slot index, repeat count and filter
+--- @param entry table
+--- @return table
+local function stack_entry(entry)
+	local stack = {}
+	for key, value in pairs(entry) do
+		stack[key] = value
+	end
+	stack.s = nil
+	stack.r = nil
+	stack.f = nil
+	return stack
+end
+
+--- Split a serialized inventory into the slots which fit into an inventory of size and the stacks of those which do not
+--- @param serialized table
+--- @param size number
+--- @return table fitting, table[] rest
+local function split_inventory(serialized, size)
+	local fitting = { b = serialized.b, i = {} }
+	local rest = {}
+	local last = 0
+	for _, entry in ipairs(serialized.i) do
+		local first = entry.s or last + 1
+		last = first + (entry.r or 0)
+		if last <= size then
+			table.insert(fitting.i, entry)
+		else
+			if first <= size then
+				local part = stack_entry(entry)
+				part.s = first
+				part.r = size > first and size - first or nil
+				part.f = entry.f
+				table.insert(fitting.i, part)
+			end
+			if entry.n or entry.e then
+				for _ = math.max(first, size + 1), last do
+					table.insert(rest, stack_entry(entry))
+				end
+			end
+		end
+	end
+	return fitting, rest
+end
+
+local stack_definition_keys = { n = true, c = true, q = true, h = true, p = true, d = true, a = true }
+
+--- Insert as much of a serialized stack as possible into an inventory, reducing its count by what was inserted
+--- @param inventory LuaInventory
+--- @param stack table
+--- @return boolean placed true if all of it was inserted
+local function insert_stack(inventory, stack)
+	local plain = true
+	for key in pairs(stack) do
+		plain = plain and stack_definition_keys[key] or false
+	end
+
+	-- Stacks without labels, grids, inventories or export strings can be merged with what is in the inventory
+	if plain then
+		local inserted = inventory.insert({
+			name = stack.n, count = stack.c, quality = stack.q, health = stack.h,
+			spoil_percent = stack.p, durability = stack.d, ammo = stack.a,
+		})
+		stack.c = stack.c - inserted
+		return stack.c <= 0
+	end
+
+	-- Export strings have no name, and 1.1 does not take nil for it
+	local slot
+	if stack.n then
+		slot = inventory.find_empty_stack(stack.n)
+	else
+		slot = inventory.find_empty_stack()
+	end
+	if not slot or stack.n and not slot.can_set_stack({ name = stack.n, count = stack.c, quality = stack.q }) then
+		return false
+	end
+	clusterio_serialize.deserialize_item_stack(slot, stack)
+	return slot.valid_for_read
+end
+
+--- Inventories the items of a player go into, by the names used in serialized data
+--- @param player LuaPlayer
+--- @return table<string, LuaInventory>
+function serialize.item_destinations(player)
+	local destinations = {}
+	local character = player.character
+	if character then
+		for name, index in pairs(character_inventories) do
+			destinations[name] = character.get_inventory(index)
+		end
+	elseif player.controller_type == defines.controllers.god
+		or v2_remote_controller and player.physical_controller_type == defines.controllers.god
+	then
+		destinations.main = player.get_inventory(defines.inventory.god_main) --[[@as LuaInventory]]
+	end
+	return destinations
+end
+
+--- Replace the items in destinations with the serialized inventories and loose items
+---
+--- Each inventory goes slot for slot into the destination of the same name as far as it fits, the slots past its
+--- size are inserted where there is space. Returns the serialized stacks which did not fit, see spill_items.
+--- @param destinations table<string, LuaInventory>
+--- @param inventories table<string, table>?
+--- @param items { name: string, count: integer, quality: string? }[]?
+--- @return table[] leftovers
+function serialize.place_items(destinations, inventories, items)
+	for _, destination in pairs(destinations) do
+		destination.clear()
+	end
+
+	-- Every inventory is restored before inserting into them, as restoring a slot replaces what is in it
+	local pending = {}
+	for name, serialized in pairs(inventories or {}) do
+		local destination = destinations[name]
+		local fitting, rest = split_inventory(serialized, destination and #destination or 0)
+		if destination then
+			clusterio_serialize.deserialize_inventory(destination, fitting)
+		end
+		for _, stack in ipairs(rest) do
+			table.insert(pending, { from = destination, stack = stack })
+		end
+	end
+	for _, item in pairs(items or {}) do
+		table.insert(pending, { stack = { n = item.name, c = item.count, q = item.quality } })
+	end
+
+	local leftovers = {}
+	for _, entry in ipairs(pending) do
+		local stack = entry.stack
+		local placed = entry.from and insert_stack(entry.from, stack)
+		for _, name in ipairs(overflow_order) do
+			placed = placed or destinations[name] and insert_stack(destinations[name], stack)
+		end
+		if not placed then
+			table.insert(leftovers, stack)
+		end
+	end
+	return leftovers
+end
+
+--- Put serialized stacks which did not fit into a corpse below the player
+--- @param player LuaPlayer
+--- @param stacks table[]?
+function serialize.spill_items(player, stacks)
+	if not stacks or not next(stacks) then
+		return
+	end
+
+	-- Plain stacks can hold more than a stack's worth
+	local slots = 0
+	for _, stack in ipairs(stacks) do
+		local prototype = stack.n and compat.prototypes.item[stack.n]
+		slots = slots + (prototype and math.ceil((stack.c or 1) / prototype.stack_size) or 1)
+	end
+
+	local corpse = player.surface.create_entity({
+		name = "character-corpse",
+		position = player.position,
+		inventory_size = slots,
+		player_index = player.index,
+	})
+	if not corpse then
+		log("ERROR: Unable to create a corpse for " .. player.name .. ", voiding " .. #stacks .. " stacks of items")
+		return
+	end
+
+	local inventory = assert(corpse.get_inventory(defines.inventory.character_corpse))
+	for _, stack in ipairs(stacks) do
+		if not insert_stack(inventory, stack) then
+			log("ERROR: Unable to place " .. (stack.n or "an exported item") .. " into the corpse of " .. player.name)
+		end
+	end
+	player.print(
+		"Some of your synced items do not fit into your inventory here and have been placed in a corpse below you."
+	)
 end
 
 -- Personal logistic slots is a table mapping string indexes to a table with the following fields:
@@ -125,7 +296,8 @@ function serialize.serialize_personal_logistic_slots(player)
 		return serialized
 	end
 
-	local serialized = nil
+	-- Empty when there are no requests, nil means the player has nowhere to hold them
+	local serialized = {}
 
 	-- Serialize personal logistic slots
 	local last_valid = 0
@@ -133,9 +305,6 @@ function serialize.serialize_personal_logistic_slots(player)
 		local slot = player.get_personal_logistic_slot(i)
 		if slot.name then
 			last_valid = i
-			if not serialized then
-				serialized = {}
-			end
 			serialized[tostring(i)] = {
 				name = slot.name,
 				min = slot.min,
@@ -175,7 +344,9 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 		end
 
 		-- If this is an array instead of a table, migrate to v2 format
-		if serialized[1] ~= nil then
+		if next(serialized) == nil then
+			return
+		elseif serialized[1] ~= nil then
 			local section = logistic_point.add_section()
 			for i, slot in pairs(serialized) do
 				section.set_slot(i, {
@@ -210,10 +381,17 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 			end
 		end
 	else
-		for i, slot in pairs(serialized) do
-			if slot ~= nil then
-				player.set_personal_slogistic_slot(tonumber(i), slot)
+		local last_valid = 0
+		for i = 1, 65536 do
+			if player.get_personal_logistic_slot(i).name then
+				last_valid = i
+				player.clear_personal_logistic_slot(i)
+			elseif last_valid + 100 <= i then
+				break
 			end
+		end
+		for i, slot in pairs(serialized) do
+			player.set_personal_logistic_slot(tonumber(i), slot)
 		end
 	end
 end
@@ -720,16 +898,17 @@ end
 --- @class SerializedPlayerData
 --- @field generation number
 --- @field name string
---- @field controller string
---- @field color Color
---- @field chat_color Color
---- @field tag string
---- @field force string
---- @field cheat_mode boolean
---- @field flashlight boolean
+--- @field controller string?
+--- @field color Color?
+--- @field chat_color Color?
+--- @field tag string?
+--- @field force string?
+--- @field cheat_mode boolean?
+--- @field flashlight boolean?
 --- @field shortcuts table<string, boolean>?
 --- @field game_view_settings table<string, boolean>?
---- @field ticks_to_respawn number
+--- @field ticks_to_respawn number?
+--- @field components SyncComponents Components this was serialized with
 --- @field character table<string, any>?
 --- @field inventories table<string, table>?
 --- @field hotbar table<string, string>?
@@ -784,73 +963,202 @@ function serialize.deserialize_game_view_settings(player, serialized)
 	end
 end
 
+--- @alias SyncComponent
+--- | "controller"
+--- | "force"
+--- | "appearance"
+--- | "inventories"
+--- | "logistics"
+--- | "quick_bar"
+--- | "settings"
+--- | "recipe_notifications"
+
+--- Components which are synced, nil when all of them are
+--- @alias SyncComponents table<SyncComponent, boolean>?
+
+--- @param components SyncComponents
+--- @param name SyncComponent
+--- @return boolean
+local function syncs(components, name)
+	return components == nil or components[name] == true
+end
+serialize.syncs = syncs
+
+--- @type SyncComponent[]
+local component_names = {
+	"controller", "force", "appearance", "inventories", "logistics", "quick_bar", "settings", "recipe_notifications",
+}
+
+--- True if the same components are synced in both
+--- @param a SyncComponents
+--- @param b SyncComponents
+--- @return boolean
+function serialize.same_components(a, b)
+	for _, name in ipairs(component_names) do
+		if syncs(a, name) ~= syncs(b, name) then
+			return false
+		end
+	end
+	return true
+end
+
+--- True if a component synced in new_components was not synced in old_components
+--- @param old_components SyncComponents
+--- @param new_components SyncComponents
+--- @return boolean
+function serialize.newly_synced(old_components, new_components)
+	for _, name in ipairs(component_names) do
+		if syncs(new_components, name) and not syncs(old_components, name) then
+			return true
+		end
+	end
+	return false
+end
+
+--- @param player LuaPlayer
+--- @return boolean
+local function waiting_to_respawn(player)
+	return player.controller_type == defines.controllers.ghost and player.ticks_to_respawn ~= nil
+end
+
+--- Call fn with a player waiting to respawn temporarily respawned
+---
+--- For the waiting to respawn state the inventory logistic requests and filters are hidden on the player, and are
+--- only accessible in the character controller.
+--- @param player LuaPlayer
+--- @param fn fun()
+local function with_respawned(player, fn)
+	local ticks_to_respawn = player.ticks_to_respawn
+	player.ticks_to_respawn = nil -- Respawn now
+
+	fn()
+
+	-- Go back to waiting for respawn
+	local character = player.character
+	player.ticks_to_respawn = ticks_to_respawn
+	if character and character.valid then
+		character.destroy()
+	end
+end
+
 --- @param player LuaPlayer
 --- @param failed_deserialization FailedDeserializationPlayerData
+--- @param components SyncComponents
 --- @return SerializedPlayerData
-function serialize.serialize_player(player, failed_deserialization)
+function serialize.serialize_player(player, failed_deserialization, components)
+	local sync_controller = syncs(components, "controller")
+	local sync_inventories = syncs(components, "inventories")
+	local sync_logistics = syncs(components, "logistics")
+
 	--- @type SerializedPlayerData
 	local serialized = {
 		generation = 0, -- Gets replaced later
-		controller = controller_to_name[player.controller_type],
 		name = player.name,
-		color = player.color,
-		chat_color = player.chat_color,
-		tag = player.tag,
-		force = player.force.name,
-		cheat_mode = player.cheat_mode,
-		flashlight = player.is_flashlight_enabled(),
-		shortcuts = serialize.serialize_shortcuts(player),
-		game_view_settings = serialize.serialize_game_view_settings(player),
-		ticks_to_respawn = player.ticks_to_respawn,
+		components = components,
 	}
 
-	-- In 2.0 we want to sync the physical controller to ignore remote view
-	if v2_remote_controller then
-		serialized.controller = controller_to_name[player.physical_controller_type]
+	if sync_controller then
+		serialized.controller = controller_to_name[player.controller_type]
+		serialized.cheat_mode = player.cheat_mode
+		serialized.ticks_to_respawn = player.ticks_to_respawn
+
+		-- In 2.0 we want to sync the physical controller to ignore remote view
+		if v2_remote_controller then
+			serialized.controller = controller_to_name[player.physical_controller_type]
+		end
 	end
 
-	-- For the waiting to respawn state the inventory logistic requests and filters are hidden on the player
-	if player.controller_type == defines.controllers.ghost and player.ticks_to_respawn then
-		player.ticks_to_respawn = nil -- Respawn now
+	if syncs(components, "appearance") then
+		serialized.color = player.color
+		serialized.chat_color = player.chat_color
+		serialized.tag = player.tag
+	end
 
-		serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
-		serialized.inventories = serialize.serialize_inventories(player, character_inventories)
+	if syncs(components, "force") then
+		serialized.force = player.force.name
+	end
 
-		-- Go back to waiting for respawn
-		local character = player.character
-		player.ticks_to_respawn = serialized.ticks_to_respawn
-		if character and character.valid then
-			character.destroy()
-		end
+	if syncs(components, "settings") then
+		serialized.flashlight = player.is_flashlight_enabled()
+		serialized.shortcuts = serialize.serialize_shortcuts(player)
+		serialized.game_view_settings = serialize.serialize_game_view_settings(player)
+	end
+
+	if (sync_inventories or sync_logistics) and waiting_to_respawn(player) then
+		with_respawned(player, function()
+			if sync_logistics then
+				serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+			end
+			if sync_inventories then
+				serialized.inventories = serialize.serialize_inventories(player, character_inventories)
+			end
+		end)
 	end
 
 	-- Serialize character
 	if player.character then
-		serialized.character = serialize.serialize_character(player.character)
-		serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+		if sync_inventories then
+			serialized.character = serialize.serialize_character(player.character)
+		end
+		if sync_logistics then
+			serialized.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+		end
 	end
 
 	-- Serialize non-character inventories
-	if player.controller_type == defines.controllers.god
-	or v2_remote_controller and player.physical_controller_type == defines.controllers.god
-	then
+	if sync_inventories and (
+		player.controller_type == defines.controllers.god
+		or v2_remote_controller and player.physical_controller_type == defines.controllers.god
+	) then
 		serialized.inventories = serialize.serialize_inventories(player, { main = defines.inventory.god_main })
 	end
 
 	-- Serialize quick bar
-	serialized.quick_bar = serialize.serialize_quick_bar(player)
+	if syncs(components, "quick_bar") then
+		serialized.quick_bar = serialize.serialize_quick_bar(player)
+	end
 
 	-- Serialize crafting queue
-	if player.character then
+	if sync_inventories and player.character then
 		serialized.crafting_queue = serialize.serialize_crafting_queue(player)
 	end
 
 	-- Serialize recipe notifications
-	if recipe_notifications_api then
+	if recipe_notifications_api and syncs(components, "recipe_notifications") then
 		serialized.recipe_notifications = serialize.serialize_crafting_notifications(player, failed_deserialization.recipe_notifications)
 	end
 
 	return serialized
+end
+
+--- The controller a player has on this instance, restored in place of the synced one when it is not synced
+---
+--- Logistic requests and the flashlight are kept on the character, which sync code may replace.
+--- @class LocalControllerState
+--- @field controller string?
+--- @field ticks_to_respawn number?
+--- @field personal_logistic_slots table?
+--- @field flashlight boolean?
+
+--- @param player LuaPlayer
+--- @param components SyncComponents
+--- @return LocalControllerState
+function serialize.serialize_local_controller(player, components)
+	local controller_type = v2_remote_controller and player.physical_controller_type or player.controller_type
+	--- @type LocalControllerState
+	local state = {
+		controller = controller_to_name[controller_type],
+		ticks_to_respawn = player.ticks_to_respawn,
+	}
+	if player.character then
+		state.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+		state.flashlight = player.is_flashlight_enabled()
+	elseif not syncs(components, "logistics") and waiting_to_respawn(player) then
+		with_respawned(player, function()
+			state.personal_logistic_slots = serialize.serialize_personal_logistic_slots(player)
+		end)
+	end
+	return state
 end
 
 --- Find a surface characters can exist on, used when the player is on a space platform surface
@@ -915,32 +1223,77 @@ end
 
 --- @param player LuaPlayer
 --- @param serialized SerializedPlayerData
---- @return FailedDeserializationPlayerData?
-function serialize.deserialize_player(player, serialized)
+--- @param components SyncComponents
+--- @param local_controller LocalControllerState? Controller to restore when the controller is not synced
+--- @return FailedDeserializationPlayerData?, table[]? Serialized stacks which did not fit, see spill_items
+function serialize.deserialize_player(player, serialized, components, local_controller)
 	local failed_deserialization = {}
+	local sync_controller = syncs(components, "controller")
+	local sync_inventories = syncs(components, "inventories")
+	local sync_logistics = syncs(components, "logistics")
 
-	local target_controller = defines.controllers[serialized.controller]
-	if player.controller_type ~= target_controller or serialized.controller == "ghost" then
-		if serialized.controller == "character" then
+	-- Stored data from instances which do not sync a component lacks its fields
+	local restore_controller = sync_controller and serialized.controller ~= nil
+
+	--- @type LocalControllerState?
+	local state = local_controller
+	if restore_controller then
+		state = { controller = serialized.controller, ticks_to_respawn = serialized.ticks_to_respawn }
+	end
+
+	-- A player in remote view keeps their physical controller
+	local current_controller = v2_remote_controller and player.physical_controller_type or player.controller_type
+	local target_controller = state and defines.controllers[state.controller]
+	local to_ghost = state and state.controller == "ghost"
+	local change_controller = state and (
+		current_controller ~= target_controller
+		or to_ghost and (restore_controller or sync_inventories or sync_logistics)
+	)
+
+	-- Items can come from a character, a god or a ghost and go to whatever controller the player ends up with
+	local items = serialized
+	local place = sync_inventories
+	if change_controller and not sync_inventories then
+		-- The local items are kept, but they have to move to the new controller
+		items = serialize.serialize_player(player, {}, { inventories = true })
+		place = true
+	end
+	local inventories = items.character and items.character.inventories or items.inventories
+	local queue = items.crafting_queue
+	local spill
+
+	local logistic_slots = serialized.personal_logistic_slots
+	if not sync_logistics then
+		logistic_slots = local_controller and local_controller.personal_logistic_slots
+	end
+	local flashlight = serialized.flashlight
+	if not syncs(components, "settings") then
+		flashlight = local_controller and local_controller.flashlight
+	end
+
+	if state and change_controller then
+		if state.controller == "character" then
 			-- Create a character but do not destroy an existing one
 			ensure_character(player)
 			if player.controller_type ~= target_controller then
 				player.set_controller{ type = target_controller }
 			end
 
-		elseif serialized.controller == "ghost" then
+		elseif state.controller == "ghost" then
 			-- Ghost state stores hidden logistic and filters which are only accessible in the character controller
 			-- The force first, so the character and the logistic groups are on the restored player's force
-			player.force = serialized.force
+			if syncs(components, "force") and serialized.force then
+				player.force = serialized.force
+			end
 			local character = ensure_character(player)
-			if serialized.personal_logistic_slots then
-				serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
+			serialize.deserialize_personal_logistic_slots(player, logistic_slots)
+			if place then
+				spill = serialize.place_items(
+					serialize.item_destinations(player), inventories, queue and queue.ingredients
+				)
 			end
-			if serialized.inventories then
-				serialize.deserialize_inventories(player, serialized.inventories, character_inventories)
-			end
-			if serialized.ticks_to_respawn then
-				player.ticks_to_respawn = serialized.ticks_to_respawn
+			if state.ticks_to_respawn then
+				player.ticks_to_respawn = state.ticks_to_respawn
 			else
 				-- We have to set ticks to respawn to save the hidden state into the player but we
 				-- can't unset tick_to_respawn by setting it back to nil as that triggers a respawn.
@@ -952,7 +1305,7 @@ function serialize.deserialize_player(player, serialized)
 				character.destroy()
 			end
 
-		elseif serialized.controller ~= "remote" then
+		elseif state.controller ~= "remote" then
 			-- All other controllers should not have a character
 			local character = player.character
 			if character and character.valid then
@@ -967,49 +1320,65 @@ function serialize.deserialize_player(player, serialized)
 		end
 	end
 
-	player.color = serialized.color
-	player.chat_color = serialized.chat_color
-	player.tag = serialized.tag
-	player.force = serialized.force
-	player.cheat_mode = serialized.cheat_mode
-	if serialized.flashlight then
+	if syncs(components, "appearance") and serialized.color then
+		player.color = serialized.color
+		player.chat_color = serialized.chat_color
+		player.tag = serialized.tag
+	end
+	if syncs(components, "force") and serialized.force then
+		player.force = serialized.force
+	end
+	if restore_controller and serialized.cheat_mode ~= nil then
+		player.cheat_mode = serialized.cheat_mode
+	end
+	if flashlight == true then
 		player.enable_flashlight()
-	else
+	elseif flashlight == false then
 		player.disable_flashlight()
 	end
-	if serialized.shortcuts then
-		serialize.deserialize_shortcuts(player, serialized.shortcuts)
-	end
-	if serialized.game_view_settings then
-		serialize.deserialize_game_view_settings(player, serialized.game_view_settings)
-	end
-
-	-- Deserialize character
-	if player.character then
-		serialize.deserialize_character(player.character, serialized.character)
-		serialize.deserialize_personal_logistic_slots(player, serialized.personal_logistic_slots)
+	if syncs(components, "settings") then
+		if serialized.shortcuts then
+			serialize.deserialize_shortcuts(player, serialized.shortcuts)
+		end
+		if serialized.game_view_settings then
+			serialize.deserialize_game_view_settings(player, serialized.game_view_settings)
+		end
 	end
 
-	-- Deserialize non-character inventories
-	if player.controller_type == defines.controllers.god then
-		serialize.deserialize_inventories(player, serialized.inventories, { main = defines.inventory.god_main })
+	-- Deserialize items, a ghost got them while it had a character above
+	local character = player.character
+	if place and not to_ghost then
+		local stats = character and items.character
+		if stats then
+			serialize.deserialize_character(character, stats)
+		end
+		local craft = character and queue
+		spill = serialize.place_items(
+			serialize.item_destinations(player), inventories, not craft and queue and queue.ingredients or nil
+		)
+		if stats then
+			serialize.deserialize_character_grid(character, stats)
+		end
+		if craft then
+			serialize.deserialize_crafting_queue(player, queue)
+		end
+	end
+	if character then
+		serialize.deserialize_personal_logistic_slots(player, logistic_slots)
 	end
 
 	-- Deserialize quick bar (named hotbar in old data)
-	serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
-
-	-- Deserialize crafting queue
-	if player.character and serialized.crafting_queue then
-		serialize.deserialize_crafting_queue(player, serialized.crafting_queue)
+	if syncs(components, "quick_bar") then
+		serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
 	end
 
 	-- Deserialize recipe notifications
-	if recipe_notifications_api and serialized.recipe_notifications then
+	if recipe_notifications_api and syncs(components, "recipe_notifications") and serialized.recipe_notifications then
 		failed_deserialization.recipe_notifications =
 			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
 	end
 
-	return next(failed_deserialization) and failed_deserialization or nil
+	return next(failed_deserialization) and failed_deserialization or nil, spill
 end
 
 return serialize

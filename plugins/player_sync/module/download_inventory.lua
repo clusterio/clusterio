@@ -2,9 +2,12 @@ local progress_dialog = require("modules/player_sync/gui/progress_dialog")
 local ensure_character = require("modules/player_sync/ensure_character")
 local restore_position = require("modules/player_sync/restore_position")
 local get_script_data = require("modules/player_sync/get_script_data")
+local serialize = require("modules/player_sync/serialize")
+local compat = require("modules/clusterio/compat")
 
 
-local function download_inventory(player_name, data, number, total)
+--- @param components string? JSON of the components the instance sent the data with, given with the first part
+local function download_inventory(player_name, data, number, total, components)
 	local player = game.get_player(player_name)
 	if player == nil then
 		rcon.print("Player " .. player_name .. " does not exist")
@@ -19,6 +22,11 @@ local function download_inventory(player_name, data, number, total)
 	end
 
 	local player_record = script_data.players[player_name]
+	-- The components changed after the download was started
+	local sent_components = number == 1 and components and compat.json_to_table(components)
+	if sent_components and not serialize.same_components(record.components, sent_components) then
+		record.restart = true
+	end
 	if record.restart then
 		rcon.print("Restarting outdated download")
 		player_sync.initiate_inventory_download(player, player_record, record.generation)
@@ -33,14 +41,19 @@ local function download_inventory(player_name, data, number, total)
 		progress_dialog.remove(player)
 
 		-- Give the player a character and pretend that's the synced player data
-		ensure_character(player)
+		if serialize.syncs(record.components, "controller") or player_record.local_controller then
+			ensure_character(player)
+		end
+		player_record.local_controller = nil
 
 		-- Restore player position and driving state
 		restore_position(player, record)
 
 		script_data.active_downloads[player_name] = nil
 		player_record.dirty = player.connected
+		player_record.sync_in_progress = false
 		player_record.sync = true
+		player_record.components = record.components
 		player_record.generation = record.generation
 		return
 	end

@@ -5,6 +5,7 @@ import type { InstancePluginContext } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
 } from "./messages.js";
+import { type Component, enabledComponents, stripPlayerData } from "./components.js";
 
 type IpcPlayerName = {
 	player_name: string
@@ -13,6 +14,11 @@ type IpcPlayerName = {
 type IpcDownloadRequest = {
 	player_name: string,
 	recipe_notifications?: string,
+}
+
+/** Components as an escaped JSON object for the scenario. */
+function componentsJson(enabled: Set<Component>) {
+	return lib.escapeString(JSON.stringify(Object.fromEntries([...enabled].map(name => [name, true]))));
 }
 
 type IpcAcquireResponse = {
@@ -198,15 +204,20 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
+		const enabled = enabledComponents(instance.config);
+		stripPlayerData(response.playerData, enabled);
 		await applyRecipeNotificationDelta(response.playerData, request.recipe_notifications, logger);
 
 		const chunkSize = instance.config.get("player_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));
 		logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
+		// The scenario restarts the download if it was started with other components
+		const components = componentsJson(enabled);
 		for (let i = 0; i < chunks.length; i++) {
 			const chunk = lib.escapeString(chunks[i]);
+			const extra = i === 0 ? `,'${components}'` : "";
 			await instance.sendRcon(
-				`/sc player_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length})`,
+				`/sc player_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length}${extra})`,
 				true,
 				plugin.name,
 			);
@@ -238,6 +249,20 @@ export default async function(context: InstancePluginContext) {
 			err => logger.error(`Error handling ipc-player_sync_download:\n${err.stack}`)
 		),
 	);
+
+	/** Tell the scenario which components are synced. */
+	async function sendComponents() {
+		const json = componentsJson(enabledComponents(instance.config));
+		await instance.sendRcon(`/sc player_sync.set_components("${json}")`, true, plugin.name);
+	}
+
+	instance.hooks.start.attach(plugin.name, sendComponents);
+
+	instance.hooks.instanceConfigFieldChanged.attach(plugin.name, async (field) => {
+		if (field.startsWith("player_sync.sync_") && instance.status === "running") {
+			await sendComponents();
+		}
+	});
 
 	instance.hooks.prepareControllerDisconnect.attach(plugin.name, async () => {
 		disconnecting = true;

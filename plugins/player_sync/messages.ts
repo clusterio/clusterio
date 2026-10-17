@@ -4,23 +4,26 @@ import { StringEnum } from "@clusterio/lib";
 // .\module\serialize.lua:serialize.serialize_player()
 export type IpcPlayerData = {
 	generation: number,
-	controller: string,
 	name: string,
-	color: number[],
-	chat_color: number[],
-	tag: string,
-	force: string,
-	cheat_mode: boolean,
-	flashlight: boolean,
+	controller?: string,
+	color?: number[],
+	chat_color?: number[],
+	tag?: string,
+	force?: string,
+	cheat_mode?: boolean,
+	flashlight?: boolean,
 	shortcuts?: Record<string, boolean>,
 	game_view_settings?: Record<string, boolean>,
 	ticks_to_respawn?: number,
 	character?: any,
 	inventories?: any,
+	quick_bar?: any,
 	hotbar?: string[],
 	personal_logistic_slots?: {name:string, min:number, max:number}[],
 	crafting_queue?: any,
 	recipe_notifications?: string,
+	// Components the upload was serialized with, all when missing
+	components?: Record<string, boolean> | unknown[],
 }
 
 const jsonPlayerData = Type.Object({
