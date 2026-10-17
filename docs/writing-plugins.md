@@ -499,23 +499,24 @@ clusterio_api.send_udp("my_plugin_foo", "123")
 ```
 
 ```js
-async init() {
-    this.instance.server.handleUdp("my_plugin_foo", async data => {
-        this.logger.info(`got ${data.toString()}`);
+export default async function(context) {
+    const { instance, logger } = context;
+    instance.server.handleUdp("my_plugin_foo", async data => {
+        logger.info(`got ${data.toString()}`);
     });
 }
 ```
 
 Like `handle` for `send_json`, `handleUdp` logs errors thrown by the handler.
-Use `this.instance.server.on("udp-my_plugin_foo", ...)` for custom error handling.
+Use `instance.server.on("udp-my_plugin_foo", ...)` for custom error handling.
 
-Data into Factorio is sent with the `sendUdp` method on the plugin object and delivered in-game as `defines.events.on_udp_packet_received` events with the packet in `event.payload`.
+Data into Factorio is sent with the `sendUdp` method on the instance and delivered in-game as `defines.events.on_udp_packet_received` events with the packet in `event.payload`.
 The Clusterio module polls for received packets every tick, all modules and mods receive every packet so make sure the payload identifies your plugin.
 
 ```js
-async onStart() {
-    await this.sendUdp("my_plugin_foo:123");
-}
+instance.hooks.start.attach(plugin.name, async () => {
+    await instance.sendUdp("my_plugin_foo:123");
+});
 ```
 
 
