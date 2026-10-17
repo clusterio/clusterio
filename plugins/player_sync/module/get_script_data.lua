@@ -18,6 +18,7 @@ return function(no_early_return)
 	player_sync.players_waiting_for_acquire = player_sync.players_waiting_for_acquire or {}
 	player_sync.players_in_cutscene_to_sync = player_sync.players_in_cutscene_to_sync or {}
 	player_sync.failed_deserialization = player_sync.failed_deserialization or {}
+	player_sync.inventory_bonus_raises = player_sync.inventory_bonus_raises or {}
 
 	player_sync.active_downloads = player_sync.active_downloads or {}
 	player_sync.finished_downloads = player_sync.finished_downloads or {}

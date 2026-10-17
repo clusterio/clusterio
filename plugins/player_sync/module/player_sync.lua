@@ -46,6 +46,19 @@ local function remove_player(player)
 	script_data.players[player.name] = nil
 end
 
+-- Remove the temporary inventory bonus a deserialized character got to fit its main inventory
+local function remove_inventory_bonus_raise(script_data, player_name)
+	local raises = script_data.inventory_bonus_raises
+	local raise = raises and raises[player_name]
+	if raise then
+		raises[player_name] = nil
+		local character = raise.character
+		if character.valid then
+			character.character_inventory_slots_bonus = character.character_inventory_slots_bonus - raise.bonus
+		end
+	end
+end
+
 
 player_sync = {}
 -- This function is called by instance.js as /sc player_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
@@ -81,6 +94,15 @@ function player_sync.serialize_player(player, player_record)
 	local serialized_player = serialize.serialize_player(player, failed_deserialization)
 	serialized_player.generation = player_record.generation
 
+	-- Leaving on the tick of a download the temporary bonus is still there and must not be uploaded. Removing it
+	-- from the character here would shrink the main inventory before the armor's bonus applies and spill items.
+	local raises = get_script_data().inventory_bonus_raises
+	local raise = raises and raises[player.name]
+	local character = serialized_player.character
+	if raise and character and raise.character == player.character then
+		character.character_inventory_slots_bonus = character.character_inventory_slots_bonus - raise.bonus
+	end
+
 	return serialized_player
 end
 
@@ -112,7 +134,16 @@ function player_sync.deserialize_player(player, finished_record)
 	-- Deserialize downloaded player data
 	local serialized_player = compat.json_to_table(finished_record.data)
 	assert(type(serialized_player) == "table", "wrong type for serialized_player")
-	script_data.failed_deserialization[player.name] = serialize.deserialize_player(player, serialized_player)
+	-- An earlier raise not removed yet is replaced, the character's inventory bonus is restored with the data
+	script_data.inventory_bonus_raises[player.name] = nil
+	local failed_deserialization, inventory_bonus_raise = serialize.deserialize_player(player, serialized_player)
+	script_data.failed_deserialization[player.name] = failed_deserialization
+	if inventory_bonus_raise and inventory_bonus_raise > 0 then
+		script_data.inventory_bonus_raises[player.name] = {
+			character = player.character,
+			bonus = inventory_bonus_raise,
+		}
+	end
 
 	-- Restore player position and driving state
 	restore_position(player, finished_record)
@@ -357,6 +388,12 @@ player_sync.events[defines.events.on_player_joined_game] = function(event)
 
 	-- Clear active upload if it exists
 	script_data.active_uploads[player.name] = nil
+end
+
+-- Raised for a restored armor after its equipment's inventory bonus applied, the temporary bonus is no longer needed
+player_sync.events[defines.events.on_player_armor_inventory_changed] = function(event)
+	local player = assert(game.get_player(event.player_index))
+	remove_inventory_bonus_raise(get_script_data(), player.name)
 end
 
 player_sync.on_nth_tick = {}
