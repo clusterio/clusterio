@@ -10,6 +10,7 @@ import { logger } from "@clusterio/lib";
 
 import { factorioDir, requiresFactorio } from "./index.js";
 import { slowTest } from "../common.js";
+import { getTestRconPort } from "./rcon_port.js";
 
 
 describe("Integration of host/src/server", function() {
@@ -69,6 +70,12 @@ describe("Integration of host/src/server", function() {
 
 		after(function() {
 			logFile.end();
+		});
+
+		beforeEach(async function() {
+			if (server.pid === null) {
+				server.rconPort = await getTestRconPort();
+			}
 		});
 
 		describe(".exampleSettings()", function() {

@@ -16,6 +16,7 @@ import {
 	requiresFactorio, hasFactorio,
 } from "./index.js";
 import { slowTest } from "../common.js";
+import { getTestRconPort } from "./rcon_port.js";
 import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 
@@ -338,6 +339,7 @@ describe("Integration of Clusterio", function() {
 			try {
 				hostProcess = await startAltHost();
 				await execCtl("instance create alt-start --id 97");
+				await execCtl(`instance config set alt-start factorio.rcon_port ${await getTestRconPort()}`);
 				await execCtl("instance assign alt-start 5");
 				await execCtl("instance config set alt-start instance.auto_start true");
 				const visibility = jsonArg({ lan: false, public: false });
@@ -705,6 +707,7 @@ describe("Integration of Clusterio", function() {
 			it("creates the instance", async function() {
 				this.timeout(6000);
 				await execCtl("instance create test --id 44");
+				await execCtl(`instance config set test factorio.rcon_port ${await getTestRconPort()}`);
 				let instances = await getInstances();
 				assert(instances.has(44), "instance was not created");
 				assert.equal(instances.get(44).status, "unassigned", "incorrect instance status");
