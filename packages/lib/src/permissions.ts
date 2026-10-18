@@ -463,6 +463,24 @@ export const corePermissions = [
 	},
 
 	{
+		name: "core.note.list",
+		title: "List notes",
+		description: "Get the full list of notes attached to resources in the cluster.",
+		grantByDefault: true,
+	},
+	{
+		name: "core.note.subscribe",
+		title: "Subscribe to note updates",
+		description: "Subscribe to be notified when notes attached to resources are updated.",
+		grantByDefault: true,
+	},
+	{
+		name: "core.note.update",
+		title: "Update notes",
+		description: "Write, edit and remove notes attached to resources in the cluster.",
+	},
+
+	{
 		name: "core.user.get",
 		title: "Get user",
 		description: "Get the details of a user in the cluster.",

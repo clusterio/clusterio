@@ -1,0 +1,1 @@
+# Without an .npmignore pnpm packs using the repository .gitignore, which leaves out dist/

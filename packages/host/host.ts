@@ -15,7 +15,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import yargs from "yargs";
-import packageConfig from "./package.json" with { type: "json" };
+import packageConfig from "@clusterio/host/package.json" with { type: "json" };
 import winston from "winston";
 import "winston-daily-rotate-file";
 
@@ -177,6 +177,9 @@ async function startHost() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
+	if (!args.recovery) {
+		await lib.loadPluginMigrations(pluginInfos);
+	}
 
 	const [hostConfig, hostConfigLock] = await lib.loadConfigFromArgs(
 		args,
@@ -264,14 +267,6 @@ async function startHost() {
 }
 
 export function bootstrap() {
-	// eslint-disable-next-line no-console
-	console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`
-	);
 	startHost().catch(err => {
 		if (err instanceof lib.WebSocketError) {
 			// Already handled by connector.on("error") within Host

@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/web_ui",
-	"version": "2.0.0-alpha.27",
+	"version": "2.0.2",
 	"description": "Clusterio web interface implementation",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser",
@@ -63,7 +63,7 @@
 		"util": "^0.12.5",
 		"webpack": "catalog:",
 		"webpack-cli": "catalog:",
-		"webpack-manifest-plugin": "^5.0.0"
+		"webpack-manifest-plugin": "^6.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "catalog:",

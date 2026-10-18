@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg
+  PUBLIC '-//W3C//DTD SVG 1.1//EN'
+  'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'>
+<!-- Exported from clusterio_2.0_block_diagram.drawio with draw.io Desktop 32.4.1. Export settings: SVG, light theme, white background, width 1000. Native SVG labels: disable Formatted Text and Word Wrap in an export copy, preserving the title at font size 20. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="background: #ffffff; background-color: #ffffff; color-scheme: light;" version="1.1" width="1001px" height="1001px" viewBox="0 0 1001 1001" role="img" aria-labelledby="diagram-title diagram-description">
+  <desc id="diagram-description">A controller and two hosts run across two physical servers. Each host manages three Factorio servers. The hosts and web or command-line clients connect to the controller over WebSocket.</desc>
+  <title id="diagram-title">Clusterio 2.0 system architecture</title>
+  <defs/>
+  <rect fill="#ffffff" width="100%" height="100%" x="0" y="0" style="fill: rgb(255, 255, 255);"/>
+  <g>
+    <g data-cell-id="0">
+      <g data-cell-id="1">
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-59">
+          <g>
+            <rect x="0" y="0" width="1000" height="1000" fill="none" stroke="none" transform="rotate(90,500,500)" pointer-events="all"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-21">
+          <g>
+            <rect x="40" y="140" width="440" height="640" rx="26.4" ry="26.4" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2" stroke-dasharray="6 6" pointer-events="all" style="fill: rgb(218, 232, 252); stroke: rgb(108, 142, 191);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-6">
+          <g>
+            <rect x="80" y="180" width="220" height="60" fill="#0050ef" stroke="#001dbc" stroke-width="2" pointer-events="all" style="fill: rgb(0, 80, 239); stroke: rgb(0, 29, 188);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="190" y="220">Controller Process</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-19">
+          <g>
+            <path d="M 120 400 L 120 280 L 120 252.74" fill="none" stroke="#006eaf" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(0, 110, 175);"/>
+            <path d="M 120 242.24 L 127 256.24 L 120 252.74 L 113 256.24 Z" fill="#006eaf" stroke="#006eaf" stroke-width="2" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(0, 110, 175); stroke: rgb(0, 110, 175);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-26">
+          <g>
+            <path d="M 220 550 L 160 550 L 160 460" fill="none" stroke="#c73500" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(199, 53, 0);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-23">
+          <g>
+            <rect x="220" y="520" width="220" height="60" fill="#fa6800" stroke="#c73500" stroke-width="2" pointer-events="all" style="fill: rgb(250, 104, 0); stroke: rgb(199, 53, 0);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="330" y="560">Factorio Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-29">
+          <g>
+            <path d="M 220 630 L 140 630 L 140 460" fill="none" stroke="#c73500" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(199, 53, 0);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-24">
+          <g>
+            <rect x="220" y="600" width="220" height="60" fill="#fa6800" stroke="#c73500" stroke-width="2" pointer-events="all" style="fill: rgb(250, 104, 0); stroke: rgb(199, 53, 0);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="330" y="640">Factorio Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-28">
+          <g>
+            <path d="M 220 710 L 120 710 L 120 460" fill="none" stroke="#c73500" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(199, 53, 0);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-25">
+          <g>
+            <rect x="220" y="680" width="220" height="60" fill="#fa6800" stroke="#c73500" stroke-width="2" pointer-events="all" style="fill: rgb(250, 104, 0); stroke: rgb(199, 53, 0);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="330" y="720">Factorio Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-35">
+          <g>
+            <rect x="520" y="360" width="440" height="420" rx="25.2" ry="25.2" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2" stroke-dasharray="6 6" pointer-events="all" style="fill: rgb(218, 232, 252); stroke: rgb(108, 142, 191);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-44">
+          <g>
+            <path d="M 600 400 L 600 320 L 190 320 L 190 252.74" fill="none" stroke="#006eaf" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(0, 110, 175);"/>
+            <path d="M 190 242.24 L 197 256.24 L 190 252.74 L 183 256.24 Z" fill="#006eaf" stroke="#006eaf" stroke-width="2" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(0, 110, 175); stroke: rgb(0, 110, 175);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-37">
+          <g>
+            <path d="M 700 550 L 640 550 L 640 460" fill="none" stroke="#c73500" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(199, 53, 0);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-38">
+          <g>
+            <rect x="700" y="520" width="220" height="60" fill="#fa6800" stroke="#c73500" stroke-width="2" pointer-events="all" style="fill: rgb(250, 104, 0); stroke: rgb(199, 53, 0);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="810" y="560">Factorio Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-39">
+          <g>
+            <path d="M 700 630 L 620 630 L 620 460" fill="none" stroke="#c73500" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(199, 53, 0);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-40">
+          <g>
+            <rect x="700" y="600" width="220" height="60" fill="#fa6800" stroke="#c73500" stroke-width="2" pointer-events="all" style="fill: rgb(250, 104, 0); stroke: rgb(199, 53, 0);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="810" y="640">Factorio Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-41">
+          <g>
+            <path d="M 700 710 L 600 710 L 600 460" fill="none" stroke="#c73500" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(199, 53, 0);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-42">
+          <g>
+            <rect x="700" y="680" width="220" height="60" fill="#fa6800" stroke="#c73500" stroke-width="2" pointer-events="all" style="fill: rgb(250, 104, 0); stroke: rgb(199, 53, 0);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="810" y="720">Factorio Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-46">
+          <g>
+            <path d="M 560 210 L 312.74 210" fill="none" stroke="#006eaf" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(0, 110, 175);"/>
+            <path d="M 302.24 210 L 316.24 203 L 312.74 210 L 316.24 217 Z" fill="#006eaf" stroke="#006eaf" stroke-width="2" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(0, 110, 175); stroke: rgb(0, 110, 175);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-45">
+          <g>
+            <rect x="560" y="180" width="320" height="60" fill="#1ba1e2" stroke="#006eaf" stroke-width="2" pointer-events="all" style="fill: rgb(27, 161, 226); stroke: rgb(0, 110, 175);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="720" y="220">Web Interface / clusterioctl</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-49">
+          <g>
+            <rect x="60" y="40" width="580" height="60" fill="none" stroke="none" pointer-events="all"/>
+          </g>
+          <g>
+            <g fill="#000000" font-family="Helvetica" text-anchor="start" font-size="40px" style="fill: rgb(0, 0, 0);">
+              <text x="64" y="88">Clusterio 2.0 Block Diagram</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-51">
+          <g>
+            <rect x="352" y="860" width="100" height="40" rx="8" ry="8" fill="#dae8fc" stroke="#6c8ebf" stroke-width="2" stroke-dasharray="6 6" pointer-events="all" style="fill: rgb(218, 232, 252); stroke: rgb(108, 142, 191);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-52">
+          <g>
+            <rect x="60" y="860" width="220" height="40" fill="none" stroke="none" pointer-events="all"/>
+          </g>
+          <g>
+            <g fill="#000000" font-family="Helvetica" text-anchor="start" font-size="24px" style="fill: rgb(0, 0, 0);">
+              <text x="64" y="890">Physical Server</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-54">
+          <g>
+            <path d="M 836 880 L 923.26 880" fill="none" stroke="#001dbc" stroke-width="2" stroke-miterlimit="10" pointer-events="stroke" style="stroke: rgb(0, 29, 188);"/>
+            <path d="M 933.76 880 L 919.76 887 L 923.26 880 L 919.76 873 Z" fill="#001dbc" stroke="#001dbc" stroke-width="2" stroke-miterlimit="10" pointer-events="all" style="fill: rgb(0, 29, 188); stroke: rgb(0, 29, 188);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-55">
+          <g>
+            <rect x="544" y="860" width="260" height="40" fill="none" stroke="none" pointer-events="all"/>
+          </g>
+          <g>
+            <g fill="#000000" font-family="Helvetica" text-anchor="start" font-size="24px" style="fill: rgb(0, 0, 0);">
+              <text x="548" y="890">WebSocket connection</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-56">
+          <g>
+            <rect x="352" y="920" width="100" height="40" fill="#0050ef" stroke="#001dbc" stroke-width="2" pointer-events="all" style="fill: rgb(0, 80, 239); stroke: rgb(0, 29, 188);"/>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-57">
+          <g>
+            <rect x="60" y="920" width="192" height="40" fill="none" stroke="none" pointer-events="all"/>
+          </g>
+          <g>
+            <g fill="#000000" font-family="Helvetica" text-anchor="start" font-size="24px" style="fill: rgb(0, 0, 0);">
+              <text x="64" y="950">Node.js Process</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-36">
+          <g>
+            <rect x="560" y="400" width="220" height="60" fill="#0050ef" stroke="#001dbc" stroke-width="2" pointer-events="all" style="fill: rgb(0, 80, 239); stroke: rgb(0, 29, 188);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="670" y="440">Host Process</text>
+            </g>
+          </g>
+        </g>
+        <g data-cell-id="5kRB54Jy1bSgiNgllITD-9">
+          <g>
+            <rect x="80" y="400" width="220" height="60" fill="#0050ef" stroke="#001dbc" stroke-width="2" pointer-events="all" style="fill: rgb(0, 80, 239); stroke: rgb(0, 29, 188);"/>
+          </g>
+          <g>
+            <g fill="#ffffff" font-family="Helvetica" text-anchor="middle" font-size="24px" style="fill: rgb(255, 255, 255);">
+              <text x="190" y="440">Host Process</text>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

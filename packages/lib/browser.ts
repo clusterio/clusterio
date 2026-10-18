@@ -1,5 +1,6 @@
 export * from "./src/api";
 export * from "./src/AsyncHook";
+export * from "./src/SyncHook";
 export * from "./src/config";
 export * from "./src/data";
 export * from "./src/errors";

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "path";
 import pidusage from "pidusage";
+import stream from "node:stream";
 import util from "util";
 import type { Static } from "@sinclair/typebox";
 import { exec } from "child_process";
@@ -232,6 +233,8 @@ export default class Instance extends lib.Link {
 			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
 			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
 			rconPassword: this.config.get("factorio.rcon_password") ?? undefined,
+			enableLuaUdp: this.config.get("factorio.enable_lua_udp"),
+			luaUdpPort: this.config.get("factorio.lua_udp_port") ?? undefined,
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
 			enableAuthserverBans: this.config.get("factorio.enable_authserver_bans"),
 			verboseLogging: this.config.get("factorio.verbose_logging"),
@@ -505,6 +508,23 @@ end`.replace(/\r?\n/g, " ");
 		}
 	}
 
+	/**
+	 * Send UDP message to the Factorio server
+	 *
+	 * Delivered in-game as an on_udp_packet_received event.  Requires
+	 * factorio.enable_lua_udp to be enabled on the instance.
+	 *
+	 * @param message - payload of the packet to send.
+	 */
+	async sendUdp(message: string | Buffer) {
+		if (!this.config.get("factorio.enable_lua_udp")) {
+			throw new Error(
+				"Attempted to send UDP message while Lua UDP is disabled. See config factorio.enable_lua_udp."
+			);
+		}
+		await this.server.sendUdp(message);
+	}
+
 	static async listSaves(instanceId: number, savesDir: string, loadedSave: string | null) {
 		let defaultSave = null;
 		if (loadedSave === null) {
@@ -678,6 +698,9 @@ end`.replace(/\r?\n/g, " ");
 		// After changing the status this function is responsible for calling notifyExit if it throws.
 		this.notifyStatus("starting");
 		try {
+			if (this.config.get("factorio.game_port") === null) {
+				this.server.gamePort = await this._host.assignFreeGamePort(this.id);
+			}
 			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
 			await this._loadStats();
 			// Resolve a release channel target (e.g. "stable") to a concrete
@@ -1086,7 +1109,8 @@ end`.replace(/\r?\n/g, " ");
 	 */
 	async updateInstanceData() {
 		let name = lib.escapeString(this.name);
-		await this.sendRcon(`/sc clusterio_private.update_instance(${this.id}, "${name}")`, true);
+		let hostUdpPort = this.server.hostUdpPort ?? "nil";
+		await this.sendRcon(`/sc clusterio_private.update_instance(${this.id}, "${name}", ${hostUdpPort})`, true);
 	}
 
 	async updateFactorioSettings(current: Record<string, unknown>, previous: Record<string, unknown>) {
@@ -1398,13 +1422,12 @@ end`.replace(/\r?\n/g, " ");
 			await this.syncMods();
 			let zip = await exportData(this.server);
 
-			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", String(this.activeModPack.id));
 			let response = await fetch(url, {
 				method: "PUT",
-				body: content,
+				body: stream.Readable.toWeb(lib.zipOutputStream(zip)),
 				duplex: "half",
 				headers: {
 					"Content-Type": "application/zip",

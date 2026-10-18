@@ -119,9 +119,9 @@ By default the freeplay scenario from the latest Factorio install in `host.facto
  * `--zip` Write the scenario as a zip file instead of a directory.
    Factorio does not load zipped scenarios, extract it before use.
 
-For example, creating a scenario with only the inventory_sync module:
+For example, creating a scenario with only the player_sync module:
 
-    npx clusteriohost create-scenario ~/.factorio/scenarios/inventory_sync --plugins inventory_sync
+    npx clusteriohost create-scenario ~/.factorio/scenarios/player_sync --plugins player_sync
 
 
 #### `config list`

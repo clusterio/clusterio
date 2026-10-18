@@ -12,16 +12,27 @@ local function check_patch()
 	end
 end
 
+-- Added in Factorio 2.0.59, indexing a missing key on a LuaObject errors
+local has_recv_udp = helpers ~= nil and pcall(function() return helpers.recv_udp end)
+
 local impl = {}
 impl.events = {}
 
-impl.events[defines.events.on_tick] = check_patch
+impl.events[defines.events.on_tick] = function()
+	check_patch()
+	-- Dispatch on_udp_packet_received for packets sent by the host, this is
+	-- a no-op when the server was started without --enable-lua-udp
+	if has_recv_udp then
+		helpers.recv_udp(0)
+	end
+end
 
 impl.events[api.events.on_server_startup] = function()
 	if not compat.script_data.clusterio then
 		compat.script_data.clusterio = {
 			instance_id = nil,
 			instance_name = nil,
+			host_udp_port = nil,
 		}
 	end
 
@@ -74,11 +85,12 @@ end
 
 -- Internal API
 clusterio_private = {}
-function clusterio_private.update_instance(new_id, new_name)
+function clusterio_private.update_instance(new_id, new_name, host_udp_port)
 	check_patch()
 	local script_data = compat.script_data
 	script_data.clusterio.instance_id = new_id
 	script_data.clusterio.instance_name = new_name
+	script_data.clusterio.host_udp_port = host_udp_port
 	script.raise_event(api.events.on_instance_updated, {
 		instance_id = new_id,
 		instance_name = new_name,
@@ -103,6 +115,12 @@ remote.add_interface('clusterio_api', {
 
 	get_instance_name = function()
 		return compat.script_data.clusterio.instance_name
+	end,
+
+	get_host_udp_port = function()
+		-- Not initialised until the first tick after the save is patched
+		local clusterio = compat.script_data.clusterio
+		return clusterio and clusterio.host_udp_port
 	end,
 
 	get_file_no = function()

@@ -6,6 +6,7 @@ import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
 import FileSyncOutlined from "@ant-design/icons/FileSyncOutlined";
 
 import * as lib from "@clusterio/lib";
+import ResourceNotes from "./ResourceNotes";
 
 const { useBreakpoint } = Grid;
 
@@ -58,6 +59,9 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 			&& <Descriptions.Item label="Description" span={2}>{mod.description}</Descriptions.Item>
 		}
 		{Boolean(mod.author) && <Descriptions.Item label="Author" span={2}>{mod.author}</Descriptions.Item>}
+		<Descriptions.Item label="Notes" span={2}>
+			<ResourceNotes resourceType="mod" resourceId={`${mod.name}_${mod.version}`} compact />
+		</Descriptions.Item>
 
 		<Descriptions.Item label="Mod&nbsp;Portal" span={2}>
 			<Typography.Link href={`https://mods.factorio.com/mod/${mod.name}`}>

@@ -38,17 +38,20 @@ function api.get_instance_id()
 end
 
 
+local function escape_channel(channel)
+	-- Escape bad characters.  The question mark is used for separating the
+	-- channel name from the payload.
+	return channel:gsub("([\x00-\x1f?\\])", function(match)
+		return "\\x" .. string.format("%02x", match:byte())
+	end)
+end
+
 function api.send_json(channel, data)
 	if not remote.interfaces.clusterio_api then
 		return
 	end
 
-	-- Escape bad characters.  The question mark is used for separating the
-	-- channel name from the payload.
-	channel = channel:gsub("([\x00-\x1f?\\])", function(match)
-		return "\\x" .. string.format("%02x", match:byte())
-	end)
-
+	channel = escape_channel(channel)
 	data = compat.table_to_json(data)
 
 	-- If there's more than about 4kB of data users running with the Windows
@@ -62,6 +65,15 @@ function api.send_json(channel, data)
 		compat.write_file(file_name, data, false, 0)
 		print("\f$ipc:" .. channel .. "?f" .. file_name)
 	end
+end
+
+function api.send_udp(channel, data)
+	local port = call_api("get_host_udp_port")
+	if not port then
+		return -- Lua UDP is not enabled for this instance
+	end
+
+	helpers.send_udp(port, escape_channel(channel) .. "?" .. data, 0)
 end
 
 

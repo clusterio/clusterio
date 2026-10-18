@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import dgram from "node:dgram";
+import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as lib from "@clusterio/lib";
-import Host, { _discoverInstances } from "@clusterio/host/dist/node/src/Host.js";
+import Host, { _discoverInstances, HostRouter } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
 import "../setup_logging.js";
@@ -31,6 +33,34 @@ describe("host/src/Host", function() {
 		});
 	});
 
+	describe("class HostRouter", function() {
+		describe(".wakeInstance()", function() {
+			it("should log the message of a start error that has no stack", async function() {
+				// RequestError leaves its stack undefined
+				const err = new lib.RequestError("No available port left to assign from host.factorio_port_range");
+				const mockHost = {
+					_shuttingDown: false,
+					_connectInstance: async () => { throw err; },
+					instanceLogMeta: () => ({}),
+				};
+				const responses = [];
+				const origin = { connector: { sendResponseError: response => responses.push(response) } };
+				const message = { dst: lib.Address.fromShorthand({ instanceId: 1 }) };
+				const logged = [];
+				const originalError = lib.logger.error;
+				lib.logger.error = text => { logged.push(text); };
+				try {
+					new HostRouter(mockHost).wakeInstance(origin, message);
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					lib.logger.error = originalError;
+				}
+				assert.equal(responses.length, 1);
+				assert.equal(logged.length, 1);
+				assert.match(logged[0], /No available port left to assign/);
+			});
+		});
+	});
 	describe("class Host", function() {
 		describe(".handleSyncUserListsEvent()", function() {
 			const hostAddress = lib.Address.fromShorthand({ hostId: 1 });
@@ -178,6 +208,43 @@ describe("host/src/Host", function() {
 				const result = await host.checkRestartRequired();
 				assert.equal(result, true);
 				assert.equal(host.config.restartRequired, true);
+			});
+		});
+		describe(".assignFreeGamePort()", function() {
+			let host;
+			let held;
+			let instanceConfig;
+			beforeEach(async function() {
+				const hostConfig = new lib.HostConfig("host");
+				host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				instanceConfig = new lib.InstanceConfig("host", { "instance.id": 1 });
+				host.assignedInstances.set(1, { config: instanceConfig, path: "" });
+				held = dgram.createSocket("udp4");
+				held.bind(0, "127.0.0.1");
+				await events.once(held, "listening");
+			});
+			afterEach(function() {
+				held.close();
+			});
+			it("replaces a stored port another process is bound to", async function() {
+				const port = held.address().port;
+				host.config.set("host.factorio_port_range", `${port}-${port + 1}`);
+				instanceConfig.set("factorio.host_assigned_game_port", port);
+				assert.equal(await host.assignFreeGamePort(1), port + 1);
+				assert.equal(instanceConfig.get("factorio.host_assigned_game_port"), port + 1);
+			});
+			it("keeps a stored port that is free", async function() {
+				const port = held.address().port;
+				host.config.set("host.factorio_port_range", `${port}-${port + 1}`);
+				instanceConfig.set("factorio.host_assigned_game_port", port + 1);
+				assert.equal(await host.assignFreeGamePort(1), port + 1);
+			});
+			it("rejects when every port in the range is taken", async function() {
+				host.config.set("host.factorio_port_range", String(held.address().port));
+				await assert.rejects(
+					host.assignFreeGamePort(1),
+					/No available port left to assign from host.factorio_port_range \(1 in use by other processes\)/
+				);
 			});
 		});
 		describe(".handlePluginInstallRequest()", function() {

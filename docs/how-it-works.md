@@ -1,3 +1,25 @@
+# How Clusterio works
+
+Clusterio runs a group of Factorio servers as a cluster, managed through a web interface or the `clusterioctl` command-line client.
+The controller is the central point of contact: clients connect to it to manage the cluster, and hosts connect to it to receive commands and exchange messages.
+Each host manages its local Factorio server processes, with each server belonging to an instance.
+
+
+## System overview
+
+The diagram shows one possible layout with two physical servers, each running a host and three Factorio servers.
+The controller shares a machine with one host in this example, but it can run on a separate machine.
+The number of hosts and instances can vary with the needs of the cluster.
+
+![Clusterio system diagram showing a controller, web and command-line clients, and two hosts managing three Factorio servers each](assets/clusterio_2.0_block_diagram.svg)
+
+The blue arrows point from the hosts and clients to the controller they connect to; messages can travel in both directions over those WebSocket connections.
+The orange lines connect each host to the Factorio processes it manages.
+Open the [full-size diagram](assets/clusterio_2.0_block_diagram.svg) to zoom in, or use the [Draw.io source](assets/clusterio_2.0_block_diagram.drawio) to edit it.
+
+For how messages are handled and routed between these components, see the [communication guide](communication.md).
+
+
 ## Save Patching
 
 In order to efficiently get data in and out of running Factorio servers and to provide custom interfaces Clusterio uses save patching<sup>[1]</sup> to add code to the game.

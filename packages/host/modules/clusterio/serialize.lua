@@ -17,6 +17,7 @@ end
 
 local has_create_grid = compat.version_ge("1.1.7")
 local has_quality = compat.version_ge("2.0.0")
+local has_spoilage = compat.version_ge("2.0.0")
 
 -- Equipment Grids are serialized into an array of equipment entries
 -- where ench entry is a table with the following fields:
@@ -106,6 +107,7 @@ end
 --	 c: count
 --	 q: quality (optional)
 --	 h: health (optional)
+--	 p: spoil percent (optional)
 --	 d: durability (optional)
 --	 a: ammo count (optional)
 --	 l: label (optional)
@@ -139,6 +141,7 @@ function serialize.serialize_item_stack(slot, entry)
 	entry.c = slot.count
 	if has_quality and slot.quality.level ~= 0 then entry.q = slot.quality.name end
 	if slot.health < 1 then entry.h = slot.health end
+	if has_spoilage and slot.spoil_percent > 0 then entry.p = slot.spoil_percent end
 	if slot.type == "tool" and slot.durability then entry.d = slot.durability end
 	if slot.type == "ammo" then entry.a = slot.ammo end
 	if slot.is_item_with_label then
@@ -177,6 +180,7 @@ function serialize.deserialize_item_stack(slot, entry)
 	}
 	if entry.q then item_stack.quality = entry.q end
 	if entry.h then item_stack.health = entry.h end
+	if entry.p then item_stack.spoil_percent = entry.p end
 	if entry.d then item_stack.durability = entry.d end
 	if entry.a then item_stack.ammo = entry.a end
 
@@ -288,10 +292,10 @@ function serialize.deserialize_inventory(inventory, serialized)
 			if entry.f then
 				local call_success, call_return = pcall(inventory.set_filter, index, entry.f)
 				if not call_success then
-					print("Error: '" .. call_return .. "' thrown setting filter " .. entry.f)
+					print("Error: '" .. call_return .. "' thrown setting filter " .. serpent.line(entry.f))
 
 				elseif not call_return then
-					print("Error: Failed to set filter " .. entry.f)
+					print("Error: Failed to set filter " .. serpent.line(entry.f))
 				end
 			end
 

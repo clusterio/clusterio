@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import yargs, { type Argv } from "yargs";
 import path from "path";
-import packageConfig from "./package.json" with { type: "json" };
+import packageConfig from "@clusterio/ctl/package.json" with { type: "json" };
 import { strict as assert } from "assert";
 
 // Reduce startup time by lazy compiling schemas.
@@ -327,14 +327,6 @@ async function startCtl() {
 }
 
 export function bootstrap() {
-	// eslint-disable-next-line no-console
-	console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`
-	);
 	startCtl().catch(err => {
 		if (err.errors) {
 			logger.fatal(JSON.stringify(err.errors, null, "\t"));

@@ -1,5 +1,6 @@
 import { Static, Type } from "@sinclair/typebox";
 import { permissions as globalPermissions } from "../permissions.js";
+import { SyncHook } from "../SyncHook.js";
 
 interface RoleCollection {
 	get(id: number): Role;
@@ -30,6 +31,9 @@ export default class Role {
 		updated_at_ms: Type.Optional(Type.Number()),
 		is_deleted: Type.Optional(Type.Boolean()),
 	});
+
+	/** Migrations attached by plugins, run on roles loaded by the controller */
+	static pluginMigrations = new SyncHook<Static<typeof Role.jsonSchema>>();
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(

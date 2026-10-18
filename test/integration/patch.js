@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import JSZip from "jszip";
 import path from "node:path";
 
 import { patch, SaveModule } from "@clusterio/host/dist/node/src/patch.js";
@@ -23,23 +21,31 @@ describe("Integration of lib/factorio/patch", function() {
 			await subdirModule.loadFiles("test/file/modules/subdir");
 			await patch(savePath, [testModule, subdirModule]);
 
-			let zip = await JSZip.loadAsync(await fs.readFile(savePath));
-			assert.equal(await zip.file("test/modules/test/test.lua").async("string"), "-- test\n");
-			assert.equal(await zip.file("test/modules/subdir/dir/test.lua").async("string"), "-- test\n");
-			assert.equal(
-				await zip.file("test/locale/en/test.cfg").async("string"),
-				"module-test=A Test\n"
-			);
-			assert.equal(
-				await zip.file("test/locale/en/test-locale.cfg").async("string"),
-				"module-test-locale=Test Locale\n"
-			);
+			let zip = await lib.ZipArchive.fromFile(savePath);
+			try {
+				assert.equal((await zip.readFile("test/modules/test/test.lua")).toString(), "-- test\n");
+				assert.equal((await zip.readFile("test/modules/subdir/dir/test.lua")).toString(), "-- test\n");
+				assert.equal(
+					(await zip.readFile("test/locale/en/test.cfg")).toString(),
+					"module-test=A Test\n"
+				);
+				assert.equal(
+					(await zip.readFile("test/locale/en/test-locale.cfg")).toString(),
+					"module-test-locale=Test Locale\n"
+				);
+			} finally {
+				zip.close();
+			}
 		});
 		it("should remove old modules in a save", async function() {
 			slowTest(this);
 			await patch(savePath, []);
-			let zip = await JSZip.loadAsync(await fs.readFile(savePath));
-			assert.equal(zip.file("test/modules/test/test.lua"), null);
+			let zip = await lib.ZipArchive.fromFile(savePath);
+			try {
+				assert.equal(zip.file("test/modules/test/test.lua"), null);
+			} finally {
+				zip.close();
+			}
 		});
 	});
 });

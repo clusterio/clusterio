@@ -37,6 +37,8 @@ export * from "./src/load_plugin_list.js";
 export * from "./src/rce_ops.js";
 export * from "./src/LockFile.js";
 export * from "./src/AsyncHook.js";
+export * from "./src/SyncHook.js";
+export * from "./src/migrations.js";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff.js";
 export { default as ModStore } from "./src/ModStore.js";

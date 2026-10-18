@@ -144,11 +144,6 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 			}
 		});
 
-		this._socket.on("error", (err: any) => {
-			// It's assumed that close is always called by ws
-			logger.verbose("Connector | Error:", err);
-		});
-
 		this._socket.on("open", () => {
 			logger.verbose("Connector | Open");
 		});

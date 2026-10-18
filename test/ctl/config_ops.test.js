@@ -9,13 +9,13 @@ describe("ctl/config_ops", function() {
 				"# Clusterio configuration",
 				"",
 				"instance.name = Example",
-				"inventory_sync.load_plugin = false",
+				"player_sync.load_plugin = false",
 				"",
 			].join(newline);
 
 			assert.deepEqual(await configToKeyVal(data), {
 				"instance.name": "Example",
-				"inventory_sync.load_plugin": "false",
+				"player_sync.load_plugin": "false",
 			});
 		}
 	});

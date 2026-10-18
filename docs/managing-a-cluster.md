@@ -30,9 +30,10 @@ Create a host config. `--id` id the host id. `--name` is the host name. `--gener
 
 ### Update Clusterio
 
-    ctl> host update [--id <host id>] [--name <host name>] [--restart]
+    ctl> host update <host> [--all] [--restart]
 
-If remote updates are enabled on the host, this will attempt to update `@clusterio/host` on the machine. Changes will not be applied until the host is restarted. If the `--restart` flag is provided, the host will automatically restart once the update is complete.
+Specify the host by name or ID.
+If remote updates are enabled on the host, this will attempt to update `@clusterio/host` on the machine. Add `--all` to also update all npm-installed plugins. Changes will not be applied until the host is restarted. If the `--restart` flag is provided, the host will automatically restart once the update is complete.
 
 Remote updates are enabled by default but can be disabled on a per-machine basis at the owner's discretion. For security reasons, this configuration setting cannot be changed remotely. To modify it, run the following command locally while the host is offline:
 
@@ -40,7 +41,7 @@ Remote updates are enabled by default but can be disabled on a per-machine basis
 
 The controller also supports remote updates, following the same logic. The corresponding commands are:
 
-    ctl> controller update [--restart]
+    ctl> controller update [--all] [--restart]
     controller> config set controller.allow_remote_updates true/false
 
 ### Mark restart required
@@ -116,7 +117,7 @@ Edit instance config in a text editor. Once file is saved and editor has been ex
 
 ### Assign instance to host
 
-    ctl> instace assign <instance> [host]
+    ctl> instance assign <instance> [host]
 
 Assigns instance to host. `instance` is instance to assign, `host` is host to assign to. If `host` is not provided, instance will be unassigned.
 
@@ -228,6 +229,33 @@ Note: If the player joins the cluster again a new account will be made for them 
 ## Roles
 
 To be written.
+
+
+## Notes
+
+Free text notes can be attached to hosts, instances, users, roles, mod packs, mods and saves.
+They are stored on the controller and shown to everyone with access to the resource in the web interface, and can for example be used to record who runs a host or what an instance is meant for.
+
+### List notes
+
+    ctl> note list [--type <type>]
+
+Lists all notes, optionally limited to one resource type.
+
+### Set note
+
+    ctl> note set <type> <id> <content>
+
+Sets the note of a resource.
+The type is one of host, instance, user, role, mod_pack, mod or save.
+The id is the numeric id for hosts, instances, roles and mod packs, the lower case name for users, `<name>_<version>` for mods and `<instance id>/<file name>` for saves.
+
+### Delete note
+
+    ctl> note delete <type> <id>
+
+Removes the note of a resource.
+Notes are also removed when the resource they are attached to is deleted.
 
 
 ## Plugins (Local)

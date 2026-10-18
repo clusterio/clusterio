@@ -16,6 +16,7 @@ import {
 	requiresFactorio, hasFactorio,
 } from "./index.js";
 import { externalTest, slowTest } from "../common.js";
+import { getTestRconPort } from "./rcon_port.js";
 import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
 
 
@@ -142,6 +143,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("copy-static", function() {
 			it("should copy the files from dist/web/static", async function() {
+				slowTest(this);
 				const dir = "temp/test/copy-static";
 				await fs.rm(dir, { force: true, recursive: true, maxRetries: 10 });
 				await execController("copy-static copy-static");
@@ -337,6 +339,7 @@ describe("Integration of Clusterio", function() {
 			try {
 				hostProcess = await startAltHost();
 				await execCtl("instance create alt-start --id 97");
+				await execCtl(`instance config set alt-start factorio.rcon_port ${await getTestRconPort()}`);
 				await execCtl("instance assign alt-start 5");
 				await execCtl("instance config set alt-start instance.auto_start true");
 				const visibility = jsonArg({ lan: false, public: false });
@@ -717,6 +720,7 @@ describe("Integration of Clusterio", function() {
 			it("creates the instance", async function() {
 				this.timeout(6000);
 				await execCtl("instance create test --id 44");
+				await execCtl(`instance config set test factorio.rcon_port ${await getTestRconPort()}`);
 				let instances = await getInstances();
 				assert(instances.has(44), "instance was not created");
 				assert.equal(instances.get(44).status, "unassigned", "incorrect instance status");
@@ -922,7 +926,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance send-rcon", function() {
 			requiresFactorio(this);
 			const plugins = [
-				"global_chat", "inventory_sync", "player_auth",
+				"global_chat", "player_sync", "player_auth",
 				"research_sync", "statistics_exporter", "subspace_storage",
 			];
 			this.beforeAll(async function() {
@@ -1289,7 +1293,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance config set 44 research_sync.load_plugin false");
 				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
 				await execCtl("instance config set 44 subspace_storage.load_plugin false");
-				await execCtl("instance config set 44 inventory_sync.load_plugin false");
+				await execCtl("instance config set 44 player_sync.load_plugin false");
 				await execCtl("instance config set 44 factorio.enable_save_patching false");
 
 				await execCtl("instance start 44");
@@ -1850,6 +1854,53 @@ describe("Integration of Clusterio", function() {
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
 				assert(!newRole, "Role was not deleted");
+			});
+		});
+
+		describe("note set", function() {
+			it("should set the note of the given resource", async function() {
+				await execCtl("note set host 4 basement-box");
+				const notes = await getControl().send(new lib.NoteListRequest());
+				const note = notes.find(n => n.id === "host/4");
+				assert.equal(note.content, "basement-box");
+				assert.equal(note.updatedBy, "test");
+			});
+		});
+
+		describe("note list", function() {
+			it("runs", async function() {
+				await execCtl("note list");
+			});
+			it("runs with --type", async function() {
+				await execCtl("note list --type host");
+			});
+		});
+
+		describe("note get", function() {
+			it("should print the note of the given resource", async function() {
+				const lines = [];
+				const originalLog = console.log; // eslint-disable-line no-console
+				console.log = (...args) => lines.push(args.join(" ")); // eslint-disable-line no-console
+				try {
+					await execCtl("note get host 4");
+				} finally {
+					console.log = originalLog; // eslint-disable-line no-console
+				}
+				assert.deepEqual(lines, ["basement-box"]);
+			});
+			it("should fail for a resource without a note", async function() {
+				await assert.rejects(
+					execCtl("note get host 5"),
+					new lib.CommandError("No note for host 5")
+				);
+			});
+		});
+
+		describe("note delete", function() {
+			it("should remove the note of the given resource", async function() {
+				await execCtl("note delete host 4");
+				const notes = await getControl().send(new lib.NoteListRequest());
+				assert(!notes.find(n => n.id === "host/4"), "Note was not deleted");
 			});
 		});
 

@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/create",
-	"version": "2.0.0-alpha.27",
+	"version": "2.0.2",
 	"description": "Installer for clusterio",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser <github@hornwitser.no>",
@@ -33,7 +33,7 @@
 
 	"dependencies": {
 		"chalk": "catalog:",
-		"inquirer": "^8.2.4",
+		"inquirer": "^8.2.7",
 		"yargs": "catalog:"
 	}
 }

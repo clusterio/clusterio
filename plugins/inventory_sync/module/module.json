@@ -1,4 +1,0 @@
-{
-    "name": "inventory_sync",
-    "load": ["inventory_sync.lua", "gui/dialog_failed_download.lua"]
-}

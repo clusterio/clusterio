@@ -277,6 +277,8 @@ const sensitiveSearchParams = new Set([
 	"access_token",
 	"api_key",
 	"apikey",
+	// OAuth2 authorization code, plugins doing OAuth receive it on their callback route
+	"code",
 	"password",
 	"secret",
 	"token",
@@ -290,17 +292,23 @@ const sensitiveSearchParams = new Set([
  * safely be included in log output and error messages.  The parameter
  * names are kept intact to preserve the diagnostic value of the URL.
  *
- * Returns the input unchanged if it is a string which does not parse as
- * a URL, as there are then no query parameters to redact.
+ * Accepts a path with a query string, like the url of an incoming HTTP
+ * request, and returns a path in that case.  Returns the input unchanged
+ * if it is a string which does not parse as a URL, as there are then no
+ * query parameters to redact.
  *
- * @param url - URL to redact credentials from.
+ * @param url - URL or path to redact credentials from.
  * @returns url with credentials replaced by `REDACTED`.
  */
 export function redactUrl(url: URL | string) {
+	const isPath = typeof url === "string" && url.startsWith("/") && !url.startsWith("//");
 	let parsed;
 	try {
-		parsed = new URL(url);
+		parsed = isPath ? new URL(url, "http://localhost") : new URL(url);
 	} catch {
+		return String(url);
+	}
+	if (![...parsed.searchParams.keys()].some(name => sensitiveSearchParams.has(name.toLowerCase()))) {
 		return String(url);
 	}
 
@@ -310,7 +318,25 @@ export function redactUrl(url: URL | string) {
 	}
 
 	parsed.search = searchParams.toString();
-	return parsed.toString();
+	return isPath ? parsed.pathname + parsed.search + parsed.hash : parsed.toString();
+}
+
+/**
+ * Copy of parsed query parameters with credentials replaced by `REDACTED`
+ *
+ * Uses the same parameter names as {@link redactUrl}.
+ *
+ * @param query - query parameters, for example `req.query` from express.
+ * @returns query safe to write to the log.
+ */
+export function redactQuery(query: Record<string, unknown>) {
+	const result = { ...query };
+	for (const name of Object.keys(result)) {
+		if (sensitiveSearchParams.has(name.toLowerCase())) {
+			result[name] = "REDACTED";
+		}
+	}
+	return result;
 }
 
 function skipWhitespace(pos: number, input: string) {

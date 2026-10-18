@@ -175,6 +175,12 @@ export default class Controller {
 			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
 		).bootstrap());
+		// Save plugin versions written while loading
+		for (const instance of instances.values()) {
+			if (instance.config.dirty) {
+				instances.set(instance);
+			}
+		}
 
 		const saves = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "saves.json"),
@@ -199,6 +205,11 @@ export default class Controller {
 			undefined, this.finaliseUsers,
 		).bootstrap());
 
+		const notes = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "notes.json"),
+			lib.Note.fromJSON.bind(lib.Note),
+		).bootstrap());
+
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
@@ -221,6 +232,7 @@ export default class Controller {
 			modStore,
 			roles,
 			users,
+			notes,
 		] as const;
 	}
 
@@ -254,6 +266,8 @@ export default class Controller {
 		public roles = new lib.SubscribableDatastore<lib.Role>(),
 		/** Mapping of user id to user record */
 		users = new lib.SubscribableDatastore<UserRecord>(),
+		/** Mapping of note id to note attached to a resource */
+		public notes = new lib.SubscribableDatastore<lib.Note>(),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -285,6 +299,7 @@ export default class Controller {
 		this.subscriptions.handle(lib.ModUpdatesEvent, this.handleModSubscription.bind(this));
 		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 		this.subscriptions.handle(lib.RoleUpdatesEvent, this.handleRoleSubscription.bind(this));
+		this.subscriptions.handle(lib.NoteUpdatesEvent, this.handleNoteSubscription.bind(this));
 
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
@@ -294,6 +309,7 @@ export default class Controller {
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
 		this.roles.on("update", this.rolesUpdated.bind(this));
 		this.users.records.on("update", this.usersUpdated.bind(this));
+		this.notes.on("update", this.notesUpdated.bind(this));
 	}
 
 	get authSecret() {
@@ -403,16 +419,17 @@ export default class Controller {
 
 		// Log all express errors from middleware or routes (app.use is missing the type overload)
 		this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction): void => {
+			const url = lib.redactUrl(req.originalUrl);
 			logger.log({
 				level: "error",
 				message: "Error while handling HTTP" +
-					`${req.httpVersion} ${req.method} ${req.originalUrl}:\n${err.stack}`,
+					`${req.httpVersion} ${req.method} ${url}:\n${err.stack}`,
 				meta: {
 					method: req.method,
-					url: req.originalUrl,
+					url,
 					httpVersion: req.httpVersion,
 					headers: Controller.loggableHeaders(req.headers),
-					query: req.query,
+					query: lib.redactQuery(req.query),
 				},
 			});
 
@@ -737,6 +754,7 @@ export default class Controller {
 			this.roles.save(),
 			this.users.records.save(),
 			this.hooks.save.invoke(),
+			this.notes.save(),
 		]);
 	}
 
@@ -821,7 +839,7 @@ export default class Controller {
 				}
 				return permission;
 			});
-			return json;
+			return lib.Role.pluginMigrations.reduce(json);
 		});
 	}
 
@@ -889,18 +907,19 @@ export default class Controller {
 				const endNs = process.hrtime.bigint();
 				const durationMs = (Number(endNs - startNs) / 1e6);
 				endpointDurationSummary.labels(routePath).observe(durationMs / 1e3);
+				const url = lib.redactUrl(req.originalUrl);
 				logger.log({
 					level: "http",
-					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
+					message: `HTTP${req.httpVersion} ${req.method} ${url}` +
 						` (Status ${res.statusCode} in ${durationMs}ms)`,
 					meta: {
 						method: req.method,
-						url: req.originalUrl,
+						url,
 						statusCode: res.statusCode,
 						responseTime: durationMs,
 						httpVersion: req.httpVersion,
 						headers: Controller.loggableHeaders(req.headers),
-						query: req.query,
+						query: lib.redactQuery(req.query),
 					},
 				});
 			});
@@ -1127,6 +1146,60 @@ export default class Controller {
 			role => role.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return roles.length ? new lib.RoleUpdatesEvent(roles) : null;
+	}
+
+	notesUpdated(notes: lib.Note[]) {
+		this.subscriptions.broadcast(new lib.NoteUpdatesEvent(notes));
+	}
+
+	async handleNoteSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
+		// Deleted notes are kept as tombstones so resubscribing clients learn of the deletion
+		const notes = [...this.notes.values()].filter(
+			note => note.updatedAtMs > request.lastRequestTimeMs && (request.lastRequestTimeMs > 0 || !note.isDeleted),
+		);
+		return notes.length ? new lib.NoteUpdatesEvent(notes) : null;
+	}
+
+	/**
+	 * Set or remove the note attached to a resource
+	 * @param resourceType - Type of resource the note belongs to.
+	 * @param resourceId - Id of the resource within its type.
+	 * @param content - New text of the note, empty removes the note.
+	 * @param updatedBy - Name of the user making the change.
+	 */
+	setNote(resourceType: string, resourceId: string, content: string, updatedBy = "") {
+		const existing = this.notes.getMutable(lib.Note.idFor(resourceType, resourceId));
+		if (content === "") {
+			this.deleteNote(resourceType, resourceId, updatedBy);
+			return;
+		}
+		if (existing) {
+			existing.content = content;
+			existing.updatedBy = updatedBy;
+			existing.isDeleted = false;
+			this.notes.set(existing);
+		} else {
+			this.notes.set(new lib.Note(resourceType, resourceId, content, updatedBy));
+		}
+	}
+
+	/**
+	 * Remove the note attached to a resource, if any
+	 * @param resourceType - Type of resource the note belongs to.
+	 * @param resourceId - Id of the resource within its type.
+	 * @param updatedBy - Name of the user making the change.
+	 */
+	deleteNote(resourceType: string, resourceId: string | number, updatedBy = "") {
+		const note = this.notes.getMutable(lib.Note.idFor(resourceType, resourceId));
+		if (note && !note.isDeleted) {
+			note.content = "";
+			note.updatedBy = updatedBy;
+			note.isDeleted = true;
+			this.notes.set(note);
+		}
 	}
 
 	async loadPlugins() {

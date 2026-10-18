@@ -32,7 +32,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 import Controller from "./src/Controller.js";
 import UserManager from "./src/UserManager.js";
 import UserRecord from "./src/UserRecord.js";
-import packageConfig from "./package.json" with { type: "json" };
+import packageConfig from "@clusterio/controller/package.json" with { type: "json" };
 
 // globals
 let controller: Controller;
@@ -419,6 +419,9 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
+	if (!args.recovery) {
+		await lib.loadPluginMigrations(pluginInfos);
+	}
 
 	const [controllerConfig, controllerConfigLock] = await lib.loadConfigFromArgs(
 		args,
@@ -500,14 +503,6 @@ async function startup() {
 }
 
 export function bootstrap() {
-	// eslint-disable-next-line no-console
-	console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`
-	);
 	startup().catch(err => {
 		if (err instanceof lib.StartupError || err.code === "InstallationError") {
 			logger.fatal(`

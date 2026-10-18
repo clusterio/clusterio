@@ -1,36 +1,57 @@
 # Communication Layer
 
-<sub>This document describes the communication layer in Clusterio and unless you're developing Clusterio it's probably not going to be very useful for you.</sub>
-
-Communication is facilitated by the lib/link library and is based on three core abstractions: links, connectors and messages.
-Links represents one side of a two way communication pipe, connectors deal with connecting and establishing communication, and messages are the content sent over the link.
-
-
-## Link
-
-The Link class represents one side of a two way communication channel where the actual communication is done by a connector associated with the link.
-The link also knows what the endpoint types it's connected to are via the source and target attributes.
-
-The endpoint types currently implemented are controller, host, instance, and control.
-Although host and instances run in the same Node.js program they use virtual links to communicate between them in order to simplify the communication architecture.
-
-Upon creation the link will register with the connector in order to receive and process messages from it.
-The messages received are validated using the validator registered for the type of the message.
-A message for which there is no validator for is considered an error.
+Clusterio uses links, connectors, and message classes to communicate between controllers, hosts, instances, and control clients.
+A link sends and receives messages through a connector, while message classes define the requests and events that can be exchanged.
+See the [system overview](how-it-works.md#system-overview) for a diagram of the processes and their connections, and the [protocol reference](devs/protocol.md) for wire formats and session flow.
 
 
-## Connector
+## Links and routing
 
-The connector used with a link is responsible for establishing and/or maintain the connection that messages are sent over.
-Reconnect logic is expected to be implemented in the connector, though this has not yet been done.
+[Link](../packages/lib/src/link/link.ts) handles request/response matching, event dispatch, message registration, and routing through an attached router.
+Its connector identifies the local and remote endpoints through `connector.src` and `connector.dst`, both `Address` objects.
 
-There's also the virtual connector which lets two links in the same program be connected to each other without having to establish a network connection.
+The controller's `WsServer` stores one link for each host or control connection.
+On a host, the `Host` object is a link to the controller, and each `Instance` is linked to a corresponding `InstanceConnection` stored on the host.
+The command-line client's `Ctl` object and the web interface's `Control` object each act as a link to the controller.
+
+Requests can pass through several links before reaching their destination.
+Each receiving link checks the message name, allowed endpoint types, and source address before routing it.
+The controller checks the user's permissions before validating the message data; permission callbacks therefore receive untrusted data.
+See [message permissions](writing-plugins.md#static-permission).
+
+At the destination, the registered schema validates the payload and `fromJSON` restores the message before its handler runs.
+
+Routing can perform work before the destination handler runs.
+In particular, the [host router](../packages/host/src/Host.ts) can start or wake an instance for messages marked as instance-starting.
 
 
-## Message
+## Connectors and sessions
 
-There's two types of messages currently implemented apart from the Link builtin close message and that's Request and Event.
-The builtin messages are defined in [packages/lib/src/link/messages.ts](/packages/lib/src/link/messages.ts) and are attached to links via the attachAllMessages function, which is usally called in the Link subclass constructor.
+[Connectors](../packages/lib/src/link/connectors.ts) transport messages, assign sequence numbers, and deliver incoming messages to links.
+WebSocket connectors connect hosts and control clients to the controller and validate incoming message structures, including their type and addresses.
+Hosts and instances share a Node.js process and communicate in memory through paired `VirtualConnector` objects.
 
-The messages define which links they are valid on and only attaches handlers for those links.
-There's also a forwarding mechanism for when a request or event is to be forwarded another hop.
+The protocol reference describes [connection and recovery behavior](devs/protocol.md#connection-flow), [connector states and events](devs/protocol.md#connector-flow), and [graceful disconnects](devs/protocol.md#graceful-disconnect).
+For handling these events in a plugin, including queueing work and preparing for disconnection, see [connection handling](writing-plugins.md#handling-connection-events).
+
+
+## Message definitions and registration
+
+Core request and event classes live under [packages/lib/src/data/](../packages/lib/src/data/).
+Their static `type`, `src`, and `dst` properties specify the message type and allowed endpoint types, while their schema and permission fields define the payload and access rules.
+Plugin classes also supply a `plugin` name.
+
+`Link.register` registers request and event classes and compiles their payload validators.
+Core classes are registered by the link module; `registerPluginMessages` registers each plugin's `messages` array.
+Incoming messages invoke handlers attached with `link.handle(MessageClass, handler)`.
+Plugins attach these handlers from their entrypoint functions rather than relying on method-name conventions.
+
+Send a message with `link.sendTo(destination, new MessageClass(...))`.
+Requests return a promise for the response; events do not return a handler result.
+Use broadcast destinations only for events.
+When using a request's source as a later event destination, remove its request ID with `Address.withoutRequestId()`.
+See [writing plugins](writing-plugins.md#defining-link-messages) for a complete example.
+
+When changing a wire message structure in [messages_core.ts](../packages/lib/src/data/messages_core.ts), rebuild the packages with `pnpm -r run prepare` to regenerate the standalone validator.
+When changing a request or event class, keep serialization, allowed endpoints, permission checks, registration, and handlers consistent.
+The [contributor guide](contributing.md#checking-your-code-for-errors) explains how to run focused tests.

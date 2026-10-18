@@ -15,7 +15,7 @@ describe("Integration of lib/factorio/export", function() {
 			let testServer = new FactorioServer(factorioDir, writePath, {});
 			await testServer.init();
 
-			let locale = await _exportLocale(testServer, new Map(), ["base"], "en");
+			let locale = await _exportLocale(testServer, new Map(), new Map(), ["base"], "en");
 
 			assert(locale instanceof Map, "locale is not a map");
 			assert.equal(locale.get("entity-name.fish"), "Fish");
