@@ -701,11 +701,11 @@ end
 
 -- Called by instance.ts as /sc player_sync.prefetch_inventory('name', generation, 'chunk', number, total, components,
 -- token) with a copy of a player's stored data that the controller sent ahead (PrefetchEvent) while they switch to this
--- server. It holds
--- the copy for a player who is offline here or doesn't exist yet. It prints only when it refuses or ignores a chunk,
--- which stops the host sending the rest.
+-- server. It holds the copy for a player who is offline here or doesn't exist yet. Every chunk carries the token, so
+-- chunks of an earlier controller run's copy never land in a newer one. It prints only when it refuses or ignores a
+-- chunk, which stops the host sending the rest.
 --- @param components string? JSON of the components the instance stripped the copy by, given with the first chunk
---- @param token string? The controller run that sent the copy, given with the first chunk
+--- @param token string? The controller run that sent the copy
 function player_sync.prefetch_inventory(player_name, generation, data, number, total, components, token)
 	local script_data = get_script_data()
 	if number == 1 then
@@ -744,7 +744,7 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 	end
 
 	local record = script_data.active_downloads[player_name]
-	if not (record and record.prefetch and record.generation == generation) then
+	if not (record and record.prefetch and record.generation == generation and record.token == token) then
 		-- Refused at chunk 1, dropped by the acquire reply or the inactivity check, or replaced by a newer copy
 		rcon.print("Ignored prefetch chunk " .. number .. " for " .. player_name)
 		return

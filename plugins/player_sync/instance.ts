@@ -289,7 +289,8 @@ export default async function(context: InstancePluginContext) {
 		logger.verbose(`Prefetching ${name}`);
 		// This side doesn't know the save's cleared recipe list, so the whole stored list goes as a full delta
 		await sendPlayerData(playerData, undefined, (chunk, number, total, extra) => {
-			const tokenArg = number === 1 ? `,'${token}'` : "";
+			// Later chunks have no components argument, so nil holds its place
+			const tokenArg = number === 1 ? `,'${token}'` : `,nil,'${token}'`;
 			const args = `'${name}',${generation},'${chunk}',${number},${total}${extra}${tokenArg}`;
 			return `/sc player_sync.prefetch_inventory(${args})`;
 		}, true);
