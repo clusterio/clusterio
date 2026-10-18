@@ -21,6 +21,7 @@ type IpcFinished = {
 	name: string,
 	level: number,
 };
+type IpcQueue = { queue: unknown, player?: string };
 
 export default async function(context: InstancePluginContext) {
 	const { instance, logger, plugin } = context;
@@ -68,14 +69,14 @@ export default async function(context: InstancePluginContext) {
 		researchFinished(tech).catch(err => unexpectedError(err));
 	});
 
-	instance.server.on("ipc-research_sync:queue", (data: { queue?: unknown, player?: string }) => {
+	instance.server.on("ipc-research_sync:queue", (data: IpcQueue) => {
 		try {
 			instance.sendTo("controller", new QueueUpdateEvent(asArray(data.queue), data.player ?? null));
 		} catch (err: any) {
 			unexpectedError(err);
 		}
 	});
-	instance.server.on("ipc-research_sync:follow", (data: { queue?: unknown, player?: string }) => {
+	instance.server.on("ipc-research_sync:follow", (data: IpcQueue) => {
 		followQueue(asArray(data.queue), data.player ?? null).catch(err => unexpectedError(err));
 	});
 

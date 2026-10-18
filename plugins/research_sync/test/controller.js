@@ -63,6 +63,15 @@ describe("research_sync controller", function() {
 		await update(["a", "b"]);
 		assert.equal(queueEvents().length, 1);
 	});
+	it("should broadcast a clear to an empty queue", async function() {
+		await update(["a"], "Bob");
+		sent.length = 0;
+		await update([], null);
+		assert.equal(queueEvents().length, 1);
+		assert.deepEqual(queueEvents()[0][1].queue, []);
+		assert.equal(queueEvents()[0][1].player, null);
+		assert.deepEqual(await sync(null, null), []);
+	});
 	it("should cap the queue at 7", async function() {
 		await update(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
 		assert.deepEqual(queueEvents()[0][1].queue, ["1", "2", "3", "4", "5", "6", "7"]);

@@ -40,7 +40,7 @@ end
 --- @class ResearchSyncData
 --- @field technologies table<string, ResearchSyncTechnology>
 --- @field ignore_research_finished boolean
---- @field follow boolean? nil until first set; nil counts as following
+--- @field follow boolean? nil until the first queue_state sets it; the checkbox shows ticked but nil does not send or apply
 --- @field ignore_queue_events boolean
 --- @field queue_dirty boolean
 --- @field queue_player string?
@@ -159,7 +159,7 @@ end
 --- @return string[]
 local function queue_names(force)
 	local names = {}
-	for _, tech in pairs(force.research_queue) do
+	for _, tech in ipairs(force.research_queue) do
 		table.insert(names, tech.name)
 	end
 	return names
@@ -217,11 +217,13 @@ local function ensure_gui(player)
 end
 
 if queue_sync then
+	--- @param event EventData.on_player_created
 	sync.events[defines.events.on_player_created] = function(event)
 		ensure_gui(game.get_player(event.player_index) --[[@as LuaPlayer]])
 	end
 	sync.events[defines.events.on_player_joined_game] = sync.events[defines.events.on_player_created]
 
+	--- @param event EventData.on_gui_checked_state_changed
 	sync.events[defines.events.on_gui_checked_state_changed] = function(event)
 		if event.element.name == "research_sync_follow" then
 			local player = game.get_player(event.player_index) --[[@as LuaPlayer]]
@@ -229,6 +231,7 @@ if queue_sync then
 		end
 	end
 
+	--- @param event EventData.on_research_queued|EventData.on_research_moved|EventData.on_research_cancelled
 	local function on_queue_event(event)
 		if event.force.name ~= "player" then
 			return
@@ -247,7 +250,8 @@ if queue_sync then
 	sync.events[defines.events.on_research_cancelled] = on_queue_event
 
 	-- One send per tick however many events fired (a lab raises several at once).
-	sync.events[defines.events.on_tick] = function()
+	--- @param event EventData.on_tick
+	sync.events[defines.events.on_tick] = function(event)
 		local script_data = get_script_data()
 		if not script_data.queue_dirty then
 			return

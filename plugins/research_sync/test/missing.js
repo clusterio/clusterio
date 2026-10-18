@@ -2,4 +2,3 @@
 // required here in order to track coverage for them.
 
 import "../dist/node/instance.js";
-import "../dist/node/controller.js";
