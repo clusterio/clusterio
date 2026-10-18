@@ -40,7 +40,7 @@ end
 --- @class ResearchSyncData
 --- @field technologies table<string, ResearchSyncTechnology>
 --- @field ignore_research_finished boolean
---- @field follow boolean? nil until the first queue_state sets it; the checkbox shows ticked but nil does not send or apply
+--- @field follow boolean? nil until the first queue_state sets it: shown ticked, but doesn't send or apply
 --- @field ignore_queue_events boolean
 --- @field queue_dirty boolean
 --- @field queue_player string?
@@ -209,7 +209,8 @@ local function ensure_gui(player)
 			caption = "Follow the cluster research queue",
 			tooltip = "On: this server's research queue is replaced by the cluster's, "
 				.. "and changes here change it on every following server.\n"
-				.. "Off: this server's research queue is cleared and it picks its own research.",
+				.. "Off: this server's research queue is cleared and it picks its own research.\n"
+				.. "Either way, all research progress is counted, whatever technology is selected.",
 			state = true,
 		}
 	end
