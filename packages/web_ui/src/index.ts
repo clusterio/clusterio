@@ -12,6 +12,7 @@ export * from "./model/instance";
 export * from "./model/is_dragging";
 export * from "./model/mod_pack";
 export * from "./model/mods";
+export * from "./model/notes";
 export * from "./model/roles";
 export * from "./model/saves";
 export * from "./model/system";
@@ -38,6 +39,7 @@ export { default as PageHeader } from "./components/PageHeader";
 export { default as PageLayout } from "./components/PageLayout";
 export { default as SavesList } from "./components/SavesList";
 export { default as SectionHeader } from "./components/SectionHeader";
+export { default as ResourceNotes } from "./components/ResourceNotes";
 
 export { default as Link } from "./components/Link";
 

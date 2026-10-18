@@ -220,6 +220,8 @@ export class MockController {
 		this.handles.set(eventClass, handler);
 	}
 
+	deleteNote() { }
+
 	getControllerUrl() {
 		return "http://controller.example/";
 	}
