@@ -358,6 +358,7 @@ function player_sync.sync_player(acquire_response)
 		local record = downloads[acquire_response.player_name]
 		if record and record.prefetch and not (
 			acquire_response.status == "acquired" and record.generation == acquire_response.generation
+			and record.token == acquire_response.token
 			and serialize.same_components(record.components, script_data.components)
 		) then
 			downloads[acquire_response.player_name] = nil
@@ -698,12 +699,14 @@ function player_sync.check_active_uploads()
 	end
 end
 
--- Called by instance.ts as /sc player_sync.prefetch_inventory('name', generation, 'chunk', number, total) with a copy
--- of a player's stored data that the controller sent ahead (PrefetchEvent) while they switch to this server. It holds
+-- Called by instance.ts as /sc player_sync.prefetch_inventory('name', generation, 'chunk', number, total, components,
+-- token) with a copy of a player's stored data that the controller sent ahead (PrefetchEvent) while they switch to this
+-- server. It holds
 -- the copy for a player who is offline here or doesn't exist yet. It prints only when it refuses or ignores a chunk,
 -- which stops the host sending the rest.
 --- @param components string? JSON of the components the instance stripped the copy by, given with the first chunk
-function player_sync.prefetch_inventory(player_name, generation, data, number, total, components)
+--- @param token string? The controller run that sent the copy, given with the first chunk
+function player_sync.prefetch_inventory(player_name, generation, data, number, total, components, token)
 	local script_data = get_script_data()
 	if number == 1 then
 		local player = game.get_player(player_name)
@@ -719,9 +722,12 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			return
 		end
 		-- Two copies can reach here out of order (applyRecipeNotificationDelta awaits zlib). A held finished copy of the
-		-- same generation is replaced: it can be one the controller lost (a crash before its save), and the newer copy
-		-- of the same number is what the controller holds now
-		if (active and active.generation >= generation) or (finished and finished.generation > generation) then
+		-- same generation is replaced: the newer copy of the same number is what the controller holds now. A copy
+		-- with another token came from an earlier controller run, which may have crashed before saving that
+		-- generation, so this run's copy replaces it whatever the generation
+		local active_newer = active and active.token == token and active.generation >= generation
+		local finished_newer = finished and finished.token == token and finished.generation > generation
+		if active_newer or finished_newer then
 			rcon.print("Refused prefetch for " .. player_name .. ": generation " .. generation .. " is not newer")
 			return
 		end
@@ -732,6 +738,7 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			generation = generation,
 			data = "",
 			prefetch = true,
+			token = token,
 			components = components and compat.json_to_table(components),
 		}
 	end

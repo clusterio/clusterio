@@ -112,7 +112,10 @@ describe("player_sync controller", function() {
 			await handler(msg.UploadRequest)(new msg.UploadRequest(instanceId, data.name, data));
 		}
 		async function acquireResponse(instanceId, playerName) {
-			return await handler(msg.AcquireRequest)(new msg.AcquireRequest(instanceId, playerName));
+			const response = await handler(msg.AcquireRequest)(new msg.AcquireRequest(instanceId, playerName));
+			// Random per controller run, the run token tests cover it
+			response.token = undefined;
+			return response;
 		}
 
 		async function loadWithInstances() {
@@ -404,7 +407,8 @@ describe("player_sync controller", function() {
 		}
 		const data = generation => ({ name: "test", generation });
 		async function stored(controller) {
-			return (await mock.getHandler(controller, msg.DownloadRequest)(new msg.DownloadRequest(2, "test"))).playerData;
+			const download = mock.getHandler(controller, msg.DownloadRequest);
+			return (await download(new msg.DownloadRequest(2, "test"))).playerData;
 		}
 
 		it("should send the stored data to a running destination with player_sync on", async function() {
@@ -414,6 +418,24 @@ describe("player_sync controller", function() {
 			assert.deepEqual(sent[0].address, { instanceId: 2 });
 			assert.ok(sent[0].message instanceof msg.PrefetchEvent);
 			assert.deepEqual(sent[0].message.playerData, data(1));
+		});
+		it("should tag the prefetch and acquire reply with one token per controller run", async function() {
+			const { controller, sent, upload } = await setup();
+			await upload(new msg.UploadRequest(1, "test", data(1), 2));
+			const acquire = await mock.getHandler(controller, msg.AcquireRequest)(new msg.AcquireRequest(2, "test"));
+			assert.equal(acquire.status, "acquired");
+			assert.ok(sent[0].message.token);
+			assert.equal(acquire.token, sent[0].message.token);
+
+			const again = await setup();
+			await again.upload(new msg.UploadRequest(1, "test", data(1), 2));
+			assert.notEqual(again.sent[0].message.token, sent[0].message.token);
+		});
+		it("should not need a token on a busy reply", async function() {
+			const { controller } = await setup();
+			const acquire = mock.getHandler(controller, msg.AcquireRequest);
+			await acquire(new msg.AcquireRequest(3, "test"));
+			assert.equal((await acquire(new msg.AcquireRequest(2, "test"))).token, undefined);
 		});
 		it("should send the stored copy, with the parts the upload's components left out", async function() {
 			const { sent, upload } = await setup();

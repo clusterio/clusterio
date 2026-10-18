@@ -196,6 +196,7 @@ export class AcquireResponse {
 		public hasData?: boolean,
 		public message?: string,
 		public epoch?: number,
+		public token?: string,
 	) {
 	}
 
@@ -205,10 +206,11 @@ export class AcquireResponse {
 		"hasData": Type.Optional(Type.Boolean()),
 		"message": Type.Optional(Type.String()),
 		"epoch": Type.Optional(Type.Integer()),
+		"token": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof AcquireResponse.jsonSchema>): AcquireResponse {
-		return new this(json.status, json.generation, json.hasData, json.message, json.epoch);
+		return new this(json.status, json.generation, json.hasData, json.message, json.epoch, json.token);
 	}
 };
 export class AcquireRequest {
@@ -295,15 +297,18 @@ export class PrefetchEvent {
 
 	constructor(
 		public playerData: IpcPlayerData,
+		/** The controller run that sent it, which a held copy must share with the acquire reply to be applied */
+		public token: string,
 	) {
 	}
 
 	static jsonSchema = Type.Object({
 		"playerData": jsonPlayerData,
+		"token": Type.String(),
 	});
 
 	static fromJSON(json: Static<typeof PrefetchEvent.jsonSchema>): PrefetchEvent {
-		return new this(json.playerData as IpcPlayerData);
+		return new this(json.playerData as IpcPlayerData, json.token);
 	}
 }
 
