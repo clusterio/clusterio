@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
-import net from "node:net";
 
 import * as lib from "@clusterio/lib";
 import { InstanceManager } from "@clusterio/controller";
@@ -11,6 +10,7 @@ import { logger } from "@clusterio/lib";
 
 import { factorioDir, requiresFactorio } from "./index.js";
 import { slowTest } from "../common.js";
+import { getTestRconPort } from "./rcon_port.js";
 
 
 describe("Integration of host/src/server", function() {
@@ -72,6 +72,12 @@ describe("Integration of host/src/server", function() {
 			logFile.end();
 		});
 
+		beforeEach(async function() {
+			if (server.pid === null) {
+				server.rconPort = await getTestRconPort();
+			}
+		});
+
 		describe(".exampleSettings()", function() {
 			let settings;
 			it("returns an object", async function() {
@@ -128,18 +134,7 @@ describe("Integration of host/src/server", function() {
 
 				// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
 				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.10");
-				// Force the former random-port collision while a real TCP listener owns it.
-				const held = net.createServer();
-				const listening = events.once(held, "listening");
-				held.listen(0, "0.0.0.0");
-				await listening;
-				server.rconPort = held.address().port;
-				try {
-					await server.start("test.zip");
-					assert.notEqual(server.rconPort, held.address().port);
-				} finally {
-					await new Promise(resolve => held.close(resolve));
-				}
+				await server.start("test.zip");
 			});
 		});
 
@@ -251,17 +246,7 @@ describe("Integration of host/src/server", function() {
 				}
 				server.on("output", filter);
 
-				const held = net.createServer();
-				const listening = events.once(held, "listening");
-				held.listen(0, "0.0.0.0");
-				await listening;
-				server.rconPort = held.address().port;
-				try {
-					await server.startScenario("test_scenario");
-					assert.notEqual(server.rconPort, held.address().port);
-				} finally {
-					await new Promise(resolve => held.close(resolve));
-				}
+				await server.startScenario("test_scenario");
 
 				log(".stop()");
 				await server.stop();

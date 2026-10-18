@@ -595,7 +595,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			// Internal value, extendedValidation not used
 		},
 		"factorio.rcon_port": {
-			description: "TCP port to run RCON on, selects an available port if null or 0",
+			description: "TCP port to run RCON on, uses a random port if null",
 			restartRequired: true,
 			type: "number",
 			optional: true,

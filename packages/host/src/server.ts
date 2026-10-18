@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import { type FSWatcher, createWriteStream, watch as fsWatch, writeFileSync } from "node:fs";
 import child_process from "child_process";
 import dgram from "dgram";
-import net from "node:net";
 import path from "path";
 import stream from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -250,48 +249,6 @@ export async function findVersion(
 	}
 
 	throw new Error(`Unable to find Factorio version ${targetVersion}`);
-}
-
-// Keep automatic selections claimed until Factorio exits, including the interval
-// between releasing the probe socket and Factorio opening its RCON listener.
-const reservedRconPorts = new Set<number>();
-
-async function reserveRconPort() {
-	for (let attempt = 0; attempt < 100; attempt++) {
-		const probe = net.createServer();
-		const listen = (host: string) => new Promise<void>((resolve, reject) => {
-			probe.once("error", reject);
-			probe.listen({ host, port: 0 }, () => {
-				probe.removeListener("error", reject);
-				resolve();
-			});
-		});
-		try {
-			// A dual-stack wildcard listener also excludes ports used by outgoing
-			// IPv4/IPv6 connections, rather than only checking listening sockets.
-			try {
-				await listen("::");
-			} catch (err: any) {
-				if (err.code !== "EAFNOSUPPORT" && err.code !== "EADDRNOTAVAIL") {
-					throw err;
-				}
-				await listen("0.0.0.0");
-			}
-			const port = (probe.address() as net.AddressInfo).port;
-			if (reservedRconPorts.has(port)) {
-				continue;
-			}
-			reservedRconPorts.add(port);
-			return { port, release: () => { reservedRconPorts.delete(port); } };
-		} finally {
-			if (probe.listening) {
-				await new Promise<void>((resolve, reject) => {
-					probe.close(err => (err ? reject(err) : resolve()));
-				});
-			}
-		}
-	}
-	throw new lib.EnvironmentError("Unable to select an available RCON port");
 }
 
 /**
@@ -693,8 +650,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	gamePort: number;
 	/** TCP port used for RCON on the Factorio game server */
 	rconPort: number;
-	_automaticRconPort: boolean;
-	_releaseRconPort?: () => void;
 	/** Password used for RCON on the Factorio game server */
 	rconPassword: string;
 	/** Enable UDP messaging with the Factorio game server */
@@ -761,7 +716,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		this.gamePort = options.gamePort || randomDynamicPort();
 		/** TCP port used for RCON on the Factorio game server */
 		this.rconPort = options.rconPort || randomDynamicPort();
-		this._automaticRconPort = !options.rconPort;
 		/** Password used for RCON on the Factorio game server */
 		this.rconPassword = options.rconPassword as string; // init will generate one if not there
 		/** Enable UDP messaging with the Factorio game server */
@@ -1231,8 +1185,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	_resetState() {
-		this._releaseRconPort?.();
-		this._releaseRconPort = undefined;
 		this._state = "init";
 		this._server = null;
 		this._rconClient = null;
@@ -1402,18 +1354,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async start(save: string) {
 		this._check(["init"]);
 		this._checkLuaUdpVersion();
-		const reservation = this._automaticRconPort ? await reserveRconPort() : undefined;
-		try {
-			// Port selection yields, so another start may have changed the state.
-			this._check(["init"]);
-		} catch (err) {
-			reservation?.release();
-			throw err;
-		}
-		if (reservation) {
-			this.rconPort = reservation.port;
-			this._releaseRconPort = reservation.release;
-		}
 		this._state = "running";
 
 		try {
@@ -1445,11 +1385,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			this._watchExit();
 			/* eslint-enable node/no-sync */
 		} catch (err: any) {
-			try {
-				this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
-			} finally {
-				this._resetState();
-			}
+			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
+			this._resetState();
 		}
 
 		await this._waitForReady();
@@ -1471,18 +1408,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async startScenario(scenario: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
 		this._check(["init"]);
 		this._checkLuaUdpVersion();
-		const reservation = this._automaticRconPort ? await reserveRconPort() : undefined;
-		try {
-			// Port selection yields, so another start may have changed the state.
-			this._check(["init"]);
-		} catch (err) {
-			reservation?.release();
-			throw err;
-		}
-		if (reservation) {
-			this.rconPort = reservation.port;
-			this._releaseRconPort = reservation.release;
-		}
 		this._state = "running";
 
 		try {
@@ -1520,11 +1445,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			this._watchExit();
 			/* eslint-enable node/no-sync */
 		} catch (err: any) {
-			try {
-				this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
-			} finally {
-				this._resetState();
-			}
+			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
+			this._resetState();
 		}
 
 		await this._waitForReady();
@@ -1850,5 +1772,3 @@ export const _downloadAndExtractTar = downloadAndExtractTar;
 export const _randomDynamicPort = randomDynamicPort;
 export const _generatePassword = generatePassword;
 export const _parseOutput = parseOutput;
-
-export const _reserveRconPort = reserveRconPort;

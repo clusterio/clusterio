@@ -11,6 +11,8 @@ import {
 	requiresFactorio, hasFactorio, getFactorioVersion, instancesDir,
 } from "./index.js";
 
+import { getTestRconPort } from "./rcon_port.js";
+
 const instId = 48;
 const instName = "Integration";
 const instSetConfig = `instance config set ${instName}`;
@@ -90,6 +92,7 @@ describe("Clusterio Instance", function() {
 
 		// Create a new instance
 		await execCtl(`instance create ${instName} --id ${instId}`);
+		await execCtl(`instance config set ${instName} factorio.rcon_port ${await getTestRconPort()}`);
 		await execCtl(`instance config set ${instName} factorio.enable_whitelist true`);
 		await execCtlProcess(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
@@ -105,6 +108,7 @@ describe("Clusterio Instance", function() {
 
 		// Create a new alt instance
 		await execCtl(`instance create ${instAltName} --id ${instAltId}`);
+		await execCtl(`instance config set ${instAltName} factorio.rcon_port ${await getTestRconPort()}`);
 		await execCtl(`instance config set ${instAltName} factorio.enable_whitelist true`);
 		await execCtlProcess(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
@@ -343,6 +347,7 @@ describe("start-all and stop-all commands", function() {
 			/"/g, process.platform === "win32" ? '""' : '\\"'
 		);
 		for (const name of [testInstName1, testInstName2, testInstName3]) {
+			await execCtl(`instance config set ${name} factorio.rcon_port ${await getTestRconPort()}`);
 			await execCtlProcess(`instance config set-prop ${name} factorio.settings visibility "${visibility}"`);
 			await execCtl(`instance config set-prop ${name} factorio.settings require_user_verification false`);
 		}
