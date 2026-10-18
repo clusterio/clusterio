@@ -1,9 +1,10 @@
 import util from "util";
 import path from "path";
+import fs from "fs/promises";
+import { unlinkSync } from "fs";
 import { exec } from "child_process";
 import { logger } from "./logging.js";
 import { RequestError } from "./errors.js";
-import { LockFile, LockFileExistsError } from "./LockFile.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
 import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
 const execAsync = util.promisify(exec);
@@ -14,24 +15,123 @@ function isDev() {
 	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
 }
 
-async function logExec(cmd: string) {
-	// npm runs in the working directory, which a standalone controller and host may share
-	const lock = new LockFile(path.resolve("npm-operation.lock"));
+const operationInProgressMessage = "Another package operation is already in progress on this machine";
+// A lock file without a valid pid is left alone for this long, as it may still be being written
+const lockWriteGraceMs = 10e3;
+
+/** True if the lock file content names a process that is still running, or may still be written to */
+async function lockIsLive(lockPath: string, content: string) {
+	const pid = Number(content);
+	if (!Number.isInteger(pid) || pid <= 0) {
+		const stat = await fs.stat(lockPath).catch(() => undefined);
+		return stat !== undefined && Date.now() - stat.mtimeMs < lockWriteGraceMs;
+	}
+	if (pid === process.pid) {
+		return false; // Left by an earlier process with the same pid, this process holds no lock while acquiring
+	}
 	try {
-		await lock.acquire();
-	} catch (err) {
-		if (err instanceof LockFileExistsError) {
-			throw new RequestError("Another package operation is already in progress on this machine");
+		// Signal 0 only checks that the process exists
+		process.kill(pid, 0);
+		return true;
+	} catch (err: any) {
+		return err.code !== "ESRCH";
+	}
+}
+
+/**
+ * Remove a stale lock file with the given content. The lock is moved aside before it is deleted
+ * so that two processes clearing the same stale lock can't delete a lock the other just took.
+ */
+async function removeStaleLock(lockPath: string, staleContent: string) {
+	const asidePath = `${lockPath}.${process.pid}.stale`;
+	try {
+		await fs.rename(lockPath, asidePath);
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			return; // Already cleared by another process
 		}
 		throw err;
 	}
 	try {
-		logger.audit(`RCE | ${cmd}`);
-		if (!isDev()) {
-			await execAsync(cmd);
+		if (await fs.readFile(asidePath, "utf8") !== staleContent) {
+			// Moved a lock another process took after the stale check, put it back without overwriting
+			await fs.link(asidePath, lockPath).catch(() => {});
 		}
 	} finally {
-		await lock.release();
+		await fs.unlink(asidePath).catch(() => {});
+	}
+}
+
+/**
+ * Take the lock file guarding npm operations in a directory, rejects if another process holds it.
+ * Locks left behind by processes that are no longer running are cleared.
+ */
+async function acquireNpmLock(lockPath: string) {
+	const content = `${process.pid}\n`;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			await fs.writeFile(lockPath, content, { flag: "wx" });
+			return;
+		} catch (err: any) {
+			if (err.code !== "EEXIST") {
+				throw err;
+			}
+		}
+		const existing = await fs.readFile(lockPath, "utf8").catch(() => undefined);
+		if (existing !== undefined) {
+			if (await lockIsLive(lockPath, existing)) {
+				break;
+			}
+			await removeStaleLock(lockPath, existing);
+		}
+	}
+	throw new RequestError(operationInProgressMessage);
+}
+
+async function releaseNpmLock(lockPath: string) {
+	// Only remove the lock if it is still ours
+	const existing = await fs.readFile(lockPath, "utf8").catch(() => undefined);
+	if (existing === `${process.pid}\n`) {
+		await fs.unlink(lockPath).catch(() => {});
+	}
+}
+
+let operationInProgress = false;
+
+/**
+ * Run an npm command, at most one at a time per installation. npm runs in the working directory,
+ * which a standalone controller and host share, so a lock file there guards against operations
+ * from other processes, and an in-memory flag guards against concurrent calls in this process.
+ */
+async function logExec(cmd: string) {
+	// Checked and set before the first await so concurrent calls in this process can't interleave
+	if (operationInProgress) {
+		throw new RequestError(operationInProgressMessage);
+	}
+	operationInProgress = true;
+	const lockPath = path.resolve("npm-operation.lock");
+	// Only the exit event is used, signal and uncaughtException listeners would change how the process exits
+	const removeLockOnExit = () => {
+		try {
+			unlinkSync(lockPath);
+		} catch {
+			// Ignored: the lock may already have been removed
+		}
+	};
+	try {
+		await acquireNpmLock(lockPath);
+		process.on("exit", removeLockOnExit);
+		try {
+			logger.audit(`RCE | ${cmd}`);
+			if (!isDev()) {
+				await execAsync(cmd);
+			}
+		} finally {
+			process.off("exit", removeLockOnExit);
+			await releaseNpmLock(lockPath);
+		}
+	} finally {
+		operationInProgress = false;
 	}
 }
 

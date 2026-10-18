@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import * as lib from "@clusterio/lib";
 import "../setup_logging.js";
 
@@ -19,38 +20,89 @@ describe("rce_ops", function() {
 	});
 
 	describe("package operations", function() {
+		const lockPath = "npm-operation.lock";
+		const inProgress = /Another package operation is already in progress/;
+		const audit = lib.logger.audit;
+		afterEach(async function() {
+			lib.logger.audit = audit;
+			await fs.rm(lockPath, { force: true });
+		});
+
 		it("rejects while another operation is in progress", async function() {
-			const audit = lib.logger.audit;
 			let nested;
 			lib.logger.audit = function() {
 				lib.logger.audit = audit;
 				nested = lib.installPackage("bar");
 			};
-			try {
-				await lib.installPackage("foo");
-			} finally {
-				lib.logger.audit = audit;
-			}
-			await assert.rejects(nested, /Another package operation is already in progress/);
+			await lib.installPackage("foo");
+			await assert.rejects(nested, inProgress);
 			// The lock is released once the operation finishes
 			await lib.installPackage("foo");
+			await assert.rejects(fs.access(lockPath));
+		});
+		it("runs only one of several operations started together", async function() {
+			const results = await Promise.allSettled([
+				lib.installPackage("foo"), lib.updatePackage("bar"), lib.installPackage("baz"),
+			]);
+			assert.deepEqual(results.map(result => result.status), ["fulfilled", "rejected", "rejected"]);
+			for (const result of results.slice(1)) {
+				assert.match(result.reason.message, inProgress);
+			}
+		});
+		it("holds the lock file while the operation runs", async function() {
+			let lockContent;
+			lib.logger.audit = function() {
+				// eslint-disable-next-line node/no-sync
+				lockContent = fsSync.readFileSync(lockPath, "utf8");
+			};
+			await lib.installPackage("foo");
+			assert.equal(lockContent, `${process.pid}\n`);
+			await assert.rejects(fs.access(lockPath));
+		});
+		it("releases the lock when the operation fails", async function() {
+			lib.logger.audit = function() {
+				throw new Error("operation failed");
+			};
+			await assert.rejects(lib.installPackage("foo"), /operation failed/);
+			lib.logger.audit = audit;
+			await assert.rejects(fs.access(lockPath));
+			await lib.installPackage("foo");
+		});
+		it("leaves a lock it does not own in place", async function() {
+			lib.logger.audit = function() {
+				// eslint-disable-next-line node/no-sync
+				fsSync.writeFileSync(lockPath, `${process.ppid}\n`);
+			};
+			await lib.installPackage("foo");
+			assert.equal(await fs.readFile(lockPath, "utf8"), `${process.ppid}\n`);
 		});
 		it("rejects while another process holds the lock", async function() {
 			// A standalone controller and host share the installation directory
-			await fs.writeFile("npm-operation.lock", `${process.ppid}\n`);
-			try {
-				await assert.rejects(
-					lib.installPackage("foo"),
-					/Another package operation is already in progress/,
-				);
-			} finally {
-				await fs.unlink("npm-operation.lock");
-			}
+			await fs.writeFile(lockPath, `${process.ppid}\n`);
+			await assert.rejects(lib.installPackage("foo"), inProgress);
+			assert.equal(await fs.readFile(lockPath, "utf8"), `${process.ppid}\n`);
 		});
 		it("ignores a lock left by a process that exited", async function() {
-			await fs.writeFile("npm-operation.lock", "999999999\n");
+			await fs.writeFile(lockPath, "999999999\n");
 			await lib.installPackage("foo");
-			await assert.rejects(fs.access("npm-operation.lock"));
+			await assert.rejects(fs.access(lockPath));
+			assert.deepEqual((await fs.readdir(".")).filter(name => name.startsWith(`${lockPath}.`)), []);
+		});
+		it("ignores a lock left by an earlier process with the same pid", async function() {
+			await fs.writeFile(lockPath, `${process.pid}\n`);
+			await lib.installPackage("foo");
+			await assert.rejects(fs.access(lockPath));
+		});
+		it("respects a lock that is still being written", async function() {
+			await fs.writeFile(lockPath, "");
+			await assert.rejects(lib.installPackage("foo"), inProgress);
+		});
+		it("ignores an unreadable lock that is old", async function() {
+			await fs.writeFile(lockPath, "");
+			const old = new Date(Date.now() - 60e3);
+			await fs.utimes(lockPath, old, old);
+			await lib.installPackage("foo");
+			await assert.rejects(fs.access(lockPath));
 		});
 	});
 
