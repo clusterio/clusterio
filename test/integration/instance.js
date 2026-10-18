@@ -42,8 +42,8 @@ function getUser(name) {
 
 // RCON completion does not acknowledge list replication. In particular, whitelist
 // updates pass through an asynchronous file watcher before being broadcast.
-async function waitForAssertion(check) {
-	const deadline = performance.now() + 5000;
+async function waitForAssertion(check, timeoutMs = 5000) {
+	const deadline = performance.now() + timeoutMs;
 	for (;;) {
 		try {
 			await check();

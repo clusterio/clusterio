@@ -1404,6 +1404,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		this._checkLuaUdpVersion();
 		const reservation = this._automaticRconPort ? await reserveRconPort() : undefined;
 		try {
+			// Port selection yields, so another start may have changed the state.
 			this._check(["init"]);
 		} catch (err) {
 			reservation?.release();
@@ -1472,6 +1473,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		this._checkLuaUdpVersion();
 		const reservation = this._automaticRconPort ? await reserveRconPort() : undefined;
 		try {
+			// Port selection yields, so another start may have changed the state.
 			this._check(["init"]);
 		} catch (err) {
 			reservation?.release();

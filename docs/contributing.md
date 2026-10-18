@@ -212,10 +212,6 @@ Preserve the test TLS CA configuration for HTTPS integration tests.
 Use `--require ./test/setup_logging.js` when an isolated test needs the shared logger configured.
 Some tests import `test/integration/index.js`, which installs root hooks and starts a controller and host even for a targeted invocation.
 
-For asynchronous propagation, poll the observable state with a bounded timeout instead of assuming a fixed sleep is sufficient.
-Check both controller state and the receiving instance, since a controller update does not acknowledge that the instance has applied it.
-Use read-only queries when polling so that the check cannot apply the change it is intended to verify.
-
 The integration harness recreates its configs, database, mods, and instances under `temp/test/` and uses HTTP port 8880 and HTTPS port 4443.
 Do not run competing integration suites in the same checkout or on those ports.
 It locates Factorio through `host.factorio_directory` in root `config-host.json`, defaulting to `factorio/`.
