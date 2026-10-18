@@ -545,10 +545,10 @@ Internal, set by the host and only accessible from the host.
 ### factorio.rcon_port
 
 TCP port to start the RCON interface on the Factorio server on.
-If null, an available TCP port is selected by the operating system immediately before each start.
+If null or 0, an available TCP port is selected by the operating system immediately before each start.
 Automatic selections are checked with a wildcard listener and kept distinct across concurrently starting servers in the same host process.
 The probe socket must be released before Factorio binds, so another process can still take the port during that handoff.
-Explicitly configured ports are used as given; an occupied port causes startup to fail.
+Explicitly configured positive ports are used as given; an occupied port causes startup to fail.
 Negative values are rejected.
 
 Defaults to null.

@@ -3,6 +3,7 @@ import childProcess from "node:child_process";
 import events from "node:events";
 import net from "node:net";
 
+import { InstanceConfig } from "@clusterio/lib";
 import { FactorioServer, _reserveRconPort } from "@clusterio/host/dist/node/src/server.js";
 import "../setup_logging.js";
 
@@ -156,6 +157,17 @@ describe("Automatic RCON port allocation", function() {
 				assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
 				const rejected = results.find(result => result.status === "rejected");
 				assert.match(rejected.reason.message, /Expected state init but state is running/);
+				assert.equal(args[args.indexOf("--rcon-port") + 1], String(server.rconPort));
+			});
+
+			it("treats a configured zero port as automatic allocation", async function() {
+				const config = new InstanceConfig("host");
+				config.set("factorio.rcon_port", 0);
+				makeServer({ rconPort: config.get("factorio.rcon_port") });
+				server.rconPort = held.address().port;
+				await server[method]("unused");
+				assert(server.rconPort > 0);
+				assert.notEqual(server.rconPort, held.address().port);
 				assert.equal(args[args.indexOf("--rcon-port") + 1], String(server.rconPort));
 			});
 
