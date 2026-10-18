@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
+import net from "node:net";
 
 import * as lib from "@clusterio/lib";
 import { InstanceManager } from "@clusterio/controller";
@@ -127,7 +128,18 @@ describe("Integration of host/src/server", function() {
 
 				// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
 				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.10");
-				await server.start("test.zip");
+				// Force the former random-port collision while a real TCP listener owns it.
+				const held = net.createServer();
+				const listening = events.once(held, "listening");
+				held.listen(0, "0.0.0.0");
+				await listening;
+				server.rconPort = held.address().port;
+				try {
+					await server.start("test.zip");
+					assert.notEqual(server.rconPort, held.address().port);
+				} finally {
+					await new Promise(resolve => held.close(resolve));
+				}
 			});
 		});
 
@@ -239,7 +251,17 @@ describe("Integration of host/src/server", function() {
 				}
 				server.on("output", filter);
 
-				await server.startScenario("test_scenario");
+				const held = net.createServer();
+				const listening = events.once(held, "listening");
+				held.listen(0, "0.0.0.0");
+				await listening;
+				server.rconPort = held.address().port;
+				try {
+					await server.startScenario("test_scenario");
+					assert.notEqual(server.rconPort, held.address().port);
+				} finally {
+					await new Promise(resolve => held.close(resolve));
+				}
 
 				log(".stop()");
 				await server.stop();
