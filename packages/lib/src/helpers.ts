@@ -321,6 +321,57 @@ export function redactUrl(url: URL | string) {
 	return isPath ? parsed.pathname + parsed.search + parsed.hash : parsed.toString();
 }
 
+const gitProtocols = new Set(["git:", "git+http:", "git+https:", "git+ssh:", "ssh:"]);
+const repositoryShorthands = new Map([
+	["github:", "https://github.com/"],
+	["gitlab:", "https://gitlab.com/"],
+	["bitbucket:", "https://bitbucket.org/"],
+]);
+
+/**
+ * Convert a link from untrusted metadata, like a package's homepage or repository, into a URL
+ * that is safe to use as the href of a link
+ *
+ * Only http and https URLs are returned, so links like `javascript:` can't run code when
+ * clicked. Accepts the formats npm uses for repositories: a string or an object with a `url`
+ * property, `git+https://`, `git://` and `git+ssh://` URLs, `git@host:path` and shorthands
+ * like `github:owner/repo`, which are converted to https URLs. Credentials are removed.
+ *
+ * @param link - URL string or object with a `url` property.
+ * @returns http(s) URL, or undefined if the link can't be converted to one.
+ */
+export function safeExternalUrl(link: unknown): string | undefined {
+	const value = typeof link === "object" && link !== null ? (link as { url?: unknown }).url : link;
+	if (typeof value !== "string") {
+		return undefined;
+	}
+	let url = value.trim();
+	const scpLike = /^[\w.-]+@([\w.-]+):(?!\/)(.+)$/.exec(url);
+	if (scpLike) {
+		url = `ssh://${scpLike[1]}/${scpLike[2]}`;
+	}
+
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+		const shorthand = repositoryShorthands.get(parsed.protocol);
+		if (shorthand) {
+			parsed = new URL(url.slice(parsed.protocol.length).replace(/^\/+/, ""), shorthand);
+		} else if (gitProtocols.has(parsed.protocol)) {
+			// The protocol setter can't change a URL into an https URL, so parse it again
+			parsed = new URL(`https://${parsed.host}${parsed.pathname.replace(/\.git$/, "")}`);
+		}
+	} catch {
+		return undefined;
+	}
+	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+		return undefined;
+	}
+	parsed.username = "";
+	parsed.password = "";
+	return parsed.href;
+}
+
 /**
  * Copy of parsed query parameters with credentials replaced by `REDACTED`
  *

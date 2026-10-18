@@ -74,6 +74,12 @@ function PluginDetails(props: { plugin: lib.PluginSearchResult } & BrowserProps)
 	const status = props.statuses?.get(plugin.name);
 	// Without list permission the statuses never load, so offer installs without them
 	const statusesKnown = props.statuses !== undefined || !account.hasPermission("core.plugin.list");
+	// Links come from package metadata on npm, only http(s) links are shown so they can't run scripts
+	const links = [
+		{ label: "npm", url: lib.safeExternalUrl(plugin.npm) },
+		{ label: "Homepage", url: lib.safeExternalUrl(plugin.homepage) },
+		{ label: "Repository", url: lib.safeExternalUrl(plugin.repository) },
+	].filter(link => link.url !== undefined);
 	return <>
 		<Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
 			<Descriptions.Item label="Package">{plugin.name}</Descriptions.Item>
@@ -89,13 +95,13 @@ function PluginDetails(props: { plugin: lib.PluginSearchResult } & BrowserProps)
 			{plugin.date && <Descriptions.Item label="Published">
 				{new Date(plugin.date).toLocaleString()}
 			</Descriptions.Item>}
-			<Descriptions.Item label="Links">
+			{links.length > 0 && <Descriptions.Item label="Links">
 				<Space wrap>
-					{plugin.npm && <Link href={plugin.npm} target="_blank">npm</Link>}
-					{plugin.homepage && <Link href={plugin.homepage} target="_blank">Homepage</Link>}
-					{plugin.repository && <Link href={plugin.repository} target="_blank">Repository</Link>}
+					{links.map(link => <Link key={link.label} href={link.url} target="_blank" rel="noopener noreferrer">
+						{link.label}
+					</Link>)}
 				</Space>
-			</Descriptions.Item>
+			</Descriptions.Item>}
 		</Descriptions>
 		{/* Installed plugins are brought in line by the update action above instead */}
 		{statusesKnown && !status && <InstallControls plugin={plugin} installer={props.installer} />}
