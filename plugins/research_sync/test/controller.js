@@ -110,6 +110,31 @@ describe("research_sync controller", function() {
 			await finished(new FinishedEvent("m", 3), src);
 			assert.deepEqual(await sync(), ["m", "x"]);
 		});
+		it("should send the queue silently after a completion behind the current research", async function() {
+			await update(["automation", "m", "m"]);
+			sent.length = 0;
+			await mock.getHandler(controller, ContributionEvent)(new ContributionEvent("m", 3, 1), src);
+			assert.equal(queueEvents().length, 1);
+			assert.deepEqual(queueEvents()[0][1], new QueueEvent(["automation", "m"], null, null));
+		});
+		it("should send the queue after an advancing FinishedEvent only", async function() {
+			await update(["m", "x"]);
+			sent.length = 0;
+			const finished = mock.getHandler(controller, FinishedEvent);
+			await finished(new FinishedEvent("m", 3), src);
+			assert.equal(queueEvents().length, 1);
+			assert.deepEqual(queueEvents()[0][1], new QueueEvent(["x"], null, null));
+			sent.length = 0;
+			await finished(new FinishedEvent("m", 3), src);
+			assert.equal(queueEvents().length, 0);
+		});
+		it("should send no queue when the finished technology is not queued", async function() {
+			await update(["x"]);
+			sent.length = 0;
+			await mock.getHandler(controller, FinishedEvent)(new FinishedEvent("m", 3), src);
+			await mock.getHandler(controller, ContributionEvent)(new ContributionEvent("n", 3, 1), src);
+			assert.equal(queueEvents().length, 0);
+		});
 		it("should drop an entry finished through a technology sync", async function() {
 			await update(["m", "x"]);
 			await mock.getHandler(controller, SyncTechnologiesRequest)(
@@ -126,8 +151,11 @@ describe("research_sync controller", function() {
 		it("should drop one entry per level unlocked on a known technology", async function() {
 			await techSync("m", 4, true);
 			await update(["m", "m", "m", "x"]);
+			sent.length = 0;
 			await techSync("m", 7, true);
 			assert.deepEqual(await sync(), ["x"]);
+			assert.equal(queueEvents().length, 1);
+			assert.deepEqual(queueEvents()[0][1], new QueueEvent(["x"], null, null));
 		});
 		it("should drop one entry per level unlocked on a new technology", async function() {
 			await update(["m", "m", "x"]);

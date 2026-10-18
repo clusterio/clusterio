@@ -109,9 +109,10 @@ export default async function(context: InstancePluginContext) {
 		if (!syncStarted || !["starting", "running"].includes(instance.status)) {
 			return;
 		}
-		let data: { queue: string[], instance: string, player?: string } = {
-			queue: event.queue, instance: event.instance,
-		};
+		let data: { queue: string[], instance?: string, player?: string } = { queue: event.queue };
+		if (event.instance !== null) {
+			data.instance = event.instance;
+		}
 		if (event.player !== null) {
 			data.player = event.player;
 		}

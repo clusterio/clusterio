@@ -170,14 +170,14 @@ export class QueueEvent {
 	constructor(
 		public queue: string[],
 		public player: string | null,
-		public instance: string,
+		public instance: string | null,
 	) {
 	}
 
 	static jsonSchema = Type.Object({
 		"queue": Type.Array(Type.String()),
 		"player": Type.Union([Type.String(), Type.Null()]),
-		"instance": Type.String(),
+		"instance": Type.Union([Type.String(), Type.Null()]),
 	});
 
 	static fromJSON(json: Static<typeof QueueEvent.jsonSchema>): QueueEvent {

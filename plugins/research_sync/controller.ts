@@ -86,16 +86,25 @@ export default async function(context: ControllerPluginContext) {
 		return controller.instances.get(src.id)?.config.get("instance.name") ?? String(src.id);
 	}
 
-	// Removes one entry per level that finished
-	function removeFinished(name: string, levels = 1) {
+	// Removes one entry per level that finished, returns whether any was removed
+	function removeFinished(name: string, levels = 1): boolean {
+		let removed = false;
 		for (let i = 0; i < levels; i++) {
 			let index = queue.indexOf(name);
 			if (index === -1) {
-				return;
+				break;
 			}
 			queue.splice(index, 1);
 			queueDirty = true;
+			removed = true;
 		}
+		return removed;
+	}
+
+	// Instances only advance the technology on a finish, so they need the queue without it.
+	// No player or instance: the finished research prints its own chat line.
+	function broadcastQueueSilently() {
+		controller.sendTo("allInstances", new QueueEvent(queue, null, null));
 	}
 
 	function setQueue(newQueue: string[], player: string | null, src: lib.Address) {
@@ -162,9 +171,12 @@ export default async function(context: ControllerPluginContext) {
 			tech.researched = true;
 			tech.progress = null;
 			progressToBroadcast.delete(name);
-			removeFinished(name);
+			let removed = removeFinished(name);
 
 			controller.sendTo("allInstances", new FinishedEvent(name, tech.level));
+			if (removed) {
+				broadcastQueueSilently();
+			}
 		}
 		technologiesDirty = true;
 	});
@@ -172,14 +184,18 @@ export default async function(context: ControllerPluginContext) {
 	controller.handle(FinishedEvent, async (event: FinishedEvent) => {
 		let { name, level } = event;
 		let tech = technologies.get(name);
+		let removed = false;
 		if (!tech || tech.level < level || (tech.level === level && !tech.researched)) {
-			removeFinished(name);
+			removed = removeFinished(name);
 		}
 		if (!tech || tech.level <= level) {
 			controller.sendTo("allInstances", event);
 			progressToBroadcast.delete(name);
 			technologies.set(name, { level, progress: null, researched: true });
 			technologiesDirty = true;
+		}
+		if (removed) {
+			broadcastQueueSilently();
 		}
 	});
 
@@ -192,6 +208,7 @@ export default async function(context: ControllerPluginContext) {
 			return Number.parseInt(match[1], 10);
 		}
 
+		let removed = false;
 		for (let instanceTech of request.technologies) {
 			let { name, level, progress, researched } = instanceTech;
 			let tech = technologies.get(name);
@@ -203,7 +220,8 @@ export default async function(context: ControllerPluginContext) {
 				} else if (researched || baseLevel(name) !== level) {
 					controller.sendTo("allInstances", new FinishedEvent(name, level));
 					// One queue entry per level unlocked
-					removeFinished(name, Math.max(level - Number(!researched) - baseLevel(name) + 1, 1));
+					let levels = Math.max(level - Number(!researched) - baseLevel(name) + 1, 1);
+					removed = removeFinished(name, levels) || removed;
 				}
 
 			} else {
@@ -216,7 +234,7 @@ export default async function(context: ControllerPluginContext) {
 					let unlocked = level - Number(!researched) - (tech.level - Number(!tech.researched));
 					if (unlocked > 0) {
 						controller.sendTo("allInstances", new FinishedEvent(name, level - Number(!researched)));
-						removeFinished(name, unlocked);
+						removed = removeFinished(name, unlocked) || removed;
 					}
 					tech.level = level;
 					tech.progress = progress;
@@ -237,6 +255,9 @@ export default async function(context: ControllerPluginContext) {
 			}
 		}
 		progressRateLimiter.activate();
+		if (removed) {
+			broadcastQueueSilently();
+		}
 
 		let result = [];
 		for (let [name, tech] of technologies) {

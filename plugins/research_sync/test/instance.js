@@ -78,6 +78,10 @@ describe("research_sync instance", function() {
 			await handler()(new QueueEvent(["a"], null, "rs-2"));
 			assert.equal(lastCommand(), applyCommand({ queue: ["a"], instance: "rs-2" }));
 		});
+		it("should leave out a null instance", async function() {
+			await handler()(new QueueEvent(["a"], null, null));
+			assert.equal(lastCommand(), applyCommand({ queue: ["a"] }));
+		});
 		it("should ignore the event while stopped", async function() {
 			instance.status = "stopped";
 			await handler()(new QueueEvent(["a"], null, "rs-2"));
