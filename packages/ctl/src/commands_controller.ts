@@ -180,7 +180,7 @@ controllerPluginCommands.add(new lib.Command({
 }));
 controllerPluginCommands.add(new lib.Command({
 	definition: ["update <plugin>", "Update a plugin on the controller", (yargs) => {
-		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to update, optionally as name@version", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
 	handler: async function(args: { plugin: string, restart: boolean }, ctl: Ctl) {
@@ -213,7 +213,7 @@ controllerPluginCommands.add(new lib.Command({
 }));
 controllerPluginCommands.add(new lib.Command({
 	definition: ["install <plugin>", "Install a plugin on the controller", (yargs) => {
-		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to install, optionally as name@version", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
 	handler: async function(args: { plugin: string, restart: boolean }, ctl: Ctl) {

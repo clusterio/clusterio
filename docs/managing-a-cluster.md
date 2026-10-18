@@ -278,10 +278,15 @@ This command lists all plugins currently known to the remote. Newly installed pl
 
 ### Update
 
-    ctl> controller plugin update <name> [--restart]
-    ctl> host plugin update <host> <name> [--restart]
+    ctl> controller plugin update <name>[@<version>] [--restart]
+    ctl> host plugin update <host> <name>[@<version>] [--restart]
 
-If remote plugin updates are enabled on the remote, this will execute `npm update --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
+If remote plugin updates are enabled on the remote, this will execute `npm update --save <name>`, which stays within the version range saved in the remote's `package.json`.
+To update to a specific version, including one outside that range, pass it as `<name>@<version>`, for example `@clusterio/plugin-example@2.1.0`.
+The version must be published on npm, and the remote then executes `npm install --save <name>@<version>`.
+The plugin must already be installed on the remote, and only remote plugin updates need to be enabled.
+Changes will not be applied until the remote is restarted.
+If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
 
 ### Update All
 
@@ -292,10 +297,14 @@ Updates the Clusterio package and all plugins installed from npm in a single `np
 
 ### Install
 
-    ctl> controller plugin install <name> [--restart]
-    ctl> host plugin install <host> <name> [--restart]
+    ctl> controller plugin install <name>[@<version>] [--restart]
+    ctl> host plugin install <host> <name>[@<version>] [--restart]
 
-If remote plugin installs are enabled on the remote, this will execute `npm install --save <name>`. Changes will not be applied until the remote is restarted. If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
+If remote plugin installs are enabled on the remote, this will execute `npm install --save <name>`.
+Pass `<name>@<version>` to install a specific version, for example to match the version used by the rest of the cluster.
+The package, and the version if given, must be published on npm.
+Changes will not be applied until the remote is restarted.
+If the `--restart` flag is provided, the remote will automatically restart once the update is complete.
 
 ### Search
 
@@ -303,7 +312,33 @@ If remote plugin installs are enabled on the remote, this will execute `npm inst
 
 Searches the npm registry for packages tagged with the clusterio-plugin keyword.
 The search is done by the controller and does not require remote installs to be enabled.
-The web UI has a plugin browser on the plugins page that uses the same search and can install the result to the controller, selected hosts, or all hosts that allow remote installs.
+The web UI has a plugin browser on the plugins page that uses the same search.
+Plugins that are not installed anywhere yet can be installed on a chosen set of machines, which defaults to every connected machine that allows remote installs.
+Plugins that are already installed show their status and update action from the plugins page instead.
+
+### Web Interface
+
+The plugins page in the web UI lists the plugins installed on the controller and every connected host, including npm plugins installed since the machine last started.
+The Versions column shows each version of a plugin running on the connected machines and the version each machine will run after its next restart, along with how many machines have a restart pending, have the plugin disabled, or do not have it installed.
+Hovering over a version or count lists the machines it applies to.
+
+When a newer version of a plugin installed from npm is published, the plugin gets an "Update to <version>" action.
+It updates the plugin to that version on every connected machine using `<name>@<version>` and installs it on connected machines where it is missing.
+If the plugin is only missing on some machines, the action is shown as "Install on missing" instead.
+Machines with remote updates or installs disabled, and machines where the plugin was not installed from npm, are skipped and listed in the confirmation.
+The "Update all" action in the page header does the same for every plugin with a newer version.
+These actions need the `core.plugin.update` or `core.plugin.install` permission, and looking up the latest versions needs `core.plugin.list`.
+The controller looks up the latest versions on npm and caches them for a few minutes.
+
+The "Restart pending" action in the page header restarts every connected machine with a pending restart, hosts first and the controller last.
+Machines can only be restarted when running under a process monitor, and the confirmation lists running instances that will be stopped.
+
+### Concurrent Operations
+
+Only one npm operation runs at a time on a machine.
+A standalone controller and host share their working directory, so the operation holds the `npm-operation.lock` file there while npm runs.
+Other installs and updates on the same machine or installation are rejected with "Another package operation is already in progress on this machine" until it finishes.
+A lock file left behind by a process that is no longer running is removed automatically.
 
 
 ### Enable/Disable Updates
