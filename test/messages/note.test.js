@@ -141,16 +141,24 @@ describe("messages/note", function() {
 		});
 		it("removes a note deleted while a subscriber was unsubscribed", async function() {
 			let deliver;
+			let lastRequest;
 			const link = { sendTo: (address, event) => { deliver(event); } };
 			const control = {
 				connector: Object.assign(new events.EventEmitter(), { valid: true }),
 				handle(Event, handler) { deliver = handler; },
-				sendTo: (dst, request) => controller.subscriptions.handleRequest(
-					link, request, lib.Address.fromShorthand({ controlId: 2 }), lib.Address.fromShorthand("controller"),
-				),
+				sendTo: (target, request) => {
+					const src = lib.Address.fromShorthand({ controlId: 2 });
+					const dst = lib.Address.fromShorthand("controller");
+					lastRequest = controller.subscriptions.handleRequest(link, request, src, dst);
+					return lastRequest;
+				},
 			};
 			const subscriber = new lib.MapSubscriber(lib.NoteUpdatesEvent, control);
-			const tick = () => new Promise(resolve => setImmediate(resolve));
+			// Unsubscribing is delayed by a timer, wait for it and the request it sends
+			const tick = async () => {
+				await new Promise(resolve => setTimeout(resolve, 10));
+				await lastRequest;
+			};
 
 			await controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "1", "text"));
 			let unsubscribe = subscriber.subscribe(() => {});
