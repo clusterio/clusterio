@@ -54,6 +54,13 @@ export default async function(context: InstancePluginContext) {
 		await applyQueue({ queue: result });
 	}
 
+	async function syncQueue(seed: boolean) {
+		let state = JSON.parse(await sendOrderedRcon("/sc research_sync.queue_state()"));
+		if (state.follow) {
+			await followQueue(seed && state.first ? asArray(state.queue) : null, null);
+		}
+	}
+
 	async function researchContribution(tech: IpcContribution) {
 		instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
 	}
@@ -147,9 +154,19 @@ export default async function(context: InstancePluginContext) {
 		}
 
 		// A first start counts as turning following on, which seeds an empty cluster queue
-		let state = JSON.parse(await sendOrderedRcon("/sc research_sync.queue_state()"));
-		if (state.follow) {
-			await followQueue(state.first ? asArray(state.queue) : null, null);
+		await syncQueue(true);
+	});
+
+	// QueueEvents sent while the controller session was down are lost, so take the cluster queue again.
+	// An edit made on this instance during the outage was never sent and is replaced: the cluster queue wins.
+	instance.hooks.controllerConnectionEvent.attach(plugin.name, async (event) => {
+		if (event !== "connect" || !syncStarted || !["starting", "running"].includes(instance.status)) {
+			return;
+		}
+		try {
+			await syncQueue(false);
+		} catch (err: any) {
+			unexpectedError(err);
 		}
 	});
 }
