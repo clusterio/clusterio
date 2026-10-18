@@ -9,10 +9,12 @@ It is set from the normal research screen: queueing, moving or cancelling a tech
 So does a lab whose circuit "set research" picks a technology, and so can another mod.
 
 The "Follow the cluster research queue" checkbox on the lab window turns this on or off per server.
-Turning it on replaces the server's queue with the cluster's, turning it off clears it.
+Turning it on replaces the server's queue with the cluster's, or, if the cluster queue is empty, shares the server's queue as the cluster queue.
+Turning it off clears the server's queue.
+Flipping it prints a chat line on that server.
 It is on by default.
 On the first start after installing or upgrading, the first server to start shares its queue as the cluster queue, and later servers take it.
-Every change prints a chat line on every server.
+Every change to the cluster queue prints a chat line on every server.
 
 It needs Factorio 2.0.56 or later, older servers ignore the queue.
 To turn it off without the GUI, run `/sc research_sync.set_follow(false)` on that server.
