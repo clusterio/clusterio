@@ -136,3 +136,76 @@ export class SyncTechnologiesRequest {
 
 	static Response = lib.jsonArray(TechnologySync);
 }
+
+export class QueueUpdateEvent {
+	declare ["constructor"]: typeof QueueUpdateEvent;
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "research_sync" as const;
+
+	constructor(
+		public queue: string[],
+		public player: string | null,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"queue": Type.Array(Type.String()),
+		"player": Type.Union([Type.String(), Type.Null()]),
+	});
+
+	static fromJSON(json: Static<typeof QueueUpdateEvent.jsonSchema>): QueueUpdateEvent {
+		return new this(json.queue, json.player);
+	}
+}
+
+export class QueueEvent {
+	declare ["constructor"]: typeof QueueEvent;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "instance" as const;
+	static plugin = "research_sync" as const;
+
+	constructor(
+		public queue: string[],
+		public player: string | null,
+		public instance: string,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"queue": Type.Array(Type.String()),
+		"player": Type.Union([Type.String(), Type.Null()]),
+		"instance": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof QueueEvent.jsonSchema>): QueueEvent {
+		return new this(json.queue, json.player, json.instance);
+	}
+}
+
+export class QueueSyncRequest {
+	declare ["constructor"]: typeof QueueSyncRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "research_sync" as const;
+
+	constructor(
+		public queue: string[] | null,
+		public player: string | null,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"queue": Type.Union([Type.Array(Type.String()), Type.Null()]),
+		"player": Type.Union([Type.String(), Type.Null()]),
+	});
+
+	static fromJSON(json: Static<typeof QueueSyncRequest.jsonSchema>): QueueSyncRequest {
+		return new this(json.queue, json.player);
+	}
+
+	static Response = lib.plainJson(Type.Array(Type.String()));
+}
