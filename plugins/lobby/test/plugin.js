@@ -327,6 +327,107 @@ describe("lobby plugin", function () {
 			controller.playerProxyServer = null;
 			assert.equal((await lobby.desiredListings()).size, 0);
 		});
+
+		describe("lobby creation", function () {
+			const spaceAge = ["base", "elevated-rails", "quality", "space-age"]
+				.map(name => ({ name, version: "2.0.77" }));
+			const vanilla = [{ name: "base", version: "2.0.77" }, { name: "some-mod", version: "1.0.0" }];
+			const v2_0_77 = { major: 2, minor: 0, sub: 77, build: 83500 };
+			let hostVersions;
+			let assigned;
+
+			beforeEach(function () {
+				for (const pack of lib.ModPack.defaultModPacks) {
+					controller.modPacks.set(lib.ModPack.fromJSON(pack.toJSON()));
+				}
+				hostVersions = new Map([[1, { versions: ["2.1.19", "2.0.77"], canDownload: false }]]);
+				controller.hosts.set(new HostRecord(2, "Linux", "2.0.0", new Map(), true, "10.0.0.3"));
+				hostVersions.set(2, { versions: [], canDownload: true });
+				const sendTo = controller.sendTo;
+				controller.sendTo = async (dst, message) => {
+					if (message instanceof lib.HostFactorioVersionsRequest) {
+						return hostVersions.get(dst.hostId);
+					}
+					return await sendTo(dst, message);
+				};
+				controller.factorioVersions.get = async () => [{ version: "2.0.60" }];
+				assigned = [];
+				controller.instances.assignInstance = async (instanceId, hostId) => {
+					assigned.push([instanceId, hostId]);
+					const instance = controller.instances.getMutable(instanceId);
+					instance.config.set("instance.assigned_host", hostId);
+					instance.status = "stopped";
+				};
+			});
+
+			it("should create a lobby on a host with the version", async function () {
+				const id = await route({ version: v2_0_77, mods: spaceAge });
+				const instance = controller.instances.get(id);
+				assert.equal(instance.config.get("instance.name"), "Lobby 2.0.77");
+				assert.equal(instance.config.get("lobby.is_lobby"), true);
+				assert.equal(instance.config.get("factorio.version"), "2.0.77");
+				assert.equal(instance.config.get("instance.auto_start"), true);
+				assert.equal(instance.config.get("factorio.settings").visibility.public, false);
+				assert.deepEqual(assigned, [[id, 1]]);
+				const pack = controller.modPacks.get(instance.config.get("factorio.mod_pack_id"));
+				assert.equal(pack.name, "Space Age 2.0", "should reuse the default mod pack");
+
+				assert.equal(await route({ version: v2_0_77, mods: spaceAge }), id, "should reuse the lobby");
+			});
+
+			it("should create one lobby for players connecting at the same time", async function () {
+				const ids = await Promise.all([
+					route({ version: v2_0_77, mods: spaceAge }),
+					route({ username: "Other", version: v2_0_77, mods: spaceAge }),
+				]);
+				assert.equal(ids[0], ids[1]);
+				assert.equal(assigned.length, 1);
+			});
+
+			it("should create a separate lobby for other built in mods", async function () {
+				const expansion = await route({ version: v2_0_77, mods: spaceAge });
+				const base = await route({ version: v2_0_77, mods: vanilla });
+				assert.notEqual(base, expansion);
+				const instance = controller.instances.get(base);
+				assert.equal(instance.config.get("instance.name"), "Lobby 2.0.77 (base)");
+				const pack = controller.modPacks.get(instance.config.get("factorio.mod_pack_id"));
+				assert.equal(pack.name, "Base Game 2.0");
+			});
+
+			it("should create a mod pack if none matches", async function () {
+				const quality = [{ name: "base", version: "2.0.77" }, { name: "quality", version: "2.0.77" }];
+				const id = await route({ version: v2_0_77, mods: quality });
+				const pack = controller.modPacks.get(controller.instances.get(id).config.get("factorio.mod_pack_id"));
+				assert.equal(pack.name, "Lobby 2.0 (quality)");
+				assert.equal(pack.factorioVersion, "2.0");
+				assert.deepEqual(
+					[...pack.mods.values()].filter(mod => mod.enabled && mod.name !== "base").map(mod => mod.name),
+					["quality"],
+				);
+			});
+
+			it("should use a host that can download the version", async function () {
+				const id = await route({ version: { major: 2, minor: 0, sub: 60, build: 1 }, mods: [] });
+				assert.deepEqual(assigned, [[id, 2]]);
+				assert.equal(await route({ version: { major: 2, minor: 0, sub: 1, build: 1 } }), undefined);
+			});
+
+			it("should not create lobbies when disabled", async function () {
+				controller.config.set("lobby.auto_create", false);
+				assert.equal(await route({ version: v2_0_77, mods: spaceAge }), undefined);
+				assert.equal(assigned.length, 0);
+			});
+
+			it("should only pick lobbies with the same built in mods", async function () {
+				controller.config.set("controller.default_mod_pack_id", [...controller.modPacks.values()]
+					.find(pack => pack.name === "Space Age 2.1").id);
+				const mods = ["base", "elevated-rails", "quality", "recycler", "space-age"]
+					.map(name => ({ name, version: "2.1.19" }));
+				assert.equal(await route({ mods }), 1);
+				controller.config.set("lobby.auto_create", false);
+				assert.equal(await route({ mods: [{ name: "base", version: "2.1.19" }] }), undefined);
+			});
+		});
 	});
 
 	describe("instance plugin", function () {

@@ -4,7 +4,9 @@ Lobby servers where players pick the instance to join, and listing of the cluste
 Works together with the [player proxy](../../docs/player-proxy.md) on the controller.
 
 - Players connecting to the player proxy are sent to a lobby instance running their Factorio version.
-  The lobby shows a list of the instances in the cluster, picking one moves the player there with `LuaPlayer.connect_to_server`.
+  The lobby shows a list of the instances in the cluster running that version, picking one moves the player there with `LuaPlayer.connect_to_server`.
+  Instances on other versions can be shown greyed out with a checkbox.
+- If there's no lobby for the version and built in mods of a player, one is created on a host that has that version of Factorio installed, or can download it.
 - Picking a stopped instance starts it, the player waits in the lobby and is moved once it's running.
 - Other instances with the plugin loaded get a Servers button that opens the same list.
 - If the [Player Auth](../player_auth/README.md) plugin is loaded the list has a button for logging into the web interface, which does the same as the `/web-login` command.
@@ -25,6 +27,13 @@ Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedi
 
 
 ## Setting up a lobby
+
+Lobbies are created automatically the first time a player connects with a Factorio version and set of built in mods (base, Space Age and so on) no lobby runs.
+The lobby is created on a connected host that has the version installed, or a Linux host with a versioned `host.factorio_directory` that can download it, with a mod pack that has the same built in mods as the player.
+It's named after the version, has `instance.auto_start` set and is kept running.
+Players with mods that are not built in are asked by Factorio to sync their mods to the lobby, and again to the instance they pick.
+On a fast host the lobby is up before the Factorio client gives up on the connection, otherwise the first player has to connect again once it's running.
+Set `lobby.auto_create` to false to only use lobbies you create yourself:
 
 1. Make sure the player proxy is enabled, it listens on `controller.player_proxy_port` which defaults to 34197.
 2. Set `controller.player_proxy_public_address` to the address and port players reach the proxy on, for example `play.example.com:34197`.
@@ -53,6 +62,12 @@ Players joining it while it's stopped wait in a lobby running their version unti
 
 
 ## Controller Configuration
+
+### lobby.auto_create
+
+Create a lobby when a player connects to the player proxy with a Factorio version and built in mods no lobby runs.
+
+Defaults to true.
 
 ### lobby.server_browser_listing
 

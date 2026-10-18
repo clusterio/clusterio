@@ -7,6 +7,11 @@ import { Controller, HostRecord, InstanceRecord, PlayerProxyServer, proxyProtoco
 
 const { MessageType } = proxyProtocol;
 const clientVersion = { major: 2, minor: 0, sub: 72, build: 84292 };
+const defaultMods = [
+	{ name: "base", version: "2.0.72" },
+	{ name: "space-age", version: "2.0.72" },
+	{ name: "big-mod", version: "1.300.2" },
+];
 
 /**
  * Encode a ConnectionRequestReplyConfirm the way a Factorio client does
@@ -14,18 +19,37 @@ const clientVersion = { major: 2, minor: 0, sub: 72, build: 84292 };
  * @param {object} options - fields of the message.
  * @returns {Buffer[]} the message split into the given number of fragments.
  */
-function encodeConfirm({ clientRequestId, serverRequestId, username, messageId = 1, fragments = 1, padding = 40 }) {
+function encodeConfirm({
+	clientRequestId, serverRequestId, username, messageId = 1, fragments = 1, mods = defaultMods,
+}) {
 	const payload = new proxyProtocol.BufferWriter();
+	const writeString = text => {
+		const bytes = Buffer.from(text);
+		payload.writeUInt8(bytes.length);
+		for (const byte of bytes) {
+			payload.writeUInt8(byte);
+		}
+	};
 	payload.writeUInt32LE(clientRequestId);
 	payload.writeUInt32LE(serverRequestId);
 	payload.writeUInt32LE(1234); // instanceID
-	const name = Buffer.from(username);
-	payload.writeUInt8(name.length);
-	for (const byte of name) {
-		payload.writeUInt8(byte);
+	writeString(username);
+	writeString(""); // password
+	writeString("server-key");
+	writeString("1700000000");
+	payload.writeUInt32LE(0x11111111); // coreChecksum
+	payload.writeUInt32LE(0x22222222); // prototypeListChecksum
+	payload.writeUInt8(mods.length);
+	for (const mod of mods) {
+		writeString(mod.name);
+		for (const part of mod.version.split(".")) {
+			payload.writeSpaceOptimizedUInt16(Number(part));
+		}
+		payload.writeUInt32LE(0x33333333); // crc
 	}
-	for (let i = 0; i < padding; i++) {
-		payload.writeUInt8(i); // stands in for the password, keys, checksums and mods
+	// Stands in for the startup mod settings
+	for (let i = 0; i < 40; i++) {
+		payload.writeUInt8(i);
 	}
 	const body = payload.toBuffer();
 
@@ -193,6 +217,11 @@ describe("controller/proxy_protocol", function () {
 		assert.throws(() => proxyProtocol.parseConnectionRequestReplyConfirm(second), /first fragment/);
 	});
 
+	it("should read the mods from a fragmented confirm", function () {
+		const fragments = encodeConfirm({ clientRequestId: 1, serverRequestId: 2, username: "Player", fragments: 3 });
+		assert.deepEqual(proxyProtocol.parseConfirmMods(proxyProtocol.joinPayload(fragments)), defaultMods);
+	});
+
 	it("should reject truncated messages", function () {
 		assert.throws(() => proxyProtocol.parseConnectionRequest(Buffer.from([MessageType.ConnectionRequest, 0])));
 	});
@@ -265,6 +294,28 @@ describe("controller/PlayerProxyServer", function () {
 		client.send(Buffer.from([6, 1, 2, 3]));
 		assert.deepEqual(await client.receive(), Buffer.from([7, 1, 2, 3]));
 		assert.equal(proxy.serverVersions.get(1).build, clientVersion.build);
+	});
+
+	it("should route once the whole confirm has arrived", async function () {
+		const requests = [];
+		controller.hooks.playerProxyRoute.attach("test", request => {
+			requests.push(request);
+			return 1;
+		});
+		const client = await newClient();
+		client.send(proxyProtocol.encodeConnectionRequest(clientVersion, 7));
+		const reply = proxyProtocol.parseConnectionRequestReply(await client.receive());
+		const [first, second, third] = encodeConfirm({
+			clientRequestId: 7, serverRequestId: reply.serverRequestId, username: "Player", messageId: 7, fragments: 3,
+		});
+		client.send(third);
+		client.send(first);
+		await lib.wait(50);
+		assert.equal(requests.length, 0, "routed before all fragments arrived");
+		client.send(second);
+		assert.equal((await client.receive())[0], MessageType.ConnectionAcceptOrDeny);
+		assert.deepEqual(requests[0].mods, defaultMods);
+		assert.equal(servers[0].confirms().length, 3);
 	});
 
 	it("should route by the playerProxyRoute hook", async function () {

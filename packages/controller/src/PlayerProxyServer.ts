@@ -28,6 +28,8 @@ export interface PlayerProxyRouteRequest {
 	listenPort: number;
 	/** Instance the proxy port is dedicated to, if any */
 	portInstanceId?: number;
+	/** Mods enabled in the client, including built in mods like base, or undefined if they couldn't be read */
+	mods?: protocol.ModId[];
 }
 
 export interface PlayerProxyRoute {
@@ -56,6 +58,7 @@ type ClientSession = {
 	/** Fragments of the client's ConnectionRequestReplyConfirm by fragment number */
 	confirmFragments: Map<number, Buffer>;
 	confirmMessageId?: number;
+	confirmLastFragment?: number;
 	confirmServerRequestIdOffset?: number;
 	state: "handshake" | "routing" | "connecting" | "connected" | "failed";
 	route?: PlayerProxyRoute;
@@ -367,6 +370,7 @@ export default class PlayerProxyServer {
 			if (session.confirmMessageId !== undefined && session.confirmMessageId !== header.messageId) {
 				// The client is sending a different confirm message, start over with it
 				session.confirmFragments.clear();
+				session.confirmLastFragment = undefined;
 			}
 			session.confirmMessageId = header.messageId;
 			session.confirmServerRequestIdOffset = confirm.serverRequestIdOffset;
@@ -384,13 +388,44 @@ export default class PlayerProxyServer {
 		if (session.confirmFragments.size < MAX_PENDING_PACKETS) {
 			session.confirmFragments.set(fragmentNumber, message);
 		}
+		if (!header.fragmented || header.lastFragment) {
+			session.confirmLastFragment = fragmentNumber;
+		}
 
-		if (session.state === "handshake" && session.username !== undefined && session.request) {
+		// Routing waits for the whole message as plugins may use the mods of the client listed in it
+		if (
+			session.state === "handshake"
+			&& session.username !== undefined
+			&& session.request
+			&& this._confirmComplete(session)
+		) {
 			session.state = "routing";
 			this._routeSession(session).catch(err => {
 				this._logger.error(`Unexpected error routing player ${session.username}:\n${err.stack}`);
 				session.state = "failed";
 			});
+		}
+	}
+
+	private _confirmComplete(session: ClientSession) {
+		if (session.confirmLastFragment === undefined) {
+			return false;
+		}
+		for (let i = 0; i <= session.confirmLastFragment; i++) {
+			if (!session.confirmFragments.has(i)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private _confirmMods(session: ClientSession) {
+		const fragments = [...session.confirmFragments].sort(([a], [b]) => a - b).map(([, fragment]) => fragment);
+		try {
+			return protocol.parseConfirmMods(protocol.joinPayload(fragments));
+		} catch (err: any) {
+			this._logger.verbose(`Unable to read mods of ${session.username}: ${err.message}`);
+			return undefined;
 		}
 	}
 
@@ -411,6 +446,7 @@ export default class PlayerProxyServer {
 			clientPort: session.clientPort,
 			listenPort: session.listener.port,
 			portInstanceId: session.listener.instanceId,
+			mods: this._confirmMods(session),
 		};
 
 		const instanceId = await this._controller.resolvePlayerRoute(request);

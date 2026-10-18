@@ -15,6 +15,7 @@ local mod_gui = require("mod-gui")
 --- @field web_login boolean Show button for logging into the web interface with the player_auth plugin
 --- @field servers LobbyServer[]
 --- @field status table<string, string> Status text by player name
+--- @field show_other_versions table<string, boolean> Players listing servers on other Factorio versions
 
 local status_captions = {
 	running = "Online",
@@ -35,6 +36,7 @@ local function get_script_data()
 	end
 	data.servers = data.servers or {}
 	data.status = data.status or {}
+	data.show_other_versions = data.show_other_versions or {}
 	if data.is_lobby == nil then
 		data.is_lobby = false
 	end
@@ -59,8 +61,16 @@ local function unjoinable_reason(data, server)
 	return nil
 end
 
+--- True if the server runs a different Factorio version than this one
+--- @param server LobbyServer
+--- @return boolean
+local function other_version(server)
+	return server.version ~= nil and server.version ~= compat.active_mods["base"]
+end
+
 --- @param player LuaPlayer
 --- @param data LobbyScriptData
+--- @param content LuaGuiElement
 local function build_content(player, data, content)
 	content.clear()
 	local status = data.status[player.name]
@@ -71,28 +81,65 @@ local function build_content(player, data, content)
 		label.style.bottom_margin = 8
 	end
 
-	if #data.servers == 0 then
-		content.add { type = "label", caption = "There are no servers to join right now." }
-		return
+	-- Servers on other versions can't be joined from here, so they are only listed if asked for
+	local show_other = data.show_other_versions[player.name] == true
+	local shown = {}
+	local other_count = 0
+	for _, server in ipairs(data.servers) do
+		if not other_version(server) then
+			shown[#shown + 1] = server
+		else
+			other_count = other_count + 1
+		end
+	end
+	if show_other then
+		for _, server in ipairs(data.servers) do
+			if other_version(server) then
+				shown[#shown + 1] = server
+			end
+		end
 	end
 
-	local servers = content.add { type = "table", name = "lobby_servers", column_count = 4, style = "bordered_table" }
-	servers.style.minimal_width = 420
-	for _, caption in ipairs({ "Server", "Players", "Status", "" }) do
-		servers.add { type = "label", caption = caption, style = "caption_label" }
-	end
-	for _, server in ipairs(data.servers) do
-		servers.add { type = "label", caption = server.name }
-		servers.add { type = "label", caption = tostring(server.players) }
-		servers.add { type = "label", caption = status_captions[server.status] or server.status }
-		local reason = unjoinable_reason(data, server)
-		servers.add {
-			type = "button",
-			caption = server.status == "stopped" and "Start and join" or "Join",
-			tooltip = reason,
-			enabled = reason == nil,
-			tags = { lobby_instance_id = server.id },
+	if #shown == 0 then
+		content.add {
+			type = "label",
+			caption = "There are no servers running Factorio " .. compat.active_mods["base"] .. " to join right now.",
 		}
+	else
+		local servers = content.add {
+			type = "table", name = "lobby_servers", column_count = 5, style = "bordered_table",
+		}
+		servers.style.minimal_width = 480
+		for _, caption in ipairs({ "Server", "Version", "Players", "Status", "" }) do
+			servers.add { type = "label", caption = caption, style = "caption_label" }
+		end
+		for _, server in ipairs(shown) do
+			local reason = unjoinable_reason(data, server)
+			local name = servers.add { type = "label", caption = server.name }
+			servers.add { type = "label", caption = server.version or "" }
+			servers.add { type = "label", caption = tostring(server.players) }
+			servers.add { type = "label", caption = status_captions[server.status] or server.status }
+			servers.add {
+				type = "button",
+				caption = server.status == "stopped" and "Start and join" or "Join",
+				tooltip = reason,
+				enabled = reason == nil,
+				tags = { lobby_instance_id = server.id },
+			}
+			if other_version(server) then
+				name.style.font_color = { 0.5, 0.5, 0.5 }
+			end
+		end
+	end
+
+	if other_count > 0 then
+		local checkbox = content.add {
+			type = "checkbox",
+			name = "lobby_show_other_versions",
+			caption = "Show " .. other_count .. " servers on other Factorio versions",
+			state = show_other,
+		}
+		checkbox.style.top_margin = 8
 	end
 end
 
@@ -214,6 +261,16 @@ lobby_module.events[defines.events.on_gui_click] = function(event)
 		clusterio_api.send_json("lobby:connect", { player = player.name, instance_id = instance_id })
 		open_browser(player)
 	end
+end
+
+lobby_module.events[defines.events.on_gui_checked_state_changed] = function(event)
+	local element = event.element
+	if not element.valid or element.name ~= "lobby_show_other_versions" then
+		return
+	end
+	local player = game.get_player(event.player_index)
+	get_script_data().show_other_versions[player.name] = element.state or nil
+	open_browser(player)
 end
 
 -- Interface used by the instance plugin through RCON

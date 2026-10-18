@@ -116,13 +116,41 @@ export class LobbyController {
 	}
 
 	/**
+	 * Built in mods besides base enabled in a mod list, as a comparable key
+	 *
+	 * @param version - Factorio version the mods are for.
+	 * @param mods - Mods to check.
+	 * @returns sorted comma separated names.
+	 */
+	static builtinModsKey(version: string, mods: Iterable<{ name: string, enabled?: boolean }>) {
+		const builtin = new Set(lib.ModPack.getBuiltinModNames(version as lib.PartialVersion));
+		builtin.delete("base");
+		return [...mods]
+			.filter(mod => mod.enabled !== false && builtin.has(mod.name))
+			.map(mod => mod.name)
+			.sort()
+			.join(",");
+	}
+
+	/** Mod pack an instance runs with */
+	instanceModPack(instance: Readonly<InstanceRecord>) {
+		const id = instance.config.get("factorio.mod_pack_id")
+			?? this.controller.config.get("controller.default_mod_pack_id");
+		return id === null ? undefined : this.controller.modPacks.get(id);
+	}
+
+	/**
 	 * Find a lobby running the given Factorio version
 	 *
 	 * @param version - Version of the client.
+	 * @param mods -
+	 *     Mods enabled in the client, if known the lobby must have the same
+	 *     built in mods enabled for the client to be able to join it.
 	 * @returns a running lobby if there is one, otherwise a stopped one configured for this version.
 	 */
-	pickLobby(version: ApplicationVersion) {
+	pickLobby(version: ApplicationVersion, mods?: proxyProtocol.ModId[]) {
 		const wanted = formatVersion(version);
+		const wantedMods = mods ? LobbyController.builtinModsKey(wanted, mods) : undefined;
 		let stopped: Readonly<InstanceRecord> | undefined;
 		for (const instance of this.controller.instances.values()) {
 			if (!LobbyController.isRoutable(instance) || !LobbyController.isLobby(instance)) {
@@ -132,6 +160,12 @@ export class LobbyController {
 			if (seen && formatVersion(seen) === wanted && seen.build !== version.build) {
 				continue;
 			}
+			if (wantedMods !== undefined) {
+				const modPack = this.instanceModPack(instance);
+				if (modPack && LobbyController.builtinModsKey(wanted, modPack.mods.values()) !== wantedMods) {
+					continue;
+				}
+			}
 			if (instance.status === "running" && instance.factorioVersion === wanted) {
 				return instance;
 			}
@@ -140,6 +174,151 @@ export class LobbyController {
 			}
 		}
 		return stopped;
+	}
+
+	private _hostVersions = new Map<number, { versions: Set<string>, canDownload: boolean, fetchedAtMs: number }>();
+
+	/** Factorio versions installed on a host, cached for a minute */
+	async hostVersions(hostId: number) {
+		const cached = this._hostVersions.get(hostId);
+		if (cached && cached.fetchedAtMs > Date.now() - 60_000) {
+			return cached;
+		}
+		const response: { versions: string[], canDownload: boolean } = await this.controller.sendTo(
+			{ hostId }, new lib.HostFactorioVersionsRequest()
+		);
+		const result = {
+			versions: new Set(response.versions),
+			canDownload: response.canDownload,
+			fetchedAtMs: Date.now(),
+		};
+		this._hostVersions.set(hostId, result);
+		return result;
+	}
+
+	/**
+	 * Pick a connected host that can run the given Factorio version
+	 *
+	 * @param version - Full Factorio version.
+	 * @returns ID of a host with the version installed, or one that can download it.
+	 */
+	async pickHost(version: string) {
+		let downloadHost: number | undefined;
+		for (const host of this.controller.hosts.values()) {
+			if (!host.connected || host.isDeleted) {
+				continue;
+			}
+			let versions;
+			try {
+				versions = await this.hostVersions(host.id);
+			} catch (err: any) {
+				this.logger.verbose(`Unable to get Factorio versions of host ${host.id}: ${err.message}`);
+				continue;
+			}
+			if (versions.versions.has(version)) {
+				return host.id;
+			}
+			if (versions.canDownload && downloadHost === undefined) {
+				downloadHost = host.id;
+			}
+		}
+		if (downloadHost !== undefined) {
+			const releases = await this.controller.factorioVersions.get().catch(() => []);
+			if (releases.some(release => release.version === version)) {
+				return downloadHost;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Find a mod pack for the version with the given built in mods, creating one if needed
+	 *
+	 * @param version - Full Factorio version.
+	 * @param modsKey - Built in mods as given by {@link LobbyController.builtinModsKey}.
+	 * @returns the mod pack.
+	 */
+	lobbyModPack(version: string, modsKey: string) {
+		const [major, minor] = version.split(".");
+		const majorMinor = `${major}.${minor}`;
+		const wanted = new Set(modsKey ? modsKey.split(",") : []);
+		const matches = (pack: Readonly<lib.ModPack>) => (
+			(pack.factorioVersion === version || pack.factorioVersion === majorMinor)
+			&& LobbyController.builtinModsKey(version, pack.mods.values()) === modsKey
+			// Lobbies get only built in mods, players with other mods are asked by Factorio to sync to them
+			&& [...pack.mods.values()].every(mod => !mod.enabled || mod.name === "base" || wanted.has(mod.name))
+		);
+		for (const pack of this.controller.modPacks.values()) {
+			if (!pack.isDeleted && matches(pack)) {
+				return pack;
+			}
+		}
+		const builtin = lib.ModPack.getBuiltinMods(majorMinor as lib.PartialVersion)
+			.filter(mod => mod.name !== "base");
+		const pack = lib.ModPack.fromJSON({
+			name: `Lobby ${majorMinor}${wanted.size ? ` (${[...wanted].join(", ")})` : ""}`,
+			description: "Created by the lobby plugin for lobbies of players with these built in mods.",
+			factorio_version: majorMinor,
+			mods: builtin.map(mod => ({ ...mod, enabled: wanted.has(mod.name) })),
+		} as any);
+		this.controller.modPacks.set(pack);
+		this.logger.info(`Created mod pack ${pack.name} for lobbies`);
+		return pack;
+	}
+
+	private _creatingLobbies = new Map<string, Promise<number | undefined>>();
+
+	/**
+	 * Create a lobby for a Factorio version and set of built in mods
+	 *
+	 * Concurrent calls for the same version and mods share one lobby.
+	 *
+	 * @param version - Version of the client.
+	 * @param mods - Mods enabled in the client.
+	 * @returns ID of the lobby created, or undefined if no host can run the version.
+	 */
+	async createLobby(version: ApplicationVersion, mods?: proxyProtocol.ModId[]) {
+		const full = formatVersion(version);
+		// Without the mod list assume all built in mods, as the expansion is the most common setup
+		const modsKey = LobbyController.builtinModsKey(
+			full, mods ?? lib.ModPack.getBuiltinMods(full as lib.PartialVersion).map(mod => ({ name: mod.name })),
+		);
+		const key = `${full}|${modsKey}`;
+		let creating = this._creatingLobbies.get(key);
+		if (!creating) {
+			creating = this._createLobby(full, modsKey).finally(() => this._creatingLobbies.delete(key));
+			this._creatingLobbies.set(key, creating);
+		}
+		return await creating;
+	}
+
+	private async _createLobby(version: string, modsKey: string) {
+		const hostId = await this.pickHost(version);
+		if (hostId === undefined) {
+			this.logger.verbose(`No host can run Factorio ${version}, not creating a lobby for it`);
+			return undefined;
+		}
+		const modPack = this.lobbyModPack(version, modsKey);
+		const names = new Set([...this.controller.instances.values()].map(i => i.config.get("instance.name")));
+		const base = modsKey.includes("space-age") ? `Lobby ${version}` : `Lobby ${version} (${modsKey || "base"})`;
+		let name = base;
+		for (let i = 2; names.has(name); i++) {
+			name = `${base} ${i}`;
+		}
+
+		const config = new lib.InstanceConfig("controller", {
+			"instance.name": name,
+			"instance.auto_start": true,
+			"factorio.version": version,
+			"factorio.mod_pack_id": modPack.id,
+			// The cluster is listed in the server browser by this plugin, not each lobby
+			"factorio.settings": { visibility: { public: false, lan: false } },
+			"lobby.is_lobby": true,
+		});
+		const instance = await this.controller.instances.createInstance(config);
+		await this.controller.instances.assignInstance(instance.id, hostId);
+		this.logger.info(`Created lobby ${name} on host ${hostId} for players with Factorio ${version}`);
+		return instance.id;
 	}
 
 	/** Address players use to connect to an instance, through the proxy if it's enabled */
@@ -281,7 +460,7 @@ export class LobbyController {
 			return transfer.instanceId;
 		}
 		if (transfer?.state === "starting") {
-			return transfer.lobbyId ?? this.pickLobby(request.version)?.id;
+			return transfer.lobbyId ?? await this.lobbyFor(request);
 		}
 
 		if (request.portInstanceId !== undefined) {
@@ -290,15 +469,27 @@ export class LobbyController {
 				return undefined;
 			}
 			// Starting can take longer than the client waits, so let the player wait in a lobby
-			const lobby = this.pickLobby(request.version);
-			if (!lobby) {
+			const lobbyId = await this.lobbyFor(request);
+			if (lobbyId === undefined) {
 				return undefined;
 			}
-			this.startTransfer(request.username, target.id, lobby.id);
-			return lobby.id;
+			this.startTransfer(request.username, target.id, lobbyId);
+			return lobbyId;
 		}
 
-		return this.pickLobby(request.version)?.id;
+		return await this.lobbyFor(request);
+	}
+
+	/** Lobby for the version and mods of a player, created if needed and lobby.auto_create is enabled */
+	async lobbyFor(request: PlayerProxyRouteRequest) {
+		const lobby = this.pickLobby(request.version, request.mods);
+		if (lobby) {
+			return lobby.id;
+		}
+		if (!this.controller.config.get("lobby.auto_create")) {
+			return undefined;
+		}
+		return await this.createLobby(request.version, request.mods);
 	}
 
 	/** Build the server browser listings that should exist */
