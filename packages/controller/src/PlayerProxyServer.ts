@@ -120,7 +120,16 @@ export default class PlayerProxyServer {
 		if (this._closed) {
 			return;
 		}
-		await this._listen(this._port);
+		try {
+			await this._listen(this._port);
+		} catch (err: any) {
+			// Not fatal so the rest of the controller still works, for example if a host on the
+			// same machine runs an instance on the port.
+			this._logger.error(
+				`Failed to listen on player proxy port ${this._port}, players can't connect through the ` +
+				`proxy: ${err.message}`
+			);
+		}
 		this._controller.instances.records.on("update", this._onInstancesUpdated);
 		await this.syncListeners();
 

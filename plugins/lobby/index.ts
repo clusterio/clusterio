@@ -4,7 +4,6 @@ import * as messages from "./messages.js";
 
 declare module "@clusterio/lib" {
 	export interface ControllerConfigFields {
-		"lobby.public_address": string | null;
 		"lobby.server_browser_listing": boolean;
 		"lobby.server_browser_name": string | null;
 		"lobby.server_browser_description": string;
@@ -28,15 +27,6 @@ export const plugin: lib.PluginDeclaration = {
 	instanceEntrypoint: "dist/node/instance.js",
 
 	controllerConfigFields: {
-		"lobby.public_address": {
-			title: "Public Address",
-			description:
-				"Address and port players reach the player proxy on, for example play.example.com:34197. " +
-				"Players are sent here when they pick an instance in a lobby. If null the host name of " +
-				"controller.public_url and controller.player_proxy_port is used.",
-			type: "string",
-			optional: true,
-		},
 		"lobby.server_browser_listing": {
 			title: "Server Browser Listing",
 			description:

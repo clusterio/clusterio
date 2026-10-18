@@ -222,7 +222,7 @@ Disabled when null.
 Must be greater than 0.
 Requires a restart of the controller to take effect.
 
-Defaults to null.
+Defaults to 34197, the default port of Factorio servers.
 
 
 ### controller.player_proxy_default_instance_id
@@ -401,11 +401,13 @@ Defaults to "localhost".
 ### host.factorio_port_range
 
 UDP ports the host hands out to instances that don't have factorio.game_port set.
-Written as a comma separated list of ports and/or ranges of ports separated with a dash, for example "34100-34199" or "34100, 34200-34210".
+Written as a comma separated list of ports and/or ranges of ports separated with a dash, for example "34200-34299" or "34100, 34200-34210".
 A port is picked when the instance is started and remembered in factorio.host_assigned_game_port, so an instance keeps the same port as long as it is still free.
 Starting an instance fails if all ports in the range are taken.
 
-Defaults to "34100-34199".
+Defaults to "34200-34299", which leaves out 34197 used by controller.player_proxy_port.
+Host configs created by older versions of Clusterio have "34100-34199" saved, which includes 34197.
+Ports in use by another process are skipped when assigning, so this only conflicts if the host is started before a controller on the same machine.
 
 
 ### host.factorio_username

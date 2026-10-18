@@ -369,6 +369,22 @@ describe("controller/Controller.resolvePlayerRoute()", function () {
 		assert.equal(await controller.resolvePlayerRoute(request({ portInstanceId: 2 })), 4);
 	});
 
+	it("should give the public address of the proxy", function () {
+		assert.equal(controller.getPlayerProxyAddress(), undefined, "proxy disabled");
+		controller.playerProxyServer = { port: 34197 };
+		assert.equal(controller.getPlayerProxyAddress(), undefined, "no address configured");
+		controller.config.set("controller.public_url", "https://cluster.example/");
+		assert.equal(controller.getPlayerProxyAddress(), "cluster.example:34197");
+		assert.equal(controller.getPlayerProxyAddress(34200), "cluster.example:34200");
+		controller.config.set("controller.player_proxy_public_address", "play.example:5000");
+		assert.equal(controller.getPlayerProxyAddress(), "play.example:5000");
+		assert.equal(controller.getPlayerProxyAddress(34200), "play.example:34200");
+		controller.config.set("controller.player_proxy_public_address", "[::1]");
+		assert.equal(controller.getPlayerProxyAddress(34200), "[::1]:34200");
+		controller.config.set("controller.player_proxy_public_address", "::1");
+		assert.equal(controller.getPlayerProxyAddress(34200), "[::1]:34200");
+	});
+
 	it("should skip instances that can't be routed to", async function () {
 		controller.hooks.playerProxyRoute.attach("test", () => 5);
 		assert.equal(await controller.resolvePlayerRoute(request({ portInstanceId: 99 })), 1);

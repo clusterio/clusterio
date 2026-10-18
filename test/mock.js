@@ -181,6 +181,7 @@ export class MockController {
 			["controller.auth_secret", "TestSecretDoNotUse"],
 			["controller.proxy_stream_timeout", 1],
 			["controller.metrics_timeout", 1],
+			["controller.player_proxy_public_address", null],
 		]);
 		this.config = {
 			get: (name) => {

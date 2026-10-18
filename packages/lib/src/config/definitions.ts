@@ -33,6 +33,7 @@ export interface ControllerConfigFields {
 	"controller.proxy_stream_timeout": number;
 	"controller.player_proxy_port": number | null;
 	"controller.player_proxy_default_instance_id": number | null;
+	"controller.player_proxy_public_address": string | null;
 	"controller.factorio_username": string | null;
 	"controller.factorio_token": string | null;
 	"controller.share_factorio_credentials_with_hosts": boolean;
@@ -253,6 +254,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			restartRequired: true,
 			type: "number",
 			optional: true,
+			initialValue: 34197,
 			validator: validators.optional(validators.greaterThanZero),
 		},
 		"controller.player_proxy_default_instance_id": {
@@ -261,6 +263,15 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 				"Instance ID to send players connecting through the player proxy to when no plugin picks one " +
 				"and they have not been on any instance before.",
 			type: "number",
+			optional: true,
+		},
+		"controller.player_proxy_public_address": {
+			title: "Player Proxy Public Address",
+			description:
+				"Address players reach the player proxy on, for example play.example.com:34197. Used by plugins " +
+				"to tell players where to connect. If null plugins may assume the host name of " +
+				"controller.public_url and controller.player_proxy_port.",
+			type: "string",
 			optional: true,
 		},
 		"controller.factorio_username": {
@@ -433,7 +444,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 				"Range of UDP ports to use for game connections. Supports both comma separated values and " +
 				"ranges separated with a dash.",
 			type: "string",
-			initialValue: "34100-34199",
+			initialValue: "34200-34299",
 			// TODO extendedValidation, port range
 		},
 		"host.factorio_username": {
