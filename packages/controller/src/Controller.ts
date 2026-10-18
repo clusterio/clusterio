@@ -416,8 +416,7 @@ export default class Controller {
 		this.app.locals.staticRoot = this.config.get("controller.static_url");
 
 		// Load plugins
-		await this.loadPlugins();
-
+		// Created before plugins load so they can use it, but only started after they have attached their hooks
 		const playerProxyPort = this.config.get("controller.player_proxy_port");
 		if (playerProxyPort !== null) {
 			this.playerProxyServer = new PlayerProxyServer(
@@ -425,8 +424,10 @@ export default class Controller {
 				logger.child({ component: "player_proxy" }),
 				playerProxyPort,
 			);
-			await this.playerProxyServer.start();
 		}
+
+		await this.loadPlugins();
+		await this.playerProxyServer?.start();
 
 		// Log all express errors from middleware or routes (app.use is missing the type overload)
 		this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction): void => {

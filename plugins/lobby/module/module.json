@@ -1,0 +1,4 @@
+{
+	"name": "lobby",
+	"load": ["lobby.lua"]
+}
