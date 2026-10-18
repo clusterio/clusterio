@@ -36,12 +36,13 @@ Many thanks to the following for contributing to this release:
 ### Major Features
 
 - Added a player proxy on the controller that accepts Factorio clients on a single UDP port, sends each player to an instance picked by plugins or the instance they were last on, and starts stopped instances on demand. It listens on port 34197 by default. Instances can also get a dedicated proxy port with `instance.player_proxy_port`. See [Player proxy](/docs/player-proxy.md).
-- Added the Lobby plugin, which sends players connecting through the proxy to a lobby running their Factorio version where they pick the instance to join, and can list the cluster and individual instances, including stopped ones, in the Factorio server browser.
+- Added the Lobby plugin, which sends players connecting through the proxy to a lobby running their Factorio version where they pick the instance to join, creating the lobby on a host with that version if there is none, and can list the cluster and individual instances, including stopped ones, in the Factorio server browser.
 
 ### Features
 
 - Added the `chooseSave` instance hook for plugins to pick or create the save an instance starts with, and `setSaveScenario` in `@clusterio/host` to make the save patcher stop loading the freeplay scenario of a save.
-- Added the `playerProxyRoute` controller hook for plugins to decide which instance a player connecting through the player proxy goes to.
+- Added the `playerProxyRoute` controller hook for plugins to decide which instance a player connecting through the player proxy goes to, given the name, Factorio version and mods of the player.
+- Added `HostFactorioVersionsRequest` for the controller to ask a host which Factorio versions it has installed and whether it can download others.
 
 ### Changes
 

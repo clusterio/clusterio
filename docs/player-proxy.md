@@ -29,7 +29,7 @@ If the port is taken, for example by an instance of a host on the same machine, 
 ## How players are routed
 
 A Factorio client starts a connection by sending its version, and only sends the name of the player after the server has answered.
-The proxy answers the first message itself with the version of the client, waits for the name, and then picks an instance in this order:
+The proxy answers the first message itself with the version of the client, waits for the name and list of enabled mods, and then picks an instance in this order:
 
 1. The first instance returned by a plugin from the `playerProxyRoute` controller hook, see [Writing plugins](writing-plugins.md#defining-the-plugin-entrypoint).
 2. The instance the port the player connected to is dedicated to, see below.
@@ -57,6 +57,7 @@ This lets each instance have its own address while still being started on demand
 The [lobby plugin](../plugins/lobby/README.md) builds on the proxy:
 
 - Players connecting to the proxy go to a lobby instance running their Factorio version, where an in-game list lets them pick the instance to join.
+  Lobbies are created on demand on a host with that Factorio version, so different versions can be run behind the same port without configuring anything.
   Picking a stopped instance starts it, and the player is moved there once it's running.
 - The cluster is listed as one game in the Factorio server browser, with the players online in the whole cluster.
 - Instances can be listed as their own games in the server browser on a dedicated port, also while they are stopped.

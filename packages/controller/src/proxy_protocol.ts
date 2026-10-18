@@ -267,6 +267,54 @@ export function parseConnectionRequestReplyConfirm(buffer: Buffer): ConnectionRe
 	return { clientRequestId, serverRequestId, serverRequestIdOffset, username };
 }
 
+/** Mod enabled in a Factorio client */
+export interface ModId {
+	name: string;
+	version: string;
+}
+
+/**
+ * Join the payloads of the fragments of a message
+ *
+ * @param fragments -
+ *     Fragments of the message in order of fragment number, or the message
+ *     if it's not fragmented.
+ * @returns the payload of the message.
+ */
+export function joinPayload(fragments: Buffer[]) {
+	return Buffer.concat(fragments.map(fragment => fragment.subarray(parseHeader(fragment).payloadOffset)));
+}
+
+/**
+ * Read the mods enabled in the client from a ConnectionRequestReplyConfirm
+ *
+ * @param payload - Complete payload of the message, see {@link joinPayload}.
+ * @returns name and version of each mod.
+ */
+export function parseConfirmMods(payload: Buffer): ModId[] {
+	const reader = new BufferReader(payload);
+	reader.readUInt32LE(); // connectionRequestIDGeneratedOnClient
+	reader.readUInt32LE(); // connectionRequestIDGeneratedOnServer
+	reader.readUInt32LE(); // instanceID
+	reader.readString(); // username
+	reader.readString(); // password
+	reader.readString(); // serverKey
+	reader.readString(); // serverKeyTimestamp
+	reader.readUInt32LE(); // coreChecksum
+	reader.readUInt32LE(); // prototypeListChecksum
+	const count = reader.readSpaceOptimizedUInt32();
+	const mods: ModId[] = [];
+	for (let i = 0; i < count; i++) {
+		const name = reader.readString();
+		const version = [
+			reader.readSpaceOptimizedUInt16(), reader.readSpaceOptimizedUInt16(), reader.readSpaceOptimizedUInt16(),
+		].join(".");
+		reader.readUInt32LE(); // crc
+		mods.push({ name, version });
+	}
+	return mods;
+}
+
 export function encodeConnectionRequest(version: ApplicationVersion, clientRequestId: number, messageId = 0) {
 	const writer = new BufferWriter();
 	writer.writeUInt8(MessageType.ConnectionRequest);

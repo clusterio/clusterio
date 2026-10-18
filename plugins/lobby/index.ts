@@ -4,6 +4,7 @@ import * as messages from "./messages.js";
 
 declare module "@clusterio/lib" {
 	export interface ControllerConfigFields {
+		"lobby.auto_create": boolean;
 		"lobby.server_browser_listing": boolean;
 		"lobby.server_browser_name": string | null;
 		"lobby.server_browser_description": string;
@@ -27,6 +28,14 @@ export const plugin: lib.PluginDeclaration = {
 	instanceEntrypoint: "dist/node/instance.js",
 
 	controllerConfigFields: {
+		"lobby.auto_create": {
+			title: "Create Lobbies",
+			description:
+				"Create a lobby when a player connects to the player proxy with a Factorio version and built in " +
+				"mods no lobby runs, on a connected host that has that version installed or can download it.",
+			type: "boolean",
+			initialValue: true,
+		},
 		"lobby.server_browser_listing": {
 			title: "Server Browser Listing",
 			description:

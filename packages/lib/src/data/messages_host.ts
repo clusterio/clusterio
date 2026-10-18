@@ -36,6 +36,19 @@ export class HostUpdateRequest {
 	static permission = "core.host.update" as const;
 }
 
+/** Factorio versions installed on a host, used by the controller to place instances */
+export class HostFactorioVersionsRequest {
+	declare ["constructor"]: typeof HostFactorioVersionsRequest;
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
+	static Response = plainJson(Type.Object({
+		"versions": Type.Array(Type.String()),
+		/** True if the host downloads versions that are not installed when an instance needs them */
+		"canDownload": Type.Boolean(),
+	}));
+}
+
 export class HostConfigGetRequest {
 	declare ["constructor"]: typeof HostConfigGetRequest;
 	static type = "request" as const;
