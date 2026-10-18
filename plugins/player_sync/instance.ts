@@ -61,6 +61,8 @@ async function encodeLuaString(text: string): Promise<string> {
 export type RecipeNotificationDelta = {
 	add?: string[],
 	remove?: string[],
+	/** add is the whole stored list, sent without the instance's: the save works out what to remove */
+	full?: true,
 }
 
 /**
@@ -87,6 +89,7 @@ export function recipeNotificationDelta(stored: string[], current: string[]): Re
 /**
  * Replace the stored recipe notifications with the difference from the
  * current state on the instance to reduce the amount of data sent to Lua.
+ * Without a current state the whole stored list is sent, marked full.
  */
 export async function applyRecipeNotificationDelta(
 	playerData: IpcPlayerData,
@@ -97,10 +100,10 @@ export async function applyRecipeNotificationDelta(
 		return;
 	}
 	try {
-		const delta = recipeNotificationDelta(
-			JSON.parse(await decodeLuaString(playerData.recipe_notifications)),
-			current ? JSON.parse(await decodeLuaString(current)) : [],
-		);
+		const stored = JSON.parse(await decodeLuaString(playerData.recipe_notifications));
+		const delta: RecipeNotificationDelta = current
+			? recipeNotificationDelta(stored, JSON.parse(await decodeLuaString(current)))
+			: { ...recipeNotificationDelta(stored, []), full: true };
 		playerData.recipe_notifications = await encodeLuaString(JSON.stringify(delta));
 	} catch (err: any) {
 		logger.warn(`Dropping invalid recipe notifications for ${playerData.name}:\n${err.stack}`);
@@ -282,7 +285,7 @@ export default async function(context: InstancePluginContext) {
 		const { playerData } = event;
 		const { name, generation } = playerData;
 		logger.verbose(`Prefetching ${name}`);
-		// This side doesn't know the save's cleared recipe list, so the whole stored list goes as the delta's add
+		// This side doesn't know the save's cleared recipe list, so the whole stored list goes as a full delta
 		await sendPlayerData(playerData, undefined, (chunk, number, total, extra) => (
 			`/sc player_sync.prefetch_inventory('${name}',${generation},'${chunk}',${number},${total}${extra})`
 		), true);

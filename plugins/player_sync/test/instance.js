@@ -54,10 +54,15 @@ describe("player_sync", function() {
 			await apply(playerData, await encode(["a"]));
 			assert.deepEqual(await decode(playerData.recipe_notifications), {});
 		});
-		it("should add everything without a current list", async function() {
+		it("should send the whole list marked full without a current list", async function() {
 			const playerData = { name: "test", recipe_notifications: await encode(["a"]) };
 			await apply(playerData, undefined);
-			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a"] });
+			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a"], full: true });
+		});
+		it("should mark an empty list full without a current list", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode([]) };
+			await apply(playerData, undefined);
+			assert.deepEqual(await decode(playerData.recipe_notifications), { full: true });
 		});
 		it("should do nothing without stored notifications", async function() {
 			const playerData = { name: "test" };
@@ -118,10 +123,12 @@ describe("player_sync", function() {
 				["/sc player_sync.download_inventory('test',nil,0,0)"]
 			);
 		});
-		it("should send everything as a delta when no snapshot was given", async function() {
+		it("should send everything as a full delta when no snapshot was given", async function() {
 			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a"]) });
 			await download({ player_name: "test" });
-			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
+			const expected = {
+				generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"], full: true }),
+			};
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 		it("should send a delta when a snapshot was given", async function() {
@@ -275,7 +282,9 @@ describe("player_sync", function() {
 
 		it("should send prefetch_inventory chunks with the generation and the full recipe list", async function() {
 			await prefetch({ generation: 3, name: "test", recipe_notifications: await encode(["a"]) });
-			const expected = { generation: 3, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
+			const expected = {
+				generation: 3, name: "test", recipe_notifications: await encode({ add: ["a"], full: true }),
+			};
 			assert.ok(instance.server.rconCommands.length > 1, "more than one chunk");
 			assert.deepEqual(instance.server.rconCommands, prefetchCommands(expected));
 		});
