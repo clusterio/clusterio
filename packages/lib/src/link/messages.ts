@@ -102,7 +102,6 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	instance.InstanceAdminlistUpdateEvent,
 	instance.InstanceWhitelistUpdateEvent,
 	instance.InstancePlayerUpdateEvent,
-	instance.InstancePlayerRouteUpdateEvent,
 
 	mod.ModPackGetRequest,
 	mod.ModPackGetDefaultRequest,

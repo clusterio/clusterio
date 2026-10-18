@@ -247,15 +247,19 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		},
 		"controller.player_proxy_port": {
 			title: "Player Proxy Port",
-			description: "UDP port to accept player connections for the controller proxy, set to null to disable.",
+			description:
+				"UDP port the controller accepts Factorio player connections on and forwards them to an " +
+				"instance, starting it if needed. Disabled when null.",
 			restartRequired: true,
 			type: "number",
 			optional: true,
-			initialValue: 34197,
+			validator: validators.optional(validators.greaterThanZero),
 		},
 		"controller.player_proxy_default_instance_id": {
 			title: "Player Proxy Default Instance",
-			description: "Instance ID to route players to when no routing history is available.",
+			description:
+				"Instance ID to send players connecting through the player proxy to when no plugin picks one " +
+				"and they have not been on any instance before.",
 			type: "number",
 			optional: true,
 		},
@@ -487,6 +491,7 @@ export interface InstanceConfigFields {
 	"instance.id": number;
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
+	"instance.player_proxy_port": number | null;
 	"instance.exclude_from_start_all": boolean;
 	[key: `${string}.load_plugin`]: boolean;
 	[key: `${string}.version`]: string;
@@ -560,6 +565,14 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description: "Automatically start this instance when the host hosting it is started up",
 			type: "boolean",
 			initialValue: false,
+		},
+		"instance.player_proxy_port": {
+			description:
+				"Extra UDP port on the controller's player proxy that sends players straight to this instance, " +
+				"starting it if needed. Requires controller.player_proxy_port to be set.",
+			type: "number",
+			optional: true,
+			validator: validators.optional(validators.greaterThanZero),
 		},
 		"instance.exclude_from_start_all": {
 			description: "Exclude this instance from the 'Start all' button operation",

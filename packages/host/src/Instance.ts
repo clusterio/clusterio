@@ -424,13 +424,6 @@ export default class Instance extends lib.Link {
 		if (wasPaused) {
 			this.hooks.autoPauseChanged.invoke(false);
 		}
-		const hostId = this.config.get("instance.assigned_host");
-		if (hostId !== null) {
-			this.sendTo(
-				"controller",
-				new lib.InstancePlayerRouteUpdateEvent(name, this.id, hostId, this.server.gamePort, Date.now()),
-			);
-		}
 		this.hooks.playerEvent.invoke(event);
 	}
 
