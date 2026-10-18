@@ -10,6 +10,7 @@ local v2_storage_api = compat.version_ge("2.0.0")
 local v2_remote_controller = compat.version_ge("2.0.0")
 local v2_space_platform = compat.version_ge("2.0.0")
 local v2_exit_remote_view = compat.version_ge("2.0.56")
+local v2_inventory_bonus_equipment = compat.version_ge("2.0.0")
 local recipe_notifications_api = compat.version_ge("2.0.67")
 local v2_0_quick_bar_api = compat.version_ge("2.0.0")
 local v2_1_quick_bar_api = compat.version_ge("2.1.0")
@@ -82,10 +83,17 @@ local function last_slot_index(serialized)
 	return last
 end
 
---- Raise the inventory bonus of a character with its armor restored to fit a serialized main inventory
+--- Raise the inventory bonus of a character with its armor restored by the bonus of the armor's equipment which is
+--- still to come, as far as a serialized main inventory needs it
 --- @return integer raise Slots added to character_inventory_slots_bonus, removed again once the armor's bonus applies
 local function raise_inventory_bonus(character, main)
-	local raise = math.max(0, last_slot_index(main) - #character.get_main_inventory())
+	local grid = character.grid --[[@as LuaEquipmentGrid]]
+	local equipment_bonus = 0
+	for _, equipment in pairs(grid.equipment) do
+		equipment_bonus = equipment_bonus + equipment.inventory_bonus
+	end
+	local delayed = equipment_bonus - grid.inventory_bonus
+	local raise = math.max(0, math.min(last_slot_index(main) - #character.get_main_inventory(), delayed))
 	character.character_inventory_slots_bonus = character.character_inventory_slots_bonus + raise
 	return raise
 end
@@ -1387,12 +1395,13 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 		end
 		local craft = character and queue
 		-- The bonus of the armor's equipment (toolbelts) only applies at the end of the tick, so once the armor is
-		-- restored the main inventory is raised to fit the data. Only for armor with a grid, restoring it raises
+		-- restored the main inventory is raised by the part of that bonus still to come. Slots past it overflow and
+		-- are left over as without the raise. Only for armor with a grid, restoring it raises
 		-- on_player_armor_inventory_changed which removes the raise.
 		spill = serialize.place_items(
 			serialize.item_destinations(player), inventories, not craft and queue and queue.ingredients or nil,
 			function()
-				if stats and inventories.main and character and character.grid then
+				if v2_inventory_bonus_equipment and stats and inventories.main and character and character.grid then
 					inventory_bonus_raise = raise_inventory_bonus(character, inventories.main)
 				end
 			end
