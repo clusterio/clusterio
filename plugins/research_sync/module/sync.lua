@@ -2,6 +2,8 @@ local clusterio_api = require("modules/clusterio/api")
 local compat = require("modules/clusterio/compat")
 
 local v2_tech_progress = compat.version_ge("2.0.0")
+-- on_research_queued and player_index on moved/cancelled arrived in 2.0.56
+local queue_sync = compat.version_ge("2.0.56")
 
 local sync = {}
 
@@ -214,7 +216,7 @@ local function ensure_gui(player)
 	frame["research_sync_follow"].state = get_script_data().follow ~= false
 end
 
-if v2_tech_progress then
+if queue_sync then
 	sync.events[defines.events.on_player_created] = function(event)
 		ensure_gui(game.get_player(event.player_index) --[[@as LuaPlayer]])
 	end
@@ -236,10 +238,9 @@ if v2_tech_progress then
 			return
 		end
 		script_data.queue_dirty = true
-		if event.player_index then
-			local player = game.get_player(event.player_index) --[[@as LuaPlayer]]
-			script_data.queue_player = player.name
-		end
+		-- the last event of the tick decides who gets named
+		local player = event.player_index and game.get_player(event.player_index)
+		script_data.queue_player = player and player.name or nil
 	end
 	sync.events[defines.events.on_research_queued] = on_queue_event
 	sync.events[defines.events.on_research_moved] = on_queue_event
@@ -391,7 +392,7 @@ function research_sync.research_technology(name, level)
 end
 
 function research_sync.queue_state()
-	if not v2_tech_progress then
+	if not queue_sync then
 		rcon.print('{"follow":false}')
 		return
 	end
@@ -409,7 +410,7 @@ end
 
 --- @param data string JSON {queue: string[], player?: string, instance?: string}
 function research_sync.apply_queue(data)
-	if not v2_tech_progress then
+	if not queue_sync then
 		return
 	end
 	local msg = compat.json_to_table(data) --[[@as table]]
@@ -450,7 +451,7 @@ end
 --- @param enabled boolean
 --- @param player_name string?
 function research_sync.set_follow(enabled, player_name)
-	if not v2_tech_progress then
+	if not queue_sync then
 		return
 	end
 	local script_data = get_script_data()
