@@ -49,7 +49,7 @@ export class ForbiddenError extends ClientError { }
 /**
  * Thrown when a permission check fails
  */
-export class PermissionDeniedError extends ForbiddenError { }
+export class PermissionError extends ForbiddenError { }
 
 /**
  * Thrown when a config field is not accessible from the current location
@@ -68,7 +68,7 @@ export class TimeoutError extends ClientError { }
 
 /**
  * Thrown when the request conflicts with the current state, such as an
- * instance that is running or a host that is not connected (HTTP 409)
+ * instance that is running or a name that is taken (HTTP 409)
  */
 export class ConflictError extends ClientError { }
 
@@ -83,6 +83,12 @@ export class ServerError extends Error { }
  * such as a TypeError thrown by a request handler (HTTP 500)
  */
 export class InternalServerError extends ServerError { }
+
+/**
+ * Thrown when the host or instance that should handle the request is not
+ * connected, not running or shutting down (HTTP 503)
+ */
+export class UnavailableError extends ServerError { }
 
 /**
  * Signal for messages that fail validation

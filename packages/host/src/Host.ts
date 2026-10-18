@@ -203,7 +203,7 @@ export class HostRouter {
 						return false;
 					}
 					origin.connector.sendResponseError(
-						new lib.ResponseError(msg || "Instance is not running.", "ConflictError"), message.src
+						new lib.ResponseError(msg || "Instance is not running.", "UnavailableError"), message.src
 					);
 				}
 				return true;
@@ -271,7 +271,7 @@ export class HostRouter {
 		}
 		if (this.host._shuttingDown) {
 			origin.connector.sendResponseError(
-				new lib.ResponseError("Host is shutting down.", "ConflictError"), message.src
+				new lib.ResponseError("Host is shutting down.", "UnavailableError"), message.src
 			);
 			return;
 		}

@@ -348,7 +348,7 @@ export class Link {
 	 *
 	 * @param message - Message to check.
 	 * @param entry - Request or Event entry for this Message.
-	 * @throws {libErrors.PermissionDeniedError} if unauthorized.
+	 * @throws {libErrors.PermissionError} if unauthorized.
 	 */
 	validatePermission(message: libData.MessageRequest | libData.MessageEvent, entry: RequestEntry | EventEntry) { }
 

@@ -197,7 +197,7 @@ describe("controller/src/ControlConnection", function() {
 			await connection.handleLogSetSubscriptionsRequest(
 				new lib.LogSetSubscriptionsRequest(true, false, [], [])
 			);
-			connection.user = { checkPermission() { throw new lib.PermissionDeniedError("Permission denied"); } };
+			connection.user = { checkPermission() { throw new lib.PermissionError("Permission denied"); } };
 			connection.checkLogPermission();
 			assert.equal(mockController.clusterLogger.transports.size, 0);
 			assert.equal(connection.logTransport, null);

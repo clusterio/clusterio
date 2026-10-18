@@ -645,7 +645,7 @@ Registration rejects control-origin messages with no permission declaration.
 
 A callback receives `(user, message)`, where `message` is the raw wire envelope.
 It runs on the controller before destination payload validation and deserialization, so `message.data` is untrusted and may be missing or malformed.
-Check any required payload shape before inspecting fields, and use `user.checkPermission(...)` or throw a `ClientError` such as `PermissionDeniedError` for a normal denial.
+Check any required payload shape before inspecting fields, and use `user.checkPermission(...)` or throw a `ClientError` such as `PermissionError` for a normal denial.
 For example, this checks the payload shape needed to choose a permission; the destination schema still validates the full payload:
 
 ```js
@@ -756,16 +756,17 @@ Error
 │   │   ├── InvalidValueError
 │   │   └── InvalidFieldError
 │   ├── ForbiddenError (403)
-│   │   ├── PermissionDeniedError
+│   │   ├── PermissionError
 │   │   └── InvalidAccessError
 │   ├── NotFoundError (404)
 │   ├── TimeoutError (408)
 │   └── ConflictError (409)
 └── ServerError (5xx)
-    └── InternalServerError (500)
+    ├── InternalServerError (500)
+    └── UnavailableError (503)
 ```
 
-Throw a `ClientError` subclass when the request can't be done as asked, for example:
+Throw a `ClientError` subclass when the request can't be done as asked, and `UnavailableError` when the host or instance that should handle it is not connected or not running, for example:
 
 ```js
 controller.handle(messages.Frobnicate, async request => {

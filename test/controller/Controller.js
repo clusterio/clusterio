@@ -9,7 +9,7 @@ import express from "express";
 import { fileURLToPath } from "node:url";
 
 import {
-	ControllerConfig, Address, ConflictError, NotFoundError,
+	ControllerConfig, Address, ConflictError, NotFoundError, UnavailableError,
 	InstanceConfig, SystemInfo, Role, ModPack, AccountUpdateEvent,
 	addPluginConfigFields, renamePermissionPrefix,
 } from "@clusterio/lib";
@@ -274,13 +274,13 @@ describe("controller/src/Controller", function() {
 				mockInstanceConfig.set("instance.assigned_host", 99);
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
-					new ConflictError("Host containing instance is not connected")
+					new UnavailableError("Host containing instance is not connected")
 				);
 			});
 			it("should error on invalid host", function() {
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ hostId: 99 })),
-					new ConflictError("Host is not connected")
+					new UnavailableError("Host is not connected")
 				);
 			});
 			it("should error on invalid broadcast", function() {

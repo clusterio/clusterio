@@ -83,11 +83,11 @@ describe("messages/note", function() {
 		it("rejects an empty resource type or id", async function() {
 			await assert.rejects(
 				controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("", "1", "text")),
-				new lib.RequestError("resourceType and resourceId must not be empty"),
+				new lib.ValidationError("resourceType and resourceId must not be empty"),
 			);
 			await assert.rejects(
 				controlConnection.handleNoteSetRequest(new lib.NoteSetRequest("host", "", "text")),
-				new lib.RequestError("resourceType and resourceId must not be empty"),
+				new lib.ValidationError("resourceType and resourceId must not be empty"),
 			);
 		});
 	});

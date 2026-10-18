@@ -556,7 +556,7 @@ describe("lib/link/link", function() {
 					let errored = false;
 					connector.on("error", () => { errored = true; });
 					link.handle(SimpleRequest, async () => { handled = true; });
-					link.validatePermission = () => { throw new lib.PermissionDeniedError("Denied"); };
+					link.validatePermission = () => { throw new lib.PermissionError("Denied"); };
 					connector.emit("message", message);
 					assert(!handled, "handler ran despite denial");
 					assert(!errored, "connector emitted error on denial");

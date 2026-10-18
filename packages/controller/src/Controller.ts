@@ -1476,13 +1476,13 @@ export default class Controller {
 			}
 			connection = this.wsServer.hostConnections.get(hostId);
 			if (!connection) {
-				throw new lib.ConflictError("Host containing instance is not connected");
+				throw new lib.UnavailableError("Host containing instance is not connected");
 			}
 
 		} else if (dst.type === lib.Address.host) {
 			connection = this.wsServer.hostConnections.get(dst.id);
 			if (!connection) {
-				throw new lib.ConflictError("Host is not connected");
+				throw new lib.UnavailableError("Host is not connected");
 			}
 
 		} else {
@@ -1570,7 +1570,7 @@ export default class Controller {
 		}
 		let connection = this.wsServer.hostConnections.get(hostId);
 		if (!connection) {
-			throw new lib.ConflictError("Host containing instance is not connected");
+			throw new lib.UnavailableError("Host containing instance is not connected");
 		}
 		return await connection.send(request);
 	}

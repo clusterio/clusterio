@@ -307,7 +307,7 @@ async function startCtl() {
 			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
 
-		} else if (err instanceof lib.ClientError) {
+		} else if (err instanceof lib.ClientError || err instanceof lib.UnavailableError) {
 			logger.error(`Error sending request: ${err.message}`);
 			process.exitCode = 1;
 
