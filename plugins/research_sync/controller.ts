@@ -86,9 +86,13 @@ export default async function(context: ControllerPluginContext) {
 		return controller.instances.get(src.id)?.config.get("instance.name") ?? String(src.id);
 	}
 
-	function removeFinished(name: string) {
-		let index = queue.indexOf(name);
-		if (index !== -1) {
+	// Removes one entry per level that finished
+	function removeFinished(name: string, levels = 1) {
+		for (let i = 0; i < levels; i++) {
+			let index = queue.indexOf(name);
+			if (index === -1) {
+				return;
+			}
 			queue.splice(index, 1);
 			queueDirty = true;
 		}
@@ -198,7 +202,8 @@ export default async function(context: ControllerPluginContext) {
 					progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
 					controller.sendTo("allInstances", new FinishedEvent(name, level));
-					removeFinished(name);
+					// One queue entry per level unlocked
+					removeFinished(name, Math.max(level - Number(!researched) - baseLevel(name) + 1, 1));
 				}
 
 			} else {
@@ -208,9 +213,10 @@ export default async function(context: ControllerPluginContext) {
 
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
-					if (level - Number(!researched) > tech.level - Number(!tech.researched)) {
+					let unlocked = level - Number(!researched) - (tech.level - Number(!tech.researched));
+					if (unlocked > 0) {
 						controller.sendTo("allInstances", new FinishedEvent(name, level - Number(!researched)));
-						removeFinished(name);
+						removeFinished(name, unlocked);
 					}
 					tech.level = level;
 					tech.progress = progress;
