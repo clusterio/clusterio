@@ -217,21 +217,28 @@ local function ensure_gui(player)
 	frame["research_sync_follow"].state = get_script_data().follow ~= false
 end
 
+--- @param event EventData.on_player_created
+sync.events[defines.events.on_player_created] = function(event)
+	if not queue_sync then
+		return
+	end
+	ensure_gui(game.get_player(event.player_index) --[[@as LuaPlayer]])
+end
+sync.events[defines.events.on_player_joined_game] = sync.events[defines.events.on_player_created]
+
+--- @param event EventData.on_gui_checked_state_changed
+sync.events[defines.events.on_gui_checked_state_changed] = function(event)
+	if not queue_sync then
+		return
+	end
+	if event.element.name == "research_sync_follow" then
+		local player = game.get_player(event.player_index) --[[@as LuaPlayer]]
+		research_sync.set_follow(event.element.state, player.name)
+	end
+end
+
+-- These defines don't exist before 2.0.56, so they can only be indexed when queue_sync is set.
 if queue_sync then
-	--- @param event EventData.on_player_created
-	sync.events[defines.events.on_player_created] = function(event)
-		ensure_gui(game.get_player(event.player_index) --[[@as LuaPlayer]])
-	end
-	sync.events[defines.events.on_player_joined_game] = sync.events[defines.events.on_player_created]
-
-	--- @param event EventData.on_gui_checked_state_changed
-	sync.events[defines.events.on_gui_checked_state_changed] = function(event)
-		if event.element.name == "research_sync_follow" then
-			local player = game.get_player(event.player_index) --[[@as LuaPlayer]]
-			research_sync.set_follow(event.element.state, player.name)
-		end
-	end
-
 	--- @param event EventData.on_research_queued|EventData.on_research_moved|EventData.on_research_cancelled
 	local function on_queue_event(event)
 		if event.force.name ~= "player" then
@@ -249,25 +256,28 @@ if queue_sync then
 	sync.events[defines.events.on_research_queued] = on_queue_event
 	sync.events[defines.events.on_research_moved] = on_queue_event
 	sync.events[defines.events.on_research_cancelled] = on_queue_event
+end
 
-	-- One send per tick however many events fired (a lab raises several at once).
-	--- @param event EventData.on_tick
-	sync.events[defines.events.on_tick] = function(event)
-		local script_data = get_script_data()
-		if not script_data.queue_dirty then
-			return
-		end
-		script_data.queue_dirty = false
-		local player = script_data.queue_player
-		script_data.queue_player = nil
-		if script_data.follow ~= true then
-			return
-		end
-		clusterio_api.send_json("research_sync:queue", {
-			queue = queue_names(game.forces["player"]),
-			player = player,
-		})
+-- One send per tick however many events fired (a lab raises several at once).
+--- @param event EventData.on_tick
+sync.events[defines.events.on_tick] = function(event)
+	if not queue_sync then
+		return
 	end
+	local script_data = get_script_data()
+	if not script_data.queue_dirty then
+		return
+	end
+	script_data.queue_dirty = false
+	local player = script_data.queue_player
+	script_data.queue_player = nil
+	if script_data.follow ~= true then
+		return
+	end
+	clusterio_api.send_json("research_sync:queue", {
+		queue = queue_names(game.forces["player"]),
+		player = player,
+	})
 end
 
 research_sync = {}
