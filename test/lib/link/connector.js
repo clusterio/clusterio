@@ -13,9 +13,9 @@ describe("lib/link/connectors", function() {
 		describe("._dropSendBufferSeq()", function() {
 			beforeEach(function() {
 				testConnector._sendBuffer = [
-					{ seq: 1, text: "a" },
-					{ seq: 2, text: "bb" },
-					{ seq: 4, text: "cccc" },
+					{ seq: 1, text: "a", size: 1 },
+					{ seq: 2, text: "bb", size: 2 },
+					{ seq: 4, text: "cccc", size: 4 },
 				];
 				testConnector._sendBufferSize = 7;
 			});
@@ -64,9 +64,82 @@ describe("lib/link/connectors", function() {
 		});
 
 		describe("send buffer limit", function() {
+			const addr = new lib.Address(lib.Address.control, 1);
+			function textEvent(seq, text) {
+				return new lib.MessageEvent(seq, addr, addr, "TestEvent", { text });
+			}
+			function utf8Size(message) {
+				return Buffer.byteLength(JSON.stringify(message), "utf8");
+			}
+			function clearBuffer(connector) {
+				connector._state = "connected";
+				connector._sendBuffer = [];
+				connector._sendBufferSize = 0;
+				connector._socket.closeCalled = false;
+				connector._socket.sentMessages = [];
+			}
+
 			afterEach(function() {
 				testConnector.maxSendBufferSize = 0;
 				testConnector._closing = false;
+			});
+			it("should count buffered messages in UTF-8 bytes", function() {
+				// Extra bytes over the UTF-16 length for ASCII, 2 and 3 byte BMP characters and a surrogate pair
+				for (const [text, extraBytes] of [["ascii", 0], ["\u00e9", 1], ["\u20ac", 2], ["\u{1f600}", 2]]) {
+					clearBuffer(testConnector);
+					const event = textEvent(1, text);
+					testConnector.send(event);
+					const expected = JSON.stringify(event).length + extraBytes;
+					assert.equal(utf8Size(event), expected, text);
+					assert.equal(testConnector._sendBufferSize, expected, text);
+				}
+			});
+			it("should allow the limit to be reached exactly and close one byte over it", function() {
+				const event = textEvent(1, "\u20ac\u20ac\u20ac\u20ac");
+				clearBuffer(testConnector);
+				testConnector.maxSendBufferSize = utf8Size(event);
+				testConnector.send(event);
+				assert.equal(testConnector._sendBuffer.length, 1);
+				assert(!testConnector._socket.closeCalled, "Close was called on the socket");
+
+				clearBuffer(testConnector);
+				testConnector.maxSendBufferSize = utf8Size(event) - 1;
+				assert(JSON.stringify(event).length <= testConnector.maxSendBufferSize);
+				testConnector.send(event);
+				assert.equal(testConnector._sendBuffer.length, 0);
+				assert.equal(testConnector._sendBufferSize, 0);
+				assert(testConnector._socket.closeCalled, "Close was not called on the socket");
+				assert.equal(testConnector._socket.sentMessages.length, 0);
+			});
+			it("should subtract the bytes of acknowledged messages", function() {
+				const messages = [textEvent(1, "\u00e9"), textEvent(2, "\u20ac"), textEvent(3, "\u{1f600}")];
+				clearBuffer(testConnector);
+				for (const event of messages) {
+					testConnector.send(event);
+				}
+				assert.equal(testConnector._sendBufferSize, messages.reduce((sum, event) => sum + utf8Size(event), 0));
+				testConnector._dropSendBufferSeq(2);
+				assert.equal(testConnector._sendBuffer.length, 1);
+				assert.equal(testConnector._sendBufferSize, utf8Size(messages[2]));
+				testConnector._dropSendBufferSeq(3);
+				assert.equal(testConnector._sendBuffer.length, 0);
+				assert.equal(testConnector._sendBufferSize, 0);
+			});
+			it("should clear the byte count when the session is invalidated or reset", function() {
+				const connector = new lib.WebSocketClientConnector("url", 1);
+				connector._socket = new mock.MockSocket();
+				clearBuffer(connector);
+				connector.send(textEvent(1, "\u20ac"));
+				connector._invalidate();
+				assert.equal(connector._sendBuffer.length, 0);
+				assert.equal(connector._sendBufferSize, 0);
+
+				clearBuffer(connector);
+				connector.send(textEvent(1, "\u20ac"));
+				connector._socket = null;
+				connector._reset();
+				assert.equal(connector._sendBuffer.length, 0);
+				assert.equal(connector._sendBufferSize, 0);
 			});
 			it("should keep unacknowledged messages under the limit", function() {
 				testConnector._state = "connected";
