@@ -352,8 +352,11 @@ function player_sync.sync_player(acquire_response)
 	-- Epoch is bumped when an admin replaces or deletes the stored data
 	local epoch = acquire_response.epoch or 0
 	-- A prefetched copy (player_sync.prefetch_inventory) is used only if this reply acquires the player at the copy's
-	-- generation and the copy was sent with the components synced here now. Otherwise it goes, and the join carries on
-	-- as if it had never come: today's download or failure dialog, never the restart path below.
+	-- generation, from the controller run that sent it (token), and the copy was sent with the components synced here
+	-- now. The generation alone isn't enough: a controller that crashed before saving it restarts at the last saved
+	-- generation, and another instance's upload can then reuse the same number with other data. Otherwise the copy
+	-- goes, and the join carries on as if it had never come: today's download or failure dialog, never the restart
+	-- path below, which only sees a different generation.
 	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
 		local record = downloads[acquire_response.player_name]
 		if record and record.prefetch and not (
