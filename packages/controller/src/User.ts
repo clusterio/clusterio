@@ -1,7 +1,7 @@
 
 import {
 	IUser, Role, SubscribableDatastore,
-	PermissionDeniedError, PermissionName, permissions,
+	PermissionError, PermissionName, permissions,
 } from "@clusterio/lib";
 
 import UserRecord from "./UserRecord.js";
@@ -141,6 +141,6 @@ export default class User extends UserRecord implements IUser {
 			}
 		}
 
-		throw new PermissionDeniedError("Permission denied");
+		throw new PermissionError("Permission denied");
 	}
 }

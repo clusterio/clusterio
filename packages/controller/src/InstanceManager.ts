@@ -173,7 +173,7 @@ export default class InstanceManager {
 	 * the instance will be unassigned.
 	 *
 	 * @throws {module:lib.NotFoundError} if the instance does not exist.
-	 * @throws {module:lib.ConflictError} if the target host is not connected.
+	 * @throws {module:lib.UnavailableError} if the target host is not connected.
 	 */
 	async assignInstance(
 		instanceId: number,
@@ -191,7 +191,7 @@ export default class InstanceManager {
 		if (hostId !== null) {
 			newHostConnection = hostConnections.get(hostId);
 			if (!newHostConnection) {
-				throw new lib.ConflictError("Target host is not connected to the controller");
+				throw new lib.UnavailableError("Target host is not connected to the controller");
 			}
 		}
 

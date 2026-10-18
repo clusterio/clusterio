@@ -172,7 +172,7 @@ describe("controller/InstanceManager", function () {
 		it("should throw if host not connected", async function () {
 			await assert.rejects(
 				() => instances.assignInstance(1, 5),
-				lib.ConflictError
+				lib.UnavailableError
 			);
 		});
 
@@ -204,7 +204,7 @@ describe("controller/InstanceManager", function () {
 
 			await assert.rejects(
 				() => instances.assignInstance(1, 6),
-				lib.ConflictError
+				lib.UnavailableError
 			);
 
 			assert.equal(unassignRequest, undefined);

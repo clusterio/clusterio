@@ -835,7 +835,9 @@ describe("lib/config/classes", function() {
 			it("should throw if dependent validation fails", function() {
 				assert.throws(
 					() => testInstance.set("test.base", 5),
-					new lib.InvalidValueError("Failed validation of dependent test.dependent: dependent must be >= base")
+					new lib.InvalidValueError(
+						"Failed validation of dependent test.dependent: dependent must be >= base"
+					)
 				);
 				assert.deepEqual(TestConfig.validatorCalls, [
 					["test.dependent", 1], // set test.base

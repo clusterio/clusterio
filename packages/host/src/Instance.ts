@@ -1393,7 +1393,7 @@ end`.replace(/\r?\n/g, " ");
 
 	async handleInstanceSaveGameRequest() {
 		if (this._status !== "running") {
-			throw new lib.ConflictError("Instance is not running");
+			throw new lib.UnavailableError("Instance is not running");
 		}
 
 		const saved = new Promise<void>((resolve, reject) => {
@@ -1403,7 +1403,7 @@ end`.replace(/\r?\n/g, " ");
 			};
 			const onExit = () => {
 				this.server.off("save-finished", onSaved);
-				reject(new lib.ConflictError("Instance stopped before the save finished"));
+				reject(new lib.UnavailableError("Instance stopped before the save finished"));
 			};
 			this.server.once("save-finished", onSaved);
 			this.server.once("exit", onExit);

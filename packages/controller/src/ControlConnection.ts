@@ -426,12 +426,12 @@ export default class ControlConnection extends BaseConnection {
 		// Check connectivity
 		let sourceHostConnection = this._controller.wsServer.hostConnections.get(sourceHostId);
 		if (!sourceHostConnection || sourceHostConnection.connector.closing) {
-			throw new lib.ConflictError("Source host is not connected to the controller");
+			throw new lib.UnavailableError("Source host is not connected to the controller");
 		}
 
 		let targetHostConnection = this._controller.wsServer.hostConnections.get(targetHostId);
 		if (!targetHostConnection || targetHostConnection.connector.closing) {
-			throw new lib.ConflictError("Target host is not connected to the controller");
+			throw new lib.UnavailableError("Target host is not connected to the controller");
 		}
 
 		// Create stream to proxy from target to source
@@ -992,7 +992,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleNoteSetRequest(request: lib.NoteSetRequest) {
 		const { resourceType, resourceId, content } = request;
 		if (!resourceType || !resourceId) {
-			throw new lib.RequestError("resourceType and resourceId must not be empty");
+			throw new lib.ValidationError("resourceType and resourceId must not be empty");
 		}
 		this._controller.setNote(resourceType, resourceId, content, this.user.name);
 	}
