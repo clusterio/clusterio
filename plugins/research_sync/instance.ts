@@ -6,6 +6,9 @@ import {
 	FinishedEvent,
 	TechnologySync,
 	SyncTechnologiesRequest,
+	QueueUpdateEvent,
+	QueueEvent,
+	QueueSyncRequest,
 } from "./messages.js";
 
 // ./module/sync.lua
@@ -35,6 +38,21 @@ export default async function(context: InstancePluginContext) {
 		logger.error(`Unexpected error:\n${err.stack}`);
 	}
 
+	// An empty Lua table serialises as {}, so anything that isn't an array is an empty queue
+	function asArray(v: unknown): string[] {
+		return Array.isArray(v) ? v : [];
+	}
+
+	async function applyQueue(data: { queue: string[], instance?: string, player?: string }) {
+		await sendOrderedRcon(`/sc research_sync.apply_queue("${lib.escapeString(JSON.stringify(data))}")`, true);
+	}
+
+	// queue null asks for the cluster queue without seeding it
+	async function followQueue(queue: string[] | null, player: string | null) {
+		let result = await instance.sendTo("controller", new QueueSyncRequest(queue, player));
+		await applyQueue({ queue: result });
+	}
+
 	async function researchContribution(tech: IpcContribution) {
 		instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
 	}
@@ -48,6 +66,17 @@ export default async function(context: InstancePluginContext) {
 	});
 	instance.server.on("ipc-research_sync:finished", (tech: IpcFinished) => {
 		researchFinished(tech).catch(err => unexpectedError(err));
+	});
+
+	instance.server.on("ipc-research_sync:queue", (data: { queue?: unknown, player?: string }) => {
+		try {
+			instance.sendTo("controller", new QueueUpdateEvent(asArray(data.queue), data.player ?? null));
+		} catch (err: any) {
+			unexpectedError(err);
+		}
+	});
+	instance.server.on("ipc-research_sync:follow", (data: { queue?: unknown, player?: string }) => {
+		followQueue(asArray(data.queue), data.player ?? null).catch(err => unexpectedError(err));
 	});
 
 	instance.handle(ProgressEvent, async (event: ProgressEvent) => {
@@ -66,6 +95,19 @@ export default async function(context: InstancePluginContext) {
 		await sendOrderedRcon(
 			`/sc research_sync.research_technology("${lib.escapeString(name)}", ${level})`, true
 		);
+	});
+
+	instance.handle(QueueEvent, async (event: QueueEvent) => {
+		if (!syncStarted || !["starting", "running"].includes(instance.status)) {
+			return;
+		}
+		let data: { queue: string[], instance: string, player?: string } = {
+			queue: event.queue, instance: event.instance,
+		};
+		if (event.player !== null) {
+			data.player = event.player;
+		}
+		await applyQueue(data);
 	});
 
 	instance.hooks.start.attach(plugin.name, async () => {
@@ -101,6 +143,12 @@ export default async function(context: InstancePluginContext) {
 		if (techsToSync.length) {
 			let syncJson = lib.escapeString(JSON.stringify(techsToSync));
 			await sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
+		}
+
+		// A first start counts as turning following on, which seeds an empty cluster queue
+		let state = JSON.parse(await sendOrderedRcon("/sc research_sync.queue_state()"));
+		if (state.follow) {
+			await followQueue(state.first ? asArray(state.queue) : null, null);
 		}
 	});
 }
