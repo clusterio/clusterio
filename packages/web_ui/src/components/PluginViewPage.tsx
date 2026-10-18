@@ -2,6 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, Descriptions, Spin } from "antd";
 
+import * as lib from "@clusterio/lib";
 import type { PluginWebApi } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
@@ -76,6 +77,7 @@ export default function PluginViewPage() {
 		</PageLayout>;
 	}
 
+	const homepageUrl = lib.safeExternalUrl(loadedPlugin.package.homepage);
 	return <PageLayout nav={nav}>
 		<Descriptions bordered size="small" title={pluginTitle}>
 			<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
@@ -86,7 +88,9 @@ export default function PluginViewPage() {
 			</Descriptions.Item>
 			<Descriptions.Item label="Description" span={3}>{loadedPlugin.description}</Descriptions.Item>
 			{loadedPlugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
-				<a href={loadedPlugin.package.homepage}>{loadedPlugin.package.homepage}</a>
+				{homepageUrl
+					? <a href={homepageUrl}>{loadedPlugin.package.homepage}</a>
+					: loadedPlugin.package.homepage}
 			</Descriptions.Item> : null}
 			{loadedPlugin.package.author ? <Descriptions.Item label="Author" span={3}>
 				{loadedPlugin.package.author}
