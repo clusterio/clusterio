@@ -31,6 +31,21 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Unreleased
+
+### Major Features
+
+- Added a player proxy on the controller that accepts Factorio clients on a single UDP port, sends each player to an instance picked by plugins or the instance they were last on, and starts stopped instances on demand. Instances can also get a dedicated proxy port with `instance.player_proxy_port`. See [Player proxy](/docs/player-proxy.md).
+- Added the Lobby plugin, which sends players connecting through the proxy to a lobby running their Factorio version where they pick the instance to join, and can list the cluster and individual instances, including stopped ones, in the Factorio server browser.
+
+### Features
+
+- Added the `playerProxyRoute` controller hook for plugins to decide which instance a player connecting through the player proxy goes to.
+
+### Fixes
+
+- Fixed map positions after the first one in exchange strings being decoded relative to the wrong previous position.
+
 ## Version 2.0.3
 
 ### Features
