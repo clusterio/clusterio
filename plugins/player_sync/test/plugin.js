@@ -105,6 +105,7 @@ describe("player_sync plugin", function() {
 				assert(accepts({ name: "player", generation: 0 }));
 				assert(accepts(playerData("player", 0, { controller: "ghost", ticks_to_respawn: 300 })));
 				assert(accepts(playerData("player", 0, { color: [1, 0, 0] })));
+				assert(accepts(playerData("player", 0, { chat_color: [1, 0, 0], tag: "tag" })));
 				assert(accepts(playerData("player", 0, {
 					crafting_queue: { crafting_queue: {}, crafting_queue_progress: 0, ingredients: {} },
 					personal_logistic_slots: { 1: { name: "iron-plate", min: 50 } },

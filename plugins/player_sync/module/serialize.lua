@@ -1324,10 +1324,11 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 		end
 	end
 
-	if syncs(components, "appearance") and serialized.color then
-		player.color = serialized.color
-		player.chat_color = serialized.chat_color
-		player.tag = serialized.tag
+	if syncs(components, "appearance") then
+		-- Imports may supply any subset of these
+		if serialized.color then player.color = serialized.color end
+		if serialized.chat_color then player.chat_color = serialized.chat_color end
+		if serialized.tag then player.tag = serialized.tag end
 	end
 	if syncs(components, "force") and serialized.force then
 		player.force = serialized.force
