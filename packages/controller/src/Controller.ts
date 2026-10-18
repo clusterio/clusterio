@@ -32,8 +32,7 @@ import HostRecord from "./HostRecord.js";
 import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
 import ControllerRouter from "./ControllerRouter.js";
 import InstanceManager from "./InstanceManager.js";
-import PlayerRoutingStore from "./PlayerRoutingStore.js";
-import PlayerProxyServer from "./PlayerProxyServer.js";
+import PlayerProxyServer, { type PlayerProxyRouteRequest } from "./PlayerProxyServer.js";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -84,7 +83,6 @@ export default class Controller {
 	trustedProxies: BlockList;
 	debugEvents = new events.EventEmitter<ControllerDebugEvents>();
 	private _events = new events.EventEmitter<ControllerEvents>();
-	playerRoutingStore: PlayerRoutingStore;
 	playerProxyServer: PlayerProxyServer | null = null;
 
 	/** Event subscription controller */
@@ -276,10 +274,6 @@ export default class Controller {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
 		this.config = config;
-		this.playerRoutingStore = new PlayerRoutingStore(
-			path.join(this.config.get("controller.database_directory"), "player-routing.json"),
-		);
-
 		this.app = express();
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
@@ -424,7 +418,6 @@ export default class Controller {
 		// Load plugins
 		await this.loadPlugins();
 
-		await this.playerRoutingStore.load();
 		const playerProxyPort = this.config.get("controller.player_proxy_port");
 		if (playerProxyPort !== null) {
 			this.playerProxyServer = new PlayerProxyServer(
@@ -778,7 +771,6 @@ export default class Controller {
 			this.users.records.save(),
 			this.hooks.save.invoke(),
 			this.notes.save(),
-			this.playerRoutingStore.save(),
 		]);
 	}
 
@@ -1013,85 +1005,63 @@ export default class Controller {
 		return hosts.length ? new lib.HostUpdatesEvent(hosts) : null;
 	}
 
-	resolvePlayerRoute(username: string): { hostId: number; instanceId: number; publicAddress: string; gamePort: number } | null {
-		const key = username.toLowerCase();
-		let route = this.playerRoutingStore.get(key);
-		let instance: Readonly<InstanceRecord> | undefined;
-
-		if (!route) {
-			const fallbackId = this.config.get("controller.player_proxy_default_instance_id");
-			if (fallbackId !== null) {
-				instance = this.instances.get(fallbackId);
-				if (instance) {
-					route = {
-						name: username,
-						instanceId: instance.id,
-						hostId: instance.config.get("instance.assigned_host") ?? -1,
-						gamePort: instance.gamePort ?? 0,
-						timestampMs: Date.now(),
-					};
-				}
-			} else {
-				instance = this._chooseFallbackInstance();
-				if (instance) {
-					route = {
-						name: username,
-						instanceId: instance.id,
-						hostId: instance.config.get("instance.assigned_host") ?? -1,
-						gamePort: instance.gamePort ?? 0,
-						timestampMs: Date.now(),
-					};
-				}
-			}
-		}
-
-		if (!route) {
-			return null;
-		}
-
-		instance = instance ?? this.instances.get(route.instanceId);
-		if (!instance || instance.isDeleted) {
-			this.playerRoutingStore.delete(key);
-			return null;
-		}
-
-		const hostId = instance.config.get("instance.assigned_host");
-		if (hostId === null || route.hostId !== hostId) {
-			this.playerRoutingStore.delete(key);
-			return null;
-		}
-
-		const host = this.hosts.get(hostId);
-		if (!host || !host.connected) {
-			return null;
-		}
-
-		const gamePort = instance.gamePort ?? route.gamePort;
-		const publicAddress = host.publicAddress || host.remoteAddress;
-		if (!gamePort || !publicAddress) {
-			return null;
-		}
-
-		return {
-			hostId,
-			instanceId: instance.id,
-			publicAddress,
-			gamePort,
+	/**
+	 * Pick the instance a player connecting through the player proxy goes to
+	 *
+	 * Plugins get the first say through the playerProxyRoute hook, then the
+	 * instance the proxy port is dedicated to, the instance the player was
+	 * last on, controller.player_proxy_default_instance_id, and finally any
+	 * running instance.
+	 *
+	 * @param request - Details about the connecting player.
+	 * @returns ID of the instance to route to, or undefined if there is none.
+	 */
+	async resolvePlayerRoute(request: PlayerProxyRouteRequest): Promise<number | undefined> {
+		const routable = (id: number | undefined) => {
+			const instance = id === undefined ? undefined : this.instances.get(id);
+			return Boolean(instance && !instance.isDeleted && instance.config.get("instance.assigned_host") !== null);
 		};
-	}
 
-	private _chooseFallbackInstance() {
-		for (const instance of this.instances.values()) {
-			if (instance.status === "running" && !instance.isDeleted) {
-				return instance;
+		for (const result of await this.hooks.playerProxyRoute.collect(request)) {
+			if (routable(result)) {
+				return result;
 			}
 		}
+
+		if (routable(request.portInstanceId)) {
+			return request.portInstanceId;
+		}
+
+		const lastInstanceId = this._lastInstanceOfPlayer(request.username);
+		if (routable(lastInstanceId)) {
+			return lastInstanceId;
+		}
+
+		const defaultId = this.config.get("controller.player_proxy_default_instance_id") ?? undefined;
+		if (routable(defaultId)) {
+			return defaultId;
+		}
+
 		for (const instance of this.instances.values()) {
-			if (!instance.isDeleted && instance.config.get("instance.assigned_host") !== null) {
-				return instance;
+			if (instance.status === "running") {
+				return instance.id;
 			}
 		}
 		return undefined;
+	}
+
+	private _lastInstanceOfPlayer(name: string) {
+		const user = this.users.getByName(name);
+		let lastId: number | undefined;
+		let lastJoinMs = -Infinity;
+		for (const [instanceId, stats] of user?.instanceStats ?? []) {
+			const joinMs = stats.lastJoinAt?.getTime() ?? -Infinity;
+			if (joinMs > lastJoinMs) {
+				lastJoinMs = joinMs;
+				lastId = instanceId;
+			}
+		}
+		return lastId;
 	}
 
 	/**

@@ -214,6 +214,25 @@ Must be greater than 0.
 Defaults to 15.
 
 
+### controller.player_proxy_port
+
+UDP port the controller accepts connections from Factorio clients on.
+Players connecting to it are forwarded to an instance, which is started if it's stopped, see [Player proxy](player-proxy.md).
+Disabled when null.
+Must be greater than 0.
+Requires a restart of the controller to take effect.
+
+Defaults to null.
+
+
+### controller.player_proxy_default_instance_id
+
+ID of the instance players connecting through the player proxy are sent to when no plugin picks an instance for them and they have not been on any instance before.
+If null, a running instance is picked.
+
+Defaults to null.
+
+
 ### controller.factorio_username
 
 Username of the Factorio.com account to authenticate with the Factorio API with.
@@ -488,6 +507,15 @@ If enabled start this instance when the host it is assigned to is started up.
 Does not affect start or stop of the instance while the host is running.
 
 Defaults to false.
+
+
+### instance.player_proxy_port
+
+Extra UDP port the player proxy on the controller listens on that sends players straight to this instance, starting it if it's stopped.
+Only used when controller.player_proxy_port is set, see [Player proxy](player-proxy.md).
+Must be greater than 0, and should not be in the host.factorio_port_range of a host on the same machine as the controller.
+
+Defaults to null.
 
 
 ### instance.exclude_from_start_all
