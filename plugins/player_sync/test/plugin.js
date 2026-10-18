@@ -51,6 +51,14 @@ describe("player_sync plugin", function() {
 				assert(!validate(request), `accepted ${generation}`);
 			}
 		});
+		it("should reject uploads carrying the tombstone marker", function() {
+			const validate = lib.compile(msg.UploadRequest.jsonSchema);
+			assert(validate({ instanceId: 1, playerName: "player", playerData: playerData("player", 5) }));
+			for (const deleted of [false, true]) {
+				const data = playerData("player", 5, { deleted });
+				assert(!validate({ instanceId: 1, playerName: "player", playerData: data }), `accepted ${deleted}`);
+			}
+		});
 		describe("SetPlayerDataRequest schema", function() {
 			const validate = lib.compile(msg.SetPlayerDataRequest.jsonSchema);
 			// Shaped like module/serialize.lua output
@@ -116,6 +124,8 @@ describe("player_sync plugin", function() {
 				for (const [field, value] of [
 					["controller", "not-a-controller"],
 					["controller", "remote"],
+					["deleted", false],
+					["deleted", true],
 					["color", "red"],
 					["force", 1],
 					["ticks_to_respawn", -1],

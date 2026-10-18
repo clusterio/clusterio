@@ -41,10 +41,12 @@ async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 	let playerDatastore = new Map<string, IpcPlayerData>();
 	let tombstones = new Map<string, Tombstone>();
 	for (let [name, entry] of entries) {
-		if ("deleted" in entry) {
+		if ("deleted" in entry && entry.deleted === true) {
 			tombstones.set(name, entry);
 		} else {
-			playerDatastore.set(name, entry);
+			// Imports used to keep the marker
+			delete (entry as any).deleted;
+			playerDatastore.set(name, entry as IpcPlayerData);
 		}
 	}
 	return { playerDatastore, tombstones };

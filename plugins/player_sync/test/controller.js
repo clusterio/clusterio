@@ -208,22 +208,34 @@ describe("player_sync controller", function() {
 				await assert.rejects(set("stored", playerData("stored", 3)), acquiredError);
 				assert.equal((await saved()).get("stored").generation, 3);
 			});
+
+			// The link validates requests before the handler runs
+			const fromJSON = lib.Link.requestFromJSON(msg.SetPlayerDataRequest, "SetPlayerDataRequest");
+			async function setJSON(name, data) {
+				const request = fromJSON({ playerName: name, playerData: data });
+				return await handler(msg.SetPlayerDataRequest)(request);
+			}
 			it("should keep the stored data when an import fails validation", async function() {
-				// The link validates requests before the handler runs
-				const fromJSON = lib.Link.requestFromJSON(msg.SetPlayerDataRequest, "SetPlayerDataRequest");
-				async function setJSON(name, data) {
-					const request = fromJSON({ playerName: name, playerData: data });
-					return await handler(msg.SetPlayerDataRequest)(request);
-				}
 				await release("stored");
 				await setJSON("stored", playerData("stored", 0));
 				const before = (await saved()).get("stored");
 				assert.equal(before.epoch, 1);
-				await assert.rejects(
-					setJSON("stored", playerData("stored", 0, { crafting_queue: {} })),
-					{ message: "Request SetPlayerDataRequest failed validation" },
-				);
+				for (const extra of [{ crafting_queue: {} }, { deleted: false }, { deleted: true }]) {
+					await assert.rejects(
+						setJSON("stored", playerData("stored", 0, extra)),
+						{ message: "Request SetPlayerDataRequest failed validation" },
+					);
+				}
 				assert.deepEqual((await saved()).get("stored"), before);
+			});
+			it("should only load entries marked deleted: true as tombstones", async function() {
+				// Imports from before the marker was reserved could store deleted: false
+				const data = playerData("stored", 4, { epoch: 1 });
+				const entries = [["stored", { ...data, deleted: false }]];
+				await fs.writeFile(path.join(databaseDir, "player_sync.json"), JSON.stringify(entries));
+				controller = await load();
+				const response = await handler(msg.GetPlayerDataRequest)(new msg.GetPlayerDataRequest("stored"));
+				assert.deepEqual(response.playerData, data);
 			});
 		});
 

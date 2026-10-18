@@ -31,10 +31,13 @@ export type IpcPlayerData = {
 	components?: Record<string, boolean> | unknown[],
 }
 
+// Marks tombstones in player_sync.json
+const jsonReserved = { deleted: Type.Optional(Type.Never()) };
 const jsonPlayerData = Type.Object({
 	generation: Type.Integer({ minimum: 0 }),
 	epoch: Type.Optional(Type.Integer({ minimum: 0 })),
 	name: Type.String(),
+	...jsonReserved,
 });
 
 // The parts of an import that module/serialize.lua relies on, item stacks are checked by the Lua deserializer
@@ -150,6 +153,7 @@ const jsonImportedPlayerData = Type.Object({
 	crafting_queue: Type.Optional(jsonCraftingQueue),
 	recipe_notifications: Type.Optional(Type.String()),
 	components: Type.Optional(jsonTable),
+	...jsonReserved,
 });
 
 export class AcquireResponse {
