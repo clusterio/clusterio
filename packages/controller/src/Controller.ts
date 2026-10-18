@@ -1089,6 +1089,35 @@ export default class Controller {
 		return undefined;
 	}
 
+	/**
+	 * Address players reach the player proxy on
+	 *
+	 * @param port -
+	 *     Proxy port to give the address for, defaults to the main port.
+	 * @returns controller.player_proxy_public_address, or the host name of
+	 *     controller.public_url with the port if not set. Undefined if the
+	 *     proxy is disabled or neither is set.
+	 */
+	getPlayerProxyAddress(port?: number) {
+		if (!this.playerProxyServer) {
+			return undefined;
+		}
+		const configured = this.config.get("controller.player_proxy_public_address");
+		if (configured) {
+			if (port === undefined) {
+				return configured;
+			}
+			// Swap the port, host may be a name, IPv4 address or IPv6 address in brackets
+			const host = /^(\[[^\]]+\]|[^:]+)(?::\d+)?$/.exec(configured)?.[1] ?? `[${configured}]`;
+			return `${host}:${port}`;
+		}
+		const publicUrl = this.config.get("controller.public_url");
+		if (!publicUrl) {
+			return undefined;
+		}
+		return `${new URL(publicUrl).hostname}:${port ?? this.playerProxyServer.port}`;
+	}
+
 	private _lastInstanceOfPlayer(name: string) {
 		const user = this.users.getByName(name);
 		let lastId: number | undefined;

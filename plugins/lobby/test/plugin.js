@@ -300,7 +300,7 @@ describe("lobby plugin", function () {
 
 		it("should build server browser listings", async function () {
 			controller.config.set("lobby.server_browser_listing", true);
-			controller.config.set("lobby.public_address", "203.0.113.5:40000");
+			controller.config.set("controller.player_proxy_public_address", "203.0.113.5:40000");
 			controller.instances.getMutable(4).config.set("lobby.server_browser_listing", true);
 			proxy.serverVersions.set(1, v2_1_19);
 			proxy.serverVersions.set(2, v2_0_72);
@@ -353,9 +353,15 @@ describe("lobby plugin", function () {
 		it("should configure the module and send the server list on start", async function () {
 			await instance.hooks.start.invoke();
 			const commands = instance.server.rconCommands;
-			assert.equal(commands[0], "/sc lobby.configure(true, 7357)");
+			assert.equal(commands[0], "/sc lobby.configure(true, 7357, false)");
 			assert(commands[1].startsWith("/sc lobby.set_servers(\""), commands[1]);
 			assert(commands[1].includes("Instance \\\\\\\"3\\\\\\\""), commands[1]);
+		});
+
+		it("should enable the web login button when player_auth is loaded", async function () {
+			instance.loadedPlugins.add({ name: "player_auth" });
+			await instance.hooks.start.invoke();
+			assert.equal(instance.server.rconCommands[0], "/sc lobby.configure(true, 7357, true)");
 		});
 
 		it("should move players once their transfer is ready", async function () {

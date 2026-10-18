@@ -15,13 +15,15 @@ Players then only need to know one address, and instances that are stopped are s
 
 ## Enabling the proxy
 
-Set [controller.player_proxy_port](configuration.md#controllerplayer_proxy_port) to the UDP port to accept players on and restart the controller:
+The proxy listens on UDP port 34197, the default port of Factorio servers, unless [controller.player_proxy_port](configuration.md#controllerplayer_proxy_port) is changed.
+Set it to null to turn the proxy off:
 
-    npx clusteriocontroller config set controller.player_proxy_port 34197
+    npx clusteriocontroller config set controller.player_proxy_port null
 
-Make sure the port is reachable from the Internet and is not in the `host.factorio_port_range` of a host running on the same machine as the controller.
+Make sure the port is reachable from the Internet.
 The controller connects to the game port of the instances from the address the host connected to the controller from, so the game ports of the instances must be reachable from the controller.
 Instances behind the proxy should have `visibility.public` turned off in their `factorio.settings`, otherwise they are listed in the server browser with their own address in addition to the proxy.
+If the port is taken, for example by an instance of a host on the same machine, the controller logs an error and runs without the proxy.
 
 
 ## How players are routed

@@ -24,6 +24,8 @@ export class InstanceHooks extends lib.AsyncHookCollection {
 		this.prepareControllerDisconnect = this.newHook();
 		this.playerEvent = this.newHook();
 		this.autoPauseChanged = this.newHook();
+		// Long timeout as handlers may create a save
+		this.chooseSave = this.newHook(logger, 300_000);
 	}
 
 	/**
@@ -54,6 +56,19 @@ export class InstanceHooks extends lib.AsyncHookCollection {
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
 	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult> | void>;
+
+	/**
+	 * Called to pick the save to start when none was requested
+	 *
+	 * Invoked after mods have been synced when the instance is started
+	 * without a save being specified. Handlers may create a save in the
+	 * saves directory of the instance and return its name to have it
+	 * started instead of the newest save. Return undefined to leave the
+	 * choice to other plugins and the default of the newest save.
+	 *
+	 * @returns name of save in the instance's saves directory to start.
+	 */
+	readonly chooseSave: lib.AsyncHook<[], string | undefined>;
 
 	/**
 	 * Called after the Factorio server is started

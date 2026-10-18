@@ -12,6 +12,7 @@ local mod_gui = require("mod-gui")
 --- @class LobbyScriptData
 --- @field is_lobby boolean
 --- @field instance_id integer?
+--- @field web_login boolean Show button for logging into the web interface with the player_auth plugin
 --- @field servers LobbyServer[]
 --- @field status table<string, string> Status text by player name
 
@@ -106,11 +107,15 @@ local function open_browser(player)
 		local inner = frame.add { type = "frame", name = "content", direction = "vertical",
 			style = "inside_shallow_frame_with_padding" }
 		inner.style.horizontally_stretchable = true
+		local buttons = frame.add { type = "flow", name = "buttons", direction = "horizontal" }
+		buttons.style.top_margin = 8
+		if data.web_login then
+			buttons.add { type = "button", name = "lobby_web_login", caption = "Log in to web interface",
+				tooltip = "Same as the /web-login command" }
+		end
+		local filler = buttons.add { type = "empty-widget" }
+		filler.style.horizontally_stretchable = true
 		if not data.is_lobby then
-			local buttons = frame.add { type = "flow", direction = "horizontal" }
-			buttons.style.top_margin = 8
-			local filler = buttons.add { type = "empty-widget" }
-			filler.style.horizontally_stretchable = true
 			buttons.add { type = "button", name = "lobby_close", caption = "Close" }
 		end
 	end
@@ -194,6 +199,8 @@ lobby_module.events[defines.events.on_gui_click] = function(event)
 		end
 	elseif element.name == "lobby_close" then
 		close_browser(player)
+	elseif element.name == "lobby_web_login" then
+		clusterio_api.send_json("player_auth", { type = "open_dialog", player = player.name })
 	elseif element.tags and element.tags.lobby_instance_id then
 		local data = get_script_data()
 		local instance_id = element.tags.lobby_instance_id
@@ -214,14 +221,15 @@ lobby = {}
 
 --- @param is_lobby boolean
 --- @param instance_id integer
-function lobby.configure(is_lobby, instance_id)
+--- @param web_login boolean?
+function lobby.configure(is_lobby, instance_id, web_login)
 	local data = get_script_data()
 	data.is_lobby = is_lobby
 	data.instance_id = instance_id
-	if not is_lobby then
-		for _, player in pairs(game.players) do
-			close_browser(player)
-		end
+	data.web_login = web_login == true
+	-- Rebuilt so the frame matches the new configuration
+	for _, player in pairs(game.players) do
+		close_browser(player)
 	end
 	refresh_all()
 end

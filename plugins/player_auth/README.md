@@ -34,5 +34,6 @@ Defaults to `120`.
 
 Show the address to connect to for each server in the server list on the login page of the web interface, made up of host.public_address and the game port of the instance.
 This list is visible to anyone who can reach the web interface, so leave it off if you don't want unauthenticated users to see where the servers are.
+If `controller.player_proxy_public_address` is set the list shows that address once for all instances without an `instance.player_proxy_port`, as they are reached through the [player proxy](../../docs/player-proxy.md), and the proxy address with the dedicated port for the others.
 
 Defaults to `false`.

@@ -7,6 +7,7 @@ Works together with the [player proxy](../../docs/player-proxy.md) on the contro
   The lobby shows a list of the instances in the cluster, picking one moves the player there with `LuaPlayer.connect_to_server`.
 - Picking a stopped instance starts it, the player waits in the lobby and is moved once it's running.
 - Other instances with the plugin loaded get a Servers button that opens the same list.
+- If the [Player Auth](../player_auth/README.md) plugin is loaded the list has a button for logging into the web interface, which does the same as the `/web-login` command.
 - The cluster can be listed in the Factorio server browser as one game per Factorio version a lobby runs, showing the players online in the whole cluster.
 - Instances can also be listed in the server browser as their own game on a dedicated proxy port, including while they are stopped.
 
@@ -25,12 +26,15 @@ Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedi
 
 ## Setting up a lobby
 
-1. Enable the player proxy by setting `controller.player_proxy_port` and restart the controller.
-2. Set `lobby.public_address` to the address and port players reach the proxy on, for example `play.example.com:34197`.
-   This is the address players are sent to when they pick an instance.
+1. Make sure the player proxy is enabled, it listens on `controller.player_proxy_port` which defaults to 34197.
+2. Set `controller.player_proxy_public_address` to the address and port players reach the proxy on, for example `play.example.com:34197`.
+   This is the address players are sent to when they pick an instance, and what's published in the server browser.
+   If it's not set the host name of `controller.public_url` and `controller.player_proxy_port` is used.
 3. Create an instance to act as the lobby, set `lobby.is_lobby` to true on it and start it.
-   Players are made spectators in the lobby, so any map works.
-   Create one lobby for each Factorio version you want to accept players on.
+   Lobbies always start the save `lobby.zip`, which is created the first time as an empty one tile map without the freeplay scenario, and players are made spectators in it.
+   To use a different map, replace `lobby.zip` with a save of your own.
+   Starting a specific save from the web interface or clusterioctl still works.
+   Create one lobby for each Factorio version you want to accept players on, by setting `factorio.version` on it.
 4. Optionally set `lobby.listed` to false on instances that should not be shown in the list.
 
 Players who connect to the proxy now end up in the lobby for their version.
@@ -49,15 +53,6 @@ Players joining it while it's stopped wait in a lobby running their version unti
 
 
 ## Controller Configuration
-
-### lobby.public_address
-
-Address and port players reach the player proxy on, for example `play.example.com:34197`.
-Players are sent here when they pick an instance in a lobby, and the host name is resolved to the address published in the server browser.
-If null the host name of `controller.public_url` and `controller.player_proxy_port` is used.
-If the player proxy is disabled players are sent straight to the address of the host of the instance instead.
-
-Defaults to null.
 
 ### lobby.server_browser_listing
 

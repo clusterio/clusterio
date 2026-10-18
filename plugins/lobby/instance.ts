@@ -1,9 +1,35 @@
+import fs from "node:fs/promises";
+
 import * as lib from "@clusterio/lib";
-import type { InstancePluginContext } from "@clusterio/host";
+import { type InstancePluginContext, setSaveScenario } from "@clusterio/host";
 
 import { ServerListRequest, TransferRequest, TransferStatus, TransferStatusEvent } from "./messages.js";
 
 const SERVER_LIST_INTERVAL_MS = 5_000;
+
+/** Save lobby instances start, created if it doesn't exist */
+export const LOBBY_SAVE = "lobby.zip";
+
+/**
+ * Map gen settings for an empty world
+ *
+ * A width or height of 0 means unlimited to Factorio, so the map is made
+ * a single tile with everything outside it out of map.
+ */
+export const lobbyMapGenSettings = {
+	width: 1,
+	height: 1,
+	starting_points: [{ x: 0, y: 0 }],
+	peaceful_mode: true,
+	no_enemies_mode: true,
+	default_enable_all_autoplace_controls: false,
+	autoplace_controls: {},
+	autoplace_settings: {
+		entity: { treat_missing_as_default: false, settings: {} },
+		decorative: { treat_missing_as_default: false, settings: {} },
+	},
+	cliff_settings: { name: "cliff", richness: 0 },
+};
 
 // ./module/lobby.lua
 type IpcConnect = {
@@ -30,7 +56,9 @@ export default async function loadInstancePlugin(context: InstancePluginContext)
 
 	async function configure() {
 		const isLobby = instance.config.get("lobby.is_lobby");
-		await sendOrderedRcon(`/sc lobby.configure(${isLobby}, ${instance.id})`);
+		// The player_auth module opens its login dialog from the same IPC message as its /web-login command
+		const webLogin = [...instance.loadedPlugins].some(info => info.name === "player_auth");
+		await sendOrderedRcon(`/sc lobby.configure(${isLobby}, ${instance.id}, ${webLogin})`);
 	}
 
 	async function updateServerList() {
@@ -63,6 +91,22 @@ export default async function loadInstancePlugin(context: InstancePluginContext)
 			: `Unable to join ${status.name}: ${status.message ?? "unknown error"}`;
 		await sendOrderedRcon(`/sc lobby.set_player_status("${name}", "${lib.escapeString(text)}")`);
 	}
+
+	instance.hooks.chooseSave.attach(plugin.name, async () => {
+		if (!instance.config.get("lobby.is_lobby")) {
+			return undefined;
+		}
+		const savePath = instance.path("saves", LOBBY_SAVE);
+		try {
+			await fs.access(savePath);
+		} catch {
+			logger.info("Creating empty lobby save");
+			await instance.server.create(LOBBY_SAVE, undefined, lobbyMapGenSettings);
+			// Saves are created with the freeplay scenario, replace it with one that does nothing
+			await setSaveScenario(savePath, new lib.ModuleInfo("lobby", "0.0.0"));
+		}
+		return LOBBY_SAVE;
+	});
 
 	instance.hooks.start.attach(plugin.name, async () => {
 		await configure();

@@ -145,15 +145,7 @@ export class LobbyController {
 	/** Address players use to connect to an instance, through the proxy if it's enabled */
 	connectAddress(instance: Readonly<InstanceRecord>) {
 		if (this.proxy) {
-			const configured = this.controller.config.get("lobby.public_address");
-			if (configured) {
-				return configured;
-			}
-			const publicUrl = this.controller.config.get("controller.public_url");
-			if (publicUrl) {
-				return `${new URL(publicUrl).hostname}:${this.proxy.port}`;
-			}
-			return undefined;
+			return this.controller.getPlayerProxyAddress();
 		}
 
 		const hostId = instance.config.get("instance.assigned_host");
@@ -328,15 +320,14 @@ export class LobbyController {
 			return listings;
 		}
 
-		const configured = this.controller.config.get("lobby.public_address");
-		const publicUrl = this.controller.config.get("controller.public_url");
-		const { host, port } = configured
-			? parseAddress(configured)
-			: { host: publicUrl ? new URL(publicUrl).hostname : "", port: undefined };
-		if (!host) {
-			this._warnListing("lobby.public_address or controller.public_url must be set to list servers");
+		const address = this.controller.getPlayerProxyAddress();
+		if (!address) {
+			this._warnListing(
+				"controller.player_proxy_public_address or controller.public_url must be set to list servers"
+			);
 			return listings;
 		}
+		const { host, port } = parseAddress(address);
 		let hostAddress = host;
 		if (!isIP(host)) {
 			try {
