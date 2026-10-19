@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import * as lib from "@clusterio/lib";
 
 import { Controller, ControlConnection } from "@clusterio/controller";
@@ -66,6 +68,11 @@ describe("messages/plugin", function() {
 				initialValue: true,
 			};
 		});
+		const packagePath = path.resolve("temp", "test", "messages_plugin", "package.json");
+		before(async function() {
+			await fs.mkdir(path.dirname(packagePath), { recursive: true });
+			await fs.writeFile(packagePath, JSON.stringify({ version: "Version" }));
+		});
 		after(function() {
 			delete lib.ControllerConfig.fieldDefinitions["Name.load_plugin"];
 			delete lib.HostConfig.fieldDefinitions["Name.load_plugin"];
@@ -73,7 +80,7 @@ describe("messages/plugin", function() {
 		it("returns correct info from the controller", async function() {
 			controller.pluginInfos = [{
 				name: "Name", title: "Title", version: "Version",
-				description: "Description", npmPackage: "Npm Package",
+				description: "Description", npmPackage: "Npm Package", packagePath,
 			}];
 
 			controller.loadedPlugins.add(controller.pluginInfos[0]);
@@ -82,13 +89,13 @@ describe("messages/plugin", function() {
 			const response = await controlConnection.handlePluginListRequest(new lib.PluginListRequest());
 			assert.deepEqual(response, [new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package",
+				"Description", "Npm Package", "Version",
 			)]);
 		});
 		it("returns correct info from a host", async function() {
 			host.pluginInfos = [{
 				name: "Name", title: "Title", version: "Version",
-				description: "Description", npmPackage: "Npm Package",
+				description: "Description", npmPackage: "Npm Package", packagePath,
 			}];
 
 			host.loadedPlugins.add(host.pluginInfos[0]);
@@ -97,7 +104,7 @@ describe("messages/plugin", function() {
 			const response = await host.handlePluginListRequest(new lib.PluginListRequest());
 			assert.deepEqual(response, [new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package",
+				"Description", "Npm Package", "Version",
 			)]);
 		});
 	});
