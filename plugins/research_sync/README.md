@@ -26,6 +26,7 @@ Known gaps:
 - A script that assigns the queue directly to `{}` isn't seen.
 - Two following servers whose labs want different research keep flipping the cluster queue, as two labs do on one server.
 - A technology a server can't queue yet is dropped there, and an edit on that server then drops it for everyone.
+- An edit made on a server in the moment before it hears that a technology finished can put that technology back in the cluster queue. Every server skips it, since the game won't queue finished research, and the next edit removes it.
 
 
 ## Installation
