@@ -283,8 +283,10 @@ describe("lib/plugin_loader", function() {
 		const hiddenPluginPath = path.join(nodeModules, "plugin-hidden");
 		const notAPluginPath = path.join(nodeModules, "not-a-plugin");
 		let pluginList;
+		let startedAtMs;
 
 		before(async function() {
+			startedAtMs = Date.now() - 1000; // File timestamps can lag Date.now() slightly
 			// Setup test plugins
 			async function writePlugin(
 				pluginPath,
@@ -399,8 +401,8 @@ describe("lib/plugin_loader", function() {
 				packagePath: path.join(npmPluginPathAbs, "package.json"),
 				npmPackage: "plugin-npm",
 			}];
-			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
-			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage, plugin]));
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true, startedAtMs);
+			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
 
 			const loaded = byPackage.get("plugin-npm");
 			assert.equal(loaded.version, "0.0.0");
@@ -414,6 +416,9 @@ describe("lib/plugin_loader", function() {
 				assert.equal(pending.installedVersion, "0.0.1", packageName);
 				assert.equal(pending.loaded, false, packageName);
 			}
+			// An alias installs a different package than its dependency name
+			assert.equal(byPackage.get("plugin-aliased").npmPackage, undefined);
+			assert.equal(byPackage.get("plugin-deep").npmPackage, "plugin-deep");
 			assert.equal(byPackage.has("not-a-plugin"), false);
 			assert.equal(byPackage.has("plugin-hidden"), false);
 			assert.equal(plugins.length, 4);
@@ -433,11 +438,43 @@ describe("lib/plugin_loader", function() {
 					version: "0.0.1",
 					requirePath: externalPluginPathAbs,
 					packagePath: path.join(externalPluginPathAbs, "package.json"),
-				}], () => true, () => true);
+				}], () => true, () => true, startedAtMs);
 				assert.deepEqual(plugins.map(plugin => plugin.name), ["external"]);
 			} finally {
 				await fs.writeFile("package.json", rootPackageJson);
 				await fs.rm(linkPath, { force: true });
+			}
+		});
+
+		it("should not list packages that were present on startup as pending", async function() {
+			const plugins = await lib.listPluginDetails([], () => true, () => true, Date.now() + 60e3);
+			assert.deepEqual(plugins, []);
+		});
+
+		it("should not list private packages as installable from npm", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-deep", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				await fs.writeFile(packageJsonPath, JSON.stringify({ ...JSON.parse(original), private: true }));
+				const plugins = await lib.listPluginDetails([], () => true, () => true, startedAtMs);
+				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
+				assert.equal(deep.pendingInstall, true);
+				assert.equal(deep.npmPackage, undefined);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should skip packages whose package.json is being rewritten", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-deep", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				await fs.writeFile(packageJsonPath, original.slice(0, 20));
+				const plugins = await lib.listPluginDetails([], () => true, () => true, startedAtMs);
+				assert.equal(plugins.some(plugin => plugin.name === "plugin-deep"), false);
+				assert.ok(plugins.some(plugin => plugin.name === "plugin-aliased"));
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
 			}
 		});
 
@@ -457,8 +494,8 @@ describe("lib/plugin_loader", function() {
 				packagePath: path.join(npmPluginPathAbs, "package.json"),
 				npmPackage: "plugin-npm",
 			}];
-			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
-			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage, plugin]));
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true, startedAtMs);
+			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
 			assert.equal(byPackage.get("plugin-gone").removed, true);
 			assert.equal(byPackage.get("plugin-gone").installedVersion, undefined);
 			assert.equal(byPackage.get("plugin-npm").removed, undefined);

@@ -1227,6 +1227,7 @@ export default class Host extends lib.Link {
 			this.pluginInfos,
 			pluginInfo => this.loadedPlugins.has(pluginInfo),
 			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
+			this.startedAtMs,
 		);
 	}
 

@@ -89,16 +89,53 @@ function resolvePackagePath(packageName: string, fromPath: string): string | und
 	}
 }
 
-type NpmPluginPackage = { packageName: string, packageVersion: unknown, packagePath: string };
+type NpmPluginPackage = {
+	packageName: string,
+	packageVersion: unknown,
+	packagePath: string,
+	packageJson: any,
+	/** When package.json was last created or replaced, tar extraction can't set this back */
+	changedAtMs: number,
+};
+
+/**
+ * Read a package.json and when it last changed through one handle. Returns undefined if it's
+ * missing, and if it can't be parsed when tolerant.
+ */
+async function readPackageSnapshot(packagePath: string, tolerant: boolean) {
+	let content;
+	let changedAtMs;
+	try {
+		const handle = await fs.open(path.join(packagePath, "package.json"), "r");
+		try {
+			changedAtMs = (await handle.stat()).ctimeMs;
+			content = await handle.readFile("utf8");
+		} finally {
+			await handle.close();
+		}
+	} catch (err: any) {
+		return undefined;
+	}
+	try {
+		return { packageJson: JSON.parse(content), changedAtMs };
+	} catch (err: any) {
+		if (tolerant) {
+			return undefined;
+		}
+		throw err;
+	}
+}
 
 /**
  * Walk the dependencies of the root package.json and of every plugin package found, without
  * traversing packages that aren't plugins. Does not execute any plugin code.
  *
  * @param dependencies - Dependencies of the root package.json
+ * @param tolerant - Skip packages with a package.json that can't be parsed instead of throwing,
+ *     for use while npm may be rewriting them
  * @returns Plugin packages found, and root dependencies that are not plugins
  */
-async function discoverNpmPluginPackages(dependencies: Record<string, unknown>) {
+async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, tolerant = false) {
 	const plugins: NpmPluginPackage[] = [];
 	const nonPluginRoots: { packageName: string, packageVersion: unknown }[] = [];
 	const pendingPackages = Object.entries(dependencies).map(([packageName, packageVersion]) => ({
@@ -122,12 +159,10 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>) 
 
 		visitedPackages.add(packageName);
 
-		if (await checkPackageJson(packagePath)) {
-			plugins.push({ packageName, packageVersion, packagePath });
-			const packageJson = JSON.parse(
-				await fs.readFile(path.join(packagePath, "package.json"), { encoding: "utf8" })
-			);
-			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
+		const snapshot = await readPackageSnapshot(packagePath, tolerant);
+		if (snapshot && isPluginPackageJson(snapshot.packageJson)) {
+			plugins.push({ packageName, packageVersion, packagePath, ...snapshot });
+			for (const [dependencyName, dependencyVersion] of Object.entries(snapshot.packageJson.dependencies ?? {})) {
 				pendingPackages.push({
 					packageName: dependencyName,
 					packageVersion: dependencyVersion,
@@ -243,10 +278,11 @@ async function checkPackageJson(pluginPath: string): Promise<boolean> {
 	} catch (err: any) {
 		return false;
 	}
-	const packageJson = JSON.parse(content);
+	return isPluginPackageJson(JSON.parse(content));
+}
 
-	// Check if package has the clusterio-plugin keyword
-	return packageJson.keywords?.includes("clusterio-plugin");
+function isPluginPackageJson(packageJson: any): boolean {
+	return Boolean(packageJson?.keywords?.includes?.("clusterio-plugin"));
 }
 
 const corePackages = new Set([
@@ -280,12 +316,15 @@ async function readPackageJson(packageJsonPath: string): Promise<any> {
  * @param pluginInfos - Plugins discovered when this machine started
  * @param isLoaded - Whether the plugin is loaded
  * @param isEnabled - Whether the plugin is enabled
+ * @param startedAtMs - When this machine started, packages present before that were already
+ *     discovered and either loaded or ignored
  * @returns Details of every plugin on this machine
  */
 export async function listPluginDetails(
 	pluginInfos: PluginNodeEnvInfo[],
 	isLoaded: (pluginInfo: PluginNodeEnvInfo) => boolean,
 	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
+	startedAtMs: number,
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
 	// By directory, as a plugin loaded from a path may also be an npm dependency
@@ -305,18 +344,22 @@ export async function listPluginDetails(
 	}
 
 	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
-	const { plugins: npmPlugins } = await discoverNpmPluginPackages(rootPackageJson?.dependencies ?? {});
-	for (const { packageName, packagePath } of npmPlugins) {
+	const { plugins: npmPlugins } = await discoverNpmPluginPackages(rootPackageJson?.dependencies ?? {}, true);
+	for (const { packageName, packagePath, packageJson, changedAtMs } of npmPlugins) {
 		if (knownDirs.has(await realDir(packagePath))) {
 			continue;
 		}
-		const packageJson = await readPackageJson(path.join(packagePath, "package.json"));
-		if (typeof packageJson?.version !== "string") {
-			continue; // Moved or rewritten by an npm operation in progress
+		if (changedAtMs < startedAtMs) {
+			continue; // Ignored on startup, for example because its plugin name was taken, so it won't load
 		}
+		if (typeof packageJson.version !== "string") {
+			continue;
+		}
+		// Same rule as loadPluginInfos, aliases and private packages can't be installed by this name
+		const npmPackage = !packageJson.private && packageJson.name === packageName ? packageName : undefined;
 		plugins.push(new PluginDetails(
 			packageName, packageName, packageJson.version, false, false,
-			packageJson.description, packageName, packageJson.version, true,
+			packageJson.description, npmPackage, packageJson.version, true,
 		));
 	}
 
