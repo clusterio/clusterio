@@ -60,7 +60,7 @@ describe("rce_ops", function() {
 				lockContent = fsSync.readFileSync(lockPath, "utf8");
 			};
 			await lib.installPackage("foo");
-			assert.equal(lockContent, `${process.pid}\n`);
+			assert.equal(lockContent, `${process.pid} ${performance.timeOrigin}\n`);
 			await assert.rejects(fs.access(lockPath));
 		});
 		it("releases the lock when the operation fails", async function() {
@@ -93,9 +93,26 @@ describe("rce_ops", function() {
 			assert.deepEqual((await fs.readdir(".")).filter(name => name.startsWith(`${lockPath}.`)), []);
 		});
 		it("ignores a lock left by an earlier process with the same pid", async function() {
-			await fs.writeFile(lockPath, `${process.pid}\n`);
+			for (const content of [`${process.pid}\n`, `${process.pid} 1234.5\n`]) {
+				await fs.writeFile(lockPath, content);
+				await lib.installPackage("foo");
+				await assert.rejects(fs.access(lockPath));
+			}
+		});
+		it("rejects while another copy of lib in this process holds the lock", async function() {
+			const rceOpsUrl = new URL("../../packages/lib/dist/node/src/rce_ops.js", import.meta.url);
+			const otherCopy = await import(`${rceOpsUrl.href}?copy`);
+			let nested;
+			lib.logger.audit = function() {
+				lib.logger.audit = audit;
+				nested = otherCopy.installPackage("bar");
+			};
 			await lib.installPackage("foo");
-			await assert.rejects(fs.access(lockPath));
+			await assert.rejects(nested, inProgress);
+		});
+		it("names the process holding the lock", async function() {
+			await fs.writeFile(lockPath, `${process.ppid} 1234.5\n`);
+			await assert.rejects(lib.installPackage("foo"), new RegExp(`held by process ${process.ppid}\\)`));
 		});
 		it("respects a lock that is still being written", async function() {
 			await fs.writeFile(lockPath, "");

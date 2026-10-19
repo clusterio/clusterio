@@ -18,6 +18,9 @@ function isDev() {
 const operationInProgressMessage = "Another package operation is already in progress on this machine";
 // A lock file without a valid pid is left alone for this long, as it may still be being written
 const lockWriteGraceMs = 10e3;
+// The start time tells this process apart from an earlier one with the same pid, and is shared by
+// every copy of lib loaded in this process
+const lockContent = `${process.pid} ${performance.timeOrigin}\n`;
 
 type LockSnapshot = { content: string, ino: bigint, mtimeNs: bigint };
 
@@ -46,12 +49,13 @@ function isSameLock(a: LockSnapshot, b: LockSnapshot) {
 
 /** True if the lock names a process that is still running, or may still be written to */
 async function lockIsLive(lock: LockSnapshot) {
-	const pid = Number(lock.content);
+	const pid = Number(lock.content.split(" ")[0]);
 	if (!Number.isInteger(pid) || pid <= 0) {
 		return Date.now() - Number(lock.mtimeNs / 1000000n) < lockWriteGraceMs;
 	}
 	if (pid === process.pid) {
-		return false; // Left by an earlier process with the same pid, this process holds no lock while acquiring
+		// Held by this process, or left by an earlier process with the same pid
+		return lock.content === lockContent;
 	}
 	try {
 		// Signal 0 only checks that the process exists
@@ -69,7 +73,7 @@ async function lockIsLive(lock: LockSnapshot) {
 async function removeStaleLock(lockPath: string, stale: LockSnapshot) {
 	const recoveryPath = `${lockPath}.recovery`;
 	try {
-		await fs.writeFile(recoveryPath, `${process.pid}\n`, { flag: "wx" });
+		await fs.writeFile(recoveryPath, lockContent, { flag: "wx" });
 	} catch (err: any) {
 		if (err.code !== "EEXIST") {
 			throw err;
@@ -97,17 +101,17 @@ async function removeStaleLock(lockPath: string, stale: LockSnapshot) {
  * Locks left behind by processes that are no longer running are cleared.
  */
 async function acquireNpmLock(lockPath: string) {
-	const content = `${process.pid}\n`;
+	let existing;
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
-			await fs.writeFile(lockPath, content, { flag: "wx" });
+			await fs.writeFile(lockPath, lockContent, { flag: "wx" });
 			return;
 		} catch (err: any) {
 			if (err.code !== "EEXIST") {
 				throw err;
 			}
 		}
-		const existing = await readLock(lockPath);
+		existing = await readLock(lockPath);
 		if (existing) {
 			if (await lockIsLive(existing)) {
 				break;
@@ -115,13 +119,16 @@ async function acquireNpmLock(lockPath: string) {
 			await removeStaleLock(lockPath, existing);
 		}
 	}
-	throw new RequestError(operationInProgressMessage);
+	const holder = existing?.content.split(" ")[0].trim();
+	throw new RequestError(
+		`${operationInProgressMessage}${holder ? ` (${lockPath} is held by process ${holder})` : ""}`
+	);
 }
 
 async function releaseNpmLock(lockPath: string) {
 	// Only remove the lock if it is still ours
 	const existing = await fs.readFile(lockPath, "utf8").catch(() => undefined);
-	if (existing === `${process.pid}\n`) {
+	if (existing === lockContent) {
 		await fs.unlink(lockPath).catch(() => {});
 	}
 }
@@ -131,7 +138,8 @@ let operationInProgress = false;
 /**
  * Run an npm command, at most one at a time per installation. npm runs in the working directory,
  * which a standalone controller and host share, so a lock file there guards against operations
- * from other processes, and an in-memory flag guards against concurrent calls in this process.
+ * from other processes and other copies of lib. The flag makes concurrent calls through this copy
+ * reject without racing a release of the lock.
  */
 async function logExec(cmd: string) {
 	// Checked and set before the first await so concurrent calls in this process can't interleave
