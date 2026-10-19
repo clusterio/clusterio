@@ -13,8 +13,9 @@ Turning it on replaces the server's queue with the cluster's, or, if the cluster
 Turning it off clears the server's queue.
 Flipping it prints a chat line on that server.
 It is on by default.
-The first server to turn on with something queued shares its queue as the cluster queue, and servers that turn on after that take the cluster's.
-Whenever the cluster queue is empty (for example, everything in it has finished), the next server that turns on shares its queue again.
+The first server to turn following on with something queued shares its queue as the cluster queue, and servers that turn it on after that take the cluster's.
+A server's first start counts as turning it on; a later restart takes the cluster queue, even an empty one.
+Whenever the cluster queue is empty (for example, everything in it has finished), the next server that turns following on shares its queue again.
 Every change to the cluster queue prints a chat line on every server.
 
 It needs Factorio 2.0.56 or later, older servers ignore the queue.
