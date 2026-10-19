@@ -148,7 +148,8 @@ async function logExec(cmd: string) {
 	}
 	operationInProgress = true;
 	const lockPath = path.resolve("npm-operation.lock");
-	// Only the exit event is used, signal and uncaughtException listeners would change how the process exits
+	// Only the exit event is used, signal and uncaughtException listeners would change how the process exits.
+	// If only this process is killed npm keeps running unlocked. Ctrl+C, systemd and containers stop it too.
 	const removeLockOnExit = () => {
 		try {
 			unlinkSync(lockPath);
