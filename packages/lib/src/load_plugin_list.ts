@@ -94,30 +94,18 @@ type NpmPluginPackage = {
 	packageVersion: unknown,
 	packagePath: string,
 	packageJson: any,
-	/** When package.json was last created or replaced, tar extraction can't set this back */
-	changedAtMs: number,
 };
 
-/**
- * Read a package.json and when it last changed through one handle. Returns undefined if it's
- * missing, and if it can't be parsed when tolerant.
- */
-async function readPackageSnapshot(packagePath: string, tolerant: boolean) {
+/** Read a package.json, returns undefined if it's missing, and if it can't be parsed when tolerant */
+async function readDiscoveredPackageJson(packagePath: string, tolerant: boolean) {
 	let content;
-	let changedAtMs;
 	try {
-		const handle = await fs.open(path.join(packagePath, "package.json"), "r");
-		try {
-			changedAtMs = (await handle.stat()).ctimeMs;
-			content = await handle.readFile("utf8");
-		} finally {
-			await handle.close();
-		}
+		content = await fs.readFile(path.join(packagePath, "package.json"), "utf8");
 	} catch (err: any) {
 		return undefined;
 	}
 	try {
-		return { packageJson: JSON.parse(content), changedAtMs };
+		return JSON.parse(content);
 	} catch (err: any) {
 		if (tolerant) {
 			return undefined;
@@ -159,10 +147,10 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 
 		visitedPackages.add(packageName);
 
-		const snapshot = await readPackageSnapshot(packagePath, tolerant);
-		if (snapshot && isPluginPackageJson(snapshot.packageJson)) {
-			plugins.push({ packageName, packageVersion, packagePath, ...snapshot });
-			for (const [dependencyName, dependencyVersion] of Object.entries(snapshot.packageJson.dependencies ?? {})) {
+		const packageJson = await readDiscoveredPackageJson(packagePath, tolerant);
+		if (packageJson && isPluginPackageJson(packageJson)) {
+			plugins.push({ packageName, packageVersion, packagePath, packageJson });
+			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
 				pendingPackages.push({
 					packageName: dependencyName,
 					packageVersion: dependencyVersion,
@@ -182,9 +170,14 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
  * Adds discovered plugins to the plugin list.
  *
  * @param pluginList - Map of plugin names to their file paths
+ * @param skippedNpmPlugins - Filled with plugin name by package directory for packages skipped
+ *     because their plugin name was already in the list
  * @returns Promise that resolves to true if any plugins were added to the list, false otherwise
  */
-async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean> {
+async function findNpmPlugins(
+	pluginList: Map<string, string>,
+	skippedNpmPlugins?: Map<string, string>,
+): Promise<boolean> {
 	let dependencies;
 	try {
 		const rootPackageJson = JSON.parse(await fs.readFile(path.resolve("package.json"), { encoding: "utf8" }));
@@ -210,6 +203,7 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 				`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
 				`but with a different path - using ${pluginList.get(pluginName)}`
 			);
+			skippedNpmPlugins?.set(await realDir(packagePath), pluginName);
 		} else {
 			pluginList.set(pluginName, packageName);
 			logger.info(`Added ${pluginName} from node modules`);
@@ -229,9 +223,15 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
  *
  * @param pluginListPath - Path to the plugin list JSON file
  * @param findLocal - Whether to look for local plugins in plugins/ and external_plugins/ directories
+ * @param skippedNpmPlugins - Filled with plugin name by package directory for npm packages
+ *     skipped because another plugin has the same name, for listPluginDetails
  * @returns Map of plugin name to plugin path
  */
-export async function loadPluginList(pluginListPath: string, findLocal = true): Promise<Map<string, string>> {
+export async function loadPluginList(
+	pluginListPath: string,
+	findLocal = true,
+	skippedNpmPlugins?: Map<string, string>,
+): Promise<Map<string, string>> {
 	let pluginList = new Map<string, string>();
 
 	// Try to load existing plugin list
@@ -254,7 +254,7 @@ export async function loadPluginList(pluginListPath: string, findLocal = true): 
 	}
 
 	// Discover NPM plugins
-	hasChanges = await findNpmPlugins(pluginList) || hasChanges;
+	hasChanges = await findNpmPlugins(pluginList, skippedNpmPlugins) || hasChanges;
 
 	if (hasChanges) {
 		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
@@ -316,19 +316,19 @@ async function readPackageJson(packageJsonPath: string): Promise<any> {
  * @param pluginInfos - Plugins discovered when this machine started
  * @param isLoaded - Whether the plugin is loaded
  * @param isEnabled - Whether the plugin is enabled
- * @param startedAtMs - When this machine started, packages present before that were already
- *     discovered and either loaded or ignored
+ * @param skippedNpmPlugins - Npm packages skipped on startup, from loadPluginList
  * @returns Details of every plugin on this machine
  */
 export async function listPluginDetails(
 	pluginInfos: PluginNodeEnvInfo[],
 	isLoaded: (pluginInfo: PluginNodeEnvInfo) => boolean,
 	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
-	startedAtMs: number,
+	skippedNpmPlugins: Map<string, string>,
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
 	// By directory, as a plugin loaded from a path may also be an npm dependency
 	const knownDirs = new Set<string>();
+	const presentNames = new Set<string>();
 	for (const pluginInfo of pluginInfos) {
 		knownDirs.add(await realDir(path.dirname(pluginInfo.packagePath)));
 		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo), isEnabled(pluginInfo));
@@ -340,17 +340,22 @@ export async function listPluginDetails(
 				plugin.removed = true;
 			}
 		}
+		if (!plugin.removed) {
+			presentNames.add(plugin.name);
+		}
 		plugins.push(plugin);
 	}
 
 	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
 	const { plugins: npmPlugins } = await discoverNpmPluginPackages(rootPackageJson?.dependencies ?? {}, true);
-	for (const { packageName, packagePath, packageJson, changedAtMs } of npmPlugins) {
-		if (knownDirs.has(await realDir(packagePath))) {
+	for (const { packageName, packagePath, packageJson } of npmPlugins) {
+		const dir = await realDir(packagePath);
+		if (knownDirs.has(dir)) {
 			continue;
 		}
-		if (changedAtMs < startedAtMs) {
-			continue; // Ignored on startup, for example because its plugin name was taken, so it won't load
+		const takenName = skippedNpmPlugins.get(dir);
+		if (takenName !== undefined && presentNames.has(takenName)) {
+			continue; // Skipped on startup as its plugin name is taken, will be again
 		}
 		if (typeof packageJson.version !== "string") {
 			continue;

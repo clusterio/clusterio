@@ -1386,7 +1386,7 @@ export default class ControlConnection extends BaseConnection {
 			this._controller.pluginInfos,
 			pluginInfo => this._controller.loadedPlugins.has(pluginInfo),
 			pluginInfo => this._controller.config.get(`${pluginInfo.name}.load_plugin`),
-			this._controller.startedAtMs,
+			this._controller.skippedNpmPlugins,
 		);
 	}
 

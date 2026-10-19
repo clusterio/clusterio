@@ -324,6 +324,8 @@ export default class Host extends lib.Link {
 	_shuttingDown = false;
 
 	startedAtMs = Date.now();
+	/** Npm plugin packages skipped on startup, see loadPluginList */
+	skippedNpmPlugins = new Map<string, string>();
 
 	static instanceConfigWarning = {
 		"_warning": "Changes to this file will be overwritten by the controller's copy.",
@@ -1227,7 +1229,7 @@ export default class Host extends lib.Link {
 			this.pluginInfos,
 			pluginInfo => this.loadedPlugins.has(pluginInfo),
 			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
-			this.startedAtMs,
+			this.skippedNpmPlugins,
 		);
 	}
 

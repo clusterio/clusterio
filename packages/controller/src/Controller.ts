@@ -109,6 +109,8 @@ export default class Controller {
 	devMiddleware: any | null = null;
 
 	startedAtMs = Date.now();
+	/** Npm plugin packages skipped on startup, see loadPluginList */
+	skippedNpmPlugins = new Map<string, string>();
 	autosaveInterval?: ReturnType<typeof setInterval>;
 	systemMetricsInterval?: ReturnType<typeof setInterval>;
 

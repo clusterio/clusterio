@@ -283,10 +283,8 @@ describe("lib/plugin_loader", function() {
 		const hiddenPluginPath = path.join(nodeModules, "plugin-hidden");
 		const notAPluginPath = path.join(nodeModules, "not-a-plugin");
 		let pluginList;
-		let startedAtMs;
 
 		before(async function() {
-			startedAtMs = Date.now() - 1000; // File timestamps can lag Date.now() slightly
 			// Setup test plugins
 			async function writePlugin(
 				pluginPath,
@@ -401,7 +399,7 @@ describe("lib/plugin_loader", function() {
 				packagePath: path.join(npmPluginPathAbs, "package.json"),
 				npmPackage: "plugin-npm",
 			}];
-			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true, startedAtMs);
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true, new Map());
 			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
 
 			const loaded = byPackage.get("plugin-npm");
@@ -438,7 +436,7 @@ describe("lib/plugin_loader", function() {
 					version: "0.0.1",
 					requirePath: externalPluginPathAbs,
 					packagePath: path.join(externalPluginPathAbs, "package.json"),
-				}], () => true, () => true, startedAtMs);
+				}], () => true, () => true, new Map());
 				assert.deepEqual(plugins.map(plugin => plugin.name), ["external"]);
 			} finally {
 				await fs.writeFile("package.json", rootPackageJson);
@@ -446,9 +444,46 @@ describe("lib/plugin_loader", function() {
 			}
 		});
 
-		it("should not list packages that were present on startup as pending", async function() {
-			const plugins = await lib.listPluginDetails([], () => true, () => true, Date.now() + 60e3);
-			assert.deepEqual(plugins, []);
+		it("should record npm plugins skipped because their name is taken", async function() {
+			await fs.writeFile(pluginListPath, JSON.stringify([["npm", localPluginPathAbs]]));
+			const skipped = new Map();
+			const list = await lib.loadPluginList(pluginListPath, false, skipped);
+			assert.equal(list.get("npm"), localPluginPathAbs);
+			assert.deepEqual([...skipped], [[await fs.realpath(npmPluginPathAbs), "npm"]]);
+		});
+
+		it("should not list npm plugins skipped on startup as pending while their name is taken", async function() {
+			const skipped = new Map([[await fs.realpath(npmPluginPathAbs), "npm"]]);
+			const local = {
+				name: "npm",
+				title: "Local",
+				version: "0.0.1",
+				requirePath: localPluginPathAbs,
+				packagePath: path.join(localPluginPathAbs, "package.json"),
+			};
+			let plugins = await lib.listPluginDetails([local], () => true, () => true, skipped);
+			assert.equal(plugins.some(plugin => plugin.name === "plugin-npm"), false);
+
+			// Loaded on the next restart once the plugin with that name is gone
+			const gone = { ...local, packagePath: path.resolve("plugins", "gone", "package.json") };
+			plugins = await lib.listPluginDetails([gone], () => true, () => true, skipped);
+			assert.equal(plugins.find(plugin => plugin.name === "plugin-npm").pendingInstall, true);
+		});
+
+		it("should list a dependency made direct since startup as pending", async function() {
+			// npm leaves the hoisted package untouched when it becomes a direct dependency
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			try {
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-hidden"] = "^0.0.1";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				const plugins = await lib.listPluginDetails([], () => true, () => true, new Map());
+				const hidden = plugins.find(plugin => plugin.name === "plugin-hidden");
+				assert.equal(hidden.pendingInstall, true);
+				assert.equal(hidden.npmPackage, "plugin-hidden");
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+			}
 		});
 
 		it("should not list private packages as installable from npm", async function() {
@@ -456,7 +491,7 @@ describe("lib/plugin_loader", function() {
 			const original = await fs.readFile(packageJsonPath, "utf8");
 			try {
 				await fs.writeFile(packageJsonPath, JSON.stringify({ ...JSON.parse(original), private: true }));
-				const plugins = await lib.listPluginDetails([], () => true, () => true, startedAtMs);
+				const plugins = await lib.listPluginDetails([], () => true, () => true, new Map());
 				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
 				assert.equal(deep.pendingInstall, true);
 				assert.equal(deep.npmPackage, undefined);
@@ -470,7 +505,7 @@ describe("lib/plugin_loader", function() {
 			const original = await fs.readFile(packageJsonPath, "utf8");
 			try {
 				await fs.writeFile(packageJsonPath, original.slice(0, 20));
-				const plugins = await lib.listPluginDetails([], () => true, () => true, startedAtMs);
+				const plugins = await lib.listPluginDetails([], () => true, () => true, new Map());
 				assert.equal(plugins.some(plugin => plugin.name === "plugin-deep"), false);
 				assert.ok(plugins.some(plugin => plugin.name === "plugin-aliased"));
 			} finally {
@@ -494,7 +529,7 @@ describe("lib/plugin_loader", function() {
 				packagePath: path.join(npmPluginPathAbs, "package.json"),
 				npmPackage: "plugin-npm",
 			}];
-			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true, startedAtMs);
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true, new Map());
 			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
 			assert.equal(byPackage.get("plugin-gone").removed, true);
 			assert.equal(byPackage.get("plugin-gone").installedVersion, undefined);

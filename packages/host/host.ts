@@ -164,7 +164,8 @@ async function startHost() {
 	}
 
 	logger.info(`Loading available plugins from ${args.pluginList}`);
-	let pluginList = await lib.loadPluginList(args.pluginList);
+	const skippedNpmPlugins = new Map<string, string>();
+	let pluginList = await lib.loadPluginList(args.pluginList, true, skippedNpmPlugins);
 
 	// If the command is plugin management we don't try to load plugins
 	if (command === "plugin") {
@@ -241,6 +242,7 @@ async function startHost() {
 		Boolean(args.recovery),
 		...await Host.bootstrap(hostConfig)
 	);
+	host.skippedNpmPlugins = skippedNpmPlugins;
 
 	// Handle interrupts
 	process.on("SIGINT", lib.createShutdownGuard(logger, "interrupt", host.shutdown.bind(host)));
