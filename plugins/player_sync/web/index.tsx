@@ -1,5 +1,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Alert, Button, Descriptions, Drawer, Popconfirm, Space, Table, Typography, Upload } from "antd";
+import { Alert, Button, Descriptions, Drawer, Input, Popconfirm, Space, Table, Typography, Upload } from "antd";
+import type { ColumnType } from "antd/es/table";
+import { DeleteOutlined, SearchOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 import {
@@ -28,89 +30,134 @@ function useInstanceName() {
 	};
 }
 
+function titleCase(text: string) {
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+// Factorio reads colors back as 0-1 floats but accepts 0-255 as well
+function formatColor(color: any) {
+	let [r, g, b] = Array.isArray(color) ? color : [color.r, color.g, color.b];
+	let scale = Math.max(r, g, b) > 1 ? 1 : 255;
+	let hex = (c: number) => Math.min(255, Math.max(0, Math.round(c * scale))).toString(16).padStart(2, "0");
+	return `#${hex(r)}${hex(g)}${hex(b)}`;
+}
+
+// Filters the table locally, the inventory tables are not kept in the URL
+function itemSearch<T>(getText: (record: T) => string): ColumnType<T> {
+	return {
+		filterIcon: (filtered: boolean) => <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />,
+		filterDropdown: ({ selectedKeys, setSelectedKeys, confirm }) => (
+			<div style={{ padding: 8, width: 240 }} onKeyDown={e => e.stopPropagation()}>
+				<Input.Search
+					placeholder="Search"
+					value={selectedKeys[0] as string | undefined}
+					allowClear
+					onChange={e => {
+						setSelectedKeys(e.target.value ? [e.target.value] : []);
+						confirm({ closeDropdown: false });
+					}}
+					onPressEnter={() => confirm()}
+				/>
+			</div>
+		),
+		onFilter: (value, record) => getText(record).toLowerCase().includes(String(value).toLowerCase()),
+	};
+}
+
 function InventoryTable(props: { name: string, items: ItemSummary[] }) {
 	const modPack = useDefaultModPack();
 	const locale = useExportLocale(modPack);
 	const prototypes = useExportPrototypeMetadata(modPack);
 	const itemMetadata = prototypes?.get("item");
+	const qualityMetadata = prototypes?.get("quality");
+	// The export lists qualities in the order mods define them, normal is left out of the stored data
+	const qualityOrder = [...qualityMetadata?.keys() ?? []];
+	const qualityRank = (quality?: string) => (quality === undefined ? -1 : qualityOrder.indexOf(quality));
 
-	function getLocaleName(itemName: string) {
-		let meta = itemMetadata?.get(itemName);
+	function getLocaleName(type: "item" | "quality", name: string) {
+		let meta = (type === "item" ? itemMetadata : qualityMetadata)?.get(name);
 		if (typeof meta?.localised_name === "string") {
 			return meta.localised_name;
 		}
 		if (meta?.localised_name) {
-			return locale.get(meta.localised_name[0]) ?? itemName;
+			return locale.get(meta.localised_name[0]) ?? name;
 		}
-		return locale.get(`item-name.${itemName}`) ?? locale.get(`entity-name.${itemName}`) ?? itemName;
+		if (type === "quality") {
+			return locale.get(`quality-name.${name}`) ?? name;
+		}
+		return locale.get(`item-name.${name}`) ?? locale.get(`entity-name.${name}`) ?? name;
 	}
+	const itemText = (item: ItemSummary) => (
+		item.exportSize !== undefined ? item.name : `${getLocaleName("item", item.name)} ${item.name}`
+	);
 
-	return <Table
+	return <Table<ItemSummary>
 		size="small"
-		title={() => props.name}
+		title={() => titleCase(props.name)}
 		columns={[
 			{
 				title: "Item",
 				key: "item",
+				...itemSearch(itemText),
+				sorter: (a, b) => strcmp(itemText(a), itemText(b)),
 				render: (_, item) => (item.exportSize !== undefined
 					? <Typography.Text type="secondary">{item.name}</Typography.Text>
-					: <>
+					: <Space size="small">
 						<FactorioIcon modPackId={modPack?.id} prototype={itemMetadata?.get(item.name)} />
-						{getLocaleName(item.name)}
-					</>
+						{getLocaleName("item", item.name)}
+					</Space>
 				),
 			},
 			{
 				title: "Quality",
 				key: "quality",
-				render: (_, item) => item.quality,
+				sorter: (a, b) => qualityRank(a.quality) - qualityRank(b.quality),
+				render: (_, item) => item.quality !== undefined && <Space size="small">
+					<FactorioIcon modPackId={modPack?.id} prototype={qualityMetadata?.get(item.quality)} />
+					{getLocaleName("quality", item.quality)}
+				</Space>,
 			},
 			{
 				title: "Count",
 				key: "count",
 				align: "right",
+				sorter: (a, b) => a.count - b.count,
 				render: (_, item) => item.count,
 			},
 			{
 				title: "Size",
 				key: "size",
 				align: "right",
+				sorter: (a, b) => (a.exportSize ?? -1) - (b.exportSize ?? -1),
 				render: (_, item) => (item.exportSize === undefined ? "" : lib.formatBytes(item.exportSize)),
 			},
 		]}
 		dataSource={props.items.map((item, key) => ({ ...item, key }))}
-		pagination={false}
+		pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false }}
 	/>;
 }
 
-function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChange: () => void }) {
-	return <Drawer
-		title={props.playerName}
-		open={props.playerName !== undefined}
-		onClose={props.onClose}
-		size="large"
-	>
-		{/* Keyed so a request that finishes after switching players can only update the old player's view */}
-		{props.playerName !== undefined
-			&& <PlayerDetails key={props.playerName} playerName={props.playerName} onChange={props.onChange} />}
-	</Drawer>;
-}
-
-function PlayerDetails(props: { playerName: string, onChange: () => void }) {
+function usePlayerData(playerName?: string) {
 	const control = useContext(ControlContext);
-	const account = useAccount();
-	const instanceName = useInstanceName();
-	const [response, setResponse] = useState<GetPlayerDataResponse>();
-	const { playerName } = props;
+	const [loaded, setLoaded] = useState<{ playerName: string, response: GetPlayerDataResponse }>();
 	// Only the latest request may set the response, an import or delete can finish after a reload
 	const requestId = useRef(0);
+	const currentPlayer = useRef(playerName);
+	currentPlayer.current = playerName;
 
 	const reload = useCallback(() => {
+		// Ignore reloads from actions that finish after switching to another player
+		if (playerName !== currentPlayer.current) {
+			return;
+		}
 		requestId.current += 1;
 		let id = requestId.current;
-		control.send(new GetPlayerDataRequest(playerName)).then(result => {
+		if (playerName === undefined) {
+			return;
+		}
+		control.send(new GetPlayerDataRequest(playerName)).then(response => {
 			if (id === requestId.current) {
-				setResponse(result);
+				setLoaded({ playerName, response });
 			}
 		}).catch(
 			notifyErrorHandler("Error loading player data")
@@ -118,10 +165,36 @@ function PlayerDetails(props: { playerName: string, onChange: () => void }) {
 	}, [control, playerName]);
 	useEffect(reload, [reload]);
 
+	return [loaded?.playerName === playerName ? loaded?.response : undefined, reload] as const;
+}
+
+type PlayerProps = { playerName: string, response: GetPlayerDataResponse, onChange: () => void };
+
+function PlayerDrawer(props: { playerName?: string, onClose: () => void, onChange: () => void }) {
+	const { playerName } = props;
+	const [response, reload] = usePlayerData(playerName);
+
 	function changed() {
 		reload();
 		props.onChange();
 	}
+
+	const loaded = response && playerName !== undefined;
+	return <Drawer
+		title={playerName}
+		open={playerName !== undefined}
+		onClose={props.onClose}
+		size="large"
+		extra={loaded && <PlayerActions playerName={playerName} response={response} onChange={changed} />}
+	>
+		{loaded && <PlayerDetails playerName={playerName} response={response} onChange={changed} />}
+	</Drawer>;
+}
+
+function PlayerActions(props: PlayerProps) {
+	const control = useContext(ControlContext);
+	const account = useAccount();
+	const { playerName, response } = props;
 
 	async function upload(file: File) {
 		let playerData: IpcPlayerData;
@@ -135,11 +208,11 @@ function PlayerDetails(props: { playerName: string, onChange: () => void }) {
 		playerData.generation ??= 0;
 		let result = await control.send(new SetPlayerDataRequest(playerName, playerData));
 		notify(`Stored player data for ${playerName} as generation ${result.generation}`);
-		changed();
+		props.onChange();
 	}
 
 	function download() {
-		let json = JSON.stringify(response!.playerData, null, "\t");
+		let json = JSON.stringify(response.playerData, null, "\t");
 		let url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
 		let link = document.createElement("a");
 		link.href = url;
@@ -149,67 +222,89 @@ function PlayerDetails(props: { playerName: string, onChange: () => void }) {
 	}
 
 	const canModify = account.hasPermission("player_sync.inventory.modify");
-	const playerData = response?.playerData;
-	const acquiredBy = response?.instanceId !== undefined ? instanceName(response.instanceId) : undefined;
-	return <>
-		{response && <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-			{acquiredBy !== undefined && <Alert
-				type="info"
-				showIcon
-				message={`Acquired by ${acquiredBy}`}
-				description={
-					"The instance uploads its copy of the player data when the player leaves. Have the player " +
-					"leave before modifying it, or release the lock if the instance is stuck holding it."
-				}
-				action={canModify && <Popconfirm
-					title="Release the lock on this player?"
-					onConfirm={() => control.send(new ForceReleaseRequest(playerName)).then(changed).catch(
-						notifyErrorHandler("Error releasing lock")
-					)}
-				>
-					<Button>Release</Button>
-				</Popconfirm>}
-			/>}
-			<Descriptions bordered size="small" column={2}>
-				<Descriptions.Item label="Generation">{playerData?.generation ?? "-"}</Descriptions.Item>
-				<Descriptions.Item label="Size">
-					{playerData ? lib.formatBytes(JSON.stringify(playerData).length) : "-"}
-				</Descriptions.Item>
-				<Descriptions.Item label="Controller">{playerData?.controller ?? "-"}</Descriptions.Item>
-				<Descriptions.Item label="Force">{playerData?.force ?? "-"}</Descriptions.Item>
-			</Descriptions>
-			<Space wrap>
-				<Button disabled={!playerData} onClick={download}>Export JSON</Button>
-				{canModify && <Upload
-					accept=".json,application/json"
-					showUploadList={false}
-					beforeUpload={file => {
-						upload(file).catch(notifyErrorHandler("Error storing player data"));
-						return false;
-					}}
-				>
-					<Button>Import JSON</Button>
-				</Upload>}
-				{canModify && <Popconfirm
-					title="Delete the stored player data?"
-					description={
-						"The next join creates a new synced inventory from whatever the player has on that instance."
-					}
-					okText="Delete"
-					okButtonProps={{ danger: true }}
-					onConfirm={() => control.send(new DeletePlayerDataRequest(playerName)).then(changed).catch(
-						notifyErrorHandler("Error deleting player data")
-					)}
-				>
-					<Button danger disabled={!playerData}>Delete</Button>
-				</Popconfirm>}
-			</Space>
-			{!playerData && <Typography.Text type="secondary">No player data stored</Typography.Text>}
-			{playerData && summarizePlayerInventories(playerData).map(
-				inventory => <InventoryTable key={inventory.name} {...inventory} />
+	const acquired = response.instanceId !== undefined;
+	return <Space>
+		<Button disabled={!response.playerData} onClick={download}>Export</Button>
+		{canModify && <Upload
+			accept=".json,application/json"
+			showUploadList={false}
+			disabled={acquired}
+			beforeUpload={file => {
+				upload(file).catch(notifyErrorHandler("Error storing player data"));
+				return false;
+			}}
+		>
+			<Button disabled={acquired}>Import</Button>
+		</Upload>}
+		{canModify && <Popconfirm
+			title="Delete the stored player data?"
+			description={
+				"The next join creates a new synced inventory from whatever the player has on that instance."
+			}
+			okText="Delete"
+			okButtonProps={{ danger: true }}
+			onConfirm={() => control.send(new DeletePlayerDataRequest(playerName)).then(props.onChange).catch(
+				notifyErrorHandler("Error deleting player data")
 			)}
-		</Space>}
-	</>;
+		>
+			<Button danger title="Delete" icon={<DeleteOutlined />} disabled={!response.playerData || acquired} />
+		</Popconfirm>}
+	</Space>;
+}
+
+function PlayerDetails(props: PlayerProps) {
+	const control = useContext(ControlContext);
+	const account = useAccount();
+	const instanceName = useInstanceName();
+	const { playerName, response } = props;
+	const playerData = response.playerData;
+	const canModify = account.hasPermission("player_sync.inventory.modify");
+	const color = playerData?.color ? formatColor(playerData.color) : undefined;
+	let cheatMode = "-";
+	if (playerData?.cheat_mode !== undefined) {
+		cheatMode = playerData.cheat_mode ? "Yes" : "No";
+	}
+
+	return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+		{response.instanceId !== undefined && <Alert
+			type="info"
+			showIcon
+			message={`Acquired by ${instanceName(response.instanceId)}`}
+			description={<>
+				This is not a live view. The stored data goes out of date while the instance holds the player, and
+				is replaced when the player leaves and the instance uploads its copy.
+				{canModify && " Importing and deleting are disabled until then. Release the lock if the instance " +
+					"is stuck holding it."}
+			</>}
+			action={canModify && <Popconfirm
+				title="Release the lock on this player?"
+				onConfirm={() => control.send(new ForceReleaseRequest(playerName)).then(props.onChange).catch(
+					notifyErrorHandler("Error releasing lock")
+				)}
+			>
+				<Button danger>Release</Button>
+			</Popconfirm>}
+		/>}
+		<Descriptions bordered size="small" column={2}>
+			<Descriptions.Item label="Generation">{playerData?.generation ?? "-"}</Descriptions.Item>
+			<Descriptions.Item label="Size">
+				{playerData ? lib.formatBytes(JSON.stringify(playerData).length) : "-"}
+			</Descriptions.Item>
+			<Descriptions.Item label="Controller">{playerData?.controller ?? "-"}</Descriptions.Item>
+			<Descriptions.Item label="Force">{playerData?.force ?? "-"}</Descriptions.Item>
+			<Descriptions.Item label="Color">
+				{color ? <Space size="small">
+					<span className="player-sync-color" style={{ background: color }} />
+					{color}
+				</Space> : "-"}
+			</Descriptions.Item>
+			<Descriptions.Item label="Cheat mode">{cheatMode}</Descriptions.Item>
+		</Descriptions>
+		{!playerData && <Typography.Text type="secondary">No player data stored</Typography.Text>}
+		{playerData && summarizePlayerInventories(playerData).map(
+			inventory => <InventoryTable key={inventory.name} {...inventory} />
+		)}
+	</Space>;
 }
 
 function InventoryPage() {
@@ -223,6 +318,7 @@ function InventoryPage() {
 		namespace: "inventory", defaultSortKey: "name", pagination: { defaultPageSize: 50 },
 	});
 	const nameSearch = useColumnSearch<PlayerEntry>(tableState, "name", player => player.name, "Search");
+	const forces = [...new Set(players.flatMap(player => (player.force === undefined ? [] : [player.force])))];
 
 	const reload = useCallback(() => {
 		control.send(new DatabaseStatsRequest()).then(setStatsData).catch(
@@ -236,11 +332,10 @@ function InventoryPage() {
 
 	return <PageLayout nav={[{ name: "Player sync" }]}>
 		<PageHeader title="Player sync" />
-		{statsData && <>
-			<p>Database size: {lib.formatBytes(statsData.databaseSize)}</p>
-			<p>Database entries: {statsData.databaseEntries}</p>
-			<p>Largest entry is {statsData.largestEntry.name} with {lib.formatBytes(statsData.largestEntry.size)}</p>
-		</>}
+		{statsData && <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+			<Descriptions.Item label="Database size">{lib.formatBytes(statsData.databaseSize)}</Descriptions.Item>
+			<Descriptions.Item label="Database entries">{statsData.databaseEntries}</Descriptions.Item>
+		</Descriptions>}
 		<Table
 			columns={[
 				{
@@ -253,12 +348,15 @@ function InventoryPage() {
 					sortOrder: tableState.sortOrder("name"),
 				},
 				{
-					title: "Generation",
-					key: "generation",
-					align: "right",
-					sorter: (a, b) => (a.generation ?? -1) - (b.generation ?? -1),
-					sortOrder: tableState.sortOrder("generation"),
-					render: (_, player) => player.generation ?? "-",
+					title: "Force",
+					key: "force",
+					filters: forces.sort(strcmp).map(force => ({ text: force, value: force })),
+					filterMultiple: true,
+					filteredValue: tableState.filteredValue("force"),
+					onFilter: (value, player) => player.force === value,
+					sorter: (a, b) => strcmp(a.force ?? "", b.force ?? ""),
+					sortOrder: tableState.sortOrder("force"),
+					render: (_, player) => player.force ?? "-",
 				},
 				{
 					title: "Size",

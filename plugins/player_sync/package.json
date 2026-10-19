@@ -51,6 +51,7 @@
 		"@sinclair/typebox": "catalog:"
 	},
 	"devDependencies": {
+		"@ant-design/icons": "^5.6.1",
 		"@clusterio/controller": "workspace:^",
 		"@clusterio/ctl": "workspace:^",
 		"@clusterio/host": "workspace:^",

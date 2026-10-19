@@ -26,6 +26,7 @@ describe("player_sync plugin", function() {
 				[undefined, 0, 4], // generation
 				[undefined, 0, 1234], // size
 				[undefined, 1], // instanceId
+				[undefined, "player"], // force
 			));
 		});
 		it("GetPlayerDataResponse should be round trip json serialisable", function() {

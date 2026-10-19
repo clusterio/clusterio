@@ -359,6 +359,7 @@ export class PlayerEntry {
 		public generation?: number,
 		public size?: number,
 		public instanceId?: number,
+		public force?: string,
 	) {
 	}
 
@@ -367,10 +368,11 @@ export class PlayerEntry {
 		"generation": Type.Optional(Type.Integer()),
 		"size": Type.Optional(Type.Integer()),
 		"instanceId": Type.Optional(Type.Integer()),
+		"force": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof PlayerEntry.jsonSchema>): PlayerEntry {
-		return new this(json.name, json.generation, json.size, json.instanceId);
+		return new this(json.name, json.generation, json.size, json.instanceId, json.force);
 	}
 }
 

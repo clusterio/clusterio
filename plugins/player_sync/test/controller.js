@@ -147,7 +147,7 @@ describe("player_sync controller", function() {
 				entries.sort((a, b) => a.name.localeCompare(b.name));
 				assert.deepEqual(entries, [
 					new msg.PlayerEntry("online", undefined, undefined, 1),
-					new msg.PlayerEntry("stored", 3, JSON.stringify(playerData("stored", 3)).length, 1),
+					new msg.PlayerEntry("stored", 3, JSON.stringify(playerData("stored", 3)).length, 1, "player"),
 				]);
 			});
 		});

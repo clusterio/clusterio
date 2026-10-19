@@ -266,7 +266,8 @@ export default async function(context: ControllerPluginContext) {
 	controller.handle(msg.ListPlayersRequest, async () => {
 		let entries = new Map<string, msg.PlayerEntry>();
 		for (let [name, playerData] of playerDatastore) {
-			entries.set(name, new msg.PlayerEntry(name, playerData.generation, JSON.stringify(playerData).length));
+			let size = JSON.stringify(playerData).length;
+			entries.set(name, new msg.PlayerEntry(name, playerData.generation, size, undefined, playerData.force));
 		}
 		for (let name of acquiredPlayers.keys()) {
 			let acquisitionRecord = getAcquisition(name);
