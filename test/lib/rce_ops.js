@@ -23,9 +23,13 @@ describe("rce_ops", function() {
 		const lockPath = "npm-operation.lock";
 		const inProgress = /Another package operation is already in progress/;
 		const audit = lib.logger.audit;
+		const recoveryPath = `${lockPath}.recovery`;
+		const writeFile = fs.writeFile;
 		afterEach(async function() {
 			lib.logger.audit = audit;
+			fs.writeFile = writeFile;
 			await fs.rm(lockPath, { force: true });
+			await fs.rm(recoveryPath, { force: true });
 		});
 
 		it("rejects while another operation is in progress", async function() {
@@ -96,6 +100,51 @@ describe("rce_ops", function() {
 		it("respects a lock that is still being written", async function() {
 			await fs.writeFile(lockPath, "");
 			await assert.rejects(lib.installPackage("foo"), inProgress);
+		});
+		// Runs takeOver right before this process starts clearing the stale lock, as another process could
+		function beforeRecovery(takeOver) {
+			fs.writeFile = async function(...args) {
+				if (String(args[0]).endsWith(recoveryPath)) {
+					fs.writeFile = writeFile;
+					await takeOver();
+				}
+				return writeFile(...args);
+			};
+		}
+		it("leaves a lock taken after the stale check in place", async function() {
+			await fs.writeFile(lockPath, "999999999\n");
+			beforeRecovery(async () => {
+				await fs.rm(lockPath);
+				await fs.writeFile(lockPath, `${process.ppid}\n`);
+			});
+			await assert.rejects(lib.installPackage("foo"), inProgress);
+			assert.equal(await fs.readFile(lockPath, "utf8"), `${process.ppid}\n`);
+			await assert.rejects(fs.access(recoveryPath));
+		});
+		it("leaves a new empty lock in place of an old empty lock", async function() {
+			await fs.writeFile(lockPath, "");
+			const old = new Date(Date.now() - 60e3);
+			await fs.utimes(lockPath, old, old);
+			// Another process clears it and creates a new lock that it hasn't written its pid to yet
+			beforeRecovery(async () => {
+				await fs.rm(lockPath);
+				await fs.writeFile(lockPath, "");
+			});
+			await assert.rejects(lib.installPackage("foo"), inProgress);
+			assert.equal(await fs.readFile(lockPath, "utf8"), "");
+			assert((await fs.stat(lockPath)).mtimeMs > old.getTime() + 30e3);
+		});
+		it("leaves a stale lock alone while another process clears it", async function() {
+			await fs.writeFile(lockPath, "999999999\n");
+			await fs.writeFile(recoveryPath, `${process.ppid}\n`);
+			await assert.rejects(lib.installPackage("foo"), inProgress);
+			assert.equal(await fs.readFile(lockPath, "utf8"), "999999999\n");
+			assert.equal(await fs.readFile(recoveryPath, "utf8"), `${process.ppid}\n`);
+		});
+		it("reports an interrupted recovery", async function() {
+			await fs.writeFile(lockPath, "999999999\n");
+			await fs.writeFile(recoveryPath, "999999999\n");
+			await assert.rejects(lib.installPackage("foo"), /remove .*npm-operation\.lock\.recovery/);
 		});
 		it("ignores an unreadable lock that is old", async function() {
 			await fs.writeFile(lockPath, "");

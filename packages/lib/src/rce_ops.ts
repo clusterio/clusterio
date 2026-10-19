@@ -19,12 +19,36 @@ const operationInProgressMessage = "Another package operation is already in prog
 // A lock file without a valid pid is left alone for this long, as it may still be being written
 const lockWriteGraceMs = 10e3;
 
-/** True if the lock file content names a process that is still running, or may still be written to */
-async function lockIsLive(lockPath: string, content: string) {
-	const pid = Number(content);
+type LockSnapshot = { content: string, ino: bigint, mtimeNs: bigint };
+
+/** Content and identity of a lock file, read through one handle so both belong to the same file */
+async function readLock(lockPath: string): Promise<LockSnapshot | undefined> {
+	let handle;
+	try {
+		handle = await fs.open(lockPath, "r");
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			return undefined;
+		}
+		throw err;
+	}
+	try {
+		const stat = await handle.stat({ bigint: true });
+		return { content: await handle.readFile("utf8"), ino: stat.ino, mtimeNs: stat.mtimeNs };
+	} finally {
+		await handle.close();
+	}
+}
+
+function isSameLock(a: LockSnapshot, b: LockSnapshot) {
+	return a.content === b.content && a.ino === b.ino && a.mtimeNs === b.mtimeNs;
+}
+
+/** True if the lock names a process that is still running, or may still be written to */
+async function lockIsLive(lock: LockSnapshot) {
+	const pid = Number(lock.content);
 	if (!Number.isInteger(pid) || pid <= 0) {
-		const stat = await fs.stat(lockPath).catch(() => undefined);
-		return stat !== undefined && Date.now() - stat.mtimeMs < lockWriteGraceMs;
+		return Date.now() - Number(lock.mtimeNs / 1000000n) < lockWriteGraceMs;
 	}
 	if (pid === process.pid) {
 		return false; // Left by an earlier process with the same pid, this process holds no lock while acquiring
@@ -39,26 +63,32 @@ async function lockIsLive(lockPath: string, content: string) {
 }
 
 /**
- * Remove a stale lock file with the given content. The lock is moved aside before it is deleted
- * so that two processes clearing the same stale lock can't delete a lock the other just took.
+ * Remove a stale lock file if it is still the same file. Clearing is done while holding a separate
+ * recovery lock, so a lock another process took after the stale check is never removed.
  */
-async function removeStaleLock(lockPath: string, staleContent: string) {
-	const asidePath = `${lockPath}.${process.pid}.stale`;
+async function removeStaleLock(lockPath: string, stale: LockSnapshot) {
+	const recoveryPath = `${lockPath}.recovery`;
 	try {
-		await fs.rename(lockPath, asidePath);
+		await fs.writeFile(recoveryPath, `${process.pid}\n`, { flag: "wx" });
 	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			return; // Already cleared by another process
+		if (err.code !== "EEXIST") {
+			throw err;
 		}
-		throw err;
+		const holder = await readLock(recoveryPath);
+		if (holder && !await lockIsLive(holder)) {
+			throw new RequestError(
+				`Package operation lock recovery was interrupted, remove ${recoveryPath} to allow package operations`
+			);
+		}
+		return; // Another process is clearing it
 	}
 	try {
-		if (await fs.readFile(asidePath, "utf8") !== staleContent) {
-			// Moved a lock another process took after the stale check, put it back without overwriting
-			await fs.link(asidePath, lockPath).catch(() => {});
+		const current = await readLock(lockPath);
+		if (current && isSameLock(current, stale)) {
+			await fs.unlink(lockPath);
 		}
 	} finally {
-		await fs.unlink(asidePath).catch(() => {});
+		await fs.unlink(recoveryPath).catch(() => {});
 	}
 }
 
@@ -77,9 +107,9 @@ async function acquireNpmLock(lockPath: string) {
 				throw err;
 			}
 		}
-		const existing = await fs.readFile(lockPath, "utf8").catch(() => undefined);
-		if (existing !== undefined) {
-			if (await lockIsLive(lockPath, existing)) {
+		const existing = await readLock(lockPath);
+		if (existing) {
+			if (await lockIsLive(existing)) {
 				break;
 			}
 			await removeStaleLock(lockPath, existing);
