@@ -218,6 +218,7 @@ async function checkRegistry(name: string, version?: string) {
 	const registryPath = version !== undefined ? `${packageName}/${encodeURIComponent(version)}` : packageName;
 	const npmRequest = await fetch(`https://registry.npmjs.com/${registryPath}`, {
 		method: "HEAD",
+		signal: AbortSignal.timeout(registryTimeoutMs),
 	});
 	if (!npmRequest.ok) {
 		throw new RequestError(`Unknown plugin: ${spec}`);
@@ -245,42 +246,73 @@ export async function handlePluginInstall(pluginName: string) {
 	return name;
 }
 
+const registryTimeoutMs = 10e3;
 const latestVersionCacheMs = 5 * 60e3;
-const latestVersionCache = new Map<string, { version?: string, fetchedAt: number }>();
+const latestVersionCacheMaxSize = 1000;
+const latestVersionConcurrency = 8;
+
+/** Latest version of each package by name, as found on npm, with when it was looked up */
+export type LatestVersionCache = Map<string, { version?: string, fetchedAt: number }>;
 
 /**
  * Look up the latest published version of each package on npm, packages that can't be
- * found are left out. Results are cached for a few minutes.
+ * found are left out. Lookups are kept in the given cache for a few minutes.
  */
-export async function fetchLatestVersions(packages: string[]) {
+export async function fetchLatestVersions(packages: string[], cache: LatestVersionCache) {
 	if (packages.length > 500) {
 		throw new RequestError("Too many packages");
 	}
-	const now = Date.now();
-	const versions: Record<string, string> = {};
-	await Promise.all(packages.map(async packageName => {
+	const names = [...new Set(packages.map(packageName => {
 		const { name, version: pinned } = parsePackageSpec(packageName);
 		if (pinned !== undefined) {
 			throw new RequestError(`Invalid plugin name: ${packageName}`);
 		}
-		let cached = latestVersionCache.get(name);
-		if (!cached || now - cached.fetchedAt > latestVersionCacheMs) {
-			let version: string | undefined;
+		return name;
+	}))];
+
+	const now = Date.now();
+	for (const [name, cached] of cache) {
+		if (now - cached.fetchedAt > latestVersionCacheMs) {
+			cache.delete(name);
+		}
+	}
+
+	const versions: Record<string, string> = {};
+	const queue = [...names];
+	async function lookUp(name: string) {
+		let cached = cache.get(name);
+		if (!cached) {
+			let response;
 			try {
-				const response = await fetch(`https://registry.npmjs.com/${encodeURI(name)}/latest`);
-				if (response.ok) {
-					version = (await response.json() as { version?: string }).version;
-				}
+				response = await fetch(`https://registry.npmjs.com/${name}/latest`, {
+					signal: AbortSignal.timeout(registryTimeoutMs),
+				});
 			} catch (err: any) {
-				// Left out until the registry can be reached again
 				logger.warn(`Failed to look up latest version of ${name}: ${err.message}`);
 				return;
 			}
+			if (!response.ok && response.status !== 404) {
+				// Rate limits and outages are retried on the next lookup instead of cached
+				logger.warn(`Failed to look up latest version of ${name}: ${response.status}`);
+				return;
+			}
+			const version = response.ok ? (await response.json() as { version?: string }).version : undefined;
 			cached = { version, fetchedAt: now };
-			latestVersionCache.set(name, cached);
+			for (const oldest of cache.keys()) {
+				if (cache.size < latestVersionCacheMaxSize) {
+					break;
+				}
+				cache.delete(oldest);
+			}
+			cache.set(name, cached);
 		}
 		if (cached.version) {
 			versions[name] = cached.version;
+		}
+	}
+	await Promise.all(Array.from({ length: latestVersionConcurrency }, async () => {
+		for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
+			await lookUp(name);
 		}
 	}));
 	return versions;
@@ -301,7 +333,7 @@ export async function searchPlugins(query: string, page: number, pageSize: numbe
 	url.searchParams.set("size", String(pageSize));
 	url.searchParams.set("from", String((page - 1) * pageSize));
 
-	const response = await fetch(url);
+	const response = await fetch(url, { signal: AbortSignal.timeout(registryTimeoutMs) });
 	if (!response.ok) {
 		throw new RequestError(`npm registry search failed: ${response.status} ${response.statusText}`);
 	}
@@ -312,10 +344,10 @@ export async function searchPlugins(query: string, page: number, pageSize: numbe
 			package: {
 				name: string,
 				version: string,
-				description?: string,
-				date?: string,
-				publisher?: { username?: string },
-				links?: { npm?: string, homepage?: string, repository?: string },
+				description?: string | null,
+				date?: string | null,
+				publisher?: { username?: string | null } | null,
+				links?: { npm?: string | null, homepage?: string | null, repository?: string | null } | null,
 			},
 		}[],
 	};
@@ -323,8 +355,10 @@ export async function searchPlugins(query: string, page: number, pageSize: numbe
 	return new PluginSearchRequest.Response(
 		json.total,
 		json.objects.map(({ package: pkg }) => new PluginSearchResult(
-			pkg.name, pkg.version, pkg.description, pkg.publisher?.username,
-			pkg.date, pkg.links?.homepage, pkg.links?.repository, pkg.links?.npm,
+			// The registry sends null for some missing fields
+			pkg.name, pkg.version, pkg.description ?? undefined, pkg.publisher?.username ?? undefined,
+			pkg.date ?? undefined, pkg.links?.homepage ?? undefined, pkg.links?.repository ?? undefined,
+			pkg.links?.npm ?? undefined,
 		)),
 	);
 }

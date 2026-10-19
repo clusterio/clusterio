@@ -1376,7 +1376,9 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handlePluginLatestVersionsRequest(request: lib.PluginLatestVersionsRequest) {
-		return new lib.PluginLatestVersionsRequest.Response(await lib.fetchLatestVersions(request.packages));
+		return new lib.PluginLatestVersionsRequest.Response(await lib.fetchLatestVersions(
+			request.packages, this._controller.pluginLatestVersionCache,
+		));
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {

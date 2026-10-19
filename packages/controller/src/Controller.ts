@@ -75,6 +75,8 @@ export default class Controller {
 	hooks = new ControllerHooks(logger);
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
+	/** Latest versions of plugins on npm, as shown on the plugins page */
+	pluginLatestVersionCache: lib.LatestVersionCache = new Map();
 
 	/** WebSocket server */
 	wsServer: WsServer;

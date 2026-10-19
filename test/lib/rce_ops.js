@@ -210,15 +210,21 @@ describe("rce_ops", function() {
 	describe("fetchLatestVersions", function() {
 		const _fetch = global.fetch;
 		let calls;
+		let cache;
 		beforeEach(function() {
 			calls = [];
-			global.fetch = async function(url) {
+			cache = new Map();
+			global.fetch = async function(url, options) {
 				calls.push(url);
+				assert.ok(options.signal, "lookups have a timeout");
 				if (url.includes("broken")) {
 					throw new Error("network down");
 				}
 				if (url.includes("missing")) {
-					return { ok: false };
+					return { ok: false, status: 404 };
+				}
+				if (url.includes("limited")) {
+					return { ok: false, status: 429 };
 				}
 				return { ok: true, json: async () => ({ version: "1.2.3" }) };
 			};
@@ -228,25 +234,52 @@ describe("rce_ops", function() {
 		});
 
 		it("returns the latest version of found packages", async function() {
-			const versions = await lib.fetchLatestVersions(["latest-a", "@scope/latest-b", "missing-a", "broken-a"]);
+			const versions = await lib.fetchLatestVersions(
+				["latest-a", "@scope/latest-b", "missing-a", "broken-a"], cache,
+			);
 			assert.deepEqual(versions, { "latest-a": "1.2.3", "@scope/latest-b": "1.2.3" });
 			assert.ok(calls.includes("https://registry.npmjs.com/@scope/latest-b/latest"));
 		});
 		it("caches lookups", async function() {
-			await lib.fetchLatestVersions(["cached-a", "missing-b"]);
+			await lib.fetchLatestVersions(["cached-a", "missing-b"], cache);
 			calls = [];
-			assert.deepEqual(await lib.fetchLatestVersions(["cached-a", "missing-b"]), { "cached-a": "1.2.3" });
+			assert.deepEqual(await lib.fetchLatestVersions(["cached-a", "missing-b"], cache), { "cached-a": "1.2.3" });
 			assert.deepEqual(calls, []);
 		});
-		it("retries packages the registry couldn't be reached for", async function() {
-			await lib.fetchLatestVersions(["broken-b"]);
+		it("retries packages the registry couldn't be reached for or refused", async function() {
+			await lib.fetchLatestVersions(["broken-b", "limited-a"], cache);
 			calls = [];
-			await lib.fetchLatestVersions(["broken-b"]);
-			assert.equal(calls.length, 1);
+			await lib.fetchLatestVersions(["broken-b", "limited-a"], cache);
+			assert.equal(calls.length, 2);
+		});
+		it("drops expired lookups and keeps the cache bounded", async function() {
+			cache.set("expired", { version: "0.0.1", fetchedAt: Date.now() - 10 * 60e3 });
+			await lib.fetchLatestVersions(["fresh"], cache);
+			assert.equal(cache.has("expired"), false);
+			for (let i = 0; i < 1000; i++) {
+				cache.set(`filler-${i}`, { version: "1.0.0", fetchedAt: Date.now() });
+			}
+			await lib.fetchLatestVersions(["newest"], cache);
+			assert.equal(cache.size, 1000);
+			assert.equal(cache.get("newest").version, "1.2.3");
+		});
+		it("limits concurrent lookups", async function() {
+			let active = 0;
+			let maxActive = 0;
+			global.fetch = async function() {
+				active += 1;
+				maxActive = Math.max(maxActive, active);
+				await new Promise(resolve => setImmediate(resolve));
+				active -= 1;
+				return { ok: true, json: async () => ({ version: "1.0.0" }) };
+			};
+			const names = Array.from({ length: 50 }, (_, i) => `package-${i}`);
+			assert.equal(Object.keys(await lib.fetchLatestVersions(names, cache)).length, 50);
+			assert.ok(maxActive <= 8, `${maxActive} concurrent lookups`);
 		});
 		it("rejects invalid names", async function() {
-			await assert.rejects(lib.fetchLatestVersions(["foo@1.0.0"]), /Invalid plugin name/);
-			await assert.rejects(lib.fetchLatestVersions(["foo bar"]), /Invalid plugin name/);
+			await assert.rejects(lib.fetchLatestVersions(["foo@1.0.0"], cache), /Invalid plugin name/);
+			await assert.rejects(lib.fetchLatestVersions(["foo bar"], cache), /Invalid plugin name/);
 		});
 	});
 
@@ -398,6 +431,20 @@ describe("rce_ops", function() {
 			await lib.searchPlugins("", 1, 20);
 			assert.equal(calledWith.searchParams.get("text"), "keywords:clusterio-plugin");
 			assert.equal(calledWith.searchParams.get("from"), "0");
+		});
+		it("drops optional fields the registry sends as null", async function() {
+			global.fetch = function() {
+				return { ok: true, json: async () => ({ total: 1, objects: [{ package: {
+					name: "foo", version: "1.0.0", description: null, date: null,
+					publisher: { username: null }, links: { npm: null, homepage: null, repository: null },
+				} }] }) };
+			};
+			const response = await lib.searchPlugins("", 1, 20);
+			assert.deepEqual(response, new lib.PluginSearchRequest.Response(1, [
+				new lib.PluginSearchResult("foo", "1.0.0"),
+			]));
+			const validate = lib.compile(lib.PluginSearchRequest.Response.jsonSchema);
+			assert.ok(validate(JSON.parse(JSON.stringify(response))), JSON.stringify(validate.errors));
 		});
 		it("handles missing optional fields", async function() {
 			global.fetch = function() {
