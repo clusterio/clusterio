@@ -40,9 +40,12 @@ function useRemoteAccess(): RemoteAccess {
 	const [controllerAccess, setControllerAccess] = useState(defaultAccess);
 	const [hostsAccess, setHostsAccess] = useState(new Map<number, MachineAccess>());
 	const connectedHostIds = [...hosts.values()].filter(host => host.connected).map(host => host.id);
+	const canGetControllerConfig = account.hasPermission("core.controller.get_config");
+	const canGetHostConfig = account.hasPermission("core.host.get_config");
 
 	useEffect(() => {
-		if (!account.hasPermission("core.controller.get_config")) {
+		if (!canGetControllerConfig) {
+			setControllerAccess(defaultAccess);
 			return;
 		}
 		control.send(new lib.ControllerConfigGetRequest()).then(serializedConfig => {
@@ -52,10 +55,11 @@ function useRemoteAccess(): RemoteAccess {
 				update: config.get("controller.allow_plugin_updates"),
 			});
 		}).catch(notifyErrorHandler("Failed to fetch controller config"));
-	}, []);
+	}, [canGetControllerConfig]);
 
 	useEffect(() => {
-		if (!account.hasPermission("core.host.get_config")) {
+		if (!canGetHostConfig) {
+			setHostsAccess(new Map());
 			return;
 		}
 		Promise.all(connectedHostIds.map(async hostId => {
@@ -70,7 +74,7 @@ function useRemoteAccess(): RemoteAccess {
 				return [hostId, defaultAccess] as const;
 			}
 		})).then(entries => { setHostsAccess(new Map(entries)); });
-	}, [connectedHostIds.join(",")]);
+	}, [connectedHostIds.join(","), canGetHostConfig]);
 
 	const accessOf = (address: lib.AddressShorthand) => (address === "controller"
 		? controllerAccess
