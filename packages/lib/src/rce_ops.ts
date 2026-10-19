@@ -228,10 +228,11 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 	return await installPackage(await checkRegistry(name, version));
 }
 
+/** Install a plugin, optionally pinned to a version as name@version, returns the package name */
 export async function handlePluginInstall(pluginName: string) {
-	// Optionally pinned to a version as name@version
 	const { name, version } = parsePackageSpec(pluginName);
-	return await installPackage(await checkRegistry(name, version));
+	await installPackage(await checkRegistry(name, version));
+	return name;
 }
 
 const latestVersionCacheMs = 5 * 60e3;

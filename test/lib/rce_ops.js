@@ -273,9 +273,9 @@ describe("rce_ops", function() {
 				return { ok: true };
 			};
 
-			await lib.handlePluginInstall("foo@1.2.3");
+			assert.equal(await lib.handlePluginInstall("foo@1.2.3"), "foo");
 			assert.equal(calledWith, "https://registry.npmjs.com/foo/1.2.3");
-			await lib.handlePluginInstall("@scope/foo@1.0.0-alpha.1");
+			assert.equal(await lib.handlePluginInstall("@scope/foo@1.0.0-alpha.1"), "@scope/foo");
 			assert.equal(calledWith, "https://registry.npmjs.com/@scope/foo/1.0.0-alpha.1");
 			await lib.handlePluginInstall("@scope/foo");
 			assert.equal(calledWith, "https://registry.npmjs.com/@scope/foo");

@@ -269,6 +269,10 @@ describe("host/src/Host", function() {
 				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("restart_test"));
 				assert.equal(host.config.restartRequired, false);
 			});
+			it("leaves the flag alone for a pinned version of an already loaded plugin", async function() {
+				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("restart_test@1.0.0"));
+				assert.equal(host.config.restartRequired, false);
+			});
 			it("rejects when installs are disabled", async function() {
 				host.config.set("host.allow_plugin_install", false);
 				host.config.restartRequired = false; // Setting allow_plugin_install requires a restart

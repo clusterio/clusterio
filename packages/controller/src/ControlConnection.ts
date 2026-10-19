@@ -1353,9 +1353,10 @@ export default class ControlConnection extends BaseConnection {
 		if (!this._controller.config.get("controller.allow_plugin_install")) {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
-		await lib.handlePluginInstall(request.pluginPackage);
-		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it
-		if (!this._controller.pluginInfos.some(pluginInfo => pluginInfo.npmPackage === request.pluginPackage)) {
+		const npmPackage = await lib.handlePluginInstall(request.pluginPackage);
+		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it. Version
+		// changes to loaded plugins are noticed there.
+		if (!this._controller.pluginInfos.some(pluginInfo => pluginInfo.npmPackage === npmPackage)) {
 			this._controller.config.restartRequired = true;
 		}
 	}
