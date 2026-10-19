@@ -180,21 +180,23 @@ export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNo
 	return await updatePackage(corePackage, ...pluginPackages);
 }
 
+// One name segment, optionally after an @scope/ segment. Not starting with . or - keeps npm from
+// reading the spec as a path, a git repository or a command line option.
+// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
+const packageNamePattern = /^(?:@[a-zA-Z0-9][a-zA-Z0-9\-._~]*\/)?[a-zA-Z0-9][a-zA-Z0-9\-._~]*$/;
+
 /**
  * Split a package spec into its name and optional version, as in name@version. The name itself
  * may start with @ for scoped packages.
  */
 function parsePackageSpec(spec: string) {
-	if (spec.length > 214 || /[^a-zA-Z0-9\-_.+@\/]/.test(spec)) {
-		// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
-		// https://www.npmjs.com/package/validate-npm-package-name
-		throw new RequestError(`Invalid plugin name: ${spec}`);
-	}
-
 	const versionSeparator = spec.lastIndexOf("@");
 	const [name, version] = versionSeparator > 0
 		? [spec.slice(0, versionSeparator), spec.slice(versionSeparator + 1)]
 		: [spec, undefined];
+	if (name.length > 214 || !packageNamePattern.test(name)) {
+		throw new RequestError(`Invalid plugin name: ${spec}`);
+	}
 	if (version !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9\-.+]*$/.test(version)) {
 		throw new RequestError(`Invalid plugin version: ${version}`);
 	}

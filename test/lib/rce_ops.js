@@ -295,6 +295,20 @@ describe("rce_ops", function() {
 				{ message: `Invalid plugin name: ${pluginName}` }
 			);
 		});
+		it("rejects specs npm would read as a path, repository or option", async function() {
+			let fetched = false;
+			global.fetch = function() {
+				fetched = true;
+				return { ok: true };
+			};
+			for (const spec of [
+				".", "..", "./foo", "../foo", "foo/latest", "@clusterio/lib/latest", "-/ping", "-foo", ".foo",
+				"_foo", "@scope", "@scope/", "@/foo", "@scope/foo/bar", "foo/bar@1.0.0", "github:foo/bar",
+			]) {
+				await assert.rejects(lib.handlePluginInstall(spec), /Invalid plugin name/, spec);
+			}
+			assert.equal(fetched, false);
+		});
 		it("rejects when invalid symbol present", async function() {
 			const pluginName = "?";
 			await assert.rejects(
