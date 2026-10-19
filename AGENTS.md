@@ -3,6 +3,7 @@
 Clusterio manages distributed Factorio servers through a controller, hosts, and plugins.
 
 Read [contributing](docs/contributing.md) for the project map, setup, commands, debugging, tests, and code style.
+For PR reviews, follow the [review guide](docs/pr-review-guide.md), including its candidate ledger and final evidence audit.
 Use the detailed guides for the affected area:
 
 - [Communication and routing](docs/communication.md), [wire protocol](docs/devs/protocol.md), and [configuration](docs/config-system.md).
