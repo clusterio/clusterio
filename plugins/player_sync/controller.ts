@@ -295,7 +295,10 @@ export default async function(context: ControllerPluginContext) {
 		// A new epoch makes every instance drop its copy, including ones with an unconfirmed upload
 		let stored = storedVersion(playerName);
 		playerData.name = playerName;
-		playerData.generation = Math.max(playerData.generation, stored.generation + 1);
+		// Start over from generations at or past the limit, instances that know epochs download the import anyway
+		let imported = playerData.generation < msg.generationLimit ? playerData.generation : 0;
+		let next = stored.generation < msg.generationLimit ? stored.generation + 1 : 1;
+		playerData.generation = Math.max(imported, next);
 		playerData.epoch = stored.epoch + 1;
 		playerDatastore.set(playerName, playerData);
 		tombstones.delete(playerName);

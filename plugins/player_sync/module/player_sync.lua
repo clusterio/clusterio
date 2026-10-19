@@ -373,7 +373,12 @@ function player_sync.sync_player(acquire_response)
 		player_record.sync_in_progress = false
 		-- Deleted data keeps its generation and epoch so the next upload is accepted as the new baseline
 		player_record.epoch = epoch
-		player_record.generation = math.max(player_record.generation, acquire_response.generation)
+		-- A copy from another epoch has nothing to do with the stored generation
+		if stale then
+			player_record.generation = acquire_response.generation
+		else
+			player_record.generation = math.max(player_record.generation, acquire_response.generation)
+		end
 	end
 end
 

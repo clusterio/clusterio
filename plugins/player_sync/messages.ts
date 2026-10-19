@@ -45,11 +45,21 @@ const jsonPlayerData = Type.Object({
 function jsonList<T extends TSchema>(item: T) {
 	return Type.Union([Type.Array(item), Type.Object({}, { maxProperties: 0 })]);
 }
+// Item stack format of packages/host/modules/clusterio/serialize.lua, the nested parts are left to Lua
 const jsonInventory = Type.Object({
 	b: Type.Optional(Type.Integer({ minimum: 0 })),
 	i: jsonList(Type.Object({
 		s: Type.Optional(Type.Integer({ minimum: 1 })),
 		r: Type.Optional(Type.Integer({ minimum: 0 })),
+		f: Type.Optional(Type.Union([Type.String(), Type.Object({})])),
+		e: Type.Optional(Type.String()),
+		n: Type.Optional(Type.String()),
+		c: Type.Optional(Type.Integer({ minimum: 1 })),
+		q: Type.Optional(Type.String()),
+		h: Type.Optional(Type.Number({ minimum: 0 })),
+		p: Type.Optional(Type.Number({ minimum: 0 })),
+		d: Type.Optional(Type.Number({ minimum: 0 })),
+		a: Type.Optional(Type.Number({ minimum: 0 })),
 	})),
 });
 const jsonInventories = Type.Record(Type.String(), jsonInventory);
@@ -83,6 +93,26 @@ const jsonLogisticSlot = Type.Object({
 	min: Type.Optional(Type.Integer({ minimum: 0 })),
 	max: Type.Optional(Type.Integer({ minimum: 0 })),
 });
+const jsonComparator = StringEnum(["=", ">", "<", "≥", ">=", "≤", "<=", "≠", "!="]);
+// Limits enforced by LuaLogisticSection.filters
+const jsonLogisticFilter = Type.Object({
+	value: Type.Optional(Type.Union([
+		Type.String(),
+		Type.Object({
+			type: Type.Optional(StringEnum([
+				"item", "fluid", "virtual", "entity", "recipe", "space-location", "asteroid-chunk", "quality",
+			])),
+			name: Type.String(),
+			quality: Type.Optional(Type.String()),
+			comparator: Type.Optional(jsonComparator),
+		}),
+	])),
+	min: Type.Optional(Type.Integer({ minimum: -(2 ** 31), maximum: 2 ** 31 - 1 })),
+	max: Type.Optional(Type.Integer({ minimum: 0, maximum: 2 ** 32 - 1 })),
+	minimum_delivery_count: Type.Optional(Type.Integer({ minimum: 0, maximum: 2 ** 32 - 1 })),
+	// Exported as null, the prototype does not convert to JSON
+	import_from: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+});
 const jsonPersonalLogisticSlots = Type.Union([
 	Type.Object({
 		enabled: Type.Boolean(),
@@ -91,7 +121,7 @@ const jsonPersonalLogisticSlots = Type.Union([
 			group: Type.String(),
 			active: Type.Boolean(),
 			multiplier: Type.Number({ minimum: 0 }),
-			filters: jsonList(Type.Object({ value: Type.Optional(Type.Object({})) })),
+			filters: jsonList(jsonLogisticFilter),
 		})),
 	}),
 	// From before 2.0, slot index to request
@@ -105,7 +135,7 @@ const jsonQuickBarSlot = Type.Union([
 		t: Type.Literal("f"),
 		n: Type.String(),
 		q: Type.Optional(Type.String()),
-		c: Type.Optional(StringEnum(["=", ">", "<", "≥", ">=", "≤", "<=", "≠", "!="])),
+		c: Type.Optional(jsonComparator),
 	}),
 	Type.Object({
 		t: Type.Literal("i"),
@@ -130,12 +160,14 @@ const jsonCraftingQueue = Type.Object({
 	})),
 });
 const jsonTable = Type.Union([Type.Array(Type.Unknown()), Type.Object({})]);
+// Lua's JSON loses precision past this, generations from here on are not counted up
+export const generationLimit = 2 ** 50;
 const jsonImportedPlayerData = Type.Object({
 	generation: Type.Integer({ minimum: 0 }),
 	epoch: Type.Optional(Type.Integer({ minimum: 0 })),
 	name: Type.String(),
-	// Any physical controller, remote view is never stored
-	controller: Type.Optional(StringEnum(["character", "god", "editor", "cutscene", "spectator", "ghost"])),
+	// Any physical controller, remote view is never stored and a cutscene needs waypoints to restore
+	controller: Type.Optional(StringEnum(["character", "god", "editor", "spectator", "ghost"])),
 	color: Type.Optional(jsonColor),
 	chat_color: Type.Optional(jsonColor),
 	tag: Type.Optional(Type.String()),

@@ -76,7 +76,15 @@ describe("player_sync plugin", function() {
 					character_additional_mining_categories: {},
 					allow_dispatching_robots: true,
 					inventories: {
-						main: { b: 80, i: [{ n: "iron-plate", c: 100, r: 2 }, { s: 10, f: { name: "coal" } }] },
+						main: { b: 80, i: [
+							{ n: "iron-plate", c: 100, r: 2 },
+							{ s: 10, f: { name: "coal" } },
+							{ f: { quality: "rare", comparator: "=" } },
+							{ f: "stone" },
+							{ n: "firearm-magazine", c: 10, q: "rare", a: 5 },
+							{ n: "automation-science-pack", c: 3, d: 0.5, p: 0.25, h: 0.75 },
+							{ e: "0eNq" },
+						] },
 						armor: { i: {} },
 					},
 				},
@@ -87,7 +95,19 @@ describe("player_sync plugin", function() {
 						group: "",
 						active: true,
 						multiplier: 1,
-						filters: [{ value: { name: "iron-plate", type: "item" }, min: 3 }],
+						// Empty slots export as {}
+						filters: [
+							{},
+							{ value: { name: "iron-plate", type: "item" }, min: 3 },
+							{ value: { name: "stone", type: "item" }, min: -5, max: 10 },
+							{
+								value: { name: "coal", type: "item", quality: "normal", comparator: "=" },
+								min: 5,
+								max: 10,
+								minimum_delivery_count: 2,
+								import_from: null,
+							},
+						],
 					}],
 				},
 				quick_bar: {
@@ -124,6 +144,7 @@ describe("player_sync plugin", function() {
 				for (const [field, value] of [
 					["controller", "not-a-controller"],
 					["controller", "remote"],
+					["controller", "cutscene"],
 					["deleted", false],
 					["deleted", true],
 					["color", "red"],
@@ -131,6 +152,10 @@ describe("player_sync plugin", function() {
 					["ticks_to_respawn", -1],
 					["inventories", { main: { i: "iron-plate" } }],
 					["inventories", { main: [] }],
+					["inventories", { main: { i: [{ e: null }] } }],
+					["inventories", { main: { i: [{ n: 5, c: 1 }] } }],
+					["inventories", { main: { i: [{ n: "wood", c: "many" }] } }],
+					["inventories", { main: { i: [{ n: "wood", c: 0 }] } }],
 					["character", { inventories: { main: { i: [{ s: 0 }] } } }],
 					["shortcuts", { "toggle-personal-roboport": "yes" }],
 					["character", { character_health_bonus: "100" }],
@@ -156,6 +181,25 @@ describe("player_sync plugin", function() {
 					}],
 				]) {
 					assert(!accepts({ ...exported, [field]: value }), `accepted ${field} ${JSON.stringify(value)}`);
+				}
+				for (const filter of [
+					{ value: { name: "iron-plate" }, min: "many" },
+					{ value: { name: "iron-plate" }, min: 2 ** 31 },
+					{ value: { name: "iron-plate" }, max: -1 },
+					{ value: { name: "iron-plate" }, minimum_delivery_count: -1 },
+					{ value: { type: "item" }, min: 1 },
+					{ value: { name: "iron-plate", type: "nope" }, min: 1 },
+					{ value: { name: "iron-plate", comparator: "~" }, min: 1 },
+					{ value: { name: "iron-plate", quality: 5 }, min: 1 },
+				]) {
+					const slots = {
+						enabled: true,
+						trash_not_requested: false,
+						sections: [{ group: "", active: true, multiplier: 1, filters: [filter] }],
+					};
+					assert(
+						!accepts({ ...exported, personal_logistic_slots: slots }), `accepted ${JSON.stringify(filter)}`,
+					);
 				}
 			});
 		});
@@ -184,9 +228,26 @@ describe("player_sync plugin", function() {
 			] }), [
 				{ name: "iron-plate", quality: undefined, count: 307 },
 				{ name: "iron-plate", quality: "rare", count: 50 },
-				{ name: "exported item", count: 1, exportSize: 4 },
-				{ name: "exported item", count: 1, exportSize: 4 },
+				{ name: "exported item", count: 2, exportSize: 4 },
 			]);
+		});
+		it("should skip malformed entries", function() {
+			assert.deepEqual(summarizeInventory({ i: [
+				{ e: null },
+				null,
+				"wood",
+				{ n: 5, c: 1 },
+				{ n: "wood", c: "many", r: "x" },
+				{ n: "wood", c: 2, r: 1 },
+				{ e: "0eNq", r: 1e9 },
+			] }), [
+				{ name: "wood", quality: undefined, count: 4 },
+				{ name: "exported item", count: 1e9 + 1, exportSize: 4 },
+			]);
+			assert.deepEqual(
+				summarizePlayerInventories(playerData("player", 1, { inventories: { main: null } })),
+				[{ name: "main", items: [] }],
+			);
 		});
 		it("should handle empty inventories", function() {
 			assert.deepEqual(summarizeInventory({}), []);

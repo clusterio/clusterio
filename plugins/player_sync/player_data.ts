@@ -28,15 +28,17 @@ export type InventorySummary = {
 export function summarizeInventory(inventory: SerializedInventory): ItemSummary[] {
 	let items: ItemSummary[] = [];
 	let stacks = new Map<string, ItemSummary>();
-	for (let entry of Object.values(inventory.i ?? [])) {
-		let repeat = (entry.r ?? 0) + 1;
-		if (entry.e !== undefined) {
-			for (let i = 0; i < repeat; i++) {
-				items.push({ name: "exported item", count: 1, exportSize: entry.e.length });
-			}
+	for (let entry of Object.values(inventory?.i ?? [])) {
+		// Uploads are not validated as strictly as imports
+		if (typeof entry !== "object" || entry === null) {
 			continue;
 		}
-		if (entry.n === undefined) {
+		let repeat = Number.isInteger(entry.r) ? entry.r! + 1 : 1;
+		if (typeof entry.e === "string") {
+			items.push({ name: "exported item", count: repeat, exportSize: entry.e.length });
+			continue;
+		}
+		if (typeof entry.n !== "string") {
 			continue;
 		}
 		let key = `${entry.n}\0${entry.q ?? ""}`;
@@ -46,7 +48,7 @@ export function summarizeInventory(inventory: SerializedInventory): ItemSummary[
 			stacks.set(key, stack);
 			items.push(stack);
 		}
-		stack.count += (entry.c ?? 0) * repeat;
+		stack.count += (typeof entry.c === "number" ? entry.c : 0) * repeat;
 	}
 	return items;
 }

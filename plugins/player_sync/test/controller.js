@@ -115,7 +115,7 @@ describe("player_sync controller", function() {
 			return await handler(msg.AcquireRequest)(new msg.AcquireRequest(instanceId, playerName));
 		}
 
-		beforeEach(async function() {
+		async function loadWithInstances() {
 			controller = await mock.loadControllerPlugin(async (context) => {
 				context.controller.mockConfigEntries.set("controller.database_directory", databaseDir);
 				// Negative so locks expire as soon as their instance stops
@@ -127,6 +127,10 @@ describe("player_sync controller", function() {
 					new lib.InstanceConfig("controller", { "instance.id": id, "instance.name": name }), status,
 				));
 			}
+		}
+
+		beforeEach(async function() {
+			await loadWithInstances();
 
 			await handler(msg.UploadRequest)(new msg.UploadRequest(1, "stored", playerData("stored", 3)));
 			assert(await acquire(1, "stored"));
@@ -220,13 +224,53 @@ describe("player_sync controller", function() {
 				await setJSON("stored", playerData("stored", 0));
 				const before = (await saved()).get("stored");
 				assert.equal(before.epoch, 1);
-				for (const extra of [{ crafting_queue: {} }, { deleted: false }, { deleted: true }]) {
+				const badFilter = { value: { name: "iron-plate" }, min: "many" };
+				for (const extra of [
+					{ crafting_queue: {} },
+					{ deleted: false },
+					{ deleted: true },
+					{ controller: "cutscene" },
+					{ inventories: { main: { i: [{ e: null }] } } },
+					{ personal_logistic_slots: {
+						enabled: true,
+						trash_not_requested: false,
+						sections: [{ group: "", active: true, multiplier: 1, filters: [badFilter] }],
+					} },
+				]) {
 					await assert.rejects(
 						setJSON("stored", playerData("stored", 0, extra)),
 						{ message: "Request SetPlayerDataRequest failed validation" },
 					);
 				}
 				assert.deepEqual((await saved()).get("stored"), before);
+			});
+			it("should start over from imported generations past the limit", async function() {
+				await release("stored");
+				assert.equal((await setJSON("stored", playerData("stored", 2 ** 53))).generation, 4);
+				await upload(1, playerData("stored", 5, { epoch: 1 }));
+				assert.deepEqual((await saved()).get("stored"), playerData("stored", 5, { epoch: 1 }));
+			});
+			for (const deleted of [false, true]) {
+				it(`should recover ${deleted ? "deleted" : "stored"} data past the generation limit`, async function() {
+					// Could be stored by uploads or by imports from before the limit
+					for (const generation of [msg.generationLimit, 2 ** 53]) {
+						const stuck = { ...playerData("stored", generation), ...deleted ? { deleted } : {} };
+						const entries = [["stored", stuck]];
+						await fs.writeFile(path.join(databaseDir, "player_sync.json"), JSON.stringify(entries));
+						await loadWithInstances();
+						// Importing the exported data as is
+						assert.equal((await setJSON("stored", playerData("stored", generation))).generation, 1);
+						await upload(1, playerData("stored", 2, { epoch: 1 }));
+						assert.deepEqual((await saved()).get("stored"), playerData("stored", 2, { epoch: 1 }));
+					}
+				});
+			}
+			it("should keep counting up below the generation limit", async function() {
+				const stored = playerData("stored", msg.generationLimit - 1);
+				await fs.writeFile(path.join(databaseDir, "player_sync.json"), JSON.stringify([["stored", stored]]));
+				await loadWithInstances();
+				const response = await setJSON("stored", playerData("stored", 0));
+				assert.equal(response.generation, msg.generationLimit);
 			});
 			it("should only load entries marked deleted: true as tombstones", async function() {
 				// Imports from before the marker was reserved could store deleted: false
