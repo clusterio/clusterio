@@ -407,14 +407,39 @@ describe("lib/plugin_loader", function() {
 			assert.equal(loaded.installedVersion, "0.0.1");
 			assert.equal(loaded.pendingInstall, undefined);
 
-			for (const packageName of ["plugin-aliased", "plugin-deep"]) {
+			// Dependencies of plugin packages are found the same way as on startup
+			for (const packageName of ["plugin-aliased", "plugin-deep", "plugin-transitive"]) {
 				const pending = byPackage.get(packageName);
 				assert.equal(pending.pendingInstall, true, packageName);
 				assert.equal(pending.installedVersion, "0.0.1", packageName);
 				assert.equal(pending.loaded, false, packageName);
 			}
 			assert.equal(byPackage.has("not-a-plugin"), false);
-			assert.equal(plugins.length, 3);
+			assert.equal(byPackage.has("plugin-hidden"), false);
+			assert.equal(plugins.length, 4);
+		});
+
+		it("should mark plugins uninstalled since startup as removed", async function() {
+			const pluginInfos = [{
+				name: "gone",
+				title: "Gone",
+				version: "1.0.0",
+				requirePath: "plugin-gone",
+				packagePath: path.resolve("node_modules", "plugin-gone", "package.json"),
+				npmPackage: "plugin-gone",
+			}, {
+				name: "npm",
+				title: "NPM",
+				version: "0.0.1",
+				requirePath: npmPluginPathAbs,
+				packagePath: path.join(npmPluginPathAbs, "package.json"),
+				npmPackage: "plugin-npm",
+			}];
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
+			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage, plugin]));
+			assert.equal(byPackage.get("plugin-gone").removed, true);
+			assert.equal(byPackage.get("plugin-gone").installedVersion, undefined);
+			assert.equal(byPackage.get("plugin-npm").removed, undefined);
 		});
 
 		it("should load existing plugin list", async function() {

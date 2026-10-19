@@ -36,7 +36,7 @@ describe("messages/plugin", function() {
 		it("has round trip json serialisation", function() {
 			const pluginDetails = new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package", "Installed Version", true,
+				"Description", "Npm Package", "Installed Version", true, true,
 			);
 
 			const json = JSON.stringify(pluginDetails);

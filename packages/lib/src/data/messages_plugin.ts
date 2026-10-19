@@ -18,6 +18,8 @@ export class PluginDetails {
 		public installedVersion?: string,
 		/** Installed after the machine started, will be loaded on the next restart */
 		public pendingInstall?: boolean,
+		/** Uninstalled after the machine started, will not be loaded on the next restart */
+		public removed?: boolean,
 	) {}
 
 	static jsonSchema = Type.Object({
@@ -30,12 +32,13 @@ export class PluginDetails {
 		npmPackage: Type.Optional(Type.String()),
 		installedVersion: Type.Optional(Type.String()),
 		pendingInstall: Type.Optional(Type.Boolean()),
+		removed: Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
 			json.name, json.title, json.version, json.loaded, json.enabled,
-			json.description, json.npmPackage, json.installedVersion, json.pendingInstall,
+			json.description, json.npmPackage, json.installedVersion, json.pendingInstall, json.removed,
 		);
 	}
 

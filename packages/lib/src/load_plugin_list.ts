@@ -89,6 +89,59 @@ function resolvePackagePath(packageName: string, fromPath: string): string | und
 	}
 }
 
+type NpmPluginPackage = { packageName: string, packageVersion: unknown, packagePath: string };
+
+/**
+ * Walk the dependencies of the root package.json and of every plugin package found, without
+ * traversing packages that aren't plugins. Does not execute any plugin code.
+ *
+ * @param dependencies - Dependencies of the root package.json
+ * @returns Plugin packages found, and root dependencies that are not plugins
+ */
+async function discoverNpmPluginPackages(dependencies: Record<string, unknown>) {
+	const plugins: NpmPluginPackage[] = [];
+	const nonPluginRoots: { packageName: string, packageVersion: unknown }[] = [];
+	const pendingPackages = Object.entries(dependencies).map(([packageName, packageVersion]) => ({
+		packageName,
+		packageVersion,
+		parentPath: process.cwd(),
+		isRootDependency: true,
+	}));
+	const visitedPackages = new Set<string>();
+
+	while (pendingPackages.length) {
+		const { packageName, packageVersion, parentPath, isRootDependency } = pendingPackages.shift()!;
+		if (visitedPackages.has(packageName)) {
+			continue;
+		}
+
+		const packagePath = resolvePackagePath(packageName, parentPath);
+		if (!packagePath) {
+			continue;
+		}
+
+		visitedPackages.add(packageName);
+
+		if (await checkPackageJson(packagePath)) {
+			plugins.push({ packageName, packageVersion, packagePath });
+			const packageJson = JSON.parse(
+				await fs.readFile(path.join(packagePath, "package.json"), { encoding: "utf8" })
+			);
+			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
+				pendingPackages.push({
+					packageName: dependencyName,
+					packageVersion: dependencyVersion,
+					parentPath: packagePath,
+					isRootDependency: false,
+				});
+			}
+		} else if (isRootDependency) {
+			nonPluginRoots.push({ packageName, packageVersion });
+		}
+	}
+	return { plugins, nonPluginRoots };
+}
+
 /**
  * Find NPM packages in the root package.json that satisfies the requirements for plugins.
  * Adds discovered plugins to the plugin list.
@@ -114,52 +167,22 @@ async function findNpmPlugins(pluginList: Map<string, string>): Promise<boolean>
 	}
 
 	let hasChanged = 0;
-	const pendingPackages = Object.entries(dependencies).map(([packageName, packageVersion]) => ({
-		packageName,
-		packageVersion,
-		parentPath: process.cwd(),
-		isRootDependency: true,
-	}));
-	const visitedPackages = new Set<string>();
-
-	while (pendingPackages.length) {
-		const { packageName, packageVersion, parentPath, isRootDependency } = pendingPackages.shift()!;
-		if (visitedPackages.has(packageName)) {
-			continue;
-		}
-
-		const npmPackagePath = resolvePackagePath(packageName, parentPath);
-		if (!npmPackagePath) {
-			continue;
-		}
-
-		visitedPackages.add(packageName);
-
-		if (await checkPackageJson(npmPackagePath)) {
-			const pluginName = getPluginName(npmPackagePath);
-			if (pluginList.has(pluginName)) {
-				logger.warn(
-					`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
-					`but with a different path - using ${pluginList.get(pluginName)}`
-				);
-			} else {
-				pluginList.set(pluginName, packageName);
-				logger.info(`Added ${pluginName} from node modules`);
-				hasChanged += 1;
-			}
-
-			const packageJson = JSON.parse(
-				await fs.readFile(path.join(npmPackagePath, "package.json"), { encoding: "utf8" })
+	const { plugins, nonPluginRoots } = await discoverNpmPluginPackages(dependencies);
+	for (const { packageName, packageVersion, packagePath } of plugins) {
+		const pluginName = getPluginName(packagePath);
+		if (pluginList.has(pluginName)) {
+			logger.warn(
+				`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
+				`but with a different path - using ${pluginList.get(pluginName)}`
 			);
-			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
-				pendingPackages.push({
-					packageName: dependencyName,
-					packageVersion: dependencyVersion,
-					parentPath: npmPackagePath,
-					isRootDependency: false,
-				});
-			}
-		} else if (isRootDependency && !corePackages.has(packageName)) {
+		} else {
+			pluginList.set(pluginName, packageName);
+			logger.info(`Added ${pluginName} from node modules`);
+			hasChanged += 1;
+		}
+	}
+	for (const { packageName, packageVersion } of nonPluginRoots) {
+		if (!corePackages.has(packageName)) {
 			logger.warn(`${packageName}@${packageVersion} is not a clusterio-plugin`);
 		}
 	}
@@ -264,18 +287,21 @@ export async function listPluginDetails(
 			knownPackages.add(pluginInfo.npmPackage);
 		}
 		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo), isEnabled(pluginInfo));
-		// Not present if uninstalled since startup
-		plugin.installedVersion = (await readPackageJson(pluginInfo.packagePath))?.version;
+		try {
+			plugin.installedVersion = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8")).version;
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				// Uninstalled since startup, it won't be found on the next restart
+				plugin.removed = true;
+			}
+		}
 		plugins.push(plugin);
 	}
 
 	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
-	for (const packageName of Object.keys(rootPackageJson?.dependencies ?? {})) {
-		if (knownPackages.has(packageName) || corePackages.has(packageName)) {
-			continue;
-		}
-		const packagePath = resolvePackagePath(packageName, process.cwd());
-		if (!packagePath || !await checkPackageJson(packagePath)) {
+	const { plugins: npmPlugins } = await discoverNpmPluginPackages(rootPackageJson?.dependencies ?? {});
+	for (const { packageName, packagePath } of npmPlugins) {
+		if (knownPackages.has(packageName)) {
 			continue;
 		}
 		const packageJson = await readPackageJson(path.join(packagePath, "package.json"));
