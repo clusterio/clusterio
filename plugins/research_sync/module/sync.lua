@@ -3,7 +3,7 @@ local compat = require("modules/clusterio/compat")
 
 local v2_tech_progress = compat.version_ge("2.0.0")
 -- on_research_queued and player_index on moved/cancelled arrived in 2.0.56
-local queue_sync = compat.version_ge("2.0.56")
+local research_queue_api = compat.version_ge("2.0.56")
 
 local sync = {}
 
@@ -219,7 +219,7 @@ end
 
 --- @param event EventData.on_player_created
 sync.events[defines.events.on_player_created] = function(event)
-	if not queue_sync then
+	if not research_queue_api then
 		return
 	end
 	ensure_gui(game.get_player(event.player_index) --[[@as LuaPlayer]])
@@ -228,7 +228,7 @@ sync.events[defines.events.on_player_joined_game] = sync.events[defines.events.o
 
 --- @param event EventData.on_gui_checked_state_changed
 sync.events[defines.events.on_gui_checked_state_changed] = function(event)
-	if not queue_sync then
+	if not research_queue_api then
 		return
 	end
 	if event.element.name == "research_sync_follow" then
@@ -237,8 +237,8 @@ sync.events[defines.events.on_gui_checked_state_changed] = function(event)
 	end
 end
 
--- These defines don't exist before 2.0.56, so they can only be indexed when queue_sync is set.
-if queue_sync then
+-- The version check stays outside here: these defines don't exist before 2.0.56, so indexing them there would error.
+if research_queue_api then
 	--- @param event EventData.on_research_queued|EventData.on_research_moved|EventData.on_research_cancelled
 	local function on_queue_event(event)
 		if event.force.name ~= "player" then
@@ -261,7 +261,7 @@ end
 -- One send per tick however many events fired (a lab raises several at once).
 --- @param event EventData.on_tick
 sync.events[defines.events.on_tick] = function(event)
-	if not queue_sync then
+	if not research_queue_api then
 		return
 	end
 	local script_data = get_script_data()
@@ -407,7 +407,7 @@ function research_sync.research_technology(name, level)
 end
 
 function research_sync.queue_state()
-	if not queue_sync then
+	if not research_queue_api then
 		rcon.print('{"follow":false}')
 		return
 	end
@@ -425,7 +425,7 @@ end
 
 --- @param data string JSON {queue: string[], player?: string, instance?: string}
 function research_sync.apply_queue(data)
-	if not queue_sync then
+	if not research_queue_api then
 		return
 	end
 	local msg = compat.json_to_table(data) --[[@as table]]
@@ -466,7 +466,7 @@ end
 --- @param enabled boolean
 --- @param player_name string?
 function research_sync.set_follow(enabled, player_name)
-	if not queue_sync then
+	if not research_queue_api then
 		return
 	end
 	local script_data = get_script_data()
