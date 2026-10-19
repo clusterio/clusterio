@@ -32,6 +32,8 @@ export type PluginStatus = {
 	/** Not present for plugins that aren't published to npm */
 	npmPackage?: string,
 	machines: MachinePlugin[],
+	/** Connected machines whose plugin list couldn't be fetched */
+	unreachable: Machine[],
 };
 
 /** Plugins are matched across machines by npm package, falling back to the plugin name */
@@ -50,12 +52,15 @@ function names(machines: Machine[]) {
 	return machines.map(machine => machine.name).join(", ");
 }
 
+type MachinePluginsState = { machines?: MachinePlugins[], unreachable: Machine[], refresh: () => void };
+
 /** Plugin lists of the controller and every connected host, refreshed periodically */
-export function useMachinePlugins(): { machines?: MachinePlugins[], refresh: () => void } {
+export function useMachinePlugins(): MachinePluginsState {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [hosts] = useHosts();
 	const [machines, setMachines] = useState<MachinePlugins[]>();
+	const [unreachable, setUnreachable] = useState<Machine[]>([]);
 	const [refreshCount, setRefreshCount] = useState(0);
 	const canList = account.hasPermission("core.plugin.list");
 	const connectedHosts = [...hosts.values()]
@@ -66,10 +71,15 @@ export function useMachinePlugins(): { machines?: MachinePlugins[], refresh: () 
 	useEffect(() => {
 		if (!canList) {
 			setMachines(undefined);
+			setUnreachable([]);
 			return undefined;
 		}
 		let canceled = false;
+		// Refreshes can overlap when machines are slow to answer, only the newest one is shown
+		let latestRefresh = 0;
 		async function refresh() {
+			latestRefresh += 1;
+			const thisRefresh = latestRefresh;
 			const targets: Machine[] = [
 				{ name: "Controller", isController: true, address: "controller" },
 				...connectedHosts.map(host => ({ name: host.name, isController: false, address: { hostId: host.id } })),
@@ -78,12 +88,12 @@ export function useMachinePlugins(): { machines?: MachinePlugins[], refresh: () 
 				try {
 					return { ...machine, plugins: await control.sendTo(machine.address, new lib.PluginListRequest()) };
 				} catch (err) {
-					// Hosts that can't be reached are left out, like offline hosts
-					return undefined;
+					return { ...machine, plugins: undefined };
 				}
 			}));
-			if (!canceled) {
-				setMachines(results.filter(result => result !== undefined));
+			if (!canceled && thisRefresh === latestRefresh) {
+				setMachines(results.flatMap(result => (result.plugins ? [result as MachinePlugins] : [])));
+				setUnreachable(results.flatMap(({ plugins, ...machine }) => (plugins ? [] : [machine])));
 			}
 		}
 		refresh();
@@ -91,7 +101,7 @@ export function useMachinePlugins(): { machines?: MachinePlugins[], refresh: () 
 		return () => { canceled = true; clearInterval(interval); };
 	}, [hostsKey, refreshCount, canList]);
 
-	return { machines, refresh: () => setRefreshCount(count => count + 1) };
+	return { machines, unreachable, refresh: () => setRefreshCount(count => count + 1) };
 }
 
 /** Latest version published on npm of each package */
@@ -104,18 +114,26 @@ export function useLatestVersions(packages: string[]) {
 
 	useEffect(() => {
 		if (!packagesKey || !canList) {
-			return;
+			return undefined;
 		}
+		let canceled = false;
 		control.send(new lib.PluginLatestVersionsRequest(packagesKey.split(",")))
-			.then(response => { setVersions(response.versions); })
+			.then(response => {
+				if (!canceled) {
+					setVersions(response.versions);
+				}
+			})
 			.catch(notifyErrorHandler("Failed to look up latest plugin versions"));
+		return () => { canceled = true; };
 	}, [packagesKey, canList]);
 
 	return versions;
 }
 
 /** Group the plugin lists of every machine by plugin */
-export function computePluginStatuses(machines: MachinePlugins[]): Map<string, PluginStatus> {
+export function computePluginStatuses(
+	machines: MachinePlugins[], unreachable: Machine[] = [],
+): Map<string, PluginStatus> {
 	const titles = new Map<string, string>();
 	for (const machine of machines) {
 		for (const plugin of machine.plugins) {
@@ -128,7 +146,7 @@ export function computePluginStatuses(machines: MachinePlugins[]): Map<string, P
 
 	const statuses = new Map<string, PluginStatus>();
 	for (const [key, title] of titles) {
-		const status: PluginStatus = { key, title, machines: [] };
+		const status: PluginStatus = { key, title, machines: [], unreachable };
 		for (const machine of machines) {
 			const { plugins, ...rest } = machine;
 			const plugin = plugins.find(candidate => pluginStatusKey(candidate) === key);
@@ -177,6 +195,7 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 	const pending = machines.filter(isPending);
 	const disabled = machines.filter(machine => machine.disabled);
 	const missing = machines.filter(machine => !machine.plugin || machine.plugin.removed);
+	const { unreachable } = props.status;
 
 	return <>
 		{versions.map(version => {
@@ -198,6 +217,11 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 		{pending.length > 0 && <CountLine label="Restart pending on" machines={pending} total={total} />}
 		{disabled.length > 0 && <CountLine label="Disabled on" machines={disabled} total={total} type="secondary" />}
 		{missing.length > 0 && <CountLine label="Not installed on" machines={missing} total={total} type="warning" />}
+		{unreachable.length > 0 && <div>
+			<Tooltip title={names(unreachable)}>
+				<Text type="warning">Couldn't list plugins on {unreachable.length}</Text>
+			</Tooltip>
+		</div>}
 	</>;
 }
 
@@ -238,6 +262,11 @@ function planUpdate(status: PluginStatus, version: string, installer: PluginInst
 			plan.operations.push({ kind: "update", target, packageSpec });
 		} else {
 			plan.skipped.push({ kind: "update", text: `${machine.name} (remote updates disabled)` });
+		}
+	}
+	if (plan.operations.length || plan.skipped.length) {
+		for (const machine of status.unreachable) {
+			plan.skipped.push({ kind: "update", text: `${machine.name} (couldn't list plugins)` });
 		}
 	}
 	return plan;
@@ -340,8 +369,15 @@ export function UpdateAllButton(props: UpdateAllProps) {
 	</Popconfirm>;
 }
 
+type RestartPendingProps = {
+	statuses: PluginStatus[],
+	machines: MachinePlugins[],
+	/** Plugin changes are running, a restart would make the remaining ones fail */
+	busy?: boolean,
+};
+
 /** Restarts every connected machine with a pending restart, hosts first and the controller last */
-export function RestartPendingButton(props: { statuses: PluginStatus[], machines: MachinePlugins[] }) {
+export function RestartPendingButton(props: RestartPendingProps) {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [systems] = useSystems();
@@ -379,17 +415,27 @@ export function RestartPendingButton(props: { statuses: PluginStatus[], machines
 			const results = await Promise.allSettled(hosts.map(
 				machine => control.sendTo(machine.address, new lib.HostRestartRequest())
 			));
+			const started: Machine[] = [];
 			results.forEach((result, i) => {
 				if (result.status === "rejected") {
 					notifyErrorHandler(`Failed to restart ${hosts[i].name}`)(result.reason);
+				} else {
+					started.push(hosts[i]);
 				}
 			});
 			// The controller goes last as restarting it disconnects this page until it's back
-			if (restartable.some(machine => machine.isController)) {
-				await control.send(new lib.ControllerRestartRequest())
-					.catch(notifyErrorHandler("Failed to restart the controller"));
+			const controller = restartable.find(machine => machine.isController);
+			if (controller) {
+				try {
+					await control.send(new lib.ControllerRestartRequest());
+					started.push(controller);
+				} catch (err: any) {
+					notifyErrorHandler("Failed to restart the controller")(err);
+				}
 			}
-			notify(`Restarting ${names(restartable)}`, "info");
+			if (started.length) {
+				notify(`Restarting ${names(started)}`, "info");
+			}
 		} finally {
 			setRestarting(false);
 		}
@@ -416,14 +462,14 @@ export function RestartPendingButton(props: { statuses: PluginStatus[], machines
 		okButtonProps={{ danger: true, disabled: !restartable.length }}
 		onConfirm={restart}
 	>
-		<Button loading={restarting}>Restart pending ({pending.length})</Button>
+		<Button loading={restarting} disabled={props.busy}>Restart pending ({pending.length})</Button>
 	</Popconfirm>;
 }
 
 /** Compact summary for search results: how many connected machines have the plugin installed */
 export function PluginInstalledTag(props: { status: PluginStatus, latest?: string }) {
 	const { machines } = props.status;
-	const installed = machines.filter(machine => machine.plugin);
+	const installed = machines.filter(machine => machine.plugin && !machine.plugin.removed);
 	const current = machines.filter(machine => machine.afterRestart === props.latest);
 	const color = current.length === machines.length ? "success" : "warning";
 	return <Tooltip title={<PluginVersions status={props.status} latest={props.latest} />}>

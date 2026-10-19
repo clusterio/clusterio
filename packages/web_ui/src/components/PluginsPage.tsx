@@ -68,9 +68,9 @@ export default function PluginsPage() {
 	const nameSearch = useColumnSearch<PluginRow>(
 		tableState, "name", plugin => plugin.title, "Search plugins"
 	);
-	const { machines, refresh } = useMachinePlugins();
+	const { machines, unreachable, refresh } = useMachinePlugins();
 	const installer = usePluginInstaller(refresh);
-	const statuses = machines ? computePluginStatuses(machines) : new Map<string, PluginStatus>();
+	const statuses = machines ? computePluginStatuses(machines, unreachable) : new Map<string, PluginStatus>();
 	const latestVersions = useLatestVersions(
 		[...statuses.values()].flatMap(status => (status.npmPackage ? [status.npmPackage] : []))
 	);
@@ -116,7 +116,9 @@ export default function PluginsPage() {
 		<PageHeader
 			title="Plugins"
 			extra={<Space wrap>
-				{machines && <RestartPendingButton statuses={[...statuses.values()]} machines={machines} />}
+				{machines && <RestartPendingButton
+					statuses={[...statuses.values()]} machines={machines} busy={installer.installing}
+				/>}
 				<UpdateAllButton
 					statuses={[...statuses.values()]}
 					titles={new Map(tableContents.map(row => [row.key, row.title]))}

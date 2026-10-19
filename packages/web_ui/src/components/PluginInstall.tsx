@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Alert, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -46,22 +46,28 @@ function useRemoteAccess(): RemoteAccess {
 	useEffect(() => {
 		if (!canGetControllerConfig) {
 			setControllerAccess(defaultAccess);
-			return;
+			return undefined;
 		}
+		let canceled = false;
 		control.send(new lib.ControllerConfigGetRequest()).then(serializedConfig => {
+			if (canceled) {
+				return;
+			}
 			const config = lib.ControllerConfig.fromJSON(serializedConfig, "control");
 			setControllerAccess({
 				install: config.get("controller.allow_plugin_install"),
 				update: config.get("controller.allow_plugin_updates"),
 			});
 		}).catch(notifyErrorHandler("Failed to fetch controller config"));
+		return () => { canceled = true; };
 	}, [canGetControllerConfig]);
 
 	useEffect(() => {
 		if (!canGetHostConfig) {
 			setHostsAccess(new Map());
-			return;
+			return undefined;
 		}
+		let canceled = false;
 		Promise.all(connectedHostIds.map(async hostId => {
 			try {
 				const serializedConfig = await control.sendTo({ hostId }, new lib.HostConfigGetRequest());
@@ -73,7 +79,12 @@ function useRemoteAccess(): RemoteAccess {
 			} catch (err) {
 				return [hostId, defaultAccess] as const;
 			}
-		})).then(entries => { setHostsAccess(new Map(entries)); });
+		})).then(entries => {
+			if (!canceled) {
+				setHostsAccess(new Map(entries));
+			}
+		});
+		return () => { canceled = true; };
 	}, [connectedHostIds.join(","), canGetHostConfig]);
 
 	const accessOf = (address: lib.AddressShorthand) => (address === "controller"
@@ -94,8 +105,15 @@ export function usePluginInstaller(onDone?: () => void): PluginInstaller {
 	const control = useContext(ControlContext);
 	const access = useRemoteAccess();
 	const [installing, setInstalling] = useState(false);
+	// A confirm opened before a run started can still be clicked while it runs
+	const running = useRef(false);
 
 	async function run(operations: PackageOperation[]) {
+		if (running.current) {
+			notify("Another plugin change is still in progress", "warning");
+			return;
+		}
+		running.current = true;
 		setInstalling(true);
 		const done: string[] = [];
 		try {
@@ -120,6 +138,7 @@ export function usePluginInstaller(onDone?: () => void): PluginInstaller {
 				);
 			}
 		} finally {
+			running.current = false;
 			setInstalling(false);
 			onDone?.();
 		}
