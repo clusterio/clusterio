@@ -15,6 +15,7 @@ import { PackageOperation, PluginInstaller, addressKey } from "./PluginInstall";
 const { Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 const refreshIntervalMs = 10e3;
+const latestVersionsRefreshMs = 60e3;
 
 type Machine = { name: string, isController: boolean, address: lib.AddressShorthand };
 export type MachinePlugins = Machine & { plugins: lib.PluginDetails[] };
@@ -117,14 +118,27 @@ export function useLatestVersions(packages: string[]) {
 			return undefined;
 		}
 		let canceled = false;
-		control.send(new lib.PluginLatestVersionsRequest(packagesKey.split(",")))
-			.then(response => {
-				if (!canceled) {
-					setVersions(response.versions);
-				}
-			})
-			.catch(notifyErrorHandler("Failed to look up latest plugin versions"));
-		return () => { canceled = true; };
+		let notified = false;
+		function lookUp() {
+			control.send(new lib.PluginLatestVersionsRequest(packagesKey.split(",")))
+				.then(response => {
+					if (!canceled) {
+						// Merged so a lookup failing on a later refresh doesn't hide what was found before
+						setVersions(current => ({ ...current, ...response.versions }));
+					}
+				})
+				.catch(err => {
+					if (!canceled && !notified) {
+						notified = true;
+						notifyErrorHandler("Failed to look up latest plugin versions")(err);
+					}
+				});
+		}
+		lookUp();
+		// Packages the registry couldn't be reached for are left out, so look them up again later.
+		// The controller caches the ones it found.
+		const interval = setInterval(lookUp, latestVersionsRefreshMs);
+		return () => { canceled = true; clearInterval(interval); };
 	}, [packagesKey, canList]);
 
 	return versions;
