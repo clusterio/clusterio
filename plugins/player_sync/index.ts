@@ -18,6 +18,7 @@ declare module "@clusterio/lib" {
 	}
 	export interface Permissions {
 		"player_sync.inventory.view": never;
+		"player_sync.inventory.modify": never;
 	}
 }
 
@@ -91,6 +92,7 @@ export const plugin: lib.PluginDeclaration = {
 	},
 
 	controllerEntrypoint: "dist/node/controller.js",
+	ctlEntrypoint: "dist/node/ctl.js",
 	controllerConfigFields: {
 		"player_sync.player_lock_timeout": {
 			title: "Player Lock Timeout",
@@ -113,6 +115,11 @@ export const plugin: lib.PluginDeclaration = {
 		messages.UploadRequest,
 		messages.DownloadRequest,
 		messages.DatabaseStatsRequest,
+		messages.ListPlayersRequest,
+		messages.GetPlayerDataRequest,
+		messages.SetPlayerDataRequest,
+		messages.DeletePlayerDataRequest,
+		messages.ForceReleaseRequest,
 	],
 	permissions: [
 		{
@@ -120,6 +127,11 @@ export const plugin: lib.PluginDeclaration = {
 			title: "View player inventories",
 			description: "View player inventories",
 			grantByDefault: true,
+		},
+		{
+			name: "player_sync.inventory.modify",
+			title: "Modify player inventories",
+			description: "Replace, delete and release the lock on player inventories stored on the controller",
 		},
 	],
 	webEntrypoint: "./web",

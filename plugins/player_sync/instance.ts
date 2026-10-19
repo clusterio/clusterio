@@ -27,6 +27,7 @@ type IpcAcquireResponse = {
 	generation?: number,
 	has_data?: boolean,
 	message?: string,
+	epoch?: number,
 }
 
 /**
@@ -118,6 +119,7 @@ export default async function(context: InstancePluginContext) {
 			message: "Controller is temporarily unavailable",
 			has_data: undefined,
 			generation: undefined,
+			epoch: undefined,
 		};
 
 		if (host.connector.connected && !disconnecting) {
@@ -132,6 +134,7 @@ export default async function(context: InstancePluginContext) {
 					generation: acquireResponse.generation,
 					has_data: acquireResponse.hasData,
 					message: acquireResponse.message,
+					epoch: acquireResponse.epoch,
 				};
 			} catch (err: any) {
 				if (!(err instanceof lib.SessionLost)) {

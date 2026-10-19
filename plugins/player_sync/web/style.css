@@ -1,0 +1,8 @@
+.player-sync-color {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	border: 1px solid rgba(0, 0, 0, 0.25);
+	border-radius: 2px;
+	vertical-align: middle;
+}

@@ -30,6 +30,33 @@ Remove the old package and install the new one in its place:
 The `inventory_sync.*` config fields and the `inventory_sync.inventory.view` permission are renamed on load.
 The controller moves `inventories.json` in the database directory to `player_sync.json`, and saves keep their player data the next time they are started with the new module.
 
+## Fixing broken inventories
+
+The controller stores one entry per player in `player_sync.json` and keeps a lock on the player while an instance has them online.
+When sync goes wrong for a player, the Player sync page in the web interface lists every stored entry with its generation, size and the instance holding the lock.
+Click an entry to see a summary of its inventories, export it as JSON, import an edited JSON file in its place, delete it, or release the lock.
+
+The same operations are available from clusterioctl:
+
+    npx clusterioctl player-sync list
+    npx clusterioctl player-sync show <player>
+    npx clusterioctl player-sync export <player> [file]
+    npx clusterioctl player-sync import <player> <file>
+    npx clusterioctl player-sync delete <player>
+    npx clusterioctl player-sync release <player>
+
+Importing and deleting both start a new epoch for the player.
+An instance holding a copy from an earlier epoch throws it away the next time the player joins, even if it is newer than what the controller has, and an upload from an earlier epoch is discarded.
+After an import the instance downloads the new data.
+After a delete the next join turns whatever the player has on that instance into the new synced inventory.
+Deleted players stay in `player_sync.json` as an entry with `deleted: true` so their epoch survives a controller restart.
+Hosts running a version of this plugin from before epochs keep comparing generations only, so they can still overwrite an import with a copy they failed to upload.
+Update the plugin on every host to get the full guarantee.
+Both are refused while an instance holds the lock on the player, because the instance uploads its own copy when the player leaves and that would undo the change.
+Have the player leave first, or release the lock if the instance is stuck holding it.
+
+Viewing and exporting need the `player_sync.inventory.view` permission. Importing, deleting and releasing need `player_sync.inventory.modify`, which is not granted by default.
+
 ## Method of operation
 
 This plugin does event based synchronization of inventories.
