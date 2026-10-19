@@ -31,6 +31,9 @@ export interface ControllerConfigFields {
 	"controller.max_subscription_filters": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
+	"controller.player_proxy_port": number | null;
+	"controller.player_proxy_default_instance_id": number | null;
+	"controller.player_proxy_public_address": string | null;
 	"controller.factorio_username": string | null;
 	"controller.factorio_token": string | null;
 	"controller.share_factorio_credentials_with_hosts": boolean;
@@ -243,6 +246,34 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			initialValue: 15,
 			validator: validators.greaterThanZero,
 		},
+		"controller.player_proxy_port": {
+			title: "Player Proxy Port",
+			description:
+				"UDP port the controller accepts Factorio player connections on and forwards them to an " +
+				"instance, starting it if needed. Disabled when null.",
+			restartRequired: true,
+			type: "number",
+			optional: true,
+			initialValue: 34197,
+			validator: validators.optional(validators.greaterThanZero),
+		},
+		"controller.player_proxy_default_instance_id": {
+			title: "Player Proxy Default Instance",
+			description:
+				"Instance ID to send players connecting through the player proxy to when no plugin picks one " +
+				"and they have not been on any instance before.",
+			type: "number",
+			optional: true,
+		},
+		"controller.player_proxy_public_address": {
+			title: "Player Proxy Public Address",
+			description:
+				"Address players reach the player proxy on, for example play.example.com:34197. Used by plugins " +
+				"to tell players where to connect. If null plugins may assume the host name of " +
+				"controller.public_url and controller.player_proxy_port.",
+			type: "string",
+			optional: true,
+		},
 		"controller.factorio_username": {
 			title: "Factorio Username",
 			description: "Username to authenticate with Factorio API with.",
@@ -413,7 +444,7 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 				"Range of UDP ports to use for game connections. Supports both comma separated values and " +
 				"ranges separated with a dash.",
 			type: "string",
-			initialValue: "34100-34199",
+			initialValue: "34200-34299",
 			// TODO extendedValidation, port range
 		},
 		"host.factorio_username": {
@@ -471,6 +502,7 @@ export interface InstanceConfigFields {
 	"instance.id": number;
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
+	"instance.player_proxy_port": number | null;
 	"instance.exclude_from_start_all": boolean;
 	[key: `${string}.load_plugin`]: boolean;
 	[key: `${string}.version`]: string;
@@ -544,6 +576,14 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description: "Automatically start this instance when the host hosting it is started up",
 			type: "boolean",
 			initialValue: false,
+		},
+		"instance.player_proxy_port": {
+			description:
+				"Extra UDP port on the controller's player proxy that sends players straight to this instance, " +
+				"starting it if needed. Requires controller.player_proxy_port to be set.",
+			type: "number",
+			optional: true,
+			validator: validators.optional(validators.greaterThanZero),
 		},
 		"instance.exclude_from_start_all": {
 			description: "Exclude this instance from the 'Start all' button operation",

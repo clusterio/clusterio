@@ -138,32 +138,35 @@ describe("player_auth", function() {
 			});
 
 			describe("/api/player_auth/servers", function() {
-				it("should return a list of running servers with player_auth loaded", async function() {
-					function addInstance(id, status, load, name, version, gamePort, host=1) {
-						mockController.instances.records.set(id, {
-							config: {
-								get(field) {
-									if (field === "player_auth.load_plugin") {
-										return load;
-									}
-									if (field === "factorio.settings") {
-										return { name };
-									}
-									if (field === "instance.id") {
-										return id;
-									}
-									if (field === "instance.assigned_host") {
-										return host;
-									}
-									throw new Error(`field ${field} not implemented`);
-								},
+				function addInstance(id, status, load, name, version, gamePort, host=1, proxyPort=null) {
+					mockController.instances.records.set(id, {
+						config: {
+							get(field) {
+								if (field === "player_auth.load_plugin") {
+									return load;
+								}
+								if (field === "factorio.settings") {
+									return { name };
+								}
+								if (field === "instance.id") {
+									return id;
+								}
+								if (field === "instance.assigned_host") {
+									return host;
+								}
+								if (field === "instance.player_proxy_port") {
+									return proxyPort;
+								}
+								throw new Error(`field ${field} not implemented`);
 							},
-							status,
-							gamePort,
-							factorioVersion: version,
-						});
-					}
+						},
+						status,
+						gamePort,
+						factorioVersion: version,
+					});
+				}
 
+				it("should return a list of running servers with player_auth loaded", async function() {
 					addInstance(1, "running", true, "running loaded", "1.1.1", 34197);
 					addInstance(2, "stopped", true, "stopped loaded", "1.1.2", 34197);
 					addInstance(3, "running", false, "running unloaded", "1.1.3", 34197);
@@ -185,6 +188,31 @@ describe("player_auth", function() {
 						{ name: "no port", address: "127.0.0.1", factorioVersion: "1.1.6" },
 						{ name: "no version", address: "127.0.0.1:34197" },
 					]);
+				});
+
+				it("should list the player proxy once for instances behind it", async function() {
+					for (const id of [...mockController.instances.records.keys()]) {
+						mockController.instances.records.delete(id);
+					}
+					mockController.mockConfigEntries.set("controller.name", "Cluster");
+					mockController.mockConfigEntries.set(
+						"controller.player_proxy_public_address", "play.example:34197"
+					);
+					mockController.getPlayerProxyAddress = port => `play.example:${port ?? 34197}`;
+					try {
+						addInstance(1, "running", true, "behind proxy", "2.1.19", 34201);
+						addInstance(2, "running", true, "also behind proxy", "2.1.19", 34202);
+						addInstance(3, "running", true, "dedicated port", "2.1.19", 34203, 1, 34300);
+						addInstance(4, "stopped", true, "stopped", "2.1.19", 34204, 1, 34301);
+
+						const result = await fetch(`${controllerUrl}/api/player_auth/servers`);
+						assert.deepEqual(await result.json(), [
+							{ name: "Cluster", address: "play.example:34197", factorioVersion: "2.1.19" },
+							{ name: "dedicated port", address: "play.example:34300", factorioVersion: "2.1.19" },
+						]);
+					} finally {
+						mockController.mockConfigEntries.set("controller.player_proxy_public_address", null);
+					}
 				});
 			});
 

@@ -2,6 +2,7 @@ import type Controller from "./Controller.js";
 import type InstanceRecord from "./InstanceRecord.js";
 import type ControlConnection from "./ControlConnection.js";
 import type HostConnection from "./HostConnection.js";
+import type { PlayerProxyRouteRequest } from "./PlayerProxyServer.js";
 import * as lib from "@clusterio/lib";
 
 export type ControllerPluginContext = lib.PluginLoadContext<{
@@ -28,6 +29,7 @@ export class ControllerHooks extends lib.AsyncHookCollection {
 		this.modsUpdated = this.newHook();
 		this.rolesUpdated = this.newHook();
 		this.playerEvent = this.newHook();
+		this.playerProxyRoute = this.newHook();
 	}
 
 	/**
@@ -266,6 +268,24 @@ export class ControllerHooks extends lib.AsyncHookCollection {
 	 * @param event - Information about the event.
 	 */
 	readonly playerEvent: lib.AsyncHook<[instance: InstanceRecord, event: lib.PlayerEvent]>;
+
+	/**
+	 * Called to pick the instance a player connecting through the player proxy goes to
+	 *
+	 * Invoked when a Factorio client has sent its name to the player proxy
+	 * enabled with controller.player_proxy_port. Handlers return the ID of
+	 * the instance to send the player to, or undefined to leave the choice
+	 * to other plugins and the controller. If the instance is stopped the
+	 * proxy starts it, which can take longer than the client is willing to
+	 * wait.
+	 *
+	 * Factorio clients connect twice when joining a server they don't have a
+	 * key for, so a handler must give the same answer for both attempts.
+	 *
+	 * @param request - Name, version and connection details of the player.
+	 * @returns ID of instance to route the player to.
+	 */
+	readonly playerProxyRoute: lib.AsyncHook<[request: PlayerProxyRouteRequest], number | undefined>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging

@@ -4,6 +4,7 @@ export { BaseInstancePlugin, InstanceHooks, type InstancePluginContext } from ".
 export { default as Host, HostRouter } from "./src/Host.js";
 export { default as Instance } from "./src/Instance.js";
 export { default as InstanceConnection } from "./src/InstanceConnection.js";
+export { setSaveScenario } from "./src/patch.js";
 
 if (import.meta.main) {
 	bootstrap();

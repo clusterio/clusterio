@@ -46,6 +46,13 @@ export default async function loadControllerPlugin(context: ControllerPluginCont
 
 	controller.app.get("/api/player_auth/servers", (req: Request, res: Response) => {
 		const servers: Static<typeof PlayerAuthServer.jsonSchema>[] = [];
+		const includeAddress = controller.config.get("player_auth.show_connect_address");
+		// When players are meant to connect through the player proxy, instances without a dedicated proxy
+		// port are only reachable through its main port, which is listed once for all of them.
+		const proxyAddress = controller.config.get("controller.player_proxy_public_address")
+			? controller.getPlayerProxyAddress()
+			: undefined;
+		const proxiedVersions = new Set<string | undefined>();
 
 		for (const instance of controller.instances.values()) {
 			const pluginLoaded = instance.config.get("player_auth.load_plugin");
@@ -59,16 +66,34 @@ export default async function loadControllerPlugin(context: ControllerPluginCont
 				continue;
 			}
 
-			const address = instance.gamePort !== undefined
-				? `${host.publicAddress}:${instance.gamePort}`
-				: host.publicAddress;
+			let address: string | undefined;
+			if (proxyAddress) {
+				const proxyPort = instance.config.get("instance.player_proxy_port");
+				if (proxyPort === null) {
+					proxiedVersions.add(instance.factorioVersion);
+					continue;
+				}
+				address = controller.getPlayerProxyAddress(proxyPort);
+			} else if (host.publicAddress !== "") {
+				address = instance.gamePort !== undefined
+					? `${host.publicAddress}:${instance.gamePort}`
+					: host.publicAddress;
+			}
 
 			const settings = instance.config.get("factorio.settings");
-			const includeAddress = controller.config.get("player_auth.show_connect_address");
 			servers.push({
 				name: settings["name"] as string || "unnamed server",
 				factorioVersion: instance.factorioVersion,
-				address: (includeAddress && host.publicAddress !== "") ? address : undefined,
+				address: includeAddress ? address : undefined,
+			});
+		}
+
+		if (proxiedVersions.size) {
+			const [version] = proxiedVersions;
+			servers.unshift({
+				name: controller.config.get("controller.name"),
+				factorioVersion: proxiedVersions.size === 1 ? version : undefined,
+				address: includeAddress ? proxyAddress : undefined,
 			});
 		}
 

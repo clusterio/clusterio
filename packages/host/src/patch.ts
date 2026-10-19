@@ -465,37 +465,87 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 
 		// Write back the save, keeping the order of the entries in the original
 		const added = new Map([...files].map(([relativePath, contents]) => [rootPath(relativePath), contents]));
-		const output = new lib.ZipWriter();
-		let writeStream;
-		[tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
-		const writing = pipeline(output.outputStream, writeStream);
-		// Awaited below, but a write error can reject it before then.
-		writing.catch(() => {});
-		try {
-			for (const entry of zip.entries.values()) {
-				const name = entry.fileName;
-				if (removed.has(name)) {
-					continue;
-				}
-				const contents = added.get(name);
-				if (contents !== undefined) {
-					await output.addBuffer(contents, name);
-					added.delete(name);
-				} else {
-					await output.addEntry(zip, entry);
-				}
+		tempSavePath = await writeSaveCopy(zip, savePath, added, removed);
+	} finally {
+		zip.close();
+	}
+	await fs.rename(tempSavePath, savePath);
+}
+
+/**
+ * Write a copy of a save with entries replaced, added and removed
+ *
+ * The copy is written next to the save, and must be renamed over it after
+ * the save has been closed.
+ *
+ * @param zip - Opened save to copy.
+ * @param savePath - Path the save was opened from.
+ * @param added - Entries by full path in the zip to add or replace.
+ * @param removed - Full paths of entries to leave out.
+ * @returns path to the copy written.
+ */
+async function writeSaveCopy(
+	zip: lib.ZipArchive,
+	savePath: string,
+	added: Map<string, Buffer>,
+	removed = new Set<string>(),
+) {
+	const output = new lib.ZipWriter();
+	const [tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
+	const writing = pipeline(output.outputStream, writeStream);
+	// Awaited below, but a write error can reject it before then.
+	writing.catch(() => {});
+	try {
+		for (const entry of zip.entries.values()) {
+			const name = entry.fileName;
+			if (removed.has(name)) {
+				continue;
 			}
-			for (const [name, contents] of added) {
+			const contents = added.get(name);
+			if (contents !== undefined) {
 				await output.addBuffer(contents, name);
+				added.delete(name);
+			} else {
+				await output.addEntry(zip, entry);
 			}
-			await output.end();
-			await writing;
-		} catch (err) {
-			output.outputStream.destroy();
-			await writing.catch(() => {});
-			await fs.rm(tempSavePath, { force: true });
-			throw err;
 		}
+		for (const [name, contents] of added) {
+			await output.addBuffer(contents, name);
+		}
+		await output.end();
+		await writing;
+	} catch (err) {
+		output.outputStream.destroy();
+		await writing.catch(() => {});
+		await fs.rm(tempSavePath, { force: true });
+		throw err;
+	}
+	return tempSavePath;
+}
+
+/**
+ * Set the scenario code the save patcher keeps loading in a save
+ *
+ * Saves created by Factorio run the freeplay scenario, which the patcher
+ * keeps when patching them. This replaces it with the given scenario info,
+ * for example a scenario that loads no modules to get a save without
+ * freeplay. The save must not have been patched before.
+ *
+ * @param savePath - Path to the save to change.
+ * @param scenario - Scenario modules to load in place of the original scenario.
+ */
+export async function setSaveScenario(savePath: string, scenario: lib.ModuleInfo) {
+	const zip = await lib.ZipArchive.fromFile(savePath);
+	let tempSavePath: string;
+	try {
+		const root = lib.findRoot(zip);
+		if (await zip.readFile(path.posix.join(root, "clusterio.json")) !== null) {
+			throw new Error("Unable to set scenario of a save that has already been patched");
+		}
+		const patchInfo = new PatchInfo(0, scenario, []);
+		tempSavePath = await writeSaveCopy(zip, savePath, new Map([[
+			path.posix.join(root, "clusterio.json"), Buffer.from(JSON.stringify(patchInfo, null, "	"), "utf8"),
+		]]));
 	} finally {
 		zip.close();
 	}

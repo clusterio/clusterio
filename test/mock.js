@@ -102,6 +102,12 @@ export class MockServer extends events.EventEmitter {
 		this.udpMessages.push(message);
 	}
 
+	handle(eventName, handler) {
+		this.on(`ipc-${eventName}`, event => handler(event).catch(err => {
+			this.emit("error", err);
+		}));
+	}
+
 	async sendRcon(command) {
 		this.rconCommands.push(command);
 		let result = this.rconCommandResults.get(command);
@@ -175,6 +181,7 @@ export class MockController {
 			["controller.auth_secret", "TestSecretDoNotUse"],
 			["controller.proxy_stream_timeout", 1],
 			["controller.metrics_timeout", 1],
+			["controller.player_proxy_public_address", null],
 		]);
 		this.config = {
 			get: (name) => {
