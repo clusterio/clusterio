@@ -1,0 +1,62 @@
+import assert from "node:assert/strict";
+
+import * as lib from "@clusterio/lib";
+import { computePluginStatuses, planUpdate } from "../../packages/web_ui/src/util/plugin_status.ts";
+
+describe("web_ui/util/plugin_status", function() {
+	describe("planUpdate()", function() {
+		const access = { canInstall: () => true, canUpdate: () => true };
+		const account = { hasPermission: () => true };
+		function machine(name, plugins) {
+			return { name, isController: false, address: { hostId: name.length }, plugins };
+		}
+		function loaded(npmPackage, version) {
+			return new lib.PluginDetails("plugin", "Plugin", version, true, true, undefined, npmPackage, version);
+		}
+		function pending(packageName, npmPackage, version) {
+			return new lib.PluginDetails(
+				packageName, packageName, version, false, false, undefined, npmPackage, version, true,
+			);
+		}
+		function plan(machines) {
+			const statuses = computePluginStatuses(machines);
+			assert.equal(statuses.size, 1);
+			const status = [...statuses.values()][0];
+			return planUpdate(status, "2.0.0", access, account);
+		}
+
+		it("should install on machines where the plugin is missing", function() {
+			const result = plan([machine("a", [loaded("plugin-aliased", "1.0.0")]), machine("b", [])]);
+			assert.deepEqual(result.operations.map(op => [op.kind, op.target.name, op.packageSpec]), [
+				["update", "a", "plugin-aliased@2.0.0"],
+				["install", "b", "plugin-aliased@2.0.0"],
+			]);
+		});
+
+		it("should not install over a pending alias with another machine's package", function() {
+			const result = plan([
+				machine("a", [loaded("plugin-aliased", "2.0.0")]),
+				machine("b", [pending("plugin-aliased", undefined, "1.0.0")]),
+			]);
+			assert.deepEqual(result.operations, []);
+			assert.deepEqual(result.skipped, [{ kind: "install", text: "b (not installed from npm)" }]);
+		});
+
+		it("should not update a loaded package that isn't from npm", function() {
+			const result = plan([
+				machine("a", [loaded("plugin-aliased", "1.0.0")]),
+				machine("b", [new lib.PluginDetails("plugin-aliased", "Plugin", "1.0.0", true, true)]),
+			]);
+			assert.deepEqual(result.operations.map(op => op.target.name), ["a"]);
+			assert.deepEqual(result.skipped, [{ kind: "update", text: "b (not installed from npm)" }]);
+		});
+
+		it("should install over a pending npm package", function() {
+			const result = plan([
+				machine("a", [loaded("plugin-aliased", "2.0.0")]),
+				machine("b", [pending("plugin-aliased", "plugin-aliased", "1.0.0")]),
+			]);
+			assert.deepEqual(result.operations.map(op => [op.kind, op.target.name]), [["install", "b"]]);
+		});
+	});
+});

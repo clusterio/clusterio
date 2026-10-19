@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from "react";
 import { Button, Popconfirm, Tag, Tooltip, Typography } from "antd";
-import semver from "semver";
 
 import * as lib from "@clusterio/lib";
 
@@ -11,43 +10,14 @@ import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import { PackageOperation, PluginInstaller, addressKey } from "./PluginInstall";
+import {
+	Machine, MachinePlugin, MachinePlugins, PluginStatus, UpdatePlan, compareVersions, planUpdate,
+} from "../util/plugin_status";
 
 const { Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 const refreshIntervalMs = 10e3;
 const latestVersionsRefreshMs = 60e3;
-
-type Machine = { name: string, isController: boolean, address: lib.AddressShorthand };
-export type MachinePlugins = Machine & { plugins: lib.PluginDetails[] };
-
-/** A plugin on one machine, with the version it runs now and the version it will run after a restart */
-type MachinePlugin = Machine & {
-	plugin?: lib.PluginDetails,
-	running?: string,
-	afterRestart?: string,
-	disabled: boolean,
-};
-export type PluginStatus = {
-	key: string,
-	title: string,
-	/** Not present for plugins that aren't published to npm */
-	npmPackage?: string,
-	machines: MachinePlugin[],
-	/** Connected machines whose plugin list couldn't be fetched */
-	unreachable: Machine[],
-};
-
-/** Plugins are matched across machines by npm package, falling back to the plugin name */
-export function pluginStatusKey(plugin: { name: string, npmPackage?: string }) {
-	return plugin.npmPackage ?? plugin.name;
-}
-
-function compareVersions(a: string, b: string) {
-	if (semver.valid(a) && semver.valid(b)) {
-		return semver.compare(a, b);
-	}
-	return strcmp(a, b);
-}
 
 function names(machines: Machine[]) {
 	return machines.map(machine => machine.name).join(", ");
@@ -144,47 +114,6 @@ export function useLatestVersions(packages: string[]) {
 	return versions;
 }
 
-/** Group the plugin lists of every machine by plugin */
-export function computePluginStatuses(
-	machines: MachinePlugins[], unreachable: Machine[] = [],
-): Map<string, PluginStatus> {
-	const titles = new Map<string, string>();
-	for (const machine of machines) {
-		for (const plugin of machine.plugins) {
-			const key = pluginStatusKey(plugin);
-			if (!titles.has(key) || plugin.loaded) {
-				titles.set(key, plugin.title);
-			}
-		}
-	}
-
-	const statuses = new Map<string, PluginStatus>();
-	for (const [key, title] of titles) {
-		const status: PluginStatus = { key, title, machines: [], unreachable };
-		for (const machine of machines) {
-			const { plugins, ...rest } = machine;
-			const plugin = plugins.find(candidate => pluginStatusKey(candidate) === key);
-			status.npmPackage ??= plugin?.npmPackage;
-			const entry: MachinePlugin = { ...rest, plugin, disabled: false };
-			// What runs now follows loaded, what runs after a restart follows enabled and what is on disk
-			if (plugin?.loaded) {
-				entry.running = plugin.version;
-			}
-			if (plugin?.pendingInstall) {
-				// Plugins load by default, so a new install runs after the next restart
-				entry.afterRestart = plugin.installedVersion ?? plugin.version;
-			} else if (plugin && !plugin.enabled) {
-				entry.disabled = true;
-			} else if (plugin && !plugin.removed) {
-				entry.afterRestart = plugin.installedVersion ?? plugin.version;
-			}
-			status.machines.push(entry);
-		}
-		statuses.set(key, status);
-	}
-	return statuses;
-}
-
 function isPending(machine: MachinePlugin) {
 	return machine.running !== machine.afterRestart;
 }
@@ -239,52 +168,7 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 	</>;
 }
 
-type UpdatePlan = { operations: PackageOperation[], skipped: { kind: PackageOperation["kind"], text: string }[] };
-
 type Account = ReturnType<typeof useAccount>;
-
-/**
- * Bring every connected machine up to the given version, installing where the plugin is missing.
- * Machines already on that version or a newer one are left alone.
- */
-function planUpdate(status: PluginStatus, version: string, installer: PluginInstaller, account: Account): UpdatePlan {
-	const plan: UpdatePlan = { operations: [], skipped: [] };
-	if (!status.npmPackage) {
-		return plan;
-	}
-	const packageSpec = `${status.npmPackage}@${version}`;
-	for (const machine of status.machines) {
-		const { plugin } = machine;
-		const target = { name: machine.name, address: machine.address };
-		const installed = plugin && !plugin.removed;
-		if (installed && compareVersions(plugin.installedVersion ?? plugin.version, version) >= 0) {
-			continue;
-		}
-		if (!installed || plugin.pendingInstall) {
-			if (!account.hasPermission("core.plugin.install")) {
-				plan.skipped.push({ kind: "install", text: `${machine.name} (no install permission)` });
-			} else if (installer.access.canInstall(machine.address)) {
-				plan.operations.push({ kind: "install", target, packageSpec });
-			} else {
-				plan.skipped.push({ kind: "install", text: `${machine.name} (remote installs disabled)` });
-			}
-		} else if (!plugin.npmPackage) {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (not installed from npm)` });
-		} else if (!account.hasPermission("core.plugin.update")) {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (no update permission)` });
-		} else if (installer.access.canUpdate(machine.address)) {
-			plan.operations.push({ kind: "update", target, packageSpec });
-		} else {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (remote updates disabled)` });
-		}
-	}
-	if (plan.operations.length || plan.skipped.length) {
-		for (const machine of status.unreachable) {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (couldn't list plugins)` });
-		}
-	}
-	return plan;
-}
 
 function PlanDescription(props: UpdatePlan) {
 	const byKind = (kind: PackageOperation["kind"]) => props.operations.filter(operation => operation.kind === kind);
@@ -311,7 +195,7 @@ export function PluginUpdateButton(props: UpdateButtonProps) {
 	if (!latest || !canChangePlugins(account)) {
 		return null;
 	}
-	const plan = planUpdate(status, latest, installer, account);
+	const plan = planUpdate(status, latest, installer.access, account);
 	const changes = [...plan.operations, ...plan.skipped];
 	if (!changes.length) {
 		return null;
@@ -358,7 +242,7 @@ export function UpdateAllButton(props: UpdateAllProps) {
 		if (!latest) {
 			return [];
 		}
-		const plan = planUpdate(status, latest, props.installer, account);
+		const plan = planUpdate(status, latest, props.installer.access, account);
 		return plan.operations.length ? [{ status, latest, plan }] : [];
 	});
 	if (!plans.length) {

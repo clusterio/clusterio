@@ -11,9 +11,9 @@ import ControlContext from "./ControlContext";
 import { PluginBrowserButton } from "./PluginBrowser";
 import { usePluginInstaller } from "./PluginInstall";
 import {
-	PluginStatus, PluginUpdateButton, PluginVersions, RestartPendingButton, UpdateAllButton,
-	computePluginStatuses, pluginStatusKey, useLatestVersions, useMachinePlugins,
+	PluginUpdateButton, PluginVersions, RestartPendingButton, UpdateAllButton, useLatestVersions, useMachinePlugins,
 } from "./PluginClusterStatus";
+import { PluginStatus, computePluginStatuses, pluginStatusKey } from "../util/plugin_status";
 import PageLayout from "./PageLayout";
 import PageHeader from "./PageHeader";
 import useTableQueryState from "../util/useTableQueryState";

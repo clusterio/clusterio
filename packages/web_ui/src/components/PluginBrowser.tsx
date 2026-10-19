@@ -9,7 +9,8 @@ import { useHosts } from "../model/host";
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import { InstallTarget, PluginInstaller, RemoteInstallDisabledNotice, addressKey } from "./PluginInstall";
-import { PluginInstalledTag, PluginStatus, PluginUpdateButton, PluginVersions } from "./PluginClusterStatus";
+import { PluginInstalledTag, PluginUpdateButton, PluginVersions } from "./PluginClusterStatus";
+import type { PluginStatus } from "../util/plugin_status";
 
 const { Text, Link } = Typography;
 
