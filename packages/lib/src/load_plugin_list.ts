@@ -257,6 +257,14 @@ const corePackages = new Set([
 	"@clusterio/web_ui",
 ]);
 
+async function realDir(dir: string) {
+	try {
+		return await fs.realpath(dir);
+	} catch {
+		return path.resolve(dir);
+	}
+}
+
 async function readPackageJson(packageJsonPath: string): Promise<any> {
 	try {
 		return JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
@@ -280,12 +288,10 @@ export async function listPluginDetails(
 	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
-	const knownPackages = new Set<string>();
+	// By directory, as a plugin loaded from a path may also be an npm dependency
+	const knownDirs = new Set<string>();
 	for (const pluginInfo of pluginInfos) {
-		knownPackages.add(pluginInfo.requirePath);
-		if (pluginInfo.npmPackage) {
-			knownPackages.add(pluginInfo.npmPackage);
-		}
+		knownDirs.add(await realDir(path.dirname(pluginInfo.packagePath)));
 		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo), isEnabled(pluginInfo));
 		try {
 			plugin.installedVersion = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8")).version;
@@ -301,10 +307,13 @@ export async function listPluginDetails(
 	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
 	const { plugins: npmPlugins } = await discoverNpmPluginPackages(rootPackageJson?.dependencies ?? {});
 	for (const { packageName, packagePath } of npmPlugins) {
-		if (knownPackages.has(packageName)) {
+		if (knownDirs.has(await realDir(packagePath))) {
 			continue;
 		}
 		const packageJson = await readPackageJson(path.join(packagePath, "package.json"));
+		if (typeof packageJson?.version !== "string") {
+			continue; // Moved or rewritten by an npm operation in progress
+		}
 		plugins.push(new PluginDetails(
 			packageName, packageName, packageJson.version, false, false,
 			packageJson.description, packageName, packageJson.version, true,

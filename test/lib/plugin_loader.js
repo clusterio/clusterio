@@ -419,6 +419,28 @@ describe("lib/plugin_loader", function() {
 			assert.equal(plugins.length, 4);
 		});
 
+		it("should not list a plugin loaded from a path as pending when npm links to it", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			const linkPath = path.join("node_modules", "plugin-linked");
+			try {
+				await fs.symlink(externalPluginPathAbs, linkPath, "junction");
+				await fs.writeFile("package.json", JSON.stringify({
+					dependencies: { "plugin-linked": "file:external_plugins/external_plugin" },
+				}));
+				const plugins = await lib.listPluginDetails([{
+					name: "external",
+					title: "External",
+					version: "0.0.1",
+					requirePath: externalPluginPathAbs,
+					packagePath: path.join(externalPluginPathAbs, "package.json"),
+				}], () => true, () => true);
+				assert.deepEqual(plugins.map(plugin => plugin.name), ["external"]);
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+				await fs.rm(linkPath, { force: true });
+			}
+		});
+
 		it("should mark plugins uninstalled since startup as removed", async function() {
 			const pluginInfos = [{
 				name: "gone",
