@@ -19,5 +19,8 @@ export const plugin: lib.PluginDeclaration = {
 		messages.ProgressEvent,
 		messages.FinishedEvent,
 		messages.SyncTechnologiesRequest,
+		messages.QueueUpdateEvent,
+		messages.QueueEvent,
+		messages.QueueSyncRequest,
 	],
 };
