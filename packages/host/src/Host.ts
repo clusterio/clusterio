@@ -26,6 +26,36 @@ function checkRequestSaveName(name: string) {
 	}
 }
 
+async function copySaveExclusive(sourcePath: string, targetPath: string) {
+	await fs.copyFile(
+		sourcePath,
+		targetPath,
+		fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE
+	);
+}
+
+/**
+ * Move a file without overwriting an existing target, fails with EEXIST
+ * if the target exists.
+ */
+async function moveSaveExclusive(sourcePath: string, targetPath: string) {
+	try {
+		await fs.link(sourcePath, targetPath);
+	} catch (err: any) {
+		// Hard links are not possible across filesystems and on some filesystems.
+		if (!["EXDEV", "EPERM", "ENOTSUP"].includes(err.code)) {
+			throw err;
+		}
+		await copySaveExclusive(sourcePath, targetPath);
+	}
+	try {
+		await fs.unlink(sourcePath);
+	} catch (err: any) {
+		await fs.unlink(targetPath).catch(() => {});
+		throw err;
+	}
+}
+
 /**
  * Checks that no socket is bound to the given UDP port, on IPv4 or IPv6
  *
@@ -498,8 +528,8 @@ export default class Host extends lib.Link {
 		}
 
 		let instancesDir = this.config.get("host.instances_directory");
-		for (let i = 0; i < 10; i++) { // Limit attempts in case this is somehow an infinite loop
-			let candidateDir = path.join(instancesDir, i === 0 ? name : `${name}-${i + 1}`);
+		for (let i = 1; ; i++) {
+			let candidateDir = path.join(instancesDir, i === 1 ? name : `${name}-${i}`);
 			try {
 				await fs.mkdir(candidateDir);
 			} catch (err: any) {
@@ -510,7 +540,6 @@ export default class Host extends lib.Link {
 			}
 			return candidateDir;
 		}
-		throw Error("Unable to create instance dir, retry threshold reached");
 	}
 
 	async broadcastEventToInstance<T>(event: lib.Event<T>) {
@@ -1066,19 +1095,13 @@ export default class Host extends lib.Link {
 
 	async _moveOrCopySave(sourcePath: string, targetPath: string, copy: boolean) {
 		const { dir, name, ext } = path.parse(targetPath);
-		for (let i = 0; i < 10; i++) {
-			targetPath = path.format({ dir, name: i === 0 ? name : `${name}-${i + 1}`, ext });
+		for (let i = 1; ; i++) {
+			targetPath = path.format({ dir, name: i === 1 ? name : `${name}-${i}`, ext });
 			try {
 				if (copy) {
-					await fs.copyFile(
-						sourcePath,
-						targetPath,
-						fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE
-					);
+					await copySaveExclusive(sourcePath, targetPath);
 				} else {
-					// Unlike rename, link fails if the target exists.
-					await fs.link(sourcePath, targetPath);
-					await fs.unlink(sourcePath);
+					await moveSaveExclusive(sourcePath, targetPath);
 				}
 				return path.basename(targetPath);
 			} catch (err: any) {
@@ -1087,7 +1110,6 @@ export default class Host extends lib.Link {
 				}
 			}
 		}
-		throw new lib.RequestError("Unable to transfer save, retry threshold reached");
 	}
 
 	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
@@ -1096,6 +1118,10 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(targetName);
 		let sourceInstance = this.getRequestInstance(sourceInstanceId);
 		let targetInstance = this.getRequestInstance(targetInstanceId);
+
+		if (!targetName.endsWith(".zip")) {
+			targetName += ".zip";
+		}
 
 		// For consistency with remote transfer initiated through pullSave the
 		// target is renamed if it already exists.

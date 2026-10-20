@@ -1471,10 +1471,11 @@ describe("Integration of Clusterio", function() {
 					});
 					it("should auto-rename copy if target exists", async function() {
 						await uploadSave(pri, "transfer.zip", "transfer.zip");
-						await uploadSave(sec, "transfer.zip", "transfer.zip");
+						await uploadSave(sec, "transfer.zip", "existing");
 						await execCtlProcess(`instance save transfer ${pri} transfer.zip ${sec} --copy`);
 						await assert.doesNotReject(fs.access(path.join(priSaves, "transfer.zip")), "save not at pri");
-						await assert.doesNotReject(fs.access(path.join(secSaves, "transfer-2.zip")), "save not at sec");
+						assert.equal(await fs.readFile(path.join(secSaves, "transfer.zip"), "utf8"), "existing");
+						assert.equal(await fs.readFile(path.join(secSaves, "transfer-2.zip"), "utf8"), "transfer.zip");
 						await deleteSave(pri, "transfer.zip");
 						await deleteSave(sec, "transfer.zip");
 						await deleteSave(sec, "transfer-2.zip");
