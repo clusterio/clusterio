@@ -52,7 +52,7 @@ type ControllerDebugEvents = {
 
 type ControllerEvents = {
 	"stop": [],
-}
+};
 
 /**
  * Manages all controller related operations

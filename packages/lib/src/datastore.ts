@@ -15,8 +15,8 @@ export abstract class DatastoreProvider<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > {
-	abstract save(data: Map<K, V>): Promise<void>
-	abstract load(): Promise<Map<K, V>>
+	abstract save(data: Map<K, V>): Promise<void>;
+	abstract load(): Promise<Map<K, V>>;
 
 	// Load data from the source and return it, this should be passed to the constructor of a datastore
 	async bootstrap() {

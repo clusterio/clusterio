@@ -25,7 +25,7 @@ type ModalProps = {
 	disabled: boolean;
 	save: lib.SaveDetails;
 	instanceId: number;
-}
+};
 
 function RenameModal(props: ModalProps) {
 	let control = useContext(ControlContext);
@@ -198,7 +198,7 @@ type File = {
 	name: string;
 	percent: number;
 	status: string;
-}
+};
 
 export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let account = useAccount();

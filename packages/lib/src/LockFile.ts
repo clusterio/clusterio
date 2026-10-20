@@ -155,6 +155,7 @@ export class LockFile {
   	// Event handler for synchronous process exit
 	private handleExitSync = (): void => {
 		try {
+			// eslint-disable-next-line node/no-sync
 			unlinkSync(this.filePath);
 		} catch (err) {
       		// Ignored: file may have already been removed by another process

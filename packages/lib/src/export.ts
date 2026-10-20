@@ -35,7 +35,7 @@ export type FactorioModSettingType = "startup" | "runtime-global" | "runtime-per
  * Boolean mod setting prototype.
  * @see [bool-setting](https://wiki.factorio.com/Tutorial:Mod_settings#bool-setting)
  */
-export interface FactorioBoolSettingPrototype extends FactorioPrototypeBase{
+export interface FactorioBoolSettingPrototype extends FactorioPrototypeBase {
 	type: "bool-setting",
 	setting_type?: FactorioModSettingType,
 	default_value: boolean,
@@ -46,7 +46,7 @@ export interface FactorioBoolSettingPrototype extends FactorioPrototypeBase{
  * Integer mod setting prototype.
  * @see [int-setting](https://wiki.factorio.com/Tutorial:Mod_settings#int-setting)
  */
-export interface FactorioIntSettingPrototype extends FactorioPrototypeBase{
+export interface FactorioIntSettingPrototype extends FactorioPrototypeBase {
 	type: "int-setting",
 	setting_type?: FactorioModSettingType,
 	default_value: number,
@@ -59,7 +59,7 @@ export interface FactorioIntSettingPrototype extends FactorioPrototypeBase{
  * Real number mod setting prototype.
  * @see [double-setting](https://wiki.factorio.com/Tutorial:Mod_settings#double-setting)
  */
-export interface FactorioDoubleSettingPrototype extends FactorioPrototypeBase{
+export interface FactorioDoubleSettingPrototype extends FactorioPrototypeBase {
 	type: "double-setting",
 	setting_type?: FactorioModSettingType,
 	default_value: number,
@@ -72,7 +72,7 @@ export interface FactorioDoubleSettingPrototype extends FactorioPrototypeBase{
  * String mod setting prototype.
  * @see [string-setting](https://wiki.factorio.com/Tutorial:Mod_settings#string-setting)
  */
-export interface FactorioStringSettingPrototype extends FactorioPrototypeBase{
+export interface FactorioStringSettingPrototype extends FactorioPrototypeBase {
 	type: "string-setting",
 	setting_type?: FactorioModSettingType,
 	default_value: string,
@@ -85,7 +85,7 @@ export interface FactorioStringSettingPrototype extends FactorioPrototypeBase{
  * Color mod setting prototype.
  * @see [color-setting](https://wiki.factorio.com/Tutorial:Mod_settings#color-setting)
  */
-export interface FactorioColorSettingPrototype extends FactorioPrototypeBase{
+export interface FactorioColorSettingPrototype extends FactorioPrototypeBase {
 	type: "color-setting",
 	setting_type?: FactorioModSettingType,
 	default_value: FactorioColor,
@@ -104,7 +104,7 @@ export type FactorioModSettingPrototype =
  * A list of prototypes as it appears in Factorio's Lua API.
  * @see [Data.raw](https://lua-api.factorio.com/stable/types/Data.html#raw)
  */
-export type FactorioPrototypes<Prototype = FactorioPrototypeBase> = Record<string, Record<string, Prototype>>
+export type FactorioPrototypes<Prototype = FactorioPrototypeBase> = Record<string, Record<string, Prototype>>;
 export type FactorioDefinesValue = number | string | { [index: string]: FactorioDefinesValue };
 export type FactorioDefines = {
 	[index: string]: FactorioDefinesValue,

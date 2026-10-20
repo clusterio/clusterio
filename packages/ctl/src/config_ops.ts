@@ -2,7 +2,7 @@ import * as lib from "@clusterio/lib";
 
 export async function getEditor(argsEditor: string) {
 	// eslint-disable-next-line
-	return argsEditor || process.env.EDITOR || process.env.VISUAL || undefined
+	return argsEditor || process.env.EDITOR || process.env.VISUAL || undefined;
 	// needed for the process.env statements to not be flagged by eslint
 	// priority for editors is CLI argument > env.EDITOR > env.VISUAL
 }

@@ -30,7 +30,7 @@ export type IpcPlayerData = {
 	// Components the upload was serialized with, all when missing
 	components?: Record<string, boolean> | unknown[],
 	destination_instance_id?: number, // set_destination's instance, on the leave upload only; not player data
-}
+};
 
 // Marks tombstones in player_sync.json
 const jsonReserved = { deleted: Type.Optional(Type.Never()) };

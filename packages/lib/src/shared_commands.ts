@@ -174,7 +174,7 @@ export async function handlePluginCommand(
 		try {
 			const pluginPackage = (await import(
 				pathToFileURL(path.posix.join(pluginPath, "package.json")).href,
-				{ with: { type: "json" }},
+				{ with: { type: "json" }}
 			)).default;
 			pluginInfo = (await import(
 				pathToFileURL(path.posix.join(pluginPath, pluginPackage.main ?? "index.js")).href
