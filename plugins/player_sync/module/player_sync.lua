@@ -369,8 +369,12 @@ function player_sync.sync_player(acquire_response)
 	-- synced here now. The generation alone isn't enough: a controller that crashed before saving it restarts at the
 	-- last saved generation, and another instance's upload can then reuse the same number with other data. Otherwise
 	-- the copy goes, and the join carries on as if it had never come: today's download or failure dialog, never the
-	-- restart path below, which only sees a different generation. A copy this save doesn't need goes too, keeping the
-	-- local data: an upload from an instance with older data can take the generation this save already holds.
+	-- restart path below, which only sees a different generation or epoch. A copy this save doesn't need goes too,
+	-- keeping the local data: an upload from an instance with older data can take the generation this save already
+	-- holds.
+	-- A copy confirmed at an earlier join already took the body (spectate keeps where it stood), and the local data
+	-- went with it, so a join that drops that copy downloads.
+	local body_taken = false
 	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
 		local record = downloads[acquire_response.player_name]
 		if record and record.prefetch and (not (
@@ -378,6 +382,7 @@ function player_sync.sync_player(acquire_response)
 			and (record.epoch or 0) == epoch and record.token == acquire_response.token
 			and serialize.same_components(record.components, script_data.components)
 		) or not download_needed(script_data.players[acquire_response.player_name], acquire_response, script_data)) then
+			body_taken = body_taken or record.position ~= nil
 			downloads[acquire_response.player_name] = nil
 		end
 	end
@@ -472,7 +477,7 @@ function player_sync.sync_player(acquire_response)
 	end
 
 	local stale = (player_record.epoch or 0) ~= epoch
-	if download_needed(player_record, acquire_response, script_data) then
+	if body_taken or download_needed(player_record, acquire_response, script_data) then
 		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation, epoch)
 
 	else
@@ -746,6 +751,9 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			rcon.print("Refused prefetch for " .. player_name .. ": generation " .. generation .. " is not newer")
 			return
 		end
+		-- A held copy (or offline-finished download) whose join took the body knows where it stood, and that the body
+		-- is gone (sync_player's body_taken): the copy replacing it keeps both
+		local held = active or finished
 		script_data.finished_downloads[player_name] = nil
 		script_data.active_downloads[player_name] = {
 			started = game.ticks_played,
@@ -756,6 +764,9 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			token = token,
 			epoch = epoch,
 			components = components and compat.json_to_table(components),
+			surface = held and held.surface,
+			position = held and held.position,
+			vehicle = held and held.vehicle,
 		}
 	end
 
