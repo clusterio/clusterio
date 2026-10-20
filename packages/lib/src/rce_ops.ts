@@ -7,7 +7,7 @@ import { logger } from "./logging.js";
 import { RequestError } from "./errors.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
 import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
-import { isRegistrySpec } from "./load_plugin_list.js";
+import { isNonRegistryPackage } from "./load_plugin_list.js";
 const execAsync = util.promisify(exec);
 
 function isDev() {
@@ -215,16 +215,7 @@ function parsePackageSpec(spec: string) {
 
 /** Throws if the dependency by this name is a path, git, url or alias that installing by name would replace */
 async function checkNotLocalDependency(name: string) {
-	let dependencies;
-	try {
-		dependencies = JSON.parse(await fs.readFile(path.resolve("package.json"), "utf8")).dependencies;
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			return;
-		}
-		throw err;
-	}
-	if (dependencies && Object.hasOwn(dependencies, name) && !isRegistrySpec(dependencies[name])) {
+	if (await isNonRegistryPackage(name)) {
 		throw new RequestError(`${name} is not installed from npm on this machine`);
 	}
 }

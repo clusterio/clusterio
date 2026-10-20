@@ -543,6 +543,33 @@ describe("lib/plugin_loader", function() {
 			}
 		});
 
+		it("should not list plugins another plugin installs from a path, git or url as installable", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-npm", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				const packageJson = JSON.parse(original);
+				packageJson.dependencies["plugin-transitive"] = "github:user/plugin-transitive";
+				await fs.writeFile(packageJsonPath, JSON.stringify(packageJson));
+				const transitive = {
+					name: "transitive",
+					title: "Transitive",
+					version: "0.0.1",
+					requirePath: "plugin-transitive",
+					packagePath: path.resolve(old_cwd, transitivePluginPath, "package.json"),
+					npmPackage: "plugin-transitive",
+				};
+				const [loaded] = await lib.listPluginDetails([transitive], () => true, () => true, new Map());
+				assert.equal(loaded.npmPackage, undefined);
+				const plugins = await lib.listPluginDetails([], () => true, () => true, new Map());
+				const pending = plugins.find(plugin => plugin.name === "plugin-transitive");
+				assert.equal(pending.npmPackage, undefined);
+				assert.equal(await lib.isNonRegistryPackage("plugin-transitive"), true);
+				assert.equal(await lib.isNonRegistryPackage("plugin-npm"), false);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
 		it("should not list a plugin replaced by another package since startup as installable", async function() {
 			const packageJsonPath = path.join("node_modules", "plugin-npm", "package.json");
 			const original = await fs.readFile(packageJsonPath, "utf8");

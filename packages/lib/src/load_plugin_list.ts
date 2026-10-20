@@ -134,15 +134,19 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 		isRootDependency: true,
 	}));
 	const visitedPackages = new Set<string>();
+	// Directories some dependent installs from a path, git, url or alias
+	const nonRegistryDirs = new Set<string>();
 
 	while (pendingPackages.length) {
 		const { packageName, packageVersion, parentPath, isRootDependency } = pendingPackages.shift()!;
-		if (visitedPackages.has(packageName)) {
-			continue;
-		}
-
 		const packagePath = resolvePackagePath(packageName, parentPath, tolerant);
 		if (!packagePath) {
+			continue;
+		}
+		if (!isRegistrySpec(packageVersion)) {
+			nonRegistryDirs.add(await realDir(packagePath));
+		}
+		if (visitedPackages.has(packageName)) {
 			continue;
 		}
 
@@ -163,7 +167,21 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 			nonPluginRoots.push({ packageName, packageVersion });
 		}
 	}
-	return { plugins, nonPluginRoots };
+	return { plugins, nonPluginRoots, nonRegistryDirs };
+}
+
+/** Whether npm install name would replace a plugin package not installed from the registry */
+export async function isNonRegistryPackage(name: string) {
+	const dependencies = (await readPackageJson(path.resolve("package.json")))?.dependencies ?? {};
+	if (Object.hasOwn(dependencies, name) && !isRegistrySpec(dependencies[name])) {
+		return true;
+	}
+	const packagePath = resolvePackagePath(name, process.cwd(), true);
+	if (!packagePath) {
+		return false;
+	}
+	const { nonRegistryDirs } = await discoverNpmPluginPackages(dependencies, true);
+	return nonRegistryDirs.has(await realDir(packagePath));
 }
 
 /**
@@ -356,8 +374,10 @@ export async function listPluginDetails(
 	// By directory, as a plugin loaded from a path may also be an npm dependency
 	const knownDirs = new Set<string>();
 	const presentNames = new Set<string>();
+	const { plugins: npmPlugins, nonRegistryDirs } = await discoverNpmPluginPackages(dependencies, true);
 	for (const pluginInfo of pluginInfos) {
-		knownDirs.add(await realDir(path.dirname(pluginInfo.packagePath)));
+		const dir = await realDir(path.dirname(pluginInfo.packagePath));
+		knownDirs.add(dir);
 		// Without an entrypoint for this machine the plugin has no load_plugin field here
 		const loadable = hasEntrypoint(pluginInfo);
 		const plugin = PluginDetails.fromNodeEnvInfo(
@@ -368,9 +388,9 @@ export async function listPluginDetails(
 		}
 		if (Object.hasOwn(dependencies, pluginInfo.requirePath)) {
 			plugin.dependencyName = pluginInfo.requirePath;
-			if (!isRegistrySpec(dependencies[pluginInfo.requirePath])) {
-				plugin.npmPackage = undefined;
-			}
+		}
+		if (nonRegistryDirs.has(dir)) {
+			plugin.npmPackage = undefined;
 		}
 		try {
 			const packageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
@@ -391,8 +411,7 @@ export async function listPluginDetails(
 		plugins.push(plugin);
 	}
 
-	const { plugins: npmPlugins } = await discoverNpmPluginPackages(dependencies, true);
-	for (const { packageName, packageVersion, packagePath, packageJson } of npmPlugins) {
+	for (const { packageName, packagePath, packageJson } of npmPlugins) {
 		const dir = await realDir(packagePath);
 		if (knownDirs.has(dir)) {
 			continue;
@@ -406,7 +425,7 @@ export async function listPluginDetails(
 			continue;
 		}
 		// Same rule as loadPluginInfos, aliases, private and non-registry packages can't be installed by this name
-		const npmPackage = !packageJson.private && packageJson.name === packageName && isRegistrySpec(packageVersion)
+		const npmPackage = !packageJson.private && packageJson.name === packageName && !nonRegistryDirs.has(dir)
 			? packageName : undefined;
 		const dependencyName = Object.hasOwn(dependencies, packageName) ? packageName : undefined;
 		const description = typeof packageJson.description === "string" ? packageJson.description : undefined;

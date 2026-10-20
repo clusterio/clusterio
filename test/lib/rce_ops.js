@@ -237,6 +237,24 @@ describe("rce_ops", function() {
 			await lib.handlePluginInstall("published@2.0.0");
 			await lib.handlePluginUpdate("published@2.0.0", [{ npmPackage: "published" }]);
 		});
+
+		it("rejects pinned updates of a plugin another plugin installs from git", async function() {
+			const modules = path.join(dir, "node_modules");
+			const plugin = (name, dependencies) => fs.mkdir(path.join(modules, name), { recursive: true })
+				.then(() => fs.writeFile(path.join(modules, name, "package.json"), JSON.stringify({
+					name, version: "1.0.0", keywords: ["clusterio-plugin"], dependencies,
+				})));
+			await plugin("published", { child: "github:user/child" });
+			await plugin("child", {});
+			try {
+				await assert.rejects(
+					lib.handlePluginUpdate("child@2.0.0", [{ npmPackage: "child" }]),
+					/child is not installed from npm on this machine/,
+				);
+			} finally {
+				await fs.rm(modules, { recursive: true, force: true });
+			}
+		});
 	});
 
 	describe("fetchLatestVersions", function() {
