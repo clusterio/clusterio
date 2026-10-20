@@ -42,7 +42,7 @@ Clusterio manages distributed Factorio servers through a controller, hosts, and 
 | `packages/host/` | Instance lifecycle, Factorio processes, save patching, and exports. Start with `src/Host.ts`, `src/Instance.ts`, `src/server.ts`, and `src/patch.ts`. |
 | `packages/ctl/` | Command-line administration and plugin commands. |
 | `packages/lib/` | Shared messages, routing, config, permissions, plugin loading, logging, and utilities for Node and browser consumers. |
-| `packages/web_ui/` | React/Ant Design interface and browser control connection; bundled through the controller's webpack build. |
+| `packages/web_ui/` | React/Ant Design interface and browser control connection; bundled through the controller's Vite build. |
 | `packages/create/` | Installer and JavaScript/TypeScript plugin templates. |
 | `plugins/` | Bundled plugins, including their Node, web, Lua, and test code. |
 | `external_plugins/` | Plugins developed in independent repositories and included in the local workspace. |
@@ -119,13 +119,12 @@ To have TypeScript watch for changes and rebuild immediadly you may run `pnpm wa
 
 For web development on the controller there are also the following flags:
 
-`--dev` - Recompile the `web_ui` package on the fly providing live reloading of it.
+`--dev` - Serve the `web_ui` package from source through Vite's development server with hot module replacement.
 
-`--dev-plugin [name]` - Recompile the web module for the given plugin on the fly proving live reloading of it.
+`--dev-plugin [name]` - Serve the web module for the given plugin from source the same way.
 
 These options can be combined and multiple plugins can be actived for dev mode.
 Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
-Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm -r run prepare` before you start the controller without these flags again.
 
 
 ### Build outputs
@@ -138,7 +137,7 @@ Note that webpack is configured to delete the web interface build when using the
 | `pnpm build-mod` | Factorio mod archives in root `dist/`. |
 | `pnpm docs` | Generated API documentation. |
 
-`pnpm build` alone does not regenerate the standalone validator or webpack bundles.
+`pnpm build` alone does not regenerate the standalone validator or web bundles.
 After changing `packages/lib/src/data/messages_core.ts`, run `pnpm -r run prepare` to compile the schema and regenerate its validator.
 
 
@@ -228,7 +227,7 @@ Inspect `node clean.js --help` and preview the selected scope with `--dry-run` b
 
 | Command | Removal scope |
 | --- | --- |
-| `node clean.js --dry-run` | Preview workspace package/plugin build output and webpack caches; omit `--dry-run` to clean, or use `pnpm clean`. |
+| `node clean.js --dry-run` | Preview workspace package/plugin build output and Vite dependency caches; omit `--dry-run` to clean, or use `pnpm clean`. |
 | `node clean.js tests --dry-run` | Also preview root `.nyc_output/`, `coverage/`, the whole `temp/` directory, and `static/`. |
 | `node clean.js all --dry-run` | Also preview runtime databases, instances, logs, mods, local configs, `FactorioAdminToken.txt`, and `plugin-list.json`. |
 

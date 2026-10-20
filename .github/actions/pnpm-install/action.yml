@@ -31,17 +31,15 @@ runs:
         key: pnpm-store-${{ runner.os }}-${{ steps.store.outputs.week }}-${{ hashFiles('**/package.json', 'pnpm-workspace.yaml') }}
         restore-keys: pnpm-store-${{ runner.os }}-
 
-    # The prepare scripts run tsc --build and webpack, both incremental when
-    # their previous output is present. Every run saves its output and the
-    # next run starts from the most recent one.
+    # The prepare scripts run tsc --build, which is incremental when its
+    # previous output is present. Every run saves its output and the next run
+    # starts from the most recent one.
     - if: inputs.ignore-scripts != 'true'
       uses: actions/cache@v6
       with:
         path: |
           packages/*/dist
           plugins/*/dist
-          packages/*/node_modules/.cache
-          plugins/*/node_modules/.cache
         key: build-${{ runner.os }}-${{ github.sha }}
         restore-keys: build-${{ runner.os }}-
 

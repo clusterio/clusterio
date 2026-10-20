@@ -1,3 +1,4 @@
+import "./src/browser_polyfills";
 export * from "./src/api";
 export * from "./src/AsyncHook";
 export * from "./src/SyncHook";

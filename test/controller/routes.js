@@ -157,7 +157,7 @@ describe("controller/src/routes", function() {
 		it("should strip static/ from the plugin bundle path", async function() {
 			controller.pluginInfos = [{
 				name: "foo", version: "1.0.0", npmPackage: "foo",
-				manifest: { "foo.js": "static/foo.abc.js" },
+				manifest: { main: "static/foo.abc.js" },
 			}];
 			controller.loadedPlugins = new Set(controller.pluginInfos);
 			let response = await fetch(endpoint);
@@ -171,15 +171,16 @@ describe("controller/src/routes", function() {
 			controller.pluginInfos = [
 				{ name: "foo", version: "1.0.0", npmPackage: "foo", webEntrypoint: "dist/web/index.js" },
 				{ name: "bar", version: "1.0.0", npmPackage: "bar", manifest: {} },
-				{ name: "baz", version: "1.0.0", npmPackage: "baz", manifest: { "baz.js": "remoteEntry.js" } },
+				{ name: "baz", version: "1.0.0", npmPackage: "baz", manifest: { "baz.js": "static/baz.abc.js" } },
 			];
 			controller.loadedPlugins = new Set([controller.pluginInfos[0]]);
 			let response = await fetch(endpoint);
 			assert.equal(response.status, 200);
 			let data = await response.json();
 			assert.equal(data[0].web.error, "Missing dist/web/manifest.json");
-			assert.equal(data[1].web.error, "Missing bar.js entry in manifest.json");
-			assert.equal(data[2].web.error, "Incompatible old remoteEntry.js entrypoint.");
+			const incompatible = "Incompatible dist/web/manifest.json, the plugin must be rebuilt with Vite";
+			assert.equal(data[1].web.error, incompatible);
+			assert.equal(data[2].web.error, incompatible);
 			assert.equal(data[1].loaded, false);
 			assert.equal(data[1].enabled, false);
 		});
