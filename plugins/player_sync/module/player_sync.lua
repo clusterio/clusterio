@@ -374,7 +374,7 @@ function player_sync.sync_player(acquire_response)
 	-- holds.
 	-- A copy confirmed at an earlier join already took the body (spectate keeps where it stood), and the local data
 	-- went with it, so a join that drops that copy downloads.
-	local body_taken = false
+	local body_taken -- the dropped copy that took the body
 	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
 		local record = downloads[acquire_response.player_name]
 		if record and record.prefetch and (not (
@@ -382,7 +382,9 @@ function player_sync.sync_player(acquire_response)
 			and (record.epoch or 0) == epoch and record.token == acquire_response.token
 			and serialize.same_components(record.components, script_data.components)
 		) or not download_needed(script_data.players[acquire_response.player_name], acquire_response, script_data)) then
-			body_taken = body_taken or record.position ~= nil
+			if record.position ~= nil then
+				body_taken = record
+			end
 			downloads[acquire_response.player_name] = nil
 		end
 	end
@@ -479,6 +481,13 @@ function player_sync.sync_player(acquire_response)
 	local stale = (player_record.epoch or 0) ~= epoch
 	if body_taken or download_needed(player_record, acquire_response, script_data) then
 		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation, epoch)
+		if body_taken then
+			-- spectate kept the spectator's place, the body stood where the dropped copy kept
+			local download = script_data.active_downloads[player.name]
+			download.surface = body_taken.surface
+			download.position = body_taken.position
+			download.vehicle = body_taken.vehicle
+		end
 
 	else
 		if acquire_response.generation == 0 then
