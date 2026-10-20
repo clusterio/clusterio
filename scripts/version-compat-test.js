@@ -142,7 +142,8 @@ function stableStringify(value) {
 // versions can still talk to each other.  Each entry holds the reviewed local spec of the changed
 // fields, so any further change fails again.  Remove entries once they are part of a release.
 const acceptedChanges = {
-	// Optional installedVersion, pendingInstall and removed added to plugin details, which older versions ignore
+	// Optional installedVersion, pendingInstall, removed, dependencyName and noEntrypoint added to plugin
+	// details, which older versions ignore
 	"request PluginListRequest": {
 		response: {
 			type: "array",
@@ -159,6 +160,8 @@ const acceptedChanges = {
 					installedVersion: { type: "string" },
 					pendingInstall: { type: "boolean" },
 					removed: { type: "boolean" },
+					dependencyName: { type: "string" },
+					noEntrypoint: { type: "boolean" },
 				},
 				required: ["name", "title", "version", "loaded", "enabled"],
 			},
