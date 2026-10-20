@@ -51,6 +51,19 @@ describe("web_ui/util/plugin_status", function() {
 			assert.deepEqual(result.skipped, [{ kind: "update", text: "b (not installed from npm)" }]);
 		});
 
+		it("should not send a specific version to hosts that can't parse it", function() {
+			// Hosts from before installedVersion was reported take name@version as a package name
+			const old = new lib.PluginDetails("plugin", "Plugin", "1.0.0", true, true, undefined, "plugin-aliased");
+			const result = plan([
+				machine("a", [loaded("plugin-aliased", "1.0.0")]),
+				machine("old", [old]),
+			]);
+			assert.deepEqual(result.operations.map(op => op.target.name), ["a"]);
+			assert.deepEqual(result.skipped, [
+				{ kind: "update", text: "old (host too old to install a specific version)" },
+			]);
+		});
+
 		it("should not install over a loaded alias that has the package name", function() {
 			const alias = new lib.PluginDetails("real_plugin", "Real", "1.0.0", true, true);
 			alias.dependencyName = "plugin-aliased";

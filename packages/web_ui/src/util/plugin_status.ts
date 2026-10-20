@@ -22,6 +22,8 @@ export type MachinePlugin = Machine & {
 	dependencyTaken: boolean,
 	/** Another package here provides the plugin by the same name, startup skips this one */
 	nameTaken: boolean,
+	/** A host from before installedVersion was reported, it can't install a specific version */
+	oldHost: boolean,
 };
 export type PluginStatus = {
 	key: string,
@@ -62,7 +64,12 @@ function machinePlugin(machine: MachinePlugins, key: string, names: Set<string>)
 		)
 	);
 	const noEntrypoint = Boolean(plugin?.noEntrypoint);
-	const entry: MachinePlugin = { ...rest, plugin, disabled: false, noEntrypoint, dependencyTaken, nameTaken };
+	const oldHost = !machine.isController && plugins.length > 0 && plugins.every(
+		candidate => candidate.installedVersion === undefined && !candidate.removed
+	);
+	const entry: MachinePlugin = {
+		...rest, plugin, disabled: false, noEntrypoint, dependencyTaken, nameTaken, oldHost,
+	};
 	// What runs now follows loaded, what runs after a restart follows enabled and what is on disk
 	entry.running = candidates.find(candidate => candidate.loaded)?.version;
 	if (nameTaken) {
@@ -149,6 +156,9 @@ export function planUpdate(
 			// An alias, private or local package, installing the group's npm package would replace it
 			const kind = plugin.pendingInstall ? "install" : "update";
 			plan.skipped.push({ kind, text: `${machine.name} (not installed from npm)` });
+		} else if (machine.oldHost) {
+			const kind = !installed || plugin.pendingInstall ? "install" : "update";
+			plan.skipped.push({ kind, text: `${machine.name} (host too old to install a specific version)` });
 		} else if (!installed || plugin.pendingInstall) {
 			if (!account.hasPermission("core.plugin.install")) {
 				plan.skipped.push({ kind: "install", text: `${machine.name} (no install permission)` });

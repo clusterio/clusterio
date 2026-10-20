@@ -13,6 +13,7 @@ import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin.js";
 import { Config } from "./config/classes.js";
 import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
 import Role from "./data/Role.js";
+import { findNonRegistryDirs } from "./load_plugin_list.js";
 
 
 /**
@@ -28,6 +29,7 @@ import Role from "./data/Role.js";
  */
 export async function loadPluginInfos(pluginList: Map<string, string>) {
 	let plugins: libPlugin.PluginNodeEnvInfo[] = [];
+	const nonRegistryDirs = await findNonRegistryDirs();
 	for (let [pluginName, pluginPath] of pluginList) {
 		let pluginInfo: libPlugin.PluginNodeEnvInfo;
 		let pluginPackage: { name?: string, version: string, main?: string, private?: boolean };
@@ -87,7 +89,8 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		pluginInfo.packagePath = packagePath;
 		pluginInfo.requirePath = pluginPath;
 		pluginInfo.version = pluginPackage.version;
-		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name ? pluginPath : undefined;
+		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name
+			&& !nonRegistryDirs.has(await fs.realpath(path.dirname(packagePath))) ? pluginPath : undefined;
 		plugins.push(pluginInfo);
 	}
 	return plugins;

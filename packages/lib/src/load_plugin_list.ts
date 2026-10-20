@@ -134,7 +134,7 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 		isRootDependency: true,
 	}));
 	const visitedPackages = new Set<string>();
-	// Directories some dependent installs from a path, git, url or alias
+	// Directories some dependent installs from a path, git, url, tarball or alias
 	const nonRegistryDirs = new Set<string>();
 
 	while (pendingPackages.length) {
@@ -170,6 +170,12 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 	return { plugins, nonPluginRoots, nonRegistryDirs };
 }
 
+/** Real paths of plugin packages some dependent installs from a path, git, url, tarball or alias */
+export async function findNonRegistryDirs() {
+	const dependencies = (await readPackageJson(path.resolve("package.json")))?.dependencies ?? {};
+	return (await discoverNpmPluginPackages(dependencies, true)).nonRegistryDirs;
+}
+
 /** Whether npm install name would replace a plugin package not installed from the registry */
 export async function isNonRegistryPackage(name: string) {
 	const dependencies = (await readPackageJson(path.resolve("package.json")))?.dependencies ?? {};
@@ -180,8 +186,7 @@ export async function isNonRegistryPackage(name: string) {
 	if (!packagePath) {
 		return false;
 	}
-	const { nonRegistryDirs } = await discoverNpmPluginPackages(dependencies, true);
-	return nonRegistryDirs.has(await realDir(packagePath));
+	return (await findNonRegistryDirs()).has(await realDir(packagePath));
 }
 
 /**
@@ -218,6 +223,9 @@ async function findNpmPlugins(
 	for (const { packageName, packageVersion, packagePath } of plugins) {
 		const pluginName = getPluginName(packagePath);
 		const listedPath = pluginList.get(pluginName);
+		if (listedPath === packageName) {
+			continue;
+		}
 		if (listedPath !== undefined && !await pluginPathExists(listedPath)) {
 			logger.warn(`${pluginName} at ${listedPath} no longer exists, using ${packageName}`);
 			pluginList.set(pluginName, packageName);
@@ -317,9 +325,10 @@ async function pluginPathExists(pluginPath: string) {
 	}
 }
 
-/** Whether a dependency spec installs from the registry, as opposed to a path, git, url or alias */
+/** Whether a dependency spec installs from the registry, as opposed to a path, git, url, tarball or alias */
 export function isRegistrySpec(spec: unknown) {
-	return typeof spec === "string" && !/[:/\\]/.test(spec) && !spec.startsWith(".");
+	return typeof spec === "string" && !/[:/\\]/.test(spec) && !spec.startsWith(".")
+		&& !/\.(?:tgz|tar\.gz|tar)$/i.test(spec);
 }
 
 function isPluginPackageJson(packageJson: any): boolean {

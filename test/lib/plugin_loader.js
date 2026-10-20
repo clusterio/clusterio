@@ -453,6 +453,35 @@ describe("lib/plugin_loader", function() {
 			assert.deepEqual([...skipped], [[await fs.realpath(npmPluginPathAbs), "npm"]]);
 		});
 
+		it("should not record npm plugins already in the list as skipped", async function() {
+			await fs.writeFile(pluginListPath, JSON.stringify([["npm", "plugin-npm"]]));
+			const skipped = new Map();
+			await lib.loadPluginList(pluginListPath, false, skipped);
+			assert.deepEqual([...skipped], []);
+		});
+
+		it("should not give plugins from a path, git or url an npm package on startup", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			try {
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-npm"] = "github:user/plugin-npm";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				// loadPluginInfos resolves from where lib is installed, which can't reach these fixtures
+				const dirs = await lib.findNonRegistryDirs();
+				assert.equal(dirs.has(await fs.realpath(npmPluginPathAbs)), true);
+				assert.equal(dirs.has(await fs.realpath(path.resolve(old_cwd, deepPluginPath))), false);
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+			}
+		});
+
+		it("should treat tarball dependencies as not from the registry", function() {
+			assert.equal(lib.isRegistrySpec("plugin-x-1.0.0.tgz"), false);
+			assert.equal(lib.isRegistrySpec("plugin-x.tar.gz"), false);
+			assert.equal(lib.isRegistrySpec("^1.0.0"), true);
+			assert.equal(lib.isRegistrySpec("latest"), true);
+		});
+
 		it("should replace plugin list entries that no longer exist with npm plugins", async function() {
 			const gone = path.resolve("plugins", "gone");
 			await fs.writeFile(pluginListPath, JSON.stringify([["npm", gone], ["aliased", "plugin-gone"]]));
