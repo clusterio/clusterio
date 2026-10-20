@@ -286,12 +286,13 @@ export default async function(context: InstancePluginContext) {
 	async function handlePrefetch(event: PrefetchEvent) {
 		const { playerData, token } = event;
 		const { name, generation } = playerData;
+		const epoch = playerData.epoch ?? 0;
 		logger.verbose(`Prefetching ${name}`);
 		// This side doesn't know the save's cleared recipe list, so the whole stored list goes as a full delta
 		await sendPlayerData(playerData, undefined, (chunk, number, total, extra) => {
 			// Later chunks have no components argument, so nil holds its place
-			const tokenArg = number === 1 ? `,'${token}'` : `,nil,'${token}'`;
-			const args = `'${name}',${generation},'${chunk}',${number},${total}${extra}${tokenArg}`;
+			const copyArgs = number === 1 ? `,'${token}',${epoch}` : `,nil,'${token}',${epoch}`;
+			const args = `'${name}',${generation},'${chunk}',${number},${total}${extra}${copyArgs}`;
 			return `/sc player_sync.prefetch_inventory(${args})`;
 		}, true);
 	}

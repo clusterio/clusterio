@@ -272,12 +272,12 @@ describe("player_sync", function() {
 		});
 
 		const prefetch = playerData => mock.getHandler(instance, PrefetchEvent)(new PrefetchEvent(playerData, "tok"));
-		function prefetchCommands(playerData, enabled = Object.keys(components)) {
+		function prefetchCommands(playerData, enabled = Object.keys(components), epoch = 0) {
 			const chunks = JSON.stringify(playerData).match(/.{1,10}/g);
 			const sent = lib.escapeString(JSON.stringify(Object.fromEntries(enabled.map(c => [c, true]))));
 			return chunks.map((chunk, i) => "/sc player_sync.prefetch_inventory(" +
 				`'test',${playerData.generation},'${lib.escapeString(chunk)}',${i + 1},${chunks.length}` +
-				`${i === 0 ? `,'${sent}','tok'` : ",nil,'tok'"})`);
+				`${i === 0 ? `,'${sent}','tok',${epoch}` : `,nil,'tok',${epoch}`})`);
 		}
 
 		it("should send prefetch_inventory chunks with the generation and the full recipe list", async function() {
@@ -296,11 +296,16 @@ describe("player_sync", function() {
 			assert.ok(commands.length > 1, "more than one chunk");
 			assert.deepEqual(instance.server.rconCommands, commands);
 		});
-		it("should send the token with every chunk", async function() {
+		it("should send the token and epoch with every chunk", async function() {
 			await prefetch({ generation: 3, name: "test" });
 			const commands = instance.server.rconCommands;
-			assert.ok(commands[0].endsWith(",'tok')"));
-			assert.ok(commands.length > 1 && commands.slice(1).every(command => command.endsWith(",nil,'tok')")));
+			assert.ok(commands[0].endsWith(",'tok',0)"));
+			assert.ok(commands.length > 1 && commands.slice(1).every(command => command.endsWith(",nil,'tok',0)")));
+		});
+		it("should send the stored data's epoch", async function() {
+			const playerData = { generation: 3, epoch: 2, name: "test" };
+			await prefetch(playerData);
+			assert.deepEqual(instance.server.rconCommands, prefetchCommands(playerData, undefined, 2));
 		});
 		it("should stop when the save refuses the first chunk", async function() {
 			const playerData = { generation: 3, name: "test" };

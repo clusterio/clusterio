@@ -334,8 +334,8 @@ function player_sync.check_players_in_cutscene()
 	end
 end
 
--- Whether a join should take the stored data: there is some, and this save hasn't synced the player in that epoch at that
--- generation or newer with every component synced here now. A player without a record here has nothing to keep.
+-- Whether a join should take the stored data: there is some, and this save hasn't synced the player in that epoch at
+-- that generation or newer with every component synced here now. A player without a record here has nothing to keep.
 local function download_needed(player_record, acquire_response, script_data)
 	return acquire_response.has_data
 		and (
@@ -365,17 +365,17 @@ function player_sync.sync_player(acquire_response)
 	-- Epoch is bumped when an admin replaces or deletes the stored data
 	local epoch = acquire_response.epoch or 0
 	-- A prefetched copy (player_sync.prefetch_inventory) is used only if this reply acquires the player at the copy's
-	-- generation, from the controller run that sent it (token), and the copy was sent with the components synced here
-	-- now. The generation alone isn't enough: a controller that crashed before saving it restarts at the last saved
-	-- generation, and another instance's upload can then reuse the same number with other data. Otherwise the copy
-	-- goes, and the join carries on as if it had never come: today's download or failure dialog, never the restart
-	-- path below, which only sees a different generation. A copy this save doesn't need goes too, keeping the local
-	-- data: an upload from an instance with older data can take the generation this save already holds.
+	-- generation and epoch, from the controller run that sent it (token), and the copy was sent with the components
+	-- synced here now. The generation alone isn't enough: a controller that crashed before saving it restarts at the
+	-- last saved generation, and another instance's upload can then reuse the same number with other data. Otherwise
+	-- the copy goes, and the join carries on as if it had never come: today's download or failure dialog, never the
+	-- restart path below, which only sees a different generation. A copy this save doesn't need goes too, keeping the
+	-- local data: an upload from an instance with older data can take the generation this save already holds.
 	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
 		local record = downloads[acquire_response.player_name]
 		if record and record.prefetch and (not (
 			acquire_response.status == "acquired" and record.generation == acquire_response.generation
-			and record.token == acquire_response.token
+			and (record.epoch or 0) == epoch and record.token == acquire_response.token
 			and serialize.same_components(record.components, script_data.components)
 		) or not download_needed(script_data.players[acquire_response.player_name], acquire_response, script_data)) then
 			downloads[acquire_response.player_name] = nil
@@ -709,13 +709,15 @@ function player_sync.check_active_uploads()
 end
 
 -- Called by instance.ts as /sc player_sync.prefetch_inventory('name', generation, 'chunk', number, total, components,
--- token) with a copy of a player's stored data that the controller sent ahead (PrefetchEvent) while they switch to this
--- server. It holds the copy for a player who is offline here or doesn't exist yet. Every chunk carries the token, so
--- chunks of an earlier controller run's copy never land in a newer one. It prints only when it refuses or ignores a
--- chunk, which stops the host sending the rest.
+-- token, epoch) with a copy of a player's stored data that the controller sent ahead (PrefetchEvent) while they switch
+-- to this server. It holds the copy for a player who is offline here or doesn't exist yet. Every chunk carries the
+-- token and epoch, so chunks of another copy never land in this one. It prints only when it refuses or ignores a chunk,
+-- which stops the host sending the rest.
 --- @param components string? JSON of the components the instance stripped the copy by, given with the first chunk
 --- @param token string? The controller run that sent the copy
-function player_sync.prefetch_inventory(player_name, generation, data, number, total, components, token)
+--- @param epoch integer? The stored data's epoch, bumped when an admin replaces or deletes it
+function player_sync.prefetch_inventory(player_name, generation, data, number, total, components, token, epoch)
+	epoch = epoch or 0
 	local script_data = get_script_data()
 	if number == 1 then
 		local player = game.get_player(player_name)
@@ -733,9 +735,13 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 		-- Two copies can reach here out of order (applyRecipeNotificationDelta awaits zlib). A held finished copy of the
 		-- same generation is replaced: the newer copy of the same number is what the controller holds now. A copy
 		-- with another token came from an earlier controller run, which may have crashed before saving that
-		-- generation, so this run's copy replaces it whatever the generation
-		local active_newer = active and active.token == token and active.generation >= generation
-		local finished_newer = finished and finished.token == token and finished.generation > generation
+		-- generation, and one with another epoch from the other side of an admin's import or delete, which can start
+		-- the generations over. Either way the generations don't compare, and the arriving copy replaces the held one
+		local function comparable(held)
+			return held.token == token and (held.epoch or 0) == epoch
+		end
+		local active_newer = active and comparable(active) and active.generation >= generation
+		local finished_newer = finished and comparable(finished) and finished.generation > generation
 		if active_newer or finished_newer then
 			rcon.print("Refused prefetch for " .. player_name .. ": generation " .. generation .. " is not newer")
 			return
@@ -748,12 +754,16 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			data = "",
 			prefetch = true,
 			token = token,
+			epoch = epoch,
 			components = components and compat.json_to_table(components),
 		}
 	end
 
 	local record = script_data.active_downloads[player_name]
-	if not (record and record.prefetch and record.generation == generation and record.token == token) then
+	if not (
+		record and record.prefetch and record.generation == generation and record.token == token
+		and (record.epoch or 0) == epoch
+	) then
 		-- Refused at chunk 1, dropped by the acquire reply or the inactivity check, or replaced by a newer copy
 		rcon.print("Ignored prefetch chunk " .. number .. " for " .. player_name)
 		return
