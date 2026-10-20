@@ -38,7 +38,7 @@ If there is a particular issue or concern you would like the team to comment on 
     - [React](#react)
     - [Separation of Host and Controller](#separation-of-host-and-controller)
     - [Typescript](#typescript)
-    - [Webpack](#webpack)
+    - [Vite](#vite)
 8. Supportability
     - [Breaking Changes](#breaking-changes)
     - [Distribution](#distribution)
@@ -347,14 +347,15 @@ Transitioning to any other langauge would be too significant an undertaking.
 Initially, we supported multiple languages for plugins, including Rust and Go; however, this approach was quickly abandoned due to its complexity.
 
 
-### Webpack
+### Vite
 
-🧾 Time Immemorial
+🧾 20th October 2026
 
-> Our web stack uses Webpack and associated plugins.
+> Our web stack uses Vite. Plugin web bundles are ES modules that import shared dependencies through an import map.
 
-We required a bundler for our web build, and at the time, Webpack was the standard.
-While we have considered alternatives since, transitioning to another solution would be a significant undertaking.
+We used Webpack with Module Federation for loading plugins from the start, as it was the standard at the time.
+Vite builds the web interface several times faster, its development server updates modules without reloading the page, and plugin bundles no longer depend on one bundler's runtime.
+See [#1127](https://github.com/clusterio/clusterio/issues/1127) for the discussion.
 
 
 ## Supportability

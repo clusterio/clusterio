@@ -104,7 +104,7 @@ export default class Controller {
 	_registeredEvents = new Map<lib.EventClass<unknown>, lib.EventHandler<unknown>>();
 	_snoopedEvents = new Map();
 
-	devMiddleware: any | null = null;
+	viteServer: import("vite").ViteDevServer | null = null;
 
 	startedAtMs = Date.now();
 	autosaveInterval?: ReturnType<typeof setInterval>;
@@ -364,7 +364,7 @@ export default class Controller {
 		}, 600e3);
 		logSizeGauge.callback = async () => { logSizeGauge.set(await this.logSize()); };
 
-		// Start webpack development server if enabled
+		// Start Vite development server if enabled
 		if (args.dev || args.devPlugin) {
 			await this._startDevServer(args);
 		}
@@ -402,15 +402,21 @@ export default class Controller {
 		}
 
 		Controller.addAppRoutes(this.app, this.pluginInfos);
+		if (this.viteServer) {
+			this.app.use(this.viteServer.middlewares);
+		}
 
 		if (!args.dev) {
 			let manifestPath = path.join(import.meta.dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
-			if (!manifest["main.js"]) {
-				logger.error("Missing main.js entry in dist/web/manifest.json");
+			if (!manifest.main) {
+				logger.error("Missing main entry in dist/web/manifest.json");
 			}
-			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
+			this.app.locals.webBundle = {
+				main: manifest.main || "no_web_build",
+				imports: manifest.imports || {},
+			};
 		}
 		this.app.locals.staticRoot = this.config.get("controller.static_url");
 
@@ -478,37 +484,45 @@ export default class Controller {
 	}
 
 	async _startDevServer(args: ControllerArgs) {
-		logger.warn("Webpack development mode enabled");
+		logger.warn("Vite development mode enabled");
 
-		const webpack = (await import("webpack")).default;
-		const webpackDevMiddleware = (await import("webpack-dev-middleware")).default;
-		const webpackConfigs = [];
+		const vite = await import("vite");
+		const webUiVite = await import("@clusterio/web_ui/vite.mjs");
 
-		if (args.dev) {
-			// @ts-expect-error this file is run from a different folder
-			webpackConfigs.push((await import("../../../webpack.config.cjs")).default({})); // Path outside of build
-		}
-		if (args.devPlugin) {
-			let devPlugins = new Map();
-			for (let name of args.devPlugin) {
-				let info = this.pluginInfos.find(i => i.name === name);
-				if (!info) {
-					throw new lib.StartupError(`No plugin named ${name}`);
-				}
-				const webpackConfig = path.posix.join(info.requirePath, "webpack.config.cjs");
-				let config = (await import(
-					path.isAbsolute(webpackConfig) ? pathToFileURL(webpackConfig).href : webpackConfig
-				)).default({});
-				devPlugins.set(name, webpackConfigs.length);
-				webpackConfigs.push(config);
+		const devPlugins = new Map<string, string>();
+		const pluginDirs = new Map<string, string>();
+		for (let name of (args.devPlugin ?? []).map(String)) {
+			let info = this.pluginInfos.find(i => i.name === name);
+			if (!info) {
+				throw new lib.StartupError(`No plugin named ${name}`);
 			}
-			this.app.locals.devPlugins = devPlugins;
+			pluginDirs.set(name, path.dirname(info.packagePath));
+			devPlugins.set(name, webUiVite.devPluginUrl(name));
 		}
+		this.app.locals.devPlugins = devPlugins;
 
-
-		const compiler = webpack(webpackConfigs);
-		this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });
-		this.app.use(this.devMiddleware);
+		const controllerDir = path.join(import.meta.dirname, "..", "..", "..");
+		this.viteServer = await vite.createServer({
+			configFile: path.join(controllerDir, "vite.config.js"),
+			root: controllerDir,
+			base: "/static/",
+			appType: "custom",
+			server: {
+				middlewareMode: true,
+				preTransformRequests: false,
+				fs: { allow: [vite.searchForWorkspaceRoot(controllerDir), ...pluginDirs.values()] },
+			},
+			plugins: [webUiVite.clusterioDevPlugins(pluginDirs)],
+		});
+		if (args.dev) {
+			this.app.locals.webBundle = {
+				main: this.viteServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
+				imports: Object.fromEntries(webUiVite.sharedModules.map(
+					name => [name, webUiVite.devSharedUrl(name)]
+				)),
+			};
+		}
+		this.app.locals.viteServer = this.viteServer;
 	}
 
 	/**
@@ -559,8 +573,8 @@ export default class Controller {
 			await this.clusterLogIndex.save();
 		}
 
-		if (this.devMiddleware) {
-			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
+		if (this.viteServer) {
+			await this.viteServer.close();
 		}
 
 		await this.hooks.shutdown.invoke();
@@ -1332,26 +1346,29 @@ export default class Controller {
 			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
 			let staticRoot = res.app.locals.staticRoot ?? `${webRoot}static/`;
-			let mainBundle: string = "";
-			if (res.app.locals.mainBundle) {
-				mainBundle = res.app.locals.mainBundle;
-			} else {
-				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
-				mainBundle = stats.toJson().assetsByChunkName["main"][0];
-			}
-			mainBundle = routes.stripStaticPrefix(mainBundle);
+			const { main, imports } = res.app.locals.webBundle;
+			const importMap = JSON.stringify({
+				imports: Object.fromEntries(Object.entries(imports).map(
+					([name, file]) => [name, `${staticRoot}${routes.stripStaticPrefix(file)}`]
+				)),
+			}).replace(/</g, "\\u003c");
 
 			fs.readFile(
 				path.join(import.meta.dirname, "..", "..", "..", "web", "index.html"),
 				"utf8",
-			).then((content) => {
-				res.type("text/html");
-				res.send(content
+			).then(async (content) => {
+				content = content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))
 					.replace(/__WEB_ROOT__/g, webRoot)
 					.replace(/__STATIC_ROOT__/g, staticRoot)
-					.replace(/__MAIN_BUNDLE__/g, mainBundle)
-				);
+					.replace(/__IMPORT_MAP__/g, () => importMap)
+					.replace(/__MAIN_BUNDLE__/g, () => routes.stripStaticPrefix(main))
+				;
+				if (res.app.locals.viteServer) {
+					content = await res.app.locals.viteServer.transformIndexHtml(req.originalUrl, content);
+				}
+				res.type("text/html");
+				res.send(content);
 			}).catch(err => {
 				next(err);
 			});

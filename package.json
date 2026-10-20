@@ -46,7 +46,6 @@
 		"@eslint/eslintrc": "^3.3.7",
 		"@eslint/js": "^10.0.1",
 		"@stylistic/eslint-plugin": "^5.10.0",
-		"@swc/core": "catalog:",
 		"@types/node": "catalog:",
 		"c8": "^12.0.0",
 		"@typescript-eslint/eslint-plugin": "^8.71.2",

@@ -138,8 +138,8 @@ The following properties are recognized:
     Object mapping ctl configuration fields to `FieldDefinition` objects.
 
 **webEntrypoint**:
-    Optional Module Federation exposure key for the web entrypoint, such as `"./web"`.
-    It must match the key in the plugin's webpack `exposes` configuration; it is not a Node.js file path.
+    Optional key of the web entrypoint in the plugin's web bundle, this should be `"./web"`.
+    The `clusterioPlugin` Vite plugin exposes `web/index.tsx` (or `.ts`, `.jsx`, `.js`) under this key; it is not a Node.js file path.
 
 **migrationEntrypoint**:
     Path to a Node.js module relative to the plugin directory which exports the migration entrypoint function for this plugin.

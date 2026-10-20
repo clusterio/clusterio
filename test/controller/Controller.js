@@ -109,7 +109,10 @@ describe("controller/src/Controller", function() {
 			before(async function() {
 				const app = express();
 				app.locals.controller = { config: { get: () => "Test Cluster" } };
-				app.locals.mainBundle = "static/main.abc.js";
+				app.locals.webBundle = {
+					main: "static/main.abc.js",
+					imports: { "react": "static/shared-react.abc.js" },
+				};
 				for (let route of ["/", "/instances/:id/view"]) {
 					app.get(route, Controller.serveWeb(route));
 				}
@@ -127,12 +130,14 @@ describe("controller/src/Controller", function() {
 				assert(html.includes("src=\"./static/main.abc.js\""));
 				assert(html.includes("new URL(\"./\", document.location)"));
 				assert(html.includes("new URL(\"./static/\", document.location)"));
+				assert(html.includes('{"imports":{"react":"./static/shared-react.abc.js"}}'));
 			});
 			it("should use relative roots for nested routes", async function() {
 				let html = await (await fetch(`http://localhost:${port}/instances/1/view`)).text();
 				assert(html.includes("src=\"../../static/main.abc.js\""));
 				assert(html.includes("new URL(\"../../\", document.location)"));
 				assert(html.includes("new URL(\"../../static/\", document.location)"));
+				assert(html.includes('{"imports":{"react":"../../static/shared-react.abc.js"}}'));
 				html = await (await fetch(`http://localhost:${port}/instances/1/view/`)).text();
 				assert(html.includes("src=\"../../../static/main.abc.js\""));
 				assert(html.includes("new URL(\"../../../static/\", document.location)"));
