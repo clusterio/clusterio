@@ -12,6 +12,9 @@ Use [contributing](contributing.md) for setup and validation commands.
   Distinguish intended policy from observed behavior when they disagree.
 - Map each affected behavior from input through authorization, routing, state changes, and its consumers.
   On a follow-up, verify the fixes and reassess the whole PR's affected behavior; explicitly label a deliberately narrower review.
+- Compare the PR base, previously reviewed head, and current head when attributing a follow-up finding.
+  Distinguish a new regression, an incomplete fix, and a previously missed defect.
+  Existing producer behavior can become unsafe through a new consumer; reject a finding as pre-existing only after comparing the complete failing path.
 - Trace the actual entrypoint and earlier guards before declaring a failure reachable.
   Check supported configurations and compatibility policy; a merged revision or earlier clean review is not proof of correctness.
 
@@ -19,7 +22,8 @@ Use [contributing](contributing.md) for setup and validation commands.
 ## Exercise the boundaries
 
 - Write a small matrix of relevant states and transitions before probing.
-  For example, distinguish configured, loaded, installed, and post-restart plugin state; test each operation permission independently.
+  Distinguish intended state, eligibility, and observed state, and vary the conditions that can make them differ.
+  Exercise transitions through the components that produce and consume the state; constructing the final state alone does not verify the transition.
 - Check adverse paths as well as success: failure, retry, removal, restart, reconnect, and overlapping operations where applicable.
   Select relevant cases from these recurring review gaps:
 
@@ -35,7 +39,10 @@ Use [contributing](contributing.md) for setup and validation commands.
 - Use focused reproductions with concrete inputs and expected versus actual results.
   Keep the logic under review real: stubbing permissions, effects, or state transitions can erase the defect being investigated.
   Check that the harness reaches the intended path; compare a normal case and the base revision where practical.
+  Identify assumptions introduced by fixtures, caches, shared identities, or execution order, and vary those relevant to the change.
 - Control concurrency with explicit gates and assertions about ownership and completion, rather than timing alone.
+  Check both that invalid actions are prevented and that valid work eventually makes progress.
+  Vary delays and completion order, including changes to an action's preconditions between initiation and execution.
 
 
 ## Account for every candidate
@@ -46,7 +53,8 @@ Use [contributing](contributing.md) for setup and validation commands.
   A reproduced anomaly must not disappear just because several other issues were already found.
 - Carry unresolved candidates and coverage gaps into handoffs and context summaries, alongside published findings.
   For each finding, identify the trigger, consequence, source location, and supporting evidence.
-- Use history to distinguish newly introduced regressions from older defects when relevant; verify the behavior at the earlier revision.
+  Reconcile the previous ledger at every follow-up; an unconfirmed candidate remains unresolved until evidence rejects it or confirms it.
+  Name remaining material gaps in the final report even when other findings already block merging.
 
 
 ## Report and follow up
@@ -55,6 +63,7 @@ Use [contributing](contributing.md) for setup and validation commands.
   Record failures, skips, and unavailable validation; investigate external-service failures before attributing them to the PR.
 - Reproduce the original failure when checking a fix, including adjacent cases exposed by the change.
   A fix for one malformed field calls for checking the remaining consumer requirements, not just that example.
+  Limit conclusions to the scenarios exercised, and state which relevant assumptions remain unverified.
   Resolve a review thread only when its exact concern is addressed.
 - When authorized to publish, refresh the head and existing comments, avoid duplicates, and anchor feedback to the reviewed code.
   Read back each posted inline comment to verify its body and location.
