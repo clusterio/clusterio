@@ -8,6 +8,7 @@ import { useHosts } from "../model/host";
 import { useInstances } from "../model/instance";
 import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
+import { poll } from "../util/poll";
 import ControlContext from "./ControlContext";
 import { PackageOperation, PluginInstaller, addressKey } from "./PluginInstall";
 import {
@@ -46,11 +47,8 @@ export function useMachinePlugins(): MachinePluginsState {
 			return undefined;
 		}
 		let canceled = false;
-		// Refreshes can overlap when machines are slow to answer, only the newest one is shown
-		let latestRefresh = 0;
-		async function refresh() {
-			latestRefresh += 1;
-			const thisRefresh = latestRefresh;
+		// One request at a time, so a machine slower than the interval still gets its answer shown
+		const stop = poll(async () => {
 			const targets: Machine[] = [
 				{ name: "Controller", isController: true, address: "controller" },
 				...connectedHosts.map(host => ({ name: host.name, isController: false, address: { hostId: host.id } })),
@@ -62,14 +60,12 @@ export function useMachinePlugins(): MachinePluginsState {
 					return { ...machine, plugins: undefined };
 				}
 			}));
-			if (!canceled && thisRefresh === latestRefresh) {
+			if (!canceled) {
 				setMachines(results.flatMap(result => (result.plugins ? [result as MachinePlugins] : [])));
 				setUnreachable(results.flatMap(({ plugins, ...machine }) => (plugins ? [] : [machine])));
 			}
-		}
-		refresh();
-		const interval = setInterval(refresh, refreshIntervalMs);
-		return () => { canceled = true; clearInterval(interval); };
+		}, refreshIntervalMs);
+		return () => { canceled = true; stop(); };
 	}, [hostsKey, refreshCount, canList]);
 
 	return { machines, unreachable, refresh: () => setRefreshCount(count => count + 1) };
@@ -89,26 +85,23 @@ export function useLatestVersions(packages: string[]) {
 		}
 		let canceled = false;
 		let notified = false;
-		function lookUp() {
-			control.send(new lib.PluginLatestVersionsRequest(packagesKey.split(",")))
-				.then(response => {
-					if (!canceled) {
-						// Merged so a lookup failing on a later refresh doesn't hide what was found before
-						setVersions(current => ({ ...current, ...response.versions }));
-					}
-				})
-				.catch(err => {
-					if (!canceled && !notified) {
-						notified = true;
-						notifyErrorHandler("Failed to look up latest plugin versions")(err);
-					}
-				});
-		}
-		lookUp();
 		// Packages the registry couldn't be reached for are left out, so look them up again later.
 		// The controller caches the ones it found.
-		const interval = setInterval(lookUp, latestVersionsRefreshMs);
-		return () => { canceled = true; clearInterval(interval); };
+		const stop = poll(async () => {
+			try {
+				const response = await control.send(new lib.PluginLatestVersionsRequest(packagesKey.split(",")));
+				if (!canceled) {
+					// Merged so a lookup failing on a later refresh doesn't hide what was found before
+					setVersions(current => ({ ...current, ...response.versions }));
+				}
+			} catch (err: any) {
+				if (!canceled && !notified) {
+					notified = true;
+					notifyErrorHandler("Failed to look up latest plugin versions")(err);
+				}
+			}
+		}, latestVersionsRefreshMs);
+		return () => { canceled = true; stop(); };
 	}, [packagesKey, canList]);
 
 	return versions;
@@ -311,6 +304,9 @@ export function RestartPendingButton(props: RestartPendingProps) {
 	)).length;
 
 	async function restart() {
+		if (props.busy || restarting) {
+			return;
+		}
 		setRestarting(true);
 		try {
 			const hosts = restartable.filter(machine => !machine.isController);
@@ -361,7 +357,7 @@ export function RestartPendingButton(props: RestartPendingProps) {
 			</Text></div>}
 		</div>}
 		okText="Restart"
-		okButtonProps={{ danger: true, disabled: !restartable.length }}
+		okButtonProps={{ danger: true, disabled: !restartable.length || props.busy }}
 		onConfirm={restart}
 	>
 		<Button loading={restarting} disabled={props.busy}>Restart pending ({pending.length})</Button>
