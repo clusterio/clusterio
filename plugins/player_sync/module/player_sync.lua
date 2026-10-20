@@ -583,10 +583,15 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	local destination = player_record.destination
 	player_record.destination = nil
 
-	-- If player has an active download release our acquisition but let the download continue
-	if script_data.active_downloads[player.name] then
-		-- A prefetched copy is confirmed per join: the next join's acquire reply confirms it again
-		script_data.active_downloads[player.name].confirmed = nil
+	local download = script_data.active_downloads[player.name]
+	if download and download.prefetch then
+		-- A prefetched copy is confirmed per join: the next join's acquire reply confirms it again. Until then it has
+		-- replaced nothing here, so the checks below decide the upload. One whose join took the body (spectate) left
+		-- sync_in_progress set, and uploads nothing.
+		download.confirmed = nil
+
+	elseif download then
+		-- If player has an active download release our acquisition but let the download continue
 		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
 	end
