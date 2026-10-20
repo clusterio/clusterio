@@ -24,6 +24,8 @@ export class PluginDetails {
 		public dependencyName?: string,
 		/** Has no entrypoint for this machine, so it is never loaded here */
 		public noEntrypoint?: boolean,
+		/** Not loaded as another package provides a plugin with the same name */
+		public nameTaken?: boolean,
 	) {}
 
 	static jsonSchema = Type.Object({
@@ -39,13 +41,14 @@ export class PluginDetails {
 		removed: Type.Optional(Type.Boolean()),
 		dependencyName: Type.Optional(Type.String()),
 		noEntrypoint: Type.Optional(Type.Boolean()),
+		nameTaken: Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
 			json.name, json.title, json.version, json.loaded, json.enabled,
 			json.description, json.npmPackage, json.installedVersion, json.pendingInstall, json.removed,
-			json.dependencyName, json.noEntrypoint,
+			json.dependencyName, json.noEntrypoint, json.nameTaken,
 		);
 	}
 

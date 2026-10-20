@@ -7,6 +7,7 @@ import { logger } from "./logging.js";
 import { RequestError } from "./errors.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
 import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
+import { isRegistrySpec } from "./load_plugin_list.js";
 const execAsync = util.promisify(exec);
 
 function isDev() {
@@ -212,6 +213,22 @@ function parsePackageSpec(spec: string) {
 	return { name, version };
 }
 
+/** Throws if the dependency by this name is a path, git, url or alias that installing by name would replace */
+async function checkNotLocalDependency(name: string) {
+	let dependencies;
+	try {
+		dependencies = JSON.parse(await fs.readFile(path.resolve("package.json"), "utf8")).dependencies;
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			return;
+		}
+		throw err;
+	}
+	if (dependencies && Object.hasOwn(dependencies, name) && !isRegistrySpec(dependencies[name])) {
+		throw new RequestError(`${name} is not installed from npm on this machine`);
+	}
+}
+
 /** Throws unless the package, and version if given, is published on npm, returns the spec to install */
 async function checkRegistry(name: string, version?: string) {
 	const packageName = encodeURI(name);
@@ -237,12 +254,14 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 	if (version === undefined) {
 		return await updatePackage(name);
 	}
+	await checkNotLocalDependency(name);
 	return await installPackage(await checkRegistry(name, version));
 }
 
 /** Install a plugin, optionally pinned to a version as name@version, returns the package name */
 export async function handlePluginInstall(pluginName: string) {
 	const { name, version } = parsePackageSpec(pluginName);
+	await checkNotLocalDependency(name);
 	await installPackage(await checkRegistry(name, version));
 	return name;
 }

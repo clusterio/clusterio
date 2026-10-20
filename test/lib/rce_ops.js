@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import path from "node:path";
 import fsSync from "node:fs";
 import * as lib from "@clusterio/lib";
 import "../setup_logging.js";
@@ -204,6 +205,37 @@ describe("rce_ops", function() {
 			} finally {
 				global.fetch = _fetch;
 			}
+		});
+	});
+
+	describe("installing over a dependency not from the registry", function() {
+		const cwd = process.cwd();
+		const dir = path.resolve("temp", "test", "rce_ops_local_dependency");
+		const _fetch = global.fetch;
+		before(async function() {
+			await fs.mkdir(dir, { recursive: true });
+			await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({ dependencies: {
+				"linked": "file:../linked",
+				"aliased": "npm:other@^1.0.0",
+				"from-git": "github:user/from-git",
+				"published": "^1.0.0",
+			} }));
+			process.chdir(dir);
+			global.fetch = function() { return { ok: true }; };
+		});
+		after(function() {
+			process.chdir(cwd);
+			global.fetch = _fetch;
+		});
+
+		it("rejects installs and pinned updates", async function() {
+			for (const name of ["linked", "aliased", "from-git"]) {
+				const error = new RegExp(`${name} is not installed from npm on this machine`);
+				await assert.rejects(lib.handlePluginInstall(`${name}@2.0.0`), error);
+				await assert.rejects(lib.handlePluginUpdate(`${name}@2.0.0`, [{ npmPackage: name }]), error);
+			}
+			await lib.handlePluginInstall("published@2.0.0");
+			await lib.handlePluginUpdate("published@2.0.0", [{ npmPackage: "published" }]);
 		});
 	});
 

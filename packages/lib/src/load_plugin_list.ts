@@ -199,7 +199,12 @@ async function findNpmPlugins(
 	const { plugins, nonPluginRoots } = await discoverNpmPluginPackages(dependencies);
 	for (const { packageName, packageVersion, packagePath } of plugins) {
 		const pluginName = getPluginName(packagePath);
-		if (pluginList.has(pluginName)) {
+		const listedPath = pluginList.get(pluginName);
+		if (listedPath !== undefined && !await pluginPathExists(listedPath)) {
+			logger.warn(`${pluginName} at ${listedPath} no longer exists, using ${packageName}`);
+			pluginList.set(pluginName, packageName);
+			hasChanged += 1;
+		} else if (pluginList.has(pluginName)) {
 			logger.warn(
 				`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
 				`but with a different path - using ${pluginList.get(pluginName)}`
@@ -282,6 +287,23 @@ async function checkPackageJson(pluginPath: string): Promise<boolean> {
 	return isPluginPackageJson(JSON.parse(content));
 }
 
+async function pluginPathExists(pluginPath: string) {
+	if (!path.isAbsolute(pluginPath)) {
+		return resolvePackagePath(pluginPath, process.cwd(), true) !== undefined;
+	}
+	try {
+		await fs.access(path.join(pluginPath, "package.json"));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Whether a dependency spec installs from the registry, as opposed to a path, git, url or alias */
+export function isRegistrySpec(spec: unknown) {
+	return typeof spec === "string" && !/[:/\\]/.test(spec) && !spec.startsWith(".");
+}
+
 function isPluginPackageJson(packageJson: any): boolean {
 	return Boolean(packageJson?.keywords?.includes?.("clusterio-plugin"));
 }
@@ -346,9 +368,17 @@ export async function listPluginDetails(
 		}
 		if (Object.hasOwn(dependencies, pluginInfo.requirePath)) {
 			plugin.dependencyName = pluginInfo.requirePath;
+			if (!isRegistrySpec(dependencies[pluginInfo.requirePath])) {
+				plugin.npmPackage = undefined;
+			}
 		}
 		try {
-			plugin.installedVersion = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8")).version;
+			const packageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
+			plugin.installedVersion = packageJson.version;
+			if (packageJson.name !== plugin.npmPackage) {
+				// Replaced by an alias since startup
+				plugin.npmPackage = undefined;
+			}
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				// Uninstalled since startup, it won't be found on the next restart
@@ -362,25 +392,35 @@ export async function listPluginDetails(
 	}
 
 	const { plugins: npmPlugins } = await discoverNpmPluginPackages(dependencies, true);
-	for (const { packageName, packagePath, packageJson } of npmPlugins) {
+	for (const { packageName, packageVersion, packagePath, packageJson } of npmPlugins) {
 		const dir = await realDir(packagePath);
 		if (knownDirs.has(dir)) {
 			continue;
 		}
-		const takenName = skippedNpmPlugins.get(dir);
-		if (takenName !== undefined && presentNames.has(takenName)) {
-			continue; // Skipped on startup as its plugin name is taken, will be again
+		// Startup loads it by package name from the root, which doesn't reach nested packages
+		const rootPath = resolvePackagePath(packageName, process.cwd(), true);
+		if (!rootPath || await realDir(rootPath) !== dir) {
+			continue;
 		}
 		if (typeof packageJson.version !== "string") {
 			continue;
 		}
-		// Same rule as loadPluginInfos, aliases and private packages can't be installed by this name
-		const npmPackage = !packageJson.private && packageJson.name === packageName ? packageName : undefined;
+		// Same rule as loadPluginInfos, aliases, private and non-registry packages can't be installed by this name
+		const npmPackage = !packageJson.private && packageJson.name === packageName && isRegistrySpec(packageVersion)
+			? packageName : undefined;
 		const dependencyName = Object.hasOwn(dependencies, packageName) ? packageName : undefined;
-		plugins.push(new PluginDetails(
+		const description = typeof packageJson.description === "string" ? packageJson.description : undefined;
+		const plugin = new PluginDetails(
 			packageName, packageName, packageJson.version, false, false,
-			packageJson.description, npmPackage, packageJson.version, true, undefined, dependencyName,
-		));
+			description, npmPackage, packageJson.version, true, undefined, dependencyName,
+		);
+		const takenName = skippedNpmPlugins.get(dir);
+		if (takenName !== undefined && presentNames.has(takenName)) {
+			// Skipped on startup as its plugin name is taken, will be again
+			plugin.pendingInstall = undefined;
+			plugin.nameTaken = true;
+		}
+		plugins.push(plugin);
 	}
 
 	return plugins;

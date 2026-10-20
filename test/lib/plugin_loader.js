@@ -453,7 +453,19 @@ describe("lib/plugin_loader", function() {
 			assert.deepEqual([...skipped], [[await fs.realpath(npmPluginPathAbs), "npm"]]);
 		});
 
-		it("should not list npm plugins skipped on startup as pending while their name is taken", async function() {
+		it("should replace plugin list entries that no longer exist with npm plugins", async function() {
+			const gone = path.resolve("plugins", "gone");
+			await fs.writeFile(pluginListPath, JSON.stringify([["npm", gone], ["aliased", "plugin-gone"]]));
+			const skipped = new Map();
+			const list = await lib.loadPluginList(pluginListPath, false, skipped);
+			assert.equal(list.get("npm"), "plugin-npm");
+			assert.equal(list.get("aliased"), "plugin-aliased");
+			assert.deepEqual([...skipped], []);
+			const saved = new Map(JSON.parse(await fs.readFile(pluginListPath, "utf8")));
+			assert.equal(saved.get("npm"), "plugin-npm");
+		});
+
+		it("should list npm plugins skipped on startup as not loading while their name is taken", async function() {
 			const skipped = new Map([[await fs.realpath(npmPluginPathAbs), "npm"]]);
 			const local = {
 				name: "npm",
@@ -463,7 +475,9 @@ describe("lib/plugin_loader", function() {
 				packagePath: path.join(localPluginPathAbs, "package.json"),
 			};
 			let plugins = await lib.listPluginDetails([local], () => true, () => true, skipped);
-			assert.equal(plugins.some(plugin => plugin.name === "plugin-npm"), false);
+			const taken = plugins.find(plugin => plugin.name === "plugin-npm");
+			assert.equal(taken.nameTaken, true);
+			assert.equal(taken.pendingInstall, undefined);
 
 			// Loaded on the next restart once the plugin with that name is gone
 			const gone = { ...local, packagePath: path.resolve("plugins", "gone", "package.json") };
@@ -484,6 +498,68 @@ describe("lib/plugin_loader", function() {
 				assert.equal(hidden.npmPackage, "plugin-hidden");
 			} finally {
 				await fs.writeFile("package.json", rootPackageJson);
+			}
+		});
+
+		it("should not list plugins nested under another package as pending", async function() {
+			// Startup loads plugins by package name from the root, which doesn't reach nested packages
+			const packageJsonPath = path.join("node_modules", "plugin-transitive", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				const packageJson = JSON.parse(original);
+				packageJson.dependencies["plugin-nested"] = "^0.0.1";
+				await fs.writeFile(packageJsonPath, JSON.stringify(packageJson));
+				const plugins = await lib.listPluginDetails([], () => true, () => true, new Map());
+				assert.equal(plugins.some(plugin => plugin.name === "plugin-nested"), false);
+				assert.ok(plugins.some(plugin => plugin.name === "plugin-transitive"));
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should not list packages from a path, git or url as installable from npm", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			try {
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-npm"] = "file:../plugin-npm";
+				root.dependencies["plugin-deep"] = "github:user/plugin-deep";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				const plugins = await lib.listPluginDetails([{
+					name: "npm",
+					title: "NPM",
+					version: "0.0.1",
+					requirePath: "plugin-npm",
+					packagePath: path.join(npmPluginPathAbs, "package.json"),
+					npmPackage: "plugin-npm",
+				}], () => true, () => true, new Map());
+				const npm = plugins.find(plugin => plugin.name === "npm");
+				assert.equal(npm.npmPackage, undefined);
+				assert.equal(npm.dependencyName, "plugin-npm");
+				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
+				assert.equal(deep.pendingInstall, true);
+				assert.equal(deep.npmPackage, undefined);
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+			}
+		});
+
+		it("should not list a plugin replaced by another package since startup as installable", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-npm", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				await fs.writeFile(packageJsonPath, JSON.stringify({ ...JSON.parse(original), name: "other" }));
+				const [plugin] = await lib.listPluginDetails([{
+					name: "npm",
+					title: "NPM",
+					version: "0.0.1",
+					requirePath: "plugin-npm",
+					packagePath: path.join(npmPluginPathAbs, "package.json"),
+					npmPackage: "plugin-npm",
+				}], () => true, () => true, new Map());
+				assert.equal(plugin.npmPackage, undefined);
+				assert.equal(plugin.removed, undefined);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
 			}
 		});
 

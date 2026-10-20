@@ -71,7 +71,7 @@ describe("messages/plugin", function() {
 		const packagePath = path.resolve("temp", "test", "messages_plugin", "package.json");
 		before(async function() {
 			await fs.mkdir(path.dirname(packagePath), { recursive: true });
-			await fs.writeFile(packagePath, JSON.stringify({ version: "Version" }));
+			await fs.writeFile(packagePath, JSON.stringify({ name: "Npm Package", version: "Version" }));
 		});
 		after(function() {
 			delete lib.ControllerConfig.fieldDefinitions["Name.load_plugin"];
