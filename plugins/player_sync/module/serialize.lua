@@ -895,6 +895,7 @@ end
 --- @class CraftingNotificationDelta
 --- @field add string[]? Recipes cleared elsewhere that still have a notification here
 --- @field remove string[]? Recipes with a notification elsewhere that are cleared here
+--- @field full boolean? add is the whole stored list, sent without this save's (a prefetched copy)
 
 --- @param player LuaPlayer
 --- @param serialized string Encoded delta against the state sent with the download request
@@ -929,6 +930,23 @@ function serialize.deserialize_crafting_notifications(player, serialized)
 		end
 	end
 
+	-- A full delta has no remove: recipes cleared here that aren't in add get their notification back, as remove does
+	if delta.full then
+		local stored = {}
+		for _, recipe_name in pairs(delta.add or {}) do
+			stored[recipe_name] = true
+		end
+		local notified = {}
+		for _, recipe in pairs(player.get_recipe_notifications()) do
+			notified[recipe.name] = true
+		end
+		for recipe_name in pairs(enabled) do
+			if not stored[recipe_name] and not notified[recipe_name] then
+				player.add_recipe_notification(recipe_name)
+			end
+		end
+	end
+
 	return next(failed) and failed or nil
 end
 
@@ -959,6 +977,7 @@ end
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
+--- @field destination_instance_id integer? Only on a leave upload, for instance.ts, which strips it
 
 --- @param player LuaPlayer
 --- @return table<string, boolean>

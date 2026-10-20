@@ -5,7 +5,7 @@ import * as lib from "@clusterio/lib";
 
 import * as mock from "../../../test/mock.js";
 import loadInstancePlugin, { recipeNotificationDelta, applyRecipeNotificationDelta } from "../dist/node/instance.js";
-import { DownloadResponse } from "../dist/node/messages.js";
+import { AcquireResponse, DownloadResponse, PrefetchEvent } from "../dist/node/messages.js";
 import { components } from "../dist/node/components.js";
 import { plugin as info } from "../dist/node/index.js";
 
@@ -54,10 +54,15 @@ describe("player_sync", function() {
 			await apply(playerData, await encode(["a"]));
 			assert.deepEqual(await decode(playerData.recipe_notifications), {});
 		});
-		it("should add everything without a current list", async function() {
+		it("should send the whole list marked full without a current list", async function() {
 			const playerData = { name: "test", recipe_notifications: await encode(["a"]) };
 			await apply(playerData, undefined);
-			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a"] });
+			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a"], full: true });
+		});
+		it("should mark an empty list full without a current list", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode([]) };
+			await apply(playerData, undefined);
+			assert.deepEqual(await decode(playerData.recipe_notifications), { full: true });
 		});
 		it("should do nothing without stored notifications", async function() {
 			const playerData = { name: "test" };
@@ -118,10 +123,12 @@ describe("player_sync", function() {
 				["/sc player_sync.download_inventory('test',nil,0,0)"]
 			);
 		});
-		it("should send everything as a delta when no snapshot was given", async function() {
+		it("should send everything as a full delta when no snapshot was given", async function() {
 			respondWith({ generation: 1, name: "test", recipe_notifications: await encode(["a"]) });
 			await download({ player_name: "test" });
-			const expected = { generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"] }) };
+			const expected = {
+				generation: 1, name: "test", recipe_notifications: await encode({ add: ["a"], full: true }),
+			};
 			assert.deepEqual(instance.server.rconCommands, [downloadCommand(expected)]);
 		});
 		it("should send a delta when a snapshot was given", async function() {
@@ -209,6 +216,129 @@ describe("player_sync", function() {
 				instance.status = "running";
 			}
 			assert.equal(instance.server.rconCommands.length, 0);
+		});
+	});
+
+	describe("ipc-player_sync_upload", function() {
+		let instance;
+		before(async function() {
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+		});
+		beforeEach(function() {
+			instance.connector.sentMessages = [];
+		});
+
+		// The UploadRequest the instance sends the controller (no response is given; only the request is checked)
+		async function upload(playerData) {
+			instance.server.emit("ipc-player_sync_upload", playerData);
+			for (let i = 0; i < 100 && !instance.connector.sentMessages.length; i++) {
+				await lib.wait(1);
+			}
+			return instance.connector.sentMessages[0].data;
+		}
+
+		it("should pass destination_instance_id on as destinationInstanceId, not as player data", async function() {
+			const request = await upload({ name: "test", generation: 2, destination_instance_id: 7 });
+			assert.equal(request.destinationInstanceId, 7);
+			assert.deepEqual(request.playerData, { name: "test", generation: 2 });
+		});
+		it("should send no destination without the field", async function() {
+			const request = await upload({ name: "test", generation: 2 });
+			assert.equal(request.destinationInstanceId, undefined);
+		});
+	});
+
+	describe("PrefetchEvent", function() {
+		let instance;
+		before(async function() {
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+			instance.mockConfigEntries.set("player_sync.rcon_chunk_size", 10);
+		});
+		beforeEach(function() {
+			instance.server.reset();
+			for (const component of Object.keys(components)) {
+				instance.mockConfigEntries.set(`player_sync.sync_${component}`, true);
+			}
+		});
+
+		const prefetch = playerData => mock.getHandler(instance, PrefetchEvent)(new PrefetchEvent(playerData, "tok"));
+		function prefetchCommands(playerData, enabled = Object.keys(components), epoch = 0) {
+			const chunks = JSON.stringify(playerData).match(/.{1,10}/g);
+			const sent = lib.escapeString(JSON.stringify(Object.fromEntries(enabled.map(c => [c, true]))));
+			return chunks.map((chunk, i) => "/sc player_sync.prefetch_inventory(" +
+				`'test',${playerData.generation},'${lib.escapeString(chunk)}',${i + 1},${chunks.length}` +
+				`${i === 0 ? `,'${sent}','tok',${epoch}` : `,nil,'tok',${epoch}`})`);
+		}
+
+		it("should send prefetch_inventory chunks with the generation and the full recipe list", async function() {
+			await prefetch({ generation: 3, name: "test", recipe_notifications: await encode(["a"]) });
+			const expected = {
+				generation: 3, name: "test", recipe_notifications: await encode({ add: ["a"], full: true }),
+			};
+			assert.ok(instance.server.rconCommands.length > 1, "more than one chunk");
+			assert.deepEqual(instance.server.rconCommands, prefetchCommands(expected));
+		});
+		it("should leave out components which are not synced and send the components with chunk 1", async function() {
+			instance.mockConfigEntries.set("player_sync.sync_force", false);
+			await prefetch({ generation: 3, name: "test", force: "enemy", tag: "tag" });
+			const enabled = Object.keys(components).filter(c => c !== "force");
+			const commands = prefetchCommands({ generation: 3, name: "test", tag: "tag" }, enabled);
+			assert.ok(commands.length > 1, "more than one chunk");
+			assert.deepEqual(instance.server.rconCommands, commands);
+		});
+		it("should send the token and epoch with every chunk", async function() {
+			await prefetch({ generation: 3, name: "test" });
+			const commands = instance.server.rconCommands;
+			assert.ok(commands[0].endsWith(",'tok',0)"));
+			assert.ok(commands.length > 1 && commands.slice(1).every(command => command.endsWith(",nil,'tok',0)")));
+		});
+		it("should send the stored data's epoch", async function() {
+			const playerData = { generation: 3, epoch: 2, name: "test" };
+			await prefetch(playerData);
+			assert.deepEqual(instance.server.rconCommands, prefetchCommands(playerData, undefined, 2));
+		});
+		it("should stop when the save refuses the first chunk", async function() {
+			const playerData = { generation: 3, name: "test" };
+			const commands = prefetchCommands(playerData);
+			instance.server.rconCommandResults.set(commands[0], "Refused prefetch for test: online here");
+			await prefetch(playerData);
+			assert.deepEqual(instance.server.rconCommands, commands.slice(0, 1));
+		});
+		it("should stop at the first non-empty reply mid-stream", async function() {
+			const playerData = { generation: 3, name: "test" };
+			const commands = prefetchCommands(playerData);
+			assert.equal(commands.length, 3);
+			instance.server.rconCommandResults.set(commands[1], "Ignored prefetch chunk 2 for test");
+			await prefetch(playerData);
+			assert.deepEqual(instance.server.rconCommands, commands.slice(0, 2));
+		});
+	});
+
+	describe("acquire reply", function() {
+		it("should pass the controller's token to acquire_response", async function() {
+			try {
+				lib.registerPluginMessages([info]);
+			} catch (err) {
+				// Already registered by the full test suite
+			}
+			const { instance, host } = await mock.loadInstancePlugin(loadInstancePlugin, info);
+			host.connector.connected = true;
+			instance.sendTo = async () => new AcquireResponse("acquired", 4, true, undefined, undefined, "tok");
+			instance.server.emit("ipc-player_sync_acquire", { player_name: "test" });
+			await lib.wait(10);
+			const [command] = instance.server.rconCommands;
+			assert.ok(command.startsWith("/sc player_sync.acquire_response("), command);
+			assert.ok(command.includes(lib.escapeString('"token":"tok"')), command);
 		});
 	});
 });

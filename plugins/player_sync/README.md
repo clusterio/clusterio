@@ -91,6 +91,25 @@ Communication between the instance and the controller goes over websockets.
 Overall, we are able to achieve a latency between 3 and infinite ticks from server join, depending on the size of the inventory. The major limiter is rcon transfer speeds with larger inventories, especially if they contain blueprints.
 
 
+## Sending player data ahead
+
+A plugin that moves a player to another instance with `LuaPlayer.connect_to_server` can tell player sync where the player is going, just before the call:
+
+```lua
+local ps = remote.interfaces.player_sync
+if ps and ps.set_destination then
+	pcall(remote.call, "player_sync", "set_destination", player.name, instance_id) -- a failure never stops the connect
+end
+player.connect_to_server({ address = address, name = name })
+```
+
+`instance_id` is the Clusterio instance id of the destination. The call only records it, and a later call replaces it.
+When the player then leaves with the reason `switching_servers`, the upload carries the destination and the controller sends the stored data on to that instance while the client reconnects.
+On joining, a copy that the acquire reply confirms is applied without a download.
+The destination's `player_sync.sync_*` options apply to the copy as to a download.
+A cancelled dialog, a quit or a crash sends nothing.
+If the destination isn't running, has player sync off or is the player's current instance, the join downloads as before.
+
 ## Controller Configuration
 
 ### player_sync.player_lock_timeout

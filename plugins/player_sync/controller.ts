@@ -2,6 +2,7 @@ import type { ControllerPluginContext, InstanceRecord } from "@clusterio/control
 import type { IpcPlayerData } from "./messages.js";
 import { mergePlayerData } from "./components.js";
 
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "path";
 import * as lib from "@clusterio/lib";
@@ -67,6 +68,8 @@ async function saveDatabase(
 
 export default async function(context: ControllerPluginContext) {
 	const { controller, logger, plugin } = context;
+	// Differs on every controller start: a prefetched copy holding another run's token may be one this run never saved
+	const runToken = crypto.randomBytes(8).toString("hex");
 	const acquiredPlayers = new Map<string, { instanceId: number, expiresMs?: number }>();
 	const { playerDatastore, tombstones } = await loadDatabase(controller.config, logger);
 	let playerDatastoreDirty = false;
@@ -110,6 +113,26 @@ export default async function(context: ControllerPluginContext) {
 				`${playerName} is currently acquired by ${instanceName}, ` +
 				"have the player leave or release the lock first"
 			);
+		}
+	}
+
+	// Send stored player data on to the instance the player left to switch to (set_destination in the Lua module).
+	// Only another running instance with player_sync on: a copy applied on the source would rebuild the body there.
+	function prefetch(sourceId: number, targetId: number, playerData: IpcPlayerData) {
+		const target = controller.instances.get(targetId);
+		if (
+			!target || targetId === sourceId || target.status !== "running"
+			|| !target.config.get("player_sync.load_plugin")
+		) {
+			logger.verbose(`Not prefetching ${playerData.name} to instance ${targetId}`);
+			return;
+		}
+		try {
+			controller.sendTo({ instanceId: targetId }, new msg.PrefetchEvent(playerData, runToken));
+			logger.verbose(`Prefetching ${playerData.name} to ${target.config.get("instance.name")}`);
+		} catch (err: any) {
+			// sendEvent throws when the instance's host isn't connected; the upload is stored either way
+			logger.warn(`Failed to prefetch ${playerData.name} to instance ${targetId}: ${err.message}`);
 		}
 	}
 
@@ -166,6 +189,7 @@ export default async function(context: ControllerPluginContext) {
 			playerDatastore.has(playerName),
 			undefined,
 			epoch || undefined,
+			runToken,
 		);
 	});
 
@@ -225,9 +249,14 @@ export default async function(context: ControllerPluginContext) {
 
 		if (store) {
 			logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
-			playerDatastore.set(playerName, mergePlayerData(playerDatastore.get(playerName), playerData));
+			const merged = mergePlayerData(playerDatastore.get(playerName), playerData);
+			playerDatastore.set(playerName, merged);
 			tombstones.delete(playerName);
 			playerDatastoreDirty = true;
+			if (request.destinationInstanceId !== undefined) {
+				// The stored copy: components the upload left out are the controller's
+				prefetch(instanceId, request.destinationInstanceId, merged);
+			}
 		}
 	});
 
