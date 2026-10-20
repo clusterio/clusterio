@@ -50,13 +50,6 @@ describe("lib/datastore", function() {
 		it("can be constructed", function() {
 			assert.deepEqual(datastoreProvider.methodCalls[0], ["constructor"]);
 		});
-
-		it("can be bootstrapped", async function() {
-			const rtn = await datastoreProvider.bootstrap();
-			assert.equal(rtn[0], datastoreProvider);
-			assert.equal(rtn[1], datastoreProvider.value);
-			assert.deepEqual(datastoreProvider.methodCalls[1], ["load"]);
-		});
 	});
 
 	describe("class MemoryDatastoreProvider", function() {
@@ -70,13 +63,13 @@ describe("lib/datastore", function() {
 
 		describe("constructor", function() {
 			it("has a default value", async function() {
-				const [, value] = await new lib.MemoryDatastoreProvider().bootstrap();
+				const value = await new lib.MemoryDatastoreProvider().load();
 				assert.notEqual(value, undefined);
 				assert.notEqual(value, null);
 			});
 			it("can have a value given", async function() {
 				const expectedValue = new Map([["foo", "bar"]]);
-				const [, value] = await new lib.MemoryDatastoreProvider(expectedValue).bootstrap();
+				const value = await new lib.MemoryDatastoreProvider(expectedValue).load();
 				assert.deepEqual(value, expectedValue);
 			});
 		});
@@ -116,7 +109,7 @@ describe("lib/datastore", function() {
 			it("has default values", async function() {
 				datastoreProvider = new lib.JsonDatastoreProvider(dataPath);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map(initialData));
 			});
 			it("can accept a fromJson method", async function() {
@@ -125,7 +118,7 @@ describe("lib/datastore", function() {
 					json => [json]
 				);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map(initialData.map(([k, v]) => [k, [v]])));
 			});
 			it("can accept a migration method", async function() {
@@ -135,7 +128,7 @@ describe("lib/datastore", function() {
 					rawJson => ({ c: "foo", ...rawJson })
 				);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map([...initialData, ["c", "foo"]]));
 			});
 			it("can accept a finalise method", async function() {
@@ -146,7 +139,7 @@ describe("lib/datastore", function() {
 					obj => [obj]
 				);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map(initialData.map(([k, v]) => [k, [v]])));
 			});
 		});
@@ -210,7 +203,7 @@ describe("lib/datastore", function() {
 			it("has default values", async function() {
 				datastoreProvider = new lib.JsonIdDatastoreProvider(dataPath);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map(initialData));
 			});
 			it("can accept a fromJson method", async function() {
@@ -219,7 +212,7 @@ describe("lib/datastore", function() {
 					json => ({...json, foo: true})
 				);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map(initialData.map(v => ([v[0], {...v[1], foo: true}]))));
 			});
 			it("can accept a migration method", async function() {
@@ -229,7 +222,7 @@ describe("lib/datastore", function() {
 					rawJson => ([{ id: "c" }, ...rawJson])
 				);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map([...initialData, ["c", { id: "c" }]]));
 			});
 			it("can accept a finalise method", async function() {
@@ -240,7 +233,7 @@ describe("lib/datastore", function() {
 					obj => ({...obj, foo: true})
 				);
 
-				const [, value] = await datastoreProvider.bootstrap();
+				const value = await datastoreProvider.load();
 				assert.deepEqual(value, new Map(initialData.map(v => ([v[0], {...v[1], foo: true}]))));
 			});
 		});
@@ -304,10 +297,6 @@ describe("lib/datastore", function() {
 			});
 			it("accepts a starting value", function() {
 				datastore = new MockDatastore(datastoreProvider, datastoreProvider.value);
-				assert.deepEqual(datastore.getData(), datastoreProvider.value);
-			});
-			it("accepts the return of bootstrap", async function() {
-				datastore = new MockDatastore(...await datastoreProvider.bootstrap());
 				assert.deepEqual(datastore.getData(), datastoreProvider.value);
 			});
 		});
@@ -478,6 +467,15 @@ describe("lib/datastore", function() {
 			datastore.on("update", updates => eventsRaised.push(updates));
 		});
 
+		describe("fromProvider", function() {
+			it("loads data from the provider", async function() {
+				datastore = await lib.KeyValueDatastore.fromProvider(datastoreProvider);
+				assert(datastore instanceof lib.KeyValueDatastore);
+				assert.equal(datastore.get("foo"), "fooValue");
+				assert.deepEqual(datastoreProvider.methodCalls[1], ["load"]);
+			});
+		});
+
 		describe("set", function() {
 			it("can set a value", function() {
 				datastore.set("test", "testValue");
@@ -569,6 +567,16 @@ describe("lib/datastore", function() {
 			]);
 			datastore = new lib.SubscribableDatastore(datastoreProvider, datastoreProvider.value);
 			datastore.on("update", updates => eventsRaised.push(updates));
+		});
+
+		describe("fromProvider", function() {
+			it("loads data from the provider", async function() {
+				datastore = await lib.SubscribableDatastore.fromProvider(datastoreProvider);
+				assert(datastore instanceof lib.SubscribableDatastore);
+				assert.equal(datastore.get("foo").id, "foo");
+				assert.equal(datastore.lastUpdatedAtMs, 10);
+				assert.deepEqual(datastoreProvider.methodCalls[1], ["load"]);
+			});
 		});
 
 		function forceFuture() {

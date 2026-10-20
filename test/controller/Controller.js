@@ -57,6 +57,38 @@ describe("controller/src/Controller", function() {
 				assert(list.check(ip), `${ip} missing from list`);
 			}
 		}
+		describe(".fromConfig()", function() {
+			let dir;
+			beforeEach(async function() {
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-controller-"));
+			});
+			afterEach(async function() {
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			it("should load datastores and mods from disk", async function() {
+				const databaseDirectory = path.join(dir, "database");
+				const modsDirectory = path.join(dir, "mods");
+				await fs.mkdir(databaseDirectory);
+				await fs.writeFile(path.join(databaseDirectory, "notes.json"), JSON.stringify([
+					{ resourceType: "instance", resourceId: "100", content: "hello" },
+				]));
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion,
+					"controller.database_directory": databaseDirectory,
+					"controller.mods_directory": modsDirectory,
+				});
+
+				const loaded = await Controller.fromConfig({}, [], config, true, false);
+				assert(loaded instanceof Controller);
+				assert.equal(loaded.canRestart, true);
+				assert.equal(loaded.recoveryMode, false);
+				assert.equal(loaded.notes.get("instance/100").content, "hello");
+				assert.equal(loaded.modStore.modsDirectory, modsDirectory);
+				assert(loaded.roles.size > 0, "default roles were not added");
+				assert(loaded.modPacks.size > 0, "default mod packs were not added");
+				await fs.access(modsDirectory);
+			});
+		});
 		describe(".loadJsonObject()", function() {
 			let dir;
 			before(async function() {

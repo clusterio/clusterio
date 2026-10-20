@@ -329,12 +329,18 @@ export default class Host extends lib.Link {
 		"_warning": "Changes to this file will be overwritten by the controller's copy.",
 	};
 
-	static async bootstrap(hostConfig: lib.HostConfig) {
+	/** Create a host with its mod store loaded from disk */
+	static async fromConfig(
+		connector: HostConnector,
+		hostConfig: lib.HostConfig,
+		pluginInfos: lib.PluginNodeEnvInfo[],
+		canRestart = false,
+		recoveryMode = false,
+	) {
 		const modsDirectory = hostConfig.get("host.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
-		return [
-			await lib.ModStore.fromDirectory(modsDirectory),
-		] as const;
+		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
+		return new this(connector, hostConfig, pluginInfos, canRestart, recoveryMode, modStore);
 	}
 
 	constructor(

@@ -62,6 +62,21 @@ describe("host/src/Host", function() {
 		});
 	});
 	describe("class Host", function() {
+		describe(".fromConfig()", function() {
+			const modsDirectory = path.join("temp", "test", "host_from_config", "mods");
+			beforeEach(async function() {
+				await fs.rm(path.dirname(modsDirectory), { recursive: true, force: true });
+			});
+			it("should create the mods directory and load the mod store", async function() {
+				const hostConfig = new lib.HostConfig("host", { "host.mods_directory": modsDirectory });
+				const host = await Host.fromConfig(new HostConnector(hostConfig, []), hostConfig, [], true, false);
+				assert(host instanceof Host);
+				assert.equal(host.canRestart, true);
+				assert.equal(host.recoveryMode, false);
+				assert.equal(host.modStore.modsDirectory, modsDirectory);
+				await fs.access(modsDirectory);
+			});
+		});
 		describe(".handleSyncUserListsEvent()", function() {
 			const hostAddress = lib.Address.fromShorthand({ hostId: 1 });
 			const instanceAddress = lib.Address.fromShorthand({ instanceId: 1 });
