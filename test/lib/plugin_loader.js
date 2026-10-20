@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import * as mock from "../mock.js";
 import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin } from "@clusterio/controller";
+import { computePluginStatuses, planUpdate } from "../../packages/web_ui/src/util/plugin_status.ts";
 
 
 describe("lib/plugin_loader", function() {
@@ -511,6 +512,57 @@ describe("lib/plugin_loader", function() {
 			} finally {
 				await fs.writeFile(packageJsonPath, original);
 			}
+		});
+
+		it("should skip packages with a malformed package.json before they are first resolved", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			const brokenPath = path.join("node_modules", "plugin-half-written");
+			try {
+				await fs.mkdir(brokenPath, { recursive: true });
+				await fs.writeFile(path.join(brokenPath, "package.json"), '{ "name": "plugin-half');
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-half-written"] = "^1.0.0";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				const plugins = await lib.listPluginDetails([], () => true, () => true, new Map());
+				assert.equal(plugins.some(plugin => plugin.name === "plugin-half-written"), false);
+				assert.ok(plugins.some(plugin => plugin.name === "plugin-aliased"));
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+				await fs.rm(brokenPath, { recursive: true, force: true });
+			}
+		});
+
+		it("should not plan installing over an alias loaded on another machine", async function() {
+			// As loadPluginInfos returns it for the aliased plugin found on startup
+			assert.equal(pluginList.get("aliased"), "plugin-aliased");
+			const aliasInfo = {
+				name: "aliased",
+				title: "Aliased",
+				version: "0.0.1",
+				requirePath: "plugin-aliased",
+				packagePath: path.resolve("node_modules", "plugin-aliased", "package.json"),
+				npmPackage: undefined,
+			};
+			const hostB = await lib.listPluginDetails([aliasInfo], () => true, () => true, new Map());
+			const alias = hostB.find(plugin => plugin.name === "aliased");
+			assert.equal(alias.dependencyName, "plugin-aliased");
+			assert.equal(alias.npmPackage, undefined);
+
+			const published = new lib.PluginDetails(
+				"published", "Published", "1.0.0", true, true, undefined, "plugin-aliased", "1.0.0",
+			);
+			const statuses = computePluginStatuses([
+				{ name: "A", isController: false, address: { hostId: 1 }, plugins: [published] },
+				{ name: "B", isController: false, address: { hostId: 2 }, plugins: hostB },
+			]);
+			const plan = planUpdate(
+				statuses.get("plugin-aliased"), "2.0.0",
+				{ canInstall: () => true, canUpdate: () => true }, { hasPermission: () => true },
+			);
+			assert.deepEqual(plan.operations.map(operation => operation.target.name), ["A"]);
+			assert.deepEqual(
+				plan.skipped.map(skip => skip.text), ["B (another package is installed as plugin-aliased)"],
+			);
 		});
 
 		it("should mark plugins uninstalled since startup as removed", async function() {

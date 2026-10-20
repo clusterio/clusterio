@@ -137,6 +137,7 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 		.reverse();
 	const pending = machines.filter(isPending);
 	const disabled = machines.filter(machine => machine.disabled);
+	const noEntrypoint = machines.filter(machine => machine.noEntrypoint);
 	const missing = machines.filter(machine => !machine.plugin || machine.plugin.removed);
 	const { unreachable } = props.status;
 
@@ -159,6 +160,9 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 		})}
 		{pending.length > 0 && <CountLine label="Restart pending on" machines={pending} total={total} />}
 		{disabled.length > 0 && <CountLine label="Disabled on" machines={disabled} total={total} type="secondary" />}
+		{noEntrypoint.length > 0 && <CountLine
+			label="No entrypoint on" machines={noEntrypoint} total={total} type="secondary"
+		/>}
 		{missing.length > 0 && <CountLine label="Not installed on" machines={missing} total={total} type="warning" />}
 		{unreachable.length > 0 && <div>
 			<Tooltip title={names(unreachable)}>

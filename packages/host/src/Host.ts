@@ -1230,6 +1230,7 @@ export default class Host extends lib.Link {
 			pluginInfo => this.loadedPlugins.has(pluginInfo),
 			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
 			this.skippedNpmPlugins,
+			pluginInfo => Boolean(pluginInfo.hostEntrypoint || pluginInfo.instanceEntrypoint),
 		);
 	}
 

@@ -51,12 +51,40 @@ describe("web_ui/util/plugin_status", function() {
 			assert.deepEqual(result.skipped, [{ kind: "update", text: "b (not installed from npm)" }]);
 		});
 
+		it("should not install over a loaded alias that has the package name", function() {
+			const alias = new lib.PluginDetails("real_plugin", "Real", "1.0.0", true, true);
+			alias.dependencyName = "plugin-aliased";
+			const statuses = computePluginStatuses([
+				machine("a", [loaded("plugin-aliased", "1.0.0")]),
+				machine("b", [alias]),
+			]);
+			const result = planUpdate(statuses.get("plugin-aliased"), "2.0.0", access, account);
+			assert.deepEqual(result.operations.map(op => op.target.name), ["a"]);
+			assert.deepEqual(result.skipped, [
+				{ kind: "install", text: "b (another package is installed as plugin-aliased)" },
+			]);
+		});
+
 		it("should install over a pending npm package", function() {
 			const result = plan([
 				machine("a", [loaded("plugin-aliased", "2.0.0")]),
 				machine("b", [pending("plugin-aliased", "plugin-aliased", "1.0.0")]),
 			]);
 			assert.deepEqual(result.operations.map(op => [op.kind, op.target.name]), [["install", "b"]]);
+		});
+	});
+	describe("computePluginStatuses()", function() {
+		it("should not expect a plugin without an entrypoint for the machine to run after restart", function() {
+			const plugin = new lib.PluginDetails("controller_only", "Plugin", "1.0.0", false, false);
+			plugin.noEntrypoint = true;
+			const [status] = computePluginStatuses([
+				{ name: "host", isController: false, address: { hostId: 1 }, plugins: [plugin] },
+			]).values();
+			const [entry] = status.machines;
+			assert.equal(entry.noEntrypoint, true);
+			assert.equal(entry.disabled, false);
+			assert.equal(entry.running, undefined);
+			assert.equal(entry.afterRestart, undefined);
 		});
 	});
 });

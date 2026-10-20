@@ -16,6 +16,10 @@ export type MachinePlugin = Machine & {
 	running?: string,
 	afterRestart?: string,
 	disabled: boolean,
+	/** Installed but never loaded on this machine as it has no entrypoint for it */
+	noEntrypoint: boolean,
+	/** The group's npm package name is a dependency here for another plugin, such as an alias */
+	dependencyTaken: boolean,
 };
 export type PluginStatus = {
 	key: string,
@@ -60,7 +64,11 @@ export function computePluginStatuses(
 			const { plugins, ...rest } = machine;
 			const plugin = plugins.find(candidate => pluginStatusKey(candidate) === key);
 			status.npmPackage ??= plugin?.npmPackage;
-			const entry: MachinePlugin = { ...rest, plugin, disabled: false };
+			const dependencyTaken = (!plugin || Boolean(plugin.removed)) && plugins.some(
+				candidate => candidate.dependencyName === key && !candidate.removed
+			);
+			const noEntrypoint = Boolean(plugin?.noEntrypoint);
+			const entry: MachinePlugin = { ...rest, plugin, disabled: false, noEntrypoint, dependencyTaken };
 			// What runs now follows loaded, what runs after a restart follows enabled and what is on disk
 			if (plugin?.loaded) {
 				entry.running = plugin.version;
@@ -68,9 +76,9 @@ export function computePluginStatuses(
 			if (plugin?.pendingInstall) {
 				// Plugins load by default, so a new install runs after the next restart
 				entry.afterRestart = plugin.installedVersion ?? plugin.version;
-			} else if (plugin && !plugin.enabled) {
+			} else if (plugin && !plugin.enabled && !noEntrypoint) {
 				entry.disabled = true;
-			} else if (plugin && !plugin.removed) {
+			} else if (plugin && !plugin.removed && !noEntrypoint) {
 				entry.afterRestart = plugin.installedVersion ?? plugin.version;
 			}
 			status.machines.push(entry);
@@ -107,7 +115,10 @@ export function planUpdate(
 		if (installed && compareVersions(plugin.installedVersion ?? plugin.version, version) >= 0) {
 			continue;
 		}
-		if (installed && !plugin.npmPackage) {
+		if (machine.dependencyTaken) {
+			const text = `${machine.name} (another package is installed as ${status.npmPackage})`;
+			plan.skipped.push({ kind: "install", text });
+		} else if (installed && !plugin.npmPackage) {
 			// An alias, private or local package, installing the group's npm package would replace it
 			const kind = plugin.pendingInstall ? "install" : "update";
 			plan.skipped.push({ kind, text: `${machine.name} (not installed from npm)` });

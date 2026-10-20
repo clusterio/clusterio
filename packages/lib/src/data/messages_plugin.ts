@@ -20,6 +20,10 @@ export class PluginDetails {
 		public pendingInstall?: boolean,
 		/** Uninstalled after the machine started, will not be loaded on the next restart */
 		public removed?: boolean,
+		/** Name in the root package.json dependencies, differs from npmPackage for aliases */
+		public dependencyName?: string,
+		/** Has no entrypoint for this machine, so it is never loaded here */
+		public noEntrypoint?: boolean,
 	) {}
 
 	static jsonSchema = Type.Object({
@@ -33,12 +37,15 @@ export class PluginDetails {
 		installedVersion: Type.Optional(Type.String()),
 		pendingInstall: Type.Optional(Type.Boolean()),
 		removed: Type.Optional(Type.Boolean()),
+		dependencyName: Type.Optional(Type.String()),
+		noEntrypoint: Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
 			json.name, json.title, json.version, json.loaded, json.enabled,
 			json.description, json.npmPackage, json.installedVersion, json.pendingInstall, json.removed,
+			json.dependencyName, json.noEntrypoint,
 		);
 	}
 

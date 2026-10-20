@@ -77,12 +77,13 @@ function getPluginName(requireSpec: string) {
 	return context.pluginInfo.name;
 }
 
-function resolvePackagePath(packageName: string, fromPath: string): string | undefined {
+function resolvePackagePath(packageName: string, fromPath: string, tolerant: boolean): string | undefined {
 	const packageRequire = createRequire(path.join(fromPath, "package.json"));
 	try {
 		return path.dirname(packageRequire.resolve(`${packageName}/package.json`));
 	} catch (err: any) {
-		if (err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") {
+		// A package.json npm is still writing fails with ERR_INVALID_PACKAGE_CONFIG
+		if (tolerant || err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") {
 			return undefined;
 		}
 		throw err;
@@ -140,7 +141,7 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 			continue;
 		}
 
-		const packagePath = resolvePackagePath(packageName, parentPath);
+		const packagePath = resolvePackagePath(packageName, parentPath, tolerant);
 		if (!packagePath) {
 			continue;
 		}
@@ -317,6 +318,7 @@ async function readPackageJson(packageJsonPath: string): Promise<any> {
  * @param isLoaded - Whether the plugin is loaded
  * @param isEnabled - Whether the plugin is enabled
  * @param skippedNpmPlugins - Npm packages skipped on startup, from loadPluginList
+ * @param hasEntrypoint - Whether the plugin has an entrypoint this machine loads
  * @returns Details of every plugin on this machine
  */
 export async function listPluginDetails(
@@ -324,14 +326,27 @@ export async function listPluginDetails(
 	isLoaded: (pluginInfo: PluginNodeEnvInfo) => boolean,
 	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
 	skippedNpmPlugins: Map<string, string>,
+	hasEntrypoint: (pluginInfo: PluginNodeEnvInfo) => boolean = () => true,
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
+	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
+	const dependencies: Record<string, unknown> = rootPackageJson?.dependencies ?? {};
 	// By directory, as a plugin loaded from a path may also be an npm dependency
 	const knownDirs = new Set<string>();
 	const presentNames = new Set<string>();
 	for (const pluginInfo of pluginInfos) {
 		knownDirs.add(await realDir(path.dirname(pluginInfo.packagePath)));
-		const plugin = PluginDetails.fromNodeEnvInfo(pluginInfo, isLoaded(pluginInfo), isEnabled(pluginInfo));
+		// Without an entrypoint for this machine the plugin has no load_plugin field here
+		const loadable = hasEntrypoint(pluginInfo);
+		const plugin = PluginDetails.fromNodeEnvInfo(
+			pluginInfo, isLoaded(pluginInfo), loadable && isEnabled(pluginInfo),
+		);
+		if (!loadable) {
+			plugin.noEntrypoint = true;
+		}
+		if (Object.hasOwn(dependencies, pluginInfo.requirePath)) {
+			plugin.dependencyName = pluginInfo.requirePath;
+		}
 		try {
 			plugin.installedVersion = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8")).version;
 		} catch (err: any) {
@@ -346,8 +361,7 @@ export async function listPluginDetails(
 		plugins.push(plugin);
 	}
 
-	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
-	const { plugins: npmPlugins } = await discoverNpmPluginPackages(rootPackageJson?.dependencies ?? {}, true);
+	const { plugins: npmPlugins } = await discoverNpmPluginPackages(dependencies, true);
 	for (const { packageName, packagePath, packageJson } of npmPlugins) {
 		const dir = await realDir(packagePath);
 		if (knownDirs.has(dir)) {
@@ -362,9 +376,10 @@ export async function listPluginDetails(
 		}
 		// Same rule as loadPluginInfos, aliases and private packages can't be installed by this name
 		const npmPackage = !packageJson.private && packageJson.name === packageName ? packageName : undefined;
+		const dependencyName = Object.hasOwn(dependencies, packageName) ? packageName : undefined;
 		plugins.push(new PluginDetails(
 			packageName, packageName, packageJson.version, false, false,
-			packageJson.description, npmPackage, packageJson.version, true,
+			packageJson.description, npmPackage, packageJson.version, true, undefined, dependencyName,
 		));
 	}
 

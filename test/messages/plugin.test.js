@@ -38,7 +38,7 @@ describe("messages/plugin", function() {
 		it("has round trip json serialisation", function() {
 			const pluginDetails = new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package", "Installed Version", true, true,
+				"Description", "Npm Package", "Installed Version", true, true, "Dependency Name", true,
 			);
 
 			const json = JSON.stringify(pluginDetails);
@@ -95,7 +95,7 @@ describe("messages/plugin", function() {
 		it("returns correct info from a host", async function() {
 			host.pluginInfos = [{
 				name: "Name", title: "Title", version: "Version",
-				description: "Description", npmPackage: "Npm Package", packagePath,
+				description: "Description", npmPackage: "Npm Package", packagePath, hostEntrypoint: "host.js",
 			}];
 
 			host.loadedPlugins.add(host.pluginInfos[0]);
