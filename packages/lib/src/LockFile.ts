@@ -264,7 +264,9 @@ export class LockFile {
 	// Event handler for synchronous process exit, readLock can't be used as it is async
 	private handleExitSync = (): void => {
 		try {
+			// eslint-disable-next-line node/no-sync
 			if (readFileSync(this.filePath, "utf8") === LockFile.content) {
+				// eslint-disable-next-line node/no-sync
 				unlinkSync(this.filePath);
 			}
 		} catch (err) {

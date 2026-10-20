@@ -15,8 +15,8 @@ export abstract class DatastoreProvider<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > {
-	abstract save(data: Map<K, V>): Promise<void>
-	abstract load(): Promise<Map<K, V>>
+	abstract save(data: Map<K, V>): Promise<void>;
+	abstract load(): Promise<Map<K, V>>;
 }
 
 // Store all data in memory, used as a default and should be avoided

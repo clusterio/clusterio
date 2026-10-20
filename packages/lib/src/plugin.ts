@@ -46,7 +46,7 @@ export type PluginDeclaration = {
 	errors?: ErrorClass[];
 	permissions?: PermissionDefinition[];
 	routes?: string[];
-}
+};
 
 /**
  * Check if a plugin is expected to ship a web build.

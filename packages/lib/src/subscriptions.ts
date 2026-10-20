@@ -7,7 +7,7 @@ import { SessionLost, ValidationError } from "./errors.js";
 import { logger } from "./logging.js";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
-export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void
+export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void;
 
 /**
  * Represents a set of string subscription filters.
@@ -241,7 +241,7 @@ type Subscriber = {
 	link: Link,
 	address: Address,
 	filters: SubscriptionFilters,
-}
+};
 
 type EventData = {
 	subscriptionUpdate?: SubscriptionRequestHandler<unknown>,

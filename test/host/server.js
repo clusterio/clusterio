@@ -181,7 +181,7 @@ describe("host/server", function() {
 			let port = hostServer._randomDynamicPort();
 			assert.equal(typeof port, "number");
 			assert(Number.isInteger(port));
-			assert(0 <= port && port < 2**16);
+			assert(port >= 0 && port < 2**16);
 		});
 
 		it("should return a port number in the dynamic range", function() {

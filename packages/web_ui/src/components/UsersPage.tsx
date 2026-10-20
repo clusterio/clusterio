@@ -65,7 +65,7 @@ type UserBulkActionProps = {
 	setApplyAction(func: () => Promise<void>): void,
 	form: FormInstance,
 	restore?: boolean,
-}
+};
 
 function UserBulkActionImport({ setApplyAction, form, restore }: UserBulkActionProps) {
 	const control = useContext(ControlContext);

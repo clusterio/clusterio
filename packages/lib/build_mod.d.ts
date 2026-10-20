@@ -6,5 +6,5 @@ export interface BuildArgs {
 	build?: boolean;
 	outputDir: string;
 	sourceDir: string;
-};
+}
 export function build(args: BuildArgs): Promise<void>;

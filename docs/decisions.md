@@ -18,7 +18,7 @@ If there is a particular issue or concern you would like the team to comment on 
     - [Naming Times and Durations](#naming-times-and-durations)
     - [Strings](#strings)
 3. Code Style (TS / JS / Web)
-    - [ESLint](#eslint)
+    - [Oxlint](#oxlint)
     - [Imports Within `lib` Package](#imports-within-lib-package)
     - [Name Style](#name-style-ts)
 4. Code Style (Lua)
@@ -157,14 +157,15 @@ Therefore, we selected double quotes as our standard.
 
 ## Code Style (TS / JS / Web)
 
-### ESLint
+### Oxlint
 
-🧾 Time Immemorial  
+🧾 20th October 2026
 
-> Use ESLint for style checking.
+> Use Oxlint through `vp lint` for style checking, with formatting rules from `@stylistic/eslint-plugin`.
 
-We needed to maintain a consistent style across all our files.
-Therefore, we utilise the industry-standard ESLint, as it is familiar and highly configurable.
+We needed to maintain a consistent style across all our files and used ESLint for it from the start.
+Oxlint runs the same rules about three times faster, reads ESLint disable comments, and does not depend on the TypeScript compiler API.
+The formatting rules ESLint deprecated run through `@stylistic/eslint-plugin` loaded as an Oxlint JS plugin, so the code style did not change.
 
 
 ### Imports Within `lib` Package
