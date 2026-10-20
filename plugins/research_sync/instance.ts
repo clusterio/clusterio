@@ -26,6 +26,7 @@ type IpcQueue = { queue: unknown, player?: string };
 export default async function(context: InstancePluginContext) {
 	const { instance, logger, plugin } = context;
 	let syncStarted = false;
+	let queueEventsApplied = 0;
 
 	// Commands are sent one at a time so they execute in order
 	let rconQueue: Promise<unknown> = Promise.resolve();
@@ -50,7 +51,13 @@ export default async function(context: InstancePluginContext) {
 
 	// queue null asks for the cluster queue without seeding it
 	async function followQueue(queue: string[] | null, player: string | null) {
+		let applied = queueEventsApplied;
 		let result = await instance.sendTo("controller", new QueueSyncRequest(queue, player));
+		// A QueueEvent handled meanwhile is at least as new as this reply, since the controller broadcasts every
+		// queue change in order with its replies. Arriving in the same read, it is applied before the reply.
+		if (queueEventsApplied !== applied) {
+			return;
+		}
 		await applyQueue({ queue: result });
 	}
 
@@ -116,6 +123,7 @@ export default async function(context: InstancePluginContext) {
 		if (event.player !== null) {
 			data.player = event.player;
 		}
+		queueEventsApplied += 1;
 		await applyQueue(data);
 	});
 

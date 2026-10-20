@@ -117,6 +117,17 @@ describe("research_sync instance", function() {
 			instance.sendTo = async () => { throw new Error("gone"); };
 			await instance.hooks.controllerConnectionEvent.invoke("connect");
 		});
+		it("should not let the reply overwrite a newer QueueEvent delivered with it", async function() {
+			// As if the reply and the broadcast came in one socket read: the event is handled before the
+			// reply resolves the request's await
+			instance.sendTo = async (dst, message) => {
+				sent.push(message);
+				mock.getHandler(instance, QueueEvent)(new QueueEvent(["new"], null, "B"));
+				return ["old"];
+			};
+			await instance.hooks.controllerConnectionEvent.invoke("connect");
+			assert.equal(lastCommand(), applyCommand({ queue: ["new"], instance: "B" }));
+		});
 	});
 
 	it("should forward queue changes from the game", async function() {
