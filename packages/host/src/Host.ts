@@ -532,6 +532,9 @@ export default class Host extends lib.Link {
 		if (!this.canRestart) {
 			throw new lib.RequestError("Cannot restart, host does not have a process monitor to restart it.");
 		}
+		if (await lib.packageOperationRunning()) {
+			throw new lib.RequestError("Cannot restart while a plugin install or update is running on this machine.");
+		}
 		const downgrade = await this.checkRestartDowngrade();
 		if (downgrade) {
 			const { installedVersion, runningVersion } = downgrade;

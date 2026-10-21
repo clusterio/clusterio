@@ -5,6 +5,7 @@ import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useHosts } from "../model/host";
+import { ExclusiveRunner } from "../util/exclusive";
 import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 
@@ -19,10 +20,13 @@ export type RemoteAccess = {
 export type PluginInstaller = {
 	access: RemoteAccess,
 	installing: boolean,
+	restarting: boolean,
 	/** Install a package, optionally pinned as name@version, on every target */
 	install: (packageSpec: string, targets: InstallTarget[]) => Promise<void>,
 	/** Run package operations one at a time, a standalone controller and host share one installation */
 	run: (operations: PackageOperation[]) => Promise<void>,
+	/** Run a restart, never at the same time as package operations */
+	restart: (restartMachines: () => Promise<void>) => Promise<void>,
 };
 
 type MachineAccess = { install: boolean, update: boolean };
@@ -104,17 +108,17 @@ function useRemoteAccess(): RemoteAccess {
 export function usePluginInstaller(onDone?: () => void): PluginInstaller {
 	const control = useContext(ControlContext);
 	const access = useRemoteAccess();
-	const [installing, setInstalling] = useState(false);
+	const [busy, setBusy] = useState<"installing" | "restarting">();
 	// A confirm opened before a run started can still be clicked while it runs
-	const running = useRef(false);
+	const runner = useRef(new ExclusiveRunner(setBusy)).current;
 
-	async function run(operations: PackageOperation[]) {
-		if (running.current) {
-			notify("Another plugin change is still in progress", "warning");
-			return;
+	async function exclusive(state: "installing" | "restarting", action: () => Promise<void>) {
+		if (!await runner.run(state, action)) {
+			notify("Another plugin change or restart is still in progress", "warning");
 		}
-		running.current = true;
-		setInstalling(true);
+	}
+
+	async function runOperations(operations: PackageOperation[]) {
 		const done: string[] = [];
 		try {
 			for (const { kind, target, packageSpec } of operations) {
@@ -138,17 +142,25 @@ export function usePluginInstaller(onDone?: () => void): PluginInstaller {
 				);
 			}
 		} finally {
-			running.current = false;
-			setInstalling(false);
 			onDone?.();
 		}
+	}
+
+	async function run(operations: PackageOperation[]) {
+		await exclusive("installing", () => runOperations(operations));
+	}
+
+	async function restart(restartMachines: () => Promise<void>) {
+		await exclusive("restarting", restartMachines);
 	}
 
 	async function install(packageSpec: string, targets: InstallTarget[]) {
 		await run(targets.map(target => ({ kind: "install", target, packageSpec })));
 	}
 
-	return { access, installing, install, run };
+	return {
+		access, installing: busy === "installing", restarting: busy === "restarting", install, run, restart,
+	};
 }
 
 // Remote installs can only be enabled locally on each machine, so tell the user how.

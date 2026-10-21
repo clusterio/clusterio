@@ -90,6 +90,11 @@ function resolvePackagePath(packageName: string, fromPath: string, tolerant: boo
 	}
 }
 
+/** Dependencies npm installs, an optionalDependencies entry wins over a dependencies entry of the same name */
+function installedDependencies(packageJson: any): Record<string, unknown> {
+	return { ...packageJson?.dependencies, ...packageJson?.optionalDependencies };
+}
+
 type NpmPluginPackage = {
 	packageName: string,
 	packageVersion: unknown,
@@ -155,7 +160,7 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 		const packageJson = await readDiscoveredPackageJson(packagePath, tolerant);
 		if (packageJson && isPluginPackageJson(packageJson)) {
 			plugins.push({ packageName, packageVersion, packagePath, packageJson });
-			for (const [dependencyName, dependencyVersion] of Object.entries(packageJson.dependencies ?? {})) {
+			for (const [dependencyName, dependencyVersion] of Object.entries(installedDependencies(packageJson))) {
 				pendingPackages.push({
 					packageName: dependencyName,
 					packageVersion: dependencyVersion,
@@ -172,13 +177,13 @@ async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, 
 
 /** Real paths of plugin packages some dependent installs from a path, git, url, tarball or alias */
 export async function findNonRegistryDirs() {
-	const dependencies = (await readPackageJson(path.resolve("package.json")))?.dependencies ?? {};
+	const dependencies = installedDependencies(await readPackageJson(path.resolve("package.json")));
 	return (await discoverNpmPluginPackages(dependencies, true)).nonRegistryDirs;
 }
 
 /** Whether npm install name would replace a plugin package not installed from the registry */
 export async function isNonRegistryPackage(name: string) {
-	const dependencies = (await readPackageJson(path.resolve("package.json")))?.dependencies ?? {};
+	const dependencies = installedDependencies(await readPackageJson(path.resolve("package.json")));
 	if (Object.hasOwn(dependencies, name) && !isRegistrySpec(dependencies[name])) {
 		return true;
 	}
@@ -205,17 +210,13 @@ async function findNpmPlugins(
 	let dependencies;
 	try {
 		const rootPackageJson = JSON.parse(await fs.readFile(path.resolve("package.json"), { encoding: "utf8" }));
-		dependencies = rootPackageJson.dependencies;
+		dependencies = installedDependencies(rootPackageJson);
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			// Skip if package.json doesn't exist
 			return false;
 		}
 		throw err;
-	}
-
-	if (!dependencies) {
-		return false;
 	}
 
 	let hasChanged = 0;
@@ -379,7 +380,7 @@ export async function listPluginDetails(
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
 	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
-	const dependencies: Record<string, unknown> = rootPackageJson?.dependencies ?? {};
+	const dependencies = installedDependencies(rootPackageJson);
 	// By directory, as a plugin loaded from a path may also be an npm dependency
 	const knownDirs = new Set<string>();
 	const presentNames = new Set<string>();

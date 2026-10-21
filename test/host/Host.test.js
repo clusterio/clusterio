@@ -409,6 +409,20 @@ describe("host/src/Host", function() {
 				assert.equal(process.exitCode, undefined);
 				assert.equal(mockHost.shutdownCalled, false);
 			});
+			it("rejects while a plugin install or update is running", async function() {
+				// Held by another live process
+				await fs.writeFile("npm-operation.lock", `${process.ppid}\n`);
+				try {
+					await assert.rejects(
+						() => mockHost.handleHostRestartRequest(),
+						/Cannot restart while a plugin install or update is running/
+					);
+				} finally {
+					await fs.rm("npm-operation.lock", { force: true });
+				}
+				assert.equal(process.exitCode, undefined);
+				assert.equal(mockHost.shutdownCalled, false);
+			});
 		});
 	});
 });

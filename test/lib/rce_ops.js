@@ -111,6 +111,21 @@ describe("rce_ops", function() {
 			await lib.installPackage("foo");
 			await assert.rejects(nested, inProgress);
 		});
+		it("reports whether an operation is running", async function() {
+			assert.equal(await lib.packageOperationRunning(), false);
+			let running;
+			lib.logger.audit = function() {
+				lib.logger.audit = audit;
+				running = lib.packageOperationRunning();
+			};
+			await lib.installPackage("foo");
+			assert.equal(await running, true);
+			assert.equal(await lib.packageOperationRunning(), false);
+			await fs.writeFile(lockPath, `${process.ppid}\n`);
+			assert.equal(await lib.packageOperationRunning(), true);
+			await fs.writeFile(lockPath, "999999999\n");
+			assert.equal(await lib.packageOperationRunning(), false);
+		});
 		it("names the process holding the lock", async function() {
 			await fs.writeFile(lockPath, `${process.ppid} 1234.5\n`);
 			await assert.rejects(lib.installPackage("foo"), new RegExp(`held by process ${process.ppid}\\)`));
@@ -219,6 +234,9 @@ describe("rce_ops", function() {
 				"aliased": "npm:other@^1.0.0",
 				"from-git": "github:user/from-git",
 				"published": "^1.0.0",
+				"optional": "^1.0.0",
+			}, optionalDependencies: {
+				"optional": "github:user/optional",
 			} }));
 			process.chdir(dir);
 			global.fetch = function() { return { ok: true }; };
@@ -229,7 +247,7 @@ describe("rce_ops", function() {
 		});
 
 		it("rejects installs and pinned updates", async function() {
-			for (const name of ["linked", "aliased", "from-git"]) {
+			for (const name of ["linked", "aliased", "from-git", "optional"]) {
 				const error = new RegExp(`${name} is not installed from npm on this machine`);
 				await assert.rejects(lib.handlePluginInstall(`${name}@2.0.0`), error);
 				await assert.rejects(lib.handlePluginUpdate(`${name}@2.0.0`, [{ npmPackage: name }]), error);
@@ -253,6 +271,48 @@ describe("rce_ops", function() {
 				);
 			} finally {
 				await fs.rm(modules, { recursive: true, force: true });
+			}
+		});
+
+		it("rejects pinned updates of a plugin an optional dependency installs from git", async function() {
+			const modules = path.join(dir, "node_modules");
+			const plugin = (name, packageJson) => fs.mkdir(path.join(modules, name), { recursive: true })
+				.then(() => fs.writeFile(path.join(modules, name, "package.json"), JSON.stringify({
+					name, version: "1.0.0", keywords: ["clusterio-plugin"], ...packageJson,
+				})));
+			await plugin("published", {
+				dependencies: { child: "^1.0.0" },
+				optionalDependencies: { child: "github:user/child" },
+			});
+			await plugin("child", {});
+			try {
+				await assert.rejects(
+					lib.handlePluginUpdate("child@2.0.0", [{ npmPackage: "child" }]),
+					/child is not installed from npm on this machine/,
+				);
+			} finally {
+				await fs.rm(modules, { recursive: true, force: true });
+			}
+		});
+
+		it("checks the source again once it holds the lock", async function() {
+			const packageJsonPath = path.join(dir, "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			// Another operation switches it to git while the registry is being checked
+			global.fetch = async function() {
+				const packageJson = JSON.parse(original);
+				packageJson.dependencies.published = "github:user/published";
+				await fs.writeFile(packageJsonPath, JSON.stringify(packageJson));
+				return { ok: true };
+			};
+			try {
+				const error = /published is not installed from npm on this machine/;
+				await assert.rejects(lib.handlePluginInstall("published@2.0.0"), error);
+				await fs.writeFile(packageJsonPath, original);
+				await assert.rejects(lib.handlePluginUpdate("published@2.0.0", [{ npmPackage: "published" }]), error);
+			} finally {
+				global.fetch = function() { return { ok: true }; };
+				await fs.writeFile(packageJsonPath, original);
 			}
 		});
 	});

@@ -222,7 +222,7 @@ export function PluginUpdateButton(props: UpdateButtonProps) {
 		okButtonProps={{ disabled: !plan.operations.length }}
 		onConfirm={() => installer.run(plan.operations)}
 	>
-		<Button size="small" loading={installer.installing}>{label}</Button>
+		<Button size="small" loading={installer.installing} disabled={installer.restarting}>{label}</Button>
 	</Popconfirm>;
 }
 
@@ -266,15 +266,16 @@ export function UpdateAllButton(props: UpdateAllProps) {
 		okText="Update all"
 		onConfirm={() => props.installer.run(operations)}
 	>
-		<Button loading={props.installer.installing}>Update all ({plans.length})</Button>
+		<Button loading={props.installer.installing} disabled={props.installer.restarting}>
+			Update all ({plans.length})
+		</Button>
 	</Popconfirm>;
 }
 
 type RestartPendingProps = {
 	statuses: PluginStatus[],
 	machines: MachinePlugins[],
-	/** Plugin changes are running, a restart would make the remaining ones fail */
-	busy?: boolean,
+	installer: PluginInstaller,
 };
 
 /** Restarts every connected machine with a pending restart, hosts first and the controller last */
@@ -283,7 +284,7 @@ export function RestartPendingButton(props: RestartPendingProps) {
 	const account = useAccount();
 	const [systems] = useSystems();
 	const [instances] = useInstances();
-	const [restarting, setRestarting] = useState(false);
+	const { installer } = props;
 
 	const pendingKeys = new Set(props.statuses.flatMap(
 		status => status.machines.filter(isPending).map(machine => addressKey(machine.address))
@@ -309,39 +310,31 @@ export function RestartPendingButton(props: RestartPendingProps) {
 		&& !["unknown", "unassigned", "stopped", "deleted"].includes(instance.status)
 	)).length;
 
-	async function restart() {
-		if (props.busy || restarting) {
-			return;
+	async function restartMachines() {
+		const hosts = restartable.filter(machine => !machine.isController);
+		const results = await Promise.allSettled(hosts.map(
+			machine => control.sendTo(machine.address, new lib.HostRestartRequest())
+		));
+		const started: Machine[] = [];
+		results.forEach((result, i) => {
+			if (result.status === "rejected") {
+				notifyErrorHandler(`Failed to restart ${hosts[i].name}`)(result.reason);
+			} else {
+				started.push(hosts[i]);
+			}
+		});
+		// The controller goes last as restarting it disconnects this page until it's back
+		const controller = restartable.find(machine => machine.isController);
+		if (controller) {
+			try {
+				await control.send(new lib.ControllerRestartRequest());
+				started.push(controller);
+			} catch (err: any) {
+				notifyErrorHandler("Failed to restart the controller")(err);
+			}
 		}
-		setRestarting(true);
-		try {
-			const hosts = restartable.filter(machine => !machine.isController);
-			const results = await Promise.allSettled(hosts.map(
-				machine => control.sendTo(machine.address, new lib.HostRestartRequest())
-			));
-			const started: Machine[] = [];
-			results.forEach((result, i) => {
-				if (result.status === "rejected") {
-					notifyErrorHandler(`Failed to restart ${hosts[i].name}`)(result.reason);
-				} else {
-					started.push(hosts[i]);
-				}
-			});
-			// The controller goes last as restarting it disconnects this page until it's back
-			const controller = restartable.find(machine => machine.isController);
-			if (controller) {
-				try {
-					await control.send(new lib.ControllerRestartRequest());
-					started.push(controller);
-				} catch (err: any) {
-					notifyErrorHandler("Failed to restart the controller")(err);
-				}
-			}
-			if (started.length) {
-				notify(`Restarting ${names(started)}`, "info");
-			}
-		} finally {
-			setRestarting(false);
+		if (started.length) {
+			notify(`Restarting ${names(started)}`, "info");
 		}
 	}
 
@@ -363,10 +356,12 @@ export function RestartPendingButton(props: RestartPendingProps) {
 			</Text></div>}
 		</div>}
 		okText="Restart"
-		okButtonProps={{ danger: true, disabled: !restartable.length || props.busy }}
-		onConfirm={restart}
+		okButtonProps={{ danger: true, disabled: !restartable.length || installer.installing }}
+		onConfirm={() => installer.restart(restartMachines)}
 	>
-		<Button loading={restarting} disabled={props.busy}>Restart pending ({pending.length})</Button>
+		<Button loading={installer.restarting} disabled={installer.installing}>
+			Restart pending ({pending.length})
+		</Button>
 	</Popconfirm>;
 }
 

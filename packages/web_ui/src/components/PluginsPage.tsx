@@ -117,7 +117,7 @@ export default function PluginsPage() {
 			title="Plugins"
 			extra={<Space wrap>
 				{machines && <RestartPendingButton
-					statuses={[...statuses.values()]} machines={machines} busy={installer.installing}
+					statuses={[...statuses.values()]} machines={machines} installer={installer}
 				/>}
 				<UpdateAllButton
 					statuses={[...statuses.values()]}

@@ -25,7 +25,7 @@ function InstallControls(props: { plugin: lib.PluginSearchResult, installer: Plu
 	const [hosts] = useHosts();
 	// Tracks what was deselected so machines connecting later, or allowing installs, start selected
 	const [deselected, setDeselected] = useState(new Set<string>());
-	const { access, installing } = props.installer;
+	const { access, installing, restarting } = props.installer;
 
 	const machines: (InstallTarget & { key: string, allowed: boolean })[] = [
 		{ name: "Controller", address: "controller" as lib.AddressShorthand },
@@ -58,7 +58,7 @@ function InstallControls(props: { plugin: lib.PluginSearchResult, installer: Plu
 			<Button
 				type="primary"
 				loading={installing}
-				disabled={!account.hasPermission("core.plugin.install") || !selected.length}
+				disabled={!account.hasPermission("core.plugin.install") || !selected.length || restarting}
 				onClick={() => { props.installer.install(props.plugin.name, selected); }}
 			>Install</Button>
 		</Space>

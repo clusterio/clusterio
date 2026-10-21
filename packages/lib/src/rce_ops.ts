@@ -141,8 +141,11 @@ let operationInProgress = false;
  * which a standalone controller and host share, so a lock file there guards against operations
  * from other processes and other copies of lib. The flag makes concurrent calls through this copy
  * reject without racing a release of the lock.
+ *
+ * @param cmd - Command to run
+ * @param check - Called while holding the lock before running the command, may throw to cancel it
  */
-async function logExec(cmd: string) {
+async function logExec(cmd: string, check?: () => Promise<void>) {
 	// Checked and set before the first await so concurrent calls in this process can't interleave
 	if (operationInProgress) {
 		throw new RequestError(operationInProgressMessage);
@@ -162,6 +165,7 @@ async function logExec(cmd: string) {
 		await acquireNpmLock(lockPath);
 		process.on("exit", removeLockOnExit);
 		try {
+			await check?.();
 			logger.audit(`RCE | ${cmd}`);
 			if (!isDev()) {
 				await execAsync(cmd);
@@ -179,8 +183,17 @@ export async function updatePackage(...names: string[]) {
 	return logExec(`npm update --save ${names.join(" ")}`);
 }
 
-export async function installPackage(name: string) {
-	return logExec(`npm install --save ${name}`);
+export async function installPackage(name: string, check?: () => Promise<void>) {
+	return logExec(`npm install --save ${name}`, check);
+}
+
+/** Whether an npm operation is running in this installation, from this or another process */
+export async function packageOperationRunning() {
+	if (operationInProgress) {
+		return true;
+	}
+	const lock = await readLock(path.resolve("npm-operation.lock"));
+	return lock !== undefined && await lockIsLive(lock);
 }
 
 export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNodeEnvInfo[]) {
@@ -245,15 +258,14 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 	if (version === undefined) {
 		return await updatePackage(name);
 	}
-	await checkNotLocalDependency(name);
-	return await installPackage(await checkRegistry(name, version));
+	// Checked under the lock as another operation may change where it's installed from
+	return await installPackage(await checkRegistry(name, version), () => checkNotLocalDependency(name));
 }
 
 /** Install a plugin, optionally pinned to a version as name@version, returns the package name */
 export async function handlePluginInstall(pluginName: string) {
 	const { name, version } = parsePackageSpec(pluginName);
-	await checkNotLocalDependency(name);
-	await installPackage(await checkRegistry(name, version));
+	await installPackage(await checkRegistry(name, version), () => checkNotLocalDependency(name));
 	return name;
 }
 
