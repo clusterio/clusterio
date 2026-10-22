@@ -42,8 +42,9 @@ async function moveSaveExclusive(sourcePath: string, targetPath: string) {
 	try {
 		await fs.link(sourcePath, targetPath);
 	} catch (err: any) {
-		// Hard links are not possible across filesystems and on some filesystems.
-		if (!["EXDEV", "EPERM", "ENOTSUP"].includes(err.code)) {
+		// Hard links fail across filesystems and on some filesystems with
+		// varying codes, the copy is still exclusive.
+		if (err.code === "EEXIST") {
 			throw err;
 		}
 		await copySaveExclusive(sourcePath, targetPath);
@@ -1054,13 +1055,10 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(newName);
 		let instance = this.getRequestInstance(instanceId);
 		try {
-			// Link save in the new location.
-			await fs.link(
+			await moveSaveExclusive(
 				path.join(instance.path, "saves", oldName),
 				path.join(instance.path, "saves", newName),
 			);
-			// Unlink save in old location.
-			await fs.unlink(path.join(instance.path, "saves", oldName));
 		} catch (err: any) {
 			if (err.code === "EEXIST") {
 				throw new lib.RequestError(`${newName} already exists`);
@@ -1125,14 +1123,16 @@ export default class Host extends lib.Link {
 
 		// For consistency with remote transfer initiated through pullSave the
 		// target is renamed if it already exists.
+		const sourcePath = path.join(sourceInstance.path, "saves", sourceName);
 		try {
 			targetName = await this._moveOrCopySave(
-				path.join(sourceInstance.path, "saves", sourceName),
+				sourcePath,
 				path.join(targetInstance.path, "saves", targetName),
 				copy,
 			);
 		} catch (err: any) {
-			if (err.code === "ENOENT") {
+			// ENOENT may also come from a missing target saves folder.
+			if (err.code === "ENOENT" && !await fs.access(sourcePath).then(() => true, () => false)) {
 				throw new lib.RequestError(`${sourceName} does not exist`);
 			}
 			throw err;
