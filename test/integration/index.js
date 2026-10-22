@@ -138,6 +138,10 @@ export function hasFactorio() {
 	return haveFactorioInstall;
 }
 
+export function getFactorioVersion() {
+	return latestFactorioVersion;
+}
+
 export async function get(urlPath) {
 	const url = new URL("https://localhost:4443");
 	url.pathname = urlPath;
@@ -170,6 +174,7 @@ let controllerProcess;
 let hostProcess;
 let control;
 let haveFactorioInstall;
+let latestFactorioVersion;
 
 const baseHostConfig = loadJSON("config-host.json");
 
@@ -356,7 +361,7 @@ before(async function() {
 	controllerProcess = await spawnNode("controller:", "../../packages/controller run", /Started controller/);
 
 	const factorioVersions = (await _listFactorioVersions(factorioDir)).versions;
-	const latestFactorioVersion = [...factorioVersions.values()]
+	latestFactorioVersion = [...factorioVersions.values()]
 		.sort((a, b) => lib.integerFullVersion(b) - lib.integerFullVersion(a))[0];
 	haveFactorioInstall = factorioVersions.size > 0;
 
@@ -382,7 +387,7 @@ before(async function() {
 	testPack.factorioVersion = latestFactorioVersion;
 
 	const [major, minor] = lib.normaliseMajorMinorVersion(latestFactorioVersion).split(".");
-	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.0.${major}${minor}` });
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.1.${major}${minor}` });
 
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(

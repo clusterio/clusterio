@@ -26,6 +26,7 @@ import notify, { notifyErrorHandler } from "../util/notify";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
+import ResourceNotes from "./ResourceNotes";
 import ModDetails from "./ModDetails";
 import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
@@ -1399,5 +1400,6 @@ export default function ModPackViewPage() {
 				</Col>
 			</Row>
 		</div>
+		<ResourceNotes resourceType="mod_pack" resourceId={modPackId} />
 	</PageLayout>;
 }

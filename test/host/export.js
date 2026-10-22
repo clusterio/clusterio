@@ -15,14 +15,14 @@ describe("host/src/export", function() {
 
 	describe("exportLocale()", function() {
 		it("returns a flattened mapping with locale definitions", async function() {
-			let locale = await _exportLocale(testServer, new Map(), ["base"], "en");
+			let locale = await _exportLocale(testServer, new Map(), new Map(), ["base"], "en");
 			assert.deepEqual(locale, new Map([
 				["test.core-a", "1"], ["test.core-b", "2"],
 				["test.base-a", "1"], ["test.base-b", "2"],
 			]));
 		});
 		it("returns a filtered locale definitions based on mod order", async function() {
-			let locale = await _exportLocale(testServer, new Map(), [], "en");
+			let locale = await _exportLocale(testServer, new Map(), new Map(), [], "en");
 			assert.deepEqual(locale, new Map([
 				["test.core-a", "1"], ["test.core-b", "2"],
 			]));
@@ -34,7 +34,7 @@ describe("host/src/export", function() {
 	describe("loadSimpleIcon()", function() {
 		it("defaults icon_size to 64", async function() {
 			const icon = await _loadSimpleIcon(
-				testServer, new Map(), { icon: "__base__/graphics/icons/test-icon.png" }, 32, new Map()
+				testServer, new Map(), new Map(), { icon: "__base__/graphics/icons/test-icon.png" }, 32, new Map()
 			);
 			assert.equal(icon.bitmap.width, 32);
 			assert.equal(icon.bitmap.height, 32);
@@ -44,7 +44,8 @@ describe("host/src/export", function() {
 	describe("loadLayeredIcon()", function() {
 		it("defaults icon_size to 64", async function() {
 			const icon = await _loadLayeredIcon(
-				testServer, new Map(), { icons: [{ icon: "__base__/graphics/icons/test-icon.png" }] }, 32, new Map()
+				testServer, new Map(), new Map(),
+				{ icons: [{ icon: "__base__/graphics/icons/test-icon.png" }] }, 32, new Map(),
 			);
 			assert.equal(icon.bitmap.width, 32);
 			assert.equal(icon.bitmap.height, 32);

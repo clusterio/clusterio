@@ -1,4 +1,6 @@
 import path from "node:path";
+import dgram from "node:dgram";
+import events from "node:events";
 import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
 import fs from "node:fs/promises";
@@ -6,8 +8,10 @@ import fs from "node:fs/promises";
 import { slowTest, testMatrix } from "../common.js";
 import {
 	execCtl, execCtlProcess, sendRcon, getControl,
-	requiresFactorio, hasFactorio, instancesDir,
+	requiresFactorio, hasFactorio, getFactorioVersion, instancesDir,
 } from "./index.js";
+
+import { getTestRconPort } from "./rcon_port.js";
 
 const instId = 48;
 const instName = "Integration";
@@ -21,8 +25,61 @@ const requireApi = [
 	"or package.loaded['__level__/modules/clusterio/api.lua']", // 2.0.0
 ].join(" ");
 
+// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
+function hasLuaUdp() {
+	return lib.integerFullVersion(getFactorioVersion()) >= lib.integerFullVersion("2.1.10");
+}
+
+async function freeUdpPort() {
+	const socket = dgram.createSocket("udp4");
+	await events.once(socket.bind(0, "127.0.0.1"), "listening");
+	const port = socket.address().port;
+	socket.close();
+	return port;
+}
+
 function getUser(name) {
 	return getControl().send(new lib.UserGetRequest(name));
+}
+
+// RCON completion does not acknowledge list replication. In particular, whitelist
+// updates pass through an asynchronous file watcher before being broadcast.
+async function waitForAssertion(check, timeoutMs = 5000) {
+	const deadline = performance.now() + timeoutMs;
+	for (;;) {
+		try {
+			await check();
+			return;
+		} catch (err) {
+			if (!(err instanceof assert.AssertionError) || performance.now() >= deadline) {
+				throw err;
+			}
+		}
+		await lib.wait(25);
+	}
+}
+
+async function waitForUserFlag(name, flag, expected, message) {
+	await waitForAssertion(async () => {
+		// The initial event also creates the user, so absence is a pending state.
+		const users = await getControl().send(new lib.UserListRequest());
+		const user = users.find(entry => entry.name.toLowerCase() === name.toLowerCase());
+		assert(user, `User ${name} has not been created`);
+		assert.equal(user[flag], expected, message);
+	});
+}
+
+async function waitForAltAdmin(expected, message) {
+	await waitForAssertion(async () => {
+		// Read Factorio's persisted list before checking /promote or /demote
+		// responses, so the checks cannot apply a change that has not replicated yet.
+		const json = await fs.readFile(path.join(instancesDir, instAltName, "server-adminlist.json"), "utf8");
+		let admins;
+		// A concurrent write can leave a partial document; retry that observation.
+		assert.doesNotThrow(() => { admins = JSON.parse(json); }, "Invalid admin list JSON");
+		assert(Array.isArray(admins), "Admin list is not an array");
+		assert.equal(admins.some(name => name.toLowerCase() === "adminplayer"), expected, message);
+	});
 }
 
 describe("Clusterio Instance", function() {
@@ -35,6 +92,7 @@ describe("Clusterio Instance", function() {
 
 		// Create a new instance
 		await execCtl(`instance create ${instName} --id ${instId}`);
+		await execCtl(`instance config set ${instName} factorio.rcon_port ${await getTestRconPort()}`);
 		await execCtl(`instance config set ${instName} factorio.enable_whitelist true`);
 		await execCtlProcess(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
@@ -50,6 +108,7 @@ describe("Clusterio Instance", function() {
 
 		// Create a new alt instance
 		await execCtl(`instance create ${instAltName} --id ${instAltId}`);
+		await execCtl(`instance config set ${instAltName} factorio.rcon_port ${await getTestRconPort()}`);
 		await execCtl(`instance config set ${instAltName} factorio.enable_whitelist true`);
 		await execCtlProcess(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
@@ -105,12 +164,16 @@ describe("Clusterio Instance", function() {
 			}
 		}
 		describe(`Integration - ${strSavePatching}, ${strScriptCommands}`, function() {
+			let luaUdpPort;
 			before(async function() {
 				this.timeout(20000);
 				// Create and start a patched save
 				await execCtl(`${instSetConfig} factorio.enable_whitelist true`);
 				await execCtl(`${instSetConfig} factorio.enable_save_patching ${savePatchingEnabled}`);
 				await execCtl(`${instSetConfig} factorio.enable_script_commands ${scriptCommandsEnabled}`);
+				await execCtl(`${instSetConfig} factorio.enable_lua_udp ${hasLuaUdp()}`);
+				luaUdpPort = await freeUdpPort();
+				await execCtl(`${instSetConfig} factorio.lua_udp_port ${luaUdpPort}`);
 				await execCtl(`instance save create ${instName}`);
 				await execCtl(`instance start ${instName}`);
 			});
@@ -125,6 +188,46 @@ describe("Clusterio Instance", function() {
 					assert.equal(res === "Disabled\n", scriptCommandsEnabled);
 				});
 			});
+			if (savePatchingEnabled) {
+				describe("Lua UDP", function() {
+					it("should drop send_udp before the module is initialised", async function() {
+						// Mods can call send_udp from on_init, before the first tick sets up script data
+						await allowSendingScriptCommands();
+						const res = await sendRcon(instId,
+							`/sc ${requireApi} local data = storage or global ` +
+							"local saved = data.clusterio data.clusterio = nil " +
+							"local module_ok = pcall(api.send_udp, 'early', 'data') " +
+							"local mod_ok, port = pcall(remote.call, 'clusterio_api', 'get_host_udp_port') " +
+							"data.clusterio = saved " +
+							"rcon.print(tostring(module_ok) .. ' ' .. tostring(mod_ok) .. ' ' .. tostring(port))"
+						);
+						assert.equal(res, "true true nil\n");
+					});
+					it("should dispatch packets sent to the game", async function() {
+						if (!hasLuaUdp()) {
+							this.skip();
+						}
+						await allowSendingScriptCommands();
+						await sendRcon(instId,
+							"/sc script.on_event(defines.events.on_udp_packet_received, " +
+							"function(event) storage.udp_test = event.payload end)"
+						);
+						const socket = dgram.createSocket("udp4");
+						let payload;
+						try {
+							for (let i = 0; i < 10 && payload !== "hello\n"; i++) {
+								socket.send("hello", luaUdpPort, "127.0.0.1");
+								await lib.wait(10);
+								// The server does not tick without players, commands make it tick
+								payload = await sendRcon(instId, "/sc rcon.print(tostring(storage.udp_test))");
+							}
+						} finally {
+							socket.close();
+						}
+						assert.equal(payload, "hello\n");
+					});
+				});
+			}
 			describe("Player events", function() {
 				if (savePatchingEnabled) {
 					// IPC expects save patching to be enabled
@@ -154,28 +257,28 @@ describe("Clusterio Instance", function() {
 					});
 				}
 				it("should respond to a player ban and unban event", async function() {
+					this.timeout(25000);
 					await execCtl(`${instSetConfig} factorio.sync_banlist bidirectional`);
 					await sendRcon(instId, "/ban BannedPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
-					const userBanned = await getUser("BannedPlayer");
-					assert(userBanned.isBanned, "Player is not banned");
-					const isAltBanned = await sendRcon(instAltId, "/banlist get BannedPlayer");
-					assert.equal(isAltBanned, "BannedPlayer is banned.\n", "User is not banned on alt");
+					await waitForUserFlag("BannedPlayer", "isBanned", true, "Player is not banned");
+					await waitForAssertion(async () => {
+						const isAltBanned = await sendRcon(instAltId, "/banlist get BannedPlayer");
+						assert.equal(isAltBanned, "BannedPlayer is banned.\n", "User is not banned on alt");
+					});
 
 					await sendRcon(instId, "/unban BannedPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
-					const userUnbanned = await getUser("BannedPlayer");
-					assert(!userUnbanned.isBanned, "Player is not unbanned");
-					const isAltUnbanned = await sendRcon(instAltId, "/banlist get BannedPlayer");
-					assert.equal(isAltUnbanned, "BannedPlayer is not banned.\n", "User is not unbanned on alt");
+					await waitForUserFlag("BannedPlayer", "isBanned", false, "Player is not unbanned");
+					await waitForAssertion(async () => {
+						const isAltUnbanned = await sendRcon(instAltId, "/banlist get BannedPlayer");
+						assert.equal(isAltUnbanned, "BannedPlayer is not banned.\n", "User is not unbanned on alt");
+					});
 				});
 				it("should respond to a player promote and demote event", async function() {
-					// Because there is no admin list command this test will be different to the other two
+					this.timeout(25000);
 					await execCtl(`${instSetConfig} factorio.sync_adminlist bidirectional`);
 					await sendRcon(instId, "/promote AdminPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
-					const userPromote = await getUser("AdminPlayer");
-					assert(userPromote.isAdmin, "Player is not promoted");
+					await waitForUserFlag("AdminPlayer", "isAdmin", true, "Player is not promoted");
+					await waitForAltAdmin(true, "User is not promoted on alt");
 					const isAltPromoted = await sendRcon(instAltId, "/promote AdminPlayer");
 					assert.equal(isAltPromoted,
 						"AdminPlayer is already in the admin list and will be promoted upon joining the game.\n",
@@ -183,9 +286,8 @@ describe("Clusterio Instance", function() {
 					);
 
 					await sendRcon(instId, "/demote AdminPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
-					const userDemote = await getUser("AdminPlayer");
-					assert(!userDemote.isAdmin, "Player is not demoted");
+					await waitForUserFlag("AdminPlayer", "isAdmin", false, "Player is not demoted");
+					await waitForAltAdmin(false, "User is not demoted on alt");
 					const isAltDemoted = await sendRcon(instAltId, "/demote AdminPlayer");
 					assert.equal(isAltDemoted,
 						"AdminPlayer is not in the admin list.\n",
@@ -193,26 +295,27 @@ describe("Clusterio Instance", function() {
 					);
 				});
 				it("should respond to a player whitelist add and remove event", async function() {
+					this.timeout(25000);
 					await execCtl(`${instSetConfig} factorio.sync_whitelist bidirectional`);
 					await sendRcon(instId, "/whitelist add WhitelistPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
-					const userAdded = await getUser("WhitelistPlayer");
-					assert(userAdded.isWhitelisted, "Player is not whitelisted");
-					const isAltAdded = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
-					assert.equal(isAltAdded,
-						"WhitelistPlayer is whitelisted.\n",
-						"User is not whitelisted on alt"
-					);
+					await waitForUserFlag("WhitelistPlayer", "isWhitelisted", true, "Player is not whitelisted");
+					await waitForAssertion(async () => {
+						const isAltAdded = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
+						assert.equal(isAltAdded,
+							"WhitelistPlayer is whitelisted.\n",
+							"User is not whitelisted on alt"
+						);
+					});
 
 					await sendRcon(instId, "/whitelist remove WhitelistPlayer");
-					await lib.wait(15); // Propagation time, 10ms worked for me, so i made it 15ms
-					const userRemoved = await getUser("WhitelistPlayer");
-					assert(!userRemoved.isWhitelisted, "Player is not unwhitelisted");
-					const isAltRemoved = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
-					assert.equal(isAltRemoved,
-						"WhitelistPlayer is not whitelisted.\n",
-						"User is not unwhitelisted on alt"
-					);
+					await waitForUserFlag("WhitelistPlayer", "isWhitelisted", false, "Player is not unwhitelisted");
+					await waitForAssertion(async () => {
+						const isAltRemoved = await sendRcon(instAltId, "/whitelist get WhitelistPlayer");
+						assert.equal(isAltRemoved,
+							"WhitelistPlayer is not whitelisted.\n",
+							"User is not unwhitelisted on alt"
+						);
+					});
 				});
 			});
 		});
@@ -244,6 +347,7 @@ describe("start-all and stop-all commands", function() {
 			/"/g, process.platform === "win32" ? '""' : '\\"'
 		);
 		for (const name of [testInstName1, testInstName2, testInstName3]) {
+			await execCtl(`instance config set ${name} factorio.rcon_port ${await getTestRconPort()}`);
 			await execCtlProcess(`instance config set-prop ${name} factorio.settings visibility "${visibility}"`);
 			await execCtl(`instance config set-prop ${name} factorio.settings require_user_verification false`);
 		}

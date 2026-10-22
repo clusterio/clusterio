@@ -95,6 +95,11 @@ export class MockServer extends events.EventEmitter {
 	reset() {
 		this.rconCommands = [];
 		this.rconCommandResults = new Map();
+		this.udpMessages = [];
+	}
+
+	async sendUdp(message) {
+		this.udpMessages.push(message);
 	}
 
 	async sendRcon(command) {
@@ -143,6 +148,10 @@ export class MockInstance extends lib.Link {
 
 	async sendRcon(command, expectEmpty, plugin) {
 		return await this.server.sendRcon(command);
+	}
+
+	async sendUdp(message) {
+		await this.server.sendUdp(message);
 	}
 }
 
@@ -210,6 +219,8 @@ export class MockController {
 	handle(eventClass, handler) {
 		this.handles.set(eventClass, handler);
 	}
+
+	deleteNote() { }
 
 	getControllerUrl() {
 		return "http://controller.example/";

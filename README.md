@@ -10,9 +10,11 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 ## Important notice
 
-Clusterio 2.0 is still in alpha, however the previous stable has been abandoned and is no longer supported.
-Despite being alpha it's reasonably stable now and there's no major breakages expected before a stable release of 2.0.
-If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
+Clusterio 2.0 is the current stable release and requires Node.js 22 or newer.
+For new installations, use the latest Node.js LTS release (see [Installation](#installation)).
+The previous stable series is no longer supported.
+If you are upgrading from a 2.0 alpha, review the [changelog](CHANGELOG.md) before upgrading.
+Plugin authors should also follow the [2.0 migration guide](docs/devs/plugin-migration-to-2.0.md).
 
 
 ### Ways to support me/the project:
@@ -40,7 +42,7 @@ If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
 * [Setting up remote hosts](#setting-up-remote-hosts)
 * [Setting up clusterioctl](#setting-up-clusterioctl)
 * [Known issues](#known-issues)
-* [Common problems](#Common-problems)
+* [Common problems](#common-problems)
 
 
 ## Introduction
@@ -71,7 +73,7 @@ Plugins add functionality to Factorio servers, Clusterio itself or both.
 These are the plugins supported and maintained by the Clusterio developers:
 
 - [Global Chat](/plugins/global_chat/README.md): share the in-game chat between servers.
-- [Research Sync](/plugins/research_sync/README.md): synchronize research progress and technologies unlocked between servers.
+- [Research Sync](/plugins/research_sync/README.md): synchronize research progress and technologies unlocked and the research queue between servers.
 - [Statistics Exporter](/plugins/statistics_exporter/README.md): collect in-game statistics from all the servers and makes it available to the Prometheus endpoint on the controller.
 - [Subspace Storage](https://github.com/clusterio/subspace_storage): Provide shared storage that can transport items between servers via teleport chests.
 - [Player Auth](/plugins/player_auth/README.md): Provides authentication to the cluster via logging into a Factorio server.
@@ -87,6 +89,9 @@ There's also plugins developed and maintained by the community:
   See repo readme for plugin breakdown. Maintained by Cooldude2606.
 - [Chat Relay](https://github.com/PHIDIAS0303/chat_relay) (@PHIDIAS0303/chat_relay): Chat relay of Discord and Factorio, seperate channel.
 
+The installer offers the six plugins maintained in this repository.
+Community plugins are versioned and released independently of Clusterio; check their compatibility before installing them manually.
+
 Want to make your own plugin?
 Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for where to start.
 If you have a plugin written for an earlier 2.0 alpha, see [Migrating Plugins to 2.0](/docs/devs/plugin-migration-to-2.0.md).
@@ -95,8 +100,9 @@ Note that from 2.0 onwards minor versions of Clusterio may contain breaking chan
 
 ## Installation
 
-Clusterio runs on all LTS version of NodeJS, it is distributed via npm and comes with a guided install script.
-If you already have a recent Node.js installed, you can set it up in a new directory with:
+Install the latest [Node.js LTS release](https://nodejs.org/en/download), which is recommended for new Clusterio installations.
+Clusterio is distributed via npm and comes with a guided install script.
+If you already have a supported Node.js version installed, you can set it up in a new directory with:
 
     npm init "@clusterio"
 
@@ -105,11 +111,13 @@ Check out all our of decisions for [node, factorio, and operation support](/docs
 
 ### Ubuntu setup
 
-1.  Install Node.js v18 or higher.
-    Note the version of Node.js provided by the Ubuntu/debian repos are too old and you will have to use the nodesource PPA
+1.  Install the latest Node.js LTS release using the NodeSource repository for Ubuntu/Debian.
+    The distribution's default repository may provide an older version.
 
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - &&\
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - &&\
         sudo apt-get install -y nodejs
+
+    Verify the installation with `node --version` and `npm --version`.
 
 2.  Log in as the user you wish to install Clusterio as (do not use root), and then create a new directory and run the Clusterio installer:
 
@@ -142,7 +150,7 @@ Your instances (save files etc) will be stored there.
 
 ### Windows setup
 
-1.  Download and install the latest LTS release from http://nodejs.org.
+1.  Download and install the latest [Node.js LTS release](https://nodejs.org/en/download).
 
 2.  Create a new empty directory for the installation and navigate into it.
     Open a PowerShell window in this new directory by Shift+Right clicking inside it and choosing "Open PowerShell window here" and then run the following command.
@@ -156,7 +164,8 @@ Your instances (save files etc) will be stored there.
 
 ### MacOS Setup
 
-1.  Install the latest Node.js LTS release from http://nodejs.org or use brew (`brew install node`).
+1.  Install the latest [Node.js LTS release](https://nodejs.org/en/download).
+    If you use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating), run `nvm install --lts`.
 
 2.  Open Terminal or Command prompt in the directory you want to install to and run the following commands.
 
@@ -210,7 +219,11 @@ See the [readme for @clusterio/controller](/packages/controller/README.md) for m
 
 ## Managing Factorio mods
 
-Mods in clusterio are managed as parts of modpacks. There is currently no mod portal integration, so you first need to navigate to the mods section of the web UI and upload your mods. You can then create a modpack from the uploaded mods by navigating to the mods page, hitting `create`. Once you have a modpack, you can assign it to an instance under Instance config -> Factorio -> Mod pack. You can also set a default modpack for new instances in the controller settings.
+Mods in Clusterio are managed as parts of mod packs.
+On the Mods page of the web interface, use **Search** to browse the Factorio Mod Portal and download mods to the controller, or upload mod zip files directly.
+Mod Portal downloads require the controller's [Factorio account credentials](docs/configuration.md#controllerfactorio_username) to be configured.
+Use **Create** in the Mod Packs section to create a mod pack, then add the mods you want to use.
+Assign the mod pack to an instance under Instance config -> Factorio -> Mod pack, or set a default mod pack for new instances in the controller settings.
 
 ![Select mod pack for instance](docs/assets/config_select_mod_pack.png)
 
@@ -226,7 +239,9 @@ Once this is done, the mod settings will show up under the modpack configuration
 ## Setting up shared storage
 
 The chests teleporting items to and from the shared storage on the controller has been moved into the Subspace Storage mod and plugin.
-To get this to work you will need to install the Subspace Storage plugin and copy the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) and the [Clusterio Lib mod](https://mods.factorio.com/mod/clusterio_lib) into the `sharedMods` folder on each host installation.
+To get this to work, install the Subspace Storage plugin on the controller and hosts using the [plugin installation instructions](#installing-plugins).
+Download or upload the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) and the [Clusterio Lib mod](https://mods.factorio.com/mod/clusterio_lib) to the controller, add them to a mod pack, and assign it to each participating instance as described in [Managing Factorio mods](#managing-factorio-mods).
+Hosts fetch the mods from the controller and synchronize each instance's mods folder with its assigned mod pack when the instance starts.
 
 Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), this was for the old 1.2.x version of Clusterio and is not compatible with Clusterio 2.0.
 
@@ -274,20 +289,13 @@ If you want to use a different user for the command line interface, you can gene
 
 ## Known Issues
 
-- When the `server_select` plugin is installed you may see `[error] Unhandled event server_select:UpdateInstancesEvent` logged when starting an instance.
-  This should be ignored as it does not indicate an error occured.
+- `@hornwitser/server_select@2.0.1` fails to load with Clusterio 2.0 because its entrypoints omit the required `.js` extension.
+  `@hornwitser/discord_bridge@0.2.5` is not automatically discovered because it lacks the `clusterio-plugin` keyword.
+  The Clusterio 2.0.2 installer still offers these versions; leave them unchecked until compatible plugin releases are available.
+  If already installed, stop the controller and host, run `npm uninstall @hornwitser/server_select @hornwitser/discord_bridge` in each affected installation directory, and restart them to continue with the core plugins.
+  See [#1102](https://github.com/clusterio/clusterio/issues/1102).
 - After updating Factorio you may get the error `Error: Expected empty response but got "Cannot execute command. Error: [string "clusterio_private.update_instance(..."]:1: attempt to index global 'clusterio_private' (a nil value)?` on instance start.
   This is due to Factorio applying a migration replacing the patched content of the save with the original scenario, attempting to start the instance again should resolve the issue.
-- In the mod pack view of the web interface the "base" mod is displayed with an error complaining about the mod being missing from the controller storage.
-  This is due to the "base" mod currently not being connectly handled as a built-in mod to Factorio in the web interface, this error message should be ignored.
-- After migrating from Alpha 13 to Alpha 14 running an instance data export fails with the error `Upload failed: 401 Unauthorized` due to the host token being issued to a slave.
-  To workaround this find the id of the host in the host config and generate a new host token with the same id.
-  Stop the host and replace the value of the `host.controller_token` field in `config-host.json` with the new host token before starting it up again.
-- After migrating from Alpha 13 to Alpha 14 you get kicked out from the web interface due to the master to controller rename.
-  If you don't have the authentication token readily available you can manually migrate the token by opening the Inspect/Developer Tools on the page and running the following piece of JavaScript in the Console:
-  ```
-  localStorage.controller_token = localStorage.master_token
-  ```
 
 
 ## Common problems

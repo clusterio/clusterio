@@ -18,6 +18,12 @@ See [Breaking Changes](/docs/decisions.md#breaking-changes) in the decision log.
 Clusterio's packages are now ES modules and plugins should be too.
 Add `"type": "module"` to the plugin's `package.json` and replace `require()` and `module.exports` with `import` and `export`.
 
+Keep `"clusterio-plugin"` in the package's `"keywords"` for automatic discovery, and keep `"main"` pointing to the plugin info module (or use the default `index.js`).
+An `"exports"` map is not required for ES modules.
+If you add one, expose `"./package.json": "./package.json"`; otherwise Clusterio cannot discover or load the plugin by its package name.
+Clusterio currently reads the implementation path from `"main"` rather than conditional exports.
+See [Plugin Structure](../writing-plugins.md#plugin-structure) for a compatible package example.
+
 Relative imports must include the full filename with the `.js` extension.
 This also applies in TypeScript, where you import `./messages.js` even though the source file is `messages.ts`.
 Importing a directory no longer resolves to its `index.js`.

@@ -201,7 +201,8 @@ function serverSuite(proto) {
 		let response = await request;
 		assert.equal(response.statusCode, 200, "non-200 response status code");
 		assert.equal(response.body.toString(), "ok-6", "response content does not match expected");
-		await assert.rejects(droppedRequest, { code: "ECONNRESET" });
+		// Node 26.12.1+ discards the closed socket and gets refused on reconnect
+		await assert.rejects(droppedRequest, { code: /^ECONN(RESET|REFUSED)$/ });
 	});
 
 	it("should abort requests that take too long to respond", async function() {

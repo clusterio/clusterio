@@ -22,7 +22,7 @@ jobs:
           node-version: 24.x
           registry-url: https://registry.npmjs.org
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm -r --filter='./{plugins,packages}/*' publish --no-git-checks
+      - run: pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match publish --no-git-checks
       - uses: softprops/action-gh-release@v3
         with:
           files: pnpm-lock.yaml
@@ -37,7 +37,7 @@ jobs:
         with:
           node-version: 24.x
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm -r --filter='./{plugins,packages}/*' run build-mod --output-dir ../../dist
+      - run: pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match run build-mod --output-dir ../../dist
       - run: node ./publish.js factorio ./dist
         env:
           FACTORIO_TOKEN: ${{ secrets.FACTORIO_TOKEN }}

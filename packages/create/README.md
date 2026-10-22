@@ -2,4 +2,5 @@
 
 Installer for Clusterio.
 
-See [the Clusterio README.md](https://github.com/clusterio/clusterio#readme) the for installation guide.
+Install the latest [Node.js LTS release](https://nodejs.org/en/download) before running the installer.
+See [the Clusterio installation guide](https://github.com/clusterio/clusterio#installation) for platform-specific instructions.

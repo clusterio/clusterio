@@ -1,13 +1,40 @@
 /* eslint-disable no-console */
 import fs from "node:fs/promises";
-import JSZip from "jszip";
 import path from "node:path";
-import stream from "node:stream";
-import util from "node:util";
+import { pipeline } from "node:stream/promises";
 import yargs from "yargs";
+import yazl from "yazl";
 
-const finished = util.promisify(stream.finished);
 
+async function addModFiles(args, info, modName, zip) {
+	for await (const dirent of await fs.opendir(args.sourceDir, { recursive: true })) {
+		if (dirent.isFile()) {
+			const itemPath = path.join(dirent.parentPath, dirent.name);
+			// On Windows the path created uses backslashes as the directory sepparator
+			// but the zip file needs to use forward slashes.  We can't use the posix
+			// version of relative here as it doesn't work with Windows style paths.
+			let basePath = path.relative(args.sourceDir, itemPath).replace(/\\/g, "/");
+			if (basePath === "info.json") {
+				// The info.json file is overridden later.
+				continue;
+			}
+			zip.addFile(itemPath, path.posix.join(modName, basePath));
+		}
+	}
+
+	for (let [fileName, pathParts] of Object.entries(info.additional_files || {})) {
+		let filePath = path.join(args.sourceDir, ...pathParts);
+		try {
+			await fs.access(filePath);
+		} catch (err) {
+			throw new Error(`Error reading additional file ${filePath}`, { cause: err });
+		}
+		zip.addFile(filePath, path.posix.join(modName, fileName));
+	}
+	delete info.additional_files;
+
+	zip.addBuffer(Buffer.from(JSON.stringify(info, null, "\t")), path.posix.join(modName, "info.json"));
+}
 
 async function buildMod(args, info, modName) {
 	if (args.build) {
@@ -15,43 +42,24 @@ async function buildMod(args, info, modName) {
 		modName = args.modName ?? `${info.name}_${info.version}`;
 
 		if (args.pack) {
-			let zip = new JSZip();
-			for await (const dirent of await fs.opendir(args.sourceDir, { recursive: true })) {
-				if (dirent.isFile()) {
-					const itemPath = path.join(dirent.parentPath, dirent.name);
-					// On Windows the path created uses backslashes as the directory sepparator
-					// but the zip file needs to use forward slashes.  We can't use the posix
-					// version of relative here as it doesn't work with Windows style paths.
-					let basePath = path.relative(args.sourceDir, itemPath).replace(/\\/g, "/");
-					// eslint-disable-next-line max-depth
-					if (basePath === "info.json") {
-						// The info.json file is overridden later.
-						continue;
-					}
-					zip.file(path.posix.join(modName, basePath), (await fs.open(itemPath)).createReadStream());
-				}
-			}
-
-			for (let [fileName, pathParts] of Object.entries(info.additional_files || {})) {
-				let filePath = path.join(args.sourceDir, ...pathParts);
-				let fileStream;
-				try {
-					fileStream = (await fs.open(filePath)).createReadStream();
-				} catch (err) {
-					throw new Error(`Error reading additional file ${filePath}`, { cause: err });
-				}
-				zip.file(path.posix.join(modName, fileName), fileStream);
-			}
-			delete info.additional_files;
-
-			zip.file(path.posix.join(modName, "info.json"), JSON.stringify(info, null, "\t"));
-
 			let modPath = path.join(args.outputDir, `${modName}.zip`);
 			console.log(`Writing ${modPath}`);
-			let writeStream = zip.generateNodeStream().pipe(
-				(await fs.open(modPath, "w")).createWriteStream()
-			);
-			await finished(writeStream);
+			let zip = new yazl.ZipFile();
+			// yazl reports errors on the zip object, not the output stream.
+			zip.on("error", err => zip.outputStream.destroy(err));
+			// addFile() can fail before the traversal is done, so start writing first.
+			const writing = pipeline(zip.outputStream, (await fs.open(modPath, "w")).createWriteStream());
+			writing.catch(() => {});
+			try {
+				await addModFiles(args, info, modName, zip);
+				zip.end();
+				await writing;
+			} catch (err) {
+				zip.outputStream.destroy();
+				await writing.catch(() => {});
+				await fs.rm(modPath, { force: true });
+				throw err;
+			}
 
 		} else {
 			let modDir = path.join(args.outputDir, modName);

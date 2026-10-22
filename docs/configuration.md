@@ -606,6 +606,23 @@ Like factorio.enable_save_patching, plugins that need script commands can't be l
 Defaults to true.
 
 
+### factorio.enable_lua_udp
+
+Enable UDP messaging between the host and the Factorio server by passing `--enable-lua-udp` to Factorio.
+This lets plugins send UDP packets to the server and receive data sent with `clusterio_api.send_udp` in-game.
+Requires Factorio 2.1.10 or later, earlier versions crash when a packet is received on a headless server.
+
+Defaults to false.
+
+
+### factorio.lua_udp_port
+
+UDP port on localhost the Factorio server receives Lua UDP messages on when `factorio.enable_lua_udp` is enabled.
+If null a random port in the dynamic range is assigned each time the instance starts.
+
+Defaults to null.
+
+
 ### factorio.enable_whitelist
 
 Turn on the whitelist on the server.

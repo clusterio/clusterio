@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import dgram from "node:dgram";
 import events from "node:events";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -336,6 +337,213 @@ describe("host/server", function() {
 			});
 		});
 
+		describe("Lua UDP", function() {
+			let udpServer;
+			let received;
+			before(async function() {
+				// Stand-in for the Factorio server's --enable-lua-udp socket
+				udpServer = dgram.createSocket("udp4");
+				received = [];
+				udpServer.on("message", (msg, rinfo) => received.push([msg, rinfo]));
+				await events.once(udpServer.bind(0, "127.0.0.1"), "listening");
+				server.luaUdpPort = udpServer.address().port;
+			});
+			after(function() {
+				udpServer.close();
+			});
+			afterEach(function() {
+				server._stopUdp();
+				server._state = "init";
+			});
+			function sendFromGame(message) {
+				udpServer.send(Buffer.from(message), server.hostUdpPort, "127.0.0.1");
+			}
+			function captureLogger(level) {
+				const logger = server._logger;
+				const lines = [];
+				server._logger = { [level]: msg => lines.push(msg) };
+				return { lines, restore: () => { server._logger = logger; } };
+			}
+
+			it("should refuse to start on Factorio before 2.1.10", async function() {
+				const version = server._version;
+				server._version = "2.1.9";
+				server.enableLuaUdp = true;
+				try {
+					const error = new Error("Lua UDP requires Factorio 2.1.10 or later");
+					await assert.rejects(server.start("save.zip"), error);
+					await assert.rejects(server.startScenario("test"), error);
+					assert.equal(server._state, "init");
+				} finally {
+					server._version = version;
+					server.enableLuaUdp = false;
+				}
+			});
+			it("should open the socket when RCON starts", async function() {
+				const startRcon = server._startRcon;
+				server._startRcon = async () => {};
+				server.enableLuaUdp = true;
+				try {
+					server._handleOutput(Buffer.from(
+						"   0.500 Info RemoteCommandProcessor.cpp:133: Starting RCON interface"
+					), "stdout");
+					while (!server._udpSocket) {
+						await wait(1);
+					}
+				} finally {
+					server._startRcon = startRcon;
+					server.enableLuaUdp = false;
+				}
+				assert(server.hostUdpPort > 0, "socket was not opened");
+			});
+			it("should not have a host port when not running", function() {
+				assert.equal(server.hostUdpPort, undefined);
+			});
+			it("should reject sendUdp when the socket is not open", async function() {
+				server._state = "running";
+				await assert.rejects(server.sendUdp("data"), new Error("UDP socket is not open"));
+			});
+			it("should send packets to the Lua UDP port", async function() {
+				await server._startUdp();
+				server._state = "running";
+				assert(server.hostUdpPort > 0, "hostUdpPort not set");
+
+				await server.sendUdp("hello");
+				await server.sendUdp(Buffer.from("world"));
+				while (received.length < 2) {
+					await wait(1);
+				}
+				assert.equal(received[0][0].toString(), "hello");
+				assert.equal(received[1][0].toString(), "world");
+				assert.equal(received[0][1].port, server.hostUdpPort);
+			});
+			it("should emit udp events for packets from the game", async function() {
+				await server._startUdp();
+				let udpReceived = [];
+				let onUdp = data => udpReceived.push(data);
+				// Escaped characters in the channel name are unescaped
+				server.on("udp-udp?channel", onUdp);
+				let waiter = events.once(server, "udp-udp?channel");
+				// Packets not from the Factorio server's port are ignored
+				let other = dgram.createSocket("udp4");
+				try {
+					await events.once(other.bind(0, "127.0.0.1"), "listening");
+					other.send(Buffer.from("udp\\x3fchannel?bad"), server.hostUdpPort, "127.0.0.1");
+					sendFromGame("udp\\x3fchannel?spam?eggs");
+					await waiter;
+				} finally {
+					other.close();
+					server.off("udp-udp?channel", onUdp);
+				}
+				assert(Buffer.isBuffer(udpReceived[0]), "data is not a Buffer");
+				assert.deepEqual(udpReceived.map(String), ["spam?eggs"]);
+			});
+			it("should warn on malformed packets and unhandled channels", async function() {
+				await server._startUdp();
+				const { lines, restore } = captureLogger("warn");
+				try {
+					sendFromGame("no separator");
+					sendFromGame("unhandled?data");
+					while (lines.length < 2) {
+						await wait(1);
+					}
+				} finally {
+					restore();
+				}
+				assert.deepEqual(lines, [
+					'Ignoring malformed UDP packet "no separator"',
+					"Warning: Unhandled udp-unhandled",
+				]);
+			});
+			it("should invoke handlers registered with handleUdp", async function() {
+				let handled = [];
+				server.handleUdp("handled", async data => { handled.push(data.toString()); });
+				server.handleUdp("failing", async () => { throw new Error("boom"); });
+				const { lines, restore } = captureLogger("error");
+				try {
+					server.emit("udp-handled", Buffer.from("data"));
+					server.emit("udp-failing", Buffer.from("data"));
+					await new Promise(resolve => setImmediate(resolve));
+				} finally {
+					restore();
+				}
+				assert.deepEqual(handled, ["data"]);
+				assert.equal(lines.length, 1);
+				assert(lines[0].startsWith("Error handling udp event:\nError: boom"), lines[0]);
+			});
+			it("should log errors thrown synchronously by handleUdp handlers", async function() {
+				await server._startUdp();
+				server.handleUdp("sync", () => { throw new Error("sync boom"); });
+				const { lines, restore } = captureLogger("error");
+				try {
+					sendFromGame("sync?data");
+					while (lines.length < 1) {
+						await wait(1);
+					}
+				} finally {
+					restore();
+				}
+				assert(lines[0].startsWith("Error handling udp event:\nError: sync boom"), lines[0]);
+			});
+			it("should forward socket errors", async function() {
+				await server._startUdp();
+				let waiter = events.once(server, "error");
+				server._udpSocket.emit("error", new Error("socket failed"));
+				let [err] = await waiter;
+				assert.equal(err.message, "socket failed");
+			});
+			it("should reject sendUdp when sending fails", async function() {
+				await server._startUdp();
+				server._state = "running";
+				// Larger than the maximum size of a UDP datagram
+				await assert.rejects(server.sendUdp(Buffer.alloc(70000)), { code: "EMSGSIZE" });
+			});
+			it("should throw if the socket is already open", async function() {
+				await server._startUdp();
+				await assert.rejects(server._startUdp(), new Error("UDP socket is already open"));
+			});
+			it("should log an error if opening the socket fails", async function() {
+				const createSocket = dgram.createSocket;
+				dgram.createSocket = (...args) => {
+					const socket = createSocket(...args);
+					socket.bind = () => process.nextTick(() => socket.emit("error", new Error("bind failed")));
+					return socket;
+				};
+				const { lines, restore } = captureLogger("error");
+				try {
+					await server._startUdp();
+				} finally {
+					dgram.createSocket = createSocket;
+					restore();
+				}
+				assert.equal(server._udpSocket, null);
+				assert(lines[0].startsWith("Failed to open UDP socket:\nError: bind failed"), lines[0]);
+			});
+			it("should close the socket when the server exits", async function() {
+				await server._startUdp();
+				server._server = new events.EventEmitter();
+				server._state = "stopping";
+				server._watchExit();
+				server._server.emit("exit", 0, null);
+				assert.equal(server._udpSocket, null);
+				assert.equal(server._state, "init");
+			});
+			it("should close the socket when the server is killed for hanging", async function() {
+				await server._startUdp();
+				let killed = false;
+				server._server = { kill: () => { killed = true; } };
+				const { restore } = captureLogger("error");
+				try {
+					server.onStopTimeout();
+				} finally {
+					restore();
+					server._server = null;
+				}
+				assert(killed, "server was not killed");
+				assert.equal(server._udpSocket, null);
+			});
+		});
+
 		describe(".stop()", function() {
 			it("should handle server quitting on its own during stop", async function() {
 				server.shutdownTimeoutMs = 20;
@@ -505,6 +713,62 @@ describe("host/server", function() {
 				});
 				/* eslint-enable no-loop-func */
 			}
+			describe("concurrent downloads", function() {
+				const versions = [{ stable: true, version: "0.1.5", headlessUrl: "test1" }];
+
+				// Holds the mocked download open until release() and resolves waiting once a server waits for it
+				function holdDownload(factorioDir) {
+					const held = { fetches: 0 };
+					const release = new Promise(resolve => { held.release = resolve; });
+					held.fetching = new Promise(resolve => {
+						global.fetch = async function() {
+							held.fetches += 1;
+							resolve();
+							await release;
+							return { ok: false, status: -1, statusText: "Fetch called" };
+						};
+					});
+					let waited;
+					held.waiting = new Promise(resolve => { waited = resolve; });
+					const logger = { info: line => line.endsWith("waiting for download...") && waited() };
+					held.servers = [0, 1].map(() => new hostServer.FactorioServer(factorioDir, writePath, { logger }));
+					Object.defineProperty(process, "platform", { value: "linux" });
+					return held;
+				}
+
+				it("should download once when servers check at the same time", async function() {
+					const held = holdDownload(path.join("test", "file", "factorio"));
+					let settled = 0;
+					const checks = held.servers.map(s => s.checkForUpdates(versions).finally(() => { settled += 1; }));
+
+					await held.waiting;
+					assert.equal(held.fetches, 1);
+					assert.equal(settled, 0);
+
+					held.release();
+					await Promise.all(checks.map(check => assert.rejects(check, /Fetch called/)));
+					assert.equal(held.fetches, 1);
+				});
+				it("should wait for a download in progress whose version already looks installed", async function() {
+					const factorioDir = path.join("temp", "test", "download-lock");
+					await fs.rm(factorioDir, { force: true, recursive: true });
+					await fs.mkdir(factorioDir, { recursive: true });
+					const held = holdDownload(factorioDir);
+					const first = held.servers[0].checkForUpdates(versions);
+					await held.fetching;
+
+					// The extraction has written the changelog but has not finished
+					const dataDir = path.join(factorioDir, "0.1.5", "data");
+					await fs.mkdir(dataDir, { recursive: true });
+					await fs.writeFile(path.join(dataDir, "changelog.txt"), "Version: 0.1.5\n");
+					const second = held.servers[1].checkForUpdates(versions);
+
+					await held.waiting;
+					held.release();
+					await Promise.all([first, second].map(check => assert.rejects(check, /Fetch called/)));
+					assert.equal(held.fetches, 1);
+				});
+			});
 			it("should download a version correctly (live api)", async function() {
 				slowTest(this);
 				externalTest(this);

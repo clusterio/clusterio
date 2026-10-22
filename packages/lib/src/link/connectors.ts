@@ -171,10 +171,11 @@ export abstract class WebSocketBaseConnector<
 	_heartbeatId: ReturnType<typeof setInterval> | null = null;
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
-	/** Serialised messages sent but not yet acknowledged by the other side */
-	_sendBuffer: { seq: number, text: string }[] = [];
+	/** Serialised messages sent but not yet acknowledged by the other side, with their UTF-8 size in bytes */
+	_sendBuffer: { seq: number, text: string, size: number }[] = [];
+	/** Total UTF-8 size in bytes of the messages in the send buffer */
 	_sendBufferSize = 0;
-	/** Session is ended if the unacknowledged messages exceed this many characters, 0 for no limit */
+	/** Session is ended if the unacknowledged messages exceed this many bytes, 0 for no limit */
 	maxSendBufferSize = 0;
 
 	_reset() {
@@ -225,7 +226,7 @@ export abstract class WebSocketBaseConnector<
 		for (let index = 0; index < this._sendBuffer.length; index++) {
 			if (this._sendBuffer[index].seq <= seq) {
 				dropCount += 1;
-				this._sendBufferSize -= this._sendBuffer[index].text.length;
+				this._sendBufferSize -= this._sendBuffer[index].size;
 			} else {
 				break;
 			}
@@ -334,8 +335,9 @@ export abstract class WebSocketBaseConnector<
 		}
 
 		const text = JSON.stringify(message);
-		this._sendBuffer.push({ seq: message.seq, text });
-		this._sendBufferSize += text.length;
+		const size = Buffer.byteLength(text, "utf8");
+		this._sendBuffer.push({ seq: message.seq, text, size });
+		this._sendBufferSize += size;
 		if (this.maxSendBufferSize && this._sendBufferSize > this.maxSendBufferSize) {
 			this._sendBufferOverflow();
 			return;

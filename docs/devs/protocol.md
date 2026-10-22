@@ -2,38 +2,32 @@
 
 Clusterio communicates using a simple homebrew message passing protocol based on JSON over WebSocket with limited support for reliable transport of messages.
 The protocol is implemented in [packages/lib/src/link](/packages/lib/src/link) and uses the `ws` library to handle the WebSocket connections on the Node.js side and the native WebSocket API on the browser side.
+The wire schemas are defined in [messages_core.ts](/packages/lib/src/data/messages_core.ts); see the [communication overview](../communication.md) for how links, connectors, and routing fit together.
 
 Two general kinds of messages are supported: events and requests.
 Events are messages sent by one party and received by the other and offer no notification for the sender on whether it was actually received.
 Requests are pairs of request-response messages where one side sends the requests and the other side replies with a response.
 Apart from the handshake used to establish connections the protocol is directionless, and either party can send or receive both requests and events.
 
-Events and requests are defined as instances of the `Request` and `Event` classes, and specify a unique type string, who can send and receive the message, optional forwarding of the message and the format of the data payload as a JSON schema.
-All messages sent and received are validated with JSON schemas to catch potential errors in sending messages and avoid having to write lots of validation code in message handlers.
-
-Messages are sent by calling the `.send()` method of the message instance and passing a `Link` instance to send it over and the data to send.
-For the controller there's a `Link` instance for each host and control connection stored in the `WsServer` class.
-For hosts the `Host` instance is a link to the controller, and each `Instance` instance is an in-memory link to the `Host` instance and has a corresponding `InstanceConnection` link stored on the `Host` instance.
-For ctl there's a `Ctl` instance and web_ui there's a `Control` instance that acts as the link to the controller.
-
-Messages received invokes message handlers that were registered when the link was brought up.
-These handlers are named after the name of the property the message is stored under with `EventHandler` appended for events and `RequestHandler` appended for requests.
-The handlers are defined on the link class itself for core messages, and on the plugin class in the case of plugin defined messages.
-
 
 ## Connection flow
 
 Clients connect via WebSocket to the `/api/socket` endpoint and upon establishing connection to the server the connection is in the handshake phase and the server will send a `hello` message to the client.
-If the client has no previous session with the server it sends a `register_host` or `register_control` message depending on what kind of client it is to the server.
-If the register is valid then the server will respond with a `ready` message with a session token and the connection has left the handshake phase, otherwise the server will close the connection with a WebSocket close code indicating the kind of failure.
+If the client has no previous session with the server it sends a `registerHost` or `registerControl` message depending on what kind of client it is to the server.
+If the registration is valid, the server responds with a `ready` message containing the client's address, a session token, and session parameters.
+The connection has then left the handshake phase; otherwise the server closes it with a WebSocket close code indicating the kind of failure.
 
 Upon leaving the handshake phase both parties should start sending heartbeat messages with the sequence number of the last received message.
-Messages sent over the link should be stored in a send buffer and only cleared from the send buffer when a heartbeat with a `last_seq` equal or or higher is received or the session is invalidated.
+Routable messages are stored in a send buffer until a heartbeat acknowledges an equal or higher sequence number, or the session ends.
+The heartbeat's top-level `seq` acknowledges receipt by the transport, not successful completion of a message handler.
 
-If the connection goes stale or is unexpectedly closed the client can reastablish the same session by connecting to the server again and sending a `resume` message after received the `hello` from the server.
+If the connection goes stale or is unexpectedly closed, the client can re-establish the same session by connecting again and sending a `resume` message after receiving `hello`.
 If the session resume is successful then the server will respond with a `continue` message and the connection is active again.
-The client should then re-send all messages it has in its send buffer that is greater than the `last_seq` number in the `continue` message.
-Otherwise the server will respond with `invalidate` and the client is expected to drop its send buffer start a new session with `register_host` or `register_control`.
+The client then re-sends buffered messages newer than the `lastSeq` in `continue`.
+The server likewise re-sends messages newer than the `lastSeq` supplied by the client in `resume`.
+Otherwise the server responds with `invalidate`, and the client discards the old send buffer and registers a new session.
+Session expiry, buffer overflow, or process failure can lose pending work; plugins must not treat transport recovery as an application-level exactly-once guarantee.
+The [send-buffer setting](../configuration.md#controllermax_send_buffer_size) controls how much unacknowledged message data the controller retains for a connection.
 
 ![Connection flow](../assets/connection_flow.svg)
 
@@ -41,36 +35,42 @@ Otherwise the server will respond with `invalidate` and the client is expected t
 ## Connector flow
 
 To manage the complexity of connecting, reconnecting, resuming or invalidating dropped sessions the WebSocket connection for a `Link` class is managed by a connector.
-There's three kinds of connectors defined: `WebSocketClientConnector`, `WebSocketServerConnector` and `VirtualConnector`.
+There's three kinds of connectors defined: `WebSocketClientConnector`, `WsServerConnector` and `VirtualConnector`.
 The virtual connector is for in-memory connections and doesn't have any connection state logic.
 
 For the WebSocket connectors there's four states they can exist in:
+
 - `closed` - The connector has just been created or has been explicitly closed.
 - `connecting` (client only) - The connector is in the process of trying to connect to the server.
 - `connected` - The connector is successfully connected.
 - `resuming` - The connection dropped and the connector is in the process of attempting to resume it.
 
 Along with the following events emitted when transition between states:
-- `connect` From `connecting` (client) or `closed` (server) to `connected`
-- `drop` - From `connected` to `resuming`
-- `resume` - From `resuming` to `connected`
-- `invalidate` - From `resuming` to `connecting` or `closed`
-- `close` - From any state to `closed`
+
+- `connect` - A new session is established, moving from `connecting` (client) or `closed` (server) to `connected`.
+- `drop` - The transport was lost but the session is retained for resumption, moving from `connected` to `resuming`.
+- `resume` - The retained session is reconnected and unacknowledged buffered messages are replayed, moving from `resuming` to `connected`.
+- `invalidate` - The previous session cannot be reused, moving from `resuming` to `connecting` (client only); server session expiry emits `close` instead.
+- `close` - The connector is closed, moving from any state to `closed`.
+
+Invalidation or closure rejects pending requests with `SessionLost`.
+Plugins must handle lost sessions, stale state, and application retries where required; see [connection handling](../writing-plugins.md#handling-connection-events) for the plugin hooks and queueing behavior.
 
 ![Conector States](../assets/connector_states.svg)
 
 
 ### WsClientConnector
 
-The client connector will keep trying to establish and mantain a connection after `.connect()` is called on it, stopping only in the case of authentication failure or `.close()`/`.setClosing()` being called.
-Other than that, the logic is pretty straight forward.
+The client connector, named `WebSocketClientConnector` in the source, keeps trying to establish and maintain a connection after `.connect()` is called, stopping on terminal failures such as authentication or policy rejection, or when `.close()`/`.setClosing()` is called.
+For example, policy violation (1008) stops retries, while try-again-later (1013), used for send-buffer overflow, permits reconnecting.
+Connection retries use exponential backoff.
 
 ![WsClientConnector](../assets/WsClientConnector.svg)
 
 
 ### WsServerConnector
 
-The server connector doesn't do the work of connecting or validating the handshake.
+The [server connector](/packages/controller/src/WsServerConnector.ts) doesn't do the work of connecting or validating the handshake.
 Instead it's handed over a WebSocket connection from `WsServer` once there's only the step of sending the final message left to do.
 Because of this there's no `connecting` state, and once a session times out from the `resuming` state it goes directly to closed.
 
@@ -79,19 +79,26 @@ Because of this there's no `connecting` state, and once a session times out from
 
 ## Wire format
 
-All communication in the protocol is done via WebSocket text frames containing a JSON payload with the following properties:
+All communication uses WebSocket text frames containing a JSON object.
+Every frame has a `type` string; the other fields depend on that type.
+Requests, responses, and events carry an integer transport sequence number in `seq`, plus source and destination addresses in `src` and `dst`.
+Message-specific data is carried in `data` when present.
 
-- `seq: integer | null` - The sequence number of the message, can only be null for handshake and heartbeats.
-- `type: string` - The type of message
-- `data: object` - Message data
+An address is `[type, id]`, optionally followed by a request ID: `[type, id, requestId]`.
+Address types are 0 for controller, 1 for host, 2 for instance, 3 for control, and 4 for broadcast.
+The controller's ID is 0; a broadcast address uses its ID to identify the target endpoint type.
+For example, `[2, 123]` addresses instance 123, while `[4, 2]` addresses all instances.
+Broadcast destinations are for events.
 
-Before a connection is established it's in the handshake phase and the `seq` property is `null`.
-The `type` property is used to distinguish which of handshake, heartbeat, events or requests this message is and determines the expected format of the `data` property.
+A request puts its request ID in `src`; the response returns that ID in `dst` so the sender can match it to the pending request.
+This ID is separate from transport `seq`, which is used for acknowledgements and buffering.
 
 
 ### Handshake Messages
 
-The following messages are the only valid messages that can be sent during the handshake phase.
+The following messages are used during the handshake phase.
+Their listed fields belong inside the frame's `data` object, except for `invalidate`, which has no data.
+Property names are case-sensitive.
 
 
 #### `hello`
@@ -102,7 +109,7 @@ Sent by the controller when the WebSocket connection has been opened.
 - `plugins: Object<string, string>` -
     Object mapping plugin names to plugin version for plugins that are loaded on the controller.
 
-#### `register_host`
+#### `registerHost`
 
 Host handshake for establishing a new connection session.
 
@@ -112,7 +119,7 @@ Host handshake for establishing a new connection session.
 - `plugins: Object<string, string>` -
     Object mapping plugin names to plugin version for plugins that are available on the host.
 
-#### `register_control`
+#### `registerControl`
 
 Control handshake for enstablishing a new connection session.
 
@@ -123,29 +130,32 @@ Control handshake for enstablishing a new connection session.
 
 Handshake for resuming an existing connection session where the connection had dropped unexpectedly.
 
-- `session_token: string` - Session token to resume session with.
-- `last_seq: integer | null` - Last message seq received by the client.
+- `sessionToken: string` - Session token to resume session with.
+- `lastSeq: integer` (optional) - Last transport sequence number received by the client; omitted if none has been received.
 
 #### `invalidate`
 
 Sent by the controller in reply to a resume for a session that cannot be resumed.
-The client should start a new session with a register\_\* message in response.
+The frame is `{"type":"invalidate"}`, without a `data` object.
+The client should start a new session with `registerHost` or `registerControl` in response.
 
 #### `continue`
 
 Sent by the controller to signal resuming the session was successful.
 
-- `last_seq: integer | null` - Last message seq received by the server.
-- `session_timeout: integer` - Session timeout in seconds.
-- `heartbeat_interval: number` - Rate client should send heartbeats at.
+- `lastSeq: integer` (optional) - Last transport sequence number received by the server; omitted if none has been received.
+- `sessionTimeout: number` - Session timeout in seconds.
+- `heartbeatInterval: number` - Interval between heartbeats in seconds.
 
 #### `ready`
 
 Sent by the controller to signal the connection has been established with a new session.
 
-- `session_token: string` - Token to resume the session with.
-- `session_timeout: integer` - Session timeout in seconds.
-- `heartbeat_interval: number` - Rate client should send heartbeats at.
+- `src: Address` - The client's address, used as the source of messages it sends.
+- `sessionToken: string` - Token to resume the session with.
+- `sessionTimeout: number` - Session timeout in seconds.
+- `heartbeatInterval: number` - Interval between heartbeats in seconds.
+- `account` (optional) - Account details for a control client: a `name` and a `roles` array whose entries contain `name`, `id`, and `permissions`.
 
 
 ### Heartbeat message
@@ -158,64 +168,83 @@ The heartbeat should contain the `seq` of the last received message, and receivi
 
 Sent by both the controller and clients at the interval given in the continue/ready messages.
 
-- `last_seq: integer` - Last message seq received over the link.
+- `seq: integer` (optional, top-level) - Last transport sequence number received over the link.
+
+For example, `{"type":"heartbeat","seq":123}` acknowledges messages through sequence 123.
+Before receiving any messages, send `{"type":"heartbeat"}`; there is no `data.last_seq` field.
 
 ### Events
 
-Events are messages send in one direction over the link, that the receiver is expected to act upon, but not make any replies (for that there's [Requests](#requests).
-By convention message types ending in `*_event` are events.
-The data payload of an event consists solely of event specific properties.
+Events are messages sent in one direction that the receiver acts upon without replying; use [requests](#requests) when a response is needed.
+Their wire `type` is `"event"`, with a separate `name` identifying the registered event class.
+Plugin names are prefixed, for example `foo_frobber:SomeEvent`.
+The `data` payload, when present, contains event-specific properties.
 
-See [packages/lib/src/link/messages.ts](/packages/lib/src/link/messages.ts) for the recognized core events and their contents.
-Plugins may defined their own events as well.
+See [packages/lib/src/data/](/packages/lib/src/data/) for core event definitions.
+Plugins may define their own events as well.
 
-#### `*_event`
+#### `event`
 
-- any properties defined by the event type.
+- `seq: integer` - Transport sequence number.
+- `src: Address` - Source address.
+- `dst: Address` - Destination address, including broadcast destinations.
+- `name: string` - Registered event name.
+- `data` (optional) - Payload defined by the event class.
 
 
 ### Requests
 
-Requests are messages which expects a response in return.
-They function a lot like HTTP requests except that both parties of a connection can inniate a request that is expected to be responded to.
-By convention message types ending in `*_request` are requests, and is expected to be replied to with a corresponding `*_response` message.
-If an error occured while processing the request an error response containing an error property in the data payload is sent instead.
+Requests expect a response in return.
+They function like HTTP requests except that either party of a connection can initiate one.
+The wire `type` is `"request"`; a successful reply uses `"response"`, and a failed request uses `"responseError"`.
+The request's `name` identifies the registered class, prefixed with the plugin name for plugin messages, such as `foo_frobber:Frobnicate`.
 
-See [packages/lib/src/link/messages.ts](/packages/lib/src/link/messages.ts) for the recognized core requests and their contents.
+See [packages/lib/src/data/](/packages/lib/src/data/) for core request definitions.
 Plugins may define their own requests as well.
 
-#### `*_request`
+#### `request`
 
-- any properties defined by the request type.
+- `seq: integer` - Transport sequence number.
+- `src: Address` - Source address, including the request ID.
+- `dst: Address` - Destination address.
+- `name: string` - Registered request name.
+- `data` (optional) - Payload defined by the request class.
 
-#### `*_response` success
+#### `response` success
 
-- `seq: integer` - The seq number of the request message.
-- any additional properties defined by the request type.
+- `seq: integer` - This response's transport sequence number, not the request's sequence number.
+- `src: Address` - Responding endpoint.
+- `dst: Address` - Requester's address, including the original request ID.
+- `data` (optional) - Payload defined by the request class's `Response` definition.
 
-#### `*_response` error
+#### `responseError`
 
-- `seq: integer` - The seq number of the request message.
-- `error: string` - Human readable text message describing the error.
+- `seq: integer` - This error response's transport sequence number.
+- `src: Address` - Responding endpoint.
+- `dst: Address` - Requester's address, including the original request ID.
+- `data.message: string` - Human-readable error description.
+- `data.code: string` (optional) - Error code.
+- `data.stack: string` (optional) - Error stack.
 
 
 ### Graceful Disconnect
 
-To ensure no data is lost when closing the link it's important to send a prepare disconnect request and wait for it to complete before closing the WebSocket.
-Either party of the link can send this request and the party sending the request should be the one that initates the close of the WebSocket.
+To reduce data loss when closing a link, ask the peer to prepare and wait for it to finish before closing the WebSocket.
+Either party can initiate the disconnect and is then responsible for closing the socket.
+These are connector control frames, not registered request/response classes; forced closure and process crashes can still lose work.
 
-#### `prepare_disconnect_request`
+#### `disconnect` with `data: "prepare"`
 
-Request graceful disconnect of the connection.
+The frame `{"type":"disconnect","data":"prepare"}` requests a graceful disconnect.
 The receiving party should stop tasks that send events and requests over the link and wait for pending requests it has over the link to complete, but it should not stop responding to requests sent to it.
 Only after this process is done should the response be sent.
 
-#### `prepare_disconnect_response`
+#### `disconnect` with `data: "ready"`
 
-Signals the preparation for disconnect is complete and that the connection can be closed.
-The party that initiatied the prepare disconnect request may still send other requests/events over the link to finish its part of the disconnection proceedure.
-
-If the error response variant is received it should be logged if possible and treated as a success.
+The frame `{"type":"disconnect","data":"ready"}` signals that preparation is complete and the connection can be closed.
+When using `WebSocketBaseConnector.disconnect()`, the initiator must stop producing new work and await its own `Link.prepareDisconnect()` before calling `disconnect()`.
+The connector closes as soon as the peer sends `ready` or the timeout expires; it does not drain the initiator's pending requests itself.
+There is no error-response variant; the connector also has a timeout so an unresponsive peer cannot block shutdown indefinitely.
 
 
 ### Example handshake
@@ -224,10 +253,10 @@ Server hello after opening the WebSocket.
 
 ```json
 {
-    "seq": null,
     "type": "hello",
     "data": {
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "plugins": {}
     }
 }
 ```
@@ -236,12 +265,12 @@ Host registering a new connection session.
 
 ```json
 {
-    "seq": null,
-    "type": "register_host",
+    "type": "registerHost",
     "data": {
         "token": "xyzabc123",
         "version": "2.0.0",
-        "id": 123
+        "id": 123,
+        "plugins": {}
     }
 }
 ```
@@ -250,12 +279,12 @@ Controller reply signaling the session is established and ready.
 
 ```json
 {
-    "seq": null,
     "type": "ready",
     "data": {
-        "session_token": "xyz.azy.bzy",
-        "session_timeout": 60,
-        "heartbeat_interval": 15
+        "src": [1, 123],
+        "sessionToken": "xyz.azy.bzy",
+        "sessionTimeout": 60,
+        "heartbeatInterval": 15
     }
 }
 ```

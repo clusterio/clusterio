@@ -30,6 +30,33 @@ Remove the old package and install the new one in its place:
 The `inventory_sync.*` config fields and the `inventory_sync.inventory.view` permission are renamed on load.
 The controller moves `inventories.json` in the database directory to `player_sync.json`, and saves keep their player data the next time they are started with the new module.
 
+## Fixing broken inventories
+
+The controller stores one entry per player in `player_sync.json` and keeps a lock on the player while an instance has them online.
+When sync goes wrong for a player, the Player sync page in the web interface lists every stored entry with its generation, size and the instance holding the lock.
+Click an entry to see a summary of its inventories, export it as JSON, import an edited JSON file in its place, delete it, or release the lock.
+
+The same operations are available from clusterioctl:
+
+    npx clusterioctl player-sync list
+    npx clusterioctl player-sync show <player>
+    npx clusterioctl player-sync export <player> [file]
+    npx clusterioctl player-sync import <player> <file>
+    npx clusterioctl player-sync delete <player>
+    npx clusterioctl player-sync release <player>
+
+Importing and deleting both start a new epoch for the player.
+An instance holding a copy from an earlier epoch throws it away the next time the player joins, even if it is newer than what the controller has, and an upload from an earlier epoch is discarded.
+After an import the instance downloads the new data.
+After a delete the next join turns whatever the player has on that instance into the new synced inventory.
+Deleted players stay in `player_sync.json` as an entry with `deleted: true` so their epoch survives a controller restart.
+Hosts running a version of this plugin from before epochs keep comparing generations only, so they can still overwrite an import with a copy they failed to upload.
+Update the plugin on every host to get the full guarantee.
+Both are refused while an instance holds the lock on the player, because the instance uploads its own copy when the player leaves and that would undo the change.
+Have the player leave first, or release the lock if the instance is stuck holding it.
+
+Viewing and exporting need the `player_sync.inventory.view` permission. Importing, deleting and releasing need `player_sync.inventory.modify`, which is not granted by default.
+
 ## Method of operation
 
 This plugin does event based synchronization of inventories.
@@ -53,10 +80,35 @@ The greatly simplified data flow is as follows:
 When the player leaves the inventory is uploaded if it's a synced inventory and the exclusive access the scenario script holds is released.
 Should an error occur during this process the player is given the option to use a temporary inventory instead, which will be merged back into the synced inventory the next time the sync succeeds on that instance.
 
+Instances can leave parts of the player out of the sync with the `player_sync.sync_*` options below.
+A part which is not synced is left as it is when the player joins, and the instance's copy of it is not uploaded, so the stored copy from other instances stays as it was.
+A player online when the options change keeps the old ones until they leave and join again, and a part that was turned on is downloaded when they join.
+Turning off `player_sync.sync_inventories` leaves the items players have on the instance in place while the stored inventory still holds them too.
+Items follow the player to whatever controller they end up with, a character, god or ghost, and what does not fit is put into a corpse below them.
+
 Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the controller goes over websockets.
 Overall, we are able to achieve a latency between 3 and infinite ticks from server join, depending on the size of the inventory. The major limiter is rcon transfer speeds with larger inventories, especially if they contain blueprints.
 
+
+## Sending player data ahead
+
+A plugin that moves a player to another instance with `LuaPlayer.connect_to_server` can tell player sync where the player is going, just before the call:
+
+```lua
+local ps = remote.interfaces.player_sync
+if ps and ps.set_destination then
+	pcall(remote.call, "player_sync", "set_destination", player.name, instance_id) -- a failure never stops the connect
+end
+player.connect_to_server({ address = address, name = name })
+```
+
+`instance_id` is the Clusterio instance id of the destination. The call only records it, and a later call replaces it.
+When the player then leaves with the reason `switching_servers`, the upload carries the destination and the controller sends the stored data on to that instance while the client reconnects.
+On joining, a copy that the acquire reply confirms is applied without a download.
+The destination's `player_sync.sync_*` options apply to the copy as to a download.
+A cancelled dialog, a quit or a crash sends nothing.
+If the destination isn't running, has player sync off or is the player's current instance, the join downloads as before.
 
 ## Controller Configuration
 
@@ -77,3 +129,55 @@ Size in characters of the chunks the serialized inventory is split into when sen
 Smaller chunks take more commands to transfer an inventory but hold up the RCON command pipe for less time each.
 
 Defaults to `1000`.
+
+### player_sync.sync_controller
+
+Sync whether the player is a character, god or spectator, their respawn timer and cheat mode.
+
+Defaults to `true`.
+
+### player_sync.sync_force
+
+Sync the force the player is on.
+
+Defaults to `true`.
+
+### player_sync.sync_appearance
+
+Sync the player color, chat color and tag.
+
+Defaults to `true`.
+
+### player_sync.sync_inventories
+
+Sync the items the player holds, the character bonuses and the crafting queue.
+This covers the character inventories, the god inventory and the items a dead player will respawn with.
+A spectator holds no items, so the synced items are put into a corpse when the player is a spectator on the instance.
+A player without a character gets the ingredients of the crafting queue as items instead.
+With this off and the controller synced, the items the player has on the instance move to the synced controller the same way.
+
+Defaults to `true`.
+
+### player_sync.sync_logistics
+
+Sync the personal logistic requests.
+
+Defaults to `true`.
+
+### player_sync.sync_quick_bar
+
+Sync the quick bar.
+
+Defaults to `true`.
+
+### player_sync.sync_settings
+
+Sync the shortcut toggles, game view settings and flashlight.
+
+Defaults to `true`.
+
+### player_sync.sync_recipe_notifications
+
+Sync which new recipe notifications have been seen.
+
+Defaults to `true`.
