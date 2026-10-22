@@ -239,7 +239,9 @@ function readPollution(state: MapReaderState) {
 		pollution_with_max_forest_damage: readOptional(state, readDouble),
 		pollution_per_tree_damage: readOptional(state, readDouble),
 		pollution_restored_per_tree_damage: readOptional(state, readDouble),
-		max_pollution_to_restore_trees: readOptional(state, readDouble),
+		...state.versionAtLeast(2, 1, 18) ? {} : {
+			max_pollution_to_restore_trees: readOptional(state, readDouble), // removed v2.1.18
+		},
 		enemy_attack_pollution_consumption_modifier: readOptional(state, readDouble),
 	};
 }

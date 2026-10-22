@@ -622,6 +622,14 @@ export const modified_v2_1_13_map_settings = {
 	},
 };
 
+export const modified_v2_1_18_map_settings = {
+	...modified_v2_1_13_map_settings,
+	"pollution": Object.fromEntries(
+		Object.entries(modified_v2_1_13_map_settings.pollution)
+			.filter(([key]) => key !== "max_pollution_to_restore_trees")
+	),
+};
+
 export const modified_space_age_map_gen_settings = {
 	autoplace_controls: {
 		"aquilo_crude_oil": { frequency: 1, size: 1, richness: 1 },

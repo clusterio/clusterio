@@ -1285,8 +1285,11 @@ describe("Integration of Clusterio", function() {
 				const isV2 = version > lib.integerPartialVersion("2.0");
 				const isV2_1 = version > lib.integerPartialVersion("2.1");
 				const isV2_1_13 = version >= lib.integerPartialVersion("2.1.13");
+				const isV2_1_18 = version >= lib.integerPartialVersion("2.1.18");
 				let exchangeString = testStrings.modified;
-				if (isV2_1_13) {
+				if (isV2_1_18) {
+					exchangeString = testStrings.modified_v2_1_18;
+				} else if (isV2_1_13) {
 					exchangeString = testStrings.modified_v2_1_13;
 				} else if (isV2_1) {
 					exchangeString = testStrings.modified_v2_1;
