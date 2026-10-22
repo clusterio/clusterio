@@ -14,4 +14,4 @@ export type PluginWebApi = {
 	 * package.
 	 */
 	npmPackage?: string;
-}
+};

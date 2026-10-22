@@ -11,7 +11,7 @@ type NpmActionProps = {
 	setApplyAction(func: () => Promise<void>): void,
 	form: FormInstance,
 	target: lib.AddressShorthand,
-}
+};
 
 function NpmRemoteUpdate({ setApplyAction, form, target }: NpmActionProps) {
 	const control = useContext(ControlContext);

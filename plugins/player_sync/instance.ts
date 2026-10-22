@@ -10,12 +10,12 @@ import { type Component, enabledComponents, stripPlayerData } from "./components
 
 type IpcPlayerName = {
 	player_name: string
-}
+};
 
 type IpcDownloadRequest = {
 	player_name: string,
 	recipe_notifications?: string,
-}
+};
 
 /** Components as an escaped JSON object for the scenario. */
 function componentsJson(enabled: Set<Component>) {
@@ -30,7 +30,7 @@ type IpcAcquireResponse = {
 	message?: string,
 	epoch?: number,
 	token?: string,
-}
+};
 
 /**
  * Splits string into array of strings with max of a certain length
@@ -64,7 +64,7 @@ export type RecipeNotificationDelta = {
 	remove?: string[],
 	/** add is the whole stored list, sent without the instance's: the save works out what to remove */
 	full?: true,
-}
+};
 
 /**
  * Compute the changes needed to turn the current cleared recipe list into the stored one

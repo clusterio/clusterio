@@ -25,7 +25,7 @@
 	"type": "module",
 	"main": "dist/node/index.js",
 	"scripts": {
-		"prepare": "tsc --build && webpack-cli --mode production",
+		"prepare": "tsc --build && vite build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
@@ -51,7 +51,6 @@
 	},
 	"devDependencies": {
 		"@clusterio/web_ui": "workspace:^",
-		"@swc/core": "catalog:",
 		"@types/busboy": "^1.5.5",
 		"@types/compression": "^1.8.1",
 		"@types/express": "catalog:",
@@ -61,13 +60,12 @@
 		"@types/semver": "catalog:",
 		"@types/ws": "catalog:",
 		"@types/yargs": "catalog:",
+		"antd": "catalog:",
 		"react": "catalog:",
 		"react-dom": "catalog:",
+		"react-router": "catalog:",
 		"react-router-dom": "catalog:",
 		"typescript": "catalog:",
-		"webpack": "catalog:",
-		"webpack-cli": "catalog:",
-		"webpack-dev-middleware": "^8.3.0",
-		"webpack-merge": "catalog:"
+		"vite": "catalog:"
 	}
 }

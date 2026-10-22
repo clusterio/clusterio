@@ -49,7 +49,7 @@ async function removeBuildArtifacts() {
 				tryRemove(path.join(basePath, packageName, "dist"))
 			);
 			tasks.push(
-				tryRemove(path.join(basePath, packageName, "node_modules", ".cache"))
+				tryRemove(path.join(basePath, packageName, "node_modules", ".vite"))
 			);
 		}
 	}

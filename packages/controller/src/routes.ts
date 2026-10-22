@@ -20,9 +20,10 @@ declare global {
 	namespace Express {
 		export interface Locals {
 			controller: Controller,
-			mainBundle: string,
+			webBundle: { main: string, imports: Record<string, string> },
+			viteServer?: import("vite").ViteDevServer,
 			staticRoot: string | null,
-			devPlugins: Map<string, number>,
+			devPlugins?: Map<string, string>,
 			streams: Map<string, ProxyStream>,
 			pendingMetrics?: Promise<string>,
 		}
@@ -124,7 +125,7 @@ async function getMetrics(req: Request, res: Response) {
 
 
 /**
- * Removes the static/ prefix webpack adds to bundle paths so they can be
+ * Removes the static/ prefix from bundle paths in manifest.json so they can be
  * resolved relative to staticRoot.
  */
 export function stripStaticPrefix(bundlePath: string) {
@@ -140,21 +141,17 @@ function getPlugins(req: Request, res: Response) {
 		// Note: Cast through unknown is needed because load_plugin is
 		// defined at runtime and no other fields in the controller config
 		// currently have the boolean type.
-		let web: { main:any, error:string|undefined } = { main: undefined, error: undefined};
+		let web: { main: any, error: string|undefined } = { main: undefined, error: undefined};
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
-			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)!];
-			web.main = stats.toJson().assetsByChunkName[name][0];
+			web.main = devPlugins.get(name);
 		} else if (pluginInfo.manifest) {
-			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
+			web.main = pluginInfo.manifest.main;
 			if (!web.main) {
-				web.error = `Missing ${pluginInfo.name}.js entry in manifest.json`;
+				web.error = "Incompatible dist/web/manifest.json, the plugin must be rebuilt with Vite";
 			}
 		} else if (lib.pluginNeedsWebBuild(pluginInfo)) {
 			web.error = "Missing dist/web/manifest.json";
-		}
-		if (web.main === "remoteEntry.js") {
-			web.error = "Incompatible old remoteEntry.js entrypoint.";
 		}
 		if (web.main) {
 			web.main = stripStaticPrefix(web.main);
@@ -308,7 +305,7 @@ type ProxyStreamEvents = {
 	"close": [],
 	"timeout": [],
 	"source": [],
-}
+};
 
 export interface ProxyStream {
 	id: string;

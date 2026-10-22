@@ -1300,7 +1300,7 @@ describe("Integration of Clusterio", function() {
 				} else if (isV2) {
 					exchangeString = testStrings.modified_v2;
 				}
-				// eslint-disable-next-line max-len
+				// eslint-disable-next-line @stylistic/max-len
 				const args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString.replace(/[\n\r]+/g, "")}"`;
 				await execCtl("instance stop 44");
 

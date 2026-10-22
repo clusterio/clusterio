@@ -157,7 +157,7 @@ npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-he
 	</>;
 }
 
-function CopyButton({ text, message }: { text:string, message:string }) {
+function CopyButton({ text, message }: { text: string, message: string }) {
 	let [clipboardPermision, setClipboardPermission] = useState<PermissionState>("granted");
 	useEffect(() => {
 		(async () => {

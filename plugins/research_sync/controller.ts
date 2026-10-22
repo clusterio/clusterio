@@ -22,7 +22,7 @@ type Technology = {
 	level: number,
 	progress: number | null,
 	researched: boolean,
-}
+};
 
 
 async function loadTechnologies(
