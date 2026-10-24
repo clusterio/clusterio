@@ -234,9 +234,9 @@ async function startHost() {
 
 	let hostConnector = new HostConnector(hostConfig, pluginInfos);
 	host = await Host.fromConfig(
-		hostConnector,
 		hostConfig,
 		pluginInfos,
+		hostConnector,
 		Boolean(args.canRestart),
 		Boolean(args.recovery),
 	);

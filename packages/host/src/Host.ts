@@ -331,9 +331,9 @@ export default class Host extends lib.Link {
 
 	/** Create a host with its mod store loaded from disk */
 	static async fromConfig(
-		connector: HostConnector,
 		hostConfig: lib.HostConfig,
 		pluginInfos: lib.PluginNodeEnvInfo[],
+		connector: HostConnector,
 		canRestart = false,
 		recoveryMode = false,
 	) {

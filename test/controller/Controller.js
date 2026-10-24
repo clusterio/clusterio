@@ -79,7 +79,7 @@ describe("controller/src/Controller", function() {
 					"controller.mods_directory": modsDirectory,
 				});
 
-				const loaded = await Controller.fromConfig({}, [], config, true, false);
+				const loaded = await Controller.fromConfig(config, [], {}, true, false);
 				assert(loaded instanceof Controller);
 				assert.equal(loaded.canRestart, true);
 				assert.equal(loaded.recoveryMode, false);
@@ -122,7 +122,7 @@ describe("controller/src/Controller", function() {
 						"controller.mods_directory": path.join(dir, "mods"),
 					});
 
-					const loaded = await Controller.fromConfig({}, [], config);
+					const loaded = await Controller.fromConfig(config, [], {});
 					await loaded.instances.records.save();
 					const [saved] = JSON.parse(await fs.readFile(instancesPath, "utf8"));
 					assert.equal(saved.config["from_config_plugin.version"], "1.2.0");

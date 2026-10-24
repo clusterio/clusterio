@@ -69,7 +69,7 @@ describe("host/src/Host", function() {
 			});
 			it("should create the mods directory and load the mod store", async function() {
 				const hostConfig = new lib.HostConfig("host", { "host.mods_directory": modsDirectory });
-				const host = await Host.fromConfig(new HostConnector(hostConfig, []), hostConfig, [], true, false);
+				const host = await Host.fromConfig(hostConfig, [], new HostConnector(hostConfig, []), true, false);
 				assert(host instanceof Host);
 				assert.equal(host.canRestart, true);
 				assert.equal(host.recoveryMode, false);

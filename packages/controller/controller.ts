@@ -475,9 +475,9 @@ async function startup() {
 	}
 
 	controller = await Controller.fromConfig(
-		clusterLogger,
-		pluginInfos,
 		controllerConfig,
+		pluginInfos,
+		clusterLogger,
 		Boolean(args.canRestart),
 		Boolean(args.recovery),
 	);

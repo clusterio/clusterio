@@ -150,9 +150,9 @@ export default class Controller {
 
 	/** Create a controller with its datastores and mod store loaded from disk */
 	static async fromConfig(
-		clusterLogger: winston.Logger,
-		pluginInfos: lib.PluginNodeEnvInfo[],
 		config: lib.ControllerConfig,
+		pluginInfos: lib.PluginNodeEnvInfo[],
+		clusterLogger: winston.Logger,
 		canRestart = false,
 		recoveryMode = false,
 	) {
