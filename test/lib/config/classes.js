@@ -652,14 +652,14 @@ describe("lib/config/classes", function() {
 				let testInstance = new TestConfig("local");
 				assert.throws(
 					() => testInstance.get("test.priv", "remote"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+					new lib.InvalidAccessError("Field 'test.priv' is not accessible from remote")
 				);
 			});
 			it("should throw if field is locally inaccessible", function() {
 				let testInstance = new TestConfig("remote");
 				assert.throws(
 					() => testInstance.get("test.priv"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+					new lib.InvalidAccessError("Field 'test.priv' is not accessible from remote")
 				);
 			});
 		});
@@ -677,20 +677,20 @@ describe("lib/config/classes", function() {
 			it("should throw if field does not exist", function() {
 				assert.throws(
 					() => set("test.bar", 1),
-					new lib.InvalidField("No field named 'test.bar'")
+					new lib.InvalidFieldError("No field named 'test.bar'")
 				);
 			});
 			it("should throw if field is remotely inaccessible", function() {
 				assert.throws(
 					() => set("test.priv", "bad", "remote"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+					new lib.InvalidAccessError("Field 'test.priv' is not accessible from remote")
 				);
 			});
 			it("should throw if field is locally inaccessible", function() {
 				replaceConfig(new TestConfig("remote"));
 				assert.throws(
 					() => set("test.priv", "bad", "local"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+					new lib.InvalidAccessError("Field 'test.priv' is not accessible from remote")
 				);
 			});
 			it("should throw if field is not in enum", function() {
@@ -731,7 +731,7 @@ describe("lib/config/classes", function() {
 
 				assert.throws(
 					() => set("test.bool", "blah"),
-					new lib.InvalidValue("Expected type of test.bool to be boolean, not string")
+					new lib.InvalidValueError("Expected type of test.bool to be boolean, not string")
 				);
 			});
 			it("should auto convert string to number if possible", function() {
@@ -749,7 +749,7 @@ describe("lib/config/classes", function() {
 
 				assert.throws(
 					() => set("test.func", "blah"),
-					new lib.InvalidValue("Expected type of test.func to be number, not string")
+					new lib.InvalidValueError("Expected type of test.func to be number, not string")
 				);
 			});
 			it("should auto convert string to object", function() {
@@ -764,7 +764,7 @@ describe("lib/config/classes", function() {
 				}
 				assert.throws(
 					() => set("test.json", "blah"),
-					new lib.InvalidValue(`Error parsing value for test.json: ${errMsg}`)
+					new lib.InvalidValueError(`Error parsing value for test.json: ${errMsg}`)
 				);
 			});
 		}
@@ -815,7 +815,7 @@ describe("lib/config/classes", function() {
 			it("should throw if validator fails", function() {
 				assert.throws(
 					() => testInstance.set("test.validated", -1),
-					new lib.InvalidValue("Failed validation of test.validated: must be positive")
+					new lib.InvalidValueError("Failed validation of test.validated: must be positive")
 				);
 				assert.deepEqual(TestConfig.validatorCalls, [
 					["test.validated", -1], // set test.validated
@@ -835,7 +835,9 @@ describe("lib/config/classes", function() {
 			it("should throw if dependent validation fails", function() {
 				assert.throws(
 					() => testInstance.set("test.base", 5),
-					new lib.InvalidValue("Failed validation of dependent test.dependent: dependent must be >= base")
+					new lib.InvalidValueError(
+						"Failed validation of dependent test.dependent: dependent must be >= base"
+					)
 				);
 				assert.deepEqual(TestConfig.validatorCalls, [
 					["test.dependent", 1], // set test.base
@@ -853,26 +855,26 @@ describe("lib/config/classes", function() {
 			it("should throw if field does not exist", function() {
 				assert.throws(
 					() => setProp("test.bar", 1),
-					new lib.InvalidField("No field named 'test.bar'")
+					new lib.InvalidFieldError("No field named 'test.bar'")
 				);
 			});
 			it("should throw if field is remotely inaccessible", function() {
 				assert.throws(
 					() => setProp("test.priv", "prop", "bad", "remote"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+					new lib.InvalidAccessError("Field 'test.priv' is not accessible from remote")
 				);
 			});
 			it("should throw if field is locally inaccessible", function() {
 				replaceConfig(new TestConfig("remote"));
 				assert.throws(
 					() => setProp("test.priv", "prop", "bad", "local"),
-					new lib.InvalidAccess("Field 'test.priv' is not accessible from remote")
+					new lib.InvalidAccessError("Field 'test.priv' is not accessible from remote")
 				);
 			});
 			it("should throw if field is not an object", function() {
 				assert.throws(
 					() => setProp("test.enum", "prop", "a"),
-					new lib.InvalidField("Cannot set property on non-object field 'test.enum'")
+					new lib.InvalidFieldError("Cannot set property on non-object field 'test.enum'")
 				);
 			});
 			it("should work if field is an object", function() {
@@ -939,7 +941,7 @@ describe("lib/config/classes", function() {
 			it("should throw if object validator fails", function() {
 				assert.throws(
 					() => testInstance.setProp("test.objValidated", "bad", true),
-					new lib.InvalidValue("Failed validation of test.objValidated: bad key")
+					new lib.InvalidValueError("Failed validation of test.objValidated: bad key")
 				);
 				assert.deepEqual(TestConfig.validatorCalls, [
 					["test.objValidated", { bad: true }], // setProp test.objValidated bad
@@ -957,7 +959,7 @@ describe("lib/config/classes", function() {
 				testInstance.set("test.base", 0);
 				assert.throws(
 					() => testInstance.setProp("test.objDependent", "base", 0),
-					new lib.InvalidValue("Failed validation of dependent test.dependent: objDependent cannot be 0")
+					new lib.InvalidValueError("Failed validation of dependent test.dependent: objDependent cannot be 0")
 				);
 				assert.deepEqual(TestConfig.validatorCalls, [
 					["test.dependent", 1], // set test.base
@@ -1065,7 +1067,7 @@ describe("lib/config/classes", function() {
 
 				assert.throws(
 					() => testInstance.commitStaging(),
-					new lib.InvalidValue("Failed validation of test.validated: must be positive")
+					new lib.InvalidValueError("Failed validation of test.validated: must be positive")
 				);
 				assert.deepEqual(TestConfig.validatorCalls, [
 					// commitStaging, all values are checked once

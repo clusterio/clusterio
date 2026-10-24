@@ -43,6 +43,7 @@ Plugin classes also supply a `plugin` name.
 
 `Link.register` registers request and event classes and compiles their payload validators.
 Core classes are registered by the link module; `registerPluginMessages` registers each plugin's `messages` array.
+It also registers the plugin's `errors` array with `Link.registerError`, so an error thrown by a request handler is rejected on the requester as the same class.
 Incoming messages invoke handlers attached with `link.handle(MessageClass, handler)`.
 Plugins attach these handlers from their entrypoint functions rather than relying on method-name conventions.
 

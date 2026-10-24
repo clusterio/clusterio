@@ -211,11 +211,11 @@ describe("class Instance", function() {
 			instance.server.version = "1.1.91";
 			assert.throws(
 				() => instance.checkModPackVersion(modPack("1.1.110")),
-				new lib.RequestError(
+				new lib.ConflictError(
 					"Mod pack pack is for Factorio 1.1.110 which is newer than the Factorio 1.1.91 this instance runs"
 				)
 			);
-			assert.throws(() => instance.checkModPackVersion(modPack("2.0")), lib.RequestError);
+			assert.throws(() => instance.checkModPackVersion(modPack("2.0")), lib.ConflictError);
 		});
 
 		it("should skip the check when the server version is unknown", function() {
@@ -227,7 +227,7 @@ describe("class Instance", function() {
 		it("should reject a start save outside the saves directory", async function() {
 			await assert.rejects(
 				instance.handleInstanceStartRequest(new lib.InstanceStartRequest("../escape.zip")),
-				lib.RequestError,
+				lib.ValidationError,
 			);
 		});
 		it("should reject a created save outside the saves directory", async function() {
@@ -235,7 +235,7 @@ describe("class Instance", function() {
 				instance.handleInstanceCreateSaveRequest(
 					new lib.InstanceCreateSaveRequest("../escape.zip"),
 				),
-				lib.RequestError,
+				lib.ValidationError,
 			);
 		});
 	});

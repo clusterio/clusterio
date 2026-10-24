@@ -3,7 +3,7 @@ import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from 
 import { Address, MessageRequest, IUser, JsonBoolean, StringEnum } from "./data/index.js";
 import isDeepStrictEqual from "#is_deep_strict_equal";
 import type { PermissionName } from "./permissions.js";
-import { RequestError } from "./errors.js";
+import { SessionLost, ValidationError } from "./errors.js";
 import { logger } from "./logging.js";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
@@ -351,7 +351,7 @@ export class SubscriptionController {
 			}
 		}
 		if (count > this._maxFilters) {
-			throw new RequestError(`Subscription exceeds the limit of ${this._maxFilters} filters`);
+			throw new ValidationError(`Subscription exceeds the limit of ${this._maxFilters} filters`);
 		}
 	}
 
@@ -685,7 +685,7 @@ export class EventSubscriber<E, S = null> {
 				this._notify(null);
 			}
 		} catch (err: any) {
-			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
+			if (!(err instanceof SessionLost)) {
 				logger.error(`Unexpected error updating ${entry.name} subscription:\n${err.stack}`);
 			}
 			if (err instanceof Error) {

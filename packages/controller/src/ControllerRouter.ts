@@ -74,7 +74,7 @@ export default class ControllerRouter {
 					return false;
 				}
 				origin.connector.sendResponseError(
-					new lib.ResponseError(msg || "Unroutable destination"), message.src
+					new lib.ResponseError(msg || "Unroutable destination", "UnavailableError"), message.src
 				);
 				return true;
 			}

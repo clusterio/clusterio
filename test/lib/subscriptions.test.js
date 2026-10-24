@@ -794,7 +794,7 @@ describe("lib/subscriptions", function() {
 					const request1 = new lib.SubscriptionRequest(RegisteredEvent.name, "subscribe", 0, "baz");
 					await assert.rejects(
 						ownSubscriptions.handleRequest(link, request1, connectorData.dst, connectorData.src),
-						lib.RequestError,
+						lib.ValidationError,
 					);
 
 					ownSubscriptions.broadcast(new RegisteredEvent(), "baz");
@@ -973,7 +973,7 @@ describe("lib/subscriptions", function() {
 					);
 					await assert.rejects(
 						ownSubscriptions.handleRequest(link, request, connectorData.dst, connectorData.src),
-						lib.RequestError,
+						lib.ValidationError,
 					);
 				});
 			});
@@ -1371,15 +1371,13 @@ describe("lib/subscriptions", function() {
 				assert.notEqual(logged, undefined);
 			});
 
-			it("should not log error when sendTo throws SessionLost RequestError", async function() {
+			it("should not log error when sendTo throws SessionLost", async function() {
 				let logged;
 				const originalError = lib.logger.error;
 				lib.logger.error = msg => { logged = msg; };
 
 				mockControl.sendTo = async function() {
-					const err = new lib.RequestError("Session lost");
-					err.code = "SessionLost";
-					throw err;
+					throw new lib.SessionLost("Session lost");
 				};
 
 				try {
@@ -1421,7 +1419,7 @@ describe("lib/subscriptions", function() {
 				const [,, error1] = eventSubscriber.getSnapshot();
 				assert.ok(error1 instanceof lib.PermissionError);
 				assert.equal(error1.message, "Permission denied");
-				assert.equal(error1.code, "PermissionError");
+				assert.equal(lib.Link.errorName(error1), "PermissionError");
 
 				eventSubscriber.control.sendTo = function() {};
 				unsubscribe();
