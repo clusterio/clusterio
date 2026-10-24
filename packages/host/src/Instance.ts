@@ -10,7 +10,7 @@ const execAsync = util.promisify(exec);
 // internal libraries
 import * as lib from "@clusterio/lib";
 
-import { FactorioServer } from "./server.js";
+import { FactorioServer, checkForUpdates } from "./server.js";
 import { loadModules, patch } from "./patch.js";
 import { exportData } from "./export.js";
 import type Host from "./Host.js";
@@ -31,6 +31,13 @@ const scriptCommands = [
 	"/measured-command", "/mc",
 	"/silent-command", "/sc",
 ];
+
+function instanceLogger(config: lib.InstanceConfig) {
+	return lib.logger.child({
+		instance_id: config.get("instance.id"),
+		instance_name: config.get("instance.name"),
+	});
+}
 
 // Statuses the instance passes through on its way to running or stopped.
 const transitoryStatuses: ReadonlySet<Instance["_status"]> = new Set([
@@ -191,8 +198,8 @@ export default class Instance extends lib.Link {
 		host: Host,
 		connector: lib.VirtualConnector,
 		dir: string,
-		factorioDir: string,
-		instanceConfig: lib.InstanceConfig
+		instanceConfig: lib.InstanceConfig,
+		server: FactorioServer,
 	) {
 		super(connector);
 		this._host = host;
@@ -202,10 +209,7 @@ export default class Instance extends lib.Link {
 
 		this.id = this.config.get("instance.id");
 
-		this.logger = lib.logger.child({
-			instance_id: this.id,
-			instance_name: this.name,
-		});
+		this.logger = instanceLogger(instanceConfig);
 
 		this.hooks = new InstanceHooks(this.logger);
 
@@ -225,28 +229,7 @@ export default class Instance extends lib.Link {
 		};
 		this.config.on("fieldChanged", this._configFieldChanged);
 
-		let serverOptions = {
-			logger: this.logger,
-			// TODO: factorio.version is not validated
-			version: this.config.get("factorio.version") as lib.TargetVersion,
-			executablePath: this.config.get("factorio.executable_path") ?? undefined,
-			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
-			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
-			rconPassword: this.config.get("factorio.rcon_password") ?? undefined,
-			enableLuaUdp: this.config.get("factorio.enable_lua_udp"),
-			luaUdpPort: this.config.get("factorio.lua_udp_port") ?? undefined,
-			enableWhitelist: this.config.get("factorio.enable_whitelist"),
-			enableAuthserverBans: this.config.get("factorio.enable_authserver_bans"),
-			verboseLogging: this.config.get("factorio.verbose_logging"),
-			consoleLogging: this.config.get("factorio.console_logging"),
-			stripPaths: this.config.get("factorio.strip_paths"),
-			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
-			shutdownTimeoutMs: this.config.get("factorio.shutdown_timeout") * 1000,
-		};
-
-		this.server = new FactorioServer(
-			factorioDir, this._dir, serverOptions
-		);
+		this.server = server;
 
 		this.server.on("output", (parsed, line) => {
 			this.logger.log("server", { message: line, instance_id: this.id, parsed });
@@ -670,20 +653,22 @@ end`.replace(/\r?\n/g, " ");
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
-	async _loadStats() {
+	static async _readStats(statsPath: string) {
 		let instanceStats;
 		try {
-			instanceStats = JSON.parse(await fs.readFile(this.path("instance-stats.json"), "utf8"));
+			instanceStats = JSON.parse(await fs.readFile(statsPath, "utf8"));
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				return;
+				return { playerStats: new Map<string, lib.PlayerStats>(), playerAutosaveSlot: 1 };
 			}
 			throw err;
 		}
-		this.playerStats = new Map(instanceStats["players"].map(
-			([id, stats]: [number, Static<typeof lib.PlayerStats.jsonSchema>]) => [id, new lib.PlayerStats(stats)])
-		);
-		this._playerAutosaveSlot = instanceStats["player_autosave_slot"] || 1;
+		return {
+			playerStats: new Map<string, lib.PlayerStats>(instanceStats["players"].map(
+				([id, stats]: [string, Static<typeof lib.PlayerStats.jsonSchema>]) => [id, new lib.PlayerStats(stats)]
+			)),
+			playerAutosaveSlot: (instanceStats["player_autosave_slot"] as number) || 1,
+		};
 	}
 
 	async _saveStats() {
@@ -694,21 +679,35 @@ end`.replace(/\r?\n/g, " ");
 		await lib.safeOutputFile(this.path("instance-stats.json"), content);
 	}
 
-	async init(pluginInfos: lib.PluginNodeEnvInfo[]) {
-		// After changing the status this function is responsible for calling notifyExit if it throws.
-		this.notifyStatus("starting");
+	/**
+	 * Create an instance with a Factorio server, downloading Factorio if needed
+	 *
+	 * The host reports the starting status for the instance while this runs.
+	 */
+	static async fromConfig(
+		config: lib.InstanceConfig,
+		host: Host,
+		connector: lib.VirtualConnector,
+		dir: string,
+		factorioDir: string,
+	) {
+		const id = config.get("instance.id");
+		// TODO: factorio.version is not validated
+		const targetVersion = config.get("factorio.version") as lib.TargetVersion;
+		const gamePort = config.get("factorio.game_port") ?? await host.assignFreeGamePort(id);
+		host.send(new lib.InstanceStatusChangedEvent(id, "starting", gamePort, targetVersion));
+
+		let server: FactorioServer;
+		let stats: Awaited<ReturnType<typeof Instance._readStats>>;
 		try {
-			if (this.config.get("factorio.game_port") === null) {
-				this.server.gamePort = await this._host.assignFreeGamePort(this.id);
-			}
-			const factorioVersions = await this.sendTo("controller", new lib.FactorioVersionsRequest());
-			await this._loadStats();
+			const factorioVersions = await host.sendTo("controller", new lib.FactorioVersionsRequest());
+			stats = await Instance._readStats(path.join(dir, "instance-stats.json"));
 			// Resolve a release channel target (e.g. "stable") to a concrete
 			// version using the controller's cached latest-releases data, so the
 			// existing download/lookup logic can fetch and run it.
-			const targetVersion = this.config.get("factorio.version") as string;
+			let version = targetVersion;
 			if (lib.isReleaseChannel(targetVersion)) {
-				const releases = await this.sendTo("controller", new lib.LatestReleasesRequest());
+				const releases = await host.sendTo("controller", new lib.LatestReleasesRequest());
 				const resolved = lib.resolveReleaseChannel(releases, targetVersion);
 				if (!resolved) {
 					throw new Error(
@@ -716,16 +715,46 @@ end`.replace(/\r?\n/g, " ");
 						"latest-releases unavailable and no cached copy on the controller."
 					);
 				}
-				this.server.setTargetVersion(resolved);
+				version = resolved;
 			}
-			await this.server.checkForUpdates(factorioVersions);
-			await this.server.init();
+			const logger = instanceLogger(config);
+			await checkForUpdates(factorioDir, version, factorioVersions, logger);
+			server = await FactorioServer.fromOptions(factorioDir, dir, {
+				logger,
+				version,
+				executablePath: config.get("factorio.executable_path") ?? undefined,
+				gamePort,
+				rconPort: config.get("factorio.rcon_port") ?? undefined,
+				rconPassword: config.get("factorio.rcon_password") ?? undefined,
+				enableLuaUdp: config.get("factorio.enable_lua_udp"),
+				luaUdpPort: config.get("factorio.lua_udp_port") ?? undefined,
+				enableWhitelist: config.get("factorio.enable_whitelist"),
+				enableAuthserverBans: config.get("factorio.enable_authserver_bans"),
+				verboseLogging: config.get("factorio.verbose_logging"),
+				consoleLogging: config.get("factorio.console_logging"),
+				stripPaths: config.get("factorio.strip_paths"),
+				maxConcurrentCommands: config.get("factorio.max_concurrent_commands"),
+				shutdownTimeoutMs: config.get("factorio.shutdown_timeout") * 1000,
+			});
 		} catch (err) {
-			this.notifyExit();
-			await this.sendSaveListUpdate();
+			host.send(new lib.InstanceStatusChangedEvent(id, "stopped", gamePort, targetVersion));
+			await host.sendSaveListUpdate(id, path.join(dir, "saves"));
 			throw err;
 		}
 
+		const instance = new this(host, connector, dir, config, server);
+		instance._status = "starting";
+		instance.playerStats = stats.playerStats;
+		instance._playerAutosaveSlot = stats.playerAutosaveSlot;
+		return instance;
+	}
+
+	/**
+	 * Load the instance plugins and report the instance as initialised
+	 *
+	 * Must be called once the instance is connected to the host.
+	 */
+	async loadPlugins(pluginInfos: lib.PluginNodeEnvInfo[]) {
 		// load plugins
 		const plugins: Record<string, string> = {};
 		for (let pluginInfo of pluginInfos) {

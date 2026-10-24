@@ -12,8 +12,7 @@ describe("Integration of lib/factorio/export", function() {
 		requiresFactorio(this);
 		it("returns a nested Map with base game locale information", async function() {
 			let writePath = path.join("temp", "test", "server");
-			let testServer = new FactorioServer(factorioDir, writePath, {});
-			await testServer.init();
+			let testServer = await FactorioServer.fromOptions(factorioDir, writePath, {});
 
 			let locale = await _exportLocale(testServer, new Map(), new Map(), ["base"], "en");
 
