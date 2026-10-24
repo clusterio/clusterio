@@ -223,7 +223,10 @@ describe("host/server", function() {
 
 	describe("class FactorioServer", function() {
 		let writePath = path.join("temp", "test", "server");
-		let server = new hostServer.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
+		let server;
+		before(async function() {
+			server = await hostServer.FactorioServer.fromOptions(path.join("test", "file", "factorio"), writePath, {});
+		});
 
 		describe("constructor()", function() {
 			it("should handle dashes in write path with strapPaths enabled", function() {
@@ -231,28 +234,37 @@ describe("host/server", function() {
 				new hostServer.FactorioServer(
 					path.join("test", "file", "factorio"),
 					path.join("temp", "test", "server-1"),
-					{ stripPaths: true }
+					path.join("test", "file", "factorio", "0.1.2", "data"),
+					"0.1.2",
+					{ stripPaths: true, rconPassword: "" }
 				);
 			});
 		});
 
-		describe(".setTargetVersion()", function() {
-			it("should override the target version before init", function() {
-				const fresh = new hostServer.FactorioServer(
-					path.join("test", "file", "factorio"), writePath, {}
+		describe(".fromOptions()", function() {
+			it("should resolve the requested version", async function() {
+				const found = await hostServer.FactorioServer.fromOptions(
+					path.join("test", "file", "factorio"), writePath, { version: "0.1.1" }
 				);
-				fresh.setTargetVersion("0.1.5");
-				assert.equal(fresh._targetVersion, "0.1.5");
+				assert.equal(found.version, "0.1.1");
+				assert.equal(found.dataPath(), path.join("test", "file", "factorio", "0.1.1", "data"));
+				assert.equal(found._state, "init");
 			});
-		});
-
-		describe(".init()", function() {
-			it("should not throw on first call", async function() {
-				await server.init();
+			it("should generate an RCON password if none is given", async function() {
+				assert.equal(typeof server.rconPassword, "string");
+				assert.equal(server.rconPassword.length, 10);
+				const given = await hostServer.FactorioServer.fromOptions(
+					path.join("test", "file", "factorio"), writePath, { rconPassword: "secret" }
+				);
+				assert.equal(given.rconPassword, "secret");
 			});
-
-			it("should throw if called twice", async function() {
-				await assert.rejects(server.init(), new Error("Expected state new but state is init"));
+			it("should reject if the version is not installed", async function() {
+				await assert.rejects(
+					hostServer.FactorioServer.fromOptions(
+						path.join("test", "file", "factorio"), writePath, { version: "0.1.5" }
+					),
+					/Unable to find Factorio version 0.1.5/
+				);
 			});
 		});
 
@@ -314,7 +326,7 @@ describe("host/server", function() {
 		describe(".handle()", function() {
 			it("should log validation errors from ipc handlers", async function() {
 				let logged = [];
-				let ipcServer = new hostServer.FactorioServer(
+				let ipcServer = await hostServer.FactorioServer.fromOptions(
 					path.join("test", "file", "factorio"), writePath,
 					{ logger: { error: msg => { logged.push(msg); } } }
 				);
@@ -571,7 +583,7 @@ describe("host/server", function() {
 			});
 		});
 
-		describe(".checkForUpdates()", function() {
+		describe("checkForUpdates()", function() {
 			let _fetch;
 			let fetchCalledWith;
 			let _platform = process.platform;
@@ -589,7 +601,6 @@ describe("host/server", function() {
 			});
 			afterEach(function() {
 				global.fetch = _fetch;
-				server._factorioDir = path.join("test", "file", "factorio");
 				Object.defineProperty(process, "platform", {
 					value: _platform,
 				});
@@ -602,18 +613,17 @@ describe("host/server", function() {
 			]) {
 				/* eslint-disable no-loop-func */
 				describe(suite, function() {
+					const factorioDir = path.join("test", "file", "factorio");
+					// A target that matches the 0.1.5 download but not the installed 0.1.1
+					const newerTarget = target === "0.1.1" ? "0.1.5" : target;
 					it("should do nothing when there are no versions", async function() {
-						server._factorioDir = path.join("test", "file", "factorio");
-						server._targetVersion = target;
-						await server.checkForUpdates([]);
+						await hostServer.checkForUpdates(factorioDir, target, []);
 
 						assert.equal(fetchCalledWith, null);
 					});
 					if (target !== "latest") {
 						it("should do nothing when no version matches", async function() {
-							server._factorioDir = path.join("test", "file", "factorio");
-							server._targetVersion = target;
-							await server.checkForUpdates([{
+							await hostServer.checkForUpdates(factorioDir, target, [{
 								stable: true,
 								version: "0.2.1",
 								headlessUrl: "test1",
@@ -627,9 +637,7 @@ describe("host/server", function() {
 						});
 					}
 					it("should do nothing when there is no newer version", async function() {
-						server._factorioDir = path.join("test", "file", "factorio");
-						server._targetVersion = target;
-						await server.checkForUpdates([{
+						await hostServer.checkForUpdates(factorioDir, target, [{
 							stable: true,
 							version: "0.1.1",
 							headlessUrl: "test1",
@@ -642,9 +650,7 @@ describe("host/server", function() {
 						assert.equal(fetchCalledWith, null);
 					});
 					it("should do nothing for direct installs", async function() {
-						server._factorioDir = path.join("test", "file", "factorio", "0.1.1");
-						server._targetVersion = target === "0.1.1" ? "0.1.5" : target;
-						await server.checkForUpdates([{
+						await hostServer.checkForUpdates(path.join(factorioDir, "0.1.1"), newerTarget, [{
 							stable: true,
 							version: "0.1.5",
 							headlessUrl: "test1",
@@ -662,12 +668,10 @@ describe("host/server", function() {
 					});
 					it("should do nothing when on windows", async function() {
 						let logLine = null;
-						server._logger = { info: line => { logLine = line; } };
+						const logger = { info: line => { logLine = line; } };
 						Object.defineProperty(process, "platform", { value: "win32" });
 
-						server._factorioDir = path.join("test", "file", "factorio");
-						server._targetVersion = target === "0.1.1" ? "0.1.5" : target;
-						await server.checkForUpdates([{
+						await hostServer.checkForUpdates(factorioDir, newerTarget, [{
 							stable: true,
 							version: "0.1.5",
 							headlessUrl: "test1",
@@ -679,7 +683,7 @@ describe("host/server", function() {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test3",
-						}]);
+						}], logger);
 
 						assert.equal(fetchCalledWith, null);
 						assert.ok(logLine !== null);
@@ -687,12 +691,10 @@ describe("host/server", function() {
 					});
 					it("should do attempt to download on linux", async function() {
 						let logLine = null;
-						server._logger = { info: line => { logLine = line; } };
+						const logger = { info: line => { logLine = line; } };
 						Object.defineProperty(process, "platform", { value: "linux" });
 
-						server._factorioDir = path.join("test", "file", "factorio");
-						server._targetVersion = target === "0.1.1" ? "0.1.5" : target;
-						await assert.rejects(server.checkForUpdates([{
+						await assert.rejects(hostServer.checkForUpdates(factorioDir, newerTarget, [{
 							stable: true,
 							version: "0.1.5",
 							headlessUrl: "test1",
@@ -704,7 +706,7 @@ describe("host/server", function() {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test3",
-						}]), new Error("Failed to fetch test1: -1 Fetch called"));
+						}], logger), new Error("Failed to fetch test1: -1 Fetch called"));
 
 						assert.equal(fetchCalledWith, "test1");
 						assert.ok(logLine !== null);
@@ -716,7 +718,7 @@ describe("host/server", function() {
 			describe("concurrent downloads", function() {
 				const versions = [{ stable: true, version: "0.1.5", headlessUrl: "test1" }];
 
-				// Holds the mocked download open until release() and resolves waiting once a server waits for it
+				// Holds the mocked download open until release() and resolves waiting once a check waits for it
 				function holdDownload(factorioDir) {
 					const held = { fetches: 0 };
 					const release = new Promise(resolve => { held.release = resolve; });
@@ -731,7 +733,7 @@ describe("host/server", function() {
 					let waited;
 					held.waiting = new Promise(resolve => { waited = resolve; });
 					const logger = { info: line => line.endsWith("waiting for download...") && waited() };
-					held.servers = [0, 1].map(() => new hostServer.FactorioServer(factorioDir, writePath, { logger }));
+					held.check = () => hostServer.checkForUpdates(factorioDir, "latest", versions, logger);
 					Object.defineProperty(process, "platform", { value: "linux" });
 					return held;
 				}
@@ -739,7 +741,7 @@ describe("host/server", function() {
 				it("should download once when servers check at the same time", async function() {
 					const held = holdDownload(path.join("test", "file", "factorio"));
 					let settled = 0;
-					const checks = held.servers.map(s => s.checkForUpdates(versions).finally(() => { settled += 1; }));
+					const checks = [0, 1].map(() => held.check().finally(() => { settled += 1; }));
 
 					await held.waiting;
 					assert.equal(held.fetches, 1);
@@ -754,14 +756,14 @@ describe("host/server", function() {
 					await fs.rm(factorioDir, { force: true, recursive: true });
 					await fs.mkdir(factorioDir, { recursive: true });
 					const held = holdDownload(factorioDir);
-					const first = held.servers[0].checkForUpdates(versions);
+					const first = held.check();
 					await held.fetching;
 
 					// The extraction has written the changelog but has not finished
 					const dataDir = path.join(factorioDir, "0.1.5", "data");
 					await fs.mkdir(dataDir, { recursive: true });
 					await fs.writeFile(path.join(dataDir, "changelog.txt"), "Version: 0.1.5\n");
-					const second = held.servers[1].checkForUpdates(versions);
+					const second = held.check();
 
 					await held.waiting;
 					held.release();
@@ -776,12 +778,11 @@ describe("host/server", function() {
 					this.skip();
 				}
 
-				server._factorioDir = path.join("temp", "test", "factorioDownload");
-				server._targetVersion = "latest";
+				const factorioDir = path.join("temp", "test", "factorioDownload");
 				global.fetch = _fetch;
-				await fs.rm(server._factorioDir, { force: true, recursive: true, maxRetries: 10 });
-				await fs.mkdir(server._factorioDir, { recursive: true });
-				await server.checkForUpdates([{
+				await fs.rm(factorioDir, { force: true, recursive: true, maxRetries: 10 });
+				await fs.mkdir(factorioDir, { recursive: true });
+				await hostServer.checkForUpdates(factorioDir, "latest", [{
 					stable: true,
 					version: "2.0.73",
 					headlessUrl: "https://www.factorio.com/get-download/2.0.73/headless/linux64",

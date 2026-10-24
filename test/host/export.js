@@ -9,8 +9,7 @@ describe("host/src/export", function() {
 	let testServer;
 	before(async function() {
 		let writePath = path.join("temp", "test", "server");
-		testServer = new FactorioServer(path.join("test", "file", "factorio"), writePath, {});
-		await testServer.init();
+		testServer = await FactorioServer.fromOptions(path.join("test", "file", "factorio"), writePath, {});
 	});
 
 	describe("exportLocale()", function() {

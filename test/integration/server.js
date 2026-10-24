@@ -40,12 +40,14 @@ describe("Integration of host/src/server", function() {
 
 	describe("class FactorioServer", function() {
 		let writePath = path.join("temp", "test", "integration");
-		let server = new FactorioServer(factorioDir, writePath, {});
-		// Let Factorio bind an OS-assigned UDP port instead of guessing a free one.
-		server.gamePort = 0;
+		let server;
 		let logFile;
 
 		before(async function() {
+			server = await FactorioServer.fromOptions(factorioDir, writePath, {});
+			// Let Factorio bind an OS-assigned UDP port instead of guessing a free one.
+			server.gamePort = 0;
+
 			// Delete result from previous run of these tests
 			await fs.rm(writePath, { force: true, recursive: true, maxRetries: 10 });
 
@@ -63,9 +65,6 @@ describe("Integration of host/src/server", function() {
 				}
 				logFile.write(`${JSON.stringify(output)}\n`);
 			});
-
-			// Initialize sever.
-			await server.init();
 		});
 
 		after(function() {

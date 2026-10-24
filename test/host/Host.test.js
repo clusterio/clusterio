@@ -77,6 +77,29 @@ describe("host/src/Host", function() {
 				await fs.access(modsDirectory);
 			});
 		});
+		describe("._connectInstance()", function() {
+			const originalFromConfig = Instance.fromConfig;
+			afterEach(function() {
+				Instance.fromConfig = originalFromConfig;
+			});
+			it("should reject a second start while the instance is starting", async function() {
+				const hostConfig = new lib.HostConfig("host");
+				const host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				const instanceConfig = new lib.InstanceConfig("host", { "instance.id": 7 });
+				host.assignedInstances.set(7, { path: "dir", config: instanceConfig });
+				let fail;
+				Instance.fromConfig = () => new Promise((resolve, reject) => { fail = reject; });
+
+				const first = host._connectInstance(7);
+				await assert.rejects(host._connectInstance(7), /Instance with ID 7 is running/);
+				assert.equal(host._unconnectedStatus(7), "starting");
+
+				fail(new Error("start failed"));
+				await assert.rejects(first, /start failed/);
+				assert.equal(host._unconnectedStatus(7), "stopped");
+				assert.equal(host.instanceConnections.has(7), false);
+			});
+		});
 		describe(".handleSyncUserListsEvent()", function() {
 			const hostAddress = lib.Address.fromShorthand({ hostId: 1 });
 			const instanceAddress = lib.Address.fromShorthand({ instanceId: 1 });

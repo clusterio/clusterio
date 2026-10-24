@@ -186,6 +186,73 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 const downloadsInProgress = new Map<string, Promise<void>>();
 
 /**
+ * Download the newest Factorio version matching the target if not installed
+ *
+ * Call before {@link FactorioServer.fromOptions} for it to find the new version.
+ *
+ * @param factorioDir - Path to Factorio installation dirs.
+ * @param targetVersion - Version to look for, or "latest".
+ * @param availableVersions - Versions available for download.
+ * @param logger - Logger to report the download on.
+ */
+export async function checkForUpdates(
+	factorioDir: string,
+	targetVersion: lib.TargetVersion,
+	availableVersions: lib.ExternalFactorioVersion[],
+	logger: lib.Logger = lib.logger,
+) {
+
+	const latestVersion = availableVersions
+		.filter(v => (
+			targetVersion === "latest" || v.version === targetVersion || v.version.startsWith(targetVersion)
+		))
+		.sort((v1, v2) => versionOrder(v1.version, v2.version))
+		[0];
+
+	if (!latestVersion) {
+		return;
+	}
+
+	// A version that is still being extracted can already look installed
+	const dst = path.join(factorioDir, latestVersion.version);
+	const installedVersions = await listFactorioVersions(factorioDir);
+	if (!installedVersions.versions.has(latestVersion.version) || downloadsInProgress.has(dst)) {
+		const v = latestVersion.version;
+		// Can't download if not linux or this is a direct install
+		if (installedVersions.direct) {
+			logger.info(
+				`A newer version of factorio is available (${v}) but cannot be downloaded automatically ` +
+				`because ${factorioDir} is a direct (single-version) Factorio install. Use a versioned ` +
+				`layout, where ${factorioDir} contains a subdirectory per version, to enable automatic ` +
+				"downloads."
+			);
+			return;
+		}
+		if (process.platform !== "linux") {
+			logger.info(
+				`A newer version of factorio is available (${v}) but must be manually downloaded ` +
+				"(automatic downloads are only supported on Linux)."
+			);
+			return;
+		}
+
+		// Download the newer version, or wait for another server already downloading it
+		let download = downloadsInProgress.get(dst);
+		if (download) {
+			logger.info(`A newer version of factorio is available (${v}), waiting for download...`);
+		} else {
+			logger.info(`A newer version of factorio is available (${v}), starting download...`);
+			download = downloadAndExtractTar(latestVersion.headlessUrl, dst).finally(() => {
+				downloadsInProgress.delete(dst);
+			});
+			downloadsInProgress.set(dst, download);
+		}
+		await download;
+		logger.info(`Downloaded factorio version ${v}`);
+	}
+}
+
+/**
  * Find factorio data directory of the given version
  *
  * Searches the given factorio dir for an installation of Factorio of
@@ -670,9 +737,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	_factorioDir: string;
 	_writeDir: string;
 
-	// Resolved in init
-	_version: lib.FullVersion | null = null;
-	_dataDir: string | null = null;
+	_version: lib.FullVersion;
+	_dataDir: string;
 
 	// Due to inconsistencies in the factorio api, we must manually watch the whitelist
 	// https://forums.factorio.com/viewtopic.php?t=123673
@@ -680,8 +746,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	_whitelist = new Set<string>();
 
 	_logger: lib.Logger;
-	_targetVersion: lib.TargetVersion;
-	_state: "new" | "init" | "create" | "running" | "stopping" = "new";
+	_state: "init" | "create" | "running" | "stopping" = "init";
 	_server: child_process.ChildProcessWithoutNullStreams | null = null;
 	_rconClient: Rcon | null= null;
 	_rconReady = false;
@@ -697,27 +762,36 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 
 	/**
-	 * Create a Factorio server interface
+	 * Create a Factorio server interface for the version found by {@link fromOptions}
 	 *
 	 * @param factorioDir - Directory of the Factorio install(s).
 	 * @param writeDir - Directory to write runtime data to.
-	 * @param options - Optional parameters.
+	 * @param dataDir - Data directory of the Factorio version to run.
+	 * @param version - Factorio version to run.
+	 * @param options - Optional parameters, `version` is ignored.
 	 */
-	constructor(factorioDir: string, writeDir: string, options: FactorioServerOptions) {
+	constructor(
+		factorioDir: string,
+		writeDir: string,
+		dataDir: string,
+		version: lib.FullVersion,
+		options: FactorioServerOptions & { rconPassword: string },
+	) {
 		super();
 
 		this._factorioDir = factorioDir;
 		this._writeDir = writeDir;
+		this._dataDir = dataDir;
+		this._version = version;
 
 		this._logger = options.logger || lib.logger;
-		this._targetVersion = options.version || "latest";
 		this.executablePath = options.executablePath;
 		/** UDP port used for hosting the Factorio game server on */
 		this.gamePort = options.gamePort || randomDynamicPort();
 		/** TCP port used for RCON on the Factorio game server */
 		this.rconPort = options.rconPort || randomDynamicPort();
 		/** Password used for RCON on the Factorio game server */
-		this.rconPassword = options.rconPassword as string; // init will generate one if not there
+		this.rconPassword = options.rconPassword;
 		/** Enable UDP messaging with the Factorio game server */
 		this.enableLuaUdp = options.enableLuaUdp || false;
 		/** UDP port the Factorio game server receives Lua UDP messages on */
@@ -886,7 +960,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 	// Factorio before 2.1.10 crashes when a packet is received on a headless server
 	_checkLuaUdpVersion() {
-		if (this.enableLuaUdp && lib.integerFullVersion(this._version!) < lib.integerFullVersion("2.1.10")) {
+		if (this.enableLuaUdp && lib.integerFullVersion(this._version) < lib.integerFullVersion("2.1.10")) {
 			throw new Error("Lua UDP requires Factorio 2.1.10 or later");
 		}
 	}
@@ -1075,94 +1149,25 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	/**
-	 * Override the target version of Factorio to run
+	 * Create a Factorio server interface for an installed version
 	 *
-	 * Used to substitute a concrete version for a release channel target
-	 * (e.g. "stable" or "experimental") before {@link checkForUpdates} and
-	 * {@link init} run. Must be called before the server is initialized.
-	 */
-	setTargetVersion(version: lib.TargetVersion) {
-		this._check(["new"]);
-		this._targetVersion = version;
-	}
-
-	/**
-	 * Initialize class instance
-	 *
-	 * Must be called before instances of this class can be used.
+	 * @param factorioDir - Directory of the Factorio install(s).
+	 * @param writeDir - Directory to write runtime data to.
+	 * @param options - Optional parameters.
 	 * @throws {Error} if the requested version of Factorio was not found.
 	 */
-	async init() {
-		this._check(["new"]);
-		[this._dataDir, this._version] = await findVersion(this._factorioDir, this._targetVersion);
-		this.rconPassword = this.rconPassword as string | undefined ?? await generatePassword(10);
-		this._state = "init";
-	}
-
-	/**
-	 * Check of updated versions to download
-	 *
-	 * Should be called before init for the new version to be detected during init
-	 */
-	async checkForUpdates(availableVersions: lib.ExternalFactorioVersion[]) {
-		const targetVersion = this._targetVersion;
-		const latestVersion = availableVersions
-			.filter(v => (
-				targetVersion === "latest" || v.version === targetVersion || v.version.startsWith(targetVersion)
-			))
-			.sort((v1, v2) => versionOrder(v1.version, v2.version))
-			[0];
-
-		if (!latestVersion) {
-			return;
-		}
-
-		// A version that is still being extracted can already look installed
-		const dst = path.join(this._factorioDir, latestVersion.version);
-		const installedVersions = await listFactorioVersions(this._factorioDir);
-		if (!installedVersions.versions.has(latestVersion.version) || downloadsInProgress.has(dst)) {
-			const v = latestVersion.version;
-			// Can't download if not linux or this is a direct install
-			if (installedVersions.direct) {
-				this._logger.info(
-					`A newer version of factorio is available (${v}) but cannot be downloaded automatically ` +
-					`because ${this._factorioDir} is a direct (single-version) Factorio install. Use a versioned ` +
-					`layout, where ${this._factorioDir} contains a subdirectory per version, to enable automatic ` +
-					"downloads."
-				);
-				return;
-			}
-			if (process.platform !== "linux") {
-				this._logger.info(
-					`A newer version of factorio is available (${v}) but must be manually downloaded ` +
-					"(automatic downloads are only supported on Linux)."
-				);
-				return;
-			}
-
-			// Download the newer version, or wait for another server already downloading it
-			let download = downloadsInProgress.get(dst);
-			if (download) {
-				this._logger.info(`A newer version of factorio is available (${v}), waiting for download...`);
-			} else {
-				this._logger.info(`A newer version of factorio is available (${v}), starting download...`);
-				download = downloadAndExtractTar(latestVersion.headlessUrl, dst).finally(() => {
-					downloadsInProgress.delete(dst);
-				});
-				downloadsInProgress.set(dst, download);
-			}
-			await download;
-			this._logger.info(`Downloaded factorio version ${v}`);
-		}
+	static async fromOptions(factorioDir: string, writeDir: string, options: FactorioServerOptions) {
+		const [dataDir, version] = await findVersion(factorioDir, options.version || "latest");
+		const rconPassword = options.rconPassword ?? await generatePassword(10);
+		return new this(factorioDir, writeDir, dataDir, version, { ...options, rconPassword });
 	}
 
 	/**
 	 * The version of Factorio in use. This will be the actual version if
-	 * "latest" (the default) was specified as `factorioVersion` to the constructor.
-	 * This will be undefined before the server is initialized, or if init failed.
+	 * "latest" (the default) was passed to {@link fromOptions}.
 	 */
-	get version(): lib.FullVersion | undefined {
-		return this._version ?? undefined;
+	get version(): lib.FullVersion {
+		return this._version;
 	}
 
 	/**
@@ -1681,14 +1686,13 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 * Return path in data directory
 	 *
 	 * Creates a path using path.join with the given parts that's relative to
-	 * the data directory of the Factorio server.  Not valid before init has
-	 * been called.
+	 * the data directory of the Factorio server.
 	 *
 	 * @param parts - Extra parts to add to the data path.
 	 * @returns Data directory path.
 	 */
 	dataPath(...parts: string[]) {
-		return path.join(this._dataDir!, ...parts);
+		return path.join(this._dataDir, ...parts);
 	}
 
 	/**

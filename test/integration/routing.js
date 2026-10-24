@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
 import { Host, Instance, InstanceConnection } from "@clusterio/host";
 import { ControlConnection, Controller, HostConnection, InstanceRecord } from "@clusterio/controller";
+import { MockServer } from "../mock.js";
 
 // Although there are no imports, the file has side-effects such as "before" which can effect tests
 import "./index.js";
@@ -39,7 +40,7 @@ function connectInstance(controller, host, instanceId) {
 	instanceConfig.set("instance.assigned_host", host.config.get("host.id"));
 	host.assignedInstances.set(instanceId, { path: "invalid", config: instanceConfig });
 	controller.instances.records.set(new InstanceRecord(instanceConfig, "stopped"));
-	const instance = new Instance(host, instanceSide, "invalid", "invalid", instanceConfig);
+	const instance = new Instance(host, instanceSide, "invalid", instanceConfig, new MockServer());
 	const instanceConnection = new InstanceConnection(hostSide, host, instance);
 	host.instanceConnections.set(instanceId, instanceConnection);
 	return instance;
