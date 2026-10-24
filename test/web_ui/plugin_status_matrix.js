@@ -173,7 +173,7 @@ function actual(machines, name) {
 	const operation = plan.operations.find(candidate => candidate.target.name === name);
 	if (operation) {
 		op = operation.kind;
-	} else if (plan.skipped.some(skip => skip.text.startsWith(`${name} `))) {
+	} else if (plan.skipped.some(skip => skip.target.name === name)) {
 		op = "skip";
 	}
 	return { running: entry.running, afterRestart: entry.afterRestart, op };

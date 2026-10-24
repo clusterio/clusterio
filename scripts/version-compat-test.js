@@ -141,31 +141,68 @@ function stableStringify(value) {
 // Link messages whose serialization changed since the published release after checking that both
 // versions can still talk to each other.  Each entry holds the reviewed local spec of the changed
 // fields, so any further change fails again.  Remove entries once they are part of a release.
+const pluginDetailsSpec = {
+	type: "object",
+	properties: {
+		name: { type: "string" },
+		title: { type: "string" },
+		version: { type: "string" },
+		loaded: { type: "boolean" },
+		enabled: { type: "boolean" },
+		description: { type: "string" },
+		npmPackage: { type: "string" },
+		installedVersion: { type: "string" },
+		pendingInstall: { type: "boolean" },
+		removed: { type: "boolean" },
+		dependencyName: { type: "string" },
+		noEntrypoint: { type: "boolean" },
+		nameTaken: { type: "boolean" },
+	},
+	required: ["name", "title", "version", "loaded", "enabled"],
+};
+const systemInfoSpec = {
+	type: "object",
+	required: [
+		"id", "hostname", "node", "kernel", "machine", "cpuModel", "coreRatios", "memoryCapacity", "memoryAvailable",
+		"diskCapacity", "diskAvailable", "canRestart", "restartRequired", "systemStartedAtMs", "processStartedAtMs",
+		"updatedAtMs", "isDeleted",
+	],
+	properties: {
+		id: { anyOf: [{ type: "number" }, { const: "controller", type: "string" }] },
+		hostname: { type: "string" },
+		node: { type: "string" },
+		kernel: { type: "string" },
+		machine: { type: "string" },
+		cpuModel: { type: "string" },
+		coreRatios: { type: "array", items: { type: "number" } },
+		memoryCapacity: { type: "number" },
+		memoryAvailable: { type: "number" },
+		diskCapacity: { type: "number" },
+		diskAvailable: { type: "number" },
+		canRestart: { type: "boolean" },
+		restartRequired: { type: "boolean" },
+		systemStartedAtMs: { type: "number" },
+		processStartedAtMs: { type: "number" },
+		updatedAtMs: { type: "number" },
+		isDeleted: { type: "boolean" },
+		plugins: { type: "array", items: pluginDetailsSpec },
+	},
+};
 const acceptedChanges = {
 	// Optional installedVersion, pendingInstall, removed, dependencyName, noEntrypoint and nameTaken added
 	// to plugin details, which older versions ignore
 	"request PluginListRequest": {
-		response: {
-			type: "array",
-			items: {
-				type: "object",
-				properties: {
-					name: { type: "string" },
-					title: { type: "string" },
-					version: { type: "string" },
-					loaded: { type: "boolean" },
-					enabled: { type: "boolean" },
-					description: { type: "string" },
-					npmPackage: { type: "string" },
-					installedVersion: { type: "string" },
-					pendingInstall: { type: "boolean" },
-					removed: { type: "boolean" },
-					dependencyName: { type: "string" },
-					noEntrypoint: { type: "boolean" },
-					nameTaken: { type: "boolean" },
-				},
-				required: ["name", "title", "version", "loaded", "enabled"],
-			},
+		response: { type: "array", items: pluginDetailsSpec },
+	},
+	// Optional plugins added to system info, which older versions ignore
+	"request SystemInfoRequest": {
+		response: systemInfoSpec,
+	},
+	"event SystemInfoUpdateEvent": {
+		data: {
+			type: "object",
+			required: ["updates"],
+			properties: { updates: { type: "array", items: systemInfoSpec } },
 		},
 	},
 };

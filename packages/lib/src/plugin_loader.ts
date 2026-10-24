@@ -13,7 +13,10 @@ import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin.js";
 import { Config } from "./config/classes.js";
 import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
 import Role from "./data/Role.js";
-import { findNonRegistryDirs } from "./load_plugin_list.js";
+import { PluginDetails } from "./data/messages_plugin.js";
+import {
+	discoverNpmPluginPackages, findNonRegistryDirs, installedDependencies, readPackageJson, realDir, resolvePackagePath,
+} from "./load_plugin_list.js";
 
 
 /**
@@ -25,9 +28,11 @@ import { findNonRegistryDirs } from "./load_plugin_list.js";
  *
  * @param pluginList -
  *     Mapping of plugin name to require path for the plugins to load.
+ * @param skippedNpmPlugins -
+ *     Directory of the npm package skipped by plugin name, from loadPluginList.
  * @returns Array of plugin info modules.
  */
-export async function loadPluginInfos(pluginList: Map<string, string>) {
+export async function loadPluginInfos(pluginList: Map<string, string>, skippedNpmPlugins?: Map<string, string>) {
 	let plugins: libPlugin.PluginNodeEnvInfo[] = [];
 	const nonRegistryDirs = await findNonRegistryDirs();
 	for (let [pluginName, pluginPath] of pluginList) {
@@ -91,8 +96,97 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		pluginInfo.version = pluginPackage.version;
 		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name
 			&& !nonRegistryDirs.has(await fs.realpath(path.dirname(packagePath))) ? pluginPath : undefined;
+		pluginInfo.skippedNpmPackage = skippedNpmPlugins?.get(pluginName);
 		plugins.push(pluginInfo);
 	}
+	return plugins;
+}
+
+/**
+ * Lists the plugins on this machine along with the versions currently installed on disk,
+ * including npm plugins installed since startup that will only be loaded after a restart.
+ *
+ * @param pluginInfos - Plugins discovered when this machine started
+ * @param isLoaded - Whether the plugin is loaded
+ * @param isEnabled - Whether the plugin is enabled
+ * @param hasEntrypoint - Whether the plugin has an entrypoint this machine loads
+ * @returns Details of every plugin on this machine
+ */
+export async function listPluginDetails(
+	pluginInfos: libPlugin.PluginNodeEnvInfo[],
+	isLoaded: (pluginInfo: libPlugin.PluginNodeEnvInfo) => boolean,
+	isEnabled: (pluginInfo: libPlugin.PluginNodeEnvInfo) => boolean,
+	hasEntrypoint: (pluginInfo: libPlugin.PluginNodeEnvInfo) => boolean = () => true,
+): Promise<PluginDetails[]> {
+	const plugins: PluginDetails[] = [];
+	const dependencies = installedDependencies(await readPackageJson(path.resolve("package.json")));
+	// By directory, as a plugin loaded from a path may also be an npm dependency
+	const knownDirs = new Set<string>();
+	// Packages skipped on startup by directory, for plugins still installed
+	const takenDirs = new Set<string>();
+	const { plugins: npmPlugins, nonRegistryDirs } = await discoverNpmPluginPackages(dependencies, true);
+	for (const pluginInfo of pluginInfos) {
+		const dir = await realDir(path.dirname(pluginInfo.packagePath));
+		knownDirs.add(dir);
+		// Without an entrypoint for this machine the plugin has no load_plugin field here
+		const loadable = hasEntrypoint(pluginInfo);
+		const plugin = PluginDetails.fromNodeEnvInfo(
+			pluginInfo, isLoaded(pluginInfo), loadable && isEnabled(pluginInfo),
+		);
+		if (!loadable) {
+			plugin.noEntrypoint = true;
+		}
+		if (Object.hasOwn(dependencies, pluginInfo.requirePath)) {
+			plugin.dependencyName = pluginInfo.requirePath;
+		}
+		if (nonRegistryDirs.has(dir)) {
+			plugin.npmPackage = undefined;
+		}
+		try {
+			const packageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
+			plugin.installedVersion = packageJson.version;
+			if (packageJson.name !== plugin.npmPackage) {
+				// Replaced by an alias since startup
+				plugin.npmPackage = undefined;
+			}
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				// Uninstalled since startup, it won't be found on the next restart
+				plugin.removed = true;
+			}
+		}
+		if (!plugin.removed && pluginInfo.skippedNpmPackage !== undefined) {
+			takenDirs.add(pluginInfo.skippedNpmPackage);
+		}
+		plugins.push(plugin);
+	}
+
+	for (const { packageName, packagePath, packageJson } of npmPlugins) {
+		const dir = await realDir(packagePath);
+		if (knownDirs.has(dir)) {
+			continue;
+		}
+		// Startup loads it by package name from the root, which doesn't reach nested packages
+		const rootPath = resolvePackagePath(packageName, process.cwd(), true);
+		if (!rootPath || await realDir(rootPath) !== dir) {
+			continue;
+		}
+		if (typeof packageJson.version !== "string") {
+			continue;
+		}
+		// Same rule as loadPluginInfos, aliases, private and non-registry packages can't be installed by this name
+		const npmPackage = !packageJson.private && packageJson.name === packageName && !nonRegistryDirs.has(dir)
+			? packageName : undefined;
+		const dependencyName = Object.hasOwn(dependencies, packageName) ? packageName : undefined;
+		const plugin = PluginDetails.fromPackageJson(packageName, packageJson, npmPackage, dependencyName);
+		if (takenDirs.has(dir)) {
+			// Skipped on startup as its plugin name is taken, will be again
+			plugin.pendingInstall = undefined;
+			plugin.nameTaken = true;
+		}
+		plugins.push(plugin);
+	}
+
 	return plugins;
 }
 

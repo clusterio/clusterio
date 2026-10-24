@@ -35,6 +35,7 @@ export * from "./src/subscriptions.js";
 export * from "./src/datastore.js";
 export * from "./src/load_plugin_list.js";
 export * from "./src/rce_ops.js";
+export * from "./src/npm_registry.js";
 export * from "./src/LockFile.js";
 export * from "./src/AsyncHook.js";
 export * from "./src/SyncHook.js";

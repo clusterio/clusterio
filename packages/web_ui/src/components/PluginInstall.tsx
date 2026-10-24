@@ -105,7 +105,7 @@ function useRemoteAccess(): RemoteAccess {
  * Installs and updates plugins and reports the outcome. Owned by the plugins page so the busy
  * state is shared between the browser and update actions and survives browsing.
  */
-export function usePluginInstaller(onDone?: () => void): PluginInstaller {
+export function usePluginInstaller(onDone?: (addresses: lib.AddressShorthand[]) => void): PluginInstaller {
 	const control = useContext(ControlContext);
 	const access = useRemoteAccess();
 	const [busy, setBusy] = useState<"installing" | "restarting">();
@@ -142,7 +142,7 @@ export function usePluginInstaller(onDone?: () => void): PluginInstaller {
 				);
 			}
 		} finally {
-			onDone?.();
+			onDone?.(operations.map(operation => operation.target.address));
 		}
 	}
 

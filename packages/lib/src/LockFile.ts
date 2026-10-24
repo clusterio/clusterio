@@ -30,12 +30,17 @@ type LockState = "idle" | "acquiring" | "acquired" | "releasing";
  * Cross-platform lock file utility for Node.js.
  */
 export class LockFile {
-	private handle: FileHandle | null = null;
-	private state: LockState = "idle";
+	protected handle: FileHandle | null = null;
+	protected state: LockState = "idle";
 
 	constructor(
-		private readonly filePath: string
+		protected readonly filePath: string
 	) {}
+
+	/** Content written to the lock file */
+	protected get content() {
+		return `${process.pid}\n`;
+	}
 
 	/**
 	 * Acquire the lock file.
@@ -49,13 +54,10 @@ export class LockFile {
 
 		this.state = "acquiring";
 
-		if (await this.isStale()) {
-			await unlink(this.filePath).catch(() => {}); // ignore errors, may already be removed
-		}
-
 		try {
+			await this.removeStale();
 			this.handle = await open(this.filePath, "wx");
-			await this.handle.write(`${process.pid}\n`);
+			await this.handle.write(this.content);
 			this.attachExitHandlers();
 			this.state = "acquired";
 		} catch (err: any) {
@@ -81,7 +83,7 @@ export class LockFile {
 
 		// Ignored: file may have already been removed by another process
 		try { await this.handle?.close(); } catch {}
-		try { await unlink(this.filePath); } catch {}
+		await this.removeFile();
 
 		this.handle = null;
 		this.state = "idle";
@@ -98,8 +100,7 @@ export class LockFile {
 		}
 
 		try {
-			const pidInLock = Number(await readFile(this.filePath, "utf8"));
-			return pidInLock === process.pid;
+			return await readFile(this.filePath, "utf8") === this.content;
 		} catch {
     		// Ignored: file may not exist or be unreadable, so lock is not held
 			return false;
@@ -122,9 +123,26 @@ export class LockFile {
 	}
 
 	/**
+	 * Remove the lock file if it is stale, called before acquiring
+	 */
+	protected async removeStale(): Promise<void> {
+		if (await this.isStale()) {
+			await unlink(this.filePath).catch(() => {}); // ignore errors, may already be removed
+		}
+	}
+
+	/**
+	 * Remove the lock file, called when releasing
+	 */
+	protected async removeFile(): Promise<void> {
+		// Ignored: file may have already been removed by another process
+		try { await unlink(this.filePath); } catch {}
+	}
+
+	/**
 	 * Attach process handlers, called when transitioning to "acquired"
 	 */
-	private attachExitHandlers(): void {
+	protected attachExitHandlers(): void {
 		assert(this.state === "acquiring");
 		process.on("SIGINT", this.handleExit);
 		process.on("SIGTERM", this.handleExit);
@@ -137,7 +155,7 @@ export class LockFile {
 	/**
 	 * Detach process handlers, called when transitioning to "idle"
 	 */
-	private async detachExitHandlers(): Promise<void> {
+	protected detachExitHandlers(): void {
 		assert(this.state === "releasing");
 		process.off("SIGINT", this.handleExit);
 		process.off("SIGTERM", this.handleExit);
@@ -148,12 +166,12 @@ export class LockFile {
 	}
 
   	// Event handler for async signals / exceptions
-	private handleExit = async (): Promise<void> => {
+	protected handleExit = async (): Promise<void> => {
 		await this.release();
 	};
 
   	// Event handler for synchronous process exit
-	private handleExitSync = (): void => {
+	protected handleExitSync = (): void => {
 		try {
 			unlinkSync(this.filePath);
 		} catch (err) {

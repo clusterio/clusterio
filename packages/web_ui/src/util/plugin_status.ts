@@ -3,11 +3,17 @@ import semver from "semver";
 import type * as lib from "@clusterio/lib";
 
 import type { UserAccount } from "../BaseWebPlugin";
-import type { PackageOperation, RemoteAccess } from "../components/PluginInstall";
+import type { InstallTarget, PackageOperation, RemoteAccess } from "../components/PluginInstall";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-export type Machine = { name: string, isController: boolean, address: lib.AddressShorthand };
+export type Machine = {
+	name: string,
+	isController: boolean,
+	address: lib.AddressShorthand,
+	/** A host that isn't connected, its plugins are the ones it had when last seen */
+	offline?: boolean,
+};
 export type MachinePlugins = Machine & { plugins: lib.PluginDetails[] };
 
 /** A plugin on one machine, with the version it runs now and the version it will run after a restart */
@@ -31,8 +37,8 @@ export type PluginStatus = {
 	/** Not present for plugins that aren't published to npm */
 	npmPackage?: string,
 	machines: MachinePlugin[],
-	/** Connected machines whose plugin list couldn't be fetched */
-	unreachable: Machine[],
+	/** Machines that haven't reported their plugins, such as hosts on an older version */
+	unknown: Machine[],
 };
 
 /** Plugins are matched across machines by npm package, falling back to the plugin name */
@@ -90,7 +96,7 @@ function machinePlugin(machine: MachinePlugins, key: string, names: Set<string>)
 
 /** Group the plugin lists of every machine by plugin */
 export function computePluginStatuses(
-	machines: MachinePlugins[], unreachable: Machine[] = [],
+	machines: MachinePlugins[], unknown: Machine[] = [],
 ): Map<string, PluginStatus> {
 	const titles = new Map<string, string>();
 	// Plugin names known from startup, pending installs are listed by package name
@@ -109,7 +115,7 @@ export function computePluginStatuses(
 
 	const statuses = new Map<string, PluginStatus>();
 	for (const [key, title] of titles) {
-		const status: PluginStatus = { key, title, machines: [], unreachable };
+		const status: PluginStatus = { key, title, machines: [], unknown };
 		for (const machine of machines) {
 			const entry = machinePlugin(machine, key, pluginNames.get(key) ?? new Set());
 			status.npmPackage ??= entry.plugin?.npmPackage;
@@ -120,9 +126,10 @@ export function computePluginStatuses(
 	return statuses;
 }
 
+export type SkippedOperation = { kind: PackageOperation["kind"], target: InstallTarget, reason: string };
 export type UpdatePlan = {
 	operations: PackageOperation[],
-	skipped: { kind: PackageOperation["kind"], text: string }[],
+	skipped: SkippedOperation[],
 };
 
 /**
@@ -147,38 +154,80 @@ export function planUpdate(
 		if (installed && compareVersions(plugin.installedVersion ?? plugin.version, version) >= 0) {
 			continue;
 		}
-		if (machine.nameTaken) {
-			plan.skipped.push({ kind: "install", text: `${machine.name} (another package provides this plugin)` });
+		const kind = !installed || plugin.pendingInstall ? "install" : "update";
+		const skip = (reason: string, skipKind: PackageOperation["kind"] = kind) => {
+			plan.skipped.push({ kind: skipKind, target, reason });
+		};
+		if (machine.offline) {
+			skip("offline");
+		} else if (machine.nameTaken) {
+			skip("another package provides this plugin", "install");
 		} else if (machine.dependencyTaken) {
-			const text = `${machine.name} (another package is installed as ${status.npmPackage})`;
-			plan.skipped.push({ kind: "install", text });
+			skip(`another package is installed as ${status.npmPackage}`, "install");
 		} else if (installed && !plugin.npmPackage) {
 			// An alias, private or local package, installing the group's npm package would replace it
-			const kind = plugin.pendingInstall ? "install" : "update";
-			plan.skipped.push({ kind, text: `${machine.name} (not installed from npm)` });
+			skip("not installed from npm");
 		} else if (machine.oldHost) {
-			const kind = !installed || plugin.pendingInstall ? "install" : "update";
-			plan.skipped.push({ kind, text: `${machine.name} (host too old to install a specific version)` });
-		} else if (!installed || plugin.pendingInstall) {
+			skip("host too old to install a specific version");
+		} else if (kind === "install") {
 			if (!account.hasPermission("core.plugin.install")) {
-				plan.skipped.push({ kind: "install", text: `${machine.name} (no install permission)` });
+				skip("no install permission");
 			} else if (access.canInstall(machine.address)) {
-				plan.operations.push({ kind: "install", target, packageSpec });
+				plan.operations.push({ kind, target, packageSpec });
 			} else {
-				plan.skipped.push({ kind: "install", text: `${machine.name} (remote installs disabled)` });
+				skip("remote installs disabled");
 			}
 		} else if (!account.hasPermission("core.plugin.update")) {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (no update permission)` });
+			skip("no update permission");
 		} else if (access.canUpdate(machine.address)) {
-			plan.operations.push({ kind: "update", target, packageSpec });
+			plan.operations.push({ kind, target, packageSpec });
 		} else {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (remote updates disabled)` });
+			skip("remote updates disabled");
 		}
 	}
 	if (plan.operations.length || plan.skipped.length) {
-		for (const machine of status.unreachable) {
-			plan.skipped.push({ kind: "update", text: `${machine.name} (couldn't list plugins)` });
+		for (const machine of status.unknown) {
+			const target = { name: machine.name, address: machine.address };
+			plan.skipped.push({ kind: "update", target, reason: "plugins not reported" });
 		}
 	}
 	return plan;
+}
+
+/** Plan for the given machine only */
+export function planMachineUpdate(
+	status: PluginStatus,
+	machine: MachinePlugin,
+	version: string,
+	access: RemoteAccess,
+	account: Pick<UserAccount, "hasPermission">,
+): UpdatePlan {
+	return planUpdate({ ...status, machines: [machine], unknown: [] }, version, access, account);
+}
+
+/** Short descriptions of the state of a plugin on a machine, beyond the versions it runs */
+export function machineStatusLabels(machine: MachinePlugin) {
+	const labels: string[] = [];
+	if (machine.offline) {
+		labels.push("Offline");
+	}
+	if (machine.nameTaken) {
+		labels.push("Another package provides this plugin");
+	} else if (!machine.plugin || machine.plugin.removed) {
+		labels.push(machine.dependencyTaken ? "Another package is installed by this name" : "Not installed");
+	} else {
+		if (!machine.plugin.npmPackage) {
+			labels.push("Not installed from npm");
+		}
+		if (machine.noEntrypoint) {
+			labels.push("No entrypoint for this machine");
+		}
+		if (machine.disabled) {
+			labels.push("Disabled");
+		}
+	}
+	if (machine.running !== machine.afterRestart) {
+		labels.push("Restart pending");
+	}
+	return labels;
 }

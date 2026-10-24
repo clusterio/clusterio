@@ -82,6 +82,11 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	 * package.
 	 */
 	npmPackage?: string;
+	/**
+	 * Directory of an npm package providing a plugin with the same name
+	 * that was skipped on startup as this plugin was already in the list.
+	 */
+	skippedNpmPackage?: string;
 };
 
 export type PluginWebpackEnvInfo = PluginDeclaration & {

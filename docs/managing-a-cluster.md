@@ -313,25 +313,6 @@ If the `--restart` flag is provided, the remote will automatically restart once 
 Searches the npm registry for packages tagged with the clusterio-plugin keyword.
 The search is done by the controller and does not require remote installs to be enabled.
 The web UI has a plugin browser on the plugins page that uses the same search.
-Plugins that are not installed anywhere yet can be installed on a chosen set of machines, which defaults to every connected machine that allows remote installs.
-Plugins that are already installed show their status and update action from the plugins page instead.
-
-### Web Interface
-
-The plugins page in the web UI lists the plugins installed on the controller and every connected host, including npm plugins installed since the machine last started.
-The Versions column shows each version of a plugin running on the connected machines and the version each machine will run after its next restart, along with how many machines have a restart pending, have the plugin disabled, or do not have it installed.
-Hovering over a version or count lists the machines it applies to.
-
-When a newer version of a plugin installed from npm is published, the plugin gets an "Update to <version>" action.
-It updates the plugin to that version on every connected machine using `<name>@<version>` and installs it on connected machines where it is missing.
-If the plugin is only missing on some machines, the action is shown as "Install on missing" instead.
-Machines with remote updates or installs disabled, and machines where the plugin was not installed from npm, are skipped and listed in the confirmation.
-The "Update all" action in the page header does the same for every plugin with a newer version.
-These actions need the `core.plugin.update` or `core.plugin.install` permission, and looking up the latest versions needs `core.plugin.list`.
-The controller looks up the latest versions on npm and caches them for a few minutes.
-
-The "Restart pending" action in the page header restarts every connected machine with a pending restart, hosts first and the controller last.
-Machines can only be restarted when running under a process monitor, and the confirmation lists running instances that will be stopped.
 
 ### Concurrent Operations
 

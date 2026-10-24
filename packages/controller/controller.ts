@@ -272,7 +272,6 @@ interface InitializeParameters {
 	shouldRun: boolean;
 	clusterLogger: winston.Logger;
 	pluginInfos: lib.PluginNodeEnvInfo[] | null;
-	skippedNpmPlugins: Map<string, string>;
 	controllerConfig: lib.ControllerConfig | null;
 }
 
@@ -412,13 +411,12 @@ async function initialize(): Promise<InitializeParameters> {
 			shouldRun,
 			clusterLogger,
 			pluginInfos: null,
-			skippedNpmPlugins,
 			controllerConfig: null,
 		};
 	}
 
 	logger.info("Loading Plugin info");
-	const pluginInfos = await lib.loadPluginInfos(pluginList);
+	const pluginInfos = await lib.loadPluginInfos(pluginList, skippedNpmPlugins);
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
@@ -456,7 +454,6 @@ async function initialize(): Promise<InitializeParameters> {
 		args,
 		clusterLogger,
 		pluginInfos,
-		skippedNpmPlugins,
 		controllerConfig,
 		shouldRun,
 	};
@@ -472,7 +469,6 @@ async function startup() {
 		shouldRun,
 		clusterLogger,
 		pluginInfos,
-		skippedNpmPlugins,
 		controllerConfig,
 	} = await initialize();
 	if (!shouldRun || !pluginInfos || !controllerConfig) {
@@ -487,7 +483,6 @@ async function startup() {
 		Boolean(args.recovery),
 		...await Controller.bootstrap(controllerConfig)
 	);
-	controller.skippedNpmPlugins = skippedNpmPlugins;
 
 	// Refuse to start if there are no users loaded
 	if (args.checkUserCount && controller.users.records.size === 0) {

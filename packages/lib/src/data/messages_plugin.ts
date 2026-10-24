@@ -58,6 +58,15 @@ export class PluginDetails {
 			pluginInfo.description, pluginInfo.npmPackage,
 		);
 	}
+
+	/** Plugin package installed since startup, it is loaded on the next restart */
+	static fromPackageJson(packageName: string, packageJson: any, npmPackage?: string, dependencyName?: string) {
+		const description = typeof packageJson.description === "string" ? packageJson.description : undefined;
+		return new this(
+			packageName, packageName, packageJson.version, false, false,
+			description, npmPackage, packageJson.version, true, undefined, dependencyName,
+		);
+	}
 }
 
 export class PluginListRequest {

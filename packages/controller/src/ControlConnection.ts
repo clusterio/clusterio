@@ -1385,12 +1385,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
-		return await lib.listPluginDetails(
-			this._controller.pluginInfos,
-			pluginInfo => this._controller.loadedPlugins.has(pluginInfo),
-			pluginInfo => this._controller.config.get(`${pluginInfo.name}.load_plugin`),
-			this._controller.skippedNpmPlugins,
-		);
+		return await this._controller.listPlugins();
 	}
 
 	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {

@@ -35,5 +35,14 @@ describe("web_ui/util/poll", function() {
 			await sleep(20);
 			assert.equal(count, 1);
 		});
+
+		it("should not run again when stopped while a run is in progress", async function() {
+			let count = 0;
+			const stop = poll(async () => { count += 1; await sleep(10); }, 1);
+			await sleep(2);
+			stop();
+			await sleep(30);
+			assert.equal(count, 1);
+		});
 	});
 });

@@ -174,7 +174,7 @@ async function startHost() {
 	}
 
 	logger.info("Loading Plugin info");
-	let pluginInfos = await lib.loadPluginInfos(pluginList);
+	let pluginInfos = await lib.loadPluginInfos(pluginList, skippedNpmPlugins);
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
@@ -242,7 +242,6 @@ async function startHost() {
 		Boolean(args.recovery),
 		...await Host.bootstrap(hostConfig)
 	);
-	host.skippedNpmPlugins = skippedNpmPlugins;
 
 	// Handle interrupts
 	process.on("SIGINT", lib.createShutdownGuard(logger, "interrupt", host.shutdown.bind(host)));

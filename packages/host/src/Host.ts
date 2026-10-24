@@ -324,8 +324,6 @@ export default class Host extends lib.Link {
 	_shuttingDown = false;
 
 	startedAtMs = Date.now();
-	/** Npm plugin packages skipped on startup, see loadPluginList */
-	skippedNpmPlugins = new Map<string, string>();
 
 	static instanceConfigWarning = {
 		"_warning": "Changes to this file will be overwritten by the controller's copy.",
@@ -909,7 +907,9 @@ export default class Host extends lib.Link {
 
 	async handleSystemInfoRequest() {
 		const restartRequired = await this.checkRestartRequired();
-		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, restartRequired, this.startedAtMs);
+		return lib.gatherSystemInfo(
+			this.config.get("host.id"), this.canRestart, restartRequired, this.startedAtMs, await this.listPlugins(),
+		);
 	}
 
 	async checkRestartRequired() {
@@ -1228,11 +1228,15 @@ export default class Host extends lib.Link {
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
+		return await this.listPlugins();
+	}
+
+	/** Plugins on this host, including those installed or updated since it started */
+	async listPlugins() {
 		return await lib.listPluginDetails(
 			this.pluginInfos,
 			pluginInfo => this.loadedPlugins.has(pluginInfo),
 			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
-			this.skippedNpmPlugins,
 			pluginInfo => Boolean(pluginInfo.hostEntrypoint || pluginInfo.instanceEntrypoint),
 		);
 	}

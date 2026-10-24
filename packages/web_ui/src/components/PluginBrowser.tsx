@@ -20,7 +20,7 @@ type BrowserProps = { statuses?: Map<string, PluginStatus>, installer: PluginIns
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 // Installs on the chosen machines, defaulting to every connected machine that allows installs.
-function InstallControls(props: { plugin: lib.PluginSearchResult, installer: PluginInstaller }) {
+function InstallControls(props: { packageSpec: string, installer: PluginInstaller }) {
 	const account = useAccount();
 	const [hosts] = useHosts();
 	// Tracks what was deselected so machines connecting later, or allowing installs, start selected
@@ -59,7 +59,7 @@ function InstallControls(props: { plugin: lib.PluginSearchResult, installer: Plu
 				type="primary"
 				loading={installing}
 				disabled={!account.hasPermission("core.plugin.install") || !selected.length || restarting}
-				onClick={() => { props.installer.install(props.plugin.name, selected); }}
+				onClick={() => { props.installer.install(props.packageSpec, selected); }}
 			>Install</Button>
 		</Space>
 		{blocked.length > 0 && <RemoteInstallDisabledNotice
@@ -105,7 +105,7 @@ function PluginDetails(props: { plugin: lib.PluginSearchResult } & BrowserProps)
 			</Descriptions.Item>}
 		</Descriptions>
 		{/* Installed plugins are brought in line by the update action above instead */}
-		{statusesKnown && !status && <InstallControls plugin={plugin} installer={props.installer} />}
+		{statusesKnown && !status && <InstallControls packageSpec={plugin.name} installer={props.installer} />}
 	</>;
 }
 
@@ -119,6 +119,8 @@ export function PluginBrowserButton(props: BrowserProps) {
 	const [total, setTotal] = useState(0);
 	const [results, setResults] = useState<lib.PluginSearchResult[]>([]);
 	const [selected, setSelected] = useState<lib.PluginSearchResult | undefined>();
+	// Package entered by name, for plugins the search doesn't find
+	const [manual, setManual] = useState<string>();
 
 	useEffect(() => {
 		if (!open) {
@@ -154,13 +156,23 @@ export function PluginBrowserButton(props: BrowserProps) {
 				style={{ marginBottom: 16 }}
 				onSearch={value => { setQuery(value); setPage(1); }}
 			/>
+			<Input.Search
+				placeholder="Or install a package by name, as name or name@version"
+				allowClear
+				enterButton="Select"
+				style={{ marginBottom: 16 }}
+				onSearch={value => { setManual(value.trim() || undefined); setSelected(undefined); }}
+			/>
 			<Table
 				size="small"
 				loading={loading}
 				dataSource={results}
 				rowKey="name"
 				rowClassName={plugin => (plugin.name === selected?.name ? "ant-table-row-selected" : "")}
-				onRow={plugin => ({ onClick: () => { setSelected(plugin); }, style: { cursor: "pointer" } })}
+				onRow={plugin => ({
+					onClick: () => { setSelected(plugin); setManual(undefined); },
+					style: { cursor: "pointer" },
+				})}
 				pagination={{
 					current: page,
 					pageSize,
@@ -193,10 +205,14 @@ export function PluginBrowserButton(props: BrowserProps) {
 					},
 				]}
 			/>
-			{selected
-				? <PluginDetails plugin={selected} statuses={props.statuses} installer={props.installer} />
-				: <Text type="secondary">Select a plugin to see details and install it.</Text>
-			}
+			{selected && <PluginDetails plugin={selected} statuses={props.statuses} installer={props.installer} />}
+			{manual && <>
+				<Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
+					<Descriptions.Item label="Package">{manual}</Descriptions.Item>
+				</Descriptions>
+				<InstallControls packageSpec={manual} installer={props.installer} />
+			</>}
+			{!selected && !manual && <Text type="secondary">Select a plugin to see details and install it.</Text>}
 		</Modal>
 	</>;
 }

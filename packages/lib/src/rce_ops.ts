@@ -1,13 +1,13 @@
 import util from "util";
 import path from "path";
 import fs from "fs/promises";
-import { unlinkSync } from "fs";
 import { exec } from "child_process";
 import { logger } from "./logging.js";
 import { RequestError } from "./errors.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
-import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
 import { isNonRegistryPackage } from "./load_plugin_list.js";
+import { LockFile, LockFileExistsError } from "./LockFile.js";
+import { checkRegistry, parsePackageSpec } from "./npm_registry.js";
 const execAsync = util.promisify(exec);
 
 function isDev() {
@@ -98,39 +98,49 @@ async function removeStaleLock(lockPath: string, stale: LockSnapshot) {
 }
 
 /**
- * Take the lock file guarding npm operations in a directory, rejects if another process holds it.
- * Locks left behind by processes that are no longer running are cleared.
+ * Lock file guarding npm operations in an installation. The content tells this process apart from
+ * an earlier one with the same pid, and stale locks are cleared under a recovery lock.
  */
-async function acquireNpmLock(lockPath: string) {
-	let existing;
-	for (let attempt = 0; attempt < 2; attempt++) {
-		try {
-			await fs.writeFile(lockPath, lockContent, { flag: "wx" });
-			return;
-		} catch (err: any) {
-			if (err.code !== "EEXIST") {
-				throw err;
-			}
-		}
-		existing = await readLock(lockPath);
-		if (existing) {
-			if (await lockIsLive(existing)) {
-				break;
-			}
-			await removeStaleLock(lockPath, existing);
+class NpmOperationLock extends LockFile {
+	protected get content() {
+		return lockContent;
+	}
+
+	async isStale() {
+		const lock = await readLock(this.filePath);
+		return lock === undefined || !await lockIsLive(lock);
+	}
+
+	/** Pid of the process holding the lock, if it has written it */
+	async holder() {
+		return (await readLock(this.filePath))?.content.split(" ")[0].trim() || undefined;
+	}
+
+	protected async removeStale() {
+		const lock = await readLock(this.filePath);
+		if (lock && !await lockIsLive(lock)) {
+			await removeStaleLock(this.filePath, lock);
 		}
 	}
-	const holder = existing?.content.split(" ")[0].trim();
-	throw new RequestError(
-		`${operationInProgressMessage}${holder ? ` (${lockPath} is held by process ${holder})` : ""}`
-	);
-}
 
-async function releaseNpmLock(lockPath: string) {
-	// Only remove the lock if it is still ours
-	const existing = await fs.readFile(lockPath, "utf8").catch(() => undefined);
-	if (existing === lockContent) {
-		await fs.unlink(lockPath).catch(() => {});
+	protected async removeFile() {
+		// Only remove the lock if it is still ours
+		const existing = await fs.readFile(this.filePath, "utf8").catch(() => undefined);
+		if (existing === lockContent) {
+			await fs.unlink(this.filePath).catch(() => {});
+		}
+	}
+
+	// Only the exit event is used, signal and uncaughtException listeners would change how the process exits.
+	// If only this process is killed npm keeps running unlocked. Ctrl+C, systemd and containers stop it too.
+	protected attachExitHandlers() {
+		// eslint-disable-next-line node/no-sync
+		process.on("exit", this.handleExitSync);
+	}
+
+	protected detachExitHandlers() {
+		// eslint-disable-next-line node/no-sync
+		process.off("exit", this.handleExitSync);
 	}
 }
 
@@ -152,18 +162,19 @@ async function logExec(cmd: string, check?: () => Promise<void>) {
 	}
 	operationInProgress = true;
 	const lockPath = path.resolve("npm-operation.lock");
-	// Only the exit event is used, signal and uncaughtException listeners would change how the process exits.
-	// If only this process is killed npm keeps running unlocked. Ctrl+C, systemd and containers stop it too.
-	const removeLockOnExit = () => {
-		try {
-			unlinkSync(lockPath);
-		} catch {
-			// Ignored: the lock may already have been removed
-		}
-	};
+	const lock = new NpmOperationLock(lockPath);
 	try {
-		await acquireNpmLock(lockPath);
-		process.on("exit", removeLockOnExit);
+		try {
+			await lock.acquire();
+		} catch (err) {
+			if (!(err instanceof LockFileExistsError)) {
+				throw err;
+			}
+			const holder = await lock.holder();
+			throw new RequestError(
+				`${operationInProgressMessage}${holder ? ` (${lockPath} is held by process ${holder})` : ""}`
+			);
+		}
 		try {
 			await check?.();
 			logger.audit(`RCE | ${cmd}`);
@@ -171,8 +182,7 @@ async function logExec(cmd: string, check?: () => Promise<void>) {
 				await execAsync(cmd);
 			}
 		} finally {
-			process.off("exit", removeLockOnExit);
-			await releaseNpmLock(lockPath);
+			await lock.release();
 		}
 	} finally {
 		operationInProgress = false;
@@ -189,11 +199,7 @@ export async function installPackage(name: string, check?: () => Promise<void>) 
 
 /** Whether an npm operation is running in this installation, from this or another process */
 export async function packageOperationRunning() {
-	if (operationInProgress) {
-		return true;
-	}
-	const lock = await readLock(path.resolve("npm-operation.lock"));
-	return lock !== undefined && await lockIsLive(lock);
+	return operationInProgress || !await new NpmOperationLock(path.resolve("npm-operation.lock")).isStale();
 }
 
 export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNodeEnvInfo[]) {
@@ -203,49 +209,11 @@ export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNo
 	return await updatePackage(corePackage, ...pluginPackages);
 }
 
-// One name segment, optionally after an @scope/ segment. Not starting with . or - keeps npm from
-// reading the spec as a path, a git repository or a command line option.
-// https://docs.npmjs.com/cli/v11/configuring-npm/package-json#name
-const packageNamePattern = /^(?:@[a-zA-Z0-9][a-zA-Z0-9\-._~]*\/)?[a-zA-Z0-9][a-zA-Z0-9\-._~]*$/;
-
-/**
- * Split a package spec into its name and optional version, as in name@version. The name itself
- * may start with @ for scoped packages.
- */
-function parsePackageSpec(spec: string) {
-	const versionSeparator = spec.lastIndexOf("@");
-	const [name, version] = versionSeparator > 0
-		? [spec.slice(0, versionSeparator), spec.slice(versionSeparator + 1)]
-		: [spec, undefined];
-	if (name.length > 214 || !packageNamePattern.test(name)) {
-		throw new RequestError(`Invalid plugin name: ${spec}`);
-	}
-	if (version !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9\-.+]*$/.test(version)) {
-		throw new RequestError(`Invalid plugin version: ${version}`);
-	}
-	return { name, version };
-}
-
 /** Throws if the dependency by this name is a path, git, url or alias that installing by name would replace */
 async function checkNotLocalDependency(name: string) {
 	if (await isNonRegistryPackage(name)) {
 		throw new RequestError(`${name} is not installed from npm on this machine`);
 	}
-}
-
-/** Throws unless the package, and version if given, is published on npm, returns the spec to install */
-async function checkRegistry(name: string, version?: string) {
-	const packageName = encodeURI(name);
-	const spec = version !== undefined ? `${packageName}@${version}` : packageName;
-	const registryPath = version !== undefined ? `${packageName}/${encodeURIComponent(version)}` : packageName;
-	const npmRequest = await fetch(`https://registry.npmjs.com/${registryPath}`, {
-		method: "HEAD",
-		signal: AbortSignal.timeout(registryTimeoutMs),
-	});
-	if (!npmRequest.ok) {
-		throw new RequestError(`Unknown plugin: ${spec}`);
-	}
-	return spec;
 }
 
 export async function handlePluginUpdate(pluginName: string, pluginInfos: PluginNodeEnvInfo[]) {
@@ -267,121 +235,4 @@ export async function handlePluginInstall(pluginName: string) {
 	const { name, version } = parsePackageSpec(pluginName);
 	await installPackage(await checkRegistry(name, version), () => checkNotLocalDependency(name));
 	return name;
-}
-
-const registryTimeoutMs = 10e3;
-const latestVersionCacheMs = 5 * 60e3;
-const latestVersionCacheMaxSize = 1000;
-const latestVersionConcurrency = 8;
-
-/** Latest version of each package by name, as found on npm, with when it was looked up */
-export type LatestVersionCache = Map<string, { version?: string, fetchedAt: number }>;
-
-/**
- * Look up the latest published version of each package on npm, packages that can't be
- * found are left out. Lookups are kept in the given cache for a few minutes.
- */
-export async function fetchLatestVersions(packages: string[], cache: LatestVersionCache) {
-	if (packages.length > 500) {
-		throw new RequestError("Too many packages");
-	}
-	const names = [...new Set(packages.map(packageName => {
-		const { name, version: pinned } = parsePackageSpec(packageName);
-		if (pinned !== undefined) {
-			throw new RequestError(`Invalid plugin name: ${packageName}`);
-		}
-		return name;
-	}))];
-
-	const now = Date.now();
-	for (const [name, cached] of cache) {
-		if (now - cached.fetchedAt > latestVersionCacheMs) {
-			cache.delete(name);
-		}
-	}
-
-	const versions: Record<string, string> = {};
-	const queue = [...names];
-	async function lookUp(name: string) {
-		let cached = cache.get(name);
-		if (!cached) {
-			let response;
-			try {
-				response = await fetch(`https://registry.npmjs.com/${name}/latest`, {
-					signal: AbortSignal.timeout(registryTimeoutMs),
-				});
-			} catch (err: any) {
-				logger.warn(`Failed to look up latest version of ${name}: ${err.message}`);
-				return;
-			}
-			if (!response.ok && response.status !== 404) {
-				// Rate limits and outages are retried on the next lookup instead of cached
-				logger.warn(`Failed to look up latest version of ${name}: ${response.status}`);
-				return;
-			}
-			const version = response.ok ? (await response.json() as { version?: string }).version : undefined;
-			cached = { version, fetchedAt: now };
-			for (const oldest of cache.keys()) {
-				if (cache.size < latestVersionCacheMaxSize) {
-					break;
-				}
-				cache.delete(oldest);
-			}
-			cache.set(name, cached);
-		}
-		if (cached.version) {
-			versions[name] = cached.version;
-		}
-	}
-	await Promise.all(Array.from({ length: latestVersionConcurrency }, async () => {
-		for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
-			await lookUp(name);
-		}
-	}));
-	return versions;
-}
-
-const npmSearchMaxSize = 250; // Limit imposed by the registry
-
-export async function searchPlugins(query: string, page: number, pageSize: number) {
-	if (query.length > 214) {
-		throw new RequestError("Search query too long");
-	}
-	if (page < 1 || pageSize < 1 || pageSize > npmSearchMaxSize) {
-		throw new RequestError("Invalid page or page size");
-	}
-
-	const url = new URL("https://registry.npmjs.com/-/v1/search");
-	url.searchParams.set("text", `keywords:clusterio-plugin ${query}`.trim());
-	url.searchParams.set("size", String(pageSize));
-	url.searchParams.set("from", String((page - 1) * pageSize));
-
-	const response = await fetch(url, { signal: AbortSignal.timeout(registryTimeoutMs) });
-	if (!response.ok) {
-		throw new RequestError(`npm registry search failed: ${response.status} ${response.statusText}`);
-	}
-
-	const json = await response.json() as {
-		total: number,
-		objects: {
-			package: {
-				name: string,
-				version: string,
-				description?: string | null,
-				date?: string | null,
-				publisher?: { username?: string | null } | null,
-				links?: { npm?: string | null, homepage?: string | null, repository?: string | null } | null,
-			},
-		}[],
-	};
-
-	return new PluginSearchRequest.Response(
-		json.total,
-		json.objects.map(({ package: pkg }) => new PluginSearchResult(
-			// The registry sends null for some missing fields
-			pkg.name, pkg.version, pkg.description ?? undefined, pkg.publisher?.username ?? undefined,
-			pkg.date ?? undefined, pkg.links?.homepage ?? undefined, pkg.links?.repository ?? undefined,
-			pkg.links?.npm ?? undefined,
-		)),
-	);
 }

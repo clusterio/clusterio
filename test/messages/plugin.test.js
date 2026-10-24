@@ -7,6 +7,7 @@ import { Controller, ControlConnection } from "@clusterio/controller";
 import { Host } from "@clusterio/host";
 
 import "../setup_logging.js";
+import { testRoundTripJsonSerialisable } from "../common.js";
 
 describe("messages/plugin", function() {
 	/** @type {Host} */
@@ -36,14 +37,13 @@ describe("messages/plugin", function() {
 
 	describe("PluginDetails", function() {
 		it("has round trip json serialisation", function() {
-			const pluginDetails = new lib.PluginDetails(
-				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package", "Installed Version", true, true, "Dependency Name", true,
-			);
-
-			const json = JSON.stringify(pluginDetails);
-			const reconstructed = lib.PluginDetails.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, pluginDetails);
+			testRoundTripJsonSerialisable(lib.PluginDetails, [
+				["Name", "Title", "Version", true, true],
+				[
+					"Name", "Title", "Version", false, false, "Description", "Npm Package",
+					"Installed Version", true, true, "Dependency Name", true, true,
+				],
+			]);
 		});
 		it("can be created from NodeEnvInfo interface", function() {
 			const pluginDetails = lib.PluginDetails.fromNodeEnvInfo({
@@ -54,6 +54,17 @@ describe("messages/plugin", function() {
 				"Name", "Title", "Version", true, true,
 				"Description", "Npm Package",
 			));
+		});
+		it("can be created from the package.json of a package installed since startup", function() {
+			const pluginDetails = lib.PluginDetails.fromPackageJson(
+				"package", { version: "1.0.0", description: "Description" }, "package", "package",
+			);
+			assert.deepEqual(pluginDetails, new lib.PluginDetails(
+				"package", "package", "1.0.0", false, false,
+				"Description", "package", "1.0.0", true, undefined, "package",
+			));
+			const invalid = lib.PluginDetails.fromPackageJson("package", { version: "1.0.0", description: 1 });
+			assert.equal(invalid.description, undefined);
 		});
 	});
 
@@ -111,10 +122,7 @@ describe("messages/plugin", function() {
 
 	describe("PluginUpdateRequest", function() {
 		it("has round trip json serialisation", function() {
-			const request = new lib.PluginUpdateRequest("foo");
-			const json = JSON.stringify(request);
-			const reconstructed = lib.PluginUpdateRequest.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, request);
+			testRoundTripJsonSerialisable(lib.PluginUpdateRequest, [["foo"], ["@scope/foo@1.0.0"]]);
 		});
 		it("runs on the controller", async function() {
 			controller.pluginInfos = [{ npmPackage: "foo" }];
@@ -149,18 +157,16 @@ describe("messages/plugin", function() {
 		});
 
 		it("has round trip json serialisation", function() {
-			const request = new lib.PluginSearchRequest("foo", 2, 10);
-			const json = JSON.stringify(request);
-			const reconstructed = lib.PluginSearchRequest.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, request);
+			testRoundTripJsonSerialisable(lib.PluginSearchRequest, [[], ["foo", 2, 10]]);
 		});
 		it("has round trip json serialisation of the response", function() {
-			const response = new lib.PluginSearchRequest.Response(1, [
-				new lib.PluginSearchResult("foo", "1.0.0", "Foo", "bar", "date", "home", "repo", "npm"),
+			testRoundTripJsonSerialisable(lib.PluginSearchRequest.Response, [
+				[0, []],
+				[2, [
+					new lib.PluginSearchResult("foo", "1.0.0"),
+					new lib.PluginSearchResult("bar", "1.0.0", "Bar", "baz", "date", "home", "repo", "npm"),
+				]],
 			]);
-			const json = JSON.stringify(response);
-			const reconstructed = lib.PluginSearchRequest.Response.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, response);
 		});
 		it("runs on the controller", async function() {
 			global.fetch = function() {
@@ -237,10 +243,7 @@ describe("messages/plugin", function() {
 		});
 
 		it("has round trip json serialisation", function() {
-			const request = new lib.PluginInstallRequest("foo");
-			const json = JSON.stringify(request);
-			const reconstructed = lib.PluginInstallRequest.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, request);
+			testRoundTripJsonSerialisable(lib.PluginInstallRequest, [["foo"], ["@scope/foo@1.0.0"]]);
 		});
 		it("runs on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", true);
@@ -275,16 +278,10 @@ describe("messages/plugin", function() {
 		});
 
 		it("has round trip json serialisation", function() {
-			const request = new lib.PluginLatestVersionsRequest(["foo", "@scope/bar"]);
-			const reconstructed = lib.PluginLatestVersionsRequest.fromJSON(JSON.parse(JSON.stringify(request)));
-			assert.deepEqual(reconstructed, request);
+			testRoundTripJsonSerialisable(lib.PluginLatestVersionsRequest, [[[]], [["foo", "@scope/bar"]]]);
 		});
 		it("has round trip json serialisation of the response", function() {
-			const response = new lib.PluginLatestVersionsRequest.Response({ foo: "1.0.0" });
-			const reconstructed = lib.PluginLatestVersionsRequest.Response.fromJSON(
-				JSON.parse(JSON.stringify(response))
-			);
-			assert.deepEqual(reconstructed, response);
+			testRoundTripJsonSerialisable(lib.PluginLatestVersionsRequest.Response, [[{}], [{ foo: "1.0.0" }]]);
 		});
 		it("runs on the controller", async function() {
 			const response = await controlConnection.handlePluginLatestVersionsRequest(

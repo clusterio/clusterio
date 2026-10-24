@@ -4,8 +4,118 @@ import path from "path";
 import { logger } from "./logging.js";
 import * as libFileOps from "./file_ops.js";
 import vm from "vm";
-import { PluginDetails } from "./data/messages_plugin.js";
-import type { PluginNodeEnvInfo } from "./plugin.js";
+
+const corePackages = new Set([
+	"@clusterio/controller",
+	"@clusterio/ctl",
+	"@clusterio/host",
+	"@clusterio/lib",
+	"@clusterio/web_ui",
+]);
+
+function isPluginPackageJson(packageJson: any): boolean {
+	return Boolean(packageJson?.keywords?.includes?.("clusterio-plugin"));
+}
+
+/**
+ * Helper function to check if a package.json file exists and contains the clusterio-plugin keyword
+ * @param pluginPath - Path to the plugin directory
+ * @returns Promise that resolves to true if package.json exists and has clusterio-plugin keyword
+ */
+async function checkPackageJson(pluginPath: string): Promise<boolean> {
+	const packageJsonPath = path.join(pluginPath, "package.json");
+
+	// Read and parse package.json
+	let content;
+	try {
+		content = await fs.readFile(packageJsonPath, { encoding: "utf8" });
+	} catch (err: any) {
+		return false;
+	}
+	return isPluginPackageJson(JSON.parse(content));
+}
+
+/** Read a package.json, returns undefined if it's missing or can't be parsed */
+export async function readPackageJson(packageJsonPath: string): Promise<any> {
+	try {
+		return JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
+	} catch (err: any) {
+		return undefined;
+	}
+}
+
+/** Read a package.json, returns undefined if it's missing, and if it can't be parsed when tolerant */
+async function readDiscoveredPackageJson(packagePath: string, tolerant: boolean) {
+	let content;
+	try {
+		content = await fs.readFile(path.join(packagePath, "package.json"), "utf8");
+	} catch (err: any) {
+		return undefined;
+	}
+	try {
+		return JSON.parse(content);
+	} catch (err: any) {
+		if (tolerant) {
+			return undefined;
+		}
+		throw err;
+	}
+}
+
+/** Dependencies npm installs, an optionalDependencies entry wins over a dependencies entry of the same name */
+export function installedDependencies(packageJson: any): Record<string, unknown> {
+	return { ...packageJson?.dependencies, ...packageJson?.optionalDependencies };
+}
+
+/** Whether a dependency spec installs from the registry, as opposed to a path, git, url, tarball or alias */
+export function isRegistrySpec(spec: unknown) {
+	return typeof spec === "string" && !/[:/\\]/.test(spec) && !spec.startsWith(".")
+		&& !/\.(?:tgz|tar\.gz|tar)$/i.test(spec);
+}
+
+/** Real path of a directory, used to compare packages as npm and pnpm install them behind symlinks */
+export async function realDir(dir: string) {
+	try {
+		return await fs.realpath(dir);
+	} catch {
+		// Removed since, nothing else can be at this path
+		return path.resolve(dir);
+	}
+}
+
+/** Directory of a package as require resolves it from fromPath, or undefined if not found */
+export function resolvePackagePath(packageName: string, fromPath: string, tolerant: boolean): string | undefined {
+	const packageRequire = createRequire(path.join(fromPath, "package.json"));
+	try {
+		return path.dirname(packageRequire.resolve(`${packageName}/package.json`));
+	} catch (err: any) {
+		// A package.json npm is still writing fails with ERR_INVALID_PACKAGE_CONFIG
+		if (tolerant || err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") {
+			return undefined;
+		}
+		throw err;
+	}
+}
+
+async function pluginPathExists(pluginPath: string) {
+	if (!path.isAbsolute(pluginPath)) {
+		return resolvePackagePath(pluginPath, process.cwd(), true) !== undefined;
+	}
+	try {
+		await fs.access(path.join(pluginPath, "package.json"));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+const require = createRequire(import.meta.url);
+function getPluginName(requireSpec: string) {
+	const context = vm.createContext({ require: require, pluginInfo: null });
+	const code = `pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;
+	vm.runInContext(code, context);
+	return context.pluginInfo.name;
+}
 
 /**
  * Searches for local plugins in the plugins/ and external_plugins/ directories
@@ -69,56 +179,12 @@ async function findLocalPlugins(pluginList: Map<string, string>): Promise<boolea
 	return hasChanged > 0;
 }
 
-const require = createRequire(import.meta.url);
-function getPluginName(requireSpec: string) {
-	const context = vm.createContext({ require: require, pluginInfo: null });
-	const code = `pluginInfo = require(${JSON.stringify(requireSpec)}).plugin;`;
-	vm.runInContext(code, context);
-	return context.pluginInfo.name;
-}
-
-function resolvePackagePath(packageName: string, fromPath: string, tolerant: boolean): string | undefined {
-	const packageRequire = createRequire(path.join(fromPath, "package.json"));
-	try {
-		return path.dirname(packageRequire.resolve(`${packageName}/package.json`));
-	} catch (err: any) {
-		// A package.json npm is still writing fails with ERR_INVALID_PACKAGE_CONFIG
-		if (tolerant || err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED") {
-			return undefined;
-		}
-		throw err;
-	}
-}
-
-/** Dependencies npm installs, an optionalDependencies entry wins over a dependencies entry of the same name */
-function installedDependencies(packageJson: any): Record<string, unknown> {
-	return { ...packageJson?.dependencies, ...packageJson?.optionalDependencies };
-}
-
 type NpmPluginPackage = {
 	packageName: string,
 	packageVersion: unknown,
 	packagePath: string,
 	packageJson: any,
 };
-
-/** Read a package.json, returns undefined if it's missing, and if it can't be parsed when tolerant */
-async function readDiscoveredPackageJson(packagePath: string, tolerant: boolean) {
-	let content;
-	try {
-		content = await fs.readFile(path.join(packagePath, "package.json"), "utf8");
-	} catch (err: any) {
-		return undefined;
-	}
-	try {
-		return JSON.parse(content);
-	} catch (err: any) {
-		if (tolerant) {
-			return undefined;
-		}
-		throw err;
-	}
-}
 
 /**
  * Walk the dependencies of the root package.json and of every plugin package found, without
@@ -129,7 +195,7 @@ async function readDiscoveredPackageJson(packagePath: string, tolerant: boolean)
  *     for use while npm may be rewriting them
  * @returns Plugin packages found, and root dependencies that are not plugins
  */
-async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, tolerant = false) {
+export async function discoverNpmPluginPackages(dependencies: Record<string, unknown>, tolerant = false) {
 	const plugins: NpmPluginPackage[] = [];
 	const nonPluginRoots: { packageName: string, packageVersion: unknown }[] = [];
 	const pendingPackages = Object.entries(dependencies).map(([packageName, packageVersion]) => ({
@@ -199,8 +265,8 @@ export async function isNonRegistryPackage(name: string) {
  * Adds discovered plugins to the plugin list.
  *
  * @param pluginList - Map of plugin names to their file paths
- * @param skippedNpmPlugins - Filled with plugin name by package directory for packages skipped
- *     because their plugin name was already in the list
+ * @param skippedNpmPlugins - Filled with the package directory by plugin name for packages
+ *     skipped because their plugin name was already in the list
  * @returns Promise that resolves to true if any plugins were added to the list, false otherwise
  */
 async function findNpmPlugins(
@@ -236,7 +302,7 @@ async function findNpmPlugins(
 				`${pluginName} provided by ${packageName}@${packageVersion} is already in the plugin list, ` +
 				`but with a different path - using ${pluginList.get(pluginName)}`
 			);
-			skippedNpmPlugins?.set(await realDir(packagePath), pluginName);
+			skippedNpmPlugins?.set(pluginName, await realDir(packagePath));
 		} else {
 			pluginList.set(pluginName, packageName);
 			logger.info(`Added ${pluginName} from node modules`);
@@ -256,8 +322,8 @@ async function findNpmPlugins(
  *
  * @param pluginListPath - Path to the plugin list JSON file
  * @param findLocal - Whether to look for local plugins in plugins/ and external_plugins/ directories
- * @param skippedNpmPlugins - Filled with plugin name by package directory for npm packages
- *     skipped because another plugin has the same name, for listPluginDetails
+ * @param skippedNpmPlugins - Filled with the package directory by plugin name for npm packages
+ *     skipped because another plugin has the same name, for loadPluginInfos
  * @returns Map of plugin name to plugin path
  */
 export async function loadPluginList(
@@ -295,163 +361,3 @@ export async function loadPluginList(
 
 	return pluginList;
 }
-
-/**
- * Helper function to check if a package.json file exists and contains the clusterio-plugin keyword
- * @param pluginPath - Path to the plugin directory
- * @returns Promise that resolves to true if package.json exists and has clusterio-plugin keyword
- */
-async function checkPackageJson(pluginPath: string): Promise<boolean> {
-	const packageJsonPath = path.join(pluginPath, "package.json");
-
-	// Read and parse package.json
-	let content;
-	try {
-		content = await fs.readFile(packageJsonPath, { encoding: "utf8" });
-	} catch (err: any) {
-		return false;
-	}
-	return isPluginPackageJson(JSON.parse(content));
-}
-
-async function pluginPathExists(pluginPath: string) {
-	if (!path.isAbsolute(pluginPath)) {
-		return resolvePackagePath(pluginPath, process.cwd(), true) !== undefined;
-	}
-	try {
-		await fs.access(path.join(pluginPath, "package.json"));
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/** Whether a dependency spec installs from the registry, as opposed to a path, git, url, tarball or alias */
-export function isRegistrySpec(spec: unknown) {
-	return typeof spec === "string" && !/[:/\\]/.test(spec) && !spec.startsWith(".")
-		&& !/\.(?:tgz|tar\.gz|tar)$/i.test(spec);
-}
-
-function isPluginPackageJson(packageJson: any): boolean {
-	return Boolean(packageJson?.keywords?.includes?.("clusterio-plugin"));
-}
-
-const corePackages = new Set([
-	"@clusterio/controller",
-	"@clusterio/ctl",
-	"@clusterio/host",
-	"@clusterio/lib",
-	"@clusterio/web_ui",
-]);
-
-async function realDir(dir: string) {
-	try {
-		return await fs.realpath(dir);
-	} catch {
-		return path.resolve(dir);
-	}
-}
-
-async function readPackageJson(packageJsonPath: string): Promise<any> {
-	try {
-		return JSON.parse(await fs.readFile(packageJsonPath, { encoding: "utf8" }));
-	} catch (err: any) {
-		return undefined;
-	}
-}
-
-/**
- * Lists the plugins on this machine along with the versions currently installed on disk,
- * including npm plugins installed since startup that will only be loaded after a restart.
- *
- * @param pluginInfos - Plugins discovered when this machine started
- * @param isLoaded - Whether the plugin is loaded
- * @param isEnabled - Whether the plugin is enabled
- * @param skippedNpmPlugins - Npm packages skipped on startup, from loadPluginList
- * @param hasEntrypoint - Whether the plugin has an entrypoint this machine loads
- * @returns Details of every plugin on this machine
- */
-export async function listPluginDetails(
-	pluginInfos: PluginNodeEnvInfo[],
-	isLoaded: (pluginInfo: PluginNodeEnvInfo) => boolean,
-	isEnabled: (pluginInfo: PluginNodeEnvInfo) => boolean,
-	skippedNpmPlugins: Map<string, string>,
-	hasEntrypoint: (pluginInfo: PluginNodeEnvInfo) => boolean = () => true,
-): Promise<PluginDetails[]> {
-	const plugins: PluginDetails[] = [];
-	const rootPackageJson = await readPackageJson(path.resolve("package.json"));
-	const dependencies = installedDependencies(rootPackageJson);
-	// By directory, as a plugin loaded from a path may also be an npm dependency
-	const knownDirs = new Set<string>();
-	const presentNames = new Set<string>();
-	const { plugins: npmPlugins, nonRegistryDirs } = await discoverNpmPluginPackages(dependencies, true);
-	for (const pluginInfo of pluginInfos) {
-		const dir = await realDir(path.dirname(pluginInfo.packagePath));
-		knownDirs.add(dir);
-		// Without an entrypoint for this machine the plugin has no load_plugin field here
-		const loadable = hasEntrypoint(pluginInfo);
-		const plugin = PluginDetails.fromNodeEnvInfo(
-			pluginInfo, isLoaded(pluginInfo), loadable && isEnabled(pluginInfo),
-		);
-		if (!loadable) {
-			plugin.noEntrypoint = true;
-		}
-		if (Object.hasOwn(dependencies, pluginInfo.requirePath)) {
-			plugin.dependencyName = pluginInfo.requirePath;
-		}
-		if (nonRegistryDirs.has(dir)) {
-			plugin.npmPackage = undefined;
-		}
-		try {
-			const packageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
-			plugin.installedVersion = packageJson.version;
-			if (packageJson.name !== plugin.npmPackage) {
-				// Replaced by an alias since startup
-				plugin.npmPackage = undefined;
-			}
-		} catch (err: any) {
-			if (err.code === "ENOENT") {
-				// Uninstalled since startup, it won't be found on the next restart
-				plugin.removed = true;
-			}
-		}
-		if (!plugin.removed) {
-			presentNames.add(plugin.name);
-		}
-		plugins.push(plugin);
-	}
-
-	for (const { packageName, packagePath, packageJson } of npmPlugins) {
-		const dir = await realDir(packagePath);
-		if (knownDirs.has(dir)) {
-			continue;
-		}
-		// Startup loads it by package name from the root, which doesn't reach nested packages
-		const rootPath = resolvePackagePath(packageName, process.cwd(), true);
-		if (!rootPath || await realDir(rootPath) !== dir) {
-			continue;
-		}
-		if (typeof packageJson.version !== "string") {
-			continue;
-		}
-		// Same rule as loadPluginInfos, aliases, private and non-registry packages can't be installed by this name
-		const npmPackage = !packageJson.private && packageJson.name === packageName && !nonRegistryDirs.has(dir)
-			? packageName : undefined;
-		const dependencyName = Object.hasOwn(dependencies, packageName) ? packageName : undefined;
-		const description = typeof packageJson.description === "string" ? packageJson.description : undefined;
-		const plugin = new PluginDetails(
-			packageName, packageName, packageJson.version, false, false,
-			description, npmPackage, packageJson.version, true, undefined, dependencyName,
-		);
-		const takenName = skippedNpmPlugins.get(dir);
-		if (takenName !== undefined && presentNames.has(takenName)) {
-			// Skipped on startup as its plugin name is taken, will be again
-			plugin.pendingInstall = undefined;
-			plugin.nameTaken = true;
-		}
-		plugins.push(plugin);
-	}
-
-	return plugins;
-}
-

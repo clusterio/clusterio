@@ -33,6 +33,11 @@ type PluginRow = {
 	status?: PluginStatus;
 };
 
+/** Plugins the controller hasn't loaded are found by their status key instead of the plugin name */
+function pluginPath(plugin: PluginRow) {
+	return `/plugins/${encodeURIComponent(plugin.meta?.name ?? plugin.key)}/view`;
+}
+
 function WebUiStatus(props: { plugin: PluginRow }) {
 	const control = useContext(ControlContext);
 	const { meta } = props.plugin;
@@ -68,9 +73,9 @@ export default function PluginsPage() {
 	const nameSearch = useColumnSearch<PluginRow>(
 		tableState, "name", plugin => plugin.title, "Search plugins"
 	);
-	const { machines, unreachable, refresh } = useMachinePlugins();
+	const { machines, unknown, refresh } = useMachinePlugins();
 	const installer = usePluginInstaller(refresh);
-	const statuses = machines ? computePluginStatuses(machines, unreachable) : new Map<string, PluginStatus>();
+	const statuses = machines ? computePluginStatuses(machines, unknown) : new Map<string, PluginStatus>();
 	const latestVersions = useLatestVersions(
 		[...statuses.values()].flatMap(status => (status.npmPackage ? [status.npmPackage] : []))
 	);
@@ -116,9 +121,9 @@ export default function PluginsPage() {
 		<PageHeader
 			title="Plugins"
 			extra={<Space wrap>
-				{machines && <RestartPendingButton
-					statuses={[...statuses.values()]} machines={machines} installer={installer}
-				/>}
+				<RestartPendingButton
+					statuses={[...statuses.values()]} machines={machines ?? []} installer={installer}
+				/>
 				<UpdateAllButton
 					statuses={[...statuses.values()]}
 					titles={new Map(tableContents.map(row => [row.key, row.title]))}
@@ -135,12 +140,9 @@ export default function PluginsPage() {
 					title: "Name",
 					key: "name",
 					className: "table-link-cell",
-					render: (_, plugin) => (plugin.meta
-						? <Link to={`/plugins/${plugin.meta.name}/view`} style={{ color: "inherit" }}>
-							{plugin.title}
-						</Link>
-						: plugin.title
-					),
+					render: (_, plugin) => <Link to={pluginPath(plugin)} style={{ color: "inherit" }}>
+						{plugin.title}
+					</Link>,
 					sorter: (a, b) => strcmp(a.title, b.title),
 					sortOrder: tableState.sortOrder("name"),
 					filteredValue: tableState.filteredValue("name"),
@@ -155,7 +157,7 @@ export default function PluginsPage() {
 					),
 				},
 				{
-					title: "Web UI",
+					title: "Web UI Status",
 					key: "web",
 					render: (_, plugin) => <WebUiStatus plugin={plugin} />,
 					responsive: ["sm"],
@@ -181,7 +183,7 @@ export default function PluginsPage() {
 			rowKey={plugin => plugin.key}
 			pagination={tableState.pagination}
 			onChange={tableState.onChange}
-			onRow={plugin => (plugin.meta ? rowNav(`/plugins/${plugin.meta.name}/view`) : {})}
+			onRow={plugin => rowNav(pluginPath(plugin))}
 		/>
 	</PageLayout>;
 }
