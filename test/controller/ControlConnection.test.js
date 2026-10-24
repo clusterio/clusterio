@@ -107,6 +107,10 @@ describe("controller/src/ControlConnection", function() {
 			await install("restart_test");
 			assert.equal(mockController.config.restartRequired, false);
 		});
+		it("leaves the flag alone for a pinned version of an already loaded plugin", async function() {
+			await install("restart_test@1.0.0");
+			assert.equal(mockController.config.restartRequired, false);
+		});
 		it("rejects when installs are disabled", async function() {
 			mockController.config = new lib.ControllerConfig(
 				"controller", { "controller.allow_plugin_install": false }

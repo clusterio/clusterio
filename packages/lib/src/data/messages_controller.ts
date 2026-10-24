@@ -3,6 +3,7 @@ import { JsonString, StringEnum, StringKey, plainJson } from "./composites.js";
 import { levels } from "../logging.js";
 import { ControllerConfig, HostConfig } from "../config/index.js";
 import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external/index.js";
+import { PluginDetails } from "./messages_plugin.js";
 
 export class ControllerStopRequest {
 	declare ["constructor"]: typeof ControllerStopRequest;
@@ -295,6 +296,8 @@ export class SystemInfo {
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs: number,
 		public isDeleted: boolean,
+		/** Plugins on the machine when last collected, kept while it is offline */
+		public plugins?: PluginDetails[],
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -315,6 +318,7 @@ export class SystemInfo {
 		"processStartedAtMs": Type.Number(),
 		"updatedAtMs": Type.Number(),
 		"isDeleted": Type.Boolean(),
+		"plugins": Type.Optional(Type.Array(PluginDetails.jsonSchema)),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -336,6 +340,7 @@ export class SystemInfo {
 			json.processStartedAtMs,
 			json.updatedAtMs,
 			json.isDeleted,
+			json.plugins?.map(plugin => PluginDetails.fromJSON(plugin)),
 		);
 	}
 

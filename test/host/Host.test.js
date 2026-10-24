@@ -9,6 +9,7 @@ import * as lib from "@clusterio/lib";
 import Host, { _discoverInstances, HostRouter } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
+import { computePluginStatuses } from "../../packages/web_ui/src/util/plugin_status.ts";
 import "../setup_logging.js";
 
 describe("host/src/Host", function() {
@@ -247,6 +248,31 @@ describe("host/src/Host", function() {
 				);
 			});
 		});
+		describe(".handlePluginListRequest()", function() {
+			it("does not expect a plugin without a host or instance entrypoint to load", async function() {
+				lib.addPluginConfigFields([{ name: "controller_only", controllerEntrypoint: "controller.js" }]);
+				const packagePath = fileURLToPath(import.meta.resolve("@clusterio/host/package.json"));
+				const pluginInfos = [{
+					name: "controller_only", title: "Controller only", version: "1.0.0",
+					requirePath: path.dirname(packagePath), packagePath, controllerEntrypoint: "controller.js",
+				}];
+				// Listed the same before and after a restart, as the host never loads it
+				for (let restart = 0; restart < 2; restart++) {
+					const hostConfig = new lib.HostConfig("host");
+					const host = new Host(new HostConnector(hostConfig, pluginInfos), hostConfig, pluginInfos);
+					await host.loadPlugins();
+					const plugins = await host.handlePluginListRequest(new lib.PluginListRequest());
+					const plugin = plugins.find(candidate => candidate.name === "controller_only");
+					assert.equal(plugin.loaded, false);
+					assert.equal(plugin.noEntrypoint, true);
+					const [entry] = computePluginStatuses([
+						{ name: "host", isController: false, address: { hostId: 1 }, plugins: [plugin] },
+					]).get("controller_only").machines;
+					assert.equal(entry.running, entry.afterRestart, "restart pending");
+				}
+			});
+		});
+
 		describe(".handlePluginInstallRequest()", function() {
 			let host;
 			let _fetch;
@@ -267,6 +293,10 @@ describe("host/src/Host", function() {
 			});
 			it("leaves the flag alone for an already loaded plugin", async function() {
 				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("restart_test"));
+				assert.equal(host.config.restartRequired, false);
+			});
+			it("leaves the flag alone for a pinned version of an already loaded plugin", async function() {
+				await host.handlePluginInstallRequest(new lib.PluginInstallRequest("restart_test@1.0.0"));
 				assert.equal(host.config.restartRequired, false);
 			});
 			it("rejects when installs are disabled", async function() {
@@ -376,6 +406,20 @@ describe("host/src/Host", function() {
 					() => mockHost.handleHostRestartRequest(),
 					/Stop the host before starting the older version manually/
 				);
+				assert.equal(process.exitCode, undefined);
+				assert.equal(mockHost.shutdownCalled, false);
+			});
+			it("rejects while a plugin install or update is running", async function() {
+				// Held by another live process
+				await fs.writeFile("npm-operation.lock", `${process.ppid}\n`);
+				try {
+					await assert.rejects(
+						() => mockHost.handleHostRestartRequest(),
+						/Cannot restart while a plugin install or update is running/
+					);
+				} finally {
+					await fs.rm("npm-operation.lock", { force: true });
+				}
 				assert.equal(process.exitCode, undefined);
 				assert.equal(mockHost.shutdownCalled, false);
 			});

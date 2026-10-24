@@ -180,7 +180,7 @@ controllerPluginCommands.add(new lib.Command({
 }));
 controllerPluginCommands.add(new lib.Command({
 	definition: ["update <plugin>", "Update a plugin on the controller", (yargs) => {
-		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to update, optionally as name@version", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
 	handler: async function(args: { plugin: string, restart: boolean }, ctl: Ctl) {
@@ -193,8 +193,27 @@ controllerPluginCommands.add(new lib.Command({
 	},
 }));
 controllerPluginCommands.add(new lib.Command({
+	definition: ["search [query]", "Search npm for plugins", (yargs) => {
+		yargs.positional("query", { describe: "Text to search for", type: "string", default: "" });
+		yargs.option("page", { type: "number", description: "Page of results to show", default: 1 });
+		yargs.option("page-size", { type: "number", description: "Results per page", default: 20 });
+	}],
+	handler: async function(args: { query: string, page: number, pageSize: number }, ctl: Ctl) {
+		const response = await ctl.sendTo(
+			"controller", new lib.PluginSearchRequest(args.query, args.page, args.pageSize)
+		);
+		print(asTable(response.results.map(plugin => ({
+			name: plugin.name,
+			version: plugin.version,
+			publisher: plugin.publisher ?? "",
+			description: plugin.description ?? "",
+		}))));
+		print(`Showing ${response.results.length} of ${response.total} results`);
+	},
+}));
+controllerPluginCommands.add(new lib.Command({
 	definition: ["install <plugin>", "Install a plugin on the controller", (yargs) => {
-		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to install, optionally as name@version", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
 	handler: async function(args: { plugin: string, restart: boolean }, ctl: Ctl) {

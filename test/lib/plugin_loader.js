@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import * as mock from "../mock.js";
 import * as lib from "@clusterio/lib";
 import { BaseControllerPlugin } from "@clusterio/controller";
+import { computePluginStatuses, planUpdate } from "../../packages/web_ui/src/util/plugin_status.ts";
 
 
 describe("lib/plugin_loader", function() {
@@ -48,11 +49,19 @@ describe("lib/plugin_loader", function() {
 					name: "test",
 					version: "0.0.1",
 					npmPackage: undefined,
+					skippedNpmPackage: undefined,
 					packagePath: path.resolve(path.join(testPlugin, "package.json")),
 					requirePath: path.resolve(testPlugin),
 					webStaticPath: path.resolve(path.join(testPlugin, "dist", "web", "static")),
 				}]
 			);
+		});
+		it("should record the npm package skipped for a plugin", async function() {
+			const [pluginInfo] = await lib.loadPluginInfos(
+				new Map([["test", path.resolve(testPlugin)]]),
+				new Map([["test", "/skipped"], ["other", "/other"]]),
+			);
+			assert.equal(pluginInfo.skippedNpmPackage, "/skipped");
 		});
 		it("should reject on broken plugin", async function() {
 			let brokenMessage;
@@ -275,6 +284,7 @@ describe("lib/plugin_loader", function() {
 
 		const nodeModules = path.join(baseDir, "node_modules");
 		const npmPluginPath = path.join(nodeModules, "plugin-npm");
+		const npmPluginPathAbs = path.resolve(npmPluginPath);
 		const aliasedPluginPath = path.join(nodeModules, "plugin-aliased");
 		const deepPluginPath = path.join(nodeModules, "plugin-deep");
 		const transitivePluginPath = path.join(nodeModules, "plugin-transitive");
@@ -387,6 +397,352 @@ describe("lib/plugin_loader", function() {
 			assert.strictEqual(pluginList.get("transitive"), "plugin-transitive");
 			assert.strictEqual(pluginList.get("nested"), undefined);
 			assert.strictEqual(pluginList.get("hidden"), undefined);
+		});
+
+		it("should list installed versions and plugins pending a restart", async function() {
+			const pluginInfos = [{
+				name: "npm",
+				title: "NPM",
+				version: "0.0.0",
+				requirePath: npmPluginPathAbs,
+				packagePath: path.join(npmPluginPathAbs, "package.json"),
+				npmPackage: "plugin-npm",
+			}];
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
+			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
+
+			const loaded = byPackage.get("plugin-npm");
+			assert.equal(loaded.version, "0.0.0");
+			assert.equal(loaded.installedVersion, "0.0.1");
+			assert.equal(loaded.pendingInstall, undefined);
+
+			// Dependencies of plugin packages are found the same way as on startup
+			for (const packageName of ["plugin-aliased", "plugin-deep", "plugin-transitive"]) {
+				const pending = byPackage.get(packageName);
+				assert.equal(pending.pendingInstall, true, packageName);
+				assert.equal(pending.installedVersion, "0.0.1", packageName);
+				assert.equal(pending.loaded, false, packageName);
+			}
+			// An alias installs a different package than its dependency name
+			assert.equal(byPackage.get("plugin-aliased").npmPackage, undefined);
+			assert.equal(byPackage.get("plugin-deep").npmPackage, "plugin-deep");
+			assert.equal(byPackage.has("not-a-plugin"), false);
+			assert.equal(byPackage.has("plugin-hidden"), false);
+			assert.equal(plugins.length, 4);
+		});
+
+		it("should not list a plugin loaded from a path as pending when npm links to it", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			const linkPath = path.join("node_modules", "plugin-linked");
+			try {
+				await fs.symlink(externalPluginPathAbs, linkPath, "junction");
+				await fs.writeFile("package.json", JSON.stringify({
+					dependencies: { "plugin-linked": "file:external_plugins/external_plugin" },
+				}));
+				const plugins = await lib.listPluginDetails([{
+					name: "external",
+					title: "External",
+					version: "0.0.1",
+					requirePath: externalPluginPathAbs,
+					packagePath: path.join(externalPluginPathAbs, "package.json"),
+				}], () => true, () => true);
+				assert.deepEqual(plugins.map(plugin => plugin.name), ["external"]);
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+				await fs.rm(linkPath, { force: true });
+			}
+		});
+
+		it("should record npm plugins skipped because their name is taken", async function() {
+			await fs.writeFile(pluginListPath, JSON.stringify([["npm", localPluginPathAbs]]));
+			const skipped = new Map();
+			const list = await lib.loadPluginList(pluginListPath, false, skipped);
+			assert.equal(list.get("npm"), localPluginPathAbs);
+			assert.deepEqual([...skipped], [["npm", await fs.realpath(npmPluginPathAbs)]]);
+		});
+
+		it("should not record npm plugins already in the list as skipped", async function() {
+			await fs.writeFile(pluginListPath, JSON.stringify([["npm", "plugin-npm"]]));
+			const skipped = new Map();
+			await lib.loadPluginList(pluginListPath, false, skipped);
+			assert.deepEqual([...skipped], []);
+		});
+
+		it("should not give plugins from a path, git or url an npm package on startup", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			try {
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-npm"] = "github:user/plugin-npm";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				// loadPluginInfos resolves from where lib is installed, which can't reach these fixtures
+				const dirs = await lib.findNonRegistryDirs();
+				assert.equal(dirs.has(await fs.realpath(npmPluginPathAbs)), true);
+				assert.equal(dirs.has(await fs.realpath(path.resolve(old_cwd, deepPluginPath))), false);
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+			}
+		});
+
+		it("should treat tarball dependencies as not from the registry", function() {
+			assert.equal(lib.isRegistrySpec("plugin-x-1.0.0.tgz"), false);
+			assert.equal(lib.isRegistrySpec("plugin-x.tar.gz"), false);
+			assert.equal(lib.isRegistrySpec("^1.0.0"), true);
+			assert.equal(lib.isRegistrySpec("latest"), true);
+		});
+
+		it("should replace plugin list entries that no longer exist with npm plugins", async function() {
+			const gone = path.resolve("plugins", "gone");
+			await fs.writeFile(pluginListPath, JSON.stringify([["npm", gone], ["aliased", "plugin-gone"]]));
+			const skipped = new Map();
+			const list = await lib.loadPluginList(pluginListPath, false, skipped);
+			assert.equal(list.get("npm"), "plugin-npm");
+			assert.equal(list.get("aliased"), "plugin-aliased");
+			assert.deepEqual([...skipped], []);
+			const saved = new Map(JSON.parse(await fs.readFile(pluginListPath, "utf8")));
+			assert.equal(saved.get("npm"), "plugin-npm");
+		});
+
+		it("should list npm plugins skipped on startup as not loading while their name is taken", async function() {
+			const local = {
+				name: "npm",
+				title: "Local",
+				version: "0.0.1",
+				requirePath: localPluginPathAbs,
+				packagePath: path.join(localPluginPathAbs, "package.json"),
+				skippedNpmPackage: await fs.realpath(npmPluginPathAbs),
+			};
+			let plugins = await lib.listPluginDetails([local], () => true, () => true);
+			const taken = plugins.find(plugin => plugin.name === "plugin-npm");
+			assert.equal(taken.nameTaken, true);
+			assert.equal(taken.pendingInstall, undefined);
+
+			// Loaded on the next restart once the plugin with that name is gone
+			const gone = { ...local, packagePath: path.resolve("plugins", "gone", "package.json") };
+			plugins = await lib.listPluginDetails([gone], () => true, () => true);
+			assert.equal(plugins.find(plugin => plugin.name === "plugin-npm").pendingInstall, true);
+		});
+
+		it("should list a dependency made direct since startup as pending", async function() {
+			// npm leaves the hoisted package untouched when it becomes a direct dependency
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			try {
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-hidden"] = "^0.0.1";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				const hidden = plugins.find(plugin => plugin.name === "plugin-hidden");
+				assert.equal(hidden.pendingInstall, true);
+				assert.equal(hidden.npmPackage, "plugin-hidden");
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+			}
+		});
+
+		it("should not list plugins nested under another package as pending", async function() {
+			// Startup loads plugins by package name from the root, which doesn't reach nested packages
+			const packageJsonPath = path.join("node_modules", "plugin-transitive", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				const packageJson = JSON.parse(original);
+				packageJson.dependencies["plugin-nested"] = "^0.0.1";
+				await fs.writeFile(packageJsonPath, JSON.stringify(packageJson));
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				assert.equal(plugins.some(plugin => plugin.name === "plugin-nested"), false);
+				assert.ok(plugins.some(plugin => plugin.name === "plugin-transitive"));
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should not list packages from a path, git or url as installable from npm", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			try {
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-npm"] = "file:../plugin-npm";
+				root.dependencies["plugin-deep"] = "github:user/plugin-deep";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				const plugins = await lib.listPluginDetails([{
+					name: "npm",
+					title: "NPM",
+					version: "0.0.1",
+					requirePath: "plugin-npm",
+					packagePath: path.join(npmPluginPathAbs, "package.json"),
+					npmPackage: "plugin-npm",
+				}], () => true, () => true);
+				const npm = plugins.find(plugin => plugin.name === "npm");
+				assert.equal(npm.npmPackage, undefined);
+				assert.equal(npm.dependencyName, "plugin-npm");
+				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
+				assert.equal(deep.pendingInstall, true);
+				assert.equal(deep.npmPackage, undefined);
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+			}
+		});
+
+		it("should not list plugins another plugin installs from a path, git or url as installable", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-npm", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				const packageJson = JSON.parse(original);
+				packageJson.dependencies["plugin-transitive"] = "github:user/plugin-transitive";
+				await fs.writeFile(packageJsonPath, JSON.stringify(packageJson));
+				const transitive = {
+					name: "transitive",
+					title: "Transitive",
+					version: "0.0.1",
+					requirePath: "plugin-transitive",
+					packagePath: path.resolve(old_cwd, transitivePluginPath, "package.json"),
+					npmPackage: "plugin-transitive",
+				};
+				const [loaded] = await lib.listPluginDetails([transitive], () => true, () => true);
+				assert.equal(loaded.npmPackage, undefined);
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				const pending = plugins.find(plugin => plugin.name === "plugin-transitive");
+				assert.equal(pending.npmPackage, undefined);
+				assert.equal(await lib.isNonRegistryPackage("plugin-transitive"), true);
+				assert.equal(await lib.isNonRegistryPackage("plugin-npm"), false);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should let optional dependencies override where a plugin is installed from", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-npm", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				const packageJson = JSON.parse(original);
+				packageJson.optionalDependencies = { "plugin-transitive": "github:user/plugin-transitive" };
+				await fs.writeFile(packageJsonPath, JSON.stringify(packageJson));
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				const pending = plugins.find(plugin => plugin.name === "plugin-transitive");
+				assert.equal(pending.npmPackage, undefined);
+				assert.equal(await lib.isNonRegistryPackage("plugin-transitive"), true);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should not list a plugin replaced by another package since startup as installable", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-npm", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				await fs.writeFile(packageJsonPath, JSON.stringify({ ...JSON.parse(original), name: "other" }));
+				const [plugin] = await lib.listPluginDetails([{
+					name: "npm",
+					title: "NPM",
+					version: "0.0.1",
+					requirePath: "plugin-npm",
+					packagePath: path.join(npmPluginPathAbs, "package.json"),
+					npmPackage: "plugin-npm",
+				}], () => true, () => true);
+				assert.equal(plugin.npmPackage, undefined);
+				assert.equal(plugin.removed, undefined);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should not list private packages as installable from npm", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-deep", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				await fs.writeFile(packageJsonPath, JSON.stringify({ ...JSON.parse(original), private: true }));
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
+				assert.equal(deep.pendingInstall, true);
+				assert.equal(deep.npmPackage, undefined);
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should skip packages whose package.json is being rewritten", async function() {
+			const packageJsonPath = path.join("node_modules", "plugin-deep", "package.json");
+			const original = await fs.readFile(packageJsonPath, "utf8");
+			try {
+				await fs.writeFile(packageJsonPath, original.slice(0, 20));
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				assert.equal(plugins.some(plugin => plugin.name === "plugin-deep"), false);
+				assert.ok(plugins.some(plugin => plugin.name === "plugin-aliased"));
+			} finally {
+				await fs.writeFile(packageJsonPath, original);
+			}
+		});
+
+		it("should skip packages with a malformed package.json before they are first resolved", async function() {
+			const rootPackageJson = await fs.readFile("package.json", "utf8");
+			const brokenPath = path.join("node_modules", "plugin-half-written");
+			try {
+				await fs.mkdir(brokenPath, { recursive: true });
+				await fs.writeFile(path.join(brokenPath, "package.json"), '{ "name": "plugin-half');
+				const root = JSON.parse(rootPackageJson);
+				root.dependencies["plugin-half-written"] = "^1.0.0";
+				await fs.writeFile("package.json", JSON.stringify(root));
+				const plugins = await lib.listPluginDetails([], () => true, () => true);
+				assert.equal(plugins.some(plugin => plugin.name === "plugin-half-written"), false);
+				assert.ok(plugins.some(plugin => plugin.name === "plugin-aliased"));
+			} finally {
+				await fs.writeFile("package.json", rootPackageJson);
+				await fs.rm(brokenPath, { recursive: true, force: true });
+			}
+		});
+
+		it("should not plan installing over an alias loaded on another machine", async function() {
+			// As loadPluginInfos returns it for the aliased plugin found on startup
+			assert.equal(pluginList.get("aliased"), "plugin-aliased");
+			const aliasInfo = {
+				name: "aliased",
+				title: "Aliased",
+				version: "0.0.1",
+				requirePath: "plugin-aliased",
+				packagePath: path.resolve("node_modules", "plugin-aliased", "package.json"),
+				npmPackage: undefined,
+			};
+			const hostB = await lib.listPluginDetails([aliasInfo], () => true, () => true);
+			const alias = hostB.find(plugin => plugin.name === "aliased");
+			assert.equal(alias.dependencyName, "plugin-aliased");
+			assert.equal(alias.npmPackage, undefined);
+
+			const published = new lib.PluginDetails(
+				"published", "Published", "1.0.0", true, true, undefined, "plugin-aliased", "1.0.0",
+			);
+			const statuses = computePluginStatuses([
+				{ name: "A", isController: false, address: { hostId: 1 }, plugins: [published] },
+				{ name: "B", isController: false, address: { hostId: 2 }, plugins: hostB },
+			]);
+			const plan = planUpdate(
+				statuses.get("plugin-aliased"), "2.0.0",
+				{ canInstall: () => true, canUpdate: () => true }, { hasPermission: () => true },
+			);
+			assert.deepEqual(plan.operations.map(operation => operation.target.name), ["A"]);
+			assert.deepEqual(
+				plan.skipped.map(skip => `${skip.target.name} (${skip.reason})`),
+				["B (another package is installed as plugin-aliased)"],
+			);
+		});
+
+		it("should mark plugins uninstalled since startup as removed", async function() {
+			const pluginInfos = [{
+				name: "gone",
+				title: "Gone",
+				version: "1.0.0",
+				requirePath: "plugin-gone",
+				packagePath: path.resolve("node_modules", "plugin-gone", "package.json"),
+				npmPackage: "plugin-gone",
+			}, {
+				name: "npm",
+				title: "NPM",
+				version: "0.0.1",
+				requirePath: npmPluginPathAbs,
+				packagePath: path.join(npmPluginPathAbs, "package.json"),
+				npmPackage: "plugin-npm",
+			}];
+			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
+			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
+			assert.equal(byPackage.get("plugin-gone").removed, true);
+			assert.equal(byPackage.get("plugin-gone").installedVersion, undefined);
+			assert.equal(byPackage.get("plugin-npm").removed, undefined);
 		});
 
 		it("should load existing plugin list", async function() {

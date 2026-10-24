@@ -400,7 +400,8 @@ async function initialize(): Promise<InitializeParameters> {
 	}
 
 	logger.info(`Loading available plugins from ${args.pluginList}`);
-	let pluginList = await lib.loadPluginList(args.pluginList);
+	const skippedNpmPlugins = new Map<string, string>();
+	let pluginList = await lib.loadPluginList(args.pluginList, true, skippedNpmPlugins);
 
 	// If the command is plugin management we don't try to load plugins
 	if (command === "plugin") {
@@ -415,7 +416,7 @@ async function initialize(): Promise<InitializeParameters> {
 	}
 
 	logger.info("Loading Plugin info");
-	const pluginInfos = await lib.loadPluginInfos(pluginList);
+	const pluginInfos = await lib.loadPluginInfos(pluginList, skippedNpmPlugins);
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);

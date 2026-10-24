@@ -75,6 +75,8 @@ export default class Controller {
 	hooks = new ControllerHooks(logger);
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
+	/** Latest versions of plugins on npm, as shown on the plugins page */
+	pluginLatestVersionCache: lib.LatestVersionCache = new Map();
 
 	/** WebSocket server */
 	wsServer: WsServer;
@@ -634,7 +636,9 @@ export default class Controller {
 				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
 			const restartRequired = await this.checkRestartRequired();
-			requests.push(lib.gatherSystemInfo("controller", this.canRestart, restartRequired, this.startedAtMs));
+			requests.push(lib.gatherSystemInfo(
+				"controller", this.canRestart, restartRequired, this.startedAtMs, await this.listPlugins(),
+			));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
 				this.systems.set(metric);
@@ -642,6 +646,15 @@ export default class Controller {
 		} catch (err: any) {
 			logger.error(`Unexpected error updating system infos:\n${err.stack ?? err.message}`);
 		}
+	}
+
+	/** Plugins on the controller, including those installed or updated since it started */
+	async listPlugins() {
+		return await lib.listPluginDetails(
+			this.pluginInfos,
+			pluginInfo => this.loadedPlugins.has(pluginInfo),
+			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
+		);
 	}
 
 	async checkRestartRequired() {

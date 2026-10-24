@@ -10,7 +10,9 @@
  * the local and published versions of the lib.  A message whose serialization
  * (src, dst, data schema or response schema) changed fails the test, while
  * added and removed messages are only warned about since breaking
- * compatibility is unavoidable there.
+ * compatibility is unavoidable there.  Optional properties that only one
+ * version has are left out of the comparison, as the other version ignores
+ * them when received and does not need them when sent.
  *
  * Usage:
  *   node scripts/version-compat-test.js --controller local --host published
@@ -137,6 +139,35 @@ function stableStringify(value) {
 	));
 }
 
+/**
+ * Copy of a schema without the optional properties that the other schema doesn't have. Objects with
+ * additionalProperties false on either side keep them, as those reject unknown properties.
+ */
+function withoutOneSidedOptionals(schema, other) {
+	if (Array.isArray(schema)) {
+		return schema.map((item, index) => withoutOneSidedOptionals(item, other?.[index]));
+	}
+	if (!schema || typeof schema !== "object") {
+		return schema;
+	}
+	const result = {};
+	for (const [key, value] of Object.entries(schema)) {
+		if (key !== "properties") {
+			result[key] = withoutOneSidedOptionals(value, other?.[key]);
+			continue;
+		}
+		const closed = schema.additionalProperties === false || other?.additionalProperties === false;
+		result.properties = {};
+		for (const [name, property] of Object.entries(value)) {
+			const otherProperty = other?.properties?.[name];
+			if (otherProperty || closed || schema.required?.includes(name)) {
+				result.properties[name] = withoutOneSidedOptionals(property, otherProperty);
+			}
+		}
+	}
+	return result;
+}
+
 // Runs in a child process because only one copy of the lib may be loaded per process.
 const dumpMessageSpecs = `
 	const { Link } = require(process.argv[1]);
@@ -177,9 +208,19 @@ async function checkMessageCompat(publishedVersion) {
 			annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
 			continue;
 		}
-		const fields = Object.keys(localSpec).filter(
+		const differs = Object.keys(localSpec).filter(
 			field => stableStringify(localSpec[field]) !== stableStringify(publishedSpec[field])
 		);
+		const fields = differs.filter(field => (
+			stableStringify(withoutOneSidedOptionals(localSpec[field], publishedSpec[field])) !==
+			stableStringify(withoutOneSidedOptionals(publishedSpec[field], localSpec[field]))
+		));
+		const optionalOnly = differs.filter(field => !fields.includes(field));
+		if (optionalOnly.length) {
+			console.log(
+				`| Link ${name} changed optional properties in ${optionalOnly.join(", ")} since ${publishedVersion}`
+			);
+		}
 		if (fields.length) {
 			changed.push({ name, fields, localSpec, publishedSpec });
 		}

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
-import { SystemInfo } from "@clusterio/lib";
+import { PluginDetails, SystemInfo } from "@clusterio/lib";
+import { testRoundTripJsonSerialisable } from "../../common.js";
 
 
 describe("lib/data/SystemInfo", function() {
@@ -31,6 +32,17 @@ describe("lib/data/SystemInfo", function() {
 			assert.equal(system.memoryRatio, 0.25);
 			assert.equal(system.diskUsed, 1536);
 			assert.equal(system.diskRatio, 0.75);
+		});
+		it("has round trip json serialisation", function() {
+			const base = [
+				1, "host", "v22.0.0", "Linux", "x86_64", "CPU", [0.5],
+				1024, 768, 2048, 512, true, false, 0, 0, 0, false,
+			];
+			testRoundTripJsonSerialisable(SystemInfo, [
+				base,
+				[...base, []],
+				[...base, [new PluginDetails("name", "Title", "1.0.0", true, true, undefined, "name", "1.1.0")]],
+			]);
 		});
 	});
 });

@@ -284,6 +284,67 @@ describe("lib/helpers", function() {
 		});
 	});
 
+	describe("safeExternalUrl()", function() {
+		it("should return http and https URLs", function() {
+			assert.equal(lib.safeExternalUrl("https://example.com/path?q=1#top"), "https://example.com/path?q=1#top");
+			assert.equal(lib.safeExternalUrl("http://example.com"), "http://example.com/");
+			assert.equal(lib.safeExternalUrl(" https://example.com/ "), "https://example.com/");
+		});
+		it("should reject links with other protocols", function() {
+			/* eslint-disable no-script-url */
+			for (const link of [
+				"javascript:alert(1)",
+				"JavaScript:alert(1)",
+				" javascript:alert(1)",
+				"java\tscript:alert(1)",
+				"\u0001javascript:alert(1)",
+				/* eslint-enable no-script-url */
+				"data:text/html,<script>alert(1)</script>",
+				"vbscript:msgbox(1)",
+				"file:///etc/passwd",
+				"ftp://example.com/",
+			]) {
+				assert.equal(lib.safeExternalUrl(link), undefined, link);
+			}
+		});
+		it("should reject values that are not URLs", function() {
+			for (const link of [undefined, null, 1, {}, { url: 1 }, "", "not a url", "/relative", "owner/repo"]) {
+				assert.equal(lib.safeExternalUrl(link), undefined, String(link));
+			}
+		});
+		it("should accept npm repository objects", function() {
+			assert.equal(
+				lib.safeExternalUrl({ type: "git", url: "git+https://github.com/owner/repo.git" }),
+				"https://github.com/owner/repo"
+			);
+			// eslint-disable-next-line no-script-url
+			assert.equal(lib.safeExternalUrl({ type: "git", url: "javascript:alert(1)" }), undefined);
+		});
+		it("should convert git URLs to https", function() {
+			for (const link of [
+				"git+https://github.com/owner/repo.git",
+				"git://github.com/owner/repo.git",
+				"git+ssh://git@github.com/owner/repo.git",
+				"git@github.com:owner/repo.git",
+			]) {
+				assert.equal(lib.safeExternalUrl(link), "https://github.com/owner/repo", link);
+			}
+		});
+		it("should expand repository shorthands", function() {
+			assert.equal(lib.safeExternalUrl("github:owner/repo"), "https://github.com/owner/repo");
+			assert.equal(lib.safeExternalUrl("gitlab:owner/repo"), "https://gitlab.com/owner/repo");
+			assert.equal(lib.safeExternalUrl("bitbucket:owner/repo"), "https://bitbucket.org/owner/repo");
+			assert.equal(lib.safeExternalUrl("github://evil.example/x"), "https://github.com/evil.example/x");
+		});
+		it("should remove credentials", function() {
+			assert.equal(lib.safeExternalUrl("https://user:secret@example.com/"), "https://example.com/");
+			assert.equal(
+				lib.safeExternalUrl("git+https://user:secret@example.com/repo.git"),
+				"https://example.com/repo"
+			);
+		});
+	});
+
 	describe("redactQuery()", function() {
 		it("should redact credential parameters and keep the rest", function() {
 			const query = { code: "secret", Token: "secret", state: "abc" };

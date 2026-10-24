@@ -278,7 +278,7 @@ hostPluginCommands.add(new lib.Command({
 hostPluginCommands.add(new lib.Command({
 	definition: ["update <host> <plugin>", "Update a plugin on a host", (yargs) => {
 		yargs.positional("host", { describe: "Host to update on", type: "string" });
-		yargs.positional("plugin", { describe: "Plugin to update", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to update, optionally as name@version", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
 	handler: async function(args: { host: string, plugin: string, restart: boolean }, ctl: Ctl) {
@@ -294,7 +294,7 @@ hostPluginCommands.add(new lib.Command({
 hostPluginCommands.add(new lib.Command({
 	definition: ["install <host> <plugin>", "Install a plugin on a host", (yargs) => {
 		yargs.positional("host", { describe: "Host to install on", type: "string" });
-		yargs.positional("plugin", { describe: "Plugin to install", type: "string" });
+		yargs.positional("plugin", { describe: "Plugin to install, optionally as name@version", type: "string" });
 		yargs.option("restart", { alias: "r", type: "boolean", description: "Restart after update" });
 	}],
 	handler: async function(args: { host: string, plugin: string, restart: boolean }, ctl: Ctl) {
