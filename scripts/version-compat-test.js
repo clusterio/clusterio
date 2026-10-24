@@ -10,8 +10,9 @@
  * the local and published versions of the lib.  A message whose serialization
  * (src, dst, data schema or response schema) changed fails the test, while
  * added and removed messages are only warned about since breaking
- * compatibility is unavoidable there.  Changes that were checked to be
- * compatible are listed in acceptedChanges below.
+ * compatibility is unavoidable there.  Optional properties that only one
+ * version has are left out of the comparison, as the other version ignores
+ * them when received and does not need them when sent.
  *
  * Usage:
  *   node scripts/version-compat-test.js --controller local --host published
@@ -138,74 +139,34 @@ function stableStringify(value) {
 	));
 }
 
-// Link messages whose serialization changed since the published release after checking that both
-// versions can still talk to each other.  Each entry holds the reviewed local spec of the changed
-// fields, so any further change fails again.  Remove entries once they are part of a release.
-const pluginDetailsSpec = {
-	type: "object",
-	properties: {
-		name: { type: "string" },
-		title: { type: "string" },
-		version: { type: "string" },
-		loaded: { type: "boolean" },
-		enabled: { type: "boolean" },
-		description: { type: "string" },
-		npmPackage: { type: "string" },
-		installedVersion: { type: "string" },
-		pendingInstall: { type: "boolean" },
-		removed: { type: "boolean" },
-		dependencyName: { type: "string" },
-		noEntrypoint: { type: "boolean" },
-		nameTaken: { type: "boolean" },
-	},
-	required: ["name", "title", "version", "loaded", "enabled"],
-};
-const systemInfoSpec = {
-	type: "object",
-	required: [
-		"id", "hostname", "node", "kernel", "machine", "cpuModel", "coreRatios", "memoryCapacity", "memoryAvailable",
-		"diskCapacity", "diskAvailable", "canRestart", "restartRequired", "systemStartedAtMs", "processStartedAtMs",
-		"updatedAtMs", "isDeleted",
-	],
-	properties: {
-		id: { anyOf: [{ type: "number" }, { const: "controller", type: "string" }] },
-		hostname: { type: "string" },
-		node: { type: "string" },
-		kernel: { type: "string" },
-		machine: { type: "string" },
-		cpuModel: { type: "string" },
-		coreRatios: { type: "array", items: { type: "number" } },
-		memoryCapacity: { type: "number" },
-		memoryAvailable: { type: "number" },
-		diskCapacity: { type: "number" },
-		diskAvailable: { type: "number" },
-		canRestart: { type: "boolean" },
-		restartRequired: { type: "boolean" },
-		systemStartedAtMs: { type: "number" },
-		processStartedAtMs: { type: "number" },
-		updatedAtMs: { type: "number" },
-		isDeleted: { type: "boolean" },
-		plugins: { type: "array", items: pluginDetailsSpec },
-	},
-};
-const acceptedChanges = {
-	// Optional installedVersion, pendingInstall, removed, dependencyName, noEntrypoint and nameTaken added
-	// to plugin details, which older versions ignore
-	"request PluginListRequest": {
-		response: { type: "array", items: pluginDetailsSpec },
-	},
-	// Optional plugins added to system info, which older versions ignore
-	"request SystemInfoRequest": {
-		response: systemInfoSpec,
-	},
-	"event SystemInfoUpdateEvent": {
-		data: {
-			type: "object",
-			required: ["updates"],
-			properties: { updates: { type: "array", items: systemInfoSpec } },
-		},
-	},
-};
+/**
+ * Copy of a schema without the optional properties that the other schema doesn't have. Objects with
+ * additionalProperties false on either side keep them, as those reject unknown properties.
+ */
+function withoutOneSidedOptionals(schema, other) {
+	if (Array.isArray(schema)) {
+		return schema.map((item, index) => withoutOneSidedOptionals(item, other?.[index]));
+	}
+	if (!schema || typeof schema !== "object") {
+		return schema;
+	}
+	const result = {};
+	for (const [key, value] of Object.entries(schema)) {
+		if (key !== "properties") {
+			result[key] = withoutOneSidedOptionals(value, other?.[key]);
+			continue;
+		}
+		const closed = schema.additionalProperties === false || other?.additionalProperties === false;
+		result.properties = {};
+		for (const [name, property] of Object.entries(value)) {
+			const otherProperty = other?.properties?.[name];
+			if (otherProperty || closed || schema.required?.includes(name)) {
+				result.properties[name] = withoutOneSidedOptionals(property, otherProperty);
+			}
+		}
+	}
+	return result;
+}
 
 // Runs in a child process because only one copy of the lib may be loaded per process.
 const dumpMessageSpecs = `
@@ -247,15 +208,18 @@ async function checkMessageCompat(publishedVersion) {
 			annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
 			continue;
 		}
-		const fields = Object.keys(localSpec).filter(
+		const differs = Object.keys(localSpec).filter(
 			field => stableStringify(localSpec[field]) !== stableStringify(publishedSpec[field])
 		);
-		const accepted = fields.filter(
-			field => stableStringify(localSpec[field]) === stableStringify(acceptedChanges[name]?.[field])
-		);
-		if (accepted.length) {
-			console.log(`| Link ${name} changed ${accepted.join(", ")} since ${publishedVersion}, accepted`);
-			fields.splice(0, fields.length, ...fields.filter(field => !accepted.includes(field)));
+		const fields = differs.filter(field => (
+			stableStringify(withoutOneSidedOptionals(localSpec[field], publishedSpec[field])) !==
+			stableStringify(withoutOneSidedOptionals(publishedSpec[field], localSpec[field]))
+		));
+		const optionalOnly = differs.filter(field => !fields.includes(field));
+		if (optionalOnly.length) {
+			console.log(
+				`| Link ${name} changed optional properties in ${optionalOnly.join(", ")} since ${publishedVersion}`
+			);
 		}
 		if (fields.length) {
 			changed.push({ name, fields, localSpec, publishedSpec });
