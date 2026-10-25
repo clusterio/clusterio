@@ -59,7 +59,7 @@ function WebUiStatus(props: { plugin: PluginRow }) {
 	if (props.plugin.package.version !== meta.version) {
 		return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Version mis-matched</>;
 	}
-	return <>Loaded</>;
+	return <>Loaded {meta.version}</>;
 }
 
 

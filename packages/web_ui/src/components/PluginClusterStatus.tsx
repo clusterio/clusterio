@@ -170,7 +170,7 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 				<Text>{version}</Text>
 				{props.latest === version && <Tag color="success" style={{ marginLeft: 6 }}>latest</Tag>}
 				<Text type="secondary" style={{ marginLeft: 12 }}>
-					{now} running{now !== after && ` → ${after} after restart`}
+					{plural(now, "machine")}{now !== after && ` → ${after} after restart`}
 				</Text>
 			</div>;
 		})}
@@ -185,9 +185,6 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 			label="From another package on" count={count(machine => machine.nameTaken)} type="secondary"
 		/>}
 		{missing > 0 && <CountLine label="Not installed on" count={missing} type="warning" />}
-		{count(machine => Boolean(machine.offline)) > 0 && <CountLine
-			label="Offline" count={count(machine => Boolean(machine.offline))} type="secondary"
-		/>}
 		{unknown.length > 0 && <CountLine label="Plugins not reported by" count={unknown.length} type="warning" />}
 	</>;
 }
@@ -301,7 +298,9 @@ export function PluginUpdateButton(props: UpdateButtonProps) {
 	const plan = planUpdate(status, latest, installer.access, account);
 	const changes = [...plan.operations, ...plan.skipped];
 	if (!changes.length) {
-		return null;
+		return <Tooltip title="Up to date on every machine">
+			<Button size="small" disabled>Update to {latest}</Button>
+		</Tooltip>;
 	}
 	const onlyInstalls = changes.every(change => change.kind === "install");
 	const label = onlyInstalls ? `Install on missing (${changes.length})` : `Update to ${latest}`;
@@ -470,7 +469,7 @@ export function RestartPendingButton(props: RestartPendingProps) {
 
 	return <>
 		<Tooltip title={pending.length
-			? <>{plural(pending.length, "machine")} need a restart, see the <Link to="/hosts">hosts list</Link></>
+			? `${plural(pending.length, "machine")} need a restart`
 			: "No machine needs a restart"
 		}>
 			<Button
@@ -487,7 +486,7 @@ export function RestartPendingButton(props: RestartPendingProps) {
 			items={items}
 			extra={blocked > 0 && <p>
 				{plural(blocked, "machine")} can't be restarted from here and must be restarted by hand.
-				The <Link to="/hosts">hosts list</Link> shows which can be restarted.
+				The <Link to="/hosts">hosts list</Link> will show which need to be restarted.
 			</p>}
 			onCancel={() => setOpen(false)}
 			onOk={keys => {

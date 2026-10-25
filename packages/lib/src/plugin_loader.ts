@@ -119,7 +119,7 @@ export async function listPluginDetails(
 	hasEntrypoint: (pluginInfo: libPlugin.PluginNodeEnvInfo) => boolean = () => true,
 ): Promise<PluginDetails[]> {
 	const plugins: PluginDetails[] = [];
-	const dependencies = installedDependencies(await readPackageJson(path.resolve("package.json")));
+	const dependencies = installedDependencies(await readPackageJson(process.cwd(), true));
 	// By directory, as a plugin loaded from a path may also be an npm dependency
 	const knownDirs = new Set<string>();
 	// Packages skipped on startup by directory, for plugins still installed
@@ -142,17 +142,21 @@ export async function listPluginDetails(
 		if (nonRegistryDirs.has(dir)) {
 			plugin.npmPackage = undefined;
 		}
+		let packageJson;
 		try {
-			const packageJson = JSON.parse(await fs.readFile(pluginInfo.packagePath, "utf8"));
+			packageJson = await readPackageJson(path.dirname(pluginInfo.packagePath), false);
+			if (packageJson === undefined) {
+				// Uninstalled since startup, it won't be found on the next restart
+				plugin.removed = true;
+			}
+		} catch {
+			// Ignored: npm is still writing it
+		}
+		if (packageJson) {
 			plugin.installedVersion = packageJson.version;
 			if (packageJson.name !== plugin.npmPackage) {
 				// Replaced by an alias since startup
 				plugin.npmPackage = undefined;
-			}
-		} catch (err: any) {
-			if (err.code === "ENOENT") {
-				// Uninstalled since startup, it won't be found on the next restart
-				plugin.removed = true;
 			}
 		}
 		if (!plugin.removed && pluginInfo.skippedNpmPackage !== undefined) {

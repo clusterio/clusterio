@@ -2,9 +2,6 @@ import fs, { type FileHandle } from "node:fs/promises";
 import { readFileSync, unlinkSync } from "node:fs";
 import assert from "assert";
 
-// A lock file without a valid pid is left alone for this long, as it may still be being written
-const lockWriteGraceMs = 10e3;
-
 /**
  * Error thrown when the lock file already exists.
  */
@@ -42,60 +39,18 @@ export class LockFileRecoveryError extends Error {
 type LockState = "idle" | "acquiring" | "acquired" | "releasing";
 type LockSnapshot = { content: string, ino: bigint, mtimeNs: bigint };
 
-/** Content and identity of a lock file, read through one handle so both belong to the same file */
-async function readLock(filePath: string): Promise<LockSnapshot | undefined> {
-	let handle;
-	try {
-		handle = await fs.open(filePath, "r");
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			return undefined;
-		}
-		throw err;
-	}
-	try {
-		const stat = await handle.stat({ bigint: true });
-		return { content: await handle.readFile("utf8"), ino: stat.ino, mtimeNs: stat.mtimeNs };
-	} finally {
-		await handle.close();
-	}
-}
-
-function isSameLock(a: LockSnapshot, b: LockSnapshot) {
-	return a.content === b.content && a.ino === b.ino && a.mtimeNs === b.mtimeNs;
-}
-
-/**
- * Content written to the lock file. The start time tells this process apart from an earlier one with
- * the same pid, and is the same for every copy of lib loaded in this process.
- */
-function lockContent() {
-	return `${process.pid} ${performance.timeOrigin}\n`;
-}
-
-/** True if the lock names a process that is still running, or may still be written to */
-function lockIsLive(lock: LockSnapshot) {
-	const pid = Number(lock.content.split(" ")[0]);
-	if (!Number.isInteger(pid) || pid <= 0) {
-		return Date.now() - Number(lock.mtimeNs / 1000000n) < lockWriteGraceMs;
-	}
-	if (pid === process.pid) {
-		// Held by this process, or left by an earlier process with the same pid
-		return lock.content === lockContent();
-	}
-	try {
-		// Signal 0 only checks that the process exists
-		process.kill(pid, 0);
-		return true;
-	} catch (err: any) {
-		return err.code !== "ESRCH";
-	}
-}
-
 /**
  * Cross-platform lock file utility for Node.js.
  */
 export class LockFile {
+	/**
+	 * Content written to the lock file. The start time tells this process apart from an earlier one with
+	 * the same pid, and is the same for every copy of lib loaded in this process.
+	 */
+	private static readonly content = `${process.pid} ${performance.timeOrigin}\n`;
+	// A lock file without a valid pid is left alone for this long, as it may still be being written
+	private static readonly writeGraceMs = 10e3;
+
 	private handle: FileHandle | null = null;
 	private state: LockState = "idle";
 
@@ -109,6 +64,53 @@ export class LockFile {
 		private readonly filePath: string,
 		private readonly handleSignals = true,
 	) {}
+
+	/** Content and identity of a lock file, read through one handle so both belong to the same file */
+	private static async readLock(filePath: string): Promise<LockSnapshot | undefined> {
+		let handle;
+		try {
+			handle = await fs.open(filePath, "r");
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				return undefined;
+			}
+			throw err;
+		}
+		try {
+			const stat = await handle.stat({ bigint: true });
+			return { content: await handle.readFile("utf8"), ino: stat.ino, mtimeNs: stat.mtimeNs };
+		} finally {
+			await handle.close();
+		}
+	}
+
+	private static isSameLock(a: LockSnapshot, b: LockSnapshot) {
+		return a.content === b.content && a.ino === b.ino && a.mtimeNs === b.mtimeNs;
+	}
+
+	private static lockPid(lock: LockSnapshot) {
+		const pid = Number(lock.content.split(" ")[0]);
+		return Number.isInteger(pid) && pid > 0 ? pid : undefined;
+	}
+
+	/** True if the lock names a process that is still running, or may still be written to */
+	private static lockIsLive(lock: LockSnapshot) {
+		const pid = LockFile.lockPid(lock);
+		if (pid === undefined) {
+			return Date.now() - Number(lock.mtimeNs / 1000000n) < LockFile.writeGraceMs;
+		}
+		if (pid === process.pid) {
+			// Held by this process, or left by an earlier process with the same pid
+			return lock.content === LockFile.content;
+		}
+		try {
+			// Signal 0 only checks that the process exists
+			process.kill(pid, 0);
+			return true;
+		} catch (err: any) {
+			return err.code !== "ESRCH";
+		}
+	}
 
 	/**
 	 * Acquire the lock file.
@@ -126,7 +128,7 @@ export class LockFile {
 		try {
 			await this.removeStale();
 			this.handle = await fs.open(this.filePath, "wx");
-			await this.handle.write(lockContent());
+			await this.handle.write(LockFile.content);
 			this.attachExitHandlers();
 			this.state = "acquired";
 		} catch (err: any) {
@@ -173,9 +175,9 @@ export class LockFile {
 
 	private async isHeldFile() {
 		try {
-			return await fs.readFile(this.filePath, "utf8") === lockContent();
+			return (await LockFile.readLock(this.filePath))?.content === LockFile.content;
 		} catch {
-			// Ignored: file may not exist or be unreadable, so lock is not held
+			// Ignored: file may be unreadable, so lock is not held
 			return false;
 		}
 	}
@@ -184,14 +186,14 @@ export class LockFile {
 	 * Determine whether an existing lock is stale.
 	 */
 	async isStale(): Promise<boolean> {
-		const lock = await readLock(this.filePath);
-		return lock === undefined || !lockIsLive(lock);
+		const lock = await LockFile.readLock(this.filePath);
+		return lock === undefined || !LockFile.lockIsLive(lock);
 	}
 
 	/** Pid of the process holding the lock, if it has written it */
 	async holderPid(): Promise<number | undefined> {
-		const pid = Number((await readLock(this.filePath))?.content.split(" ")[0]);
-		return Number.isInteger(pid) && pid > 0 ? pid : undefined;
+		const lock = await LockFile.readLock(this.filePath);
+		return lock && LockFile.lockPid(lock);
 	}
 
 	/**
@@ -199,26 +201,26 @@ export class LockFile {
 	 * recovery lock, so a lock another process took after the stale check is never removed.
 	 */
 	private async removeStale(): Promise<void> {
-		const stale = await readLock(this.filePath);
-		if (!stale || lockIsLive(stale)) {
+		const stale = await LockFile.readLock(this.filePath);
+		if (!stale || LockFile.lockIsLive(stale)) {
 			return;
 		}
 		const recoveryPath = `${this.filePath}.recovery`;
 		try {
-			await fs.writeFile(recoveryPath, lockContent(), { flag: "wx" });
+			await fs.writeFile(recoveryPath, LockFile.content, { flag: "wx" });
 		} catch (err: any) {
 			if (err.code !== "EEXIST") {
 				throw err;
 			}
-			const holder = await readLock(recoveryPath);
-			if (holder && !lockIsLive(holder)) {
+			const holder = await LockFile.readLock(recoveryPath);
+			if (holder && !LockFile.lockIsLive(holder)) {
 				throw new LockFileRecoveryError(recoveryPath);
 			}
 			return; // Another process is clearing it
 		}
 		try {
-			const current = await readLock(this.filePath);
-			if (current && isSameLock(current, stale)) {
+			const current = await LockFile.readLock(this.filePath);
+			if (current && LockFile.isSameLock(current, stale)) {
 				await fs.unlink(this.filePath);
 			}
 		} finally {
@@ -259,10 +261,10 @@ export class LockFile {
 		await this.release();
 	};
 
-	// Event handler for synchronous process exit
+	// Event handler for synchronous process exit, readLock can't be used as it is async
 	private handleExitSync = (): void => {
 		try {
-			if (readFileSync(this.filePath, "utf8") === lockContent()) {
+			if (readFileSync(this.filePath, "utf8") === LockFile.content) {
 				unlinkSync(this.filePath);
 			}
 		} catch (err) {

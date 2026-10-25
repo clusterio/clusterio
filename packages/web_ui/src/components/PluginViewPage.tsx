@@ -64,10 +64,6 @@ function ControllerPlugin(props: ControllerPluginProps) {
 				<Descriptions.Item label="Loaded in Web UI" span={2}>
 					{hasWebModule ? "No" : "No web module"}
 				</Descriptions.Item>
-				<Descriptions.Item label="Loaded on controller">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
-				<Descriptions.Item label="Enabled on controller" span={2}>
-					{pluginMeta.enabled ? "Yes" : "No"}
-				</Descriptions.Item>
 			</Descriptions>
 			{pluginError && <Alert
 				style={{
@@ -91,10 +87,6 @@ function ControllerPlugin(props: ControllerPluginProps) {
 		<Descriptions bordered size="small" title={props.title}>
 			<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
 			<Descriptions.Item label="Loaded in Web UI" span={2}>Yes</Descriptions.Item>
-			<Descriptions.Item label="Loaded on controller">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
-			<Descriptions.Item label="Enabled on controller" span={2}>
-				{pluginMeta.enabled ? "Yes" : "No"}
-			</Descriptions.Item>
 			<Descriptions.Item label="Description" span={3}>{loadedPlugin.description}</Descriptions.Item>
 			{loadedPlugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
 				{homepageUrl
