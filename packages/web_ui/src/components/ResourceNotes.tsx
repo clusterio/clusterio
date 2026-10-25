@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Button, Input, Space, Typography } from "antd";
+import ReactMarkdown, { Components } from "react-markdown";
 
 import * as lib from "@clusterio/lib";
 import { notifyErrorHandler } from "../util/notify";
@@ -7,9 +8,69 @@ import { useAccount } from "../model/account";
 import { useNote } from "../model/notes";
 import { formatTimestamp } from "../util/time_format";
 import ControlContext from "./ControlContext";
+import ResourceMention, { mentionPath, mentionPattern } from "./ResourceMention";
 import SectionHeader from "./SectionHeader";
 
 const { Text } = Typography;
+
+/**
+ * Remark plugin turning @type/id mentions into links and line breaks into
+ * hard breaks. Text inside code and existing links is left alone.
+ */
+function remarkNoteText() {
+	function split(value: string) {
+		const nodes: any[] = [];
+		let last = 0;
+		function pushText(text: string) {
+			text.split("\n").forEach((line, index) => {
+				if (index > 0) {
+					nodes.push({ type: "break" });
+				}
+				if (line) {
+					nodes.push({ type: "text", value: line });
+				}
+			});
+		}
+		for (const match of value.matchAll(mentionPattern)) {
+			pushText(value.slice(last, match.index));
+			const resourceType = match[1] ?? match[3];
+			const resourceId = match[2] ?? match[4];
+			nodes.push({
+				type: "link",
+				url: mentionPath(resourceType, resourceId),
+				children: [{ type: "text", value: match[0] }],
+				data: { hProperties: { dataResourceType: resourceType, dataResourceId: resourceId } },
+			});
+			last = match.index + match[0].length;
+		}
+		pushText(value.slice(last));
+		return nodes;
+	}
+	function visit(node: any) {
+		if (!node.children || node.type === "link" || node.type === "linkReference") {
+			return;
+		}
+		node.children = node.children.flatMap((child: any) => {
+			if (child.type === "text") {
+				return split(child.value);
+			}
+			visit(child);
+			return [child];
+		});
+	}
+	return visit;
+}
+
+const noteComponents: Components = {
+	a({ node, ...props }) {
+		const resourceType = node?.properties.dataResourceType;
+		const resourceId = node?.properties.dataResourceId;
+		if (typeof resourceType === "string" && typeof resourceId === "string") {
+			return <ResourceMention resourceType={resourceType} resourceId={resourceId} />;
+		}
+		return <a {...props} target="_blank" rel="noopener noreferrer" />;
+	},
+};
 
 type ResourceNotesProps = {
 	/** Type of resource, such as "host" or "instance". */
@@ -85,12 +146,19 @@ function ResourceNotesEditor(props: ResourceNotesProps) {
 					save();
 				}
 			}}
-			placeholder="Write a note visible to everyone with access to this page"
+			placeholder={
+				"Write a note visible to everyone with access to this page. " +
+				"Supports Markdown and links like @instance/<id> or @user/<name>"
+			}
 			autoFocus
 		/>
 		: <>
 			{note
-				? <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{note.content}</div>
+				? <div style={{ overflowWrap: "anywhere" }}>
+					<ReactMarkdown remarkPlugins={[remarkNoteText]} components={noteComponents}>
+						{note.content}
+					</ReactMarkdown>
+				</div>
 				: <Text type="secondary">{synced ? "No note" : "Loading"}</Text>
 			}
 			{note && (note.updatedBy || note.updatedAtMs) && <div>
