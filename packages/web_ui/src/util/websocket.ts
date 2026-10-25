@@ -11,7 +11,7 @@ type saveListHandler = (saveListEvent: lib.SaveDetails) => void;
 type modPackHandler = (modPack: lib.ModPack) => void;
 type modInfoHandler = (modInfo: lib.ModInfo) => void;
 type userHandler = (rawUser: lib.UserDetails) => void;
-type logHandler = (info: { level: keyof typeof lib.levels, message: string }) => void;
+type logHandler = (info: lib.LogEntry) => void;
 
 /**
  * Connector for control connection to controller

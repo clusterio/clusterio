@@ -1,8 +1,14 @@
 import { Type, Static } from "@sinclair/typebox";
 import { JsonString, StringEnum, StringKey, plainJson } from "./composites.js";
-import { levels } from "../logging.js";
+import { type LogEntry, levels } from "../logging.js";
 import { ControllerConfig, HostConfig } from "../config/index.js";
 import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external/index.js";
+
+const LogEntrySchema = Type.Object({
+	"level": StringKey(levels),
+	"message": Type.String(),
+	"timestamp": Type.String(),
+});
 
 export class ControllerStopRequest {
 	declare ["constructor"]: typeof ControllerStopRequest;
@@ -236,11 +242,11 @@ export class LogQueryRequest {
 
 	static Response = class Response {
 		constructor(
-			public log: object[],
+			public log: LogEntry[],
 		) { }
 
 		static jsonSchema = Type.Object({
-			"log": Type.Array(Type.Object({})),
+			"log": Type.Array(LogEntrySchema),
 		});
 
 		static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -256,14 +262,11 @@ export class LogMessageEvent {
 	static dst = ["controller", "control"] as const;
 
 	constructor(
-		public info: { level: keyof typeof levels, message: string },
+		public info: LogEntry,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"info": Type.Object({
-			"level": StringKey(levels),
-			"message": Type.String(),
-		}),
+		"info": LogEntrySchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {

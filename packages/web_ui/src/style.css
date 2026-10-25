@@ -195,6 +195,10 @@ body {
 	white-space: pre-wrap;
 }
 
+.instance-console .log-time {
+	color: #808080;
+}
+
 .instance-console .factorio-time {
 	color: #afaf1f;
 }
