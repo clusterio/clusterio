@@ -23,6 +23,8 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match publish --no-git-checks
+        env:
+          NODE_ENV: production
       - uses: softprops/action-gh-release@v3
         with:
           files: pnpm-lock.yaml
