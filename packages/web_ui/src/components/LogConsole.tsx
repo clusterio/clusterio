@@ -54,16 +54,28 @@ function formatParsedOutput(parsed: Parsed) {
 	return <>{time}{info}{parsed.message}</>;
 }
 
-type Info = {
-	level: keyof typeof lib.levels;
-	message: string;
+type Info = lib.LogEntry & {
 	parsed?: Parsed;
 };
 
+/**
+ * Format an ISO 8601 timestamp as local YYYY-MM-DD HH:MM:SS
+ */
+function formatTime(timestamp: string) {
+	const date = new Date(timestamp);
+	if (Number.isNaN(date.getTime())) {
+		return timestamp;
+	}
+	const pad = (value: number) => String(value).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+		`${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function formatLog(info: Info, key: number): ReactElement {
+	let time = <span className="log-time">{formatTime(info.timestamp)}</span>;
 	let level = <span className={`log-${info.level}`}>{info.level}</span>;
 	let message = info.level === "server" && info.parsed ? formatParsedOutput(info.parsed) : info.message;
-	return <span key={key}>[{level}] {message}<br/></span>;
+	return <span key={key}>{time} [{level}] {message}<br/></span>;
 }
 
 /**
@@ -186,10 +198,10 @@ export default function LogConsole(props: LogConsoleProps) {
 			setPastLines([]);
 		}
 
-		function logHandler(info: Info) {
-			if (!props.actionsOnly || passesActionsOnly(info)) {
+		function logHandler(info: lib.LogEntry) {
+			if (!props.actionsOnly || passesActionsOnly(info as Info)) {
 				setLines(currentLines => currentLines.concat(
-					[formatLog(info, currentLines.length)]
+					[formatLog(info as Info, currentLines.length)]
 				));
 			}
 		}

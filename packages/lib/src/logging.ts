@@ -94,6 +94,18 @@ export class WebConsoleFormat {
 }
 
 /**
+ * Log entry as produced by the logger and sent over links
+ */
+export interface LogEntry {
+	level: keyof typeof levels;
+	message: string;
+	/** ISO 8601 time the entry was logged at. */
+	timestamp: string;
+	/** Other fields like host_id, instance_id, plugin and parsed vary by source. */
+	[key: string]: unknown;
+}
+
+/**
  * Filter object for logs
  */
 export interface LogFilter {
