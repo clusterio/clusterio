@@ -31,11 +31,46 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
-## Unreleased
+## Version 2.0.3
+
+### Features
+
+- Added per instance options to choose which parts of the player inventory sync covers. [#968](<https://github.com/clusterio/clusterio/issues/968>)
+- Added opt-in UDP messaging between instances and the Factorio server via `factorio.enable_lua_udp`, with a `sendUdp` plugin API, `clusterio_api.send_udp` in-game and a `LuaUdp` plugin feature flag. [[#969](<https://github.com/clusterio/clusterio/issues/969>)](<https://github.com/clusterio/clusterio/issues/969>)
+- Added notes that can be attached to hosts, instances, users, roles, mod packs, mods and saves in the web interface and through ctl. [#903](<https://github.com/clusterio/clusterio/issues/903>)
+- Added tools to inspect, replace, delete and unlock player data stored by inventory sync, in the web interface and as `clusterioctl inventory-sync` commands. [#1003](<https://github.com/clusterio/clusterio/issues/1003>)
+- Notes in the web interface render as Markdown and link `@<type>/<id>` mentions to the resource. [#1000](<https://github.com/clusterio/clusterio/pull/1000>)
+- Added timestamps to log lines in the web interface console. [#1137](<https://github.com/clusterio/clusterio/pull/1137>)
+- Added syncing of quick bar slots that hold a specific blueprint, blueprint book or planner, including ones from the player's blueprint library, on Factorio 2.1. [#1092](<https://github.com/clusterio/clusterio/issues/1092>)
+- Added a `set_destination` remote interface to Player Sync. A plugin that moves a player to another instance calls it before `connect_to_server`, and the player's data is sent to that instance while the client reconnects, so the join applies it without a download. [#1099](<https://github.com/clusterio/clusterio/issues/1099>)
+- Added a cluster research queue to research_sync: servers can follow one research queue, set from the research screen on any following server, with a checkbox on the lab window. [#1115](<https://github.com/clusterio/clusterio/pull/1115>)
 
 ### Fixes
 
+- Fixed instances that start at the same time each downloading a new Factorio version into the same files and leaving a corrupt install. [[#1105](<https://github.com/clusterio/clusterio/issues/1105>)](<https://github.com/clusterio/clusterio/issues/1105>)
+- Fixed `controller.max_send_buffer_size` counting buffered messages in UTF-16 code units instead of UTF-8 bytes, which let non-ASCII messages go over the limit. [[#1108](<https://github.com/clusterio/clusterio/issues/1108>)](<https://github.com/clusterio/clusterio/issues/1108>)
 - Removed incompatible Server Select and Discord Bridge releases from the installer's plugin choices so selecting all offered plugins no longer installs them. [#1102](<https://github.com/clusterio/clusterio/issues/1102>)
+- Fixed reading map exchange strings from Factorio 2.1.18 and later, which gave wrong enemy evolution and expansion settings and made `instance load-scenario --map-exchange-string` fail. [[#1131](<https://github.com/clusterio/clusterio/issues/1131>)](<https://github.com/clusterio/clusterio/issues/1131>)
+- Fixed Player Sync erroring when the controller returned no data for a downloading player, which left the player waiting for the timeout. [#1094](<https://github.com/clusterio/clusterio/issues/1094>)
+- Fixed spoilable items arriving fresh after being serialized, the spoil percent is now kept. [#1093](<https://github.com/clusterio/clusterio/issues/1093>)
+- Fixed named personal logistic groups losing their requests and trash rules when joining a server where the group was missing or empty. [#1091](<https://github.com/clusterio/clusterio/issues/1091>)
+- Fixed Player Sync leaving quick bar slots from an earlier visit in place, which made moved or cleared slots come back after changing server. [#1092](<https://github.com/clusterio/clusterio/issues/1092>)
+- Fixed research_sync sending research it received from the controller back to it, so every instance got the research again each time an instance started. [#1110](<https://github.com/clusterio/clusterio/issues/1110>)
+- Fixed items in main inventory slots from armor equipment such as toolbelts not fitting in the inventory when joining another server. [#1100](<https://github.com/clusterio/clusterio/issues/1100>)
+
+### Changes
+
+- Replaced jszip with yauzl and yazl so saves and mods are no longer loaded fully into memory when patched, read or exported. [#1002](<https://github.com/clusterio/clusterio/issues/1002>)
+- Bumped dependency versions, including typebox 0.34 and react-router 7. Plugins using `@sinclair/typebox` should update to ^0.34. [#1113](<https://github.com/clusterio/clusterio/pull/1113>)
+
+### Contributors
+
+Many thanks to the following for contributing to this release:
+[@psihius](<https://github.com/psihius>), [@ILLISIS](<https://github.com/ILLISIS>), [@bbassie](<https://github.com/bbassie>), [@ColumbusLabs](<https://github.com/ColumbusLabs>)
+
+### Statistics
+
+Commits: 101  Pull Requests: 29  Files Changed: 135  Additions: +8,830  Deletions: -994
 
 ## Version 2.0.2
 

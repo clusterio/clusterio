@@ -160,11 +160,15 @@ function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Chang
 function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 	const mergedChangelog: Changelog = Object.create(null);
 	for (const pr of pullRequests) {
+		if (!pr.body) {
+			console.error(`Failed to extract changelog in ${pr.html_url}: Pull request has no body`);
+			continue;
+		}
 		const [
 			changelogFail,
 			changelogLines,
 			changelogFailReason
-		] = extractPullRequestChangelog(createParser(pr.body!.split(/\r?\n/)));
+		] = extractPullRequestChangelog(createParser(pr.body.split(/\r?\n/)));
 		if (changelogFail) {
 			console.error(`Failed to extract changelog in ${pr.html_url}: ${changelogFailReason}`)
 			continue;

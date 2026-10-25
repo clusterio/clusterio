@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/web_ui",
-	"version": "2.0.2",
+	"version": "2.0.3",
 	"description": "Clusterio web interface implementation",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser",
