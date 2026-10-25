@@ -236,6 +236,11 @@ To be written.
 Free text notes can be attached to hosts, instances, users, roles, mod packs, mods and saves.
 They are stored on the controller and shown to everyone with access to the resource in the web interface, and can for example be used to record who runs a host or what an instance is meant for.
 
+The web interface renders notes as Markdown.
+A mention of the form `@<type>/<id>` becomes a link to that resource showing its name, for example `@instance/778528005` or `@user/cooldude2606`.
+This works for hosts, instances, users, roles and mod packs, and the id is shown if the name is not available.
+The note itself stores the mention as written.
+
 ### List notes
 
     ctl> note list [--type <type>]
