@@ -221,7 +221,7 @@ export default async function bootstrap() {
 	let control = new Control(controlConnector, new Map(pluginInfoEntries), pluginSetKey);
 	control.plugins = await loadPlugins(pluginInfos, control);
 	control.loadedPlugins = new Map(pluginInfoEntries.filter(
-		([_, info]) => info.enabled && info.webEntrypoint && !info.error
+		([_, info]) => info.enabled && !info.error
 	));
 
 	control.inputComponents = await inputComponentsFromHooks(control);
