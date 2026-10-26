@@ -19,6 +19,20 @@ Use [contributing](contributing.md) for setup and validation commands.
   Check supported configurations and compatibility policy; a merged revision or earlier clean review is not proof of correctness.
 
 
+## Surface overlapping responsibilities
+
+- For substantial new or replaced functionality, check whether existing code or test helpers already serve the same responsibility, including outside the changed files.
+  Search by behavior, then verify the implementations and their callers; nearby code is not necessarily the preferred shared implementation.
+- Compare contracts, callers, and constraints, not just names or similar code.
+  Distinguish shared behavior and general correctness requirements from differences that may justify separate implementations.
+- Surface significant overlap to the developer with source locations for both implementations, the duplicated responsibility, its consequences, and any legitimate differences.
+  Explain maintenance or consistency risks without presenting them as reproduced runtime defects.
+- Recommend an approach based on the evidence, including alternatives, tradeoffs, and affected callers or tests.
+  Leave the architectural decision to the developer unless already authorized; do not silently consolidate the implementations or dismiss the overlap as intentional.
+- Recheck after substantial fixes, especially when shared functionality is replaced, bypassed, or overridden.
+  Keep unresolved design questions in the candidate ledger and final report, and record the developer's decision when provided.
+
+
 ## Exercise the boundaries
 
 - Write a small matrix of relevant states and transitions before probing.
