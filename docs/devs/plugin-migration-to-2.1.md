@@ -54,7 +54,6 @@ These are left as imports in the plugin bundle and resolved by the browser, ther
 Everything else is bundled into the plugin, including `@ant-design/icons`.
 Import `react-dom/client` and `react/jsx-runtime` by those names, other subpaths of the shared packages are bundled as a separate copy.
 
-Vite does not provide Node.js modules to plugin code.
-If your web code imports `events`, `path` or similar, add the browser package for it (`events`, `path-browserify`) to your dependencies.
+Imports of `assert`, `buffer`, `events`, `os`, `path`, `process`, `stream`, `util` and `zlib` resolve to the same browser packages as before, provided by `@clusterio/web_ui`.
 
 The `container` property of `WebPluginContext` is now the plugin's ES module namespace, `await container.get("./web")` returns the module instead of a factory function.

@@ -5,6 +5,7 @@ import path from "node:path";
 import util from "node:util";
 import { createRequire } from "node:module";
 import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import { normalizePath } from "vite";
@@ -32,6 +33,20 @@ const esmSharedModules = new Set(["@clusterio/lib", "@clusterio/web_ui"]);
 // Only the console transport of winston works in the browser, and the colour
 // library used by it does not.
 const stubbedModules = /node_modules\/(winston\/dist\/winston\/transports\/(http|file)\.js|@colors\/colors\/)/;
+// Browser versions of Node.js modules, resolved from web_ui so lib and plugins
+// don't need them as dependencies.
+const polyfills = {
+	assert: "assert/",
+	buffer: "buffer/",
+	events: "events/",
+	os: "os-browserify/browser",
+	path: "path-browserify",
+	process: "process/browser.js",
+	stream: "stream-browserify",
+	util: "util/",
+	zlib: "browserify-zlib",
+};
+const webUiPackage = fileURLToPath(new URL("./package.json", import.meta.url));
 const sharedPrefix = "\0clusterio:shared/";
 const pluginPrefix = "\0clusterio:plugin/";
 
@@ -134,9 +149,19 @@ const stubs = {
 	},
 };
 
+const polyfillResolver = {
+	name: "clusterio:polyfills",
+	resolveId(id, _importer, options) {
+		const target = polyfills[id.replace(/^node:/, "")];
+		if (!target) {
+			return null;
+		}
+		return this.resolve(target, webUiPackage, { ...options, skipSelf: true });
+	},
+};
+
 /** Base config needed to build code that imports @clusterio/lib for the browser. */
 function browserCompat() {
-	const alias = (find, replacement) => ({ find: new RegExp(`^(node:)?${find}$`), replacement });
 	return {
 		name: "clusterio:browser-compat",
 		enforce: "pre",
@@ -153,20 +178,10 @@ function browserCompat() {
 					"process.env.BUILD_OS": JSON.stringify(os.platform()),
 				},
 				optimizeDeps: {
-					rolldownOptions: { plugins: [stubs] },
+					rolldownOptions: { plugins: [polyfillResolver, stubs] },
 				},
 				resolve: {
-					alias: [
-						alias("assert", "assert/"),
-						alias("buffer", "buffer/"),
-						alias("events", "events/"),
-						alias("os", "os-browserify/browser"),
-						alias("path", "path-browserify"),
-						alias("stream", "stream-browserify"),
-						alias("util", "util/"),
-						alias("zlib", "browserify-zlib"),
-						{ find: /^node:(.*)$/, replacement: "$1" },
-					],
+					alias: [{ find: /^node:(.*)$/, replacement: "$1" }],
 				},
 				build: {
 					target: "es2022",
@@ -185,6 +200,7 @@ function browserCompat() {
 				},
 			};
 		},
+		resolveId: polyfillResolver.resolveId,
 		load: stubs.load,
 		transform(code, id) {
 			if (id.endsWith(".md")) {
