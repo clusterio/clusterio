@@ -16,7 +16,7 @@ import { pages } from "./pages";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
-async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> {
+async function loadPluginInfos(): Promise<[lib.PluginWebEnvInfo[], string]> {
 	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList: lib.PluginWebApi[];
 	if (response.ok) {
@@ -28,7 +28,7 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 	}
 	let pluginSetKey = loadedPluginSetKey(pluginList);
 
-	let pluginInfos: lib.PluginWebpackEnvInfo[] = [];
+	let pluginInfos: lib.PluginWebEnvInfo[] = [];
 	for (let meta of pluginList) {
 		if (meta.web.error) {
 			logger.error(`Failed to load plugin ${meta.name}: ${meta.web.error}`);
@@ -65,7 +65,7 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 }
 
 async function loadPlugins(
-	pluginInfos: lib.PluginWebpackEnvInfo[],
+	pluginInfos: lib.PluginWebEnvInfo[],
 	control: Control
 ) {
 	const plugins = new Map<string, WebPlugin.BaseWebPlugin>();

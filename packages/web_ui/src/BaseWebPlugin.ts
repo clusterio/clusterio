@@ -144,7 +144,7 @@ export type WebPluginContext = lib.PluginLoadContext<{
 	control: Control;
 	container: any;
 	package: any;
-}, lib.PluginWebpackEnvInfo>;
+}, lib.PluginWebEnvInfo>;
 
 /**
  * Collection of web plugin hooks
@@ -258,7 +258,7 @@ export class BaseWebPlugin {
 	constructor(
 		public container: any,
 		packageData: any,
-		public info: lib.PluginWebpackEnvInfo,
+		public info: lib.PluginWebEnvInfo,
 		public control: Control,
 		public logger: lib.Logger,
 	) {

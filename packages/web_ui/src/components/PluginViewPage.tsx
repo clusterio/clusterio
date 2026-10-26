@@ -47,8 +47,8 @@ function PluginMachines(props: PluginMachinesProps) {
 
 type ControllerPluginProps = {
 	pluginMeta: PluginWebApi,
-	pluginInfo?: lib.PluginWebpackEnvInfo,
-	loadedPlugin?: lib.PluginWebpackEnvInfo,
+	pluginInfo?: lib.PluginWebEnvInfo,
+	loadedPlugin?: lib.PluginWebEnvInfo,
 	title: string,
 };
 

@@ -57,3 +57,6 @@ Import `react-dom/client` and `react/jsx-runtime` by those names, other subpaths
 Imports of `assert`, `buffer`, `events`, `os`, `path`, `process`, `stream`, `util` and `zlib` resolve to the same browser packages as before, provided by `@clusterio/web_ui`.
 
 The `container` property of `WebPluginContext` is now the plugin's ES module namespace, `await container.get("./web")` returns the module instead of a factory function.
+
+`lib.PluginWebpackEnvInfo` is renamed to `lib.PluginWebEnvInfo`.
+The old name still works but is deprecated and will be removed.

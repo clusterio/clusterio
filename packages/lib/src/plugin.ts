@@ -91,12 +91,15 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	skippedNpmPackage?: string;
 };
 
-export type PluginWebpackEnvInfo = PluginDeclaration & {
+export type PluginWebEnvInfo = PluginDeclaration & {
 	container?: any;
 	package?: any;
 	enabled?: boolean;
 	error?: string;
 };
+
+/** @deprecated Use PluginWebEnvInfo */
+export type PluginWebpackEnvInfo = PluginWebEnvInfo;
 
 /**
  * Information about the event.

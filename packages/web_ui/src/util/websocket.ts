@@ -54,7 +54,7 @@ export class Control extends lib.Link {
 	public hooks = new WebPlugin.WebHooks(logger);
 	/** @deprecated Only holds plugins using the class export, use loadedPlugins and hooks instead */
 	public plugins = new Map<string, WebPlugin.BaseWebPlugin>();
-	public loadedPlugins = new Map<string, lib.PluginWebpackEnvInfo>();
+	public loadedPlugins = new Map<string, lib.PluginWebEnvInfo>();
 	public inputComponents = new Map<string, WebPlugin.InputComponent>();
 	public extensionComponents: Partial<WebPlugin.ExtensionComponents> = {};
 	public loginForms: WebPlugin.PluginLoginForm[] = [];
@@ -85,7 +85,7 @@ export class Control extends lib.Link {
 
 	constructor(
 		connector: ControlConnector,
-		public pluginInfos = new Map<string, lib.PluginWebpackEnvInfo>(),
+		public pluginInfos = new Map<string, lib.PluginWebEnvInfo>(),
 		/** Key of the plugin set this interface was loaded against */
 		public pluginSetKey = "",
 	) {
