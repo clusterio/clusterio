@@ -18,7 +18,7 @@ Use the detailed guides for the affected area:
 - Read the relevant source and tests before changing behavior.
   If documentation and implementation disagree, report the discrepancy and distinguish observed behavior from intended policy.
   Update affected documentation in the same change.
-- Follow nearby code and the `lint` section of `vite.config.ts`: tabs, double quotes, semicolons, and `.js` extensions in relative TypeScript imports.
+- Follow nearby code and `.oxlintrc.json`: tabs, double quotes, semicolons, and `.js` extensions in relative TypeScript imports.
   Import shared public APIs through `@clusterio/lib` and check Node/browser exports when changing them.
 - Run commands from the root using the pinned pnpm version and the [documented Node requirements](docs/contributing.md#supported-nodejs-and-factorio-versions).
   Install with `pnpm install --no-frozen-lockfile`; the lockfile is intentionally ignored.

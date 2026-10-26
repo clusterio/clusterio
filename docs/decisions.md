@@ -161,7 +161,7 @@ Therefore, we selected double quotes as our standard.
 
 🧾 20th October 2026
 
-> Use Oxlint through `vp lint` for style checking, with formatting rules from `@stylistic/eslint-plugin`.
+> Use Oxlint for style checking, with formatting rules from `@stylistic/eslint-plugin`.
 
 We needed to maintain a consistent style across all our files and used ESLint for it from the start.
 Oxlint runs the same rules about three times faster, reads ESLint disable comments, and does not depend on the TypeScript compiler API.
