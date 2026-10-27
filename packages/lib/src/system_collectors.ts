@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "os";
 import util from "util";
 import { Gauge } from "./prometheus.js";
-import { SystemInfo } from "./data/index.js";
+import { PluginDetails, SystemInfo } from "./data/index.js";
 
 function filterCpuModel() {
 	const model = os.cpus()[0].model;
@@ -125,7 +125,8 @@ export async function gatherSystemInfo(
 	id: SystemInfo["id"],
 	canRestart: boolean,
 	restartRequired: boolean,
-	startedAtMs: number
+	startedAtMs: number,
+	plugins?: PluginDetails[],
 ) {
 	const cpus = os.cpus();
 	const currentTotalCpuMs = cpus.map(({ times }) => times.user + times.idle + times.irq + times.nice + times.sys);
@@ -160,5 +161,6 @@ export async function gatherSystemInfo(
 		startedAtMs,
 		now,
 		false,
+		plugins,
 	);
 }

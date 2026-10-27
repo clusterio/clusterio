@@ -568,6 +568,9 @@ export default class Host extends lib.Link {
 		if (!this.canRestart) {
 			throw new lib.RequestError("Cannot restart, host does not have a process monitor to restart it.");
 		}
+		if (await lib.packageOperationRunning()) {
+			throw new lib.RequestError("Cannot restart while a plugin install or update is running on this machine.");
+		}
 		const downgrade = await this.checkRestartDowngrade();
 		if (downgrade) {
 			const { installedVersion, runningVersion } = downgrade;
@@ -952,7 +955,9 @@ export default class Host extends lib.Link {
 
 	async handleSystemInfoRequest() {
 		const restartRequired = await this.checkRestartRequired();
-		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart, restartRequired, this.startedAtMs);
+		return lib.gatherSystemInfo(
+			this.config.get("host.id"), this.canRestart, restartRequired, this.startedAtMs, await this.listPlugins(),
+		);
 	}
 
 	async checkRestartRequired() {
@@ -1264,9 +1269,10 @@ export default class Host extends lib.Link {
 		if (!this.config.get("host.allow_plugin_install")) {
 			throw new lib.RequestError("Plugin installs are disabled on this machine");
 		}
-		await lib.handlePluginInstall(request.pluginPackage);
-		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it
-		if (!this.pluginInfos.some(pluginInfo => pluginInfo.npmPackage === request.pluginPackage)) {
+		const npmPackage = await lib.handlePluginInstall(request.pluginPackage);
+		// A new plugin is not in pluginInfos, so checkRestartRequired cannot notice it. Version
+		// changes to loaded plugins are noticed there.
+		if (!this.pluginInfos.some(pluginInfo => pluginInfo.npmPackage === npmPackage)) {
 			this.config.restartRequired = true;
 		}
 	}
@@ -1282,11 +1288,17 @@ export default class Host extends lib.Link {
 	}
 
 	async handlePluginListRequest(request: lib.PluginListRequest) {
-		return this.pluginInfos.map(pluginInfo => lib.PluginDetails.fromNodeEnvInfo(
-			pluginInfo,
-			this.loadedPlugins.has(pluginInfo),
-			this.config.get(`${pluginInfo.name}.load_plugin`),
-		));
+		return await this.listPlugins();
+	}
+
+	/** Plugins on this host, including those installed or updated since it started */
+	async listPlugins() {
+		return await lib.listPluginDetails(
+			this.pluginInfos,
+			pluginInfo => this.loadedPlugins.has(pluginInfo),
+			pluginInfo => this.config.get(`${pluginInfo.name}.load_plugin`),
+			pluginInfo => Boolean(pluginInfo.hostEntrypoint || pluginInfo.instanceEntrypoint),
+		);
 	}
 
 	sendHostUpdate() {

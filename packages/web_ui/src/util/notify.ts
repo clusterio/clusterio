@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { notification } from "antd";
 import { logger } from "@clusterio/lib";
 
@@ -5,7 +6,7 @@ import { logger } from "@clusterio/lib";
 export default function notify(
 	message: string | Error,
 	type: "success"|"info"|"warning"|"error" = "info",
-	description?: string,
+	description?: ReactNode,
 ) {
 	notification[type]({
 		message: typeof message === "string" ? message : "ERROR: See console",

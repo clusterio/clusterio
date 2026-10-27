@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Button, Checkbox, Form, FormInstance, Input, Modal, Radio, Select } from "antd";
+import { Button, Checkbox, Modal, Tooltip } from "antd";
 
 import * as lib from "@clusterio/lib";
 
@@ -7,92 +7,7 @@ import { useAccount } from "../model/account";
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 
-type NpmActionProps = {
-	setApplyAction(func: () => Promise<void>): void,
-	form: FormInstance,
-	target: lib.AddressShorthand,
-}
-
-function NpmRemoteUpdate({ setApplyAction, form, target }: NpmActionProps) {
-	const control = useContext(ControlContext);
-
-	setApplyAction(async () => {
-		if (target === "controller") {
-			return await control.send(new lib.ControllerUpdateRequest());
-		}
-		return await control.sendTo(target, new lib.HostUpdateRequest());
-	});
-
-	return <>
-	</>;
-}
-
-function NpmUpdateAll({ setApplyAction, form, target }: NpmActionProps) {
-	const control = useContext(ControlContext);
-
-	setApplyAction(async () => {
-		await control.sendTo(target, new lib.UpdateAllRequest());
-	});
-
-	return <>
-	</>;
-}
-
-function NpmPluginUpdate({ setApplyAction, form, target }: NpmActionProps) {
-	const control = useContext(ControlContext);
-	const [plugins, setPlugins] = useState<lib.PluginDetails[]>([]);
-
-	setApplyAction(async () => {
-		const values = form.getFieldsValue();
-		if (!values.plugin || values.plugin === "") {
-			throw new Error("Plugin not provided");
-		}
-		await control.sendTo(target, new lib.PluginUpdateRequest(values.plugin));
-	});
-
-	useEffect(() => {
-		control.sendTo(target, new lib.PluginListRequest()).then(newPlugins => {
-			setPlugins(newPlugins);
-		}).catch(notifyErrorHandler("Error fetching role list"));
-	}, [target]);
-
-	return <>
-		<Form.Item label="Plugin" name="plugin">
-			<Select
-				showSearch
-				placeholder="Select a plugin"
-				optionLabelProp="label"
-				options={plugins
-					.filter(p => p.npmPackage !== undefined)
-					.map(plugin => ({
-						value: plugin.npmPackage,
-						label: `${plugin.title} (v${plugin.version})`,
-					}))
-				}
-			/>
-		</Form.Item>
-	</>;
-}
-
-function NpmPluginInstall({ setApplyAction, form, target }: NpmActionProps) {
-	const control = useContext(ControlContext);
-
-	setApplyAction(async () => {
-		const values = form.getFieldsValue();
-		if (!values.newPlugin || values.newPlugin === "") {
-			throw new Error("Plugin not provided");
-		}
-		await control.sendTo(target, new lib.PluginInstallRequest(values.newPlugin));
-	});
-
-	// TODO custom npm search based on tags
-	return <>
-		<Form.Item label="Plugin" name="newPlugin">
-			<Input />
-		</Form.Item>
-	</>;
-}
-
+/** Updates Clusterio on a machine, plugins are installed and updated from the plugins page */
 export function NpmButton(props: {
 	target: "controller" | { hostId: number },
 	canRestart?: boolean,
@@ -101,138 +16,72 @@ export function NpmButton(props: {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [open, setOpen] = useState(false);
-	const [formAction, setFormAction] = useState<string | undefined>(undefined);
-	const [form] = Form.useForm();
+	const [restart, setRestart] = useState(false);
+	const [allowed, setAllowed] = useState(true);
 
-	const [allows, setAllows] = useState({
-		remoteUpdates: true, pluginUpdates: true, pluginInstall: true,
-	});
-
+	const isController = props.target === "controller";
 	const hostId = props.target === "controller" ? undefined : props.target.hostId;
 	useEffect(() => {
+		// Without config permission assume it's allowed so the request can still be sent
+		if (!account.hasPermission(isController ? "core.controller.get_config" : "core.host.get_config")) {
+			setAllowed(true);
+			return;
+		}
 		if (props.target === "controller") {
-			if (!account.hasPermission("core.controller.get_config")) {
-				setAllows({ remoteUpdates: true, pluginUpdates: true, pluginInstall: true });
-				return; // If a user doesn't have config perms, then assume true to allow the sending the request
-			}
-			control.send(new lib.ControllerConfigGetRequest()).then(async (serializedConfig) => {
+			control.send(new lib.ControllerConfigGetRequest()).then(serializedConfig => {
 				const config = lib.ControllerConfig.fromJSON(serializedConfig, "control");
-				setAllows({
-					remoteUpdates: config.get("controller.allow_remote_updates"),
-					pluginUpdates: config.get("controller.allow_plugin_updates"),
-					pluginInstall: config.get("controller.allow_plugin_install"),
-				});
+				setAllowed(config.get("controller.allow_remote_updates"));
 			}).catch(notifyErrorHandler("Failed to fetch controller config for remote updates"));
 		} else {
-			if (!account.hasPermission("core.host.get_config")) {
-				setAllows({ remoteUpdates: true, pluginUpdates: true, pluginInstall: true });
-				return; // If a user doesn't have config perms, then assume true to allow the sending the request
-			}
-			control.sendTo(props.target, new lib.HostConfigGetRequest()).then(async (serializedConfig) => {
+			control.sendTo(props.target, new lib.HostConfigGetRequest()).then(serializedConfig => {
 				const config = lib.HostConfig.fromJSON(serializedConfig, "control");
-				setAllows({
-					remoteUpdates: config.get("host.allow_remote_updates"),
-					pluginUpdates: config.get("host.allow_plugin_updates"),
-					pluginInstall: config.get("host.allow_plugin_install"),
-				});
+				setAllowed(config.get("host.allow_remote_updates"));
 			}).catch(notifyErrorHandler("Failed to fetch host config for remote updates"));
 		}
 	}, [hostId]);
 
-	const coreUpdatePermission = `core.${props.target === "controller" ? "controller" : "host"}.update` as const;
-
-	function onValuesChange({ action } : { action?: string }) {
-		if (action) {
-			setFormAction(action);
-		}
-	}
-
-	let applyAction: () => Promise<void>;
-	const setApplyAction = (func: () => Promise<void>) => { applyAction = func; };
+	const canRestart = account.hasPermission(isController ? "core.controller.restart" : "core.host.restart");
 	async function onOk() {
-		if (!applyAction) {
-			form.setFields([{ name: "action", errors: ["Action is required"] }]);
-			return;
+		if (props.target === "controller") {
+			await control.send(new lib.ControllerUpdateRequest());
+		} else {
+			await control.sendTo(props.target, new lib.HostUpdateRequest());
 		}
-		await applyAction();
-
-		const values = form.getFieldsValue();
-		if (values.restart) {
-			// Ternary not used because TS disliked it
+		if (restart) {
 			if (props.target === "controller") {
-				await control.sendTo(props.target, new lib.ControllerRestartRequest());
+				await control.send(new lib.ControllerRestartRequest());
 			} else {
 				await control.sendTo(props.target, new lib.HostRestartRequest());
 			}
 		}
-
-		setFormAction(undefined);
 		setOpen(false);
 	}
 
 	return <>
-		<Button
-			type="default"
-			disabled={props.disabled}
-			onClick={() => { setOpen(true); }}
-		>Updates</Button>
+		<Tooltip title={allowed ? undefined : "Remote updates are disabled on this machine"}>
+			<Button disabled={props.disabled || !allowed} onClick={() => { setOpen(true); }}>
+				Update Clusterio
+			</Button>
+		</Tooltip>
 		<Modal
-			title="Updates"
-			okText="Apply"
+			title="Update Clusterio"
+			okText="Update"
 			open={open}
-			okButtonProps={{disabled: formAction === undefined}}
-			onOk={() => { onOk().catch(notifyErrorHandler(`Error running ${formAction}`)); }}
+			onOk={() => { onOk().catch(notifyErrorHandler("Error updating Clusterio")); }}
 			onCancel={() => { setOpen(false); }}
 			destroyOnHidden
 		>
-			<Form form={form} onValuesChange={onValuesChange} clearOnDestroy>
-				<Form.Item label="Action" name="action">
-					<Radio.Group value={formAction}>
-						{account.hasPermission(coreUpdatePermission)
-							? <Radio.Button value="remote_update" disabled={!allows.remoteUpdates}>
-								Update Clusterio
-							</Radio.Button>: undefined}
-						{account.hasPermission(coreUpdatePermission) && account.hasPermission("core.plugin.update")
-							? <Radio.Button
-								value="update_all"
-								disabled={!allows.remoteUpdates || !allows.pluginUpdates}
-							>
-								Update All
-							</Radio.Button> : undefined}
-						{account.hasPermission("core.plugin.update")
-							? <Radio.Button value="plugin_update" disabled={!allows.pluginUpdates}>
-								Update Plugin
-							</Radio.Button> : undefined}
-						{account.hasPermission("core.plugin.install")
-							? <Radio.Button value="plugin_install" disabled={!allows.pluginInstall}>
-								Install Plugin
-							</Radio.Button> : undefined}
-					</Radio.Group>
-				</Form.Item>
-				{
-					formAction !== undefined
-					&& account.hasPermission(`core.${props.target === "controller" ? "controller" : "host"}.restart`)
-					&& <Form.Item label="Restart on completion" name="restart" valuePropName="checked">
-						<Checkbox disabled={props.canRestart === false}/>
-					</Form.Item>
-				}
-				{formAction === "remote_update"
-					? <NpmRemoteUpdate {...{setApplyAction, form, target: props.target}}/> : undefined}
-				{formAction === "update_all"
-					? <NpmUpdateAll {...{setApplyAction, form, target: props.target}}/> : undefined}
-				{formAction === "plugin_update"
-					? <NpmPluginUpdate {...{setApplyAction, form, target: props.target}}/> : undefined}
-				{formAction === "plugin_install"
-					? <NpmPluginInstall {...{setApplyAction, form, target: props.target}}/> : undefined}
-			</Form>
+			<p>Updates Clusterio within the version range in the machine's package.json.</p>
+			{canRestart && <Checkbox
+				checked={restart}
+				disabled={props.canRestart === false}
+				onChange={event => { setRestart(event.target.checked); }}
+			>Restart on completion</Checkbox>}
 		</Modal>
 	</>;
 }
 
 export function hasNpmButtonPermission(controller: boolean) {
 	const account = useAccount();
-	return account.hasAnyPermission(
-		controller ? "core.controller.update" : "core.host.update",
-		"core.plugin.update", "core.plugin.install"
-	);
+	return account.hasPermission(controller ? "core.controller.update" : "core.host.update");
 }

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
 import * as lib from "@clusterio/lib";
 
 import { Controller, ControlConnection } from "@clusterio/controller";
 import { Host } from "@clusterio/host";
 
 import "../setup_logging.js";
+import { testRoundTripJsonSerialisable } from "../common.js";
 
 describe("messages/plugin", function() {
 	/** @type {Host} */
@@ -34,14 +37,13 @@ describe("messages/plugin", function() {
 
 	describe("PluginDetails", function() {
 		it("has round trip json serialisation", function() {
-			const pluginDetails = new lib.PluginDetails(
-				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package",
-			);
-
-			const json = JSON.stringify(pluginDetails);
-			const reconstructed = lib.PluginDetails.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, pluginDetails);
+			testRoundTripJsonSerialisable(lib.PluginDetails, [
+				["Name", "Title", "Version", true, true],
+				[
+					"Name", "Title", "Version", false, false, "Description", "Npm Package",
+					"Installed Version", true, true, "Dependency Name", true, true,
+				],
+			]);
 		});
 		it("can be created from NodeEnvInfo interface", function() {
 			const pluginDetails = lib.PluginDetails.fromNodeEnvInfo({
@@ -52,6 +54,17 @@ describe("messages/plugin", function() {
 				"Name", "Title", "Version", true, true,
 				"Description", "Npm Package",
 			));
+		});
+		it("can be created from the package.json of a package installed since startup", function() {
+			const pluginDetails = lib.PluginDetails.fromPackageJson(
+				"package", { version: "1.0.0", description: "Description" }, "package", "package",
+			);
+			assert.deepEqual(pluginDetails, new lib.PluginDetails(
+				"package", "package", "1.0.0", false, false,
+				"Description", "package", "1.0.0", true, undefined, "package",
+			));
+			const invalid = lib.PluginDetails.fromPackageJson("package", { version: "1.0.0", description: 1 });
+			assert.equal(invalid.description, undefined);
 		});
 	});
 
@@ -66,6 +79,11 @@ describe("messages/plugin", function() {
 				initialValue: true,
 			};
 		});
+		const packagePath = path.resolve("temp", "test", "messages_plugin", "package.json");
+		before(async function() {
+			await fs.mkdir(path.dirname(packagePath), { recursive: true });
+			await fs.writeFile(packagePath, JSON.stringify({ name: "Npm Package", version: "Version" }));
+		});
 		after(function() {
 			delete lib.ControllerConfig.fieldDefinitions["Name.load_plugin"];
 			delete lib.HostConfig.fieldDefinitions["Name.load_plugin"];
@@ -73,7 +91,7 @@ describe("messages/plugin", function() {
 		it("returns correct info from the controller", async function() {
 			controller.pluginInfos = [{
 				name: "Name", title: "Title", version: "Version",
-				description: "Description", npmPackage: "Npm Package",
+				description: "Description", npmPackage: "Npm Package", packagePath,
 			}];
 
 			controller.loadedPlugins.add(controller.pluginInfos[0]);
@@ -82,13 +100,13 @@ describe("messages/plugin", function() {
 			const response = await controlConnection.handlePluginListRequest(new lib.PluginListRequest());
 			assert.deepEqual(response, [new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package",
+				"Description", "Npm Package", "Version",
 			)]);
 		});
 		it("returns correct info from a host", async function() {
 			host.pluginInfos = [{
 				name: "Name", title: "Title", version: "Version",
-				description: "Description", npmPackage: "Npm Package",
+				description: "Description", npmPackage: "Npm Package", packagePath, hostEntrypoint: "host.js",
 			}];
 
 			host.loadedPlugins.add(host.pluginInfos[0]);
@@ -97,17 +115,14 @@ describe("messages/plugin", function() {
 			const response = await host.handlePluginListRequest(new lib.PluginListRequest());
 			assert.deepEqual(response, [new lib.PluginDetails(
 				"Name", "Title", "Version", true, true,
-				"Description", "Npm Package",
+				"Description", "Npm Package", "Version",
 			)]);
 		});
 	});
 
 	describe("PluginUpdateRequest", function() {
 		it("has round trip json serialisation", function() {
-			const request = new lib.PluginUpdateRequest("foo");
-			const json = JSON.stringify(request);
-			const reconstructed = lib.PluginUpdateRequest.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, request);
+			testRoundTripJsonSerialisable(lib.PluginUpdateRequest, [["foo"], ["@scope/foo@1.0.0"]]);
 		});
 		it("runs on the controller", async function() {
 			controller.pluginInfos = [{ npmPackage: "foo" }];
@@ -132,6 +147,33 @@ describe("messages/plugin", function() {
 				host.handlePluginUpdateRequest(new lib.PluginUpdateRequest("foo")),
 				/Plugin updates are disabled on this machine/
 			);
+		});
+	});
+
+	describe("PluginSearchRequest", function() {
+		const _fetch = global.fetch;
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("has round trip json serialisation", function() {
+			testRoundTripJsonSerialisable(lib.PluginSearchRequest, [[], ["foo", 2, 10]]);
+		});
+		it("has round trip json serialisation of the response", function() {
+			testRoundTripJsonSerialisable(lib.PluginSearchRequest.Response, [
+				[0, []],
+				[2, [
+					new lib.PluginSearchResult("foo", "1.0.0"),
+					new lib.PluginSearchResult("bar", "1.0.0", "Bar", "baz", "date", "home", "repo", "npm"),
+				]],
+			]);
+		});
+		it("runs on the controller", async function() {
+			global.fetch = function() {
+				return { ok: true, json: async () => ({ total: 0, objects: [] }) };
+			};
+			const response = await controlConnection.handlePluginSearchRequest(new lib.PluginSearchRequest());
+			assert.deepEqual(response, new lib.PluginSearchRequest.Response(0, []));
 		});
 	});
 
@@ -201,10 +243,7 @@ describe("messages/plugin", function() {
 		});
 
 		it("has round trip json serialisation", function() {
-			const request = new lib.PluginInstallRequest("foo");
-			const json = JSON.stringify(request);
-			const reconstructed = lib.PluginInstallRequest.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, request);
+			testRoundTripJsonSerialisable(lib.PluginInstallRequest, [["foo"], ["@scope/foo@1.0.0"]]);
 		});
 		it("runs on the controller", async function() {
 			controller.config.set("controller.allow_plugin_install", true);
@@ -227,6 +266,28 @@ describe("messages/plugin", function() {
 				host.handlePluginInstallRequest(new lib.PluginInstallRequest("foo")),
 				/Plugin installs are disabled on this machine/
 			);
+		});
+	});
+	describe("PluginLatestVersionsRequest", function() {
+		const _fetch = global.fetch;
+		before(function() {
+			global.fetch = async function() { return { ok: true, json: async () => ({ version: "4.5.6" }) }; };
+		});
+		after(function() {
+			global.fetch = _fetch;
+		});
+
+		it("has round trip json serialisation", function() {
+			testRoundTripJsonSerialisable(lib.PluginLatestVersionsRequest, [[[]], [["foo", "@scope/bar"]]]);
+		});
+		it("has round trip json serialisation of the response", function() {
+			testRoundTripJsonSerialisable(lib.PluginLatestVersionsRequest.Response, [[{}], [{ foo: "1.0.0" }]]);
+		});
+		it("runs on the controller", async function() {
+			const response = await controlConnection.handlePluginLatestVersionsRequest(
+				new lib.PluginLatestVersionsRequest(["latest-message-test"])
+			);
+			assert.deepEqual(response.versions, { "latest-message-test": "4.5.6" });
 		});
 	});
 });
