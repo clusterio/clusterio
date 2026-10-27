@@ -85,7 +85,7 @@
 		"@clusterio/lib": "^__clusterio_version__"
 	},
 	"dependencies": {
-		"@sinclair/typebox": "^0.30.6"
+		"@sinclair/typebox": "^0.34.52"
 	},
 	"publishConfig": {
 		"access": "public"
