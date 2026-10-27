@@ -98,9 +98,6 @@ export type PluginWebEnvInfo = PluginDeclaration & {
 	error?: string;
 };
 
-/** @deprecated Use PluginWebEnvInfo */
-export type PluginWebpackEnvInfo = PluginWebEnvInfo;
-
 /**
  * Information about the event.
  */
