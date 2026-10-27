@@ -47,6 +47,7 @@ const polyfills = {
 	zlib: "browserify-zlib",
 };
 const webUiPackage = fileURLToPath(new URL("./package.json", import.meta.url));
+const libPackage = createRequire(webUiPackage).resolve("@clusterio/lib/package.json");
 const sharedPrefix = "\0clusterio:shared/";
 const pluginPrefix = "\0clusterio:plugin/";
 
@@ -81,6 +82,19 @@ async function findFile(dir, candidates) {
 		}
 	}
 	return undefined;
+}
+
+// node_modules directories Node.js would search for packages imported from dir.
+function nodeModulesDirs(dir) {
+	const dirs = [];
+	for (let current = dir; ; current = path.dirname(current)) {
+		if (path.basename(current) !== "node_modules") {
+			dirs.push(path.join(current, "node_modules"));
+		}
+		if (current === path.dirname(current)) {
+			return dirs;
+		}
+	}
 }
 
 function chunkName(name) {
@@ -292,8 +306,14 @@ export function clusterioApp({ entry }) {
 export function clusterioDevPlugins(pluginDirs) {
 	return {
 		name: "clusterio:dev-plugins",
-		config() {
+		config(config) {
+			const root = path.resolve(config.root ?? process.cwd());
+			const sources = [root, path.dirname(webUiPackage), path.dirname(libPackage), ...pluginDirs.values()];
 			return {
+				server: {
+					// Vite's default is the workspace root, which may be the data directory.
+					fs: { allow: [...sources, ...sources.flatMap(nodeModulesDirs)] },
+				},
 				optimizeDeps: {
 					entries: [...pluginDirs.values()].flatMap(
 						dir => [`${dir}/index.{ts,js}`, `${dir}/web/**/*.{ts,tsx,js,jsx}`]

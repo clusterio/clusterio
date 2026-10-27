@@ -524,7 +524,6 @@ export default class Controller {
 			server: {
 				middlewareMode: true,
 				preTransformRequests: false,
-				fs: { allow: [vite.searchForWorkspaceRoot(controllerDir), ...pluginDirs.values()] },
 			},
 			plugins: [webUiVite.clusterioDevPlugins(pluginDirs)],
 		});
