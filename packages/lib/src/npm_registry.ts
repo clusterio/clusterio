@@ -1,5 +1,5 @@
 import { logger } from "./logging.js";
-import { RequestError } from "./errors.js";
+import { NotFoundError, UnavailableError, ValidationError } from "./errors.js";
 import { PluginSearchRequest, PluginSearchResult } from "./data/messages_plugin.js";
 
 const registryTimeoutMs = 10e3;
@@ -19,10 +19,10 @@ export function parsePackageSpec(spec: string) {
 		? [spec.slice(0, versionSeparator), spec.slice(versionSeparator + 1)]
 		: [spec, undefined];
 	if (name.length > 214 || !packageNamePattern.test(name)) {
-		throw new RequestError(`Invalid plugin name: ${spec}`);
+		throw new ValidationError(`Invalid plugin name: ${spec}`);
 	}
 	if (version !== undefined && !/^[a-zA-Z0-9][a-zA-Z0-9\-.+]*$/.test(version)) {
-		throw new RequestError(`Invalid plugin version: ${version}`);
+		throw new ValidationError(`Invalid plugin version: ${version}`);
 	}
 	return { name, version };
 }
@@ -37,7 +37,7 @@ export async function checkRegistry(name: string, version?: string) {
 		signal: AbortSignal.timeout(registryTimeoutMs),
 	});
 	if (!npmRequest.ok) {
-		throw new RequestError(`Unknown plugin: ${spec}`);
+		throw new NotFoundError(`Unknown plugin: ${spec}`);
 	}
 	return spec;
 }
@@ -55,12 +55,12 @@ export type LatestVersionCache = Map<string, { version?: string, fetchedAt: numb
  */
 export async function fetchLatestVersions(packages: string[], cache: LatestVersionCache) {
 	if (packages.length > 500) {
-		throw new RequestError("Too many packages");
+		throw new ValidationError("Too many packages");
 	}
 	const names = [...new Set(packages.map(packageName => {
 		const { name, version: pinned } = parsePackageSpec(packageName);
 		if (pinned !== undefined) {
-			throw new RequestError(`Invalid plugin name: ${packageName}`);
+			throw new ValidationError(`Invalid plugin name: ${packageName}`);
 		}
 		return name;
 	}))];
@@ -117,10 +117,10 @@ const npmSearchMaxSize = 250; // Limit imposed by the registry
 
 export async function searchPlugins(query: string, page: number, pageSize: number) {
 	if (query.length > 214) {
-		throw new RequestError("Search query too long");
+		throw new ValidationError("Search query too long");
 	}
 	if (page < 1 || pageSize < 1 || pageSize > npmSearchMaxSize) {
-		throw new RequestError("Invalid page or page size");
+		throw new ValidationError("Invalid page or page size");
 	}
 
 	const url = new URL("https://registry.npmjs.com/-/v1/search");
@@ -130,7 +130,7 @@ export async function searchPlugins(query: string, page: number, pageSize: numbe
 
 	const response = await fetch(url, { signal: AbortSignal.timeout(registryTimeoutMs) });
 	if (!response.ok) {
-		throw new RequestError(`npm registry search failed: ${response.status} ${response.statusText}`);
+		throw new UnavailableError(`npm registry search failed: ${response.status} ${response.statusText}`);
 	}
 
 	const json = await response.json() as {
