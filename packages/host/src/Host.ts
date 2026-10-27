@@ -26,6 +26,37 @@ function checkRequestSaveName(name: string) {
 	}
 }
 
+async function copySaveExclusive(sourcePath: string, targetPath: string) {
+	await fs.copyFile(
+		sourcePath,
+		targetPath,
+		fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE
+	);
+}
+
+/**
+ * Move a file without overwriting an existing target, fails with EEXIST
+ * if the target exists.
+ */
+async function moveSaveExclusive(sourcePath: string, targetPath: string) {
+	try {
+		await fs.link(sourcePath, targetPath);
+	} catch (err: any) {
+		// Hard links fail across filesystems and on some filesystems with
+		// varying codes, the copy is still exclusive.
+		if (err.code === "EEXIST") {
+			throw err;
+		}
+		await copySaveExclusive(sourcePath, targetPath);
+	}
+	try {
+		await fs.unlink(sourcePath);
+	} catch (err: any) {
+		await fs.unlink(targetPath).catch(() => {});
+		throw err;
+	}
+}
+
 /**
  * Checks that no socket is bound to the given UDP port, on IPv4 or IPv6
  *
@@ -498,8 +529,8 @@ export default class Host extends lib.Link {
 		}
 
 		let instancesDir = this.config.get("host.instances_directory");
-		for (let i = 0; i < 10; i++) { // Limit attempts in case this is somehow an infinite loop
-			let candidateDir = path.join(instancesDir, await lib.findUnusedName(instancesDir, name));
+		for (let i = 1; ; i++) {
+			let candidateDir = path.join(instancesDir, i === 1 ? name : `${name}-${i}`);
 			try {
 				await fs.mkdir(candidateDir);
 			} catch (err: any) {
@@ -510,7 +541,6 @@ export default class Host extends lib.Link {
 			}
 			return candidateDir;
 		}
-		throw Error("Unable to create instance dir, retry threshold reached");
 	}
 
 	async broadcastEventToInstance<T>(event: lib.Event<T>) {
@@ -1025,13 +1055,10 @@ export default class Host extends lib.Link {
 		checkRequestSaveName(newName);
 		let instance = this.getRequestInstance(instanceId);
 		try {
-			// Link save in the new location.
-			await fs.link(
+			await moveSaveExclusive(
 				path.join(instance.path, "saves", oldName),
 				path.join(instance.path, "saves", newName),
 			);
-			// Unlink save in old location.
-			await fs.unlink(path.join(instance.path, "saves", oldName));
 		} catch (err: any) {
 			if (err.code === "EEXIST") {
 				throw new lib.RequestError(`${newName} already exists`);
@@ -1064,6 +1091,25 @@ export default class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instance.path, "saves"));
 	}
 
+	async _moveOrCopySave(sourcePath: string, targetPath: string, copy: boolean) {
+		const { dir, name, ext } = path.parse(targetPath);
+		for (let i = 1; ; i++) {
+			targetPath = path.format({ dir, name: i === 1 ? name : `${name}-${i}`, ext });
+			try {
+				if (copy) {
+					await copySaveExclusive(sourcePath, targetPath);
+				} else {
+					await moveSaveExclusive(sourcePath, targetPath);
+				}
+				return path.basename(targetPath);
+			} catch (err: any) {
+				if (err.code !== "EEXIST") {
+					throw err;
+				}
+			}
+		}
+	}
+
 	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
 		let { sourceName, targetName, copy, sourceInstanceId, targetInstanceId } = request;
 		checkRequestSaveName(sourceName);
@@ -1071,31 +1117,27 @@ export default class Host extends lib.Link {
 		let sourceInstance = this.getRequestInstance(sourceInstanceId);
 		let targetInstance = this.getRequestInstance(targetInstanceId);
 
+		if (!targetName.endsWith(".zip")) {
+			targetName += ".zip";
+		}
+
 		// For consistency with remote transfer initiated through pullSave the
 		// target is renamed if it already exists.
-		targetName = await lib.findUnusedName(
-			path.join(targetInstance.path, "saves"), targetName, ".zip"
-		);
-
+		const sourcePath = path.join(sourceInstance.path, "saves", sourceName);
 		try {
-			if (copy) {
-				await fs.copyFile(
-					path.join(sourceInstance.path, "saves", sourceName),
-					path.join(targetInstance.path, "saves", targetName),
-					fs.constants.COPYFILE_FICLONE
-				);
-			} else {
-				await fs.rename(
-					path.join(sourceInstance.path, "saves", sourceName),
-					path.join(targetInstance.path, "saves", targetName),
-				);
-			}
+			targetName = await this._moveOrCopySave(
+				sourcePath,
+				path.join(targetInstance.path, "saves", targetName),
+				copy,
+			);
 		} catch (err: any) {
-			if (err.code === "ENOENT") {
+			// ENOENT may also come from a missing target saves folder.
+			if (err.code === "ENOENT" && !await fs.access(sourcePath).then(() => true, () => false)) {
 				throw new lib.RequestError(`${sourceName} does not exist`);
 			}
 			throw err;
 		}
+
 		await this.sendSaveListUpdate(sourceInstanceId, path.join(sourceInstance.path, "saves"));
 		await this.sendSaveListUpdate(targetInstanceId, path.join(targetInstance.path, "saves"));
 
