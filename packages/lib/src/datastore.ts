@@ -17,11 +17,6 @@ export abstract class DatastoreProvider<
 > {
 	abstract save(data: Map<K, V>): Promise<void>
 	abstract load(): Promise<Map<K, V>>
-
-	// Load data from the source and return it, this should be passed to the constructor of a datastore
-	async bootstrap() {
-		return [this, await this.load()] as const;
-	}
 }
 
 // Store all data in memory, used as a default and should be avoided
@@ -251,6 +246,11 @@ export class KeyValueDatastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > extends Datastore<K, V, [key: K, value: V, isDeleted?: boolean]> {
+	// Create a datastore populated with the data loaded from the provider
+	static async fromProvider<K extends DatastoreKey, V extends DatastoreValue>(provider: DatastoreProvider<K, V>) {
+		return new this(provider, await provider.load());
+	}
+
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(key: K, value: V) {
 		this.data.set(key, value);
@@ -314,6 +314,11 @@ export class SubscribableDatastore<
 	) {
 		super(provider, data);
 		this.lastUpdatedAtMs = SubscribableDatastore.maxUpdatedAtMs(this.data.values());
+	}
+
+	// Create a datastore populated with the data loaded from the provider
+	static async fromProvider<V extends SubscribableValue>(provider: DatastoreProvider<V["id"], V>) {
+		return new this(provider, await provider.load());
 	}
 
 	async load() {

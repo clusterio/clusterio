@@ -15,7 +15,10 @@ class FakeProcess extends events.EventEmitter {
 }
 
 function createStartedServer() {
-	const server = new FactorioServer(path.join("test", "file", "factorio"), path.join("temp", "test", "server"), {});
+	const server = new FactorioServer(
+		path.join("test", "file", "factorio"), path.join("temp", "test", "server"),
+		path.join("test", "file", "factorio", "0.1.2", "data"), "0.1.2", { rconPassword: "" },
+	);
 	server._state = "running";
 	server._rconReady = false;
 	server._server = new FakeProcess();

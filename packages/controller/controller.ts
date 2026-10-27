@@ -147,15 +147,15 @@ async function handleBootstrapCommand(
 		path.join(databaseDirectory, "roles.json"),
 	);
 
-	const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+	const roles = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 		path.join(databaseDirectory, "roles.json"),
 		lib.Role.fromJSON.bind(lib.Role),
-	).bootstrap());
+	));
 
-	const users = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+	const users = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 		path.join(databaseDirectory, "users.json"),
 		UserRecord.fromJSON.bind(UserRecord),
-	).bootstrap());
+	));
 
 	const userManager = new UserManager(users, roles, controllerConfig);
 
@@ -474,13 +474,12 @@ async function startup() {
 		return;
 	}
 
-	controller = new Controller(
-		clusterLogger,
-		pluginInfos,
+	controller = await Controller.fromConfig(
 		controllerConfig,
+		pluginInfos,
+		clusterLogger,
 		Boolean(args.canRestart),
 		Boolean(args.recovery),
-		...await Controller.bootstrap(controllerConfig)
 	);
 
 	// Refuse to start if there are no users loaded

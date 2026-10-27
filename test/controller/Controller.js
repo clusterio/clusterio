@@ -14,6 +14,7 @@ import {
 	addPluginConfigFields, renamePermissionPrefix,
 } from "@clusterio/lib";
 
+import * as lib from "@clusterio/lib";
 import "../setup_logging.js";
 
 class MockEvent {}
@@ -57,6 +58,77 @@ describe("controller/src/Controller", function() {
 				assert(list.check(ip), `${ip} missing from list`);
 			}
 		}
+		describe(".fromConfig()", function() {
+			let dir;
+			beforeEach(async function() {
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-controller-"));
+			});
+			afterEach(async function() {
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			it("should load datastores and mods from disk", async function() {
+				const databaseDirectory = path.join(dir, "database");
+				const modsDirectory = path.join(dir, "mods");
+				await fs.mkdir(databaseDirectory);
+				await fs.writeFile(path.join(databaseDirectory, "notes.json"), JSON.stringify([
+					{ resourceType: "instance", resourceId: "100", content: "hello" },
+				]));
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion,
+					"controller.database_directory": databaseDirectory,
+					"controller.mods_directory": modsDirectory,
+				});
+
+				const loaded = await Controller.fromConfig(config, [], {}, true, false);
+				assert(loaded instanceof Controller);
+				assert.equal(loaded.canRestart, true);
+				assert.equal(loaded.recoveryMode, false);
+				assert.equal(loaded.notes.get("instance/100").content, "hello");
+				assert.equal(loaded.modStore.modsDirectory, modsDirectory);
+				assert(loaded.roles.size > 0, "default roles were not added");
+				assert(loaded.modPacks.size > 0, "default mod packs were not added");
+				await fs.access(modsDirectory);
+			});
+			describe("with a plugin version change", function() {
+				before(function() {
+					addPluginConfigFields([{ name: "from_config_plugin", version: "1.2.0", instanceEntrypoint: "x" }]);
+				});
+				afterEach(function() {
+					lib.Config.pluginVersions.clear();
+				});
+				after(function() {
+					for (const Config of [lib.ControllerConfig, lib.HostConfig, lib.InstanceConfig]) {
+						for (const name of Object.keys(Config.fieldDefinitions)) {
+							if (name.startsWith("from_config_plugin.")) {
+								delete Config.fieldDefinitions[name];
+							}
+						}
+					}
+				});
+				it("should save instances whose config changed while loading", async function() {
+					const databaseDirectory = path.join(dir, "database");
+					const instancesPath = path.join(databaseDirectory, "instances.json");
+					await fs.mkdir(databaseDirectory);
+					const instanceConfig = new InstanceConfig("controller", {
+						"instance.id": 7, "from_config_plugin.version": "1.0.0",
+					});
+					await fs.writeFile(instancesPath, JSON.stringify([
+						{ config: instanceConfig.toJSON(), status: "unassigned" },
+					]));
+					lib.Config.pluginVersions.set("from_config_plugin", "1.2.0");
+					const config = new ControllerConfig("controller", {
+						"controller.version": controllerVersion,
+						"controller.database_directory": databaseDirectory,
+						"controller.mods_directory": path.join(dir, "mods"),
+					});
+
+					const loaded = await Controller.fromConfig(config, [], {});
+					await loaded.instances.records.save();
+					const [saved] = JSON.parse(await fs.readFile(instancesPath, "utf8"));
+					assert.equal(saved.config["from_config_plugin.version"], "1.2.0");
+				});
+			});
+		});
 		describe(".loadJsonObject()", function() {
 			let dir;
 			before(async function() {

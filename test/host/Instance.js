@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import path from "node:path";
 
 import * as lib from "@clusterio/lib";
@@ -12,6 +13,79 @@ const addr = lib.Address.fromShorthand;
 
 
 describe("class Instance", function() {
+	describe(".fromConfig()", function() {
+		const factorioDir = path.join("test", "file", "factorio");
+		const dir = path.join("temp", "test", "instance_from_config");
+		let host;
+		let sent;
+		let saveListUpdates;
+		let requests;
+		function makeConfig(fields) {
+			return new lib.InstanceConfig("host", { "instance.id": 5, "instance.name": "foo", ...fields });
+		}
+		function fromConfig(config) {
+			const connector = new MockConnector(addr({ instanceId: 5 }), addr({ hostId: 1 }));
+			return Instance.fromConfig(config, host, connector, dir, factorioDir);
+		}
+		beforeEach(async function() {
+			await fs.rm(dir, { recursive: true, force: true });
+			await fs.mkdir(dir, { recursive: true });
+			sent = [];
+			saveListUpdates = [];
+			requests = [];
+			host = {
+				assignFreeGamePort: async () => 34100,
+				send(event) { sent.push(event); },
+				async sendTo(dst, request) {
+					requests.push(request.constructor.name);
+					if (request instanceof lib.FactorioVersionsRequest) {
+						return [];
+					}
+					if (request instanceof lib.LatestReleasesRequest) {
+						return { stable: { headless: "0.1.1" } };
+					}
+					throw new Error(`Unexpected request ${request.constructor.name}`);
+				},
+				async sendSaveListUpdate(instanceId, savesDir) { saveListUpdates.push([instanceId, savesDir]); },
+			};
+		});
+
+		it("should create an instance with a server for the installed version", async function() {
+			const instance = await fromConfig(makeConfig({}));
+			assert.equal(instance.status, "starting");
+			assert.equal(instance.server.version, "0.1.2");
+			assert.equal(instance.server.gamePort, 34100);
+			assert.deepEqual(sent, [new lib.InstanceStatusChangedEvent(5, "starting", 34100, "latest")]);
+			assert.deepEqual(requests, ["FactorioVersionsRequest"]);
+		});
+		it("should use the configured game port", async function() {
+			const instance = await fromConfig(makeConfig({ "factorio.game_port": 34200 }));
+			assert.equal(instance.server.gamePort, 34200);
+		});
+		it("should resolve a release channel through the controller", async function() {
+			const instance = await fromConfig(makeConfig({ "factorio.version": "stable" }));
+			assert.equal(instance.server.version, "0.1.1");
+			assert.deepEqual(requests, ["FactorioVersionsRequest", "LatestReleasesRequest"]);
+		});
+		it("should load player stats", async function() {
+			await fs.writeFile(path.join(dir, "instance-stats.json"), JSON.stringify({
+				players: [["player", { join_count: 2 }]],
+				player_autosave_slot: 3,
+			}));
+			const instance = await fromConfig(makeConfig({}));
+			assert.equal(instance.playerStats.get("player").joinCount, 2);
+			assert.equal(instance._playerAutosaveSlot, 3);
+		});
+		it("should report the instance stopped if the version is not installed", async function() {
+			await assert.rejects(fromConfig(makeConfig({ "factorio.version": "0.1.5" })), /0\.1\.5/);
+			assert.deepEqual(sent, [
+				new lib.InstanceStatusChangedEvent(5, "starting", 34100, "0.1.5"),
+				new lib.InstanceStatusChangedEvent(5, "stopped", 34100, "0.1.5"),
+			]);
+			assert.deepEqual(saveListUpdates, [[5, path.join(dir, "saves")]]);
+		});
+	});
+
 	let src;
 	let dst = addr({ hostId: 1 });
 	let instance;
@@ -21,8 +95,7 @@ describe("class Instance", function() {
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);
-		instance = new Instance({ assignGamePort: () => 1 }, connector, "dir", "factorioDir", instanceConfig);
-		instance.server = new MockServer();
+		instance = new Instance({}, connector, "dir", instanceConfig, new MockServer());
 	});
 
 	describe(".name", function() {

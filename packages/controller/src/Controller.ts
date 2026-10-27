@@ -148,7 +148,14 @@ export default class Controller {
 		}
 	});
 
-	static async bootstrap(config: lib.ControllerConfig) {
+	/** Create a controller with its datastores and mod store loaded from disk */
+	static async fromConfig(
+		config: lib.ControllerConfig,
+		pluginInfos: lib.PluginNodeEnvInfo[],
+		clusterLogger: winston.Logger,
+		canRestart = false,
+		recoveryMode = false,
+	) {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.mkdir(databaseDirectory, { recursive: true });
 
@@ -158,23 +165,23 @@ export default class Controller {
 			path.join(databaseDirectory, "roles.json"),
 		);
 
-		const systems = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const systems = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "systems.json"),
 			lib.SystemInfo.fromJSON.bind(lib.SystemInfo),
 			this.migrateSystems,
-		).bootstrap());
+		));
 
-		const hosts = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const hosts = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "hosts.json"),
 			HostRecord.fromJSON.bind(HostRecord),
 			this.migrateHosts, this.finaliseHosts,
-		).bootstrap());
+		));
 
-		const instances = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const instances = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "instances.json"),
 			InstanceRecord.fromJSON.bind(InstanceRecord),
 			this.migrateInstances, this.finaliseInstances,
-		).bootstrap());
+		));
 		// Save plugin versions written while loading
 		for (const instance of instances.values()) {
 			if (instance.config.dirty) {
@@ -182,33 +189,33 @@ export default class Controller {
 			}
 		}
 
-		const saves = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const saves = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "saves.json"),
 			lib.SaveDetails.fromJSON.bind(lib.SaveDetails)
-		).bootstrap());
+		));
 
-		const modPacks = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const modPacks = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "mod-packs.json"),
 			lib.ModPack.fromJSON.bind(lib.ModPack),
 			this.migrateModPacks,
-		).bootstrap());
+		));
 
-		const roles = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const roles = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "roles.json"),
 			lib.Role.fromJSON.bind(lib.Role),
 			this.migrateRoles,
-		).bootstrap());
+		));
 
-		const users = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const users = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "users.json"),
 			UserRecord.fromJSON.bind(UserRecord),
 			undefined, this.finaliseUsers,
-		).bootstrap());
+		));
 
-		const notes = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+		const notes = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "notes.json"),
 			lib.Note.fromJSON.bind(lib.Note),
-		).bootstrap());
+		));
 
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
@@ -223,7 +230,12 @@ export default class Controller {
 		lib.Role.ensureDefaultAdminRole(roles);
 		lib.Role.ensureDefaultPlayerRole(roles);
 
-		return [
+		return new this(
+			clusterLogger,
+			pluginInfos,
+			config,
+			canRestart,
+			recoveryMode,
 			systems,
 			hosts,
 			instances,
@@ -233,7 +245,7 @@ export default class Controller {
 			roles,
 			users,
 			notes,
-		] as const;
+		);
 	}
 
 	constructor(

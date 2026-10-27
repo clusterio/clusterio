@@ -353,6 +353,8 @@ export default class Host extends lib.Link {
 	_startup = true;
 	_disconnecting = false;
 	_shuttingDown = false;
+	/** Instances waiting on {@link Instance.fromConfig} */
+	_startingInstances = new Set<number>();
 
 	startedAtMs = Date.now();
 
@@ -360,12 +362,18 @@ export default class Host extends lib.Link {
 		"_warning": "Changes to this file will be overwritten by the controller's copy.",
 	};
 
-	static async bootstrap(hostConfig: lib.HostConfig) {
+	/** Create a host with its mod store loaded from disk */
+	static async fromConfig(
+		hostConfig: lib.HostConfig,
+		pluginInfos: lib.PluginNodeEnvInfo[],
+		connector: HostConnector,
+		canRestart = false,
+		recoveryMode = false,
+	) {
 		const modsDirectory = hostConfig.get("host.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
-		return [
-			await lib.ModStore.fromDirectory(modsDirectory),
-		] as const;
+		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
+		return new this(connector, hostConfig, pluginInfos, canRestart, recoveryMode, modStore);
 	}
 
 	constructor(
@@ -788,7 +796,7 @@ export default class Host extends lib.Link {
 		this.send(
 			new lib.InstanceStatusChangedEvent(
 				instanceId,
-				instanceConnection ? instanceConnection.instance.status : "stopped",
+				instanceConnection ? instanceConnection.instance.status : this._unconnectedStatus(instanceId),
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection
 					? instanceConnection.instance.server.version
@@ -904,6 +912,11 @@ export default class Host extends lib.Link {
 		}
 	}
 
+	/** Status of an instance without a connection */
+	_unconnectedStatus(instanceId: number) {
+		return this._startingInstances.has(instanceId) ? "starting" as const : "stopped" as const;
+	}
+
 	/**
 	 * Initialize and connect an unloaded instance
 	 *
@@ -912,22 +925,27 @@ export default class Host extends lib.Link {
 	 */
 	async _connectInstance(instanceId: number) {
 		let unloadedInstance = this.getRequestInstance(instanceId);
-		if (this.instanceConnections.has(instanceId)) {
+		if (this.instanceConnections.has(instanceId) || this._startingInstances.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
 		let hostAddress = new lib.Address(lib.Address.host, this.config.get("host.id"));
 		let instanceAddress = new lib.Address(lib.Address.instance, instanceId);
 		let [connectionClient, connectionServer] = lib.VirtualConnector.makePair(instanceAddress, hostAddress);
-		let instance = new Instance(
-			this, connectionClient,
-			unloadedInstance.path, this.config.get("host.factorio_directory"),
-			unloadedInstance.config
-		);
+		let instance: Instance;
+		this._startingInstances.add(instanceId);
+		try {
+			instance = await Instance.fromConfig(
+				unloadedInstance.config, this, connectionClient,
+				unloadedInstance.path, this.config.get("host.factorio_directory"),
+			);
+		} finally {
+			this._startingInstances.delete(instanceId);
+		}
 		let instanceConnection = new InstanceConnection(connectionServer, this, instance);
 
 		this.instanceConnections.set(instanceId, instanceConnection);
-		await instance.init(this.pluginInfos);
+		await instance.loadPlugins(this.pluginInfos);
 
 		return instanceConnection;
 	}
@@ -1295,7 +1313,7 @@ export default class Host extends lib.Link {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push(new lib.HostInstanceUpdate(
 				instance.config.toRemote("controller"),
-				instanceConnection ? instanceConnection.instance.status : "stopped",
+				instanceConnection ? instanceConnection.instance.status : this._unconnectedStatus(instanceId),
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection ? instanceConnection.instance.server.version : undefined,
 			));
