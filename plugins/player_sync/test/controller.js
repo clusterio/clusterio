@@ -172,7 +172,7 @@ describe("player_sync controller", function() {
 			});
 		});
 
-		const acquiredError = new lib.RequestError(
+		const acquiredError = new lib.ConflictError(
 			"stored is currently acquired by Running, have the player leave or release the lock first"
 		);
 
@@ -323,7 +323,7 @@ describe("player_sync controller", function() {
 				assert.equal((await saved()).get("stored").generation, 4);
 			});
 			it("should reject unknown players", async function() {
-				await assert.rejects(del("unknown"), new lib.RequestError("No player data stored for unknown"));
+				await assert.rejects(del("unknown"), new lib.NotFoundError("No player data stored for unknown"));
 			});
 			it("should reject when the player is acquired", async function() {
 				await assert.rejects(del("stored"), acquiredError);
@@ -371,7 +371,7 @@ describe("player_sync controller", function() {
 			});
 			it("should reject players that are not acquired", async function() {
 				await assert.rejects(
-					release("unknown"), new lib.RequestError("unknown is not acquired by any instance"),
+					release("unknown"), new lib.ConflictError("unknown is not acquired by any instance"),
 				);
 			});
 		});

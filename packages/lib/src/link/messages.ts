@@ -8,7 +8,8 @@ import * as role from "../data/messages_role.js";
 import * as note from "../data/messages_note.js";
 import * as plugin from "../data/messages_plugin.js";
 import * as subscriptions from "../subscriptions.js";
-import type { RequestClass, EventClass } from "./link.js";
+import * as errors from "../errors.js";
+import type { RequestClass, EventClass, ErrorClass } from "./link.js";
 
 /**
  * Event and Request payloads registered with the Link class. Used to decode
@@ -150,4 +151,27 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	plugin.PluginSearchRequest,
 	plugin.PluginLatestVersionsRequest,
 	plugin.UpdateAllRequest,
+];
+
+/**
+ * Error classes registered with the Link class. Used to send errors thrown
+ * by request handlers back as instances of the same class.
+ * @internal
+ */
+export const errorClasses: ErrorClass[] = [
+	errors.ClientError,
+	errors.ValidationError,
+	errors.InvalidValueError,
+	errors.InvalidFieldError,
+	errors.ForbiddenError,
+	errors.PermissionError,
+	errors.InvalidAccessError,
+	errors.NotFoundError,
+	errors.TimeoutError,
+	errors.ConflictError,
+	errors.ServerError,
+	errors.InternalServerError,
+	errors.UnavailableError,
+	errors.InvalidMessage,
+	errors.SessionLost,
 ];

@@ -9,7 +9,7 @@ import express from "express";
 import { fileURLToPath } from "node:url";
 
 import {
-	ControllerConfig, Address, RequestError,
+	ControllerConfig, Address, ConflictError, NotFoundError, UnavailableError,
 	InstanceConfig, SystemInfo, Role, ModPack, AccountUpdateEvent,
 	addPluginConfigFields, renamePermissionPrefix,
 } from "@clusterio/lib";
@@ -254,33 +254,33 @@ describe("controller/src/Controller", function() {
 			it("should error on invalid controller", function() {
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ controlId: 99 })),
-					new RequestError("Target control connection does not exist.")
+					new NotFoundError("Target control connection does not exist.")
 				);
 			});
 			it("should error on invalid instance", function() {
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 99 })),
-					new RequestError("Instance with ID 99 does not exist")
+					new NotFoundError("Instance with ID 99 does not exist")
 				);
 			});
 			it("should error on unassigned instance", function() {
 				mockInstanceConfig.set("instance.assigned_host", null);
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
-					new RequestError("Instance is not assigned to a host")
+					new ConflictError("Instance is not assigned to a host")
 				);
 			});
 			it("should error on instance with disconnected host", function() {
 				mockInstanceConfig.set("instance.assigned_host", 99);
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
-					new RequestError("Host containing instance is not connected")
+					new UnavailableError("Host containing instance is not connected")
 				);
 			});
 			it("should error on invalid host", function() {
 				assert.throws(
 					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ hostId: 99 })),
-					new RequestError("Host is not connected")
+					new UnavailableError("Host is not connected")
 				);
 			});
 			it("should error on invalid broadcast", function() {

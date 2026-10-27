@@ -8,6 +8,7 @@ import type { ConfigSchema, FieldDefinition } from "./config/index.js";
 import type { PermissionDefinition } from "./permissions.js";
 import type { PlayerStats, Role } from "./data/index.js";
 import type { SyncHook } from "./SyncHook.js";
+import type { ErrorClass } from "./link/index.js";
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */
@@ -42,6 +43,7 @@ export type PluginDeclaration = {
 	features?: (typeof PluginFeatureFlags)[number][];
 
 	messages?: any[];
+	errors?: ErrorClass[];
 	permissions?: PermissionDefinition[];
 	routes?: string[];
 }

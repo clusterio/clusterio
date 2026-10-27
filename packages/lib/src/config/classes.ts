@@ -9,42 +9,11 @@ import * as libSchema from "../schema.js";
 import { StringEnum } from "../data/composites.js";
 import { safeOutputFile } from "../file_ops.js";
 import * as validators from "./validators.js";
-import { RequestError } from "../errors.js";
+import { InvalidAccessError, InvalidFieldError, InvalidValueError } from "../errors.js";
 import type { SyncHook } from "../SyncHook.js";
 
 const ConfigLocation = StringEnum(["controller", "host", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
-
-/**
- * Invalid Access exception
- *
- * Exception class for when an access attempt is made to a field that
- * does not permitt this access is done.
- *
- * @extends Error
- */
-export class InvalidAccess extends RequestError { };
-
-/**
- * Invalid Value exception
- *
- * Exception class for when invalid values are attempted to be set on a
- * field.
- *
- * @extends Error
- */
-export class InvalidValue extends RequestError { };
-
-/**
- * Invalid Field exception
- *
- * Exception class for when a group or field that does not exist is
- * attempted to be accessed.
- *
- * @extends Error
- */
-export class InvalidField extends RequestError { };
-
 
 const OldConfigGroupSchema = Type.Object({
 	"name": Type.String(),
@@ -368,7 +337,7 @@ export class Config<
 	 * @param name - Name of the field being validated.
 	 * @param def - Definition describing the field type and constraints.
 	 * @param value - Value to validate and coerce.
-	 * @throws {InvalidValue} if the value cannot be coerced to the correct type
+	 * @throws {InvalidValueError} if the value cannot be coerced to the correct type
 	 * @returns The validated and coerced value.
 	 * @private
 	 */
@@ -380,7 +349,7 @@ export class Config<
 
 		// If def is an enum then it must be a value within it
 		if (def.enum && !def.enum.includes(value)) {
-			throw new InvalidValue(`Expected one of [${def.enum.join(", ")}], not ${value}`);
+			throw new InvalidValueError(`Expected one of [${def.enum.join(", ")}], not ${value}`);
 		}
 
 		// If it is a string, then attempt to coerce it
@@ -402,7 +371,7 @@ export class Config<
 				try {
 					value = JSON.parse(value);
 				} catch (err: any) {
-					throw new InvalidValue(`Error parsing value for ${name}: ${err.message}`);
+					throw new InvalidValueError(`Error parsing value for ${name}: ${err.message}`);
 				}
 			}
 		}
@@ -410,12 +379,12 @@ export class Config<
 		// Check if it is allowed to be null
 		if (value === null) {
 			if (!def.optional) {
-				throw new InvalidValue(`Field ${name} cannot be null`);
+				throw new InvalidValueError(`Field ${name} cannot be null`);
 			}
 
 		// Check if is the correct type
 		} else if (basicType(value) !== def.type) {
-			throw new InvalidValue(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
+			throw new InvalidValueError(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
 		}
 
 		return value as FieldType<T["type"]>;
@@ -429,7 +398,7 @@ export class Config<
 	 * @param location - location to check access for.
 	 * @param mode - type of access to check for.
 	 * @param error - throw on failure to pass check.
-	 * @throws {InvalidAccess}
+	 * @throws {InvalidAccessError}
 	 *     if access is not granted and error is true.
 	 * @returns true if access is granted
 	 * @private
@@ -448,7 +417,7 @@ export class Config<
 			)
 		) {
 			if (error) {
-				throw new InvalidAccess(`Field '${name}' is not accessible from ${location}`);
+				throw new InvalidAccessError(`Field '${name}' is not accessible from ${location}`);
 			} else {
 				return false;
 			}
@@ -648,7 +617,7 @@ export class Config<
 		}
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
-			throw new InvalidField(`No field named '${name}'`);
+			throw new InvalidFieldError(`No field named '${name}'`);
 		}
 		return this._checkAccess(name, def, location, mode, false);
 	}
@@ -663,7 +632,7 @@ export class Config<
 	get<Field extends keyof Fields & string>(name: Field, remote = this.location) {
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
-			throw new InvalidField(`No field named '${name}'`);
+			throw new InvalidFieldError(`No field named '${name}'`);
 		}
 		// If remote access is requested require it to be able to read the field
 		if (remote !== this.location) {
@@ -675,7 +644,7 @@ export class Config<
 			!this._checkAccess(name, def, this.location, ConfigAccess.write, false)
 			&& !this._checkAccess(name, def, this.location, ConfigAccess.read, false)
 		) {
-			throw new InvalidAccess(`Field '${name}' is not accessible from ${this.location}`);
+			throw new InvalidAccessError(`Field '${name}' is not accessible from ${this.location}`);
 		}
 
 		return this.fields[name];
@@ -690,13 +659,13 @@ export class Config<
 	 * @param name - Name of field to set.
 	 * @param newValue - Value to set for field.
 	 * @param remote - Location this field is being set from.
-	 * @throws {InvalidField} if field is not defined.
-	 * @throws {InvalidValue} if value is not allowed for the field.
+	 * @throws {InvalidFieldError} if field is not defined.
+	 * @throws {InvalidValueError} if value is not allowed for the field.
 	 */
 	set<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], remote = this.location) {
 		const def = this.constructor.fieldDefinitions[name];
 		if (!def) {
-			throw new InvalidField(`No field named '${name}'`);
+			throw new InvalidFieldError(`No field named '${name}'`);
 		}
 
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
@@ -714,7 +683,7 @@ export class Config<
 				try {
 					def.validator(value, this);
 				} catch (err: any) {
-					throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+					throw new InvalidValueError(`Failed validation of ${name}: ${err.message}`);
 				}
 			}
 		} finally {
@@ -732,7 +701,7 @@ export class Config<
 					try {
 						dependent.def.validator(this.get(dependent.name as any, remote), this.staging);
 					} catch (err: any) {
-						throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+						throw new InvalidValueError(`Failed validation of dependent ${dependent.name}: ${err.message}`);
 					}
 				}
 			} finally {
@@ -753,8 +722,8 @@ export class Config<
 	 * @param prop - Name of property to set on field.
 	 * @param value - the value to set the property to.
 	 * @param remote - Location this property is being set from
-	 * @throws {InvalidField} if field is not defined.
-	 * @throws {InvalidValue} if field is not an object.
+	 * @throws {InvalidFieldError} if field is not defined.
+	 * @throws {InvalidValueError} if field is not an object.
 	 */
 	setProp<Field extends keyof Fields & string>(
 		name: Field,
@@ -764,7 +733,7 @@ export class Config<
 	) {
 		let def = this.constructor.fieldDefinitions[name];
 		if (!def) {
-			throw new InvalidField(`No field named '${name}'`);
+			throw new InvalidFieldError(`No field named '${name}'`);
 		}
 
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
@@ -773,7 +742,7 @@ export class Config<
 		}
 
 		if (def.type !== "object") {
-			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);
+			throw new InvalidValueError(`Cannot set property on non-object field '${name}'`);
 		}
 
 		let prev = this.fields[name] as Record<string, unknown>;
@@ -793,7 +762,7 @@ export class Config<
 				try {
 					def.validator(updated, this);
 				} catch (err: any) {
-					throw new InvalidValue(`Failed validation of ${name}: ${err.message}`);
+					throw new InvalidValueError(`Failed validation of ${name}: ${err.message}`);
 				}
 			}
 		} finally {
@@ -811,7 +780,7 @@ export class Config<
 					try {
 						dependent.def.validator(this.get(dependent.name as any, remote), this.staging);
 					} catch (err: any) {
-						throw new InvalidValue(`Failed validation of dependent ${dependent.name}: ${err.message}`);
+						throw new InvalidValueError(`Failed validation of dependent ${dependent.name}: ${err.message}`);
 					}
 				}
 			} finally {
@@ -829,8 +798,8 @@ export class Config<
 	 * @param name - Name of field to set.
 	 * @param newValue - Value to set for field.
 	 * @param remote - Location this field is being set from.
-	 * @throws {InvalidField} if field is not defined.
-	 * @throws {InvalidValue} if value is not allowed for the field.
+	 * @throws {InvalidFieldError} if field is not defined.
+	 * @throws {InvalidValueError} if value is not allowed for the field.
 	 */
 	stage<Field extends keyof Fields & string>(name: Field, newValue: Fields[Field], remote = this.location) {
 		if (this._readonly) {
@@ -839,7 +808,7 @@ export class Config<
 
 		const def = this.constructor.fieldDefinitions[name];
 		if (!def) {
-			throw new InvalidField(`No field named '${name}'`);
+			throw new InvalidFieldError(`No field named '${name}'`);
 		}
 
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
@@ -859,8 +828,8 @@ export class Config<
 	 * @param prop - Name of property to set on field.
 	 * @param value - the value to set the property to.
 	 * @param remote - Location this property is being set from
-	 * @throws {InvalidField} if field is not defined.
-	 * @throws {InvalidValue} if field is not an object.
+	 * @throws {InvalidFieldError} if field is not defined.
+	 * @throws {InvalidValueError} if field is not an object.
 	 */
 	stageProp<Field extends keyof Fields & string>(
 		name: Field,
@@ -874,7 +843,7 @@ export class Config<
 
 		const def = this.constructor.fieldDefinitions[name];
 		if (!def) {
-			throw new InvalidField(`No field named '${name}'`);
+			throw new InvalidFieldError(`No field named '${name}'`);
 		}
 
 		this._checkAccess(name, def, remote, ConfigAccess.write, true);
@@ -883,7 +852,7 @@ export class Config<
 		}
 
 		if (def.type !== "object") {
-			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);
+			throw new InvalidValueError(`Cannot set property on non-object field '${name}'`);
 		}
 
 		const prev = this.staging.get(name) as Record<string, unknown>;
@@ -901,7 +870,7 @@ export class Config<
 	/**
 	 * Commit all changes in stating after they have been validated.
 	 *
-	 * @throws {InvalidValue} if a value is not allowed for its field.
+	 * @throws {InvalidValueError} if a value is not allowed for its field.
 	 */
 	commitStaging() {
 		if (this._readonly) {
@@ -923,7 +892,7 @@ export class Config<
 					try {
 						fieldDef.validator(config.fields[fieldName as keyof Fields], config);
 					} catch (err: any) {
-						throw new InvalidValue(`Failed validation of ${fieldName}: ${err.message}`);
+						throw new InvalidValueError(`Failed validation of ${fieldName}: ${err.message}`);
 					}
 				}
 			}

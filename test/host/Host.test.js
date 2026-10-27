@@ -37,8 +37,8 @@ describe("host/src/Host", function() {
 	describe("class HostRouter", function() {
 		describe(".wakeInstance()", function() {
 			it("should log the message of a start error that has no stack", async function() {
-				// RequestError leaves its stack undefined
-				const err = new lib.RequestError("No available port left to assign from host.factorio_port_range");
+				const err = new lib.ConflictError("No available port left to assign from host.factorio_port_range");
+				err.stack = undefined;
 				const mockHost = {
 					_shuttingDown: false,
 					_connectInstance: async () => { throw err; },
@@ -57,6 +57,7 @@ describe("host/src/Host", function() {
 					lib.logger.error = originalError;
 				}
 				assert.equal(responses.length, 1);
+				assert.equal(responses[0].code, "ConflictError");
 				assert.equal(logged.length, 1);
 				assert.match(logged[0], /No available port left to assign/);
 			});

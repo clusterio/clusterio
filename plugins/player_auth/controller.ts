@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 
 import { Static } from "@sinclair/typebox";
 import type { ControllerPluginContext } from "@clusterio/controller";
-import { basicType, RequestError } from "@clusterio/lib";
+import { basicType, NotFoundError } from "@clusterio/lib";
 
 import { FetchPlayerCodeRequest, PlayerAuthServer, SetVerifyCodeRequest } from "./messages.js";
 
@@ -103,7 +103,7 @@ export default async function loadControllerPlugin(context: ControllerPluginCont
 
 		let entry = players.get(player);
 		if (!entry || entry.expiresMs < Date.now()) {
-			throw new RequestError("invalid player");
+			throw new NotFoundError("invalid player");
 		}
 
 		entry.verifyCode = verifyCode;

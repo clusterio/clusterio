@@ -139,7 +139,7 @@ describe("controller/src/ControlConnection", function() {
 		it("rejects instance.assigned_host in the config", async function() {
 			await assert.rejects(
 				create({ "instance.id": 4001, "instance.name": "c1", "instance.assigned_host": 10 }),
-				new lib.RequestError("instance.assigned_host must be set through the assign-host interface"),
+				new lib.ValidationError("instance.assigned_host must be set through the assign-host interface"),
 			);
 			assert.equal(mockController.instances.has(4001), false);
 		});

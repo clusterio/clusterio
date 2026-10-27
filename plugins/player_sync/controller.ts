@@ -109,7 +109,7 @@ export default async function(context: ControllerPluginContext) {
 		let acquisitionRecord = getAcquisition(playerName);
 		if (acquisitionRecord) {
 			let instanceName = controller.instances.get(acquisitionRecord.instanceId)!.config.get("instance.name");
-			throw new lib.RequestError(
+			throw new lib.ConflictError(
 				`${playerName} is currently acquired by ${instanceName}, ` +
 				"have the player leave or release the lock first"
 			);
@@ -340,7 +340,7 @@ export default async function(context: ControllerPluginContext) {
 	controller.handle(msg.DeletePlayerDataRequest, async (request: msg.DeletePlayerDataRequest) => {
 		let { playerName } = request;
 		if (!playerDatastore.has(playerName)) {
-			throw new lib.RequestError(`No player data stored for ${playerName}`);
+			throw new lib.NotFoundError(`No player data stored for ${playerName}`);
 		}
 		checkNotAcquired(playerName);
 
@@ -354,7 +354,7 @@ export default async function(context: ControllerPluginContext) {
 	controller.handle(msg.ForceReleaseRequest, async (request: msg.ForceReleaseRequest) => {
 		let { playerName } = request;
 		if (!acquiredPlayers.delete(playerName)) {
-			throw new lib.RequestError(`${playerName} is not acquired by any instance`);
+			throw new lib.ConflictError(`${playerName} is not acquired by any instance`);
 		}
 		logger.info(`Released lock on ${playerName}`);
 	});

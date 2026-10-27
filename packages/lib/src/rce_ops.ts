@@ -2,7 +2,7 @@ import util from "util";
 import path from "path";
 import { exec } from "child_process";
 import { logger } from "./logging.js";
-import { RequestError } from "./errors.js";
+import { ConflictError, NotFoundError, UnavailableError } from "./errors.js";
 import type { PluginNodeEnvInfo } from "./plugin.js";
 import { isNonRegistryPackage } from "./load_plugin_list.js";
 import { LockFile, LockFileExistsError, LockFileRecoveryError } from "./LockFile.js";
@@ -31,7 +31,7 @@ let operationInProgress = false;
 async function logExec(cmd: string, check?: () => Promise<void>) {
 	// Checked and set before the first await so concurrent calls in this process can't interleave
 	if (operationInProgress) {
-		throw new RequestError(operationInProgressMessage);
+		throw new ConflictError(operationInProgressMessage);
 	}
 	operationInProgress = true;
 	const lockPath = path.resolve("npm-operation.lock");
@@ -43,13 +43,13 @@ async function logExec(cmd: string, check?: () => Promise<void>) {
 			await lock.acquire();
 		} catch (err) {
 			if (err instanceof LockFileRecoveryError) {
-				throw new RequestError(err.message);
+				throw new UnavailableError(err.message);
 			}
 			if (!(err instanceof LockFileExistsError)) {
 				throw err;
 			}
 			const holder = await lock.holderPid();
-			throw new RequestError(
+			throw new ConflictError(
 				`${operationInProgressMessage}${holder ? ` (${lockPath} is held by process ${holder})` : ""}`
 			);
 		}
@@ -90,7 +90,7 @@ export async function handleUpdateAll(corePackage: string, pluginInfos: PluginNo
 /** Throws if the dependency by this name is a path, git, url or alias that installing by name would replace */
 async function checkNotLocalDependency(name: string) {
 	if (await isNonRegistryPackage(name)) {
-		throw new RequestError(`${name} is not installed from npm on this machine`);
+		throw new ConflictError(`${name} is not installed from npm on this machine`);
 	}
 }
 
@@ -98,7 +98,7 @@ export async function handlePluginUpdate(pluginName: string, pluginInfos: Plugin
 	// Optionally pinned to a version as name@version to update past the range in package.json
 	const { name, version } = parsePackageSpec(pluginName);
 	if (!pluginInfos.some(plugin => plugin.npmPackage === name)) {
-		throw new RequestError(`Plugin ${name} is not installed on this machine`);
+		throw new NotFoundError(`Plugin ${name} is not installed on this machine`);
 	}
 
 	if (version === undefined) {
