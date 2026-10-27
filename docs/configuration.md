@@ -103,7 +103,7 @@ Defaults to null meaning assume localhost.
 
 Used to override where static assets such as the web bundle is loaded from.
 This can be used if you want to put the static assets on a separate cdn url like `https://cdn.example.com/static/` while keeping the API hosted directly by clusterio.
-Due to a limitation on how the webpack assets are built the pathname component of the url have to be `/static/`, values with any other path are rejected.
+Due to a limitation on how the web assets are built the pathname component of the url have to be `/static/`, values with any other path are rejected.
 
 See also the `clusteriocontroller copy-static` command for how to obtain the static asset files that need to be hosted.
 

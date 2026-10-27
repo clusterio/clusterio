@@ -106,7 +106,7 @@ export default class Controller {
 	_registeredEvents = new Map<lib.EventClass<unknown>, lib.EventHandler<unknown>>();
 	_snoopedEvents = new Map();
 
-	viteServer: import("vite").ViteDevServer | null = null;
+	devServer: import("vite").ViteDevServer | null = null;
 
 	startedAtMs = Date.now();
 	autosaveInterval?: ReturnType<typeof setInterval>;
@@ -416,8 +416,8 @@ export default class Controller {
 		}
 
 		Controller.addAppRoutes(this.app, this.pluginInfos);
-		if (this.viteServer) {
-			this.app.use(this.viteServer.middlewares);
+		if (this.devServer) {
+			this.app.use(this.devServer.middlewares);
 		}
 
 		if (!args.dev) {
@@ -516,7 +516,7 @@ export default class Controller {
 		this.app.locals.devPlugins = devPlugins;
 
 		const controllerDir = path.join(import.meta.dirname, "..", "..", "..");
-		this.viteServer = await vite.createServer({
+		this.devServer = await vite.createServer({
 			configFile: path.join(controllerDir, "vite.config.js"),
 			root: controllerDir,
 			base: "/static/",
@@ -529,13 +529,13 @@ export default class Controller {
 		});
 		if (args.dev) {
 			this.app.locals.webBundle = {
-				main: this.viteServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
+				main: this.devServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
 				imports: Object.fromEntries(webUiVite.sharedModules.map(
 					name => [name, webUiVite.devSharedUrl(name)]
 				)),
 			};
 		}
-		this.app.locals.viteServer = this.viteServer;
+		this.app.locals.devServer = this.devServer;
 	}
 
 	/**
@@ -586,8 +586,8 @@ export default class Controller {
 			await this.clusterLogIndex.save();
 		}
 
-		if (this.viteServer) {
-			await this.viteServer.close();
+		if (this.devServer) {
+			await this.devServer.close();
 		}
 
 		await this.hooks.shutdown.invoke();
@@ -1388,8 +1388,8 @@ export default class Controller {
 					.replace(/__IMPORT_MAP__/g, () => importMap)
 					.replace(/__MAIN_BUNDLE__/g, () => routes.stripStaticPrefix(main))
 				;
-				if (res.app.locals.viteServer) {
-					content = await res.app.locals.viteServer.transformIndexHtml(req.originalUrl, content);
+				if (res.app.locals.devServer) {
+					content = await res.app.locals.devServer.transformIndexHtml(req.originalUrl, content);
 				}
 				res.type("text/html");
 				res.send(content);

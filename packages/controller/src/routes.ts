@@ -21,7 +21,7 @@ declare global {
 		export interface Locals {
 			controller: Controller,
 			webBundle: { main: string, imports: Record<string, string> },
-			viteServer?: import("vite").ViteDevServer,
+			devServer?: import("vite").ViteDevServer,
 			staticRoot: string | null,
 			devPlugins?: Map<string, string>,
 			streams: Map<string, ProxyStream>,

@@ -151,7 +151,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			optional: true,
 			validator: (value) => {
 				if (value) {
-					// This is unfortunately a limitiation of how the webpack build is set up right now.
+					// This is unfortunately a limitiation of how the web build is set up right now.
 					const pathname = new URL(value, "http://localhost/").pathname;
 					if (pathname !== "/static/") {
 						throw new Error(`Path component of static_url must be /static/ not ${pathname}.`);
