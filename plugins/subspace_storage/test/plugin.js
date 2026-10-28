@@ -154,5 +154,38 @@ describe("subspace_storage plugin", function() {
 				nodeMock.timers.reset();
 			}
 		});
+		describe("timers and unpause", function() {
+			const ping = "/sc __subspace_storage__ global.ticksSinceMasterPinged = 0";
+			const isInventory = command => command.includes("UpdateInvData");
+			let startedInstance;
+			let host;
+			beforeEach(async function() {
+				nodeMock.timers.enable({ apis: ["setInterval", "Date"], now: 1000000 });
+				({ instance: startedInstance, host } = await mock.loadInstancePlugin(instanceEntrypoint, info));
+				host.connected = true;
+				startedInstance.sendTo = async () => [];
+				await startedInstance.hooks.start.invoke();
+				startedInstance.server.rconCommands.length = 0;
+			});
+			afterEach(async function() {
+				await startedInstance.hooks.stop.invoke();
+				nodeMock.timers.reset();
+			});
+
+			it("should not ping while the host is disconnected", async function() {
+				host.connected = false;
+				nodeMock.timers.tick(5000);
+				await startedInstance.hooks.autoPauseChanged.invoke(false);
+				const commands = startedInstance.server.rconCommands;
+				assert(!commands.includes(ping), "ping was sent");
+				assert.equal(commands.filter(isInventory).length, 6);
+			});
+			it("should not send inventory while not running", async function() {
+				startedInstance.status = "stopping";
+				nodeMock.timers.tick(5000);
+				await startedInstance.hooks.autoPauseChanged.invoke(false);
+				assert.deepEqual(startedInstance.server.rconCommands, [ping]);
+			});
+		});
 	});
 });

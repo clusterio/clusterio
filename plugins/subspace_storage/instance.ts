@@ -88,19 +88,12 @@ export default async function(context: InstancePluginContext) {
 	});
 
 	function sendPing() {
-		if (!host.connected) {
-			return; // Only ping if we are actually connected to the controller.
-		}
 		instance.sendRcon(
 			"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true, plugin.name
 		).catch(err => unexpectedError(err));
 	}
 
 	function sendInventory() {
-		if (instance.status !== "running") {
-			return;
-		}
-
 		const payloadItems = [
 			...cachedInventoryItems,
 			new Item("signal-unixtime", Math.floor(Date.now() / 1000), "normal"),
@@ -116,7 +109,8 @@ export default async function(context: InstancePluginContext) {
 	instance.hooks.start.attach(plugin.name, async () => {
 		// Each command runs a tick on an auto paused game.
 		pingId = setInterval(() => {
-			if (!instance.autoPaused) {
+			// Only ping if we are actually connected to the controller.
+			if (host.connected && !instance.autoPaused) {
 				sendPing();
 			}
 		}, 5000);
@@ -129,17 +123,20 @@ export default async function(context: InstancePluginContext) {
 
 		// Ensure a payload with updated time is sent every second
 		timeUpdateId = setInterval(() => {
-			if (!instance.autoPaused) {
+			if (instance.status === "running" && !instance.autoPaused) {
 				sendInventory();
 			}
 		}, 1000);
 	});
 
 	instance.hooks.autoPauseChanged.attach(plugin.name, async (paused: boolean) => {
-		if (!paused && instance.status === "running") {
-			sendPing();
-			sendInventory();
+		if (paused || instance.status !== "running") {
+			return;
 		}
+		if (host.connected) {
+			sendPing();
+		}
+		sendInventory();
 	});
 
 	instance.hooks.stop.attach(plugin.name, async () => {
