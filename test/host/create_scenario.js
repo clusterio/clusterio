@@ -154,7 +154,7 @@ describe("host/create_scenario", function() {
 			await fs.cp(scenario, freeplay, { recursive: true });
 			pluginInfos = await lib.loadPluginInfos(new Map([
 				["research_sync", path.resolve("plugins/research_sync")],
-				["test_plugin", path.resolve("test/file/test_plugin")],
+				["test_plugin_no_module", path.resolve("test/file/test_plugin_no_module")],
 			]));
 			lib.addPluginConfigFields(pluginInfos);
 			hostConfig = new lib.HostConfig("host", { "host.factorio_directory": factorioDir });

@@ -17,7 +17,7 @@ import {
 } from "./index.js";
 import { externalTest, slowTest } from "../common.js";
 import { getTestRconPort } from "./rcon_port.js";
-import { ControllerEcho, HostEchoReceived } from "../file/test_plugin/messages.js";
+import { ControllerEcho, HostEchoReceived, InstanceEcho } from "../file/test_plugin/messages.js";
 
 
 /** @returns {Promise<Map<number, lib.InstanceDetails>>} */
@@ -999,6 +999,62 @@ describe("Integration of Clusterio", function() {
 					)
 				);
 				await execCtl("instance config set test factorio.enable_script_commands true");
+			});
+		});
+
+		describe("test_plugin on a running instance", function() {
+			requiresFactorio(this);
+			before(async function() {
+				this.timeout(20000);
+				if ((await getInstances()).get(44).status !== "running") {
+					await execCtl("instance start test");
+				}
+			});
+
+			async function findLog(filter, message) {
+				// Host and instance logs are forwarded to the controller asynchronously.
+				for (let attempt = 0; attempt < 100; attempt++) {
+					const { log } = await getControl().send(
+						new lib.LogQueryRequest(false, filter.controller ?? false, filter.hostIds ?? [],
+							filter.instanceIds ?? [], undefined, 100, "desc")
+					);
+					const entry = log.find(info => info.message === message);
+					if (entry) {
+						return entry;
+					}
+					await wait(20);
+				}
+				throw new Error(`log entry "${message}" not found`);
+			}
+
+			it("should route a plugin request from control to an instance", async function() {
+				const response = await getControl().sendTo({ instanceId: 44 }, new InstanceEcho("to-instance"));
+				assert.equal(response, "to-instance");
+			});
+
+			it("should patch the plugin's Lua module into the save", async function() {
+				const result = await sendRcon(44, "/sc rcon.print(remote.interfaces.test_plugin.echo)");
+				assert.equal(result, "true\n");
+			});
+
+			it("should tag plugin log entries with the plugin and where they came from", async function() {
+				await getControl().sendTo("controller", new ControllerEcho("log-tagging"));
+				await getControl().sendTo({ instanceId: 44 }, new InstanceEcho("log-tagging"));
+
+				const controllerEntry = await findLog({ controller: true }, "test_plugin controller echo log-tagging");
+				assert.equal(controllerEntry.plugin, "test_plugin");
+				assert.equal(controllerEntry.host_id, undefined);
+				assert.equal(controllerEntry.instance_id, undefined);
+
+				const hostEntry = await findLog({ hostIds: [4] }, "test_plugin host echo log-tagging");
+				assert.equal(hostEntry.plugin, "test_plugin");
+				assert.equal(hostEntry.host_id, 4);
+				assert.equal(hostEntry.instance_id, undefined);
+
+				const instanceEntry = await findLog({ instanceIds: [44] }, "test_plugin instance echo log-tagging");
+				assert.equal(instanceEntry.plugin, "test_plugin");
+				assert.equal(instanceEntry.host_id, 4);
+				assert.equal(instanceEntry.instance_id, 44);
 			});
 		});
 

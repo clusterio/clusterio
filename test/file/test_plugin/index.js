@@ -1,7 +1,7 @@
 // Plugin exercising the plugin system in the integration tests, see #342.
 // Written as plain JavaScript so that it does not need to be built.
 
-import { ControllerEcho, HostEcho, HostEchoReceived } from "./messages.js";
+import { ControllerEcho, HostEcho, HostEchoReceived, InstanceEcho } from "./messages.js";
 
 export const plugin = {
 	name: "test_plugin",
@@ -17,5 +17,6 @@ export const plugin = {
 		ControllerEcho,
 		HostEcho,
 		HostEchoReceived,
+		InstanceEcho,
 	],
 };

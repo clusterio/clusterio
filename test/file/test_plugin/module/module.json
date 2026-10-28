@@ -1,0 +1,4 @@
+{
+	"name": "test_plugin",
+	"require": ["test_plugin.lua"]
+}
