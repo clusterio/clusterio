@@ -26,12 +26,12 @@ type IpcStats = {
 			weight: number,
 		}
 	}
-}
+};
 
 type IpcFlowType = {
 	"input": Record<string, number>,
 	"output": Record<string, number>,
-}
+};
 
 const instancePlayerCount = new Gauge(
 	"clusterio_statistics_exporter_instance_player_count",

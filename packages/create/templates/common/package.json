@@ -67,15 +67,13 @@
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 //%endif
-//%if webpack
-		"webpack": "^5.110.3",
-		"webpack-cli": "^7.2.3",
-		"webpack-merge": "^5.9.0",
+//%if web_build
+		"vite": "^8.3.4",
 //%endif
 //%if controller
 		"@clusterio/controller": "^__clusterio_version__",
 //%endif
-//%if webpack
+//%if web_build
 		"@clusterio/web_ui": "^__clusterio_version__",
 //%endif
 //%if host
@@ -87,7 +85,7 @@
 		"@clusterio/lib": "^__clusterio_version__"
 	},
 	"dependencies": {
-		"@sinclair/typebox": "^0.30.6"
+		"@sinclair/typebox": "^0.34.52"
 	},
 	"publishConfig": {
 		"access": "public"

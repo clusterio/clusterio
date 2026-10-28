@@ -24,7 +24,7 @@ type OldConfigGroupSchema = Static<typeof OldConfigGroupSchema>;
 const OldConfigSchema = Type.Object({
 	"groups": Type.Array(OldConfigGroupSchema),
 });
-export type OldConfigSchema = Static<typeof OldConfigSchema>
+export type OldConfigSchema = Static<typeof OldConfigSchema>;
 
 export const ConfigSchema = Type.Record(Type.String(), Type.Union([
 	Type.Null(),
@@ -38,11 +38,11 @@ export type ConfigSchema = Static<typeof ConfigSchema>;
 type FieldValue = null | boolean | string | number | object;
 
 type FieldType<T extends FieldValue> =
-	T extends boolean ? "boolean" :
-		T extends string ? "string" :
-			T extends number ? "number" :
-				T extends object ? "object" :
-					never;
+	T extends boolean ? "boolean"
+		: T extends string ? "string"
+			: T extends number ? "number"
+				: T extends object ? "object"
+					: never;
 
 export interface FieldDefinition<
 	Type extends FieldValue = any,
@@ -134,7 +134,7 @@ export type ConfigDefs<
 	Fields extends Record<keyof Fields, FieldValue>
 > = {
 	[Prop in keyof Fields]: FieldDefinition<Fields[Prop], Fields>;
-}
+};
 
 function defaultValue(def: FieldDefinition) {
 	if (def.initialValue === undefined) {
@@ -148,7 +148,7 @@ function defaultValue(def: FieldDefinition) {
 
 export type ConfigEvents = {
 	fieldChanged: [ name: string, curr: FieldValue, prev: FieldValue ],
-}
+};
 
 export enum ConfigAccess {
 	read = 0x1,

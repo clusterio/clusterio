@@ -16,22 +16,7 @@ import { pages } from "./pages";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
-async function loadScript(url: string) {
-	let script = document.createElement("script");
-	script.src = url;
-	script.type = "text/javascript";
-	script.async = true;
-
-	let result = new Promise((resolve, reject) => {
-		script.onload = resolve;
-		script.onerror = reject;
-	});
-
-	document.head.appendChild(script);
-	return result;
-}
-
-async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> {
+async function loadPluginInfos(): Promise<[lib.PluginWebEnvInfo[], string]> {
 	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList: lib.PluginWebApi[];
 	if (response.ok) {
@@ -43,8 +28,7 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 	}
 	let pluginSetKey = loadedPluginSetKey(pluginList);
 
-	let pluginInfos: lib.PluginWebpackEnvInfo[] = [];
-	await __webpack_init_sharing__("default");
+	let pluginInfos: lib.PluginWebEnvInfo[] = [];
 	for (let meta of pluginList) {
 		if (meta.web.error) {
 			logger.error(`Failed to load plugin ${meta.name}: ${meta.web.error}`);
@@ -54,15 +38,13 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 			continue;
 		}
 		try {
-			await loadScript(`${staticRoot}${meta.web.main}`);
-			let container: any = (window as { [key: string]: any })[`plugin_${meta.name}`];
-			if (!container) {
-				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
+			let container = await import(/* @vite-ignore */ `${staticRoot}${meta.web.main}`);
+			if (typeof container.get !== "function") {
+				throw new Error("Plugin web bundle does not export get");
 			}
-			await container.init(__webpack_share_scopes__.default);
-			let pluginInfo = (await container.get("./"))().plugin;
+			let pluginInfo = (await container.get("./")).plugin;
 			pluginInfo.container = container;
-			pluginInfo.package = (await container.get("./package.json"))();
+			pluginInfo.package = (await container.get("./package.json")).default;
 			pluginInfo.enabled = meta.enabled;
 			pluginInfos.push(pluginInfo);
 
@@ -83,7 +65,7 @@ async function loadPluginInfos(): Promise<[lib.PluginWebpackEnvInfo[], string]> 
 }
 
 async function loadPlugins(
-	pluginInfos: lib.PluginWebpackEnvInfo[],
+	pluginInfos: lib.PluginWebEnvInfo[],
 	control: Control
 ) {
 	const plugins = new Map<string, WebPlugin.BaseWebPlugin>();
@@ -94,8 +76,7 @@ async function loadPlugins(
 		}
 
 		try {
-			const moduleFactory = await pluginInfo.container.get(pluginInfo.webEntrypoint);
-			const webModule = moduleFactory();
+			const webModule = await pluginInfo.container.get(pluginInfo.webEntrypoint);
 
 			const pluginContext: WebPlugin.WebPluginContext = {
 				control,

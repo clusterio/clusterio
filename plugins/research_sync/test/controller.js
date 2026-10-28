@@ -145,21 +145,21 @@ describe("research_sync controller", function() {
 	});
 
 	describe("technology sync unlocking several levels", function() {
-		const techSync = (name, level, researched) => mock.getHandler(controller, SyncTechnologiesRequest)(
+		const syncTech = (name, level, researched) => mock.getHandler(controller, SyncTechnologiesRequest)(
 			new SyncTechnologiesRequest([new TechnologySync(name, level, null, researched)]), src
 		);
 		it("should drop one entry per level unlocked on a known technology", async function() {
-			await techSync("m", 4, true);
+			await syncTech("m", 4, true);
 			await update(["m", "m", "m", "x"]);
 			sent.length = 0;
-			await techSync("m", 7, true);
+			await syncTech("m", 7, true);
 			assert.deepEqual(await sync(), ["x"]);
 			assert.equal(queueEvents().length, 1);
 			assert.deepEqual(queueEvents()[0][1], new QueueEvent(["x"], null, null));
 		});
 		it("should drop one entry per level unlocked on a new technology", async function() {
 			await update(["m", "m", "x"]);
-			await techSync("m", 2, true);
+			await syncTech("m", 2, true);
 			assert.deepEqual(await sync(), ["x"]);
 		});
 	});

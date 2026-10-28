@@ -1,7 +1,7 @@
 // Core definitions for the configuration system
 import * as classes from "./classes.js";
 import * as validators from "./validators.js";
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin.js";
+import type { PluginNodeEnvInfo, PluginWebEnvInfo } from "../plugin.js";
 import { Static } from "@sinclair/typebox";
 import { isTargetVersion } from "../data/version.js";
 import { SyncHook } from "../SyncHook.js";
@@ -151,7 +151,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			optional: true,
 			validator: (value) => {
 				if (value) {
-					// This is unfortunately a limitiation of how the webpack build is set up right now.
+					// This is unfortunately a limitiation of how the web build is set up right now.
 					const pathname = new URL(value, "http://localhost/").pathname;
 					if (pathname !== "/static/") {
 						throw new Error(`Path component of static_url must be /static/ not ${pathname}.`);
@@ -786,7 +786,7 @@ function validateFieldNames(
  * Add the config fields defined by the by a specific plugin infos
  */
 export function addPluginFieldDefinitions(
-	pluginInfo: PluginNodeEnvInfo | PluginWebpackEnvInfo,
+	pluginInfo: PluginNodeEnvInfo | PluginWebEnvInfo,
 	kind: "controllerConfigFields" | "hostConfigFields" | "instanceConfigFields",
 	Config: typeof classes.Config<any>
 ) {
@@ -858,7 +858,7 @@ export function addPluginFieldDefinitions(
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
  */
-export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginWebpackEnvInfo[]) {
+export function addPluginConfigFields(pluginInfos: PluginNodeEnvInfo[] | PluginWebEnvInfo[]) {
 	for (let pluginInfo of pluginInfos) {
 		addPluginFieldDefinitions(pluginInfo, "controllerConfigFields", ControllerConfig);
 		if (pluginInfo.hostEntrypoint || pluginInfo.instanceEntrypoint) {

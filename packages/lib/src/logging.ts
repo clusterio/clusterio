@@ -177,9 +177,9 @@ export const logger = winston.createLogger({
 // Who in their right mind thought that log levels should be hard coded
 // into the type when you can define custom levels you want to support?
 export type Logger = Omit<winston.Logger,
-	"error" | "warn" | "help" | "data" | "info" | "debug" | "prompt" | "verbose" | "input" | "silly" |
-	"emerg" | "alert" | "crit" | "warning" | "notice" |
-	"child"
+	"error" | "warn" | "help" | "data" | "info" | "debug" | "prompt" | "verbose" | "input" | "silly"
+	| "emerg" | "alert" | "crit" | "warning" | "notice"
+	| "child"
 > & {
 	fatal: winston.LeveledLogMethod,
 	error: winston.LeveledLogMethod,

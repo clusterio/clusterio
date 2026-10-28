@@ -46,7 +46,7 @@ export type PluginDeclaration = {
 	errors?: ErrorClass[];
 	permissions?: PermissionDefinition[];
 	routes?: string[];
-}
+};
 
 /**
  * Check if a plugin is expected to ship a web build.
@@ -91,7 +91,7 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	skippedNpmPackage?: string;
 };
 
-export type PluginWebpackEnvInfo = PluginDeclaration & {
+export type PluginWebEnvInfo = PluginDeclaration & {
 	container?: any;
 	package?: any;
 	enabled?: boolean;

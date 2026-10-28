@@ -88,7 +88,7 @@ export async function copyPluginTemplates(pluginName, templates) {
 	const config = !templates.includes("no_config") && templates.some(value => (
 		["controller", "host", "instance", "ctl"].includes(value)
 	));
-	const webpack = config || templates.includes("controller") || templates.includes("web");
+	const webBuild = config || templates.includes("controller") || templates.includes("web");
 
 	// A count of the number of isolated contexts the plugin runs under
 	let pluginContexts = 0;
@@ -113,15 +113,15 @@ export async function copyPluginTemplates(pluginName, templates) {
 		files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
 		files.set("tsconfig.node.json", path.join(templatePath, "tsconfig.node.json"));
 		files.set("tsconfig.base.json", path.join(templatePath, "tsconfig.base.json"));
-		if (webpack) {
+		if (webBuild) {
 			files.set("tsconfig.browser.json", path.join(templatePath, "tsconfig.browser.json"));
 		}
 	}
 
-	// Files and dependences to support webpack
-	if (webpack) {
-		prepare.push("webpack-cli --mode production");
-		files.set("webpack.config.cjs", path.join(commonPath, "webpack.config.cjs"));
+	// Files and dependences to support the web build
+	if (webBuild) {
+		prepare.push("vite build");
+		files.set("vite.config.js", path.join(commonPath, "vite.config.js"));
 		if (templates.includes("web")) {
 			files.set(`web/index.${ext}x`, path.join(templatePath, `web/plugin.${ext}x`));
 			pluginContexts += 1;
@@ -185,7 +185,7 @@ export async function copyPluginTemplates(pluginName, templates) {
 		ctl: templates.includes("ctl"),
 		web: templates.includes("web"),
 		// Macro flags for context requirements
-		webpack: webpack,
+		web_build: webBuild,
 		config: config,
 		// String values for package json
 		clusterio_version: _package.version,

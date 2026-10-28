@@ -12,7 +12,7 @@ export const ExternalFactorioVersionSchema = Type.Object({
 	headlessUrl: Type.String(),
 });
 
-export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>
+export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>;
 
 /**
  * Fetch all factorio versions that support headless
@@ -47,7 +47,7 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 	const versions = new Map<string, ExternalFactorioVersion>();
 
 	// Match <a class=" slot-button-inline version-button-stable " href="/download/archive/2.0.72">2.0.72</a>
-	// eslint-disable-next-line max-len
+	// eslint-disable-next-line @stylistic/max-len
 	const anchorRegex = /<a[^>]*class="[^"]*version-button-(?<kind>stable|experimental)[^"]*"[^>]*href="[^"]*\/download\/archive\/(?<version>\d+\.\d+.\d+)"[^>]*>/g;
 
 	let match: RegExpExecArray | null;

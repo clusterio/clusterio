@@ -15,7 +15,7 @@ export const LatestReleaseBuildsSchema = Type.Record(Type.String(), FullVersionS
  */
 export const LatestReleasesSchema = Type.Record(Type.String(), LatestReleaseBuildsSchema);
 
-export type LatestReleases = Static<typeof LatestReleasesSchema>
+export type LatestReleases = Static<typeof LatestReleasesSchema>;
 
 /**
  * Fetch the latest stable and experimental factorio releases

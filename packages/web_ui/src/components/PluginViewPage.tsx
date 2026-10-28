@@ -47,8 +47,8 @@ function PluginMachines(props: PluginMachinesProps) {
 
 type ControllerPluginProps = {
 	pluginMeta: PluginWebApi,
-	pluginInfo?: lib.PluginWebpackEnvInfo,
-	loadedPlugin?: lib.PluginWebpackEnvInfo,
+	pluginInfo?: lib.PluginWebEnvInfo,
+	loadedPlugin?: lib.PluginWebEnvInfo,
 	title: string,
 };
 
@@ -71,8 +71,8 @@ function ControllerPlugin(props: ControllerPluginProps) {
 				}}
 				message={pluginError}
 				description={
-					"The web interface was unable to load the webpack module for this plugin. This is "+
-					"usually due to an incorrect or missing webpack build for the plugin. Due to the "+
+					"The web interface was unable to load the web module for this plugin. This is "+
+					"usually due to an incorrect or missing web build for the plugin. Due to the "+
 					"module not being loaded, the configs and web controls defined by this plugin may "+
 					"not be available in the web interface."
 				}

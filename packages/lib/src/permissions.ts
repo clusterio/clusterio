@@ -6,7 +6,7 @@
  * @author Hornwitser
  * @module lib/users
  */
-import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "./plugin.js";
+import type { PluginNodeEnvInfo, PluginWebEnvInfo } from "./plugin.js";
 import { Permission } from "./data/index.js";
 
 export const permissions = new Map<string, Permission>();
@@ -88,7 +88,7 @@ export function definePermission({
  *
  * @param pluginInfos - Array of plugin info objects.
  */
-export function registerPluginPermissions(pluginInfos: PluginNodeEnvInfo[] | PluginWebpackEnvInfo[]) {
+export function registerPluginPermissions(pluginInfos: PluginNodeEnvInfo[] | PluginWebEnvInfo[]) {
 	for (const pluginInfo of pluginInfos) {
 		for (const permission of pluginInfo.permissions ?? []) {
 			if (typeof permission.name !== "string" || !permission.name.startsWith(`${pluginInfo.name}.`)) {

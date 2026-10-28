@@ -78,7 +78,9 @@ export class NeuralDole {
 		}
 	}
 
-	divider(object: { name:string, quality:string, count:number, instanceId:number, instanceName:string }): number {
+	divider(
+		object: { name: string, quality: string, count: number, instanceId: number, instanceName: string }
+	): number {
 		let magicData = doleNN.dose(
 			object.count, // numReq
 			this.items.getItemCount(object.name, object.quality) || 0,
@@ -118,7 +120,7 @@ export function doleDivider(
 		logItemTransfers,
 		logger,
 	} :{
-		object: { name:string, quality:string, count:number, instanceId:number, instanceName:string },
+		object: { name: string, quality: string, count: number, instanceId: number, instanceName: string },
 		items: lib.ItemDatabase,
 		logItemTransfers: boolean,
 		logger: lib.Logger,

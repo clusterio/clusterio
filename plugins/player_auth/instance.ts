@@ -9,7 +9,7 @@ type IpcPlayerAuth = {
 	type: "set_verify_code",
 	player: string,
 	verify_code: string,
-}
+};
 
 export default async function loadInstancePlugin(context: InstancePluginContext) {
 	const { instance, host, logger, plugin } = context;

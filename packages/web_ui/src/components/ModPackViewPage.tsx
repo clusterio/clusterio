@@ -264,7 +264,7 @@ type DownloadDependenciesProps = {
 	mods: lib.ModRecord[];
 	onChange: (change: ModChange) => void;
 	builtInModNames: string[];
-}
+};
 function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	const control = useContext(ControlContext);
 	const [modInfos] = useMods();
@@ -904,7 +904,7 @@ type SettingsTableFieldProps = {
 	allowedValues: any;
 	locale: Map<string, any>;
 	changed: boolean;
-}
+};
 const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const name = props.name;
 	const isBoolean = props.type === "bool-setting";

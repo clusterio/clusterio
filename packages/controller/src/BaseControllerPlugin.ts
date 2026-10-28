@@ -107,7 +107,7 @@ export class ControllerHooks extends lib.AsyncHookCollection {
 	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	// eslint-disable-next-line max-len
+	// eslint-disable-next-line @stylistic/max-len
 	readonly instanceConfigFieldChanged: lib.AsyncHook<[instance: InstanceRecord, field: string, curr: unknown, prev: unknown]>;
 
 	/**
@@ -165,7 +165,7 @@ export class ControllerHooks extends lib.AsyncHookCollection {
 	 *     The connection the event occured on.
 	 * @param event - one of connect, drop, resume and close
 	 */
-	// eslint-disable-next-line max-len
+	// eslint-disable-next-line @stylistic/max-len
 	readonly hostConnectionEvent: lib.AsyncHook<[connection: HostConnection, event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**
@@ -202,7 +202,7 @@ export class ControllerHooks extends lib.AsyncHookCollection {
 	 *     The connection the event occured on.
 	 * @param event - one of connect, drop, resume, and close.
 	 */
-	// eslint-disable-next-line max-len
+	// eslint-disable-next-line @stylistic/max-len
 	readonly controlConnectionEvent: lib.AsyncHook<[connection: ControlConnection, event: "connect" | "drop" | "resume" | "close"]>;
 
 	/**

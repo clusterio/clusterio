@@ -3,7 +3,7 @@ import { Space, Table, Typography } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
-import type { PluginWebApi, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { PluginWebApi, PluginWebEnvInfo } from "@clusterio/lib";
 
 import notify from "../util/notify";
 import { useAccount } from "../model/account";
@@ -28,7 +28,7 @@ type PluginRow = {
 	title: string;
 	/** Not present for plugins the controller hasn't loaded */
 	meta?: PluginWebApi;
-	info?: PluginWebpackEnvInfo;
+	info?: PluginWebEnvInfo;
 	package?: any;
 	status?: PluginStatus;
 };
