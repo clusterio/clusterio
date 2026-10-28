@@ -54,3 +54,22 @@ export class HostEchoReceived {
 	toJSON() { return this.text; }
 	static fromJSON(json) { return new this(json); }
 }
+
+// Sent from ctl to an instance, which answers with the text echoed back by
+// the remote interface of the plugin's Lua module.
+export class InstanceEcho {
+	static type = "request";
+	static src = "control";
+	static dst = "instance";
+	static plugin = "test_plugin";
+	static permission = null;
+	static Response = JsonString;
+
+	constructor(text) {
+		this.text = text;
+	}
+
+	static jsonSchema = { type: "string" };
+	toJSON() { return this.text; }
+	static fromJSON(json) { return new this(json); }
+}
