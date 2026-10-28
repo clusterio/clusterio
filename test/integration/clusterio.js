@@ -1332,6 +1332,55 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("auto pause", function() {
+			requiresFactorio(this);
+			async function getTick() {
+				return Number(await getControl().sendTo(
+					{ instanceId: 44 }, new lib.InstanceSendRconRequest("/sc rcon.print(game.tick)")
+				));
+			}
+			async function sendPlayerEvent(type) {
+				const json = JSON.stringify({ type, name: "auto_pause_player", reason: "quit" });
+				await getControl().sendTo(
+					{ instanceId: 44 },
+					new lib.InstanceSendRconRequest(`/sc print("\\f$ipc:player_event?j${lib.escapeString(json)}")`),
+				);
+			}
+			let started = false;
+			before(async function() {
+				slowTest(this);
+				this.timeout(60000);
+				started = true;
+				await execCtl("instance stop test");
+				await execCtl("instance config set-prop test factorio.settings auto_pause true");
+				await execCtl("instance start test");
+			});
+			after(async function() {
+				if (!started) {
+					return;
+				}
+				this.timeout(60000);
+				await execCtl("instance stop test");
+				await execCtl("instance config set-prop test factorio.settings auto_pause false");
+				await execCtl("instance start test");
+			});
+			it("does not tick the game while no players are online", async function() {
+				slowTest(this);
+				const start = await getTick();
+				await wait(6000);
+				assert.equal(await getTick() - start, 1);
+			});
+			it("resumes plugin work when a player joins", async function() {
+				slowTest(this);
+				const start = await getTick();
+				await sendPlayerEvent("join");
+				await wait(6000);
+				const ticks = await getTick() - start;
+				await sendPlayerEvent("leave");
+				assert(ticks > 3, `game ran ${ticks} ticks`);
+			});
+		});
+
 		describe("instance stop", function() {
 			it("stops the instance", async function() {
 				slowTest(this);

@@ -418,6 +418,42 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe(".autoPaused", function() {
+		let changes;
+		beforeEach(function() {
+			changes = [];
+			instance.hooks.autoPauseChanged.attach("test", async paused => { changes.push(paused); });
+		});
+
+		it("should be false when auto_pause is off", function() {
+			assert.equal(instance.autoPaused, false);
+			instance._recordPlayerJoin("player");
+			instance._recordPlayerLeave("player", "quit");
+			assert.equal(instance.autoPaused, false);
+			assert.deepEqual(changes, []);
+		});
+		it("should follow players online when auto_pause is on", function() {
+			instance._autoPause = true;
+			assert.equal(instance.autoPaused, true);
+			instance._recordPlayerJoin("a");
+			instance._recordPlayerJoin("b");
+			assert.equal(instance.autoPaused, false);
+			instance._recordPlayerLeave("a", "quit");
+			assert.equal(instance.autoPaused, false);
+			instance._recordPlayerLeave("b", "quit");
+			assert.equal(instance.autoPaused, true);
+			assert.deepEqual(changes, [false, true]);
+		});
+		it("should not invoke the hook on exit", function() {
+			instance._autoPause = true;
+			instance._recordPlayerJoin("player");
+			instance._saveStats = async () => {};
+			instance.notifyExit();
+			assert.equal(instance.autoPaused, false);
+			assert.deepEqual(changes, [false]);
+		});
+	});
+
 	describe("._checkOnlinePlayers()", function() {
 		it("should do nothing on empty server", async function() {
 			await instance._checkOnlinePlayers();

@@ -175,9 +175,14 @@ export async function gatherMetrics(instance: Instance, pluginName: string) {
 
 export default async function(context: InstancePluginContext) {
 	const { instance, plugin } = context;
+	// Stats of an auto paused game do not change, and gathering them runs a tick.
+	let gatheredWhilePaused = false;
 
 	instance.hooks.metrics.attach(plugin.name, async () => {
 		if (instance.status !== "running") {
+			return;
+		}
+		if (instance.autoPaused && gatheredWhilePaused) {
 			return;
 		}
 
@@ -186,7 +191,9 @@ export default async function(context: InstancePluginContext) {
 		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to controller.
 		let timeoutMs = instance.config.get("statistics_exporter.command_timeout") * 1000;
+		const paused = instance.autoPaused;
 		await lib.timeout(gatherMetrics(instance, plugin.name), timeoutMs, undefined);
+		gatheredWhilePaused = paused;
 	});
 }
 

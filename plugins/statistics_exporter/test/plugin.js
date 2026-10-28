@@ -86,6 +86,19 @@ describe("statistics_exporter plugin", function() {
 					"7357", "player", "nauvis").get(),
 				2);
 			});
+			it("should gather once while auto paused", async function() {
+				mockInstance.server.rconCommands.length = 0;
+				mockInstance.autoPaused = true;
+				try {
+					await mockInstance.hooks.metrics.invoke();
+					await mockInstance.hooks.metrics.invoke();
+					assert.equal(mockInstance.server.rconCommands.length, 1);
+				} finally {
+					mockInstance.autoPaused = false;
+				}
+				await mockInstance.hooks.metrics.invoke();
+				assert.equal(mockInstance.server.rconCommands.length, 2);
+			});
 			it("should pass on JSON parse errors", async function() {
 				let string = "An error occured\n";
 				mockInstance.server.rconCommandResults.set(

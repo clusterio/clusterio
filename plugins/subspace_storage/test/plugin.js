@@ -129,5 +129,30 @@ describe("subspace_storage plugin", function() {
 				nodeMock.timers.reset();
 			}
 		});
+		it("should not send commands while auto paused and catch up on unpause", async function() {
+			nodeMock.timers.enable({ apis: ["setInterval", "Date"], now: 1000000 });
+			const { instance: startedInstance, host } = await mock.loadInstancePlugin(instanceEntrypoint, info);
+			host.connected = true;
+			startedInstance.sendTo = async () => [];
+			try {
+				await startedInstance.hooks.start.invoke();
+				startedInstance.server.rconCommands.length = 0;
+				startedInstance.autoPaused = true;
+				nodeMock.timers.tick(10000);
+				assert.deepEqual(startedInstance.server.rconCommands, []);
+
+				startedInstance.autoPaused = false;
+				await startedInstance.hooks.autoPauseChanged.invoke(false);
+				assert.deepEqual(startedInstance.server.rconCommands, [
+					"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0",
+					`/sc __subspace_storage__ UpdateInvData("${lib.escapeString(JSON.stringify(
+						[new Item("signal-unixtime", 1010)]
+					))}")`,
+				]);
+			} finally {
+				await startedInstance.hooks.stop.invoke();
+				nodeMock.timers.reset();
+			}
+		});
 	});
 });
