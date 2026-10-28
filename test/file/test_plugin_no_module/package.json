@@ -1,0 +1,11 @@
+{
+	"name": "test_plugin_no_module",
+	"version": "0.0.1",
+	"description": "Plugin without a Lua module used by the host tests",
+	"private": true,
+	"type": "module",
+	"main": "index.js",
+	"keywords": [
+		"clusterio-plugin"
+	]
+}

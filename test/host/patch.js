@@ -241,7 +241,7 @@ describe("host/patch", function() {
 		});
 		it("should skip plugins without a module", async function() {
 			const pluginInfos = await lib.loadPluginInfos(
-				new Map([["global_chat", path.resolve("plugins/global_chat")]])
+				new Map([["test_plugin_no_module", path.resolve("test/file/test_plugin_no_module")]])
 			);
 			const modules = await patch.loadModules(pluginInfos);
 			assert.deepEqual([...modules.keys()], ["clusterio"]);
