@@ -34,6 +34,10 @@ class MockInstanceConfig extends EventEmitter {
 		this._data.set(field, value);
 		this.emit("fieldChanged", field, value, prev);
 	}
+
+	isInherited() {
+		return false;
+	}
 }
 
 describe("controller/src/Controller", function() {

@@ -20,10 +20,14 @@ export const instanceCommands = new lib.CommandTree({
 	name: "instance", alias: ["i"], description: "Instance management",
 });
 instanceCommands.add(new lib.Command({
-	definition: [["list", "l"], "List instances known to the controller"],
-	handler: async function(args: object, ctl: Ctl) {
+	definition: [["list", "l"], "List instances known to the controller", (yargs) => {
+		yargs.options({
+			"bases": { describe: "Include base instances", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args: { bases: boolean }, ctl: Ctl) {
 		let list = await ctl.send(new lib.InstanceDetailsListRequest());
-		print(asTable(list));
+		print(asTable(list.filter(instance => args.bases || !instance.isBase)));
 	},
 }));
 
@@ -34,18 +38,30 @@ instanceCommands.add(new lib.Command({
 		yargs.options({
 			"id": { type: "number", nargs: 1, describe: "Instance id" },
 			"from": { type: "number", nargs: 1, describe: "Clone config from instance id" },
+			"base": { type: "string", nargs: 1, describe: "Base instance to inherit config from" },
+			"is-base": { type: "boolean", nargs: 0, describe: "Create the instance as a base" },
 		});
 	}],
-	handler: async function(args: { name: string, id?: number, from?: number, }, ctl: Ctl) {
+	handler: async function(
+		args: { name: string, id?: number, from?: number, base?: string, isBase?: boolean },
+		ctl: Ctl,
+	) {
 		let instanceConfig = new lib.InstanceConfig("control");
+		let fields: (keyof lib.InstanceConfigFields)[] = ["instance.id", "instance.name"];
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
+		if (args.base !== undefined) {
+			instanceConfig.set("instance.base_id", await lib.resolveInstance(ctl, args.base));
+			fields.push("instance.base_id");
+		}
+		if (args.isBase) {
+			instanceConfig.set("instance.is_base", true);
+			fields.push("instance.is_base");
+		}
 		await ctl.send(new lib.InstanceCreateRequest(
-			instanceConfig.toRemote("controller", [
-				"instance.id", "instance.name",
-			]),
+			instanceConfig.toRemote("controller", fields),
 			args.from
 		));
 	},
@@ -61,10 +77,27 @@ instanceConfigCommands.add(new lib.Command({
 	handler: async function(args: { instance: string }, ctl: Ctl) {
 		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		let config = await ctl.send(new lib.InstanceConfigGetRequest(instanceId));
+		const inherited = config["instance.base_id"] !== null
+			? config["instance.inherited_fields"] as Record<string, true> ?? {}
+			: {};
 
 		for (let [name, value] of Object.entries(config)) {
-			print(`${name} ${JSON.stringify(value)}`);
+			if (name === "instance.inherited_fields") {
+				continue;
+			}
+			print(`${name} ${JSON.stringify(value)}${inherited[name] ? " (inherited)" : ""}`);
 		}
+	},
+}));
+
+instanceConfigCommands.add(new lib.Command({
+	definition: ["inherit <instance> <field>", "Make field in instance config use the value of its base", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to update config on", type: "string" });
+		yargs.positional("field", { describe: "Field to inherit", type: "string" });
+	}],
+	handler: async function(args: { instance: string, field: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.send(new lib.InstanceConfigInheritFieldRequest(instanceId, args.field));
 	},
 }));
 
@@ -170,8 +203,10 @@ instanceConfigCommands.add(new lib.Command({
 		await events.once(editorSpawn, "exit");
 		const data = await fs.readFile(tmpFile, "utf8");
 		const final = await configToKeyVal(data);
+		const original = await configToKeyVal(allConfigElements);
 		for (let index in final) {
-			if (index in final) {
+			// Unchanged fields are skipped so they keep inheriting from the base
+			if (index in final && final[index] !== original[index]) {
 				try {
 					await ctl.send(new lib.InstanceConfigSetFieldRequest(
 						instanceId,
