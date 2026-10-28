@@ -48,70 +48,40 @@ function PluginMachines(props: PluginMachinesProps) {
 type ControllerPluginProps = {
 	pluginMeta: PluginWebApi,
 	pluginInfo?: lib.PluginWebEnvInfo,
-	loadedPlugin?: lib.PluginWebEnvInfo,
 	title: string,
 };
 
-/** What the controller and web UI have loaded of the plugin */
 function ControllerPlugin(props: ControllerPluginProps) {
-	const { pluginMeta, pluginInfo, loadedPlugin } = props;
-	const pluginError = pluginMeta.web.error ?? pluginInfo?.error;
-	const hasWebModule = Boolean(pluginMeta.web.main || pluginMeta.web.error);
-	if (!loadedPlugin) {
-		return <>
-			<Descriptions bordered size="small" title={props.title}>
-				<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
-				<Descriptions.Item label="Loaded in Web UI" span={2}>
-					{hasWebModule ? "No" : "No web module"}
-				</Descriptions.Item>
-			</Descriptions>
-			{pluginError && <Alert
-				style={{
-					marginTop: "1em",
-				}}
-				message={pluginError}
-				description={
-					"The web interface was unable to load the web module for this plugin. This is "+
-					"usually due to an incorrect or missing web build for the plugin. Due to the "+
-					"module not being loaded, the configs and web controls defined by this plugin may "+
-					"not be available in the web interface."
-				}
-				type="error"
-				showIcon
-			/>}
-		</>;
-	}
-
-	const homepageUrl = lib.safeExternalUrl(loadedPlugin.package.homepage);
+	const { pluginMeta, pluginInfo } = props;
+	const pkg = pluginInfo?.package;
+	const pluginError = pluginMeta.enabled ? pluginMeta.web.error ?? pluginInfo?.error : undefined;
+	const homepageUrl = lib.safeExternalUrl(pkg?.homepage);
 	return <>
 		<Descriptions bordered size="small" title={props.title}>
-			<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
-			<Descriptions.Item label="Loaded in Web UI" span={2}>Yes</Descriptions.Item>
-			<Descriptions.Item label="Description" span={3}>{loadedPlugin.description}</Descriptions.Item>
-			{loadedPlugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
-				{homepageUrl
-					? <a href={homepageUrl}>{loadedPlugin.package.homepage}</a>
-					: loadedPlugin.package.homepage}
+			<Descriptions.Item label="Version" span={3}>{pluginMeta.version}</Descriptions.Item>
+			{pluginInfo?.description ? <Descriptions.Item label="Description" span={3}>
+				{pluginInfo.description}
 			</Descriptions.Item> : null}
-			{loadedPlugin.package.author ? <Descriptions.Item label="Author" span={3}>
-				{loadedPlugin.package.author}
+			{pkg?.homepage ? <Descriptions.Item label="Homepage" span={3}>
+				{homepageUrl ? <a href={homepageUrl}>{pkg.homepage}</a> : pkg.homepage}
 			</Descriptions.Item> : null}
-			<Descriptions.Item label="License" span={3}>{loadedPlugin.package.license}</Descriptions.Item>
+			{pkg?.author ? <Descriptions.Item label="Author" span={3}>{pkg.author}</Descriptions.Item> : null}
+			{pkg?.license ? <Descriptions.Item label="License" span={3}>{pkg.license}</Descriptions.Item> : null}
 		</Descriptions>
-		{pluginMeta.version !== loadedPlugin.package.version ? <Alert
+		{pluginError && <Alert
 			style={{
 				marginTop: "1em",
 			}}
-			message="Version missmatch detected"
+			message={pluginError}
 			description={
-				`The version of the web interface module for this plugin (${loadedPlugin.package.version}) `+
-				`does not match the version running on the controller (${pluginMeta.version}), `+
-				"spurious errors may occur. This usually happens when the plugin is updated but the "+
-				"controller has not been restarted yet, but may also be due to an outdated build."
+				"The web interface was unable to load the web module for this plugin. This is "+
+				"usually due to an incorrect or missing web build for the plugin. Due to the "+
+				"module not being loaded, the configs and web controls defined by this plugin may "+
+				"not be available in the web interface."
 			}
-			type="warning"
+			type="error"
 			showIcon
-		/> : null}
+		/>}
 	</>;
 }
 
@@ -160,7 +130,6 @@ export default function PluginViewPage() {
 			? <ControllerPlugin
 				pluginMeta={pluginMeta}
 				pluginInfo={pluginInfo}
-				loadedPlugin={control.loadedPlugins.get(pluginName)}
 				title={pluginTitle}
 			/>
 			: <Descriptions bordered size="small" title={pluginTitle}>
