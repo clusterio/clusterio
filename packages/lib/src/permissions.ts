@@ -210,6 +210,33 @@ export const corePermissions = [
 		title: "Create host config",
 		description: "Create host configs via the controller.",
 	},
+	{
+		name: "core.host.invite.list",
+		title: "List host invites",
+		description: "Get the full list of host invites including their codes.",
+	},
+	{
+		name: "core.host.invite.subscribe",
+		title: "Subscribe to host invite updates",
+		description: "Subscribe to be notified on updates to host invites including their codes.",
+	},
+	{
+		name: "core.host.invite.create",
+		title: "Create host invites",
+		description:
+			"Create invites that new hosts can use to get a token for the cluster. " +
+			"Grants the same access as generating host tokens.",
+	},
+	{
+		name: "core.host.invite.update",
+		title: "Update host invites",
+		description: "Change the expiry time and use limit of host invites.",
+	},
+	{
+		name: "core.host.invite.revoke",
+		title: "Revoke host invites",
+		description: "Revoke host invites so they can no longer be used.",
+	},
 
 	{
 		name: "core.instance.get",

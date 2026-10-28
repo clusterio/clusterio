@@ -1,6 +1,6 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
-import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 
@@ -23,6 +23,8 @@ import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
 import useRowNavigation from "../util/useRowNavigation";
 import Link from "./Link";
+import CopyButton from "./CopyButton";
+import { CreateHostInviteButton, HostInvitesTable } from "./HostInvites";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -157,49 +159,6 @@ npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-he
 	</>;
 }
 
-function CopyButton({ text, message }: { text: string, message: string }) {
-	let [clipboardPermision, setClipboardPermission] = useState<PermissionState>("granted");
-	useEffect(() => {
-		(async () => {
-			// @ts-expect-error missing API https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
-			let result = await navigator.permissions.query({ name: "clipboard-write" });
-			setClipboardPermission(result.state);
-			result.onchange = function () {
-				setClipboardPermission(result.state);
-			};
-		})();
-	}, []);
-
-	async function checkClipboardPermission() {
-		try {
-			// @ts-expect-error missing API https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
-			let result = await navigator.permissions.query({ name: "clipboard-write" });
-			setClipboardPermission(result.state);
-			result.onchange = function () {
-				setClipboardPermission(result.state);
-			};
-			return result.state === "granted";
-
-		} catch (err: any) {
-			// If it fail because "clipboard-write" is not supported.
-			return err.name === "TypeError";
-		}
-	}
-
-	return <Button
-		className="copy-button"
-		danger={clipboardPermision !== "granted"}
-		onClick={async () => {
-			if (await checkClipboardPermission()) {
-				navigator.clipboard.writeText(text);
-				notify(message);
-			}
-		}}
-	>
-		<CopyOutlined />
-	</Button>;
-}
-
 export default function HostsPage() {
 	let account = useAccount();
 	let [hosts] = useHosts();
@@ -216,7 +175,10 @@ export default function HostsPage() {
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
 			title="Hosts"
-			extra={account.hasPermission("core.host.generate_token") ? <GenerateHostTokenButton /> : undefined}
+			extra={<Space>
+				{account.hasPermission("core.host.invite.create") && <CreateHostInviteButton />}
+				{account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton />}
+			</Space>}
 		/>
 		<Table
 			style={{ overflowX: "auto" }}
@@ -346,6 +308,7 @@ export default function HostsPage() {
 				<Switch checked={showCpuModel} onChange={checked => { setShowCpuModel(checked); }} />
 			</label>
 		</Flex>
+		{account.hasPermission("core.host.invite.subscribe") && <HostInvitesTable />}
 		<PluginExtra component="HostsPage" />
 	</PageLayout>;
 };

@@ -7,6 +7,7 @@ import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
 
 import compression from "compression";
+import crypto from "node:crypto";
 import events from "events";
 import fs from "node:fs/promises";
 import http from "http";
@@ -20,6 +21,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as lib from "@clusterio/lib";
 import { logger, Summary, Gauge } from "@clusterio/lib";
 
+import FailureLimiter from "./FailureLimiter.js";
 import HttpCloser from "./HttpCloser.js";
 import InstanceRecord from "./InstanceRecord.js";
 import * as metrics from "./metrics.js";
@@ -45,6 +47,9 @@ const logSizeGauge = new Gauge(
 );
 
 type InstanceId = { instanceId: number };
+
+/** Time unusable host invites are kept so they can be extended before they are removed. */
+const hostInviteRetentionMs = 7 * 24 * 60 * 60e3;
 
 type ControllerDebugEvents = {
 	"message": [ { direction: "in" | "out", content: string } ],
@@ -105,6 +110,8 @@ export default class Controller {
 	_registeredRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
 	_registeredEvents = new Map<lib.EventClass<unknown>, lib.EventHandler<unknown>>();
 	_snoopedEvents = new Map();
+	/** Failed host invite attempts per client address */
+	hostInviteLimiter = new FailureLimiter(10, 15 * 60e3);
 
 	devServer: import("vite").ViteDevServer | null = null;
 
@@ -219,6 +226,12 @@ export default class Controller {
 			lib.Note.fromJSON.bind(lib.Note),
 		));
 
+		const hostInvites = await lib.SubscribableDatastore.fromProvider(new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "host-invites.json"),
+			lib.HostInvite.fromJSON.bind(lib.HostInvite),
+			undefined, undefined, 0o600,
+		));
+
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.mkdir(modsDirectory, { recursive: true });
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
@@ -247,6 +260,7 @@ export default class Controller {
 			roles,
 			users,
 			notes,
+			hostInvites,
 		);
 	}
 
@@ -282,6 +296,8 @@ export default class Controller {
 		users = new lib.SubscribableDatastore<UserRecord>(),
 		/** Mapping of note id to note attached to a resource */
 		public notes = new lib.SubscribableDatastore<lib.Note>(),
+		/** Mapping of invite id to host invite */
+		public hostInvites = new lib.SubscribableDatastore<lib.HostInvite>(),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -314,6 +330,7 @@ export default class Controller {
 		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 		this.subscriptions.handle(lib.RoleUpdatesEvent, this.handleRoleSubscription.bind(this));
 		this.subscriptions.handle(lib.NoteUpdatesEvent, this.handleNoteSubscription.bind(this));
+		this.subscriptions.handle(lib.HostInviteUpdatesEvent, this.handleHostInviteSubscription.bind(this));
 
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
@@ -324,6 +341,8 @@ export default class Controller {
 		this.roles.on("update", this.rolesUpdated.bind(this));
 		this.users.records.on("update", this.usersUpdated.bind(this));
 		this.notes.on("update", this.notesUpdated.bind(this));
+		this.hostInvites.on("update", this.hostInvitesUpdated.bind(this));
+		this.pruneHostInvites();
 	}
 
 	get authSecret() {
@@ -782,6 +801,7 @@ export default class Controller {
 	});
 
 	private async _saveDataInternal() {
+		this.pruneHostInvites();
 		await Promise.all([
 			this.config.save(),
 			this.systems.save(),
@@ -793,6 +813,7 @@ export default class Controller {
 			this.users.records.save(),
 			this.hooks.save.invoke(),
 			this.notes.save(),
+			this.hostInvites.save(),
 		]);
 	}
 
@@ -945,7 +966,7 @@ export default class Controller {
 				const endNs = process.hrtime.bigint();
 				const durationMs = (Number(endNs - startNs) / 1e6);
 				endpointDurationSummary.labels(routePath).observe(durationMs / 1e3);
-				const url = lib.redactUrl(req.originalUrl);
+				const url = Controller.redactInviteUrl(lib.redactUrl(req.originalUrl));
 				logger.log({
 					level: "http",
 					message: `HTTP${req.httpVersion} ${req.method} ${url}` +
@@ -1237,6 +1258,147 @@ export default class Controller {
 			note.updatedBy = updatedBy;
 			note.isDeleted = true;
 			this.notes.set(note);
+		}
+	}
+
+	hostInvitesUpdated(invites: lib.HostInvite[]) {
+		this.subscriptions.broadcast(new lib.HostInviteUpdatesEvent(invites));
+	}
+
+	async handleHostInviteSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
+		const invites = [...this.hostInvites.values()].filter(
+			invite => invite.updatedAtMs > request.lastRequestTimeMs,
+		);
+		return invites.length ? new lib.HostInviteUpdatesEvent(invites) : null;
+	}
+
+	static generateHostInviteCode() {
+		const alphabet = lib.HostInvite.codeAlphabet;
+		let code = "";
+		for (let i = 0; i < lib.HostInvite.codeLength; i++) {
+			code += alphabet[crypto.randomInt(alphabet.length)];
+		}
+		return code;
+	}
+
+	/** Mask invite codes in a URL path for logging */
+	static redactInviteUrl(url: string) {
+		return url.replace(/\/invite\/([^/?#]*)/, (_, code) => `/invite/${lib.HostInvite.redactCode(code)}`);
+	}
+
+	/**
+	 * Create an invite new hosts can use to get a host token
+	 * @param expiresAtMs - Time the invite expires at, null for never.
+	 * @param maxUses - Number of hosts that can use the invite, null for unlimited.
+	 * @param createdBy - Name of the user creating the invite.
+	 */
+	createHostInvite(expiresAtMs: number | null, maxUses: number | null, createdBy = "") {
+		if (expiresAtMs !== null && expiresAtMs <= Date.now()) {
+			throw new lib.InvalidValueError("Expiry time must be in the future");
+		}
+		const codes = new Set([...this.hostInvites.values()].map(invite => invite.code));
+		let code;
+		do {
+			code = Controller.generateHostInviteCode();
+		} while (codes.has(code));
+		let id;
+		do {
+			id = crypto.randomInt(1, 2 ** 31);
+		} while (this.hostInvites.has(id));
+
+		const invite = new lib.HostInvite(id, code, createdBy, Date.now(), expiresAtMs, maxUses);
+		this.hostInvites.set(invite);
+		logger.audit(`User ${createdBy} created host invite ${id}`);
+		return invite;
+	}
+
+	/**
+	 * Change the limits of a host invite
+	 * @param id - Id of invite to change.
+	 * @param expiresAtMs - New expiry time, null for never, undefined to leave it unchanged.
+	 * @param maxUses - New use limit, null for unlimited, undefined to leave it unchanged.
+	 * @param updatedBy - Name of the user changing the invite.
+	 */
+	updateHostInvite(id: number, expiresAtMs?: number | null, maxUses?: number | null, updatedBy = "") {
+		const invite = this.hostInvites.getMutable(id);
+		if (!invite) {
+			throw new lib.NotFoundError(`Host invite ${id} does not exist`);
+		}
+		if (expiresAtMs !== undefined) {
+			invite.expiresAtMs = expiresAtMs;
+		}
+		if (maxUses !== undefined) {
+			invite.maxUses = maxUses;
+		}
+		this.hostInvites.set(invite);
+		logger.audit(`User ${updatedBy} updated host invite ${id}`);
+	}
+
+	revokeHostInvite(id: number, revokedBy = "") {
+		const invite = this.hostInvites.getMutable(id);
+		if (!invite) {
+			throw new lib.NotFoundError(`Host invite ${id} does not exist`);
+		}
+		this.hostInvites.delete(invite);
+		logger.audit(`User ${revokedBy} revoked host invite ${id}`);
+	}
+
+	/** Find the invite with the given code, comparing in constant time */
+	findHostInvite(code: string) {
+		const codeBuffer = Buffer.from(code);
+		let found: Readonly<lib.HostInvite> | undefined;
+		for (const invite of this.hostInvites.values()) {
+			const inviteBuffer = Buffer.from(invite.code);
+			if (inviteBuffer.length === codeBuffer.length && crypto.timingSafeEqual(inviteBuffer, codeBuffer)) {
+				found = invite;
+			}
+		}
+		return found;
+	}
+
+	/**
+	 * Use up one claim of a host invite and issue a token for a new host id
+	 *
+	 * Runs synchronously so concurrent claims cannot exceed the use limit.
+	 * @param code - Normalised invite code.
+	 * @param remoteAddress - Address of the client claiming the invite, for logging.
+	 * @returns new host id and token, or null if the invite is not usable.
+	 */
+	claimHostInvite(code: string, remoteAddress = "") {
+		const found = this.findHostInvite(code);
+		const nowMs = Date.now();
+		if (!found || !found.isUsable(nowMs)) {
+			return null;
+		}
+		const invite = this.hostInvites.getMutable(found.id)!;
+		const usedIds = new Set([...this.hostInvites.values()].flatMap(i => i.hostIds));
+		let hostId;
+		do {
+			hostId = crypto.randomInt(1, 2 ** 31);
+		} while (this.hosts.has(hostId) || usedIds.has(hostId));
+
+		invite.hostIds.push(hostId);
+		invite.lastUsedAtMs = nowMs;
+		this.hostInvites.set(invite);
+		logger.audit(
+			`Host invite ${invite.id} used by ${remoteAddress} for new host ${hostId}` +
+			` (${invite.uses}/${invite.maxUses ?? "unlimited"} uses)`
+		);
+		return { hostId, token: this.generateHostToken(hostId) };
+	}
+
+	/** Remove invites that have not been usable for longer than the retention time */
+	pruneHostInvites(nowMs = Date.now()) {
+		const stale = [...this.hostInvites.values()].filter(invite => {
+			const inactiveSinceMs = invite.inactiveSinceMs(nowMs);
+			return inactiveSinceMs !== null && inactiveSinceMs + hostInviteRetentionMs <= nowMs;
+		}).map(invite => this.hostInvites.getMutable(invite.id)!);
+		if (stale.length) {
+			this.hostInvites.deleteMany(stale);
+			logger.verbose(`Removed ${stale.length} expired or used up host invites`);
 		}
 	}
 

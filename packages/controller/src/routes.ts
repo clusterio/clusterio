@@ -236,6 +236,43 @@ function validateUserToken(req: Request, res: Response, next: any) {
 	next();
 }
 
+// Check or claim a host invite, the invite code is the only authentication
+function hostInvite(req: Request<{ code: string }>, res: Response) {
+	const controller: Controller = req.app.locals.controller;
+	const limiter = controller.hostInviteLimiter;
+	const remote = controller.wsServer.remoteAddr(req);
+	res.set("Cache-Control", "no-store");
+
+	const blockedMs = limiter.blockedForMs(remote);
+	if (blockedMs) {
+		res.set("Retry-After", String(Math.ceil(blockedMs / 1000)));
+		res.status(429).json({ request_errors: ["Too many invalid invite attempts, try again later"] });
+		return;
+	}
+
+	const code = lib.HostInvite.normalizeCode(req.params.code);
+	const invite = code ? controller.findHostInvite(code) : undefined;
+	const claim = invite && req.method === "POST" ? controller.claimHostInvite(invite.code, remote) : null;
+	if (claim) {
+		res.json(claim);
+		return;
+	}
+	if (!invite?.isUsable() || req.method === "POST") {
+		const redacted = code ? lib.HostInvite.redactCode(code) : "(malformed)";
+		logger.verbose(`Invalid host invite ${redacted} from ${remote}`);
+		if (limiter.fail(remote)) {
+			logger.warn(`Blocking host invites from ${remote} after too many invalid attempts`);
+		}
+		res.status(404).json({ request_errors: ["Invite is invalid or has expired"] });
+		return;
+	}
+
+	res.json({
+		expiresAtMs: invite.expiresAtMs,
+		usesLeft: invite.maxUses === null ? null : invite.maxUses - invite.uses,
+	});
+}
+
 // Handle an uploaded export package.
 async function uploadExport(req: Request, res: Response) {
 	if (req.get("Content-Type") !== "application/zip") {
@@ -684,6 +721,8 @@ export function addRouteHandlers(app: Application) {
 		validateUserToken,
 		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)
 	);
+	app.get("/invite/:code", hostInvite);
+	app.post("/invite/:code", hostInvite);
 	app.get("/api/plugins", getPlugins);
 	app.get("/api/cluster-name", getClusterName);
 	app.put("/api/upload-export",

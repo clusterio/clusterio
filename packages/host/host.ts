@@ -25,6 +25,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import Host from "./src/Host.js";
 import { createScenarioCommand, handleCreateScenarioCommand } from "./src/create_scenario.js";
+import { joinCommand, joinCluster } from "./src/join.js";
 
 let host: Host | undefined;
 
@@ -125,6 +126,7 @@ async function startHost() {
 			"Create a scenario patched with modules for use outside Clusterio",
 			createScenarioCommand,
 		)
+		.command("join <invite-url>", "Join a cluster using an invite URL", joinCommand)
 		.command("run", "Run host", yargs => {
 			yargs.option("can-restart", {
 				type: "boolean", nargs: 0, default: false,
@@ -183,7 +185,7 @@ async function startHost() {
 	}
 
 	const [hostConfig, hostConfigLock] = await lib.loadConfigFromArgs(
-		args,
+		{ ...args, createConfig: args.createConfig || command === "join" },
 		lib.HostConfig,
 		"host",
 	);
@@ -192,6 +194,16 @@ async function startHost() {
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfig, hostConfigLock);
+		return;
+	}
+
+	if (command === "join") {
+		await hostConfigLock.acquire();
+		try {
+			await joinCluster(args.inviteUrl as string, hostConfig, args.force as boolean);
+		} finally {
+			await hostConfigLock.release();
+		}
 		return;
 	}
 
@@ -270,6 +282,9 @@ export function bootstrap() {
 	startHost().catch(err => {
 		if (err instanceof lib.WebSocketError) {
 			// Already handled by connector.on("error") within Host
+
+		} else if (err instanceof lib.CommandError) {
+			logger.error(err.message);
 
 		} else if (err instanceof lib.StartupError || err.code === "InstallationError") {
 			logger.fatal(`

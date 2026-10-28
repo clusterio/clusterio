@@ -22,6 +22,42 @@ Lists all hosts.
 
 Generate a token for a host. `--id` is the host id.
 
+### Create invite
+
+    ctl> host invite create [--expires <duration>] [--uses <count>]
+
+Create an invite for new hosts and print its URL.
+A host joins with the invite through the installer or `host> join <invite url>`, which gives it a new host id and a token.
+`--expires` is the time until the invite expires, like `30m`, `12h` or `7d`, or `never`; defaults to `24h`.
+`--uses` is the number of hosts that can join with the invite, or `unlimited`; defaults to `1`.
+The URL is based on `controller.public_url`, set it if hosts connect through another address than localhost.
+The invite code is the only authentication needed to join, treat the URL like a token.
+The controller blocks an address from using invites for 15 minutes after 10 attempts with an invalid or expired code.
+IPv6 addresses are counted per /64 prefix.
+If the controller is behind a reverse proxy, set `controller.trusted_proxies` so the limit applies to each client instead of the proxy.
+
+### List invites
+
+    ctl> host invite list [--codes]
+
+List invites with their uses, expiry time and the ids of the hosts that joined with them.
+Codes are masked unless `--codes` is passed.
+Invites that have expired or are used up are removed 7 days later unless extended.
+
+### Edit invite
+
+    ctl> host invite edit <id> [--expires <duration>] [--uses <count>]
+
+Change the limits of an invite, for example to extend an invite that expired or was used up.
+`--expires` is counted from now, `--uses` is the new total including uses so far.
+
+### Revoke invite
+
+    ctl> host invite revoke <id>
+
+Remove an invite so it can no longer be used.
+Hosts that already joined with it keep their tokens, use `host revoke-token` for those.
+
 ### Create config
 
     ctl> host create-config [--id <host id>] [--name <host name>] [--generate-token <bool>] [--output <path to output>]

@@ -85,6 +85,10 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.HostListRequest, this.handleHostListRequest.bind(this));
 		this.handle(lib.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
 		this.handle(lib.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
+		this.handle(lib.HostInviteListRequest, this.handleHostInviteListRequest.bind(this));
+		this.handle(lib.HostInviteCreateRequest, this.handleHostInviteCreateRequest.bind(this));
+		this.handle(lib.HostInviteUpdateRequest, this.handleHostInviteUpdateRequest.bind(this));
+		this.handle(lib.HostInviteRevokeRequest, this.handleHostInviteRevokeRequest.bind(this));
 		this.handle(lib.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
 		this.handle(lib.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
@@ -274,6 +278,26 @@ export default class ControlConnection extends BaseConnection {
 			hostId = Math.random() * 2**31 | 0;
 		}
 		return this._controller.generateHostToken(hostId);
+	}
+
+	async handleHostInviteListRequest(): Promise<lib.HostInvite[]> {
+		return [...this._controller.hostInvites.values()];
+	}
+
+	async handleHostInviteCreateRequest(request: lib.HostInviteCreateRequest) {
+		const invite = this._controller.createHostInvite(request.expiresAtMs, request.maxUses, this.user.name);
+		return {
+			invite: invite.toJSON(),
+			url: new URL(`invite/${invite.code}`, this._controller.getControllerUrl()).href,
+		};
+	}
+
+	async handleHostInviteUpdateRequest(request: lib.HostInviteUpdateRequest) {
+		this._controller.updateHostInvite(request.id, request.expiresAtMs, request.maxUses, this.user.name);
+	}
+
+	async handleHostInviteRevokeRequest(request: lib.HostInviteRevokeRequest) {
+		this._controller.revokeHostInvite(request.id, this.user.name);
 	}
 
 	async handleHostConfigCreateRequest(request: lib.HostConfigCreateRequest) {

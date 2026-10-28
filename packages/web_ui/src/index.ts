@@ -8,6 +8,7 @@ export * from "./model/account";
 export * from "./model/export_locale";
 export * from "./model/export_prototype_metadata";
 export * from "./model/host";
+export * from "./model/host_invite";
 export * from "./model/instance";
 export * from "./model/is_dragging";
 export * from "./model/mod_pack";

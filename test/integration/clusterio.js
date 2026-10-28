@@ -278,6 +278,54 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("join", function() {
+			it("should join the cluster with an invite URL", async function() {
+				slowTest(this);
+				const config = "invite-host-config.json";
+				await fs.rm(path.join("temp", "test", config), { force: true });
+				const { url: inviteUrl } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
+
+				await execHost(`--config ${config} join ${inviteUrl}`);
+				const hostConfig = JSON.parse(await fs.readFile(path.join("temp", "test", config), "utf8"));
+				const hostId = hostConfig["host.id"];
+				assert.equal(hostConfig["host.controller_url"], "https://localhost:4443/");
+				const invites = await getControl().send(new lib.HostInviteListRequest());
+				const inviteCode = lib.HostInvite.parseUrl(inviteUrl).code;
+				assert.deepEqual(invites.find(i => i.code === inviteCode).hostIds, [hostId]);
+
+				await execHost(`--config ${config} config set host.name invite-host`);
+				await execHost(`--config ${config} config set host.instances_directory invite-instances`);
+				const hostProcess = await spawnNode(
+					"invite-host:", `../../packages/host run --config ${config}`, /Started host/
+				);
+				try {
+					const hosts = await getControl().send(new lib.HostListRequest());
+					const host = hosts.find(h => h.id === hostId);
+					assert.equal(host.name, "invite-host");
+					assert.equal(host.connected, true);
+				} finally {
+					const exited = events.once(hostProcess, "exit");
+					await getControl().sendTo({ hostId }, new lib.HostStopRequest());
+					await exited;
+				}
+
+				await assert.rejects(
+					execHost(`--config second-${config} join ${inviteUrl}`),
+					err => err.stderr.includes("Invite is invalid or has expired"),
+				);
+			});
+			it("should refuse to replace an existing token", async function() {
+				const config = "token-host-config.json";
+				await fs.rm(path.join("temp", "test", config), { force: true });
+				await execHost(`--config ${config} --create-config config set host.controller_token existing`);
+				const { url: inviteUrl } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
+				await assert.rejects(
+					execHost(`--config ${config} join ${inviteUrl}`),
+					err => err.stderr.includes("pass --force to replace it"),
+				);
+			});
+		});
+
 		describe("hostUpdateEventHandler()", function() {
 			it("should trigger when a new host is added", async function() {
 				slowTest(this);
@@ -682,6 +730,63 @@ describe("Integration of Clusterio", function() {
 			});
 			it("runs without an id", async function() {
 				await execCtl("host generate-token");
+			});
+		});
+
+		describe("host invite create", function() {
+			it("should print an invite URL", async function() {
+				const lines = [];
+				const originalLog = console.log; // eslint-disable-line no-console
+				console.log = (...args) => lines.push(args.join(" ")); // eslint-disable-line no-console
+				try {
+					await execCtl("host invite create --expires 1h --uses 2");
+				} finally {
+					console.log = originalLog; // eslint-disable-line no-console
+				}
+				assert.equal(lines.length, 1);
+				const parsed = lib.HostInvite.parseUrl(lines[0]);
+				assert.equal(parsed.controllerUrl, "https://localhost:4443/");
+				const invites = await getControl().send(new lib.HostInviteListRequest());
+				const invite = invites.find(i => i.code === parsed.code);
+				assert.equal(invite.maxUses, 2);
+				assert(invite.expiresAtMs > Date.now() + 59 * 60e3);
+			});
+			it("should reject an invalid duration", async function() {
+				await assert.rejects(
+					execCtl("host invite create --expires soon"),
+					new lib.CommandError(
+						"Invalid duration 'soon', expected a number followed by m, h or d, or never"
+					),
+				);
+			});
+		});
+
+		describe("host invite list", function() {
+			it("runs", async function() {
+				await execCtl("host invite list");
+			});
+			it("runs with --codes", async function() {
+				await execCtl("host invite list --codes");
+			});
+		});
+
+		describe("host invite edit", function() {
+			it("should change the limits of the invite", async function() {
+				const { invite } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
+				await execCtl(`host invite edit ${invite.id} --expires 7d --uses unlimited`);
+				const invites = await getControl().send(new lib.HostInviteListRequest());
+				const edited = invites.find(i => i.id === invite.id);
+				assert.equal(edited.maxUses, null);
+				assert(edited.expiresAtMs > Date.now() + 6 * 86400e3);
+			});
+		});
+
+		describe("host invite revoke", function() {
+			it("should remove the invite", async function() {
+				const { invite } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
+				await execCtl(`host invite revoke ${invite.id}`);
+				const invites = await getControl().send(new lib.HostInviteListRequest());
+				assert(!invites.some(i => i.id === invite.id), "Invite was not revoked");
 			});
 		});
 

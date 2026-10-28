@@ -112,19 +112,23 @@ async function safeOutputFile(file, data, options={}) {
 	await fs.rename(temporary, file);
 }
 
-async function execFile(cmd, args) {
+async function execFile(cmd, args, env = undefined) {
 	const command = [cmd, ...args.map(escapeArg)].join(" ");
-	logger.verbose(`executing ${command}`);
+	logger.verbose(`executing ${redactInviteUrl(command)}`);
 	return new Promise((resolve, reject) => {
 		let child = child_process.execFile(
 			command,
 			{
 				shell: true,
 
-				env: process.platform === "win32" ? { ...process.env, pct: "%" } : undefined,
+				env: process.platform === "win32"
+					? { ...process.env, ...env, pct: "%" }
+					: env && { ...process.env, ...env },
 			},
 			(err, stdout, stderr) => {
 				if (err) {
+					err.stdout = stdout;
+					err.stderr = stderr;
 					reject(err);
 				} else {
 					resolve({ stdout, stderr });
@@ -147,11 +151,11 @@ async function execController(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`), args);
 }
 
-async function execHost(args) {
+async function execHost(args, env) {
 	if (dev) {
-		return await execFile("node", [path.join(import.meta.dirname, "..", "host"), ...args]);
+		return await execFile("node", [path.join(import.meta.dirname, "..", "host"), ...args], env);
 	}
-	return await execFile(path.join("node_modules", ".bin", `clusteriohost${scriptExt}`), args);
+	return await execFile(path.join("node_modules", ".bin", `clusteriohost${scriptExt}`), args, env);
 }
 
 async function execCtl(args) {
@@ -159,6 +163,55 @@ async function execCtl(args) {
 		return await execFile("node", [path.join(import.meta.dirname, "..", "ctl"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
+}
+
+const inviteAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
+/** Split an invite URL into the controller URL and invite code, see HostInvite.parseUrl in lib */
+function parseInviteUrl(url) {
+	let parsed;
+	try {
+		parsed = new URL(url.trim());
+	} catch (err) {
+		return null;
+	}
+	const match = /^(.*\/)invite\/([^/]+)\/?$/.exec(parsed.pathname);
+	if (!["http:", "https:"].includes(parsed.protocol) || !match) {
+		return null;
+	}
+	const code = match[2].toUpperCase();
+	if (code.length !== 8 || [...code].some(c => !inviteAlphabet.includes(c))) {
+		return null;
+	}
+	return { controllerUrl: `${parsed.origin}${match[1]}`, code };
+}
+
+function redactInviteUrl(text) {
+	return text.replace(/\/invite\/([^/\s"']{2})[^/\s"']*/g, "/invite/$1******");
+}
+
+// Check the invite is usable before installing, without using it up
+async function checkInvite(inviteUrl) {
+	const invite = parseInviteUrl(inviteUrl);
+	if (!invite) {
+		throw new InstallError("Invalid invite URL, expected <controller url>/invite/<code>");
+	}
+	let response;
+	try {
+		response = await fetch(new URL(`invite/${invite.code}`, invite.controllerUrl));
+	} catch (err) {
+		logger.warn(`Unable to check invite, continuing: ${err.cause?.message ?? err.message}`);
+		return;
+	}
+	if (response.status === 404) {
+		throw new InstallError("Invite is invalid or has expired");
+	}
+	if (response.status === 429) {
+		throw new InstallError("Too many invalid invite attempts, try again later");
+	}
+	if (!response.ok) {
+		logger.warn(`Unable to check invite, continuing: controller responded with ${response.status}`);
+	}
 }
 
 function validateHostToken(token) {
@@ -578,7 +631,25 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
-	if (["host", "ctl"].includes(answers.mode)) {
+	if (answers.mode === "host") {
+		if (args.invite) {
+			answers.invite = args.invite;
+		} else if (args.controllerUrl || args.controllerToken) {
+			answers.invite = "";
+		}
+		answers = await inquirer.prompt([
+			{
+				type: "input",
+				name: "invite",
+				message: "Invite URL (leave empty to enter a controller URL and token)",
+			},
+		], answers);
+		if (answers.invite) {
+			await checkInvite(answers.invite);
+		}
+	}
+
+	if (["host", "ctl"].includes(answers.mode) && !answers.invite) {
 		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
 		answers = await inquirer.prompt([
 			{
@@ -598,7 +669,7 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
-	if (answers.mode === "host") {
+	if (answers.mode === "host" && !answers.invite) {
 		validateHostToken(answers.controllerToken);
 	}
 
@@ -745,6 +816,10 @@ async function main() {
 		.option("host-name", {
 			nargs: 1, describe: "Host name [host]", type: "string",
 		})
+		.option("invite", {
+			nargs: 1, describe: "Invite URL from the controller, replaces controller URL and token [host]",
+			type: "string",
+		})
 		.option("controller-url", {
 			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
 		})
@@ -799,7 +874,7 @@ async function main() {
 	}
 
 	let answers = await inquirerMissingArgs(args);
-	logger.verbose(JSON.stringify(answers));
+	logger.verbose(redactInviteUrl(JSON.stringify(answers)));
 
 	if (answers.pluginTemplate) {
 		await copyPluginTemplates(answers.pluginName, answers.pluginTemplate);
@@ -844,12 +919,23 @@ async function main() {
 
 	if (answers.mode === "host") {
 		logger.info("Setting up host");
-		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
 		await execHost(["config", "create"]);
-		await execHost(["config", "set", "host.id", hostId]);
+		if (answers.invite) {
+			const env = args.selfSignedCert ? { NODE_EXTRA_CA_CERTS: args.selfSignedCert } : undefined;
+			try {
+				await execHost(["join", answers.invite], env);
+			} catch (err) {
+				// eslint-disable-next-line no-control-regex
+				const lines = `${err.stdout}${err.stderr}`.replace(/\x1b\[[0-9;]*m/g, "").trim().split("\n");
+				throw new InstallError(`Failed to join cluster: ${lines[lines.length - 1].replace(/^\[\w+\] /, "")}`);
+			}
+		} else {
+			let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
+			await execHost(["config", "set", "host.id", hostId]);
+			await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
+			await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
+		}
 		await execHost(["config", "set", "host.name", answers.hostName]);
-		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
-		await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);

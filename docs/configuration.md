@@ -366,6 +366,7 @@ Defaults to "http://localhost:8080/".
 
 Access token used for authenticating with the controller.
 You can generate an access token with `clusterioctl host generate-token --id <host-id>`, or use the `clusterioctl host create-config` to create a new host config with the correct url and token in it.
+`clusteriohost join <invite url>` sets this, `host.id` and `host.controller_url` from a host invite.
 The value can only be read and changed from the host itself.
 
 Defaults to "enter token here".

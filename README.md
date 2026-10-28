@@ -272,9 +272,15 @@ If you have copied these files over to `/etc/systemd/system/` then you can start
 
 ## Setting up remote hosts
 
-Run the installer as described in the installation section and choose "Host only" as the operating mode to install, it'll ask for a controller URL and an authentication token.
+Run the installer as described in the installation section and choose "Host only" as the operating mode to install, it'll ask for an invite URL.
+Invites are created on the Hosts page in the web interface or with `npx clusterioctl host invite create`, and look like `https://example.com/invite/ABCD2345`.
+The installer can also be given the invite directly with `--invite <url>`.
+If you leave the invite URL empty it'll ask for a controller URL and an authentication token instead.
 The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Hosts page in the web interface.
 Once you start up the host it should show up in the Hosts list and be available for assigning and running instances on.
+
+An existing host installation can join a cluster with `npx clusteriohost join <invite url>`, which sets the host id, controller URL and token in its config.
+If the controller uses a self-signed certificate, set `NODE_EXTRA_CA_CERTS` to the certificate when running the installer or the join command.
 
 
 ## Setting up clusterioctl

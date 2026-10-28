@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import events from "node:events";
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -111,6 +113,45 @@ describe("create installer CLI", function() {
 			assert.match(err.stdout + err.stderr, /Failed to install: npm install failed/);
 			assert.doesNotMatch(err.stdout, /Successfully installed/);
 			return true;
+		});
+	});
+
+	describe("--invite", function() {
+		function runHostInstaller(invite) {
+			return execFileAsync(process.execPath, [
+				installer, "--mode", "host", "--host-name", "test", "--invite", invite,
+				...(process.platform === "linux" ? ["--allow-install-as-root"] : []),
+			], { cwd: directory });
+		}
+
+		it("rejects a malformed invite URL", async function() {
+			await assert.rejects(runHostInstaller("https://example.com/hosts"), err => {
+				assert.equal(err.code, 1);
+				assert.match(err.stdout + err.stderr, /Invalid invite URL/);
+				return true;
+			});
+		});
+
+		it("checks the invite before installing without using it", async function() {
+			const requests = [];
+			const server = http.createServer((req, res) => {
+				requests.push(`${req.method} ${req.url}`);
+				res.writeHead(404).end();
+			});
+			server.listen(0, "localhost");
+			await events.once(server, "listening");
+			try {
+				const invite = `http://localhost:${server.address().port}/sub/invite/abcd2345`;
+				await assert.rejects(runHostInstaller(invite), err => {
+					assert.equal(err.code, 1);
+					assert.match(err.stdout + err.stderr, /Invite is invalid or has expired/);
+					assert.doesNotMatch(err.stdout + err.stderr, /ABCD2345|abcd2345/);
+					return true;
+				});
+			} finally {
+				server.close();
+			}
+			assert.deepEqual(requests, ["GET /sub/invite/ABCD2345"]);
 		});
 	});
 

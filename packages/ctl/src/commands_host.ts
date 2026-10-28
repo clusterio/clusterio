@@ -129,6 +129,106 @@ hostCommands.add(new lib.Command({
 }));
 
 
+const durationUnits: Record<string, number> = { m: 60e3, h: 3600e3, d: 86400e3 };
+function parseExpiry(value: string) {
+	if (value === "never") {
+		return null;
+	}
+	const match = /^(\d+)([mhd])$/.exec(value);
+	if (!match || Number(match[1]) === 0) {
+		throw new lib.CommandError(`Invalid duration '${value}', expected a number followed by m, h or d, or never`);
+	}
+	return Date.now() + Number(match[1]) * durationUnits[match[2]];
+}
+
+function parseUses(value: string) {
+	if (value === "unlimited") {
+		return null;
+	}
+	const uses = Number(value);
+	if (!Number.isInteger(uses) || uses < 1) {
+		throw new lib.CommandError(`Invalid use limit '${value}', expected a positive integer or unlimited`);
+	}
+	return uses;
+}
+
+function formatTime(ms: number | null) {
+	return ms === null ? "never" : new Date(ms).toISOString();
+}
+
+const hostInviteCommands = new lib.CommandTree({
+	name: "invite", description: "Invites for new hosts to join the cluster",
+});
+hostInviteCommands.add(new lib.Command({
+	definition: [["list", "l"], "List host invites", (yargs) => {
+		yargs.option("codes", { type: "boolean", nargs: 0, describe: "Show invite codes", default: false });
+	}],
+	handler: async function(args: { codes: boolean }, ctl: Ctl) {
+		const invites = await ctl.send(new lib.HostInviteListRequest());
+		print(asTable(invites.map(invite => ({
+			id: invite.id,
+			code: args.codes ? invite.code : lib.HostInvite.redactCode(invite.code),
+			uses: `${invite.uses}/${invite.maxUses ?? "unlimited"}`,
+			expires: formatTime(invite.expiresAtMs),
+			usable: invite.isUsable(),
+			createdBy: invite.createdBy,
+			hostIds: invite.hostIds.join(" "),
+		}))));
+	},
+}));
+
+hostInviteCommands.add(new lib.Command({
+	definition: ["create", "Create a host invite", (yargs) => {
+		yargs.option("expires", {
+			type: "string", nargs: 1, default: "24h",
+			describe: "Time until the invite expires, like 30m, 12h or 7d, or never",
+		});
+		yargs.option("uses", {
+			type: "string", nargs: 1, default: "1", describe: "Number of hosts that can use the invite, or unlimited",
+		});
+	}],
+	handler: async function(args: { expires: string, uses: string }, ctl: Ctl) {
+		const response = await ctl.send(new lib.HostInviteCreateRequest(
+			parseExpiry(args.expires), parseUses(args.uses),
+		));
+		print(response.url);
+	},
+}));
+
+hostInviteCommands.add(new lib.Command({
+	definition: ["edit <id>", "Change the expiry time or use limit of a host invite", (yargs) => {
+		yargs.positional("id", { describe: "Id of the invite", type: "number" });
+		yargs.option("expires", {
+			type: "string", nargs: 1, describe: "New time until the invite expires counted from now, or never",
+		});
+		yargs.option("uses", {
+			type: "string", nargs: 1, describe: "New total number of hosts that can use the invite, or unlimited",
+		});
+	}],
+	handler: async function(args: { id: number, expires?: string, uses?: string }, ctl: Ctl) {
+		if (args.expires === undefined && args.uses === undefined) {
+			throw new lib.CommandError("Nothing to change, pass --expires and/or --uses");
+		}
+		await ctl.send(new lib.HostInviteUpdateRequest(
+			args.id,
+			args.expires !== undefined ? parseExpiry(args.expires) : undefined,
+			args.uses !== undefined ? parseUses(args.uses) : undefined,
+		));
+	},
+}));
+
+hostInviteCommands.add(new lib.Command({
+	definition: ["revoke <id>", "Revoke a host invite", (yargs) => {
+		yargs.positional("id", { describe: "Id of the invite", type: "number" });
+	}],
+	handler: async function(args: { id: number }, ctl: Ctl) {
+		await ctl.send(new lib.HostInviteRevokeRequest(args.id));
+	},
+}));
+
+hostCommands.add(hostInviteCommands);
+
+
 const hostConfigCommands = new lib.CommandTree({
 	name: "config", alias: ["c"], description: "Host config management",
 });

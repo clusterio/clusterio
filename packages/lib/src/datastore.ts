@@ -108,6 +108,8 @@ export class JsonIdDatastoreProvider<
 		private fromJson: (json: J) => V = v => v as any as V,
 		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as Array<J>,
 		private finalise: (obj: V, map: Map<V["id"], V>) => V | undefined = v => v,
+		/** File mode to write with, for files holding secrets */
+		private mode?: number,
 	) {
 		super();
 	}
@@ -115,7 +117,8 @@ export class JsonIdDatastoreProvider<
 	// Save the data to the json file
 	async save(data: Map<V["id"], V>) {
 		logger.verbose(`Saving ${this.filePath}`);
-		await safeOutputFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
+		const options = this.mode !== undefined ? { mode: this.mode } : {};
+		await safeOutputFile(this.filePath, JSON.stringify([...data.values()], null, "\t"), options);
 	}
 
 	// Load the data from the json file

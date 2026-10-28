@@ -245,6 +245,14 @@ describe("lib/datastore", function() {
 				const loadedData = await datastoreProvider.load();
 				assert.deepEqual(loadedData, newData);
 			});
+			it("writes with the given mode", async function() {
+				if (process.platform === "win32") {
+					this.skip();
+				}
+				datastoreProvider = new lib.JsonIdDatastoreProvider(dataPath, undefined, undefined, undefined, 0o600);
+				await datastoreProvider.save(new Map([["foo", { id: "foo" }]]));
+				assert.equal((await fs.stat(dataPath)).mode & 0o777, 0o600);
+			});
 		});
 
 		describe("load", function() {
