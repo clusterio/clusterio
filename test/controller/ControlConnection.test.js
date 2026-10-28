@@ -153,6 +153,105 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(clone.config.get("instance.name"), "clone");
 			assert.equal(clone.config.get("instance.assigned_host"), null);
 		});
+
+		it("creates an instance inheriting from a base", async function() {
+			await create({ "instance.id": 4001, "instance.name": "base", "instance.is_base": true });
+			mockController.instances.getMutable(4001).config.set("factorio.version", "2.0");
+
+			await create({ "instance.id": 4002, "instance.name": "child", "instance.base_id": 4001 });
+			const child = mockController.instances.get(4002);
+			assert.equal(child.config.get("factorio.version"), "2.0");
+			assert.equal(child.config.isInherited("factorio.version"), true);
+			assert.equal(child.config.isInherited("instance.name"), false);
+		});
+
+		it("rejects a base that is not a base", async function() {
+			await create({ "instance.id": 4001, "instance.name": "plain" });
+			await assert.rejects(
+				create({ "instance.id": 4002, "instance.name": "child", "instance.base_id": 4001 }),
+				new lib.ValidationError("Instance plain is not a base"),
+			);
+			assert.equal(mockController.instances.has(4002), false);
+		});
+	});
+
+	describe("instance config set handlers", function() {
+		let mockController;
+		let connection;
+
+		beforeEach(async function() {
+			mockController = new MockController();
+			mockController.mockConfigEntries.set("controller.name", "Test");
+			mockController.instances = new InstanceManager(new lib.SubscribableDatastore(), mockController);
+			mockController.instanceConfigUpdated = async () => {};
+			connection = {
+				_controller: mockController,
+				checkStagedInheritance: ControlConnection.prototype.checkStagedInheritance,
+			};
+			for (const [id, fields] of [
+				[1, { "instance.is_base": true, "factorio.version": "2.0" }],
+				[2, { "instance.base_id": 1 }],
+			]) {
+				const config = new lib.InstanceConfig("controller", {
+					"instance.id": id, "instance.name": `i${id}`, ...fields,
+				});
+				if (fields["instance.base_id"]) {
+					mockController.instances.applyBase(config, ["instance.id", "instance.name", "instance.base_id"]);
+				}
+				await mockController.instances.createInstance(config);
+			}
+		});
+
+		function call(handler, request) {
+			return ControlConnection.prototype[handler].call(connection, request);
+		}
+		const setField = (...args) => new lib.InstanceConfigSetFieldRequest(...args);
+		const setFields = (...args) => new lib.InstanceConfigSetRequest(...args);
+
+		it("stops inheriting a field set to the inherited value", async function() {
+			await call("handleInstanceConfigSetFieldRequest", setField(2, "factorio.version", "2.0"));
+			assert.equal(mockController.instances.get(2).config.isInherited("factorio.version"), false);
+		});
+
+		it("stops inheriting a field set through set request", async function() {
+			await call("handleInstanceConfigSetRequest", setFields(2, { "factorio.version": "2.0" }));
+			assert.equal(mockController.instances.get(2).config.isInherited("factorio.version"), false);
+		});
+
+		it("stops inheriting a field changed through set-prop", async function() {
+			await call(
+				"handleInstanceConfigSetPropRequest",
+				new lib.InstanceConfigSetPropRequest(2, "factorio.settings", "max_players", 0),
+			);
+			assert.equal(mockController.instances.get(2).config.isInherited("factorio.settings"), false);
+		});
+
+		it("rejects base_id pointing at a non-base", async function() {
+			await assert.rejects(
+				call("handleInstanceConfigSetFieldRequest", setField(1, "instance.base_id", "2")),
+				new lib.ValidationError("Instance i2 is not a base"),
+			);
+			assert.equal(mockController.instances.get(1).config.get("instance.base_id"), null);
+		});
+
+		it("rejects unmarking a base with inheritors through set request", async function() {
+			await assert.rejects(
+				call("handleInstanceConfigSetRequest", setFields(1, { "instance.is_base": "false" })),
+				new lib.ConflictError("Instance is the base of 1 other instance(s)"),
+			);
+			assert.equal(mockController.instances.get(1).config.get("instance.is_base"), true);
+		});
+
+		it("inherits a field again", async function() {
+			await call("handleInstanceConfigSetFieldRequest", setField(2, "factorio.version", "2.1"));
+			await call(
+				"handleInstanceConfigInheritFieldRequest",
+				new lib.InstanceConfigInheritFieldRequest(2, "factorio.version"),
+			);
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.get("factorio.version"), "2.0");
+			assert.equal(config.isInherited("factorio.version"), true);
+		});
 	});
 
 	describe("close cleanup", function() {

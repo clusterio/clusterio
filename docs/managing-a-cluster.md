@@ -56,15 +56,16 @@ Marks the host as requiring a restart, the same way a plugin update does. Use it
 
 ### List Instances
 
-    ctl> instance list
+    ctl> instance list [--bases]
 
 List instances.
+Base instances are only listed if `--bases` is passed.
 
 ### Create instance
 
-    ctl> instance create <name> [--id <instance id>]
+    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--base <instance>] [--is-base]
 
-Create a new instance. `name` is the instance name. `--id` is the optional id.
+Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--base` makes the new instance inherit all config values from the given base instance. `--is-base` creates the instance as a base, see `instance.is_base` in the [configuration docs](configuration.md).
 
 ### Kill instance
 
@@ -97,7 +98,7 @@ Most notably Clusterio records wall clock time while the save time is recorded i
 
     ctl> instance config list <instance>
 
-List config values for an instance. `instance` is the instance whose config values to list.
+List config values for an instance. `instance` is the instance whose config values to list. Values inherited from a base instance are marked with `(inherited)`.
 
 #### Set config value
 
@@ -109,11 +110,17 @@ Set field in instance config. `instance` is instance to set. `field` is field to
 
 To be written.
 
+#### Inherit config value
+
+    ctl> instance config inherit <instance> <field>
+
+Make a field in the instance config take its value from the base instance again, undoing a previous `set`. `instance` is the instance to update, `field` is the field to inherit.
+
 #### Edit instance config
 
     ctl> instance config edit <instance> [editor]
 
-Edit instance config in a text editor. Once file is saved and editor has been exited, config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
+Edit instance config in a text editor. Once file is saved and editor has been exited, changed config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
 
 ### Assign instance to host
 

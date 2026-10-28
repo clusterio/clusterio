@@ -498,6 +498,28 @@ This allows you to prevent certain instances from being started when using the b
 Defaults to false.
 
 
+### instance.is_base
+
+If enabled this instance is a base other instances can inherit config values from.
+Base instances cannot be assigned to a host and therefore never start.
+Hidden from `instance list` in clusterioctl unless `--bases` is passed.
+An instance cannot stop being a base while other instances inherit from it.
+
+Defaults to false.
+
+
+### instance.base_id
+
+ID of the base instance to inherit config values from.
+Inherited fields take their value from the base and follow it when it changes, setting a field on this instance stops inheriting it.
+When set on an existing instance only fields with the same value as the base become inherited.
+`instance.name`, `instance.is_base`, `instance.base_id` and hidden fields are never inherited.
+A base may itself inherit from another base, but not from itself through a chain of bases.
+The fields currently inherited are stored in the hidden `instance.inherited_fields` field.
+
+Defaults to null meaning no base.
+
+
 ### factorio.version
 
 Version of Factorio to use for this instance.

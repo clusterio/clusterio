@@ -41,7 +41,8 @@ export default class InstanceDetails {
 		public startedAtMs = 0,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs = 0,
-		public excludeFromStartAll = false
+		public excludeFromStartAll = false,
+		public isBase = false,
 	) {}
 
 	get isDeleted() {
@@ -61,6 +62,7 @@ export default class InstanceDetails {
 		"startedAtMs": Type.Optional(Type.Number()),
 		"updatedAtMs": Type.Optional(Type.Number()),
 		"excludeFromStartAll": Type.Optional(Type.Boolean()),
+		"isBase": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -73,7 +75,8 @@ export default class InstanceDetails {
 			json.factorioVersion,
 			json.startedAtMs,
 			json.updatedAtMs,
-			json.excludeFromStartAll
+			json.excludeFromStartAll,
+			json.isBase,
 		);
 	}
 
@@ -101,6 +104,9 @@ export default class InstanceDetails {
 		}
 		if (this.excludeFromStartAll !== false) {
 			json.excludeFromStartAll = this.excludeFromStartAll;
+		}
+		if (this.isBase !== false) {
+			json.isBase = this.isBase;
 		}
 
 		return json;

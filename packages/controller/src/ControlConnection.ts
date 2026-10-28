@@ -8,6 +8,7 @@ import { logFilter, logger } from "@clusterio/lib";
 import BaseConnection from "./BaseConnection.js";
 import User from "./User.js";
 import UserRecord from "./UserRecord.js";
+import type InstanceRecord from "./InstanceRecord.js";
 import * as routes from "./routes.js";
 import Controller from "./Controller.js";
 
@@ -93,6 +94,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.InstanceConfigSetRequest, this.handleInstanceConfigSetRequest.bind(this));
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
+		this.handle(lib.InstanceConfigInheritFieldRequest, this.handleInstanceConfigInheritFieldRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
 		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceRenameSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
@@ -315,6 +317,12 @@ export default class ControlConnection extends BaseConnection {
 			instanceConfig.set("instance.assigned_host", null); // New instances are unassigned
 		}
 		instanceConfig.update(request.config, false, "control");
+		if (Object.hasOwn(request.config, "instance.base_id")) {
+			this._controller.instances.checkInheritance(
+				instanceConfig, instanceConfig.get("instance.is_base"), instanceConfig.get("instance.base_id")
+			);
+			this._controller.instances.applyBase(instanceConfig, Object.keys(request.config));
+		}
 		await this._controller.instances.createInstance(instanceConfig);
 	}
 
@@ -355,17 +363,36 @@ export default class ControlConnection extends BaseConnection {
 				}
 			}
 
+			this.checkStagedInheritance(instance);
 			instance.config.commitStaging();
+			this._controller.instances.overrideFields(instance, Object.keys(request.fields));
 			await this._controller.instanceConfigUpdated(instance);
 		} finally {
 			instance.config.revertStaging();
 		}
 	}
 
+	private checkStagedInheritance(instance: InstanceRecord) {
+		const staged = instance.config.staging;
+		this._controller.instances.checkInheritance(
+			instance.config, staged.get("instance.is_base"), staged.get("instance.base_id")
+		);
+	}
+
 	async handleInstanceConfigSetFieldRequest(request: lib.InstanceConfigSetFieldRequest) {
 		const instance = this._controller.instances.getForRequest(request.instanceId);
-		ControlConnection.validateInstanceConfigSetField(request.field);
-		instance.config.set(request.field as keyof lib.InstanceConfigFields, request.value, "control");
+		const field = request.field as keyof lib.InstanceConfigFields;
+		ControlConnection.validateInstanceConfigSetField(field);
+		if (["instance.is_base", "instance.base_id"].includes(field)) {
+			try {
+				instance.config.stage(field, request.value, "control");
+				this.checkStagedInheritance(instance);
+			} finally {
+				instance.config.revertStaging();
+			}
+		}
+		instance.config.set(field, request.value, "control");
+		this._controller.instances.overrideFields(instance, [field]);
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
@@ -374,7 +401,14 @@ export default class ControlConnection extends BaseConnection {
 		let { field, prop, value } = request;
 		ControlConnection.validateInstanceConfigSetField(field);
 		instance.config.setProp(field as keyof lib.InstanceConfigFields, prop, value, "control");
+		this._controller.instances.overrideFields(instance, [field]);
 		await this._controller.instanceConfigUpdated(instance);
+	}
+
+	async handleInstanceConfigInheritFieldRequest(request: lib.InstanceConfigInheritFieldRequest) {
+		ControlConnection.validateInstanceConfigSetField(request.field);
+		this._controller.instances.inheritField(request.instanceId, request.field);
+		await this._controller.instanceConfigUpdated(this._controller.instances.getForRequest(request.instanceId));
 	}
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {

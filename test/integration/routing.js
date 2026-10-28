@@ -39,7 +39,8 @@ function connectInstance(controller, host, instanceId) {
 	instanceConfig.set("instance.id", instanceId);
 	instanceConfig.set("instance.assigned_host", host.config.get("host.id"));
 	host.assignedInstances.set(instanceId, { path: "invalid", config: instanceConfig });
-	controller.instances.records.set(new InstanceRecord(instanceConfig, "stopped"));
+	const controllerConfig = new lib.InstanceConfig("controller", instanceConfig.toRemote("controller"));
+	controller.instances.records.set(new InstanceRecord(controllerConfig, "stopped"));
 	const instance = new Instance(host, instanceSide, "invalid", instanceConfig, new MockServer());
 	const instanceConnection = new InstanceConnection(hostSide, host, instance);
 	host.instanceConnections.set(instanceId, instanceConnection);

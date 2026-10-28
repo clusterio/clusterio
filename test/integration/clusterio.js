@@ -749,6 +749,63 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance base inheritance", function() {
+			after(async function() {
+				for (const id of [4402, 4401, 4400]) {
+					await getControl().send(new lib.InstanceDeleteRequest(id)).catch(() => {});
+				}
+			});
+			it("creates a base and an instance inheriting from it", async function() {
+				await execCtl("instance create inheritBase --id 4400 --is-base");
+				await execCtl("instance config set inheritBase factorio.version 2.0");
+				await execCtl("instance create inheritChild --id 4401 --base inheritBase");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+				assert.equal(config["instance.base_id"], 4400);
+				assert.equal(config["factorio.version"], "2.0");
+				assert.equal(config["instance.inherited_fields"]["factorio.version"], true);
+				assert.equal((await getInstances()).get(4400).isBase, true);
+			});
+			it("propagates base changes", async function() {
+				await execCtl("instance config set inheritBase factorio.version 2.1");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+				assert.equal(config["factorio.version"], "2.1");
+			});
+			it("rejects inheriting from an instance that is not a base", async function() {
+				await assert.rejects(
+					execCtl("instance create inheritBad --id 4402 --base inheritChild"),
+					new lib.ValidationError("Instance inheritChild is not a base"),
+				);
+			});
+			it("rejects assigning a base to a host", async function() {
+				await assert.rejects(
+					execCtl("instance assign inheritBase 4"),
+					new lib.ValidationError("Base instances cannot be assigned to a host"),
+				);
+			});
+			describe("instance list --bases", function() {
+				it("runs", async function() {
+					await execCtl("instance list --bases");
+				});
+			});
+			describe("instance config list", function() {
+				it("runs on an inheriting instance", async function() {
+					await execCtl("instance config list inheritChild");
+				});
+			});
+			describe("instance config inherit", function() {
+				it("runs", async function() {
+					await execCtl("instance config set inheritChild factorio.version 2.0");
+					let config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+					assert.equal(config["instance.inherited_fields"]["factorio.version"], undefined);
+
+					await execCtl("instance config inherit inheritChild factorio.version");
+					config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+					assert.equal(config["factorio.version"], "2.1");
+					assert.equal(config["instance.inherited_fields"]["factorio.version"], true);
+				});
+			});
+		});
+
 		describe("instance assign", function() {
 			it("creates the instance files", async function() {
 				await execCtl("instance assign test 4");

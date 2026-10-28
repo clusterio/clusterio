@@ -83,6 +83,7 @@ export default class InstanceRecord {
 			this.startedAtMs,
 			this.updatedAtMs,
 			this.config.get("instance.exclude_from_start_all"),
+			this.config.get("instance.is_base"),
 		);
 	}
 

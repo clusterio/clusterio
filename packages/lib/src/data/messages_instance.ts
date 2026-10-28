@@ -176,6 +176,28 @@ export class InstanceConfigSetPropRequest {
 	}
 }
 
+export class InstanceConfigInheritFieldRequest {
+	declare ["constructor"]: typeof InstanceConfigInheritFieldRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.update_config" as const;
+
+	constructor(
+		public instanceId: number,
+		public field: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"instanceId": Type.Integer(),
+		"field": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.instanceId, json.field);
+	}
+}
+
 export class InstanceAssignRequest {
 	declare ["constructor"]: typeof InstanceAssignRequest;
 	static type = "request" as const;
