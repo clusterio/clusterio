@@ -1,9 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Space, Table, Typography } from "antd";
+import { Space, Table, Tooltip, Typography } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
-import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
-import type { PluginWebApi, PluginWebEnvInfo } from "@clusterio/lib";
+import type { PluginWebApi } from "@clusterio/lib";
 
 import notify from "../util/notify";
 import { useAccount } from "../model/account";
@@ -28,8 +27,7 @@ type PluginRow = {
 	title: string;
 	/** Not present for plugins the controller hasn't loaded */
 	meta?: PluginWebApi;
-	info?: PluginWebEnvInfo;
-	package?: any;
+	webError?: string;
 	status?: PluginStatus;
 };
 
@@ -38,30 +36,14 @@ function pluginPath(plugin: PluginRow) {
 	return `/plugins/${encodeURIComponent(plugin.meta?.name ?? plugin.key)}/view`;
 }
 
-function WebUiStatus(props: { plugin: PluginRow }) {
-	const control = useContext(ControlContext);
-	const { meta } = props.plugin;
-	if (!meta) {
-		return <Typography.Text type="secondary">Not on controller</Typography.Text>;
-	}
-	if (!meta.enabled) {
-		return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
-	}
-	if (!meta.web.main && !meta.web.error) {
-		return <Typography.Text type="secondary">No web module</Typography.Text>;
-	}
-	if (!meta.web.error && !control.pluginInfos.has(meta.name)) {
-		return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Reload page to load</>;
-	}
-	if (!props.plugin.package) {
-		return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
-	}
-	if (props.plugin.package.version !== meta.version) {
-		return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Version mis-matched</>;
-	}
-	return <>Loaded {meta.version}</>;
+/** Shown with the versions when the plugin's web code failed to load */
+function WebError(props: { error: string }) {
+	return <div>
+		<Tooltip title={props.error}>
+			<Typography.Text type="danger"><CloseCircleFilled /> Web interface failed to load</Typography.Text>
+		</Tooltip>
+	</div>;
 }
-
 
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
@@ -95,14 +77,12 @@ export default function PluginsPage() {
 	let tableContents: PluginRow[] = [];
 	for (let meta of pluginList) {
 		const key = pluginStatusKey(meta);
-		const loaded = control.loadedPlugins.get(meta.name);
-		const info = loaded ?? control.pluginInfos.get(meta.name);
+		const info = control.pluginInfos.get(meta.name);
 		tableContents.push({
 			key,
 			title: info ? info.title : meta.name,
 			meta,
-			info,
-			package: loaded?.package,
+			webError: meta.enabled ? meta.web.error ?? info?.error : undefined,
 			status: statuses.get(key),
 		});
 	}
@@ -151,16 +131,12 @@ export default function PluginsPage() {
 				{
 					title: "Versions",
 					key: "versions",
-					render: (_, plugin) => (plugin.status
-						? <PluginVersions status={plugin.status} latest={latestOf(plugin)} />
-						: plugin.meta?.version
-					),
-				},
-				{
-					title: "Web UI Status",
-					key: "web",
-					render: (_, plugin) => <WebUiStatus plugin={plugin} />,
-					responsive: ["sm"],
+					render: (_, plugin) => <>
+						{plugin.status
+							? <PluginVersions status={plugin.status} latest={latestOf(plugin)} />
+							: plugin.meta?.version}
+						{plugin.webError && <WebError error={plugin.webError} />}
+					</>,
 				},
 				{
 					key: "actions",
