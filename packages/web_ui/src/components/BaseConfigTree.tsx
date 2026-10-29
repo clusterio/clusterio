@@ -74,6 +74,7 @@ export type ConfigInheritance = {
 	canInherit: (config: lib.Config<any>, field: string) => boolean;
 	isInherited: (config: lib.Config<any>, field: string, prop?: string) => boolean;
 	inherit: (field: string, prop?: string) => Promise<void>;
+	templateValue: (field: string, prop?: string) => unknown;
 	notice?: (config: lib.Config<any>) => React.ReactNode;
 };
 
@@ -331,12 +332,18 @@ function computeTreeData(
 		if (!linking.has(key)) {
 			return button(
 				"Not linked to the template. Click to link it again when applied.", <DisconnectOutlined />, "Link",
-				() => { setLinking(new Map([...linking, [key, [fieldName, prop]]])); revert(); },
+				() => {
+					setLinking(new Map([...linking, [key, [fieldName, prop]]]));
+					revert();
+					// Show the value the field takes after apply
+					const value = inheritance.templateValue(fieldName, prop);
+					form.setFieldValue(key, prop === undefined ? value : JSON.stringify(value));
+				},
 			);
 		}
 		return button(
 			"Linked to the template when applied. Click to keep this value instead.", <LinkOutlined />, "Unlink",
-			() => setLinking(new Map([...linking].filter(([k]) => k !== key))),
+			() => { setLinking(new Map([...linking].filter(([k]) => k !== key))); revert(); },
 		);
 	}
 	function isReadonly(canWrite: boolean, key: string, fieldName: string, prop?: string) {
