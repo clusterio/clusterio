@@ -52,6 +52,20 @@ describe("messages/controller", function() {
 		});
 	});
 
+	describe("RoleDeleteRequest", function() {
+		it("removes the role from users and sends a user update", async function() {
+			const id = await controlConnection.handleRoleCreateRequest(new lib.RoleCreateRequest("r", "", []));
+			const user = controller.users.getOrCreateUser("player");
+			user.addRole(id);
+			const updated = [];
+			controller.users.records.on("update", users => updated.push(...users));
+			await controlConnection.handleRoleDeleteRequest(new lib.RoleDeleteRequest(id));
+			assert.equal(controller.roles.has(id), false);
+			assert.equal(user.roleIds.has(id), false);
+			assert(updated.some(u => u.name === "player" && !u.roleIds.has(id)), "no user update sent");
+		});
+	});
+
 	describe("ControllerConfigGetRequest", function() {
 		it("runs", async function() {
 			const config = await controlConnection.handleControllerConfigGetRequest(
