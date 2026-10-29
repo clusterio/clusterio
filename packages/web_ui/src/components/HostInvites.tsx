@@ -280,7 +280,7 @@ export function HostInvitesTable() {
 					key: "actions",
 					align: "right",
 					render: (_, invite) => <Space>
-						{account.hasPermission("core.host.invite.update") && !invite.isDead() && <>
+						{account.hasPermission("core.host.invite.update") && <>
 							<Button size="small" onClick={() => setPaused(invite, !invite.paused)}>
 								{invite.paused ? "Resume" : "Pause"}
 							</Button>

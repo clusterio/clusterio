@@ -48,7 +48,10 @@ export async function joinCluster(inviteUrl: string, hostConfig: lib.HostConfig,
 		throw new lib.CommandError(`Failed to contact controller: ${err.cause?.message ?? err.message}`);
 	}
 	if (response.status === 404) {
-		throw new lib.CommandError("Invite is invalid or has expired");
+		throw new lib.CommandError("Invite not found");
+	}
+	if (response.status === 410) {
+		throw new lib.CommandError("Invite has expired");
 	}
 	if (response.status === 429) {
 		const minutes = Math.ceil(Number(response.headers.get("retry-after") ?? 60) / 60);

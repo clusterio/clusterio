@@ -158,9 +158,6 @@ export default class HostManager {
 		if (!invite) {
 			throw new lib.NotFoundError(`Host invite ${id} does not exist`);
 		}
-		if (invite.isDead()) {
-			throw new lib.InvalidValueError(`Host invite ${id} expired over 24 hours ago and cannot be changed`);
-		}
 		if (changes.expiresAtMs !== undefined) {
 			invite.expiresAtMs = changes.expiresAtMs;
 		}
@@ -183,8 +180,8 @@ export default class HostManager {
 		logger.audit(`User ${revokedBy} revoked host invite ${id}`);
 	}
 
-	/** Find the invite with the given code, comparing in constant time and skipping dead invites */
-	findInvite(code: string, nowMs = Date.now()) {
+	/** Find the invite with the given code, comparing in constant time */
+	findInvite(code: string) {
 		const codeBuffer = Buffer.from(code);
 		let found: Readonly<lib.HostInvite> | undefined;
 		for (const invite of this.invites.values()) {
@@ -193,7 +190,7 @@ export default class HostManager {
 				found = invite;
 			}
 		}
-		return found && !found.isDead(nowMs) ? found : undefined;
+		return found;
 	}
 
 	/**
@@ -207,7 +204,7 @@ export default class HostManager {
 	 */
 	claimInvite(code: string, remoteAddress = "", name?: string) {
 		const nowMs = Date.now();
-		const found = this.findInvite(code, nowMs);
+		const found = this.findInvite(code);
 		if (this.invitesPaused || !found || !found.isUsable(nowMs)) {
 			return null;
 		}

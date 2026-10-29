@@ -51,12 +51,12 @@ describe("lib/data/HostInvite", function() {
 		});
 	});
 
-	describe("HostInvite.isDead()", function() {
+	describe("HostInvite.isLongExpired()", function() {
 		it("should be true 24 hours after expiry", function() {
 			const invite = new lib.HostInvite(1, "ABCD2345", "", 0, 1000);
-			assert.equal(invite.isDead(1000 + 86400e3 - 1), false);
-			assert.equal(invite.isDead(1000 + 86400e3), true);
-			assert.equal(new lib.HostInvite(2, "ABCD2345").isDead(Number.MAX_SAFE_INTEGER), false);
+			assert.equal(invite.isLongExpired(1000 + 86400e3 - 1), false);
+			assert.equal(invite.isLongExpired(1000 + 86400e3), true);
+			assert.equal(new lib.HostInvite(2, "ABCD2345").isLongExpired(Number.MAX_SAFE_INTEGER), false);
 		});
 	});
 

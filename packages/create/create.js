@@ -204,7 +204,10 @@ async function checkInvite(inviteUrl) {
 		return;
 	}
 	if (response.status === 404) {
-		throw new InstallError("Invite is invalid or has expired");
+		throw new InstallError("Invite not found");
+	}
+	if (response.status === 410) {
+		throw new InstallError("Invite has expired");
 	}
 	if (response.status === 429) {
 		throw new InstallError("Too many invalid invite attempts, try again later");

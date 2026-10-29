@@ -251,7 +251,7 @@ Defaults to false.
 ### controller.host_invite_retention_days
 
 Days to keep host invites after they expire or are used up, set to 0 to keep them forever.
-Within this time an invite can be extended with `host invite edit`, unless it expired more than 24 hours ago.
+Within this time an invite can be extended with `host invite edit`.
 
 Defaults to 7.
 

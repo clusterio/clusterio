@@ -144,7 +144,7 @@ describe("create installer CLI", function() {
 				const invite = `http://localhost:${server.address().port}/sub/invite/abcd2345`;
 				await assert.rejects(runHostInstaller(invite), err => {
 					assert.equal(err.code, 1);
-					assert.match(err.stdout + err.stderr, /Invite is invalid or has expired/);
+					assert.match(err.stdout + err.stderr, /Invite not found/);
 					assert.doesNotMatch(err.stdout + err.stderr, /ABCD2345|abcd2345/);
 					return true;
 				});

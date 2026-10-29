@@ -311,7 +311,7 @@ describe("Integration of Clusterio", function() {
 
 				await assert.rejects(
 					execHost(`--config second-${config} join ${inviteUrl}`),
-					err => err.stderr.includes("Invite is invalid or has expired"),
+					err => err.stderr.includes("Invite not found"),
 				);
 			});
 			it("should fail while invites are paused", async function() {

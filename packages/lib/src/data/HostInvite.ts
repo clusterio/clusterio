@@ -10,8 +10,8 @@ export default class HostInvite {
 	/** Characters used in invite codes, without 0/O, 1/I/L and other look-alikes. */
 	static codeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 	static codeLength = 8;
-	/** Time after expiry the code is treated as if it never existed and can no longer be extended. */
-	static deadAfterMs = 24 * 60 * 60e3;
+	/** Time after expiry that claims report the invite as expired, after that they report it as not found. */
+	static reportExpiredForMs = 24 * 60 * 60e3;
 	static maxHostNameLength = 100;
 
 	constructor(
@@ -47,9 +47,9 @@ export default class HostInvite {
 		return this.expiresAtMs !== null && this.expiresAtMs <= nowMs;
 	}
 
-	/** True if the invite expired long enough ago that its code is treated as nonexistent. */
-	isDead(nowMs = Date.now()) {
-		return this.expiresAtMs !== null && this.expiresAtMs + HostInvite.deadAfterMs <= nowMs;
+	/** True if the invite expired long enough ago that claims report it as not found. */
+	isLongExpired(nowMs = Date.now()) {
+		return this.expiresAtMs !== null && this.expiresAtMs + HostInvite.reportExpiredForMs <= nowMs;
 	}
 
 	isUsedUp() {

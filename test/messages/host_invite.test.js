@@ -122,22 +122,16 @@ describe("messages/host_invite", function() {
 			);
 			assert(controller.hosts.claimInvite(invite.code));
 		});
-		it("extends an invite expired less than 24 hours ago", async function() {
-			const invite = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
-			controller.hosts.invites.getMutable(invite.id).expiresAtMs = Date.now() - 23 * 3600e3;
-			await controlConnection.handleHostInviteUpdateRequest(new lib.HostInviteUpdateRequest(invite.id, null));
-			assert(controller.hosts.claimInvite(invite.code));
-		});
-		it("refuses to change an invite expired over 24 hours ago", async function() {
-			const invite = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
-			controller.hosts.invites.getMutable(invite.id).expiresAtMs = Date.now() - 25 * 3600e3;
-			await assert.rejects(
-				controlConnection.handleHostInviteUpdateRequest(new lib.HostInviteUpdateRequest(invite.id, null)),
-				new lib.InvalidValueError(
-					`Host invite ${invite.id} expired over 24 hours ago and cannot be changed`
-				),
-			);
-			assert.equal(controller.hosts.findInvite(invite.code), undefined);
+		it("extends an expired invite", async function() {
+			for (const expiredForMs of [3600e3, 25 * 3600e3]) {
+				const invite = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
+				controller.hosts.invites.getMutable(invite.id).expiresAtMs = Date.now() - expiredForMs;
+				assert.equal(controller.hosts.claimInvite(invite.code), null);
+				await controlConnection.handleHostInviteUpdateRequest(
+					new lib.HostInviteUpdateRequest(invite.id, null)
+				);
+				assert(controller.hosts.claimInvite(invite.code));
+			}
 		});
 		it("fails for an unknown invite", async function() {
 			await assert.rejects(
@@ -283,14 +277,16 @@ describe("messages/host_invite", function() {
 			const again = await fetch(`${endpoint}/${invite.code}`, { method: "POST" });
 			assert.equal(again.status, 404);
 		});
-		it("responds the same for unknown, malformed, expired and used up invites", async function() {
+		it("responds the same for unknown, malformed, paused, long expired and used up invites", async function() {
 			controller.hosts.inviteLimiter.maxFailures = 100;
-			const expired = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
-			controller.hosts.invites.getMutable(expired.id).expiresAtMs = Date.now() - 1;
+			const longExpired = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
+			controller.hosts.invites.getMutable(longExpired.id).expiresAtMs = Date.now() - 25 * 3600e3;
 			const usedUp = controller.hosts.createInvite(null, 1, "test");
 			controller.hosts.claimInvite(usedUp.code);
+			const paused = controller.hosts.createInvite(null, null, "test");
+			controller.hosts.updateInvite(paused.id, { paused: true });
 			const bodies = new Set();
-			for (const code of ["ZZZZZZZZ", "not-a-code", expired.code, usedUp.code]) {
+			for (const code of ["ZZZZZZZZ", "not-a-code", longExpired.code, usedUp.code, paused.code]) {
 				for (const method of ["GET", "POST"]) {
 					const response = await fetch(`${endpoint}/${code}`, { method });
 					assert.equal(response.status, 404, `${method} ${code}`);
@@ -336,16 +332,13 @@ describe("messages/host_invite", function() {
 			const response = await fetch(`${endpoint}/${invite.code}`, { method: "POST" });
 			assert.equal(response.status, 200);
 		});
-		it("treats paused and long expired invites like unknown codes", async function() {
-			const paused = controller.hosts.createInvite(null, null, "test");
-			controller.hosts.updateInvite(paused.id, { paused: true });
-			const dead = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
-			controller.hosts.invites.getMutable(dead.id).expiresAtMs = Date.now() - 25 * 3600e3;
-			const unknown = await (await fetch(`${endpoint}/ZZZZZZZZ`)).text();
-			for (const code of [paused.code, dead.code]) {
-				const response = await fetch(`${endpoint}/${code}`);
-				assert.equal(response.status, 404);
-				assert.equal(await response.text(), unknown);
+		it("reports invites expired in the last 24 hours as expired", async function() {
+			const invite = controller.hosts.createInvite(Date.now() + 60e3, null, "test");
+			controller.hosts.invites.getMutable(invite.id).expiresAtMs = Date.now() - 23 * 3600e3;
+			for (const method of ["GET", "POST"]) {
+				const response = await fetch(`${endpoint}/${invite.code}`, { method });
+				assert.equal(response.status, 410);
+				assert.deepEqual(await response.json(), { request_errors: ["Invite has expired"] });
 			}
 		});
 		it("lets only one of many concurrent claims use a single use invite", async function() {

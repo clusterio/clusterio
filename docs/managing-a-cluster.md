@@ -52,7 +52,7 @@ Invites that have expired or are used up are removed after controller.host_invit
 
 Change the limits of an invite, for example to extend an invite that expired or was used up.
 `--expires` is counted from now, `--uses` is the new total including uses so far.
-An invite that expired more than 24 hours ago can no longer be changed and its code is treated as if it never existed.
+Hosts using an invite that expired in the last 24 hours are told it expired, after that they are told it was not found so old codes can't be discovered by guessing.
 
 ### Pause invite
 

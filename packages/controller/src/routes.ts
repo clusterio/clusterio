@@ -286,7 +286,12 @@ function hostInvite(req: Request<{ code: string }>, res: Response) {
 		if (limiter.fail(remote)) {
 			logger.warn(`Blocking host invites from ${remote} after too many invalid attempts`);
 		}
-		res.status(404).json({ request_errors: ["Invite is invalid or has expired"] });
+		// Only recently expired invites say so, older ones can't be found by guessing
+		if (invite?.isExpired() && !invite.isLongExpired()) {
+			res.status(410).json({ request_errors: ["Invite has expired"] });
+		} else {
+			res.status(404).json({ request_errors: ["Invite not found"] });
+		}
 		return;
 	}
 
