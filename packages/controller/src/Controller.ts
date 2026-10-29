@@ -524,6 +524,8 @@ export default class Controller {
 			server: {
 				middlewareMode: true,
 				preTransformRequests: false,
+				// The controller is reached by any hostname, fs.allow limits what is served.
+				allowedHosts: true,
 			},
 			plugins: [webUiVite.clusterioDevPlugins(pluginDirs)],
 		});

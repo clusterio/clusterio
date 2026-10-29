@@ -215,6 +215,32 @@ describe("controller/src/Controller", function() {
 				assert(html.includes("new URL(\"../../../static/\", document.location)"));
 			});
 		});
+		describe("._startDevServer()", function() {
+			let devController, server, port;
+			before(async function() {
+				this.timeout(20000);
+				devController = new Controller({}, [], new ControllerConfig("controller"));
+				await devController._startDevServer({ dev: true });
+				const app = express();
+				app.use(devController.devServer.middlewares);
+				server = http.createServer(app);
+				server.listen(0, "localhost");
+				await events.once(server, "listening");
+				port = server.address().port;
+			});
+			after(async function() {
+				server?.close();
+				await devController?.devServer?.close();
+			});
+			it("should serve requests for any hostname", async function() {
+				const req = http.get({
+					port, path: "/static/@vite/client", headers: { host: "clusterio.example.com" },
+				});
+				const [res] = await events.once(req, "response");
+				res.resume();
+				assert.equal(res.statusCode, 200);
+			});
+		});
 		describe(".parseTrustedProxies()", function() {
 			it("should parse addresses", function() {
 				controller.config.set("controller.trusted_proxies", "10.0.0.1");
