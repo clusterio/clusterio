@@ -251,7 +251,6 @@ export class ModPortalGetAllRequest {
 
 	// Define the Response class inline
 	static Response = class ModPortalGetAllResponse {
-		declare ["constructor"]: typeof ModPortalGetAllResponse;
 		constructor(
 			public mods: Static<typeof ModPortalDetailsSchema>[],
 		) { }

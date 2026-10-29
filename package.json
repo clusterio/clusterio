@@ -18,7 +18,6 @@
 		"lint": "oxlint packages plugins test",
 		"lint-fix": "oxlint --fix packages plugins test",
 		"clean": "node ./clean.js",
-		"docs": "typedoc",
 		"bundle-dependencies": "bundle-dependencies"
 	},
 	"c8": {
@@ -51,7 +50,6 @@
 		"jsonwebtoken": "catalog:",
 		"mocha": "^11.8.0",
 		"oxlint": "^1.88.0",
-		"typedoc": "^0.28.20",
 		"typescript": "catalog:",
 		"yargs": "catalog:",
 		"yauzl": "catalog:",

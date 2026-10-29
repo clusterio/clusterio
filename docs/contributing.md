@@ -136,7 +136,6 @@ Keep in mind if you're working on external plugins the `--dev-plugin` option is 
 | `pnpm watch` | TypeScript compilation as files change; restart affected Node processes afterward. |
 | `pnpm -r run prepare` | Compiled packages, generated validators, and production web bundles. |
 | `pnpm build-mod` | Factorio mod archives in root `dist/`. |
-| `pnpm docs` | Generated API documentation. |
 
 `pnpm build` alone does not regenerate the standalone validator or web bundles.
 After changing `packages/lib/src/data/messages_core.ts`, run `pnpm -r run prepare` to compile the schema and regenerate its validator.
