@@ -1,0 +1,16 @@
+{
+	"2.0.3": {
+		"messages": {
+			"request FactorioVersionsRequest": {
+				"pr": 1129,
+				"reason": "Hosts send it while starting an instance, which a 2.0.3 controller rejects so the start fails.",
+				"impact": "The host stays connected and the instance goes back to stopped with the error shown, starting it works again once the controller is updated."
+			},
+			"request LatestReleasesRequest": {
+				"pr": 1129,
+				"reason": "Hosts send it while starting an instance that targets a release channel such as stable.",
+				"impact": "Hosts send FactorioVersionsRequest first, so a 2.0.3 controller rejects the start before this is sent, starting it works again once the controller is updated."
+			}
+		}
+	}
+}

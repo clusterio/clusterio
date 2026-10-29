@@ -14,6 +14,9 @@
  * version has are left out of the comparison, as the other version ignores
  * them when received and does not need them when sent.
  *
+ * Intended breaks are listed in scripts/version-compat-breaks.json, see
+ * scripts/version-compat-breaks.js for the format.
+ *
  * Usage:
  *   node scripts/version-compat-test.js --controller local --host published
  *   node scripts/version-compat-test.js --controller published --host local --published-version 2.0.0-alpha.27
@@ -27,6 +30,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import readline from "node:readline";
 import util from "node:util";
+
+import { loadBreaks, matchBreaks, selectBreaks } from "./version-compat-breaks.js";
 
 const execFile = util.promisify(child_process.execFile);
 
@@ -196,7 +201,15 @@ async function messageSpecs(libPath) {
 	return new Map(Object.entries(JSON.parse(result.stdout)));
 }
 
-async function checkMessageCompat(publishedVersion) {
+function printChange(print, name, fields, localSpec, publishedSpec, publishedVersion) {
+	print(`Link ${name} changed ${fields.join(", ")} since ${publishedVersion}:`);
+	for (const field of fields) {
+		print(`  ${field} in ${publishedVersion}: ${stableStringify(publishedSpec[field])}`);
+		print(`  ${field} in local: ${stableStringify(localSpec[field])}`);
+	}
+}
+
+async function checkMessageCompat(publishedVersion, knownBreaks) {
 	const localSpecs = await messageSpecs(path.join(repoRoot, "packages", "lib"));
 	const publishedSpecs = await messageSpecs(path.join(publishedDir, "node_modules", "@clusterio", "lib"));
 	console.log(`| comparing ${localSpecs.size} local with ${publishedSpecs.size} published link messages`);
@@ -231,15 +244,24 @@ async function checkMessageCompat(publishedVersion) {
 		}
 	}
 
+	const { known, unknown, stale } = matchBreaks(knownBreaks, changed.map(({ name }) => name));
 	for (const { name, fields, localSpec, publishedSpec } of changed) {
-		console.error(`Link ${name} changed ${fields.join(", ")} since ${publishedVersion}:`);
-		for (const field of fields) {
-			console.error(`  ${field} in ${publishedVersion}: ${stableStringify(publishedSpec[field])}`);
-			console.error(`  ${field} in local: ${stableStringify(localSpec[field])}`);
+		if (known.includes(name)) {
+			const { pr, reason, impact } = knownBreaks.get(name);
+			annotate(`Link ${name} is a known break since ${publishedVersion} from #${pr}: ${reason} Impact: ${impact}`);
+			printChange(console.log, name, fields, localSpec, publishedSpec, publishedVersion);
+		} else {
+			printChange(console.error, name, fields, localSpec, publishedSpec, publishedVersion);
 		}
 	}
-	if (changed.length) {
-		throw new Error(`${changed.length} link message(s) changed serialization since ${publishedVersion}`);
+	for (const name of stale) {
+		console.error(`Link ${name} is listed as a known break but did not change since ${publishedVersion}`);
+	}
+	const problems = [];
+	if (unknown.length) { problems.push(`${unknown.length} link message(s) changed serialization`); }
+	if (stale.length) { problems.push(`${stale.length} known break(s) did not change`); }
+	if (problems.length) {
+		throw new Error(`${problems.join(" and ")} since ${publishedVersion}`);
 	}
 }
 
@@ -259,6 +281,7 @@ async function pollCtl(ctl, cliArgs, expectRegex, description, timeoutMs = 30e3)
 
 async function main() {
 	const options = parseArgs();
+	const breaks = await loadBreaks();
 
 	await fs.rm(workDir, { force: true, recursive: true, maxRetries: 10 });
 	await fs.mkdir(controllerDir, { recursive: true });
@@ -279,7 +302,19 @@ async function main() {
 	const publishedLib = JSON.parse(await fs.readFile(
 		path.join(publishedDir, "node_modules", "@clusterio", "lib", "package.json"), "utf8"
 	));
-	await checkMessageCompat(publishedLib.version);
+	const knownBreaks = selectBreaks(breaks, publishedLib.version);
+	for (const version of knownBreaks.ignored) {
+		annotate(`Known breaks for ${version} do not apply to ${publishedLib.version} and can be removed`);
+	}
+	await checkMessageCompat(publishedLib.version, knownBreaks.messages);
+	if (knownBreaks.connect) {
+		const { pr, reason, impact } = knownBreaks.connect;
+		annotate(
+			`Skipping cluster test, known break since ${publishedLib.version} from #${pr}: ${reason} Impact: ${impact}`
+		);
+		console.log(`PASS: link messages match ${publishedLib.version} apart from known breaks`);
+		return;
+	}
 
 	const controller = packageDir("controller", options.controller);
 	const host = packageDir("host", options.host);

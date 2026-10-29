@@ -18,6 +18,7 @@ Read our [past decisions](/docs/decisions.md) for compatibility policies and des
     - [Checking your code for errors](#checking-your-code-for-errors)
     - [Cleaning generated and runtime files](#cleaning-generated-and-runtime-files)
     - [Submitting a Pull Request](#submitting-a-pull-request)
+    - [Breaking Compatibility with the Last Release](#breaking-compatibility-with-the-last-release)
     - [Editing your Feature Branch](#editing-your-feature-branch)
     - [Resolving Merge Conflicts](#resolving-merge-conflicts)
     - [Updating Your GitHub Fork](#updating-your-github-fork)
@@ -249,6 +250,37 @@ If there are more changes you want to have merged or mistakes you need to fix yo
 
 Pull request descriptions should contain a `### Changelog` section with additions for the changelog contained inside a code block, see the [CHANGELOG.md](/CHANGELOG.md) file for the formatting of changelog entries and possible sections to use.
 If there are no changelog entries to add, remove the code block and start the changelog section with the text `None.`, followed by an optional reason for why it is not is needed.
+
+### Breaking Compatibility with the Last Release
+
+The version-compat job in CI runs the local controller with the latest published host, and the published controller with the local host.
+It fails if a link message changed its src, dst, data or response schema since that release.
+If the break is intended, add an entry to [scripts/version-compat-breaks.json](../scripts/version-compat-breaks.json) in the same pull request.
+Breaking changes are only accepted if the next release is intended to include them, see our decision on [breaking changes](/docs/decisions.md#breaking-changes).
+The entry is keyed by the published version directly before the breaking change was introduced, which is the latest release at the time.
+Every entry needs the pull request number, a reason saying what breaks, and an impact saying why end users are not or only minimally affected.
+
+```json
+{
+	"2.0.3": {
+		"messages": {
+			"request FactorioVersionsRequest": {
+				"pr": 1129,
+				"reason": "What breaks between the two versions.",
+				"impact": "Why end users are not or only minimally affected."
+			}
+		},
+		"connect": { "pr": 1234, "reason": "Why a host cannot connect at all.", "impact": "..." }
+	}
+}
+```
+
+Listed messages are reported as warnings with the reason and impact instead of failing the job.
+Only add `connect` when the published and local versions cannot connect at all, it skips starting the cluster.
+Listing a message that did not change fails the job.
+Entries only apply while their version is the latest release, after the next release they are ignored and can be removed.
+Describe the break in the Breaking Changes section of the changelog.
+
 
 ### Editing your Feature Branch
 
