@@ -1,0 +1,14 @@
+{
+	"2.0.3": {
+		"messages": {
+			"request FactorioVersionsRequest": {
+				"pr": 1129,
+				"reason": "Hosts send it while starting an instance, so a newer host cannot start instances on a 2.0.3 controller."
+			},
+			"request LatestReleasesRequest": {
+				"pr": 1129,
+				"reason": "Hosts send it while starting an instance that targets a release channel such as stable, which a 2.0.3 controller rejects."
+			}
+		}
+	}
+}
