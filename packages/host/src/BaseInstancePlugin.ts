@@ -23,6 +23,7 @@ export class InstanceHooks extends lib.AsyncHookCollection {
 		this.controllerConnectionEvent = this.newHook();
 		this.prepareControllerDisconnect = this.newHook();
 		this.playerEvent = this.newHook();
+		this.autoPauseChanged = this.newHook();
 	}
 
 	/**
@@ -147,6 +148,19 @@ export class InstanceHooks extends lib.AsyncHookCollection {
 	 * @param event - Information about the event.
 	 */
 	readonly playerEvent: lib.AsyncHook<[event: lib.PlayerEvent]>;
+
+	/**
+	 * Called when Factorio auto pauses or unpauses the game
+	 *
+	 * Invoked when the last player leaves or the first player joins an
+	 * instance started with the auto_pause server setting on.  Every RCON
+	 * command makes a paused game run one tick, so periodic commands
+	 * should be skipped while paused.  See `Instance.autoPaused`.  It is
+	 * not invoked on start, read `autoPaused` in the start hook instead.
+	 *
+	 * @param paused - true if the game is now paused.
+	 */
+	readonly autoPauseChanged: lib.AsyncHook<[paused: boolean]>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -160,6 +174,7 @@ export interface BaseInstancePlugin {
 	onControllerConnectionEvent?(event: "connect" | "drop" | "resume" | "close"): void;
 	onPrepareControllerDisconnect?(connection: Instance): Promise<void>;
 	onPlayerEvent?(event: lib.PlayerEvent): Promise<void>;
+	onAutoPauseChanged?(paused: boolean): Promise<void>;
 }
 
 /**
@@ -222,6 +237,7 @@ export class BaseInstancePlugin {
 		attach(instance.hooks.controllerConnectionEvent, this.onControllerConnectionEvent);
 		attach(instance.hooks.prepareControllerDisconnect, this.onPrepareControllerDisconnect);
 		attach(instance.hooks.playerEvent, this.onPlayerEvent);
+		attach(instance.hooks.autoPauseChanged, this.onAutoPauseChanged);
 	}
 
 	static fromContext(context: InstancePluginContext) {

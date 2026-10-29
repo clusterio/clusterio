@@ -505,6 +505,25 @@ Data out from Factorio does not have the same limits as data into Factorio, RCON
 For `send_json` it's possible that payloads greater than 4kB are received after payloads that were sent at a later point in time.
 For RCON, commands longer than 50 characters may end up being executed after shorter commands sent after it.
 
+### Auto pause
+
+Each RCON command makes a paused game run one tick, so commands sent on a timer keep a server with `auto_pause` on running while nobody is online.
+`instance.autoPaused` is true while the instance was started with `auto_pause` on and no players are online, and the `autoPauseChanged` hook is invoked with the new value when it changes.
+Skip periodic commands while it is true:
+
+```js
+instance.hooks.start.attach(plugin.name, async () => {
+    timer = setInterval(() => {
+        if (!instance.autoPaused) {
+            instance.sendRcon("/sc my_plugin.update()").catch(handleError);
+        }
+    }, 1000);
+});
+```
+
+Commands sent in response to events from elsewhere in the cluster are fine, they cost one tick each.
+A game paused with `game.tick_paused` does not run ticks for commands.
+
 ### Communicating over UDP
 
 Instances can optionally exchange UDP packets with the Factorio server for low latency fire-and-forget communication, using the `--enable-lua-udp` option of Factorio.

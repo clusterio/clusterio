@@ -129,6 +129,7 @@ export class MockInstance extends lib.Link {
 		this.name = "test";
 		this.id = 7357;
 		this.status = "running";
+		this.autoPaused = false;
 		this.hooks = new InstanceHooks(this.logger);
 		this.loadedPlugins = new Set();
 		this.mockConfigEntries = new Map([

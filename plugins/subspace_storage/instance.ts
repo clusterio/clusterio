@@ -87,14 +87,32 @@ export default async function(context: InstancePluginContext) {
 		cachedInventoryItems = event.items;
 	});
 
+	function sendPing() {
+		instance.sendRcon(
+			"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true, plugin.name
+		).catch(err => unexpectedError(err));
+	}
+
+	function sendInventory() {
+		const payloadItems = [
+			...cachedInventoryItems,
+			new Item("signal-unixtime", Math.floor(Date.now() / 1000), "normal"),
+		];
+		const payloadJson = lib.escapeString(JSON.stringify(payloadItems));
+		const task = instance.sendRcon(
+			`/sc __subspace_storage__ UpdateInvData("${payloadJson}")`, true, plugin.name
+		).catch(err => unexpectedError(err));
+		pendingTasks.add(task);
+		task.finally(() => { pendingTasks.delete(task); });
+	}
+
 	instance.hooks.start.attach(plugin.name, async () => {
+		// Each command runs a tick on an auto paused game.
 		pingId = setInterval(() => {
-			if (!host.connected) {
-				return; // Only ping if we are actually connected to the controller.
+			// Only ping if we are actually connected to the controller.
+			if (host.connected && !instance.autoPaused) {
+				sendPing();
 			}
-			instance.sendRcon(
-				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true, plugin.name
-			).catch(err => unexpectedError(err));
 		}, 5000);
 
 		let items = await instance.sendTo("controller", new GetStorageRequest());
@@ -105,21 +123,20 @@ export default async function(context: InstancePluginContext) {
 
 		// Ensure a payload with updated time is sent every second
 		timeUpdateId = setInterval(() => {
-			if (instance.status !== "running") {
-				return;
+			if (instance.status === "running" && !instance.autoPaused) {
+				sendInventory();
 			}
-
-			const payloadItems = [
-				...cachedInventoryItems,
-				new Item("signal-unixtime", Math.floor(Date.now() / 1000), "normal"),
-			];
-			const payloadJson = lib.escapeString(JSON.stringify(payloadItems));
-			const task = instance.sendRcon(
-				`/sc __subspace_storage__ UpdateInvData("${payloadJson}")`, true, plugin.name
-			).catch(err => unexpectedError(err));
-			pendingTasks.add(task);
-			task.finally(() => { pendingTasks.delete(task); });
 		}, 1000);
+	});
+
+	instance.hooks.autoPauseChanged.attach(plugin.name, async (paused: boolean) => {
+		if (paused || instance.status !== "running") {
+			return;
+		}
+		if (host.connected) {
+			sendPing();
+		}
+		sendInventory();
 	});
 
 	instance.hooks.stop.attach(plugin.name, async () => {

@@ -190,6 +190,7 @@ export default class Instance extends lib.Link {
 	_loadedSave: string | null = null;
 	_playerCheckInterval: ReturnType<typeof setInterval> | undefined;
 	_hadPlayersOnline = false;
+	_autoPause = false;
 	_playerAutosaveSlot = 1;
 	_expectedUserUpdates: { action: string, name: string, reason: string }[] = [];
 	_settleWaiters: (() => void)[] = [];
@@ -388,10 +389,19 @@ export default class Instance extends lib.Link {
 		}
 	}
 
+	/**
+	 * True while Factorio has paused the game because auto_pause is on
+	 * and no players are online.
+	 */
+	get autoPaused() {
+		return this._autoPause && this.playersOnline.size === 0;
+	}
+
 	_recordPlayerJoin(name: string) {
 		if (this.playersOnline.has(name)) {
 			return;
 		}
+		const wasPaused = this.autoPaused;
 		this.playersOnline.add(name);
 
 		let stats = this.playerStats.get(name);
@@ -411,6 +421,9 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
+		if (wasPaused) {
+			this.hooks.autoPauseChanged.invoke(false);
+		}
 		this.hooks.playerEvent.invoke(event);
 	}
 
@@ -432,6 +445,9 @@ export default class Instance extends lib.Link {
 			stats,
 		};
 		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, stats, reason));
+		if (this.autoPaused) {
+			this.hooks.autoPauseChanged.invoke(true);
+		}
 		this.hooks.playerEvent.invoke(event);
 	}
 
@@ -628,6 +644,7 @@ end`.replace(/\r?\n/g, " ");
 
 	notifyExit() {
 		this._loadedSave = null;
+		this._autoPause = false;
 		this.notifyStatus("stopped");
 		this.connector.emit("close");
 
@@ -857,6 +874,7 @@ end`.replace(/\r?\n/g, " ");
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, "\t")
 		);
+		return serverSettings;
 	}
 
 	/**
@@ -971,7 +989,9 @@ end`.replace(/\r?\n/g, " ");
 	 */
 	async prepare() {
 		this.logger.verbose("Writing server-settings.json");
-		await this.writeServerSettings(true);
+		// auto_pause is only read on startup
+		const serverSettings = await this.writeServerSettings(true);
+		this._autoPause = serverSettings.auto_pause === true;
 		this._expectedUserUpdates = [];
 
 		if (this.config.get("factorio.sync_adminlist") !== "disabled") {
