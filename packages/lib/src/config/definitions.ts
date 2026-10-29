@@ -526,10 +526,10 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		return config;
 	}
 
-	/** Fields that are never inherited from a template, ports would clash on a shared host */
+	/** Fields that are never inherited from a template, ports clash on a shared host and secrets stay per instance */
 	static uninheritableFields = [
 		"instance.name", "instance.is_template", "instance.template_id",
-		"factorio.game_port", "factorio.rcon_port", "factorio.lua_udp_port",
+		"factorio.game_port", "factorio.rcon_port", "factorio.rcon_password", "factorio.lua_udp_port",
 	];
 
 	/** True if the field can take its value from a template */

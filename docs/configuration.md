@@ -514,7 +514,7 @@ ID of the template to inherit config values from.
 Inherited fields take their value from the template and follow it when it changes, setting a field on this instance stops inheriting it.
 Object fields like `factorio.settings` are inherited per property, properties set on this instance override the ones from the template.
 When set on an existing instance fields with the same value as the template or the default value become inherited, except the server name in `factorio.settings`.
-`instance.name`, `instance.is_template`, `instance.template_id`, the port fields and hidden fields are never inherited.
+`instance.name`, `instance.is_template`, `instance.template_id`, the port fields, `factorio.rcon_password` and hidden fields are never inherited.
 A template may itself inherit from another template, but not from itself through a chain of templates.
 The fields currently inherited are stored in the hidden `instance.inherited_fields` field.
 In the web interface inherited values are locked and must be unlocked before they can be changed.

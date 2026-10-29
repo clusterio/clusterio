@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Checkbox, Form, Input, Modal, Select, Space, Tooltip, Typography } from "antd";
+import { Button, Checkbox, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from "antd";
+import type { ColumnType } from "antd/es/table/interface";
 
 import * as lib from "@clusterio/lib";
 
@@ -13,6 +14,8 @@ import { useHosts } from "../model/host";
 import { useInstanceConfig, useInstances } from "../model/instance";
 import { useSaves } from "../model/saves";
 import InstanceList from "./InstanceList";
+import Link from "./Link";
+import useRowNavigation from "../util/useRowNavigation";
 import { notifyErrorHandler } from "../util/notify";
 import type { Control } from "../util/websocket";
 
@@ -92,6 +95,7 @@ export function CreateInstanceButton({ buttonText = "Create", buttonType = "prim
 	initial?: CreateInstanceInitial;
 	buttonText?: string;
 	buttonType?: "primary" | "default";
+	buttonSize?: "small";
 }) {
 	let control = useContext(ControlContext);
 	let account = useAccount();
@@ -195,6 +199,7 @@ export function CreateInstanceButton({ buttonText = "Create", buttonType = "prim
 	return <>
 		<Button
 			type={buttonType}
+			size={props.buttonSize}
 			onClick={() => {
 				setOpen(true);
 			}}
@@ -281,12 +286,59 @@ export function CreateInstanceButton({ buttonText = "Create", buttonType = "prim
 	</>;
 }
 
+function TemplateList(props: { instances: ReturnType<typeof useInstances>[0] }) {
+	const account = useAccount();
+	const rowNav = useRowNavigation();
+	const all = [...props.instances.values()];
+	const inheritors = (id: number) => all.filter(instance => instance.templateId === id).length;
+	const columns: ColumnType<lib.InstanceDetails>[] = [
+		{
+			title: "Name",
+			dataIndex: "name",
+			defaultSortOrder: "ascend",
+			sorter: (a, b) => strcmp(a.name, b.name),
+			render: (_, template) => <Link to={`/instances/${template.id}/view`} style={{ color: "inherit" }}>
+				{template.name}
+			</Link>,
+		},
+		{
+			title: "Inherited by",
+			key: "inheritors",
+			render: (_, template) => `${inheritors(template.id)} instance(s)`,
+			sorter: (a, b) => inheritors(a.id) - inheritors(b.id),
+		},
+	];
+	if (account.hasPermission("core.instance.create")) {
+		columns.push({
+			key: "action",
+			align: "right",
+			// Clicks inside the modal bubble through the React tree to the row
+			render: (_, template) => <span onClick={e => e.stopPropagation()}>
+				<CreateInstanceButton
+					instances={props.instances}
+					initial={{ template: template.id }}
+					buttonText="Create instance"
+					buttonType="default"
+					buttonSize="small"
+				/>
+			</span>,
+		});
+	}
+	return <Table
+		columns={columns}
+		dataSource={all.filter(instance => instance.isTemplate)}
+		rowKey={template => template.id}
+		pagination={false}
+		onRow={record => rowNav(`/instances/${record.id}/view`)}
+	/>;
+}
+
 export default function InstancesPage() {
 	let control = useContext(ControlContext);
 	let account = useAccount();
 	let [instances] = useInstances();
 	const plainInstances = new Map([...instances].filter(([, instance]) => !instance.isTemplate));
-	const templates = new Map([...instances].filter(([, instance]) => instance.isTemplate));
+	const hasTemplates = plainInstances.size !== instances.size;
 
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
@@ -321,9 +373,9 @@ export default function InstancesPage() {
 		/>
 
 		<InstanceList instances={plainInstances} />
-		{templates.size > 0 && <>
+		{hasTemplates && <>
 			<Typography.Title level={5} style={{ marginTop: 16 }}>Templates</Typography.Title>
-			<InstanceList instances={templates} hideAssignedHost tableNamespace="template" />
+			<TemplateList instances={instances} />
 		</>}
 		<PluginExtra component="InstancesPage" />
 	</PageLayout>;

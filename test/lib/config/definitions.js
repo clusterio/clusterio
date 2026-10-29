@@ -14,7 +14,8 @@ describe("lib/config/definitions", function() {
 				for (const name of [
 					"instance.name", "instance.id", "instance.assigned_host", "instance.is_template",
 					"instance.template_id", "instance.inherited_fields", "factorio.host_assigned_game_port",
-					"factorio.game_port", "factorio.rcon_port", "factorio.lua_udp_port", "no.field",
+					"factorio.game_port", "factorio.rcon_port", "factorio.rcon_password", "factorio.lua_udp_port",
+					"no.field",
 				]) {
 					assert.equal(lib.InstanceConfig.isInheritable(name), false, name);
 				}

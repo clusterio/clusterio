@@ -433,11 +433,14 @@ describe("controller/InstanceManager", function () {
 				assert.equal(child.config.isInherited("factorio.game_port"), false);
 				assert.equal(child.config.isInherited("instance.name"), false);
 			});
-			it("should never inherit ports", function () {
+			it("should never inherit ports or the rcon password", function () {
+				template.config.set("factorio.rcon_password", "secret");
 				const config = new lib.InstanceConfig("controller", { "instance.id": 12, "instance.template_id": 10 });
 				instances.applyTemplate(config, ["instance.id", "instance.template_id"]);
 				assert.equal(config.get("factorio.game_port"), null);
 				assert.equal(config.isInherited("factorio.game_port"), false);
+				assert.equal(config.get("factorio.rcon_password"), null);
+				assert.equal(config.isInherited("factorio.rcon_password"), false);
 			});
 			it("should inherit factorio.settings per property with its own server name", function () {
 				const settings = child.config.get("factorio.settings");
