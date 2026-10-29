@@ -749,42 +749,53 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("instance base inheritance", function() {
+		describe("instance template inheritance", function() {
 			after(async function() {
-				for (const id of [4402, 4401, 4400]) {
+				for (const id of [4403, 4402, 4401, 4400]) {
 					await getControl().send(new lib.InstanceDeleteRequest(id)).catch(() => {});
 				}
 			});
-			it("creates a base and an instance inheriting from it", async function() {
-				await execCtl("instance create inheritBase --id 4400 --is-base");
-				await execCtl("instance config set inheritBase factorio.version 2.0");
-				await execCtl("instance create inheritChild --id 4401 --base inheritBase");
+			it("creates a template and an instance inheriting from it", async function() {
+				await execCtl("instance create inheritTemplate --id 4400 --is-template");
+				await execCtl("instance config set inheritTemplate factorio.version 2.0");
+				await execCtl("instance create inheritChild --id 4401 --template inheritTemplate");
 				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
-				assert.equal(config["instance.base_id"], 4400);
+				assert.equal(config["instance.template_id"], 4400);
 				assert.equal(config["factorio.version"], "2.0");
 				assert.equal(config["instance.inherited_fields"]["factorio.version"], true);
-				assert.equal((await getInstances()).get(4400).isBase, true);
+				assert.equal((await getInstances()).get(4400).isTemplate, true);
 			});
-			it("propagates base changes", async function() {
-				await execCtl("instance config set inheritBase factorio.version 2.1");
+			it("propagates template changes per property", async function() {
+				await execCtl("instance config set inheritTemplate factorio.version 2.1");
+				await execCtl("instance config set-prop inheritChild factorio.settings max_players 3");
+				await execCtl("instance config set-prop inheritTemplate factorio.settings max_players 7");
+				await execCtl("instance config set-prop inheritTemplate factorio.settings afk_autokick_interval 9");
 				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
 				assert.equal(config["factorio.version"], "2.1");
+				assert.equal(config["factorio.settings"].max_players, 3);
+				assert.equal(config["factorio.settings"].afk_autokick_interval, 9);
 			});
-			it("rejects inheriting from an instance that is not a base", async function() {
+			it("creates a template from an existing instance", async function() {
+				await execCtl("instance create inheritCopy --id 4403 --is-template --from 4401");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(4403));
+				assert.equal(config["instance.is_template"], true);
+				assert.equal(config["factorio.settings"].max_players, 3);
+			});
+			it("rejects inheriting from an instance that is not a template", async function() {
 				await assert.rejects(
-					execCtl("instance create inheritBad --id 4402 --base inheritChild"),
-					new lib.ValidationError("Instance inheritChild is not a base"),
+					execCtl("instance create inheritBad --id 4402 --template inheritChild"),
+					new lib.ValidationError("Instance inheritChild is not a template"),
 				);
 			});
-			it("rejects assigning a base to a host", async function() {
+			it("rejects assigning a template to a host", async function() {
 				await assert.rejects(
-					execCtl("instance assign inheritBase 4"),
-					new lib.ValidationError("Base instances cannot be assigned to a host"),
+					execCtl("instance assign inheritTemplate 4"),
+					new lib.ValidationError("Templates cannot be assigned to a host"),
 				);
 			});
-			describe("instance list --bases", function() {
+			describe("instance list --templates", function() {
 				it("runs", async function() {
-					await execCtl("instance list --bases");
+					await execCtl("instance list --templates");
 				});
 			});
 			describe("instance config list", function() {
@@ -799,9 +810,11 @@ describe("Integration of Clusterio", function() {
 					assert.equal(config["instance.inherited_fields"]["factorio.version"], undefined);
 
 					await execCtl("instance config inherit inheritChild factorio.version");
+					await execCtl("instance config inherit inheritChild factorio.settings max_players");
 					config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
 					assert.equal(config["factorio.version"], "2.1");
 					assert.equal(config["instance.inherited_fields"]["factorio.version"], true);
+					assert.equal(config["factorio.settings"].max_players, 7);
 				});
 			});
 		});

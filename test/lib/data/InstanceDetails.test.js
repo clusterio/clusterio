@@ -16,6 +16,8 @@ describe("lib/data/InstanceDetails", function () {
 			[undefined, 1234], // startedAtMs
 			[undefined, 9999], // updatedAtMs
 			[undefined, true], // excludeFromStartAll
+			[undefined, true], // isTemplate
+			[undefined, 7], // templateId
 		));
 	});
 

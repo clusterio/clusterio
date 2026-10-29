@@ -56,16 +56,16 @@ Marks the host as requiring a restart, the same way a plugin update does. Use it
 
 ### List Instances
 
-    ctl> instance list [--bases]
+    ctl> instance list [--templates]
 
 List instances.
-Base instances are only listed if `--bases` is passed.
+Templates are only listed if `--templates` is passed.
 
 ### Create instance
 
-    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--base <instance>] [--is-base]
+    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--template <instance>] [--is-template]
 
-Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--base` makes the new instance inherit all config values from the given base instance. `--is-base` creates the instance as a base, see `instance.is_base` in the [configuration docs](configuration.md).
+Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--template` makes the new instance inherit all config values from the given template. `--is-template` creates the instance as a template, see `instance.is_template` in the [configuration docs](configuration.md). Use `--is-template --from <instance>` to make a template out of an existing instance.
 
 ### Kill instance
 
@@ -98,7 +98,7 @@ Most notably Clusterio records wall clock time while the save time is recorded i
 
     ctl> instance config list <instance>
 
-List config values for an instance. `instance` is the instance whose config values to list. Values inherited from a base instance are marked with `(inherited)`.
+List config values for an instance. `instance` is the instance whose config values to list. Values inherited from a template are marked with `(inherited)`, object fields also list the properties set on the instance.
 
 #### Set config value
 
@@ -112,9 +112,9 @@ To be written.
 
 #### Inherit config value
 
-    ctl> instance config inherit <instance> <field>
+    ctl> instance config inherit <instance> <field> [prop]
 
-Make a field in the instance config take its value from the base instance again, undoing a previous `set`. `instance` is the instance to update, `field` is the field to inherit.
+Make a field in the instance config take its value from the template again, undoing a previous `set`. `instance` is the instance to update, `field` is the field to inherit, `prop` limits it to one property of an object field.
 
 #### Edit instance config
 

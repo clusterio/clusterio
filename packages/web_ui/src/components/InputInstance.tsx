@@ -5,6 +5,7 @@ import { useInstances } from "../model/instance";
 
 interface BaseInputInstanceProps extends InputComponentProps {
 	includeAll?: boolean;
+	templates?: boolean;
 }
 
 function BaseInputInstance(props: BaseInputInstanceProps) {
@@ -12,7 +13,9 @@ function BaseInputInstance(props: BaseInputInstanceProps) {
 
 	const options = [
 		...(props.includeAll ? [{ label: "All instances", value: null }] : []),
-		...[...instances.values()].map(instance => ({
+		...[...instances.values()].filter(
+			instance => Boolean(instance.isTemplate) === Boolean(props.templates)
+		).map(instance => ({
 			label: instance.name ?? `Instance ${instance.id}`,
 			value: instance.id,
 		})),
@@ -39,4 +42,8 @@ export function InputInstanceWithAll(props: InputComponentProps) {
 
 export function InputInstance(props: InputComponentProps) {
 	return <BaseInputInstance {...props} />;
+}
+
+export function InputInstanceTemplate(props: InputComponentProps) {
+	return <BaseInputInstance {...props} templates />;
 }

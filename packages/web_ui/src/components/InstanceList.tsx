@@ -23,6 +23,7 @@ type InstanceListProps = {
 	instances: ReadonlyMap<number, Readonly<lib.InstanceDetails>>;
 	size?: SizeType;
 	hideAssignedHost?: boolean;
+	tableNamespace?: string;
 };
 
 export default function InstanceList(props: InstanceListProps) {
@@ -30,7 +31,7 @@ export default function InstanceList(props: InstanceListProps) {
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
 	const tableState = useTableQueryState<lib.InstanceDetails>({
-		namespace: "instance", defaultSortKey: "name",
+		namespace: props.tableNamespace ?? "instance", defaultSortKey: "name",
 	});
 	const nameSearch = useColumnSearch<lib.InstanceDetails>(
 		tableState, "name", instance => instance.name, "Search instances"

@@ -472,9 +472,9 @@ export interface InstanceConfigFields {
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
 	"instance.exclude_from_start_all": boolean;
-	"instance.is_base": boolean;
-	"instance.base_id": number | null;
-	"instance.inherited_fields": Record<string, true>;
+	"instance.is_template": boolean;
+	"instance.template_id": number | null;
+	"instance.inherited_fields": Record<string, true | string[]>;
 	[key: `${string}.load_plugin`]: boolean;
 	[key: `${string}.version`]: string;
 
@@ -526,10 +526,13 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		return config;
 	}
 
-	/** Fields that are never inherited from a base instance */
-	static uninheritableFields = ["instance.name", "instance.is_base", "instance.base_id"];
+	/** Fields that are never inherited from a template, ports would clash on a shared host */
+	static uninheritableFields = [
+		"instance.name", "instance.is_template", "instance.template_id",
+		"factorio.game_port", "factorio.rcon_port", "factorio.lua_udp_port",
+	];
 
-	/** True if the field can take its value from a base instance */
+	/** True if the field can take its value from a template */
 	static isInheritable(name: string) {
 		const def = this.fieldDefinitions[name as keyof InstanceConfigFields];
 		return Boolean(def)
@@ -538,9 +541,21 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			&& !this.uninheritableFields.includes(name);
 	}
 
-	/** True if the field currently takes its value from the base instance */
-	isInherited(name: string) {
-		return this.get("instance.base_id") !== null && Boolean(this.get("instance.inherited_fields")[name]);
+	/**
+	 * True if the field, or the given property of an object field, takes its value from the template
+	 *
+	 * @param name - Name of field to check.
+	 * @param prop - Property of an object field to check.
+	 */
+	isInherited(name: string, prop?: string) {
+		if (this.get("instance.template_id") === null) {
+			return false;
+		}
+		const entry = this.get("instance.inherited_fields")[name];
+		if (entry instanceof Array) {
+			return prop === undefined || !entry.includes(prop);
+		}
+		return Boolean(entry);
 	}
 
 	static fieldDefinitions: classes.ConfigDefs<InstanceConfigFields> = {
@@ -570,24 +585,26 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			type: "boolean",
 			initialValue: false,
 		},
-		"instance.is_base": {
+		"instance.is_template": {
 			description:
-				"Mark this instance as a base other instances can inherit config from. " +
-				"Bases cannot be assigned to a host or started.",
+				"Mark this instance as a template other instances can inherit config from. " +
+				"Templates cannot be assigned to a host or started.",
 			access: ["controller", "control"],
 			type: "boolean",
 			initialValue: false,
 		},
-		"instance.base_id": {
-			title: "Base Instance",
-			description: "ID of the base instance to inherit config values from",
+		"instance.template_id": {
+			title: "Template",
+			description: "ID of the template to inherit config values from",
 			access: ["controller", "control"],
+			inputComponent: "instance_template",
 			type: "number",
 			optional: true,
 			// Checked by the controller
 		},
 		"instance.inherited_fields": {
-			description: "Fields whose value comes from the base instance",
+			description:
+				"Fields whose value comes from the template, for object fields the properties set on this instance",
 			access: ["controller", "control"],
 			readonly: ["controller"],
 			type: "object",

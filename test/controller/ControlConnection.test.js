@@ -154,22 +154,22 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(clone.config.get("instance.assigned_host"), null);
 		});
 
-		it("creates an instance inheriting from a base", async function() {
-			await create({ "instance.id": 4001, "instance.name": "base", "instance.is_base": true });
+		it("creates an instance inheriting from a template", async function() {
+			await create({ "instance.id": 4001, "instance.name": "template", "instance.is_template": true });
 			mockController.instances.getMutable(4001).config.set("factorio.version", "2.0");
 
-			await create({ "instance.id": 4002, "instance.name": "child", "instance.base_id": 4001 });
+			await create({ "instance.id": 4002, "instance.name": "child", "instance.template_id": 4001 });
 			const child = mockController.instances.get(4002);
 			assert.equal(child.config.get("factorio.version"), "2.0");
 			assert.equal(child.config.isInherited("factorio.version"), true);
 			assert.equal(child.config.isInherited("instance.name"), false);
 		});
 
-		it("rejects a base that is not a base", async function() {
+		it("rejects a template that is not a template", async function() {
 			await create({ "instance.id": 4001, "instance.name": "plain" });
 			await assert.rejects(
-				create({ "instance.id": 4002, "instance.name": "child", "instance.base_id": 4001 }),
-				new lib.ValidationError("Instance plain is not a base"),
+				create({ "instance.id": 4002, "instance.name": "child", "instance.template_id": 4001 }),
+				new lib.ValidationError("Instance plain is not a template"),
 			);
 			assert.equal(mockController.instances.has(4002), false);
 		});
@@ -189,14 +189,16 @@ describe("controller/src/ControlConnection", function() {
 				checkStagedInheritance: ControlConnection.prototype.checkStagedInheritance,
 			};
 			for (const [id, fields] of [
-				[1, { "instance.is_base": true, "factorio.version": "2.0" }],
-				[2, { "instance.base_id": 1 }],
+				[1, { "instance.is_template": true, "factorio.version": "2.0" }],
+				[2, { "instance.template_id": 1 }],
 			]) {
 				const config = new lib.InstanceConfig("controller", {
 					"instance.id": id, "instance.name": `i${id}`, ...fields,
 				});
-				if (fields["instance.base_id"]) {
-					mockController.instances.applyBase(config, ["instance.id", "instance.name", "instance.base_id"]);
+				if (fields["instance.template_id"]) {
+					mockController.instances.applyTemplate(
+						config, ["instance.id", "instance.name", "instance.template_id"],
+					);
 				}
 				await mockController.instances.createInstance(config);
 			}
@@ -204,6 +206,11 @@ describe("controller/src/ControlConnection", function() {
 
 		function call(handler, request) {
 			return ControlConnection.prototype[handler].call(connection, request);
+		}
+		async function create(config, cloneFromId) {
+			await ControlConnection.prototype.handleInstanceCreateRequest.call(
+				connection, new lib.InstanceCreateRequest(config, cloneFromId),
+			);
 		}
 		const setField = (...args) => new lib.InstanceConfigSetFieldRequest(...args);
 		const setFields = (...args) => new lib.InstanceConfigSetRequest(...args);
@@ -218,28 +225,58 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(mockController.instances.get(2).config.isInherited("factorio.version"), false);
 		});
 
-		it("stops inheriting a field changed through set-prop", async function() {
+		it("stops inheriting a property set through set-prop", async function() {
 			await call(
 				"handleInstanceConfigSetPropRequest",
 				new lib.InstanceConfigSetPropRequest(2, "factorio.settings", "max_players", 0),
 			);
-			assert.equal(mockController.instances.get(2).config.isInherited("factorio.settings"), false);
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.isInherited("factorio.settings", "max_players"), false);
+			assert.equal(config.isInherited("factorio.settings", "auto_pause"), true);
 		});
 
-		it("rejects base_id pointing at a non-base", async function() {
+		it("rejects template_id pointing at a non-template", async function() {
 			await assert.rejects(
-				call("handleInstanceConfigSetFieldRequest", setField(1, "instance.base_id", "2")),
-				new lib.ValidationError("Instance i2 is not a base"),
+				call("handleInstanceConfigSetFieldRequest", setField(1, "instance.template_id", "2")),
+				new lib.ValidationError("Instance i2 is not a template"),
 			);
-			assert.equal(mockController.instances.get(1).config.get("instance.base_id"), null);
+			assert.equal(mockController.instances.get(1).config.get("instance.template_id"), null);
 		});
 
-		it("rejects unmarking a base with inheritors through set request", async function() {
+		it("rejects unmarking a template with inheritors through set request", async function() {
 			await assert.rejects(
-				call("handleInstanceConfigSetRequest", setFields(1, { "instance.is_base": "false" })),
-				new lib.ConflictError("Instance is the base of 1 other instance(s)"),
+				call("handleInstanceConfigSetRequest", setFields(1, { "instance.is_template": "false" })),
+				new lib.ConflictError("Instance is the template of 1 other instance(s)"),
 			);
-			assert.equal(mockController.instances.get(1).config.get("instance.is_base"), true);
+			assert.equal(mockController.instances.get(1).config.get("instance.is_template"), true);
+		});
+
+		it("stops inheriting only the properties set through set request", async function() {
+			await call("handleInstanceConfigSetRequest", setFields(2, { "factorio.settings": { max_players: 3 } }));
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.isInherited("factorio.settings", "max_players"), false);
+			assert.equal(config.isInherited("factorio.settings", "auto_pause"), true);
+		});
+
+		it("inherits a property again", async function() {
+			await call("handleInstanceConfigSetPropRequest", new lib.InstanceConfigSetPropRequest(
+				2, "factorio.settings", "max_players", 3,
+			));
+			await call(
+				"handleInstanceConfigInheritFieldRequest",
+				new lib.InstanceConfigInheritFieldRequest(2, "factorio.settings", "max_players"),
+			);
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.get("factorio.settings").max_players, 0);
+			assert.equal(config.isInherited("factorio.settings", "max_players"), true);
+		});
+
+		it("creates a template from an existing instance", async function() {
+			await create({ "instance.id": 3, "instance.name": "copy", "instance.is_template": true }, 2);
+			const config = mockController.instances.get(3).config;
+			assert.equal(config.get("instance.is_template"), true);
+			assert.equal(config.get("instance.template_id"), 1);
+			assert.equal(config.get("factorio.version"), "2.0");
 		});
 
 		it("inherits a field again", async function() {
