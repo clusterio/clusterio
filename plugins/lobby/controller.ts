@@ -381,7 +381,7 @@ export class LobbyController {
 	startTransfer(player: string, instanceId: number, lobbyId?: number) {
 		const instance = this.controller.instances.get(instanceId);
 		if (!LobbyController.isRoutable(instance)) {
-			throw new lib.RequestError(`Instance ${instanceId} is not available`);
+			throw new lib.UnavailableError(`Instance ${instanceId} is not available`);
 		}
 		const ready = instance.status === "running";
 		const transfer: Transfer = {
