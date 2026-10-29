@@ -254,6 +254,7 @@ If there are no changelog entries to add, remove the code block and start the ch
 
 The version-compat job in CI runs the local controller with the latest published host, and the published controller with the local host.
 It fails if a link message changed its src, dst, data or response schema since that release.
+Control is left out of src and dst, and messages that only go between control and the controller are not checked, as the web UI is served by the controller it talks to.
 If the break is intended, add an entry to [scripts/version-compat-breaks.json](../scripts/version-compat-breaks.json) in the same pull request.
 Breaking changes are only accepted if the next release is intended to include them, see our decision on [breaking changes](/docs/decisions.md#breaking-changes).
 The entry is keyed by the published version directly before the breaking change was introduced, which is the latest release at the time.

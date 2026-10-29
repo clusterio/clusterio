@@ -12,7 +12,10 @@
  * added and removed messages are only warned about since breaking
  * compatibility is unavoidable there.  Optional properties that only one
  * version has are left out of the comparison, as the other version ignores
- * them when received and does not need them when sent.
+ * them when received and does not need them when sent.  Control clients are
+ * left out too, as the web UI is served by the controller it talks to, so
+ * control is removed from src and dst and messages that only go between
+ * control and the controller are skipped.
  *
  * Intended breaks are listed in scripts/version-compat-breaks.json, see
  * scripts/version-compat-breaks.js for the format.
@@ -196,6 +199,15 @@ const dumpMessageSpecs = `
 	console.log(JSON.stringify(specs));
 `;
 
+function withoutControl(spec) {
+	const strip = types => types.filter(type => type !== "control");
+	return { ...spec, src: strip(spec.src), dst: strip(spec.dst) };
+}
+
+function isControlOnly(spec) {
+	return [...spec.src, ...spec.dst].every(type => type === "control" || type === "controller");
+}
+
 async function messageSpecs(libPath) {
 	const result = await execFile(process.execPath, ["-e", dumpMessageSpecs, libPath]);
 	return new Map(Object.entries(JSON.parse(result.stdout)));
@@ -215,12 +227,19 @@ async function checkMessageCompat(publishedVersion, knownBreaks) {
 	console.log(`| comparing ${localSpecs.size} local with ${publishedSpecs.size} published link messages`);
 
 	const changed = [];
-	for (const [name, localSpec] of localSpecs) {
-		const publishedSpec = publishedSpecs.get(name);
-		if (!publishedSpec) {
-			annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
+	for (const [name, fullLocalSpec] of localSpecs) {
+		const fullPublishedSpec = publishedSpecs.get(name);
+		if (!fullPublishedSpec) {
+			if (!isControlOnly(fullLocalSpec)) {
+				annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
+			}
 			continue;
 		}
+		if (isControlOnly(fullLocalSpec) && isControlOnly(fullPublishedSpec)) {
+			continue;
+		}
+		const localSpec = withoutControl(fullLocalSpec);
+		const publishedSpec = withoutControl(fullPublishedSpec);
 		const differs = Object.keys(localSpec).filter(
 			field => stableStringify(localSpec[field]) !== stableStringify(publishedSpec[field])
 		);
@@ -238,8 +257,8 @@ async function checkMessageCompat(publishedVersion, knownBreaks) {
 			changed.push({ name, fields, localSpec, publishedSpec });
 		}
 	}
-	for (const name of publishedSpecs.keys()) {
-		if (!localSpecs.has(name)) {
+	for (const [name, publishedSpec] of publishedSpecs) {
+		if (!localSpecs.has(name) && !isControlOnly(publishedSpec)) {
 			annotate(`Link ${name} was removed after ${publishedVersion} which may still send it`);
 		}
 	}
