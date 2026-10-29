@@ -10,6 +10,9 @@ export default class HostInvite {
 	/** Characters used in invite codes, without 0/O, 1/I/L and other look-alikes. */
 	static codeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 	static codeLength = 8;
+	/** Time after expiry the code is treated as if it never existed and can no longer be extended. */
+	static deadAfterMs = 24 * 60 * 60e3;
+	static maxHostNameLength = 100;
 
 	constructor(
 		/** Unique id of the invite, separate from the code so it can be logged. */
@@ -28,6 +31,8 @@ export default class HostInvite {
 		public hostIds: number[] = [],
 		/** Millisecond Unix timestamp of the last claim, 0 if never claimed. */
 		public lastUsedAtMs = 0,
+		/** True if the invite is paused and cannot be claimed. */
+		public paused = false,
 		/** Millisecond Unix timestamp this entry was last updated at. */
 		public updatedAtMs = 0,
 		/** True if this invite has been revoked. */
@@ -42,13 +47,18 @@ export default class HostInvite {
 		return this.expiresAtMs !== null && this.expiresAtMs <= nowMs;
 	}
 
+	/** True if the invite expired long enough ago that its code is treated as nonexistent. */
+	isDead(nowMs = Date.now()) {
+		return this.expiresAtMs !== null && this.expiresAtMs + HostInvite.deadAfterMs <= nowMs;
+	}
+
 	isUsedUp() {
 		return this.maxUses !== null && this.uses >= this.maxUses;
 	}
 
 	/** True if the invite can be claimed. */
 	isUsable(nowMs = Date.now()) {
-		return !this.isDeleted && !this.isExpired(nowMs) && !this.isUsedUp();
+		return !this.isDeleted && !this.paused && !this.isExpired(nowMs) && !this.isUsedUp();
 	}
 
 	/** Time the invite stopped being usable, or null if it is still usable. */
@@ -68,8 +78,8 @@ export default class HostInvite {
 	}
 
 	/**
-	 * Split an invite URL of the form `<controller url>invite/<code>` into
-	 * the controller URL and the normalised code.
+	 * Split an invite URL of the form `<controller url>invite/<code>[?name=<host name>]`
+	 * into the controller URL, the normalised code and the host name if given.
 	 */
 	static parseUrl(url: string) {
 		let parsed;
@@ -86,7 +96,8 @@ export default class HostInvite {
 		if (!code) {
 			return null;
 		}
-		return { controllerUrl: `${parsed.origin}${match[1]}`, code };
+		const name = parsed.searchParams.get("name") || undefined;
+		return { controllerUrl: `${parsed.origin}${match[1]}`, code, name };
 	}
 
 	/** Code with all but the first two characters masked, for logging. */
@@ -103,6 +114,7 @@ export default class HostInvite {
 		"maxUses": Type.Optional(Type.Integer()),
 		"hostIds": Type.Optional(Type.Array(Type.Integer())),
 		"lastUsedAtMs": Type.Optional(Type.Number()),
+		"paused": Type.Optional(Type.Boolean()),
 		"updatedAtMs": Type.Optional(Type.Number()),
 		"isDeleted": Type.Optional(Type.Boolean()),
 	});
@@ -117,6 +129,7 @@ export default class HostInvite {
 			json.maxUses ?? null,
 			json.hostIds,
 			json.lastUsedAtMs,
+			json.paused,
 			json.updatedAtMs,
 			json.isDeleted,
 		);
@@ -145,6 +158,9 @@ export default class HostInvite {
 		}
 		if (this.lastUsedAtMs !== 0) {
 			json.lastUsedAtMs = this.lastUsedAtMs;
+		}
+		if (this.paused !== false) {
+			json.paused = this.paused;
 		}
 		if (this.updatedAtMs !== 0) {
 			json.updatedAtMs = this.updatedAtMs;

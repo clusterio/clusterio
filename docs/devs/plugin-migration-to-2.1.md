@@ -26,6 +26,14 @@ Errors of classes that are not registered, like a `TypeError` from a bug, are re
 Plugins that define their own error classes need to list them in `errors` of the plugin declaration.
 
 
+## Controller hosts
+
+`controller.hosts` is now a `HostManager` instead of a datastore of host records, like `controller.users` and `controller.instances`.
+`get`, `getMutable`, `has` and `values` work as before.
+Use `controller.hosts.records` for the datastore itself, e.g. `controller.hosts.records.set(host)` or listening to `update` events.
+`controller.generateHostToken(id)` moved to `controller.hosts.createToken(id)`.
+
+
 ## Build the web module with Vite
 
 The web interface is now built with Vite instead of webpack, and plugin web modules are loaded as ES modules instead of through Module Federation.

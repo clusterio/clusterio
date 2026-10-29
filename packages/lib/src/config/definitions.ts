@@ -42,6 +42,8 @@ export interface ControllerConfigFields {
 	"controller.allow_remote_updates": boolean;
 	"controller.allow_plugin_updates": boolean;
 	"controller.allow_plugin_install": boolean;
+	"controller.host_invites_paused": boolean;
+	"controller.host_invite_retention_days": number;
 	[key: `${string}.load_plugin`]: boolean;
 	[key: `${string}.version`]: string;
 }
@@ -265,6 +267,21 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 				"used in the server settings of instances in this cluster.",
 			type: "boolean",
 			initialValue: true,
+		},
+		"controller.host_invites_paused": {
+			title: "Pause Host Invites",
+			description: "Refuse all host invites while enabled, without changing the invites themselves.",
+			type: "boolean",
+			initialValue: false,
+		},
+		"controller.host_invite_retention_days": {
+			title: "Host Invite Retention",
+			description:
+				"Days to keep host invites after they expire or are used up before removing them, " +
+				"0 to keep them forever.",
+			type: "number",
+			initialValue: 7,
+			validator: validators.greaterThanEqualZero,
 		},
 		"controller.default_mod_pack_id": {
 			title: "Default Mod Pack",

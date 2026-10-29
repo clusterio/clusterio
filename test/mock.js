@@ -3,7 +3,7 @@ import http from "node:http";
 import express from "express";
 
 import * as lib from "@clusterio/lib";
-import { User, UserManager, UserRecord, InstanceManager, ControllerHooks } from "@clusterio/controller";
+import { User, UserManager, UserRecord, InstanceManager, HostManager, ControllerHooks } from "@clusterio/controller";
 import { HostHooks, InstanceHooks } from "@clusterio/host";
 
 const addr = lib.Address.fromShorthand;
@@ -206,7 +206,7 @@ export class MockController {
 
 		this.instances = new InstanceManager(new lib.KeyValueDatastore(), this);
 
-		this.hosts = new lib.KeyValueDatastore();
+		this.hosts = new HostManager(new lib.KeyValueDatastore(), new lib.SubscribableDatastore(), this);
 		this.handles = new Map();
 		this.hooks = new ControllerHooks(new MockLogger());
 		this.loadedPlugins = new Set();

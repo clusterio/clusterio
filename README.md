@@ -279,7 +279,7 @@ If you leave the invite URL empty it'll ask for a controller URL and an authenti
 The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Hosts page in the web interface.
 Once you start up the host it should show up in the Hosts list and be available for assigning and running instances on.
 
-An existing host installation can join a cluster with `npx clusteriohost join <invite url>`, which sets the host id, controller URL and token in its config.
+An existing host installation can join a cluster with `npx clusteriohost join <invite url>`, which sets the host id, controller URL, token and the host name if the invite has one in its config.
 If the controller uses a self-signed certificate, set `NODE_EXTRA_CA_CERTS` to the certificate when running the installer or the join command.
 
 

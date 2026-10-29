@@ -64,8 +64,8 @@ export class HostInviteCreateRequest {
 }
 
 /**
- * Change the limits of a host invite. Undefined leaves a limit unchanged,
- * null removes it.
+ * Change the limits of a host invite or pause it. Undefined leaves a value
+ * unchanged, null removes a limit.
  */
 export class HostInviteUpdateRequest {
 	declare ["constructor"]: typeof HostInviteUpdateRequest;
@@ -78,16 +78,18 @@ export class HostInviteUpdateRequest {
 		public id: number,
 		public expiresAtMs?: number | null,
 		public maxUses?: number | null,
+		public paused?: boolean,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"id": Type.Integer(),
 		"expiresAtMs": Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 		"maxUses": Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])),
+		"paused": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.id, json.expiresAtMs, json.maxUses);
+		return new this(json.id, json.expiresAtMs, json.maxUses, json.paused);
 	}
 }
 

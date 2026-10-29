@@ -1,4 +1,4 @@
-import type { Application, Request, Response } from "express";
+import express, { type Application, type Request, type Response } from "express";
 import Controller from "./Controller.js";
 
 import busboy from "busboy";
@@ -236,25 +236,48 @@ function validateUserToken(req: Request, res: Response, next: any) {
 	next();
 }
 
+// Host name from the request body, or the name URL parameter if the body has none
+function inviteHostName(req: Request) {
+	const name = typeof req.body?.name === "string" ? req.body.name : req.query.name;
+	if (name === undefined) {
+		return undefined;
+	}
+	if (typeof name !== "string" || !name.trim() || name.length > lib.HostInvite.maxHostNameLength) {
+		return null;
+	}
+	return name.trim();
+}
+
 // Check or claim a host invite, the invite code is the only authentication
 function hostInvite(req: Request<{ code: string }>, res: Response) {
 	const controller: Controller = req.app.locals.controller;
-	const limiter = controller.hostInviteLimiter;
+	const limiter = controller.hosts.inviteLimiter;
 	const remote = controller.wsServer.remoteAddr(req);
 	res.set("Cache-Control", "no-store");
 
+	if (controller.hosts.invitesPaused) {
+		res.status(503).json({ request_errors: ["Host invites are paused"] });
+		return;
+	}
 	const blockedMs = limiter.blockedForMs(remote);
 	if (blockedMs) {
 		res.set("Retry-After", String(Math.ceil(blockedMs / 1000)));
 		res.status(429).json({ request_errors: ["Too many invalid invite attempts, try again later"] });
 		return;
 	}
+	const name = inviteHostName(req);
+	if (name === null) {
+		res.status(400).json({
+			request_errors: [`Host name must be 1 to ${lib.HostInvite.maxHostNameLength} characters`],
+		});
+		return;
+	}
 
 	const code = lib.HostInvite.normalizeCode(req.params.code);
-	const invite = code ? controller.findHostInvite(code) : undefined;
-	const claim = invite && req.method === "POST" ? controller.claimHostInvite(invite.code, remote) : null;
+	const invite = code ? controller.hosts.findInvite(code) : undefined;
+	const claim = invite && req.method === "POST" ? controller.hosts.claimInvite(invite.code, remote, name) : null;
 	if (claim) {
-		res.json(claim);
+		res.json({ ...claim, name: name ?? null });
 		return;
 	}
 	if (!invite?.isUsable() || req.method === "POST") {
@@ -270,6 +293,7 @@ function hostInvite(req: Request<{ code: string }>, res: Response) {
 	res.json({
 		expiresAtMs: invite.expiresAtMs,
 		usesLeft: invite.maxUses === null ? null : invite.maxUses - invite.uses,
+		name: name ?? null,
 	});
 }
 
@@ -722,7 +746,7 @@ export function addRouteHandlers(app: Application) {
 		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)
 	);
 	app.get("/invite/:code", hostInvite);
-	app.post("/invite/:code", hostInvite);
+	app.post("/invite/:code", express.json({ limit: "1kb" }), hostInvite);
 	app.get("/api/plugins", getPlugins);
 	app.get("/api/cluster-name", getClusterName);
 	app.put("/api/upload-export",

@@ -253,19 +253,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
-		const host = this._controller.hosts.getMutable(request.hostId);
-		if (!host) {
-			throw new Error(`Unknown host id (${request.hostId})`);
-		}
-
-		host.tokenValidAfter = Math.floor(Date.now() / 1000);
-
-		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
-		if (hostConnection) {
-			hostConnection.connector.terminate();
-		}
-
-		this._controller.hosts.set(host);
+		this._controller.hosts.revokeTokens(request.hostId);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
@@ -273,19 +261,15 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
-		let hostId = message.hostId;
-		if (hostId === undefined) {
-			hostId = Math.random() * 2**31 | 0;
-		}
-		return this._controller.generateHostToken(hostId);
+		return this._controller.hosts.createToken(message.hostId ?? this._controller.hosts.unusedId());
 	}
 
 	async handleHostInviteListRequest(): Promise<lib.HostInvite[]> {
-		return [...this._controller.hostInvites.values()];
+		return [...this._controller.hosts.invites.values()];
 	}
 
 	async handleHostInviteCreateRequest(request: lib.HostInviteCreateRequest) {
-		const invite = this._controller.createHostInvite(request.expiresAtMs, request.maxUses, this.user.name);
+		const invite = this._controller.hosts.createInvite(request.expiresAtMs, request.maxUses, this.user.name);
 		return {
 			invite: invite.toJSON(),
 			url: new URL(`invite/${invite.code}`, this._controller.getControllerUrl()).href,
@@ -293,11 +277,12 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostInviteUpdateRequest(request: lib.HostInviteUpdateRequest) {
-		this._controller.updateHostInvite(request.id, request.expiresAtMs, request.maxUses, this.user.name);
+		const { expiresAtMs, maxUses, paused } = request;
+		this._controller.hosts.updateInvite(request.id, { expiresAtMs, maxUses, paused }, this.user.name);
 	}
 
 	async handleHostInviteRevokeRequest(request: lib.HostInviteRevokeRequest) {
-		this._controller.revokeHostInvite(request.id, this.user.name);
+		this._controller.hosts.revokeInvite(request.id, this.user.name);
 	}
 
 	async handleHostConfigCreateRequest(request: lib.HostConfigCreateRequest) {
@@ -312,7 +297,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 		if (request.generateToken) {
 			this.user.checkPermission("core.host.generate_token");
-			hostConfig.set("host.controller_token", this._controller.generateHostToken(hostConfig.get("host.id")));
+			hostConfig.set("host.controller_token", this._controller.hosts.createToken(hostConfig.get("host.id")));
 		}
 		return hostConfig.toJSON();
 	}

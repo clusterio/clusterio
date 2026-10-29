@@ -200,7 +200,9 @@ async function startHost() {
 	if (command === "join") {
 		await hostConfigLock.acquire();
 		try {
-			await joinCluster(args.inviteUrl as string, hostConfig, args.force as boolean);
+			await joinCluster(
+				args.inviteUrl as string, hostConfig, args.force as boolean, args.name as string | undefined,
+			);
 		} finally {
 			await hostConfigLock.release();
 		}

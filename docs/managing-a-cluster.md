@@ -24,15 +24,17 @@ Generate a token for a host. `--id` is the host id.
 
 ### Create invite
 
-    ctl> host invite create [--expires <duration>] [--uses <count>]
+    ctl> host invite create [--expires <duration>] [--uses <count>] [--host-name <name>]
 
 Create an invite for new hosts and print its URL.
 A host joins with the invite through the installer or `host> join <invite url>`, which gives it a new host id and a token.
 `--expires` is the time until the invite expires, like `30m`, `12h` or `7d`, or `never`; defaults to `24h`.
 `--uses` is the number of hosts that can join with the invite, or `unlimited`; defaults to `1`.
+`--host-name` adds a `name` parameter to the URL, which hosts joining with it use as their name.
+A name passed to `host> join <invite url> --name <name>` or the installer's `--host-name` takes precedence over it.
 The URL is based on `controller.public_url`, set it if hosts connect through another address than localhost.
 The invite code is the only authentication needed to join, treat the URL like a token.
-The controller blocks an address from using invites for 15 minutes after 10 attempts with an invalid or expired code.
+The controller blocks an address from using invites for 15 minutes after 5 attempts with an invalid or expired code.
 IPv6 addresses are counted per /64 prefix.
 If the controller is behind a reverse proxy, set `controller.trusted_proxies` so the limit applies to each client instead of the proxy.
 
@@ -42,7 +44,7 @@ If the controller is behind a reverse proxy, set `controller.trusted_proxies` so
 
 List invites with their uses, expiry time and the ids of the hosts that joined with them.
 Codes are masked unless `--codes` is passed.
-Invites that have expired or are used up are removed 7 days later unless extended.
+Invites that have expired or are used up are removed after controller.host_invite_retention_days unless extended.
 
 ### Edit invite
 
@@ -50,6 +52,15 @@ Invites that have expired or are used up are removed 7 days later unless extende
 
 Change the limits of an invite, for example to extend an invite that expired or was used up.
 `--expires` is counted from now, `--uses` is the new total including uses so far.
+An invite that expired more than 24 hours ago can no longer be changed and its code is treated as if it never existed.
+
+### Pause invite
+
+    ctl> host invite pause <id>
+    ctl> host invite resume <id>
+
+Stop an invite from being used without changing its limits, and allow it again.
+All invites can be paused at once with `ctl> controller config set controller.host_invites_paused true`.
 
 ### Revoke invite
 

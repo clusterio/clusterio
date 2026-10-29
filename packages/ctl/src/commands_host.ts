@@ -170,6 +170,8 @@ hostInviteCommands.add(new lib.Command({
 			code: args.codes ? invite.code : lib.HostInvite.redactCode(invite.code),
 			uses: `${invite.uses}/${invite.maxUses ?? "unlimited"}`,
 			expires: formatTime(invite.expiresAtMs),
+			lastUsed: invite.lastUsedAtMs ? formatTime(invite.lastUsedAtMs) : "never",
+			paused: invite.paused,
 			usable: invite.isUsable(),
 			createdBy: invite.createdBy,
 			hostIds: invite.hostIds.join(" "),
@@ -186,12 +188,19 @@ hostInviteCommands.add(new lib.Command({
 		yargs.option("uses", {
 			type: "string", nargs: 1, default: "1", describe: "Number of hosts that can use the invite, or unlimited",
 		});
+		yargs.option("host-name", {
+			type: "string", nargs: 1, describe: "Name for the host, added to the URL as the name parameter",
+		});
 	}],
-	handler: async function(args: { expires: string, uses: string }, ctl: Ctl) {
+	handler: async function(args: { expires: string, uses: string, hostName?: string }, ctl: Ctl) {
 		const response = await ctl.send(new lib.HostInviteCreateRequest(
 			parseExpiry(args.expires), parseUses(args.uses),
 		));
-		print(response.url);
+		const url = new URL(response.url);
+		if (args.hostName) {
+			url.searchParams.set("name", args.hostName);
+		}
+		print(url.href);
 	},
 }));
 
@@ -223,6 +232,24 @@ hostInviteCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { id: number }, ctl: Ctl) {
 		await ctl.send(new lib.HostInviteRevokeRequest(args.id));
+	},
+}));
+
+hostInviteCommands.add(new lib.Command({
+	definition: ["pause <id>", "Pause a host invite so it cannot be used until resumed", (yargs) => {
+		yargs.positional("id", { describe: "Id of the invite", type: "number" });
+	}],
+	handler: async function(args: { id: number }, ctl: Ctl) {
+		await ctl.send(new lib.HostInviteUpdateRequest(args.id, undefined, undefined, true));
+	},
+}));
+
+hostInviteCommands.add(new lib.Command({
+	definition: ["resume <id>", "Resume a paused host invite", (yargs) => {
+		yargs.positional("id", { describe: "Id of the invite", type: "number" });
+	}],
+	handler: async function(args: { id: number }, ctl: Ctl) {
+		await ctl.send(new lib.HostInviteUpdateRequest(args.id, undefined, undefined, false));
 	},
 }));
 

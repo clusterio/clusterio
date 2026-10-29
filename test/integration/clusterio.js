@@ -285,7 +285,7 @@ describe("Integration of Clusterio", function() {
 				await fs.rm(path.join("temp", "test", config), { force: true });
 				const { url: inviteUrl } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
 
-				await execHost(`--config ${config} join ${inviteUrl}`);
+				await execHost(`--config ${config} join "${inviteUrl}?name=url-name" --name invite-host`);
 				const hostConfig = JSON.parse(await fs.readFile(path.join("temp", "test", config), "utf8"));
 				const hostId = hostConfig["host.id"];
 				assert.equal(hostConfig["host.controller_url"], "https://localhost:4443/");
@@ -293,7 +293,7 @@ describe("Integration of Clusterio", function() {
 				const inviteCode = lib.HostInvite.parseUrl(inviteUrl).code;
 				assert.deepEqual(invites.find(i => i.code === inviteCode).hostIds, [hostId]);
 
-				await execHost(`--config ${config} config set host.name invite-host`);
+				assert.equal(hostConfig["host.name"], "invite-host");
 				await execHost(`--config ${config} config set host.instances_directory invite-instances`);
 				const hostProcess = await spawnNode(
 					"invite-host:", `../../packages/host run --config ${config}`, /Started host/
@@ -313,6 +313,20 @@ describe("Integration of Clusterio", function() {
 					execHost(`--config second-${config} join ${inviteUrl}`),
 					err => err.stderr.includes("Invite is invalid or has expired"),
 				);
+			});
+			it("should fail while invites are paused", async function() {
+				const config = "paused-host-config.json";
+				await fs.rm(path.join("temp", "test", config), { force: true });
+				const { url: inviteUrl } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
+				await execCtl("controller config set controller.host_invites_paused true");
+				try {
+					await assert.rejects(
+						execHost(`--config ${config} join ${inviteUrl}`),
+						err => err.stderr.includes("Host invites are paused"),
+					);
+				} finally {
+					await execCtl("controller config set controller.host_invites_paused false");
+				}
 			});
 			it("should refuse to replace an existing token", async function() {
 				const config = "token-host-config.json";
@@ -739,13 +753,14 @@ describe("Integration of Clusterio", function() {
 				const originalLog = console.log; // eslint-disable-line no-console
 				console.log = (...args) => lines.push(args.join(" ")); // eslint-disable-line no-console
 				try {
-					await execCtl("host invite create --expires 1h --uses 2");
+					await execCtl("host invite create --expires 1h --uses 2 --host-name new-host");
 				} finally {
 					console.log = originalLog; // eslint-disable-line no-console
 				}
 				assert.equal(lines.length, 1);
 				const parsed = lib.HostInvite.parseUrl(lines[0]);
 				assert.equal(parsed.controllerUrl, "https://localhost:4443/");
+				assert.equal(parsed.name, "new-host");
 				const invites = await getControl().send(new lib.HostInviteListRequest());
 				const invite = invites.find(i => i.code === parsed.code);
 				assert.equal(invite.maxUses, 2);
@@ -778,6 +793,18 @@ describe("Integration of Clusterio", function() {
 				const edited = invites.find(i => i.id === invite.id);
 				assert.equal(edited.maxUses, null);
 				assert(edited.expiresAtMs > Date.now() + 6 * 86400e3);
+			});
+		});
+
+		describe("host invite pause", function() {
+			it("should pause and resume the invite", async function() {
+				const { invite } = await getControl().send(new lib.HostInviteCreateRequest(null, 1));
+				const paused = async () => (await getControl().send(new lib.HostInviteListRequest()))
+					.find(i => i.id === invite.id).paused;
+				await execCtl(`host invite pause ${invite.id}`);
+				assert.equal(await paused(), true);
+				await execCtl(`host invite resume ${invite.id}`);
+				assert.equal(await paused(), false);
 			});
 		});
 

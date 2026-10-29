@@ -240,6 +240,22 @@ Disable this if you don't want the controller's credentials to be sent to the ho
 Defaults to true.
 
 
+### controller.host_invites_paused
+
+If enabled hosts can't join with any invite, the invites themselves are left unchanged.
+Requests to use an invite get a 503 response while this is enabled.
+
+Defaults to false.
+
+
+### controller.host_invite_retention_days
+
+Days to keep host invites after they expire or are used up, set to 0 to keep them forever.
+Within this time an invite can be extended with `host invite edit`, unless it expired more than 24 hours ago.
+
+Defaults to 7.
+
+
 ### controller.default_mod_pack_id
 
 ID of the mod pack to use for instances that don't have factorio.mod_pack_id set.

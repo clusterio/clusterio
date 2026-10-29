@@ -183,7 +183,7 @@ function parseInviteUrl(url) {
 	if (code.length !== 8 || [...code].some(c => !inviteAlphabet.includes(c))) {
 		return null;
 	}
-	return { controllerUrl: `${parsed.origin}${match[1]}`, code };
+	return { controllerUrl: `${parsed.origin}${match[1]}`, code, name: parsed.searchParams.get("name") || undefined };
 }
 
 function redactInviteUrl(text) {
@@ -208,6 +208,9 @@ async function checkInvite(inviteUrl) {
 	}
 	if (response.status === 429) {
 		throw new InstallError("Too many invalid invite attempts, try again later");
+	}
+	if (response.status === 503) {
+		throw new InstallError("Host invites are paused on the controller");
 	}
 	if (!response.ok) {
 		logger.warn(`Unable to check invite, continuing: controller responded with ${response.status}`);
@@ -621,17 +624,6 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (answers.mode === "host") {
-		if (args.hostName) { answers.hostName = args.hostName; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "hostName",
-				message: "Name of host",
-			},
-		], answers);
-	}
-
-	if (answers.mode === "host") {
 		if (args.invite) {
 			answers.invite = args.invite;
 		} else if (args.controllerUrl || args.controllerToken) {
@@ -647,6 +639,16 @@ async function inquirerMissingArgs(args) {
 		if (answers.invite) {
 			await checkInvite(answers.invite);
 		}
+
+		if (args.hostName) { answers.hostName = args.hostName; }
+		answers = await inquirer.prompt([
+			{
+				type: "input",
+				name: "hostName",
+				message: "Name of host",
+				default: answers.invite ? parseInviteUrl(answers.invite).name : undefined,
+			},
+		], answers);
 	}
 
 	if (["host", "ctl"].includes(answers.mode) && !answers.invite) {
@@ -923,7 +925,8 @@ async function main() {
 		if (answers.invite) {
 			const env = args.selfSignedCert ? { NODE_EXTRA_CA_CERTS: args.selfSignedCert } : undefined;
 			try {
-				await execHost(["join", answers.invite], env);
+				const nameArgs = answers.hostName ? ["--name", answers.hostName] : [];
+				await execHost(["join", answers.invite, ...nameArgs], env);
 			} catch (err) {
 				// eslint-disable-next-line no-control-regex
 				const lines = `${err.stdout}${err.stderr}`.replace(/\x1b\[[0-9;]*m/g, "").trim().split("\n");
@@ -934,8 +937,8 @@ async function main() {
 			await execHost(["config", "set", "host.id", hostId]);
 			await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
 			await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
+			await execHost(["config", "set", "host.name", answers.hostName]);
 		}
-		await execHost(["config", "set", "host.name", answers.hostName]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);

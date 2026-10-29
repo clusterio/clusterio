@@ -47,7 +47,7 @@ export default class HostConnection extends BaseConnection {
 			0,
 			false,
 		);
-		this._controller.hosts.set(this.info);
+		this._controller.hosts.records.set(this.info);
 
 		this._checkPluginVersions();
 
@@ -71,7 +71,7 @@ export default class HostConnection extends BaseConnection {
 			this._controller.instances.records.setMany(instances);
 
 			this.info.connected = false;
-			this._controller.hosts.set(this.info);
+			this._controller.hosts.records.set(this.info);
 		});
 
 		this.handle(lib.GetFactorioCredentialsRequest, this.handleGetFactorioCredentialsRequest.bind(this));
@@ -178,7 +178,7 @@ export default class HostConnection extends BaseConnection {
 	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {
 		this.info.name = event.update.name;
 		this.info.publicAddress = event.update.publicAddress;
-		this._controller.hosts.set(this.info);
+		this._controller.hosts.records.set(this.info);
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {

@@ -1,5 +1,7 @@
-import React, { useContext, useState } from "react";
-import { Button, Form, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography } from "antd";
+import React, { useContext, useEffect, useState } from "react";
+import {
+	Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography,
+} from "antd";
 
 import * as lib from "@clusterio/lib";
 
@@ -20,8 +22,12 @@ const expiryOptions = [
 	{ label: "Never", value: 0 },
 ];
 
-function inviteUrl(code: string) {
-	return new URL(`${webRoot}invite/${code}`, document.location.origin).href;
+function inviteUrl(code: string, name?: string) {
+	const url = new URL(`${webRoot}invite/${code}`, document.location.origin);
+	if (name) {
+		url.searchParams.set("name", name);
+	}
+	return url.href;
 }
 
 function expiresAt(duration: number) {
@@ -35,11 +41,14 @@ function InviteStatusTag({ invite }: { invite: lib.HostInvite }) {
 	if (invite.isUsedUp()) {
 		return <Tag>Used up</Tag>;
 	}
+	if (invite.paused) {
+		return <Tag color="orange">Paused</Tag>;
+	}
 	return <Tag color="green">Active</Tag>;
 }
 
-function InviteInstructions({ url }: { url: string }) {
-	const command = `npm init "@clusterio" -- --mode host --invite ${url} --host-name "Host"`;
+function InviteInstructions({ url, named }: { url: string, named: boolean }) {
+	const command = `npm init "@clusterio" -- --mode host --invite "${url}"${named ? "" : " --host-name \"Host\""}`;
 	return <>
 		<Typography.Paragraph>Invite URL:</Typography.Paragraph>
 		<div className="codeblock">
@@ -60,7 +69,7 @@ function InviteInstructions({ url }: { url: string }) {
 			<p>&gt; ./run-host</p>
 		</div>
 		<Typography.Paragraph>
-			An existing host can join with <code>npx clusteriohost join {url}</code>
+			An existing host can join with <code>npx clusteriohost join "{url}"</code>
 		</Typography.Paragraph>
 	</>;
 }
@@ -69,6 +78,7 @@ export function CreateHostInviteButton() {
 	const control = useContext(ControlContext);
 	const [open, setOpen] = useState(false);
 	const [url, setUrl] = useState<string | null>(null);
+	const [named, setNamed] = useState(false);
 	const [form] = Form.useForm();
 
 	async function createInvite() {
@@ -76,7 +86,9 @@ export function CreateHostInviteButton() {
 		const response = await control.send(new lib.HostInviteCreateRequest(
 			expiresAt(values.expires), values.maxUses ?? null,
 		));
-		setUrl(inviteUrl(response.invite.code));
+		const name = values.hostName?.trim();
+		setNamed(Boolean(name));
+		setUrl(inviteUrl(response.invite.code, name));
 	}
 
 	return <>
@@ -102,8 +114,16 @@ export function CreateHostInviteButton() {
 					<Form.Item name="maxUses" label="Maximum uses" extra="Leave empty for unlimited uses">
 						<InputNumber min={1} precision={0} placeholder="Unlimited" />
 					</Form.Item>
+					<Form.Item
+						name="hostName"
+						label="Host name"
+						extra="Optional, added to the invite URL as the name of the new host"
+						rules={[{ max: lib.HostInvite.maxHostNameLength }]}
+					>
+						<Input />
+					</Form.Item>
 				</Form>
-				: <InviteInstructions url={url} />
+				: <InviteInstructions url={url} named={named} />
 			}
 		</Modal>
 	</>;
@@ -163,13 +183,55 @@ function EditHostInviteButton({ invite }: { invite: lib.HostInvite }) {
 	</>;
 }
 
+function PauseAllInvitesSwitch() {
+	const control = useContext(ControlContext);
+	const account = useAccount();
+	const [paused, setPaused] = useState<boolean | null>(null);
+	const canRead = account.hasPermission("core.controller.get_config");
+
+	useEffect(() => {
+		if (!canRead) {
+			return undefined;
+		}
+		let canceled = false;
+		control.send(new lib.ControllerConfigGetRequest()).then(serialized => {
+			if (!canceled) {
+				const config = lib.ControllerConfig.fromJSON(serialized, "control");
+				setPaused(config.get("controller.host_invites_paused"));
+			}
+		}).catch(notifyErrorHandler("Failed to fetch controller config"));
+		return () => { canceled = true; };
+	}, [control, canRead]);
+
+	if (paused === null) {
+		return null;
+	}
+	return <label>
+		Pause all invites{" "}
+		<Switch
+			checked={paused}
+			disabled={!account.hasPermission("core.controller.update_config")}
+			onChange={checked => {
+				control.send(new lib.ControllerConfigSetFieldRequest("controller.host_invites_paused", String(checked)))
+					.then(() => setPaused(checked))
+					.catch(notifyErrorHandler("Error pausing invites"));
+			}}
+		/>
+	</label>;
+}
+
 export function HostInvitesTable() {
 	const control = useContext(ControlContext);
 	const account = useAccount();
 	const [invites] = useHostInvites();
 
+	function setPaused(invite: lib.HostInvite, paused: boolean) {
+		control.send(new lib.HostInviteUpdateRequest(invite.id, undefined, undefined, paused))
+			.catch(notifyErrorHandler(`Error ${paused ? "pausing" : "resuming"} invite`));
+	}
+
 	return <>
-		<SectionHeader title="Invites" />
+		<SectionHeader title="Invites" extra={<PauseAllInvitesSwitch />} />
 		<Table
 			size="small"
 			columns={[
@@ -198,6 +260,12 @@ export function HostInvitesTable() {
 					sorter: (a, b) => (a.expiresAtMs ?? Infinity) - (b.expiresAtMs ?? Infinity),
 				},
 				{
+					title: "Last used",
+					key: "lastUsed",
+					render: (_, invite) => (invite.lastUsedAtMs ? formatTimestamp(invite.lastUsedAtMs) : "Never"),
+					sorter: (a, b) => a.lastUsedAtMs - b.lastUsedAtMs,
+				},
+				{
 					title: "Created by",
 					dataIndex: "createdBy",
 				},
@@ -212,7 +280,12 @@ export function HostInvitesTable() {
 					key: "actions",
 					align: "right",
 					render: (_, invite) => <Space>
-						{account.hasPermission("core.host.invite.update") && <EditHostInviteButton invite={invite} />}
+						{account.hasPermission("core.host.invite.update") && !invite.isDead() && <>
+							<Button size="small" onClick={() => setPaused(invite, !invite.paused)}>
+								{invite.paused ? "Resume" : "Pause"}
+							</Button>
+							<EditHostInviteButton invite={invite} />
+						</>}
 						{account.hasPermission("core.host.invite.revoke") && <Popconfirm
 							title="Revoke this invite? Hosts that already joined keep their tokens."
 							placement="bottomRight"
