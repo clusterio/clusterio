@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useRef } from "react";
 import { Alert } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -29,9 +29,15 @@ function TemplateNotice(props: { templateId: number }) {
 
 export default function InstanceConfigTree(props: InstanceConfigTreeProps) {
 	let control = useContext(ControlContext);
+	const templateConfig = useRef<lib.ConfigSchema>({});
 
 	async function retrieveConfig() {
-		return await control.send(new lib.InstanceConfigGetRequest(props.id));
+		const config = await control.send(new lib.InstanceConfigGetRequest(props.id));
+		const templateId = config["instance.template_id"];
+		templateConfig.current = typeof templateId === "number"
+			? await control.send(new lib.InstanceConfigGetRequest(templateId))
+			: {};
+		return config;
 	}
 
 	async function setConfig(fields: Record<string, string | Record<string, string>>) {
@@ -46,6 +52,10 @@ export default function InstanceConfigTree(props: InstanceConfigTreeProps) {
 		isInherited: (config, field, prop) => (config as lib.InstanceConfig).isInherited(field, prop),
 		inherit: async (field, prop) => {
 			await control.send(new lib.InstanceConfigInheritFieldRequest(props.id, field, prop));
+		},
+		templateValue: (field, prop) => {
+			const value = templateConfig.current[field] as any;
+			return prop === undefined ? value : value?.[prop];
 		},
 		notice: (config) => {
 			const templateId = (config as lib.InstanceConfig).get("instance.template_id");
