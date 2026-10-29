@@ -91,6 +91,11 @@ Therefore, we decided to use TSDoc comments for this purpose as it is well inter
 Our specific implementation is TypeDoc because it is lightweight it and can output TSDoc comments as html.
 API Extractor was also considered but not selected.
 
+🧾 29th October 2026 | [Github PR #1147](https://github.com/clusterio/clusterio/pull/1147)
+
+We dropped TypeDoc as the generated docs were never published and it does not support TypeScript 7.
+TSDoc comments are still used for editor hover text.
+
 
 ## Code Style (General)
 
