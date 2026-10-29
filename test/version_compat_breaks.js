@@ -5,17 +5,17 @@ import {
 } from "../scripts/version-compat-breaks.js";
 
 
-describe("version compatibility known breaks", function() {
+describe("scripts/version-compat-breaks", function() {
 	const breaks = {
 		"2.0.3": {
 			messages: {
-				"request ListedRequest": { pr: 1, reason: "Listed." },
-				"event UnchangedEvent": { pr: 2, reason: "Unchanged." },
+				"request ListedRequest": { pr: 1, reason: "Listed.", impact: "None." },
+				"event UnchangedEvent": { pr: 2, reason: "Unchanged.", impact: "None." },
 			},
-			connect: { pr: 3, reason: "Cannot connect." },
+			connect: { pr: 3, reason: "Cannot connect.", impact: "None." },
 		},
 		"2.0.2": {
-			messages: { "request OldRequest": { pr: 4, reason: "Old." } },
+			messages: { "request OldRequest": { pr: 4, reason: "Old.", impact: "None." } },
 		},
 	};
 
@@ -27,24 +27,30 @@ describe("version compatibility known breaks", function() {
 			validateBreaks(breaks);
 			validateBreaks({});
 		});
-		it("should require a pr number and reason", function() {
+		it("should require a pr number, reason and impact", function() {
 			assert.throws(
 				() => validateBreaks({ "1.0.0": { messages: { "request A": { reason: "A." } } } }),
 				/must have a pr number/
 			);
 			assert.throws(
 				() => validateBreaks({ "1.0.0": { messages: { "request A": { pr: 1, reason: " " } } } }),
-				/must have a reason/
+				/is missing reason/
+			);
+			assert.throws(
+				() => validateBreaks({ "1.0.0": { messages: { "request A": { pr: 1, reason: "A." } } } }),
+				/is missing impact/
 			);
 			assert.throws(
 				() => validateBreaks({ "1.0.0": { connect: { pr: 1 } } }),
-				/connect must have a reason/
+				/connect is missing reason/
 			);
 		});
 		it("should reject unknown properties and bad message names", function() {
 			assert.throws(() => validateBreaks({ "1.0.0": { connected: false } }), /unknown properties connected/);
 			assert.throws(
-				() => validateBreaks({ "1.0.0": { messages: { "request A": { pr: 1, reason: "A.", x: 1 } } } }),
+				() => validateBreaks({
+					"1.0.0": { messages: { "request A": { pr: 1, reason: "A.", impact: "A.", x: 1 } } },
+				}),
 				/unknown properties x/
 			);
 			assert.throws(
@@ -58,7 +64,7 @@ describe("version compatibility known breaks", function() {
 		it("should pick the entry for the published version", function() {
 			const selected = selectBreaks(breaks, "2.0.3");
 			assert.deepEqual([...selected.messages.keys()], ["request ListedRequest", "event UnchangedEvent"]);
-			assert.deepEqual(selected.connect, { pr: 3, reason: "Cannot connect." });
+			assert.deepEqual(selected.connect, { pr: 3, reason: "Cannot connect.", impact: "None." });
 			assert.deepEqual(selected.ignored, ["2.0.2"]);
 		});
 		it("should ignore every entry when the version is not listed", function() {

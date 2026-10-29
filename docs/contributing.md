@@ -255,20 +255,27 @@ If there are no changelog entries to add, remove the code block and start the ch
 
 The version-compat job in CI runs the local controller with the latest published host, and the published controller with the local host.
 It fails if a link message changed its src, dst, data or response schema since that release.
-If the break is intended, add an entry for the published version to [scripts/version-compat-breaks.json](../scripts/version-compat-breaks.json) in the same pull request:
+If the break is intended, add an entry to [scripts/version-compat-breaks.json](../scripts/version-compat-breaks.json) in the same pull request.
+Breaking changes are only accepted if the next release is intended to include them, see our decision on [breaking changes](/docs/decisions.md#breaking-changes).
+The entry is keyed by the published version directly before the breaking change was introduced, which is the latest release at the time.
+Every entry needs the pull request number, a reason saying what breaks, and an impact saying why end users are not or only minimally affected.
 
 ```json
 {
 	"2.0.3": {
 		"messages": {
-			"request FactorioVersionsRequest": { "pr": 1129, "reason": "Why it breaks and what stops working." }
+			"request FactorioVersionsRequest": {
+				"pr": 1129,
+				"reason": "What breaks between the two versions.",
+				"impact": "Why end users are not or only minimally affected."
+			}
 		},
-		"connect": { "pr": 1234, "reason": "Why a host cannot connect at all." }
+		"connect": { "pr": 1234, "reason": "Why a host cannot connect at all.", "impact": "..." }
 	}
 }
 ```
 
-Listed messages are reported as warnings with the reason instead of failing the job.
+Listed messages are reported as warnings with the reason and impact instead of failing the job.
 Only add `connect` when the published and local versions cannot connect at all, it skips starting the cluster.
 Listing a message that did not change fails the job.
 Entries only apply while their version is the latest release, after the next release they are ignored and can be removed.

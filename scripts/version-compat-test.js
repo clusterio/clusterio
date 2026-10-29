@@ -247,8 +247,8 @@ async function checkMessageCompat(publishedVersion, knownBreaks) {
 	const { known, unknown, stale } = matchBreaks(knownBreaks, changed.map(({ name }) => name));
 	for (const { name, fields, localSpec, publishedSpec } of changed) {
 		if (known.includes(name)) {
-			const { pr, reason } = knownBreaks.get(name);
-			annotate(`Link ${name} is a known break since ${publishedVersion} from #${pr}: ${reason}`);
+			const { pr, reason, impact } = knownBreaks.get(name);
+			annotate(`Link ${name} is a known break since ${publishedVersion} from #${pr}: ${reason} Impact: ${impact}`);
 			printChange(console.log, name, fields, localSpec, publishedSpec, publishedVersion);
 		} else {
 			printChange(console.error, name, fields, localSpec, publishedSpec, publishedVersion);
@@ -308,8 +308,10 @@ async function main() {
 	}
 	await checkMessageCompat(publishedLib.version, knownBreaks.messages);
 	if (knownBreaks.connect) {
-		const { pr, reason } = knownBreaks.connect;
-		annotate(`Skipping cluster test, known break since ${publishedLib.version} from #${pr}: ${reason}`);
+		const { pr, reason, impact } = knownBreaks.connect;
+		annotate(
+			`Skipping cluster test, known break since ${publishedLib.version} from #${pr}: ${reason} Impact: ${impact}`
+		);
 		console.log(`PASS: link messages match ${publishedLib.version} apart from known breaks`);
 		return;
 	}

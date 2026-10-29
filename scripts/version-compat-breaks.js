@@ -7,9 +7,9 @@
  *   {
  *     "2.0.3": {
  *       "messages": {
- *         "request FactorioVersionsRequest": { "pr": 1129, "reason": "..." }
+ *         "request FactorioVersionsRequest": { "pr": 1129, "reason": "...", "impact": "..." }
  *       },
- *       "connect": { "pr": 1234, "reason": "..." }
+ *       "connect": { "pr": 1234, "reason": "...", "impact": "..." }
  *     }
  *   }
  *
@@ -30,10 +30,12 @@ function validateBreak(value, where) {
 	if (!Number.isInteger(value.pr) || value.pr <= 0) {
 		throw new Error(`${where} must have a pr number`);
 	}
-	if (typeof value.reason !== "string" || !value.reason.trim()) {
-		throw new Error(`${where} must have a reason`);
+	for (const key of ["reason", "impact"]) {
+		if (typeof value[key] !== "string" || !value[key].trim()) {
+			throw new Error(`${where} is missing ${key}`);
+		}
 	}
-	const unknown = Object.keys(value).filter(key => !["pr", "reason"].includes(key));
+	const unknown = Object.keys(value).filter(key => !["pr", "reason", "impact"].includes(key));
 	if (unknown.length) {
 		throw new Error(`${where} has unknown properties ${unknown.join(", ")}`);
 	}
