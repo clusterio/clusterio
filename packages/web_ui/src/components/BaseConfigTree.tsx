@@ -1,8 +1,9 @@
 import React, { useContext, useEffect, useState } from "react";
 import {
-	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Popconfirm, Select, Space, Spin, Tooltip, Tree,
-	Typography,
+	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Select, Space, Spin, Tooltip, Tree, Typography,
 } from "antd";
+import DisconnectOutlined from "@ant-design/icons/DisconnectOutlined";
+import LinkOutlined from "@ant-design/icons/LinkOutlined";
 import LockOutlined from "@ant-design/icons/LockOutlined";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 import UnlockOutlined from "@ant-design/icons/UnlockOutlined";
@@ -76,11 +77,14 @@ export type ConfigInheritance = {
 	notice?: (config: lib.Config<any>) => React.ReactNode;
 };
 
+type Linking = Map<string, [field: string, prop?: string]>;
+
 type LockState = {
 	inheritance?: ConfigInheritance;
 	unlocked: Set<string>;
 	setUnlocked: (unlocked: Set<string>) => void;
-	inherit: (field: string, prop?: string) => void;
+	linking: Linking;
+	setLinking: (linking: Linking) => void;
 };
 
 type BaseConfigTreeProps = {
@@ -99,6 +103,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [errorFields, setErrorFields] = useState(new Map<string, string>());
 	let [applying, setApplying] = useState(false);
 	let [unlocked, setUnlocked] = useState<Set<string>>(new Set());
+	let [linking, setLinking] = useState<Linking>(new Map());
 	const available = props.available ?? true;
 	const control = useContext(ControlContext);
 
@@ -156,15 +161,16 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		}
 	}
 
-	function inherit(field: string, prop?: string) {
-		props.inheritance!.inherit(field, prop).then(async () => {
-			const newConfig = await updateConfig();
-			const values = getInitialValues(newConfig, props);
-			const keys = Object.keys(values).filter(key => key === field || key.startsWith(`${field}.`));
-			form.resetFields(keys);
-			form.setFieldsValue(Object.fromEntries(keys.map(key => [key, values[key]])));
-			setChangedFields(fields => new Set([...fields].filter(key => !keys.includes(key))));
-		}).catch(err => notify(err.message, "error"));
+	async function applyChanges(fields: Record<string, string | Record<string, string>>) {
+		if (Object.keys(fields).length) {
+			await props.setConfig(fields);
+		}
+		for (const [field, prop] of linking.values()) {
+			await props.inheritance!.inherit(field, prop);
+		}
+		setChangedFields(new Set());
+		setUnlocked(new Set());
+		setLinking(new Map());
 	}
 
 	const [propsMap, treeData] = computeTreeData(
@@ -176,7 +182,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		setConfig,
 		props.ConfigClass,
 		onValuesChange,
-		{ inheritance: props.inheritance, unlocked, setUnlocked, inherit },
+		{ inheritance: props.inheritance, unlocked, setUnlocked, linking, setLinking },
 	);
 
 	return <>
@@ -213,9 +219,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 
 						let applied = false;
 						try {
-							await props.setConfig(fields);
-							setChangedFields(new Set());
-							setUnlocked(new Set());
+							await applyChanges(fields);
 							applied = true;
 						} catch (err: any) {
 							notify(err.message, "error");
@@ -223,7 +227,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 
 						const newConfig = await updateConfig();
 						if (applied) {
-							// Linking a template can change other values
+							// Linking can change other values
 							form.setFieldsValue(getInitialValues(newConfig, props));
 						}
 						setApplying(false);
@@ -232,7 +236,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 							props.onApply();
 						}
 					}}
-					disabled={changedFields.size === 0}
+					disabled={changedFields.size === 0 && linking.size === 0}
 				>
 					Apply
 				</Button>
@@ -242,6 +246,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 						form.resetFields();
 						setChangedFields(new Set());
 						setUnlocked(new Set());
+						setLinking(new Map());
 						setErrorFields(new Map());
 					}}
 				>
@@ -297,42 +302,45 @@ function computeTreeData(
 	};
 
 	function lockButton(key: string, fieldName: string, prop?: string) {
-		const { inheritance, unlocked, setUnlocked } = lock;
+		const { inheritance, unlocked, setUnlocked, linking, setLinking } = lock;
 		if (!inheritance?.canInherit(config, fieldName) || !config.canAccess(fieldName, lib.ConfigAccess.write)) {
 			return null;
 		}
+		const button = (title: string, icon: React.ReactNode, label: string, onClick: () => void) => <Tooltip
+			title={title}
+		>
+			<Button type="text" size="small" icon={icon} aria-label={`${label} ${key}`} onClick={onClick} />
+		</Tooltip>;
+		const revert = () => {
+			form.setFieldValue(key, initialValues[key]);
+			onValuesChange({ [key]: initialValues[key] });
+		};
 		if (inheritance.isInherited(config, fieldName, prop)) {
 			if (!unlocked.has(key)) {
-				return <Tooltip title="Inherited from the template. Click to unlock and override it.">
-					<Button
-						type="text" size="small" icon={<LockOutlined />} aria-label={`Unlock ${key}`}
-						onClick={() => setUnlocked(new Set([...unlocked, key]))}
-					/>
-				</Tooltip>;
+				return button(
+					"Linked to the template. Click to unlock and override it.", <LockOutlined />, "Unlock",
+					() => setUnlocked(new Set([...unlocked, key])),
+				);
 			}
-			return <Tooltip title="Unlocked, applying a change overrides the template. Click to lock it again.">
-				<Button
-					type="text" size="small" icon={<UnlockOutlined />} aria-label={`Lock ${key}`}
-					onClick={() => {
-						setUnlocked(new Set([...unlocked].filter(k => k !== key)));
-						form.setFieldValue(key, initialValues[key]);
-						onValuesChange({ [key]: initialValues[key] });
-					}}
-				/>
-			</Tooltip>;
+			return button(
+				"Unlocked, applying a change unlinks it from the template. Click to lock it again.",
+				<UnlockOutlined />, "Lock",
+				() => { setUnlocked(new Set([...unlocked].filter(k => k !== key))); revert(); },
+			);
 		}
-		return <Popconfirm
-			title="Discard this value and inherit it from the template?"
-			okText="Inherit"
-			onConfirm={() => lock.inherit(fieldName, prop)}
-		>
-			<Tooltip title="Overrides the template. Click to inherit it again.">
-				<Button type="text" size="small" icon={<UnlockOutlined />} aria-label={`Inherit ${key}`} danger />
-			</Tooltip>
-		</Popconfirm>;
+		if (!linking.has(key)) {
+			return button(
+				"Not linked to the template. Click to link it again when applied.", <DisconnectOutlined />, "Link",
+				() => { setLinking(new Map([...linking, [key, [fieldName, prop]]])); revert(); },
+			);
+		}
+		return button(
+			"Linked to the template when applied. Click to keep this value instead.", <LinkOutlined />, "Unlink",
+			() => setLinking(new Map([...linking].filter(([k]) => k !== key))),
+		);
 	}
 	function isReadonly(canWrite: boolean, key: string, fieldName: string, prop?: string) {
-		return !canWrite || Boolean(lock.inheritance?.canInherit(config, fieldName))
+		return !canWrite || lock.linking.has(key) || Boolean(lock.inheritance?.canInherit(config, fieldName))
 			&& lock.inheritance!.isInherited(config, fieldName, prop)
 			&& !lock.unlocked.has(key);
 	}
