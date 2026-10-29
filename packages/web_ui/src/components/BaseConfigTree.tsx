@@ -1,8 +1,11 @@
 import React, { useContext, useEffect, useState } from "react";
 import {
-	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Select, Space, Spin, Tooltip, Tree, Typography,
+	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Popconfirm, Select, Space, Spin, Tooltip, Tree,
+	Typography,
 } from "antd";
+import LockOutlined from "@ant-design/icons/LockOutlined";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
+import UnlockOutlined from "@ant-design/icons/UnlockOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -65,8 +68,24 @@ function renderInput(inputComponents: Map<string, InputComponent>, def: lib.Fiel
 	return `Unknown type ${def.type}`;
 }
 
+/** Lets fields follow the value of another config, inherited values are locked until unlocked */
+export type ConfigInheritance = {
+	canInherit: (config: lib.Config<any>, field: string) => boolean;
+	isInherited: (config: lib.Config<any>, field: string, prop?: string) => boolean;
+	inherit: (field: string, prop?: string) => Promise<void>;
+	notice?: (config: lib.Config<any>) => React.ReactNode;
+};
+
+type LockState = {
+	inheritance?: ConfigInheritance;
+	unlocked: Set<string>;
+	setUnlocked: (unlocked: Set<string>) => void;
+	inherit: (field: string, prop?: string) => void;
+};
+
 type BaseConfigTreeProps = {
 	ConfigClass: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig;
+	inheritance?: ConfigInheritance;
 	retrieveConfig: () => Promise<lib.ConfigSchema>;
 	setConfig: (fields: Record<string, string | Record<string, string>>) => Promise<void>;
 	id?: number;
@@ -79,6 +98,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [changedFields, setChangedFields] = useState<Set<string>>(new Set());
 	let [errorFields, setErrorFields] = useState(new Map<string, string>());
 	let [applying, setApplying] = useState(false);
+	let [unlocked, setUnlocked] = useState<Set<string>>(new Set());
 	const available = props.available ?? true;
 	const control = useContext(ControlContext);
 
@@ -136,6 +156,17 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		}
 	}
 
+	function inherit(field: string, prop?: string) {
+		props.inheritance!.inherit(field, prop).then(async () => {
+			const newConfig = await updateConfig();
+			const values = getInitialValues(newConfig, props);
+			const keys = Object.keys(values).filter(key => key === field || key.startsWith(`${field}.`));
+			form.resetFields(keys);
+			form.setFieldsValue(Object.fromEntries(keys.map(key => [key, values[key]])));
+			setChangedFields(fields => new Set([...fields].filter(key => !keys.includes(key))));
+		}).catch(err => notify(err.message, "error"));
+	}
+
 	const [propsMap, treeData] = computeTreeData(
 		control,
 		form,
@@ -145,6 +176,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		setConfig,
 		props.ConfigClass,
 		onValuesChange,
+		{ inheritance: props.inheritance, unlocked, setUnlocked, inherit },
 	);
 
 	return <>
@@ -179,14 +211,21 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 							}
 						}
 
+						let applied = false;
 						try {
 							await props.setConfig(fields);
 							setChangedFields(new Set());
+							setUnlocked(new Set());
+							applied = true;
 						} catch (err: any) {
 							notify(err.message, "error");
 						}
 
-						await updateConfig();
+						const newConfig = await updateConfig();
+						if (applied) {
+							// Linking a template can change other values
+							form.setFieldsValue(getInitialValues(newConfig, props));
+						}
 						setApplying(false);
 
 						if (props.onApply) {
@@ -202,6 +241,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 					onClick={() => {
 						form.resetFields();
 						setChangedFields(new Set());
+						setUnlocked(new Set());
 						setErrorFields(new Map());
 					}}
 				>
@@ -210,6 +250,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 			</Space>
 		</Title>
 		<Card size="small" className="config-container">
+			{props.inheritance?.notice?.(config)}
 			<Form
 				size="small"
 				form={form}
@@ -237,6 +278,7 @@ function computeTreeData(
 	setConfig: (newConfig: lib.Config<any>) => void,
 	ConfigClass: BaseConfigTreeProps["ConfigClass"],
 	onValuesChange: (changedValues: object) => void,
+	lock: LockState,
 ) {
 	let restartTip = <Tooltip
 		className="ant-form-item-tooltip"
@@ -253,6 +295,47 @@ function computeTreeData(
 		title: string;
 		children: ChildNode[];
 	};
+
+	function lockButton(key: string, fieldName: string, prop?: string) {
+		const { inheritance, unlocked, setUnlocked } = lock;
+		if (!inheritance?.canInherit(config, fieldName) || !config.canAccess(fieldName, lib.ConfigAccess.write)) {
+			return null;
+		}
+		if (inheritance.isInherited(config, fieldName, prop)) {
+			if (!unlocked.has(key)) {
+				return <Tooltip title="Inherited from the template. Click to unlock and override it.">
+					<Button
+						type="text" size="small" icon={<LockOutlined />} aria-label={`Unlock ${key}`}
+						onClick={() => setUnlocked(new Set([...unlocked, key]))}
+					/>
+				</Tooltip>;
+			}
+			return <Tooltip title="Unlocked, applying a change overrides the template. Click to lock it again.">
+				<Button
+					type="text" size="small" icon={<UnlockOutlined />} aria-label={`Lock ${key}`}
+					onClick={() => {
+						setUnlocked(new Set([...unlocked].filter(k => k !== key)));
+						form.setFieldValue(key, initialValues[key]);
+						onValuesChange({ [key]: initialValues[key] });
+					}}
+				/>
+			</Tooltip>;
+		}
+		return <Popconfirm
+			title="Discard this value and inherit it from the template?"
+			okText="Inherit"
+			onConfirm={() => lock.inherit(fieldName, prop)}
+		>
+			<Tooltip title="Overrides the template. Click to inherit it again.">
+				<Button type="text" size="small" icon={<UnlockOutlined />} aria-label={`Inherit ${key}`} danger />
+			</Tooltip>
+		</Popconfirm>;
+	}
+	function isReadonly(canWrite: boolean, key: string, fieldName: string, prop?: string) {
+		return !canWrite || Boolean(lock.inheritance?.canInherit(config, fieldName))
+			&& lock.inheritance!.isInherited(config, fieldName, prop)
+			&& !lock.unlocked.has(key);
+	}
 
 	let treeData = [];
 	const propsMap = new Map<string, [fieldName: string, prop: string]>();
@@ -312,6 +395,7 @@ function computeTreeData(
 							label={<>
 								{`"${prop}"`}
 								{restart && restartTip}
+								{lockButton(propPath, fieldName, prop)}
 							</>}
 							dependencies={def.dependsOn}
 							rules={[({getFieldValue}) => ({ validator: async (_, fieldValue) => {
@@ -345,7 +429,7 @@ function computeTreeData(
 								def.validator(fieldValue, config.staging);
 							}})]}
 						>
-							<Input className="json-input" disabled={!canWrite} />
+							<Input className="json-input" disabled={isReadonly(canWrite, propPath, fieldName, prop)} />
 						</Form.Item>,
 					});
 
@@ -382,6 +466,7 @@ function computeTreeData(
 									}
 
 									let propPath = `${groupName}.${field}.${propName}`;
+									lock.setUnlocked(new Set([...lock.unlocked, propPath]));
 									form.setFieldsValue({
 										[`${newPropPath}.name`]: "",
 										[`${newPropPath}.value`]: "",
@@ -407,6 +492,7 @@ function computeTreeData(
 					label={<>
 						{def.title || field}
 						{def.restartRequired && restartTip}
+						{lockButton(fieldName, fieldName)}
 					</>}
 					validateStatus={errorFields.has(fieldName) ? "error" : undefined}
 					help={errorFields.get(fieldName)}
@@ -436,7 +522,7 @@ function computeTreeData(
 						},
 					})]}
 				>
-					{renderInput(control.inputComponents, def, !canWrite)}
+					{renderInput(control.inputComponents, def, isReadonly(canWrite, fieldName, fieldName))}
 				</Form.Item>;
 				initialValues[fieldName] = value;
 			}

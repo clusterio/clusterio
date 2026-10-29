@@ -396,67 +396,94 @@ describe("controller/InstanceManager", function () {
 
 	describe("inheritance", function () {
 		/** @type {InstanceRecord} */
-		let base;
+		let template;
 		/** @type {InstanceRecord} */
 		let child;
 		let updated;
 
-		async function createInheritor(id, baseId, fields = {}) {
+		async function createInheritor(id, templateId, fields = {}) {
 			const config = new lib.InstanceConfig("controller", {
-				"instance.id": id, "instance.name": `Instance ${id}`, "instance.base_id": baseId, ...fields,
+				"instance.id": id, "instance.name": `Instance ${id}`, "instance.template_id": templateId, ...fields,
 			});
-			instances.applyBase(config, ["instance.id", "instance.name", "instance.base_id", ...Object.keys(fields)]);
+			instances.applyTemplate(
+				config, ["instance.id", "instance.name", "instance.template_id", ...Object.keys(fields)]
+			);
 			return await instances.createInstance(config);
 		}
 
 		beforeEach(async function () {
-			base = await instances.createInstance(new lib.InstanceConfig("controller", {
+			template = await instances.createInstance(new lib.InstanceConfig("controller", {
 				"instance.id": 10,
-				"instance.name": "Base",
-				"instance.is_base": true,
+				"instance.name": "Template",
+				"instance.is_template": true,
 				"factorio.version": "2.0",
-				"factorio.settings": { name: "Base server" },
+				"factorio.game_port": 34190,
+				"factorio.settings": { name: "Template server", max_players: 5 },
 			}));
 			child = await createInheritor(11, 10, { "factorio.game_port": 34197 });
 			updated = [];
 			controller.instanceConfigUpdated = async (inst) => { updated.push(inst.id); };
 		});
 
-		describe(".applyBase()", function () {
-			it("should copy base values and mark them inherited", function () {
+		describe(".applyTemplate()", function () {
+			it("should copy template values and mark them inherited", function () {
 				assert.equal(child.config.get("factorio.version"), "2.0");
 				assert.equal(child.config.isInherited("factorio.version"), true);
 				assert.equal(child.config.get("factorio.game_port"), 34197);
 				assert.equal(child.config.isInherited("factorio.game_port"), false);
 				assert.equal(child.config.isInherited("instance.name"), false);
 			});
-			it("should keep inherited factorio.settings in createInstance", function () {
-				assert.deepEqual(child.config.get("factorio.settings"), base.config.get("factorio.settings"));
-				assert.notEqual(child.config.get("factorio.settings"), base.config.get("factorio.settings"));
+			it("should never inherit ports", function () {
+				const config = new lib.InstanceConfig("controller", { "instance.id": 12, "instance.template_id": 10 });
+				instances.applyTemplate(config, ["instance.id", "instance.template_id"]);
+				assert.equal(config.get("factorio.game_port"), null);
+				assert.equal(config.isInherited("factorio.game_port"), false);
+			});
+			it("should inherit factorio.settings per property with its own server name", function () {
+				const settings = child.config.get("factorio.settings");
+				assert.equal(settings.max_players, 5);
+				assert.equal(settings.name, "TestController - Instance 11");
+				assert.equal(child.config.isInherited("factorio.settings", "max_players"), true);
+				assert.equal(child.config.isInherited("factorio.settings", "name"), false);
+			});
+			it("should keep properties given by the creator as overrides", async function () {
+				const other = await createInheritor(12, 10, { "factorio.settings": { max_players: 8 } });
+				assert.equal(other.config.get("factorio.settings").max_players, 8);
+				assert.equal(other.config.isInherited("factorio.settings", "max_players"), false);
+				assert.equal(other.config.isInherited("factorio.settings", "auto_pause"), true);
 			});
 		});
 
-		describe("base changes", function () {
+		describe("template changes", function () {
 			it("should propagate to inherited fields and send the config to the host", function () {
-				base.config.set("factorio.version", "2.1");
+				template.config.set("factorio.version", "2.1");
 				assert.equal(child.config.get("factorio.version"), "2.1");
 				assert.equal(child.config.isInherited("factorio.version"), true);
 				assert.deepEqual(updated, [11]);
 			});
 			it("should mark the inheritor as requiring restart", function () {
 				child.config.restartRequired = false;
-				base.config.set("factorio.version", "2.1");
+				template.config.set("factorio.version", "2.1");
 				assert.equal(child.config.restartRequired, true);
 			});
 			it("should not touch fields the inheritor has set", function () {
-				base.config.set("factorio.game_port", 1234);
-				assert.equal(child.config.get("factorio.game_port"), 34197);
-				assert.deepEqual(updated, []);
+				child.config.set("factorio.version", "2.1");
+				template.config.set("factorio.version", "2.2");
+				assert.equal(child.config.get("factorio.version"), "2.1");
+			});
+			it("should merge object properties and keep overrides", function () {
+				template.config.setProp("factorio.settings", "max_players", 10);
+				template.config.setProp("factorio.settings", "name", "Renamed");
+				template.config.setProp("factorio.settings", "auto_pause", true);
+				const settings = child.config.get("factorio.settings");
+				assert.equal(settings.max_players, 10);
+				assert.equal(settings.auto_pause, true);
+				assert.equal(settings.name, "TestController - Instance 11");
 			});
 			it("should propagate through several levels", async function () {
-				child.config.set("instance.is_base", true);
+				child.config.set("instance.is_template", true);
 				const grandchild = await createInheritor(12, 11);
-				base.config.setProp("factorio.settings", "max_players", 10);
+				template.config.setProp("factorio.settings", "max_players", 10);
 				assert.equal(grandchild.config.get("factorio.settings").max_players, 10);
 				assert.deepEqual(updated.sort(), [11, 12]);
 			});
@@ -466,26 +493,47 @@ describe("controller/InstanceManager", function () {
 			it("should stop inheriting a field that is changed", function () {
 				child.config.set("factorio.version", "2.1");
 				assert.equal(child.config.isInherited("factorio.version"), false);
-				base.config.set("factorio.version", "2.0.1");
-				assert.equal(child.config.get("factorio.version"), "2.1");
 			});
-			it("should stop inheriting with overrideFields() even if the value is unchanged", function () {
-				instances.overrideFields(child, ["factorio.version", "factorio.game_port"]);
+			it("should only override the properties changed in an object", function () {
+				child.config.setProp("factorio.settings", "max_players", 3);
+				assert.equal(child.config.isInherited("factorio.settings", "max_players"), false);
+				assert.equal(child.config.isInherited("factorio.settings", "auto_pause"), true);
+			});
+			it("should restore the template value of a removed property", function () {
+				child.config.setProp("factorio.settings", "max_players", 3);
+				child.config.setProp("factorio.settings", "max_players");
+				assert.equal(child.config.get("factorio.settings").max_players, 5);
+				assert.equal(child.config.isInherited("factorio.settings", "max_players"), true);
+			});
+			it("should stop inheriting with overrideField() even if the value is unchanged", function () {
+				instances.overrideField(child, "factorio.version");
+				instances.overrideField(child, "factorio.settings", ["auto_pause"]);
 				assert.equal(child.config.isInherited("factorio.version"), false);
+				assert.equal(child.config.isInherited("factorio.settings", "auto_pause"), false);
 			});
 		});
 
 		describe(".inheritField()", function () {
-			it("should restore the base value", function () {
+			it("should restore the template value", function () {
 				child.config.set("factorio.version", "2.1");
 				instances.inheritField(11, "factorio.version");
 				assert.equal(child.config.get("factorio.version"), "2.0");
 				assert.equal(child.config.isInherited("factorio.version"), true);
 			});
-			it("should throw if the instance has no base", function () {
+			it("should restore a single property", function () {
+				child.config.setProp("factorio.settings", "max_players", 3);
+				instances.inheritField(11, "factorio.settings", "max_players");
+				assert.equal(child.config.get("factorio.settings").max_players, 5);
+				assert.equal(child.config.get("factorio.settings").name, "TestController - Instance 11");
+			});
+			it("should restore all properties", function () {
+				instances.inheritField(11, "factorio.settings");
+				assert.equal(child.config.get("factorio.settings").name, "Template server");
+			});
+			it("should throw if the instance has no template", function () {
 				assert.throws(
 					() => instances.inheritField(1, "factorio.version"),
-					new lib.ValidationError("Instance does not have a base"),
+					new lib.ValidationError("Instance does not have a template"),
 				);
 			});
 			it("should throw for fields that cannot be inherited", function () {
@@ -493,79 +541,102 @@ describe("controller/InstanceManager", function () {
 					() => instances.inheritField(11, "instance.name"),
 					new lib.ValidationError("Field instance.name cannot be inherited"),
 				);
+				assert.throws(
+					() => instances.inheritField(11, "factorio.rcon_port"),
+					new lib.ValidationError("Field factorio.rcon_port cannot be inherited"),
+				);
 			});
 		});
 
-		describe("base_id changes", function () {
-			it("should inherit fields equal to the new base", function () {
+		describe("template_id changes", function () {
+			it("should inherit fields equal to the template or the default", function () {
 				instance.config.set("factorio.version", "2.0");
-				instance.config.set("instance.base_id", 10);
+				instance.config.set("factorio.verbose_logging", true);
+				template.config.set("instance.auto_start", true);
+				instance.config.set("instance.template_id", 10);
 				assert.equal(instance.config.isInherited("factorio.version"), true);
-				assert.equal(instance.config.isInherited("factorio.settings"), false);
+				assert.equal(instance.config.isInherited("instance.auto_start"), true);
+				assert.equal(instance.config.get("instance.auto_start"), true);
+				assert.equal(instance.config.isInherited("factorio.verbose_logging"), false);
 			});
-			it("should clear inherited fields when the base is removed", function () {
-				child.config.set("instance.base_id", null);
+			it("should inherit object properties equal to the template or the default", function () {
+				instance.config.setProp("factorio.settings", "max_players", 0);
+				instance.config.setProp("factorio.settings", "game_password", "secret");
+				instance.config.set("instance.template_id", 10);
+				const settings = instance.config.get("factorio.settings");
+				assert.equal(settings.max_players, 5);
+				assert.equal(settings.game_password, "secret");
+				assert.equal(instance.config.isInherited("factorio.settings", "game_password"), false);
+				assert.equal(instance.config.isInherited("factorio.settings", "max_players"), true);
+			});
+			it("should keep the server name of the instance", function () {
+				instance.config.setProp("factorio.settings", "name", "Template server");
+				instance.config.set("instance.template_id", 10);
+				assert.equal(instance.config.isInherited("factorio.settings", "name"), false);
+			});
+			it("should clear inherited fields when the template is removed", function () {
+				child.config.set("instance.template_id", null);
 				assert.deepEqual(child.config.get("instance.inherited_fields"), {});
 				assert.equal(child.config.get("factorio.version"), "2.0");
 			});
 		});
 
 		describe(".checkInheritance()", function () {
-			it("should accept a valid base", function () {
+			it("should accept a valid template", function () {
 				instances.checkInheritance(instance.config, false, 10);
 			});
-			it("should reject a missing base", function () {
+			it("should reject a missing template", function () {
 				assert.throws(
 					() => instances.checkInheritance(instance.config, false, 99),
 					new lib.NotFoundError("Instance with ID 99 does not exist"),
 				);
 			});
-			it("should reject an instance that is not a base", function () {
+			it("should reject an instance that is not a template", function () {
 				assert.throws(
 					() => instances.checkInheritance(instance.config, false, 11),
-					new lib.ValidationError("Instance Instance 11 is not a base"),
+					new lib.ValidationError("Instance Instance 11 is not a template"),
 				);
 			});
 			it("should reject cycles", function () {
-				child.config.set("instance.is_base", true);
+				child.config.set("instance.is_template", true);
 				assert.throws(
-					() => instances.checkInheritance(base.config, true, 11),
-					new lib.ValidationError("Base instances cannot inherit from themselves"),
+					() => instances.checkInheritance(template.config, true, 11),
+					new lib.ValidationError("Templates cannot inherit from themselves"),
 				);
 			});
-			it("should reject making an assigned instance a base", function () {
+			it("should reject making an assigned instance a template", function () {
 				instance.config.set("instance.assigned_host", 5);
 				assert.throws(
 					() => instances.checkInheritance(instance.config, true, null),
-					new lib.ConflictError("Instance must be unassigned before it can be made a base"),
+					new lib.ConflictError("Instance must be unassigned before it can be made a template"),
 				);
 			});
-			it("should reject unmarking a base that has inheritors", function () {
+			it("should reject unmarking a template that has inheritors", function () {
 				assert.throws(
-					() => instances.checkInheritance(base.config, false, null),
-					new lib.ConflictError("Instance is the base of 1 other instance(s)"),
+					() => instances.checkInheritance(template.config, false, null),
+					new lib.ConflictError("Instance is the template of 1 other instance(s)"),
 				);
 			});
 		});
 
-		it("should not assign a base to a host", async function () {
+		it("should not assign a template to a host", async function () {
 			controller.wsServer.hostConnections.set(5, { send: async () => {}, connector: { closing: false } });
 			await assert.rejects(
 				instances.assignInstance(10, 5),
-				new lib.ValidationError("Base instances cannot be assigned to a host"),
+				new lib.ValidationError("Templates cannot be assigned to a host"),
 			);
 		});
 
-		it("should not delete a base that has inheritors", async function () {
+		it("should not delete a template that has inheritors", async function () {
 			await assert.rejects(
 				instances.deleteInstance(10),
-				new lib.ConflictError("Instance is the base of 1 other instance(s)"),
+				new lib.ConflictError("Instance is the template of 1 other instance(s)"),
 			);
 		});
 
-		it("should report bases in instance details", function () {
-			assert.equal(base.toInstanceDetails().isBase, true);
-			assert.equal(child.toInstanceDetails().isBase, false);
+		it("should report templates in instance details", function () {
+			assert.equal(template.toInstanceDetails().isTemplate, true);
+			assert.equal(child.toInstanceDetails().isTemplate, false);
 		});
 	});
 });

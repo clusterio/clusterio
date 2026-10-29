@@ -317,11 +317,11 @@ export default class ControlConnection extends BaseConnection {
 			instanceConfig.set("instance.assigned_host", null); // New instances are unassigned
 		}
 		instanceConfig.update(request.config, false, "control");
-		if (Object.hasOwn(request.config, "instance.base_id")) {
-			this._controller.instances.checkInheritance(
-				instanceConfig, instanceConfig.get("instance.is_base"), instanceConfig.get("instance.base_id")
-			);
-			this._controller.instances.applyBase(instanceConfig, Object.keys(request.config));
+		this._controller.instances.checkInheritance(
+			instanceConfig, instanceConfig.get("instance.is_template"), instanceConfig.get("instance.template_id")
+		);
+		if (Object.hasOwn(request.config, "instance.template_id")) {
+			this._controller.instances.applyTemplate(instanceConfig, Object.keys(request.config));
 		}
 		await this._controller.instances.createInstance(instanceConfig);
 	}
@@ -365,7 +365,12 @@ export default class ControlConnection extends BaseConnection {
 
 			this.checkStagedInheritance(instance);
 			instance.config.commitStaging();
-			this._controller.instances.overrideFields(instance, Object.keys(request.fields));
+			for (const [fieldName, fieldValue] of Object.entries(request.fields)) {
+				const props = typeof fieldValue === "object"
+					? Object.keys(fieldValue).filter(prop => fieldValue[prop] !== undefined)
+					: undefined;
+				this._controller.instances.overrideField(instance, fieldName, props);
+			}
 			await this._controller.instanceConfigUpdated(instance);
 		} finally {
 			instance.config.revertStaging();
@@ -375,7 +380,7 @@ export default class ControlConnection extends BaseConnection {
 	private checkStagedInheritance(instance: InstanceRecord) {
 		const staged = instance.config.staging;
 		this._controller.instances.checkInheritance(
-			instance.config, staged.get("instance.is_base"), staged.get("instance.base_id")
+			instance.config, staged.get("instance.is_template"), staged.get("instance.template_id")
 		);
 	}
 
@@ -383,7 +388,7 @@ export default class ControlConnection extends BaseConnection {
 		const instance = this._controller.instances.getForRequest(request.instanceId);
 		const field = request.field as keyof lib.InstanceConfigFields;
 		ControlConnection.validateInstanceConfigSetField(field);
-		if (["instance.is_base", "instance.base_id"].includes(field)) {
+		if (["instance.is_template", "instance.template_id"].includes(field)) {
 			try {
 				instance.config.stage(field, request.value, "control");
 				this.checkStagedInheritance(instance);
@@ -392,7 +397,7 @@ export default class ControlConnection extends BaseConnection {
 			}
 		}
 		instance.config.set(field, request.value, "control");
-		this._controller.instances.overrideFields(instance, [field]);
+		this._controller.instances.overrideField(instance, field);
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
@@ -401,13 +406,15 @@ export default class ControlConnection extends BaseConnection {
 		let { field, prop, value } = request;
 		ControlConnection.validateInstanceConfigSetField(field);
 		instance.config.setProp(field as keyof lib.InstanceConfigFields, prop, value, "control");
-		this._controller.instances.overrideFields(instance, [field]);
+		if (value !== undefined) {
+			this._controller.instances.overrideField(instance, field, [prop]);
+		}
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
 	async handleInstanceConfigInheritFieldRequest(request: lib.InstanceConfigInheritFieldRequest) {
 		ControlConnection.validateInstanceConfigSetField(request.field);
-		this._controller.instances.inheritField(request.instanceId, request.field);
+		this._controller.instances.inheritField(request.instanceId, request.field, request.prop);
 		await this._controller.instanceConfigUpdated(this._controller.instances.getForRequest(request.instanceId));
 	}
 

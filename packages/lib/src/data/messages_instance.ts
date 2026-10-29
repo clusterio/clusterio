@@ -186,15 +186,17 @@ export class InstanceConfigInheritFieldRequest {
 	constructor(
 		public instanceId: number,
 		public field: string,
+		public prop?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
 		"field": Type.String(),
+		"prop": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.instanceId, json.field);
+		return new this(json.instanceId, json.field, json.prop);
 	}
 }
 

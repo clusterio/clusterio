@@ -12,28 +12,38 @@ describe("lib/config/definitions", function() {
 			});
 			it("should reject identity, hidden, host only and unknown fields", function() {
 				for (const name of [
-					"instance.name", "instance.id", "instance.assigned_host", "instance.is_base",
-					"instance.base_id", "instance.inherited_fields", "factorio.host_assigned_game_port", "no.field",
+					"instance.name", "instance.id", "instance.assigned_host", "instance.is_template",
+					"instance.template_id", "instance.inherited_fields", "factorio.host_assigned_game_port",
+					"factorio.game_port", "factorio.rcon_port", "factorio.lua_udp_port", "no.field",
 				]) {
 					assert.equal(lib.InstanceConfig.isInheritable(name), false, name);
 				}
 			});
 		});
 		describe(".isInherited()", function() {
-			it("should only report fields as inherited when a base is set", function() {
+			it("should only report fields as inherited when a template is set", function() {
 				const config = new lib.InstanceConfig("controller", {
 					"instance.inherited_fields": { "factorio.version": true },
 				});
 				assert.equal(config.isInherited("factorio.version"), false);
-				config.set("instance.base_id", 1);
+				config.set("instance.template_id", 1);
 				assert.equal(config.isInherited("factorio.version"), true);
 				assert.equal(config.isInherited("factorio.game_port"), false);
 			});
+			it("should report object properties not overridden as inherited", function() {
+				const config = new lib.InstanceConfig("controller", {
+					"instance.template_id": 1,
+					"instance.inherited_fields": { "factorio.settings": ["name"] },
+				});
+				assert.equal(config.isInherited("factorio.settings"), true);
+				assert.equal(config.isInherited("factorio.settings", "max_players"), true);
+				assert.equal(config.isInherited("factorio.settings", "name"), false);
+			});
 		});
 		it("should not send inheritance fields to the host", function() {
-			const config = new lib.InstanceConfig("controller", { "instance.base_id": 1 });
+			const config = new lib.InstanceConfig("controller", { "instance.template_id": 1 });
 			const remote = config.toRemote("host");
-			for (const name of ["instance.is_base", "instance.base_id", "instance.inherited_fields"]) {
+			for (const name of ["instance.is_template", "instance.template_id", "instance.inherited_fields"]) {
 				assert(!Object.hasOwn(remote, name), name);
 			}
 		});

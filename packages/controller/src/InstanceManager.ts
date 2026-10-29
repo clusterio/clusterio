@@ -6,6 +6,9 @@ import type Controller from "./Controller.js";
 import type HostConnection from "./HostConnection.js";
 import InstanceRecord from "./InstanceRecord.js";
 
+type InheritedFields = lib.InstanceConfigFields["instance.inherited_fields"];
+type InheritableField = keyof lib.InstanceConfigFields & string;
+
 export default class InstanceManager {
 	private static readonly DefaultFactorioSettings = {
 		tags: ["clusterio"],
@@ -26,7 +29,7 @@ export default class InstanceManager {
 		non_blocking_saving: false,
 	} as const;
 
-	/** Non-zero while base values are being copied into inheriting instances */
+	/** Non-zero while template values are being copied into inheriting instances */
 	private _inheriting = 0;
 
 	constructor(
@@ -111,10 +114,10 @@ export default class InstanceManager {
 	 */
 	addInstanceHooks(instance: InstanceRecord): void {
 		instance.config.on("fieldChanged", (field: string, curr: unknown, prev: unknown) => {
-			if (field === "instance.base_id") {
-				this._rebase(instance);
+			if (field === "instance.template_id") {
+				this._link(instance);
 			} else if (!this._inheriting && instance.config.isInherited(field)) {
-				this._setInherited(instance, [field], false);
+				this._override(instance, field, curr, prev);
 			}
 			this.records.set(instance);
 			this._notifyConfigFieldChanged(instance, field, curr, prev);
@@ -127,168 +130,249 @@ export default class InstanceManager {
 	/* ------------------------------------------------------------------------- */
 
 	/**
-	 * Get the instances that inherit directly from the given base.
+	 * Get the instances that inherit directly from the given template.
 	 *
-	 * @param baseId - ID of the base instance.
-	 * @returns Instances with `instance.base_id` set to baseId.
+	 * @param templateId - ID of the template.
+	 * @returns Instances with `instance.template_id` set to templateId.
 	 */
-	inheritorsOf(baseId: number): InstanceRecord[] {
+	inheritorsOf(templateId: number): InstanceRecord[] {
 		return [...this.records.values()].filter(
-			instance => instance.config.get("instance.base_id") === baseId
+			instance => instance.config.get("instance.template_id") === templateId
 		);
 	}
 
 	/**
-	 * Check that new values for `instance.is_base` and `instance.base_id` are allowed.
+	 * Check that new values for `instance.is_template` and `instance.template_id` are allowed.
 	 *
 	 * @param config - Current config of the instance.
-	 * @param isBase - New value for `instance.is_base`.
-	 * @param baseId - New value for `instance.base_id`.
-	 * @throws {module:lib.ValidationError} if the base is not a base or would create a cycle.
+	 * @param isTemplate - New value for `instance.is_template`.
+	 * @param templateId - New value for `instance.template_id`.
+	 * @throws {module:lib.ValidationError} if the template is not a template or would create a cycle.
 	 * @throws {module:lib.ConflictError} if the instance is assigned or still has inheritors.
 	 */
-	checkInheritance(config: lib.InstanceConfig, isBase: boolean, baseId: number | null): void {
+	checkInheritance(config: lib.InstanceConfig, isTemplate: boolean, templateId: number | null): void {
 		const instanceId = config.get("instance.id");
-		if (isBase && config.get("instance.assigned_host") !== null) {
-			throw new lib.ConflictError("Instance must be unassigned before it can be made a base");
+		if (isTemplate && config.get("instance.assigned_host") !== null) {
+			throw new lib.ConflictError("Instance must be unassigned before it can be made a template");
 		}
-		if (!isBase && config.get("instance.is_base")) {
+		if (!isTemplate && config.get("instance.is_template")) {
 			const count = this.inheritorsOf(instanceId).length;
 			if (count) {
-				throw new lib.ConflictError(`Instance is the base of ${count} other instance(s)`);
+				throw new lib.ConflictError(`Instance is the template of ${count} other instance(s)`);
 			}
 		}
-		if (baseId === null) {
+		if (templateId === null) {
 			return;
 		}
-		const base = this.records.get(baseId);
-		if (!base) {
-			throw new lib.NotFoundError(`Instance with ID ${baseId} does not exist`);
+		const template = this.records.get(templateId);
+		if (!template) {
+			throw new lib.NotFoundError(`Instance with ID ${templateId} does not exist`);
 		}
-		if (!base.config.get("instance.is_base")) {
-			throw new lib.ValidationError(`Instance ${base.config.get("instance.name")} is not a base`);
+		if (!template.config.get("instance.is_template")) {
+			throw new lib.ValidationError(`Instance ${template.config.get("instance.name")} is not a template`);
 		}
 		const visited = new Set<number>();
-		for (let id: number | null = baseId; id !== null && !visited.has(id);) {
+		for (let id: number | null = templateId; id !== null && !visited.has(id);) {
 			if (id === instanceId) {
-				throw new lib.ValidationError("Base instances cannot inherit from themselves");
+				throw new lib.ValidationError("Templates cannot inherit from themselves");
 			}
 			visited.add(id);
-			id = this.records.get(id)?.config.get("instance.base_id") ?? null;
+			id = this.records.get(id)?.config.get("instance.template_id") ?? null;
 		}
 	}
 
 	/**
-	 * Copy all inheritable values from the base set in `instance.base_id`
+	 * Copy the inheritable values from the template set in `instance.template_id`
 	 * into a config that is not yet part of the cluster and mark them inherited.
 	 *
 	 * @param config - Config of the instance to be created.
-	 * @param keep - Fields to keep the current value of.
+	 * @param own - Fields set by the creator, object fields keep their properties as overrides.
 	 */
-	applyBase(config: lib.InstanceConfig, keep: string[] = []): void {
-		const base = this.records.get(config.get("instance.base_id")!);
-		if (!base) {
+	applyTemplate(config: lib.InstanceConfig, own: string[] = []): void {
+		const template = this._templateOf(config);
+		if (!template) {
 			return;
 		}
-		const values: Record<string, any> = {};
-		const inherited: Record<string, true> = {};
-		for (const name of Object.keys(lib.InstanceConfig.fieldDefinitions)) {
-			if (lib.InstanceConfig.isInheritable(name) && !keep.includes(name)) {
-				values[name] = structuredClone(base.config.get(name as keyof lib.InstanceConfigFields));
+		const inherited: InheritedFields = {};
+		for (const name of InstanceManager._inheritableFields()) {
+			const def = lib.InstanceConfig.fieldDefinitions[name];
+			if (def.type === "object") {
+				inherited[name] = own.includes(name) ? Object.keys(config.get(name) as object ?? {}) : [];
+			} else if (!own.includes(name)) {
 				inherited[name] = true;
 			}
 		}
-		config.update(values, false);
 		config.set("instance.inherited_fields", inherited);
+		config.update(InstanceManager._resolve(config, template.config, Object.keys(inherited)), false);
 	}
 
 	/**
-	 * Make a field take its value from the base instance again.
+	 * Make a field, or a property of an object field, take its value from the template again.
 	 *
 	 * @param instanceId - ID of the instance to update.
 	 * @param field - Name of the field to inherit.
-	 * @throws {module:lib.ValidationError} if the instance has no base or the field cannot be inherited.
+	 * @param prop - Property of an object field to inherit, inherits all properties if not given.
+	 * @throws {module:lib.ValidationError} if the instance has no template or the field cannot be inherited.
 	 */
-	inheritField(instanceId: number, field: string): void {
+	inheritField(instanceId: number, field: string, prop?: string): void {
 		const instance = this.getForRequest(instanceId);
-		const baseId = instance.config.get("instance.base_id");
-		const base = baseId !== null ? this.records.get(baseId) : undefined;
-		if (!base) {
-			throw new lib.ValidationError("Instance does not have a base");
+		if (!this._templateOf(instance.config)) {
+			throw new lib.ValidationError("Instance does not have a template");
 		}
 		if (!lib.InstanceConfig.isInheritable(field)) {
 			throw new lib.ValidationError(`Field ${field} cannot be inherited`);
 		}
-		this._setInherited(instance, [field], true);
+		const name = field as InheritableField;
+		const inherited = { ...instance.config.get("instance.inherited_fields") };
+		if (lib.InstanceConfig.fieldDefinitions[name].type !== "object") {
+			inherited[field] = true;
+		} else if (prop === undefined) {
+			inherited[field] = [];
+		} else {
+			const entry = inherited[field];
+			const overrides = entry instanceof Array ? entry : Object.keys(instance.config.get(name) as object ?? {});
+			inherited[field] = overrides.filter(p => p !== prop);
+		}
+		instance.config.set("instance.inherited_fields", inherited);
+		this._resolveInto(instance, [field]);
+	}
+
+	/**
+	 * Stop inheriting the given field or properties, used when a value is explicitly set.
+	 *
+	 * @param instance - Instance the field was set on.
+	 * @param field - Name of the field set.
+	 * @param props - Properties set on an object field.
+	 */
+	overrideField(instance: InstanceRecord, field: string, props?: string[]): void {
+		const entry = instance.config.get("instance.inherited_fields")[field];
+		if (!instance.config.isInherited(field)) {
+			return;
+		}
+		const inherited = { ...instance.config.get("instance.inherited_fields") };
+		if (entry instanceof Array && props) {
+			inherited[field] = [...new Set([...entry, ...props])];
+		} else {
+			delete inherited[field];
+		}
+		instance.config.set("instance.inherited_fields", inherited);
+	}
+
+	private _templateOf(config: lib.InstanceConfig) {
+		const templateId = config.get("instance.template_id");
+		return templateId !== null ? this.records.get(templateId) : undefined;
+	}
+
+	private static _inheritableFields() {
+		return Object.keys(lib.InstanceConfig.fieldDefinitions).filter(
+			name => lib.InstanceConfig.isInheritable(name)
+		) as InheritableField[];
+	}
+
+	/** Default value of a field, or undefined if it is generated */
+	private static _defaultValue(name: InheritableField): unknown {
+		const def = lib.InstanceConfig.fieldDefinitions[name];
+		if (name === "factorio.settings") {
+			return InstanceManager.DefaultFactorioSettings;
+		}
+		return typeof def.initialValue === "function" ? undefined : def.initialValue ?? null;
+	}
+
+	/** Values the given inherited fields take from the template, with object overrides applied */
+	private static _resolve(config: lib.InstanceConfig, template: lib.InstanceConfig, fields: string[]) {
+		const inherited = config.get("instance.inherited_fields");
+		const values: Record<string, any> = {};
+		for (const field of fields) {
+			const name = field as InheritableField;
+			const entry = inherited[field];
+			if (!entry) {
+				continue;
+			}
+			const value = structuredClone(template.get(name)) as any;
+			if (entry instanceof Array) {
+				const own = config.get(name) as Record<string, unknown> ?? {};
+				for (const prop of entry) {
+					if (Object.hasOwn(own, prop)) {
+						value[prop] = structuredClone(own[prop]);
+					}
+				}
+			}
+			values[field] = value;
+		}
+		return values;
+	}
+
+	/** Update the given inherited fields of a live instance from its template */
+	private _resolveInto(instance: InstanceRecord, fields: string[]): void {
+		const template = this._templateOf(instance.config);
+		if (!template) {
+			return;
+		}
+		const values = InstanceManager._resolve(instance.config, template.config, fields);
 		this._inheriting += 1;
 		try {
-			instance.config.update({
-				[field]: structuredClone(base.config.get(field as keyof lib.InstanceConfigFields)),
-			}, true);
+			instance.config.update(values, true);
 		} finally {
 			this._inheriting -= 1;
 		}
 	}
 
-	/**
-	 * Stop inheriting the given fields, used when a value is explicitly set.
-	 *
-	 * @param instance - Instance the fields were set on.
-	 * @param fields - Names of fields set.
-	 */
-	overrideFields(instance: InstanceRecord, fields: string[]): void {
-		const inherited = fields.filter(field => instance.config.isInherited(field));
-		if (inherited.length) {
-			this._setInherited(instance, inherited, false);
+	/** Track a change to an inherited field made outside of inheritance */
+	private _override(instance: InstanceRecord, field: string, curr: unknown, prev: unknown): void {
+		const entry = instance.config.get("instance.inherited_fields")[field];
+		if (!(entry instanceof Array)) {
+			this.overrideField(instance, field);
+			return;
+		}
+		const currObj = curr as Record<string, unknown> ?? {};
+		const prevObj = prev as Record<string, unknown> ?? {};
+		const changed = Object.keys(currObj).filter(p => !isDeepStrictEqual(currObj[p], prevObj[p]));
+		const removed = Object.keys(prevObj).filter(p => !Object.hasOwn(currObj, p));
+		const overrides = [...new Set([...entry, ...changed])].filter(p => !removed.includes(p));
+		const inherited = { ...instance.config.get("instance.inherited_fields"), [field]: overrides };
+		instance.config.set("instance.inherited_fields", inherited);
+		if (removed.length) {
+			// Removed properties fall back to the template value
+			this._resolveInto(instance, [field]);
 		}
 	}
 
-	private _setInherited(instance: InstanceRecord, fields: string[], inherited: boolean): void {
-		const value = { ...instance.config.get("instance.inherited_fields") };
-		for (const field of fields) {
-			if (inherited) {
-				value[field] = true;
-			} else {
-				delete value[field];
-			}
-		}
-		instance.config.set("instance.inherited_fields", value);
-	}
-
-	/** Recompute inherited fields after base_id changed, values equal to the base are inherited */
-	private _rebase(instance: InstanceRecord): void {
-		const baseId = instance.config.get("instance.base_id");
-		const base = baseId !== null ? this.records.get(baseId) : undefined;
-		const inherited: Record<string, true> = {};
-		if (base) {
-			for (const name of Object.keys(lib.InstanceConfig.fieldDefinitions)) {
-				const field = name as keyof lib.InstanceConfigFields;
-				if (
-					lib.InstanceConfig.isInheritable(name)
-					&& isDeepStrictEqual(instance.config.get(field), base.config.get(field))
+	/** Recompute inherited fields after template_id changed, values equal to the template or default are inherited */
+	private _link(instance: InstanceRecord): void {
+		const template = this._templateOf(instance.config);
+		const inherited: InheritedFields = {};
+		if (template) {
+			for (const name of InstanceManager._inheritableFields()) {
+				const value = instance.config.get(name) as any;
+				const templateValue = template.config.get(name) as any;
+				const defaultValue = InstanceManager._defaultValue(name) as any;
+				if (lib.InstanceConfig.fieldDefinitions[name].type === "object") {
+					inherited[name] = Object.keys(value ?? {}).filter(prop => !(
+						isDeepStrictEqual(value[prop], templateValue?.[prop])
+						|| defaultValue && isDeepStrictEqual(value[prop], defaultValue[prop])
+					) || name === "factorio.settings" && prop === "name");
+				} else if (
+					isDeepStrictEqual(value, templateValue)
+					|| defaultValue !== undefined && isDeepStrictEqual(value, defaultValue)
 				) {
 					inherited[name] = true;
 				}
 			}
 		}
 		instance.config.set("instance.inherited_fields", inherited);
+		this._resolveInto(instance, Object.keys(inherited));
 	}
 
-	/** Copy a changed value from a base to the instances inheriting it */
-	private _propagate(base: InstanceRecord, field: string, value: unknown): void {
+	/** Copy a changed value from a template to the instances inheriting it */
+	private _propagate(template: InstanceRecord, field: string, value: unknown): void {
 		if (!lib.InstanceConfig.isInheritable(field)) {
 			return;
 		}
-		for (const instance of this.inheritorsOf(base.id)) {
+		for (const instance of this.inheritorsOf(template.id)) {
 			if (!instance.config.isInherited(field)) {
 				continue;
 			}
-			this._inheriting += 1;
-			try {
-				instance.config.update({ [field]: structuredClone(value) as any }, true);
-			} finally {
-				this._inheriting -= 1;
-			}
+			this._resolveInto(instance, [field]);
 			this._controller.instanceConfigUpdated(instance).catch(err => {
 				logger.error(`Failed to send config of instance ${instance.id} to its host:\n${err.stack}`);
 			});
@@ -320,13 +404,22 @@ export default class InstanceManager {
 			throw new lib.ConflictError(`Instance with ID ${instanceId} already exists`);
 		}
 
+		const controllerName = this._controller.config.get("controller.name");
+		const serverName = `${controllerName} - ${instanceConfig.get("instance.name")}`;
+		const settings = instanceConfig.get("factorio.settings");
 		if (!instanceConfig.isInherited("factorio.settings")) {
-			const controllerName = this._controller.config.get("controller.name");
 			instanceConfig.set("factorio.settings", {
-				name: `${controllerName} - ${instanceConfig.get("instance.name")}`,
+				name: serverName,
 				description: `Clusterio instance for ${controllerName}`,
 				...InstanceManager.DefaultFactorioSettings,
-				...instanceConfig.get("factorio.settings"),
+				...settings,
+			});
+		} else if (instanceConfig.isInherited("factorio.settings", "name")) {
+			// Each instance gets its own server name
+			instanceConfig.setProp("factorio.settings", "name", serverName);
+			const inherited = instanceConfig.get("instance.inherited_fields");
+			instanceConfig.set("instance.inherited_fields", {
+				...inherited, "factorio.settings": [...inherited["factorio.settings"] as string[], "name"],
 			});
 		}
 
@@ -372,8 +465,8 @@ export default class InstanceManager {
 		if (currentAssignedHost === hostId) {
 			return;
 		}
-		if (hostId !== null && instance.config.get("instance.is_base")) {
-			throw new lib.ValidationError("Base instances cannot be assigned to a host");
+		if (hostId !== null && instance.config.get("instance.is_template")) {
+			throw new lib.ValidationError("Templates cannot be assigned to a host");
 		}
 
 		let newHostConnection: HostConnection | undefined;
@@ -443,7 +536,7 @@ export default class InstanceManager {
 		const hostId = instance.config.get("instance.assigned_host");
 		const inheritors = this.inheritorsOf(instanceId).length;
 		if (inheritors) {
-			throw new lib.ConflictError(`Instance is the base of ${inheritors} other instance(s)`);
+			throw new lib.ConflictError(`Instance is the template of ${inheritors} other instance(s)`);
 		}
 
 		if (hostId !== null) {
