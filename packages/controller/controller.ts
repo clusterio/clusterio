@@ -26,10 +26,12 @@ import DailyRotateFile from "winston-daily-rotate-file";
 import jwt from "jsonwebtoken";
 
 // homebrew modules
+// Reduce startup time by lazy compiling schemas.
+import "./src/set_lazy_schema_compilation.js";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Controller from "./src/Controller.js";
+import type Controller from "./src/Controller.js";
 import UserManager from "./src/UserManager.js";
 import UserRecord from "./src/UserRecord.js";
 import packageConfig from "@clusterio/controller/package.json" with { type: "json" };
@@ -203,6 +205,7 @@ async function handleBootstrapCommand(
 		}
 		let ctlConfig = new lib.CtlConfig("control");
 
+		const { default: Controller } = await import("./src/Controller.js");
 		ctlConfig.set("ctl.controller_url", Controller.calculateControllerUrl(controllerConfig));
 		ctlConfig.set(
 			"ctl.controller_token",
@@ -475,6 +478,8 @@ async function startup() {
 		return;
 	}
 
+	// Loaded here as the server is not needed by the other commands
+	const { default: Controller } = await import("./src/Controller.js");
 	controller = await Controller.fromConfig(
 		controllerConfig,
 		pluginInfos,
