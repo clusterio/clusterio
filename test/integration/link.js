@@ -147,7 +147,9 @@ describe("Integration of lib/link", function() {
 
 	it("should close old connections from the same address", async function() {
 		slowTest(this);
-		const hostConnectorFirst = new TestHostConnector(url, 0.2);
+		// Without a link the disconnect prepare goes unanswered and the controller waits 10 s for it
+		const hostLinkFirst = new lib.Link(new TestHostConnector(url, 0.2));
+		const hostConnectorFirst = hostLinkFirst.connector;
 		hostConnectorFirst.token = hostConnector.token;
 		hostConnectorFirst.hostId = hostConnector.hostId;
 		const onceClose = events.once(hostConnectorFirst, "close");
