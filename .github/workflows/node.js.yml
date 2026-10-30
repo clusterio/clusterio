@@ -28,19 +28,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Test Node.js 24 and 26 across the Factorio matrix; Node.js 22 runs coverage below.
+        # To stay within the concurrent job limit, every Factorio version is
+        # tested on the latest Node.js, and every other supported Node.js
+        # version only with the latest Factorio. Coverage is performed on the
+        # oldest supported Node.js.
         # Node.js release schedule: https://nodejs.org/en/about/releases/
-        node-version: [24.x, 26.x]
-
-        # Supported factorio versions are latest stable and one minor version before stable (even if from a previous major) 
+        # Supported factorio versions are latest stable and one minor version before stable (even if from a previous major)
+        node-version: [26.x]
         factorio-version: [1.1.110, 2.0.77, 2.1.17]
 
         # The tests run in two halves of similar length on separate runners,
         # the clusterioctl, plugin system and instance integration tests and the rest.
         tests: [ctl, other]
 
-        # Coverage is performed on the older of the supported node versions
         include:
+          - node-version: 24.x
+            factorio-version: 2.1.17
+            tests: ctl
+          - node-version: 24.x
+            factorio-version: 2.1.17
+            tests: other
           - node-version: 22.x
             factorio-version: 2.1.17
             tests: ctl

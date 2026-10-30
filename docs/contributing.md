@@ -339,7 +339,8 @@ The format of this log should be self explanatory, please follow it carefully. P
 
 For development, use the latest Node.js LTS release, following the [installation instructions](../README.md#installation).
 Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
-The GitHub Actions tests currently run on Node.js 24 and 26 across the Factorio matrix, with Node.js 22 used for coverage; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
+The GitHub Actions tests run every Factorio version on the latest Node.js, and every other supported Node.js version with the latest Factorio only, which keeps the number of jobs within GitHub's concurrent job limit.
+Coverage is collected on the oldest supported Node.js; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
 
 For Factorio, active support covers the latest stable version and the previous major version, using version lines such as 2.1, 2.0 and 1.1 as described in the [Factorio support policy](decisions.md#factorio).
 Older versions from 0.17 onwards receive passive support where it does not restrict actively supported versions.
