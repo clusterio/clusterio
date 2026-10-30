@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import jwt from "jsonwebtoken";
 
 import { escapeArg } from "../packages/create/escape_arg.js";
 
@@ -145,13 +143,10 @@ describe("create installer CLI", function() {
 					fs.appendFileSync(process.env.CREATE_TEST_COMMANDS, JSON.stringify(command) + "\\n");
 					const stdout = new PassThrough();
 					const stderr = new PassThrough();
-					// Lets tests give the host id a config show prints.
-					const output = process.env.CREATE_TEST_HOST_ID && command.includes("config show host.id")
-						? process.env.CREATE_TEST_HOST_ID + "\\n" : "";
 					queueMicrotask(() => {
 						stdout.end();
 						stderr.end();
-						callback(null, output, "");
+						callback(null, "", "");
 					});
 					return { stdout, stderr };
 				};
@@ -206,28 +201,17 @@ describe("create installer CLI", function() {
 			assert((await commands()).includes(hostSet("host.controller_url", controllerUrl)));
 		});
 
-		it("adds the host of a standalone install to the controller database", async function() {
-			const secret = crypto.randomBytes(256).toString("base64");
-			await fs.writeFile(path.join(directory, "config-controller.json"), JSON.stringify({
-				"controller.auth_secret": secret,
-			}));
+		it("leaves joining the cluster to the host of a standalone install", async function() {
+			await fs.writeFile(path.join(directory, "config-controller.json"), "{}");
 			const { stdout } = await run([
 				"--mode", "standalone", "--admin", "admin", "--http-port", "8123", "--public-address", "localhost",
 				"--factorio-dir", "factorio", "--remote-npm", "--plugins",
 			]);
 			assert.match(stdout, /Successfully installed standalone/);
-
-			const hosts = JSON.parse(await fs.readFile(path.join(directory, "database", "hosts.json")));
-			assert.equal(hosts.length, 1);
-			assert.equal(hosts[0].name, "local");
+			assert.match(stdout, /Start the host with run-host/);
 
 			const recorded = await commands();
-			const tokenSet = `${hostBin} config set host.controller_token `;
-			const token = recorded.find(command => command.startsWith(tokenSet)).slice(tokenSet.length);
-			const payload = jwt.verify(token, Buffer.from(secret, "base64"), { audience: "host" });
-			assert.equal(payload.host, hosts[0].id);
 			for (const expected of [
-				hostSet("host.id", hosts[0].id),
 				hostSet("host.name", "local"),
 				hostSet("host.controller_url", "http://localhost:8123/"),
 				`${controllerBin} config set controller.allow_remote_updates true`,
@@ -239,28 +223,7 @@ describe("create installer CLI", function() {
 			]) {
 				assert(recorded.includes(expected), `missing ${expected}`);
 			}
-		});
-
-		it("keeps the host of a standalone install when run again", async function() {
-			const secret = crypto.randomBytes(256).toString("base64");
-			await fs.writeFile(path.join(directory, "config-controller.json"), JSON.stringify({
-				"controller.auth_secret": secret,
-			}));
-			await fs.mkdir(path.join(directory, "database"));
-			const existing = [{ id: 1234, name: "local", version: "2.0.3", plugins: {}, token_valid_after: 1 }];
-			await fs.writeFile(path.join(directory, "database", "hosts.json"), JSON.stringify(existing));
-			const { stdout } = await run([
-				"--mode", "standalone", "--admin", "admin", "--http-port", "8123", "--public-address", "localhost",
-				"--factorio-dir", "factorio", "--remote-npm", "--plugins",
-			], { CREATE_TEST_HOST_ID: "1234" });
-			assert.match(stdout, /Successfully installed standalone/);
-
-			assert.deepEqual(JSON.parse(await fs.readFile(path.join(directory, "database", "hosts.json"))), existing);
-			const recorded = await commands();
-			assert(recorded.includes(hostSet("host.id", 1234)), "host id was changed");
-			const tokenSet = `${hostBin} config set host.controller_token `;
-			const token = recorded.find(command => command.startsWith(tokenSet)).slice(tokenSet.length);
-			assert.equal(jwt.verify(token, Buffer.from(secret, "base64"), { audience: "host" }).host, 1234);
+			assert(!recorded.some(command => command.includes("host.controller_token")));
 		});
 	});
 });

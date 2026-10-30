@@ -10,7 +10,6 @@ import util from "node:util";
 import yargs from "yargs";
 
 import { levels, logger, setLogLevel } from "./logging.js";
-import { createLocalHost } from "./local_host.js";
 import { copyPluginTemplates } from "./template.js";
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
@@ -869,25 +868,15 @@ async function main() {
 	}
 
 	if (answers.mode === "standalone") {
-		// The controller is not running, so the host is added to its database directly. The id
-		// from the host config is kept so running the installer again reuses the same host.
-		let result = await execHost(["config", "show", "host.id"]);
-		let hostId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
-		let host = await createLocalHost({ name: "local", id: Number.isInteger(hostId) ? hostId : undefined });
-		await execHost(["config", "set", "host.id", host.hostId]);
-		await execHost(["config", "set", "host.name", host.name]);
 		// Default to localhost on correct port for host in standalone mode
-		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}/`]);
-		await execHost(["config", "set", "host.controller_token", host.token]);
-	}
-
-	if (answers.mode === "host") {
-		// The host requests to join the cluster when it is started.
-		await execHost(["config", "set", "host.name", answers.hostName]);
-		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
+		answers.hostName = "local";
+		answers.controllerUrl = `http://localhost:${answers.httpPort}/`;
 	}
 
 	if (["standalone", "host"].includes(answers.mode)) {
+		// The host requests to join the cluster when it is started.
+		await execHost(["config", "set", "host.name", answers.hostName]);
+		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 		await setRemoteUpdates(execHost, "host", answers.remoteNpm);
@@ -906,7 +895,7 @@ async function main() {
 
 	/* eslint-disable no-console */
 	console.log(`Successfully installed ${answers.mode}`);
-	if (answers.mode === "host") {
+	if (["standalone", "host"].includes(answers.mode)) {
 		console.log(
 			`Start the host with run-host${process.platform === "win32" ? ".cmd" : ".sh"}, then approve it on the ` +
 			`Hosts page of ${answers.controllerUrl}`

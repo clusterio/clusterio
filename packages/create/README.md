@@ -19,7 +19,7 @@ The installer runs without prompts when all the questions for the mode are answe
 
 ## Modes
 
-- `standalone`: controller and host on this computer.
+- `standalone`: controller and host on this computer. The host is approved like any other host the first time it starts.
   The host is added to the controller directly and does not need to be approved.
 - `controller`: controller only.
 - `host`: host only, joins the cluster of an existing controller, see [Setting up a host](#setting-up-a-host).
