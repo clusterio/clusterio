@@ -221,6 +221,7 @@ describe("controller/src/routes", function() {
 			controller.hosts = new SubscribableDatastore();
 			controller.hostPairing = new HostPairingManager(controller);
 			controller.generateHostToken = Controller.prototype.generateHostToken;
+			controller.verifyHostToken = Controller.prototype.verifyHostToken;
 			controller.wsServer.remoteAddr = req => req.socket.remoteAddress;
 			adminToken = controller.users.signUserToken(controller.users.getByName("test"));
 			playerToken = controller.users.signUserToken(controller.users.getByName("player"));
@@ -477,6 +478,11 @@ describe("controller/src/routes", function() {
 					await assertResponse(await check(headers), 200, { valid: true });
 				}
 				assert(controller.hosts.has(hostId));
+			});
+			it("should respond with 200 for a host token from before the slave rename", async function() {
+				const { hostId } = await controller.hostPairing.createHost("Host A");
+				const token = jwt.sign({ aud: "slave", slave: hostId }, controller.authSecret);
+				await assertResponse(await check({ "Authorization": `Bearer ${token}` }), 200, { valid: true });
 			});
 			it("should respond with 401 without a valid host token", async function() {
 				await controller.hostPairing.createHost("Host A");

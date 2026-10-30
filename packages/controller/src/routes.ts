@@ -189,17 +189,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		const tokenPayload = jwt.verify(token, req.app.locals.controller.authSecret, { audience: "host" });
-		if (typeof tokenPayload === "string") {
-			throw new Error("unexpected JsonWebToken type");
-		}
-		let host = req.app.locals.controller.hosts.get(tokenPayload.host);
-		if (!host) {
-			throw new Error("invalid host");
-		}
-		if (!tokenPayload.iat || tokenPayload.iat < (host.tokenValidAfter ?? 0)) {
-			throw new Error("invalid token");
-		}
+		req.app.locals.controller.verifyHostToken(token);
 	} catch (err) {
 		res.sendStatus(401);
 		return;

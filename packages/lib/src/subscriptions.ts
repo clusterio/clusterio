@@ -725,6 +725,16 @@ export class MapSubscriber<
 	/** Current value of the subscribed resource */
 	values = new Map<K, V>();
 
+	override handleConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
+		if (event === "connect") {
+			// A new session is only sent values that exist, not ones removed while disconnected,
+			// so everything is fetched again.
+			this.values.clear();
+			this.lastUpdatedMs = -1;
+		}
+		super.handleConnectionEvent(event);
+	}
+
 	protected override getLastUpdatedTimeMs(event: E) {
 		let maxTime = this.lastUpdatedMs;
 		for (const update of event.updates) {

@@ -1584,6 +1584,34 @@ describe("lib/subscriptions", function() {
 			assert.equal(snap2.has(2), true);
 		});
 
+		it("should fetch everything again when a new session starts", async function() {
+			subscriber.subscribe(() => {});
+			await events.once(mockControl.connector, "send");
+			await subscriber._handleEvent(new MapEvent([
+				{ id: 1, updatedAtMs: 10, isDeleted: false },
+			]));
+			const [before] = subscriber.getSnapshot();
+			mockControl.connector.sentMessages.length = 0;
+
+			mockControl.connector.emit("connect");
+			assert.equal(subscriber.values.size, 0);
+			assert.notStrictEqual(subscriber.getSnapshot()[0], before);
+			await new Promise(resolve => setImmediate(resolve));
+			const requests = mockControl.connector.sentMessages.filter(m => m.name === "SubscriptionRequest");
+			assert.equal(requests.length, 1);
+			assert.equal(requests[0].data.lastRequestTimeMs, -1);
+		});
+
+		it("should keep values when a session is resumed", async function() {
+			await subscriber._handleEvent(new MapEvent([
+				{ id: 1, updatedAtMs: 10, isDeleted: false },
+			]));
+			subscriber.handleConnectionEvent("drop");
+			subscriber.handleConnectionEvent("resume");
+			assert.equal(subscriber.values.size, 1);
+			assert.equal(subscriber.lastUpdatedMs, 10);
+		});
+
 		it("should handle multiple updates correctly", async function() {
 			await subscriber._handleEvent(new MapEvent([
 				{ id: 1, updatedAtMs: 10, isDeleted: false },

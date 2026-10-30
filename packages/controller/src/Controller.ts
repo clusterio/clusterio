@@ -1025,6 +1025,30 @@ export default class Controller {
 		return jwt.sign({ aud: "host", host: hostId }, this.authSecret);
 	}
 
+	/**
+	 * Check a host token
+	 *
+	 * @param token - Host token to check.
+	 * @returns ID of the host the token was issued to.
+	 * @throws if the token is invalid, its host is not registered or it was issued before tokenValidAfter.
+	 */
+	verifyHostToken(token: string): number {
+		// migrate: allow pre-rename tokens issued to hosts before alpha-14
+		const payload = jwt.verify(token, this.authSecret, { audience: ["host", "slave"] });
+		if (typeof payload === "string") {
+			throw new Error("unexpected JsonWebToken type");
+		}
+		const hostId = payload.host !== undefined ? payload.host : payload.slave;
+		const host = this.hosts.get(hostId);
+		if (!host) {
+			throw new Error("host is not registered, start the host again to request to join the cluster");
+		}
+		if (!payload.iat || payload.iat < host.tokenValidAfter) {
+			throw new Error("invalid token");
+		}
+		return hostId;
+	}
+
 	hostsUpdated(hosts: HostRecord[]) {
 		let updates = hosts.map(host => host.toHostDetails());
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));

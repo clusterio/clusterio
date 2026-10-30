@@ -252,23 +252,8 @@ ${err.stack}`
 		}
 
 		try {
-			// migrate: allow pre-rename tokens issued to hosts before alpha-14
-			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: ["host", "slave"] });
-			if (typeof tokenPayload === "string") {
-				throw new Error("unexpected JsonWebToken type");
-			}
-
-			// migrate: allow pre-rename tokens issued to hosts before alpha-14
-			if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
+			if (this.controller.verifyHostToken(data.token) !== data.id) {
 				throw new Error("missmatched host id");
-			}
-
-			let host = this.controller.hosts.get(data.id);
-			if (!host) {
-				throw new Error("host is not registered, start the host again to request to join the cluster");
-			}
-			if (!tokenPayload.iat || tokenPayload.iat < host.tokenValidAfter) {
-				throw new Error("invalid token");
 			}
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
