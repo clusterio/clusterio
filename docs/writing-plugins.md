@@ -16,6 +16,7 @@ Each entrypoint of a plugin exports a function that attaches handlers to hooks c
 - [Defining Link Messages](#defining-link-messages)
 - [Sending Link Messages](#sending-link-messages)
     - [Handling connection events](#handling-connection-events)
+- [Web Pages for a Single Resource](#web-pages-for-a-single-resource)
 - [Collecting Statistics](#collecting-statistics)
 - [Adding Custom Commands to clusterioctl](#adding-custom-commands-to-clusterioctl)
 
@@ -840,6 +841,34 @@ This is not an application-level exactly-once guarantee; stateful plugins need t
 However while in the dropped state any requests and events sent gets queued up in memory until the connection is either re-established or the session times out.
 This means that if your plugin sends a lot of events or requests, they can end up being queued up in a buffer and sent out all at once the connection is re-estabished.
 To avoid this you should be throtteling and/or stopping your requests/events after `drop` has been raised, and continue back as normal when `resume` is raised.
+
+
+## Web Pages for a Single Resource
+
+A web page showing one resource from a subscription has more to handle than the resource itself.
+It can still be loading, it might not exist, it can be deleted while the page is open, and the subscription is rejected if the user lacks the permission for it.
+`useResourceState` and `ResourceState` from `@clusterio/web_ui` show these the same way as the pages for hosts, instances and the other built in resources.
+
+```tsx
+function FrobberPage() {
+    const id = Number(useParams().id);
+    const [frobbers, synced, error] = useSyncExternalStore(subscribe, () => frobberSubscriber.getSnapshot());
+    const frobber = frobbers.get(id);
+    const state = useResourceState(frobber, synced, error, id);
+
+    const nav = [{ name: "Frobbers", path: "/frobbers" }, { name: frobber?.name ?? String(id) }];
+    if (!frobber) {
+        return <ResourceState state={state} type="Frobber" id={id} nav={nav} listPath="/frobbers" error={error} />;
+    }
+
+    return <PageLayout nav={nav}>{frobber.name}</PageLayout>;
+}
+```
+
+`useResourceState` returns `"ok"` when there is a value and otherwise `"loading"`, `"missing"`, `"deleted"` or `"error"`.
+It tells deleted from missing by remembering if it has seen a value for that id.
+`ResourceState` renders the whole page for the states without a value, with a link back to the page at `listPath`.
+The `useHost`, `useInstance`, `useUser`, `useRole` and `useModPack` hooks return `[value, synced, error]` so they can be used the same way.
 
 
 ## Collecting Statistics

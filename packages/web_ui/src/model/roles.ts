@@ -12,8 +12,8 @@ export function useRolesOfUser(user?: lib.UserDetails) {
 }
 
 export function useRole(id?: number) {
-	const [roles, synced] = useRoles();
-	return [id !== undefined ? roles.get(id) : undefined, synced] as const;
+	const [roles, synced, error] = useRoles();
+	return [id !== undefined ? roles.get(id) : undefined, synced, error] as const;
 }
 
 export function useRoles() {

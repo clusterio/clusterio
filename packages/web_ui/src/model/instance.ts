@@ -4,8 +4,8 @@ import { Config, InstanceConfigGetRequest } from "@clusterio/lib";
 import ControlContext from "../components/ControlContext";
 
 export function useInstance(id?: number) {
-	const [instances, synced] = useInstances();
-	return [id !== undefined ? instances.get(id) : undefined, synced] as const;
+	const [instances, synced, error] = useInstances();
+	return [id !== undefined ? instances.get(id) : undefined, synced, error] as const;
 }
 
 export function useInstances() {

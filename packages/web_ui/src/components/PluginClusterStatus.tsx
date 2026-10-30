@@ -35,6 +35,8 @@ type MachinePluginsState = {
 	unknown: Machine[],
 	/** Fetch the plugin lists of connected machines now, instead of waiting for the next system metrics */
 	refresh: (addresses?: lib.AddressShorthand[]) => Promise<void>,
+	/** Why machines is not available, if it's not just still loading */
+	error: Error | null,
 };
 
 /**
@@ -44,7 +46,7 @@ type MachinePluginsState = {
 export function useMachinePlugins(): MachinePluginsState {
 	const control = useContext(ControlContext);
 	const account = useAccount();
-	const [hosts, hostsSynced] = useHosts();
+	const [hosts, hostsSynced, hostsError] = useHosts();
 	const [systems, systemsSynced] = useSystems();
 	// Lists fetched directly, used until the system metrics of the machine update
 	const [listed, setListed] = useState(new Map<string, ListedPlugins>());
@@ -88,8 +90,12 @@ export function useMachinePlugins(): MachinePluginsState {
 		}
 	}, [canList, hostsSynced, connectedKey]);
 
-	if (!canList || !hostsSynced || (!systemsSynced && !listed.size)) {
-		return { machines: undefined, unknown: [], refresh };
+	if (!canList) {
+		const error = new lib.PermissionError("Missing permission core.plugin.list");
+		return { machines: undefined, unknown: [], refresh, error };
+	}
+	if (!hostsSynced || (!systemsSynced && !listed.size)) {
+		return { machines: undefined, unknown: [], refresh, error: hostsError };
 	}
 	const machines: MachinePlugins[] = [];
 	const unknown: Machine[] = [];
@@ -105,7 +111,7 @@ export function useMachinePlugins(): MachinePluginsState {
 			unknown.push(machine);
 		}
 	}
-	return { machines, unknown, refresh };
+	return { machines, unknown, refresh, error: null };
 }
 
 /** Latest version published on npm of each package */

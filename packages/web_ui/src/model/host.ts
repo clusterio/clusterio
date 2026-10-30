@@ -3,8 +3,8 @@ import ControlContext from "../components/ControlContext";
 import { useAccount } from "./account";
 
 export function useHost(id?: number) {
-	const [hosts, synced] = useHosts();
-	return [id !== undefined ? hosts.get(id) : undefined, synced] as const;
+	const [hosts, synced, error] = useHosts();
+	return [id !== undefined ? hosts.get(id) : undefined, synced, error] as const;
 }
 
 export function useHosts() {
