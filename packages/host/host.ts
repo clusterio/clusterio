@@ -20,10 +20,12 @@ import winston from "winston";
 import "winston-daily-rotate-file";
 
 // internal libraries
+// Reduce startup time by lazy compiling schemas.
+import "./src/set_lazy_schema_compilation.js";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-import Host from "./src/Host.js";
+import type Host from "./src/Host.js";
 import { createScenarioCommand, handleCreateScenarioCommand } from "./src/create_scenario.js";
 
 let host: Host | undefined;
@@ -233,6 +235,8 @@ async function startHost() {
 		return;
 	}
 
+	// Loaded here as the server is not needed by the other commands
+	const { default: Host } = await import("./src/Host.js");
 	let hostConnector = new HostConnector(hostConfig, pluginInfos);
 	host = await Host.fromConfig(
 		hostConfig,
