@@ -153,9 +153,10 @@ export class AsyncHookCollection {
 		Args extends unknown[],
 		Result = void,
 	> (
-		_logger = this._logger
+		_logger = this._logger,
+		timeoutMs?: number,
 	) {
-		const hook = new AsyncHook<Args, Result>(_logger);
+		const hook = new AsyncHook<Args, Result>(_logger, timeoutMs);
 		this.hooks.push(hook);
 		return hook;
 	}

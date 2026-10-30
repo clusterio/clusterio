@@ -1045,7 +1045,16 @@ end`.replace(/\r?\n/g, " ");
 	 * @returns Name of the save prepared.
 	 */
 	async prepareSave(saveName?: string) {
-		// Use latest save if no save was specified
+		// Let plugins pick the save, otherwise use latest save if no save was specified
+		if (saveName === undefined) {
+			for (const result of await this.hooks.chooseSave.collect()) {
+				if (result) {
+					checkRequestSaveName(result);
+					saveName = result;
+					break;
+				}
+			}
+		}
 		if (saveName === undefined) {
 			saveName = await lib.getNewestFile(
 				this.path("saves"), (name) => !name.endsWith(".tmp.zip")

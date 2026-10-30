@@ -271,4 +271,35 @@ describe("host/patch", function() {
 			);
 		});
 	});
+
+	describe("setSaveScenario()", function() {
+		it("should let a save with an unknown scenario be patched without loading it", async function() {
+			await fs.mkdir(path.join("temp", "test"), { recursive: true });
+			const zipPath = path.join("temp", "test", "set-scenario.zip");
+			await fs.writeFile(zipPath, await createZipBuffer([
+				["world/control.lua", "-- unknown\n"],
+				["world/level.dat", "level"],
+			]));
+
+			await patch.setSaveScenario(zipPath, new lib.ModuleInfo("empty", "0.0.0"));
+			await patch.patch(zipPath, []);
+
+			const zip = await lib.ZipArchive.fromFile(zipPath);
+			try {
+				const info = JSON.parse((await zip.readFile("world/clusterio.json")).toString());
+				assert.equal(info.scenario.name, "empty");
+				assert.deepEqual(info.scenario.load, []);
+				assert.equal(info.patch_number, 1);
+				assert.equal((await zip.readFile("world/level.dat")).toString(), "level");
+				assert.doesNotMatch((await zip.readFile("world/control.lua")).toString(), /unknown/);
+			} finally {
+				zip.close();
+			}
+
+			await assert.rejects(
+				patch.setSaveScenario(zipPath, new lib.ModuleInfo("empty", "0.0.0")),
+				new Error("Unable to set scenario of a save that has already been patched")
+			);
+		});
+	});
 });

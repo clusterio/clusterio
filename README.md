@@ -73,6 +73,7 @@ Plugins add functionality to Factorio servers, Clusterio itself or both.
 These are the plugins supported and maintained by the Clusterio developers:
 
 - [Global Chat](/plugins/global_chat/README.md): share the in-game chat between servers.
+- [Lobby](/plugins/lobby/README.md): lobby servers where players pick the server to join, and listing of the cluster in the Factorio server browser.
 - [Research Sync](/plugins/research_sync/README.md): synchronize research progress and technologies unlocked and the research queue between servers.
 - [Statistics Exporter](/plugins/statistics_exporter/README.md): collect in-game statistics from all the servers and makes it available to the Prometheus endpoint on the controller.
 - [Subspace Storage](https://github.com/clusterio/subspace_storage): Provide shared storage that can transport items between servers via teleport chests.

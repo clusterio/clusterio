@@ -15,6 +15,7 @@ import { logger } from "@clusterio/lib";
 import type { HostConnector } from "../host.js";
 import Instance from "./Instance.js";
 import InstanceConnection from "./InstanceConnection.js";
+import { listFactorioVersions } from "./server.js";
 import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
 
 
@@ -462,6 +463,7 @@ export default class Host extends lib.Link {
 		this.handle(lib.HostConfigSetFieldRequest, this.handleHostConfigSetFieldRequest.bind(this));
 		this.handle(lib.HostConfigSetPropRequest, this.handleHostConfigSetPropRequest.bind(this));
 		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
+		this.handle(lib.HostFactorioVersionsRequest, this.handleHostFactorioVersionsRequest.bind(this));
 		this.handle(lib.SyncUserListsEvent, this.handleSyncUserListsEvent.bind(this));
 		this.handle(lib.SystemInfoRequest, this.handleSystemInfoRequest.bind(this));
 		this.handle(lib.PluginListRequest, this.handlePluginListRequest.bind(this));
@@ -1018,6 +1020,23 @@ export default class Host extends lib.Link {
 		}
 
 		return null;
+	}
+
+	async handleHostFactorioVersionsRequest() {
+		let installed: Awaited<ReturnType<typeof listFactorioVersions>>;
+		try {
+			installed = await listFactorioVersions(this.config.get("host.factorio_directory"));
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+			installed = { direct: false, versions: new Set() };
+		}
+		return {
+			versions: [...installed.versions],
+			// Matches the conditions for downloads in FactorioServer.checkForUpdates
+			canDownload: !installed.direct && process.platform === "linux",
+		};
 	}
 
 	async handleHostMetricsRequest() {

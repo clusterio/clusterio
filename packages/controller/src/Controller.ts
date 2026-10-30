@@ -32,6 +32,7 @@ import HostRecord from "./HostRecord.js";
 import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
 import ControllerRouter from "./ControllerRouter.js";
 import InstanceManager from "./InstanceManager.js";
+import PlayerProxyServer, { type PlayerProxyRouteRequest } from "./PlayerProxyServer.js";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -84,6 +85,7 @@ export default class Controller {
 	trustedProxies: BlockList;
 	debugEvents = new events.EventEmitter<ControllerDebugEvents>();
 	private _events = new events.EventEmitter<ControllerEvents>();
+	playerProxyServer: PlayerProxyServer | null = null;
 
 	/** Event subscription controller */
 	subscriptions: lib.SubscriptionController;
@@ -286,7 +288,6 @@ export default class Controller {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
 		this.config = config;
-
 		this.app = express();
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
@@ -435,7 +436,18 @@ export default class Controller {
 		this.app.locals.staticRoot = this.config.get("controller.static_url");
 
 		// Load plugins
+		// Created before plugins load so they can use it, but only started after they have attached their hooks
+		const playerProxyPort = this.config.get("controller.player_proxy_port");
+		if (playerProxyPort !== null) {
+			this.playerProxyServer = new PlayerProxyServer(
+				this,
+				logger.child({ component: "player_proxy" }),
+				playerProxyPort,
+			);
+		}
+
 		await this.loadPlugins();
+		await this.playerProxyServer?.start();
 
 		// Log all express errors from middleware or routes (app.use is missing the type overload)
 		this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction): void => {
@@ -591,6 +603,11 @@ export default class Controller {
 		}
 
 		await this.hooks.shutdown.invoke();
+
+		if (this.playerProxyServer) {
+			await this.playerProxyServer.stop();
+			this.playerProxyServer = null;
+		}
 
 		await this.wsServer.stop();
 
@@ -1025,6 +1042,94 @@ export default class Controller {
 			host => host.updatedAtMs > request.lastRequestTimeMs,
 		).map(host => host.toHostDetails());
 		return hosts.length ? new lib.HostUpdatesEvent(hosts) : null;
+	}
+
+	/**
+	 * Pick the instance a player connecting through the player proxy goes to
+	 *
+	 * Plugins get the first say through the playerProxyRoute hook, then the
+	 * instance the proxy port is dedicated to, the instance the player was
+	 * last on, controller.player_proxy_default_instance_id, and finally any
+	 * running instance.
+	 *
+	 * @param request - Details about the connecting player.
+	 * @returns ID of the instance to route to, or undefined if there is none.
+	 */
+	async resolvePlayerRoute(request: PlayerProxyRouteRequest): Promise<number | undefined> {
+		const routable = (id: number | undefined) => {
+			const instance = id === undefined ? undefined : this.instances.get(id);
+			return Boolean(instance && !instance.isDeleted && instance.config.get("instance.assigned_host") !== null);
+		};
+
+		for (const result of await this.hooks.playerProxyRoute.collect(request)) {
+			if (routable(result)) {
+				return result;
+			}
+		}
+
+		if (routable(request.portInstanceId)) {
+			return request.portInstanceId;
+		}
+
+		const lastInstanceId = this._lastInstanceOfPlayer(request.username);
+		if (routable(lastInstanceId)) {
+			return lastInstanceId;
+		}
+
+		const defaultId = this.config.get("controller.player_proxy_default_instance_id") ?? undefined;
+		if (routable(defaultId)) {
+			return defaultId;
+		}
+
+		for (const instance of this.instances.values()) {
+			if (instance.status === "running") {
+				return instance.id;
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Address players reach the player proxy on
+	 *
+	 * @param port -
+	 *     Proxy port to give the address for, defaults to the main port.
+	 * @returns controller.player_proxy_public_address, or the host name of
+	 *     controller.public_url with the port if not set. Undefined if the
+	 *     proxy is disabled or neither is set.
+	 */
+	getPlayerProxyAddress(port?: number) {
+		if (!this.playerProxyServer) {
+			return undefined;
+		}
+		const configured = this.config.get("controller.player_proxy_public_address");
+		if (configured) {
+			if (port === undefined) {
+				return configured;
+			}
+			// Swap the port, host may be a name, IPv4 address or IPv6 address in brackets
+			const host = /^(\[[^\]]+\]|[^:]+)(?::\d+)?$/.exec(configured)?.[1] ?? `[${configured}]`;
+			return `${host}:${port}`;
+		}
+		const publicUrl = this.config.get("controller.public_url");
+		if (!publicUrl) {
+			return undefined;
+		}
+		return `${new URL(publicUrl).hostname}:${port ?? this.playerProxyServer.port}`;
+	}
+
+	private _lastInstanceOfPlayer(name: string) {
+		const user = this.users.getByName(name);
+		let lastId: number | undefined;
+		let lastJoinMs = -Infinity;
+		for (const [instanceId, stats] of user?.instanceStats ?? []) {
+			const joinMs = stats.lastJoinAt?.getTime() ?? -Infinity;
+			if (joinMs > lastJoinMs) {
+				lastJoinMs = joinMs;
+				lastId = instanceId;
+			}
+		}
+		return lastId;
 	}
 
 	/**

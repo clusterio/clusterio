@@ -11,6 +11,10 @@ export { default as UserManager } from "./src/UserManager.js";
 export { default as UserRecord } from "./src/UserRecord.js";
 export { default as User } from "./src/User.js";
 export { default as WsServer } from "./src/WsServer.js";
+export {
+	default as PlayerProxyServer, type PlayerProxyRouteRequest, type PlayerProxyRoute,
+} from "./src/PlayerProxyServer.js";
+export * as proxyProtocol from "./src/proxy_protocol.js";
 
 if (import.meta.main) {
 	bootstrap();

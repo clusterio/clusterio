@@ -79,7 +79,7 @@ function versionOrder(a: string, b: string) {
  * @param factorioDir - Path to Factorio installation dirs.
  * @returns Set of installed factorio versions
  */
-async function listFactorioVersions(factorioDir: string) {
+export async function listFactorioVersions(factorioDir: string) {
 	const versions = new Set<lib.FullVersion>();
 
 	const directVersion = await getFactorioVersion(factorioDir);

@@ -30,6 +30,7 @@ if (process.platform === "win32") {
 
 const availablePlugins = [
 	{ name: "Global Chat", value: "@clusterio/plugin-global_chat" },
+	{ name: "Lobby", value: "@clusterio/plugin-lobby" },
 	{ name: "Player Auth", value: "@clusterio/plugin-player_auth" },
 	{ name: "Player Sync", value: "@clusterio/plugin-player_sync" },
 	{ name: "Research Sync", value: "@clusterio/plugin-research_sync" },
