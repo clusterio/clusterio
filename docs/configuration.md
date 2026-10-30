@@ -339,6 +339,15 @@ This can either point to a Factorio server directory, or to a directory containi
 Defaults to "factorio".
 
 
+### host.factorio_graphics_directory
+
+Directory to read the base game's icons from when exporting data.
+The headless build of Factorio has no graphics, so instances running it export none of the base game's icons unless this points to a full install of Factorio.
+Like `host.factorio_directory` this can either point to a Factorio directory, or to a directory containing multiple versions, in which case the latest one matching the major and minor version of the instance is used.
+
+Defaults to null.
+
+
 ### host.mods_directory
 
 Directory the host stores mods downloaded from the controller in.
