@@ -271,7 +271,7 @@ hostPluginCommands.add(new lib.Command({
 		let hostId = await lib.resolveHost(ctl, args.host);
 		const plugins = await ctl.sendTo({ hostId }, new lib.PluginListRequest());
 		print(asTable(plugins.map(p => ({
-			title: p.title, version: p.version, loaded: p.loaded, enabled: p.enabled, npmPackage: p.npmPackage,
+			title: p.title, version: p.version, state: p.state, npmPackage: p.npmPackage,
 		}))));
 	},
 }));

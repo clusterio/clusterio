@@ -128,14 +128,12 @@ export async function listPluginDetails(
 	for (const pluginInfo of pluginInfos) {
 		const dir = await realDir(path.dirname(pluginInfo.packagePath));
 		knownDirs.add(dir);
+		const loaded = isLoaded(pluginInfo);
 		// Without an entrypoint for this machine the plugin has no load_plugin field here
-		const loadable = hasEntrypoint(pluginInfo);
 		const plugin = PluginDetails.fromNodeEnvInfo(
-			pluginInfo, isLoaded(pluginInfo), loadable && isEnabled(pluginInfo),
+			pluginInfo,
+			hasEntrypoint(pluginInfo) ? PluginDetails.loadState(loaded, isEnabled(pluginInfo)) : "noEntrypoint",
 		);
-		if (!loadable) {
-			plugin.noEntrypoint = true;
-		}
 		if (Object.hasOwn(dependencies, pluginInfo.requirePath)) {
 			plugin.dependencyName = pluginInfo.requirePath;
 		}
@@ -147,7 +145,7 @@ export async function listPluginDetails(
 			packageJson = await readPackageJson(path.dirname(pluginInfo.packagePath), false);
 			if (packageJson === undefined) {
 				// Uninstalled since startup, it won't be found on the next restart
-				plugin.removed = true;
+				plugin.state = loaded ? "removedLoaded" : "removed";
 			}
 		} catch {
 			// Ignored: npm is still writing it
@@ -185,8 +183,7 @@ export async function listPluginDetails(
 		const plugin = PluginDetails.fromPackageJson(packageName, packageJson, npmPackage, dependencyName);
 		if (takenDirs.has(dir)) {
 			// Skipped on startup as its plugin name is taken, will be again
-			plugin.pendingInstall = undefined;
-			plugin.nameTaken = true;
+			plugin.state = "nameTaken";
 		}
 		plugins.push(plugin);
 	}

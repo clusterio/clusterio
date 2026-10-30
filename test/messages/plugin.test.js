@@ -38,20 +38,46 @@ describe("messages/plugin", function() {
 	describe("PluginDetails", function() {
 		it("has round trip json serialisation", function() {
 			testRoundTripJsonSerialisable(lib.PluginDetails, [
-				["Name", "Title", "Version", true, true],
-				[
-					"Name", "Title", "Version", false, false, "Description", "Npm Package",
-					"Installed Version", true, true, "Dependency Name", true, true,
-				],
+				["Name", "Title", "Version", "loaded"],
+				["Name", "Title", "Version", "removedLoaded", "Description", "Npm Package", "Installed Version", "Dep"],
 			]);
+		});
+		it("sends loaded and enabled for 2.0.3 and older", function() {
+			const cases = [
+				["loaded", true, true],
+				["disabled", false, false],
+				["unloadOnRestart", true, false],
+				["loadOnRestart", false, true],
+				["noEntrypoint", false, false],
+				["pendingInstall", false, true],
+				["removed", false, false],
+				["removedLoaded", true, false],
+				["nameTaken", false, false],
+			];
+			for (const [state, loaded, enabled] of cases) {
+				const json = JSON.parse(JSON.stringify(new lib.PluginDetails("Name", "Title", "Version", state)));
+				assert.deepEqual([json.loaded, json.enabled], [loaded, enabled], state);
+			}
+		});
+		it("reads the state of plugins listed by 2.0.3 and older", function() {
+			const cases = [
+				[true, true, "loaded"],
+				[true, false, "unloadOnRestart"],
+				[false, true, "loadOnRestart"],
+				[false, false, "disabled"],
+			];
+			for (const [loaded, enabled, state] of cases) {
+				const json = { name: "Name", title: "Title", version: "1.0.0", loaded, enabled };
+				assert.equal(lib.PluginDetails.fromJSON(json).state, state);
+			}
 		});
 		it("can be created from NodeEnvInfo interface", function() {
 			const pluginDetails = lib.PluginDetails.fromNodeEnvInfo({
 				name: "Name", title: "Title", version: "Version",
 				description: "Description", npmPackage: "Npm Package",
-			}, true, true);
+			}, "loaded");
 			assert.deepEqual(pluginDetails, new lib.PluginDetails(
-				"Name", "Title", "Version", true, true,
+				"Name", "Title", "Version", "loaded",
 				"Description", "Npm Package",
 			));
 		});
@@ -60,8 +86,8 @@ describe("messages/plugin", function() {
 				"package", { version: "1.0.0", description: "Description" }, "package", "package",
 			);
 			assert.deepEqual(pluginDetails, new lib.PluginDetails(
-				"package", "package", "1.0.0", false, false,
-				"Description", "package", "1.0.0", true, undefined, "package",
+				"package", "package", "1.0.0", "pendingInstall",
+				"Description", "package", "1.0.0", "package",
 			));
 			const invalid = lib.PluginDetails.fromPackageJson("package", { version: "1.0.0", description: 1 });
 			assert.equal(invalid.description, undefined);
@@ -99,7 +125,7 @@ describe("messages/plugin", function() {
 
 			const response = await controlConnection.handlePluginListRequest(new lib.PluginListRequest());
 			assert.deepEqual(response, [new lib.PluginDetails(
-				"Name", "Title", "Version", true, true,
+				"Name", "Title", "Version", "loaded",
 				"Description", "Npm Package", "Version",
 			)]);
 		});
@@ -114,7 +140,7 @@ describe("messages/plugin", function() {
 
 			const response = await host.handlePluginListRequest(new lib.PluginListRequest());
 			assert.deepEqual(response, [new lib.PluginDetails(
-				"Name", "Title", "Version", true, true,
+				"Name", "Title", "Version", "loaded",
 				"Description", "Npm Package", "Version",
 			)]);
 		});
