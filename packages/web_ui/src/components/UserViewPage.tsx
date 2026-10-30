@@ -2,7 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
 	Button, Col, Descriptions, Form, Input, Popconfirm,
-	Row, Table, Tag, Select, Space, Spin, Switch,
+	Row, Table, Tag, Select, Space, Switch,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
@@ -18,7 +18,9 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import useRowNavigation from "../util/useRowNavigation";
+import useResourceState from "../util/useResourceState";
 import Link from "./Link";
 import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
@@ -40,7 +42,8 @@ export default function UserViewPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [instances] = useInstances();
-	const [user, synced] = useUser(userName);
+	const [user, synced, error] = useUser(userName);
+	const state = useResourceState(user, synced, error, userName);
 	let [roles, rolesSynced] = useRoles();
 	let [form] = Form.useForm();
 	const statsTable = useTableQueryState<[number, lib.PlayerStats]>({
@@ -78,17 +81,7 @@ export default function UserViewPage() {
 
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
 	if (!user) {
-		if (!synced) {
-			return <PageLayout nav={nav}>
-				<PageHeader title={userName} />
-				<Spin size="large" />
-			</PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<PageHeader title="User not found" />
-			<p>User with name {userName} was not found on the controller.</p>
-		</PageLayout>;
+		return <ResourceState state={state} type="User" id={userName} nav={nav} listPath="/users" error={error} />;
 	}
 
 	let roleSelector = <Form.Item
