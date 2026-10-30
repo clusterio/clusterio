@@ -12,7 +12,7 @@ import { LineSplitter, logger } from "@clusterio/lib";
 
 import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
 import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
-import { pairHost } from "../../packages/create/pair.js";
+import { pairHost } from "@clusterio/host";
 
 import "../setup_logging.js";
 
@@ -276,7 +276,7 @@ export async function pairTestHost(name) {
 }
 
 /**
- * Write a new host config for a paired host, with the fields the installer sets
+ * Write a new host config for a paired host, with the fields the installer and pairing set
  *
  * @param {string} configPath - Path to write the config to.
  * @param {{ hostId: number, token: string, name: string }} pairing - Host returned by pairing.

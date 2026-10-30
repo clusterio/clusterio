@@ -34,9 +34,9 @@ The [send-buffer setting](../configuration.md#controllermax_send_buffer_size) co
 
 ## Host pairing
 
-The host id and token sent in `registerHost` come from the installer, which gets them from the controller over HTTP before the host is started.
+The host id and token sent in `registerHost` are requested by the host over HTTP the first time it starts, before it connects.
 Hosts are only added to the controller by approving a pairing request, and `registerHost` is rejected with close code 3000 (Unauthorized) for a host id the controller has no record of.
-Revoking a host deletes its record, so its token stops working and the installer has to pair it again, which gives it a new id.
+Revoking a host deletes its record, so its token stops working and the host has to be approved again the next time it starts, which gives it a new id.
 See [Setting up remote hosts](/README.md#setting-up-remote-hosts) for how this looks to the user.
 
 The endpoints below take and return JSON bodies and are sent with `Cache-Control: no-store`.
@@ -50,7 +50,7 @@ A user or host token is sent in either an `Authorization: Bearer <token>` header
 Creates a request for a host to join the cluster.
 
 - `name: string` - Name of the host, at most 100 characters after trimming whitespace, without control characters.
-- `version: string` (optional) - Version of the installer.
+- `version: string` (optional) - Version of the host.
 
 Responds with 202 and `{"requestId": string, "code": string}`.
 The `code` is shown to the user to approve the request with, formatted as six characters like `ABC-DEF`.
@@ -73,20 +73,20 @@ Rejected requests give 403, and unknown or expired requests give 404.
 The result of an approved or rejected request is only returned once, after which the request is gone.
 
 A pending request expires 30 seconds after it was last polled, and after an hour of waiting.
-The installer polls every 2 seconds.
+The host polls every 2 seconds, and makes a new request when the previous one has expired.
 
 ### `POST /api/host-pairing/cancel`
 
 - `requestId: string` - Id returned when the request was created.
 
-Removes a pending request, sent by the installer when it stops waiting.
+Removes a pending request, sent by the host when it stops waiting.
 Responds with 204 whether or not the request existed.
 
 ### `GET /api/host-pairing/check`
 
 Checks a host token.
 Responds with 200 and `{"valid": true}` if the token is valid and the host it was issued to still exists, and with 401 otherwise.
-The installer uses this to tell whether an existing host config still works when it is run again.
+A host with a saved token checks it with this when it starts, and requests to join again if the token is not accepted.
 
 
 ## Connector flow
@@ -178,6 +178,7 @@ Host handshake for establishing a new connection session.
 
 The controller closes the connection with code 3000 (Unauthorized) if the token is invalid, was issued for another id, or if there is no host with this id, see [Host pairing](#host-pairing).
 If this happens when the host starts it exits with code 8, and the run scripts created by the installer do not restart it.
+A host that has been rejected also exits with code 8.
 A host that is revoked while connected is disconnected, is rejected when it tries to connect again, and shuts down.
 
 #### `registerControl`

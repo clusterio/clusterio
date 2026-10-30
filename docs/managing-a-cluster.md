@@ -23,23 +23,23 @@ Listing, approving and rejecting installers waiting for approval needs the `core
 
     ctl> host pending
 
-Lists installers waiting for approval with the code they show, the name they asked for, the address they connected from and how long they have been waiting.
-A request goes away when its installer stops waiting, and after waiting for an hour.
+Lists hosts waiting for approval with the code they show, the name they asked for, the address they connected from and how long they have been waiting.
+A request goes away when its host stops waiting, and after waiting for an hour, after which the host asks again with a new code.
 
 ### Approve host
 
     ctl> host approve <code> [--name <host name>]
 
-Approves the installer showing the code and prints the id of the new host.
+Approves the host showing the code and prints the id of the new host.
 The code is not case sensitive and the dash can be left out.
-`--name` gives the host a different name than the one entered in the installer.
+`--name` gives the host a different name than the one it asked for.
 Approving gives the host full access to the cluster, check with `host pending` that the name and address match the computer you are setting up.
 
 ### Reject host
 
     ctl> host reject <code>
 
-Rejects the installer showing the code, the installer then exits with an error.
+Rejects the host showing the code, the host then exits with an error.
 
 ### Revoke host
 
@@ -49,7 +49,7 @@ Specify the host by name or ID.
 Removes the host from the cluster, disconnects it and makes its token stop working.
 Instances assigned to the host have to be unassigned first.
 Requires the `core.host.revoke` permission.
-To add the computer back to the cluster, run the installer again in the directory the host is installed in.
+To add the computer back to the cluster, start the host again and approve it.
 
 ### Update Clusterio
 

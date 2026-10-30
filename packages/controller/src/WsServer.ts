@@ -265,7 +265,7 @@ ${err.stack}`
 
 			let host = this.controller.hosts.get(data.id);
 			if (!host) {
-				throw new Error("host is not registered, run the installer again in the host directory");
+				throw new Error("host is not registered, start the host again to request to join the cluster");
 			}
 			if (!tokenPayload.iat || tokenPayload.iat < host.tokenValidAfter) {
 				throw new Error("invalid token");

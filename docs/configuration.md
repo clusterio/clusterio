@@ -327,7 +327,7 @@ Defaults to "New Host".
 ### host.id
 
 Immutable numeric id of the host which uniquely identifies this host in the cluster.
-The controller picks the id when the host is approved and the installer writes it here, the controller does not accept hosts with an id it has not approved.
+The controller picks the id when the host is approved and the host writes it here, the controller does not accept hosts with an id it has not approved.
 Hidden in the web interface.
 
 Defaults to a random 31 bit number.
@@ -367,8 +367,9 @@ Defaults to "http://localhost:8080/".
 ### host.controller_token
 
 Access token used for authenticating with the controller.
-The installer writes it together with host.id when the host is approved, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
-The token only works while the host exists on the controller, if the host is revoked run the installer again in the host directory to get it approved again.
+The host saves it together with host.id when it is approved, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
+The token only works while the host exists on the controller, if the host is revoked it asks to be approved again the next time it starts.
+Set it to `enter token here` to make the host ask to join again, for example after changing host.controller_url to another controller.
 The value can only be read and changed from the host itself.
 
 Defaults to "enter token here".

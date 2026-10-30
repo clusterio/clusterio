@@ -162,7 +162,7 @@ describe("Integration of lib/link", function() {
 		await assert.rejects(
 			hostConnector.connect(),
 			new Error(
-				"Authentication failed: host is not registered, run the installer again in the host directory"
+				"Authentication failed: host is not registered, start the host again to request to join the cluster"
 			)
 		);
 	});

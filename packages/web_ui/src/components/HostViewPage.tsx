@@ -114,7 +114,7 @@ function RevokeHostButton({ host, instances }: RevokeHostButtonProps) {
 		title={`Revoke access for ${host.name}?`}
 		description={<>
 			The host is removed from the cluster and disconnected.<br />
-			To add it back, run the installer again in its directory.
+			To add it back, start the host again and approve it.
 		</>}
 		placement="bottomRight"
 		okText="Revoke"

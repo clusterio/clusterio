@@ -116,8 +116,8 @@ function AddHostModal(props: { open: boolean, onClose: () => void }) {
 		width="800px"
 	>
 		<Typography.Paragraph>
-			Run the installer in an empty directory on the machine the host will run on.
-			It asks for a name for the host, then shows a code and waits for the request to be approved here.
+			Run the installer in an empty directory on the machine the host will run on, then start the host
+			with the run-host script. It shows a code and waits for the request to be approved here.
 		</Typography.Paragraph>
 		<div className="codeblock">
 			<CopyButton
@@ -132,12 +132,12 @@ function AddHostModal(props: { open: boolean, onClose: () => void }) {
 			</p>
 		</div>
 		<Typography.Paragraph>
-			Once approved the installer saves the connection details of the host and exits.
-			The host can then be started with the run-host script in that directory.
+			Once approved the host saves its connection details and starts up.
+			Later starts connect to the cluster straight away.
 		</Typography.Paragraph>
 		<Typography.Title level={5}>Waiting for approval</Typography.Title>
 		<Typography.Paragraph type="secondary">
-			Only approve a request if its code matches the code shown by the installer.
+			Only approve a request if its code matches the code shown by the host.
 			An approved host has full access to the cluster.
 		</Typography.Paragraph>
 		<Table

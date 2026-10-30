@@ -32,8 +32,6 @@ import readline from "node:readline";
 import util from "node:util";
 
 import { loadBreaks, matchBreaks, selectBreaks } from "./version-compat-breaks.js";
-// Only uses Node builtins, so it does not load a second copy of the lib.
-import { pairHost, PairingError } from "../packages/create/pair.js";
 
 const execFile = util.promisify(child_process.execFile);
 
@@ -294,16 +292,20 @@ async function pairHostWithController() {
 	const ctlConfig = JSON.parse(await fs.readFile(path.join(controllerDir, "config-ctl.json"), "utf8"));
 	const controllerUrl = ctlConfig["ctl.controller_url"];
 	console.log(`| pairing host with ${controllerUrl}`);
-	let pairing;
-	try {
-		pairing = await pairHost({ controllerUrl, name: "host", token: ctlConfig["ctl.controller_token"] });
-	} catch (err) {
-		if (err instanceof PairingError && err.status === 404) {
-			console.log("| controller does not support host pairing");
-			return false;
-		}
-		throw err;
+	// A user allowed to approve hosts gets the host straight away, without waiting for approval.
+	const response = await fetch(new URL("api/host-pairing", controllerUrl), {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ctlConfig["ctl.controller_token"]}` },
+		body: JSON.stringify({ name: "host" }),
+	});
+	if (response.status === 404) {
+		console.log("| controller does not support host pairing");
+		return false;
 	}
+	if (response.status !== 200) {
+		throw new Error(`Pairing host failed with ${response.status}: ${await response.text()}`);
+	}
+	const pairing = await response.json();
 	console.log(`| paired host ${pairing.name} with id ${pairing.hostId}`);
 
 	// The same fields the installer sets, which every host version reads.

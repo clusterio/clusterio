@@ -154,7 +154,7 @@ describe("controller/src/WsServer", function() {
 		it("should reject a validly signed token for a host that is not registered", async function() {
 			await register(controller.generateHostToken(5));
 			assertRejected(
-				"Authentication failed: host is not registered, run the installer again in the host directory"
+				"Authentication failed: host is not registered, start the host again to request to join the cluster"
 			);
 			assert.equal(controller.hosts.has(5), false, "host record was created");
 		});

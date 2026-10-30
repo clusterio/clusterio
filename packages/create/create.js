@@ -10,7 +10,7 @@ import util from "node:util";
 import yargs from "yargs";
 
 import { levels, logger, setLogLevel } from "./logging.js";
-import { checkHostToken, createLocalHost, pairHost, PairingError } from "./pair.js";
+import { createLocalHost } from "./local_host.js";
 import { copyPluginTemplates } from "./template.js";
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
@@ -200,155 +200,11 @@ function normaliseControllerUrl(input) {
 	return url.href;
 }
 
-async function readSelfSignedCert(args) {
-	if (!args.selfSignedCert) {
-		return undefined;
-	}
-	try {
-		return await fs.readFile(args.selfSignedCert);
-	} catch (err) {
-		throw new InstallError(`Failed to read --self-signed-cert ${args.selfSignedCert}: ${err.message}`);
-	}
-}
-
-async function installerVersion() {
-	return JSON.parse(await fs.readFile(path.join(import.meta.dirname, "package.json"))).version;
-}
-
 // Remote updates, plugin updates and plugin installs are allowed or denied together.
 async function setRemoteUpdates(exec, component, allow) {
 	for (let field of ["allow_remote_updates", "allow_plugin_updates", "allow_plugin_install"]) {
 		await exec(["config", "set", `${component}.${field}`, allow]);
 	}
-}
-
-// Turn an error from pairing into a message for the user.
-function pairingFailed(err) {
-	const retry = "Run the installer again with --mode host in this directory to retry.";
-	if (err.name === "AbortError") {
-		return new InstallError(`Pairing cancelled. ${retry}`);
-	}
-	if (err instanceof PairingError) {
-		return new InstallError(`Pairing failed: ${err.message}. ${retry}`);
-	}
-	if (typeof err.code === "string") {
-		const hint = /CERT|SELF_SIGNED|UNABLE_TO_VERIFY/.test(err.code)
-			? " Pass the certificate with --self-signed-cert if the controller uses a self-signed one."
-			: "";
-		return new InstallError(`Failed to connect to the controller: ${err.message}.${hint} ${retry}`);
-	}
-	return err;
-}
-
-// Request to join the cluster and save the id and token of the host once approved.
-async function pairWithController(args, { hostName, controllerUrl }) {
-	const ca = await readSelfSignedCert(args);
-	await execHost(["config", "set", "host.name", hostName]);
-	await execHost(["config", "set", "host.controller_url", controllerUrl]);
-
-	// Ctrl-C may arrive twice under npm init, as npm forwards it to the installer, so keep
-	// listening until the request has been cancelled.
-	const abort = new AbortController();
-	const onSigint = () => { abort.abort(); };
-	process.on("SIGINT", onSigint);
-	// The close patch for inquirer on Windows leaves the console in raw mode, where Ctrl-C is
-	// read as input instead of raising SIGINT. No prompts follow, so it can be turned off.
-	if (process.platform === "win32" && process.stdin.isTTY && process.stdin.isRaw) {
-		process.stdin.setRawMode(false);
-	}
-	let result;
-	try {
-		logger.info(`Requesting to join the cluster at ${controllerUrl}`);
-		result = await pairHost({
-			controllerUrl,
-			name: hostName,
-			version: await installerVersion(),
-			token: args.controllerToken,
-			ca,
-			signal: abort.signal,
-			onPending: ({ code }) => {
-				// eslint-disable-next-line no-console
-				console.log(
-					`Waiting for approval. Approve "${hostName}" with code ${code} on the Hosts page of ` +
-					`${controllerUrl}, or run: npx clusterioctl host approve ${code}`
-				);
-			},
-		});
-	} catch (err) {
-		throw pairingFailed(err);
-	} finally {
-		process.off("SIGINT", onSigint);
-	}
-
-	logger.info(`Host approved as "${result.name}" with id ${result.hostId}`);
-	await execHost(["config", "set", "host.id", result.hostId]);
-	if (result.name !== hostName) {
-		await execHost(["config", "set", "host.name", result.name]);
-	}
-	// Saved last so that an interrupted install is paired again when the installer is run again.
-	await execHost(["config", "set", "host.controller_token", result.token]);
-}
-
-// Pair a host that is already installed again, unless the controller still accepts it.
-async function rerunHost(args) {
-	let config;
-	try {
-		config = JSON.parse(await fs.readFile("config-host.json"));
-	} catch (err) {
-		throw new InstallError(`Failed to read config-host.json: ${err.message}`);
-	}
-	// Let a rerun fix run scripts written before the certificate was passed.
-	if (!dev && args.selfSignedCert) {
-		logger.info("Writing run scripts");
-		await writeScripts("host", args.selfSignedCert);
-	}
-	if (!args.pair) {
-		// eslint-disable-next-line no-console
-		console.log("Host is already installed");
-		return;
-	}
-
-	const token = config["host.controller_token"];
-	const controllerUrl = config["host.controller_url"];
-	let otherController = false;
-	if (args.controllerUrl !== undefined) {
-		const result = validateControllerUrl(args.controllerUrl);
-		if (result !== true) {
-			throw new InstallError(result);
-		}
-		const savedUrl = validateControllerUrl(controllerUrl) === true ? normaliseControllerUrl(controllerUrl) : "";
-		otherController = normaliseControllerUrl(args.controllerUrl) !== savedUrl;
-	}
-	// The token is never sent to another controller, it would give that controller access to this cluster.
-	if (otherController) {
-		logger.info(`Pairing with ${args.controllerUrl} instead of the controller in config-host.json`);
-	} else if (token && token !== "enter token here") {
-		let valid;
-		try {
-			valid = await checkHostToken({ controllerUrl, token, ca: await readSelfSignedCert(args) });
-		} catch (err) {
-			if (err instanceof InstallError) {
-				throw err;
-			}
-			logger.warn(`Could not check if ${controllerUrl} accepts this host: ${err.message}`);
-			logger.warn("Keeping the existing host config, pass --controller-url to pair with another controller");
-			return;
-		}
-		if (valid) {
-			// eslint-disable-next-line no-console
-			console.log("Host is already set up");
-			return;
-		}
-		logger.info("The controller no longer accepts this host, pairing it again");
-	}
-
-	const answers = await inquirerPairingArgs(args, {
-		hostName: config["host.name"],
-		controllerUrl: config["host.controller_url"],
-	});
-	await pairWithController(args, answers);
-	// eslint-disable-next-line no-console
-	console.log("Successfully set up host");
 }
 
 async function validateInstallDir() {
@@ -681,37 +537,6 @@ WantedBy=multi-user.target
 	}
 }
 
-async function inquirerPairingArgs(args, defaults = {}) {
-	let answers = {};
-	if (args.hostName) { answers.hostName = args.hostName; }
-	if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
-	answers = await inquirer.prompt([
-		{
-			type: "input",
-			name: "hostName",
-			message: "Name of host",
-			default: defaults.hostName ?? os.hostname(),
-			validate: validateHostName,
-		},
-		{
-			type: "input",
-			name: "controllerUrl",
-			message: "Controller URL",
-			default: defaults.controllerUrl,
-			validate: validateControllerUrl,
-		},
-	], answers);
-
-	// Inquirer does not validate answers given as arguments
-	for (let result of [validateHostName(answers.hostName), validateControllerUrl(answers.controllerUrl)]) {
-		if (result !== true) {
-			throw new InstallError(result);
-		}
-	}
-	answers.controllerUrl = normaliseControllerUrl(answers.controllerUrl);
-	return answers;
-}
-
 // eslint-disable-next-line complexity
 async function inquirerMissingArgs(args) {
 	let answers = {};
@@ -771,13 +596,31 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (answers.mode === "host") {
-		if (await pathExists("config-host.json")) {
-			// An installed host is only paired again, see rerunHost
-			return { mode: "host", rerun: true };
+		if (args.hostName) { answers.hostName = args.hostName; }
+		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
+		answers = await inquirer.prompt([
+			{
+				type: "input",
+				name: "hostName",
+				message: "Name of host",
+				default: os.hostname(),
+				validate: validateHostName,
+			},
+			{
+				type: "input",
+				name: "controllerUrl",
+				message: "Controller URL",
+				validate: validateControllerUrl,
+			},
+		], answers);
+
+		// Inquirer does not validate answers given as arguments
+		for (let result of [validateHostName(answers.hostName), validateControllerUrl(answers.controllerUrl)]) {
+			if (result !== true) {
+				throw new InstallError(result);
+			}
 		}
-		if (args.pair) {
-			answers = { ...answers, ...await inquirerPairingArgs(args) };
-		}
+		answers.controllerUrl = normaliseControllerUrl(answers.controllerUrl);
 	}
 
 	if (answers.mode === "ctl") {
@@ -947,12 +790,7 @@ async function main() {
 			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
 		})
 		.option("controller-token", {
-			nargs: 1, type: "string", describe:
-				"User token for ctl, or of a user that approves the host without waiting (not saved) [host/ctl]",
-		})
-		.option("pair", {
-			describe: "Pair the host with the controller, use --no-pair to only install it [host]",
-			default: true, type: "boolean",
+			nargs: 1, describe: "Controller authentication token [ctl]", type: "string",
 		})
 		.option("public-address", {
 			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/host]", type: "string",
@@ -1005,11 +843,6 @@ async function main() {
 	let answers = await inquirerMissingArgs(args);
 	logger.verbose(JSON.stringify(answers));
 
-	if (answers.rerun) {
-		await rerunHost(args);
-		return;
-	}
-
 	if (answers.pluginTemplate) {
 		await copyPluginTemplates(answers.pluginName, answers.pluginTemplate);
 		return;
@@ -1048,13 +881,18 @@ async function main() {
 		await execHost(["config", "set", "host.controller_token", host.token]);
 	}
 
+	if (answers.mode === "host") {
+		// The host requests to join the cluster when it is started.
+		await execHost(["config", "set", "host.name", answers.hostName]);
+		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
+	}
+
 	if (["standalone", "host"].includes(answers.mode)) {
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 		await setRemoteUpdates(execHost, "host", answers.remoteNpm);
 	}
 
-	// Written before pairing as running the installer again on an installed host only pairs it.
 	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
 		logger.info("Writing run scripts");
 		await writeScripts(answers.mode, args.selfSignedCert);
@@ -1066,16 +904,14 @@ async function main() {
 		await execCtl(["config", "set", "ctl.controller_token", answers.controllerToken]);
 	}
 
-	if (answers.mode === "host") {
-		if (args.pair) {
-			await pairWithController(args, answers);
-		} else {
-			logger.info("Run the installer again with --mode host in this directory to pair the host");
-		}
-	}
-
 	/* eslint-disable no-console */
 	console.log(`Successfully installed ${answers.mode}`);
+	if (answers.mode === "host") {
+		console.log(
+			`Start the host with run-host${process.platform === "win32" ? ".cmd" : ".sh"}, then approve it on the ` +
+			`Hosts page of ${answers.controllerUrl}`
+		);
+	}
 	if (adminToken) {
 		console.log(`Admin authentication token: ${adminToken}`);
 	}

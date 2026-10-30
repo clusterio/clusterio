@@ -15,7 +15,7 @@ import {
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
 	requiresFactorio, hasFactorio, pairTestHost, writeHostConfig,
 } from "./index.js";
-import { pairHost, checkHostToken, PairingError } from "../../packages/create/pair.js";
+import { pairHost, checkHostToken, PairingError } from "@clusterio/host";
 import { externalTest, slowTest } from "../common.js";
 import { getTestRconPort } from "./rcon_port.js";
 import { ControllerEcho, HostEchoReceived, InstanceEcho } from "../file/test_plugin/messages.js";
@@ -718,7 +718,7 @@ describe("Integration of Clusterio", function() {
 		describe("host pending, approve and reject", function() {
 			let pairings = [];
 			afterEach(async function() {
-				// Stop installers left waiting by a failed test
+				// Stop hosts left waiting by a failed test
 				for (const pairing of pairings) {
 					pairing.abort.abort();
 				}
@@ -726,7 +726,7 @@ describe("Integration of Clusterio", function() {
 				pairings = [];
 			});
 
-			// Start pairing like an installer without a token, returns once the request is pending.
+			// Start pairing like a host without a user token, returns once the request is pending.
 			async function requestPairing(name) {
 				const abort = new AbortController();
 				let onPending;
@@ -740,7 +740,7 @@ describe("Integration of Clusterio", function() {
 					throw new Error("Pairing finished before the request was pending");
 				});
 				ended.catch(() => {}); // Only of interest while racing the pending request
-				({ code: pairing.code } = await Promise.race([pending, ended]));
+				pairing.code = await Promise.race([pending, ended]);
 				return pairing;
 			}
 
@@ -776,12 +776,12 @@ describe("Integration of Clusterio", function() {
 				assert(!requests.some(request => request.code === pairing.code), "Approved request is still pending");
 				const hosts = await control.send(new lib.HostListRequest());
 				assert.equal(hosts.find(host => host.id === approved.hostId)?.name, "approved-host");
-				assert.equal(await checkHostToken({ controllerUrl: url, token: approved.token }), true);
+				assert.equal(await checkHostToken(url, approved.token), true);
 
 				await execCtl(`host revoke ${approved.hostId}`);
 			});
 
-			it("should make the installer fail when the request is rejected", async function() {
+			it("should make the host fail when the request is rejected", async function() {
 				const pairing = await requestPairing("rejected-host");
 				await execCtl(`host reject ${pairing.code}`);
 				await assert.rejects(pairing.result, pairingError(403));
@@ -792,7 +792,7 @@ describe("Integration of Clusterio", function() {
 				assert(!hosts.some(host => host.name === "rejected-host"), "Rejected host was added");
 			});
 
-			it("should remove the request when the installer stops waiting", async function() {
+			it("should remove the request when the host stops waiting", async function() {
 				const pairing = await requestPairing("cancelled-host");
 				pairing.abort.abort();
 				await assert.rejects(pairing.result, err => err.name === "AbortError");
@@ -836,7 +836,7 @@ describe("Integration of Clusterio", function() {
 		describe("host revoke", function() {
 			it("should remove the host and invalidate its token", async function() {
 				const pairing = await pairTestHost("revokee-host");
-				assert.equal(await checkHostToken({ controllerUrl: url, token: pairing.token }), true);
+				assert.equal(await checkHostToken(url, pairing.token), true);
 				await execCtl(`note set host ${pairing.hostId} short-lived`);
 
 				const control = getControl();
@@ -848,7 +848,7 @@ describe("Integration of Clusterio", function() {
 				);
 				const hosts = await control.send(new lib.HostListRequest());
 				assert(!hosts.some(host => host.id === pairing.hostId), "Host was not removed");
-				assert.equal(await checkHostToken({ controllerUrl: url, token: pairing.token }), false);
+				assert.equal(await checkHostToken(url, pairing.token), false);
 				const notes = await control.send(new lib.NoteListRequest());
 				assert(!notes.some(note => note.id === `host/${pairing.hostId}`), "Note of the host was not removed");
 			});
@@ -880,7 +880,7 @@ describe("Integration of Clusterio", function() {
 				assert(!hosts.some(host => host.id === pairing.hostId), "Host was not removed");
 			});
 
-			it("should stop a running host and prevent it from starting again", async function() {
+			it("should stop a running host and have it ask to join again when started", async function() {
 				slowTest(this);
 				this.timeout(30000);
 				const config = "revoke-host-config.json";
@@ -905,13 +905,34 @@ describe("Integration of Clusterio", function() {
 					}
 				}
 
-				// Exit code 8 tells the run scripts not to restart the host
-				await assert.rejects(execHost(`--config ${config} run`), err => {
-					const output = `${err.stdout}${err.stderr}`;
-					assert.equal(err.code, 8, `Unexpected exit code ${err.code}:\n${output}`);
-					assert.match(output, /host is not registered/);
-					return true;
-				});
+				// Starting it again asks to join the cluster again, and it starts up once approved
+				const rejoining = await spawnNode(
+					"revoke-host:", `../../packages/host run --config ${config}`, /Waiting for approval/
+				);
+				const exited = events.once(rejoining, "exit");
+				try {
+					const started = new Promise(resolve => {
+						rejoining.stdout.on("data", chunk => {
+							if (String(chunk).includes("Started host")) {
+								resolve();
+							}
+						});
+					});
+					const requests = await getControl().send(new lib.HostPairingListRequest());
+					const request = requests.find(entry => entry.name === "running-revokee");
+					assert(request, "Revoked host did not ask to join again");
+					const newHostId = await getControl().send(new lib.HostPairingApproveRequest(request.code));
+					assert.notEqual(newHostId, pairing.hostId);
+					assert.notEqual(
+						await lib.timeout(started, 10e3, "timeout"), "timeout", "Host did not start once approved"
+					);
+					await execCtl(`host revoke ${newHostId}`);
+					await lib.timeout(exited, 10e3, "timeout");
+				} finally {
+					if (rejoining.exitCode === null && rejoining.signalCode === null) {
+						rejoining.kill("SIGINT");
+					}
+				}
 			});
 		});
 

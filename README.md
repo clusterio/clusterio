@@ -274,20 +274,19 @@ If you have copied these files over to `/etc/systemd/system/` then you can start
 
 Run the installer as described in the installation section and choose "Host only" as the operating mode to install, it'll ask for a name for the host and a controller URL.
 The URL is the same as what is needed to connect to the web interface.
-Once it has installed everything the installer prints a code and waits for the host to be approved:
+Then start the host, the first time it starts it prints a code and waits for the host to be approved:
 
     Waiting for approval. Approve "my-host" with code ABC-DEF on the Hosts page of https://example.com/, or run: npx clusterioctl host approve ABC-DEF
 
 Approve it in the web interface by clicking Add host on the Hosts page and approving the request with the same code, or with `npx clusterioctl host approve <code>`.
-The installer then saves the connection details for the host and exits.
-Only approve a request if its code matches the one shown by the installer, approving gives the host full access to the cluster.
+The host then saves its connection details and starts up, it should show up in the Hosts list and be available for assigning and running instances on.
+Only approve a request if its code matches the one shown by the host, approving gives the host full access to the cluster.
 Approving requires the `core.host.approve` permission, which the Cluster Admin role has.
-If you have that permission you can skip the wait by passing your own authentication token to the installer with `--controller-token <token>`, it is only used to approve the host and is not saved.
-Once you start up the host it should show up in the Hosts list and be available for assigning and running instances on.
+If you have that permission you can skip the wait by starting the host with `npx clusteriohost run --user-token <token>` and your own authentication token, it is only used to approve the host and is not saved.
 
 To remove a host from the cluster, unassign its instances and click Revoke host access on the page for the host in the web interface, or run `npx clusterioctl host revoke <host>`.
 This disconnects the host and its saved connection details stop working.
-To add the computer back to the cluster run the installer again in the same directory, it reuses the existing installation and asks for approval again.
+To add the computer back to the cluster start the host again, it asks for approval again.
 
 
 ## Setting up clusterioctl

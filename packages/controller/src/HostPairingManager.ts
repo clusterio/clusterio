@@ -258,7 +258,7 @@ export default class HostPairingManager {
 	cancel(secret: string) {
 		const request = this._bySecret.get(secret);
 		if (request && request.state === "pending") {
-			logger.verbose(`Host pairing request ${request.details.code} cancelled by the installer`);
+			logger.verbose(`Host pairing request ${request.details.code} cancelled by the host`);
 			this._remove(request);
 		}
 	}
