@@ -332,7 +332,8 @@ function research_sync.sync_technologies(data)
 				end
 				tech.researched = true
 				progress = nil
-			elseif tech_data[progressIndex] then
+			-- may have finished here since the dump this sync is answering
+			elseif tech_data[progressIndex] and not tech.researched then
 				send_contribution(tech)
 				progress = tech_data[progressIndex]
 				set_technology_progress(tech, progress)
