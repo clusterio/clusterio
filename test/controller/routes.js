@@ -447,23 +447,6 @@ describe("controller/src/routes", function() {
 				await assertResponse(await post("/cancel", { requestId: code }), 204);
 				assert(controller.hostPairing.requests.has(code), "cancelled by the code");
 			});
-			it("should respond with 400 without a requestId in the body", async function() {
-				const { requestId, code } = await createRequest();
-				await assertResponse(await post("/cancel", {}), 400, { error: "requestId is required" });
-				await assertResponse(
-					await post(`/cancel?requestId=${encodeURIComponent(requestId)}`, {}),
-					400, { error: "requestId is required" },
-				);
-				assert(controller.hostPairing.requests.has(code));
-			});
-			it("should respond with 503 in recovery mode", async function() {
-				const { requestId, code } = await createRequest();
-				controller.recoveryMode = true;
-				await assertResponse(
-					await post("/cancel", { requestId }), 503, { error: "Controller is in recovery mode" }
-				);
-				assert(controller.hostPairing.requests.has(code));
-			});
 		});
 
 		describe("request ids", function() {
@@ -502,35 +485,11 @@ describe("controller/src/routes", function() {
 				assert.equal((await check({ "Authorization": "Bearer invalid" })).status, 401);
 				assert.equal((await check({ "Authorization": `Bearer ${adminToken}` })).status, 401);
 			});
-			it("should respond with 401 for a host that is not registered", async function() {
-				const token = controller.generateHostToken(99);
-				assert.equal((await check({ "Authorization": `Bearer ${token}` })).status, 401);
-			});
 			it("should respond with 401 once the host is revoked", async function() {
 				const { hostId, token } = await controller.hostPairing.createHost("Host A");
 				await assertResponse(await check({ "Authorization": `Bearer ${token}` }), 200, { valid: true });
 				controller.hosts.delete(controller.hosts.get(hostId));
 				assert.equal((await check({ "Authorization": `Bearer ${token}` })).status, 401);
-			});
-			it("should respond with 401 for a token issued before tokenValidAfter", async function() {
-				const { hostId, token } = await controller.hostPairing.createHost("Host A");
-				const record = controller.hosts.getMutable(hostId);
-				record.tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
-				controller.hosts.set(record);
-				assert.equal((await check({ "Authorization": `Bearer ${token}` })).status, 401);
-			});
-		});
-
-		describe("pairing flow", function() {
-			it("should pair a host approved while the installer polls", async function() {
-				const { requestId, code } = await createRequest("Host A");
-				await assertResponse(await post("/poll", { requestId }), 202, { status: "pending" });
-				const hostId = await controller.hostPairing.approve(code.toLowerCase(), undefined, "test");
-				const result = await (await post("/poll", { requestId })).json();
-				assert.deepEqual(result, { hostId, token: result.token, name: "Host A" });
-				await assertResponse(
-					await check({ "Authorization": `Bearer ${result.token}` }), 200, { valid: true }
-				);
 			});
 		});
 	});

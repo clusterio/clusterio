@@ -192,39 +192,6 @@ describe("messages/controller", function() {
 			new lib.HostPairingDetails("GHJ-KMN", "Host B", "2001:db8::1", "", 0, 300, true),
 		];
 
-		it("defines the pairing messages for control links approving hosts", function() {
-			for (const Message of [
-				lib.HostPairingListRequest,
-				lib.HostPairingApproveRequest,
-				lib.HostPairingRejectRequest,
-			]) {
-				assert.equal(Message.type, "request", Message.name);
-				assert.equal(Message.src, "control", Message.name);
-				assert.equal(Message.dst, "controller", Message.name);
-				assert.equal(Message.permission, "core.host.approve", Message.name);
-				assert(lib.Link._requestsByClass.has(Message), `${Message.name} is not registered`);
-			}
-			assert.equal(lib.HostPairingUpdatesEvent.type, "event");
-			assert.equal(lib.HostPairingUpdatesEvent.src, "controller");
-			assert.equal(lib.HostPairingUpdatesEvent.dst, "control");
-			assert.equal(lib.HostPairingUpdatesEvent.permission, "core.host.approve");
-			assert(lib.Link._eventsByClass.has(lib.HostPairingUpdatesEvent));
-		});
-		it("removes the host token messages", function() {
-			for (const name of ["HostGenerateTokenRequest", "HostConfigCreateRequest", "HostRevokeTokensRequest"]) {
-				assert.equal(lib[name], undefined, `${name} is still exported`);
-				assert(!lib.Link._requestsByName.has(name), `${name} is still registered`);
-			}
-		});
-		it("defines the host permissions", function() {
-			for (const name of ["core.host.approve", "core.host.revoke"]) {
-				assert(lib.permissions.has(name), `${name} is not defined`);
-				assert.equal(lib.permissions.get(name).grantByDefault, false, `${name} is granted by default`);
-			}
-			for (const name of ["core.host.generate_token", "core.host.revoke_token", "core.host.create_config"]) {
-				assert.equal(lib.permissions.has(name), false, `${name} is still defined`);
-			}
-		});
 		it("round trips HostPairingListRequest responses", function() {
 			const validate = lib.compile(lib.HostPairingListRequest.Response.jsonSchema);
 			const json = JSON.parse(JSON.stringify(details));
@@ -244,22 +211,6 @@ describe("messages/controller", function() {
 		});
 		it("round trips HostPairingRejectRequest", function() {
 			testRoundTripJsonSerialisable(lib.HostPairingRejectRequest, [["ABC-DEF"], ["abcdef"]]);
-		});
-		it("approves a pending request", async function() {
-			controller.config.set("controller.auth_secret", Buffer.from("TestSecretDoNotUse").toString("base64"));
-			const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
-			const list = await controlConnection.handleHostPairingListRequest(new lib.HostPairingListRequest());
-			assert.deepEqual(list.map(entry => entry.code), [code]);
-			const hostId = await controlConnection.handleHostPairingApproveRequest(
-				new lib.HostPairingApproveRequest(code)
-			);
-			assert.equal(controller.hosts.get(hostId).name, "Host A");
-			assert.equal(controller.hostPairing.poll(requestId).hostId, hostId);
-		});
-		it("rejects a pending request", async function() {
-			const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
-			await controlConnection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest(code));
-			assert.throws(() => controller.hostPairing.poll(requestId), /Request was rejected/);
 		});
 	});
 

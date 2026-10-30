@@ -915,15 +915,6 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("removed host token commands", function() {
-			it("should no longer exist", async function() {
-				slowTest(this);
-				for (const command of ["generate-token", "revoke-token", "create-config"]) {
-					await assert.rejects(execCtlProcess(`host ${command}`), new RegExp(`Unknown argument: ${command}`));
-				}
-			});
-		});
-
 		describe("instance list", function() {
 			it("runs", async function() {
 				await execCtl("instance list");

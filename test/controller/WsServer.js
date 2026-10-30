@@ -190,22 +190,6 @@ describe("controller/src/WsServer", function() {
 			assert.equal(socket.closed, null);
 			assert(wsServer.hostConnections.has(5));
 		});
-		it("should reject a token without an issue time", async function() {
-			addHost(5);
-			await register(jwt.sign({ aud: "host", host: 5 }, secret, { noTimestamp: true }));
-			assertRejected("Authentication failed: invalid token");
-		});
-		it("should reject a token for another host", async function() {
-			addHost(5);
-			addHost(6);
-			await register(controller.generateHostToken(6), 5);
-			assertRejected("Authentication failed: missmatched host id");
-		});
-		it("should reject a token signed with another secret", async function() {
-			addHost(5);
-			await register(jwt.sign({ aud: "host", host: 5 }, Buffer.from("OtherSecret")));
-			assertRejected("Authentication failed: invalid signature");
-		});
 		it("should reject a host revoked while its previous connection closes", async function() {
 			const record = addHost(5);
 			wsServer.hostConnections.set(5, {

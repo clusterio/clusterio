@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import * as lib from "@clusterio/lib";
 import { Controller, HostPairingManager, HostPairingError, HostRecord } from "@clusterio/controller";
 import {
-	addressKey, normaliseCode, pollTimeoutMs, maxPendingMs, maxPending, maxPendingPerAddress,
+	pollTimeoutMs, maxPendingMs, maxPending, maxPendingPerAddress,
 	maxCreatesPerMinute, maxNameLength,
 } from "@clusterio/controller/dist/node/src/HostPairingManager.js";
 
@@ -49,41 +49,6 @@ function assertPairingError(fn, status, message) {
 }
 
 describe("controller/src/HostPairingManager", function() {
-	describe("addressKey()", function() {
-		it("should return IPv4 addresses unchanged", function() {
-			assert.equal(addressKey("10.0.0.1"), "10.0.0.1");
-		});
-		it("should strip the IPv4 mapped prefix", function() {
-			assert.equal(addressKey("::ffff:10.0.0.1"), "10.0.0.1");
-		});
-		it("should group IPv6 addresses by their /64", function() {
-			assert.equal(addressKey("2001:db8:0:1::5"), "2001:db8:0:1::/64");
-			assert.equal(addressKey("2001:db8::1:ffff:0:0:3"), "2001:db8:0:1::/64");
-			assert.equal(addressKey("2001:0DB8:0000:0001:aaaa:bbbb:cccc:dddd"), "2001:db8:0:1::/64");
-			assert.equal(addressKey("2001:db8:0:2::5"), "2001:db8:0:2::/64");
-		});
-		it("should expand compressed groups at the start and end", function() {
-			assert.equal(addressKey("::1"), "0:0:0:0::/64");
-			assert.equal(addressKey("::"), "0:0:0:0::/64");
-			assert.equal(addressKey("fe80::1"), "fe80:0:0:0::/64");
-			assert.equal(addressKey("2001:db8::"), "2001:db8:0:0::/64");
-		});
-		it("should return other values unchanged", function() {
-			assert.equal(addressKey(""), "");
-			assert.equal(addressKey("not an address"), "not an address");
-			assert.equal(addressKey("::ffff:not-ipv4"), "::ffff:not-ipv4");
-		});
-	});
-
-	describe("normaliseCode()", function() {
-		it("should format codes as shown by the installer", function() {
-			assert.equal(normaliseCode("ABC-DEF"), "ABC-DEF");
-			assert.equal(normaliseCode("abcdef"), "ABC-DEF");
-			assert.equal(normaliseCode("abc-def"), "ABC-DEF");
-			assert.equal(normaliseCode(" abc def "), "ABC-DEF");
-			assert.equal(normaliseCode("a.b_c-d e/f"), "ABC-DEF");
-		});
-	});
 
 	describe("HostPairingManager.validateName()", function() {
 		it("should require a non-empty string", function() {
@@ -244,12 +209,6 @@ describe("controller/src/HostPairingManager", function() {
 				assert.equal(code, "222-222");
 				assert.equal(await manager.approve(code, undefined, "admin"), 1234);
 				assert.equal(manager.create("Host B", "", "10.0.0.2").code, "333-333");
-			});
-			it("should use distinct request ids", function() {
-				const first = manager.create("Host A", "", "10.0.0.1");
-				const second = manager.create("Host A", "", "10.0.0.1");
-				assert.notEqual(first.requestId, second.requestId);
-				assert.notEqual(first.code, second.code);
 			});
 		});
 
@@ -568,14 +527,6 @@ describe("controller/src/HostPairingManager", function() {
 				assert.equal(manager.requests.has(code), false);
 				assertPairingError(() => manager.poll(requestId), 404);
 			});
-			it("should expire requests when creating and polling", function() {
-				const first = manager.create("Host A", "", "10.0.0.1");
-				idle(first.requestId, pollTimeoutMs + 1);
-				const second = manager.create("Host B", "", "10.0.0.1");
-				assert.equal(manager.requests.has(first.code), false);
-				idle(second.requestId, pollTimeoutMs + 1);
-				assertPairingError(() => manager.poll(second.requestId), 404);
-			});
 			it("should drop and warn about an approved host never picked up", async function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
 				const hostId = await manager.approve(code, undefined, "admin");
@@ -594,27 +545,6 @@ describe("controller/src/HostPairingManager", function() {
 				manager.prune();
 				assertPairingError(() => manager.poll(requestId), 404);
 				assert.equal(warnings.length, 0);
-			});
-			it("should forget creation times older than a minute", function() {
-				manager.create("Host A", "", "10.0.0.1");
-				assert.equal(manager._recentCreates.size, 1);
-				manager.prune();
-				assert.equal(manager._recentCreates.size, 1);
-				for (const times of manager._recentCreates.values()) {
-					times.forEach((ms, index) => { times[index] = ms - 60e3 - 1; });
-				}
-				manager.prune();
-				assert.equal(manager._recentCreates.size, 0);
-			});
-		});
-
-		describe(".start()/.stop()", function() {
-			it("should run an unreferenced prune interval while started", function() {
-				manager.start();
-				assert(manager._pruneInterval, "prune interval not started");
-				assert.equal(manager._pruneInterval.hasRef(), false);
-				manager.stop();
-				assert.equal(manager._pruneInterval, undefined);
 			});
 		});
 

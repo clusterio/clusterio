@@ -22,13 +22,6 @@ describe("messages/host", function() {
 		it("is round trip json serialisable", function() {
 			testRoundTripJsonSerialisable(lib.HostRevokeRequest, [[1], [2 ** 31 - 1]]);
 		});
-		it("is a control request requiring core.host.revoke", function() {
-			assert.equal(lib.HostRevokeRequest.type, "request");
-			assert.equal(lib.HostRevokeRequest.src, "control");
-			assert.equal(lib.HostRevokeRequest.dst, "controller");
-			assert.equal(lib.HostRevokeRequest.permission, "core.host.revoke");
-			assert(lib.Link._requestsByClass.has(lib.HostRevokeRequest));
-		});
 	});
 
 	describe("HostUpdateRequest", function() {

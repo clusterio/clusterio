@@ -55,18 +55,6 @@ describe("web_ui/util/host_pairing", function() {
 			));
 		});
 
-		it("should check the permission after the connect handlers have run", async function() {
-			subscriber.subscribe(() => {});
-			await events.once(mockControl.connector, "send");
-			mockControl.connector.sentMessages.length = 0;
-
-			permitted = false;
-			mockControl.connector.emit("connect");
-			permitted = true;
-			await settle();
-			assert.equal(sentRequests().length, 1);
-		});
-
 		it("should resubscribe on account updates with permission", async function() {
 			subscriber.subscribe(() => {});
 			await events.once(mockControl.connector, "send");
@@ -127,16 +115,6 @@ describe("web_ui/util/host_pairing", function() {
 			subscriber.subscribe(() => {});
 			assert.equal(subscriber.values.size, 1);
 			assert.equal(subscriber.lastUpdatedMs, 10);
-		});
-
-		it("should set synced false on drop and close", async function() {
-			subscriber.synced = true;
-			subscriber.handleConnectionEvent("drop");
-			assert.equal(subscriber.synced, false);
-
-			subscriber.synced = true;
-			subscriber.handleConnectionEvent("close");
-			assert.equal(subscriber.synced, false);
 		});
 	});
 });

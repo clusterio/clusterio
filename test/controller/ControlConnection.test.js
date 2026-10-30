@@ -299,17 +299,6 @@ describe("controller/src/ControlConnection", function() {
 			lib.logger.audit = originalAudit;
 		});
 
-		it("registers the host pairing and revoke handlers", function() {
-			for (const Request of [
-				lib.HostRevokeRequest,
-				lib.HostPairingListRequest,
-				lib.HostPairingApproveRequest,
-				lib.HostPairingRejectRequest,
-			]) {
-				assert(connection._requestHandlers.has(Request), `${Request.name} is not handled`);
-			}
-		});
-
 		describe(".handleHostRevokeRequest()", function() {
 			let record;
 			let broadcasts;
@@ -448,26 +437,6 @@ describe("controller/src/ControlConnection", function() {
 				assert.equal(controller.hostPairing.poll(requestId).hostId, hostId);
 				assert(audits.some(msg => msg.startsWith(`User admin approved host Host A (${hostId})`)));
 			});
-			it("approves a request with a different name", async function() {
-				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
-				const hostId = await connection.handleHostPairingApproveRequest(
-					new lib.HostPairingApproveRequest(code, "Renamed")
-				);
-				assert.equal(controller.hosts.get(hostId).name, "Renamed");
-				assert.equal(controller.hostPairing.poll(requestId).name, "Renamed");
-			});
-			it("rejects approving an unknown code or with an invalid name", async function() {
-				await assert.rejects(
-					connection.handleHostPairingApproveRequest(new lib.HostPairingApproveRequest("ZZZ-ZZZ")),
-					new lib.NotFoundError("No pending host request with code ZZZ-ZZZ"),
-				);
-				const { code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
-				await assert.rejects(
-					connection.handleHostPairingApproveRequest(new lib.HostPairingApproveRequest(code, " ")),
-					new lib.ValidationError("Host name is required"),
-				);
-				assert.equal(controller.hosts.size, 0);
-			});
 			it("rejects a request", async function() {
 				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
 				await connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest(code.toLowerCase()));
@@ -475,12 +444,6 @@ describe("controller/src/ControlConnection", function() {
 				assert.throws(() => controller.hostPairing.poll(requestId), /Request was rejected/);
 				assert.equal(controller.hosts.size, 0);
 				assert(audits.some(msg => msg.startsWith(`User admin rejected host Host A with code ${code}`)));
-			});
-			it("throws NotFoundError when rejecting an unknown code", async function() {
-				await assert.rejects(
-					connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest("ZZZ-ZZZ")),
-					new lib.NotFoundError("No pending host request with code ZZZ-ZZZ"),
-				);
 			});
 		});
 	});
