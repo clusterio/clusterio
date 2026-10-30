@@ -1,15 +1,15 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Alert, Descriptions, Spin } from "antd";
+import { Alert, Descriptions } from "antd";
 
 import * as lib from "@clusterio/lib";
 import type { PluginWebApi } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
-import PageHeader from "./PageHeader";
+import ResourceState from "./ResourceState";
 import SectionHeader from "./SectionHeader";
-import notify from "../util/notify";
+import useResourceState from "../util/useResourceState";
 import { usePluginInstaller } from "./PluginInstall";
 import { PluginMachinesTable, PluginUpdateButton, useLatestVersions, useMachinePlugins } from "./PluginClusterStatus";
 import { PluginStatus, computePluginStatuses, pluginStatusKey } from "../util/plugin_status";
@@ -89,18 +89,18 @@ export default function PluginViewPage() {
 	let params = useParams();
 	const control = useContext(ControlContext);
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>();
+	const [pluginListError, setPluginListError] = useState<Error | null>(null);
 	let pluginName = String(params.name);
-	const { machines, unknown, refresh } = useMachinePlugins();
+	const { machines, unknown, refresh, error: machinesError } = useMachinePlugins();
 
 	useEffect(() => {
 		(async () => {
 			let response = await fetch(`${webRoot}api/plugins`);
-			if (response.ok) {
-				setPluginList(await response.json());
-			} else {
-				notify("Failed to load plugin list");
+			if (!response.ok) {
+				throw new Error(`Failed to load plugin list: ${response.status} ${response.statusText}`);
 			}
-		})();
+			setPluginList(await response.json());
+		})().catch(setPluginListError);
 	}, []);
 
 	const pluginMeta = pluginList?.find(p => p.name === pluginName);
@@ -110,19 +110,16 @@ export default function PluginViewPage() {
 		: undefined;
 	const pluginInfo = control.pluginInfos.get(pluginName);
 	const pluginTitle = pluginInfo?.title ?? status?.title ?? pluginName;
+	// Machines are only needed for plugins not on the controller, which isn't known until the list has loaded
+	const error = pluginListError ?? (pluginList ? machinesError : null);
+	const state = useResourceState(
+		pluginList && (pluginMeta ?? status), Boolean(pluginList && machines), error, pluginName
+	);
 	let nav = [{ name: "Plugins", path: "/plugins" }, { name: pluginTitle }];
-	if (!pluginList || (!pluginMeta && !machines)) {
-		return <PageLayout nav={nav}>
-			<Descriptions bordered size="small" title={pluginTitle} />
-			<Spin size="large" />
-		</PageLayout>;
-	}
-
-	if (!pluginMeta && !status) {
-		return <PageLayout nav={nav}>
-			<PageHeader title="Plugin not found" />
-			<p>Plugin with name {pluginName} was not found on the controller or any host.</p>
-		</PageLayout>;
+	if (state !== "ok") {
+		return <ResourceState
+			state={state} type="Plugin" id={pluginTitle} nav={nav} listPath="/plugins" error={error}
+		/>;
 	}
 
 	return <PageLayout nav={nav}>

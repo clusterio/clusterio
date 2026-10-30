@@ -89,8 +89,8 @@ export function sortLastSeen(
 }
 
 export function useUser(name?: string) {
-	const [users, synced] = useUsers();
-	return [name !== undefined ? users.get(name.toLowerCase()) : undefined, synced] as const;
+	const [users, synced, error] = useUsers();
+	return [name !== undefined ? users.get(name.toLowerCase()) : undefined, synced, error] as const;
 }
 
 export function useUsers() {

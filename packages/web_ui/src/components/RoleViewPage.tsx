@@ -1,6 +1,6 @@
-import React, { useEffect, useContext, useState, useMemo, useRef } from "react";
+import React, { useEffect, useContext, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Checkbox, Col, Grid, Input, Popconfirm, Row, Space, Spin, Tooltip } from "antd";
+import { Button, Checkbox, Col, Grid, Input, Popconfirm, Row, Space, Tooltip } from "antd";
 import { ExclamationCircleOutlined, StarOutlined, DeleteOutlined} from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -12,7 +12,9 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import { notifyErrorHandler } from "../util/notify";
+import useResourceState from "../util/useResourceState";
 
 
 /** Splits a permission name into parts, removing the last part */
@@ -162,14 +164,14 @@ export default function RoleViewPage() {
 	const navigate = useNavigate();
 	const account = useAccount();
 	const control = useContext(ControlContext);
-	const [role, synced] = useRole(roleId);
+	const [role, synced, error] = useRole(roleId);
+	const state = useResourceState(role, synced, error, roleId);
 
 	// Local edits on top of the live role
 	const [nameEdit, setNameEdit] = useState<string>();
 	const [descriptionEdit, setDescriptionEdit] = useState<string>();
 	const [permissionEdits, setPermissionEdits] = useState<Record<string, boolean>>({});
 	const [search, setSearch] = useState("");
-	const loadedRoleId = useRef<number>(undefined);
 	// Hidden below lg, where the site sider leaves too little room; undefined until measured
 	const screens = Grid.useBreakpoint();
 	const showGroupList = screens.lg !== false;
@@ -203,27 +205,9 @@ export default function RoleViewPage() {
 		setPermissionEdits({});
 	}, [roleId]);
 
-	if (role) {
-		loadedRoleId.current = roleId;
-	}
-
-	// If no role then display either the loading screen or the not found screen
 	if (!role) {
 		const nav = [{ name: "Roles", path: "/roles" }, { name: String(roleId) }];
-
-		if (!synced) {
-			return <PageLayout nav={nav}>
-				<PageHeader title={String(roleId)} />
-				<Spin size="large" />
-			</PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<PageHeader title="Role not found" />
-			<p>Role with id {roleId} {
-				loadedRoleId.current === roleId ? "has been deleted" : "was not found on the controller"
-			}.</p>
-		</PageLayout>;
+		return <ResourceState state={state} type="Role" id={roleId} nav={nav} listPath="/roles" error={error} />;
 	}
 
 	const name = nameEdit ?? role.name;

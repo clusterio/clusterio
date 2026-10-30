@@ -2,8 +2,8 @@ import { useCallback, useContext, useSyncExternalStore } from "react";
 import ControlContext from "../components/ControlContext";
 
 export function useHost(id?: number) {
-	const [hosts, synced] = useHosts();
-	return [id !== undefined ? hosts.get(id) : undefined, synced] as const;
+	const [hosts, synced, error] = useHosts();
+	return [id !== undefined ? hosts.get(id) : undefined, synced, error] as const;
 }
 
 export function useHosts() {
