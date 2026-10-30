@@ -29,7 +29,7 @@
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"engines": {
-		"node": ">=22"
+		"node": "^22.18.0 || >=24.2.0"
 	},
 
 	"dependencies": {
