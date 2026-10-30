@@ -747,6 +747,76 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance template inheritance", function() {
+			after(async function() {
+				for (const id of [4403, 4402, 4401, 4400]) {
+					await getControl().send(new lib.InstanceDeleteRequest(id)).catch(() => {});
+				}
+			});
+			it("creates a template and an instance inheriting from it", async function() {
+				await execCtl("instance create inheritTemplate --id 4400 --is-template");
+				await execCtl("instance config set inheritTemplate factorio.version 2.0");
+				await execCtl("instance create inheritChild --id 4401 --template inheritTemplate");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+				assert.equal(config["instance.template_id"], 4400);
+				assert.equal(config["factorio.version"], "2.0");
+				assert.equal(config["instance.inherited_fields"]["factorio.version"], true);
+				assert.equal((await getInstances()).get(4400).isTemplate, true);
+			});
+			it("propagates template changes per property", async function() {
+				await execCtl("instance config set inheritTemplate factorio.version 2.1");
+				await execCtl("instance config set-prop inheritChild factorio.settings max_players 3");
+				await execCtl("instance config set-prop inheritTemplate factorio.settings max_players 7");
+				await execCtl("instance config set-prop inheritTemplate factorio.settings afk_autokick_interval 9");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+				assert.equal(config["factorio.version"], "2.1");
+				assert.equal(config["factorio.settings"].max_players, 3);
+				assert.equal(config["factorio.settings"].afk_autokick_interval, 9);
+			});
+			it("creates a template from an existing instance", async function() {
+				await execCtl("instance create inheritCopy --id 4403 --is-template --from 4401");
+				const config = await getControl().send(new lib.InstanceConfigGetRequest(4403));
+				assert.equal(config["instance.is_template"], true);
+				assert.equal(config["factorio.settings"].max_players, 3);
+			});
+			it("rejects inheriting from an instance that is not a template", async function() {
+				await assert.rejects(
+					execCtl("instance create inheritBad --id 4402 --template inheritChild"),
+					new lib.ValidationError("Instance inheritChild is not a template"),
+				);
+			});
+			it("rejects assigning a template to a host", async function() {
+				await assert.rejects(
+					execCtl("instance assign inheritTemplate 4"),
+					new lib.ValidationError("Templates cannot be assigned to a host"),
+				);
+			});
+			describe("instance list --templates", function() {
+				it("runs", async function() {
+					await execCtl("instance list --templates");
+				});
+			});
+			describe("instance config list", function() {
+				it("runs on an inheriting instance", async function() {
+					await execCtl("instance config list inheritChild");
+				});
+			});
+			describe("instance config inherit", function() {
+				it("runs", async function() {
+					await execCtl("instance config set inheritChild factorio.version 2.0");
+					let config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+					assert.equal(config["instance.inherited_fields"]["factorio.version"], undefined);
+
+					await execCtl("instance config inherit inheritChild factorio.version");
+					await execCtl("instance config inherit inheritChild factorio.settings max_players");
+					config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
+					assert.equal(config["factorio.version"], "2.1");
+					assert.equal(config["instance.inherited_fields"]["factorio.version"], true);
+					assert.equal(config["factorio.settings"].max_players, 7);
+				});
+			});
+		});
+
 		describe("instance assign", function() {
 			it("creates the instance files", async function() {
 				await execCtl("instance assign test 4");

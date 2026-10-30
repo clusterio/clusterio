@@ -56,15 +56,16 @@ Marks the host as requiring a restart, the same way a plugin update does. Use it
 
 ### List Instances
 
-    ctl> instance list
+    ctl> instance list [--templates]
 
 List instances.
+Templates are only listed if `--templates` is passed.
 
 ### Create instance
 
-    ctl> instance create <name> [--id <instance id>]
+    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--template <instance>] [--is-template]
 
-Create a new instance. `name` is the instance name. `--id` is the optional id.
+Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--template` makes the new instance inherit all config values from the given template. `--is-template` creates the instance as a template, see `instance.is_template` in the [configuration docs](configuration.md). Use `--is-template --from <instance>` to make a template out of an existing instance.
 
 ### Kill instance
 
@@ -97,7 +98,7 @@ Most notably Clusterio records wall clock time while the save time is recorded i
 
     ctl> instance config list <instance>
 
-List config values for an instance. `instance` is the instance whose config values to list.
+List config values for an instance. `instance` is the instance whose config values to list. Values inherited from a template are marked with `(inherited)`, object fields also list the properties set on the instance.
 
 #### Set config value
 
@@ -109,11 +110,17 @@ Set field in instance config. `instance` is instance to set. `field` is field to
 
 To be written.
 
+#### Inherit config value
+
+    ctl> instance config inherit <instance> <field> [prop]
+
+Make a field in the instance config take its value from the template again, undoing a previous `set`. `instance` is the instance to update, `field` is the field to inherit, `prop` limits it to one property of an object field.
+
 #### Edit instance config
 
     ctl> instance config edit <instance> [editor]
 
-Edit instance config in a text editor. Once file is saved and editor has been exited, config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
+Edit instance config in a text editor. Once file is saved and editor has been exited, changed config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
 
 ### Assign instance to host
 

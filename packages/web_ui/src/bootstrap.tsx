@@ -8,6 +8,7 @@ import * as lib from "@clusterio/lib";
 import App from "./components/App";
 import InputRole from "./components/InputRole";
 import InputModPack from "./components/InputModPack";
+import { InputInstanceTemplate } from "./components/InputInstance";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
 import { loadedPluginSetKey } from "./util/pluginSet";
@@ -148,6 +149,7 @@ async function inputComponentsFromHooks(control: Control) {
 		"target_version": InputTargetVersion,
 		"mod_pack": InputModPack,
 		"role": InputRole,
+		"instance_template": InputInstanceTemplate,
 	}]);
 
 	const iterable = result.map(

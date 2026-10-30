@@ -498,6 +498,30 @@ This allows you to prevent certain instances from being started when using the b
 Defaults to false.
 
 
+### instance.is_template
+
+If enabled this instance is a template other instances can inherit config values from.
+Templates cannot be assigned to a host and therefore never start.
+Hidden from `instance list` in clusterioctl unless `--templates` is passed, and listed separately in the web interface.
+An instance cannot stop being a template while other instances inherit from it.
+
+Defaults to false.
+
+
+### instance.template_id
+
+ID of the template to inherit config values from.
+Inherited fields take their value from the template and follow it when it changes, setting a field on this instance stops inheriting it.
+Object fields like `factorio.settings` are inherited per property, properties set on this instance override the ones from the template.
+When set on an existing instance fields with the same value as the template or the default value become inherited, except the server name in `factorio.settings`.
+`instance.name`, `instance.is_template`, `instance.template_id`, the port fields, `factorio.rcon_password` and hidden fields are never inherited.
+A template may itself inherit from another template, but not from itself through a chain of templates.
+The fields currently inherited are stored in the hidden `instance.inherited_fields` field.
+In the web interface inherited values are locked and must be unlocked before they can be changed.
+
+Defaults to null meaning no template.
+
+
 ### factorio.version
 
 Version of Factorio to use for this instance.

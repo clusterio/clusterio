@@ -20,10 +20,14 @@ export const instanceCommands = new lib.CommandTree({
 	name: "instance", alias: ["i"], description: "Instance management",
 });
 instanceCommands.add(new lib.Command({
-	definition: [["list", "l"], "List instances known to the controller"],
-	handler: async function(args: object, ctl: Ctl) {
+	definition: [["list", "l"], "List instances known to the controller", (yargs) => {
+		yargs.options({
+			"templates": { describe: "Include templates", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args: { templates: boolean }, ctl: Ctl) {
 		let list = await ctl.send(new lib.InstanceDetailsListRequest());
-		print(asTable(list));
+		print(asTable(list.filter(instance => args.templates || !instance.isTemplate)));
 	},
 }));
 
@@ -34,18 +38,30 @@ instanceCommands.add(new lib.Command({
 		yargs.options({
 			"id": { type: "number", nargs: 1, describe: "Instance id" },
 			"from": { type: "number", nargs: 1, describe: "Clone config from instance id" },
+			"template": { type: "string", nargs: 1, describe: "Template to inherit config from" },
+			"is-template": { type: "boolean", nargs: 0, describe: "Create the instance as a template" },
 		});
 	}],
-	handler: async function(args: { name: string, id?: number, from?: number, }, ctl: Ctl) {
+	handler: async function(
+		args: { name: string, id?: number, from?: number, template?: string, isTemplate?: boolean },
+		ctl: Ctl,
+	) {
 		let instanceConfig = new lib.InstanceConfig("control");
+		let fields: (keyof lib.InstanceConfigFields)[] = ["instance.id", "instance.name"];
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
+		if (args.template !== undefined) {
+			instanceConfig.set("instance.template_id", await lib.resolveInstance(ctl, args.template));
+			fields.push("instance.template_id");
+		}
+		if (args.isTemplate) {
+			instanceConfig.set("instance.is_template", true);
+			fields.push("instance.is_template");
+		}
 		await ctl.send(new lib.InstanceCreateRequest(
-			instanceConfig.toRemote("controller", [
-				"instance.id", "instance.name",
-			]),
+			instanceConfig.toRemote("controller", fields),
 			args.from
 		));
 	},
@@ -61,10 +77,39 @@ instanceConfigCommands.add(new lib.Command({
 	handler: async function(args: { instance: string }, ctl: Ctl) {
 		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		let config = await ctl.send(new lib.InstanceConfigGetRequest(instanceId));
+		const inherited = config["instance.template_id"] !== null
+			? config["instance.inherited_fields"] as Record<string, true | string[]> ?? {}
+			: {};
 
 		for (let [name, value] of Object.entries(config)) {
-			print(`${name} ${JSON.stringify(value)}`);
+			if (name === "instance.inherited_fields") {
+				continue;
+			}
+			const entry = inherited[name];
+			let note = "";
+			if (entry instanceof Array && entry.length) {
+				note = ` (inherited except ${entry.join(", ")})`;
+			} else if (entry) {
+				note = " (inherited)";
+			}
+			print(`${name} ${JSON.stringify(value)}${note}`);
 		}
+	},
+}));
+
+instanceConfigCommands.add(new lib.Command({
+	definition: [
+		"inherit <instance> <field> [prop]",
+		"Make field or property in instance config use the value of its template",
+		(yargs) => {
+			yargs.positional("instance", { describe: "Instance to update config on", type: "string" });
+			yargs.positional("field", { describe: "Field to inherit", type: "string" });
+			yargs.positional("prop", { describe: "Property of object field to inherit", type: "string" });
+		},
+	],
+	handler: async function(args: { instance: string, field: string, prop?: string }, ctl: Ctl) {
+		let instanceId = await lib.resolveInstance(ctl, args.instance);
+		await ctl.send(new lib.InstanceConfigInheritFieldRequest(instanceId, args.field, args.prop));
 	},
 }));
 
@@ -170,8 +215,10 @@ instanceConfigCommands.add(new lib.Command({
 		await events.once(editorSpawn, "exit");
 		const data = await fs.readFile(tmpFile, "utf8");
 		const final = await configToKeyVal(data);
+		const original = await configToKeyVal(allConfigElements);
 		for (let index in final) {
-			if (index in final) {
+			// Unchanged fields are skipped so they keep inheriting from the template
+			if (index in final && final[index] !== original[index]) {
 				try {
 					await ctl.send(new lib.InstanceConfigSetFieldRequest(
 						instanceId,

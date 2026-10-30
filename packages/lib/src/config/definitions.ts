@@ -472,6 +472,9 @@ export interface InstanceConfigFields {
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
 	"instance.exclude_from_start_all": boolean;
+	"instance.is_template": boolean;
+	"instance.template_id": number | null;
+	"instance.inherited_fields": Record<string, true | string[]>;
 	[key: `${string}.load_plugin`]: boolean;
 	[key: `${string}.version`]: string;
 
@@ -523,6 +526,38 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		return config;
 	}
 
+	/** Fields that are never inherited from a template, ports clash on a shared host and secrets stay per instance */
+	static uninheritableFields = [
+		"instance.name", "instance.is_template", "instance.template_id",
+		"factorio.game_port", "factorio.rcon_port", "factorio.rcon_password", "factorio.lua_udp_port",
+	];
+
+	/** True if the field can take its value from a template */
+	static isInheritable(name: string) {
+		const def = this.fieldDefinitions[name as keyof InstanceConfigFields];
+		return Boolean(def)
+			&& !def.hidden
+			&& (def.access ?? this.defaultAccess).includes("controller")
+			&& !this.uninheritableFields.includes(name);
+	}
+
+	/**
+	 * True if the field, or the given property of an object field, takes its value from the template
+	 *
+	 * @param name - Name of field to check.
+	 * @param prop - Property of an object field to check.
+	 */
+	isInherited(name: string, prop?: string) {
+		if (this.get("instance.template_id") === null) {
+			return false;
+		}
+		const entry = this.get("instance.inherited_fields")[name];
+		if (entry instanceof Array) {
+			return prop === undefined || !entry.includes(prop);
+		}
+		return Boolean(entry);
+	}
+
 	static fieldDefinitions: classes.ConfigDefs<InstanceConfigFields> = {
 		"instance.name": {
 			type: "string",
@@ -549,6 +584,32 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description: "Exclude this instance from the 'Start all' button operation",
 			type: "boolean",
 			initialValue: false,
+		},
+		"instance.is_template": {
+			description:
+				"Mark this instance as a template other instances can inherit config from. " +
+				"Templates cannot be assigned to a host or started.",
+			access: ["controller", "control"],
+			type: "boolean",
+			initialValue: false,
+		},
+		"instance.template_id": {
+			title: "Template",
+			description: "ID of the template to inherit config values from",
+			access: ["controller", "control"],
+			inputComponent: "instance_template",
+			type: "number",
+			optional: true,
+			// Checked by the controller
+		},
+		"instance.inherited_fields": {
+			description:
+				"Fields whose value comes from the template, for object fields the properties set on this instance",
+			access: ["controller", "control"],
+			readonly: ["controller"],
+			type: "object",
+			initialValue: {},
+			hidden: true,
 		},
 		"factorio.version": {
 			description:
