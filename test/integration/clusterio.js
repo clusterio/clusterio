@@ -443,14 +443,12 @@ describe("Integration of Clusterio", function() {
 
 		it("should load the plugin on the controller", async function() {
 			const details = await pluginDetails("controller");
-			assert(details.enabled, "test_plugin is not enabled on the controller");
-			assert(details.loaded, "test_plugin is not loaded on the controller");
+			assert.equal(details.state, "loaded", "test_plugin is not loaded on the controller");
 		});
 
 		it("should load the plugin on the host", async function() {
 			const details = await pluginDetails({ hostId: 4 });
-			assert(details.enabled, "test_plugin is not enabled on the host");
-			assert(details.loaded, "test_plugin is not loaded on the host");
+			assert.equal(details.state, "loaded", "test_plugin is not loaded on the host");
 		});
 
 		it("should report the plugin's title and version", async function() {
