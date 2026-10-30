@@ -28,10 +28,14 @@ class ExportPrototypeMetadataStore {
 
 		const response = await fetch(`${staticRoot}${cacheEntry.metadataPath}`);
 		if (!response.ok) {
-			notify(
-				`Failed to fetch prototype metadata for mod pack ${modPackId}, server returned: ` +
-				`${response.status} ${response.statusText}`
-			);
+			if (response.status === 404) {
+				logger.warn(`Prototype metadata for mod pack ${modPackId} is missing on the controller`);
+			} else {
+				notify(
+					`Failed to fetch prototype metadata for mod pack ${modPackId}, server returned: ` +
+					`${response.status} ${response.statusText}`
+				);
+			}
 			// eslint-disable-next-line node/no-sync
 			cacheEntry.styleSheet.replaceSync("");
 			cacheEntry.metadata = new Map();

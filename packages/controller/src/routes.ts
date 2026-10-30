@@ -300,6 +300,30 @@ async function uploadExport(req: Request, res: Response) {
 	res.sendStatus(200);
 }
 
+// Reached when no static file matched, drops exports whose files were removed
+export function missingExportAsset(req: Request, res: Response, next: any) {
+	const file = req.path.slice(1);
+	if (!["GET", "HEAD"].includes(req.method) || !file) {
+		next();
+		return;
+	}
+	const modPacks = res.app.locals.controller.modPacks;
+	const affected = [...modPacks.valuesMutable()].filter(
+		modPack => modPack.exportManifest && Object.values(modPack.exportManifest.assets).includes(file)
+	);
+	if (!affected.length) {
+		next();
+		return;
+	}
+	for (const modPack of affected) {
+		Controller.dropExport(modPack, `${file} was removed from disk`);
+	}
+	modPacks.setMany(affected);
+	res.status(404).type("text/plain").send(
+		`Export data file ${file} is missing, run export-data on an instance to regenerate it`
+	);
+}
+
 type ProxyStreamEvents = {
 	"error": [ err: any ],
 	"close": [],
