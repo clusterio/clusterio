@@ -61,7 +61,7 @@ If a user token is sent and the user has the `core.host.approve` permission the 
 An invalid token gives 401 and a user without the permission gives 403, a token is never ignored to create a pending request instead.
 
 A missing or too long name gives 400.
-Too many requests from the same address or in total gives 429 with a `Retry-After` header in seconds.
+Too many pending requests from the same address or in total gives 429 with a `Retry-After` header in seconds.
 
 ### `POST /api/host-pairing/poll`
 

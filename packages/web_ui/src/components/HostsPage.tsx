@@ -46,69 +46,19 @@ function useNow(active: boolean) {
 }
 
 function AddHostModal(props: { open: boolean, onClose: () => void }) {
-	const control = useContext(ControlContext);
 	const [requests, synced] = useHostPairings();
-	const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
-	const [busyCodes, setBusyCodes] = useState<ReadonlySet<string>>(new Set());
+	const [, setParams] = useSearchParams();
 	const now = useNow(props.open);
 
 	const controllerUrl = new URL(webRoot, document.location.href).href;
 	const installCommand = `npm init "@clusterio" -- --mode host --controller-url ${controllerUrl}`;
 
-	function setName(code: string, name?: string) {
-		setNames(current => {
-			const next = new Map(current);
-			if (name === undefined) {
-				next.delete(code);
-			} else {
-				next.set(code, name);
-			}
+	function review(code: string) {
+		setParams(current => {
+			const next = new URLSearchParams(current);
+			next.set("approve", code);
 			return next;
-		});
-	}
-
-	function setBusy(code: string, busy: boolean) {
-		setBusyCodes(current => {
-			const next = new Set(current);
-			if (busy) {
-				next.add(code);
-			} else {
-				next.delete(code);
-			}
-			return next;
-		});
-	}
-
-	function nameOf(request: Readonly<lib.HostPairingDetails>) {
-		return (names.get(request.code) ?? request.name).trim();
-	}
-
-	function approve(request: Readonly<lib.HostPairingDetails>) {
-		const name = nameOf(request);
-		setBusy(request.code, true);
-		control.send(
-			new lib.HostPairingApproveRequest(request.code, name !== request.name ? name : undefined)
-		).then(() => {
-			setName(request.code);
-			notify(`Approved host ${name}`, "success");
-		}).catch(
-			notifyErrorHandler(`Error approving host ${request.name}`)
-		).finally(() => {
-			setBusy(request.code, false);
-		});
-	}
-
-	function reject(request: Readonly<lib.HostPairingDetails>) {
-		setBusy(request.code, true);
-		control.send(
-			new lib.HostPairingRejectRequest(request.code)
-		).then(() => {
-			setName(request.code);
-		}).catch(
-			notifyErrorHandler(`Error rejecting host ${request.name}`)
-		).finally(() => {
-			setBusy(request.code, false);
-		});
+		}, { replace: true });
 	}
 
 	return <Modal
@@ -139,10 +89,6 @@ function AddHostModal(props: { open: boolean, onClose: () => void }) {
 			Later starts connect to the cluster straight away.
 		</Typography.Paragraph>
 		<Typography.Title level={5}>Waiting for approval</Typography.Title>
-		<Typography.Paragraph type="secondary">
-			Only approve a request if its code matches the code shown by the host.
-			An approved host has full access to the cluster.
-		</Typography.Paragraph>
 		<Table
 			size="small"
 			pagination={false}
@@ -153,13 +99,7 @@ function AddHostModal(props: { open: boolean, onClose: () => void }) {
 			columns={[
 				{
 					title: "Name",
-					key: "name",
-					render: (_, request) => <Input
-						size="small"
-						aria-label={`Name for host with code ${request.code}`}
-						value={names.get(request.code) ?? request.name}
-						onChange={event => { setName(request.code, event.target.value); }}
-					/>,
+					dataIndex: "name",
 				},
 				{
 					title: "Code",
@@ -180,23 +120,11 @@ function AddHostModal(props: { open: boolean, onClose: () => void }) {
 				{
 					key: "action",
 					align: "right",
-					render: (_, request) => {
-						const busy = busyCodes.has(request.code);
-						return <Space>
-							<Button
-								type="primary"
-								size="small"
-								disabled={busy || !nameOf(request)}
-								onClick={() => { approve(request); }}
-							>Approve</Button>
-							<Button
-								danger
-								size="small"
-								disabled={busy}
-								onClick={() => { reject(request); }}
-							>Reject</Button>
-						</Space>;
-					},
+					render: (_, request) => <Button
+						type="primary"
+						size="small"
+						onClick={() => { review(request.code); }}
+					>Review</Button>,
 				},
 			]}
 		/>

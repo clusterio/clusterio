@@ -92,7 +92,7 @@ export default class Controller {
 	users: UserManager;
 	/** Instance manager for the cluster, also contains access to the user records */
 	instances: InstanceManager;
-	/** Pending requests from host installers to join the cluster */
+	/** Pending requests from hosts to join the cluster */
 	hostPairing: HostPairingManager;
 
 	// Possible states are new, starting, running, stopping, stopped

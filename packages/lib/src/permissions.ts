@@ -199,8 +199,8 @@ export const corePermissions = [
 		name: "core.host.approve",
 		title: "Approve hosts",
 		description:
-			"List, approve and reject requests from host installers to join the cluster, and approve hosts " +
-			"directly by passing a token to the installer. Approving gives the new host full access to the cluster.",
+			"List, approve and reject requests from hosts to join the cluster, and approve hosts " +
+			"directly by starting them with a user token. Approving gives the new host full access to the cluster.",
 	},
 	{
 		name: "core.host.revoke",

@@ -12,7 +12,7 @@ import HostRecord from "./HostRecord.js";
 const codeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const codeLength = 6;
 
-/** Time a request is kept after the last poll from the installer */
+/** Time a request is kept after the last poll from the host */
 export const pollTimeoutMs = 30e3;
 /** Maximum time a request can stay pending */
 export const maxPendingMs = 60 * 60e3;
@@ -20,21 +20,19 @@ export const maxPendingMs = 60 * 60e3;
 export const maxPending = 50;
 /** Maximum number of pending requests from one address */
 export const maxPendingPerAddress = 3;
-/** Maximum number of requests created from one address per minute */
-export const maxCreatesPerMinute = 10;
 /** Maximum length of a host name */
 export const maxNameLength = 100;
 /** Control and bidirectional override characters refused in host names */
 const nameControlCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
 
-/** Result of an approved request, sent to the installer */
+/** Result of an approved request, sent to the host */
 export interface HostPairingResult {
 	hostId: number,
 	token: string,
 	name: string,
 }
 
-/** Error with an HTTP status code to respond to the installer with */
+/** Error with an HTTP status code to respond to the host with */
 export class HostPairingError extends Error {
 	constructor(
 		message: string,
@@ -47,7 +45,7 @@ export class HostPairingError extends Error {
 }
 
 interface PairingRequest {
-	/** Secret the installer polls with, never shown to users */
+	/** Secret the host polls with, never shown to users */
 	secret: string,
 	details: lib.HostPairingDetails,
 	/** Address with IPv6 addresses grouped by /64, used for limits */
@@ -84,7 +82,7 @@ export function addressKey(address: string) {
  * Normalise a pairing code typed by a user
  *
  * @param code - Code as typed, may contain dashes and lower case letters.
- * @returns code formatted as shown by the installer.
+ * @returns code formatted as shown by the host.
  */
 export function normaliseCode(code: string) {
 	const plain = code.toUpperCase().replace(/[^0-9A-Z]/g, "");
@@ -100,9 +98,9 @@ function generateCode() {
 }
 
 /**
- * Keeps track of requests from host installers to join the cluster
+ * Keeps track of requests from hosts to join the cluster
  *
- * Requests only live in memory, and only while the installer keeps polling
+ * Requests only live in memory, and only while the host keeps polling
  * for the result.
  */
 export default class HostPairingManager {
@@ -110,8 +108,6 @@ export default class HostPairingManager {
 	requests = new lib.SubscribableDatastore<lib.HostPairingDetails>();
 	private _bySecret = new Map<string, PairingRequest>();
 	private _byCode = new Map<string, PairingRequest>();
-	/** Creation times of recent requests by address key */
-	private _recentCreates = new Map<string, number[]>();
 	private _pruneInterval?: ReturnType<typeof setInterval>;
 
 	constructor(
@@ -129,7 +125,7 @@ export default class HostPairingManager {
 	}
 
 	/**
-	 * Check and trim a host name given by an installer or a user
+	 * Check and trim a host name given by a host or a user
 	 *
 	 * @param name - Name to check.
 	 * @returns the trimmed name.
@@ -180,8 +176,8 @@ export default class HostPairingManager {
 	/**
 	 * Create a pending request
 	 *
-	 * @param name - Name the installer asked for.
-	 * @param version - Version of the installer.
+	 * @param name - Name the host asked for.
+	 * @param version - Version of the host.
 	 * @param remoteAddress - Address the request came from.
 	 * @returns the secret to poll with and the code to show the user.
 	 */
@@ -189,12 +185,6 @@ export default class HostPairingManager {
 		this.prune();
 		const key = addressKey(remoteAddress);
 		const now = Date.now();
-		const recent = (this._recentCreates.get(key) ?? []).filter(ms => ms > now - 60e3);
-		if (recent.length >= maxCreatesPerMinute) {
-			throw new HostPairingError(
-				"Too many requests from this address", 429, Math.ceil((recent[0] + 60e3 - now) / 1000),
-			);
-		}
 		const pendingFromAddress = [...this._bySecret.values()].filter(
 			request => request.addressKey === key && request.state === "pending"
 		).length;
@@ -204,8 +194,6 @@ export default class HostPairingManager {
 		if (this.requests.size >= maxPending) {
 			throw new HostPairingError("Too many pending requests", 429, 30);
 		}
-		recent.push(now);
-		this._recentCreates.set(key, recent);
 
 		let code;
 		do {
@@ -332,7 +320,7 @@ export default class HostPairingManager {
 		}
 	}
 
-	/** Remove requests the installer stopped polling for or that waited too long */
+	/** Remove requests the host stopped polling for or that waited too long */
 	prune() {
 		const now = Date.now();
 		for (const request of this._bySecret.values()) {
@@ -347,15 +335,10 @@ export default class HostPairingManager {
 			if (request.state === "approved") {
 				logger.warn(
 					`Approved host ${request.result!.name} (${request.result!.hostId}) was never picked up ` +
-					"by its installer, revoke it on the hosts page if it is not needed"
+					"by the host, revoke it on the hosts page if it is not needed"
 				);
 			}
 			this._remove(request);
-		}
-		for (const [key, times] of this._recentCreates) {
-			if (!times.some(ms => ms > now - 60e3)) {
-				this._recentCreates.delete(key);
-			}
 		}
 	}
 }

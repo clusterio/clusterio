@@ -255,7 +255,7 @@ function checkHostPairingRequest(req: Request, res: Response, needsRequestId: bo
 	return true;
 }
 
-// Request from an installer for a host to join the cluster.
+// Request from a host for a host to join the cluster.
 async function createHostPairing(req: Request, res: Response) {
 	if (!checkHostPairingRequest(req, res, false)) {
 		return;
@@ -299,7 +299,7 @@ async function createHostPairing(req: Request, res: Response) {
 	}
 }
 
-// Poll from an installer for the result of its request.
+// Poll from a host for the result of its request.
 function pollHostPairing(req: Request, res: Response) {
 	if (!checkHostPairingRequest(req, res, true)) {
 		return;
@@ -318,7 +318,7 @@ function pollHostPairing(req: Request, res: Response) {
 	}
 }
 
-// Cancel from an installer that stopped waiting.
+// Cancel from a host that stopped waiting.
 function cancelHostPairing(req: Request, res: Response) {
 	if (!checkHostPairingRequest(req, res, true)) {
 		return;

@@ -6,7 +6,7 @@ import * as lib from "@clusterio/lib";
 import { Controller, HostPairingManager, HostPairingError, HostRecord } from "@clusterio/controller";
 import {
 	pollTimeoutMs, maxPendingMs, maxPending, maxPendingPerAddress,
-	maxCreatesPerMinute, maxNameLength,
+	maxNameLength,
 } from "@clusterio/controller/dist/node/src/HostPairingManager.js";
 
 import "../setup_logging.js";
@@ -276,48 +276,6 @@ describe("controller/src/HostPairingManager", function() {
 					return true;
 				});
 				assert.equal(manager.requests.size, maxPending);
-			});
-			it("should limit the number of requests created per minute from an address", function() {
-				assert.equal(maxCreatesPerMinute, 10);
-				for (let i = 0; i < maxCreatesPerMinute; i++) {
-					manager.cancel(manager.create("Host", "", "10.0.0.1").requestId);
-				}
-				assert.throws(() => manager.create("Host", "", "10.0.0.1"), err => {
-					assert(err instanceof HostPairingError);
-					assert.equal(err.status, 429);
-					assert.equal(err.message, "Too many requests from this address");
-					assert(err.retryAfter >= 1 && err.retryAfter <= 60, `bad retryAfter ${err.retryAfter}`);
-					return true;
-				});
-				// IPv6 addresses in the same /64 share the limit
-				for (let i = 0; i < maxCreatesPerMinute; i++) {
-					manager.cancel(manager.create("Host", "", `2001:db8:0:1::${i + 1}`).requestId);
-				}
-				assertPairingError(
-					() => manager.create("Host", "", "2001:db8:0:1:ffff::1"), 429, "Too many requests from this address"
-				);
-				manager.create("Host", "", "10.0.0.2");
-			});
-			it("should allow creating requests again after a minute", function() {
-				for (let i = 0; i < maxCreatesPerMinute; i++) {
-					manager.cancel(manager.create("Host", "", "10.0.0.1").requestId);
-				}
-				assertPairingError(() => manager.create("Host", "", "10.0.0.1"), 429);
-				for (const times of manager._recentCreates.values()) {
-					times.forEach((ms, index) => { times[index] = ms - 60e3 - 1; });
-				}
-				manager.create("Host", "", "10.0.0.1");
-			});
-			it("should not count refused requests towards the rate limit", function() {
-				const first = manager.create("Host", "", "10.0.0.1");
-				manager.create("Host", "", "10.0.0.1");
-				manager.create("Host", "", "10.0.0.1");
-				const createRefused = () => manager.create("Host", "", "10.0.0.1");
-				for (let i = 0; i < maxCreatesPerMinute; i++) {
-					assertPairingError(createRefused, 429);
-				}
-				manager.cancel(first.requestId);
-				manager.create("Host", "", "10.0.0.1");
 			});
 		});
 

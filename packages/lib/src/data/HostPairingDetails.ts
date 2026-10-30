@@ -1,20 +1,20 @@
 import { Type, Static } from "@sinclair/typebox";
 
 /**
- * A pending request from a host installer to join the cluster
+ * A pending request from a host to join the cluster
  *
- * Requests are kept in memory on the controller only while the installer
+ * Requests are kept in memory on the controller only while the host
  * waits for them to be approved or rejected.
  */
 export default class HostPairingDetails {
 	constructor(
-		/** Code shown by the installer, used to identify the request. */
+		/** Code shown by the host, used to identify the request. */
 		public code: string,
-		/** Name the installer asked for the host to have. */
+		/** Name the host asked to have. */
 		public name: string,
 		/** Address the request was made from. */
 		public remoteAddress: string,
-		/** Version of the installer that made the request. */
+		/** Version of the host that made the request. */
 		public version = "",
 		/** Millisecond Unix timestamp the request was made at. */
 		public createdAtMs = 0,
