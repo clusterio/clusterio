@@ -28,7 +28,7 @@
 		"clusteriocreate": "./create.js"
 	},
 	"engines": {
-		"node": ">=22"
+		"node": "^22.18.0 || >=24.2.0"
 	},
 
 	"dependencies": {

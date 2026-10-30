@@ -217,17 +217,17 @@ export function exec(command, options = {}) {
 }
 
 export function execController(...args) {
-	args[0] = `node --enable-source-maps ../../packages/controller ${args[0]}`;
+	args[0] = `node --enable-source-maps ../../packages/controller/dist/node/controller.js ${args[0]}`;
 	return exec(...args);
 }
 
 export function execHost(...args) {
-	args[0] = `node --enable-source-maps ../../packages/host ${args[0]}`;
+	args[0] = `node --enable-source-maps ../../packages/host/dist/node/host.js ${args[0]}`;
 	return exec(...args);
 }
 
 export function execCtlProcess(...args) {
-	args[0] = `node --enable-source-maps ../../packages/ctl ${args[0]}`;
+	args[0] = `node --enable-source-maps ../../packages/ctl/dist/node/ctl.js ${args[0]}`;
 	return exec(...args);
 }
 
