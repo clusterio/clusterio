@@ -324,6 +324,7 @@ export interface HostConfigFields {
 	"host.name": string;
 	"host.id": number;
 	"host.factorio_directory": string;
+	"host.factorio_graphics_directory": string | null;
 	"host.mods_directory": string;
 	"host.instances_directory": string;
 	"host.controller_url": string;
@@ -371,6 +372,14 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			type: "string",
 			initialValue: "factorio",
 			validator: validators.filePath,
+		},
+		"host.factorio_graphics_directory": {
+			description:
+				"Path to a full Factorio install, or directory of installs, to read base game icons from when " +
+				"exporting data. Needed when running the headless build, which has no graphics.",
+			type: "string",
+			optional: true,
+			validator: validators.optional(validators.filePath),
 		},
 		"host.mods_directory": {
 			title: "Mods Directory",
