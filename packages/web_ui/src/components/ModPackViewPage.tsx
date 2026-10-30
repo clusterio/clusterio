@@ -1099,7 +1099,9 @@ function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"l
 	}
 	useEffect(() => {
 		async function load() {
+			const empty = asset === "locale" ? new Map() : {};
 			if (!assetFilename) {
+				setAssetData(empty);
 				return;
 			}
 
@@ -1108,7 +1110,14 @@ function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"l
 				let data = await response.json();
 				setAssetData(asset === "locale" ? new Map(data) : data);
 			} else {
-				logger.error(`Error loading mod pack asset "${asset}" (${response.status}): ${await response.text()}`);
+				if (response.status === 404) {
+					logger.warn(`Mod pack asset "${asset}" is missing on the controller`);
+				} else {
+					logger.error(
+						`Error loading mod pack asset "${asset}" (${response.status}): ${await response.text()}`
+					);
+				}
+				setAssetData(empty);
 			}
 		}
 

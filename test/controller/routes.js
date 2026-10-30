@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import events from "node:events";
+import express from "express";
 import FormData from "form-data";
+import fs from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 
+import * as lib from "@clusterio/lib";
 import { wait, expositionContentType } from "@clusterio/lib";
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
@@ -137,6 +142,42 @@ describe("controller/src/routes", function() {
 			let response = await fetch(endpoint, { headers });
 			assert.equal(response.status, 200);
 			assert.equal(calls, 2);
+		});
+	});
+	describe("missingExportAsset()", function() {
+		let dir;
+		beforeEach(async function() {
+			dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-static-"));
+			await fs.writeFile(path.join(dir, "locale.abc.json"), "[]");
+			const provider = new lib.MemoryDatastoreProvider();
+			controller.modPacks = new lib.SubscribableDatastore(provider, new Map());
+			const modPack = lib.ModPack.fromJSON({ id: 1, name: "test" });
+			modPack.exportManifest = new lib.ExportManifest({
+				locale: "locale.abc.json", metadata: "metadata.abc.json",
+			});
+			controller.modPacks.set(modPack);
+			controller.app.use("/static", express.static(dir));
+			controller.app.use("/static", routes.missingExportAsset);
+		});
+		afterEach(async function() {
+			await fs.rm(dir, { recursive: true, force: true });
+		});
+		it("should serve export files that exist", async function() {
+			const response = await fetch(`http://localhost:${port}/static/locale.abc.json`);
+			assert.equal(response.status, 200);
+			assert(controller.modPacks.get(1).exportManifest);
+		});
+		it("should drop the export and explain when a file is missing", async function() {
+			const response = await fetch(`http://localhost:${port}/static/metadata.abc.json`);
+			assert.equal(response.status, 404);
+			assert.match(await response.text(), /metadata\.abc\.json is missing/);
+			assert.equal(controller.modPacks.get(1).exportManifest, undefined);
+		});
+		it("should pass through files not in an export", async function() {
+			const response = await fetch(`http://localhost:${port}/static/other.js`);
+			assert.equal(response.status, 404);
+			assert.doesNotMatch(await response.text(), /export-data/);
+			assert(controller.modPacks.get(1).exportManifest);
 		});
 	});
 	describe("stripStaticPrefix()", function() {

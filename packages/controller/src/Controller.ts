@@ -223,6 +223,8 @@ export default class Controller {
 		await fs.mkdir(modsDirectory, { recursive: true });
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
 
+		await this.validateExports(modPacks, "static");
+
 		// Add default mod packs
 		if (modPacks.size === 0) {
 			modPacks.setMany(lib.ModPack.defaultModPacks);
@@ -867,6 +869,37 @@ export default class Controller {
 		});
 	}
 
+	/** Remove export manifests that reference files missing from staticDirectory */
+	static async validateExports(modPacks: lib.SubscribableDatastore<lib.ModPack>, staticDirectory: string) {
+		const invalid: lib.ModPack[] = [];
+		for (const modPack of modPacks.valuesMutable()) {
+			if (!modPack.exportManifest) {
+				continue;
+			}
+			const missing: string[] = [];
+			for (const file of Object.values(modPack.exportManifest.assets)) {
+				const valid = path.basename(file) === file
+					&& await fs.stat(path.join(staticDirectory, file)).then(s => s.isFile(), () => false);
+				if (!valid) {
+					missing.push(file);
+				}
+			}
+			if (missing.length) {
+				Controller.dropExport(modPack, `missing ${missing.join(", ")}`);
+				invalid.push(modPack);
+			}
+		}
+		if (invalid.length) {
+			modPacks.setMany(invalid);
+		}
+	}
+
+	/** Clear the export manifest of a mutable mod pack, caller must save it */
+	static dropExport(modPack: lib.ModPack, reason: string) {
+		logger.warn(`Removing export data of mod pack ${modPack.name} (id ${modPack.id}): ${reason}`);
+		modPack.exportManifest = undefined;
+	}
+
 	static migrateRoles(rawJson: unknown[]): Static<typeof lib.Role.jsonSchema>[] {
 		const serialized = rawJson as Static<typeof lib.Role.jsonSchema>[];
 		return serialized.map(json => {
@@ -971,6 +1004,7 @@ export default class Controller {
 			express.static(path.join(import.meta.dirname, "..", "..", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
+		app.use("/static", routes.missingExportAsset);
 
 		// Add API routes
 		routes.addRouteHandlers(app);

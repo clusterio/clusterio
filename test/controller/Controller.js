@@ -129,6 +129,43 @@ describe("controller/src/Controller", function() {
 				});
 			});
 		});
+		describe(".validateExports()", function() {
+			let dir;
+			before(async function() {
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-exports-"));
+				await fs.writeFile(path.join(dir, "locale.abc.json"), "[]");
+				await fs.writeFile(path.join(dir, "metadata.abc.json"), "{}");
+			});
+			after(async function() {
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			it("should drop export manifests with missing or invalid files", async function() {
+				const provider = new lib.MemoryDatastoreProvider();
+				const modPacks = new lib.SubscribableDatastore(provider, new Map());
+				const packs = [
+					{ id: 1, assets: { locale: "locale.abc.json", metadata: "metadata.abc.json" } },
+					{ id: 2, assets: { locale: "locale.abc.json", metadata: "metadata.def.json" } },
+					{ id: 3, assets: { locale: "../locale.abc.json" } },
+					{ id: 4 },
+				].map(({ id, assets }) => {
+					const modPack = ModPack.fromJSON({ id, name: `pack ${id}` });
+					if (assets) {
+						modPack.exportManifest = new lib.ExportManifest(assets);
+					}
+					return modPack;
+				});
+				modPacks.setMany(packs);
+				const updates = [];
+				modPacks.on("update", updated => updates.push(...updated));
+
+				await Controller.validateExports(modPacks, dir);
+				assert.deepEqual(modPacks.get(1).exportManifest.assets, packs[0].exportManifest.assets);
+				assert.equal(modPacks.get(2).exportManifest, undefined);
+				assert.equal(modPacks.get(3).exportManifest, undefined);
+				assert.equal(modPacks.get(4).exportManifest, undefined);
+				assert.deepEqual(updates.map(modPack => modPack.id), [2, 3]);
+			});
+		});
 		describe(".loadJsonObject()", function() {
 			let dir;
 			before(async function() {
