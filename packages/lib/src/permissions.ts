@@ -196,19 +196,16 @@ export const corePermissions = [
 		grantByDefault: true,
 	},
 	{
-		name: "core.host.generate_token",
-		title: "Generate host token",
-		description: "Generate tokens for hosts to connect to the cluster with.",
+		name: "core.host.approve",
+		title: "Approve hosts",
+		description:
+			"List, approve and reject requests from host installers to join the cluster, and approve hosts " +
+			"directly by passing a token to the installer. Approving gives the new host full access to the cluster.",
 	},
 	{
-		name: "core.host.revoke_token",
-		title: "Revoke host token",
-		description: "Revoke access token and terminate existing connection for hosts.",
-	},
-	{
-		name: "core.host.create_config",
-		title: "Create host config",
-		description: "Create host configs via the controller.",
+		name: "core.host.revoke",
+		title: "Revoke hosts",
+		description: "Remove hosts from the cluster, disconnecting them and making their access tokens invalid.",
 	},
 
 	{

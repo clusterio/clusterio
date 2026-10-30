@@ -264,7 +264,10 @@ ${err.stack}`
 			}
 
 			let host = this.controller.hosts.get(data.id);
-			if (!tokenPayload.iat || tokenPayload.iat < (host?.tokenValidAfter ?? 0)) {
+			if (!host) {
+				throw new Error("host is not registered, run the installer again in the host directory");
+			}
+			if (!tokenPayload.iat || tokenPayload.iat < host.tokenValidAfter) {
 				throw new Error("invalid token");
 			}
 		} catch (err: any) {
@@ -301,6 +304,13 @@ ${err.stack}`
 				`version of the controller is currently running (${packageConfig.version}). ` +
 				"It may not work as expected."
 			);
+		}
+
+		// The host may have been revoked while waiting for the old connection to close.
+		if (!this.controller.hosts.has(data.id)) {
+			wsRejectedConnectionsCounter.inc();
+			socket.close(lib.ConnectionClosed.Unauthorized, "Authentication failed: host was revoked");
+			return;
 		}
 
 		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));

@@ -1,9 +1,10 @@
 import { Type, Static } from "@sinclair/typebox";
-import { JsonString, StringEnum, StringKey, plainJson } from "./composites.js";
+import { JsonNumber, StringEnum, StringKey, jsonArray, plainJson } from "./composites.js";
 import { type LogEntry, levels } from "../logging.js";
-import { ControllerConfig, HostConfig } from "../config/index.js";
+import { ControllerConfig } from "../config/index.js";
 import { ExternalFactorioVersionSchema, LatestReleasesSchema } from "../external/index.js";
 import { PluginDetails } from "./messages_plugin.js";
+import HostPairingDetails from "./HostPairingDetails.js";
 
 const LogEntrySchema = Type.Object({
 	"level": StringKey(levels),
@@ -120,52 +121,81 @@ export class ControllerConfigSetPropRequest {
 	}
 }
 
-export class HostGenerateTokenRequest {
-	declare ["constructor"]: typeof HostGenerateTokenRequest;
+export class HostPairingListRequest {
+	declare ["constructor"]: typeof HostPairingListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission = "core.host.generate_token" as const;
-
-	constructor(
-		public hostId?: number,
-	) { }
-
-	static jsonSchema = Type.Object({
-		"hostId": Type.Optional(Type.Integer()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.hostId);
-	}
-
-	static Response = JsonString;
+	static permission = "core.host.approve" as const;
+	static Response = jsonArray(HostPairingDetails);
 }
 
-export class HostConfigCreateRequest {
-	declare ["constructor"]: typeof HostConfigCreateRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.host.create_config" as const;
+export class HostPairingUpdatesEvent {
+	declare ["constructor"]: typeof HostPairingUpdatesEvent;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
+	static permission = "core.host.approve" as const;
 
 	constructor(
-		public id: number | undefined,
-		public name: string | undefined,
-		public generateToken: boolean,
+		public updates: HostPairingDetails[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"id": Type.Optional(Type.Integer()),
-		"name": Type.Optional(Type.String()),
-		"generateToken": Type.Boolean(),
+		"updates": Type.Array(HostPairingDetails.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.id, json.name, json.generateToken);
+		return new this(json.updates.map(update => HostPairingDetails.fromJSON(update)));
+	}
+}
+
+export class HostPairingApproveRequest {
+	declare ["constructor"]: typeof HostPairingApproveRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.approve" as const;
+
+	constructor(
+		/** Code of the pending request, case and dashes are ignored. */
+		public code: string,
+		/** Name to give the host instead of the one it asked for. */
+		public name?: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"code": Type.String(),
+		"name": Type.Optional(Type.String()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.code, json.name);
 	}
 
-	static Response = plainJson(HostConfig.jsonSchema);
+	/** Id of the host created. */
+	static Response = JsonNumber;
+}
+
+export class HostPairingRejectRequest {
+	declare ["constructor"]: typeof HostPairingRejectRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.approve" as const;
+
+	constructor(
+		/** Code of the pending request, case and dashes are ignored. */
+		public code: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"code": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.code);
+	}
 }
 
 export class GetFactorioCredentialsRequest {

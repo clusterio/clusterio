@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import events from "node:events";
 import * as lib from "@clusterio/lib";
-import { Controller, ControlConnection, ControllerHooks, InstanceManager } from "@clusterio/controller";
+import {
+	Controller, ControlConnection, ControllerHooks, HostConnection, HostRecord, InstanceManager, InstanceRecord,
+} from "@clusterio/controller";
 import { MockConnector, MockController, MockLogger } from "../mock.js";
+import "../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -270,6 +273,215 @@ describe("controller/src/ControlConnection", function() {
 
 			await deleteUser(player, "player");
 			assert.equal(player.connector.terminated, true);
+		});
+	});
+
+	describe("host management", function() {
+		/** @type {Controller} */
+		let controller;
+		/** @type {ControlConnection} */
+		let connection;
+		let audits;
+		let originalAudit;
+
+		beforeEach(function() {
+			const config = new lib.ControllerConfig("controller");
+			config.set("controller.auth_secret", Buffer.from("TestSecretDoNotUse").toString("base64"));
+			controller = new Controller(lib.logger, [], config);
+			const connector = new lib.VirtualConnector(addr("controller"), addr({ controlId: 1 }));
+			const user = controller.users.getOrCreateUser("admin");
+			connection = new ControlConnection({ version: "2.0.0" }, connector, controller, user, 1);
+			audits = [];
+			originalAudit = lib.logger.audit;
+			lib.logger.audit = msg => { audits.push(msg); };
+		});
+		afterEach(function() {
+			lib.logger.audit = originalAudit;
+		});
+
+		it("registers the host pairing and revoke handlers", function() {
+			for (const Request of [
+				lib.HostRevokeRequest,
+				lib.HostPairingListRequest,
+				lib.HostPairingApproveRequest,
+				lib.HostPairingRejectRequest,
+			]) {
+				assert(connection._requestHandlers.has(Request), `${Request.name} is not handled`);
+			}
+		});
+
+		describe(".handleHostRevokeRequest()", function() {
+			let record;
+			let broadcasts;
+
+			beforeEach(function() {
+				record = new HostRecord(10, "host-10", "", new Map());
+				controller.hosts.set(record);
+				broadcasts = [];
+				controller.subscriptions.broadcast = event => {
+					if (event instanceof lib.HostUpdatesEvent) {
+						broadcasts.push(...event.updates.map(host => ({ id: host.id, isDeleted: host.isDeleted })));
+					}
+				};
+			});
+
+			function assignInstance(id, name, hostId) {
+				const instanceConfig = new lib.InstanceConfig("controller");
+				instanceConfig.set("instance.id", id);
+				instanceConfig.set("instance.name", name);
+				instanceConfig.set("instance.assigned_host", hostId);
+				controller.instances.records.set(new InstanceRecord(instanceConfig, "stopped"));
+			}
+
+			async function revoke(hostId = 10) {
+				await connection.handleHostRevokeRequest(new lib.HostRevokeRequest(hostId));
+			}
+
+			it("deletes and saves the host record", async function() {
+				let savedWithoutHost;
+				const originalSave = controller.hosts.save;
+				controller.hosts.save = async function() {
+					savedWithoutHost = !this.has(10);
+					return await originalSave.call(this);
+				};
+				await revoke();
+				assert.equal(controller.hosts.has(10), false);
+				assert.equal(savedWithoutHost, true, "hosts were not saved after deleting the record");
+				assert.deepEqual(broadcasts, [{ id: 10, isDeleted: true }]);
+				assert.equal(audits.length, 1);
+				assert.match(audits[0], /User admin revoked host host-10 \(10\)/);
+			});
+			it("deletes the note of the host", async function() {
+				controller.setNote("host", "10", "rack 3", "someone");
+				controller.setNote("host", "11", "rack 4", "someone");
+				await revoke();
+				const note = controller.notes.get("host/10");
+				assert.equal(note.isDeleted, true);
+				assert.equal(note.content, "");
+				assert.equal(note.updatedBy, "admin");
+				assert.equal(controller.notes.get("host/11").isDeleted, false);
+			});
+			it("terminates the connection of the host", async function() {
+				let terminated = false;
+				controller.wsServer.hostConnections.set(10, { connector: { terminate() { terminated = true; } } });
+				await revoke();
+				assert.equal(terminated, true);
+			});
+			it("terminates the connection of the host when saving fails", async function() {
+				let terminated = false;
+				controller.wsServer.hostConnections.set(10, { connector: { terminate() { terminated = true; } } });
+				controller.hosts.save = async () => { throw new Error("EPERM: operation not permitted"); };
+				await assert.rejects(revoke(), /EPERM/);
+				assert.equal(terminated, true, "revoked host kept its connection");
+				assert.equal(controller.hosts.has(10), false);
+				assert.equal(controller.notes.get("host/10"), undefined);
+			});
+			it("does not leave a host record behind when the connection closes", async function() {
+				const connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
+				connector.terminate = () => { connector.emit("close"); };
+				const hostConnection = new HostConnection(
+					new lib.RegisterHostData("", "2.0.0", 10, {}), connector, controller, "10.0.0.1"
+				);
+				controller.wsServer.hostConnections.set(10, hostConnection);
+				assert.equal(controller.hosts.get(10).connected, true);
+
+				await revoke();
+				assert.equal(controller.hosts.has(10), false, "host record was recreated");
+				assert.deepEqual(broadcasts.at(-1), { id: 10, isDeleted: true });
+			});
+			it("refuses to revoke a host with assigned instances", async function() {
+				controller.setNote("host", "10", "rack 3", "someone");
+				let terminated = false;
+				controller.wsServer.hostConnections.set(10, { connector: { terminate() { terminated = true; } } });
+				assignInstance(101, "alpha", 10);
+				assignInstance(102, "beta", 10);
+				assignInstance(201, "gamma", 20);
+
+				await assert.rejects(
+					revoke(),
+					new lib.ConflictError("Cannot revoke host host-10 while instances are assigned to it: alpha, beta"),
+				);
+				assert.equal(controller.hosts.get(10), record);
+				assert.equal(controller.notes.get("host/10").isDeleted, false);
+				assert.equal(terminated, false);
+				assert.deepEqual(broadcasts, []);
+			});
+			it("ignores instances assigned to other hosts", async function() {
+				assignInstance(201, "gamma", 20);
+				await revoke();
+				assert.equal(controller.hosts.has(10), false);
+			});
+			it("throws NotFoundError for an unknown host", async function() {
+				await assert.rejects(revoke(99), new lib.NotFoundError("Unknown host id (99)"));
+				assert.equal(controller.hosts.has(10), true);
+			});
+		});
+
+		describe("host pairing requests", function() {
+			it("lists pending requests", async function() {
+				const first = controller.hostPairing.create("Host A", "2.0.0", "10.0.0.1");
+				const second = controller.hostPairing.create("Host B", "2.0.0", "10.0.0.2");
+				const list = await connection.handleHostPairingListRequest(new lib.HostPairingListRequest());
+				assert(list.every(details => details instanceof lib.HostPairingDetails));
+				assert.deepEqual(list.map(details => details.code).sort(), [first.code, second.code].sort());
+				assert.equal(list.find(details => details.code === first.code).name, "Host A");
+			});
+			it("leaves out expired, approved and rejected requests when listing", async function() {
+				const expired = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				const approved = controller.hostPairing.create("Host B", "", "10.0.0.2");
+				const rejected = controller.hostPairing.create("Host C", "", "10.0.0.3");
+				const pending = controller.hostPairing.create("Host D", "", "10.0.0.4");
+				controller.hostPairing._bySecret.get(expired.requestId).lastPollMs -= 60e3;
+				await controller.hostPairing.approve(approved.code, undefined, "admin");
+				controller.hostPairing.reject(rejected.code, "admin");
+
+				const list = await connection.handleHostPairingListRequest(new lib.HostPairingListRequest());
+				assert.deepEqual(list.map(details => details.code), [pending.code]);
+			});
+			it("approves a request and returns the new host id", async function() {
+				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				const hostId = await connection.handleHostPairingApproveRequest(
+					new lib.HostPairingApproveRequest(code.toLowerCase().replace("-", ""))
+				);
+				assert.equal(typeof hostId, "number");
+				assert.equal(controller.hosts.get(hostId).name, "Host A");
+				assert.equal(controller.hostPairing.poll(requestId).hostId, hostId);
+				assert(audits.some(msg => msg.startsWith(`User admin approved host Host A (${hostId})`)));
+			});
+			it("approves a request with a different name", async function() {
+				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				const hostId = await connection.handleHostPairingApproveRequest(
+					new lib.HostPairingApproveRequest(code, "Renamed")
+				);
+				assert.equal(controller.hosts.get(hostId).name, "Renamed");
+				assert.equal(controller.hostPairing.poll(requestId).name, "Renamed");
+			});
+			it("rejects approving an unknown code or with an invalid name", async function() {
+				await assert.rejects(
+					connection.handleHostPairingApproveRequest(new lib.HostPairingApproveRequest("ZZZ-ZZZ")),
+					new lib.NotFoundError("No pending host request with code ZZZ-ZZZ"),
+				);
+				const { code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				await assert.rejects(
+					connection.handleHostPairingApproveRequest(new lib.HostPairingApproveRequest(code, " ")),
+					new lib.ValidationError("Host name is required"),
+				);
+				assert.equal(controller.hosts.size, 0);
+			});
+			it("rejects a request", async function() {
+				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				await connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest(code.toLowerCase()));
+				assert.equal(controller.hostPairing.requests.has(code), false);
+				assert.throws(() => controller.hostPairing.poll(requestId), /Request was rejected/);
+				assert.equal(controller.hosts.size, 0);
+				assert(audits.some(msg => msg.startsWith(`User admin rejected host Host A with code ${code}`)));
+			});
+			it("throws NotFoundError when rejecting an unknown code", async function() {
+				await assert.rejects(
+					connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest("ZZZ-ZZZ")),
+					new lib.NotFoundError("No pending host request with code ZZZ-ZZZ"),
+				);
+			});
 		});
 	});
 });

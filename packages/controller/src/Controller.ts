@@ -29,6 +29,7 @@ import UserRecord from "./UserRecord.js";
 import UserManager from "./UserManager.js";
 import WsServer from "./WsServer.js";
 import HostRecord from "./HostRecord.js";
+import HostPairingManager from "./HostPairingManager.js";
 import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
 import ControllerRouter from "./ControllerRouter.js";
 import InstanceManager from "./InstanceManager.js";
@@ -91,6 +92,8 @@ export default class Controller {
 	users: UserManager;
 	/** Instance manager for the cluster, also contains access to the user records */
 	instances: InstanceManager;
+	/** Pending requests from host installers to join the cluster */
+	hostPairing: HostPairingManager;
 
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -296,6 +299,7 @@ export default class Controller {
 
 		this.users = new UserManager(users, roles, config);
 		this.instances = new InstanceManager(instances, this);
+		this.hostPairing = new HostPairingManager(this);
 
 		this.modStore.on("change", mod => {
 			this.modsUpdated([mod]);
@@ -305,6 +309,7 @@ export default class Controller {
 		this.subscriptions = new lib.SubscriptionController(config.get("controller.max_subscription_filters"));
 		this.subscriptions.handle(lib.SystemInfoUpdateEvent, this.handleSystemInfoSubscription.bind(this));
 		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
+		this.subscriptions.handle(lib.HostPairingUpdatesEvent, this.handleHostPairingSubscription.bind(this));
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
 		this.subscriptions.handle(
 			lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsSubscription.bind(this)
@@ -318,6 +323,7 @@ export default class Controller {
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
 		this.hosts.on("update", this.hostsUpdated.bind(this));
+		this.hostPairing.requests.on("update", this.hostPairingRequestsUpdated.bind(this));
 		this.instances.records.on("update", this.instanceUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
@@ -367,6 +373,7 @@ export default class Controller {
 
 	async _startInternal(args: ControllerArgs) {
 		this.logDirectory = args.logDirectory;
+		this.hostPairing.start();
 		this.clusterLogIndex = await lib.LogIndex.load(path.join(this.logDirectory, "cluster"));
 
 		this.clusterLogBuildInterval = setInterval(() => {
@@ -581,6 +588,8 @@ export default class Controller {
 			clearInterval(this.autosaveInterval);
 			this.autosaveInterval = undefined;
 		}
+
+		this.hostPairing.stop();
 
 		if (this.clusterLogIndex) {
 			await this.clusterLogIndex.save();
@@ -869,6 +878,10 @@ export default class Controller {
 
 	static migrateRoles(rawJson: unknown[]): Static<typeof lib.Role.jsonSchema>[] {
 		const serialized = rawJson as Static<typeof lib.Role.jsonSchema>[];
+		// migrate: host token permissions were removed with host pairing in 2.1
+		const removedPermissions = new Set([
+			"core.host.generate_token", "core.host.revoke_token", "core.host.create_config",
+		]);
 		return serialized.map(json => {
 			json.permissions = json.permissions.map(permission => {
 				// migrate: core.instance.save.list.subscribe was renamed in alpha 17
@@ -876,7 +889,7 @@ export default class Controller {
 					return "core.instance.save.subscribe";
 				}
 				return permission;
-			});
+			}).filter(permission => !removedPermissions.has(permission));
 			return lib.Role.pluginMigrations.reduce(json);
 		});
 	}
@@ -1015,6 +1028,20 @@ export default class Controller {
 	hostsUpdated(hosts: HostRecord[]) {
 		let updates = hosts.map(host => host.toHostDetails());
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
+	}
+
+	hostPairingRequestsUpdated(requests: lib.HostPairingDetails[]) {
+		this.subscriptions.broadcast(new lib.HostPairingUpdatesEvent(requests));
+	}
+
+	async handleHostPairingSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
+		const requests = [...this.hostPairing.requests.values()].filter(
+			pairing => pairing.updatedAtMs > request.lastRequestTimeMs,
+		);
+		return requests.length ? new lib.HostPairingUpdatesEvent(requests) : null;
 	}
 
 	async handleHostSubscription(request: lib.SubscriptionRequest) {

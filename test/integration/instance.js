@@ -8,7 +8,7 @@ import fs from "node:fs/promises";
 import { slowTest, testMatrix } from "../common.js";
 import {
 	execCtl, execCtlProcess, sendRcon, getControl,
-	requiresFactorio, hasFactorio, getFactorioVersion, instancesDir,
+	requiresFactorio, hasFactorio, getFactorioVersion, instancesDir, hostId,
 } from "./index.js";
 
 import { getTestRconPort } from "./rcon_port.js";
@@ -96,7 +96,7 @@ describe("Clusterio Instance", function() {
 		await execCtl(`instance config set ${instName} factorio.enable_whitelist true`);
 		await execCtlProcess(`instance config set-prop ${instName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instName} factorio.settings require_user_verification false`);
-		await execCtl(`instance assign ${instName} 4`);
+		await execCtl(`instance assign ${instName} ${hostId}`);
 		// Exclude main test instance from start-all to prevent interference
 		await execCtl(`instance config set ${instName} instance.exclude_from_start_all true`);
 
@@ -112,7 +112,7 @@ describe("Clusterio Instance", function() {
 		await execCtl(`instance config set ${instAltName} factorio.enable_whitelist true`);
 		await execCtlProcess(`instance config set-prop ${instAltName} factorio.settings visibility "${visibility}"`);
 		await execCtl(`instance config set-prop ${instAltName} factorio.settings require_user_verification false`);
-		await execCtl(`instance assign ${instAltName} 4`);
+		await execCtl(`instance assign ${instAltName} ${hostId}`);
 		// Exclude alt test instance from start-all to prevent interference
 		await execCtl(`instance config set ${instAltName} instance.exclude_from_start_all true`);
 		await execCtl(`instance start ${instAltName}`);
@@ -340,9 +340,9 @@ describe("start-all and stop-all commands", function() {
 		await execCtl(`instance create ${testInstName3} --id ${testInstId3}`);
 
 		// Configure instances
-		await execCtl(`instance assign ${testInstName1} 4`);
-		await execCtl(`instance assign ${testInstName2} 4`);
-		await execCtl(`instance assign ${testInstName3} 4`);
+		await execCtl(`instance assign ${testInstName1} ${hostId}`);
+		await execCtl(`instance assign ${testInstName2} ${hostId}`);
+		await execCtl(`instance assign ${testInstName3} ${hostId}`);
 		const visibility = JSON.stringify({ lan: false, public: false }).replace(
 			/"/g, process.platform === "win32" ? '""' : '\\"'
 		);

@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Descriptions, Spin, Typography, Button, Space, Popconfirm, Flex, Tooltip } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import * as lib from "@clusterio/lib";
 import notify, { notifyErrorHandler } from "../util/notify";
@@ -21,7 +21,6 @@ import {
 	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
 	MetricDiskUsed, MetricDiskRatio, MetricRelativeDate,
 } from "./system_metrics";
-import { formatTimestamp } from "../util/time_format";
 import { useSystems } from "../model/system";
 import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
 import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableDropdownButton";
@@ -98,10 +97,42 @@ function HostControlButton({ hostId, canRestart, restartRequired }: HostControlB
 	return <VariableDropdownButton actions={actions} />;
 }
 
+type RevokeHostButtonProps = { host: lib.HostDetails, instances: ReadonlyMap<number, lib.InstanceDetails> };
+
+function RevokeHostButton({ host, instances }: RevokeHostButtonProps) {
+	const control = useContext(ControlContext);
+	const navigate = useNavigate();
+	const assigned = [...instances.values()].map(instance => instance.name);
+
+	if (assigned.length) {
+		return <Tooltip title={`Unassign or delete the instances on this host first: ${assigned.join(", ")}`}>
+			<Button danger disabled>Revoke host access</Button>
+		</Tooltip>;
+	}
+
+	return <Popconfirm
+		title={`Revoke access for ${host.name}?`}
+		description={<>
+			The host is removed from the cluster and disconnected.<br />
+			To add it back, run the installer again in its directory.
+		</>}
+		placement="bottomRight"
+		okText="Revoke"
+		okButtonProps={{ danger: true }}
+		onConfirm={() => control.send(
+			new lib.HostRevokeRequest(host.id)
+		).then(() => {
+			notify(`Revoked access for host ${host.name}`, "success");
+			navigate("/hosts");
+		}).catch(notifyErrorHandler(`Error revoking access for host ${host.name}`))}
+	>
+		<Button danger>Revoke host access</Button>
+	</Popconfirm>;
+}
+
 export default function HostViewPage() {
 	let params = useParams();
 	let hostId = Number(params.id);
-	let control = useContext(ControlContext);
 	let account = useAccount();
 	let [instances] = useInstances();
 	const [systems] = useSystems();
@@ -125,24 +156,7 @@ export default function HostViewPage() {
 
 	let hostButtons = <Space wrap>
 		<HostControlButton hostId={hostId} canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
-		{
-			account.hasPermission("core.host.revoke_token")
-			&& <Popconfirm
-				title={`Revoke tokens of ${host.name}?`}
-				placement="bottomRight"
-				okText="Revoke Tokens"
-				okButtonProps={{ danger: true }}
-				onConfirm={() => {
-					control.send(new lib.HostRevokeTokensRequest(host.id!))
-						.then(() => notify("Host tokens revoked"))
-						.catch(notifyErrorHandler(`Error revoking tokens for host id:${host.id}`));
-				}}
-			>
-				<Button danger>
-					Revoke tokens
-				</Button>
-			</Popconfirm>
-		}
+		{account.hasPermission("core.host.revoke") && <RevokeHostButton host={host} instances={hostInstances} />}
 		{canShowNpm && (
 			<NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
 		)}
@@ -175,13 +189,6 @@ export default function HostViewPage() {
 			<Descriptions.Item label="Disk Usage"><MetricDiskRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Disk"><MetricDiskUsed system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Public Address">{host.publicAddress}</Descriptions.Item>
-			{
-				host.tokenValidAfter
-					? <Descriptions.Item label="Tokens valid after:">
-						{formatTimestamp(host.tokenValidAfter*1000)}
-					</Descriptions.Item>
-					: null
-			}
 		</Descriptions>
 		<ResourceNotes resourceType="host" resourceId={hostId} />
 		{account.hasPermission("core.instance.list") && <>

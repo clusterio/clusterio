@@ -3,25 +3,36 @@ import events from "node:events";
 import jwt from "jsonwebtoken";
 
 import {
-	TestControlConnector, TestHostConnector, TestControl, url, controlToken, getControl,
+	TestControlConnector, TestHostConnector, TestControl, url, controlToken, getControl, hostId, pairTestHost,
 } from "./index.js";
 import * as lib from "@clusterio/lib";
 import { ConnectionClosed, ProtocolError, PolicyViolation, AuthenticationFailed } from "@clusterio/lib";
 import { slowTest } from "../common.js";
 
-let tokenHost = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));
+// Valid token for a host id that was never approved
+let tokenUnregistered = jwt.sign({ aud: "host", host: 0 }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 describe("Integration of lib/link", function() {
 	let control;
 	let controlConnector;
 	let hostConnector;
+	// Hosts can only connect once approved, so the host connections use a paired host
+	let linkHost;
+	before(async function() {
+		linkHost = await pairTestHost("link-test");
+	});
+	after(async function() {
+		if (linkHost) {
+			await getControl().send(new lib.HostRevokeRequest(linkHost.hostId));
+		}
+	});
 	beforeEach(async function() {
 		controlConnector = new TestControlConnector(url, 0.2);
 		controlConnector.token = controlToken;
 		control = new TestControl(controlConnector, false);
 		hostConnector = new TestHostConnector(url, 0.2);
-		hostConnector.token = tokenHost;
-		hostConnector.hostId = 0;
+		hostConnector.token = linkHost.token;
+		hostConnector.hostId = linkHost.hostId;
 	});
 	afterEach(async function() {
 		await controlConnector.disconnect();
@@ -138,10 +149,21 @@ describe("Integration of lib/link", function() {
 	});
 
 	it("should refuse connection with mismatched ids", async function() {
-		hostConnector.hostId = 1;
+		hostConnector.hostId = linkHost.hostId + 1;
 		await assert.rejects(
 			hostConnector.connect(),
 			new Error("Authentication failed: missmatched host id")
+		);
+	});
+
+	it("should refuse connection for a host that is not registered", async function() {
+		hostConnector.token = tokenUnregistered;
+		hostConnector.hostId = 0;
+		await assert.rejects(
+			hostConnector.connect(),
+			new Error(
+				"Authentication failed: host is not registered, run the installer again in the host directory"
+			)
 		);
 	});
 
@@ -163,8 +185,8 @@ describe("Integration of lib/link", function() {
 	it("should refuse duplicate host connections", async function() {
 		this.skip(); // Can't be checked because the remote address for both connections is the same
 
-		hostConnector.token = jwt.sign({ aud: "host", host: 4 }, Buffer.from("TestSecretDoNotUse", "base64"));
-		hostConnector.hostId = 4; // Same as already running host
+		hostConnector.token = jwt.sign({ aud: "host", host: hostId }, Buffer.from("TestSecretDoNotUse", "base64"));
+		hostConnector.hostId = hostId; // Same as already running host
 		await assert.rejects(
 			hostConnector.connect(),
 			new Error("Authentication failed: missmatched host id")

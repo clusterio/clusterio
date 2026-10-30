@@ -63,7 +63,7 @@ This creates a private key file named `key.pem` and a public certificate file na
     npx clusteriocontroller config set controller.tls_certificate cert.pem
     npx clusteriocontroller config set controller.tls_private_key key.pem
 
-Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as hosts and configure node to trust it by setting the `NODE_EXTRA_CA_CERTS` environment variable to a path to this file before the host is started. You can do this by passing `--self-signed-cert path/to/cert` to the installer when setting up a host, or manually by editing run-host.cmd, run-host.sh and/or clusteriohost.service by adding the following line next to the one setting `NODE_OPTIONS`: 
+Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as hosts and configure node to trust it by setting the `NODE_EXTRA_CA_CERTS` environment variable to a path to this file before the host is started. You can do this by passing `--self-signed-cert path/to/cert` to the installer when setting up a host, which also makes the installer trust the certificate when it asks the controller to approve the host, or manually by editing run-host.cmd, run-host.sh and/or clusteriohost.service by adding the following line next to the one setting `NODE_OPTIONS`:
 
 **For run-host.cmd**
 

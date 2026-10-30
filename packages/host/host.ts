@@ -216,10 +216,9 @@ async function startHost() {
 	if (hostConfig.get("host.controller_token") === "enter token here") {
 		logger.fatal("ERROR invalid config!");
 		logger.fatal(
-			"Controller requires an access token for socket operations. As clusterio\n"+
-			"hosts depends upon this, please set your token using the command npx\n"+
-			"clusteriohost config set host.controller_token <token>.  You can generate an\n"+
-			"auth token using npx clusterioctl generate-host-token."
+			"This host has not been set up to connect to a controller. Run the installer\n"+
+			"again in this directory with npm init @clusterio and approve the host in the\n"+
+			"web interface."
 		);
 		process.exitCode = 1;
 		return;

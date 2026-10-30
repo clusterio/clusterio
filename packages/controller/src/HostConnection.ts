@@ -34,19 +34,16 @@ export default class HostConnection extends BaseConnection {
 
 		this.plugins = new Map(Object.entries(registerData.plugins));
 
-		const previousHostInfo = this._controller.hosts.get(registerData.id);
-		this.info = new HostRecord(
-			registerData.id,
-			previousHostInfo?.name ?? "",
-			registerData.version,
-			this.plugins,
-			true,
-			remoteAddress,
-			previousHostInfo?.publicAddress,
-			previousHostInfo?.tokenValidAfter,
-			0,
-			false,
-		);
+		// Hosts are only created by approving them, WsServer rejects hosts without a record.
+		const record = this._controller.hosts.getMutable(registerData.id);
+		if (!record) {
+			throw new Error(`Host ${registerData.id} is not registered`);
+		}
+		record.version = registerData.version;
+		record.plugins = this.plugins;
+		record.connected = true;
+		record.remoteAddress = remoteAddress;
+		this.info = record;
 		this._controller.hosts.set(this.info);
 
 		this._checkPluginVersions();
@@ -71,7 +68,7 @@ export default class HostConnection extends BaseConnection {
 			this._controller.instances.records.setMany(instances);
 
 			this.info.connected = false;
-			this._controller.hosts.set(this.info);
+			this._saveInfo();
 		});
 
 		this.handle(lib.GetFactorioCredentialsRequest, this.handleGetFactorioCredentialsRequest.bind(this));
@@ -175,10 +172,17 @@ export default class HostConnection extends BaseConnection {
 		return {};
 	}
 
+	/** Store changes to the host record, unless the host was revoked */
+	private _saveInfo() {
+		if (this._controller.hosts.getMutable(this.id) === this.info) {
+			this._controller.hosts.set(this.info);
+		}
+	}
+
 	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {
 		this.info.name = event.update.name;
 		this.info.publicAddress = event.update.publicAddress;
-		this._controller.hosts.set(this.info);
+		this._saveInfo();
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {

@@ -1,6 +1,6 @@
-import React, { useContext, useRef, useState, useEffect } from "react";
-import { Button, Flex, Form, InputNumber, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
-import { ExclamationCircleOutlined, CopyOutlined } from "@ant-design/icons";
+import React, { useContext, useState, useEffect } from "react";
+import { Badge, Button, Flex, Input, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
+import { ExclamationCircleOutlined, CopyOutlined, PlusOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
 
@@ -16,9 +16,10 @@ import {
 	MetricDiskUsed, MetricDiskRatio,
 	RestartRequired,
 } from "./system_metrics";
-import { useHosts } from "../model/host";
+import { useHostPairings, useHosts } from "../model/host";
 import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
+import { formatDuration } from "../util/time_format";
 import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
 import useRowNavigation from "../util/useRowNavigation";
@@ -27,133 +28,186 @@ import Link from "./Link";
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
-function GenerateHostTokenButton() {
-	let control = useContext(ControlContext);
-	let [open, setOpen] = useState(false);
-	let [token, setToken] = useState<string|null>(null);
-	let [hostId, setHostId] = useState<number|null>(null);
-	let [form] = Form.useForm();
-	let [pluginList, setPluginList] = useState<lib.PluginWebApi[]>([]);
+/** Current time in milliseconds, updated every second while active */
+function useNow(active: boolean) {
+	const [now, setNow] = useState(Date.now);
 	useEffect(() => {
-		(async () => {
-			let response = await fetch(`${webRoot}api/plugins`);
-			if (response.ok) {
-				const plugins = await response.json();
-				setPluginList(plugins);
-			} else {
-				notify("Failed to load plugin list");
-			}
-		})();
-	}, []);
-
-	async function generateToken() {
-		let id;
-		let values = form.getFieldsValue();
-		if (values.hostId) {
-			id = Number.parseInt(values.hostId, 10);
-			if (Number.isNaN(id)) {
-				form.setFields([{ name: "hostId", errors: ["Must be an integer"] }]);
-				return;
-			}
-			form.setFields([{ name: "hostId", errors: [] }]);
+		if (!active) {
+			return undefined;
 		}
+		setNow(Date.now());
+		const interval = setInterval(() => { setNow(Date.now()); }, 1000);
+		return () => { clearInterval(interval); };
+	}, [active]);
+	return now;
+}
 
-		let newToken = await control.send(new lib.HostGenerateTokenRequest(id));
-		setToken(newToken);
-		setHostId(id ?? null);
+function AddHostModal(props: { open: boolean, onClose: () => void }) {
+	const control = useContext(ControlContext);
+	const [requests, synced] = useHostPairings();
+	const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
+	const [busyCodes, setBusyCodes] = useState<ReadonlySet<string>>(new Set());
+	const now = useNow(props.open);
+
+	const controllerUrl = new URL(webRoot, document.location.href).href;
+	const installCommand = `npm init "@clusterio" -- --mode host --controller-url ${controllerUrl}`;
+
+	function setName(code: string, name?: string) {
+		setNames(current => {
+			const next = new Map(current);
+			if (name === undefined) {
+				next.delete(code);
+			} else {
+				next.set(code, name);
+			}
+			return next;
+		});
 	}
 
-	// Generate a new random
-	useEffect(() => {
-		if (open) {
-			generateToken().catch(notifyErrorHandler("Error generating token"));
-		}
-	}, [open]);
+	function setBusy(code: string, busy: boolean) {
+		setBusyCodes(current => {
+			const next = new Set(current);
+			if (busy) {
+				next.add(code);
+			} else {
+				next.delete(code);
+			}
+			return next;
+		});
+	}
 
-	const pluginString = pluginList.filter(p => p.npmPackage).map(p => `"${p.npmPackage}"`).join(" ");
+	function nameOf(request: Readonly<lib.HostPairingDetails>) {
+		return (names.get(request.code) ?? request.name).trim();
+	}
+
+	function approve(request: Readonly<lib.HostPairingDetails>) {
+		const name = nameOf(request);
+		setBusy(request.code, true);
+		control.send(
+			new lib.HostPairingApproveRequest(request.code, name !== request.name ? name : undefined)
+		).then(() => {
+			setName(request.code);
+			notify(`Approved host ${name}`, "success");
+		}).catch(
+			notifyErrorHandler(`Error approving host ${request.name}`)
+		).finally(() => {
+			setBusy(request.code, false);
+		});
+	}
+
+	function reject(request: Readonly<lib.HostPairingDetails>) {
+		setBusy(request.code, true);
+		control.send(
+			new lib.HostPairingRejectRequest(request.code)
+		).then(() => {
+			setName(request.code);
+		}).catch(
+			notifyErrorHandler(`Error rejecting host ${request.name}`)
+		).finally(() => {
+			setBusy(request.code, false);
+		});
+	}
+
+	return <Modal
+		title="Add Host"
+		open={props.open}
+		footer={null}
+		onCancel={props.onClose}
+		width="800px"
+	>
+		<Typography.Paragraph>
+			Run the installer in an empty directory on the machine the host will run on.
+			It asks for a name for the host, then shows a code and waits for the request to be approved here.
+		</Typography.Paragraph>
+		<div className="codeblock">
+			<CopyButton
+				message="Copied host setup commands to clipboard"
+				text={["mkdir clusterio", "cd clusterio", installCommand].join("\n")}
+			/>
+			<p>&gt; mkdir clusterio</p>
+			<p>&gt; cd clusterio</p>
+			<p>
+				&gt; npm init "@clusterio" -- --mode host
+				--controller-url <span className="highlight">{controllerUrl}</span>
+			</p>
+		</div>
+		<Typography.Paragraph>
+			Once approved the installer saves the connection details of the host and exits.
+			The host can then be started with the run-host script in that directory.
+		</Typography.Paragraph>
+		<Typography.Title level={5}>Waiting for approval</Typography.Title>
+		<Typography.Paragraph type="secondary">
+			Only approve a request if its code matches the code shown by the installer.
+			An approved host has full access to the cluster.
+		</Typography.Paragraph>
+		<Table
+			size="small"
+			pagination={false}
+			loading={!synced}
+			rowKey="code"
+			dataSource={[...requests.values()].sort((a, b) => a.createdAtMs - b.createdAtMs)}
+			locale={{ emptyText: "No hosts are waiting for approval" }}
+			columns={[
+				{
+					title: "Name",
+					key: "name",
+					render: (_, request) => <Input
+						size="small"
+						aria-label={`Name for host with code ${request.code}`}
+						value={names.get(request.code) ?? request.name}
+						onChange={event => { setName(request.code, event.target.value); }}
+					/>,
+				},
+				{
+					title: "Code",
+					dataIndex: "code",
+					render: (_, request) => <Typography.Text code strong>{request.code}</Typography.Text>,
+				},
+				{
+					title: "Address",
+					dataIndex: "remoteAddress",
+				},
+				{
+					title: "Age",
+					key: "age",
+					render: (_, request) => <Tooltip title={new Date(request.createdAtMs).toLocaleString()}>
+						<span>{formatDuration(Math.max(0, now - request.createdAtMs))}</span>
+					</Tooltip>,
+				},
+				{
+					key: "action",
+					align: "right",
+					render: (_, request) => {
+						const busy = busyCodes.has(request.code);
+						return <Space>
+							<Button
+								type="primary"
+								size="small"
+								disabled={busy || !nameOf(request)}
+								onClick={() => { approve(request); }}
+							>Approve</Button>
+							<Button
+								danger
+								size="small"
+								disabled={busy}
+								onClick={() => { reject(request); }}
+							>Reject</Button>
+						</Space>;
+					},
+				},
+			]}
+		/>
+	</Modal>;
+}
+
+function AddHostButton() {
+	const [open, setOpen] = useState(false);
+	const [requests] = useHostPairings();
 	return <>
-		<Button
-			onClick={() => { setOpen(true); }}
-		>Generate Token</Button>
-		<Modal
-			title="Generate Host Token"
-			open={open}
-			footer={null}
-			onCancel={() => {
-				setOpen(false);
-				setToken(null);
-				form.resetFields();
-			}}
-			width="700px"
-		>
-			<Form form={form} layout="vertical" requiredMark="optional">
-				<Form.Item name="hostId" label="Host ID">
-					<InputNumber onChange={() => {
-						generateToken().catch(notifyErrorHandler("Error generating token"));
-					}} />
-				</Form.Item>
-			</Form>
-			<Typography.Paragraph>
-				Host IDs are randomly generated and unique, leave blank to use a new ID,
-				 otherwise the ID of an existing host can be found using:
-			</Typography.Paragraph>
-			<div className="codeblock">
-				<CopyButton
-					message="Copied get host id to clipboard"
-					text="npx clusteriohost config get host.id"
-				/>
-				npx clusteriohost config get host.id
-			</div>
-			{token !== null && <>
-				<Typography.Paragraph>
-					Host auth token:
-				</Typography.Paragraph>
-				<div className="codeblock">
-					<CopyButton
-						message="Copied host token to clipboard"
-						text={token}
-					/>
-					{token}
-				</div>
-				<Typography.Paragraph>
-					You can set the token on an existing host with the following command:
-				</Typography.Paragraph>
-				<div className="codeblock">
-					<CopyButton
-						message="Copied set host id to clipboard"
-						text={`npx clusteriohost config set host.id ${token}`}
-					/>
-					npx clusteriohost config set host.id {token}
-				</div>
-				<Typography.Paragraph>
-					A new host can be setup using the following commands:
-				</Typography.Paragraph>
-				<div className="codeblock">
-					<CopyButton
-						message={"Copied host setup commands to clipboard"}
-						text={`\
-mkdir clusterio
-cd clusterio
-npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless \
---controller-url ${document.location.origin}/ --host-name "${hostId ? `Host ${hostId}` : "Host"}" \
---public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
-						}/>
-					<p>&gt; mkdir clusterio</p>
-					<p>&gt; cd clusterio</p>
-					<p>
-						&gt; npm init "@clusterio" --
-						--controller-token <span className="highlight">{token} </span>
-						--mode "host"
-						--download-headless
-						--controller-url <span className="highlight">{document.location.origin}/ </span>
-						--host-name <span className="highlight">{hostId ? `Host ${hostId}` : "Host"} </span>
-						--public-address <span className="highlight">localhost </span>
-						{pluginString.length ? "--plugins" : ""} <span className="highlight">{pluginString}</span>
-					</p>
-					<p>&gt; ./run-host</p>
-				</div>
-			</>}
-		</Modal>
+		<Badge count={requests.size} title={`${requests.size} waiting for approval`}>
+			<Button type="primary" icon={<PlusOutlined />} onClick={() => { setOpen(true); }}>Add host</Button>
+		</Badge>
+		<AddHostModal open={open} onClose={() => { setOpen(false); }} />
 	</>;
 }
 
@@ -216,7 +270,7 @@ export default function HostsPage() {
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
 			title="Hosts"
-			extra={account.hasPermission("core.host.generate_token") ? <GenerateHostTokenButton /> : undefined}
+			extra={account.hasPermission("core.host.approve") ? <AddHostButton /> : undefined}
 		/>
 		<Table
 			style={{ overflowX: "auto" }}

@@ -1,8 +1,15 @@
 import * as lib from "@clusterio/lib";
 import packageJson from "../../package.json";
 import * as WebPlugin from "../BaseWebPlugin";
+import { HostPairingSubscriber } from "./host_pairing";
 
 const { logFilter, logger } = lib;
+
+function rolesHavePermission(roles: lib.AccountRole[] | null, permission: lib.PermissionName) {
+	return (roles ?? []).some(
+		role => role.permissions.includes("core.admin") || role.permissions.includes(permission)
+	);
+}
 
 type accountHandler = (account: lib.AccountDetails) => void;
 type hostHandler = (hostDetails: lib.HostDetails) => void;
@@ -67,6 +74,7 @@ export class Control extends lib.Link {
 	/** Updates handled by the subscription service */
 	systems = new lib.MapSubscriber(lib.SystemInfoUpdateEvent, this);
 	hosts = new lib.MapSubscriber(lib.HostUpdatesEvent, this);
+	hostPairings = new HostPairingSubscriber(this, () => rolesHavePermission(this.accountRoles, "core.host.approve"));
 	instances = new lib.MapSubscriber(lib.InstanceDetailsUpdatesEvent, this);
 	saves = new lib.MapSubscriber(lib.InstanceSaveDetailsUpdatesEvent, this);
 	modPacks = new lib.MapSubscriber(lib.ModPackUpdatesEvent, this);

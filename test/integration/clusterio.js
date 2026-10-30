@@ -10,11 +10,12 @@ import * as libBuildMod from "@clusterio/lib/build_mod.js";
 
 import * as testStrings from "../lib/factorio/test_strings.js";
 import {
-	TestControl, TestControlConnector, url, controlToken,
+	TestControl, TestControlConnector, TestHostConnector, url, controlToken, hostId,
 	execCtl, execCtlProcess, execController, execHost, sendRcon, getControl,
 	spawnNode, instancesDir, factorioDir, databaseDir, controllerConfigPath,
-	requiresFactorio, hasFactorio,
+	requiresFactorio, hasFactorio, pairTestHost, writeHostConfig,
 } from "./index.js";
+import { pairHost, checkHostToken, PairingError } from "../../packages/create/pair.js";
 import { externalTest, slowTest } from "../common.js";
 import { getTestRconPort } from "./rcon_port.js";
 import { ControllerEcho, HostEchoReceived, InstanceEcho } from "../file/test_plugin/messages.js";
@@ -31,6 +32,18 @@ async function checkInstanceStatus(id, status) {
 	assert.equal(instances.get(44).status, status, "incorrect instance status");
 }
 
+// Factorio directory relative to temp/test where the hosts are run from
+const hostFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
+
+/** Id, token and name of the alt-host, paired the first time it starts */
+const altHost = { hostId: undefined, token: undefined, name: undefined };
+
+async function pairAltHost() {
+	if (altHost.hostId === undefined) {
+		Object.assign(altHost, await pairTestHost("alt-host"));
+	}
+}
+
 async function spawnAltHost(config = "alt-host-config.json") {
 	return await spawnNode("alt-host:", `../../packages/host run --config ${config}`, /Started host/);
 }
@@ -41,10 +54,10 @@ async function startAltHost() {
 	await fs.rm(configPath, { force: true });
 	await fs.rm(path.join("temp", "test", "alt-instances"), { force: true, recursive: true, maxRetries: 10 });
 	await fs.rm(path.join("temp", "test", "alt-mods"), { force: true, recursive: true, maxRetries: 10 });
-	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
+	await pairAltHost();
+	await writeHostConfig(configPath, altHost);
 	await execHost(`--config ${config} config set host.instances_directory alt-instances`);
-	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
-	await execHost(`--config ${config} config set host.factorio_directory ${dir}`);
+	await execHost(`--config ${config} config set host.factorio_directory ${hostFactorioDir}`);
 	await execHost(`--config ${config} config set host.mods_directory alt-mods`);
 	return await spawnAltHost(config);
 }
@@ -57,7 +70,7 @@ async function stopAltHost(hostProcess) {
 			"timeout"
 		).catch(() => {});
 		try {
-			await execCtl("host stop 5");
+			await execCtl(`host stop ${altHost.hostId}`);
 		} catch (err) {
 			// Some tests cause the host to stop
 		}
@@ -103,6 +116,28 @@ async function getUsers() {
 
 function jsonArg(value) {
 	return `"${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}"`;
+}
+
+/** Run a ctl command in this process and return what it printed */
+async function execCtlOutput(command) {
+	const lines = [];
+	const originalLog = console.log; // eslint-disable-line no-console
+	console.log = (...args) => lines.push(args.join(" ")); // eslint-disable-line no-console
+	try {
+		await execCtl(command);
+	} finally {
+		console.log = originalLog; // eslint-disable-line no-console
+	}
+	return lines.join("\n");
+}
+
+/** Validator for assert.rejects expecting a PairingError with the given HTTP status */
+function pairingError(status) {
+	return err => {
+		assert(err instanceof PairingError, `Expected a PairingError, got ${err.stack}`);
+		assert.equal(err.status, status, err.message);
+		return true;
+	};
 }
 
 describe("Integration of Clusterio", function() {
@@ -281,11 +316,15 @@ describe("Integration of Clusterio", function() {
 		describe("hostUpdateEventHandler()", function() {
 			it("should trigger when a new host is added", async function() {
 				slowTest(this);
+				// Pairing sends an update for the new host before it connects, which is not what is tested here.
+				// The round trip makes sure that update has been received before clearing the updates.
+				await pairAltHost();
+				await getControl().send(new lib.HostListRequest());
 				getControl().hostUpdates = [];
 
 				await runWithAltHost(async () => {
 					await execCtl("instance create alt-test --id 99");
-					await execCtl("instance assign alt-test 5");
+					await execCtl(`instance assign alt-test ${altHost.hostId}`);
 				});
 
 				let sawUpdate = false;
@@ -311,7 +350,7 @@ describe("Integration of Clusterio", function() {
 
 				let result = await getControl().send(new lib.HostListRequest());
 				let hosts = new Map(result.map(instance => [instance.id, instance]));
-				assert(hosts.has(5), "Host list was not updated");
+				assert(hosts.has(altHost.hostId), "Host list was not updated");
 			});
 		});
 		it("should download mods from controller", async function() {
@@ -325,7 +364,7 @@ describe("Integration of Clusterio", function() {
 				}
 				assert(!await checkModDownloaded(), "mod was downloaded before the test");
 				await execCtl("instance create alt-mod --id 98");
-				await execCtl("instance assign alt-mod 5");
+				await execCtl(`instance assign alt-mod ${altHost.hostId}`);
 				await execCtl("instance save create alt-mod");
 				assert(await checkModDownloaded(), "mod was not downloaded by the test");
 			});
@@ -340,7 +379,7 @@ describe("Integration of Clusterio", function() {
 				hostProcess = await startAltHost();
 				await execCtl("instance create alt-start --id 97");
 				await execCtl(`instance config set alt-start factorio.rcon_port ${await getTestRconPort()}`);
-				await execCtl("instance assign alt-start 5");
+				await execCtl(`instance assign alt-start ${altHost.hostId}`);
 				await execCtl("instance config set alt-start instance.auto_start true");
 				const visibility = jsonArg({ lan: false, public: false });
 				await execCtlProcess(`instance config set-prop alt-start factorio.settings visibility ${visibility}`);
@@ -448,7 +487,7 @@ describe("Integration of Clusterio", function() {
 		});
 
 		it("should load the plugin on the host", async function() {
-			const details = await pluginDetails({ hostId: 4 });
+			const details = await pluginDetails({ hostId });
 			assert(details.enabled, "test_plugin is not enabled on the host");
 			assert(details.loaded, "test_plugin is not loaded on the host");
 		});
@@ -470,7 +509,7 @@ describe("Integration of Clusterio", function() {
 		});
 
 		it("should route a plugin request from control to a host", async function() {
-			const received = await getControl().sendTo({ hostId: 4 }, new HostEchoReceived("never-broadcast"));
+			const received = await getControl().sendTo({ hostId }, new HostEchoReceived("never-broadcast"));
 			assert.equal(received, false);
 		});
 
@@ -480,7 +519,7 @@ describe("Integration of Clusterio", function() {
 			// The broadcast is sent without waiting for the hosts to receive it.
 			let received = false;
 			for (let attempt = 0; attempt < 100 && !received; attempt++) {
-				received = await getControl().sendTo({ hostId: 4 }, new HostEchoReceived("to-hosts"));
+				received = await getControl().sendTo({ hostId }, new HostEchoReceived("to-hosts"));
 				if (!received) {
 					await lib.wait(20);
 				}
@@ -593,31 +632,31 @@ describe("Integration of Clusterio", function() {
 
 		describe("host config", function() {
 			it("changes host config", async function() {
-				await execCtl("host config set 4 host.name My-Host");
-				const result = await execCtlProcess("host config list 4");
+				await execCtl(`host config set ${hostId} host.name My-Host`);
+				const result = await execCtlProcess(`host config list ${hostId}`);
 				assert(/My-Host/.test(result.stdout), "New host name not in config output");
 			});
 			it("should not allow setting host.controller_token", async function() {
 				await assert.rejects(
-					execCtl("host config set 4 host.controller_token xyz"),
+					execCtl(`host config set ${hostId} host.controller_token xyz`),
 					/Field 'host\.controller_token' is not accessible/,
 				);
 			});
 			it("should not allow setting host.id", async function() {
 				await assert.rejects(
-					execCtl("host config set 4 host.id 200"),
+					execCtl(`host config set ${hostId} host.id 200`),
 					/Setting 'host\.id' while host is running is not supported/,
 				);
 			});
 			it("should not leak host.controller_token", async function() {
-				let result = await getControl().sendTo({ hostId: 4 }, new lib.HostConfigGetRequest());
+				let result = await getControl().sendTo({ hostId }, new lib.HostConfigGetRequest());
 				assert.equal(Object.prototype.hasOwnProperty.call(result, "host.controller_token"), false);
 			});
 		});
 
 		describe("host plugin list", function() {
 			it("runs", async function() {
-				await execCtl("host plugin list 4");
+				await execCtl(`host plugin list ${hostId}`);
 			});
 		});
 
@@ -625,7 +664,7 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				// In dev plugins have no npm package, so best we can do is get an error from the host
 				await assert.rejects(
-					execCtl("host plugin update 4 foo"),
+					execCtl(`host plugin update ${hostId} foo`),
 					/Plugin foo is not installed on this machine/
 				);
 			});
@@ -637,7 +676,7 @@ describe("Integration of Clusterio", function() {
 				// Default is to disallow updates, changing this value would require a restart
 				// Additionally, it can not be changed via ctl, so best we can do is get an error from the host
 				await assert.rejects(
-					execCtl("host plugin install 4 foo"),
+					execCtl(`host plugin install ${hostId} foo`),
 					/Plugin installs are disabled on this machine/
 				);
 			});
@@ -646,15 +685,15 @@ describe("Integration of Clusterio", function() {
 
 		describe("host update", function() {
 			it("runs", async function() {
-				await execCtl("host update 4");
+				await execCtl(`host update ${hostId}`);
 			});
 			it("accepts --all", async function() {
-				await execCtl("host update 4 --all");
+				await execCtl(`host update ${hostId} --all`);
 			});
 			it("accepts --restart", async function() {
 				// We cannot restart the host, so we check for host error instead
 				await assert.rejects(
-					execCtl("host update 4 --restart"),
+					execCtl(`host update ${hostId} --restart`),
 					/Cannot restart, host does not have a process monitor to restart it./
 				);
 			});
@@ -664,7 +703,7 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				// We cannot restart the host, so we check for host error instead
 				await assert.rejects(
-					execCtl("host restart 4"),
+					execCtl(`host restart ${hostId}`),
 					/Cannot restart, host does not have a process monitor to restart it./
 				);
 			});
@@ -672,41 +711,216 @@ describe("Integration of Clusterio", function() {
 
 		describe("host mark-restart-required", function() {
 			it("runs", async function() {
-				await execCtl("host mark-restart-required 4");
+				await execCtl(`host mark-restart-required ${hostId}`);
 			});
 		});
 
-		describe("host generate-token", function() {
-			it("runs", async function() {
-				await execCtl("host generate-token --id 42");
+		describe("host pending, approve and reject", function() {
+			let pairings = [];
+			afterEach(async function() {
+				// Stop installers left waiting by a failed test
+				for (const pairing of pairings) {
+					pairing.abort.abort();
+				}
+				await Promise.allSettled(pairings.map(pairing => pairing.result));
+				pairings = [];
 			});
-			it("runs without an id", async function() {
-				await execCtl("host generate-token");
-			});
-		});
 
-		describe("host revoke-token", async function() {
-			it("should disconnect existing host", async function() {
-				slowTest(this);
-				let sawDisconnected;
-				await runWithAltHost(async () => {
-					const control = getControl();
-					control.hostUpdates = [];
-					await wait(50); // Allow for host to update instances
-					await execCtl("host revoke-token 5");
-					await wait(50); // Allow controller to notify control
-					for (let update of control.hostUpdates) {
-						if (update.name !== "alt-host") {
-							continue;
-						}
-
-						if (!update.connected) {
-							sawDisconnected = true;
-						}
-					}
+			// Start pairing like an installer without a token, returns once the request is pending.
+			async function requestPairing(name) {
+				const abort = new AbortController();
+				let onPending;
+				const pending = new Promise(resolve => { onPending = resolve; });
+				const result = pairHost({
+					controllerUrl: url, name, pollIntervalMs: 100, signal: abort.signal, onPending,
 				});
+				const pairing = { abort, result, code: undefined };
+				pairings.push(pairing);
+				const ended = result.then(() => {
+					throw new Error("Pairing finished before the request was pending");
+				});
+				ended.catch(() => {}); // Only of interest while racing the pending request
+				({ code: pairing.code } = await Promise.race([pending, ended]));
+				return pairing;
+			}
 
-				assert(sawDisconnected, "No host update with status disconnected was sent after revoking token");
+			it("should list a waiting request and hand the host over when approved", async function() {
+				const control = getControl();
+				control.hostPairingUpdates = [];
+				const pairing = await requestPairing("pending-host");
+				assert.match(pairing.code, /^[2-9A-HJKMNP-Z]{3}-[2-9A-HJKMNP-Z]{3}$/);
+
+				const pendingOutput = await execCtlOutput("host pending");
+				const pendingLines = pendingOutput.split("\n");
+				assert(
+					pendingLines.some(line => line.includes(pairing.code) && line.includes("pending-host")),
+					`Request missing from host pending output:\n${pendingOutput}`,
+				);
+				assert(
+					control.hostPairingUpdates.some(update => update.code === pairing.code && !update.isDeleted),
+					"No pairing update was sent for the new request",
+				);
+
+				// Codes are matched ignoring case and separators
+				const typedCode = pairing.code.replace("-", "").toLowerCase();
+				const approveOutput = await execCtlOutput(`host approve ${typedCode} --name approved-host`);
+				const approved = await pairing.result;
+				assert.equal(approved.name, "approved-host");
+				assert(approveOutput.includes(String(approved.hostId)), `Host id missing from: ${approveOutput}`);
+				assert(
+					control.hostPairingUpdates.some(update => update.code === pairing.code && update.isDeleted),
+					"No pairing update was sent for the approved request",
+				);
+
+				const requests = await control.send(new lib.HostPairingListRequest());
+				assert(!requests.some(request => request.code === pairing.code), "Approved request is still pending");
+				const hosts = await control.send(new lib.HostListRequest());
+				assert.equal(hosts.find(host => host.id === approved.hostId)?.name, "approved-host");
+				assert.equal(await checkHostToken({ controllerUrl: url, token: approved.token }), true);
+
+				await execCtl(`host revoke ${approved.hostId}`);
+			});
+
+			it("should make the installer fail when the request is rejected", async function() {
+				const pairing = await requestPairing("rejected-host");
+				await execCtl(`host reject ${pairing.code}`);
+				await assert.rejects(pairing.result, pairingError(403));
+
+				const requests = await getControl().send(new lib.HostPairingListRequest());
+				assert(!requests.some(request => request.code === pairing.code), "Rejected request is still pending");
+				const hosts = await getControl().send(new lib.HostListRequest());
+				assert(!hosts.some(host => host.name === "rejected-host"), "Rejected host was added");
+			});
+
+			it("should remove the request when the installer stops waiting", async function() {
+				const pairing = await requestPairing("cancelled-host");
+				pairing.abort.abort();
+				await assert.rejects(pairing.result, err => err.name === "AbortError");
+
+				const requests = await getControl().send(new lib.HostPairingListRequest());
+				assert(!requests.some(request => request.code === pairing.code), "Cancelled request is still pending");
+			});
+
+			it("should fail for a code that is not pending", async function() {
+				await assert.rejects(execCtl("host approve 222-222"), /No pending host request with code 222-222/);
+				await assert.rejects(execCtl("host reject 222-222"), /No pending host request with code 222-222/);
+			});
+
+			it("should refuse an invalid user token instead of waiting for approval", async function() {
+				await assert.rejects(
+					pairHost({ controllerUrl: url, name: "invalid-token-host", token: "invalid" }), pairingError(401)
+				);
+				const requests = await getControl().send(new lib.HostPairingListRequest());
+				assert(!requests.some(request => request.name === "invalid-token-host"), "Request was created");
+			});
+
+			it("should refuse a user token without permission to approve hosts", async function() {
+				await getControl().send(new lib.UserCreateRequest("pairing-player"));
+				try {
+					const token = jwt.sign(
+						{ aud: "user", user: "pairing-player" }, Buffer.from("TestSecretDoNotUse", "base64")
+					);
+					await assert.rejects(
+						pairHost({ controllerUrl: url, name: "unapproved-host", token }), pairingError(403)
+					);
+				} finally {
+					await getControl().send(new lib.UserDeleteRequest("pairing-player"));
+				}
+				const requests = await getControl().send(new lib.HostPairingListRequest());
+				assert(!requests.some(request => request.name === "unapproved-host"), "Request was created");
+				const hosts = await getControl().send(new lib.HostListRequest());
+				assert(!hosts.some(host => host.name === "unapproved-host"), "Host was added");
+			});
+		});
+
+		describe("host revoke", function() {
+			it("should remove the host and invalidate its token", async function() {
+				const pairing = await pairTestHost("revokee-host");
+				assert.equal(await checkHostToken({ controllerUrl: url, token: pairing.token }), true);
+				await execCtl(`note set host ${pairing.hostId} short-lived`);
+
+				const control = getControl();
+				control.hostUpdates = [];
+				await execCtl(`host revoke ${pairing.hostId}`);
+				assert(
+					control.hostUpdates.some(update => update.id === pairing.hostId && update.isDeleted),
+					"No host update with isDeleted was sent",
+				);
+				const hosts = await control.send(new lib.HostListRequest());
+				assert(!hosts.some(host => host.id === pairing.hostId), "Host was not removed");
+				assert.equal(await checkHostToken({ controllerUrl: url, token: pairing.token }), false);
+				const notes = await control.send(new lib.NoteListRequest());
+				assert(!notes.some(note => note.id === `host/${pairing.hostId}`), "Note of the host was not removed");
+			});
+
+			it("should refuse while instances are assigned to the host", async function() {
+				const pairing = await pairTestHost("assigned-host");
+				// Instances can only be assigned to connected hosts, a link that accepts the assignment is enough.
+				const connector = new TestHostConnector(url, 0.2);
+				connector.token = pairing.token;
+				connector.hostId = pairing.hostId;
+				const link = new lib.Link(connector);
+				link.handle(lib.InstanceAssignInternalRequest, async () => {});
+				await connector.connect();
+				await execCtl("instance create revoke-assigned --id 45");
+				try {
+					await execCtl(`instance assign revoke-assigned ${pairing.hostId}`);
+					await assert.rejects(
+						execCtl(`host revoke ${pairing.hostId}`),
+						/Cannot revoke host assigned-host while instances are assigned to it: revoke-assigned/,
+					);
+				} finally {
+					await connector.disconnect();
+					await execCtl("instance assign revoke-assigned");
+					await execCtl("instance delete revoke-assigned");
+				}
+
+				await execCtl(`host revoke ${pairing.hostId}`);
+				const hosts = await getControl().send(new lib.HostListRequest());
+				assert(!hosts.some(host => host.id === pairing.hostId), "Host was not removed");
+			});
+
+			it("should stop a running host and prevent it from starting again", async function() {
+				slowTest(this);
+				this.timeout(30000);
+				const config = "revoke-host-config.json";
+				const pairing = await pairTestHost("running-revokee");
+				await writeHostConfig(path.join("temp", "test", config), pairing, {
+					"host.factorio_directory": hostFactorioDir,
+					"host.instances_directory": "revoke-instances",
+					"host.mods_directory": "revoke-mods",
+				});
+				const hostProcess = await spawnNode(
+					"revoke-host:", `../../packages/host run --config ${config}`, /Started host/
+				);
+				try {
+					const exited = events.once(hostProcess, "exit");
+					await execCtl(`host revoke ${pairing.hostId}`);
+					assert.notEqual(
+						await lib.timeout(exited, 10e3, "timeout"), "timeout", "Host did not stop after being revoked"
+					);
+				} finally {
+					if (hostProcess.exitCode === null && hostProcess.signalCode === null) {
+						hostProcess.kill("SIGINT");
+					}
+				}
+
+				// Exit code 8 tells the run scripts not to restart the host
+				await assert.rejects(execHost(`--config ${config} run`), err => {
+					const output = `${err.stdout}${err.stderr}`;
+					assert.equal(err.code, 8, `Unexpected exit code ${err.code}:\n${output}`);
+					assert.match(output, /host is not registered/);
+					return true;
+				});
+			});
+		});
+
+		describe("removed host token commands", function() {
+			it("should no longer exist", async function() {
+				slowTest(this);
+				for (const command of ["generate-token", "revoke-token", "create-config"]) {
+					await assert.rejects(execCtlProcess(`host ${command}`), new RegExp(`Unknown argument: ${command}`));
+				}
 			});
 		});
 
@@ -751,7 +965,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("instance assign", function() {
 			it("creates the instance files", async function() {
-				await execCtl("instance assign test 4");
+				await execCtl(`instance assign test ${hostId}`);
 				await assert.doesNotReject(
 					fs.access(path.join(instancesDir, "test")),
 					"Instance directory was not created"
@@ -1046,14 +1260,14 @@ describe("Integration of Clusterio", function() {
 				assert.equal(controllerEntry.host_id, undefined);
 				assert.equal(controllerEntry.instance_id, undefined);
 
-				const hostEntry = await findLog({ hostIds: [4] }, "test_plugin host echo log-tagging");
+				const hostEntry = await findLog({ hostIds: [hostId] }, "test_plugin host echo log-tagging");
 				assert.equal(hostEntry.plugin, "test_plugin");
-				assert.equal(hostEntry.host_id, 4);
+				assert.equal(hostEntry.host_id, hostId);
 				assert.equal(hostEntry.instance_id, undefined);
 
 				const instanceEntry = await findLog({ instanceIds: [44] }, "test_plugin instance echo log-tagging");
 				assert.equal(instanceEntry.plugin, "test_plugin");
-				assert.equal(instanceEntry.host_id, 4);
+				assert.equal(instanceEntry.host_id, hostId);
 				assert.equal(instanceEntry.instance_id, 44);
 			});
 		});
@@ -1523,7 +1737,7 @@ describe("Integration of Clusterio", function() {
 			before(async function() {
 				slowTest(this);
 				await execCtlProcess("instance create spam --id 66");
-				await execCtlProcess("instance assign spam 4");
+				await execCtlProcess(`instance assign spam ${hostId}`);
 				await execCtlProcess("instance create unassign --id 77");
 			});
 			after(async function() {
@@ -1550,7 +1764,7 @@ describe("Integration of Clusterio", function() {
 
 							hostProcess = await startAltHost();
 							await execCtlProcess("instance create save-test --id 88");
-							await execCtlProcess("instance assign save-test 5");
+							await execCtlProcess(`instance assign save-test ${altHost.hostId}`);
 						});
 						after(async function() {
 							await stopAltHost(hostProcess);
@@ -1978,9 +2192,9 @@ describe("Integration of Clusterio", function() {
 
 		describe("note set", function() {
 			it("should set the note of the given resource", async function() {
-				await execCtl("note set host 4 basement-box");
+				await execCtl(`note set host ${hostId} basement-box`);
 				const notes = await getControl().send(new lib.NoteListRequest());
-				const note = notes.find(n => n.id === "host/4");
+				const note = notes.find(n => n.id === `host/${hostId}`);
 				assert.equal(note.content, "basement-box");
 				assert.equal(note.updatedBy, "test");
 			});
@@ -2001,7 +2215,7 @@ describe("Integration of Clusterio", function() {
 				const originalLog = console.log; // eslint-disable-line no-console
 				console.log = (...args) => lines.push(args.join(" ")); // eslint-disable-line no-console
 				try {
-					await execCtl("note get host 4");
+					await execCtl(`note get host ${hostId}`);
 				} finally {
 					console.log = originalLog; // eslint-disable-line no-console
 				}
@@ -2017,9 +2231,9 @@ describe("Integration of Clusterio", function() {
 
 		describe("note delete", function() {
 			it("should remove the note of the given resource", async function() {
-				await execCtl("note delete host 4");
+				await execCtl(`note delete host ${hostId}`);
 				const notes = await getControl().send(new lib.NoteListRequest());
-				assert(!notes.find(n => n.id === "host/4"), "Note was not deleted");
+				assert(!notes.find(n => n.id === `host/${hostId}`), "Note was not deleted");
 			});
 		});
 
