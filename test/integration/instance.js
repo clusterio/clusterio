@@ -474,4 +474,26 @@ describe("start-all and stop-all commands", function() {
 			assert.equal(await getInstanceStatus(testInstId3), "stopped");
 		});
 	});
+
+	describe("stop while starting", function() {
+		it("stops the instance once it has started", async function() {
+			this.timeout(30000);
+			const control = getControl();
+			const started = control.sendTo({ instanceId: testInstId1 }, new lib.InstanceStartRequest());
+			// Unroutable until the host has connected the instance
+			for (;;) {
+				try {
+					await control.sendTo({ instanceId: testInstId1 }, new lib.InstanceStopRequest());
+					break;
+				} catch (err) {
+					if (!(err instanceof lib.UnavailableError)) {
+						throw err;
+					}
+					await lib.wait(10);
+				}
+			}
+			await started;
+			assert.equal(await getInstanceStatus(testInstId1), "stopped");
+		});
+	});
 });

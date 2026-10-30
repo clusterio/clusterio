@@ -1308,6 +1308,16 @@ end`.replace(/\r?\n/g, " ");
 		}
 	}
 
+	/** Stop the instance once a start, stop or save in progress has finished */
+	async _stopWhenSettled() {
+		// Stopping concurrently with these races them and asserts on the server state.
+		// Checked right before stop() as another waiter may have started stopping.
+		while (transitoryStatuses.has(this._status)) {
+			await this._waitForSettledStatus();
+		}
+		await this.stop();
+	}
+
 	async kill() {
 		if (this._status === "stopped") {
 			return;
@@ -1494,7 +1504,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceRestartRequest(request: lib.InstanceRestartRequest) {
-		await this.stop();
+		await this._stopWhenSettled();
 		// Stopping invalidates this instance object, a new one must be created by the host
 		// To do this we simulate a waking an instance and sending a start request
 		const instanceConnection = await this._host._connectInstance(this.id);
@@ -1502,7 +1512,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceStopRequest() {
-		await this.stop();
+		await this._stopWhenSettled();
 	}
 
 	async handleInstanceKillRequest() {
