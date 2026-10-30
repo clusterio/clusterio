@@ -1,7 +1,11 @@
 // Export of item icons and locale
 import fs from "node:fs/promises";
 import path from "path";
-import { Jimp, JimpMime, type JimpInstance } from "jimp";
+import { createJimp } from "@jimp/core";
+import png from "@jimp/js-png";
+import * as crop from "@jimp/plugin-crop";
+import * as resize from "@jimp/plugin-resize";
+import type {} from "@jimp/types"; // needed to name jimp types in export.d.ts
 import yazl from "yazl";
 
 import * as lib from "@clusterio/lib";
@@ -147,7 +151,9 @@ async function loadFile(
 	return await modZip.zip.readFile(path.posix.join(modZip.root, filePath));
 }
 
-type Image = JimpInstance;
+// Only the parts of jimp the export uses
+const Jimp = createJimp({ formats: [png], plugins: [crop.methods, resize.methods] });
+type Image = InstanceType<typeof Jimp>;
 type IconCache = Map<string, Image | null>;
 async function loadIcon(
 	server: FactorioServer,
@@ -618,7 +624,7 @@ async function buildExport(server: FactorioServer, zipCache: ZipCache) {
 	// Crop sheet to actual used height and write single spritesheet + metadata.
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
 	state.sheet.crop({ x: 0, y: 0, w: SHEET_WIDTH, h: Math.max(usedRows * SHEET_ICON_SIZE, 1) });
-	zip.addBuffer(await state.sheet.getBuffer(JimpMime.png), "export/spritesheet.png");
+	zip.addBuffer(await state.sheet.getBuffer("image/png"), "export/spritesheet.png");
 	addJson("export/metadata.json", state.metadata satisfies lib.ExportMetadata);
 	zip.end();
 

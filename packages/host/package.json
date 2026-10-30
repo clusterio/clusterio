@@ -38,8 +38,12 @@
 
 	"dependencies": {
 		"@clusterio/lib": "workspace:^",
+		"@jimp/core": "^1.6.1",
+		"@jimp/js-png": "^1.6.1",
+		"@jimp/plugin-crop": "^1.6.1",
+		"@jimp/plugin-resize": "^1.6.1",
+		"@jimp/types": "^1.6.1",
 		"@sinclair/typebox": "catalog:",
-		"jimp": "^1.6.1",
 		"pidusage": "^4.1.0",
 		"rcon-client": "^4.2.5",
 		"semver": "catalog:",
