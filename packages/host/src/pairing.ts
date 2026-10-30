@@ -275,10 +275,11 @@ export async function ensurePaired(
 		token: options.userToken,
 		signal: options.signal,
 		onPending: code => {
-			logger.info(
-				`Waiting for approval. Approve "${name}" with code ${code} on the Hosts page of ` +
-				`${controllerUrl}, or run: npx clusterioctl host approve ${code}`
-			);
+			const approveUrl = new URL(`hosts?approve=${code}`, controllerUrl).href;
+			// The link is logged on its own so terminals can make it clickable without it wrapping.
+			logger.info(`Waiting for approval of "${name}" with code ${code}, open this link to approve it:`);
+			logger.info(approveUrl);
+			logger.info(`Or run: npx clusterioctl host approve ${code}`);
 		},
 		onRetry: (err, delayMs) => {
 			logger.warn(`Requesting to join failed: ${err.message}, trying again in ${Math.ceil(delayMs / 1000)}s`);

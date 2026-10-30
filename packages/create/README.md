@@ -59,9 +59,12 @@ A new host has to be approved before it can join the cluster:
 2.  Start the host with `run-host.cmd`, `run-host.sh` or the systemd service in the `systemd` folder.
     The first time it starts it prints a code and waits for the host to be approved:
 
-        Waiting for approval. Approve "my-host" with code ABC-DEF on the Hosts page of https://example.com/, or run: npx clusterioctl host approve ABC-DEF
+        Waiting for approval of "my-host" with code ABC-DEF, open this link to approve it:
+        https://example.com/hosts?approve=ABC-DEF
+        Or run: npx clusterioctl host approve ABC-DEF
 
-3.  Approve the request by clicking Add host on the Hosts page of the web interface, or run `npx clusterioctl host approve ABC-DEF`.
+3.  Open the link to approve the request in the web interface, where its name can be changed first.
+    It can also be approved under Add host on the Hosts page, or with `npx clusterioctl host approve ABC-DEF`.
     Only approve a request if its code matches the one shown by the host.
     Approving requires the `core.host.approve` permission.
 

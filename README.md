@@ -276,9 +276,11 @@ Run the installer as described in the installation section and choose "Host only
 The URL is the same as what is needed to connect to the web interface.
 Then start the host, the first time it starts it prints a code and waits for the host to be approved:
 
-    Waiting for approval. Approve "my-host" with code ABC-DEF on the Hosts page of https://example.com/, or run: npx clusterioctl host approve ABC-DEF
+    Waiting for approval of "my-host" with code ABC-DEF, open this link to approve it:
+    https://example.com/hosts?approve=ABC-DEF
+    Or run: npx clusterioctl host approve ABC-DEF
 
-Approve it in the web interface by clicking Add host on the Hosts page and approving the request with the same code, or with `npx clusterioctl host approve <code>`.
+Open the link to approve it in the web interface, where you can also change its name, or click Add host on the Hosts page and approve the request with the same code, or run `npx clusterioctl host approve <code>`.
 The host then saves its connection details and starts up, it should show up in the Hosts list and be available for assigning and running instances on.
 Only approve a request if its code matches the one shown by the host, approving gives the host full access to the cluster.
 Approving requires the `core.host.approve` permission, which the Cluster Admin role has.

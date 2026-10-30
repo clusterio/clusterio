@@ -1,5 +1,8 @@
 import React, { useContext, useState, useEffect } from "react";
-import { Badge, Button, Flex, Input, Modal, Space, Switch, Table, Tooltip, Typography } from "antd";
+import { useSearchParams } from "react-router-dom";
+import {
+	Badge, Button, Descriptions, Flex, Input, Modal, Result, Space, Spin, Switch, Table, Tooltip, Typography,
+} from "antd";
 import { ExclamationCircleOutlined, CopyOutlined, PlusOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -200,6 +203,120 @@ function AddHostModal(props: { open: boolean, onClose: () => void }) {
 	</Modal>;
 }
 
+/** Format a code like the controller does, matching any case and without the dash */
+function normaliseCode(code: string) {
+	const plain = code.toUpperCase().replace(/[^0-9A-Z]/g, "");
+	return `${plain.slice(0, 3)}-${plain.slice(3)}`;
+}
+
+/** Dialog opened by the link a waiting host prints, for approving that host */
+function ApproveHostModal(props: { code: string, onClose: () => void }) {
+	const control = useContext(ControlContext);
+	const account = useAccount();
+	const [requests, synced] = useHostPairings();
+	const code = normaliseCode(props.code);
+	const request = requests.get(code);
+	const [name, setName] = useState<string>();
+	const [busy, setBusy] = useState(false);
+	const now = useNow(true);
+	const permitted = account.hasPermission("core.host.approve");
+	const hostName = (name ?? request?.name ?? "").trim();
+
+	function approve() {
+		if (!request) {
+			return;
+		}
+		setBusy(true);
+		control.send(
+			new lib.HostPairingApproveRequest(request.code, hostName !== request.name ? hostName : undefined)
+		).then(() => {
+			notify(`Approved host ${hostName}`, "success");
+			props.onClose();
+		}).catch(
+			notifyErrorHandler(`Error approving host ${request.name}`)
+		).finally(() => {
+			setBusy(false);
+		});
+	}
+
+	function reject() {
+		if (!request) {
+			return;
+		}
+		setBusy(true);
+		control.send(new lib.HostPairingRejectRequest(request.code)).then(() => {
+			notify(`Rejected host ${request.name}`);
+			props.onClose();
+		}).catch(
+			notifyErrorHandler(`Error rejecting host ${request.name}`)
+		).finally(() => {
+			setBusy(false);
+		});
+	}
+
+	let content;
+	if (!permitted) {
+		content = <Result
+			status="403"
+			title="You are not allowed to approve hosts"
+			subTitle="Ask someone with the Approve hosts permission to open this link."
+		/>;
+	} else if (!request && !synced) {
+		content = <Flex justify="center" style={{ padding: 48 }}><Spin size="large" /></Flex>;
+	} else if (!request) {
+		content = <Result
+			status="warning"
+			title={<>No host is waiting with code <span style={{ whiteSpace: "nowrap" }}>{code}</span></>}
+			subTitle={
+				"It may have been approved or rejected already, or stopped waiting. " +
+				"A host that is still waiting shows a new code."
+			}
+		/>;
+	} else {
+		content = <>
+			<Typography.Paragraph>
+				A host is asking to join the cluster.
+				Only approve it if the code below matches the code shown by the host,
+				an approved host has full access to the cluster.
+			</Typography.Paragraph>
+			<Flex justify="center" style={{ margin: "24px 0" }}>
+				<Typography.Text code strong style={{ fontSize: 32, letterSpacing: 4 }}>{request.code}</Typography.Text>
+			</Flex>
+			<Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
+				<Descriptions.Item label="Address">{request.remoteAddress}</Descriptions.Item>
+				{request.version && <Descriptions.Item label="Version">{request.version}</Descriptions.Item>}
+				<Descriptions.Item label="Waiting for">
+					{formatDuration(Math.max(0, now - request.createdAtMs))}
+				</Descriptions.Item>
+			</Descriptions>
+			<Typography.Text strong>Name</Typography.Text>
+			<Input
+				size="large"
+				aria-label="Host name"
+				value={name ?? request.name}
+				onChange={event => { setName(event.target.value); }}
+				onPressEnter={approve}
+				style={{ margin: "4px 0 24px" }}
+			/>
+			<Button
+				type="primary"
+				size="large"
+				block
+				disabled={busy || !hostName}
+				loading={busy}
+				onClick={approve}
+			>Approve</Button>
+			<Flex justify="center" style={{ marginTop: 12 }}>
+				<Button type="link" danger disabled={busy} onClick={reject}>Reject</Button>
+			</Flex>
+		</>;
+	}
+
+	return <Modal title="Approve host" open footer={null} onCancel={props.onClose} width="520px">
+		{content}
+	</Modal>;
+}
+
 function AddHostButton() {
 	const [open, setOpen] = useState(false);
 	const [requests] = useHostPairings();
@@ -266,8 +383,19 @@ export default function HostsPage() {
 	});
 	const nameSearch = useColumnSearch<lib.HostDetails>(tableState, "name", host => host.name, "Search hosts");
 	const rowNav = useRowNavigation();
+	const [params, setParams] = useSearchParams();
+	const approveCode = params.get("approve");
+
+	function closeApprove() {
+		setParams(current => {
+			const next = new URLSearchParams(current);
+			next.delete("approve");
+			return next;
+		}, { replace: true });
+	}
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
+		{approveCode !== null && <ApproveHostModal code={approveCode} onClose={closeApprove} />}
 		<PageHeader
 			title="Hosts"
 			extra={account.hasPermission("core.host.approve") ? <AddHostButton /> : undefined}
