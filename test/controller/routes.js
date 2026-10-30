@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import events from "node:events";
-import FormData from "form-data";
 import http from "node:http";
 
 import { wait, expositionContentType } from "@clusterio/lib";
@@ -308,27 +307,25 @@ describe("controller/src/routes", function() {
 			let form;
 			form = new FormData();
 			form.append("instance_id", "123");
-			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "text/plain" });
+			form.append("file", new Blob(["totally a zip file"], { type: "text/plain" }), "test.zip");
 			response = await fetch(endpoint, {
 				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
-					...form.getHeaders(),
 				},
-				body: form.getBuffer(),
+				body: form,
 			});
 			assert.equal(response.status, 400);
 			assert.deepEqual(await response.json(), { request_errors: ["invalid file Content-Type"] });
 			form = new FormData();
-			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "application/zip" });
+			form.append("file", new Blob(["totally a zip file"], { type: "application/zip" }), "test.zip");
 			form.append("instance_id", "123");
 			response = await fetch(endpoint, {
 				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
-					...form.getHeaders(),
 				},
-				body: form.getBuffer(),
+				body: form,
 			});
 			assert.equal(response.status, 400);
 			assert.deepEqual(
@@ -336,14 +333,13 @@ describe("controller/src/routes", function() {
 			);
 			form = new FormData();
 			form.append("instance_id", "123");
-			form.append("file", "totally a zip file", { filename: "test.txt", contentType: "application/zip" });
+			form.append("file", new Blob(["totally a zip file"], { type: "application/zip" }), "test.txt");
 			response = await fetch(endpoint, {
 				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
-					...form.getHeaders(),
 				},
-				body: form.getBuffer(),
+				body: form,
 			});
 			assert.equal(response.status, 400);
 			assert.deepEqual(
@@ -351,14 +347,13 @@ describe("controller/src/routes", function() {
 			);
 			form = new FormData();
 			form.append("instance_id", "invalid");
-			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "application/zip" });
+			form.append("file", new Blob(["totally a zip file"], { type: "application/zip" }), "test.zip");
 			response = await fetch(endpoint, {
 				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
-					...form.getHeaders(),
 				},
-				body: form.getBuffer(),
+				body: form,
 			});
 			assert.equal(response.status, 400);
 			assert.deepEqual(
@@ -410,14 +405,13 @@ describe("controller/src/routes", function() {
 			let form;
 			form = new FormData();
 			form.append("instance_id", "123");
-			form.append("file", "totally a zip file", { filename: "test.zip", contentType: "application/zip" });
+			form.append("file", new Blob(["totally a zip file"], { type: "application/zip" }), "test.zip");
 			response = await fetch(endpoint, {
 				method: "POST",
 				headers: {
 					"X-Access-Token": testToken,
-					...form.getHeaders(),
 				},
-				body: form.getBuffer(),
+				body: form,
 			});
 			assert.equal(response.status, 500);
 			assert.deepEqual(await response.json(), { errors: ["Something went wrong"], request_errors: [] });
