@@ -24,9 +24,13 @@ type IpcFinished = {
 type IpcQueue = { queue: unknown, player?: string };
 
 export default async function(context: InstancePluginContext) {
-	const { instance, logger, plugin } = context;
+	const { instance, host, logger, plugin } = context;
 	let syncStarted = false;
 	let queueEventsApplied = 0;
+	// Contributions made while the controller is unreachable, summed per technology.
+	// Unlike finished research they can't be recovered from the game state.
+	const pendingContributions = new Map<string, IpcContribution>();
+	let finishedWhileDisconnected = false;
 
 	// Commands are sent one at a time so they execute in order
 	let rconQueue: Promise<unknown> = Promise.resolve();
@@ -69,11 +73,68 @@ export default async function(context: InstancePluginContext) {
 	}
 
 	async function researchContribution(tech: IpcContribution) {
-		instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
+		if (host.connector.connected) {
+			instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
+			return;
+		}
+		let pending = pendingContributions.get(tech.name);
+		if (pending && pending.level === tech.level) {
+			pending.contribution += tech.contribution;
+		} else if (!pending || pending.level < tech.level) {
+			// A lower level finished here, the technology sync reports it
+			pendingContributions.set(tech.name, { ...tech });
+		}
 	}
 
 	async function researchFinished(tech: IpcFinished) {
-		instance.sendTo("controller", new FinishedEvent(tech.name, tech.level));
+		if (host.connector.connected) {
+			instance.sendTo("controller", new FinishedEvent(tech.name, tech.level));
+			return;
+		}
+		finishedWhileDisconnected = true;
+	}
+
+	function sendPendingContributions() {
+		for (let tech of pendingContributions.values()) {
+			instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
+		}
+		pendingContributions.clear();
+	}
+
+	async function syncTechnologies() {
+		let dumpJson = await sendOrderedRcon("/sc research_sync.dump_technologies()");
+		let techsToSend = [];
+		let instanceTechs = new Map();
+		for (let tech of JSON.parse(dumpJson)) {
+			techsToSend.push(new TechnologySync(
+				tech.name,
+				tech.level,
+				tech.progress || null,
+				tech.researched,
+			));
+			instanceTechs.set(tech.name, tech);
+		}
+
+		let controllerTechs = await instance.sendTo("controller", new SyncTechnologiesRequest(techsToSend));
+		syncStarted = true;
+		let techsToSync = [];
+		for (let controllerTech of controllerTechs) {
+			let { name, level, progress, researched } = controllerTech;
+			let instanceTech = instanceTechs.get(name);
+			if (
+				!instanceTech
+				|| instanceTech.level !== level
+				|| (instanceTech.progress || null) !== progress
+				|| instanceTech.researched !== researched
+			) {
+				techsToSync.push(controllerTech);
+			}
+		}
+
+		if (techsToSync.length) {
+			let syncJson = lib.escapeString(JSON.stringify(techsToSync));
+			await sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
+		}
 	}
 
 	instance.server.on("ipc-research_sync:contribution", (tech: IpcContribution) => {
@@ -128,52 +189,35 @@ export default async function(context: InstancePluginContext) {
 	});
 
 	instance.hooks.start.attach(plugin.name, async () => {
-		let dumpJson = await sendOrderedRcon("/sc research_sync.dump_technologies()");
-		let techsToSend = [];
-		let instanceTechs = new Map();
-		for (let tech of JSON.parse(dumpJson)) {
-			techsToSend.push(new TechnologySync(
-				tech.name,
-				tech.level,
-				tech.progress || null,
-				tech.researched,
-			));
-			instanceTechs.set(tech.name, tech);
-		}
-
-		let controllerTechs = await instance.sendTo("controller", new SyncTechnologiesRequest(techsToSend));
-		syncStarted = true;
-		let techsToSync = [];
-		for (let controllerTech of controllerTechs) {
-			let { name, level, progress, researched } = controllerTech;
-			let instanceTech = instanceTechs.get(name);
-			if (
-				!instanceTech
-				|| instanceTech.level !== level
-				|| (instanceTech.progress || null) !== progress
-				|| instanceTech.researched !== researched
-			) {
-				techsToSync.push(controllerTech);
-			}
-		}
-
-		if (techsToSync.length) {
-			let syncJson = lib.escapeString(JSON.stringify(techsToSync));
-			await sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
-		}
+		await syncTechnologies();
 
 		// A first start counts as turning following on, which seeds an empty cluster queue
 		await syncQueue(true);
 	});
 
-	// QueueEvents sent while the controller session was down are lost, so take the cluster queue again.
-	// An edit made on this instance during the outage was never sent and is replaced: the cluster queue wins.
+	// Events are lost both ways while the controller session is down. Contributions are kept above, finished
+	// research comes from the technology sync, and the cluster queue replaces queue edits made meanwhile.
 	instance.hooks.controllerConnectionEvent.attach(plugin.name, async (event) => {
-		if (event !== "connect" || !syncStarted || !["starting", "running"].includes(instance.status)) {
+		if (event !== "connect" && event !== "resume") {
 			return;
 		}
 		try {
-			await syncQueue(false);
+			sendPendingContributions();
+			if (!syncStarted || !["starting", "running"].includes(instance.status)) {
+				return;
+			}
+			if (event === "connect" || finishedWhileDisconnected) {
+				finishedWhileDisconnected = false;
+				try {
+					await syncTechnologies();
+				} catch (err) {
+					finishedWhileDisconnected = true;
+					throw err;
+				}
+			}
+			if (event === "connect") {
+				await syncQueue(false);
+			}
 		} catch (err: any) {
 			unexpectedError(err);
 		}

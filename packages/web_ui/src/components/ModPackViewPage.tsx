@@ -1,11 +1,10 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FieldData } from "rc-field-form/lib/interface";
 
 import {
 	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
-	TablePaginationConfig, Alert, notification,
+	TablePaginationConfig, Alert, notification, FormProps,
 } from "antd";
 
 import {
@@ -34,6 +33,8 @@ import Link from "./Link";
 const { logger } = lib;
 const { Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+type FieldData = NonNullable<FormProps["fields"]>[number];
 
 type ModChange =
 	{

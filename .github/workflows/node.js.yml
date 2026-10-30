@@ -7,6 +7,12 @@ on:
   push:
   pull_request:
 
+# Superseded runs of a branch or pull request are cancelled. Runs on master
+# each get their own group so every commit there is tested.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.sha || github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: 24.x
 
@@ -54,6 +60,8 @@ jobs:
       uses: codecov/codecov-action@v7
       with:
         files: ./coverage/lcov.info
+        # Otherwise the raw V8 coverage in coverage/tmp is uploaded as well
+        disable_search: true
         token: ${{ secrets.CODECOV_TOKEN }}
     - name: Upload test logs for debugging
       if: ${{ !cancelled() }}
@@ -87,8 +95,6 @@ jobs:
       uses: ./.github/actions/pnpm-install
       with:
         node-version: ${{ env.NODE_VERSION }}
-    - name: Build
-      run: pnpm run build
     - name: Test ${{ matrix.controller }} controller with ${{ matrix.host }} host
       run: >
         node scripts/version-compat-test.js

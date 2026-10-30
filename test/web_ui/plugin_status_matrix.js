@@ -9,62 +9,64 @@ const target = "2.0.0";
 const versions = ["1.0.0", "2.0.0", "3.0.0"];
 
 function details(fields) {
-	const plugin = new lib.PluginDetails(
-		fields.name, fields.name, fields.version, fields.loaded, fields.enabled, undefined, fields.npmPackage,
-		fields.installedVersion, fields.pendingInstall, fields.removed, fields.dependencyName, fields.noEntrypoint,
-		fields.nameTaken,
+	return new lib.PluginDetails(
+		fields.name, fields.name, fields.version, fields.state, undefined, fields.npmPackage,
+		fields.installedVersion, fields.dependencyName,
 	);
-	return plugin;
 }
 
 function* states() {
 	yield { label: "absent", plugins: [] };
 	for (const version of versions) {
 		for (const installed of [version, ...versions.filter(other => other !== version)]) {
-			for (const enabled of [true, false]) {
-				for (const loaded of enabled ? [true] : [true, false]) {
-					const state = `${enabled ? "enabled" : "disabled"}${loaded ? " loaded" : ""}`;
-					yield {
-						label: `npm ${version} on disk ${installed} ${state}`,
-						entry: { source: "npm", version, installed, enabled, loaded },
-						plugins: [details({
-							name: "plugin", version, loaded, enabled, npmPackage: "pkg",
-							installedVersion: installed, dependencyName: "pkg",
-						})],
-					};
-				}
+			for (const [state, loaded, enabled] of [
+				["loaded", true, true],
+				["unloadOnRestart", true, false],
+				["loadOnRestart", false, true],
+				["disabled", false, false],
+			]) {
+				yield {
+					label: `npm ${version} on disk ${installed} ${state}`,
+					entry: { source: "npm", version, installed, enabled, loaded },
+					plugins: [details({
+						name: "plugin", version, state, npmPackage: "pkg",
+						installedVersion: installed, dependencyName: "pkg",
+					})],
+				};
 			}
 		}
-		yield {
-			label: `npm ${version} removed`,
-			entry: { source: "npm", version, removed: true },
-			plugins: [details({
-				name: "plugin", version, loaded: true, enabled: true, npmPackage: "pkg",
-				removed: true, dependencyName: "pkg",
-			})],
-		};
+		for (const loaded of [true, false]) {
+			yield {
+				label: `npm ${version} removed${loaded ? " while loaded" : ""}`,
+				entry: { source: "npm", version, removed: true, loaded },
+				plugins: [details({
+					name: "plugin", version, state: loaded ? "removedLoaded" : "removed", npmPackage: "pkg",
+					dependencyName: "pkg",
+				})],
+			};
+		}
 		yield {
 			label: `npm ${version} no entrypoint`,
 			entry: { source: "npm", version, installed: version, noEntrypoint: true },
 			plugins: [details({
-				name: "plugin", version, loaded: false, enabled: false, npmPackage: "pkg",
-				installedVersion: version, dependencyName: "pkg", noEntrypoint: true,
+				name: "plugin", version, state: "noEntrypoint", npmPackage: "pkg",
+				installedVersion: version, dependencyName: "pkg",
 			})],
 		};
 		yield {
 			label: `npm ${version} pending`,
 			entry: { source: "npm", version, installed: version, pending: true },
 			plugins: [details({
-				name: "pkg", version, loaded: false, enabled: false, npmPackage: "pkg",
-				installedVersion: version, pendingInstall: true, dependencyName: "pkg",
+				name: "pkg", version, state: "pendingInstall", npmPackage: "pkg",
+				installedVersion: version, dependencyName: "pkg",
 			})],
 		};
 		yield {
 			label: `alias ${version} pending`,
 			entry: { source: "alias", version, installed: version, pending: true },
 			plugins: [details({
-				name: "pkg", version, loaded: false, enabled: false,
-				installedVersion: version, pendingInstall: true, dependencyName: "pkg",
+				name: "pkg", version, state: "pendingInstall",
+				installedVersion: version, dependencyName: "pkg",
 			})],
 		};
 		yield {
@@ -72,12 +74,12 @@ function* states() {
 			entry: { source: "npm", version, installed: target, replaced: true },
 			plugins: [
 				details({
-					name: "plugin", version, loaded: true, enabled: true, npmPackage: "pkg",
-					removed: true, dependencyName: "pkg",
+					name: "plugin", version, state: "removedLoaded", npmPackage: "pkg",
+					dependencyName: "pkg",
 				}),
 				details({
-					name: "pkg", version: target, loaded: false, enabled: false, npmPackage: "pkg",
-					installedVersion: target, pendingInstall: true, dependencyName: "pkg",
+					name: "pkg", version: target, state: "pendingInstall", npmPackage: "pkg",
+					installedVersion: target, dependencyName: "pkg",
 				}),
 			],
 		};
@@ -86,7 +88,7 @@ function* states() {
 		label: "alias loaded as pkg",
 		taken: "dependency",
 		plugins: [details({
-			name: "real_plugin", version: "1.0.0", loaded: true, enabled: true,
+			name: "real_plugin", version: "1.0.0", state: "loaded",
 			installedVersion: "1.0.0", dependencyName: "pkg",
 		})],
 	};
@@ -95,10 +97,10 @@ function* states() {
 			label: `npm ${version} skipped as its name is taken`,
 			taken: "name",
 			plugins: [
-				details({ name: "plugin", version: "1.0.0", loaded: true, enabled: true, installedVersion: "1.0.0" }),
+				details({ name: "plugin", version: "1.0.0", state: "loaded", installedVersion: "1.0.0" }),
 				details({
-					name: "pkg", version, loaded: false, enabled: false, npmPackage: "pkg",
-					installedVersion: version, dependencyName: "pkg", nameTaken: true,
+					name: "pkg", version, state: "nameTaken", npmPackage: "pkg",
+					installedVersion: version, dependencyName: "pkg",
 				}),
 			],
 			entry: { source: "npm", version, installed: version },
@@ -108,17 +110,17 @@ function* states() {
 		label: "local plugin with the same name",
 		taken: "name",
 		plugins: [details({
-			name: "plugin", version: "1.0.0", loaded: true, enabled: true, installedVersion: "1.0.0",
+			name: "plugin", version: "1.0.0", state: "loaded", installedVersion: "1.0.0",
 		})],
 	};
 	yield {
 		label: "local plugin with the same name and pkg pending",
 		taken: "name",
 		plugins: [
-			details({ name: "plugin", version: "1.0.0", loaded: true, enabled: true, installedVersion: "1.0.0" }),
+			details({ name: "plugin", version: "1.0.0", state: "loaded", installedVersion: "1.0.0" }),
 			details({
-				name: "pkg", version: "1.0.0", loaded: false, enabled: false, npmPackage: "pkg",
-				installedVersion: "1.0.0", pendingInstall: true, dependencyName: "pkg",
+				name: "pkg", version: "1.0.0", state: "pendingInstall", npmPackage: "pkg",
+				installedVersion: "1.0.0", dependencyName: "pkg",
 			}),
 		],
 	};
@@ -145,7 +147,7 @@ function expected(state) {
 	}
 	let running;
 	let afterRestart;
-	if (entry?.loaded || entry?.removed || entry?.replaced) {
+	if (entry?.loaded || entry?.replaced) {
 		running = entry.version;
 	}
 	if (entry && !entry.removed && !entry.noEntrypoint && (entry.pending || entry.replaced || entry.enabled)) {
@@ -159,7 +161,7 @@ function semverGte(a, b) {
 }
 
 const reference = { name: "ref", isController: true, address: "controller", plugins: [details({
-	name: "plugin", version: "1.0.0", loaded: true, enabled: true, npmPackage: "pkg",
+	name: "plugin", version: "1.0.0", state: "loaded", npmPackage: "pkg",
 	installedVersion: "1.0.0", dependencyName: "pkg",
 })] };
 

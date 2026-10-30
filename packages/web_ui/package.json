@@ -45,7 +45,6 @@
 		"os-browserify": "^0.3.0",
 		"path-browserify": "^1.0.1",
 		"process": "^0.11.10",
-		"rc-field-form": "^1.44.0",
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"react-markdown": "catalog:",
@@ -53,7 +52,6 @@
 		"react-router-dom": "catalog:",
 		"semver": "catalog:",
 		"stream-browserify": "^3.0.0",
-		"typescript": "catalog:",
 		"util": "^0.12.5",
 		"vite": "catalog:"
 	},
@@ -61,6 +59,7 @@
 		"@types/node": "catalog:",
 		"@types/react": "catalog:",
 		"@types/react-dom": "^18.3.7",
-		"@types/semver": "catalog:"
+		"@types/semver": "catalog:",
+		"typescript": "catalog:"
 	}
 }

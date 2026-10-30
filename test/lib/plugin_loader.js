@@ -414,12 +414,12 @@ describe("lib/plugin_loader", function() {
 			const loaded = byPackage.get("plugin-npm");
 			assert.equal(loaded.version, "0.0.0");
 			assert.equal(loaded.installedVersion, "0.0.1");
-			assert.equal(loaded.pendingInstall, undefined);
+			assert.equal(loaded.state, "loaded");
 
 			// Dependencies of plugin packages are found the same way as on startup
 			for (const packageName of ["plugin-aliased", "plugin-deep", "plugin-transitive"]) {
 				const pending = byPackage.get(packageName);
-				assert.equal(pending.pendingInstall, true, packageName);
+				assert.equal(pending.state, "pendingInstall", packageName);
 				assert.equal(pending.installedVersion, "0.0.1", packageName);
 				assert.equal(pending.loaded, false, packageName);
 			}
@@ -513,13 +513,12 @@ describe("lib/plugin_loader", function() {
 			};
 			let plugins = await lib.listPluginDetails([local], () => true, () => true);
 			const taken = plugins.find(plugin => plugin.name === "plugin-npm");
-			assert.equal(taken.nameTaken, true);
-			assert.equal(taken.pendingInstall, undefined);
+			assert.equal(taken.state, "nameTaken");
 
 			// Loaded on the next restart once the plugin with that name is gone
 			const gone = { ...local, packagePath: path.resolve("plugins", "gone", "package.json") };
 			plugins = await lib.listPluginDetails([gone], () => true, () => true);
-			assert.equal(plugins.find(plugin => plugin.name === "plugin-npm").pendingInstall, true);
+			assert.equal(plugins.find(plugin => plugin.name === "plugin-npm").state, "pendingInstall");
 		});
 
 		it("should list a dependency made direct since startup as pending", async function() {
@@ -531,7 +530,7 @@ describe("lib/plugin_loader", function() {
 				await fs.writeFile("package.json", JSON.stringify(root));
 				const plugins = await lib.listPluginDetails([], () => true, () => true);
 				const hidden = plugins.find(plugin => plugin.name === "plugin-hidden");
-				assert.equal(hidden.pendingInstall, true);
+				assert.equal(hidden.state, "pendingInstall");
 				assert.equal(hidden.npmPackage, "plugin-hidden");
 			} finally {
 				await fs.writeFile("package.json", rootPackageJson);
@@ -573,7 +572,7 @@ describe("lib/plugin_loader", function() {
 				assert.equal(npm.npmPackage, undefined);
 				assert.equal(npm.dependencyName, "plugin-npm");
 				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
-				assert.equal(deep.pendingInstall, true);
+				assert.equal(deep.state, "pendingInstall");
 				assert.equal(deep.npmPackage, undefined);
 			} finally {
 				await fs.writeFile("package.json", rootPackageJson);
@@ -637,7 +636,7 @@ describe("lib/plugin_loader", function() {
 					npmPackage: "plugin-npm",
 				}], () => true, () => true);
 				assert.equal(plugin.npmPackage, undefined);
-				assert.equal(plugin.removed, undefined);
+				assert.equal(plugin.state, "loaded");
 			} finally {
 				await fs.writeFile(packageJsonPath, original);
 			}
@@ -650,7 +649,7 @@ describe("lib/plugin_loader", function() {
 				await fs.writeFile(packageJsonPath, JSON.stringify({ ...JSON.parse(original), private: true }));
 				const plugins = await lib.listPluginDetails([], () => true, () => true);
 				const deep = plugins.find(plugin => plugin.name === "plugin-deep");
-				assert.equal(deep.pendingInstall, true);
+				assert.equal(deep.state, "pendingInstall");
 				assert.equal(deep.npmPackage, undefined);
 			} finally {
 				await fs.writeFile(packageJsonPath, original);
@@ -705,7 +704,7 @@ describe("lib/plugin_loader", function() {
 			assert.equal(alias.npmPackage, undefined);
 
 			const published = new lib.PluginDetails(
-				"published", "Published", "1.0.0", true, true, undefined, "plugin-aliased", "1.0.0",
+				"published", "Published", "1.0.0", "loaded", undefined, "plugin-aliased", "1.0.0",
 			);
 			const statuses = computePluginStatuses([
 				{ name: "A", isController: false, address: { hostId: 1 }, plugins: [published] },
@@ -740,9 +739,12 @@ describe("lib/plugin_loader", function() {
 			}];
 			const plugins = await lib.listPluginDetails(pluginInfos, () => true, () => true);
 			const byPackage = new Map(plugins.map(plugin => [plugin.npmPackage ?? plugin.name, plugin]));
-			assert.equal(byPackage.get("plugin-gone").removed, true);
+			assert.equal(byPackage.get("plugin-gone").state, "removedLoaded");
 			assert.equal(byPackage.get("plugin-gone").installedVersion, undefined);
-			assert.equal(byPackage.get("plugin-npm").removed, undefined);
+			assert.equal(byPackage.get("plugin-npm").state, "loaded");
+
+			const [disabled] = await lib.listPluginDetails([pluginInfos[0]], () => false, () => false);
+			assert.equal(disabled.state, "removed");
 		});
 
 		it("should load existing plugin list", async function() {
