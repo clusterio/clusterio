@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
+import checkbox from "@inquirer/checkbox";
+import confirm from "@inquirer/confirm";
+import input from "@inquirer/input";
+import select from "@inquirer/select";
 import child_process from "node:child_process";
 import fs from "node:fs/promises";
-import inquirer from "inquirer";
 import os from "node:os";
 import path from "node:path";
+import readline from "node:readline";
 import stream from "node:stream";
 import util from "node:util";
 import yargs from "yargs";
@@ -16,15 +20,13 @@ const scriptExt = process.platform === "win32" ? ".cmd" : "";
 import { escapeArg } from "./escape_arg.js";
 
 // I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
-// See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
-// One option is to not call rl.close: SBoudrias/Inquirer.js#767
-// But this comes with its own issues: SBoudrias/Inquirer.js#899
+// See nodejs/node#21771, nodejs/node#30701 and nodejs/node#31762
 // The solution below was adapted from aws-amplify/amplify-cli#12347
 if (process.platform === "win32") {
-	const _inquirer_close = inquirer.ui.Prompt.prototype.close;
-	inquirer.ui.Prompt.prototype.close = function() {
-		this.rl.terminal = false;
-		_inquirer_close.call(this);
+	const close = readline.Interface.prototype.close;
+	readline.Interface.prototype.close = function() {
+		this.terminal = false;
+		close.call(this);
 	};
 }
 
@@ -510,92 +512,62 @@ WantedBy=multi-user.target
 }
 
 // eslint-disable-next-line complexity
-async function inquirerMissingArgs(args) {
+async function promptMissingArgs(args) {
 	let answers = {};
 	if (args.mode) { answers.mode = args.mode; }
 	if (args["plugin-template"]) { answers.mode = "plugin-template"; }
-	answers = await inquirer.prompt([
-		{
-			type: "list",
-			name: "mode",
-			message: "Operating mode to install",
-			default: "standalone",
-			choices: [
-				{ name: "Standalone (install both controller and host on this computer)", value: "standalone" },
-				{ name: "Controller only", value: "controller" },
-				{ name: "Host only", value: "host" },
-				{ name: "Ctl only", value: "ctl" },
-				{ name: "Plugins only", value: "plugins" },
-				{ name: "Plugin template", value: "plugin-template" },
-			],
-		},
-	], answers);
+	answers.mode ??= await select({
+		message: "Operating mode to install",
+		default: "standalone",
+		choices: [
+			{ name: "Standalone (install both controller and host on this computer)", value: "standalone" },
+			{ name: "Controller only", value: "controller" },
+			{ name: "Host only", value: "host" },
+			{ name: "Ctl only", value: "ctl" },
+			{ name: "Plugins only", value: "plugins" },
+			{ name: "Plugin template", value: "plugin-template" },
+		],
+	});
 
 	if (["standalone", "controller"].includes(answers.mode)) {
 		if (args.admin) { answers.admin = args.admin; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "admin",
-				message: "Admin account name",
-				validate: input => {
-					if (!input) {
-						return "May not be empty";
-					}
-					return true;
-				},
+		answers.admin ??= await input({
+			message: "Admin account name",
+			validate: value => {
+				if (!value) {
+					return "May not be empty";
+				}
+				return true;
 			},
-		], answers);
+		});
 
 		if (args.httpPort) { answers.httpPort = args.httpPort; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "httpPort",
-				message: "HTTP port to listen on",
-				default: 8080,
-				validate: input => {
-					if (!input) {
-						return "May not be empty";
-					}
-					if (!Number.isInteger(Number(input))) {
-						return "Must be a number";
-					}
-					return true;
-				},
+		answers.httpPort ??= await input({
+			message: "HTTP port to listen on",
+			default: "8080",
+			validate: value => {
+				if (!value) {
+					return "May not be empty";
+				}
+				if (!Number.isInteger(Number(value))) {
+					return "Must be a number";
+				}
+				return true;
 			},
-		], answers);
+		});
 	}
 
 	if (answers.mode === "host") {
 		if (args.hostName) { answers.hostName = args.hostName; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "hostName",
-				message: "Name of host",
-			},
-		], answers);
+		answers.hostName ??= await input({ message: "Name of host" });
 	}
 
 	if (["host", "ctl"].includes(answers.mode)) {
 		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "controllerUrl",
-				message: "Controller URL",
-			},
-		], answers);
+		answers.controllerUrl ??= await input({ message: "Controller URL" });
 
 		if (args.controllerToken) { answers.controllerToken = args.controllerToken; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "controllerToken",
-				message: "Controller authentication Token",
-			},
-		], answers);
+		answers.controllerToken ??= await input({ message: "Controller authentication Token" });
 	}
 
 	if (answers.mode === "host") {
@@ -612,14 +584,10 @@ async function inquirerMissingArgs(args) {
 				myIp = await result.text();
 			} catch (err) { /* ignore */ }
 		}
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "publicAddress",
-				message: "Public DNS/IP address of this server",
-				default: myIp,
-			},
-		], answers);
+		answers.publicAddress ??= await input({
+			message: "Public DNS/IP address of this server",
+			default: myIp,
+		});
 
 		if (args.factorioDir) { answers.factorioDir = args.factorioDir; }
 		let locations = factorioLocations[process.platform] || [];
@@ -630,28 +598,17 @@ async function inquirerMissingArgs(args) {
 			}
 		}
 
-		answers = await inquirer.prompt([
-			{
-				type: "list",
-				name: "factorioDir",
-				message: "Path to Factorio installation",
-				choices: [
-					...foundLocations.map(location => ({ name: `${location} (auto detected)`, value: location })),
-					{ name: "Use local factorio directory, you must copy an installation to it", value: "factorio" },
-					{ name: "Provide path manually", value: null },
-				],
-			},
-		], answers);
+		answers.factorioDir ??= await select({
+			message: "Path to Factorio installation",
+			choices: [
+				...foundLocations.map(location => ({ name: `${location} (auto detected)`, value: location })),
+				{ name: "Use local factorio directory, you must copy an installation to it", value: "factorio" },
+				{ name: "Provide path manually", value: null },
+			],
+		});
 
 		if (answers.factorioDir === null) {
-			answers = await inquirer.prompt([
-				{
-					type: "input",
-					name: "factorioDir",
-					message: "Path to Factorio installation",
-					askAnswered: true,
-				},
-			], answers);
+			answers.factorioDir = await input({ message: "Path to Factorio installation" });
 		} else if (answers.factorioDir === "factorio") {
 			await fs.mkdir("factorio", { recursive: true });
 		}
@@ -659,14 +616,10 @@ async function inquirerMissingArgs(args) {
 
 	if (["standalone", "controller", "host"].includes(answers.mode)) {
 		if (args.hasOwnProperty("remoteNpm")) { answers.remoteNpm = args.remoteNpm; }
-		answers = await inquirer.prompt([
-			{
-				type: "confirm",
-				name: "remoteNpm",
-				message: "Allow remote updates via npm?",
-				default: true,
-			},
-		], answers);
+		answers.remoteNpm ??= await confirm({
+			message: "Allow remote updates via npm?",
+			default: true,
+		});
 	}
 
 	if (answers.mode === "plugin-template") {
@@ -677,29 +630,23 @@ async function inquirerMissingArgs(args) {
 			answers.pluginName = args["plugin-name"];
 		}
 		answers.plugins = [];
-		answers = await inquirer.prompt([
-			{
-				type: "checkbox",
-				name: "pluginTemplate",
-				message: "Plugin templates to use",
-				choices: [
-					{ name: "Controller", value: "controller" },
-					{ name: "Host", value: "host" },
-					{ name: "Instance", value: "instance" },
-					{ name: "Lua Module", value: "module" },
-					{ name: "Command Line", value: "ctl" },
-					{ name: "Web UI", value: "web" },
-					{ name: "No Typescript", value: "js" },
-					{ name: "No Config", value: "no_config" },
-				],
-			},
-			{
-				type: "input",
-				name: "pluginName",
-				message: "Name of your new plugin",
-				default: path.basename(path.resolve()),
-			},
-		], answers);
+		answers.pluginTemplate ??= await checkbox({
+			message: "Plugin templates to use",
+			choices: [
+				{ name: "Controller", value: "controller" },
+				{ name: "Host", value: "host" },
+				{ name: "Instance", value: "instance" },
+				{ name: "Lua Module", value: "module" },
+				{ name: "Command Line", value: "ctl" },
+				{ name: "Web UI", value: "web" },
+				{ name: "No Typescript", value: "js" },
+				{ name: "No Config", value: "no_config" },
+			],
+		});
+		answers.pluginName ??= await input({
+			message: "Name of your new plugin",
+			default: path.basename(path.resolve()),
+		});
 	}
 
 	if (dev) {
@@ -707,15 +654,11 @@ async function inquirerMissingArgs(args) {
 	} else if (args.plugins) {
 		answers.plugins = args.plugins;
 	}
-	answers = await inquirer.prompt([
-		{
-			type: "checkbox",
-			name: "plugins",
-			message: "Plugins to install",
-			choices: availablePlugins,
-			pageSize: 20,
-		},
-	], answers);
+	answers.plugins ??= await checkbox({
+		message: "Plugins to install",
+		choices: availablePlugins,
+		pageSize: 20,
+	});
 
 	return answers;
 }
@@ -798,7 +741,7 @@ async function main() {
 		return;
 	}
 
-	let answers = await inquirerMissingArgs(args);
+	let answers = await promptMissingArgs(args);
 	logger.verbose(JSON.stringify(answers));
 
 	if (answers.pluginTemplate) {
@@ -878,7 +821,10 @@ async function main() {
 if (import.meta.main) {
 	main().catch(err => {
 		process.exitCode = 1;
-		if (err instanceof InstallError) {
+		if (err.name === "ExitPromptError") {
+			// Ctrl+C at a prompt
+			process.exitCode = 130;
+		} else if (err instanceof InstallError) {
 			logger.error(err.message);
 		} else {
 			logger.fatal(`
