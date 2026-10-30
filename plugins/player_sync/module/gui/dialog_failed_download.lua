@@ -1,4 +1,5 @@
 local ensure_character = require("modules/player_sync/ensure_character")
+local restore_position = require("modules/player_sync/restore_position")
 local get_script_data = require("modules/player_sync/get_script_data")
 
 local dialog_failed_download = {}
@@ -129,10 +130,15 @@ dialog_failed_download.events = {
 			ensure_character(player)
 			local player_sync = get_script_data()
 			player.gui.screen.dialog_failed_download.destroy()
-			player_sync.players[player.name].dirty = true
-			player_sync.players[player.name].sync = false
-			player_sync.players[player.name].sync_in_progress = false
-			player_sync.players[player.name].local_controller = nil
+			local player_record = player_sync.players[player.name]
+			if player_record.body_place then
+				restore_position(player, player_record.body_place)
+			end
+			player_record.dirty = true
+			player_record.sync = false
+			player_record.sync_in_progress = false
+			player_record.local_controller = nil
+			player_record.body_place = nil
 
 		elseif event.element.name == "player_sync_failed_download_retry" then
 			-- Retry acquiring the player from the controller

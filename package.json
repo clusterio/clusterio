@@ -46,6 +46,7 @@
 		"@types/node": "catalog:",
 		"c8": "^12.0.0",
 		"express": "catalog:",
+		"fengari": "catalog:",
 		"form-data": "^4.0.6",
 		"jsonwebtoken": "catalog:",
 		"mocha": "^11.8.0",
