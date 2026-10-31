@@ -135,7 +135,7 @@ export default class Controller {
 		const cachePath = path.join(this.config.get("controller.database_directory"), "latest-releases.json");
 		try {
 			const releases = await lib.fetchLatestReleases();
-			await lib.safeOutputFile(cachePath, JSON.stringify(releases, null, "\t"));
+			await lib.atomicOverwriteFile(cachePath, JSON.stringify(releases, null, "\t"));
 			return releases;
 		} catch (err: any) {
 			logger.warn(`Failed to retrieve Factorio releases ${err.message}`);

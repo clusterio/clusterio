@@ -290,7 +290,7 @@ async function uploadExport(req: Request, res: Response) {
 		let { name, ext } = path.posix.parse(filePath);
 		let hash = await lib.hashStream(await zip.openStream(file));
 		assets[name] = `${name}.${hash}${ext}`;
-		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), content);
+		await lib.atomicOverwriteFile(path.join("static", `${name}.${hash}${ext}`), content);
 	}
 
 	modPack.exportManifest = new lib.ExportManifest(assets, new Date().toISOString());

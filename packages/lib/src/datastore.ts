@@ -2,7 +2,7 @@ import path from "path";
 import fs from "node:fs/promises";
 import { EventEmitter } from "events";
 
-import { safeOutputFile } from "./file_ops.js";
+import { atomicOverwriteFile } from "./file_ops.js";
 import { SubscribableValue } from "./subscriptions.js";
 import { logger } from "./logging.js";
 import { ControllerConfig } from "./config/index.js";
@@ -56,7 +56,7 @@ export class JsonDatastoreProvider<
 	// Save the data to the json file
 	async save(data: Map<string, V>) {
 		logger.verbose(`Saving ${this.filePath}`);
-		await safeOutputFile(this.filePath, JSON.stringify(Object.fromEntries(data), null, "\t"));
+		await atomicOverwriteFile(this.filePath, JSON.stringify(Object.fromEntries(data), null, "\t"));
 	}
 
 	// Load the data from the json file
@@ -91,7 +91,7 @@ export class JsonDatastoreProvider<
 			logger.warn(
 				`Duplicates detected in ${this.filePath}, a backup was written to: ${backupPath}`
 			);
-			await safeOutputFile(backupPath, JSON.stringify(rawJson, null, "\t"));
+			await atomicOverwriteFile(backupPath, JSON.stringify(rawJson, null, "\t"));
 		}
 
 		return result;
@@ -115,7 +115,7 @@ export class JsonIdDatastoreProvider<
 	// Save the data to the json file
 	async save(data: Map<V["id"], V>) {
 		logger.verbose(`Saving ${this.filePath}`);
-		await safeOutputFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
+		await atomicOverwriteFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
 	}
 
 	// Load the data from the json file
@@ -150,7 +150,7 @@ export class JsonIdDatastoreProvider<
 			logger.warn(
 				`Duplicates detected in ${this.filePath}, a backup was written to: ${backupPath}`
 			);
-			await safeOutputFile(backupPath, JSON.stringify(rawJson, null, "\t"));
+			await atomicOverwriteFile(backupPath, JSON.stringify(rawJson, null, "\t"));
 		}
 
 		return result;

@@ -328,7 +328,7 @@ export async function loadPluginList(
 	hasChanges = await findNpmPlugins(pluginList, skippedNpmPlugins) || hasChanges;
 
 	if (hasChanges) {
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
+		await libFileOps.atomicOverwriteFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
 	}
 
 	return pluginList;

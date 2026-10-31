@@ -199,7 +199,7 @@ export async function handlePluginCommand(
 		}
 
 		pluginList.set(pluginInfo.name, pluginPath);
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
+		await libFileOps.atomicOverwriteFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
 		print(`Added ${pluginInfo.name}`);
 
 	} else if (command === "remove") {
@@ -209,7 +209,7 @@ export async function handlePluginCommand(
 			return;
 		}
 
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
+		await libFileOps.atomicOverwriteFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
 		print(`Removed ${args.name}`);
 
 	} else if (command === "list") {

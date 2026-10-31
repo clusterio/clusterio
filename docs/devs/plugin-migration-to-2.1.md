@@ -59,3 +59,9 @@ Imports of `assert`, `buffer`, `events`, `os`, `path`, `process`, `stream`, `uti
 The `container` property of `WebPluginContext` is now the plugin's ES module namespace, `await container.get("./web")` returns the module instead of a factory function.
 
 `lib.PluginWebpackEnvInfo` is renamed to `lib.PluginWebEnvInfo`.
+
+
+## Renamed lib functions
+
+`lib.safeOutputFile` is renamed to `lib.atomicOverwriteFile`.
+It takes the same arguments.

@@ -63,7 +63,7 @@ async function saveDatabase(
 	let file = path.resolve(controllerConfig.get("controller.database_directory"), "player_sync.json");
 	logger.verbose(`writing ${file}`);
 	let content = JSON.stringify([...playerDatastore, ...tombstones]);
-	await lib.safeOutputFile(file, content);
+	await lib.atomicOverwriteFile(file, content);
 }
 
 export default async function(context: ControllerPluginContext) {

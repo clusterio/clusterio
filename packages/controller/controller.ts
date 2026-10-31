@@ -218,7 +218,7 @@ async function handleBootstrapCommand(
 			console.log(content);
 		} else {
 			logger.info(`Writing ${args.output}`);
-			await lib.safeOutputFile(args.output, content, { mode: 0o600 });
+			await lib.atomicOverwriteFile(args.output, content, { mode: 0o600 });
 		}
 	}
 }

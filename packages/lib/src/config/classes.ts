@@ -7,7 +7,7 @@ import isDeepStrictEqual from "#is_deep_strict_equal";
 import { basicType } from "../helpers.js";
 import * as libSchema from "../schema.js";
 import { StringEnum } from "../data/composites.js";
-import { safeOutputFile } from "../file_ops.js";
+import { atomicOverwriteFile } from "../file_ops.js";
 import * as validators from "./validators.js";
 import { InvalidAccessError, InvalidFieldError, InvalidValueError } from "../errors.js";
 import type { SyncHook } from "../SyncHook.js";
@@ -475,7 +475,7 @@ export class Config<
 		if (!this.filepath) {
 			throw new Error("Cannot save config which has no filepath");
 		}
-		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
+		await atomicOverwriteFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
 		this._dirty = false;
 	}
 

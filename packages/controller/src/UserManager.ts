@@ -40,8 +40,8 @@ export default class UserManager {
 			}
 
 			// We intentionally write the roles first because if it fails then the old user file will still contain them
-			await lib.safeOutputFile(rolesFilePath, JSON.stringify(combinedJson.roles));
-			await lib.safeOutputFile(usersFilePath, JSON.stringify(combinedJson.users));
+			await lib.atomicOverwriteFile(rolesFilePath, JSON.stringify(combinedJson.roles));
+			await lib.atomicOverwriteFile(usersFilePath, JSON.stringify(combinedJson.users));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
