@@ -1021,6 +1021,47 @@ describe("lib/subscriptions", function() {
 			it("should handle the provided event", function() {
 				assert.equal(mockControl._eventHandlers.has(RegisteredEvent), true);
 			});
+
+			it("should share one connect and close listener on the connector", function() {
+				const connector = mockControl.connector;
+				const connectListeners = connector.listenerCount("connect");
+				const closeListeners = connector.listenerCount("close");
+				const subscribers = [
+					new lib.EventSubscriber(StringPermissionEvent, mockControl),
+					new lib.EventSubscriber(FunctionPermissionEvent, mockControl),
+				];
+				assert.equal(subscribers.length, 2);
+				assert.equal(connector.listenerCount("connect"), connectListeners);
+				assert.equal(connector.listenerCount("close"), closeListeners);
+			});
+
+			it("should pass connect and close to every subscriber on the connector", function() {
+				const subscribers = [
+					eventSubscriber,
+					new lib.EventSubscriber(StringPermissionEvent, mockControl),
+					new lib.EventSubscriber(FunctionPermissionEvent, mockControl),
+				];
+				const received = subscribers.map(() => []);
+				subscribers.forEach((subscriber, index) => {
+					subscriber.handleConnectionEvent = event => { received[index].push(event); };
+				});
+				mockControl.connector.emit("close");
+				mockControl.connector.emit("connect");
+				assert.deepEqual(received, [["close", "connect"], ["close", "connect"], ["close", "connect"]]);
+			});
+
+			it("should only pass events to subscribers on the same connector", function() {
+				const otherControl = new MockControl(new MockConnector(
+					addr({ controlId: 1 }),
+					addr("controller"),
+				));
+				const other = new lib.EventSubscriber(RegisteredEvent, otherControl);
+				const received = [];
+				eventSubscriber.handleConnectionEvent = event => { received.push(["first", event]); };
+				other.handleConnectionEvent = event => { received.push(["other", event]); };
+				otherControl.connector.emit("close");
+				assert.deepEqual(received, [["other", "close"]]);
+			});
 		});
 
 		describe("subscribe()", function() {
