@@ -77,6 +77,9 @@ The greatly simplified data flow is as follows:
 7. Scenario displays and updates a progress bar as each chunk is received.
 8. Once all chunks have loaded the player's synced inventory is recreated from the data and the player can start playing.
 
+While the player is a spectator waiting for the data they can't walk away, and their character comes back where it stood.
+A mod that teleports the spectator more than 4 tiles, or to another surface, moves where the character comes back to.
+
 When the player leaves the inventory is uploaded if it's a synced inventory and the exclusive access the scenario script holds is released.
 Should an error occur during this process the player is given the option to use a temporary inventory instead, which will be merged back into the synced inventory the next time the sync succeeds on that instance.
 A download that stops part way, for example because the controller went down, is started over the next time the player joins, and nothing is uploaded for the player until it finishes.

@@ -73,6 +73,19 @@ local function remove_inventory_bonus_raise(script_data, player_name)
 	end
 end
 
+-- Where the player's body stands, in the shape restore_position takes
+local function body_place(player)
+	local place = { vehicle = player.driving and player.vehicle or nil }
+	if v2_remote_controller then
+		place.surface = player.physical_surface
+		place.position = player.physical_position
+	else
+		place.surface = player.surface
+		place.position = player.position
+	end
+	return place
+end
+
 -- Turn a synced player into a spectator while their player data is downloaded or applied, if this instance syncs
 -- inventories, and keep where their body stood in record for restore_position. The old body goes, with its crafting
 -- queue. Until the data is applied, the player's state isn't persisted.
@@ -93,16 +106,10 @@ local function spectate(player, player_record, record)
 		-- Store original position to teleport back to. Only once per record: a rejoin while a prefetched copy is held
 		-- spectates again, and the spectator's position then isn't where the body stood
 		if record.position == nil then
-			if v2_remote_controller then
-				record.surface = player.physical_surface
-				record.position = player.physical_position
-			else
-				record.surface = player.surface
-				record.position = player.position
-			end
-			if player.driving then
-				record.vehicle = player.vehicle
-			end
+			local here = body_place(player)
+			record.surface = here.surface
+			record.position = here.position
+			record.vehicle = here.vehicle
 		end
 
 		save_local_controller(player, player_record, record.components)
@@ -123,6 +130,18 @@ local function keep_body_place(player_record, record)
 	if player_record and record.position ~= nil then
 		player_record.body_place = { surface = record.surface, position = record.position, vehicle = record.vehicle }
 	end
+end
+
+-- Where the body goes back when sync code gives it back, if it took it
+local function body_place_of(script_data, player_name)
+	for _, downloads in ipairs({ script_data.active_downloads, script_data.finished_downloads }) do
+		local record = downloads[player_name]
+		if record and record.position ~= nil then
+			return record
+		end
+	end
+	local player_record = script_data.players[player_name]
+	return player_record and player_record.body_place
 end
 
 
@@ -487,6 +506,7 @@ function player_sync.sync_player(acquire_response)
 				and player.controller_type == defines.controllers.character
 			then
 				save_local_controller(player, player_record, player_record.components)
+				player_record.body_place = body_place(player)
 				local character = player.character
 				player.set_controller({ type = defines.controllers.spectator })
 				if character then character.destroy() end
@@ -565,6 +585,30 @@ player_sync.events[defines.events.on_player_joined_game] = function(event)
 
 	-- Clear active upload if it exists
 	script_data.active_uploads[player.name] = nil
+end
+
+-- A spectator whose body sync code took stays where the body stood. A jump of more than 4 tiles, or to another surface,
+-- is another mod's teleport and moves where the body goes back instead.
+player_sync.events[defines.events.on_player_changed_position] = function(event)
+	local player = assert(game.get_player(event.player_index))
+	if player.controller_type ~= defines.controllers.spectator then
+		return
+	end
+	local place = body_place_of(get_script_data(), player.name)
+	if not place then
+		return
+	end
+
+	local position = player.position --[[@as MapPosition.struct]]
+	local dx = position.x - place.position.x
+	local dy = position.y - place.position.y
+	if player.surface == place.surface and dx * dx + dy * dy <= 16 then
+		player.teleport(place.position, place.surface)
+	else
+		place.surface = player.surface
+		place.position = position
+		place.vehicle = nil
+	end
 end
 
 -- Raised for a restored armor after its equipment's inventory bonus applied, the temporary bonus is no longer needed
