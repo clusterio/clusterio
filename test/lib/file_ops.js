@@ -51,7 +51,7 @@ describe("lib/file_ops", function() {
 		});
 	});
 
-	describe("safeOutputFile()", function() {
+	describe("atomicOverwriteFile()", function() {
 		async function assertNoTemporary(target) {
 			let { dir, name } = path.parse(target);
 			let entries = (await fs.readdir(dir)).filter(
@@ -61,14 +61,14 @@ describe("lib/file_ops", function() {
 		}
 		it("should write new target file", async function() {
 			let target = path.join(baseDir, "safe", "simple.txt");
-			await lib.safeOutputFile(target, "a text file", "utf8");
+			await lib.atomicOverwriteFile(target, "a text file", "utf8");
 			await assertNoTemporary(target);
 			assert.equal(await fs.readFile(target, "utf8"), "a text file");
 		});
 		it("should overwrite existing target file", async function() {
 			let target = path.join(baseDir, "safe", "exists.txt");
 			await fs.writeFile(target, "previous", "utf8");
-			await lib.safeOutputFile(target, "current", "utf8");
+			await lib.atomicOverwriteFile(target, "current", "utf8");
 			await assertNoTemporary(target);
 			assert.equal(await fs.readFile(target, "utf8"), "current");
 		});
@@ -77,7 +77,7 @@ describe("lib/file_ops", function() {
 				this.skip();
 			}
 			let target = path.join(baseDir, "safe", "mode.txt");
-			await lib.safeOutputFile(target, "private", { mode: 0o600 });
+			await lib.atomicOverwriteFile(target, "private", { mode: 0o600 });
 			assert.equal((await fs.stat(target)).mode & 0o777, 0o600);
 			assert.equal(await fs.readFile(target, "utf8"), "private");
 		});
@@ -85,7 +85,7 @@ describe("lib/file_ops", function() {
 			let target = path.join(baseDir, "safe", "concurrent.txt");
 			let writes = [];
 			for (let i = 0; i < 20; i++) {
-				writes.push(lib.safeOutputFile(target, `write ${i}`, "utf8"));
+				writes.push(lib.atomicOverwriteFile(target, `write ${i}`, "utf8"));
 			}
 			// Ignore errors from concurrently renaming onto the same file.
 			await Promise.allSettled(writes);
@@ -95,13 +95,13 @@ describe("lib/file_ops", function() {
 		it("should remove the temporary file when the rename fails", async function() {
 			let target = path.join(baseDir, "safe", "rename-fails");
 			await fs.mkdir(target, { recursive: true });
-			await assert.rejects(lib.safeOutputFile(target, "data", "utf8"));
+			await assert.rejects(lib.atomicOverwriteFile(target, "data", "utf8"));
 			await assertNoTemporary(target);
 		});
 		it("should handle creating file in current working directory", async function() {
 			let target = "temporary-file-made-to-test-cwd.txt";
 			try {
-				await lib.safeOutputFile(target, "a text file", "utf8");
+				await lib.atomicOverwriteFile(target, "a text file", "utf8");
 			} finally {
 				try {
 					await fs.unlink(target);

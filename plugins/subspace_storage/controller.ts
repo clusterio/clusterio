@@ -64,7 +64,7 @@ async function saveDatabase(
 		let file = path.resolve(controllerConfig.get("controller.database_directory"), "items.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(items.serialize());
-		await lib.safeOutputFile(file, content);
+		await lib.atomicOverwriteFile(file, content);
 	} else if (items) {
 		logger.error(`Item database too large, not saving (${items.size})`);
 	}
