@@ -323,7 +323,7 @@ export default class Controller {
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
 		this.hosts.on("update", this.hostsUpdated.bind(this));
-		this.hostPairing.requests.on("update", this.hostPairingRequestsUpdated.bind(this));
+		this.hostPairing.records.on("update", this.hostPairingRequestsUpdated.bind(this));
 		this.instances.records.on("update", this.instanceUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
@@ -373,7 +373,6 @@ export default class Controller {
 
 	async _startInternal(args: ControllerArgs) {
 		this.logDirectory = args.logDirectory;
-		this.hostPairing.start();
 		this.clusterLogIndex = await lib.LogIndex.load(path.join(this.logDirectory, "cluster"));
 
 		this.clusterLogBuildInterval = setInterval(() => {
@@ -496,6 +495,7 @@ export default class Controller {
 			logger.info(`Listening for HTTPS on port ${(this.httpsServer.address() as AddressInfo).port}`);
 		}
 
+		this.hostPairing.start();
 		this.onAutosaveIntervalChanged();
 		this.onSystemMetricsIntervalChanged();
 
@@ -1062,7 +1062,7 @@ export default class Controller {
 		if (request.action === "unsubscribe") {
 			return null;
 		}
-		const requests = [...this.hostPairing.requests.values()].filter(
+		const requests = [...this.hostPairing.records.values()].filter(
 			pairing => pairing.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return requests.length ? new lib.HostPairingUpdatesEvent(requests) : null;

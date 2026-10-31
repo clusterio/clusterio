@@ -311,22 +311,19 @@ export function spawn(name, cmd, waitFor, options = {}) {
 		let process = child_process.spawn(parts[0], parts.slice(1), childOptions(options));
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		let stderr = new LineSplitter({ readableObjectMode: true });
-		let onDataOut = line => {
+		let onData = line => {
 			line = line.toString("utf8");
 			if (waitFor.test(line)) {
 				if (silent) {
-					stdout.off("data", onDataOut);
-					stderr.off("data", onDataErr);
+					stdout.off("data", onData);
+					stderr.off("data", onData);
 				}
 				resolve(process);
 			}
 			log(name, line);
 		};
-		let onDataErr = line => {
-			log(name, line.toString("utf8"));
-		};
-		stdout.on("data", onDataOut);
-		stderr.on("data", onDataErr);
+		stdout.on("data", onData);
+		stderr.on("data", onData);
 		process.stdout.pipe(stdout);
 		process.stderr.pipe(stderr);
 	});

@@ -5,8 +5,7 @@ import jwt from "jsonwebtoken";
 import * as lib from "@clusterio/lib";
 import { Controller, HostPairingManager, HostPairingError, HostRecord } from "@clusterio/controller";
 import {
-	pollTimeoutMs, maxPendingMs, maxPending, maxPendingPerAddress,
-	maxNameLength,
+	pollTimeoutMs, maxPendingPerAddress, maxNameLength,
 } from "@clusterio/controller/dist/node/src/HostPairingManager.js";
 
 import "../setup_logging.js";
@@ -29,12 +28,6 @@ function stubRandomInt(values) {
 	const original = crypto.randomInt;
 	crypto.randomInt = (...args) => (values.length ? values.shift() : original(...args));
 	return () => { crypto.randomInt = original; };
-}
-
-function deferred() {
-	let resolve, reject;
-	const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
-	return { promise, resolve, reject };
 }
 
 function assertPairingError(fn, status, message) {
@@ -95,7 +88,7 @@ describe("controller/src/HostPairingManager", function() {
 			controller = makeController();
 			manager = controller.hostPairing;
 			updates = [];
-			manager.requests.on("update", changed => {
+			manager.records.on("update", changed => {
 				updates.push(...changed.map(details => ({ code: details.code, isDeleted: details.isDeleted })));
 			});
 			restoreRandomInt = undefined;
@@ -111,15 +104,15 @@ describe("controller/src/HostPairingManager", function() {
 			return manager._bySecret.get(requestId);
 		}
 
-		// Pretend the installer last polled the request ms milliseconds earlier.
+		// Pretend the host last polled the request ms milliseconds earlier.
 		function idle(requestId, ms) {
 			internal(requestId).lastPollMs -= ms;
 		}
 
 		describe(".createHost()", function() {
-			it("should create a host record with a valid token", async function() {
+			it("should create a host record with a valid token", function() {
 				const before = Math.floor(Date.now() / 1000);
-				const result = await manager.createHost("Host A");
+				const result = manager.createHost("Host A");
 
 				assert.equal(result.name, "Host A");
 				assert(Number.isInteger(result.hostId), "hostId is not an integer");
@@ -136,31 +129,10 @@ describe("controller/src/HostPairingManager", function() {
 				assert.equal(payload.host, result.hostId);
 				assert(payload.iat >= record.tokenValidAfter, "token is not valid for the new record");
 			});
-			it("should save the hosts before returning", async function() {
-				const save = deferred();
-				let saveCalls = 0;
-				controller.hosts.save = () => { saveCalls += 1; return save.promise; };
-
-				let done = false;
-				const promise = manager.createHost("Host A").then(result => { done = true; return result; });
-				await new Promise(resolve => setImmediate(resolve));
-				assert.equal(saveCalls, 1);
-				assert.equal(done, false, "createHost returned before the hosts were saved");
-				save.resolve();
-				const result = await promise;
-				assert(controller.hosts.has(result.hostId));
-			});
-			it("should remove the record if saving fails", async function() {
-				restoreRandomInt = stubRandomInt([1234]);
-				controller.hosts.save = async () => { throw new Error("disk full"); };
-				await assert.rejects(manager.createHost("Host A"), /disk full/);
-				assert.equal(controller.hosts.has(1234), false);
-				assert.equal(controller.hosts.size, 0);
-			});
-			it("should not reuse the id of an existing host", async function() {
+			it("should not reuse the id of an existing host", function() {
 				controller.hosts.set(new HostRecord(5, "existing", "", new Map()));
 				restoreRandomInt = stubRandomInt([5, 5, 6]);
-				const result = await manager.createHost("Host A");
+				const result = manager.createHost("Host A");
 				assert.equal(result.hostId, 6);
 				assert.equal(controller.hosts.get(5).name, "existing");
 				assert.equal(controller.hosts.get(6).name, "Host A");
@@ -177,7 +149,7 @@ describe("controller/src/HostPairingManager", function() {
 				assert.match(code, codePattern);
 				assert.notEqual(requestId, code);
 
-				const details = manager.requests.get(code);
+				const details = manager.records.get(code);
 				assert(details instanceof lib.HostPairingDetails);
 				assert.equal(details.code, code);
 				assert.equal(details.name, "Host A");
@@ -191,23 +163,23 @@ describe("controller/src/HostPairingManager", function() {
 			});
 			it("should create unique codes", function() {
 				const codes = new Set();
-				for (let i = 0; i < maxPending; i++) {
+				for (let i = 0; i < 50; i++) {
 					const { code } = manager.create(`Host ${i}`, "", `10.1.${i}.1`);
 					assert.match(code, codePattern);
 					codes.add(code);
 				}
-				assert.equal(codes.size, maxPending);
+				assert.equal(codes.size, 50);
 			});
 			it("should not reuse the code of a pending request", function() {
 				restoreRandomInt = stubRandomInt([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
 				assert.equal(manager.create("Host A", "", "10.0.0.1").code, "222-222");
 				assert.equal(manager.create("Host B", "", "10.0.0.2").code, "333-333");
 			});
-			it("should not reuse the code of an approved request not yet picked up", async function() {
+			it("should not reuse the code of an approved request not yet picked up", function() {
 				restoreRandomInt = stubRandomInt([0, 0, 0, 0, 0, 0, 1234, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
 				const { code } = manager.create("Host A", "", "10.0.0.1");
 				assert.equal(code, "222-222");
-				assert.equal(await manager.approve(code, undefined, "admin"), 1234);
+				assert.equal(manager.approve(code, undefined, "admin"), 1234);
 				assert.equal(manager.create("Host B", "", "10.0.0.2").code, "333-333");
 			});
 		});
@@ -227,7 +199,7 @@ describe("controller/src/HostPairingManager", function() {
 				});
 				// Other addresses are not affected
 				manager.create("Host", "", "10.0.0.2");
-				assert.equal(manager.requests.size, maxPendingPerAddress + 1);
+				assert.equal(manager.records.size, maxPendingPerAddress + 1);
 			});
 			it("should count IPv4 mapped addresses as the IPv4 address", function() {
 				manager.create("Host", "", "10.0.0.1");
@@ -245,7 +217,7 @@ describe("controller/src/HostPairingManager", function() {
 				);
 				manager.create("Host", "", "2001:db8:0:2::1");
 			});
-			it("should free the slot when a request is no longer pending", async function() {
+			it("should free the slot when a request is no longer pending", function() {
 				const first = manager.create("Host", "", "10.0.0.1");
 				const second = manager.create("Host", "", "10.0.0.1");
 				const third = manager.create("Host", "", "10.0.0.1");
@@ -256,14 +228,15 @@ describe("controller/src/HostPairingManager", function() {
 				assertPairingError(() => manager.create("Host", "", "10.0.0.1"), 429);
 
 				// Approved and rejected results waiting to be picked up do not count
-				await manager.approve(second.code, undefined, "admin");
+				manager.approve(second.code, undefined, "admin");
 				manager.reject(third.code, "admin");
 				manager.create("Host", "", "10.0.0.1");
 				manager.create("Host", "", "10.0.0.1");
 				assertPairingError(() => manager.create("Host", "", "10.0.0.1"), 429);
-				assert(manager.requests.has(fourth.code));
+				assert(manager.records.has(fourth.code));
 			});
 			it("should limit the total number of pending requests", function() {
+				const maxPending = controller.config.get("controller.host_pairing_max_pending");
 				assert.equal(maxPending, 50);
 				for (let i = 0; i < maxPending; i++) {
 					manager.create(`Host ${i}`, "", `10.1.${i}.1`);
@@ -275,7 +248,14 @@ describe("controller/src/HostPairingManager", function() {
 					assert.equal(err.message, "Too many pending requests");
 					return true;
 				});
-				assert.equal(manager.requests.size, maxPending);
+				assert.equal(manager.records.size, maxPending);
+			});
+			it("should not limit the total number of pending requests when set to 0", function() {
+				controller.config.set("controller.host_pairing_max_pending", 0);
+				for (let i = 0; i < 60; i++) {
+					manager.create(`Host ${i}`, "", `10.1.${i}.1`);
+				}
+				assert.equal(manager.records.size, 60);
 			});
 		});
 
@@ -292,9 +272,9 @@ describe("controller/src/HostPairingManager", function() {
 				const { code } = manager.create("Host A", "", "10.0.0.1");
 				assertPairingError(() => manager.poll(code), 404);
 			});
-			it("should hand over an approved result once", async function() {
+			it("should hand over an approved result once", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code, undefined, "admin");
+				const hostId = manager.approve(code, undefined, "admin");
 				const result = manager.poll(requestId);
 				assert.deepEqual(Object.keys(result).sort(), ["hostId", "name", "token"]);
 				assert.equal(result.hostId, hostId);
@@ -317,7 +297,7 @@ describe("controller/src/HostPairingManager", function() {
 			it("should remove a pending request", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
 				manager.cancel(requestId);
-				assert.equal(manager.requests.has(code), false);
+				assert.equal(manager.records.has(code), false);
 				assertPairingError(() => manager.poll(requestId), 404);
 				assert.deepEqual(updates, [{ code, isDeleted: false }, { code, isDeleted: true }]);
 				assert.throws(() => manager.reject(code, "admin"), lib.NotFoundError);
@@ -325,9 +305,9 @@ describe("controller/src/HostPairingManager", function() {
 			it("should ignore unknown requests", function() {
 				manager.cancel("invalid");
 			});
-			it("should not throw away an approved result", async function() {
+			it("should not throw away an approved result", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code, undefined, "admin");
+				const hostId = manager.approve(code, undefined, "admin");
 				manager.cancel(requestId);
 				assert.equal(manager.poll(requestId).hostId, hostId);
 			});
@@ -340,84 +320,50 @@ describe("controller/src/HostPairingManager", function() {
 		});
 
 		describe(".approve()", function() {
-			it("should create the host with the requested name", async function() {
+			it("should create the host with the requested name", function() {
 				const { code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code, undefined, "admin");
+				const hostId = manager.approve(code, undefined, "admin");
 				assert.equal(controller.hosts.get(hostId).name, "Host A");
-				assert.equal(manager.requests.has(code), false);
+				assert.equal(manager.records.has(code), false);
 				assert.deepEqual(updates, [{ code, isDeleted: false }, { code, isDeleted: true }]);
 			});
-			it("should accept codes in any case and without the dash", async function() {
+			it("should accept codes in any case and without the dash", function() {
 				const { code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code.toLowerCase().replace("-", ""), undefined, "admin");
+				const hostId = manager.approve(code.toLowerCase().replace("-", ""), undefined, "admin");
 				assert(controller.hosts.has(hostId));
 			});
-			it("should use and trim the name given", async function() {
+			it("should use and trim the name given", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code, "  Renamed ", "admin");
+				const hostId = manager.approve(code, "  Renamed ", "admin");
 				assert.equal(controller.hosts.get(hostId).name, "Renamed");
 				assert.equal(manager.poll(requestId).name, "Renamed");
 			});
-			it("should reject an invalid name and keep the request pending", async function() {
+			it("should reject an invalid name and keep the request pending", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				await assert.rejects(
-					manager.approve(code, "", "admin"),
+				assert.throws(
+					() => manager.approve(code, "", "admin"),
 					new lib.ValidationError("Host name is required"),
 				);
-				await assert.rejects(
-					manager.approve(code, "x".repeat(maxNameLength + 1), "admin"),
+				assert.throws(
+					() => manager.approve(code, "x".repeat(maxNameLength + 1), "admin"),
 					new lib.ValidationError("Host name must be at most 100 characters"),
 				);
 				assert.equal(controller.hosts.size, 0);
 				assert.equal(manager.poll(requestId), null);
-				await manager.approve(code, undefined, "admin");
+				manager.approve(code, undefined, "admin");
 				assert.equal(controller.hosts.size, 1);
 			});
-			it("should throw NotFoundError for an unknown code", async function() {
-				await assert.rejects(
-					manager.approve("ZZZ-ZZZ", undefined, "admin"),
+			it("should throw NotFoundError for an unknown code", function() {
+				assert.throws(
+					() => manager.approve("ZZZ-ZZZ", undefined, "admin"),
 					new lib.NotFoundError("No pending host request with code ZZZ-ZZZ"),
 				);
 			});
-			it("should only approve a request once", async function() {
+			it("should only approve a request once", function() {
 				const { code } = manager.create("Host A", "", "10.0.0.1");
-				await manager.approve(code, undefined, "admin");
-				await assert.rejects(manager.approve(code, undefined, "admin"), lib.NotFoundError);
+				manager.approve(code, undefined, "admin");
+				assert.throws(() => manager.approve(code, undefined, "admin"), lib.NotFoundError);
 				assert.equal(controller.hosts.size, 1);
-			});
-			it("should not create two hosts when approved twice at the same time", async function() {
-				const save = deferred();
-				controller.hosts.save = () => save.promise;
-				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-
-				const first = manager.approve(code, undefined, "admin");
-				await assert.rejects(manager.approve(code, undefined, "admin"), lib.NotFoundError);
-				assert.throws(() => manager.reject(code, "admin"), lib.NotFoundError);
-
-				// The request stays while approving, the installer sees it as pending
-				manager.cancel(requestId);
-				idle(requestId, pollTimeoutMs + 1);
-				manager.prune();
-				assert.equal(manager.poll(requestId), null);
-				assert(manager.requests.has(code), "request removed while approving");
-
-				save.resolve();
-				const hostId = await first;
-				assert.equal(controller.hosts.size, 1);
-				assert.equal(manager.poll(requestId).hostId, hostId);
-			});
-			it("should keep the request pending if creating the host fails", async function() {
-				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				const originalSave = controller.hosts.save;
-				controller.hosts.save = async () => { throw new Error("disk full"); };
-				await assert.rejects(manager.approve(code, undefined, "admin"), /disk full/);
-				assert.equal(controller.hosts.size, 0);
-				assert(manager.requests.has(code));
-				assert.equal(manager.poll(requestId), null);
-
-				controller.hosts.save = originalSave;
-				const hostId = await manager.approve(code, undefined, "admin");
-				assert.equal(manager.poll(requestId).hostId, hostId);
 			});
 		});
 
@@ -425,7 +371,7 @@ describe("controller/src/HostPairingManager", function() {
 			it("should remove the request from the pending list", function() {
 				const { code } = manager.create("Host A", "", "10.0.0.1");
 				manager.reject(code.toLowerCase(), "admin");
-				assert.equal(manager.requests.has(code), false);
+				assert.equal(manager.records.has(code), false);
 				assert.deepEqual(updates, [{ code, isDeleted: false }, { code, isDeleted: true }]);
 				assert.equal(controller.hosts.size, 0);
 			});
@@ -435,9 +381,9 @@ describe("controller/src/HostPairingManager", function() {
 					new lib.NotFoundError("No pending host request with code ZZZ-ZZZ"),
 				);
 			});
-			it("should not reject an approved request", async function() {
+			it("should not reject an approved request", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code, undefined, "admin");
+				const hostId = manager.approve(code, undefined, "admin");
 				assert.throws(() => manager.reject(code, "admin"), lib.NotFoundError);
 				assert.equal(manager.poll(requestId).hostId, hostId);
 			});
@@ -455,11 +401,11 @@ describe("controller/src/HostPairingManager", function() {
 				lib.logger.warn = originalWarn;
 			});
 
-			it("should expire a request the installer stopped polling", function() {
+			it("should expire a request the host stopped polling", function() {
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
 				idle(requestId, pollTimeoutMs + 1);
 				manager.prune();
-				assert.equal(manager.requests.has(code), false);
+				assert.equal(manager.records.has(code), false);
 				assert.deepEqual(updates, [{ code, isDeleted: false }, { code, isDeleted: true }]);
 				assertPairingError(() => manager.poll(requestId), 404);
 				assert.throws(() => manager.reject(code, "admin"), lib.NotFoundError);
@@ -472,22 +418,31 @@ describe("controller/src/HostPairingManager", function() {
 				assert.equal(manager.poll(requestId), null);
 				idle(requestId, pollTimeoutMs - 1000);
 				manager.prune();
-				assert(manager.requests.has(code));
+				assert(manager.records.has(code));
 			});
 			it("should expire a request that has been pending for too long", function() {
-				assert.equal(maxPendingMs, 60 * 60e3);
+				const timeoutMs = controller.config.get("controller.host_pairing_timeout") * 1000;
+				assert.equal(timeoutMs, 60 * 60e3);
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				internal(requestId).details.createdAtMs -= maxPendingMs - 1000;
+				internal(requestId).details.createdAtMs -= timeoutMs - 1000;
 				manager.prune();
 				assert.equal(manager.poll(requestId), null);
 				internal(requestId).details.createdAtMs -= 1001;
 				manager.prune();
-				assert.equal(manager.requests.has(code), false);
+				assert.equal(manager.records.has(code), false);
 				assertPairingError(() => manager.poll(requestId), 404);
 			});
-			it("should drop and warn about an approved host never picked up", async function() {
+			it("should not limit how long a request is pending when the timeout is 0", function() {
+				controller.config.set("controller.host_pairing_timeout", 0);
 				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
-				const hostId = await manager.approve(code, undefined, "admin");
+				internal(requestId).details.createdAtMs -= 365 * 24 * 60 * 60e3;
+				manager.prune();
+				assert(manager.records.has(code));
+				assert.equal(manager.poll(requestId), null);
+			});
+			it("should drop and warn about an approved host never picked up", function() {
+				const { requestId, code } = manager.create("Host A", "", "10.0.0.1");
+				const hostId = manager.approve(code, undefined, "admin");
 				idle(requestId, pollTimeoutMs + 1);
 				manager.prune();
 				assertPairingError(() => manager.poll(requestId), 404);
@@ -526,7 +481,7 @@ describe("controller/src/HostPairingManager", function() {
 				assert(event instanceof lib.HostPairingUpdatesEvent);
 				assert.deepEqual(event.updates.map(details => details.code), [code]);
 
-				const lastUpdate = manager.requests.get(code).updatedAtMs;
+				const lastUpdate = manager.records.get(code).updatedAtMs;
 				assert.equal(await controller.handleHostPairingSubscription(
 					new lib.SubscriptionRequest(lib.HostPairingUpdatesEvent.name, true, lastUpdate)
 				), null);

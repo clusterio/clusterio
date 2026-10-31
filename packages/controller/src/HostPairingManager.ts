@@ -14,10 +14,6 @@ const codeLength = 6;
 
 /** Time a request is kept after the last poll from the host */
 export const pollTimeoutMs = 30e3;
-/** Maximum time a request can stay pending */
-export const maxPendingMs = 60 * 60e3;
-/** Maximum number of pending requests in total */
-export const maxPending = 50;
 /** Maximum number of pending requests from one address */
 export const maxPendingPerAddress = 3;
 /** Maximum length of a host name */
@@ -44,16 +40,16 @@ export class HostPairingError extends Error {
 	}
 }
 
-interface PairingRequest {
+type PairingRequest = {
 	/** Secret the host polls with, never shown to users */
 	secret: string,
 	details: lib.HostPairingDetails,
 	/** Address with IPv6 addresses grouped by /64, used for limits */
 	addressKey: string,
 	lastPollMs: number,
-	state: "pending" | "approving" | "approved" | "rejected",
-	result?: HostPairingResult,
-}
+} & (
+	{ state: "pending" | "rejected" } | { state: "approved", result: HostPairingResult }
+);
 
 /**
  * Strips the IPv4 mapped prefix and groups IPv6 addresses by their /64
@@ -105,7 +101,7 @@ function generateCode() {
  */
 export default class HostPairingManager {
 	/** Pending requests by code, broadcast to subscribed control links */
-	requests = new lib.SubscribableDatastore<lib.HostPairingDetails>();
+	records = new lib.SubscribableDatastore<lib.HostPairingDetails>();
 	private _bySecret = new Map<string, PairingRequest>();
 	private _byCode = new Map<string, PairingRequest>();
 	private _pruneInterval?: ReturnType<typeof setInterval>;
@@ -148,28 +144,19 @@ export default class HostPairingManager {
 	/**
 	 * Create an approved host with a new id and token
 	 *
-	 * The host record is saved to disk before this returns.
-	 *
 	 * @param name - Name of the host.
 	 * @returns the id, token and name of the new host.
 	 */
-	async createHost(name: string): Promise<HostPairingResult> {
+	createHost(name: string): HostPairingResult {
 		const hosts = this._controller.hosts;
 		let hostId;
 		do {
 			hostId = crypto.randomInt(1, 2 ** 31);
 		} while (hosts.has(hostId));
 
-		const record = new HostRecord(
+		hosts.set(new HostRecord(
 			hostId, name, "", new Map(), false, "", "", Math.floor(Date.now() / 1000),
-		);
-		hosts.set(record);
-		try {
-			await hosts.save();
-		} catch (err) {
-			hosts.delete(record);
-			throw err;
-		}
+		));
 		return { hostId, token: this._controller.generateHostToken(hostId), name };
 	}
 
@@ -191,7 +178,8 @@ export default class HostPairingManager {
 		if (pendingFromAddress >= maxPendingPerAddress) {
 			throw new HostPairingError("Too many pending requests from this address", 429, 30);
 		}
-		if (this.requests.size >= maxPending) {
+		const maxPending = this._controller.config.get("controller.host_pairing_max_pending");
+		if (maxPending && this.records.size >= maxPending) {
 			throw new HostPairingError("Too many pending requests", 429, 30);
 		}
 
@@ -209,7 +197,7 @@ export default class HostPairingManager {
 		};
 		this._bySecret.set(request.secret, request);
 		this._byCode.set(code, request);
-		this.requests.set(request.details);
+		this.records.set(request.details);
 		logger.verbose(`Host pairing request ${code} for "${name}" from ${remoteAddress}`);
 		return { requestId: request.secret, code };
 	}
@@ -229,7 +217,7 @@ export default class HostPairingManager {
 		request.lastPollMs = Date.now();
 		if (request.state === "approved") {
 			this._remove(request);
-			return request.result!;
+			return request.result;
 		}
 		if (request.state === "rejected") {
 			this._remove(request);
@@ -268,7 +256,7 @@ export default class HostPairingManager {
 	 * @param approvedBy - Name of the user approving it, for logging.
 	 * @returns the id of the new host.
 	 */
-	async approve(code: string, name: string | undefined, approvedBy: string) {
+	approve(code: string, name: string | undefined, approvedBy: string) {
 		const request = this._pending(code);
 		let hostName;
 		try {
@@ -277,18 +265,9 @@ export default class HostPairingManager {
 			throw new lib.ValidationError(err.message);
 		}
 
-		request.state = "approving";
-		let result;
-		try {
-			result = await this.createHost(hostName);
-		} catch (err) {
-			request.state = "pending";
-			throw err;
-		}
-
-		request.state = "approved";
-		request.result = result;
-		this.requests.delete(request.details);
+		const result = this.createHost(hostName);
+		Object.assign(request, { state: "approved", result });
+		this.records.delete(request.details);
 		logger.audit(
 			`User ${approvedBy} approved host ${result.name} (${result.hostId}) with code ` +
 			`${request.details.code} from ${request.details.remoteAddress}`
@@ -305,7 +284,7 @@ export default class HostPairingManager {
 	reject(code: string, rejectedBy: string) {
 		const request = this._pending(code);
 		request.state = "rejected";
-		this.requests.delete(request.details);
+		this.records.delete(request.details);
 		logger.audit(
 			`User ${rejectedBy} rejected host ${request.details.name} with code ` +
 			`${request.details.code} from ${request.details.remoteAddress}`
@@ -315,26 +294,22 @@ export default class HostPairingManager {
 	private _remove(request: PairingRequest) {
 		this._bySecret.delete(request.secret);
 		this._byCode.delete(request.details.code);
-		if (this.requests.has(request.details.code)) {
-			this.requests.delete(request.details);
-		}
+		this.records.delete(request.details);
 	}
 
 	/** Remove requests the host stopped polling for or that waited too long */
 	prune() {
 		const now = Date.now();
+		const timeoutMs = this._controller.config.get("controller.host_pairing_timeout") * 1000;
 		for (const request of this._bySecret.values()) {
-			if (request.state === "approving") {
-				continue;
-			}
-			const expired = now - request.lastPollMs > pollTimeoutMs
-				|| (request.state === "pending" && now - request.details.createdAtMs > maxPendingMs);
-			if (!expired) {
+			const timedOut = request.state === "pending" && timeoutMs > 0
+				&& now - request.details.createdAtMs > timeoutMs;
+			if (!timedOut && now - request.lastPollMs <= pollTimeoutMs) {
 				continue;
 			}
 			if (request.state === "approved") {
 				logger.warn(
-					`Approved host ${request.result!.name} (${request.result!.hostId}) was never picked up ` +
+					`Approved host ${request.result.name} (${request.result.hostId}) was never picked up ` +
 					"by the host, revoke it on the hosts page if it is not needed"
 				);
 			}

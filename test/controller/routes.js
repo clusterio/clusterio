@@ -254,7 +254,7 @@ describe("controller/src/routes", function() {
 		}
 
 		function assertNothingCreated() {
-			assert.equal(controller.hostPairing.requests.size, 0, "a pending request was created");
+			assert.equal(controller.hostPairing.records.size, 0, "a pending request was created");
 			assert.equal(controller.hosts.size, 0, "a host was created");
 		}
 
@@ -267,7 +267,7 @@ describe("controller/src/routes", function() {
 				assert.deepEqual(Object.keys(body).sort(), ["code", "requestId"]);
 				assert.match(body.code, /^[2-9A-HJKMNP-Z]{3}-[2-9A-HJKMNP-Z]{3}$/);
 
-				const details = controller.hostPairing.requests.get(body.code);
+				const details = controller.hostPairing.records.get(body.code);
 				assert.equal(details.name, "Host A");
 				assert.equal(details.version, "2.0.0");
 				assert.match(details.remoteAddress, /127\.0\.0\.1|::1/);
@@ -275,12 +275,12 @@ describe("controller/src/routes", function() {
 			});
 			it("should trim the name and limit the version", async function() {
 				let { code } = await (await post("", { name: "  Host A ", version: "x".repeat(100) })).json();
-				let details = controller.hostPairing.requests.get(code);
+				let details = controller.hostPairing.records.get(code);
 				assert.equal(details.name, "Host A");
 				assert.equal(details.version, "x".repeat(64));
 
 				({ code } = await (await post("", { name: "Host B", version: 5 })).json());
-				details = controller.hostPairing.requests.get(code);
+				details = controller.hostPairing.records.get(code);
 				assert.equal(details.version, "");
 			});
 			it("should respond with 400 for a missing or invalid name", async function() {
@@ -316,7 +316,7 @@ describe("controller/src/routes", function() {
 				const response = await post("", { name: "Host A" });
 				assert.equal(response.headers.get("retry-after"), "30");
 				await assertResponse(response, 429, { error: "Too many pending requests from this address" });
-				assert.equal(controller.hostPairing.requests.size, 3);
+				assert.equal(controller.hostPairing.records.size, 3);
 			});
 			it("should respond with 503 in recovery mode", async function() {
 				controller.recoveryMode = true;
@@ -344,7 +344,7 @@ describe("controller/src/routes", function() {
 					assert.equal(payload.host, body.hostId);
 				}
 				assert.equal(controller.hosts.size, 3);
-				assert.equal(controller.hostPairing.requests.size, 0, "a pending request was created");
+				assert.equal(controller.hostPairing.records.size, 0, "a pending request was created");
 			});
 			it("should validate the name before approving directly", async function() {
 				await assertResponse(
@@ -393,7 +393,7 @@ describe("controller/src/routes", function() {
 			});
 			it("should hand over the result of an approved request once", async function() {
 				const { requestId, code } = await createRequest();
-				const hostId = await controller.hostPairing.approve(code, "Renamed", "test");
+				const hostId = controller.hostPairing.approve(code, "Renamed", "test");
 
 				const response = await post("/poll", { requestId });
 				assert.equal(response.status, 200);
@@ -438,14 +438,14 @@ describe("controller/src/routes", function() {
 			it("should cancel a pending request", async function() {
 				const { requestId, code } = await createRequest();
 				await assertResponse(await post("/cancel", { requestId }), 204);
-				assert.equal(controller.hostPairing.requests.has(code), false);
+				assert.equal(controller.hostPairing.records.has(code), false);
 				await assertResponse(await post("/poll", { requestId }), 404, { error: "Request not found" });
 			});
 			it("should respond with 204 for an unknown request", async function() {
 				const { code } = await createRequest();
 				await assertResponse(await post("/cancel", { requestId: "invalid" }), 204);
 				await assertResponse(await post("/cancel", { requestId: code }), 204);
-				assert(controller.hostPairing.requests.has(code), "cancelled by the code");
+				assert(controller.hostPairing.records.has(code), "cancelled by the code");
 			});
 		});
 
@@ -470,7 +470,7 @@ describe("controller/src/routes", function() {
 
 		describe("GET /api/host-pairing/check", function() {
 			it("should respond with 200 for a valid host token", async function() {
-				const { hostId, token } = await controller.hostPairing.createHost("Host A");
+				const { hostId, token } = controller.hostPairing.createHost("Host A");
 				for (const headers of [
 					{ "Authorization": `Bearer ${token}` },
 					{ "X-Access-Token": token },
@@ -480,18 +480,18 @@ describe("controller/src/routes", function() {
 				assert(controller.hosts.has(hostId));
 			});
 			it("should respond with 200 for a host token from before the slave rename", async function() {
-				const { hostId } = await controller.hostPairing.createHost("Host A");
+				const { hostId } = controller.hostPairing.createHost("Host A");
 				const token = jwt.sign({ aud: "slave", slave: hostId }, controller.authSecret);
 				await assertResponse(await check({ "Authorization": `Bearer ${token}` }), 200, { valid: true });
 			});
 			it("should respond with 401 without a valid host token", async function() {
-				await controller.hostPairing.createHost("Host A");
+				controller.hostPairing.createHost("Host A");
 				assert.equal((await check({})).status, 401);
 				assert.equal((await check({ "Authorization": "Bearer invalid" })).status, 401);
 				assert.equal((await check({ "Authorization": `Bearer ${adminToken}` })).status, 401);
 			});
 			it("should respond with 401 once the host is revoked", async function() {
-				const { hostId, token } = await controller.hostPairing.createHost("Host A");
+				const { hostId, token } = controller.hostPairing.createHost("Host A");
 				await assertResponse(await check({ "Authorization": `Bearer ${token}` }), 200, { valid: true });
 				controller.hosts.delete(controller.hosts.get(hostId));
 				assert.equal((await check({ "Authorization": `Bearer ${token}` })).status, 401);

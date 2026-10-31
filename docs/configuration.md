@@ -48,6 +48,23 @@ Must be greater than 0.
 Defaults to 60.
 
 
+### controller.host_pairing_timeout
+
+Time in seconds a host can wait for approval before its request expires, after which the host requests again with a new code.
+Set to 0 for no limit.
+
+Defaults to 3600.
+
+
+### controller.host_pairing_max_pending
+
+Maximum number of hosts that can wait for approval at the same time.
+Hosts over the limit keep trying until there is room.
+Set to 0 for no limit.
+
+Defaults to 50.
+
+
 ### controller.http_port
 
 Port to host HTTP server on.
@@ -369,7 +386,7 @@ Defaults to "http://localhost:8080/".
 Access token used for authenticating with the controller.
 The host saves it together with host.id when it is approved, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
 The token only works while the host exists on the controller, if the host is revoked it asks to be approved again the next time it starts.
-Set it to `enter token here` to make the host ask to join again, for example after changing host.controller_url to another controller.
+Set it to `enter token here` to make the host ask to join again.
 The value can only be read and changed from the host itself.
 
 Defaults to "enter token here".

@@ -132,8 +132,9 @@ Lists up all configuration entries with their currently configured values.
 ### `run`
 
 Runs the host.
-The host has to be approved on the controller before it can connect, which is done by running the installer in the host directory, see Setting up remote hosts in the readme of the main repository.
-If the controller rejects the token of the host when it starts, for example because the host was revoked, it exits with code 8 and the run scripts created by the installer do not restart it.
+A host that has not been approved prints a code and a link and waits for approval before it connects, see [Setting up a host](https://github.com/clusterio/clusterio/blob/master/packages/create/README.md#setting-up-a-host).
+If the controller no longer accepts the token of the host when it starts, for example because the host was revoked, it asks to be approved again.
+If its request is rejected it exits with code 8 and the run scripts created by the installer do not restart it.
 A host that is revoked while it runs shuts down.
 
 

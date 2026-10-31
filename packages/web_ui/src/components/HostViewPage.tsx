@@ -104,16 +104,11 @@ function RevokeHostButton({ host, instances }: RevokeHostButtonProps) {
 	const navigate = useNavigate();
 	const assigned = [...instances.values()].map(instance => instance.name);
 
-	if (assigned.length) {
-		return <Tooltip title={`Unassign or delete the instances on this host first: ${assigned.join(", ")}`}>
-			<Button danger disabled>Revoke host access</Button>
-		</Tooltip>;
-	}
-
 	return <Popconfirm
 		title={`Revoke access for ${host.name}?`}
 		description={<>
 			The host is removed from the cluster and disconnected.<br />
+			{assigned.length > 0 && <>Its instances become unassigned: {assigned.join(", ")}<br /></>}
 			To add it back, start the host again and approve it.
 		</>}
 		placement="bottomRight"

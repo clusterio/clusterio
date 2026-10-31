@@ -20,7 +20,6 @@ The installer runs without prompts when all the questions for the mode are answe
 ## Modes
 
 - `standalone`: controller and host on this computer. The host is approved like any other host the first time it starts.
-  The host is added to the controller directly and does not need to be approved.
 - `controller`: controller only.
 - `host`: host only, joins the cluster of an existing controller, see [Setting up a host](#setting-up-a-host).
 - `ctl`: the clusterioctl command line interface only.
@@ -33,20 +32,23 @@ The installer runs without prompts when all the questions for the mode are answe
 | Option | Modes | Description |
 | --- | --- | --- |
 | `--mode <mode>` | all | Operating mode to install. |
-| `--admin <name>` | standalone, controller | Name of the admin account to create. |
-| `--http-port <port>` | standalone, controller | Port the controller web interface listens on, defaults to 8080. |
+| `--admin <name>` | controller | Name of the admin account to create. |
+| `--http-port <port>` | controller | Port the controller web interface listens on, defaults to 8080. |
 | `--host-name <name>` | host | Name to request for the host, defaults to the name of the computer. |
 | `--controller-url <url>` | host, ctl | URL of the controller, the same as for its web interface. |
 | `--controller-token <token>` | ctl | Authentication token saved for clusterioctl. |
-| `--public-address <address>` | standalone, host | DNS name or IP address players connect to this computer with. |
-| `--factorio-dir <path>` | standalone, host | Path to the Factorio installation. |
-| `--self-signed-cert <path>` | standalone, host | Certificate to trust for a controller using a self-signed certificate. It is added to the run scripts. |
-| `--remote-npm`, `--no-remote-npm` | standalone, controller, host | Allow or deny remote updates, plugin updates and plugin installs from the web interface. |
+| `--public-address <address>` | host | DNS name or IP address players connect to this computer with. |
+| `--factorio-dir <path>` | host | Path to the Factorio installation. |
+| `--self-signed-cert <path>` | host | Certificate to trust for a controller using a self-signed certificate. It is added to the run scripts. |
+| `--remote-npm`, `--no-remote-npm` | controller, host | Allow or deny remote updates, plugin updates and plugin installs from the web interface. |
 | `--plugins <package...>` | all | Plugins to install, pass `--plugins` without packages to install none. |
 | `--plugin-template <template...>`, `--plugin-name <name>` | plugin-template | Templates to use and name of the new plugin. |
 | `--log-level <level>` | all | Log level to print, defaults to info. |
 | `--allow-install-as-root` | all | Linux only, allow installing as root (not recommended). |
 | `--migrate-rename` | | Migrate an installation from before the slave/master rename. |
+
+Options for the `controller` and `host` modes also work in the `standalone` mode, except for `--controller-url` as the host connects to the controller on the same computer.
+`--host-name` defaults to `local` in the `standalone` mode.
 
 
 ## Setting up a host
@@ -84,8 +86,8 @@ The installer adds it to the run scripts.
 When a host is revoked in the web interface or with `npx clusterioctl host revoke <host>` its token stops working and a running host shuts down.
 Starting it again requests to join the cluster again, and the host gets a new id once approved.
 
-To move a host to another controller, change `host.controller_url` with `npx clusteriohost config set host.controller_url <url>` and set `host.controller_token` back to `enter token here`.
-The host then requests to join that controller the next time it starts.
+To move a host to another controller, change `host.controller_url` with `npx clusteriohost config set host.controller_url <url>`.
+The new controller does not accept the token of the host, so the host requests to join it the next time it starts.
 
 
 ## Docker

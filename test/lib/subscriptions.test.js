@@ -1250,6 +1250,36 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe("permitted", function() {
+			let permitted;
+			let subscriber;
+
+			beforeEach(function() {
+				mockControl = new MockControl(new MockConnector(addr({ controlId: 0 }), addr("controller")));
+				permitted = false;
+				subscriber = new lib.EventSubscriber(RegisteredEvent, mockControl, undefined, () => permitted);
+			});
+
+			it("should send nothing while not permitted", async function() {
+				subscriber.subscribe(() => {});
+				mockControl.connector.emit("connect");
+				subscriber.handleConnectionEvent("resume");
+				subscriber.handleAccountEvent();
+				await new Promise(r => setImmediate(r));
+				assertNoMessageSent();
+			});
+
+			it("should subscribe when the account becomes permitted", async function() {
+				subscriber.subscribe(() => {});
+				permitted = true;
+				subscriber.handleAccountEvent();
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
+				));
+			});
+		});
+
 		describe(".handleAccountEvent()", function() {
 			it("should send replace(all) if subscribed", async function() {
 				eventSubscriber.subscribe(() => {});

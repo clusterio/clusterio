@@ -256,7 +256,7 @@ function checkHostPairingRequest(req: Request, res: Response, needsRequestId: bo
 }
 
 // Request from a host for a host to join the cluster.
-async function createHostPairing(req: Request, res: Response) {
+function createHostPairing(req: Request, res: Response) {
 	if (!checkHostPairingRequest(req, res, false)) {
 		return;
 	}
@@ -279,10 +279,13 @@ async function createHostPairing(req: Request, res: Response) {
 			try {
 				user.checkPermission("core.host.approve");
 			} catch (err) {
+				logger.audit(
+					`User ${user.name} tried to approve host ${name} from ${remoteAddress} without permission`
+				);
 				res.status(403).json({ error: `User ${user.name} is not allowed to approve hosts` });
 				return;
 			}
-			const result = await controller.hostPairing.createHost(name);
+			const result = controller.hostPairing.createHost(name);
 			logger.audit(
 				`User ${user.name} approved host ${result.name} (${result.hostId}) from ${remoteAddress} ` +
 				"with their token"
@@ -783,10 +786,7 @@ export function addRouteHandlers(app: Application) {
 		next();
 	};
 	const pairingJson = express.json({ limit: "4kb" });
-	app.post("/api/host-pairing",
-		noStore, pairingJson,
-		(req:Request, res:Response, next:any) => createHostPairing(req, res).catch(next)
-	);
+	app.post("/api/host-pairing", noStore, pairingJson, createHostPairing);
 	app.post("/api/host-pairing/poll", noStore, pairingJson, pollHostPairing);
 	app.post("/api/host-pairing/cancel", noStore, pairingJson, cancelHostPairing);
 	app.get("/api/host-pairing/check", noStore, validateHostToken, (req: Request, res: Response) => {

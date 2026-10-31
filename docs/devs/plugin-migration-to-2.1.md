@@ -69,7 +69,7 @@ A host joins the cluster by having the code it shows when it first starts approv
 - `HostGenerateTokenRequest` and `HostConfigCreateRequest` are removed.
   Pending requests are listed with `HostPairingListRequest`, approved with `HostPairingApproveRequest` and rejected with `HostPairingRejectRequest`, and changes to them are sent to subscribers of `HostPairingUpdatesEvent`.
 - `HostRevokeTokensRequest` is replaced by `HostRevokeRequest`, which deletes the host instead of only invalidating its tokens.
-  It throws `ConflictError` while instances are assigned to the host.
+  Instances assigned to the host become unassigned.
 - The permissions `core.host.generate_token`, `core.host.revoke_token` and `core.host.create_config` are removed.
   Check `core.host.approve` and `core.host.revoke` instead.
 - `clusteriocontroller bootstrap generate-host-token` is removed, scripts that set up hosts can start the host with `--user-token` to approve it with a user token.
@@ -78,4 +78,4 @@ Host records are no longer created when a host connects, only by approving it, a
 Revoking a host deletes its record and note.
 Plugins that keep data per host should remove it when the host is deleted.
 On the controller the `update` event of `controller.hosts` gives the record with `isDeleted` set to true, and subscribers of `HostUpdatesEvent` receive the host with `isDeleted` set to true.
-A host that is revoked and installed again gets a new id.
+A host that is revoked and approved again gets a new id.

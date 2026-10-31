@@ -851,7 +851,7 @@ describe("Integration of Clusterio", function() {
 				assert(!notes.some(note => note.id === `host/${pairing.hostId}`), "Note of the host was not removed");
 			});
 
-			it("should refuse while instances are assigned to the host", async function() {
+			it("should unassign the instances of the host", async function() {
 				const pairing = await pairTestHost("assigned-host");
 				// Instances can only be assigned to connected hosts, a link that accepts the assignment is enough.
 				const connector = new TestHostConnector(url, 0.2);
@@ -863,19 +863,17 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance create revoke-assigned --id 45");
 				try {
 					await execCtl(`instance assign revoke-assigned ${pairing.hostId}`);
-					await assert.rejects(
-						execCtl(`host revoke ${pairing.hostId}`),
-						/Cannot revoke host assigned-host while instances are assigned to it: revoke-assigned/,
-					);
+					connector.setClosing(); // Stops it from reconnecting after being revoked
+					await execCtl(`host revoke ${pairing.hostId}`);
+
+					const hosts = await getControl().send(new lib.HostListRequest());
+					assert(!hosts.some(host => host.id === pairing.hostId), "Host was not removed");
+					const instance = await getControl().send(new lib.InstanceDetailsGetRequest(45));
+					assert.equal(instance.assignedHost, undefined);
+					assert.equal(instance.status, "unassigned");
 				} finally {
-					await connector.disconnect();
-					await execCtl("instance assign revoke-assigned");
 					await execCtl("instance delete revoke-assigned");
 				}
-
-				await execCtl(`host revoke ${pairing.hostId}`);
-				const hosts = await getControl().send(new lib.HostListRequest());
-				assert(!hosts.some(host => host.id === pairing.hostId), "Host was not removed");
 			});
 
 			it("should stop a running host and have it ask to join again when started", async function() {

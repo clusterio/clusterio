@@ -183,7 +183,7 @@ export abstract class Datastore<
 	// Save the datastore to the provider
 	async save() {
 		// Saves run one at a time so an older snapshot can't be written after a newer one.
-		const save = this.saving.then(async () => {
+		const save = this.saving.catch(() => {}).then(async () => {
 			if (!this.dirty) {
 				return;
 			}
@@ -196,7 +196,7 @@ export abstract class Datastore<
 				throw err;
 			}
 		});
-		this.saving = save.catch(() => {});
+		this.saving = save;
 		await save;
 	}
 

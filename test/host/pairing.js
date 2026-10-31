@@ -162,6 +162,22 @@ describe("host/src/pairing", function() {
 			stub = await startStub();
 		});
 
+		it("keeps polling while the controller is busy", async function() {
+			const handler = approveAfter(0);
+			let busy = 2;
+			stub.handler = entry => {
+				if (entry.url === "/api/host-pairing/poll" && busy > 0) {
+					busy -= 1;
+					return [503, { error: "Recovery mode" }];
+				}
+				return handler(entry);
+			};
+			const retries = [];
+			const result = await pair({ onRetry: err => { retries.push(err.message); } });
+			assert.deepEqual(result, approved);
+			assert.deepEqual(retries, ["Recovery mode", "Recovery mode"]);
+		});
+
 		it("throws when the request is rejected", async function() {
 			const handler = approveAfter(Infinity);
 			stub.handler = entry => (entry.url === "/api/host-pairing/poll" && stub.requests.length > 2
@@ -248,8 +264,17 @@ describe("host/src/pairing", function() {
 		it("waits for approval and saves the host when not paired", async function() {
 			this.timeout(5000); // Polls at the default interval of 2 seconds
 			stub.handler = approveAfter(0);
-			await ensurePaired(config, { version: "2.1.0" });
+			const warnings = [];
+			const originalWarn = lib.logger.warn;
+			lib.logger.warn = message => { warnings.push(message); };
+			try {
+				await ensurePaired(config, { version: "2.1.0" });
+			} finally {
+				lib.logger.warn = originalWarn;
+			}
 			assert.deepEqual(stub.requests[0].body, { name: "My Host", version: "2.1.0" });
+			// The systemd service created by the installer only prints warnings and above.
+			assert(warnings.includes(`${stub.url}hosts?approve=ABC-DE1`), "approval link is not a warning");
 			const saved = await savedConfig();
 			assert.equal(saved["host.id"], 1234);
 			assert.equal(saved["host.name"], "Approved");
@@ -282,6 +307,20 @@ describe("host/src/pairing", function() {
 			assert.equal(saved["host.id"], 5);
 			assert.equal(saved["host.controller_token"], "new-token");
 			assert(!JSON.stringify(saved).includes("user-token"), "user token must not be saved");
+		});
+
+		it("stops when aborted while checking the saved token", async function() {
+			config.set("host.controller_token", "some-token");
+			const abort = new AbortController();
+			stub.handler = () => {
+				abort.abort();
+				return new Promise(() => {});
+			};
+			await assert.rejects(
+				ensurePaired(config, { version: "2.1.0", signal: abort.signal }),
+				{ name: "AbortError" },
+			);
+			assert.equal(config.get("host.controller_token"), "some-token");
 		});
 
 		it("keeps the saved token when it can't be checked", async function() {

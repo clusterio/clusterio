@@ -61,7 +61,7 @@ If a user token is sent and the user has the `core.host.approve` permission the 
 An invalid token gives 401 and a user without the permission gives 403, a token is never ignored to create a pending request instead.
 
 A missing or too long name gives 400.
-Too many pending requests from the same address or in total gives 429 with a `Retry-After` header in seconds.
+Too many pending requests from the same address, or in total as set by [controller.host_pairing_max_pending](/docs/configuration.md#controllerhost_pairing_max_pending), gives 429 with a `Retry-After` header in seconds.
 
 ### `POST /api/host-pairing/poll`
 
@@ -72,7 +72,7 @@ Once approved it responds with 200 and `{"hostId": integer, "token": string, "na
 Rejected requests give 403, and unknown or expired requests give 404.
 The result of an approved or rejected request is only returned once, after which the request is gone.
 
-A pending request expires 30 seconds after it was last polled, and after an hour of waiting.
+A pending request expires 30 seconds after it was last polled, and after waiting for the time set by [controller.host_pairing_timeout](/docs/configuration.md#controllerhost_pairing_timeout).
 The host polls every 2 seconds, and makes a new request when the previous one has expired.
 
 ### `POST /api/host-pairing/cancel`
@@ -177,8 +177,8 @@ Host handshake for establishing a new connection session.
     Object mapping plugin names to plugin version for plugins that are available on the host.
 
 The controller closes the connection with code 3000 (Unauthorized) if the token is invalid, was issued for another id, or if there is no host with this id, see [Host pairing](#host-pairing).
-If this happens when the host starts it exits with code 8, and the run scripts created by the installer do not restart it.
-A host that has been rejected also exits with code 8.
+The host checks its token before connecting and requests to join again if it is not accepted, so this normally only happens to a host that is already running.
+A host that has been rejected exits with code 8, and the run scripts created by the installer do not restart it.
 A host that is revoked while connected is disconnected, is rejected when it tries to connect again, and shuts down.
 
 #### `registerControl`

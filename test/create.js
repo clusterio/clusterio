@@ -179,7 +179,6 @@ describe("create installer CLI", function() {
 		it("writes the host config and leaves joining the cluster to the host", async function() {
 			const { stdout } = await run(hostArgs());
 			assert.match(stdout, /Successfully installed host/);
-			assert.match(stdout, /Start the host with run-host/);
 
 			const recorded = await commands();
 			assert.match(recorded[0], /^npm(?:\.cmd)? install @clusterio\/host$/);
@@ -208,7 +207,6 @@ describe("create installer CLI", function() {
 				"--factorio-dir", "factorio", "--remote-npm", "--plugins",
 			]);
 			assert.match(stdout, /Successfully installed standalone/);
-			assert.match(stdout, /Start the host with run-host/);
 
 			const recorded = await commands();
 			for (const expected of [
@@ -224,6 +222,15 @@ describe("create installer CLI", function() {
 				assert(recorded.includes(expected), `missing ${expected}`);
 			}
 			assert(!recorded.some(command => command.includes("host.controller_token")));
+		});
+
+		it("uses the host name given for a standalone install", async function() {
+			await fs.writeFile(path.join(directory, "config-controller.json"), "{}");
+			await run([
+				"--mode", "standalone", "--admin", "admin", "--http-port", "8123", "--public-address", "localhost",
+				"--factorio-dir", "factorio", "--remote-npm", "--plugins", "--host-name", "Test Host",
+			]);
+			assert((await commands()).includes(hostSet("host.name", "Test Host")));
 		});
 	});
 });

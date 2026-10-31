@@ -161,6 +161,9 @@ async function execCtl(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
 
+// Same characters as the controller refuses in host names.
+const hostNameControlCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
+
 function validateHostName(input) {
 	if (!input || !input.trim()) {
 		return "Host name may not be empty";
@@ -173,9 +176,6 @@ function validateHostName(input) {
 	}
 	return true;
 }
-
-// Same characters as the controller refuses in host names.
-const hostNameControlCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
 
 function validateControllerUrl(input) {
 	let url;
@@ -594,6 +594,14 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
+	if (answers.mode === "standalone") {
+		answers.hostName = args.hostName ?? "local";
+		const result = validateHostName(answers.hostName);
+		if (result !== true) {
+			throw new InstallError(result);
+		}
+	}
+
 	if (answers.mode === "host") {
 		if (args.hostName) { answers.hostName = args.hostName; }
 		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
@@ -783,7 +791,7 @@ async function main() {
 			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
 		})
 		.option("host-name", {
-			nargs: 1, describe: "Host name [host]", type: "string",
+			nargs: 1, describe: "Host name [standalone/host]", type: "string",
 		})
 		.option("controller-url", {
 			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
@@ -869,7 +877,6 @@ async function main() {
 
 	if (answers.mode === "standalone") {
 		// Default to localhost on correct port for host in standalone mode
-		answers.hostName = "local";
 		answers.controllerUrl = `http://localhost:${answers.httpPort}/`;
 	}
 
@@ -895,12 +902,6 @@ async function main() {
 
 	/* eslint-disable no-console */
 	console.log(`Successfully installed ${answers.mode}`);
-	if (["standalone", "host"].includes(answers.mode)) {
-		console.log(
-			`Start the host with run-host${process.platform === "win32" ? ".cmd" : ".sh"}, then approve it on the ` +
-			`Hosts page of ${answers.controllerUrl}`
-		);
-	}
 	if (adminToken) {
 		console.log(`Admin authentication token: ${adminToken}`);
 	}

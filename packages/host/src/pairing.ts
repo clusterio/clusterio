@@ -111,10 +111,14 @@ function retryDelay(response: Response, defaultMs: number) {
  *
  * @returns the result if approved, or null if the controller no longer knows the request.
  */
-async function poll(requestId: string, options: Required<Pick<PairHostOptions, "pollIntervalMs">> & PairHostOptions) {
-	let failing = false;
+async function poll(
+	requestId: string,
+	options: Required<Pick<PairHostOptions, "pollIntervalMs" | "retryDelayMs">> & PairHostOptions,
+) {
+	let delayMs = options.pollIntervalMs;
 	while (true) {
-		await sleep(options.pollIntervalMs, undefined, { signal: options.signal });
+		await sleep(delayMs, undefined, { signal: options.signal });
+		delayMs = options.pollIntervalMs;
 		let response;
 		try {
 			response = await request(options.controllerUrl, "api/host-pairing/poll", {
@@ -125,20 +129,22 @@ async function poll(requestId: string, options: Required<Pick<PairHostOptions, "
 				throw err;
 			}
 			// Keep polling through network errors, the request is made again if it expired meanwhile.
-			if (!failing) {
-				options.onRetry?.(err, options.pollIntervalMs);
-				failing = true;
-			}
+			delayMs = options.retryDelayMs;
+			options.onRetry?.(err, delayMs);
 			continue;
 		}
-		failing = false;
 		if (response.status === 200) {
 			return pairingResult(response);
 		}
 		if (response.status === 404) {
 			return null;
 		}
-		if (response.status !== 202 && !isTemporary(response.status)) {
+		if (isTemporary(response.status)) {
+			delayMs = retryDelay(response, options.retryDelayMs);
+			options.onRetry?.(responseError(response), delayMs);
+			continue;
+		}
+		if (response.status !== 202) {
 			throw responseError(response);
 		}
 	}
@@ -221,11 +227,12 @@ export async function pairHost(options: PairHostOptions): Promise<PairingResult>
  *
  * @param controllerUrl - URL of the controller, ending with a slash.
  * @param token - Host token to check.
+ * @param signal - Signal to cancel the check with.
  * @returns true if the token is valid and its host is registered.
  * @throws {PairingError} if the controller gives an unexpected response.
  */
-export async function checkHostToken(controllerUrl: string, token: string) {
-	const response = await request(controllerUrl, "api/host-pairing/check", { token });
+export async function checkHostToken(controllerUrl: string, token: string, signal?: AbortSignal) {
+	const response = await request(controllerUrl, "api/host-pairing/check", { token, signal });
 	if (response.status === 200) {
 		return true;
 	}
@@ -254,8 +261,11 @@ export async function ensurePaired(
 	if (token && token !== unpairedToken) {
 		let valid;
 		try {
-			valid = await checkHostToken(controllerUrl, token);
+			valid = await checkHostToken(controllerUrl, token, options.signal);
 		} catch (err: any) {
+			if (options.signal?.aborted) {
+				throw err;
+			}
 			// Connecting reports the problem, or authenticates if the controller predates pairing.
 			logger.verbose(`Unable to check if the controller accepts this host: ${err.message}`);
 			return;
@@ -276,10 +286,11 @@ export async function ensurePaired(
 		signal: options.signal,
 		onPending: code => {
 			const approveUrl = new URL(`hosts?approve=${code}`, controllerUrl).href;
+			// Logged as warnings for the systemd service, which only prints warnings and above.
 			// The link is logged on its own so terminals can make it clickable without it wrapping.
-			logger.info(`Waiting for approval of "${name}" with code ${code}, open this link to approve it:`);
-			logger.info(approveUrl);
-			logger.info(`Or run: npx clusterioctl host approve ${code}`);
+			logger.warn(`Waiting for approval of "${name}" with code ${code}, open this link to approve it:`);
+			logger.warn(approveUrl);
+			logger.warn(`Or run: npx clusterioctl host approve ${code}`);
 		},
 		onRetry: (err, delayMs) => {
 			logger.warn(`Requesting to join failed: ${err.message}, trying again in ${Math.ceil(delayMs / 1000)}s`);

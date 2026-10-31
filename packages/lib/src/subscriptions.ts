@@ -480,6 +480,8 @@ export class EventSubscriber<E, S = null> {
 		protected Event: EventClass<E>,
 		public control: Link,
 		protected filteredHandler?: EventSubscriberCallback<E>,
+		/** Nothing is sent to the controller while this returns false, for accounts without permission */
+		protected permitted: () => boolean = () => true,
 	) {
 		control.handle(Event, this._handleEvent.bind(this));
 		// The events below exist only on websocket connectors, we can't early return because of test mocking
@@ -670,7 +672,7 @@ export class EventSubscriber<E, S = null> {
 	 * Update the subscription with the controller based on current handler counts
 	 */
 	private async _sendRequest(action: SubscriptionAction, filters: SubscriptionFilters) {
-		if (!this.control.connector.valid) {
+		if (!this.control.connector.valid || !this.permitted()) {
 			return;
 		}
 

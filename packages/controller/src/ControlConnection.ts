@@ -255,26 +255,25 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.NotFoundError(`Unknown host id (${request.hostId})`);
 		}
 
-		const assigned = [...this._controller.instances.values()].filter(
-			instance => instance.config.get("instance.assigned_host") === request.hostId
-		);
-		if (assigned.length) {
-			const names = assigned.map(instance => instance.config.get("instance.name")).join(", ");
-			throw new lib.ConflictError(
-				`Cannot revoke host ${host.name} while instances are assigned to it: ${names}`
-			);
-		}
-
 		this._controller.hosts.delete(host);
 		this._controller.deleteNote("host", request.hostId, this.user.name);
+		const system = this._controller.systems.getMutable(request.hostId);
+		if (system) {
+			this._controller.systems.delete(system);
+		}
 
-		// Disconnect before saving so the host is cut off even if the save fails.
+		// Disconnected first so unassigning the instances does not depend on the host responding.
 		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
 		if (hostConnection) {
 			hostConnection.connector.terminate();
 		}
+		const assigned = [...this._controller.instances.values()].filter(
+			instance => instance.config.get("instance.assigned_host") === request.hostId
+		);
+		for (const instance of assigned) {
+			await this._controller.instances.unassignInstance(instance.id);
+		}
 		logger.audit(`User ${this.user.name} revoked host ${host.name} (${host.id})`);
-		await this._controller.hosts.save();
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
@@ -283,11 +282,11 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleHostPairingListRequest(): Promise<lib.HostPairingDetails[]> {
 		this._controller.hostPairing.prune();
-		return [...this._controller.hostPairing.requests.values()];
+		return [...this._controller.hostPairing.records.values()];
 	}
 
 	async handleHostPairingApproveRequest(request: lib.HostPairingApproveRequest) {
-		return await this._controller.hostPairing.approve(request.code, request.name, this.user.name);
+		return this._controller.hostPairing.approve(request.code, request.name, this.user.name);
 	}
 
 	async handleHostPairingRejectRequest(request: lib.HostPairingRejectRequest) {

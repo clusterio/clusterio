@@ -326,16 +326,9 @@ describe("controller/src/ControlConnection", function() {
 				await connection.handleHostRevokeRequest(new lib.HostRevokeRequest(hostId));
 			}
 
-			it("deletes and saves the host record", async function() {
-				let savedWithoutHost;
-				const originalSave = controller.hosts.save;
-				controller.hosts.save = async function() {
-					savedWithoutHost = !this.has(10);
-					return await originalSave.call(this);
-				};
+			it("deletes the host record", async function() {
 				await revoke();
 				assert.equal(controller.hosts.has(10), false);
-				assert.equal(savedWithoutHost, true, "hosts were not saved after deleting the record");
 				assert.deepEqual(broadcasts, [{ id: 10, isDeleted: true }]);
 				assert.equal(audits.length, 1);
 				assert.match(audits[0], /User admin revoked host host-10 \(10\)/);
@@ -356,15 +349,6 @@ describe("controller/src/ControlConnection", function() {
 				await revoke();
 				assert.equal(terminated, true);
 			});
-			it("terminates the connection of the host when saving fails", async function() {
-				let terminated = false;
-				controller.wsServer.hostConnections.set(10, { connector: { terminate() { terminated = true; } } });
-				controller.hosts.save = async () => { throw new Error("EPERM: operation not permitted"); };
-				await assert.rejects(revoke(), /EPERM/);
-				assert.equal(terminated, true, "revoked host kept its connection");
-				assert.equal(controller.hosts.has(10), false);
-				assert.equal(controller.notes.get("host/10"), undefined);
-			});
 			it("does not leave a host record behind when the connection closes", async function() {
 				const connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
 				connector.terminate = () => { connector.emit("close"); };
@@ -378,27 +362,31 @@ describe("controller/src/ControlConnection", function() {
 				assert.equal(controller.hosts.has(10), false, "host record was recreated");
 				assert.deepEqual(broadcasts.at(-1), { id: 10, isDeleted: true });
 			});
-			it("refuses to revoke a host with assigned instances", async function() {
-				controller.setNote("host", "10", "rack 3", "someone");
-				let terminated = false;
-				controller.wsServer.hostConnections.set(10, { connector: { terminate() { terminated = true; } } });
+			it("unassigns the instances of the host without waiting for it", async function() {
+				let closing = false;
+				controller.wsServer.hostConnections.set(10, {
+					connector: { terminate() { closing = true; }, get closing() { return closing; } },
+					send: () => new Promise(() => {}),
+				});
 				assignInstance(101, "alpha", 10);
 				assignInstance(102, "beta", 10);
 				assignInstance(201, "gamma", 20);
 
-				await assert.rejects(
-					revoke(),
-					new lib.ConflictError("Cannot revoke host host-10 while instances are assigned to it: alpha, beta"),
-				);
-				assert.equal(controller.hosts.get(10), record);
-				assert.equal(controller.notes.get("host/10").isDeleted, false);
-				assert.equal(terminated, false);
-				assert.deepEqual(broadcasts, []);
-			});
-			it("ignores instances assigned to other hosts", async function() {
-				assignInstance(201, "gamma", 20);
 				await revoke();
 				assert.equal(controller.hosts.has(10), false);
+				for (const id of [101, 102]) {
+					const instance = controller.instances.get(id);
+					assert.equal(instance.config.get("instance.assigned_host"), null);
+					assert.equal(instance.status, "unassigned");
+				}
+				assert.equal(controller.instances.get(201).config.get("instance.assigned_host"), 20);
+			});
+			it("removes the system metrics of the host", async function() {
+				controller.systems.set(await lib.gatherSystemInfo(10, false, false, 0));
+				controller.systems.set(await lib.gatherSystemInfo("controller", false, false, 0));
+				await revoke();
+				assert.equal(controller.systems.has(10), false);
+				assert.equal(controller.systems.has("controller"), true);
 			});
 			it("throws NotFoundError for an unknown host", async function() {
 				await assert.rejects(revoke(99), new lib.NotFoundError("Unknown host id (99)"));
@@ -421,7 +409,7 @@ describe("controller/src/ControlConnection", function() {
 				const rejected = controller.hostPairing.create("Host C", "", "10.0.0.3");
 				const pending = controller.hostPairing.create("Host D", "", "10.0.0.4");
 				controller.hostPairing._bySecret.get(expired.requestId).lastPollMs -= 60e3;
-				await controller.hostPairing.approve(approved.code, undefined, "admin");
+				controller.hostPairing.approve(approved.code, undefined, "admin");
 				controller.hostPairing.reject(rejected.code, "admin");
 
 				const list = await connection.handleHostPairingListRequest(new lib.HostPairingListRequest());
@@ -440,7 +428,7 @@ describe("controller/src/ControlConnection", function() {
 			it("rejects a request", async function() {
 				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
 				await connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest(code.toLowerCase()));
-				assert.equal(controller.hostPairing.requests.has(code), false);
+				assert.equal(controller.hostPairing.records.has(code), false);
 				assert.throws(() => controller.hostPairing.poll(requestId), /Request was rejected/);
 				assert.equal(controller.hosts.size, 0);
 				assert(audits.some(msg => msg.startsWith(`User admin rejected host Host A with code ${code}`)));

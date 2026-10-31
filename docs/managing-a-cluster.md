@@ -17,14 +17,14 @@ The easiest way to do this is to run `npx clusteriocontroller bootstrap create-c
 Lists all hosts.
 
 Hosts are added to the cluster by running the installer on the computer the host runs on and approving the code it shows, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
-Listing, approving and rejecting installers waiting for approval needs the `core.host.approve` permission.
+Listing, approving and rejecting hosts waiting for approval needs the `core.host.approve` permission.
 
 ### List pending hosts
 
     ctl> host pending
 
 Lists hosts waiting for approval with the code they show, the name they asked for, the address they connected from and how long they have been waiting.
-A request goes away when its host stops waiting, and after waiting for an hour, after which the host asks again with a new code.
+A request goes away when its host stops waiting, and after the time set by `controller.host_pairing_timeout`, an hour by default, after which the host asks again with a new code.
 
 ### Approve host
 
@@ -47,7 +47,7 @@ Rejects the host showing the code, the host then exits with an error.
 
 Specify the host by name or ID.
 Removes the host from the cluster, disconnects it and makes its token stop working.
-Instances assigned to the host have to be unassigned first.
+Instances assigned to the host become unassigned, their files stay on the computer.
 Requires the `core.host.revoke` permission.
 To add the computer back to the cluster, start the host again and approve it.
 

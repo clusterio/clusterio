@@ -287,8 +287,8 @@ Only approve a request if its code matches the one shown by the host, approving 
 Approving requires the `core.host.approve` permission, which the Cluster Admin role has.
 If you have that permission you can skip the wait by starting the host with `npx clusteriohost run --user-token <token>` and your own authentication token, it is only used to approve the host and is not saved.
 
-To remove a host from the cluster, unassign its instances and click Revoke host access on the page for the host in the web interface, or run `npx clusterioctl host revoke <host>`.
-This disconnects the host and its saved connection details stop working.
+To remove a host from the cluster, click Revoke host access on the page for the host in the web interface, or run `npx clusterioctl host revoke <host>`.
+This disconnects the host, its instances become unassigned and its saved connection details stop working.
 To add the computer back to the cluster start the host again, it asks for approval again.
 
 

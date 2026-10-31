@@ -12,13 +12,11 @@ const addr = lib.Address.fromShorthand;
 describe("web_ui/util/host_pairing", function() {
 	describe("class HostPairingSubscriber", function() {
 		let mockControl;
-		let permitted;
 		let subscriber;
 
 		beforeEach(function() {
 			mockControl = new MockControl(new MockConnector(addr({ controlId: 0 }), addr("controller")));
-			permitted = true;
-			subscriber = new HostPairingSubscriber(mockControl, () => permitted);
+			subscriber = new HostPairingSubscriber(mockControl, () => true);
 		});
 
 		function pairing(code, updatedAtMs) {
@@ -32,65 +30,6 @@ describe("web_ui/util/host_pairing", function() {
 		function sentRequests() {
 			return mockControl.connector.sentMessages.filter(message => message.name === "SubscriptionRequest");
 		}
-
-		it("should not send requests on connect or account updates without permission", async function() {
-			permitted = false;
-			mockControl.connector.emit("connect");
-			subscriber.handleConnectionEvent("resume");
-			subscriber.handleAccountEvent();
-			await settle();
-			assert.deepEqual(sentRequests(), []);
-		});
-
-		it("should resubscribe on connect with permission", async function() {
-			subscriber.subscribe(() => {});
-			await events.once(mockControl.connector, "send");
-			mockControl.connector.sentMessages.length = 0;
-
-			mockControl.connector.emit("connect");
-			await settle();
-			assert.equal(sentRequests().length, 1);
-			assert.deepEqual(sentRequests()[0].data, new lib.SubscriptionRequest(
-				lib.HostPairingUpdatesEvent.name, "replace", -1, lib.SubscriptionFilters.all()
-			));
-		});
-
-		it("should resubscribe on account updates with permission", async function() {
-			subscriber.subscribe(() => {});
-			await events.once(mockControl.connector, "send");
-			mockControl.connector.sentMessages.length = 0;
-
-			permitted = false;
-			subscriber.handleAccountEvent();
-			await settle();
-			assert.deepEqual(sentRequests(), []);
-
-			permitted = true;
-			subscriber.handleAccountEvent();
-			await settle();
-			assert.equal(sentRequests().length, 1);
-		});
-
-		it("should clear requests when a new session starts", async function() {
-			await subscriber._handleEvent(new lib.HostPairingUpdatesEvent([pairing("ABC-DEF", 10)]));
-			assert.equal(subscriber.values.size, 1);
-			const [before] = subscriber.getSnapshot();
-
-			mockControl.connector.emit("connect");
-			assert.equal(subscriber.values.size, 0);
-			assert.equal(subscriber.lastUpdatedMs, -1);
-			const [after] = subscriber.getSnapshot();
-			assert.notEqual(after, before);
-			assert.equal(after.size, 0);
-		});
-
-		it("should keep requests when a session is resumed", async function() {
-			await subscriber._handleEvent(new lib.HostPairingUpdatesEvent([pairing("ABC-DEF", 10)]));
-			subscriber.handleConnectionEvent("drop");
-			subscriber.handleConnectionEvent("resume");
-			assert.equal(subscriber.values.size, 1);
-			assert.equal(subscriber.lastUpdatedMs, 10);
-		});
 
 		it("should clear requests when subscribing again after the last unsubscribe", async function() {
 			const unsubscribe = subscriber.subscribe(() => {});
