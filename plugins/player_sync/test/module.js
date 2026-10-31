@@ -173,6 +173,15 @@ function acquired(generation, has_data, token)
 	})
 end
 
+--- Moves the player as walking does, or as another mod's teleport does, and raises the position event
+function move(player, position, surface)
+	player.position = position
+	player.physical_position = position
+	player.surface = surface or player.surface
+	player.physical_surface = player.surface
+	player_sync.events[defines.events.on_player_changed_position]({ player_index = player.name })
+end
+
 function last_sent(channel)
 	for i = #sent, 1, -1 do
 		if sent[i].channel == channel then
@@ -310,6 +319,101 @@ describe("player_sync module", function() {
 				acquired(5, true, "t2")
 				local download = assert(script_data().active_downloads.a, "no download")
 				assert(not download.prefetch and download.position.x == 1, "no download from the body place")
+			`);
+		});
+	});
+
+	describe("on_player_changed_position", function() {
+		const downloading = `
+			p = new_player("a", "local", { x = 1, y = 2 })
+			script_data().players.a.sync = true
+			script_data().players.a.generation = 4
+			join(p)
+			acquired(5, true)
+			assert(p.controller_type == defines.controllers.spectator, "not spectating")
+		`;
+		it("should keep a downloading spectator where the body stood", function() {
+			const L = createState();
+			run(L, downloading);
+			run(L, `
+				move(p, { x = 2.5, y = 2 })
+				assert(p.position.x == 1 and p.position.y == 2, "spectator walked away")
+				player_sync.download_inventory("a", '{ items = "stored" }', 1, 1)
+				assert(p.character.items == "stored" and p.position.x == 1, "not restored where the body stood")
+			`);
+		});
+		it("should give the body back where another mod teleported the spectator", function() {
+			const L = createState();
+			run(L, downloading);
+			run(L, `
+				move(p, { x = 100, y = 100 })
+				assert(p.position.x == 100, "teleport undone")
+				move(p, { x = 101, y = 100 })
+				assert(p.position.x == 100, "spectator walked away after the teleport")
+				player_sync.download_inventory("a", '{ items = "stored" }', 1, 1)
+				assert(p.position.x == 100 and p.position.y == 100, "not given back where it was teleported")
+			`);
+		});
+		it("should follow a teleport to another surface and leave the vehicle behind", function() {
+			const L = createState();
+			run(L, `
+				p = new_player("a", "local", { x = 1, y = 2 })
+				script_data().players.a.sync = true
+				script_data().players.a.generation = 4
+				local car = { valid = true, surface = p.surface, position = { x = 1, y = 2 } }
+				p.driving = true
+				p.vehicle = car
+				join(p)
+				acquired(5, true)
+				local other = { name = "other" }
+				move(p, { x = 1, y = 2 }, other)
+				player_sync.download_inventory("a", '{ items = "stored" }', 1, 1)
+				assert(p.surface == other and p.position.x == 1, "not given back on the other surface")
+			`);
+		});
+		it("should keep a teleport made while the failure dialog is open", function() {
+			const L = createState();
+			run(L, `
+				p = new_player("a", "local", { x = 1, y = 2 })
+				script_data().players.a.sync = true
+				script_data().players.a.generation = 4
+				join(p)
+				acquired(5, true)
+				tick(700)
+				assert(p.gui.screen.dialog_failed_download, "no failure dialog")
+				move(p, { x = 2, y = 2 })
+				assert(p.position.x == 1, "spectator walked away")
+				move(p, { x = 100, y = 100 })
+				require("modules/player_sync/gui/dialog_failed_download").events[defines.events.on_gui_click]({
+					player_index = "a", element = { valid = true, name = "player_sync_failed_download_abort" },
+				})
+				assert(p.character and p.position.x == 100, "not given back where it was teleported")
+			`);
+		});
+		it("should keep the spectator from a failed acquire where the body stood", function() {
+			const L = createState();
+			run(L, `
+				p = new_player("a", "local", { x = 1, y = 2 })
+				script_data().players.a.sync = true
+				script_data().players.a.generation = 4
+				join(p)
+				tick(700)
+				assert(p.controller_type == defines.controllers.spectator, "not spectating")
+				move(p, { x = 2, y = 2 })
+				assert(p.position.x == 1, "spectator walked away")
+				player_sync.acquire(p)
+				acquired(4, true)
+				local download = assert(script_data().active_downloads.a, "no download")
+				assert(download.position.x == 1, "no download from the body place")
+			`);
+		});
+		it("should leave other spectators alone", function() {
+			const L = createState();
+			run(L, `
+				local p = new_player("a", "local", { x = 1, y = 2 })
+				p.set_controller({ type = defines.controllers.spectator })
+				move(p, { x = 2, y = 2 })
+				assert(p.position.x == 2, "spectator pulled back")
 			`);
 		});
 	});
