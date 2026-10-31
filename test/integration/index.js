@@ -12,6 +12,7 @@ import { LineSplitter, logger } from "@clusterio/lib";
 
 import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
 import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
+import { pairHost } from "@clusterio/host";
 
 import "../setup_logging.js";
 
@@ -26,6 +27,7 @@ export class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
 		super(connector);
 		this.hostUpdates = [];
+		this.hostPairingUpdates = [];
 		this.instanceUpdates = [];
 		this.saveUpdates = [];
 		this.modUpdates = [];
@@ -39,6 +41,9 @@ export class TestControl extends lib.Link {
 			this.send(
 				new lib.SubscriptionRequest(lib.HostUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
+			this.send(
+				new lib.SubscriptionRequest(lib.HostPairingUpdatesEvent.name, true)
+			).catch(err => logger.error(`Error setting host pairing subscriptions:\n${err.stack}`));
 			this.send(
 				new lib.SubscriptionRequest(lib.InstanceDetailsUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
@@ -58,6 +63,7 @@ export class TestControl extends lib.Link {
 
 		this.handle(lib.AccountUpdateEvent);
 		this.handle(lib.HostUpdatesEvent, this.handleHostUpdatesEvent.bind(this));
+		this.handle(lib.HostPairingUpdatesEvent, this.handleHostPairingUpdatesEvent.bind(this));
 		this.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsUpdatesEvent.bind(this));
 		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.ModUpdatesEvent, this.handleModUpdatesEvent.bind(this));
@@ -67,6 +73,10 @@ export class TestControl extends lib.Link {
 
 	async handleHostUpdatesEvent(event) {
 		this.hostUpdates.push(...event.updates);
+	}
+
+	async handleHostPairingUpdatesEvent(event) {
+		this.hostPairingUpdates.push(...event.updates);
 	}
 
 	async handleInstanceDetailsUpdatesEvent(event) {
@@ -181,6 +191,8 @@ const baseHostConfig = loadJSON("config-host.json");
 export let url = "https://localhost:4443/";
 // Signed in the root before hook, as the user has to exist before the token is issued
 export let controlToken;
+// Id of the test host, assigned by the controller when it is paired in the root before hook
+export let hostId;
 export let instancesDir = path.join("temp", "test", "instances");
 export let modsDir = path.join("temp", "test", "mods");
 export let databaseDir = path.join("temp", "test", "database");
@@ -253,6 +265,35 @@ export function getControl() {
 	return control;
 }
 
+/**
+ * Pair a new host with the test controller, approved right away with the admin token
+ *
+ * @param {string} name - Name to give the host.
+ * @returns {Promise<{ hostId: number, token: string, name: string }>} the paired host.
+ */
+export async function pairTestHost(name) {
+	return await pairHost({ controllerUrl: url, name, token: controlToken });
+}
+
+/**
+ * Write a new host config for a paired host, with the fields the installer and pairing set
+ *
+ * @param {string} configPath - Path to write the config to.
+ * @param {{ hostId: number, token: string, name: string }} pairing - Host returned by pairing.
+ * @param {Record<string, unknown>} fields - Other fields to set in the config.
+ */
+export async function writeHostConfig(configPath, pairing, fields = {}) {
+	const hostConfig = new lib.HostConfig("host");
+	hostConfig.set("host.id", pairing.hostId);
+	hostConfig.set("host.name", pairing.name);
+	hostConfig.set("host.controller_url", url);
+	hostConfig.set("host.controller_token", pairing.token);
+	for (const [name, value] of Object.entries(fields)) {
+		hostConfig.set(name, value);
+	}
+	await fs.writeFile(configPath, JSON.stringify(hostConfig, null, "\t"), { mode: 0o600 });
+}
+
 /** @returns {Promise<child_process.ChildProcess>} */
 export function spawn(name, cmd, waitFor, options = {}) {
 
@@ -270,22 +311,19 @@ export function spawn(name, cmd, waitFor, options = {}) {
 		let process = child_process.spawn(parts[0], parts.slice(1), childOptions(options));
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		let stderr = new LineSplitter({ readableObjectMode: true });
-		let onDataOut = line => {
+		let onData = line => {
 			line = line.toString("utf8");
 			if (waitFor.test(line)) {
 				if (silent) {
-					stdout.off("data", onDataOut);
-					stderr.off("data", onDataErr);
+					stdout.off("data", onData);
+					stderr.off("data", onData);
 				}
 				resolve(process);
 			}
 			log(name, line);
 		};
-		let onDataErr = line => {
-			log(name, line.toString("utf8"));
-		};
-		stdout.on("data", onDataOut);
-		stderr.on("data", onDataErr);
+		stdout.on("data", onData);
+		stderr.on("data", onData);
 		process.stdout.pipe(stdout);
 		process.stderr.pipe(stderr);
 	});
@@ -366,7 +404,9 @@ before(async function() {
 	haveFactorioInstall = factorioVersions.size > 0;
 
 	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
-	await execCtlProcess("host create-config --id 4 --name host --generate-token");
+	const pairing = await pairTestHost("host");
+	hostId = pairing.hostId;
+	await writeHostConfig(hostConfigPath, pairing);
 	await execHost("config create");
 	await execHost(`config set host.factorio_directory ${relativeFactorioDir}`);
 

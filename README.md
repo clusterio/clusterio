@@ -251,6 +251,7 @@ Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), thi
 After completing the installation and creating your admin user, start up the controller and at least one host separately.
 The installer provides the `run-controller` and `run-host` scripts to make this simple.
 Once the controller process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
+The first time a host starts it prints a link for approving it, open the link and click Approve.
 
 The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a host and then click start. You can also use the "Connect via Steam" button to launch Factorio directly and connect to the server using Steam's protocol handler.
 
@@ -272,9 +273,23 @@ If you have copied these files over to `/etc/systemd/system/` then you can start
 
 ## Setting up remote hosts
 
-Run the installer as described in the installation section and choose "Host only" as the operating mode to install, it'll ask for a controller URL and an authentication token.
-The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Hosts page in the web interface.
-Once you start up the host it should show up in the Hosts list and be available for assigning and running instances on.
+Run the installer as described in the installation section and choose "Host only" as the operating mode to install, it'll ask for a name for the host and a controller URL.
+The URL is the same as what is needed to connect to the web interface.
+Then start the host, the first time it starts it prints a code and waits for the host to be approved:
+
+    Waiting for approval of "my-host" with code ABC-DEF, open this link to approve it:
+    https://example.com/hosts?approve=ABC-DEF
+    Or run: npx clusterioctl host approve ABC-DEF
+
+Open the link to approve it in the web interface, where you can also change its name, or click Add host on the Hosts page and approve the request with the same code, or run `npx clusterioctl host approve <code>`.
+The host then saves its connection details and starts up, it should show up in the Hosts list and be available for assigning and running instances on.
+Only approve a request if its code matches the one shown by the host, approving gives the host full access to the cluster.
+Approving requires the `core.host.approve` permission, which the Cluster Admin role has.
+If you have that permission you can skip the wait by starting the host with `npx clusteriohost run --user-token <token>` and your own authentication token, it is only used to approve the host and is not saved.
+
+To remove a host from the cluster, click Revoke host access on the page for the host in the web interface, or run `npx clusterioctl host revoke <host>`.
+This disconnects the host, its instances become unassigned and its saved connection details stop working.
+To add the computer back to the cluster start the host again, it asks for approval again.
 
 
 ## Setting up clusterioctl

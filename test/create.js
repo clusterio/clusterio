@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { escapeArg } from "../packages/create/escape_arg.js";
+
 const execFileAsync = promisify(execFile);
 const installer = path.resolve(import.meta.dirname, "../packages/create/create.js");
 const discoveryUrl = new URL("../packages/lib/dist/node/src/load_plugin_list.js", import.meta.url).href;
@@ -121,6 +123,114 @@ describe("create installer CLI", function() {
 			assert.match(err.stdout + err.stderr, /TypeError/);
 			assert.doesNotMatch(err.stdout, /Successfully installed/);
 			return true;
+		});
+	});
+
+	describe("host setup", function() {
+		const scriptExt = process.platform === "win32" ? ".cmd" : "";
+		const hostBin = path.join("node_modules", ".bin", `clusteriohost${scriptExt}`);
+		const controllerBin = path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`);
+		const hostSet = (field, value) => `${hostBin} config set ${field} ${escapeArg(String(value))}`;
+		const controllerUrl = "http://controller.example.com:8080/";
+
+		function run(args, env = {}) {
+			// Record the commands for npm and the clusterio CLIs instead of running them.
+			const mockExec = `
+				import childProcess from "node:child_process";
+				import fs from "node:fs";
+				import { PassThrough } from "node:stream";
+				childProcess.execFile = (command, options, callback) => {
+					fs.appendFileSync(process.env.CREATE_TEST_COMMANDS, JSON.stringify(command) + "\\n");
+					const stdout = new PassThrough();
+					const stderr = new PassThrough();
+					queueMicrotask(() => {
+						stdout.end();
+						stderr.end();
+						callback(null, "", "");
+					});
+					return { stdout, stderr };
+				};
+			`;
+			return execFileAsync(process.execPath, [
+				"--import", `data:text/javascript,${encodeURIComponent(mockExec)}`,
+				installer,
+				...(process.platform === "linux" ? ["--allow-install-as-root"] : []),
+				...args,
+			], {
+				cwd: directory,
+				env: { ...process.env, CREATE_TEST_COMMANDS: path.join(directory, "commands.jsonl"), ...env },
+			});
+		}
+
+		// Commands run by the installer, without the getent lookups made when writing systemd units.
+		async function commands() {
+			const content = await fs.readFile(path.join(directory, "commands.jsonl"), "utf8");
+			return content.split("\n").filter(Boolean).map(line => JSON.parse(line))
+				.filter(command => !command.startsWith("getent "));
+		}
+
+		function hostArgs(url = controllerUrl) {
+			return [
+				"--mode", "host", "--host-name", "Test Host", "--controller-url", url,
+				"--public-address", "host.example.com", "--factorio-dir", "factorio", "--no-remote-npm", "--plugins",
+			];
+		}
+
+		it("writes the host config and leaves joining the cluster to the host", async function() {
+			const { stdout } = await run(hostArgs());
+			assert.match(stdout, /Successfully installed host/);
+
+			const recorded = await commands();
+			assert.match(recorded[0], /^npm(?:\.cmd)? install @clusterio\/host$/);
+			assert.deepEqual(recorded.slice(1), [
+				`${hostBin} config create`,
+				hostSet("host.name", "Test Host"),
+				hostSet("host.controller_url", controllerUrl),
+				hostSet("host.public_address", "host.example.com"),
+				hostSet("host.factorio_directory", "factorio"),
+				hostSet("host.allow_remote_updates", false),
+				hostSet("host.allow_plugin_updates", false),
+				hostSet("host.allow_plugin_install", false),
+			]);
+			await fs.access(path.join(directory, `run-host${process.platform === "win32" ? ".cmd" : ".sh"}`));
+		});
+
+		it("adds the trailing slash the host requires to the controller URL", async function() {
+			await run(hostArgs(controllerUrl.slice(0, -1)));
+			assert((await commands()).includes(hostSet("host.controller_url", controllerUrl)));
+		});
+
+		it("leaves joining the cluster to the host of a standalone install", async function() {
+			await fs.writeFile(path.join(directory, "config-controller.json"), "{}");
+			const { stdout } = await run([
+				"--mode", "standalone", "--admin", "admin", "--http-port", "8123", "--public-address", "localhost",
+				"--factorio-dir", "factorio", "--remote-npm", "--plugins",
+			]);
+			assert.match(stdout, /Successfully installed standalone/);
+
+			const recorded = await commands();
+			for (const expected of [
+				hostSet("host.name", "local"),
+				hostSet("host.controller_url", "http://localhost:8123/"),
+				`${controllerBin} config set controller.allow_remote_updates true`,
+				`${controllerBin} config set controller.allow_plugin_updates true`,
+				`${controllerBin} config set controller.allow_plugin_install true`,
+				hostSet("host.allow_remote_updates", true),
+				hostSet("host.allow_plugin_updates", true),
+				hostSet("host.allow_plugin_install", true),
+			]) {
+				assert(recorded.includes(expected), `missing ${expected}`);
+			}
+			assert(!recorded.some(command => command.includes("host.controller_token")));
+		});
+
+		it("uses the host name given for a standalone install", async function() {
+			await fs.writeFile(path.join(directory, "config-controller.json"), "{}");
+			await run([
+				"--mode", "standalone", "--admin", "admin", "--http-port", "8123", "--public-address", "localhost",
+				"--factorio-dir", "factorio", "--remote-npm", "--plugins", "--host-name", "Test Host",
+			]);
+			assert((await commands()).includes(hostSet("host.name", "Test Host")));
 		});
 	});
 });

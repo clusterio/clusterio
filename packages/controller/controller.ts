@@ -23,7 +23,6 @@ import util from "util";
 import winston from "winston";
 import DailyRotateFile from "winston-daily-rotate-file";
 
-import jwt from "jsonwebtoken";
 
 // homebrew modules
 // Reduce startup time by lazy compiling schemas.
@@ -188,14 +187,6 @@ async function handleBootstrapCommand(
 		// eslint-disable-next-line no-console
 		console.log(userManager.signUserToken(user));
 
-	} else if (subCommand === "generate-host-token") {
-		// eslint-disable-next-line no-console
-		console.log(jwt.sign(
-			{ aud: "host", host: args.id },
-			// Auth secret is never null after startup
-			Buffer.from(controllerConfig.get("controller.auth_secret")!, "base64")
-		));
-
 	} else if (subCommand === "create-ctl-config") {
 		let admin = userManager.getByName(args.name);
 		if (!admin) {
@@ -324,9 +315,6 @@ async function initialize(): Promise<InitializeParameters> {
 				})
 				.command("generate-user-token <name>", "Generate authentication token for the given user", yargs => {
 					yargs.positional("name", { describe: "Name of the user", type: "string" });
-				})
-				.command("generate-host-token <id>", "Generate authentication token for the given host", yargs => {
-					yargs.positional("id", { describe: "ID of the host", type: "number" });
 				})
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {

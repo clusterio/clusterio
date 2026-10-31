@@ -1,7 +1,32 @@
 import assert from "node:assert/strict";
 import events from "node:events";
-import { Controller, WsServer } from "@clusterio/controller";
+import jwt from "jsonwebtoken";
+import * as lib from "@clusterio/lib";
+import { Controller, HostRecord, WsServer } from "@clusterio/controller";
 import { ControllerConfig } from "@clusterio/lib";
+import packageJson from "@clusterio/controller/package.json" with { type: "json" };
+
+import "../setup_logging.js";
+
+class MockWebSocket extends events.EventEmitter {
+	constructor() {
+		super();
+		this.sent = [];
+		this.closed = null;
+	}
+
+	send(message) {
+		this.sent.push(JSON.parse(message));
+	}
+
+	close(code, reason) {
+		this.closed = { code, reason };
+	}
+
+	terminate() {
+		this.emit("close", 1006, "");
+	}
+}
 
 describe("controller/src/WsServer", function() {
 	describe("class WsServer", function() {
@@ -85,6 +110,106 @@ describe("controller/src/WsServer", function() {
 				} finally {
 					socket.emit("message", "not json"); // ends the handshake and its timeout
 				}
+			});
+		});
+	});
+	describe(".registerHost()", function() {
+		const secret = Buffer.from("TestSecretDoNotUse");
+		const req = { socket: { remoteAddress: "10.0.0.1", remoteFamily: "IPv4" }, headers: {} };
+		/** @type {Controller} */
+		let controller;
+		/** @type {WsServer} */
+		let wsServer;
+		let socket;
+		beforeEach(function() {
+			const config = new ControllerConfig("controller");
+			config.set("controller.auth_secret", secret.toString("base64"));
+			controller = new Controller(lib.logger, [], config);
+			wsServer = controller.wsServer;
+			socket = new MockWebSocket();
+		});
+		afterEach(function() {
+			for (const connection of wsServer.hostConnections.values()) {
+				connection.connector.terminate();
+			}
+		});
+
+		function addHost(id, tokenValidAfter = 0) {
+			const record = new HostRecord(id, `host-${id}`, "", new Map(), false, "", "203.0.113.1", tokenValidAfter);
+			controller.hosts.set(record);
+			return record;
+		}
+
+		async function register(token, id = 5) {
+			await wsServer.registerHost(new lib.RegisterHostData(token, packageJson.version, id, {}), socket, req);
+		}
+
+		function assertRejected(reason) {
+			assert.deepEqual(socket.closed, { code: lib.ConnectionClosed.Unauthorized, reason });
+			assert.equal(socket.closed.code, 3000);
+			assert.equal(wsServer.hostConnections.size, 0);
+			assert(!socket.sent.some(message => message.type === "ready"), "ready was sent");
+		}
+
+		it("should reject a validly signed token for a host that is not registered", async function() {
+			await register(controller.generateHostToken(5));
+			assertRejected(
+				"Authentication failed: host is not registered, start the host again to request to join the cluster"
+			);
+			assert.equal(controller.hosts.has(5), false, "host record was created");
+		});
+		it("should accept a registered host", async function() {
+			const record = addHost(5);
+			await register(controller.generateHostToken(5));
+			assert.equal(socket.closed, null);
+			assert(socket.sent.some(message => message.type === "ready"), "ready was not sent");
+			assert(wsServer.hostConnections.has(5));
+
+			assert.equal(controller.hosts.size, 1);
+			assert.equal(controller.hosts.get(5), record, "host record was replaced");
+			assert.equal(record.connected, true);
+			assert.equal(record.version, packageJson.version);
+			assert.equal(record.remoteAddress, "10.0.0.1");
+			assert.equal(record.name, "host-5");
+			assert.equal(record.publicAddress, "203.0.113.1");
+
+			wsServer.hostConnections.get(5).connector.terminate();
+			assert.equal(wsServer.hostConnections.has(5), false);
+			assert.equal(controller.hosts.get(5).connected, false);
+		});
+		it("should reject a token issued before tokenValidAfter", async function() {
+			const token = controller.generateHostToken(5);
+			addHost(5, Math.floor(Date.now() / 1000) + 60);
+			await register(token);
+			assertRejected("Authentication failed: invalid token");
+		});
+		it("should accept a token issued at tokenValidAfter", async function() {
+			const now = Math.floor(Date.now() / 1000);
+			addHost(5, now);
+			await register(jwt.sign({ aud: "host", host: 5, iat: now }, secret));
+			assert.equal(socket.closed, null);
+			assert(wsServer.hostConnections.has(5));
+		});
+		it("should reject a host revoked while its previous connection closes", async function() {
+			const record = addHost(5);
+			wsServer.hostConnections.set(5, {
+				remoteAddress: "10.0.0.1",
+				async disconnect() {
+					controller.hosts.delete(record);
+					wsServer.hostConnections.delete(5);
+				},
+			});
+			await register(controller.generateHostToken(5));
+			assertRejected("Authentication failed: host was revoked");
+			assert.equal(controller.hosts.has(5), false, "host record was recreated");
+		});
+		it("should reject hosts in recovery mode", async function() {
+			addHost(5);
+			controller.recoveryMode = true;
+			await register(controller.generateHostToken(5));
+			assert.deepEqual(socket.closed, {
+				code: lib.ConnectionClosed.RecoveryMode,
+				reason: "Connection Refused: Controller in recovery mode",
 			});
 		});
 	});

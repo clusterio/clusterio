@@ -32,6 +32,63 @@ The [send-buffer setting](../configuration.md#controllermax_send_buffer_size) co
 ![Connection flow](../assets/connection_flow.svg)
 
 
+## Host pairing
+
+The host id and token sent in `registerHost` are requested by the host over HTTP the first time it starts, before it connects.
+Hosts are only added to the controller by approving a pairing request, and `registerHost` is rejected with close code 3000 (Unauthorized) for a host id the controller has no record of.
+Revoking a host deletes its record, so its token stops working and the host has to be approved again the next time it starts, which gives it a new id.
+See [Setting up remote hosts](/README.md#setting-up-remote-hosts) for how this looks to the user.
+
+The endpoints below take and return JSON bodies and are sent with `Cache-Control: no-store`.
+The `POST` endpoints return errors as `{"error": "<message>"}` and respond with 503 while the controller is in recovery mode.
+A request body that is not valid JSON or is larger than 4 kB is rejected with 400 or 413 before it reaches the endpoint, without a JSON body.
+`GET /api/host-pairing/check` also works in recovery mode, and responds to a token that is not valid with a plain 401 without a JSON body.
+A user or host token is sent in either an `Authorization: Bearer <token>` header or an `X-Access-Token` header.
+
+### `POST /api/host-pairing`
+
+Creates a request for a host to join the cluster.
+
+- `name: string` - Name of the host, at most 100 characters after trimming whitespace, without control characters.
+- `version: string` (optional) - Version of the host.
+
+Responds with 202 and `{"requestId": string, "code": string}`.
+The `code` is shown to the user to approve the request with, formatted as six characters like `ABC-DEF`.
+Codes are matched ignoring case and anything that is not a letter or digit, so `abcdef` matches `ABC-DEF`.
+The `requestId` is a secret used to poll for the result, it is never shown to users.
+
+If a user token is sent and the user has the `core.host.approve` permission the host is created right away and the response is 200 with the same body as an approved poll.
+An invalid token gives 401 and a user without the permission gives 403, a token is never ignored to create a pending request instead.
+
+A missing or too long name gives 400.
+Too many pending requests from the same address, or in total as set by [controller.host_pairing_max_pending](/docs/configuration.md#controllerhost_pairing_max_pending), gives 429 with a `Retry-After` header in seconds.
+
+### `POST /api/host-pairing/poll`
+
+- `requestId: string` - Id returned when the request was created.
+
+Responds with 202 and `{"status": "pending"}` while the request is waiting for approval.
+Once approved it responds with 200 and `{"hostId": integer, "token": string, "name": string}`, where `name` is the name the host was approved with, which can differ from the one asked for.
+Rejected requests give 403, and unknown or expired requests give 404.
+The result of an approved or rejected request is only returned once, after which the request is gone.
+
+A pending request expires 30 seconds after it was last polled, and after waiting for the time set by [controller.host_pairing_timeout](/docs/configuration.md#controllerhost_pairing_timeout).
+The host polls every 2 seconds, and makes a new request when the previous one has expired.
+
+### `POST /api/host-pairing/cancel`
+
+- `requestId: string` - Id returned when the request was created.
+
+Removes a pending request, sent by the host when it stops waiting.
+Responds with 204 whether or not the request existed.
+
+### `GET /api/host-pairing/check`
+
+Checks a host token.
+Responds with 200 and `{"valid": true}` if the token is valid and the host it was issued to still exists, and with 401 otherwise.
+A host with a saved token checks it with this when it starts, and requests to join again if the token is not accepted.
+
+
 ## Connector flow
 
 To manage the complexity of connecting, reconnecting, resuming or invalidating dropped sessions the WebSocket connection for a `Link` class is managed by a connector.
@@ -118,6 +175,11 @@ Host handshake for establishing a new connection session.
 - `id: integer` - ID of the host.
 - `plugins: Object<string, string>` -
     Object mapping plugin names to plugin version for plugins that are available on the host.
+
+The controller closes the connection with code 3000 (Unauthorized) if the token is invalid, was issued for another id, or if there is no host with this id, see [Host pairing](#host-pairing).
+The host checks its token before connecting and requests to join again if it is not accepted, so this normally only happens to a host that is already running.
+A host that has been rejected exits with code 8, and the run scripts created by the installer do not restart it.
+A host that is revoked while connected is disconnected, is rejected when it tries to connect again, and shuts down.
 
 #### `registerControl`
 

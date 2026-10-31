@@ -81,10 +81,11 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ControllerConfigSetRequest, this.handleControllerConfigSetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
-		this.handle(lib.HostRevokeTokensRequest, this.handleHostRevokeTokensRequest.bind(this));
+		this.handle(lib.HostRevokeRequest, this.handleHostRevokeRequest.bind(this));
 		this.handle(lib.HostListRequest, this.handleHostListRequest.bind(this));
-		this.handle(lib.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
-		this.handle(lib.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
+		this.handle(lib.HostPairingListRequest, this.handleHostPairingListRequest.bind(this));
+		this.handle(lib.HostPairingApproveRequest, this.handleHostPairingApproveRequest.bind(this));
+		this.handle(lib.HostPairingRejectRequest, this.handleHostPairingRejectRequest.bind(this));
 		this.handle(lib.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
 		this.handle(lib.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
@@ -248,49 +249,48 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.config.setProp(field as keyof lib.ControllerConfigFields, prop, value, "control");
 	}
 
-	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
+	async handleHostRevokeRequest(request: lib.HostRevokeRequest) {
 		const host = this._controller.hosts.getMutable(request.hostId);
 		if (!host) {
-			throw new Error(`Unknown host id (${request.hostId})`);
+			throw new lib.NotFoundError(`Unknown host id (${request.hostId})`);
 		}
 
-		host.tokenValidAfter = Math.floor(Date.now() / 1000);
+		this._controller.hosts.delete(host);
+		this._controller.deleteNote("host", request.hostId, this.user.name);
+		const system = this._controller.systems.getMutable(request.hostId);
+		if (system) {
+			this._controller.systems.delete(system);
+		}
 
+		// Disconnected first so unassigning the instances does not depend on the host responding.
 		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
 		if (hostConnection) {
 			hostConnection.connector.terminate();
 		}
-
-		this._controller.hosts.set(host);
+		const assigned = [...this._controller.instances.values()].filter(
+			instance => instance.config.get("instance.assigned_host") === request.hostId
+		);
+		for (const instance of assigned) {
+			await this._controller.instances.unassignInstance(instance.id);
+		}
+		logger.audit(`User ${this.user.name} revoked host ${host.name} (${host.id})`);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
 		return [...this._controller.hosts.values()].map(host => host.toHostDetails());
 	}
 
-	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
-		let hostId = message.hostId;
-		if (hostId === undefined) {
-			hostId = Math.random() * 2**31 | 0;
-		}
-		return this._controller.generateHostToken(hostId);
+	async handleHostPairingListRequest(): Promise<lib.HostPairingDetails[]> {
+		this._controller.hostPairing.prune();
+		return [...this._controller.hostPairing.records.values()];
 	}
 
-	async handleHostConfigCreateRequest(request: lib.HostConfigCreateRequest) {
-		const hostConfig = new lib.HostConfig("host");
+	async handleHostPairingApproveRequest(request: lib.HostPairingApproveRequest) {
+		return this._controller.hostPairing.approve(request.code, request.name, this.user.name);
+	}
 
-		hostConfig.set("host.controller_url", this._controller.getControllerUrl());
-		if (request.id !== undefined) {
-			hostConfig.set("host.id", request.id);
-		}
-		if (request.name !== undefined) {
-			hostConfig.set("host.name", request.name);
-		}
-		if (request.generateToken) {
-			this.user.checkPermission("core.host.generate_token");
-			hostConfig.set("host.controller_token", this._controller.generateHostToken(hostConfig.get("host.id")));
-		}
-		return hostConfig.toJSON();
+	async handleHostPairingRejectRequest(request: lib.HostPairingRejectRequest) {
+		this._controller.hostPairing.reject(request.code, this.user.name);
 	}
 
 	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {

@@ -27,6 +27,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import type Host from "./src/Host.js";
 import { createScenarioCommand, handleCreateScenarioCommand } from "./src/create_scenario.js";
+import { PairingError, ensurePaired } from "./src/pairing.js";
 
 let host: Host | undefined;
 
@@ -136,6 +137,10 @@ async function startHost() {
 				type: "boolean", nargs: 0, default: false,
 				describe: "Start the host in recovery mode with all plugins disabled and controller disconnected",
 			});
+			yargs.option("user-token", {
+				type: "string", nargs: 1,
+				describe: "Token of a user allowed to approve hosts, approves this host without waiting. Not saved",
+			});
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -214,25 +219,41 @@ async function startHost() {
 	// and as the process name in ps/top on linux.
 	process.title = "clusteriohost";
 
-	// make sure we have the controller access token
-	if (hostConfig.get("host.controller_token") === "enter token here") {
-		logger.fatal("ERROR invalid config!");
-		logger.fatal(
-			"Controller requires an access token for socket operations. As clusterio\n"+
-			"hosts depends upon this, please set your token using the command npx\n"+
-			"clusteriohost config set host.controller_token <token>.  You can generate an\n"+
-			"auth token using npx clusterioctl generate-host-token."
-		);
-		process.exitCode = 1;
-		return;
-	}
-
 	// make sure url ends with /
 	if (!hostConfig.get("host.controller_url").endsWith("/")) {
 		logger.fatal("ERROR invalid config!");
 		logger.fatal("host.controller_url must end with '/'");
 		process.exitCode = 1;
 		return;
+	}
+
+	if (!args.recovery) {
+		const abort = new AbortController();
+		const onSignal = () => { abort.abort(); };
+		process.on("SIGINT", onSignal);
+		process.on("SIGTERM", onSignal);
+		try {
+			await ensurePaired(hostConfig, {
+				version: packageConfig.version,
+				userToken: args.userToken as string | undefined,
+				signal: abort.signal,
+			});
+		} catch (err: any) {
+			if (abort.signal.aborted) {
+				logger.info("Stopped waiting for approval");
+				return;
+			}
+			if (err instanceof PairingError) {
+				logger.fatal(`Unable to join the cluster: ${err.message}`);
+				// Exit code 8 stops the run scripts from restarting the host.
+				process.exitCode = err.status === 403 ? 8 : 1;
+				return;
+			}
+			throw err;
+		} finally {
+			process.off("SIGINT", onSignal);
+			process.off("SIGTERM", onSignal);
+		}
 	}
 
 	// Loaded here as the server is not needed by the other commands

@@ -252,20 +252,8 @@ ${err.stack}`
 		}
 
 		try {
-			// migrate: allow pre-rename tokens issued to hosts before alpha-14
-			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: ["host", "slave"] });
-			if (typeof tokenPayload === "string") {
-				throw new Error("unexpected JsonWebToken type");
-			}
-
-			// migrate: allow pre-rename tokens issued to hosts before alpha-14
-			if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
+			if (this.controller.verifyHostToken(data.token) !== data.id) {
 				throw new Error("missmatched host id");
-			}
-
-			let host = this.controller.hosts.get(data.id);
-			if (!tokenPayload.iat || tokenPayload.iat < (host?.tokenValidAfter ?? 0)) {
-				throw new Error("invalid token");
 			}
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
@@ -301,6 +289,13 @@ ${err.stack}`
 				`version of the controller is currently running (${packageConfig.version}). ` +
 				"It may not work as expected."
 			);
+		}
+
+		// The host may have been revoked while waiting for the old connection to close.
+		if (!this.controller.hosts.has(data.id)) {
+			wsRejectedConnectionsCounter.inc();
+			socket.close(lib.ConnectionClosed.Unauthorized, "Authentication failed: host was revoked");
+			return;
 		}
 
 		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));

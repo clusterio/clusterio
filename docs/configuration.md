@@ -48,6 +48,23 @@ Must be greater than 0.
 Defaults to 60.
 
 
+### controller.host_pairing_timeout
+
+Time in seconds a host can wait for approval before its request expires, after which the host requests again with a new code.
+Set to 0 for no limit.
+
+Defaults to 3600.
+
+
+### controller.host_pairing_max_pending
+
+Maximum number of hosts that can wait for approval at the same time.
+Hosts over the limit keep trying until there is room.
+Set to 0 for no limit.
+
+Defaults to 50.
+
+
 ### controller.http_port
 
 Port to host HTTP server on.
@@ -93,7 +110,7 @@ Defaults to null meaning the header is never trusted.
 ### controller.public_url
 
 Public address the controller is accessible on.
-Used as the URL in configs generated with `clusteriocontroller bootstrap create-ctl-config` and `clusterioctl host create-config`, and by plugins like Player Auth that need to show the address of the web interface in-game.
+Used as the URL in configs generated with `clusteriocontroller bootstrap create-ctl-config`, and by plugins like Player Auth that need to show the address of the web interface in-game.
 This should be a full URL ending with a /.
 
 Defaults to null meaning assume localhost.
@@ -277,6 +294,7 @@ Defaults to 1000.
 
 Whether the `controller update` command in clusterioctl and the update button in the web interface are allowed to update the `@clusterio/controller` package with npm.
 For security reasons this can only be changed locally with `clusteriocontroller config set` while the controller is stopped, and it is hidden in the web interface.
+The installer sets this, controller.allow_plugin_updates and controller.allow_plugin_install from one question about remote updates and plugin installs.
 See [Managing a Cluster](/docs/managing-a-cluster.md) for details on remote updates.
 
 Defaults to true.
@@ -326,6 +344,7 @@ Defaults to "New Host".
 ### host.id
 
 Immutable numeric id of the host which uniquely identifies this host in the cluster.
+The controller picks the id when the host is approved and the host writes it here, the controller does not accept hosts with an id it has not approved.
 Hidden in the web interface.
 
 Defaults to a random 31 bit number.
@@ -365,7 +384,9 @@ Defaults to "http://localhost:8080/".
 ### host.controller_token
 
 Access token used for authenticating with the controller.
-You can generate an access token with `clusterioctl host generate-token --id <host-id>`, or use the `clusterioctl host create-config` to create a new host config with the correct url and token in it.
+The host saves it together with host.id when it is approved, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
+The token only works while the host exists on the controller, if the host is revoked it asks to be approved again the next time it starts.
+Set it to `enter token here` to make the host ask to join again.
 The value can only be read and changed from the host itself.
 
 Defaults to "enter token here".
@@ -418,6 +439,7 @@ Defaults to 60.
 
 Whether the `host update` command in clusterioctl and the update button in the web interface are allowed to update the `@clusterio/host` package with npm.
 For security reasons this can only be changed locally with `clusteriohost config set` while the host is stopped, and it is hidden in the web interface.
+The installer sets this, host.allow_plugin_updates and host.allow_plugin_install from one question about remote updates and plugin installs.
 See [Managing a Cluster](/docs/managing-a-cluster.md) for details on remote updates.
 
 Defaults to true.

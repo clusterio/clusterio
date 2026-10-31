@@ -87,9 +87,11 @@ Install dependencies with:
 
 This installs dependencies and builds the packages.
 `pnpm-lock.yaml` is intentionally ignored; do not force-add it or assume a frozen-lockfile install is supported.
-For a fresh development cluster, run the installer and select standalone mode to create `config-controller.json`, `config-host.json`, and the credentials needed to connect them:
+For a fresh development cluster, run the installer and select standalone mode to create `config-controller.json` and `config-host.json`:
 
     node packages/create --dev
+
+The first time the host starts it prints a link for approving it in the web interface.
 
 You can skip this step if you already have a working controller and host configuration.
 

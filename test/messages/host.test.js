@@ -18,6 +18,12 @@ describe("messages/host", function() {
 		host = new Host(hostConnector, hostConfig, []);
 	});
 
+	describe("HostRevokeRequest", function() {
+		it("is round trip json serialisable", function() {
+			testRoundTripJsonSerialisable(lib.HostRevokeRequest, [[1], [2 ** 31 - 1]]);
+		});
+	});
+
 	describe("HostUpdateRequest", function() {
 		it("runs", async function() {
 			host.config.set("host.allow_remote_updates", true);

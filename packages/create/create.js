@@ -161,21 +161,48 @@ async function execCtl(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
 
-function validateHostToken(token) {
-	let parts = token.split(".");
-	if (parts.length !== 3) {
-		throw new InstallError("Invalid token");
-	}
+// Same characters as the controller refuses in host names.
+const hostNameControlCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
 
-	let parsed;
+function validateHostName(input) {
+	if (!input || !input.trim()) {
+		return "Host name may not be empty";
+	}
+	if (input.trim().length > 100) {
+		return "Host name may be at most 100 characters";
+	}
+	if (hostNameControlCharacters.test(input)) {
+		return "Host name may not contain control characters";
+	}
+	return true;
+}
+
+function validateControllerUrl(input) {
+	let url;
 	try {
-		parsed = JSON.parse(Buffer.from(parts[1], "base64"));
+		url = new URL(input);
 	} catch (err) {
-		throw new InstallError("Invalid token");
+		return "Controller URL must be a URL like https://example.com/";
 	}
+	if (!["http:", "https:"].includes(url.protocol)) {
+		return "Controller URL must start with http:// or https://";
+	}
+	return true;
+}
 
-	if (parsed.aud !== "host" || !Number.isInteger(parsed.host)) {
-		throw new InstallError("Invalid token");
+// The host requires the controller URL to end with a slash.
+function normaliseControllerUrl(input) {
+	const url = new URL(input);
+	if (!url.pathname.endsWith("/")) {
+		url.pathname += "/";
+	}
+	return url.href;
+}
+
+// Remote updates, plugin updates and plugin installs are allowed or denied together.
+async function setRemoteUpdates(exec, component, allow) {
+	for (let field of ["allow_remote_updates", "allow_plugin_updates", "allow_plugin_install"]) {
+		await exec(["config", "set", `${component}.${field}`, allow]);
 	}
 }
 
@@ -567,18 +594,43 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
+	if (answers.mode === "standalone") {
+		answers.hostName = args.hostName ?? "local";
+		const result = validateHostName(answers.hostName);
+		if (result !== true) {
+			throw new InstallError(result);
+		}
+	}
+
 	if (answers.mode === "host") {
 		if (args.hostName) { answers.hostName = args.hostName; }
+		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
 				name: "hostName",
 				message: "Name of host",
+				default: os.hostname(),
+				validate: validateHostName,
+			},
+			{
+				type: "input",
+				name: "controllerUrl",
+				message: "Controller URL",
+				validate: validateControllerUrl,
 			},
 		], answers);
+
+		// Inquirer does not validate answers given as arguments
+		for (let result of [validateHostName(answers.hostName), validateControllerUrl(answers.controllerUrl)]) {
+			if (result !== true) {
+				throw new InstallError(result);
+			}
+		}
+		answers.controllerUrl = normaliseControllerUrl(answers.controllerUrl);
 	}
 
-	if (["host", "ctl"].includes(answers.mode)) {
+	if (answers.mode === "ctl") {
 		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
 		answers = await inquirer.prompt([
 			{
@@ -596,10 +648,6 @@ async function inquirerMissingArgs(args) {
 				message: "Controller authentication Token",
 			},
 		], answers);
-	}
-
-	if (answers.mode === "host") {
-		validateHostToken(answers.controllerToken);
 	}
 
 	if (["standalone", "host"].includes(answers.mode)) {
@@ -663,7 +711,7 @@ async function inquirerMissingArgs(args) {
 			{
 				type: "confirm",
 				name: "remoteNpm",
-				message: "Allow remote updates via npm?",
+				message: "Allow remote updates and plugin installs from the web interface?",
 				default: true,
 			},
 		], answers);
@@ -743,13 +791,13 @@ async function main() {
 			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
 		})
 		.option("host-name", {
-			nargs: 1, describe: "Host name [host]", type: "string",
+			nargs: 1, describe: "Host name [standalone/host]", type: "string",
 		})
 		.option("controller-url", {
 			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
 		})
 		.option("controller-token", {
-			nargs: 1, describe: "Controller authentication token [host/ctl]", type: "string",
+			nargs: 1, describe: "Controller authentication token [ctl]", type: "string",
 		})
 		.option("public-address", {
 			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/host]", type: "string",
@@ -761,7 +809,8 @@ async function main() {
 			nargs: 1, describe: "Path to self-signed certificate of the controller [standalone/host]", type: "string",
 		})
 		.option("remote-npm", {
-			nargs: 0, description: "Allow remote updates via npm [standalone/controller/host]", type: "boolean",
+			nargs: 0, type: "boolean", description:
+				"Allow remote updates and plugin installs from the web interface [standalone/controller/host]",
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
@@ -816,44 +865,28 @@ async function main() {
 		await execController(["config", "create"]);
 		await execController(["bootstrap", "create-admin", answers.admin]);
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
-		await execController(["config", "set", "controller.allow_remote_updates", answers.remoteNpm]);
-		await execController(["config", "set", "controller.allow_plugin_updates", answers.remoteNpm]);
+		await setRemoteUpdates(execController, "controller", answers.remoteNpm);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
 
-	if (answers.mode === "standalone") {
+	if (["standalone", "host"].includes(answers.mode)) {
 		logger.info("Setting up host");
 		await execHost(["config", "create"]);
-		await execHost(["config", "set", "host.name", "local"]);
-
-		let result = await execHost(["config", "show", "host.id"]);
-		let hostId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
-
-		result = await execController(["bootstrap", "generate-host-token", hostId]);
-		let hostToken = result.stdout.split("\n").slice(-2)[0];
-
-		// Default to localhost on correct port for host in standalone mode
-		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}/`]);
-		await execHost(["config", "set", "host.controller_token", hostToken]);
-		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
-		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
-		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
-		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
 	}
 
-	if (answers.mode === "host") {
-		logger.info("Setting up host");
-		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
-		await execHost(["config", "create"]);
-		await execHost(["config", "set", "host.id", hostId]);
+	if (answers.mode === "standalone") {
+		// Default to localhost on correct port for host in standalone mode
+		answers.controllerUrl = `http://localhost:${answers.httpPort}/`;
+	}
+
+	if (["standalone", "host"].includes(answers.mode)) {
+		// The host requests to join the cluster when it is started.
 		await execHost(["config", "set", "host.name", answers.hostName]);
 		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
-		await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
-		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
-		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
+		await setRemoteUpdates(execHost, "host", answers.remoteNpm);
 	}
 
 	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {

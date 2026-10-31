@@ -166,6 +166,7 @@ export abstract class Datastore<
 		"update": [ updates: U[] ],
 	}> {
 	private dirty = false;
+	private saving: Promise<void> = Promise.resolve();
 
 	constructor(
 		private provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
@@ -181,10 +182,22 @@ export abstract class Datastore<
 
 	// Save the datastore to the provider
 	async save() {
-		if (this.dirty) {
-			await this.provider.save(this.data);
+		// Saves run one at a time so an older snapshot can't be written after a newer one.
+		const save = this.saving.catch(() => {}).then(async () => {
+			if (!this.dirty) {
+				return;
+			}
+			// Cleared before writing so changes made while saving are saved by the next save.
 			this.dirty = false;
-		}
+			try {
+				await this.provider.save(this.data);
+			} catch (err) {
+				this.dirty = true;
+				throw err;
+			}
+		});
+		this.saving = save;
+		await save;
 	}
 
 	// Load the datastore from the provider

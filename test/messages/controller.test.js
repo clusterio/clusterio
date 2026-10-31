@@ -200,6 +200,34 @@ describe("messages/controller", function() {
 		});
 	});
 
+	describe("Host pairing", function() {
+		const details = [
+			new lib.HostPairingDetails("ABC-DEF", "Host A", "10.0.0.1", "2.0.0", 100, 200),
+			new lib.HostPairingDetails("GHJ-KMN", "Host B", "2001:db8::1", "", 0, 300, true),
+		];
+
+		it("round trips HostPairingListRequest responses", function() {
+			const validate = lib.compile(lib.HostPairingListRequest.Response.jsonSchema);
+			const json = JSON.parse(JSON.stringify(details));
+			assert(validate(json), JSON.stringify(validate.errors));
+			assert.deepEqual(lib.HostPairingListRequest.Response.fromJSON(json), details);
+		});
+		it("round trips HostPairingUpdatesEvent", function() {
+			testRoundTripJsonSerialisable(lib.HostPairingUpdatesEvent, [[[]], [details]]);
+		});
+		it("round trips HostPairingApproveRequest", function() {
+			testRoundTripJsonSerialisable(lib.HostPairingApproveRequest, testMatrix(
+				["ABC-DEF", "abcdef"], // code
+				[undefined, "Renamed"], // name
+			));
+			const validate = lib.compile(lib.HostPairingApproveRequest.Response.jsonSchema);
+			assert(validate(1234));
+		});
+		it("round trips HostPairingRejectRequest", function() {
+			testRoundTripJsonSerialisable(lib.HostPairingRejectRequest, [["ABC-DEF"], ["abcdef"]]);
+		});
+	});
+
 	describe("InstanceConfigGetRequest", function() {
 		it("runs", async function() {
 			const config = await controlConnection.handleInstanceConfigGetRequest(
