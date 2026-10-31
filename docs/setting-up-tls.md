@@ -19,6 +19,12 @@ Additianlly WebSocket connections to `/api/socket` also needs to be forwarded.
 Typically this requires explicit configuration and support for forwarding WebSocket connections.
 If the interface hosted under a sub-path the `/api/socket` address is relative to the sub-path and the sub-path also needs to be stripped out when forwarded.
 
+Saves are sent from hosts to the web interface through the controller as they are uploaded to `/api/stream/`.
+If the proxy buffers request bodies it holds back a host's upload until all of it has arrived.
+A save that takes longer than `controller.proxy_stream_timeout` to upload then fails, after the whole save was sent.
+Turn request buffering off for the proxy, with Nginx this is `proxy_request_buffering off;`.
+Nginx also limits request bodies to 1 MB by default, set `client_max_body_size` high enough for the saves and mods you upload.
+
 You can also optionally set the controller to listen only on the loopback interface to prevent it being directly connected to from the outside.
 
     npx clusteriocontroller config set controller.bind_address 127.0.0.1

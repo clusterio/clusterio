@@ -42,6 +42,58 @@ describe("controller/src/routes", function() {
 			let response = await fetch(`${endpoint}/${stream.id}`);
 			assert.equal(response.status, 500);
 		});
+		/**
+		 * PUT a body at about 6 MiB/s whether or not the server reads it, the way
+		 * a proxy in front of the controller passes on an upload, until the
+		 * connection closes, and count what the server read.
+		 * @param {string} url - URL to PUT to.
+		 * @param {number} size - Size of the body in bytes.
+		 * @returns {Promise<{ status: number|undefined, serverBytesRead: number }>} result
+		 */
+		async function putLargeBody(url, size) {
+			const sockets = [];
+			const onConnection = socket => sockets.push(socket);
+			server.on("connection", onConnection);
+			const request = http.request(url, { method: "PUT", headers: { "Content-Length": size } });
+			let status;
+			request.on("response", response => {
+				status = response.statusCode;
+				response.on("error", () => {});
+				response.resume();
+			});
+			// The server may close the connection while the body is being sent
+			request.on("error", () => {});
+			const closed = new Promise(resolve => request.on("close", resolve));
+			const chunk = Buffer.alloc(64 * 1024);
+			for (let sent = 0; sent < size && !request.closed; sent += chunk.length) {
+				request.write(chunk);
+				await wait(10);
+			}
+			if (!request.closed) {
+				request.end();
+			}
+			await closed;
+			server.off("connection", onConnection);
+			await Promise.all(sockets.map(
+				socket => socket.destroyed || new Promise(resolve => socket.on("close", resolve))
+			));
+			return { status, serverBytesRead: sockets.reduce((total, socket) => total + socket.bytesRead, 0) };
+		}
+		it("should not read the body of a PUT to a stream that doesn't exist", async function() {
+			this.timeout(30000);
+			const size = 64 * 1024 * 1024;
+			const result = await putLargeBody(`${endpoint}/01020304`, size);
+			assert.equal(result.status, 404);
+			assert(result.serverBytesRead < size / 4, `server read ${result.serverBytesRead} of ${size} bytes`);
+		});
+		it("should not read the body of a PUT to a stream that times out", async function() {
+			this.timeout(30000);
+			const size = 64 * 1024 * 1024;
+			const stream = await routes.createProxyStream(controller.app);
+			const result = await putLargeBody(`${endpoint}/${stream.id}`, size);
+			assert.equal(result.status, 500);
+			assert(result.serverBytesRead < size / 4, `server read ${result.serverBytesRead} of ${size} bytes`);
+		});
 		it("should passthrough a stream", async function() {
 			let stream;
 			let responses;
