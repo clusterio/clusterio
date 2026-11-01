@@ -49,7 +49,7 @@ async function saveTechnologies(
 ) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
-	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
+	await lib.atomicOverwriteFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
 }
 
 const MAX_QUEUE = 7;
@@ -71,7 +71,7 @@ async function loadQueue(controllerConfig: lib.ControllerConfig, logger: lib.Log
 async function saveQueue(controllerConfig: lib.ControllerConfig, queue: string[], logger: lib.Logger) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "research_queue.json");
 	logger.verbose(`writing ${filePath}`);
-	await lib.safeOutputFile(filePath, JSON.stringify(queue, null, "\t"));
+	await lib.atomicOverwriteFile(filePath, JSON.stringify(queue, null, "\t"));
 }
 
 export default async function(context: ControllerPluginContext) {

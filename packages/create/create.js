@@ -104,7 +104,7 @@ async function pathExists(filePath) {
 	return true;
 }
 
-async function safeOutputFile(file, data, options={}) {
+async function atomicOverwriteFile(file, data, options={}) {
 	let { dir, name, ext } = path.parse(file);
 	let temporary = path.join(dir, `${name}.tmp${ext}`);
 	if (dir) {
@@ -257,7 +257,7 @@ async function migrateRename(args) {
 
 	async function migrateConfig(source, destination) {
 		if (await pathExists(source) && !await pathExists(destination)) {
-			await safeOutputFile(destination, JSON.stringify(
+			await atomicOverwriteFile(destination, JSON.stringify(
 				renameConfig(JSON.parse(await fs.readFile(source))), null, "\t"
 			), { mode: 0o600 });
 			logger.info(`Migrated ${source} to ${destination}`);
@@ -269,7 +269,7 @@ async function migrateRename(args) {
 
 	let instancesFile = path.join("database", "instances.json");
 	if (await pathExists(instancesFile)) {
-		await safeOutputFile(instancesFile, JSON.stringify(
+		await atomicOverwriteFile(instancesFile, JSON.stringify(
 			JSON.parse(await fs.readFile(instancesFile)).map(renameConfig), null, "\t"
 		));
 		logger.info(`Migrated ${instancesFile}`);
@@ -281,7 +281,7 @@ async function migrateRename(args) {
 		for (let role of users["roles"]) {
 			role["permissions"] = role["permissions"].map(rename);
 		}
-		await safeOutputFile(usersFile, JSON.stringify(users, null, "\t"));
+		await atomicOverwriteFile(usersFile, JSON.stringify(users, null, "\t"));
 		logger.info(`Migrated ${usersFile}`);
 	}
 
@@ -309,7 +309,7 @@ async function migrateRename(args) {
 				lines.push(inputLine);
 			}
 		}
-		safeOutputFile(outputFile, Buffer.concat(lines));
+		atomicOverwriteFile(outputFile, Buffer.concat(lines));
 	}
 
 	async function migrateLogsDir(inputLogs, outputLogs) {
@@ -434,7 +434,7 @@ async function groupIdToName(gid) {
 async function writeScripts(mode, selfSignedCert) {
 	if (["standalone", "controller"].includes(mode)) {
 		if (process.platform === "win32") {
-			await safeOutputFile(
+			await atomicOverwriteFile(
 				"run-controller.cmd",
 				`\
 @echo off
@@ -447,7 +447,7 @@ goto restart
 `
 			);
 		} else {
-			await safeOutputFile(
+			await atomicOverwriteFile(
 				"run-controller.sh",
 				`\
 #!/bin/bash
@@ -459,7 +459,7 @@ done
 `,
 				{ mode: 0o755 },
 			);
-			await safeOutputFile(
+			await atomicOverwriteFile(
 				"systemd/clusteriocontroller.service",
 				`\
 [Unit]
@@ -486,7 +486,7 @@ WantedBy=multi-user.target
 	if (["standalone", "host"].includes(mode)) {
 		if (process.platform === "win32") {
 			let extraCaCertsLine = selfSignedCert ? `set "NODE_EXTRA_CA_CERTS=${selfSignedCert}"\n` : "";
-			await safeOutputFile(
+			await atomicOverwriteFile(
 				"run-host.cmd",
 				`\
 @echo off
@@ -500,7 +500,7 @@ goto restart
 			);
 		} else {
 			let extraCaCertsLine = selfSignedCert ? `export "NODE_EXTRA_CA_CERTS=${selfSignedCert}"\n` : "";
-			await safeOutputFile(
+			await atomicOverwriteFile(
 				"run-host.sh",
 				`\
 #!/bin/bash
@@ -513,7 +513,7 @@ done
 				{ mode: 0o755 },
 			);
 			extraCaCertsLine = selfSignedCert ? `Environment=NODE_EXTRA_CA_CERTS=${selfSignedCert}\n` : "";
-			await safeOutputFile(
+			await atomicOverwriteFile(
 				"systemd/clusteriohost.service",
 				`\
 [Unit]

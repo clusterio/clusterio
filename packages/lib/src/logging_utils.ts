@@ -312,7 +312,7 @@ export class LogIndex {
 	 * was loaded/created from.
 	 */
 	async save() {
-		await libFileOps.safeOutputFile(
+		await libFileOps.atomicOverwriteFile(
 			path.join(this.logDirectory, "index.json"),
 			JSON.stringify(this.serialize(), null, "\t")
 		);

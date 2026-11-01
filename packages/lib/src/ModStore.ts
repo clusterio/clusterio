@@ -3,7 +3,7 @@ import path from "path";
 import events from "events";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging.js";
-import { downloadFile, safeOutputFile } from "./file_ops.js";
+import { downloadFile, atomicOverwriteFile } from "./file_ops.js";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod.js";
 import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, SourceVersion } from "./data/index.js";
 
@@ -148,7 +148,7 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 		if (files.size) {
 			logger.info(`Loaded info for ${files.size} mods`);
 			const content: ModInfoCache = [...files.values()].map(mod => mod.toJSON());
-			await safeOutputFile(cacheFilename, JSON.stringify(content));
+			await atomicOverwriteFile(cacheFilename, JSON.stringify(content));
 		}
 
 		return new this(modsDirectory, files);

@@ -89,7 +89,7 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
 }
 
 /**
- * Safely overwrite file data
+ * Atomically overwrite file data
  *
  * Writes the passed data to a temporary file and rename it over the target
  * file.  If the operation fails because the parent directory does not exist, it
@@ -105,7 +105,7 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
  * @param data - Content to write.
  * @param options - see fs.writeFile, `flag` and `flush` may not be used.
  */
-export async function safeOutputFile(
+export async function atomicOverwriteFile(
 	file: string,
 	data: string | Buffer,
 	options?: Omit<
