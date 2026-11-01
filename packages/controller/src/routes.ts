@@ -366,8 +366,13 @@ function rejectUpload(req: Request, res: Response, status: number) {
 	}
 	const socket = req.socket;
 	const timeout = setTimeout(() => socket.destroy(), rejectedUploadDrainMs);
-	req.once("end", () => clearTimeout(timeout));
-	socket.once("close", () => clearTimeout(timeout));
+	const onClose = () => clearTimeout(timeout);
+	socket.once("close", onClose);
+	// The connection may be kept open for more requests, so don't leave a listener on it
+	req.once("end", () => {
+		clearTimeout(timeout);
+		socket.off("close", onClose);
+	});
 }
 
 async function putStream(req: Request<{ id: string }>, res: Response) {
