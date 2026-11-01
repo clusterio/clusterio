@@ -232,6 +232,7 @@ async function startHost() {
 		const onSignal = () => { abort.abort(); };
 		process.on("SIGINT", onSignal);
 		process.on("SIGTERM", onSignal);
+		process.on("SIGHUP", onSignal);
 		try {
 			await ensurePaired(hostConfig, {
 				version: packageConfig.version,
@@ -253,6 +254,7 @@ async function startHost() {
 		} finally {
 			process.off("SIGINT", onSignal);
 			process.off("SIGTERM", onSignal);
+			process.off("SIGHUP", onSignal);
 		}
 	}
 
