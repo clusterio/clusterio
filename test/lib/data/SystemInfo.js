@@ -41,7 +41,7 @@ describe("lib/data/SystemInfo", function() {
 			testRoundTripJsonSerialisable(SystemInfo, [
 				base,
 				[...base, []],
-				[...base, [new PluginDetails("name", "Title", "1.0.0", true, true, undefined, "name", "1.1.0")]],
+				[...base, [new PluginDetails("name", "Title", "1.0.0", "loaded", undefined, "name", "1.1.0")]],
 			]);
 		});
 	});

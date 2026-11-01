@@ -35,6 +35,8 @@ type MachinePluginsState = {
 	unknown: Machine[],
 	/** Fetch the plugin lists of connected machines now, instead of waiting for the next system metrics */
 	refresh: (addresses?: lib.AddressShorthand[]) => Promise<void>,
+	/** Why machines is not available, if it's not just still loading */
+	error: Error | null,
 };
 
 /**
@@ -44,7 +46,7 @@ type MachinePluginsState = {
 export function useMachinePlugins(): MachinePluginsState {
 	const control = useContext(ControlContext);
 	const account = useAccount();
-	const [hosts, hostsSynced] = useHosts();
+	const [hosts, hostsSynced, hostsError] = useHosts();
 	const [systems, systemsSynced] = useSystems();
 	// Lists fetched directly, used until the system metrics of the machine update
 	const [listed, setListed] = useState(new Map<string, ListedPlugins>());
@@ -88,8 +90,12 @@ export function useMachinePlugins(): MachinePluginsState {
 		}
 	}, [canList, hostsSynced, connectedKey]);
 
-	if (!canList || !hostsSynced || (!systemsSynced && !listed.size)) {
-		return { machines: undefined, unknown: [], refresh };
+	if (!canList) {
+		const error = new lib.PermissionError("Missing permission core.plugin.list");
+		return { machines: undefined, unknown: [], refresh, error };
+	}
+	if (!hostsSynced || (!systemsSynced && !listed.size)) {
+		return { machines: undefined, unknown: [], refresh, error: hostsError };
 	}
 	const machines: MachinePlugins[] = [];
 	const unknown: Machine[] = [];
@@ -105,7 +111,7 @@ export function useMachinePlugins(): MachinePluginsState {
 			unknown.push(machine);
 		}
 	}
-	return { machines, unknown, refresh };
+	return { machines, unknown, refresh, error: null };
 }
 
 /** Latest version published on npm of each package */
@@ -160,7 +166,7 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 		.sort(compareVersions)
 		.reverse();
 	const count = (filter: (machine: MachinePlugin) => boolean) => machines.filter(filter).length;
-	const missing = count(machine => (!machine.plugin || Boolean(machine.plugin.removed)) && !machine.nameTaken);
+	const missing = count(machine => machine.state === "missing" || machine.state === "dependencyTaken");
 
 	return <>
 		{versions.map(version => {
@@ -175,14 +181,14 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 			</div>;
 		})}
 		{count(isPending) > 0 && <CountLine label="Restart pending on" count={count(isPending)} />}
-		{count(machine => machine.disabled) > 0 && <CountLine
-			label="Disabled on" count={count(machine => machine.disabled)} type="secondary"
+		{count(machine => machine.state === "disabled") > 0 && <CountLine
+			label="Disabled on" count={count(machine => machine.state === "disabled")} type="secondary"
 		/>}
-		{count(machine => machine.noEntrypoint) > 0 && <CountLine
-			label="No entrypoint on" count={count(machine => machine.noEntrypoint)} type="secondary"
+		{count(machine => machine.state === "noEntrypoint") > 0 && <CountLine
+			label="No entrypoint on" count={count(machine => machine.state === "noEntrypoint")} type="secondary"
 		/>}
-		{count(machine => machine.nameTaken) > 0 && <CountLine
-			label="From another package on" count={count(machine => machine.nameTaken)} type="secondary"
+		{count(machine => machine.state === "nameTaken") > 0 && <CountLine
+			label="From another package on" count={count(machine => machine.state === "nameTaken")} type="secondary"
 		/>}
 		{missing > 0 && <CountLine label="Not installed on" count={missing} type="warning" />}
 		{unknown.length > 0 && <CountLine label="Plugins not reported by" count={unknown.length} type="warning" />}

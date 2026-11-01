@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Segmented, Space, Spin, Tooltip, Typography,
+	Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Segmented, Space, Tooltip, Typography,
 	message,
 } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
@@ -16,6 +16,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import InstanceConfigTree from "./InstanceConfigTree";
 import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
@@ -31,6 +32,7 @@ import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
 import { instancePublicAddress } from "../util/instance";
 import useLocalStorage from "../util/useLocalStorage";
+import useResourceState from "../util/useResourceState";
 import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -208,26 +210,15 @@ export default function InstanceViewPage() {
 	let navigate = useNavigate();
 
 	let account = useAccount();
-	let [instance, synced] = useInstance(instanceId);
+	let [instance, synced, error] = useInstance(instanceId);
+	const state = useResourceState(instance, synced, error, instanceId);
 	let [host] = useHost(instance?.assignedHost);
 
 	let nav = [{ name: "Instances", path: "/instances" }, { name: instance?.name ?? String(instanceId) }];
 	if (!instance) {
-		if (!synced) {
-			return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<Alert
-				message={"Instance not found"}
-				showIcon
-				description={<>Instance with id {instanceId} was not found on the controller.</>}
-				type="warning"
-				action={
-					<Link to="/instances">Go back to instances list</Link>
-				}
-			/>
-		</PageLayout>;
+		return <ResourceState
+			state={state} type="Instance" id={instanceId} nav={nav} listPath="/instances" error={error}
+		/>;
 	}
 
 	return <PageLayout nav={nav}>

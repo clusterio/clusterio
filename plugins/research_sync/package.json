@@ -30,7 +30,7 @@
 		"test": "echo \"Error: run tests from root\" && exit 1"
 	},
 	"engines": {
-		"node": ">=22"
+		"node": "^22.18.0 || >=24.2.0"
 	},
 
 	"peerDependencies": {

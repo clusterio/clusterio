@@ -1,11 +1,10 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FieldData } from "rc-field-form/lib/interface";
 
 import {
 	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
-	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
-	TablePaginationConfig, Alert, notification,
+	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Switch, Modal, Tooltip,
+	TablePaginationConfig, Alert, notification, FormProps,
 } from "antd";
 
 import {
@@ -23,10 +22,12 @@ import { useModPack } from "../model/mod_pack";
 import { useMods } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
 import notify, { notifyErrorHandler } from "../util/notify";
+import useResourceState from "../util/useResourceState";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import ModDetails from "./ModDetails";
 import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
@@ -34,6 +35,8 @@ import Link from "./Link";
 const { logger } = lib;
 const { Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+type FieldData = NonNullable<FormProps["fields"]>[number];
 
 type ModChange =
 	{
@@ -1182,7 +1185,8 @@ export default function ModPackViewPage() {
 	let modPackId = Number(params.id);
 
 	const [form] = Form.useForm();
-	const [modPack, synced] = useModPack(modPackId);
+	const [modPack, synced, error] = useModPack(modPackId);
+	const state = useResourceState(modPack, synced, error, modPackId);
 	let prototypes: any = useExportedAsset(modPack, "settings");
 	let locale: Map<any, any> = useExportedAsset(modPack, "locale");
 	let [changes, setChanges] = useState<ModChange[]>([]);
@@ -1252,17 +1256,7 @@ export default function ModPackViewPage() {
 
 	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack?.name ?? String(modPackId) }];
 	if (!modifiedModPack || !modPack) {
-		if (!synced) {
-			return <PageLayout nav={nav}>
-				<PageHeader title={String(modPackId)} />
-				<Spin size="large" />
-			</PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<PageHeader title="Mod Pack Not Found" />
-			<p>Mod pack with id {modPackId} was not found on the controller.</p>
-		</PageLayout>;
+		return <ResourceState state={state} type="Mod pack" id={modPackId} nav={nav} listPath="/mods" error={error} />;
 	}
 
 	return <PageLayout nav={nav}>

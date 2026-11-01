@@ -4,57 +4,94 @@ import type { PluginNodeEnvInfo } from "../plugin.js";
 import { Address, MessageRequest } from "./messages_core.js";
 import type { IUser } from "./UserDetails.js";
 
+export const pluginStateSchema = Type.Union([
+	Type.Literal("loaded"),
+	Type.Literal("disabled"),
+	Type.Literal("unloadOnRestart"),
+	Type.Literal("loadOnRestart"),
+	Type.Literal("noEntrypoint"),
+	Type.Literal("pendingInstall"),
+	Type.Literal("removed"),
+	Type.Literal("removedLoaded"),
+	Type.Literal("nameTaken"),
+]);
+/**
+ * State of a plugin on a machine
+ *
+ * - loaded: Running and loaded again on the next restart
+ * - disabled: Not loaded as `<plugin>.load_plugin` is false
+ * - unloadOnRestart: Running, but disabled since startup
+ * - loadOnRestart: Not running, enabled since startup or skipped by recovery mode
+ * - noEntrypoint: Has no entrypoint for this machine, so it is never loaded here
+ * - pendingInstall: Installed since startup, loaded on the next restart
+ * - removed: Uninstalled since startup while not running
+ * - removedLoaded: Uninstalled since startup, running until the next restart
+ * - nameTaken: Not loaded as another package provides a plugin with the same name
+ */
+export type PluginState = Static<typeof pluginStateSchema>;
+
 /* This is similar to other plugin definitions but with lots removed */
 export class PluginDetails {
 	constructor(
 		public name: string,
 		public title: string,
 		public version: string,
-		public loaded: boolean,
-		public enabled: boolean,
+		public state: PluginState,
 		public description?: string,
 		public npmPackage?: string,
 		/** Version installed on disk, differs from version when an update is waiting for a restart */
 		public installedVersion?: string,
-		/** Installed after the machine started, will be loaded on the next restart */
-		public pendingInstall?: boolean,
-		/** Uninstalled after the machine started, will not be loaded on the next restart */
-		public removed?: boolean,
 		/** Name in the root package.json dependencies, differs from npmPackage for aliases */
 		public dependencyName?: string,
-		/** Has no entrypoint for this machine, so it is never loaded here */
-		public noEntrypoint?: boolean,
-		/** Not loaded as another package provides a plugin with the same name */
-		public nameTaken?: boolean,
 	) {}
 
 	static jsonSchema = Type.Object({
 		name: Type.String(),
 		title: Type.String(),
 		version: Type.String(),
+		// Missing from 2.0.3 and older, which require loaded and enabled instead
+		state: Type.Optional(pluginStateSchema),
 		loaded: Type.Boolean(),
 		enabled: Type.Boolean(),
 		description: Type.Optional(Type.String()),
 		npmPackage: Type.Optional(Type.String()),
 		installedVersion: Type.Optional(Type.String()),
-		pendingInstall: Type.Optional(Type.Boolean()),
-		removed: Type.Optional(Type.Boolean()),
 		dependencyName: Type.Optional(Type.String()),
-		noEntrypoint: Type.Optional(Type.Boolean()),
-		nameTaken: Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
-			json.name, json.title, json.version, json.loaded, json.enabled,
-			json.description, json.npmPackage, json.installedVersion, json.pendingInstall, json.removed,
-			json.dependencyName, json.noEntrypoint, json.nameTaken,
+			json.name, json.title, json.version, json.state ?? this.loadState(json.loaded, json.enabled),
+			json.description, json.npmPackage, json.installedVersion, json.dependencyName,
 		);
 	}
 
-	static fromNodeEnvInfo(pluginInfo: PluginNodeEnvInfo, loaded: boolean, enabled: boolean) {
+	toJSON(): Static<typeof PluginDetails.jsonSchema> {
+		return {
+			name: this.name,
+			title: this.title,
+			version: this.version,
+			state: this.state,
+			loaded: this.loaded,
+			enabled: this.loadsOnRestart,
+			description: this.description,
+			npmPackage: this.npmPackage,
+			installedVersion: this.installedVersion,
+			dependencyName: this.dependencyName,
+		};
+	}
+
+	/** State of a plugin known since startup */
+	static loadState(loaded: boolean, enabled: boolean): PluginState {
+		if (loaded) {
+			return enabled ? "loaded" : "unloadOnRestart";
+		}
+		return enabled ? "loadOnRestart" : "disabled";
+	}
+
+	static fromNodeEnvInfo(pluginInfo: PluginNodeEnvInfo, state: PluginState) {
 		return new this(
-			pluginInfo.name, pluginInfo.title, pluginInfo.version, loaded, enabled,
+			pluginInfo.name, pluginInfo.title, pluginInfo.version, state,
 			pluginInfo.description, pluginInfo.npmPackage,
 		);
 	}
@@ -63,9 +100,24 @@ export class PluginDetails {
 	static fromPackageJson(packageName: string, packageJson: any, npmPackage?: string, dependencyName?: string) {
 		const description = typeof packageJson.description === "string" ? packageJson.description : undefined;
 		return new this(
-			packageName, packageName, packageJson.version, false, false,
-			description, npmPackage, packageJson.version, true, undefined, dependencyName,
+			packageName, packageName, packageJson.version, "pendingInstall",
+			description, npmPackage, packageJson.version, dependencyName,
 		);
+	}
+
+	/** Running on the machine now */
+	get loaded() {
+		return ["loaded", "unloadOnRestart", "removedLoaded"].includes(this.state);
+	}
+
+	/** Running on the machine after the next restart */
+	get loadsOnRestart() {
+		return ["loaded", "loadOnRestart", "pendingInstall"].includes(this.state);
+	}
+
+	/** Uninstalled since startup */
+	get removed() {
+		return this.state === "removed" || this.state === "removedLoaded";
 	}
 }
 

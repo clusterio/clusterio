@@ -16,18 +16,26 @@ export type Machine = {
 };
 export type MachinePlugins = Machine & { plugins: lib.PluginDetails[] };
 
+/**
+ * What happens with a plugin on one machine, in order of precedence
+ *
+ * - nameTaken: Another package here provides the plugin by the same name, startup skips this one
+ * - dependencyTaken: Not installed, and the group's npm package name is a dependency here for
+ *   another plugin, such as an alias
+ * - missing: Not installed
+ * - noEntrypoint: Installed but never loaded on this machine as it has no entrypoint for it
+ * - disabled: Installed but not loaded after the next restart
+ * - enabled: Installed and loaded after the next restart
+ */
+export type MachinePluginState =
+	"nameTaken" | "dependencyTaken" | "missing" | "noEntrypoint" | "disabled" | "enabled";
+
 /** A plugin on one machine, with the version it runs now and the version it will run after a restart */
 export type MachinePlugin = Machine & {
 	plugin?: lib.PluginDetails,
+	state: MachinePluginState,
 	running?: string,
 	afterRestart?: string,
-	disabled: boolean,
-	/** Installed but never loaded on this machine as it has no entrypoint for it */
-	noEntrypoint: boolean,
-	/** The group's npm package name is a dependency here for another plugin, such as an alias */
-	dependencyTaken: boolean,
-	/** Another package here provides the plugin by the same name, startup skips this one */
-	nameTaken: boolean,
 	/** A host from before installedVersion was reported, it can't install a specific version */
 	oldHost: boolean,
 };
@@ -53,45 +61,51 @@ export function compareVersions(a: string, b: string) {
 	return strcmp(a, b);
 }
 
+/** Not uninstalled since startup and not skipped by name, so its plugin name is in use */
+function holdsName(plugin: lib.PluginDetails) {
+	return !plugin.removed && plugin.state !== "pendingInstall" && plugin.state !== "nameTaken";
+}
+
+function machinePluginState(
+	plugins: lib.PluginDetails[], plugin: lib.PluginDetails | undefined, key: string, names: Set<string>,
+): MachinePluginState {
+	if (plugin?.state === "nameTaken") {
+		return "nameTaken";
+	}
+	const absent = !plugin || plugin.removed;
+	if ((absent || plugin.state === "pendingInstall") && plugins.some(
+		candidate => pluginStatusKey(candidate) !== key && names.has(candidate.name) && holdsName(candidate)
+	)) {
+		return "nameTaken";
+	}
+	if (absent) {
+		return plugins.some(candidate => candidate.dependencyName === key && !candidate.removed)
+			? "dependencyTaken" : "missing";
+	}
+	if (plugin.state === "noEntrypoint") {
+		return "noEntrypoint";
+	}
+	return plugin.loadsOnRestart ? "enabled" : "disabled";
+}
+
 /** The plugin with the given key on one machine, names are the plugin names known for that key */
 function machinePlugin(machine: MachinePlugins, key: string, names: Set<string>): MachinePlugin {
 	const { plugins, ...rest } = machine;
 	// A package removed and installed again is listed twice, the removed one may still be running
 	const candidates = plugins.filter(candidate => pluginStatusKey(candidate) === key);
 	const plugin = candidates.find(candidate => !candidate.removed) ?? candidates[0];
-	const absent = !plugin || Boolean(plugin.removed);
-	const dependencyTaken = absent && plugins.some(
-		candidate => candidate.dependencyName === key && !candidate.removed
-	);
-	const nameTaken = Boolean(plugin?.nameTaken) || (absent || Boolean(plugin.pendingInstall)) && plugins.some(
-		candidate => (
-			pluginStatusKey(candidate) !== key && names.has(candidate.name)
-			&& !candidate.removed && !candidate.pendingInstall && !candidate.nameTaken
-		)
-	);
-	const noEntrypoint = Boolean(plugin?.noEntrypoint);
+	const state = machinePluginState(plugins, plugin, key, names);
 	const oldHost = !machine.isController && plugins.length > 0 && plugins.every(
 		candidate => candidate.installedVersion === undefined && !candidate.removed
 	);
-	const entry: MachinePlugin = {
-		...rest, plugin, disabled: false, noEntrypoint, dependencyTaken, nameTaken, oldHost,
+	return {
+		...rest,
+		plugin,
+		state,
+		oldHost,
+		running: candidates.find(candidate => candidate.loaded)?.version,
+		afterRestart: state === "enabled" && plugin ? plugin.installedVersion ?? plugin.version : undefined,
 	};
-	// What runs now follows loaded, what runs after a restart follows enabled and what is on disk
-	entry.running = candidates.find(candidate => candidate.loaded)?.version;
-	if (nameTaken) {
-		return entry;
-	}
-	if (plugin?.pendingInstall) {
-		// Plugins load by default, so a new install runs after the next restart
-		entry.afterRestart = plugin.installedVersion ?? plugin.version;
-	} else if (plugin && !plugin.removed && !noEntrypoint) {
-		if (plugin.enabled) {
-			entry.afterRestart = plugin.installedVersion ?? plugin.version;
-		} else {
-			entry.disabled = true;
-		}
-	}
-	return entry;
 }
 
 /** Group the plugin lists of every machine by plugin */
@@ -107,7 +121,7 @@ export function computePluginStatuses(
 			if (!titles.has(key) || plugin.loaded) {
 				titles.set(key, plugin.title);
 			}
-			if (!plugin.pendingInstall && !plugin.nameTaken) {
+			if (plugin.state !== "pendingInstall" && plugin.state !== "nameTaken") {
 				pluginNames.set(key, (pluginNames.get(key) ?? new Set()).add(plugin.name));
 			}
 		}
@@ -154,15 +168,15 @@ export function planUpdate(
 		if (installed && compareVersions(plugin.installedVersion ?? plugin.version, version) >= 0) {
 			continue;
 		}
-		const kind = !installed || plugin.pendingInstall ? "install" : "update";
+		const kind = !installed || plugin.state === "pendingInstall" ? "install" : "update";
 		const skip = (reason: string, skipKind: PackageOperation["kind"] = kind) => {
 			plan.skipped.push({ kind: skipKind, target, reason });
 		};
 		if (machine.offline) {
 			skip("offline");
-		} else if (machine.nameTaken) {
+		} else if (machine.state === "nameTaken") {
 			skip("another package provides this plugin", "install");
-		} else if (machine.dependencyTaken) {
+		} else if (machine.state === "dependencyTaken") {
 			skip(`another package is installed as ${status.npmPackage}`, "install");
 		} else if (installed && !plugin.npmPackage) {
 			// An alias, private or local package, installing the group's npm package would replace it
@@ -211,18 +225,20 @@ export function machineStatusLabels(machine: MachinePlugin) {
 	if (machine.offline) {
 		labels.push("Offline");
 	}
-	if (machine.nameTaken) {
+	if (machine.state === "nameTaken") {
 		labels.push("Another package provides this plugin");
-	} else if (!machine.plugin || machine.plugin.removed) {
-		labels.push(machine.dependencyTaken ? "Another package is installed by this name" : "Not installed");
+	} else if (machine.state === "dependencyTaken") {
+		labels.push("Another package is installed by this name");
+	} else if (machine.state === "missing") {
+		labels.push("Not installed");
 	} else {
-		if (!machine.plugin.npmPackage) {
+		if (!machine.plugin?.npmPackage) {
 			labels.push("Not installed from npm");
 		}
-		if (machine.noEntrypoint) {
+		if (machine.state === "noEntrypoint") {
 			labels.push("No entrypoint for this machine");
 		}
-		if (machine.disabled) {
+		if (machine.state === "disabled") {
 			labels.push("Disabled");
 		}
 	}

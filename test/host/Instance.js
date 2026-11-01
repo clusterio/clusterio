@@ -268,6 +268,46 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe(".handleInstanceStopRequest()", function() {
+		let calls;
+		beforeEach(function() {
+			calls = [];
+			instance.server._state = "running";
+			instance.server.stop = async () => { calls.push("stop"); instance.server._state = "stopping"; };
+			instance.server.kill = async () => { calls.push("kill"); };
+			instance.sendSaveListUpdate = async () => {};
+		});
+
+		it("should stop once a start in progress finishes", async function() {
+			instance.notifyStatus("starting");
+			let stopped = instance.handleInstanceStopRequest();
+			await wait(10);
+			assert.deepEqual(calls, [], "stopped while starting");
+			instance.notifyStatus("running");
+			await stopped;
+			assert.deepEqual(calls, ["stop"]);
+		});
+
+		it("should do nothing if a start in progress fails", async function() {
+			instance.notifyStatus("starting");
+			let stopped = instance.handleInstanceStopRequest();
+			await wait(10);
+			instance.notifyStatus("stopped");
+			await stopped;
+			assert.deepEqual(calls, []);
+		});
+
+		it("should not kill the server when stopped while stopping", async function() {
+			instance.notifyStatus("running");
+			let first = instance.handleInstanceStopRequest();
+			let second = instance.handleInstanceStopRequest();
+			await first;
+			instance.notifyStatus("stopped");
+			await second;
+			assert.deepEqual(calls, ["stop"]);
+		});
+	});
+
 	describe(".checkModPackVersion()", function() {
 		function modPack(factorioVersion) {
 			return lib.ModPack.fromJSON({ name: "pack", factorio_version: factorioVersion });

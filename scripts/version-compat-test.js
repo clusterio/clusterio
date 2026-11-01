@@ -12,7 +12,10 @@
  * added and removed messages are only warned about since breaking
  * compatibility is unavoidable there.  Optional properties that only one
  * version has are left out of the comparison, as the other version ignores
- * them when received and does not need them when sent.
+ * them when received and does not need them when sent.  Control clients are
+ * left out too, as the web UI is served by the controller it talks to, so
+ * control is removed from src and dst and messages that only go between
+ * control and the controller are skipped.
  *
  * Intended breaks are listed in scripts/version-compat-breaks.json, see
  * scripts/version-compat-breaks.js for the format.
@@ -196,6 +199,15 @@ const dumpMessageSpecs = `
 	console.log(JSON.stringify(specs));
 `;
 
+function withoutControl(spec) {
+	const strip = types => types.filter(type => type !== "control");
+	return { ...spec, src: strip(spec.src), dst: strip(spec.dst) };
+}
+
+function isControlOnly(spec) {
+	return [...spec.src, ...spec.dst].every(type => type === "control" || type === "controller");
+}
+
 async function messageSpecs(libPath) {
 	const result = await execFile(process.execPath, ["-e", dumpMessageSpecs, libPath]);
 	return new Map(Object.entries(JSON.parse(result.stdout)));
@@ -215,12 +227,19 @@ async function checkMessageCompat(publishedVersion, knownBreaks) {
 	console.log(`| comparing ${localSpecs.size} local with ${publishedSpecs.size} published link messages`);
 
 	const changed = [];
-	for (const [name, localSpec] of localSpecs) {
-		const publishedSpec = publishedSpecs.get(name);
-		if (!publishedSpec) {
-			annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
+	for (const [name, fullLocalSpec] of localSpecs) {
+		const fullPublishedSpec = publishedSpecs.get(name);
+		if (!fullPublishedSpec) {
+			if (!isControlOnly(fullLocalSpec)) {
+				annotate(`Link ${name} does not exist in ${publishedVersion} which cannot receive it`);
+			}
 			continue;
 		}
+		if (isControlOnly(fullLocalSpec) && isControlOnly(fullPublishedSpec)) {
+			continue;
+		}
+		const localSpec = withoutControl(fullLocalSpec);
+		const publishedSpec = withoutControl(fullPublishedSpec);
 		const differs = Object.keys(localSpec).filter(
 			field => stableStringify(localSpec[field]) !== stableStringify(publishedSpec[field])
 		);
@@ -238,8 +257,8 @@ async function checkMessageCompat(publishedVersion, knownBreaks) {
 			changed.push({ name, fields, localSpec, publishedSpec });
 		}
 	}
-	for (const name of publishedSpecs.keys()) {
-		if (!localSpecs.has(name)) {
+	for (const [name, publishedSpec] of publishedSpecs) {
+		if (!localSpecs.has(name) && !isControlOnly(publishedSpec)) {
 			annotate(`Link ${name} was removed after ${publishedVersion} which may still send it`);
 		}
 	}
@@ -277,6 +296,48 @@ async function pollCtl(ctl, cliArgs, expectRegex, description, timeoutMs = 30e3)
 		}
 		await new Promise(resolve => setTimeout(resolve, 1000));
 	}
+}
+
+/**
+ * Pair the host with the running controller and write its config
+ *
+ * The pairing API is probed instead of checking which side is local, as releases that support
+ * pairing no longer have ctl host create-config to fall back on.
+ *
+ * @returns true if the host was paired, false if the controller predates host pairing.
+ */
+async function pairHostWithController() {
+	// Written by bootstrap create-ctl-config, holds the admin token which approves the host directly.
+	const ctlConfig = JSON.parse(await fs.readFile(path.join(controllerDir, "config-ctl.json"), "utf8"));
+	const controllerUrl = ctlConfig["ctl.controller_url"];
+	console.log(`| pairing host with ${controllerUrl}`);
+	// A user allowed to approve hosts gets the host straight away, without waiting for approval.
+	const response = await fetch(new URL("api/host-pairing", controllerUrl), {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ctlConfig["ctl.controller_token"]}` },
+		body: JSON.stringify({ name: "host" }),
+	});
+	if (response.status === 404) {
+		console.log("| controller does not support host pairing");
+		return false;
+	}
+	if (response.status !== 200) {
+		throw new Error(`Pairing host failed with ${response.status}: ${await response.text()}`);
+	}
+	const pairing = await response.json();
+	console.log(`| paired host ${pairing.name} with id ${pairing.hostId}`);
+
+	// The same fields the installer sets, which every host version reads.
+	const hostConfig = {
+		"host.id": pairing.hostId,
+		"host.name": pairing.name,
+		"host.controller_url": controllerUrl,
+		"host.controller_token": pairing.token,
+	};
+	await fs.writeFile(
+		path.join(hostDir, "config-host.json"), JSON.stringify(hostConfig, null, "\t"), { flag: "wx", mode: 0o600 }
+	);
+	return true;
 }
 
 async function main() {
@@ -337,10 +398,12 @@ async function main() {
 	);
 
 	try {
-		await run("ctl", ctl, [
-			"host", "create-config", "--id", "1", "--name", "host", "--generate-token",
-			"--output", path.join(hostDir, "config-host.json"),
-		], controllerDir);
+		if (!await pairHostWithController()) {
+			await run("ctl", ctl, [
+				"host", "create-config", "--id", "1", "--name", "host", "--generate-token",
+				"--output", path.join(hostDir, "config-host.json"),
+			], controllerDir);
+		}
 
 		// Started host is only logged after the connection to the controller is established.
 		const hostProc = await spawnDaemon("host", host, ["run"], hostDir, /Started host/);

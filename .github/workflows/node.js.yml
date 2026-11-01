@@ -7,6 +7,12 @@ on:
   push:
   pull_request:
 
+# Superseded runs of a branch or pull request are cancelled. Runs on master
+# each get their own group so every commit there is tested.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.sha || github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: 24.x
 
@@ -22,17 +28,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Test Node.js 24 and 26 across the Factorio matrix; Node.js 22 runs coverage below.
+        # To stay within the concurrent job limit, every Factorio version is
+        # tested on the latest Node.js, and every other supported Node.js
+        # version only with the latest Factorio. Coverage is performed on the
+        # oldest supported Node.js.
         # Node.js release schedule: https://nodejs.org/en/about/releases/
-        node-version: [24.x, 26.x]
-
-        # Supported factorio versions are latest stable and one minor version before stable (even if from a previous major) 
+        # Supported factorio versions are latest stable and one minor version before stable (even if from a previous major)
+        node-version: [26.x]
         factorio-version: [1.1.110, 2.0.77, 2.1.17]
-    
-        # Coverage is performed on the older of the supported node versions
+
+        # The tests run in two halves of similar length on separate runners,
+        # the clusterioctl, plugin system and instance integration tests and the rest.
+        tests: [ctl, other]
+
         include:
+          - node-version: 24.x
+            factorio-version: 2.1.17
+            tests: ctl
+          - node-version: 24.x
+            factorio-version: 2.1.17
+            tests: other
           - node-version: 22.x
             factorio-version: 2.1.17
+            tests: ctl
+            coverage: true
+          - node-version: 22.x
+            factorio-version: 2.1.17
+            tests: other
             coverage: true
 
     steps:
@@ -45,21 +67,23 @@ jobs:
       run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ matrix.factorio-version }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
       if: ${{ !matrix.coverage }}
-      run: pnpm test
+      run: pnpm test --grep "^(Integration of Clusterio (clusterioctl|plugin system)|Clusterio Instance) " ${{ matrix.tests == 'other' && '--invert' || '' }}
     - name: Run coverage
       if: ${{ matrix.coverage }}
-      run: pnpm run ci-cover
+      run: pnpm run ci-cover --grep "^(Integration of Clusterio (clusterioctl|plugin system)|Clusterio Instance) " ${{ matrix.tests == 'other' && '--invert' || '' }}
     - name: Upload coverage to Codecov
       if: ${{ matrix.coverage }}
       uses: codecov/codecov-action@v7
       with:
         files: ./coverage/lcov.info
+        # Otherwise the raw V8 coverage in coverage/tmp is uploaded as well
+        disable_search: true
         token: ${{ secrets.CODECOV_TOKEN }}
     - name: Upload test logs for debugging
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
-        name: logs-${{ matrix.node-version }}-${{ matrix.factorio-version }}
+        name: logs-${{ matrix.node-version }}-${{ matrix.factorio-version }}-${{ matrix.tests }}
         path: temp/test/logs
 
   version-compat:
@@ -87,8 +111,6 @@ jobs:
       uses: ./.github/actions/pnpm-install
       with:
         node-version: ${{ env.NODE_VERSION }}
-    - name: Build
-      run: pnpm run build
     - name: Test ${{ matrix.controller }} controller with ${{ matrix.host }} host
       run: >
         node scripts/version-compat-test.js

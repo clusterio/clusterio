@@ -302,8 +302,7 @@ describe("host/src/Host", function() {
 					await host.loadPlugins();
 					const plugins = await host.handlePluginListRequest(new lib.PluginListRequest());
 					const plugin = plugins.find(candidate => candidate.name === "controller_only");
-					assert.equal(plugin.loaded, false);
-					assert.equal(plugin.noEntrypoint, true);
+					assert.equal(plugin.state, "noEntrypoint");
 					const [entry] = computePluginStatuses([
 						{ name: "host", isController: false, address: { hostId: 1 }, plugins: [plugin] },
 					]).get("controller_only").machines;

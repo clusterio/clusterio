@@ -5,11 +5,12 @@ import * as mock from "../../../test/mock.js";
 import loadInstancePlugin from "../dist/node/instance.js";
 import { plugin as info } from "../dist/node/index.js";
 import {
-	QueueEvent, QueueSyncRequest, QueueUpdateEvent, SyncTechnologiesRequest,
+	ContributionEvent, FinishedEvent, QueueEvent, QueueSyncRequest, QueueUpdateEvent, SyncTechnologiesRequest,
+	TechnologySync,
 } from "../dist/node/messages.js";
 
 describe("research_sync instance", function() {
-	let instance, sent;
+	let instance, host, sent;
 	const clusterQueue = ["a", "b"];
 
 	before(function() {
@@ -20,7 +21,7 @@ describe("research_sync instance", function() {
 		}
 	});
 	beforeEach(async function() {
-		({ instance } = await mock.loadInstancePlugin(loadInstancePlugin, info));
+		({ instance, host } = await mock.loadInstancePlugin(loadInstancePlugin, info));
 		sent = [];
 		instance.sendTo = async (dst, message) => {
 			sent.push(message);
@@ -95,6 +96,7 @@ describe("research_sync instance", function() {
 			await instance.hooks.start.invoke();
 			sent.length = 0;
 			instance.server.reset();
+			instance.server.rconCommandResults.set("/sc research_sync.dump_technologies()", "[]");
 			queueState({ follow: true, first: false });
 		});
 
@@ -107,6 +109,31 @@ describe("research_sync instance", function() {
 		it("should do nothing on resume", async function() {
 			await instance.hooks.controllerConnectionEvent.invoke("resume");
 			assert.equal(sent.length, 0);
+		});
+		it("should sync technologies before the queue on a new session", async function() {
+			await instance.hooks.controllerConnectionEvent.invoke("connect");
+			assert.ok(sent[0] instanceof SyncTechnologiesRequest);
+			assert.ok(sent[1] instanceof QueueSyncRequest);
+		});
+		it("should apply research finished elsewhere during the outage", async function() {
+			instance.server.rconCommandResults.set(
+				"/sc research_sync.dump_technologies()",
+				JSON.stringify([{ name: "automation", level: 1, progress: 0.5, researched: false }]),
+			);
+			let controllerTechs = [new TechnologySync("automation", 1, null, true)];
+			let sendTo = instance.sendTo;
+			instance.sendTo = async (dst, message) => {
+				if (message instanceof SyncTechnologiesRequest) {
+					sent.push(message);
+					return controllerTechs;
+				}
+				return sendTo(dst, message);
+			};
+			await instance.hooks.controllerConnectionEvent.invoke("connect");
+			let syncRequest = sent.find(m => m instanceof SyncTechnologiesRequest);
+			assert.deepEqual(syncRequest.technologies, [new TechnologySync("automation", 1, 0.5, false)]);
+			let syncJson = lib.escapeString(JSON.stringify(controllerTechs));
+			assert.ok(instance.server.rconCommands.includes(`/sc research_sync.sync_technologies("${syncJson}")`));
 		});
 		it("should do nothing while stopped", async function() {
 			instance.status = "stopped";
@@ -122,11 +149,92 @@ describe("research_sync instance", function() {
 			// reply resolves the request's await
 			instance.sendTo = async (dst, message) => {
 				sent.push(message);
+				if (message instanceof SyncTechnologiesRequest) {
+					return [];
+				}
 				mock.getHandler(instance, QueueEvent)(new QueueEvent(["new"], null, "B"));
 				return ["old"];
 			};
 			await instance.hooks.controllerConnectionEvent.invoke("connect");
 			assert.equal(lastCommand(), applyCommand({ queue: ["new"], instance: "B" }));
+		});
+	});
+
+	describe("controller outage", function() {
+		beforeEach(async function() {
+			queueState({ follow: false });
+			await instance.hooks.start.invoke();
+			sent.length = 0;
+			host.connector.connected = false;
+		});
+		const contributions = () => sent.filter(m => m instanceof ContributionEvent);
+		const techSyncs = () => sent.filter(m => m instanceof SyncTechnologiesRequest);
+		function contribute(name, level, contribution) {
+			instance.server.emit("ipc-research_sync:contribution", { name, level, contribution });
+		}
+
+		it("should send contributions while connected", async function() {
+			host.connector.connected = true;
+			contribute("automation", 1, 0.25);
+			instance.server.emit("ipc-research_sync:finished", { name: "automation", level: 1 });
+			assert.ok(sent[0] instanceof ContributionEvent);
+			assert.ok(sent[1] instanceof FinishedEvent);
+		});
+		it("should sum contributions and send them on a new session", async function() {
+			contribute("automation", 1, 0.25);
+			contribute("automation", 1, 0.25);
+			contribute("logistics", 1, 0.125);
+			assert.equal(sent.length, 0);
+			host.connector.connected = true;
+			await instance.hooks.controllerConnectionEvent.invoke("connect");
+			assert.deepEqual(
+				contributions().map(m => [m.name, m.level, m.contribution]),
+				[["automation", 1, 0.5], ["logistics", 1, 0.125]],
+			);
+			assert.ok(sent.indexOf(contributions()[1]) < sent.indexOf(techSyncs()[0]));
+		});
+		it("should keep only contributions to the highest level", async function() {
+			contribute("mining-productivity-3", 3, 0.5);
+			contribute("mining-productivity-3", 4, 0.25);
+			contribute("mining-productivity-3", 3, 0.5);
+			host.connector.connected = true;
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			assert.deepEqual(
+				contributions().map(m => [m.name, m.level, m.contribution]),
+				[["mining-productivity-3", 4, 0.25]],
+			);
+		});
+		it("should send contributions once", async function() {
+			contribute("automation", 1, 0.25);
+			host.connector.connected = true;
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			assert.equal(contributions().length, 1);
+		});
+		it("should not sync technologies on resume when nothing finished", async function() {
+			contribute("automation", 1, 0.25);
+			host.connector.connected = true;
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			assert.equal(techSyncs().length, 0);
+		});
+		it("should sync technologies on resume when research finished", async function() {
+			instance.server.emit("ipc-research_sync:finished", { name: "automation", level: 1 });
+			assert.equal(sent.length, 0);
+			host.connector.connected = true;
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			assert.equal(techSyncs().length, 1);
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			assert.equal(techSyncs().length, 1);
+		});
+		it("should retry the technology sync after it fails on resume", async function() {
+			instance.server.emit("ipc-research_sync:finished", { name: "automation", level: 1 });
+			host.connector.connected = true;
+			let sendTo = instance.sendTo;
+			instance.sendTo = async () => { throw new Error("gone"); };
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			instance.sendTo = sendTo;
+			await instance.hooks.controllerConnectionEvent.invoke("resume");
+			assert.equal(techSyncs().length, 1);
 		});
 	});
 
