@@ -88,6 +88,22 @@ export function recipeNotificationDelta(stored: string[], current: string[]): Re
 }
 
 /**
+ * Decode a list of cleared recipe names, Factorio serializes an empty list as {}
+ * @param encoded - Encoded JSON list of recipe names
+ * @returns the recipe names
+ */
+async function decodeRecipeNames(encoded: string): Promise<string[]> {
+	const names = JSON.parse(await decodeLuaString(encoded));
+	if (Array.isArray(names)) {
+		return names;
+	}
+	if (names !== null && typeof names === "object" && Object.keys(names).length === 0) {
+		return [];
+	}
+	throw new Error(`Expected a list of recipe names, got ${JSON.stringify(names)}`);
+}
+
+/**
  * Replace the stored recipe notifications with the difference from the
  * current state on the instance to reduce the amount of data sent to Lua.
  * Without a current state the whole stored list is sent, marked full.
@@ -101,9 +117,9 @@ export async function applyRecipeNotificationDelta(
 		return;
 	}
 	try {
-		const stored = JSON.parse(await decodeLuaString(playerData.recipe_notifications));
+		const stored = await decodeRecipeNames(playerData.recipe_notifications);
 		const delta: RecipeNotificationDelta = current
-			? recipeNotificationDelta(stored, JSON.parse(await decodeLuaString(current)))
+			? recipeNotificationDelta(stored, await decodeRecipeNames(current))
 			: { ...recipeNotificationDelta(stored, []), full: true };
 		playerData.recipe_notifications = await encodeLuaString(JSON.stringify(delta));
 	} catch (err: any) {
