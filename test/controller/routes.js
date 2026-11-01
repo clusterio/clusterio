@@ -267,8 +267,8 @@ describe("controller/src/routes", function() {
 			playerToken = controller.users.signUserToken(controller.users.getByName("player"));
 		});
 
-		function post(path, body, headers = {}) {
-			return fetch(`${endpoint}${path}`, {
+		function post(urlPath, body, headers = {}) {
+			return fetch(`${endpoint}${urlPath}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json", ...headers },
 				body: typeof body === "string" || body === undefined ? body : JSON.stringify(body),
