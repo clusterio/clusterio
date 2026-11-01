@@ -76,10 +76,12 @@ package.preload["modules/player_sync/serialize"] = function()
 		spill_items = function() end,
 	}
 end
+-- The real one respawns the player, which puts the new character at the force spawn
 package.preload["modules/player_sync/ensure_character"] = function()
 	return function(player)
-		if not player.character then
+		if not player.character and not player.ticks_to_respawn then
 			set_character(player, { destroy = function() end })
+			player.teleport({ x = 0, y = 0 }, player.surface)
 		end
 	end
 end
