@@ -354,6 +354,7 @@ Defaults to a random 31 bit number.
 
 Directory to look for the Factorio server(s) in.
 This can either point to a Factorio server directory, or to a directory containing multiple versions of the Factorio server.
+The headless build has no graphics, so when exporting data from an instance running it the base game's icons are read from a full install of the same major and minor version in this directory instead, if there is one.
 
 Defaults to "factorio".
 

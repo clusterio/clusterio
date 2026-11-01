@@ -10,7 +10,7 @@ import yazl from "yazl";
 
 import * as lib from "@clusterio/lib";
 import * as libBuildMod from "@clusterio/lib/dist/node/build_mod.js";
-import type { FactorioServer } from "./server.js";
+import { findVersion, isHeadless, type FactorioServer } from "./server.js";
 import { definesPrototypesFallback } from "./export_fallback.js";
 
 interface SimpleIconSpecification {
@@ -95,6 +95,16 @@ async function loadZip(server: FactorioServer, modVersions: Map<string, string>,
 	return modZip;
 }
 
+/** Where icon files are read from during an export. */
+interface ExportFiles {
+	/** Mod zips opened during the export, closed when it ends. */
+	zipCache: ZipCache;
+	/** Data dir of a full install to fall back to for builtin mod files. */
+	graphicsDataDir?: string;
+	/** Why no full install was found for a headless server. */
+	graphicsError?: string;
+}
+
 function closeZipCache(zipCache: ZipCache) {
 	for (const { zip } of zipCache.values()) {
 		zip.close();
@@ -107,7 +117,7 @@ function closeZipCache(zipCache: ZipCache) {
  *
  * @param server - The server to load the file from.
  * @param modVersions - Mapping of mod to version used.
- * @param zipCache - Mod zips opened by this export.
+ * @param files - Where to read files from.
  * @param modPath - Factorio style path to the file to load.
  * @returns The content of the file or null if not found.
  * @internal
@@ -115,7 +125,7 @@ function closeZipCache(zipCache: ZipCache) {
 async function loadFile(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	zipCache: ZipCache,
+	files: ExportFiles,
 	modPath: string,
 ) {
 	let match = /^__([^\/]+)__\/(.*)$/.exec(modPath);
@@ -128,19 +138,25 @@ async function loadFile(
 
 	const builtinModNames = ["core", ...lib.ModPack.getBuiltinModNames(server.version!)];
 	if (builtinModNames.includes(mod)) {
-		try {
-			return await fs.readFile(server.dataPath(mod, filePath));
-		} catch (err: any) {
-			if (err.code === "ENOENT") {
-				return null;
-			}
-			throw err;
+		const dataDirs = [server.dataPath()];
+		if (files.graphicsDataDir) {
+			dataDirs.push(files.graphicsDataDir);
 		}
+		for (const dataDir of dataDirs) {
+			try {
+				return await fs.readFile(path.join(dataDir, mod, filePath));
+			} catch (err: any) {
+				if (err.code !== "ENOENT") {
+					throw err;
+				}
+			}
+		}
+		return null;
 	}
 
 	let modZip;
 	try {
-		modZip = await loadZip(server, modVersions, zipCache, mod);
+		modZip = await loadZip(server, modVersions, files.zipCache, mod);
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			return null;
@@ -158,7 +174,7 @@ type IconCache = Map<string, Image | null>;
 async function loadIcon(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	zipCache: ZipCache,
+	files: ExportFiles,
 	iconPath: string,
 	iconSize: number,
 	iconMipmaps: number,
@@ -166,7 +182,7 @@ async function loadIcon(
 ) {
 	let icon = iconCache.get(iconPath);
 	if (icon === undefined) {
-		let fileContent = await loadFile(server, modVersions, zipCache, iconPath);
+		let fileContent = await loadFile(server, modVersions, files, iconPath);
 		if (fileContent) {
 			icon = await Jimp.fromBuffer(fileContent) as Image;
 			icon.crop({ x: 0, y: 0, w: iconSize, h: iconSize });
@@ -182,12 +198,12 @@ async function loadIcon(
 async function loadSimpleIcon(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	zipCache: ZipCache,
+	files: ExportFiles,
 	item: SimpleIconSpecification,
 	size: number,
 	iconCache: IconCache,
 ): Promise<Image | null> {
-	let icon = await loadIcon(server, modVersions, zipCache, item.icon, item.icon_size ?? 64, 0, iconCache);
+	let icon = await loadIcon(server, modVersions, files, item.icon, item.icon_size ?? 64, 0, iconCache);
 	if (icon) {
 		let iconScale = size / (item.icon_size ?? 64);
 		if (iconScale !== 1) {
@@ -201,11 +217,11 @@ async function loadSimpleIcon(
 async function loadLayeredIcon(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	zipCache: ZipCache,
+	files: ExportFiles,
 	item: LayeredIconSpecification,
 	size: number,
 	iconCache: IconCache,
-): Promise<Image> {
+): Promise<Image | null> {
 	let baseLayerSize = (item.icons[0].icon_size || item.icon_size) ?? 64;
 	let icon = new Jimp({ width: size, height: size });
 
@@ -218,11 +234,12 @@ async function loadLayeredIcon(
 	for (let layer of item.icons) {
 		let layerSize = (layer.icon_size || item.icon_size) ?? 64;
 		let iconLayer = await loadIcon(
-			server, modVersions, zipCache, layer.icon, layerSize, layer.icon_mipmaps || 0, iconCache,
+			server, modVersions, files, layer.icon, layerSize, layer.icon_mipmaps || 0, iconCache,
 		);
 
+		// A partial icon would be wrong, skip it like a missing simple icon
 		if (!iconLayer) {
-			continue;
+			return null;
 		}
 
 		iconLayer = iconLayer.clone();
@@ -337,7 +354,7 @@ async function growSheet(state: SheetState) {
 async function exportIcon(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	zipCache: ZipCache,
+	files: ExportFiles,
 	state: SheetState,
 	prototype: PrototypeWithIcon,
 ) {
@@ -348,9 +365,11 @@ async function exportIcon(
 
 	if (prototype.icons) {
 		icon = await loadLayeredIcon(
-			server, modVersions, zipCache, prototype, SHEET_ICON_SIZE, state.iconCache,
+			server, modVersions, files, prototype, SHEET_ICON_SIZE, state.iconCache,
 		);
-		iconPos = state.pos;
+		if (icon) {
+			iconPos = state.pos;
+		}
 		iconPath = prototype.icons[0].icon;
 
 	} else if (prototype.icon) {
@@ -358,7 +377,7 @@ async function exportIcon(
 		iconPath = prototype.icon;
 		if (iconPos === undefined) {
 			icon = await loadSimpleIcon(
-				server, modVersions, zipCache, prototype, SHEET_ICON_SIZE, state.iconCache,
+				server, modVersions, files, prototype, SHEET_ICON_SIZE, state.iconCache,
 			);
 			if (icon) {
 				iconPos = state.pos;
@@ -394,7 +413,7 @@ async function exportIcon(
  *
  * @param server - The server to load icons from.
  * @param modVersions - Mapping of mod name to version.
- * @param zipCache - Mod zips opened by this export.
+ * @param files - Where to read icon files from.
  * @param prototypes - Array of prototypes with icon to export for this base type.
  * @param baseName - name of base type (used in metadata).
  * @param state - Shared spritesheet state (mutated in place).
@@ -404,7 +423,7 @@ async function exportIcon(
 async function exportIcons(
 	server: FactorioServer,
 	modVersions: Map<string, string>,
-	zipCache: ZipCache,
+	files: ExportFiles,
 	prototypes: PrototypeWithIcon[],
 	baseName: string,
 	state: SheetState,
@@ -415,7 +434,7 @@ async function exportIcons(
 	for (let prototype of prototypes) {
 		let icon: lib.ExportMetadataEntry["icon"];
 		try {
-			icon = await exportIcon(server, modVersions, zipCache, state, prototype);
+			icon = await exportIcon(server, modVersions, files, state, prototype);
 		} catch (err: any) {
 			// One broken icon should not stop the rest of the export
 			server._logger.warn(`Skipping icon of ${prototype.type} ${prototype.name}: ${err.message}`);
@@ -510,20 +529,67 @@ async function exportLocale(
 /**
  * Export locale, icons and metadata for the given factorio server
  *
+ * If the server runs the headless build, builtin mod graphics are read
+ * from a full install of the same major and minor version found next to
+ * it, if there is one.
+ *
  * @param server - The server to export the data from.
  * @returns zip file with exported data.
  */
 export async function exportData(server: FactorioServer) {
-	const zipCache: ZipCache = new Map();
+	const files: ExportFiles = { zipCache: new Map() };
+	if (await isHeadless(server.dataPath())) {
+		const majorMinor = server.version!.replace(/\.\d+$/, "") as lib.MajorMinorVersion;
+		try {
+			[files.graphicsDataDir] = await findVersion(server._factorioDir, majorMinor, false);
+		} catch (err: any) {
+			// Without it the export still has everything but the base game icons
+			files.graphicsError = err.message;
+		}
+	}
 	try {
-		return await buildExport(server, zipCache);
+		return await buildExport(server, files);
 	} finally {
 		// Free up the zip files loaded during the export.
-		closeZipCache(zipCache);
+		closeZipCache(files.zipCache);
 	}
 }
 
-async function buildExport(server: FactorioServer, zipCache: ZipCache) {
+/**
+ * Warn if any builtin mod icon files could not be found
+ *
+ * @param server - The server the export ran on.
+ * @param files - Where icon files were read from.
+ * @param iconCache - Icons loaded by the export, null for missing files.
+ * @internal
+ */
+function checkMissingBuiltinIcons(server: FactorioServer, files: ExportFiles, iconCache: IconCache) {
+	const builtinModNames = ["core", ...lib.ModPack.getBuiltinModNames(server.version!)];
+	let missing = 0;
+	for (const [iconPath, icon] of iconCache) {
+		const mod = /^__([^\/]+)__\//.exec(iconPath)?.[1];
+		if (icon === null && mod && builtinModNames.includes(mod)) {
+			missing += 1;
+		}
+	}
+	if (!missing) {
+		return;
+	}
+
+	const dirs = [server.dataPath(), files.graphicsDataDir].filter(Boolean).join(" or ");
+	let message =
+		`${missing} icon files of the base game were not found in ${dirs}, icons using them were not exported.`;
+	if (files.graphicsError !== undefined) {
+		const majorMinor = server.version!.replace(/\.\d+$/, "");
+		message +=
+			` The headless build of Factorio has no graphics and no full install was found (${files.graphicsError}).` +
+			` Add a full install of Factorio ${majorMinor} to host.factorio_directory to read them from there,` +
+			" or export the data on a host with a full install.";
+	}
+	server._logger.warn(message);
+}
+
+async function buildExport(server: FactorioServer, files: ExportFiles) {
 	await generateExportMod(server);
 
 	let settings: lib.ExportSettings = {};
@@ -603,7 +669,7 @@ async function buildExport(server: FactorioServer, zipCache: ZipCache) {
 		}
 	}
 
-	let locale = await exportLocale(server, modVersions, zipCache, modOrder, "en");
+	let locale = await exportLocale(server, modVersions, files.zipCache, modOrder, "en");
 
 	let zip = new yazl.ZipFile();
 	const addJson = (name: string, value: unknown) => zip.addBuffer(Buffer.from(JSON.stringify(value)), name);
@@ -624,9 +690,10 @@ async function buildExport(server: FactorioServer, zipCache: ZipCache) {
 		if (prototypesWithIcons.length === 0) {
 			continue;
 		}
-		const count = await exportIcons(server, modVersions, zipCache, prototypesWithIcons, baseName, state);
+		const count = await exportIcons(server, modVersions, files, prototypesWithIcons, baseName, state);
 		server._logger.info(`Exported ${count} ${baseName} icons`);
 	}
+	checkMissingBuiltinIcons(server, files, state.iconCache);
 
 	// Crop sheet to actual used height and write single spritesheet + metadata.
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
@@ -647,3 +714,4 @@ export const _exportIcons = exportIcons;
 export const _exportLocale = exportLocale;
 export const _loadSimpleIcon = loadSimpleIcon;
 export const _loadLayeredIcon = loadLayeredIcon;
+export const _checkMissingBuiltinIcons = checkMissingBuiltinIcons;
