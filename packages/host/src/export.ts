@@ -10,7 +10,7 @@ import yazl from "yazl";
 
 import * as lib from "@clusterio/lib";
 import * as libBuildMod from "@clusterio/lib/dist/node/build_mod.js";
-import { findVersion, type FactorioServer } from "./server.js";
+import { findVersion, isHeadless, type FactorioServer } from "./server.js";
 import { definesPrototypesFallback } from "./export_fallback.js";
 
 interface SimpleIconSpecification {
@@ -100,6 +100,8 @@ interface ExportFiles {
 	zipCache: ZipCache;
 	/** Data dir of a full install to fall back to for builtin mod files. */
 	graphicsDataDir?: string;
+	/** Why no full install was found for a headless server. */
+	graphicsError?: string;
 }
 
 function closeZipCache(zipCache: ZipCache) {
@@ -524,43 +526,36 @@ async function exportLocale(
 }
 
 /**
- * Find the data dir to read builtin mod graphics from
+ * Find a full install to read builtin mod graphics from
  *
  * @param server - The server the export runs on.
- * @param graphicsDirectory - Full Factorio install, or directory of installs.
- * @returns
- *     Data dir of the install matching the major and minor version of the
- *     server, or undefined if there is none.
+ * @param files - Updated with the data dir found, or why there is none.
  * @internal
  */
-async function findGraphicsDataDir(server: FactorioServer, graphicsDirectory: string) {
+async function findGraphicsDataDir(server: FactorioServer, files: ExportFiles) {
 	const majorMinor = server.version!.replace(/\.\d+$/, "") as lib.MajorMinorVersion;
 	try {
-		const [dataDir] = await findVersion(graphicsDirectory, majorMinor);
-		return dataDir;
+		[files.graphicsDataDir] = await findVersion(server._factorioDir, majorMinor, { headless: false });
 	} catch (err: any) {
 		// Without it the export still has everything but the base game icons
-		server._logger.warn(
-			`Unable to use host.factorio_graphics_directory for Factorio ${majorMinor}, exporting without it: ` +
-			`${err.message}`
-		);
-		return undefined;
+		files.graphicsError = err.message;
 	}
 }
 
 /**
  * Export locale, icons and metadata for the given factorio server
  *
+ * If the server runs the headless build, builtin mod graphics are read
+ * from a full install of the same major and minor version found next to
+ * it, if there is one.
+ *
  * @param server - The server to export the data from.
- * @param graphicsDirectory -
- *     Full Factorio install, or directory of installs, to read builtin mod
- *     graphics from when the server's install lacks them.
  * @returns zip file with exported data.
  */
-export async function exportData(server: FactorioServer, graphicsDirectory?: string | null) {
+export async function exportData(server: FactorioServer) {
 	const files: ExportFiles = { zipCache: new Map() };
-	if (graphicsDirectory) {
-		files.graphicsDataDir = await findGraphicsDataDir(server, graphicsDirectory);
+	if (await isHeadless(server.dataPath())) {
+		await findGraphicsDataDir(server, files);
 	}
 	try {
 		return await buildExport(server, files);
@@ -592,13 +587,16 @@ function warnMissingBuiltinIcons(server: FactorioServer, files: ExportFiles, ico
 	}
 
 	const dirs = [server.dataPath(), files.graphicsDataDir].filter(Boolean).join(" or ");
-	const hint = files.graphicsDataDir
-		? "Check that host.factorio_graphics_directory points to a full Factorio install"
-		: "Set host.factorio_graphics_directory to a full Factorio install to read them from there";
-	server._logger.warn(
-		`${missing} icon files of the base game were not found in ${dirs}, icons using them were not exported. ` +
-		`The headless build of Factorio has no graphics. ${hint}, or export the data on a host with a full install.`
-	);
+	let message =
+		`${missing} icon files of the base game were not found in ${dirs}, icons using them were not exported.`;
+	if (files.graphicsError !== undefined) {
+		const majorMinor = server.version!.replace(/\.\d+$/, "");
+		message +=
+			` The headless build of Factorio has no graphics and no full install was found (${files.graphicsError}).` +
+			` Add a full install of Factorio ${majorMinor} to host.factorio_directory to read them from there,` +
+			" or export the data on a host with a full install.";
+	}
+	server._logger.warn(message);
 }
 
 async function buildExport(server: FactorioServer, files: ExportFiles) {

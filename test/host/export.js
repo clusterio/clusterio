@@ -74,7 +74,7 @@ describe("host/src/export", function() {
 	});
 
 	// Stands in for the data dir of a full install
-	const graphicsDataDir = path.join("test", "file", "factorio-graphics");
+	const graphicsDataDir = path.join("test", "file", "factorio-mixed", "full", "data");
 	describe("loadSimpleIcon()", function() {
 		it("defaults icon_size to 64", async function() {
 			const icon = await _loadSimpleIcon(
@@ -124,21 +124,29 @@ describe("host/src/export", function() {
 	});
 	describe("findGraphicsDataDir()", function() {
 		const installs = path.join("test", "file", "factorio");
-		it("returns the data dir of the install matching the server version", async function() {
-			const dataDir = await _findGraphicsDataDir(testServer, installs);
-			assert.equal(dataDir, path.join(installs, "0.1.2", "data"));
-			assert.deepEqual(warnings, []);
+		const withInstalls = (factorioDir, version = testServer.version) => Object.create(testServer, {
+			_factorioDir: { value: factorioDir }, version: { value: version },
 		});
-		it("warns and returns undefined when no install matches the server version", async function() {
-			const server = Object.create(testServer, { version: { value: "0.2.5" } });
-			assert.equal(await _findGraphicsDataDir(server, installs), undefined);
-			assert.equal(warnings.length, 1);
-			assert.match(warnings[0], /^Unable to use host\.factorio_graphics_directory for Factorio 0\.2, /);
+		it("finds a full install matching the major and minor version of the server", async function() {
+			const files = { zipCache: new Map() };
+			await _findGraphicsDataDir(withInstalls(path.join("test", "file", "factorio"), "0.1.1"), files);
+			assert.deepEqual(files, { zipCache: new Map(), graphicsDataDir: path.join(installs, "0.1.2", "data") });
 		});
-		it("warns and returns undefined when the directory does not exist", async function() {
-			assert.equal(await _findGraphicsDataDir(testServer, path.join("test", "file", "missing")), undefined);
-			assert.equal(warnings.length, 1);
-			assert.match(warnings[0], /^Unable to use host\.factorio_graphics_directory for Factorio 0\.1, .*ENOENT/);
+		it("skips headless installs of the same version", async function() {
+			const files = { zipCache: new Map() };
+			await _findGraphicsDataDir(withInstalls(path.join("test", "file", "factorio-mixed")), files);
+			assert.equal(files.graphicsDataDir, graphicsDataDir);
+		});
+		it("records why when there is no full install", async function() {
+			const files = { zipCache: new Map() };
+			await _findGraphicsDataDir(withInstalls(installs, "0.2.5"), files);
+			assert.equal(files.graphicsDataDir, undefined);
+			assert.equal(files.graphicsError, "Unable to find full Factorio version 0.2");
+		});
+		it("records why when the directory does not exist", async function() {
+			const files = { zipCache: new Map() };
+			await _findGraphicsDataDir(withInstalls(path.join("test", "file", "missing")), files);
+			assert.match(files.graphicsError, /ENOENT/);
 		});
 	});
 	describe("warnMissingBuiltinIcons()", function() {
@@ -151,7 +159,15 @@ describe("host/src/export", function() {
 			]));
 			assert.equal(warnings.length, 1);
 			assert.match(warnings[0], /^2 icon files of the base game were not found/);
-			assert.match(warnings[0], /headless/);
+			assert.doesNotMatch(warnings[0], /headless/);
+		});
+		it("explains the headless build when no full install was found", function() {
+			_warnMissingBuiltinIcons(testServer, { zipCache: new Map(), graphicsError: "Not found" }, new Map([
+				["__base__/graphics/icons/a.png", null],
+			]));
+			assert.equal(warnings.length, 1);
+			assert.match(warnings[0], /has no graphics and no full install was found \(Not found\)/);
+			assert.match(warnings[0], /Add a full install of Factorio 0\.1 to host\.factorio_directory/);
 		});
 		it("does not warn when no builtin files are missing", function() {
 			_warnMissingBuiltinIcons(testServer, { zipCache: new Map() }, new Map([

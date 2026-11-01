@@ -105,6 +105,33 @@ describe("host/server", function() {
 				);
 			});
 		});
+		describe("headless option", function() {
+			const mixedDir = path.join("test", "file", "factorio-mixed");
+			it("should find only full installs when false", async function() {
+				const [dir] = await hostServer.findVersion(mixedDir, "0.1.2", { headless: false });
+				assert.equal(dir, path.join(mixedDir, "full", "data"));
+			});
+			it("should find only headless installs when true", async function() {
+				const [dir] = await hostServer.findVersion(mixedDir, "0.1.2", { headless: true });
+				assert.equal(dir, path.join(mixedDir, "headless", "data"));
+			});
+			it("should reject a direct install of the other build", async function() {
+				const installDir = path.join(mixedDir, "headless");
+				await assert.rejects(
+					hostServer.findVersion(installDir, "0.1.2", { headless: false }),
+					new Error(
+						`Unable to find a full install of Factorio 0.1.2: ${installDir} is a direct ` +
+						"(single-version) install of the headless build."
+					)
+				);
+			});
+			it("should reject if no install of that build has the version", async function() {
+				await assert.rejects(
+					hostServer.findVersion(path.join("test", "file", "factorio"), "0.1.2", { headless: true }),
+					new Error("Unable to find headless Factorio version 0.1.2")
+				);
+			});
+		});
 	});
 
 	describe("_listFactorioVersions()", function() {

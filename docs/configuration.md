@@ -354,18 +354,9 @@ Defaults to a random 31 bit number.
 
 Directory to look for the Factorio server(s) in.
 This can either point to a Factorio server directory, or to a directory containing multiple versions of the Factorio server.
+The headless build has no graphics, so when exporting data from an instance running it the base game's icons are read from a full install of the same major and minor version in this directory instead, if there is one.
 
 Defaults to "factorio".
-
-
-### host.factorio_graphics_directory
-
-Directory to read the base game's icons from when exporting data.
-The headless build of Factorio has no graphics, so instances running it export none of the base game's icons unless this points to a full install of Factorio.
-Like `host.factorio_directory` this can either point to a Factorio directory, or to a directory containing multiple versions, in which case the latest one matching the major and minor version of the instance is used.
-If there is no install matching the instance, a warning is logged and the data is exported without it.
-
-Defaults to null.
 
 
 ### host.mods_directory

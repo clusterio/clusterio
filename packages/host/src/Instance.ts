@@ -1479,7 +1479,7 @@ end`.replace(/\r?\n/g, " ");
 
 			this.logger.info("Exporting data .....");
 			await this.syncMods();
-			let zip = await exportData(this.server, this._host.config.get("host.factorio_graphics_directory"));
+			let zip = await exportData(this.server);
 
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
