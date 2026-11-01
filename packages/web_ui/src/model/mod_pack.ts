@@ -4,8 +4,8 @@ import { defaultModPackStore } from "../store/default_mod_pack_store";
 
 
 export function useModPack(id?: number) {
-	const [modPacks, synced] = useModPacks();
-	return [id !== undefined ? modPacks.get(id) : undefined, synced] as const;
+	const [modPacks, synced, error] = useModPacks();
+	return [id !== undefined ? modPacks.get(id) : undefined, synced, error] as const;
 }
 
 export function useModPacks() {
