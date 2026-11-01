@@ -25,8 +25,10 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 
 	const instanceId = props.instance.id;
 	const instanceStatus = props.instance.status;
-	const showStart = ["stopped", "stopping"].includes(instanceStatus);
-	const showStop = ["running", "starting"].includes(instanceStatus);
+	// While starting or stopping the button shows the action in progress as loading.
+	const showStart = ["stopped", "starting"].includes(instanceStatus);
+	const showStop = ["running", "stopping"].includes(instanceStatus);
+	const transitioning = ["starting", "stopping"].includes(instanceStatus);
 
 	function actionFinish() {
 		setSwitching(false);
@@ -37,7 +39,7 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 
 	const actions: VariableDropdownButtonProps["actions"] = [];
 
-	if (account.hasPermission("core.instance.start") && showStart !== switching) {
+	if (account.hasPermission("core.instance.start") && showStart) {
 		actions.push({
 			key: "start",
 			label: "Start",
@@ -101,7 +103,7 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 			{...props}
 			type="primary"
 			actions={actions}
-			loading={switching}
+			loading={switching || transitioning}
 			disabled={!(showStart || showStop)}
 		/>
 		<Popconfirm

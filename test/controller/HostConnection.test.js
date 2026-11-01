@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
-import { HostConnection } from "@clusterio/controller";
+import { Controller, HostConnection, HostRecord } from "@clusterio/controller";
+import { MockConnector } from "../mock.js";
+
+const addr = lib.Address.fromShorthand;
 
 function makeSave(instanceId, name) {
 	return new lib.SaveDetails(instanceId, "file", name, 0, 0, false, false, 0, false);
@@ -40,6 +43,99 @@ function makeInstances(assignments, names = new Map()) {
 }
 
 describe("controller/src/HostConnection", function() {
+	describe("host record", function() {
+		/** @type {Controller} */
+		let controller;
+		let record;
+		let connector;
+		let updates;
+
+		beforeEach(function() {
+			controller = new Controller(lib.logger, [], new lib.ControllerConfig("controller"));
+			record = new HostRecord(10, "host-10", "1.0.0", new Map(), false, "", "203.0.113.1", 123);
+			controller.hosts.set(record);
+			connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
+			updates = [];
+			controller.hosts.on("update", changed => {
+				updates.push(...changed.map(host => ({ id: host.id, name: host.name, isDeleted: host.isDeleted })));
+			});
+		});
+
+		function connect(id = 10) {
+			return new HostConnection(
+				new lib.RegisterHostData("", "2.0.0", id, {}), connector, controller, "10.0.0.1"
+			);
+		}
+
+		function revoke() {
+			controller.hosts.delete(record);
+			updates.length = 0;
+		}
+
+		it("should refuse a host without a record", function() {
+			assert.throws(() => connect(11), /Host 11 is not registered/);
+			assert.equal(controller.hosts.has(11), false);
+			assert.deepEqual(updates, []);
+		});
+		it("should update the existing record on connect", function() {
+			const connection = connect();
+			assert.equal(controller.hosts.get(10), record, "host record was replaced");
+			assert.equal(connection.id, 10);
+			assert.equal(record.connected, true);
+			assert.equal(record.version, "2.0.0");
+			assert.equal(record.remoteAddress, "10.0.0.1");
+			assert.equal(record.name, "host-10");
+			assert.equal(record.publicAddress, "203.0.113.1");
+			assert.equal(record.tokenValidAfter, 123);
+			assert.deepEqual(updates, [{ id: 10, name: "host-10", isDeleted: false }]);
+		});
+		it("should mark the host disconnected when the connection closes", function() {
+			connect();
+			updates.length = 0;
+			connector.emit("close");
+			assert.equal(controller.hosts.get(10), record);
+			assert.equal(record.connected, false);
+			assert.deepEqual(updates, [{ id: 10, name: "host-10", isDeleted: false }]);
+		});
+		it("should save info updates from the host", async function() {
+			const connection = connect();
+			updates.length = 0;
+			await connection.handleHostInfoUpdateEvent(
+				new lib.HostInfoUpdateEvent(new lib.HostInfoUpdate("renamed", "198.51.100.1"))
+			);
+			assert.equal(controller.hosts.get(10).name, "renamed");
+			assert.equal(controller.hosts.get(10).publicAddress, "198.51.100.1");
+			assert.deepEqual(updates, [{ id: 10, name: "renamed", isDeleted: false }]);
+		});
+		it("should not recreate the record of a revoked host when the connection closes", function() {
+			connect();
+			revoke();
+			connector.emit("close");
+			assert.equal(controller.hosts.has(10), false, "host record was recreated");
+			assert.deepEqual(updates, []);
+		});
+		it("should not recreate the record of a revoked host on info updates", async function() {
+			const connection = connect();
+			revoke();
+			await connection.handleHostInfoUpdateEvent(
+				new lib.HostInfoUpdateEvent(new lib.HostInfoUpdate("renamed", "198.51.100.1"))
+			);
+			assert.equal(controller.hosts.has(10), false, "host record was recreated");
+			assert.deepEqual(updates, []);
+		});
+		it("should not overwrite a newer record with the same id", function() {
+			connect();
+			revoke();
+			const newer = new HostRecord(10, "newer", "", new Map());
+			controller.hosts.set(newer);
+			updates.length = 0;
+			connector.emit("close");
+			assert.equal(controller.hosts.get(10), newer);
+			assert.equal(newer.name, "newer");
+			assert.deepEqual(updates, []);
+		});
+	});
+
 	describe(".handleInstanceSaveDetailsUpdatesEvent()", function() {
 		// Instance 1 is on host 10, instance 2 is on host 20.
 		const assignments = new Map([[1, 10], [2, 20]]);

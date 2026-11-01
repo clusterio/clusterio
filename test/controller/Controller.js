@@ -89,6 +89,75 @@ describe("controller/src/Controller", function() {
 				assert(loaded.modPacks.size > 0, "default mod packs were not added");
 				await fs.access(modsDirectory);
 			});
+			it("should start and stop with an existing database", async function() {
+				this.timeout(10000);
+				const databaseDirectory = path.join(dir, "database");
+				await fs.mkdir(databaseDirectory);
+				const records = {
+					"hosts.json": [new HostRecord(5, "existing-host", controllerVersion, new Map(), true)],
+					"instances.json": [
+						new InstanceRecord(new InstanceConfig("controller", {
+							"instance.id": 100, "instance.assigned_host": 5,
+						}), "running"),
+						new InstanceRecord(new InstanceConfig("controller", { "instance.id": 101 }), "unassigned"),
+					],
+					"mod-packs.json": [ModPack.fromJSON({ id: 7, name: "existing-pack" })],
+					"users.json": [new UserRecord(0, "admin", new Set([0]), new Set(), true)],
+				};
+				for (const [file, content] of Object.entries(records)) {
+					await fs.writeFile(path.join(databaseDirectory, file), JSON.stringify(content));
+				}
+
+				// Port 0 means not configured, so ask the OS for a free one.
+				const portProbe = http.createServer();
+				portProbe.listen(0, "127.0.0.1");
+				await events.once(portProbe, "listening");
+				const port = portProbe.address().port;
+				portProbe.close();
+				await events.once(portProbe, "close");
+
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion,
+					"controller.database_directory": databaseDirectory,
+					"controller.mods_directory": path.join(dir, "mods"),
+					"controller.http_port": port,
+					"controller.bind_address": "127.0.0.1",
+				});
+
+				const errors = [];
+				const errorCapture = new lib.ConsoleTransport({
+					level: "error",
+					filter: info => {
+						// pnpm build does not produce the production web bundle
+						if (!info.message.includes("Missing main entry")) {
+							errors.push(info.message);
+						}
+						return false;
+					},
+				});
+				lib.logger.add(errorCapture);
+				let loaded;
+				try {
+					loaded = await Controller.fromConfig(config, [], lib.logger);
+					await loaded.start({ logDirectory: path.join(dir, "logs"), _: ["run"] });
+					assert.deepEqual(
+						[...loaded.instances.values()].map(instance => [instance.id, instance.status]),
+						[[100, "unknown"], [101, "unassigned"]],
+					);
+					assert.equal(loaded.hosts.get(5).connected, false);
+					assert.equal(loaded.modPacks.get(7).name, "existing-pack");
+					assert(loaded.users.getByName("admin"), "existing user was not loaded");
+					const response = await fetch(`http://127.0.0.1:${port}/`);
+					assert.equal(response.status, 200);
+					await response.text();
+				} finally {
+					await loaded?.stop();
+					lib.logger.remove(errorCapture);
+				}
+				assert.deepEqual(errors, []);
+				const saved = JSON.parse(await fs.readFile(path.join(databaseDirectory, "instances.json"), "utf8"));
+				assert.deepEqual(saved.map(instance => instance.config["instance.id"]), [100, 101]);
+			});
 			describe("with a plugin version change", function() {
 				before(function() {
 					addPluginConfigFields([{ name: "from_config_plugin", version: "1.2.0", instanceEntrypoint: "x" }]);

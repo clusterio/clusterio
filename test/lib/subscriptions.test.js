@@ -1250,6 +1250,36 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe("permitted", function() {
+			let permitted;
+			let subscriber;
+
+			beforeEach(function() {
+				mockControl = new MockControl(new MockConnector(addr({ controlId: 0 }), addr("controller")));
+				permitted = false;
+				subscriber = new lib.EventSubscriber(RegisteredEvent, mockControl, undefined, () => permitted);
+			});
+
+			it("should send nothing while not permitted", async function() {
+				subscriber.subscribe(() => {});
+				mockControl.connector.emit("connect");
+				subscriber.handleConnectionEvent("resume");
+				subscriber.handleAccountEvent();
+				await new Promise(r => setImmediate(r));
+				assertNoMessageSent();
+			});
+
+			it("should subscribe when the account becomes permitted", async function() {
+				subscriber.subscribe(() => {});
+				permitted = true;
+				subscriber.handleAccountEvent();
+				await onceConnectorSend();
+				assertLastMessage(new lib.SubscriptionRequest(
+					RegisteredEvent.name, "replace", -1, lib.SubscriptionFilters.all()
+				));
+			});
+		});
+
 		describe(".handleAccountEvent()", function() {
 			it("should send replace(all) if subscribed", async function() {
 				eventSubscriber.subscribe(() => {});
@@ -1582,6 +1612,34 @@ describe("lib/subscriptions", function() {
 
 			assert.equal(snap1.has(2), false);
 			assert.equal(snap2.has(2), true);
+		});
+
+		it("should fetch everything again when a new session starts", async function() {
+			subscriber.subscribe(() => {});
+			await events.once(mockControl.connector, "send");
+			await subscriber._handleEvent(new MapEvent([
+				{ id: 1, updatedAtMs: 10, isDeleted: false },
+			]));
+			const [before] = subscriber.getSnapshot();
+			mockControl.connector.sentMessages.length = 0;
+
+			mockControl.connector.emit("connect");
+			assert.equal(subscriber.values.size, 0);
+			assert.notStrictEqual(subscriber.getSnapshot()[0], before);
+			await new Promise(resolve => setImmediate(resolve));
+			const requests = mockControl.connector.sentMessages.filter(m => m.name === "SubscriptionRequest");
+			assert.equal(requests.length, 1);
+			assert.equal(requests[0].data.lastRequestTimeMs, -1);
+		});
+
+		it("should keep values when a session is resumed", async function() {
+			await subscriber._handleEvent(new MapEvent([
+				{ id: 1, updatedAtMs: 10, isDeleted: false },
+			]));
+			subscriber.handleConnectionEvent("drop");
+			subscriber.handleConnectionEvent("resume");
+			assert.equal(subscriber.values.size, 1);
+			assert.equal(subscriber.lastUpdatedMs, 10);
 		});
 
 		it("should handle multiple updates correctly", async function() {

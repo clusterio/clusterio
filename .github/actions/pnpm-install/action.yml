@@ -1,5 +1,5 @@
 name: Install dependencies
-description: Set up pnpm and Node.js, restore caches and run pnpm install
+description: Set up pnpm and Node.js and run pnpm install
 
 inputs:
   node-version:
@@ -12,40 +12,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v6
     - uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node-version }}
+        package-manager-cache: false
 
-    # The lockfile is not committed, so the usual lockfile hash key does not
-    # apply. Instead a new store snapshot is saved whenever a package.json
-    # changes or a week passes, and every run restores the most recent one.
-    - id: store
-      shell: bash
-      run: |
-        echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-        echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
-    - uses: actions/cache@v6
-      with:
-        path: ${{ steps.store.outputs.path }}
-        key: pnpm-store-${{ runner.os }}-${{ steps.store.outputs.week }}-${{ hashFiles('**/package.json', 'pnpm-workspace.yaml') }}
-        restore-keys: pnpm-store-${{ runner.os }}-
-
-    # The prepare scripts run tsc --build, which is incremental when its
-    # previous output is present. Every run saves its output and the next run
-    # starts from the most recent one.
-    - if: inputs.ignore-scripts != 'true'
-      uses: actions/cache@v6
-      with:
-        path: |
-          packages/*/dist
-          plugins/*/dist
-        key: build-${{ runner.os }}-${{ github.sha }}
-        restore-keys: build-${{ runner.os }}-
+    # pnpm/action-setup installs a bootstrap pnpm and then switches to the
+    # packageManager version, which takes about 10 seconds.
+    - shell: bash
+      run: npm install --global --no-audit --no-fund "$(node -p 'require("./package.json").packageManager.split("+")[0]')"
 
     - shell: bash
       run: pnpm i --no-frozen-lockfile ${{ inputs.ignore-scripts == 'true' && '--ignore-scripts' || '' }}
-    # Drop packages the restored store had but this install did not use, so
-    # the snapshot does not grow with every version bump.
-    - shell: bash
-      run: pnpm store prune

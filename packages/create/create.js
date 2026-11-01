@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
+import checkbox from "@inquirer/checkbox";
+import confirm from "@inquirer/confirm";
+import input from "@inquirer/input";
+import select from "@inquirer/select";
 import child_process from "node:child_process";
 import fs from "node:fs/promises";
-import inquirer from "inquirer";
 import os from "node:os";
 import path from "node:path";
+import readline from "node:readline";
 import stream from "node:stream";
 import util from "node:util";
 import yargs from "yargs";
@@ -16,15 +20,13 @@ const scriptExt = process.platform === "win32" ? ".cmd" : "";
 import { escapeArg } from "./escape_arg.js";
 
 // I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
-// See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
-// One option is to not call rl.close: SBoudrias/Inquirer.js#767
-// But this comes with its own issues: SBoudrias/Inquirer.js#899
+// See nodejs/node#21771, nodejs/node#30701 and nodejs/node#31762
 // The solution below was adapted from aws-amplify/amplify-cli#12347
 if (process.platform === "win32") {
-	const _inquirer_close = inquirer.ui.Prompt.prototype.close;
-	inquirer.ui.Prompt.prototype.close = function() {
-		this.rl.terminal = false;
-		_inquirer_close.call(this);
+	const close = readline.Interface.prototype.close;
+	readline.Interface.prototype.close = function() {
+		this.terminal = false;
+		close.call(this);
 	};
 }
 
@@ -161,21 +163,48 @@ async function execCtl(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
 
-function validateHostToken(token) {
-	let parts = token.split(".");
-	if (parts.length !== 3) {
-		throw new InstallError("Invalid token");
-	}
+// Same characters as the controller refuses in host names.
+const hostNameControlCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
 
-	let parsed;
+function validateHostName(value) {
+	if (!value || !value.trim()) {
+		return "Host name may not be empty";
+	}
+	if (value.trim().length > 100) {
+		return "Host name may be at most 100 characters";
+	}
+	if (hostNameControlCharacters.test(value)) {
+		return "Host name may not contain control characters";
+	}
+	return true;
+}
+
+function validateControllerUrl(value) {
+	let url;
 	try {
-		parsed = JSON.parse(Buffer.from(parts[1], "base64"));
+		url = new URL(value);
 	} catch (err) {
-		throw new InstallError("Invalid token");
+		return "Controller URL must be a URL like https://example.com/";
 	}
+	if (!["http:", "https:"].includes(url.protocol)) {
+		return "Controller URL must start with http:// or https://";
+	}
+	return true;
+}
 
-	if (parsed.aud !== "host" || !Number.isInteger(parsed.host)) {
-		throw new InstallError("Invalid token");
+// The host requires the controller URL to end with a slash.
+function normaliseControllerUrl(value) {
+	const url = new URL(value);
+	if (!url.pathname.endsWith("/")) {
+		url.pathname += "/";
+	}
+	return url.href;
+}
+
+// Remote updates, plugin updates and plugin installs are allowed or denied together.
+async function setRemoteUpdates(exec, component, allow) {
+	for (let field of ["allow_remote_updates", "allow_plugin_updates", "allow_plugin_install"]) {
+		await exec(["config", "set", `${component}.${field}`, allow]);
 	}
 }
 
@@ -510,96 +539,87 @@ WantedBy=multi-user.target
 }
 
 // eslint-disable-next-line complexity
-async function inquirerMissingArgs(args) {
+async function promptMissingArgs(args) {
 	let answers = {};
 	if (args.mode) { answers.mode = args.mode; }
 	if (args["plugin-template"]) { answers.mode = "plugin-template"; }
-	answers = await inquirer.prompt([
-		{
-			type: "list",
-			name: "mode",
-			message: "Operating mode to install",
-			default: "standalone",
-			choices: [
-				{ name: "Standalone (install both controller and host on this computer)", value: "standalone" },
-				{ name: "Controller only", value: "controller" },
-				{ name: "Host only", value: "host" },
-				{ name: "Ctl only", value: "ctl" },
-				{ name: "Plugins only", value: "plugins" },
-				{ name: "Plugin template", value: "plugin-template" },
-			],
-		},
-	], answers);
+	answers.mode ??= await select({
+		message: "Operating mode to install",
+		default: "standalone",
+		choices: [
+			{ name: "Standalone (install both controller and host on this computer)", value: "standalone" },
+			{ name: "Controller only", value: "controller" },
+			{ name: "Host only", value: "host" },
+			{ name: "Ctl only", value: "ctl" },
+			{ name: "Plugins only", value: "plugins" },
+			{ name: "Plugin template", value: "plugin-template" },
+		],
+	});
 
 	if (["standalone", "controller"].includes(answers.mode)) {
 		if (args.admin) { answers.admin = args.admin; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "admin",
-				message: "Admin account name",
-				validate: input => {
-					if (!input) {
-						return "May not be empty";
-					}
-					return true;
-				},
+		answers.admin ??= await input({
+			message: "Admin account name",
+			validate: value => {
+				if (!value) {
+					return "May not be empty";
+				}
+				return true;
 			},
-		], answers);
+		});
 
 		if (args.httpPort) { answers.httpPort = args.httpPort; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "httpPort",
-				message: "HTTP port to listen on",
-				default: 8080,
-				validate: input => {
-					if (!input) {
-						return "May not be empty";
-					}
-					if (!Number.isInteger(Number(input))) {
-						return "Must be a number";
-					}
-					return true;
-				},
+		answers.httpPort ??= await input({
+			message: "HTTP port to listen on",
+			default: "8080",
+			validate: value => {
+				if (!value) {
+					return "May not be empty";
+				}
+				if (!Number.isInteger(Number(value))) {
+					return "Must be a number";
+				}
+				return true;
 			},
-		], answers);
+		});
+	}
+
+	if (answers.mode === "standalone") {
+		answers.hostName = args.hostName ?? "local";
+		const result = validateHostName(answers.hostName);
+		if (result !== true) {
+			throw new InstallError(result);
+		}
 	}
 
 	if (answers.mode === "host") {
 		if (args.hostName) { answers.hostName = args.hostName; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "hostName",
-				message: "Name of host",
-			},
-		], answers);
+		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
+		answers.hostName ??= await input({
+			message: "Name of host",
+			default: os.hostname(),
+			validate: validateHostName,
+		});
+		answers.controllerUrl ??= await input({
+			message: "Controller URL",
+			validate: validateControllerUrl,
+		});
+
+		// The prompts do not validate answers given as arguments
+		for (let result of [validateHostName(answers.hostName), validateControllerUrl(answers.controllerUrl)]) {
+			if (result !== true) {
+				throw new InstallError(result);
+			}
+		}
+		answers.controllerUrl = normaliseControllerUrl(answers.controllerUrl);
 	}
 
-	if (["host", "ctl"].includes(answers.mode)) {
+	if (answers.mode === "ctl") {
 		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "controllerUrl",
-				message: "Controller URL",
-			},
-		], answers);
+		answers.controllerUrl ??= await input({ message: "Controller URL" });
 
 		if (args.controllerToken) { answers.controllerToken = args.controllerToken; }
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "controllerToken",
-				message: "Controller authentication Token",
-			},
-		], answers);
-	}
-
-	if (answers.mode === "host") {
-		validateHostToken(answers.controllerToken);
+		answers.controllerToken ??= await input({ message: "Controller authentication Token" });
 	}
 
 	if (["standalone", "host"].includes(answers.mode)) {
@@ -612,14 +632,10 @@ async function inquirerMissingArgs(args) {
 				myIp = await result.text();
 			} catch (err) { /* ignore */ }
 		}
-		answers = await inquirer.prompt([
-			{
-				type: "input",
-				name: "publicAddress",
-				message: "Public DNS/IP address of this server",
-				default: myIp,
-			},
-		], answers);
+		answers.publicAddress ??= await input({
+			message: "Public DNS/IP address of this server",
+			default: myIp,
+		});
 
 		if (args.factorioDir) { answers.factorioDir = args.factorioDir; }
 		let locations = factorioLocations[process.platform] || [];
@@ -630,28 +646,17 @@ async function inquirerMissingArgs(args) {
 			}
 		}
 
-		answers = await inquirer.prompt([
-			{
-				type: "list",
-				name: "factorioDir",
-				message: "Path to Factorio installation",
-				choices: [
-					...foundLocations.map(location => ({ name: `${location} (auto detected)`, value: location })),
-					{ name: "Use local factorio directory, you must copy an installation to it", value: "factorio" },
-					{ name: "Provide path manually", value: null },
-				],
-			},
-		], answers);
+		answers.factorioDir ??= await select({
+			message: "Path to Factorio installation",
+			choices: [
+				...foundLocations.map(location => ({ name: `${location} (auto detected)`, value: location })),
+				{ name: "Use local factorio directory, you must copy an installation to it", value: "factorio" },
+				{ name: "Provide path manually", value: null },
+			],
+		});
 
 		if (answers.factorioDir === null) {
-			answers = await inquirer.prompt([
-				{
-					type: "input",
-					name: "factorioDir",
-					message: "Path to Factorio installation",
-					askAnswered: true,
-				},
-			], answers);
+			answers.factorioDir = await input({ message: "Path to Factorio installation" });
 		} else if (answers.factorioDir === "factorio") {
 			await fs.mkdir("factorio", { recursive: true });
 		}
@@ -659,14 +664,10 @@ async function inquirerMissingArgs(args) {
 
 	if (["standalone", "controller", "host"].includes(answers.mode)) {
 		if (args.hasOwnProperty("remoteNpm")) { answers.remoteNpm = args.remoteNpm; }
-		answers = await inquirer.prompt([
-			{
-				type: "confirm",
-				name: "remoteNpm",
-				message: "Allow remote updates via npm?",
-				default: true,
-			},
-		], answers);
+		answers.remoteNpm ??= await confirm({
+			message: "Allow remote updates and plugin installs from the web interface?",
+			default: true,
+		});
 	}
 
 	if (answers.mode === "plugin-template") {
@@ -677,29 +678,23 @@ async function inquirerMissingArgs(args) {
 			answers.pluginName = args["plugin-name"];
 		}
 		answers.plugins = [];
-		answers = await inquirer.prompt([
-			{
-				type: "checkbox",
-				name: "pluginTemplate",
-				message: "Plugin templates to use",
-				choices: [
-					{ name: "Controller", value: "controller" },
-					{ name: "Host", value: "host" },
-					{ name: "Instance", value: "instance" },
-					{ name: "Lua Module", value: "module" },
-					{ name: "Command Line", value: "ctl" },
-					{ name: "Web UI", value: "web" },
-					{ name: "No Typescript", value: "js" },
-					{ name: "No Config", value: "no_config" },
-				],
-			},
-			{
-				type: "input",
-				name: "pluginName",
-				message: "Name of your new plugin",
-				default: path.basename(path.resolve()),
-			},
-		], answers);
+		answers.pluginTemplate ??= await checkbox({
+			message: "Plugin templates to use",
+			choices: [
+				{ name: "Controller", value: "controller" },
+				{ name: "Host", value: "host" },
+				{ name: "Instance", value: "instance" },
+				{ name: "Lua Module", value: "module" },
+				{ name: "Command Line", value: "ctl" },
+				{ name: "Web UI", value: "web" },
+				{ name: "No Typescript", value: "js" },
+				{ name: "No Config", value: "no_config" },
+			],
+		});
+		answers.pluginName ??= await input({
+			message: "Name of your new plugin",
+			default: path.basename(path.resolve()),
+		});
 	}
 
 	if (dev) {
@@ -707,15 +702,11 @@ async function inquirerMissingArgs(args) {
 	} else if (args.plugins) {
 		answers.plugins = args.plugins;
 	}
-	answers = await inquirer.prompt([
-		{
-			type: "checkbox",
-			name: "plugins",
-			message: "Plugins to install",
-			choices: availablePlugins,
-			pageSize: 20,
-		},
-	], answers);
+	answers.plugins ??= await checkbox({
+		message: "Plugins to install",
+		choices: availablePlugins,
+		pageSize: 20,
+	});
 
 	return answers;
 }
@@ -743,13 +734,13 @@ async function main() {
 			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
 		})
 		.option("host-name", {
-			nargs: 1, describe: "Host name [host]", type: "string",
+			nargs: 1, describe: "Host name [standalone/host]", type: "string",
 		})
 		.option("controller-url", {
 			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
 		})
 		.option("controller-token", {
-			nargs: 1, describe: "Controller authentication token [host/ctl]", type: "string",
+			nargs: 1, describe: "Controller authentication token [ctl]", type: "string",
 		})
 		.option("public-address", {
 			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/host]", type: "string",
@@ -761,7 +752,8 @@ async function main() {
 			nargs: 1, describe: "Path to self-signed certificate of the controller [standalone/host]", type: "string",
 		})
 		.option("remote-npm", {
-			nargs: 0, description: "Allow remote updates via npm [standalone/controller/host]", type: "boolean",
+			nargs: 0, type: "boolean", description:
+				"Allow remote updates and plugin installs from the web interface [standalone/controller/host]",
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
@@ -798,7 +790,7 @@ async function main() {
 		return;
 	}
 
-	let answers = await inquirerMissingArgs(args);
+	let answers = await promptMissingArgs(args);
 	logger.verbose(JSON.stringify(answers));
 
 	if (answers.pluginTemplate) {
@@ -816,44 +808,28 @@ async function main() {
 		await execController(["config", "create"]);
 		await execController(["bootstrap", "create-admin", answers.admin]);
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
-		await execController(["config", "set", "controller.allow_remote_updates", answers.remoteNpm]);
-		await execController(["config", "set", "controller.allow_plugin_updates", answers.remoteNpm]);
+		await setRemoteUpdates(execController, "controller", answers.remoteNpm);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
 
-	if (answers.mode === "standalone") {
+	if (["standalone", "host"].includes(answers.mode)) {
 		logger.info("Setting up host");
 		await execHost(["config", "create"]);
-		await execHost(["config", "set", "host.name", "local"]);
-
-		let result = await execHost(["config", "show", "host.id"]);
-		let hostId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
-
-		result = await execController(["bootstrap", "generate-host-token", hostId]);
-		let hostToken = result.stdout.split("\n").slice(-2)[0];
-
-		// Default to localhost on correct port for host in standalone mode
-		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}/`]);
-		await execHost(["config", "set", "host.controller_token", hostToken]);
-		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
-		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
-		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
-		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
 	}
 
-	if (answers.mode === "host") {
-		logger.info("Setting up host");
-		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
-		await execHost(["config", "create"]);
-		await execHost(["config", "set", "host.id", hostId]);
+	if (answers.mode === "standalone") {
+		// Default to localhost on correct port for host in standalone mode
+		answers.controllerUrl = `http://localhost:${answers.httpPort}/`;
+	}
+
+	if (["standalone", "host"].includes(answers.mode)) {
+		// The host requests to join the cluster when it is started.
 		await execHost(["config", "set", "host.name", answers.hostName]);
 		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
-		await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
-		await execHost(["config", "set", "host.allow_remote_updates", answers.remoteNpm]);
-		await execHost(["config", "set", "host.allow_plugin_updates", answers.remoteNpm]);
+		await setRemoteUpdates(execHost, "host", answers.remoteNpm);
 	}
 
 	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
@@ -878,7 +854,10 @@ async function main() {
 if (import.meta.main) {
 	main().catch(err => {
 		process.exitCode = 1;
-		if (err instanceof InstallError) {
+		if (err.name === "ExitPromptError") {
+			// Ctrl+C at a prompt
+			process.exitCode = 130;
+		} else if (err instanceof InstallError) {
 			logger.error(err.message);
 		} else {
 			logger.fatal(`

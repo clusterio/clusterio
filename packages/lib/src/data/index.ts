@@ -15,6 +15,7 @@ export { default as Role } from "./Role.js";
 export { default as Note } from "./Note.js";
 export { default as InstanceDetails, InstanceStatus } from "./InstanceDetails.js";
 export { default as HostDetails } from "./HostDetails.js";
+export { default as HostPairingDetails } from "./HostPairingDetails.js";
 export { default as UserDetails } from "./UserDetails.js";
 export type { IUser } from "./UserDetails.js";
 export * from "./composites.js";

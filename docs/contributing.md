@@ -87,9 +87,11 @@ Install dependencies with:
 
 This installs dependencies and builds the packages.
 `pnpm-lock.yaml` is intentionally ignored; do not force-add it or assume a frozen-lockfile install is supported.
-For a fresh development cluster, run the installer and select standalone mode to create `config-controller.json`, `config-host.json`, and the credentials needed to connect them:
+For a fresh development cluster, run the installer and select standalone mode to create `config-controller.json` and `config-host.json`:
 
     node packages/create --dev
+
+The first time the host starts it prints a link for approving it in the web interface.
 
 You can skip this step if you already have a working controller and host configuration.
 
@@ -123,6 +125,7 @@ For web development on the controller there are also the following flags:
 `--dev` - Serve the `web_ui` package from source through Vite's development server with hot module replacement.
 
 `--dev-plugin [name]` - Serve the web module for the given plugin from source the same way.
+This also serves the `web_ui` package from source, as the plugin has to share its modules with it.
 
 These options can be combined and multiple plugins can be actived for dev mode.
 Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
@@ -254,6 +257,7 @@ If there are no changelog entries to add, remove the code block and start the ch
 
 The version-compat job in CI runs the local controller with the latest published host, and the published controller with the local host.
 It fails if a link message changed its src, dst, data or response schema since that release.
+Control is left out of src and dst, and messages that only go between control and the controller are not checked, as the web UI is served by the controller it talks to.
 If the break is intended, add an entry to [scripts/version-compat-breaks.json](../scripts/version-compat-breaks.json) in the same pull request.
 Breaking changes are only accepted if the next release is intended to include them, see our decision on [breaking changes](/docs/decisions.md#breaking-changes).
 The entry is keyed by the published version directly before the breaking change was introduced, which is the latest release at the time.
@@ -338,7 +342,8 @@ The format of this log should be self explanatory, please follow it carefully. P
 
 For development, use the latest Node.js LTS release, following the [installation instructions](../README.md#installation).
 Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
-The GitHub Actions tests currently run on Node.js 24 and 26 across the Factorio matrix, with Node.js 22 used for coverage; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
+The GitHub Actions tests run every Factorio version on the latest Node.js, and every other supported Node.js version with the latest Factorio only, which keeps the number of jobs within GitHub's concurrent job limit.
+Coverage is collected on the oldest supported Node.js; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
 
 For Factorio, active support covers the latest stable version and the previous major version, using version lines such as 2.1, 2.0 and 1.1 as described in the [Factorio support policy](decisions.md#factorio).
 Older versions from 0.17 onwards receive passive support where it does not restrict actively supported versions.

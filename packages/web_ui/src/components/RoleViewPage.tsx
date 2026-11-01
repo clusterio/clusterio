@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Checkbox, Col, Grid, Input, Popconfirm, Row, Space, Spin, Tooltip } from "antd";
+import { Button, Checkbox, Col, Grid, Input, Popconfirm, Row, Space, Tooltip } from "antd";
 import { ExclamationCircleOutlined, StarOutlined, DeleteOutlined} from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -12,7 +12,9 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import { notifyErrorHandler } from "../util/notify";
+import useResourceState from "../util/useResourceState";
 
 
 /** Splits a permission name into parts, removing the last part */
@@ -88,7 +90,7 @@ function PermissionItem({
 
 /** A group of permissions; includes a title, clear and select all buttons, and the permission items */
 function PermissionGroup({
-	groupName, permissions, canUpdate, baselineState, permissionState, setPermissionState,
+	groupName, permissions, canUpdate, baselineState, permissionState, setPermissions,
 }: {
 	groupName: string;
 	permissions: lib.Permission[];
@@ -96,17 +98,10 @@ function PermissionGroup({
 
 	baselineState: Record<string, boolean>;
 	permissionState: Record<string, boolean>;
-	setPermissionState: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-	setEdited?: (value: boolean) => void;
+	setPermissions: (names: string[], value: boolean) => void;
 }) {
 	function setGroup(value: boolean) {
-		setPermissionState((prev: any) => {
-			const next = { ...prev };
-			for (let p of permissions) {
-				next[p.name] = value;
-			}
-			return next;
-		});
+		setPermissions(permissions.map(p => p.name), value);
 	}
 
 	return (
@@ -129,7 +124,7 @@ function PermissionGroup({
 						checked={permissionState[p.name]}
 						baseline={baselineState[p.name]}
 						disabled={!canUpdate}
-						onChange={v => setPermissionState((prev: any) => ({ ...prev, [p.name]: v }))}
+						onChange={v => setPermissions([p.name], v)}
 					/>
 				))}
 			</div>
@@ -169,12 +164,13 @@ export default function RoleViewPage() {
 	const navigate = useNavigate();
 	const account = useAccount();
 	const control = useContext(ControlContext);
-	const [role, synced] = useRole(roleId);
+	const [role, synced, error] = useRole(roleId);
+	const state = useResourceState(role, synced, error, roleId);
 
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [permissionState, setPermissionState] = useState<Record<string, boolean>>({});
-	const [baselineState, setBaselineState] = useState<Record<string, boolean>>({});
+	// Local edits on top of the live role
+	const [nameEdit, setNameEdit] = useState<string>();
+	const [descriptionEdit, setDescriptionEdit] = useState<string>();
+	const [permissionEdits, setPermissionEdits] = useState<Record<string, boolean>>({});
 	const [search, setSearch] = useState("");
 	// Hidden below lg, where the site sider leaves too little room; undefined until measured
 	const screens = Grid.useBreakpoint();
@@ -183,37 +179,40 @@ export default function RoleViewPage() {
 	const allPermissions = useMemo(() => [...lib.permissions.values()], []);
 	const canUpdate = Boolean(account.hasPermission("core.role.update"));
 
+	const baselineState = useMemo(() => Object.fromEntries(
+		allPermissions.map(p => [p.name, Boolean(role?.permissions.has(p.name))])
+	), [role, allPermissions]);
+
+	// Drop edits that now match the role, and all edits if we can no longer apply them
 	useEffect(() => {
-		if (!role) {
+		if (!role || !canUpdate) {
+			setNameEdit(undefined);
+			setDescriptionEdit(undefined);
+			setPermissionEdits(prev => (Object.keys(prev).length ? {} : prev));
 			return;
 		}
+		setNameEdit(prev => (prev === role.name ? undefined : prev));
+		setDescriptionEdit(prev => (prev === role.description ? undefined : prev));
+		setPermissionEdits(prev => {
+			const next = Object.fromEntries(Object.entries(prev).filter(([k, v]) => v !== baselineState[k]));
+			return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+		});
+	}, [role, canUpdate, baselineState]);
 
-		const base = Object.fromEntries(
-			allPermissions.map(p => [p.name, role.permissions.has(p.name)])
-		);
+	useEffect(() => {
+		setNameEdit(undefined);
+		setDescriptionEdit(undefined);
+		setPermissionEdits({});
+	}, [roleId]);
 
-		setName(role.name);
-		setDescription(role.description);
-		setPermissionState(base);
-		setBaselineState(base);
-	}, [role, allPermissions]);
-
-	// If no role then display either the loading screen or the not found screen
 	if (!role) {
 		const nav = [{ name: "Roles", path: "/roles" }, { name: String(roleId) }];
-
-		if (!synced) {
-			return <PageLayout nav={nav}>
-				<PageHeader title={String(roleId)} />
-				<Spin size="large" />
-			</PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<PageHeader title="Role not found" />
-			<p>Role with id {roleId} was not found on the controller.</p>
-		</PageLayout>;
+		return <ResourceState state={state} type="Role" id={roleId} nav={nav} listPath="/roles" error={error} />;
 	}
+
+	const name = nameEdit ?? role.name;
+	const description = descriptionEdit ?? role.description;
+	const permissionState = { ...baselineState, ...permissionEdits };
 
 	// Apply the filter by searching all permission fields
 	const filtered = allPermissions.filter(p => {
@@ -243,27 +242,33 @@ export default function RoleViewPage() {
 	const grantedGroups = new Set(allPermissions.filter(p => permissionState[p.name]).map(p => getGroupName(p.name)));
 
 	// Check if any changes have been made to the permissions or role metadata
-	const permissionChanged = Object.keys(permissionState).some(k => permissionState[k] !== baselineState[k]);
+	const permissionChanged = Object.keys(permissionEdits).some(k => permissionEdits[k] !== baselineState[k]);
 	const metaChanged = name !== role.name || description !== role.description;
 	const edited = permissionChanged || metaChanged;
 
-	/** Applies all pending changes */
-	function applyChanges() {
-		const newPermissions = Object.entries(permissionState).filter(([, v]) => v).map(([k]) => k);
-		control.send(new lib.RoleUpdateRequest(roleId, name || "", description || "", newPermissions))
-			.then(() => {
-				setBaselineState(permissionState);
-			})
-			.catch(notifyErrorHandler("Error applying changes"));
+	function setPermissions(names: string[], value: boolean) {
+		setPermissionEdits(prev => {
+			const next = { ...prev };
+			for (let permissionName of names) {
+				next[permissionName] = value;
+			}
+			return next;
+		});
 	}
 
 	/** Revert any pending changes */
 	function revertChanges() {
-		setPermissionState(baselineState);
-		if (role) {
-			setName(role.name);
-			setDescription(role.description);
-		}
+		setNameEdit(undefined);
+		setDescriptionEdit(undefined);
+		setPermissionEdits({});
+	}
+
+	/** Applies all pending changes */
+	function applyChanges() {
+		const newPermissions = Object.entries(permissionState).filter(([, v]) => v).map(([k]) => k);
+		control.send(new lib.RoleUpdateRequest(roleId, name, description, newPermissions))
+			.then(revertChanges)
+			.catch(notifyErrorHandler("Error applying changes"));
 	}
 
 	return (
@@ -320,12 +325,12 @@ export default function RoleViewPage() {
 
 			<div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
 				<label style={{ width: 110, flexShrink: 0 }}>Name</label>
-				<Input value={name} disabled={!canUpdate} onChange={e => setName(e.target.value)} />
+				<Input value={name} disabled={!canUpdate} onChange={e => setNameEdit(e.target.value)} />
 			</div>
 
 			<div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
 				<label style={{ width: 110, flexShrink: 0 }}>Description</label>
-				<Input value={description} disabled={!canUpdate} onChange={e => setDescription(e.target.value)} />
+				<Input value={description} disabled={!canUpdate} onChange={e => setDescriptionEdit(e.target.value)} />
 			</div>
 
 			<ResourceNotes resourceType="role" resourceId={roleId} />
@@ -363,7 +368,7 @@ export default function RoleViewPage() {
 								permissions={permissions}
 								permissionState={permissionState}
 								baselineState={baselineState}
-								setPermissionState={setPermissionState}
+								setPermissions={setPermissions}
 								canUpdate={canUpdate}
 							/>
 						))}

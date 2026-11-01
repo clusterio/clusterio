@@ -164,6 +164,55 @@ describe("research_sync controller", function() {
 		});
 	});
 
+	// What instances send on reconnecting: the contributions summed during the outage, then a technology sync
+	describe("reconnect", function() {
+		const contribute = (name, level, contribution) => mock.getHandler(controller, ContributionEvent)(
+			new ContributionEvent(name, level, contribution), src
+		);
+		const syncTechs = async (...techs) => new Map(
+			(await mock.getHandler(controller, SyncTechnologiesRequest)(new SyncTechnologiesRequest(techs), src))
+				.map(tech => [tech.name, tech])
+		);
+		const finishedEvents = () => sent.filter(([, m]) => m instanceof FinishedEvent).map(([, m]) => m);
+
+		it("should count progress made on every instance during the outage", async function() {
+			await contribute("automation", 1, 0.25);
+			// A and B each contributed 0.25 from the controller's 0.25
+			await contribute("automation", 1, 0.25);
+			await syncTechs(new TechnologySync("automation", 1, 0.5, false));
+			await contribute("automation", 1, 0.25);
+			let techs = await syncTechs(new TechnologySync("automation", 1, 0.5, false));
+			assert.equal(techs.get("automation").progress, 0.75);
+		});
+		it("should broadcast research finished during the outage once", async function() {
+			await contribute("automation", 1, 0.5);
+			await syncTechs(new TechnologySync("automation", 1, null, true));
+			await syncTechs(new TechnologySync("automation", 1, null, true));
+			assert.deepEqual(finishedEvents(), [new FinishedEvent("automation", 1)]);
+		});
+		const tech = (level, progress) => new TechnologySync("mining-productivity-3", level, progress, false);
+
+		it("should take a higher infinite research level from an instance", async function() {
+			await contribute("mining-productivity-3", 4, 0.9);
+			let techs = await syncTechs(tech(5, 0.2));
+			assert.deepEqual(finishedEvents(), [new FinishedEvent("mining-productivity-3", 4)]);
+			assert.deepEqual(techs.get("mining-productivity-3"), tech(5, 0.2));
+		});
+		it("should return a higher infinite research level to an instance", async function() {
+			await syncTechs(tech(6, 0.1));
+			sent.length = 0;
+			let techs = await syncTechs(tech(4, 0.5));
+			assert.equal(finishedEvents().length, 0);
+			assert.deepEqual(techs.get("mining-productivity-3"), tech(6, 0.1));
+		});
+		it("should ignore contributions to a level finished elsewhere", async function() {
+			await syncTechs(tech(5, null));
+			await contribute("mining-productivity-3", 4, 0.5);
+			let techs = await syncTechs();
+			assert.deepEqual(techs.get("mining-productivity-3"), tech(5, null));
+		});
+	});
+
 	it("should persist the queue across loads", async function() {
 		await update(["a", "b"]);
 		await controller.hooks.save.invoke();
