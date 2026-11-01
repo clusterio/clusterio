@@ -426,7 +426,7 @@ export default class Controller {
 			this.app.use(this.devServer.middlewares);
 		}
 
-		if (!args.dev) {
+		if (!this.devServer) {
 			let manifestPath = path.join(import.meta.dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
@@ -534,14 +534,14 @@ export default class Controller {
 			},
 			plugins: [webUiVite.clusterioDevPlugins(pluginDirs)],
 		});
-		if (args.dev) {
-			this.app.locals.webBundle = {
-				main: this.devServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
-				imports: Object.fromEntries(webUiVite.sharedModules.map(
-					name => [name, webUiVite.devSharedUrl(name)]
-				)),
-			};
-		}
+		// Plugins served from source import the shared modules from the development server, the web
+		// interface has to use the same copies, so it is served from source as well with --dev-plugin.
+		this.app.locals.webBundle = {
+			main: this.devServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
+			imports: Object.fromEntries(webUiVite.sharedModules.map(
+				name => [name, webUiVite.devSharedUrl(name)]
+			)),
+		};
 		this.app.locals.devServer = this.devServer;
 	}
 

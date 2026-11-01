@@ -125,6 +125,7 @@ For web development on the controller there are also the following flags:
 `--dev` - Serve the `web_ui` package from source through Vite's development server with hot module replacement.
 
 `--dev-plugin [name]` - Serve the web module for the given plugin from source the same way.
+This also serves the `web_ui` package from source, as the plugin has to share its modules with it.
 
 These options can be combined and multiple plugins can be actived for dev mode.
 Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
