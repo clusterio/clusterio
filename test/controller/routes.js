@@ -6,11 +6,10 @@ import os from "node:os";
 import path from "node:path";
 import jwt from "jsonwebtoken";
 import express from "express";
-import FormData from "form-data";
 
 import * as lib from "@clusterio/lib";
-import { SubscribableDatastore, wait, expositionContentType } from "@clusterio/lib";
 import { Controller, HostPairingManager, HostRecord } from "@clusterio/controller";
+
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
 
@@ -56,7 +55,7 @@ describe("controller/src/routes", function() {
 			stream = await routes.createProxyStream(controller.app);
 			responses = await Promise.all([
 				(async function() {
-					await wait(100);
+					await lib.wait(100);
 					return await fetch(`${endpoint}/${stream.id}`, {
 						method: "PUT", body: "test content",
 					});
@@ -72,7 +71,7 @@ describe("controller/src/routes", function() {
 					method: "PUT", body: "test content",
 				}),
 				(async function() {
-					await wait(100);
+					await lib.wait(100);
 					return await fetch(`${endpoint}/${stream.id}`);
 				}()),
 			]);
@@ -119,7 +118,7 @@ describe("controller/src/routes", function() {
 				let response = await fetch(endpoint, { headers });
 				assert.equal(response.status, 200);
 				const contentType = response.headers.get("content-type");
-				for (const part of expositionContentType.split("; ")) {
+				for (const part of lib.expositionContentType.split("; ")) {
 					assert(contentType.includes(part), `expected ${part} in content type ${contentType}`);
 				}
 				assert(/^# HELP /m.test(await response.text()), "expected exposition text");
@@ -129,7 +128,7 @@ describe("controller/src/routes", function() {
 			let calls = 0;
 			controller.hooks.metrics.attach("test", async () => {
 				calls += 1;
-				await wait(100);
+				await lib.wait(100);
 			});
 			const headers = { "X-Access-Token": testToken };
 			let responses = await Promise.all([
@@ -259,7 +258,7 @@ describe("controller/src/routes", function() {
 		beforeEach(function() {
 			endpoint = `http://localhost:${port}/api/host-pairing`;
 			// The mock controller lacks what pairing needs, use the real implementations.
-			controller.hosts = new SubscribableDatastore();
+			controller.hosts = new lib.SubscribableDatastore();
 			controller.hostPairing = new HostPairingManager(controller);
 			controller.generateHostToken = Controller.prototype.generateHostToken;
 			controller.verifyHostToken = Controller.prototype.verifyHostToken;
@@ -494,7 +493,7 @@ describe("controller/src/routes", function() {
 			it("should not be accepted in the URL", async function() {
 				const { requestId } = await createRequest();
 				const id = encodeURIComponent(requestId);
-				for (const [method, path] of [
+				for (const [method, urlPath] of [
 					["GET", `/poll?requestId=${id}`],
 					["GET", `/poll/${id}`],
 					["POST", `/poll/${id}`],
@@ -502,8 +501,8 @@ describe("controller/src/routes", function() {
 					["GET", `/${id}`],
 					["POST", `/cancel/${id}`],
 				]) {
-					const response = await fetch(`${endpoint}${path}`, { method });
-					assert.equal(response.status, 404, `${method} ${path}`);
+					const response = await fetch(`${endpoint}${urlPath}`, { method });
+					assert.equal(response.status, 404, `${method} ${urlPath}`);
 				}
 				await assertResponse(await post("/poll", { requestId }), 202, { status: "pending" });
 			});
