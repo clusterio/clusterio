@@ -11,3 +11,10 @@ export function useHosts() {
 	const subscribe = useCallback((callback: () => void) => control.hosts.subscribe(callback), [control]);
 	return useSyncExternalStore(subscribe, () => control.hosts.getSnapshot());
 }
+
+/** Requests from hosts waiting to be approved, empty if the account may not approve hosts */
+export function useHostPairings() {
+	const control = useContext(ControlContext);
+	const subscribe = useCallback((callback: () => void) => control.hostPairings.subscribe(callback), [control]);
+	return useSyncExternalStore(subscribe, () => control.hostPairings.getSnapshot());
+}

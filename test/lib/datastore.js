@@ -346,6 +346,41 @@ describe("lib/datastore", function() {
 				await datastore.save();
 				assert.equal(datastoreProvider.methodCalls.length, 2);
 			});
+			it("should write overlapping saves in order with the latest data", async function() {
+				const written = [];
+				let release;
+				datastoreProvider.save = async data => {
+					const keys = [...data.keys()];
+					if (!written.length) {
+						await new Promise(resolve => { release = resolve; });
+					}
+					written.push(keys);
+				};
+				datastore = new MockDatastore(datastoreProvider, new Map([["a", 1]]));
+				datastore.callTouch();
+				const first = datastore.save();
+				await new Promise(resolve => setImmediate(resolve)); // First write in progress
+				datastore.getData().set("b", 2);
+				datastore.callTouch();
+				const second = datastore.save();
+				release();
+				await Promise.all([first, second]);
+				assert.deepEqual(written, [["a"], ["a", "b"]]);
+			});
+			it("should save again after a failed save", async function() {
+				let fail = true;
+				datastoreProvider.save = async () => {
+					if (fail) {
+						fail = false;
+						throw new Error("disk full");
+					}
+					datastoreProvider.methodCalls.push(["save"]);
+				};
+				datastore.callTouch();
+				await assert.rejects(datastore.save(), /disk full/);
+				await datastore.save();
+				assert.deepEqual(datastoreProvider.methodCalls.at(-1), ["save"]);
+			});
 		});
 
 		describe("load", function() {
