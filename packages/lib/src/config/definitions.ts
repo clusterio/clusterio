@@ -37,6 +37,8 @@ export interface ControllerConfigFields {
 	"controller.default_mod_pack_id": number | null;
 	"controller.default_role_id": number | null;
 	"controller.autosave_interval": number;
+	"controller.host_pairing_timeout": number;
+	"controller.host_pairing_max_pending": number;
 	"controller.mod_portal_cache_duration_minutes": number;
 	"controller.mod_portal_page_size": number;
 	"controller.allow_remote_updates": boolean;
@@ -97,6 +99,20 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 60,
 			validator: validators.greaterThanZero,
+		},
+		"controller.host_pairing_timeout": {
+			title: "Host Pairing Timeout",
+			description: "Time in seconds a host can wait for approval before it has to request again, 0 for no limit.",
+			type: "number",
+			initialValue: 3600,
+			validator: validators.greaterThanEqualZero,
+		},
+		"controller.host_pairing_max_pending": {
+			title: "Host Pairing Max Pending",
+			description: "Maximum number of hosts that can wait for approval at the same time, 0 for no limit.",
+			type: "number",
+			initialValue: 50,
+			validator: validators.all(validators.integer, validators.greaterThanEqualZero),
 		},
 		"controller.http_port": {
 			title: "HTTP Port",

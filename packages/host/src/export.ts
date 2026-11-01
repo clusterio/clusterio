@@ -413,7 +413,13 @@ async function exportIcons(
 	state.metadata[baseName] ??= metadata;
 	let count = 0;
 	for (let prototype of prototypes) {
-		const icon = await exportIcon(server, modVersions, zipCache, state, prototype);
+		let icon: lib.ExportMetadataEntry["icon"];
+		try {
+			icon = await exportIcon(server, modVersions, zipCache, state, prototype);
+		} catch (err: any) {
+			// One broken icon should not stop the rest of the export
+			server._logger.warn(`Skipping icon of ${prototype.type} ${prototype.name}: ${err.message}`);
+		}
 		if (icon) {
 			count += 1;
 		}
@@ -484,6 +490,7 @@ async function exportLocale(
 			modZip = await loadZip(server, modVersions, zipCache, mod);
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
+				server._logger.warn(`Skipping locale of ${mod}, its mod zip was not found`);
 				continue;
 			}
 			throw err;
@@ -635,6 +642,8 @@ async function buildExport(server: FactorioServer, zipCache: ZipCache) {
 
 
 // For testing only
+export const _createSheetState = createSheetState;
+export const _exportIcons = exportIcons;
 export const _exportLocale = exportLocale;
 export const _loadSimpleIcon = loadSimpleIcon;
 export const _loadLayeredIcon = loadLayeredIcon;

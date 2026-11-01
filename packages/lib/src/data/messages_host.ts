@@ -259,12 +259,12 @@ export class SyncUserListsEvent {
 	}
 }
 
-export class HostRevokeTokensRequest {
-	declare["constructor"]: typeof HostRevokeTokensRequest;
+export class HostRevokeRequest {
+	declare ["constructor"]: typeof HostRevokeRequest;
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission = "core.host.revoke_token" as const;
+	static permission = "core.host.revoke" as const;
 
 	constructor(
 		public hostId: number,

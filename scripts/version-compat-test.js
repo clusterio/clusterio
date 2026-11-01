@@ -298,6 +298,48 @@ async function pollCtl(ctl, cliArgs, expectRegex, description, timeoutMs = 30e3)
 	}
 }
 
+/**
+ * Pair the host with the running controller and write its config
+ *
+ * The pairing API is probed instead of checking which side is local, as releases that support
+ * pairing no longer have ctl host create-config to fall back on.
+ *
+ * @returns true if the host was paired, false if the controller predates host pairing.
+ */
+async function pairHostWithController() {
+	// Written by bootstrap create-ctl-config, holds the admin token which approves the host directly.
+	const ctlConfig = JSON.parse(await fs.readFile(path.join(controllerDir, "config-ctl.json"), "utf8"));
+	const controllerUrl = ctlConfig["ctl.controller_url"];
+	console.log(`| pairing host with ${controllerUrl}`);
+	// A user allowed to approve hosts gets the host straight away, without waiting for approval.
+	const response = await fetch(new URL("api/host-pairing", controllerUrl), {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ctlConfig["ctl.controller_token"]}` },
+		body: JSON.stringify({ name: "host" }),
+	});
+	if (response.status === 404) {
+		console.log("| controller does not support host pairing");
+		return false;
+	}
+	if (response.status !== 200) {
+		throw new Error(`Pairing host failed with ${response.status}: ${await response.text()}`);
+	}
+	const pairing = await response.json();
+	console.log(`| paired host ${pairing.name} with id ${pairing.hostId}`);
+
+	// The same fields the installer sets, which every host version reads.
+	const hostConfig = {
+		"host.id": pairing.hostId,
+		"host.name": pairing.name,
+		"host.controller_url": controllerUrl,
+		"host.controller_token": pairing.token,
+	};
+	await fs.writeFile(
+		path.join(hostDir, "config-host.json"), JSON.stringify(hostConfig, null, "\t"), { flag: "wx", mode: 0o600 }
+	);
+	return true;
+}
+
 async function main() {
 	const options = parseArgs();
 	const breaks = await loadBreaks();
@@ -356,10 +398,12 @@ async function main() {
 	);
 
 	try {
-		await run("ctl", ctl, [
-			"host", "create-config", "--id", "1", "--name", "host", "--generate-token",
-			"--output", path.join(hostDir, "config-host.json"),
-		], controllerDir);
+		if (!await pairHostWithController()) {
+			await run("ctl", ctl, [
+				"host", "create-config", "--id", "1", "--name", "host", "--generate-token",
+				"--output", path.join(hostDir, "config-host.json"),
+			], controllerDir);
+		}
 
 		// Started host is only logged after the connection to the controller is established.
 		const hostProc = await spawnDaemon("host", host, ["run"], hostDir, /Started host/);

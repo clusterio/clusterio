@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import {
 	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
-	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
+	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Switch, Modal, Tooltip,
 	TablePaginationConfig, Alert, notification, FormProps,
 } from "antd";
 
@@ -22,10 +22,12 @@ import { useModPack } from "../model/mod_pack";
 import { useMods } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
 import notify, { notifyErrorHandler } from "../util/notify";
+import useResourceState from "../util/useResourceState";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import ModDetails from "./ModDetails";
 import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
@@ -905,6 +907,8 @@ type SettingsTableFieldProps = {
 	allowedValues: any;
 	locale: Map<string, any>;
 	changed: boolean;
+	/** Saved value of the setting, used when the field is created and when the form is reset */
+	initialValue: lib.ModSetting["value"] | undefined;
 };
 const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const name = props.name;
@@ -930,6 +934,7 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 
 	return <Form.Item
 		name={[props.scope, name]}
+		initialValue={props.initialValue}
 		label={props.locale.get(`mod-setting-name.${name}`) || name}
 		tooltip={props.locale.get(`mod-setting-description.${name}`)}
 		labelCol={{ span: 8 }}
@@ -952,6 +957,8 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 
 type SettingsTableProps = {
 	modPack: lib.ModPack;
+	/** Mod pack without unsaved changes, reverting the form goes back to its values */
+	savedModPack: lib.ModPack;
 	prototypes: any;
 	locale: any;
 	changes: ModChange[];
@@ -1012,6 +1019,7 @@ function SettingsTable(props: SettingsTableProps) {
 					allowedValues={prototype.allowed_values}
 					locale={props.locale}
 					changed={hasChange(props.changes, { type: "settings.set", scope, name: prototype.name })}
+					initialValue={props.savedModPack.settings[scope].get(prototype.name)?.value}
 				/>
 			)}
 		</Fragment>);
@@ -1183,7 +1191,8 @@ export default function ModPackViewPage() {
 	let modPackId = Number(params.id);
 
 	const [form] = Form.useForm();
-	const [modPack, synced] = useModPack(modPackId);
+	const [modPack, synced, error] = useModPack(modPackId);
+	const state = useResourceState(modPack, synced, error, modPackId);
 	let prototypes: any = useExportedAsset(modPack, "settings");
 	let locale: Map<any, any> = useExportedAsset(modPack, "locale");
 	let [changes, setChanges] = useState<ModChange[]>([]);
@@ -1253,17 +1262,7 @@ export default function ModPackViewPage() {
 
 	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack?.name ?? String(modPackId) }];
 	if (!modifiedModPack || !modPack) {
-		if (!synced) {
-			return <PageLayout nav={nav}>
-				<PageHeader title={String(modPackId)} />
-				<Spin size="large" />
-			</PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<PageHeader title="Mod Pack Not Found" />
-			<p>Mod pack with id {modPackId} was not found on the controller.</p>
-		</PageLayout>;
+		return <ResourceState state={state} type="Mod pack" id={modPackId} nav={nav} listPath="/mods" error={error} />;
 	}
 
 	return <PageLayout nav={nav}>
@@ -1301,13 +1300,12 @@ export default function ModPackViewPage() {
 					syncTimeout.current = setTimeout(syncPack.bind(undefined, allFields), 500);
 				}
 			}}
+			// Mod settings get their value on each field instead, the form only applies initialValues when it is
+			// created, so settings added by an export while the page is open would show up empty.
 			initialValues={{
 				name: modPack.name,
 				description: modPack.description,
 				factorioVersion: modPack.factorioVersion,
-				"startup": Object.fromEntries(pickValue(modPack.settings["startup"])),
-				"runtime-global": Object.fromEntries(pickValue(modPack.settings["runtime-global"])),
-				"runtime-per-user": Object.fromEntries(pickValue(modPack.settings["runtime-per-user"])),
 			}}
 		>
 			<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
@@ -1356,6 +1354,7 @@ export default function ModPackViewPage() {
 			/>
 			<SettingsTable
 				modPack={modifiedModPack}
+				savedModPack={modPack}
 				changes={changes}
 				onChange={pushChange}
 				onRevert={revertChange}
