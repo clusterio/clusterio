@@ -3,8 +3,7 @@ import path from "node:path";
 
 import { FactorioServer } from "@clusterio/host/dist/node/src/server.js";
 import {
-	_createSheetState, _exportIcons, _exportLocale, _findGraphicsDataDir, _loadLayeredIcon, _loadSimpleIcon,
-	_warnMissingBuiltinIcons,
+	_checkMissingBuiltinIcons, _createSheetState, _exportIcons, _exportLocale, _loadLayeredIcon, _loadSimpleIcon,
 } from "@clusterio/host/dist/node/src/export.js";
 
 
@@ -122,36 +121,9 @@ describe("host/src/export", function() {
 			assert.equal(icon, null);
 		});
 	});
-	describe("findGraphicsDataDir()", function() {
-		const installs = path.join("test", "file", "factorio");
-		const withInstalls = (factorioDir, version = testServer.version) => Object.create(testServer, {
-			_factorioDir: { value: factorioDir }, version: { value: version },
-		});
-		it("finds a full install matching the major and minor version of the server", async function() {
-			const files = { zipCache: new Map() };
-			await _findGraphicsDataDir(withInstalls(path.join("test", "file", "factorio"), "0.1.1"), files);
-			assert.deepEqual(files, { zipCache: new Map(), graphicsDataDir: path.join(installs, "0.1.2", "data") });
-		});
-		it("skips headless installs of the same version", async function() {
-			const files = { zipCache: new Map() };
-			await _findGraphicsDataDir(withInstalls(path.join("test", "file", "factorio-mixed")), files);
-			assert.equal(files.graphicsDataDir, graphicsDataDir);
-		});
-		it("records why when there is no full install", async function() {
-			const files = { zipCache: new Map() };
-			await _findGraphicsDataDir(withInstalls(installs, "0.2.5"), files);
-			assert.equal(files.graphicsDataDir, undefined);
-			assert.equal(files.graphicsError, "Unable to find full Factorio version 0.2");
-		});
-		it("records why when the directory does not exist", async function() {
-			const files = { zipCache: new Map() };
-			await _findGraphicsDataDir(withInstalls(path.join("test", "file", "missing")), files);
-			assert.match(files.graphicsError, /ENOENT/);
-		});
-	});
-	describe("warnMissingBuiltinIcons()", function() {
+	describe("checkMissingBuiltinIcons()", function() {
 		it("warns once with the number of missing builtin files", function() {
-			_warnMissingBuiltinIcons(testServer, { zipCache: new Map() }, new Map([
+			_checkMissingBuiltinIcons(testServer, { zipCache: new Map() }, new Map([
 				["__base__/graphics/icons/a.png", null],
 				["__core__/graphics/icons/b.png", null],
 				["__base__/graphics/icons/c.png", {}],
@@ -162,7 +134,7 @@ describe("host/src/export", function() {
 			assert.doesNotMatch(warnings[0], /headless/);
 		});
 		it("explains the headless build when no full install was found", function() {
-			_warnMissingBuiltinIcons(testServer, { zipCache: new Map(), graphicsError: "Not found" }, new Map([
+			_checkMissingBuiltinIcons(testServer, { zipCache: new Map(), graphicsError: "Not found" }, new Map([
 				["__base__/graphics/icons/a.png", null],
 			]));
 			assert.equal(warnings.length, 1);
@@ -170,7 +142,7 @@ describe("host/src/export", function() {
 			assert.match(warnings[0], /Add a full install of Factorio 0\.1 to host\.factorio_directory/);
 		});
 		it("does not warn when no builtin files are missing", function() {
-			_warnMissingBuiltinIcons(testServer, { zipCache: new Map() }, new Map([
+			_checkMissingBuiltinIcons(testServer, { zipCache: new Map() }, new Map([
 				["__base__/graphics/icons/c.png", {}],
 				["__some_mod__/graphics/icons/d.png", null],
 			]));

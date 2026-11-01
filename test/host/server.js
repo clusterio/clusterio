@@ -105,20 +105,25 @@ describe("host/server", function() {
 				);
 			});
 		});
-		describe("headless option", function() {
+		describe("headless argument", function() {
 			const mixedDir = path.join("test", "file", "factorio-mixed");
 			it("should find only full installs when false", async function() {
-				const [dir] = await hostServer.findVersion(mixedDir, "0.1.2", { headless: false });
+				const [dir] = await hostServer.findVersion(mixedDir, "0.1.2", false);
 				assert.equal(dir, path.join(mixedDir, "full", "data"));
 			});
 			it("should find only headless installs when true", async function() {
-				const [dir] = await hostServer.findVersion(mixedDir, "0.1.2", { headless: true });
+				const [dir] = await hostServer.findVersion(mixedDir, "0.1.2", true);
 				assert.equal(dir, path.join(mixedDir, "headless", "data"));
+			});
+			it("should skip installs of the other build when matching a partial version", async function() {
+				const installDir = path.join("test", "file", "factorio");
+				const [dir, version] = await hostServer.findVersion(installDir, "0.1", false);
+				assert.deepEqual([dir, version], [path.join(installDir, "0.1.2", "data"), "0.1.2"]);
 			});
 			it("should reject a direct install of the other build", async function() {
 				const installDir = path.join(mixedDir, "headless");
 				await assert.rejects(
-					hostServer.findVersion(installDir, "0.1.2", { headless: false }),
+					hostServer.findVersion(installDir, "0.1.2", false),
 					new Error(
 						`Unable to find a full install of Factorio 0.1.2: ${installDir} is a direct ` +
 						"(single-version) install of the headless build."
@@ -127,7 +132,7 @@ describe("host/server", function() {
 			});
 			it("should reject if no install of that build has the version", async function() {
 				await assert.rejects(
-					hostServer.findVersion(path.join("test", "file", "factorio"), "0.1.2", { headless: true }),
+					hostServer.findVersion(path.join("test", "file", "factorio"), "0.1.2", true),
 					new Error("Unable to find headless Factorio version 0.1.2")
 				);
 			});

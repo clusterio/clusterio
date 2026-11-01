@@ -262,8 +262,7 @@ export async function checkForUpdates(
  * @param targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
- * @param options - Optional parameters.
- * @param options.headless -
+ * @param headless -
  *     Only consider headless installs if true, or only full installs if
  *     false.
  * @returns Array with path to data dir and version found.
@@ -271,23 +270,23 @@ export async function checkForUpdates(
 export async function findVersion(
 	factorioDir: string,
 	targetVersion: lib.TargetVersion,
-	options: { headless?: boolean } = {},
+	headless?: boolean,
 ): Promise<[string, lib.FullVersion]> {
 	let kind = "";
-	if (options.headless !== undefined) {
-		kind = options.headless ? "headless " : "full ";
+	if (headless !== undefined) {
+		kind = headless ? "headless " : "full ";
 	}
-	const wrongKind = async (dir: string) => (
-		options.headless !== undefined && await isHeadless(path.join(dir, "data")) !== options.headless
+	const checkInstallType = async (dir: string) => (
+		headless === undefined || await isHeadless(path.join(dir, "data")) === headless
 	);
 
 	// Check if this is a direct installation dir
 	const directVersion = await getFactorioVersion(factorioDir);
 	if (directVersion !== null) {
-		if (await wrongKind(factorioDir)) {
+		if (!await checkInstallType(factorioDir)) {
 			throw new Error(
 				`Unable to find a ${kind}install of Factorio ${targetVersion}: ${factorioDir} is a direct ` +
-				`(single-version) install of the ${options.headless ? "full" : "headless"} build.`
+				`(single-version) install of the ${headless ? "full" : "headless"} build.`
 			);
 		}
 		if (targetVersion === "latest" || directVersion === targetVersion || directVersion.startsWith(targetVersion)) {
@@ -306,7 +305,7 @@ export async function findVersion(
 		// Avoid any fancy directory detection in order to follow symlinks
 		const fullPath = path.join(factorioDir, name);
 		const version = await getFactorioVersion(fullPath);
-		if (version === null || await wrongKind(fullPath)) {
+		if (version === null || !await checkInstallType(fullPath)) {
 			continue;
 		}
 

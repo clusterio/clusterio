@@ -97,6 +97,7 @@ async function loadZip(server: FactorioServer, modVersions: Map<string, string>,
 
 /** Where icon files are read from during an export. */
 interface ExportFiles {
+	/** Mod zips opened during the export, closed when it ends. */
 	zipCache: ZipCache;
 	/** Data dir of a full install to fall back to for builtin mod files. */
 	graphicsDataDir?: string;
@@ -526,23 +527,6 @@ async function exportLocale(
 }
 
 /**
- * Find a full install to read builtin mod graphics from
- *
- * @param server - The server the export runs on.
- * @param files - Updated with the data dir found, or why there is none.
- * @internal
- */
-async function findGraphicsDataDir(server: FactorioServer, files: ExportFiles) {
-	const majorMinor = server.version!.replace(/\.\d+$/, "") as lib.MajorMinorVersion;
-	try {
-		[files.graphicsDataDir] = await findVersion(server._factorioDir, majorMinor, { headless: false });
-	} catch (err: any) {
-		// Without it the export still has everything but the base game icons
-		files.graphicsError = err.message;
-	}
-}
-
-/**
  * Export locale, icons and metadata for the given factorio server
  *
  * If the server runs the headless build, builtin mod graphics are read
@@ -555,7 +539,13 @@ async function findGraphicsDataDir(server: FactorioServer, files: ExportFiles) {
 export async function exportData(server: FactorioServer) {
 	const files: ExportFiles = { zipCache: new Map() };
 	if (await isHeadless(server.dataPath())) {
-		await findGraphicsDataDir(server, files);
+		const majorMinor = server.version!.replace(/\.\d+$/, "") as lib.MajorMinorVersion;
+		try {
+			[files.graphicsDataDir] = await findVersion(server._factorioDir, majorMinor, false);
+		} catch (err: any) {
+			// Without it the export still has everything but the base game icons
+			files.graphicsError = err.message;
+		}
 	}
 	try {
 		return await buildExport(server, files);
@@ -566,14 +556,14 @@ export async function exportData(server: FactorioServer) {
 }
 
 /**
- * Warn about builtin mod icon files that could not be found
+ * Warn if any builtin mod icon files could not be found
  *
  * @param server - The server the export ran on.
  * @param files - Where icon files were read from.
  * @param iconCache - Icons loaded by the export, null for missing files.
  * @internal
  */
-function warnMissingBuiltinIcons(server: FactorioServer, files: ExportFiles, iconCache: IconCache) {
+function checkMissingBuiltinIcons(server: FactorioServer, files: ExportFiles, iconCache: IconCache) {
 	const builtinModNames = ["core", ...lib.ModPack.getBuiltinModNames(server.version!)];
 	let missing = 0;
 	for (const [iconPath, icon] of iconCache) {
@@ -703,7 +693,7 @@ async function buildExport(server: FactorioServer, files: ExportFiles) {
 		const count = await exportIcons(server, modVersions, files, prototypesWithIcons, baseName, state);
 		server._logger.info(`Exported ${count} ${baseName} icons`);
 	}
-	warnMissingBuiltinIcons(server, files, state.iconCache);
+	checkMissingBuiltinIcons(server, files, state.iconCache);
 
 	// Crop sheet to actual used height and write single spritesheet + metadata.
 	const usedRows = Math.ceil(state.pos / (SHEET_WIDTH / SHEET_ICON_SIZE));
@@ -722,7 +712,6 @@ async function buildExport(server: FactorioServer, files: ExportFiles) {
 export const _createSheetState = createSheetState;
 export const _exportIcons = exportIcons;
 export const _exportLocale = exportLocale;
-export const _findGraphicsDataDir = findGraphicsDataDir;
 export const _loadSimpleIcon = loadSimpleIcon;
 export const _loadLayeredIcon = loadLayeredIcon;
-export const _warnMissingBuiltinIcons = warnMissingBuiltinIcons;
+export const _checkMissingBuiltinIcons = checkMissingBuiltinIcons;
