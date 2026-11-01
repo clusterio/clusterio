@@ -24,19 +24,24 @@ class ExportLocaleStore {
 		let response = await fetch(`${staticRoot}${cacheEntry.localePath}`);
 		if (response.ok) {
 			cacheEntry.data = new Map(await response.json() as ExportLocale);
-			for (const callback of cacheEntry.callbacks) {
-				callback();
-			}
 		} else {
-			notify(
-				`Failed to locale for mod pack ${modPackId}, server returned: ` +
-				`${response.status} ${response.statusText}`
-			);
+			if (response.status === 404) {
+				logger.warn(`Locale for mod pack ${modPackId} is missing on the controller`);
+			} else {
+				notify(
+					`Failed to locale for mod pack ${modPackId}, server returned: ` +
+					`${response.status} ${response.statusText}`
+				);
+			}
+			cacheEntry.data = new Map();
+		}
+		for (const callback of cacheEntry.callbacks) {
+			callback();
 		}
 	}
 
 	subscribe(modPackId: number | undefined, localePath: string | undefined, callback: () => void) {
-		if (modPackId === undefined || !localePath) {
+		if (modPackId === undefined) {
 			return () => {};
 		}
 

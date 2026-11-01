@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import events from "node:events";
+import fs from "node:fs/promises";
 import http from "node:http";
-
+import os from "node:os";
+import path from "node:path";
 import jwt from "jsonwebtoken";
+import express from "express";
 
-import { SubscribableDatastore, wait, expositionContentType } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 import { Controller, HostPairingManager, HostRecord } from "@clusterio/controller";
+
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
 
@@ -51,7 +55,7 @@ describe("controller/src/routes", function() {
 			stream = await routes.createProxyStream(controller.app);
 			responses = await Promise.all([
 				(async function() {
-					await wait(100);
+					await lib.wait(100);
 					return await fetch(`${endpoint}/${stream.id}`, {
 						method: "PUT", body: "test content",
 					});
@@ -67,7 +71,7 @@ describe("controller/src/routes", function() {
 					method: "PUT", body: "test content",
 				}),
 				(async function() {
-					await wait(100);
+					await lib.wait(100);
 					return await fetch(`${endpoint}/${stream.id}`);
 				}()),
 			]);
@@ -114,7 +118,7 @@ describe("controller/src/routes", function() {
 				let response = await fetch(endpoint, { headers });
 				assert.equal(response.status, 200);
 				const contentType = response.headers.get("content-type");
-				for (const part of expositionContentType.split("; ")) {
+				for (const part of lib.expositionContentType.split("; ")) {
 					assert(contentType.includes(part), `expected ${part} in content type ${contentType}`);
 				}
 				assert(/^# HELP /m.test(await response.text()), "expected exposition text");
@@ -124,7 +128,7 @@ describe("controller/src/routes", function() {
 			let calls = 0;
 			controller.hooks.metrics.attach("test", async () => {
 				calls += 1;
-				await wait(100);
+				await lib.wait(100);
 			});
 			const headers = { "X-Access-Token": testToken };
 			let responses = await Promise.all([
@@ -139,6 +143,42 @@ describe("controller/src/routes", function() {
 			let response = await fetch(endpoint, { headers });
 			assert.equal(response.status, 200);
 			assert.equal(calls, 2);
+		});
+	});
+	describe("missingExportAsset()", function() {
+		let dir;
+		beforeEach(async function() {
+			dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-static-"));
+			await fs.writeFile(path.join(dir, "locale.abc.json"), "[]");
+			const provider = new lib.MemoryDatastoreProvider();
+			controller.modPacks = new lib.SubscribableDatastore(provider, new Map());
+			const modPack = lib.ModPack.fromJSON({ id: 1, name: "test" });
+			modPack.exportManifest = new lib.ExportManifest({
+				locale: "locale.abc.json", metadata: "metadata.abc.json",
+			});
+			controller.modPacks.set(modPack);
+			controller.app.use("/static", express.static(dir));
+			controller.app.use("/static", routes.missingExportAsset);
+		});
+		afterEach(async function() {
+			await fs.rm(dir, { recursive: true, force: true });
+		});
+		it("should serve export files that exist", async function() {
+			const response = await fetch(`http://localhost:${port}/static/locale.abc.json`);
+			assert.equal(response.status, 200);
+			assert(controller.modPacks.get(1).exportManifest);
+		});
+		it("should drop the export and explain when a file is missing", async function() {
+			const response = await fetch(`http://localhost:${port}/static/metadata.abc.json`);
+			assert.equal(response.status, 404);
+			assert.match(await response.text(), /metadata\.abc\.json is missing/);
+			assert.equal(controller.modPacks.get(1).exportManifest, undefined);
+		});
+		it("should pass through files not in an export", async function() {
+			const response = await fetch(`http://localhost:${port}/static/other.js`);
+			assert.equal(response.status, 404);
+			assert.doesNotMatch(await response.text(), /export-data/);
+			assert(controller.modPacks.get(1).exportManifest);
 		});
 	});
 	describe("stripStaticPrefix()", function() {
@@ -218,7 +258,7 @@ describe("controller/src/routes", function() {
 		beforeEach(function() {
 			endpoint = `http://localhost:${port}/api/host-pairing`;
 			// The mock controller lacks what pairing needs, use the real implementations.
-			controller.hosts = new SubscribableDatastore();
+			controller.hosts = new lib.SubscribableDatastore();
 			controller.hostPairing = new HostPairingManager(controller);
 			controller.generateHostToken = Controller.prototype.generateHostToken;
 			controller.verifyHostToken = Controller.prototype.verifyHostToken;
@@ -227,8 +267,8 @@ describe("controller/src/routes", function() {
 			playerToken = controller.users.signUserToken(controller.users.getByName("player"));
 		});
 
-		function post(path, body, headers = {}) {
-			return fetch(`${endpoint}${path}`, {
+		function post(urlPath, body, headers = {}) {
+			return fetch(`${endpoint}${urlPath}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json", ...headers },
 				body: typeof body === "string" || body === undefined ? body : JSON.stringify(body),
@@ -453,7 +493,7 @@ describe("controller/src/routes", function() {
 			it("should not be accepted in the URL", async function() {
 				const { requestId } = await createRequest();
 				const id = encodeURIComponent(requestId);
-				for (const [method, path] of [
+				for (const [method, urlPath] of [
 					["GET", `/poll?requestId=${id}`],
 					["GET", `/poll/${id}`],
 					["POST", `/poll/${id}`],
@@ -461,8 +501,8 @@ describe("controller/src/routes", function() {
 					["GET", `/${id}`],
 					["POST", `/cancel/${id}`],
 				]) {
-					const response = await fetch(`${endpoint}${path}`, { method });
-					assert.equal(response.status, 404, `${method} ${path}`);
+					const response = await fetch(`${endpoint}${urlPath}`, { method });
+					assert.equal(response.status, 404, `${method} ${urlPath}`);
 				}
 				await assertResponse(await post("/poll", { requestId }), 202, { status: "pending" });
 			});
