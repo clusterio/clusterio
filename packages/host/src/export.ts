@@ -524,6 +524,31 @@ async function exportLocale(
 }
 
 /**
+ * Find the data dir to read builtin mod graphics from
+ *
+ * @param server - The server the export runs on.
+ * @param graphicsDirectory - Full Factorio install, or directory of installs.
+ * @returns
+ *     Data dir of the install matching the major and minor version of the
+ *     server, or undefined if there is none.
+ * @internal
+ */
+async function findGraphicsDataDir(server: FactorioServer, graphicsDirectory: string) {
+	const majorMinor = server.version!.replace(/\.\d+$/, "") as lib.MajorMinorVersion;
+	try {
+		const [dataDir] = await findVersion(graphicsDirectory, majorMinor);
+		return dataDir;
+	} catch (err: any) {
+		// Without it the export still has everything but the base game icons
+		server._logger.warn(
+			`Unable to use host.factorio_graphics_directory for Factorio ${majorMinor}, exporting without it: ` +
+			`${err.message}`
+		);
+		return undefined;
+	}
+}
+
+/**
  * Export locale, icons and metadata for the given factorio server
  *
  * @param server - The server to export the data from.
@@ -535,8 +560,7 @@ async function exportLocale(
 export async function exportData(server: FactorioServer, graphicsDirectory?: string | null) {
 	const files: ExportFiles = { zipCache: new Map() };
 	if (graphicsDirectory) {
-		const majorMinor = server.version!.replace(/\.\d+$/, "") as lib.MajorMinorVersion;
-		[files.graphicsDataDir] = await findVersion(graphicsDirectory, majorMinor);
+		files.graphicsDataDir = await findGraphicsDataDir(server, graphicsDirectory);
 	}
 	try {
 		return await buildExport(server, files);
@@ -700,6 +724,7 @@ async function buildExport(server: FactorioServer, files: ExportFiles) {
 export const _createSheetState = createSheetState;
 export const _exportIcons = exportIcons;
 export const _exportLocale = exportLocale;
+export const _findGraphicsDataDir = findGraphicsDataDir;
 export const _loadSimpleIcon = loadSimpleIcon;
 export const _loadLayeredIcon = loadLayeredIcon;
 export const _warnMissingBuiltinIcons = warnMissingBuiltinIcons;

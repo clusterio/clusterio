@@ -3,7 +3,8 @@ import path from "node:path";
 
 import { FactorioServer } from "@clusterio/host/dist/node/src/server.js";
 import {
-	_createSheetState, _exportIcons, _exportLocale, _loadLayeredIcon, _loadSimpleIcon, _warnMissingBuiltinIcons,
+	_createSheetState, _exportIcons, _exportLocale, _findGraphicsDataDir, _loadLayeredIcon, _loadSimpleIcon,
+	_warnMissingBuiltinIcons,
 } from "@clusterio/host/dist/node/src/export.js";
 
 
@@ -119,6 +120,25 @@ describe("host/src/export", function() {
 				] }, 32, new Map(),
 			);
 			assert.equal(icon, null);
+		});
+	});
+	describe("findGraphicsDataDir()", function() {
+		const installs = path.join("test", "file", "factorio");
+		it("returns the data dir of the install matching the server version", async function() {
+			const dataDir = await _findGraphicsDataDir(testServer, installs);
+			assert.equal(dataDir, path.join(installs, "0.1.2", "data"));
+			assert.deepEqual(warnings, []);
+		});
+		it("warns and returns undefined when no install matches the server version", async function() {
+			const server = Object.create(testServer, { version: { value: "0.2.5" } });
+			assert.equal(await _findGraphicsDataDir(server, installs), undefined);
+			assert.equal(warnings.length, 1);
+			assert.match(warnings[0], /^Unable to use host\.factorio_graphics_directory for Factorio 0\.2, /);
+		});
+		it("warns and returns undefined when the directory does not exist", async function() {
+			assert.equal(await _findGraphicsDataDir(testServer, path.join("test", "file", "missing")), undefined);
+			assert.equal(warnings.length, 1);
+			assert.match(warnings[0], /^Unable to use host\.factorio_graphics_directory for Factorio 0\.1, .*ENOENT/);
 		});
 	});
 	describe("warnMissingBuiltinIcons()", function() {

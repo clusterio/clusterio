@@ -363,6 +363,7 @@ Defaults to "factorio".
 Directory to read the base game's icons from when exporting data.
 The headless build of Factorio has no graphics, so instances running it export none of the base game's icons unless this points to a full install of Factorio.
 Like `host.factorio_directory` this can either point to a Factorio directory, or to a directory containing multiple versions, in which case the latest one matching the major and minor version of the instance is used.
+If there is no install matching the instance, a warning is logged and the data is exported without it.
 
 Defaults to null.
 
