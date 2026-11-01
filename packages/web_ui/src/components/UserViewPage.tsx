@@ -41,7 +41,7 @@ export default function UserViewPage() {
 	let control = useContext(ControlContext);
 	let [instances] = useInstances();
 	const [user, synced] = useUser(userName);
-	let [roles] = useRoles();
+	let [roles, rolesSynced] = useRoles();
 	let [form] = Form.useForm();
 	const statsTable = useTableQueryState<[number, lib.PlayerStats]>({
 		namespace: "stats", defaultSortKey: "instance",
@@ -62,6 +62,20 @@ export default function UserViewPage() {
 		}
 	}, [account, form, user, banReasonDirty]);
 
+	useEffect(() => {
+		if (!user || !account.hasPermission("core.user.update_roles")) {
+			return;
+		}
+		const current: number[] = form.getFieldValue("roles") ?? [];
+		// Keep local edits, but drop roles deleted since
+		const next = rolesDirty
+			? current.filter(id => !rolesSynced || roles.has(id))
+			: [...user.roleIds];
+		if (next.length !== current.length || next.some((id, i) => id !== current[i])) {
+			form.setFieldsValue({ "roles": next });
+		}
+	}, [account, form, user, roles, rolesSynced, rolesDirty]);
+
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
 	if (!user) {
 		if (!synced) {
@@ -77,7 +91,6 @@ export default function UserViewPage() {
 		</PageLayout>;
 	}
 
-	// TODO: Update displayed roles when user roles change and have not been edited locally
 	let roleSelector = <Form.Item
 		noStyle
 		name="roles"
