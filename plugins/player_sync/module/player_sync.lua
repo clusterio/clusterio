@@ -73,17 +73,17 @@ local function remove_inventory_bonus_raise(script_data, player_name)
 	end
 end
 
--- Where the player's body stands, in the shape restore_position takes
-local function body_place(player)
-	local place = { vehicle = player.driving and player.vehicle or nil }
+-- Where the player's controller is, in the shape restore_position takes
+local function controller_location(player)
+	local location = { vehicle = player.driving and player.vehicle or nil }
 	if v2_remote_controller then
-		place.surface = player.physical_surface
-		place.position = player.physical_position
+		location.surface = player.physical_surface
+		location.position = player.physical_position
 	else
-		place.surface = player.surface
-		place.position = player.position
+		location.surface = player.surface
+		location.position = player.position
 	end
-	return place
+	return location
 end
 
 -- Turn a synced player into a spectator while their player data is downloaded or applied, if this instance syncs
@@ -106,10 +106,10 @@ local function spectate(player, player_record, record)
 		-- Store original position to teleport back to. Only once per record: a rejoin while a prefetched copy is held
 		-- spectates again, and the spectator's position then isn't where the body stood
 		if record.position == nil then
-			local here = body_place(player)
-			record.surface = here.surface
-			record.position = here.position
-			record.vehicle = here.vehicle
+			local location = controller_location(player)
+			record.surface = location.surface
+			record.position = location.position
+			record.vehicle = location.vehicle
 		end
 
 		save_local_controller(player, player_record, record.components)
@@ -132,8 +132,8 @@ local function keep_body_place(player_record, record)
 	end
 end
 
--- Where the body goes back when sync code gives it back, if it took it
-local function body_place_of(script_data, player_name)
+-- Where the controller goes back when sync code gives it back, if it took it
+local function restore_location(script_data, player_name)
 	for _, downloads in ipairs({ script_data.active_downloads, script_data.finished_downloads }) do
 		local record = downloads[player_name]
 		if record and record.position ~= nil then
@@ -506,7 +506,7 @@ function player_sync.sync_player(acquire_response)
 				and player.controller_type == defines.controllers.character
 			then
 				save_local_controller(player, player_record, player_record.components)
-				player_record.body_place = body_place(player)
+				player_record.body_place = controller_location(player)
 				local character = player.character
 				player.set_controller({ type = defines.controllers.spectator })
 				if character then character.destroy() end
@@ -587,27 +587,27 @@ player_sync.events[defines.events.on_player_joined_game] = function(event)
 	script_data.active_uploads[player.name] = nil
 end
 
--- A spectator whose body sync code took stays where the body stood. A jump of more than 4 tiles, or to another surface,
--- is another mod's teleport and moves where the body goes back instead.
+-- A spectator whose controller sync code took stays at its restore location. A jump of more than 4 tiles, or to another
+-- surface, is another mod's teleport and moves the restore location instead.
 player_sync.events[defines.events.on_player_changed_position] = function(event)
 	local player = assert(game.get_player(event.player_index))
 	if player.controller_type ~= defines.controllers.spectator then
 		return
 	end
-	local place = body_place_of(get_script_data(), player.name)
-	if not place then
+	local location = restore_location(get_script_data(), player.name)
+	if not location then
 		return
 	end
 
 	local position = player.position --[[@as MapPosition.struct]]
-	local dx = position.x - place.position.x
-	local dy = position.y - place.position.y
-	if player.surface == place.surface and dx * dx + dy * dy <= 16 then
-		player.teleport(place.position, place.surface)
+	local dx = position.x - location.position.x
+	local dy = position.y - location.position.y
+	if player.surface == location.surface and dx * dx + dy * dy <= 16 then
+		player.teleport(location.position, location.surface)
 	else
-		place.surface = player.surface
-		place.position = position
-		place.vehicle = nil
+		location.surface = player.surface
+		location.position = position
+		location.vehicle = nil
 	end
 end
 
