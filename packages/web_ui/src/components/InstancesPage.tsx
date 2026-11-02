@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Checkbox, Form, Input, Modal, Select, Space, Tooltip, Typography } from "antd";
+import { Button, Checkbox, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from "antd";
+import type { ColumnType } from "antd/es/table/interface";
 
 import * as lib from "@clusterio/lib";
 
@@ -13,13 +14,89 @@ import { useHosts } from "../model/host";
 import { useInstanceConfig, useInstances } from "../model/instance";
 import { useSaves } from "../model/saves";
 import InstanceList from "./InstanceList";
+import Link from "./Link";
+import useRowNavigation from "../util/useRowNavigation";
 import { notifyErrorHandler } from "../util/notify";
+import type { Control } from "../util/websocket";
 
 type SaveMode = "none" | "copy" | "save_and_copy";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances>[0] }) {
+function ConfigSourceFields(props: {
+	instances: ReturnType<typeof useInstances>[0];
+	templateId?: number | null;
+	source?: Readonly<lib.InstanceDetails>;
+	asTemplate: boolean;
+}) {
+	const templates = [...props.instances.values()].filter(i => i.isTemplate);
+	const hasTemplate = typeof props.templateId === "number";
+	return <>
+		{(templates.length > 0 || hasTemplate) && <Tooltip
+			title="Inherit config from a template, later changes to the template apply to this instance too"
+		>
+			<Form.Item name="template" label="Template">
+				<Select
+					disabled={props.source !== undefined}
+					options={[{ value: null, label: "None" }, ...templates.map(i => ({ value: i.id, label: i.name }))]}
+				/>
+			</Form.Item>
+		</Tooltip>}
+		<Tooltip title="Perform a one time copy of the config of an existing instance">
+			<Form.Item name="instanceClone" label="Copy Config">
+				<Select
+					disabled={hasTemplate}
+					options={[
+						{ id: -1, name: "Default Config" },
+						...[...props.instances.values()].filter(i => !i.isTemplate),
+					].map(i => ({ value: i.id, label: i.name }))}
+				/>
+			</Form.Item>
+		</Tooltip>
+		{props.asTemplate && props.source && <Form.Item name="linkSource" valuePropName="checked">
+			<Checkbox>Make {props.source.name} inherit from the new template</Checkbox>
+		</Form.Item>}
+	</>;
+}
+
+async function linkToTemplate(control: Control, source: lib.InstanceDetails | undefined, templateId: number) {
+	if (source) {
+		await control.send(new lib.InstanceConfigSetFieldRequest(
+			source.id, "instance.template_id", String(templateId),
+		));
+	}
+}
+
+function setTemplateFields(
+	config: lib.InstanceConfig,
+	fields: (keyof lib.InstanceConfigFields)[],
+	templateId: unknown,
+	asTemplate: boolean,
+) {
+	if (typeof templateId === "number") {
+		config.set("instance.template_id", templateId);
+		fields.push("instance.template_id");
+	}
+	if (asTemplate) {
+		config.set("instance.is_template", true);
+		fields.push("instance.is_template");
+	}
+}
+
+type CreateInstanceInitial = {
+	instanceClone?: number;
+	template?: number;
+	asTemplate?: boolean;
+	linkSource?: boolean;
+};
+
+export function CreateInstanceButton({ buttonText = "Create", buttonType = "primary", ...props }: {
+	instances: ReturnType<typeof useInstances>[0];
+	initial?: CreateInstanceInitial;
+	buttonText?: string;
+	buttonType?: "primary" | "default";
+	buttonSize?: "small";
+}) {
 	let control = useContext(ControlContext);
 	let account = useAccount();
 	let navigate = useNavigate();
@@ -31,9 +108,11 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 
 	const canAssign = account.hasPermission("core.instance.assign");
 	const cloneId: number | undefined = Form.useWatch("instanceClone", form);
+	const templateId: number | null | undefined = Form.useWatch("template", form);
+	const asTemplate = Boolean(Form.useWatch("asTemplate", form));
 	const host: number | string | undefined = Form.useWatch("host", form);
 	const saveMode: SaveMode = Form.useWatch("saveMode", form) ?? "none";
-	const hostId = typeof host === "number" ? host : undefined;
+	const hostId = typeof host === "number" && !asTemplate ? host : undefined;
 	const source = cloneId !== undefined && cloneId >= 0 ? props.instances.get(cloneId) : undefined;
 	const sourceRunning = source?.status === "running";
 	const activeSave = source ? [...saves.values()].find(
@@ -42,6 +121,7 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 	const sourceConfig = useInstanceConfig(source?.id);
 	const sourceSettings = sourceConfig?.["factorio.settings"] as Record<string, unknown> | undefined;
 	const sourceServerName = typeof sourceSettings?.name === "string" ? sourceSettings.name : undefined;
+	const copySettings = sourceSettings !== undefined && !asTemplate;
 
 	useEffect(() => {
 		if (open && sourceServerName !== undefined) {
@@ -68,7 +148,8 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 		let instanceConfig = new lib.InstanceConfig("control");
 		instanceConfig.set("instance.name", values.instanceName);
 		const fields: (keyof lib.InstanceConfigFields)[] = ["instance.id", "instance.name"];
-		if (source && sourceSettings) {
+		setTemplateFields(instanceConfig, fields, values.template, asTemplate);
+		if (copySettings) {
 			if (!values.serverName) {
 				form.setFields([{ name: "serverName", errors: ["Server name is required"] }]);
 				return;
@@ -87,6 +168,9 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 			));
 			created = true;
 
+			if (asTemplate && values.linkSource) {
+				await linkToTemplate(control, source, instanceId);
+			}
 			if (hostId !== undefined) {
 				await control.send(new lib.InstanceAssignRequest(instanceId, hostId));
 			}
@@ -114,13 +198,14 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 
 	return <>
 		<Button
-			type="primary"
+			type={buttonType}
+			size={props.buttonSize}
 			onClick={() => {
 				setOpen(true);
 			}}
-		>Create</Button>
+		>{buttonText}</Button>
 		<Modal
-			title="Create Instance"
+			title={asTemplate ? "Create Template" : "Create Instance"}
 			okText="Create"
 			open={open}
 			confirmLoading={creating}
@@ -130,12 +215,20 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 		>
 			<Form
 				form={form}
-				initialValues={{ host: "null", instanceClone: -1, saveMode: "none", startAfter: false }}
+				initialValues={{
+					host: "null", instanceClone: -1, saveMode: "none", startAfter: false,
+					template: null, asTemplate: false, linkSource: true, ...props.initial,
+				}}
 			>
 				<Form.Item name="instanceName" label="Name">
 					<Input />
 				</Form.Item>
-				{canAssign && <Form.Item name="host" label="Host">
+				<Tooltip title="Templates hold shared config for other instances and cannot be started">
+					<Form.Item name="asTemplate" valuePropName="checked">
+						<Checkbox>Create as template</Checkbox>
+					</Form.Item>
+				</Tooltip>
+				{canAssign && !asTemplate && <Form.Item name="host" label="Host">
 					<Select showSearch optionFilterProp="name">
 						<Select.Option value={"null"}>
 							<Typography.Text italic>Unassigned</Typography.Text>
@@ -151,16 +244,15 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 						</Select.Option>)}
 					</Select>
 				</Form.Item>}
-				<Tooltip title="Perform a one time copy of the config of an existing instance">
-					<Form.Item name="instanceClone" label="Copy Config">
-						<Select
-							options={[{ id: -1, name: "Default Config" }, ...props.instances.values()]
-								.map(i => ({ value: i.id, label: i.name }))
-							}
-						/>
-					</Form.Item>
-				</Tooltip>
-				{source && sourceSettings && <Tooltip title="Name of the server as shown in the in-game server browser">
+				<ConfigSourceFields
+					instances={props.instances}
+					templateId={templateId}
+					source={source}
+					asTemplate={asTemplate}
+				/>
+				{copySettings && <Tooltip
+					title="Name of the server as shown in the in-game server browser"
+				>
 					<Form.Item name="serverName" label="Server Name">
 						<Input />
 					</Form.Item>
@@ -194,10 +286,59 @@ function CreateInstanceButton(props: { instances: ReturnType<typeof useInstances
 	</>;
 }
 
+function TemplateList(props: { instances: ReturnType<typeof useInstances>[0] }) {
+	const account = useAccount();
+	const rowNav = useRowNavigation();
+	const all = [...props.instances.values()];
+	const inheritors = (id: number) => all.filter(instance => instance.templateId === id).length;
+	const columns: ColumnType<lib.InstanceDetails>[] = [
+		{
+			title: "Name",
+			dataIndex: "name",
+			defaultSortOrder: "ascend",
+			sorter: (a, b) => strcmp(a.name, b.name),
+			render: (_, template) => <Link to={`/instances/${template.id}/view`} style={{ color: "inherit" }}>
+				{template.name}
+			</Link>,
+		},
+		{
+			title: "Inherited by",
+			key: "inheritors",
+			render: (_, template) => `${inheritors(template.id)} instance(s)`,
+			sorter: (a, b) => inheritors(a.id) - inheritors(b.id),
+		},
+	];
+	if (account.hasPermission("core.instance.create")) {
+		columns.push({
+			key: "action",
+			align: "right",
+			// Clicks inside the modal bubble through the React tree to the row
+			render: (_, template) => <span onClick={e => e.stopPropagation()}>
+				<CreateInstanceButton
+					instances={props.instances}
+					initial={{ template: template.id }}
+					buttonText="Create instance"
+					buttonType="default"
+					buttonSize="small"
+				/>
+			</span>,
+		});
+	}
+	return <Table
+		columns={columns}
+		dataSource={all.filter(instance => instance.isTemplate)}
+		rowKey={template => template.id}
+		pagination={false}
+		onRow={record => rowNav(`/instances/${record.id}/view`)}
+	/>;
+}
+
 export default function InstancesPage() {
 	let control = useContext(ControlContext);
 	let account = useAccount();
 	let [instances] = useInstances();
+	const plainInstances = new Map([...instances].filter(([, instance]) => !instance.isTemplate));
+	const hasTemplates = plainInstances.size !== instances.size;
 
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
@@ -231,7 +372,11 @@ export default function InstancesPage() {
 			</Space>}
 		/>
 
-		<InstanceList instances={instances} />
+		<InstanceList instances={plainInstances} />
+		{hasTemplates && <>
+			<Typography.Title level={5} style={{ marginTop: 16 }}>Templates</Typography.Title>
+			<TemplateList instances={instances} />
+		</>}
 		<PluginExtra component="InstancesPage" />
 	</PageLayout>;
 }
