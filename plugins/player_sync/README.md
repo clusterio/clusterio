@@ -79,6 +79,7 @@ The greatly simplified data flow is as follows:
 
 When the player leaves the inventory is uploaded if it's a synced inventory and the exclusive access the scenario script holds is released.
 Should an error occur during this process the player is given the option to use a temporary inventory instead, which will be merged back into the synced inventory the next time the sync succeeds on that instance.
+A download that stops part way, for example because the controller went down, is started over the next time the player joins, and nothing is uploaded for the player until it finishes.
 
 Instances can leave parts of the player out of the sync with the `player_sync.sync_*` options below.
 A part which is not synced is left as it is when the player joins, and the instance's copy of it is not uploaded, so the stored copy from other instances stays as it was.

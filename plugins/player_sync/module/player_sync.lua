@@ -80,6 +80,15 @@ local function spectate(player, player_record, record)
 	-- Indicate the current state shouldn't be persisted
 	player_record.sync_in_progress = true
 
+	-- A dropped download already took the body, and kept where it stood
+	local place = player_record.body_place
+	player_record.body_place = nil
+	if place and record.position == nil then
+		record.surface = place.surface
+		record.position = place.position
+		record.vehicle = place.vehicle
+	end
+
 	if player_record.sync and serialize.syncs(record.components, "inventories") then
 		-- Store original position to teleport back to. Only once per record: a rejoin while a prefetched copy is held
 		-- spectates again, and the spectator's position then isn't where the body stood
@@ -100,6 +109,19 @@ local function spectate(player, player_record, record)
 		local character = player.character
 		player.set_controller({ type = defines.controllers.spectator })
 		if character ~= nil then character.destroy() end
+	end
+end
+
+-- Sync code took the player's body and hasn't given one back: a download that never finished, or a failed acquire.
+-- The local state is gone whatever the generations say.
+local function body_taken(player_record)
+	return player_record.sync_in_progress or player_record.local_controller ~= nil or player_record.body_place ~= nil
+end
+
+-- Keep where the body stood when a download record that took it is dropped, for the download or abort that follows
+local function keep_body_place(player_record, record)
+	if player_record and record.position ~= nil then
+		player_record.body_place = { surface = record.surface, position = record.position, vehicle = record.vehicle }
 	end
 end
 
@@ -374,17 +396,15 @@ function player_sync.sync_player(acquire_response)
 	-- holds.
 	-- A copy confirmed at an earlier join already took the body (spectate keeps where it stood), and the local data
 	-- went with it, so a join that drops that copy downloads.
-	local body_taken -- the dropped copy that took the body
+	local player_record = script_data.players[acquire_response.player_name]
 	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
 		local record = downloads[acquire_response.player_name]
 		if record and record.prefetch and (not (
 			acquire_response.status == "acquired" and record.generation == acquire_response.generation
 			and (record.epoch or 0) == epoch and record.token == acquire_response.token
 			and serialize.same_components(record.components, script_data.components)
-		) or not download_needed(script_data.players[acquire_response.player_name], acquire_response, script_data)) then
-			if record.position ~= nil then
-				body_taken = record
-			end
+		) or not download_needed(player_record, acquire_response, script_data)) then
+			keep_body_place(player_record, record)
 			downloads[acquire_response.player_name] = nil
 		end
 	end
@@ -456,11 +476,11 @@ function player_sync.sync_player(acquire_response)
 		if acquire_response.status == "busy" then
 			-- Somehow another instance has claimed the player while we're
 			-- downloading it. Abort it and send failure to the player.
+			keep_body_place(player_record, download_record)
 			script_data.active_downloads[acquire_response.player_name] = nil
 		end
 	end
 
-	local player_record = script_data.players[acquire_response.player_name]
 	if acquire_response.status ~= "acquired" then
 		if player_record.sync and (not player_record.dirty or player_record.sync_in_progress) then
 			if serialize.syncs(player_record.components, "inventories")
@@ -479,15 +499,9 @@ function player_sync.sync_player(acquire_response)
 	end
 
 	local stale = (player_record.epoch or 0) ~= epoch
-	if body_taken or download_needed(player_record, acquire_response, script_data) then
+	-- Without stored data the download gives the player an empty character (download_inventory, total 0)
+	if body_taken(player_record) or download_needed(player_record, acquire_response, script_data) then
 		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation, epoch)
-		if body_taken then
-			-- spectate kept the spectator's place, the body stood where the dropped copy kept
-			local download = script_data.active_downloads[player.name]
-			download.surface = body_taken.surface
-			download.position = body_taken.position
-			download.vehicle = body_taken.vehicle
-		end
 
 	else
 		if acquire_response.generation == 0 then
@@ -605,7 +619,7 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		return
 	end
 
-	if not player_record.dirty or not player_record.sync or player_record.sync_in_progress then
+	if not player_record.dirty or not player_record.sync or body_taken(player_record) then
 		-- Nothing to upload, release the acquisition so other instances are not blocked
 		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
@@ -692,6 +706,8 @@ function player_sync.check_active_downloads()
 	for player_name, record in pairs(script_data.active_downloads) do
 		if record.last_active <= game.ticks_played - 600 then
 			script_data.active_downloads[player_name] = nil
+			-- sync_in_progress stays set, so the next acquire downloads again
+			keep_body_place(script_data.players[player_name], record)
 			local player = game.get_player(player_name)
 			if player then
 				log("ERROR: Inventory download failed for " .. player_name)
