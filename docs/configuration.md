@@ -527,6 +527,7 @@ If enabled this instance is a template other instances can inherit config values
 Templates cannot be assigned to a host and therefore never start.
 Hidden from `instance list` in clusterioctl unless `--templates` is passed, and listed separately in the web interface.
 An instance cannot stop being a template while other instances inherit from it.
+Hidden in the web interface, set when creating the template.
 
 Defaults to false.
 
@@ -540,7 +541,7 @@ When set on an existing instance fields with the same value as the template or t
 `instance.name`, `instance.is_template`, `instance.template_id`, the port fields, `factorio.rcon_password` and hidden fields are never inherited.
 A template may itself inherit from another template, but not from itself through a chain of templates.
 The fields currently inherited are stored in the hidden `instance.inherited_fields` field.
-In the web interface inherited values are locked and must be unlocked before they can be changed.
+In the web interface inherited values are linked and read only until they are unlinked.
 
 Defaults to null meaning no template.
 

@@ -978,7 +978,7 @@ describe("Integration of Clusterio", function() {
 				}
 			});
 			it("creates a template and an instance inheriting from it", async function() {
-				await execCtl("instance create inheritTemplate --id 4400 --is-template");
+				await execCtl("instance create inheritTemplate --id 4400 --as-template");
 				await execCtl("instance config set inheritTemplate factorio.version 2.0");
 				await execCtl("instance create inheritChild --id 4401 --template inheritTemplate");
 				const config = await getControl().send(new lib.InstanceConfigGetRequest(4401));
@@ -998,7 +998,7 @@ describe("Integration of Clusterio", function() {
 				assert.equal(config["factorio.settings"].afk_autokick_interval, 9);
 			});
 			it("creates a template from an existing instance", async function() {
-				await execCtl("instance create inheritCopy --id 4403 --is-template --from 4401");
+				await execCtl("instance create inheritCopy --id 4403 --as-template --from 4401");
 				const config = await getControl().send(new lib.InstanceConfigGetRequest(4403));
 				assert.equal(config["instance.is_template"], true);
 				assert.equal(config["factorio.settings"].max_players, 3);
@@ -1011,7 +1011,7 @@ describe("Integration of Clusterio", function() {
 			});
 			it("rejects assigning a template to a host", async function() {
 				await assert.rejects(
-					execCtl("instance assign inheritTemplate 4"),
+					execCtl(`instance assign inheritTemplate ${hostId}`),
 					new lib.ValidationError("Templates cannot be assigned to a host"),
 				);
 			});

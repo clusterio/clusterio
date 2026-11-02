@@ -4,9 +4,7 @@ import {
 } from "antd";
 import DisconnectOutlined from "@ant-design/icons/DisconnectOutlined";
 import LinkOutlined from "@ant-design/icons/LinkOutlined";
-import LockOutlined from "@ant-design/icons/LockOutlined";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
-import UnlockOutlined from "@ant-design/icons/UnlockOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -69,7 +67,7 @@ function renderInput(inputComponents: Map<string, InputComponent>, def: lib.Fiel
 	return `Unknown type ${def.type}`;
 }
 
-/** Lets fields follow the value of another config, inherited values are locked until unlocked */
+/** Lets fields follow the value of another config, inherited values are locked until unlinking */
 export type ConfigInheritance = {
 	canInherit: (config: lib.Config<any>, field: string) => boolean;
 	isInherited: (config: lib.Config<any>, field: string, prop?: string) => boolean;
@@ -80,10 +78,10 @@ export type ConfigInheritance = {
 
 type Linking = Map<string, [field: string, prop?: string]>;
 
-type LockState = {
+type LinkState = {
 	inheritance?: ConfigInheritance;
-	unlocked: Set<string>;
-	setUnlocked: (unlocked: Set<string>) => void;
+	unlinking: Set<string>;
+	setUnlinking: (unlinking: Set<string>) => void;
 	linking: Linking;
 	setLinking: (linking: Linking) => void;
 };
@@ -103,7 +101,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [changedFields, setChangedFields] = useState<Set<string>>(new Set());
 	let [errorFields, setErrorFields] = useState(new Map<string, string>());
 	let [applying, setApplying] = useState(false);
-	let [unlocked, setUnlocked] = useState<Set<string>>(new Set());
+	let [unlinking, setUnlinking] = useState<Set<string>>(new Set());
 	let [linking, setLinking] = useState<Linking>(new Map());
 	const available = props.available ?? true;
 	const control = useContext(ControlContext);
@@ -170,7 +168,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 			await props.inheritance!.inherit(field, prop);
 		}
 		setChangedFields(new Set());
-		setUnlocked(new Set());
+		setUnlinking(new Set());
 		setLinking(new Map());
 	}
 
@@ -183,7 +181,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		setConfig,
 		props.ConfigClass,
 		onValuesChange,
-		{ inheritance: props.inheritance, unlocked, setUnlocked, linking, setLinking },
+		{ inheritance: props.inheritance, unlinking, setUnlinking, linking, setLinking },
 	);
 
 	return <>
@@ -197,7 +195,8 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 					onClick={async () => {
 						setApplying(true);
 						const fields: Record<string, string | Record<string, string>> = {};
-						for (const field of changedFields) {
+						// Unlinked fields are sent even when unchanged so they stop following the template
+						for (const field of new Set([...changedFields, ...unlinking])) {
 							const value = form.getFieldValue(field);
 							if (propsMap.has(field)) {
 								const [fieldName, prop] = propsMap.get(field)!;
@@ -237,7 +236,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 							props.onApply();
 						}
 					}}
-					disabled={changedFields.size === 0 && linking.size === 0}
+					disabled={changedFields.size === 0 && linking.size === 0 && unlinking.size === 0}
 				>
 					Apply
 				</Button>
@@ -246,7 +245,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 					onClick={() => {
 						form.resetFields();
 						setChangedFields(new Set());
-						setUnlocked(new Set());
+						setUnlinking(new Set());
 						setLinking(new Map());
 						setErrorFields(new Map());
 					}}
@@ -284,7 +283,7 @@ function computeTreeData(
 	setConfig: (newConfig: lib.Config<any>) => void,
 	ConfigClass: BaseConfigTreeProps["ConfigClass"],
 	onValuesChange: (changedValues: object) => void,
-	lock: LockState,
+	link: LinkState,
 ) {
 	let restartTip = <Tooltip
 		className="ant-form-item-tooltip"
@@ -302,36 +301,43 @@ function computeTreeData(
 		children: ChildNode[];
 	};
 
-	function lockButton(key: string, fieldName: string, prop?: string) {
-		const { inheritance, unlocked, setUnlocked, linking, setLinking } = lock;
+	function linkButton(key: string, fieldName: string, prop?: string) {
+		const { inheritance, unlinking, setUnlinking, linking, setLinking } = link;
 		if (!inheritance?.canInherit(config, fieldName) || !config.canAccess(fieldName, lib.ConfigAccess.write)) {
 			return null;
 		}
-		const button = (title: string, icon: React.ReactNode, label: string, onClick: () => void) => <Tooltip
-			title={title}
-		>
-			<Button type="text" size="small" icon={icon} aria-label={`${label} ${key}`} onClick={onClick} />
+		const button = (
+			title: string, icon: React.ReactNode, label: string, pending: boolean, onClick: () => void,
+		) => <Tooltip title={title}>
+			<Button
+				type={pending ? "link" : "text"} size="small" icon={icon} aria-label={`${label} ${key}`}
+				onClick={e => {
+					// The button sits in the label, which would toggle checkboxes
+					e.preventDefault();
+					onClick();
+				}}
+			/>
 		</Tooltip>;
 		const revert = () => {
 			form.setFieldValue(key, initialValues[key]);
 			onValuesChange({ [key]: initialValues[key] });
 		};
 		if (inheritance.isInherited(config, fieldName, prop)) {
-			if (!unlocked.has(key)) {
+			if (!unlinking.has(key)) {
 				return button(
-					"Linked to the template. Click to unlock and override it.", <LockOutlined />, "Unlock",
-					() => setUnlocked(new Set([...unlocked, key])),
+					"Linked to the template. Click to unlink it and set your own value.", <LinkOutlined />, "Unlink",
+					false, () => setUnlinking(new Set([...unlinking, key])),
 				);
 			}
 			return button(
-				"Unlocked, applying a change unlinks it from the template. Click to lock it again.",
-				<UnlockOutlined />, "Lock",
-				() => { setUnlocked(new Set([...unlocked].filter(k => k !== key))); revert(); },
+				"Unlinked from the template when applied. Click to keep it linked.", <DisconnectOutlined />,
+				"Keep linked", true,
+				() => { setUnlinking(new Set([...unlinking].filter(k => k !== key))); revert(); },
 			);
 		}
 		if (!linking.has(key)) {
 			return button(
-				"Not linked to the template. Click to link it again when applied.", <DisconnectOutlined />, "Link",
+				"Not linked to the template. Click to link it again.", <DisconnectOutlined />, "Link", false,
 				() => {
 					setLinking(new Map([...linking, [key, [fieldName, prop]]]));
 					revert();
@@ -342,14 +348,15 @@ function computeTreeData(
 			);
 		}
 		return button(
-			"Linked to the template when applied. Click to keep this value instead.", <LinkOutlined />, "Unlink",
+			"Linked to the template when applied. Click to keep this value instead.", <LinkOutlined />,
+			"Keep unlinked", true,
 			() => { setLinking(new Map([...linking].filter(([k]) => k !== key))); revert(); },
 		);
 	}
 	function isReadonly(canWrite: boolean, key: string, fieldName: string, prop?: string) {
-		return !canWrite || lock.linking.has(key) || Boolean(lock.inheritance?.canInherit(config, fieldName))
-			&& lock.inheritance!.isInherited(config, fieldName, prop)
-			&& !lock.unlocked.has(key);
+		return !canWrite || link.linking.has(key) || Boolean(link.inheritance?.canInherit(config, fieldName))
+			&& link.inheritance!.isInherited(config, fieldName, prop)
+			&& !link.unlinking.has(key);
 	}
 
 	let treeData = [];
@@ -410,7 +417,7 @@ function computeTreeData(
 							label={<>
 								{`"${prop}"`}
 								{restart && restartTip}
-								{lockButton(propPath, fieldName, prop)}
+								{linkButton(propPath, fieldName, prop)}
 							</>}
 							dependencies={def.dependsOn}
 							rules={[({getFieldValue}) => ({ validator: async (_, fieldValue) => {
@@ -481,7 +488,7 @@ function computeTreeData(
 									}
 
 									let propPath = `${groupName}.${field}.${propName}`;
-									lock.setUnlocked(new Set([...lock.unlocked, propPath]));
+									link.setUnlinking(new Set([...link.unlinking, propPath]));
 									form.setFieldsValue({
 										[`${newPropPath}.name`]: "",
 										[`${newPropPath}.value`]: "",
@@ -507,7 +514,7 @@ function computeTreeData(
 					label={<>
 						{def.title || field}
 						{def.restartRequired && restartTip}
-						{lockButton(fieldName, fieldName)}
+						{linkButton(fieldName, fieldName)}
 					</>}
 					validateStatus={errorFields.has(fieldName) ? "error" : undefined}
 					help={errorFields.get(fieldName)}

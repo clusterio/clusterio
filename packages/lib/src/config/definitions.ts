@@ -608,6 +608,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			access: ["controller", "control"],
 			type: "boolean",
 			initialValue: false,
+			hidden: true,
 		},
 		"instance.template_id": {
 			title: "Template",

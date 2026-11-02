@@ -20,9 +20,9 @@ function TemplateNotice(props: { templateId: number }) {
 		showIcon
 		style={{ marginBottom: 8 }}
 		message={<>
-			Locked values are inherited from the template{" "}
+			Linked values are inherited from the template{" "}
 			<Link to={`/instances/${props.templateId}/view`}>{template?.name ?? props.templateId}</Link>.
-			Unlock a value to override it on this instance.
+			Unlink a value to set your own on this instance.
 		</>}
 	/>;
 }

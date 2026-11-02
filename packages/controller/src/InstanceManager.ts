@@ -115,13 +115,13 @@ export default class InstanceManager {
 	addInstanceHooks(instance: InstanceRecord): void {
 		instance.config.on("fieldChanged", (field: string, curr: unknown, prev: unknown) => {
 			if (field === "instance.template_id") {
-				this._link(instance);
+				this._linkMatchingFields(instance);
 			} else if (!this._inheriting && instance.config.isInherited(field)) {
-				this._override(instance, field, curr, prev);
+				this._unlinkEditedField(instance, field, curr, prev);
 			}
 			this.records.set(instance);
 			this._notifyConfigFieldChanged(instance, field, curr, prev);
-			this._propagate(instance, field, curr);
+			this._updateInheritors(instance, field, curr);
 		});
 	}
 
@@ -203,7 +203,7 @@ export default class InstanceManager {
 			}
 		}
 		config.set("instance.inherited_fields", inherited);
-		config.update(InstanceManager._resolve(config, template.config, Object.keys(inherited)), false);
+		config.update(InstanceManager._inheritedValues(config, template.config, Object.keys(inherited)), false);
 	}
 
 	/**
@@ -234,7 +234,7 @@ export default class InstanceManager {
 			inherited[field] = overrides.filter(p => p !== prop);
 		}
 		instance.config.set("instance.inherited_fields", inherited);
-		this._resolveInto(instance, [field]);
+		this._copyInheritedValues(instance, [field]);
 	}
 
 	/**
@@ -279,7 +279,7 @@ export default class InstanceManager {
 	}
 
 	/** Values the given inherited fields take from the template, with object overrides applied */
-	private static _resolve(config: lib.InstanceConfig, template: lib.InstanceConfig, fields: string[]) {
+	private static _inheritedValues(config: lib.InstanceConfig, template: lib.InstanceConfig, fields: string[]) {
 		const inherited = config.get("instance.inherited_fields");
 		const values: Record<string, any> = {};
 		for (const field of fields) {
@@ -303,12 +303,12 @@ export default class InstanceManager {
 	}
 
 	/** Update the given inherited fields of a live instance from its template */
-	private _resolveInto(instance: InstanceRecord, fields: string[]): void {
+	private _copyInheritedValues(instance: InstanceRecord, fields: string[]): void {
 		const template = this._templateOf(instance.config);
 		if (!template) {
 			return;
 		}
-		const values = InstanceManager._resolve(instance.config, template.config, fields);
+		const values = InstanceManager._inheritedValues(instance.config, template.config, fields);
 		this._inheriting += 1;
 		try {
 			instance.config.update(values, true);
@@ -317,8 +317,8 @@ export default class InstanceManager {
 		}
 	}
 
-	/** Track a change to an inherited field made outside of inheritance */
-	private _override(instance: InstanceRecord, field: string, curr: unknown, prev: unknown): void {
+	/** Unlink a field, or the changed properties of an object field, edited on the instance */
+	private _unlinkEditedField(instance: InstanceRecord, field: string, curr: unknown, prev: unknown): void {
 		const entry = instance.config.get("instance.inherited_fields")[field];
 		if (!(entry instanceof Array)) {
 			this.overrideField(instance, field);
@@ -333,12 +333,12 @@ export default class InstanceManager {
 		instance.config.set("instance.inherited_fields", inherited);
 		if (removed.length) {
 			// Removed properties fall back to the template value
-			this._resolveInto(instance, [field]);
+			this._copyInheritedValues(instance, [field]);
 		}
 	}
 
 	/** Recompute inherited fields after template_id changed, values equal to the template or default are inherited */
-	private _link(instance: InstanceRecord): void {
+	private _linkMatchingFields(instance: InstanceRecord): void {
 		const template = this._templateOf(instance.config);
 		const inherited: InheritedFields = {};
 		if (template) {
@@ -360,11 +360,11 @@ export default class InstanceManager {
 			}
 		}
 		instance.config.set("instance.inherited_fields", inherited);
-		this._resolveInto(instance, Object.keys(inherited));
+		this._copyInheritedValues(instance, Object.keys(inherited));
 	}
 
 	/** Copy a changed value from a template to the instances inheriting it */
-	private _propagate(template: InstanceRecord, field: string, value: unknown): void {
+	private _updateInheritors(template: InstanceRecord, field: string, value: unknown): void {
 		if (!lib.InstanceConfig.isInheritable(field)) {
 			return;
 		}
@@ -372,7 +372,7 @@ export default class InstanceManager {
 			if (!instance.config.isInherited(field)) {
 				continue;
 			}
-			this._resolveInto(instance, [field]);
+			this._copyInheritedValues(instance, [field]);
 			this._controller.instanceConfigUpdated(instance).catch(err => {
 				logger.error(`Failed to send config of instance ${instance.id} to its host:\n${err.stack}`);
 			});

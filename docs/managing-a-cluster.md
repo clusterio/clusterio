@@ -86,9 +86,9 @@ Templates are only listed if `--templates` is passed.
 
 ### Create instance
 
-    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--template <instance>] [--is-template]
+    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--template <instance>] [--as-template]
 
-Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--template` makes the new instance inherit all config values from the given template. `--is-template` creates the instance as a template, see `instance.is_template` in the [configuration docs](configuration.md). Use `--is-template --from <instance>` to make a template out of an existing instance.
+Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--template` makes the new instance inherit all config values from the given template. `--as-template` creates the instance as a template, see `instance.is_template` in the [configuration docs](configuration.md). Use `--as-template --from <instance>` to make a template out of an existing instance.
 
 ### Kill instance
 

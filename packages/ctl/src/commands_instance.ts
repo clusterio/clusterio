@@ -39,11 +39,11 @@ instanceCommands.add(new lib.Command({
 			"id": { type: "number", nargs: 1, describe: "Instance id" },
 			"from": { type: "number", nargs: 1, describe: "Clone config from instance id" },
 			"template": { type: "string", nargs: 1, describe: "Template to inherit config from" },
-			"is-template": { type: "boolean", nargs: 0, describe: "Create the instance as a template" },
+			"as-template": { type: "boolean", nargs: 0, describe: "Create the instance as a template" },
 		});
 	}],
 	handler: async function(
-		args: { name: string, id?: number, from?: number, template?: string, isTemplate?: boolean },
+		args: { name: string, id?: number, from?: number, template?: string, asTemplate?: boolean },
 		ctl: Ctl,
 	) {
 		let instanceConfig = new lib.InstanceConfig("control");
@@ -56,7 +56,7 @@ instanceCommands.add(new lib.Command({
 			instanceConfig.set("instance.template_id", await lib.resolveInstance(ctl, args.template));
 			fields.push("instance.template_id");
 		}
-		if (args.isTemplate) {
+		if (args.asTemplate) {
 			instanceConfig.set("instance.is_template", true);
 			fields.push("instance.is_template");
 		}
