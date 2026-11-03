@@ -5,6 +5,7 @@ export { default as ControlConnection } from "./src/ControlConnection.js";
 export { default as HostConnection } from "./src/HostConnection.js";
 export { default as InstanceRecord } from "./src/InstanceRecord.js";
 export { default as InstanceManager } from "./src/InstanceManager.js";
+export { default as HostManager } from "./src/HostManager.js";
 export { default as HostRecord } from "./src/HostRecord.js";
 export { default as HostPairingManager, HostPairingError } from "./src/HostPairingManager.js";
 export { BaseControllerPlugin, ControllerHooks, type ControllerPluginContext } from "./src/BaseControllerPlugin.js";

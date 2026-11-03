@@ -252,30 +252,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostRevokeRequest(request: lib.HostRevokeRequest) {
-		const host = this._controller.hosts.getMutable(request.hostId);
-		if (!host) {
-			throw new lib.NotFoundError(`Unknown host id (${request.hostId})`);
-		}
-
-		this._controller.hosts.delete(host);
-		this._controller.deleteNote("host", request.hostId, this.user.name);
-		const system = this._controller.systems.getMutable(request.hostId);
-		if (system) {
-			this._controller.systems.delete(system);
-		}
-
-		// Disconnected first so unassigning the instances does not depend on the host responding.
-		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
-		if (hostConnection) {
-			hostConnection.connector.terminate();
-		}
-		const assigned = [...this._controller.instances.values()].filter(
-			instance => instance.config.get("instance.assigned_host") === request.hostId
-		);
-		for (const instance of assigned) {
-			await this._controller.instances.unassignInstance(instance.id);
-		}
-		logger.audit(`User ${this.user.name} revoked host ${host.name} (${host.id})`);
+		await this._controller.hosts.revokeHost(request.hostId, this.user.name);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {

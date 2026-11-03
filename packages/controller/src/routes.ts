@@ -6,7 +6,6 @@ import busboy from "busboy";
 import crypto from "crypto";
 import events from "events";
 import fs from "node:fs/promises";
-import jwt from "jsonwebtoken";
 import path from "path";
 import nodeStream from "stream";
 import util from "util";
@@ -189,7 +188,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		req.app.locals.controller.verifyHostToken(token);
+		req.app.locals.controller.hosts.verifyHostToken(token);
 	} catch (err) {
 		res.sendStatus(401);
 		return;
@@ -206,28 +205,13 @@ function validateUserToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		res.locals.user = userFromToken(req.app.locals.controller, token);
+		res.locals.user = req.app.locals.controller.users.verifyUserToken(token);
 	} catch (err) {
 		res.sendStatus(401);
 		return;
 	}
 
 	next();
-}
-
-function userFromToken(controller: Controller, token: string) {
-	const tokenPayload = jwt.verify(token, controller.authSecret, { audience: "user" });
-	if (typeof tokenPayload === "string") {
-		throw new Error("unexpected JsonWebToken type");
-	}
-	let user = controller.users.getByName(tokenPayload.user);
-	if (!user) {
-		throw new Error("invalid user");
-	}
-	if (!tokenPayload.iat || tokenPayload.iat < user.tokenValidAfter) {
-		throw new Error("invalid token");
-	}
-	return user;
 }
 
 // Responds with the status of a pairing error, returns false for other errors.
@@ -271,7 +255,7 @@ function createHostPairing(req: Request, res: Response) {
 		if (token !== undefined) {
 			let user;
 			try {
-				user = userFromToken(controller, token);
+				user = controller.users.verifyUserToken(token);
 			} catch (err) {
 				res.status(401).json({ error: "Invalid user token" });
 				return;
@@ -285,12 +269,11 @@ function createHostPairing(req: Request, res: Response) {
 				res.status(403).json({ error: `User ${user.name} is not allowed to approve hosts` });
 				return;
 			}
-			const result = controller.hostPairing.createHost(name);
+			const host = controller.hosts.createHost(name);
 			logger.audit(
-				`User ${user.name} approved host ${result.name} (${result.hostId}) from ${remoteAddress} ` +
-				"with their token"
+				`User ${user.name} approved host ${host.name} (${host.id}) from ${remoteAddress} with their token`
 			);
-			res.status(200).json(result);
+			res.status(200).json({ hostId: host.id, token: controller.hosts.signHostToken(host.id), name: host.name });
 			return;
 		}
 

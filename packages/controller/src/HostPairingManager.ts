@@ -6,8 +6,6 @@ import net from "net";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 
-import HostRecord from "./HostRecord.js";
-
 /** Symbols used in pairing codes, avoids 0/O and 1/I/L */
 const codeAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const codeLength = 6;
@@ -142,25 +140,6 @@ export default class HostPairingManager {
 	}
 
 	/**
-	 * Create an approved host with a new id and token
-	 *
-	 * @param name - Name of the host.
-	 * @returns the id, token and name of the new host.
-	 */
-	createHost(name: string): HostPairingResult {
-		const hosts = this._controller.hosts;
-		let hostId;
-		do {
-			hostId = crypto.randomInt(1, 2 ** 31);
-		} while (hosts.has(hostId));
-
-		hosts.set(new HostRecord(
-			hostId, name, "", new Map(), false, "", "", Math.floor(Date.now() / 1000),
-		));
-		return { hostId, token: this._controller.generateHostToken(hostId), name };
-	}
-
-	/**
 	 * Create a pending request
 	 *
 	 * @param name - Name the host asked for.
@@ -265,7 +244,8 @@ export default class HostPairingManager {
 			throw new lib.ValidationError(err.message);
 		}
 
-		const result = this.createHost(hostName);
+		const host = this._controller.hosts.createHost(hostName);
+		const result = { hostId: host.id, token: this._controller.hosts.signHostToken(host.id), name: host.name };
 		Object.assign(request, { state: "approved", result });
 		this.records.delete(request.details);
 		logger.audit(

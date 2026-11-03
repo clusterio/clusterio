@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 import express from "express";
 
 import * as lib from "@clusterio/lib";
-import { Controller, HostPairingManager, HostRecord } from "@clusterio/controller";
+import { HostPairingManager, HostRecord } from "@clusterio/controller";
 
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
@@ -258,14 +258,16 @@ describe("controller/src/routes", function() {
 		beforeEach(function() {
 			endpoint = `http://localhost:${port}/api/host-pairing`;
 			// The mock controller lacks what pairing needs, use the real implementations.
-			controller.hosts = new lib.SubscribableDatastore();
 			controller.hostPairing = new HostPairingManager(controller);
-			controller.generateHostToken = Controller.prototype.generateHostToken;
-			controller.verifyHostToken = Controller.prototype.verifyHostToken;
 			controller.wsServer.remoteAddr = req => req.socket.remoteAddress;
 			adminToken = controller.users.signUserToken(controller.users.getByName("test"));
 			playerToken = controller.users.signUserToken(controller.users.getByName("player"));
 		});
+
+		function createHost(name) {
+			const host = controller.hosts.createHost(name);
+			return { hostId: host.id, token: controller.hosts.signHostToken(host.id) };
+		}
 
 		function post(urlPath, body, headers = {}) {
 			return fetch(`${endpoint}${urlPath}`, {
@@ -295,7 +297,7 @@ describe("controller/src/routes", function() {
 
 		function assertNothingCreated() {
 			assert.equal(controller.hostPairing.records.size, 0, "a pending request was created");
-			assert.equal(controller.hosts.size, 0, "a host was created");
+			assert.equal(controller.hosts.records.size, 0, "a host was created");
 		}
 
 		describe("POST /api/host-pairing", function() {
@@ -311,7 +313,7 @@ describe("controller/src/routes", function() {
 				assert.equal(details.name, "Host A");
 				assert.equal(details.version, "2.0.0");
 				assert.match(details.remoteAddress, /127\.0\.0\.1|::1/);
-				assert.equal(controller.hosts.size, 0);
+				assert.equal(controller.hosts.records.size, 0);
 			});
 			it("should trim the name and limit the version", async function() {
 				let { code } = await (await post("", { name: "  Host A ", version: "x".repeat(100) })).json();
@@ -383,7 +385,7 @@ describe("controller/src/routes", function() {
 					const payload = jwt.verify(body.token, controller.authSecret, { audience: "host" });
 					assert.equal(payload.host, body.hostId);
 				}
-				assert.equal(controller.hosts.size, 3);
+				assert.equal(controller.hosts.records.size, 3);
 				assert.equal(controller.hostPairing.records.size, 0, "a pending request was created");
 			});
 			it("should validate the name before approving directly", async function() {
@@ -406,9 +408,9 @@ describe("controller/src/routes", function() {
 				const user = controller.users.getOrCreateUser("test");
 				user.tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
 				user.saveRecord();
-				controller.hosts.set(new HostRecord(5, "five", "", new Map()));
-				const hostToken = controller.generateHostToken(5);
-				controller.hosts.delete(controller.hosts.get(5));
+				controller.hosts.records.set(new HostRecord(5, "five", "", new Map()));
+				const hostToken = controller.hosts.signHostToken(5);
+				controller.hosts.records.delete(controller.hosts.get(5));
 
 				for (const headers of [
 					{ "Authorization": "Bearer invalid" },
@@ -510,7 +512,7 @@ describe("controller/src/routes", function() {
 
 		describe("GET /api/host-pairing/check", function() {
 			it("should respond with 200 for a valid host token", async function() {
-				const { hostId, token } = controller.hostPairing.createHost("Host A");
+				const { hostId, token } = createHost("Host A");
 				for (const headers of [
 					{ "Authorization": `Bearer ${token}` },
 					{ "X-Access-Token": token },
@@ -520,20 +522,20 @@ describe("controller/src/routes", function() {
 				assert(controller.hosts.has(hostId));
 			});
 			it("should respond with 200 for a host token from before the slave rename", async function() {
-				const { hostId } = controller.hostPairing.createHost("Host A");
+				const { hostId } = createHost("Host A");
 				const token = jwt.sign({ aud: "slave", slave: hostId }, controller.authSecret);
 				await assertResponse(await check({ "Authorization": `Bearer ${token}` }), 200, { valid: true });
 			});
 			it("should respond with 401 without a valid host token", async function() {
-				controller.hostPairing.createHost("Host A");
+				createHost("Host A");
 				assert.equal((await check({})).status, 401);
 				assert.equal((await check({ "Authorization": "Bearer invalid" })).status, 401);
 				assert.equal((await check({ "Authorization": `Bearer ${adminToken}` })).status, 401);
 			});
 			it("should respond with 401 once the host is revoked", async function() {
-				const { hostId, token } = controller.hostPairing.createHost("Host A");
+				const { hostId, token } = createHost("Host A");
 				await assertResponse(await check({ "Authorization": `Bearer ${token}` }), 200, { valid: true });
-				controller.hosts.delete(controller.hosts.get(hostId));
+				controller.hosts.records.delete(controller.hosts.get(hostId));
 				assert.equal((await check({ "Authorization": `Bearer ${token}` })).status, 401);
 			});
 		});

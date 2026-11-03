@@ -44,7 +44,7 @@ export default class HostConnection extends BaseConnection {
 		record.connected = true;
 		record.remoteAddress = remoteAddress;
 		this.info = record;
-		this._controller.hosts.set(this.info);
+		this._controller.hosts.records.set(this.info);
 
 		this._checkPluginVersions();
 
@@ -175,7 +175,7 @@ export default class HostConnection extends BaseConnection {
 	/** Store changes to the host record, unless the host was revoked */
 	private _saveInfo() {
 		if (this._controller.hosts.getMutable(this.id) === this.info) {
-			this._controller.hosts.set(this.info);
+			this._controller.hosts.records.set(this.info);
 		}
 	}
 

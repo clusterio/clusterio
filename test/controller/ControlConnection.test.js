@@ -441,7 +441,7 @@ describe("controller/src/ControlConnection", function() {
 
 			beforeEach(function() {
 				record = new HostRecord(10, "host-10", "", new Map());
-				controller.hosts.set(record);
+				controller.hosts.records.set(record);
 				broadcasts = [];
 				controller.subscriptions.broadcast = event => {
 					if (event instanceof lib.HostUpdatesEvent) {
@@ -566,7 +566,7 @@ describe("controller/src/ControlConnection", function() {
 				await connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest(code.toLowerCase()));
 				assert.equal(controller.hostPairing.records.has(code), false);
 				assert.throws(() => controller.hostPairing.poll(requestId), /Request was rejected/);
-				assert.equal(controller.hosts.size, 0);
+				assert.equal(controller.hosts.records.size, 0);
 				assert(audits.some(msg => msg.startsWith(`User admin rejected host Host A with code ${code}`)));
 			});
 		});

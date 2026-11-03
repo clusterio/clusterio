@@ -11,7 +11,6 @@ import events from "events";
 import fs from "node:fs/promises";
 import http from "http";
 import https from "https";
-import jwt from "jsonwebtoken";
 import path from "path";
 import semver from "semver";
 import stream from "stream";
@@ -28,6 +27,7 @@ import User from "./User.js";
 import UserRecord from "./UserRecord.js";
 import UserManager from "./UserManager.js";
 import WsServer from "./WsServer.js";
+import HostManager from "./HostManager.js";
 import HostRecord from "./HostRecord.js";
 import HostPairingManager from "./HostPairingManager.js";
 import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
@@ -88,6 +88,8 @@ export default class Controller {
 
 	/** Event subscription controller */
 	subscriptions: lib.SubscriptionController;
+	/** Host manager for the cluster, also contains access to the host records */
+	hosts: HostManager;
 	/** User manager for the cluster, also contains access to the user records */
 	users: UserManager;
 	/** Instance manager for the cluster, also contains access to the user records */
@@ -272,7 +274,7 @@ export default class Controller {
 		public recoveryMode: boolean = false,
 		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
 		/** Mapping of host id to host record */
-		public hosts = new lib.SubscribableDatastore<HostRecord>(),
+		hosts = new lib.SubscribableDatastore<HostRecord>(),
 		/** Mapping of instance id to instance record */
 		instances = new lib.SubscribableDatastore<InstanceRecord>(),
 		/** Mapping of save id to save details */
@@ -299,6 +301,7 @@ export default class Controller {
 		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
 
+		this.hosts = new HostManager(hosts, this);
 		this.users = new UserManager(users, roles, config);
 		this.instances = new InstanceManager(instances, this);
 		this.hostPairing = new HostPairingManager(this);
@@ -324,7 +327,7 @@ export default class Controller {
 
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
-		this.hosts.on("update", this.hostsUpdated.bind(this));
+		this.hosts.records.on("update", this.hostsUpdated.bind(this));
 		this.hostPairing.records.on("update", this.hostPairingRequestsUpdated.bind(this));
 		this.instances.records.on("update", this.instanceUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
@@ -796,7 +799,7 @@ export default class Controller {
 		await Promise.all([
 			this.config.save(),
 			this.systems.save(),
-			this.hosts.save(),
+			this.hosts.records.save(),
 			this.instances.records.save(),
 			this.saves.save(),
 			this.modPacks.save(),
@@ -1047,40 +1050,6 @@ export default class Controller {
 			metric => metric.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return systems.length ? new lib.SystemInfoUpdateEvent(systems) : null;
-	}
-
-	/**
-	 * Generate access token for host
-	 *
-	 * @returns access token for host
-	 * @param hostId - ID of host to generate a token for.
-	 */
-	generateHostToken(hostId: number): string {
-		return jwt.sign({ aud: "host", host: hostId }, this.authSecret);
-	}
-
-	/**
-	 * Check a host token
-	 *
-	 * @param token - Host token to check.
-	 * @returns ID of the host the token was issued to.
-	 * @throws if the token is invalid, its host is not registered or it was issued before tokenValidAfter.
-	 */
-	verifyHostToken(token: string): number {
-		// migrate: allow pre-rename tokens issued to hosts before alpha-14
-		const payload = jwt.verify(token, this.authSecret, { audience: ["host", "slave"] });
-		if (typeof payload === "string") {
-			throw new Error("unexpected JsonWebToken type");
-		}
-		const hostId = payload.host !== undefined ? payload.host : payload.slave;
-		const host = this.hosts.get(hostId);
-		if (!host) {
-			throw new Error("host is not registered, start the host again to request to join the cluster");
-		}
-		if (!payload.iat || payload.iat < host.tokenValidAfter) {
-			throw new Error("invalid token");
-		}
-		return hostId;
 	}
 
 	hostsUpdated(hosts: HostRecord[]) {
