@@ -73,36 +73,48 @@ local function remove_inventory_bonus_raise(script_data, player_name)
 	end
 end
 
+-- Where the player's controller is, in the shape restore_position takes
+local function controller_location(player)
+	local location = { vehicle = player.driving and player.vehicle or nil }
+	if v2_remote_controller then
+		location.surface = player.physical_surface
+		location.position = player.physical_position
+	else
+		location.surface = player.surface
+		location.position = player.position
+	end
+	return location
+end
+
+-- Copy a location, with where a spectator was last seen, into target
+local function copy_location(target, location)
+	target.surface = location.surface
+	target.position = location.position
+	target.vehicle = location.vehicle
+	target.last_surface = location.last_surface
+	target.last_position = location.last_position
+	return target
+end
+
 -- Turn a synced player into a spectator while their player data is downloaded or applied, if this instance syncs
--- inventories, and keep where their body stood in record for restore_position. The old body goes, with its crafting
--- queue. Until the data is applied, the player's state isn't persisted.
+-- inventories, and keep the controller's location in record for restore_position. The old controller goes, with its
+-- crafting queue. Until the data is applied, the player's state isn't persisted.
 local function spectate(player, player_record, record)
 	-- Indicate the current state shouldn't be persisted
 	player_record.sync_in_progress = true
 
-	-- A dropped download already took the body, and kept where it stood
-	local place = player_record.body_place
-	player_record.body_place = nil
-	if place and record.position == nil then
-		record.surface = place.surface
-		record.position = place.position
-		record.vehicle = place.vehicle
+	-- A dropped download already took the controller, and kept its location
+	local kept = player_record.restore_location
+	player_record.restore_location = nil
+	if kept and record.position == nil then
+		copy_location(record, kept)
 	end
 
 	if player_record.sync and serialize.syncs(record.components, "inventories") then
 		-- Store original position to teleport back to. Only once per record: a rejoin while a prefetched copy is held
-		-- spectates again, and the spectator's position then isn't where the body stood
+		-- spectates again, and the spectator's position then isn't where the controller was
 		if record.position == nil then
-			if v2_remote_controller then
-				record.surface = player.physical_surface
-				record.position = player.physical_position
-			else
-				record.surface = player.surface
-				record.position = player.position
-			end
-			if player.driving then
-				record.vehicle = player.vehicle
-			end
+			copy_location(record, controller_location(player))
 		end
 
 		save_local_controller(player, player_record, record.components)
@@ -112,17 +124,30 @@ local function spectate(player, player_record, record)
 	end
 end
 
--- Sync code took the player's body and hasn't given one back: a download that never finished, or a failed acquire.
--- The local state is gone whatever the generations say.
-local function body_taken(player_record)
-	return player_record.sync_in_progress or player_record.local_controller ~= nil or player_record.body_place ~= nil
+-- Sync code took the player's controller and hasn't given one back: a download that never finished, or a failed
+-- acquire. The local state is gone whatever the generations say.
+local function controller_taken(player_record)
+	return player_record.sync_in_progress or player_record.local_controller ~= nil
+		or player_record.restore_location ~= nil
 end
 
--- Keep where the body stood when a download record that took it is dropped, for the download or abort that follows
-local function keep_body_place(player_record, record)
+-- Keep the controller's location when a download record that took it is dropped, for the download or abort that follows
+local function keep_restore_location(player_record, record)
 	if player_record and record.position ~= nil then
-		player_record.body_place = { surface = record.surface, position = record.position, vehicle = record.vehicle }
+		player_record.restore_location = copy_location({}, record)
 	end
+end
+
+-- Where the controller goes back when sync code gives it back, if it took it
+local function find_restore_location(script_data, player_name)
+	for _, downloads in ipairs({ script_data.active_downloads, script_data.finished_downloads }) do
+		local record = downloads[player_name]
+		if record and record.position ~= nil then
+			return record
+		end
+	end
+	local player_record = script_data.players[player_name]
+	return player_record and player_record.restore_location
 end
 
 
@@ -394,7 +419,7 @@ function player_sync.sync_player(acquire_response)
 	-- restart path below, which only sees a different generation or epoch. A copy this save doesn't need goes too,
 	-- keeping the local data: an upload from an instance with older data can take the generation this save already
 	-- holds.
-	-- A copy confirmed at an earlier join already took the body (spectate keeps where it stood), and the local data
+	-- A copy confirmed at an earlier join already took the controller (spectate keeps its location), and the local data
 	-- went with it, so a join that drops that copy downloads.
 	local player_record = script_data.players[acquire_response.player_name]
 	for _, downloads in ipairs({ script_data.finished_downloads, script_data.active_downloads }) do
@@ -404,7 +429,7 @@ function player_sync.sync_player(acquire_response)
 			and (record.epoch or 0) == epoch and record.token == acquire_response.token
 			and serialize.same_components(record.components, script_data.components)
 		) or not download_needed(player_record, acquire_response, script_data)) then
-			keep_body_place(player_record, record)
+			keep_restore_location(player_record, record)
 			downloads[acquire_response.player_name] = nil
 		end
 	end
@@ -417,7 +442,7 @@ function player_sync.sync_player(acquire_response)
 			and (finished_record.epoch or 0) == epoch
 		then
 			if finished_record.prefetch then
-				-- As a download does: the body left here goes, and the copy makes a new character where it stood
+				-- As a download does: the controller left here goes, and the copy makes a new character in its location
 				spectate(player, script_data.players[player.name], finished_record)
 				if player_sync.finish_download(player, finished_record) then
 					log("Applied prefetched player data for " .. player.name)
@@ -476,7 +501,7 @@ function player_sync.sync_player(acquire_response)
 		if acquire_response.status == "busy" then
 			-- Somehow another instance has claimed the player while we're
 			-- downloading it. Abort it and send failure to the player.
-			keep_body_place(player_record, download_record)
+			keep_restore_location(player_record, download_record)
 			script_data.active_downloads[acquire_response.player_name] = nil
 		end
 	end
@@ -487,6 +512,7 @@ function player_sync.sync_player(acquire_response)
 				and player.controller_type == defines.controllers.character
 			then
 				save_local_controller(player, player_record, player_record.components)
+				player_record.restore_location = controller_location(player)
 				local character = player.character
 				player.set_controller({ type = defines.controllers.spectator })
 				if character then character.destroy() end
@@ -500,7 +526,7 @@ function player_sync.sync_player(acquire_response)
 
 	local stale = (player_record.epoch or 0) ~= epoch
 	-- Without stored data the download gives the player an empty character (download_inventory, total 0)
-	if body_taken(player_record) or download_needed(player_record, acquire_response, script_data) then
+	if controller_taken(player_record) or download_needed(player_record, acquire_response, script_data) then
 		player_sync.initiate_inventory_download(player, player_record, acquire_response.generation, epoch)
 
 	else
@@ -567,6 +593,32 @@ player_sync.events[defines.events.on_player_joined_game] = function(event)
 	script_data.active_uploads[player.name] = nil
 end
 
+-- A spectator whose controller sync code took may look around. A jump of more than 16 tiles from where it was last
+-- seen, or to another surface, is another mod's teleport and moves the restore location.
+player_sync.events[defines.events.on_player_changed_position] = function(event)
+	local player = assert(game.get_player(event.player_index))
+	if player.controller_type ~= defines.controllers.spectator then
+		return
+	end
+	local location = find_restore_location(get_script_data(), player.name)
+	if not location then
+		return
+	end
+
+	local position = player.position --[[@as MapPosition.struct]]
+	local last_surface = location.last_surface or location.surface
+	local last_position = location.last_position or location.position
+	local dx = position.x - last_position.x
+	local dy = position.y - last_position.y
+	if player.surface ~= last_surface or dx * dx + dy * dy > 16 * 16 then
+		location.surface = player.surface
+		location.position = position
+		location.vehicle = nil
+	end
+	location.last_surface = player.surface
+	location.last_position = position
+end
+
 -- Raised for a restored armor after its equipment's inventory bonus applied, the temporary bonus is no longer needed
 player_sync.events[defines.events.on_player_armor_inventory_changed] = function(event)
 	local player = assert(game.get_player(event.player_index))
@@ -619,7 +671,7 @@ player_sync.events[defines.events.on_pre_player_left_game] = function(event)
 		return
 	end
 
-	if not player_record.dirty or not player_record.sync or body_taken(player_record) then
+	if not player_record.dirty or not player_record.sync or controller_taken(player_record) then
 		-- Nothing to upload, release the acquisition so other instances are not blocked
 		clusterio_api.send_json("player_sync_release", { player_name = player.name })
 		return
@@ -707,7 +759,7 @@ function player_sync.check_active_downloads()
 		if record.last_active <= game.ticks_played - 600 then
 			script_data.active_downloads[player_name] = nil
 			-- sync_in_progress stays set, so the next acquire downloads again
-			keep_body_place(script_data.players[player_name], record)
+			keep_restore_location(script_data.players[player_name], record)
 			local player = game.get_player(player_name)
 			if player then
 				log("ERROR: Inventory download failed for " .. player_name)
@@ -781,11 +833,11 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			rcon.print("Refused prefetch for " .. player_name .. ": generation " .. generation .. " is not newer")
 			return
 		end
-		-- A held copy (or offline-finished download) whose join took the body knows where it stood, and that the body
-		-- is gone (sync_player's body_taken): the copy replacing it keeps both
+		-- A held copy (or offline-finished download) whose join took the controller knows its location, and that the
+		-- controller is gone (sync_player's controller_taken): the copy replacing it keeps both
 		local held = active or finished
 		script_data.finished_downloads[player_name] = nil
-		script_data.active_downloads[player_name] = {
+		local copy = {
 			started = game.ticks_played,
 			last_active = game.ticks_played,
 			generation = generation,
@@ -794,10 +846,11 @@ function player_sync.prefetch_inventory(player_name, generation, data, number, t
 			token = token,
 			epoch = epoch,
 			components = components and compat.json_to_table(components),
-			surface = held and held.surface,
-			position = held and held.position,
-			vehicle = held and held.vehicle,
 		}
+		if held then
+			copy_location(copy, held)
+		end
+		script_data.active_downloads[player_name] = copy
 	end
 
 	local record = script_data.active_downloads[player_name]
