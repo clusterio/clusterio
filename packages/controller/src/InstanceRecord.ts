@@ -85,6 +85,7 @@ export default class InstanceRecord {
 			this.config.get("instance.exclude_from_start_all"),
 			this.config.get("instance.is_template"),
 			this.config.get("instance.template_id") ?? undefined,
+			this.config.get("factorio.mod_pack_id") ?? undefined,
 		);
 	}
 

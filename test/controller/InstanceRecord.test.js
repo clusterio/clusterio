@@ -153,6 +153,17 @@ describe("controller/InstanceRecord", function () {
 			assert.equal(details.startedAtMs, 100);
 			assert.equal(details.updatedAtMs, 200);
 			assert.equal(details.excludeFromStartAll, false);
+			assert.equal(details.modPackId, undefined);
+		});
+
+		it("should include the mod pack set in the config", function () {
+			const config = new lib.InstanceConfig("controller", {
+				"instance.id": 1,
+				"instance.name": "TestInstance",
+				"factorio.mod_pack_id": 3,
+			});
+			const details = new InstanceRecord(config, "stopped").toInstanceDetails();
+			assert.equal(details.modPackId, 3);
 		});
 	});
 

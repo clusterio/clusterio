@@ -18,6 +18,7 @@ describe("lib/data/InstanceDetails", function () {
 			[undefined, true], // excludeFromStartAll
 			[undefined, true], // isTemplate
 			[undefined, 7], // templateId
+			[undefined, 3], // modPackId
 		));
 	});
 

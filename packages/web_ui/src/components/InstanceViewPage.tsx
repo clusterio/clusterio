@@ -31,7 +31,9 @@ import { CreateInstanceButton } from "./InstancesPage";
 import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
-import { instancePublicAddress } from "../util/instance";
+import { instanceModPack, instancePublicAddress } from "../util/instance";
+import { useDefaultModPack, useModPacks } from "../model/mod_pack";
+import InstanceModPack from "./InstanceModPack";
 import useLocalStorage from "../util/useLocalStorage";
 import useResourceState from "../util/useResourceState";
 import { MetricRelativeDate } from "./system_metrics";
@@ -60,7 +62,16 @@ function TemplateDescription(props: { instance: Readonly<lib.InstanceDetails> })
 		{props.instance.templateId !== undefined && <Descriptions.Item label="Template">
 			<TemplateLink id={props.instance.templateId} />
 		</Descriptions.Item>}
+		<Descriptions.Item label="Mod Pack">
+			<ModPackDescription modPackId={props.instance.modPackId} />
+		</Descriptions.Item>
 	</Descriptions>;
+}
+
+function ModPackDescription(props: { modPackId?: number }) {
+	const [modPacks] = useModPacks();
+	const defaultModPack = useDefaultModPack();
+	return <InstanceModPack resolved={instanceModPack(props.modPackId, modPacks, defaultModPack)} />;
 }
 
 function TemplateLink(props: { id: number }) {
@@ -116,6 +127,9 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		</Descriptions.Item>
 		<Descriptions.Item label="Version">
 			{instance.factorioVersion ?? "unknown"}
+		</Descriptions.Item>
+		<Descriptions.Item label="Mod Pack">
+			<ModPackDescription modPackId={instance.modPackId} />
 		</Descriptions.Item>
 		<Descriptions.Item label="Last Start Time">
 			<MetricRelativeDate timeMs={instance.startedAtMs}/>
