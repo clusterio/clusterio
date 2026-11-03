@@ -131,14 +131,14 @@ dialog_failed_download.events = {
 			local player_sync = get_script_data()
 			player.gui.screen.dialog_failed_download.destroy()
 			local player_record = player_sync.players[player.name]
-			if player_record.body_place then
-				restore_position(player, player_record.body_place)
+			if player_record.restore_location then
+				restore_position(player, player_record.restore_location)
 			end
 			player_record.dirty = true
 			player_record.sync = false
 			player_record.sync_in_progress = false
 			player_record.local_controller = nil
-			player_record.body_place = nil
+			player_record.restore_location = nil
 
 		elseif event.element.name == "player_sync_failed_download_retry" then
 			-- Retry acquiring the player from the controller
