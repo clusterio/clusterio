@@ -13,6 +13,7 @@ import crypto from "crypto";
 import { Rcon } from "rcon-client";
 
 import * as lib from "@clusterio/lib";
+import { PortRegistry, type PortEndpoint, type PortProtocol, type PortReservation, bindUdp } from "./ports.js";
 
 const execFileAsync = util.promisify(child_process.execFile);
 
@@ -356,22 +357,6 @@ export async function isHeadless(dataDir: string) {
 }
 
 /**
- * Give a random dynamic port
- *
- * Returns a random port number in the Dynamic Ports range as defined by
- * RFC 6335.
- *
- * @return a number in the range 49152 to 65535.
- * @internal
- */
-function randomDynamicPort() {
-	const start = 49152;
-	const end = 65535 + 1;
-
-	return Math.floor(Math.random() * (end - start) + start);
-}
-
-/**
  * Generate a secure random password of the given length
  *
  * Uses crypto.randomBytes to generate a secure alphanumeric password of
@@ -667,16 +652,20 @@ export interface FactorioServerOptions {
 	version?: lib.TargetVersion,
 	/** Path to executable to invoke when starting the server */
 	executablePath?: string;
-	/** UDP port to host game on. */
+	/** UDP port to host game on, picks a free port on start if 0 or not set. */
 	gamePort?: number,
-	/** TCP port to use for RCON. */
+	/** TCP port to use for RCON, picks a free port on start if 0 or not set. */
 	rconPort?: number,
 	/** Password use for RCON. */
 	rconPassword?: string,
 	/** Enable UDP messaging with the Factorio server. */
 	enableLuaUdp?: boolean,
-	/** UDP port the Factorio server receives Lua UDP messages on. */
+	/** UDP port the Factorio server receives Lua UDP messages on, picks a free port on start if 0 or not set. */
 	luaUdpPort?: number,
+	/** Registry to reserve ports in, defaults to one only this server uses. */
+	portRegistry?: PortRegistry,
+	/** Instance ID to reserve ports for. */
+	portOwner?: number,
 	/** Turn on whitelisting. */
 	enableWhitelist?: boolean,
 	/** Enable Factorio.com based multiplayer bans. */
@@ -750,16 +739,12 @@ type FactorioServerEvents = {
 export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	/** Path to executable to invoke when starting the server */
 	executablePath?: string;
-	/** UDP port used for hosting the Factorio game server on */
-	gamePort: number;
-	/** TCP port used for RCON on the Factorio game server */
-	rconPort: number;
+	/** Ports to start the server with, 0 picks a free port on each start */
+	configuredPorts: { game: number, rcon: number, lua_udp: number };
 	/** Password used for RCON on the Factorio game server */
 	rconPassword: string;
 	/** Enable UDP messaging with the Factorio game server */
 	enableLuaUdp: boolean;
-	/** UDP port the Factorio game server receives Lua UDP messages on */
-	luaUdpPort: number;
 	/** Enable player whitelist */
 	enableWhitelist: boolean;
 	/** Enable Factorio.com based multiplayer bans **/
@@ -788,6 +773,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	_rconClient: Rcon | null= null;
 	_rconReady = false;
 	_udpSocket: dgram.Socket | null = null;
+	_portRegistry: PortRegistry;
+	_portOwner: number;
+	/** Ports held while the server is running */
+	_reservations: Partial<Record<PortEndpoint, PortReservation>> = {};
 	_gameReady = false;
 	_stripRegExp?: RegExp;
 	_maxConcurrentCommands = 5;
@@ -823,16 +812,17 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 		this._logger = options.logger || lib.logger;
 		this.executablePath = options.executablePath;
-		/** UDP port used for hosting the Factorio game server on */
-		this.gamePort = options.gamePort || randomDynamicPort();
-		/** TCP port used for RCON on the Factorio game server */
-		this.rconPort = options.rconPort || randomDynamicPort();
+		this.configuredPorts = {
+			game: options.gamePort || 0,
+			rcon: options.rconPort || 0,
+			lua_udp: options.luaUdpPort || 0,
+		};
+		this._portRegistry = options.portRegistry ?? new PortRegistry();
+		this._portOwner = options.portOwner ?? 0;
 		/** Password used for RCON on the Factorio game server */
 		this.rconPassword = options.rconPassword;
 		/** Enable UDP messaging with the Factorio game server */
 		this.enableLuaUdp = options.enableLuaUdp || false;
-		/** UDP port the Factorio game server receives Lua UDP messages on */
-		this.luaUdpPort = options.luaUdpPort || randomDynamicPort();
 		/** Enable player whitelist */
 		this.enableWhitelist = options.enableWhitelist || false;
 		/** Enable Factorio.com based multiplayer bans **/
@@ -878,6 +868,21 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 				this.emit("save-finished");
 			}
 		});
+	}
+
+	/** UDP port used for hosting the Factorio game server on, 0 if picked on start */
+	get gamePort() {
+		return this._reservations.game?.port ?? this.configuredPorts.game;
+	}
+
+	/** TCP port used for RCON on the Factorio game server, 0 if picked on start */
+	get rconPort() {
+		return this._reservations.rcon?.port ?? this.configuredPorts.rcon;
+	}
+
+	/** UDP port the Factorio game server receives Lua UDP messages on, 0 if picked on start */
+	get luaUdpPort() {
+		return this._reservations.lua_udp?.port ?? this.configuredPorts.lua_udp;
 	}
 
 	_check(expectedStates: FactorioServer["_state"][]) {
@@ -976,23 +981,27 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			throw Error("UDP socket is already open");
 		}
 
-		const socket = dgram.createSocket("udp4");
-		socket.on("message", (message, rinfo) => this._handleUdpMessage(message, rinfo));
+		const server = this._server;
+		let bound;
 		try {
-			await new Promise<void>((resolve, reject) => {
-				socket.once("error", reject);
-				socket.bind(0, "127.0.0.1", () => {
-					socket.off("error", reject);
-					resolve();
-				});
-			});
+			bound = await this._portRegistry.reserveSocket(
+				this._portOwner, "host_lua_udp", "udp", () => bindUdp("udp4", "127.0.0.1")
+			);
 		} catch (err: any) {
 			this._logger.error(`Failed to open UDP socket:\n${err?.stack ?? err?.message ?? err}`);
-			socket.close();
 			return;
 		}
+		const { reservation, socket: { socket } } = bound;
+		if (this._server !== server) {
+			// Exited while binding
+			socket.close();
+			reservation.release();
+			return;
+		}
+		socket.on("message", (message, rinfo) => this._handleUdpMessage(message, rinfo));
 		socket.on("error", err => this.emit("error", err));
 		this._udpSocket = socket;
+		this._reservations.host_lua_udp = reservation;
 	}
 
 	// Factorio before 2.1.10 crashes when a packet is received on a headless server
@@ -1007,6 +1016,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			this._udpSocket.close();
 			this._udpSocket = null;
 		}
+		this._reservations.host_lua_udp?.release();
+		delete this._reservations.host_lua_udp;
 	}
 
 	/**
@@ -1015,7 +1026,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 * Only available while the server is running with Lua UDP enabled.
 	 */
 	get hostUdpPort(): number | undefined {
-		return this._udpSocket?.address().port;
+		return this._reservations.host_lua_udp?.port;
 	}
 
 	_handleOutput(rawLine: Buffer, source: "stdout" | "stderr") {
@@ -1227,6 +1238,10 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	_resetState() {
+		for (const reservation of Object.values(this._reservations)) {
+			reservation.release();
+		}
+		this._reservations = {};
 		this._state = "init";
 		this._server = null;
 		this._rconClient = null;
@@ -1386,6 +1401,40 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	}
 
 	/**
+	 * Reserve the ports of the server and enter the running state
+	 *
+	 * Fixed ports are reserved before picking free ones so a free port
+	 * cannot take a fixed one.  Released by {@link _resetState}.
+	 */
+	async _prepareStart() {
+		this._check(["init"]);
+		this._checkLuaUdpVersion();
+		const endpoints: ["game" | "rcon" | "lua_udp", PortProtocol][] = [["game", "udp"], ["rcon", "tcp"]];
+		if (this.enableLuaUdp) {
+			endpoints.push(["lua_udp", "udp"]);
+		}
+		endpoints.sort(([a], [b]) => Number(!this.configuredPorts[a]) - Number(!this.configuredPorts[b]));
+		const reservations: FactorioServer["_reservations"] = {};
+		try {
+			for (const [endpoint, protocol] of endpoints) {
+				const port = this.configuredPorts[endpoint];
+				reservations[endpoint] = port
+					? this._portRegistry.reserve(this._portOwner, endpoint, protocol, port)
+					: await this._portRegistry.reserveFree(this._portOwner, endpoint, protocol);
+			}
+			// Reserving yields, so another start may have changed the state.
+			this._check(["init"]);
+		} catch (err) {
+			for (const reservation of Object.values(reservations)) {
+				reservation.release();
+			}
+			throw err;
+		}
+		this._reservations = reservations;
+		this._state = "running";
+	}
+
+	/**
 	 * Start server
 	 *
 	 * Spawn the Factorio server with the --start-server argument to
@@ -1394,9 +1443,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 * @param {string} save - Name of the save to run.
 	 */
 	async start(save: string) {
-		this._check(["init"]);
-		this._checkLuaUdpVersion();
-		this._state = "running";
+		await this._prepareStart();
 
 		try {
 			// Everything between _state and _watchExist must be sync and call _resetState on error
@@ -1427,8 +1474,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			this._watchExit();
 			/* eslint-enable node/no-sync */
 		} catch (err: any) {
-			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
 			this._resetState();
+			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
 		}
 
 		await this._waitForReady();
@@ -1448,9 +1495,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 *     Map setting to pass via --map-settings.
 	 */
 	async startScenario(scenario: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
-		this._check(["init"]);
-		this._checkLuaUdpVersion();
-		this._state = "running";
+		await this._prepareStart();
 
 		try {
 			// Everything between _state and _watchExist must be sync and call _resetState on error
@@ -1487,8 +1532,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			this._watchExit();
 			/* eslint-enable node/no-sync */
 		} catch (err: any) {
-			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
 			this._resetState();
+			this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
 		}
 
 		await this._waitForReady();
@@ -1810,6 +1855,5 @@ export const _versionOrder = versionOrder;
 export const _listFactorioVersions = listFactorioVersions;
 export const _downloadAndExtractZip = downloadAndExtractZip;
 export const _downloadAndExtractTar = downloadAndExtractTar;
-export const _randomDynamicPort = randomDynamicPort;
 export const _generatePassword = generatePassword;
 export const _parseOutput = parseOutput;

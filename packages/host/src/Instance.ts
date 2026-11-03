@@ -745,6 +745,8 @@ end`.replace(/\r?\n/g, " ");
 				rconPassword: config.get("factorio.rcon_password") ?? undefined,
 				enableLuaUdp: config.get("factorio.enable_lua_udp"),
 				luaUdpPort: config.get("factorio.lua_udp_port") ?? undefined,
+				portRegistry: host.ports,
+				portOwner: id,
 				enableWhitelist: config.get("factorio.enable_whitelist"),
 				enableAuthserverBans: config.get("factorio.enable_authserver_bans"),
 				verboseLogging: config.get("factorio.verbose_logging"),
@@ -1311,6 +1313,16 @@ end`.replace(/\r?\n/g, " ");
 		}
 	}
 
+	/** Stop after a start failed, which may have been before Factorio was spawned */
+	async _stopAfterFailedStart() {
+		if (this.server._state !== "init") {
+			await this.stop();
+		} else if (this._status !== "stopped") {
+			this.notifyExit();
+			await this.sendSaveListUpdate();
+		}
+	}
+
 	/** Stop the instance once a start, stop or save in progress has finished */
 	async _stopWhenSettled() {
 		// Stopping concurrently with these races them and asserts on the server state.
@@ -1381,7 +1393,7 @@ end`.replace(/\r?\n/g, " ");
 				await this.start(saveName);
 			} catch (err: any) {
 				this.logger.error(`Error starting ${saveName}: ${err.message}`);
-				await this.stop();
+				await this._stopAfterFailedStart();
 				throw err;
 			}
 		} finally {
@@ -1411,7 +1423,7 @@ end`.replace(/\r?\n/g, " ");
 				await this.startScenario(scenario, seed, mapGenSettings, mapSettings);
 			} catch (err: any) {
 				this.logger.error(`Error starting scenario ${scenario}: ${err.message}`);
-				await this.stop();
+				await this._stopAfterFailedStart();
 				throw err;
 			}
 		} finally {

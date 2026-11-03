@@ -5,6 +5,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { PlayerStats, wait } from "@clusterio/lib";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { PortRegistry } from "@clusterio/host/dist/node/src/ports.js";
 import { MockConnector, MockLogger, MockServer } from "../mock.js";
 
 import "../setup_logging.js";
@@ -34,6 +35,7 @@ describe("class Instance", function() {
 			saveListUpdates = [];
 			requests = [];
 			host = {
+				ports: new PortRegistry(),
 				assignFreeGamePort: async () => 34100,
 				send(event) { sent.push(event); },
 				async sendTo(dst, request) {
@@ -61,6 +63,12 @@ describe("class Instance", function() {
 		it("should use the configured game port", async function() {
 			const instance = await fromConfig(makeConfig({ "factorio.game_port": 34200 }));
 			assert.equal(instance.server.gamePort, 34200);
+		});
+		it("should reserve ports in the host's registry for the instance", async function() {
+			const instance = await fromConfig(makeConfig({ "factorio.rcon_port": 1000, "factorio.lua_udp_port": 0 }));
+			assert.equal(instance.server._portRegistry, host.ports);
+			assert.equal(instance.server._portOwner, 5);
+			assert.deepEqual(instance.server.configuredPorts, { game: 34100, rcon: 1000, lua_udp: 0 });
 		});
 		it("should resolve a release channel through the controller", async function() {
 			const instance = await fromConfig(makeConfig({ "factorio.version": "stable" }));
@@ -304,6 +312,58 @@ describe("class Instance", function() {
 			await first;
 			instance.notifyStatus("stopped");
 			await second;
+			assert.deepEqual(calls, ["stop"]);
+		});
+	});
+
+	describe("failed start", function() {
+		let closed;
+		beforeEach(function() {
+			closed = 0;
+			connector.on("close", () => { closed += 1; });
+			instance.prepare = async () => {};
+			instance.prepareSave = async () => "save.zip";
+			instance.writeServerSettings = async () => {};
+			instance.sendSaveListUpdate = async () => {};
+			instance._saveStats = async () => {};
+			instance.notifyStatus("starting");
+			instance.server._state = "init";
+		});
+		function failBeforeSpawnTest(request, method, handler) {
+			it(`should report stopped when ${method} fails before spawning Factorio`, async function() {
+				const err = new lib.ConflictError("Cannot use TCP port 1000");
+				instance.config.set("factorio.enable_save_patching", false);
+				instance.server[method] = async () => { throw err; };
+				instance.server.stop = async () => { throw new Error("stop called"); };
+				await assert.rejects(instance[handler](request), err);
+				assert.equal(instance.status, "stopped");
+				assert.equal(closed, 1);
+			});
+		}
+		failBeforeSpawnTest(new lib.InstanceStartRequest(), "start", "handleInstanceStartRequest");
+		failBeforeSpawnTest(
+			new lib.InstanceLoadScenarioRequest("base/freeplay"), "startScenario", "handleInstanceLoadScenarioRequest"
+		);
+		it("should not report the exit twice when Factorio exited during the start", async function() {
+			instance.server.start = async () => {
+				instance.notifyExit();
+				throw new Error("Factorio exited");
+			};
+			await assert.rejects(
+				instance.handleInstanceStartRequest(new lib.InstanceStartRequest()), /Factorio exited/
+			);
+			assert.equal(instance.status, "stopped");
+			assert.equal(closed, 1);
+		});
+		it("should stop Factorio if it was spawned", async function() {
+			const calls = [];
+			instance.server.start = async () => {
+				instance.server._state = "running";
+				throw new Error("start failed");
+			};
+			instance.server.stop = async () => { calls.push("stop"); };
+			instance.hooks.stop.invoke = async () => {};
+			await assert.rejects(instance.handleInstanceStartRequest(new lib.InstanceStartRequest()), /start failed/);
 			assert.deepEqual(calls, ["stop"]);
 		});
 	});

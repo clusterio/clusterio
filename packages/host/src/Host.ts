@@ -16,6 +16,7 @@ import type { HostConnector } from "../host.js";
 import Instance from "./Instance.js";
 import InstanceConnection from "./InstanceConnection.js";
 import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
+import { PortRegistry } from "./ports.js";
 
 
 function checkRequestSaveName(name: string) {
@@ -338,6 +339,13 @@ export default class Host extends lib.Link {
 	discoveredInstances = new Map<number, UnloadedInstance>();
 	/** A map of instances that are assigned to this host */
 	assignedInstances = new Map<number, UnloadedInstance>();
+	/** Ports configured on assigned instances and reserved by running ones */
+	ports = new PortRegistry(instanceId => {
+		const config = (
+			this.assignedInstances.get(instanceId)?.config ?? this.instanceConnections.get(instanceId)?.instance.config
+		);
+		return config ? `instance "${config.get("instance.name")}" (ID ${instanceId})` : `instance ${instanceId}`;
+	});
 
 	adminlist = new Set<string>();
 	banlist = new Map<string, string>();
@@ -787,6 +795,7 @@ export default class Host extends lib.Link {
 			this.assignedInstances.set(instanceId, instance);
 			logger.verbose(`assigned instance ${instance.config.get("instance.name")}`);
 		}
+		this._updatePortClaims(instanceId, instance.config);
 
 		// Somewhat hacky, but in the event of a lost session the status is
 		// resent on assigment since the controller sends an assigment
@@ -821,7 +830,15 @@ export default class Host extends lib.Link {
 			}
 
 			this.assignedInstances.delete(instanceId);
+			this.ports.clearConfigured(instanceId);
 			logger.verbose(`unassigned instance ${instance.config.get("instance.name")}`);
+		}
+	}
+
+	/** Update the ports claimed by an assigned instance after its config changed */
+	_updatePortClaims(instanceId: number, config: lib.InstanceConfig) {
+		for (const conflict of this.ports.setConfigured(instanceId, config)) {
+			logger.warn(conflict, this.instanceLogMeta(instanceId));
 		}
 	}
 
@@ -860,18 +877,8 @@ export default class Host extends lib.Link {
 
 	assignGamePort(instanceId: number, inUse = new Set<number>()) {
 		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
-		for (const port of inUse) {
-			availablePorts.delete(port);
-		}
-		for (const [id, instance] of this.assignedInstances) {
-			if (id === instanceId) {
-				continue;
-			}
-			const port = (
-				instance.config.get("factorio.game_port")
-				?? instance.config.get("factorio.host_assigned_game_port")
-			);
-			if (port !== null) {
+		for (const port of availablePorts) {
+			if (inUse.has(port) || this.ports.isClaimed("udp", port, { owner: instanceId, endpoint: "game" })) {
 				availablePorts.delete(port);
 			}
 		}
@@ -886,6 +893,7 @@ export default class Host extends lib.Link {
 		}
 		const [newPort] = availablePorts;
 		instanceToAssign.config.set("factorio.host_assigned_game_port", newPort);
+		this._updatePortClaims(instanceId, instanceToAssign.config);
 		return newPort;
 	}
 

@@ -45,8 +45,6 @@ describe("Integration of host/src/server", function() {
 
 		before(async function() {
 			server = await FactorioServer.fromOptions(factorioDir, writePath, {});
-			// Let Factorio bind an OS-assigned UDP port instead of guessing a free one.
-			server.gamePort = 0;
 
 			// Delete result from previous run of these tests
 			await fs.rm(writePath, { force: true, recursive: true, maxRetries: 10 });
@@ -73,7 +71,7 @@ describe("Integration of host/src/server", function() {
 
 		beforeEach(async function() {
 			if (server.pid === null) {
-				server.rconPort = await getTestRconPort();
+				server.configuredPorts.rcon = await getTestRconPort();
 			}
 		});
 
@@ -294,7 +292,8 @@ describe("Integration of host/src/server", function() {
 				const origWaitForReady = server._waitForReady;
 				server._waitForReady = () => {
 					server._waitForReady = origWaitForReady;
-					server.rconPort -= 1; // Mangle port so it fails to connect.
+					// Mangle port so it fails to connect.
+					Object.defineProperty(server, "rconPort", { value: server.rconPort - 1, configurable: true });
 					return server._waitForReady();
 				};
 				try {
@@ -305,6 +304,7 @@ describe("Integration of host/src/server", function() {
 					await server.stop();
 
 				} finally {
+					delete server.rconPort;
 					if (server._state !== "init") {
 						await server.kill();
 						assert.fail("Server did not stop");

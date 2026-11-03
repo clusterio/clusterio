@@ -208,24 +208,6 @@ describe("host/server", function() {
 		});
 	});
 
-	describe("randomDynamicPort()", function() {
-		it("should return a port number", function() {
-			let port = hostServer._randomDynamicPort();
-			assert.equal(typeof port, "number");
-			assert(Number.isInteger(port));
-			assert(port >= 0 && port < 2**16);
-		});
-
-		it("should return a port number in the dynamic range", function() {
-			function validate(port) {
-				return (49152 <= port && port <= 65535);
-			}
-			for (let i=0; i < 20; i++) {
-				assert(validate(hostServer._randomDynamicPort()));
-			}
-		});
-	});
-
 	describe("generatePassword()", function() {
 		it("should return a string", async function() {
 			let password = await hostServer._generatePassword(1);
@@ -390,7 +372,7 @@ describe("host/server", function() {
 				received = [];
 				udpServer.on("message", (msg, rinfo) => received.push([msg, rinfo]));
 				await events.once(udpServer.bind(0, "127.0.0.1"), "listening");
-				server.luaUdpPort = udpServer.address().port;
+				server.configuredPorts.lua_udp = udpServer.address().port;
 			});
 			after(function() {
 				udpServer.close();
