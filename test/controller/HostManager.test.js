@@ -63,7 +63,7 @@ describe("controller/src/HostManager", function() {
 			assert.equal(host.connected, false);
 			assert(host.tokenValidAfter >= before, "tokenValidAfter predates the call");
 			assert(host.tokenValidAfter <= Math.floor(Date.now() / 1000), "tokenValidAfter is in the future");
-			assert.equal(hosts.verifyHostToken(hosts.signHostToken(host.id)), host.id);
+			assert.equal(hosts.verifyHostToken(hosts.signHostToken(host.id)), host);
 		});
 		it("should not reuse the id of an existing host", function() {
 			hosts.records.set(new HostRecord(5, "existing", "", new Map()));
@@ -91,12 +91,12 @@ describe("controller/src/HostManager", function() {
 			hosts.records.set(new HostRecord(5, "five", "", new Map()));
 		});
 
-		it("should return the id of the host", function() {
-			assert.equal(hosts.verifyHostToken(hosts.signHostToken(5)), 5);
+		it("should return the mutable host record", function() {
+			assert.equal(hosts.verifyHostToken(hosts.signHostToken(5)), hosts.getMutable(5));
 		});
 		it("should accept a token from before the slave rename", function() {
 			const token = jwt.sign({ aud: "slave", slave: 5 }, controller.authSecret);
-			assert.equal(hosts.verifyHostToken(token), 5);
+			assert.equal(hosts.verifyHostToken(token).id, 5);
 		});
 		it("should reject a token for an unknown host", function() {
 			assert.throws(() => hosts.verifyHostToken(hosts.signHostToken(6)), /host is not registered/);

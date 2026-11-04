@@ -97,6 +97,7 @@ The host manager also signs and checks host tokens and creates and deletes hosts
 
 - `controller.generateHostToken(hostId)` is now `controller.hosts.signHostToken(hostId)`.
 - `controller.verifyHostToken(token)` is now `controller.hosts.verifyHostToken(token)`.
+  It returns the `HostRecord` instead of the host id.
 - `controller.hostPairing.createHost(name)` is now `controller.hosts.createHost(name)`.
   It returns the new `HostRecord` instead of `{ hostId, token, name }`, sign a token for it with `signHostToken`.
 - `controller.hosts.revokeHost(hostId, revokedBy)` deletes a host the same way `HostRevokeRequest` does.

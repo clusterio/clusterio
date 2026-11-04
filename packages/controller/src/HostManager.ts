@@ -127,23 +127,23 @@ export default class HostManager {
 	 * Check a host token
 	 *
 	 * @param token - Host token to check.
-	 * @returns ID of the host the token was issued to.
+	 * @returns the host the token was issued to.
 	 * @throws if the token is invalid, its host is not registered or it was issued before tokenValidAfter.
 	 */
-	verifyHostToken(token: string): number {
+	verifyHostToken(token: string): HostRecord {
 		// migrate: allow pre-rename tokens issued to hosts before alpha-14
 		const payload = jwt.verify(token, this._controller.authSecret, { audience: ["host", "slave"] });
 		if (typeof payload === "string") {
 			throw new Error("unexpected JsonWebToken type");
 		}
 		const hostId = payload.host !== undefined ? payload.host : payload.slave;
-		const host = this.records.get(hostId);
+		const host = this.records.getMutable(hostId);
 		if (!host) {
 			throw new Error("host is not registered, start the host again to request to join the cluster");
 		}
 		if (!payload.iat || payload.iat < host.tokenValidAfter) {
 			throw new Error("invalid token");
 		}
-		return hostId;
+		return host;
 	}
 }

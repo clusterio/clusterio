@@ -252,7 +252,7 @@ ${err.stack}`
 		}
 
 		try {
-			if (this.controller.hosts.verifyHostToken(data.token) !== data.id) {
+			if (this.controller.hosts.verifyHostToken(data.token).id !== data.id) {
 				throw new Error("missmatched host id");
 			}
 		} catch (err: any) {
