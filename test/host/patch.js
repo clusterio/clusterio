@@ -309,7 +309,7 @@ describe("host/patch", function() {
 			const files = await readSave();
 			assert.deepEqual(
 				[...files.keys()].sort(),
-				["world/clusterio.json", "world/control.lua", "world/level.dat0", "world/scenario.lua"],
+				["world/clusterio.json", "world/control.lua", "world/level.dat0"],
 			);
 			assert.equal(files.get("world/control.lua"), freeplayControl);
 			const patchInfo = JSON.parse(files.get("world/clusterio.json"));
@@ -337,6 +337,8 @@ describe("host/patch", function() {
 			const files = await readSave();
 			assert.equal(JSON.parse(files.get("world/clusterio.json")).patch_number, 2);
 			assert(files.has("world/modules/test/test.lua"));
+			assert.equal(files.get("world/scenario.lua"), freeplayControl);
+			assert.match(files.get("world/control.lua"), /^-- Auto generated scenario module loader/);
 		});
 		it("should keep the loader of scenarios made for Clusterio", async function() {
 			const scenario = new lib.ModuleInfo("custom", "1.0.0", [], ["custom"]);

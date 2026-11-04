@@ -479,6 +479,16 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 				);
 			}
 
+			// Unpatching put the original control.lua back in place of scenario.lua
+			const scenarioRequired = [...patchInfo.scenario.load, ...patchInfo.scenario.require].includes("scenario");
+			if (scenarioRequired && !zip.file(rootPath("scenario.lua"))) {
+				const control = await zip.readFile(rootPath("control.lua"));
+				if (control === null) {
+					throw new Error("Unable to patch save, missing control.lua file.");
+				}
+				files.set("scenario.lua", control);
+			}
+
 		// No info file present, try to detect if it's a known compatible scenario.
 		} else {
 			const controlFile = zip.file(rootPath("control.lua"));
@@ -527,8 +537,8 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 /**
  * Remove the modules patched into a save
  *
- * Restores the original control.lua that patching kept as scenario.lua and
- * removes the module files.  The patch info is kept with no modules so that
+ * Moves the original control.lua that patching kept as scenario.lua back
+ * and removes the module files.  The patch info is kept with no modules so that
  * the patch number keeps counting if the save is patched again.
  *
  * @param savePath - Path to the Factorio save to unpatch.
@@ -557,9 +567,12 @@ export async function unpatch(savePath: string) {
 
 		const removed = moduleEntries(zip, patchInfo, root);
 		patchInfo.modules = [];
+		const scenario = await zip.readFile(rootPath("scenario.lua"));
+		if (scenario !== null) {
+			removed.add(rootPath("scenario.lua"));
+		}
 		// Scenarios made for Clusterio have no scenario.lua, keep loading them without modules
-		const control = await zip.readFile(rootPath("scenario.lua"))
-			?? Buffer.from(generateLoader(patchInfo), "utf8");
+		const control = scenario ?? Buffer.from(generateLoader(patchInfo), "utf8");
 		tempSavePath = await rewriteSave(zip, savePath, removed, new Map([
 			[rootPath("control.lua"), control],
 			[rootPath("clusterio.json"), Buffer.from(JSON.stringify(patchInfo, null, "\t"), "utf8")],
