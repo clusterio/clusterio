@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";
-import { Controller, HostPairingManager, HostPairingError, HostRecord } from "@clusterio/controller";
+import { Controller, HostPairingManager, HostPairingError } from "@clusterio/controller";
 import {
 	pollTimeoutMs, maxPendingPerAddress, maxNameLength,
 } from "@clusterio/controller/dist/node/src/HostPairingManager.js";
@@ -108,36 +108,6 @@ describe("controller/src/HostPairingManager", function() {
 		function idle(requestId, ms) {
 			internal(requestId).lastPollMs -= ms;
 		}
-
-		describe(".createHost()", function() {
-			it("should create a host record with a valid token", function() {
-				const before = Math.floor(Date.now() / 1000);
-				const result = manager.createHost("Host A");
-
-				assert.equal(result.name, "Host A");
-				assert(Number.isInteger(result.hostId), "hostId is not an integer");
-				assert(result.hostId >= 1 && result.hostId < 2 ** 31, `hostId ${result.hostId} out of range`);
-
-				const record = controller.hosts.get(result.hostId);
-				assert(record instanceof HostRecord, "host record was not created");
-				assert.equal(record.name, "Host A");
-				assert.equal(record.connected, false);
-				assert(record.tokenValidAfter >= before, "tokenValidAfter predates the call");
-				assert(record.tokenValidAfter <= Math.floor(Date.now() / 1000), "tokenValidAfter is in the future");
-
-				const payload = jwt.verify(result.token, controller.authSecret, { audience: "host" });
-				assert.equal(payload.host, result.hostId);
-				assert(payload.iat >= record.tokenValidAfter, "token is not valid for the new record");
-			});
-			it("should not reuse the id of an existing host", function() {
-				controller.hosts.set(new HostRecord(5, "existing", "", new Map()));
-				restoreRandomInt = stubRandomInt([5, 5, 6]);
-				const result = manager.createHost("Host A");
-				assert.equal(result.hostId, 6);
-				assert.equal(controller.hosts.get(5).name, "existing");
-				assert.equal(controller.hosts.get(6).name, "Host A");
-			});
-		});
 
 		describe(".create()", function() {
 			it("should create a pending request", function() {
@@ -348,10 +318,10 @@ describe("controller/src/HostPairingManager", function() {
 					() => manager.approve(code, "x".repeat(maxNameLength + 1), "admin"),
 					new lib.ValidationError("Host name must be at most 100 characters"),
 				);
-				assert.equal(controller.hosts.size, 0);
+				assert.equal(controller.hosts.records.size, 0);
 				assert.equal(manager.poll(requestId), null);
 				manager.approve(code, undefined, "admin");
-				assert.equal(controller.hosts.size, 1);
+				assert.equal(controller.hosts.records.size, 1);
 			});
 			it("should throw NotFoundError for an unknown code", function() {
 				assert.throws(
@@ -363,7 +333,7 @@ describe("controller/src/HostPairingManager", function() {
 				const { code } = manager.create("Host A", "", "10.0.0.1");
 				manager.approve(code, undefined, "admin");
 				assert.throws(() => manager.approve(code, undefined, "admin"), lib.NotFoundError);
-				assert.equal(controller.hosts.size, 1);
+				assert.equal(controller.hosts.records.size, 1);
 			});
 		});
 
@@ -373,7 +343,7 @@ describe("controller/src/HostPairingManager", function() {
 				manager.reject(code.toLowerCase(), "admin");
 				assert.equal(manager.records.has(code), false);
 				assert.deepEqual(updates, [{ code, isDeleted: false }, { code, isDeleted: true }]);
-				assert.equal(controller.hosts.size, 0);
+				assert.equal(controller.hosts.records.size, 0);
 			});
 			it("should throw NotFoundError for an unknown code", function() {
 				assert.throws(

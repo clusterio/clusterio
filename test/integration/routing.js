@@ -20,7 +20,7 @@ function connectHost(controller, hostId, plugins) {
 	const [controllerSide, hostSide] = lib.VirtualConnector.makePair(addr("controller"), addr({ hostId }));
 	const registerData = new lib.RegisterHostData("", "0.0.0", hostId, plugins);
 	// Hosts can only connect once approved, which creates their record.
-	controller.hosts.set(new HostRecord(hostId, `host-${hostId}`, "", new Map()));
+	controller.hosts.records.set(new HostRecord(hostId, `host-${hostId}`, "", new Map()));
 	const hostConnection = new HostConnection(registerData, controllerSide, controller, "host-a.test");
 	controller.wsServer.hostConnections.set(hostId, hostConnection);
 	const hostConfig = new lib.HostConfig("host");

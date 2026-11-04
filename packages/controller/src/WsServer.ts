@@ -252,7 +252,7 @@ ${err.stack}`
 		}
 
 		try {
-			if (this.controller.verifyHostToken(data.token) !== data.id) {
+			if (this.controller.hosts.verifyHostToken(data.token).id !== data.id) {
 				throw new Error("missmatched host id");
 			}
 		} catch (err: any) {
@@ -320,18 +320,7 @@ ${err.stack}`
 	async registerControl(data: lib.RegisterControlData, socket: WebSocket, req: IncomingMessage) {
 		let user;
 		try {
-			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: "user" });
-			if (typeof tokenPayload === "string") {
-				throw new Error("unexpected JsonWebToken type");
-			}
-
-			user = this.controller.users.getByNameMutable(tokenPayload.user);
-			if (!user) {
-				throw new Error("invalid user");
-			}
-			if ((tokenPayload.iat || 0) < user.tokenValidAfter) {
-				throw new Error("invalid token");
-			}
+			user = this.controller.users.verifyUserToken(data.token);
 			user.checkPermission("core.control.connect");
 
 		} catch (err: any) {

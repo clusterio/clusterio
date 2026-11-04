@@ -136,7 +136,7 @@ describe("controller/src/WsServer", function() {
 
 		function addHost(id, tokenValidAfter = 0) {
 			const record = new HostRecord(id, `host-${id}`, "", new Map(), false, "", "203.0.113.1", tokenValidAfter);
-			controller.hosts.set(record);
+			controller.hosts.records.set(record);
 			return record;
 		}
 
@@ -152,7 +152,7 @@ describe("controller/src/WsServer", function() {
 		}
 
 		it("should reject a validly signed token for a host that is not registered", async function() {
-			await register(controller.generateHostToken(5));
+			await register(controller.hosts.signHostToken(5));
 			assertRejected(
 				"Authentication failed: host is not registered, start the host again to request to join the cluster"
 			);
@@ -160,12 +160,12 @@ describe("controller/src/WsServer", function() {
 		});
 		it("should accept a registered host", async function() {
 			const record = addHost(5);
-			await register(controller.generateHostToken(5));
+			await register(controller.hosts.signHostToken(5));
 			assert.equal(socket.closed, null);
 			assert(socket.sent.some(message => message.type === "ready"), "ready was not sent");
 			assert(wsServer.hostConnections.has(5));
 
-			assert.equal(controller.hosts.size, 1);
+			assert.equal(controller.hosts.records.size, 1);
 			assert.equal(controller.hosts.get(5), record, "host record was replaced");
 			assert.equal(record.connected, true);
 			assert.equal(record.version, packageJson.version);
@@ -178,7 +178,7 @@ describe("controller/src/WsServer", function() {
 			assert.equal(controller.hosts.get(5).connected, false);
 		});
 		it("should reject a token issued before tokenValidAfter", async function() {
-			const token = controller.generateHostToken(5);
+			const token = controller.hosts.signHostToken(5);
 			addHost(5, Math.floor(Date.now() / 1000) + 60);
 			await register(token);
 			assertRejected("Authentication failed: invalid token");
@@ -195,18 +195,18 @@ describe("controller/src/WsServer", function() {
 			wsServer.hostConnections.set(5, {
 				remoteAddress: "10.0.0.1",
 				async disconnect() {
-					controller.hosts.delete(record);
+					controller.hosts.records.delete(record);
 					wsServer.hostConnections.delete(5);
 				},
 			});
-			await register(controller.generateHostToken(5));
+			await register(controller.hosts.signHostToken(5));
 			assertRejected("Authentication failed: host was revoked");
 			assert.equal(controller.hosts.has(5), false, "host record was recreated");
 		});
 		it("should reject hosts in recovery mode", async function() {
 			addHost(5);
 			controller.recoveryMode = true;
-			await register(controller.generateHostToken(5));
+			await register(controller.hosts.signHostToken(5));
 			assert.deepEqual(socket.closed, {
 				code: lib.ConnectionClosed.RecoveryMode,
 				reason: "Connection Refused: Controller in recovery mode",

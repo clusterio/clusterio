@@ -135,6 +135,31 @@ describe("controller/UserManager", function () {
 		});
 	});
 
+	describe(".verifyUserToken()", function () {
+		const secret = () => Buffer.from(config.get("controller.auth_secret"), "base64");
+
+		it("should return the user the token was signed for", function () {
+			const user = userManager.createUser("Judy");
+			assert.equal(userManager.verifyUserToken(userManager.signUserToken(user)).id, user.id);
+		});
+		it("should reject a token for an unknown user", function () {
+			const token = userManager.signUserToken({ id: "nobody" });
+			assert.throws(() => userManager.verifyUserToken(token), new Error("invalid user"));
+		});
+		it("should reject a token issued before tokenValidAfter", function () {
+			const user = userManager.createUser("Mallory");
+			const token = jwt.sign({ aud: "user", user: user.id, iat: user.tokenValidAfter - 1 }, secret());
+			assert.throws(() => userManager.verifyUserToken(token), new Error("invalid token"));
+		});
+		it("should reject host tokens and bad signatures", function () {
+			const user = userManager.createUser("Niaj");
+			const hostToken = jwt.sign({ aud: "host", host: 5 }, secret());
+			assert.throws(() => userManager.verifyUserToken(hostToken), /audience invalid/);
+			const forged = jwt.sign({ aud: "user", user: user.id }, "wrong secret");
+			assert.throws(() => userManager.verifyUserToken(forged), /invalid signature/);
+		});
+	});
+
 	describe(".clearStatsOfInstance()", function () {
 		it("should clear instance stats for all users", function () {
 			const instanceId = 42;

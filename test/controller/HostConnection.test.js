@@ -53,10 +53,10 @@ describe("controller/src/HostConnection", function() {
 		beforeEach(function() {
 			controller = new Controller(lib.logger, [], new lib.ControllerConfig("controller"));
 			record = new HostRecord(10, "host-10", "1.0.0", new Map(), false, "", "203.0.113.1", 123);
-			controller.hosts.set(record);
+			controller.hosts.records.set(record);
 			connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
 			updates = [];
-			controller.hosts.on("update", changed => {
+			controller.hosts.records.on("update", changed => {
 				updates.push(...changed.map(host => ({ id: host.id, name: host.name, isDeleted: host.isDeleted })));
 			});
 		});
@@ -68,7 +68,7 @@ describe("controller/src/HostConnection", function() {
 		}
 
 		function revoke() {
-			controller.hosts.delete(record);
+			controller.hosts.records.delete(record);
 			updates.length = 0;
 		}
 
@@ -127,7 +127,7 @@ describe("controller/src/HostConnection", function() {
 			connect();
 			revoke();
 			const newer = new HostRecord(10, "newer", "", new Map());
-			controller.hosts.set(newer);
+			controller.hosts.records.set(newer);
 			updates.length = 0;
 			connector.emit("close");
 			assert.equal(controller.hosts.get(10), newer);

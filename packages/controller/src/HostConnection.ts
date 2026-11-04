@@ -44,7 +44,7 @@ export default class HostConnection extends BaseConnection {
 		record.connected = true;
 		record.remoteAddress = remoteAddress;
 		this.info = record;
-		this._controller.hosts.set(this.info);
+		this._controller.hosts.records.set(this.info);
 
 		this._checkPluginVersions();
 
@@ -68,7 +68,7 @@ export default class HostConnection extends BaseConnection {
 			this._controller.instances.records.setMany(instances);
 
 			this.info.connected = false;
-			this._saveInfo();
+			this.saveRecord();
 		});
 
 		this.handle(lib.GetFactorioCredentialsRequest, this.handleGetFactorioCredentialsRequest.bind(this));
@@ -173,16 +173,16 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	/** Store changes to the host record, unless the host was revoked */
-	private _saveInfo() {
+	saveRecord() {
 		if (this._controller.hosts.getMutable(this.id) === this.info) {
-			this._controller.hosts.set(this.info);
+			this._controller.hosts.records.set(this.info);
 		}
 	}
 
 	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {
 		this.info.name = event.update.name;
 		this.info.publicAddress = event.update.publicAddress;
-		this._saveInfo();
+		this.saveRecord();
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {

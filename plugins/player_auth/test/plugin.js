@@ -174,9 +174,7 @@ describe("player_auth", function() {
 					addInstance(8, "running", true, "invalid host", "1.1.8", 34197, 2);
 					addInstance(9, "running", true, "no version", undefined, 34197);
 
-					mockController.hosts.set(1, {
-						publicAddress: "127.0.0.1",
-					});
+					mockController.hosts.records.set({ id: 1, publicAddress: "127.0.0.1" });
 
 					const result = await fetch(`${controllerUrl}/api/player_auth/servers`);
 					assert.deepEqual(await result.json(), [

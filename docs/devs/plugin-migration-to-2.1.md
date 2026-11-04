@@ -83,5 +83,23 @@ A host joins the cluster by having the code it shows when it first starts approv
 Host records are no longer created when a host connects, only by approving it, and the controller rejects hosts it has no record of.
 Revoking a host deletes its record and note.
 Plugins that keep data per host should remove it when the host is deleted.
-On the controller the `update` event of `controller.hosts` gives the record with `isDeleted` set to true, and subscribers of `HostUpdatesEvent` receive the host with `isDeleted` set to true.
+On the controller the `update` event of `controller.hosts.records` gives the record with `isDeleted` set to true, and subscribers of `HostUpdatesEvent` receive the host with `isDeleted` set to true.
 A host that is revoked and approved again gets a new id.
+
+
+## Host manager
+
+`controller.hosts` is now a `HostManager`, like `controller.users` is a `UserManager`.
+`get`, `getMutable`, `has` and `values` work as before.
+Everything else on the datastore, like `set`, `delete`, `size` and the `update` event, is on `controller.hosts.records`.
+
+The host manager also signs and checks host tokens and creates and deletes hosts:
+
+- `controller.generateHostToken(hostId)` is now `controller.hosts.signHostToken(hostId)`.
+- `controller.verifyHostToken(token)` is now `controller.hosts.verifyHostToken(token)`.
+  It returns the `HostRecord` instead of the host id.
+- `controller.hostPairing.createHost(name)` is now `controller.hosts.createHost(name)`.
+  It returns the new `HostRecord` instead of `{ hostId, token, name }`, sign a token for it with `signHostToken`.
+- `controller.hosts.revokeHost(hostId, revokedBy)` deletes a host the same way `HostRevokeRequest` does.
+
+User tokens are checked with `controller.users.verifyUserToken(token)`, which returns the user or throws if the token is invalid.
