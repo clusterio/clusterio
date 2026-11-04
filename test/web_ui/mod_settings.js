@@ -21,6 +21,7 @@ describe("web_ui/util/mod_settings", function() {
 				"first": {
 					type: "string-setting", name: "first", mod: "a", setting_type: "startup",
 					default_value: "x", allowed_values: ["x", "y"],
+					localised_name: ["name.first"], localised_description: ["description.first"],
 				},
 			},
 			"unrelated": { "gone-number": { type: "unrelated", name: "gone-number", setting_type: "startup" } },
@@ -30,6 +31,8 @@ describe("web_ui/util/mod_settings", function() {
 			const { known, unknown } = modSettingFields(prototypes, "startup", stored);
 			assert.deepEqual(known.map(field => field.name), ["first", "kept"]);
 			assert.deepEqual(known[0].allowed_values, ["x", "y"]);
+			assert.deepEqual(known[0].localised_name, ["name.first"]);
+			assert.deepEqual(known[0].localised_description, ["description.first"]);
 			assert.deepEqual(
 				unknown.map(field => [field.name, field.type]),
 				[["gone-color", "color-setting"], ["gone-number", "double-setting"], ["gone-string", "string-setting"]],

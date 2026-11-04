@@ -8,6 +8,8 @@ export type ModSettingField = {
 	mod?: string;
 	order?: string;
 	allowed_values?: unknown;
+	localised_name?: lib.FactorioLocalisedString;
+	localised_description?: lib.FactorioLocalisedString;
 };
 
 const settingTypes = ["bool-setting", "int-setting", "double-setting", "string-setting", "color-setting"];
@@ -50,6 +52,8 @@ export function modSettingFields(
 			mod: p.mod as string,
 			order: p.order,
 			allowed_values: p.allowed_values,
+			localised_name: p.localised_name,
+			localised_description: p.localised_description,
 		}))
 		.sort((a, b) => strcmp(a.mod, b.mod) || strcmp(a.order || "", b.order || "") || strcmp(a.name, b.name))
 	;
