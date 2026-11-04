@@ -153,6 +153,25 @@ describe("Clusterio Instance", function() {
 			assert.deepEqual(whitelist, ["test_user"]);
 		});
 	});
+	describe("save patching disabled", function() {
+		it("should remove the modules from a save patched before", async function() {
+			this.timeout(40000);
+			const hasApi = "/sc rcon.print(tostring(remote.interfaces.clusterio_api ~= nil))";
+			await execCtl(`${instSetConfig} factorio.enable_save_patching true`);
+			await execCtl(`instance save create ${instName}`);
+			await execCtl(`instance start ${instName}`);
+			assert.equal(await sendRcon(instId, hasApi), "true\n");
+			await execCtl(`instance stop ${instName}`);
+
+			await execCtl(`${instSetConfig} factorio.enable_save_patching false`);
+			await execCtl(`instance start ${instName}`);
+			try {
+				assert.equal(await sendRcon(instId, hasApi), "false\n");
+			} finally {
+				await execCtl(`instance stop ${instName}`);
+			}
+		});
+	});
 	for (const [savePatchingEnabled, scriptCommandsEnabled] of testMatrix([true, false], [true, false])) {
 		const strSavePatching = `save patching: ${savePatchingEnabled ? "Enabled" : "Disabled"}`;
 		const strScriptCommands = `script commands: ${scriptCommandsEnabled ? "Enabled" : "Disabled"}`;

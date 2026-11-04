@@ -11,7 +11,7 @@ const execAsync = util.promisify(exec);
 import * as lib from "@clusterio/lib";
 
 import { FactorioServer, checkForUpdates } from "./server.js";
-import { loadModules, patch } from "./patch.js";
+import { loadModules, patch, unpatch } from "./patch.js";
 import { exportData } from "./export.js";
 import type Host from "./Host.js";
 import { BaseInstancePlugin, InstanceHooks } from "./BaseInstancePlugin.js";
@@ -1082,6 +1082,9 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		if (!this.config.get("factorio.enable_save_patching")) {
+			if (await unpatch(this.path("saves", saveName))) {
+				this.logger.info("Removed Clusterio modules from save as save patching is disabled");
+			}
 			return saveName;
 		}
 

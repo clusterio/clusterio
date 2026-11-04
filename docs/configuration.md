@@ -639,6 +639,8 @@ Most plugins require the use of save patching to function.
 Turning it off makes it possible to use Clusterio to run and manage regular vanilla games and scenarios not compatible with Clusterio.
 Plugins that need save patching can't be loaded on the instance while this is disabled.
 Disabling it while such a plugin is loaded is rejected, and so is loading such a plugin while it is disabled.
+Saves patched before are restored to their original control.lua and have the modules removed when started with this disabled.
+Data the modules stored in the game is left in place.
 
 Defaults to true.
 

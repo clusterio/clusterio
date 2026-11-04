@@ -227,6 +227,7 @@ export class PatchInfo {
 			json.patch_number,
 			lib.ModuleInfo.fromJSON(json.scenario),
 			await Promise.all(json.modules.map(m => SaveModule.fromSave(m, zip, root))),
+			json.version,
 		);
 	}
 }
@@ -382,6 +383,72 @@ const knownScenarios: Record<string, lib.ModuleInfo> = {
 };
 
 /**
+ * Names of the zip entries added by patching for the modules in the patch info
+ */
+function moduleEntries(zip: lib.ZipArchive, patchInfo: PatchInfo, root: string) {
+	const entries = new Set<string>();
+	if (patchInfo.version === 0) {
+		const modulesPath = path.posix.join(root, "modules/");
+		for (const name of zip.entries.keys()) {
+			if (name.startsWith(modulesPath)) {
+				entries.add(name);
+			}
+		}
+	} else {
+		for (const module of patchInfo.modules) {
+			for (const filepath of module.files.keys()) {
+				entries.add(path.posix.join(root, filepath));
+			}
+		}
+	}
+	return entries;
+}
+
+/**
+ * Write a copy of the save next to it with entries removed and added
+ *
+ * Keeps the order of the entries in the original.
+ *
+ * @returns Path to the temporary file written.
+ */
+async function rewriteSave(
+	zip: lib.ZipArchive, savePath: string, removed: Set<string>, added: Map<string, Buffer>
+) {
+	added = new Map(added);
+	const output = new lib.ZipWriter();
+	const [tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
+	const writing = pipeline(output.outputStream, writeStream);
+	// Awaited below, but a write error can reject it before then.
+	writing.catch(() => {});
+	try {
+		for (const entry of zip.entries.values()) {
+			const name = entry.fileName;
+			if (removed.has(name)) {
+				continue;
+			}
+			const contents = added.get(name);
+			if (contents !== undefined) {
+				await output.addBuffer(contents, name);
+				added.delete(name);
+			} else {
+				await output.addEntry(zip, entry);
+			}
+		}
+		for (const [name, contents] of added) {
+			await output.addBuffer(contents, name);
+		}
+		await output.end();
+		await writing;
+	} catch (err) {
+		output.outputStream.destroy();
+		await writing.catch(() => {});
+		await fs.rm(tempSavePath, { force: true });
+		throw err;
+	}
+	return tempSavePath;
+}
+
+/**
  * Patch a save with the given modules
  *
  * Adds the modules given by the modules parameter to the save located
@@ -432,22 +499,8 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 		patchInfo.patchNumber = patchInfo.patchNumber + 1;
 
 		// Remove any existing modules from the save
-		const removed = new Set<string>();
-		if (patchInfo.version === 0) {
-			const modulesPath = rootPath("modules/");
-			for (const name of zip.entries.keys()) {
-				if (name.startsWith(modulesPath)) {
-					removed.add(name);
-				}
-			}
-		} else {
-			for (const module of patchInfo.modules) {
-				for (const filepath of module.files.keys()) {
-					removed.add(rootPath(filepath));
-				}
-			}
-			patchInfo.modules = [];
-		}
+		const removed = moduleEntries(zip, patchInfo, root);
+		patchInfo.modules = [];
 
 		reorderDependencies(modules);
 
@@ -463,43 +516,59 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 		files.set("control.lua", Buffer.from(generateLoader(patchInfo), "utf8"));
 		files.set("clusterio.json", Buffer.from(JSON.stringify(patchInfo, null, "\t"), "utf8"));
 
-		// Write back the save, keeping the order of the entries in the original
 		const added = new Map([...files].map(([relativePath, contents]) => [rootPath(relativePath), contents]));
-		const output = new lib.ZipWriter();
-		let writeStream;
-		[tempSavePath, writeStream] = await lib.createTempWriteStream(savePath);
-		const writing = pipeline(output.outputStream, writeStream);
-		// Awaited below, but a write error can reject it before then.
-		writing.catch(() => {});
-		try {
-			for (const entry of zip.entries.values()) {
-				const name = entry.fileName;
-				if (removed.has(name)) {
-					continue;
-				}
-				const contents = added.get(name);
-				if (contents !== undefined) {
-					await output.addBuffer(contents, name);
-					added.delete(name);
-				} else {
-					await output.addEntry(zip, entry);
-				}
-			}
-			for (const [name, contents] of added) {
-				await output.addBuffer(contents, name);
-			}
-			await output.end();
-			await writing;
-		} catch (err) {
-			output.outputStream.destroy();
-			await writing.catch(() => {});
-			await fs.rm(tempSavePath, { force: true });
-			throw err;
-		}
+		tempSavePath = await rewriteSave(zip, savePath, removed, added);
 	} finally {
 		zip.close();
 	}
 	await fs.rename(tempSavePath, savePath);
+}
+
+/**
+ * Remove the modules patched into a save
+ *
+ * Restores the original control.lua that patching kept as scenario.lua and
+ * removes the module files.  The patch info is kept with no modules so that
+ * the patch number keeps counting if the save is patched again.
+ *
+ * @param savePath - Path to the Factorio save to unpatch.
+ * @returns true if the save was changed.
+ */
+export async function unpatch(savePath: string) {
+	const zip = await lib.ZipArchive.fromFile(savePath);
+	let tempSavePath: string;
+	try {
+		const root = lib.findRoot(zip);
+		const rootPath = (relativePath: string) => path.posix.join(root, relativePath);
+		const patchInfoContent = await zip.readFile(rootPath("clusterio.json"));
+		if (patchInfoContent === null) {
+			return false;
+		}
+		const patchInfo = await PatchInfo.fromSave(JSON.parse(patchInfoContent.toString("utf8")), zip, root);
+		if (patchInfo.version > PatchInfo.currentVersion) {
+			throw new Error(
+				`Save patch version ${patchInfo.version} is newer than the patch version this ` +
+				`version of Clusterio can unpatch (${PatchInfo.currentVersion})`
+			);
+		}
+		if (patchInfo.version !== 0 && !patchInfo.modules.length) {
+			return false;
+		}
+
+		const removed = moduleEntries(zip, patchInfo, root);
+		patchInfo.modules = [];
+		// Scenarios made for Clusterio have no scenario.lua, keep loading them without modules
+		const control = await zip.readFile(rootPath("scenario.lua"))
+			?? Buffer.from(generateLoader(patchInfo), "utf8");
+		tempSavePath = await rewriteSave(zip, savePath, removed, new Map([
+			[rootPath("control.lua"), control],
+			[rootPath("clusterio.json"), Buffer.from(JSON.stringify(patchInfo, null, "\t"), "utf8")],
+		]));
+	} finally {
+		zip.close();
+	}
+	await fs.rename(tempSavePath, savePath);
+	return true;
 }
 
 // For testing only
