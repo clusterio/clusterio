@@ -23,6 +23,7 @@ import { useMods } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
 import { modSettingFields, ModSettingField, ModSettingScope } from "../util/mod_settings";
 import notify, { notifyErrorHandler } from "../util/notify";
+import { modSettingDescription, modSettingName, modSettingValueName } from "../util/locale";
 import useResourceState from "../util/useResourceState";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
@@ -901,6 +902,8 @@ type SettingsTableFieldProps = {
 	type: string;
 	scope: ModSettingScope;
 	allowedValues: any;
+	localisedName?: lib.FactorioLocalisedString;
+	localisedDescription?: lib.FactorioLocalisedString;
 	locale: Map<string, any>;
 	changed: boolean;
 	/** Saved value of the setting, used when the field is created and when the form is reset */
@@ -917,6 +920,7 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const isColor = props.type === "color-setting";
 	const isNumber = ["int-setting", "double-setting"].includes(props.type);
 	const isSelect = Boolean(props.allowedValues);
+	const prototype = { name, localised_name: props.localisedName, localised_description: props.localisedDescription };
 	let input;
 	if (isBoolean) {
 		input = <Checkbox />;
@@ -924,22 +928,22 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 		const PartialInputColor = InputColor as () => React.JSX.Element;
 		input = <PartialInputColor />;
 	} else if (isSelect) {
-		const options = Object.values(props.allowedValues).map(value => ({
+		const options = Object.values(props.allowedValues as (string | number)[]).map(value => ({
 			value,
-			label: props.locale.get(`string-mod-setting.${name}-${value}`) || value,
+			label: modSettingValueName(props.locale, name, value),
 		}));
 		input = <Select options={options} />;
 	} else {
 		input = <Input />;
 	}
 
-	const label = props.locale.get(`mod-setting-name.${name}`) || name;
+	const label = modSettingName(props.locale, prototype);
 	const change: ModChange = {
 		type: "settings.delete", scope: props.scope, name, value: { value: props.initialValue! },
 	};
 	return <Form.Item
 		label={props.removed ? <Text delete>{label}</Text> : label}
-		tooltip={props.locale.get(`mod-setting-description.${name}`)}
+		tooltip={modSettingDescription(props.locale, prototype)}
 		labelCol={{ span: 8 }}
 		wrapperCol={{ span: 16 }}
 		className={props.changed ? "changed" : ""}
@@ -999,6 +1003,8 @@ function SettingsTable(props: SettingsTableProps) {
 			type={setting.type}
 			scope={scope}
 			allowedValues={setting.allowed_values}
+			localisedName={setting.localised_name}
+			localisedDescription={setting.localised_description}
 			locale={props.locale}
 			changed={hasChange(props.changes, { type: "settings.set", scope, name: setting.name })}
 			initialValue={props.savedModPack.settings[scope].get(setting.name)?.value}
