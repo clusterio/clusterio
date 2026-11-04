@@ -878,36 +878,31 @@ export function addPluginFieldDefinitions(
 
 	// The validator is dynamic based on the feature requirements of the plugin
 	if (kind === "instanceConfigFields" && pluginInfo.features) {
-		fieldDef.dependsOn = [];
-
-		const savePatching = pluginInfo.features.includes("SavePatching");
-		if (savePatching) {
-			fieldDef.dependsOn.push("factorio.enable_save_patching");
+		const requirements: [string, string][] = [];
+		if (pluginInfo.features.includes("SavePatching")) {
+			requirements.push(["factorio.enable_save_patching", "save patching"]);
+		}
+		if (pluginInfo.features.includes("ScriptCommands")) {
+			requirements.push(["factorio.enable_script_commands", "script commands"]);
+		}
+		if (pluginInfo.features.includes("LuaUdp")) {
+			requirements.push(["factorio.enable_lua_udp", "Lua UDP"]);
 		}
 
-		const scriptCommands = pluginInfo.features.includes("ScriptCommands");
-		if (scriptCommands) {
-			fieldDef.dependsOn.push("factorio.enable_script_commands");
-		}
-
-		const luaUdp = pluginInfo.features.includes("LuaUdp");
-		if (luaUdp) {
-			fieldDef.dependsOn.push("factorio.enable_lua_udp");
-		}
-
-		if (scriptCommands || savePatching || luaUdp) {
+		if (requirements.length) {
+			fieldDef.dependsOn = requirements.map(([field]) => field);
+			// Default to not loaded when the instance does not meet the requirements
+			fieldDef.initialValue = (config: classes.Config<any>) => requirements.every(
+				([field]) => config.get(field)
+			);
 			fieldDef.validator = (enabled, config) => {
 				if (!enabled) {
 					return;
 				}
-				if (savePatching && !config.get("factorio.enable_save_patching")) {
-					throw new Error(`Plugin ${pluginInfo.name} requires save patching`);
-				}
-				if (scriptCommands && !config.get("factorio.enable_script_commands")) {
-					throw new Error(`Plugin ${pluginInfo.name} requires script commands`);
-				}
-				if (luaUdp && !config.get("factorio.enable_lua_udp")) {
-					throw new Error(`Plugin ${pluginInfo.name} requires Lua UDP`);
+				for (const [field, description] of requirements) {
+					if (!config.get(field)) {
+						throw new Error(`Plugin ${pluginInfo.name} requires ${description}`);
+					}
 				}
 			};
 		}

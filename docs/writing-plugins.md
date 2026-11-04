@@ -319,6 +319,7 @@ export const plugin = {
 ```
 
 Enabling the plugin on an instance that has the feature turned off then fails config validation, so the mistake is caught when the config is edited instead of when the instance starts.
+Instances that have the feature turned off get the plugin disabled by default when it is added.
 
 Other constraints on config fields are expressed with a `validator` on the field definition, which throws when the value is not acceptable.
 Use `dependsOn` when the check involves other fields so that the validator runs when those change too.

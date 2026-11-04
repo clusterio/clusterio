@@ -789,9 +789,9 @@ Defaults to 5.
 
 Whether to load the given plugin on the instance.
 Note that plugins need to be loaded on the controller and the host in order for them to be loaded on instances.
-Loading a plugin that requires save patching or script commands is rejected while factorio.enable_save_patching or factorio.enable_script_commands respectively is disabled on the instance.
+Loading a plugin that requires save patching, script commands or Lua UDP is rejected while factorio.enable_save_patching, factorio.enable_script_commands or factorio.enable_lua_udp respectively is disabled on the instance.
 
-Defaults to true.
+Defaults to true, or false if the instance does not have the features the plugin requires.
 
 
 ## Ctl Configuration
