@@ -7,12 +7,14 @@ import type { ColumnType } from "antd/es/table/interface";
 import { useAccount } from "../model/account";
 import { useSystems } from "../model/system";
 import { useHosts } from "../model/host";
+import { useDefaultModPack, useModPacks } from "../model/mod_pack";
 import { RestartRequired } from "./system_metrics";
 import InstanceStatusTag from "./InstanceStatusTag";
+import InstanceModPack from "./InstanceModPack";
 import InstanceControlButton, { InstanceControlButtonPermissions } from "./InstanceControlButton";
 import * as lib from "@clusterio/lib";
 import Link from "./Link";
-import { instancePublicAddress } from "../util/instance";
+import { instanceModPack, instancePublicAddress } from "../util/instance";
 import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
 import useRowNavigation from "../util/useRowNavigation";
@@ -29,6 +31,8 @@ export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
 	let [hosts] = useHosts();
 	const [systems] = useSystems();
+	const [modPacks] = useModPacks();
+	const defaultModPack = useDefaultModPack();
 	const tableState = useTableQueryState<lib.InstanceDetails>({
 		namespace: "instance", defaultSortKey: "name",
 	});
@@ -42,6 +46,15 @@ export default function InstanceList(props: InstanceListProps) {
 			return "";
 		}
 		return hosts.get(hostId)?.name ?? String(hostId);
+	}
+
+	function modPackOf(instance: lib.InstanceDetails) {
+		return instanceModPack(instance.modPackId, modPacks, defaultModPack);
+	}
+
+	function modPackName(instance: lib.InstanceDetails) {
+		const { id, modPack } = modPackOf(instance);
+		return modPack?.name ?? (id !== undefined ? String(id) : "");
 	}
 
 	function integerFactorioVersionOrDefault(instance: lib.InstanceDetails) {
@@ -114,6 +127,15 @@ export default function InstanceList(props: InstanceListProps) {
 			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b),
 			sortOrder: tableState.sortOrder("version"),
 			responsive: ["xl"],
+		},
+		{
+			title: "Mod Pack",
+			key: "modPack",
+			className: "table-link-cell",
+			render: (_, instance) => <InstanceModPack resolved={modPackOf(instance)} />,
+			sorter: (a, b) => strcmp(modPackName(a), modPackName(b)),
+			sortOrder: tableState.sortOrder("modPack"),
+			responsive: ["lg"],
 		},
 		{
 			title: "Status",
