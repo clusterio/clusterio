@@ -20,6 +20,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import UsersTable from "./UsersTable";
 import { InputInstanceWithAll } from "./InputInstance";
+import useTableQueryState from "../util/useTableQueryState";
 
 function CreateUserButton() {
 	let control = useContext(ControlContext);
@@ -368,7 +369,10 @@ function BulkUserActionButton() {
 
 export default function UsersPage() {
 	const account = useAccount();
-	const [instanceId, setInstanceId] = useState<number | null>(null);
+	// Kept in the URL with the users table state so back/forward restores it
+	const tableState = useTableQueryState<lib.UserDetails>({ namespace: "user" });
+	const instanceParam = Number(tableState.filteredValue("instance")?.[0]);
+	const instanceId = Number.isInteger(instanceParam) ? instanceParam : null;
 
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
@@ -377,7 +381,9 @@ export default function UsersPage() {
 				{account.hasAllPermission("core.instance.list", "core.instance.subscribe")
 					&& <InputInstanceWithAll
 						value={instanceId}
-						onChange={value => setInstanceId(value as number)}
+						onChange={value => tableState.commitFilter(
+							"instance", value === null ? null : [String(value)]
+						)}
 						fieldDefinition={{ optional: true } as any}
 						disabled={false}
 					/>}
