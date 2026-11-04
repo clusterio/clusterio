@@ -9,6 +9,7 @@ import { useParams } from "react-router-dom";
 import { useModPack } from "../model/mod_pack";
 import { PrototypeMetadataEntry } from "../store/export_prototype_metadata_store";
 import useResourceState from "../util/useResourceState";
+import useTableQueryState from "../util/useTableQueryState";
 import ResourceState from "./ResourceState";
 
 const { Text } = Typography;
@@ -39,7 +40,9 @@ export default function IconReferencePage() {
 	let params = useParams();
 	let modPackId = Number(params.id);
 
-	const [filter, setFilter] = useState("");
+	// Filters live as you type, written to the URL on blur, enter or clear
+	const queryState = useTableQueryState({ namespace: "icon" });
+	const filter = queryState.filteredValue("search")?.[0] ?? "";
 	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 	const [modPack, synced, error] = useModPack(modPackId);
 	const state = useResourceState(modPack, synced, error, modPackId);
@@ -137,7 +140,15 @@ export default function IconReferencePage() {
 						<Input
 							placeholder="Filter by type or name…"
 							value={filter}
-							onChange={e => setFilter(e.target.value)}
+							onChange={e => {
+								const values = e.target.value ? [e.target.value] : null;
+								queryState.setFilter("search", values);
+								if (!values) {
+									queryState.commitFilter("search", null);
+								}
+							}}
+							onBlur={() => queryState.commitFilter("search")}
+							onPressEnter={() => queryState.commitFilter("search")}
 							allowClear
 							style={{ width: 320 }}
 						/>
