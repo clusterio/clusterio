@@ -369,6 +369,49 @@ describe("lib/config/definitions/validators", function() {
 				assert.doesNotThrow(() => config.set("factorio.enable_lua_udp", true));
 				assert.doesNotThrow(() => config.set("lua_udp.load_plugin", true));
 			});
+			it("should default load_plugin to false when a required feature is disabled", function() {
+				class TestInstanceConfig extends InstanceConfig {
+					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+				}
+
+				lib.addPluginFieldDefinitions(
+					{ name: "requires_features", features: ["SavePatching", "ScriptCommands"] },
+					"instanceConfigFields", TestInstanceConfig
+				);
+
+				assert.equal(new TestInstanceConfig("controller").get("requires_features.load_plugin"), true);
+				for (const field of ["factorio.enable_save_patching", "factorio.enable_script_commands"]) {
+					const config = new TestInstanceConfig("controller", { [field]: false });
+					assert.equal(config.get("requires_features.load_plugin"), false);
+					// Other fields can be edited since the config is valid
+					assert.doesNotThrow(() => config.set("instance.name", "test"));
+				}
+
+				// An explicit value is kept
+				const config = new TestInstanceConfig("controller", {
+					"factorio.enable_save_patching": false,
+					"requires_features.load_plugin": true,
+				});
+				assert.equal(config.get("requires_features.load_plugin"), true);
+			});
+			it("should reject disabling a feature required by a loaded plugin", function() {
+				class TestInstanceConfig extends InstanceConfig {
+					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };
+					static _fieldDependents; // Don't reuse the cache from InstanceConfig
+				}
+
+				lib.addPluginFieldDefinitions(
+					{ name: "save_patching", features: ["SavePatching"] },
+					"instanceConfigFields", TestInstanceConfig
+				);
+
+				const config = new TestInstanceConfig("controller");
+				assert.throws(
+					() => config.set("factorio.enable_save_patching", false),
+					/requires save patching/
+				);
+				assert.equal(config.get("factorio.enable_save_patching"), true);
+			});
 			it("should allow when no feature flags are present", function() {
 				class TestInstanceConfig extends InstanceConfig {
 					static fieldDefinitions = { ...InstanceConfig.fieldDefinitions };

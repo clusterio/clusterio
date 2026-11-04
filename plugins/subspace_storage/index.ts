@@ -46,6 +46,7 @@ export const plugin: lib.PluginDeclaration = {
 	},
 
 	features: [
+		"SavePatching",
 		"ScriptCommands",
 	],
 

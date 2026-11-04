@@ -269,13 +269,13 @@ export default class InstanceManager {
 		) as InheritableField[];
 	}
 
-	/** Default value of a field, or undefined if it is generated */
-	private static _defaultValue(name: InheritableField): unknown {
+	/** Default value of a field for the given config */
+	private static _defaultValue(name: InheritableField, config: lib.InstanceConfig): unknown {
 		const def = lib.InstanceConfig.fieldDefinitions[name];
 		if (name === "factorio.settings") {
 			return InstanceManager.DefaultFactorioSettings;
 		}
-		return typeof def.initialValue === "function" ? undefined : def.initialValue ?? null;
+		return typeof def.initialValue === "function" ? def.initialValue(config) : def.initialValue ?? null;
 	}
 
 	/** Values the given inherited fields take from the template, with object overrides applied */
@@ -345,7 +345,7 @@ export default class InstanceManager {
 			for (const name of InstanceManager._inheritableFields()) {
 				const value = instance.config.get(name) as any;
 				const templateValue = template.config.get(name) as any;
-				const defaultValue = InstanceManager._defaultValue(name) as any;
+				const defaultValue = InstanceManager._defaultValue(name, instance.config) as any;
 				if (lib.InstanceConfig.fieldDefinitions[name].type === "object") {
 					inherited[name] = Object.keys(value ?? {}).filter(prop => !(
 						isDeepStrictEqual(value[prop], templateValue?.[prop])

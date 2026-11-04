@@ -45,6 +45,7 @@ For plugins the group name is the name of the plugin, e.g., the `level` field of
 **initialValue** (optional if optional is true):
     Value this config field should take in a newly initialized config.
     This can also be a synchronous function returning the value to use.
+    The function is called with the config after its stored fields are loaded, so it can base the value on other fields.
 
 **validator** (optional):
     Function called with the value being set and the config it belongs to.
