@@ -256,7 +256,9 @@ function player_sync.deserialize_player(player, finished_record)
 	-- An earlier raise not removed yet is replaced, the character's inventory bonus is restored with the data
 	script_data.inventory_bonus_raises[player.name] = nil
 	local failed, spill, inventory_bonus_raise =
-		serialize.deserialize_player(player, serialized_player, finished_record.components, local_controller)
+		serialize.deserialize_player(
+			player, serialized_player, finished_record.components, local_controller, finished_record.recipe_notifications
+		)
 	script_data.failed_deserialization[player.name] = failed
 	player_record.local_controller = nil
 	if inventory_bonus_raise and inventory_bonus_raise > 0 then
@@ -741,6 +743,8 @@ function player_sync.initiate_inventory_download(player, player_record, generati
 		recipe_notifications = serialize.serialize_crafting_notifications(player)
 	end
 
+	-- Kept to rebuild the stored list from the delta once the player's force is restored
+	record.recipe_notifications = recipe_notifications
 	clusterio_api.send_json("player_sync_download", {
 		player_name = player.name,
 		recipe_notifications = recipe_notifications,
