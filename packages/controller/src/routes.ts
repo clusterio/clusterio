@@ -445,10 +445,41 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 	return stream;
 }
 
+/** Time a rejected upload is read and thrown away before its connection is closed */
+const rejectedUploadDrainMs = 1000;
+
+/**
+ * Reject an upload without reading the rest of its body
+ *
+ * Node reads and discards the body of a request answered before it was
+ * read to keep the connection open. A client, or a proxy in front of the
+ * controller, that keeps sending would upload the whole body for nothing,
+ * so the connection is closed if the body hasn't ended shortly after the
+ * response. Closing it right away could make the client lose the response.
+ * @param req - The upload.
+ * @param res - Response to the upload.
+ * @param status - HTTP status to respond with.
+ */
+function rejectUpload(req: Request, res: Response, status: number) {
+	res.sendStatus(status);
+	if (req.complete) {
+		return;
+	}
+	const socket = req.socket;
+	const timeout = setTimeout(() => socket.destroy(), rejectedUploadDrainMs);
+	const onClose = () => clearTimeout(timeout);
+	socket.once("close", onClose);
+	// The connection may be kept open for more requests, so don't leave a listener on it
+	req.once("end", () => {
+		clearTimeout(timeout);
+		socket.off("close", onClose);
+	});
+}
+
 async function putStream(req: Request<{ id: string }>, res: Response) {
 	const stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.source) {
-		res.sendStatus(404);
+		rejectUpload(req, res, 404);
 		return;
 	}
 	stream.source = req;
@@ -458,8 +489,7 @@ async function putStream(req: Request<{ id: string }>, res: Response) {
 	stream.events.emit("source");
 	stream.events.on("close", () => {
 		if (!stream.flowing) {
-			req.resume();
-			res.sendStatus(500);
+			rejectUpload(req, res, 500);
 		} else {
 			res.sendStatus(200);
 		}
