@@ -6,6 +6,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { InstanceManager } from "@clusterio/controller";
 import { FactorioServer, _getFactorioVersion } from "@clusterio/host/dist/node/src/server.js";
+import { PortRegistry } from "@clusterio/host/dist/node/src/ports.js";
 import { logger } from "@clusterio/lib";
 
 import { factorioDir, requiresFactorio } from "./index.js";
@@ -42,6 +43,7 @@ describe("Integration of host/src/server", function() {
 		let writePath = path.join("temp", "test", "integration");
 		let server;
 		let logFile;
+		const ports = new PortRegistry();
 
 		before(async function() {
 			server = await FactorioServer.fromOptions(factorioDir, writePath, {});
@@ -71,7 +73,11 @@ describe("Integration of host/src/server", function() {
 
 		beforeEach(async function() {
 			if (server.pid === null) {
-				server.configuredPorts.rcon = await getTestRconPort();
+				ports.release(0);
+				server.gamePort = await ports.reserveFree(0, "game", "udp");
+				server.rconPort = await getTestRconPort();
+				server.luaUdpPort = await ports.reserveFree(0, "lua_udp", "udp");
+				server._hostUdpPort = await ports.reserveFree(0, "host_lua_udp", "udp");
 			}
 		});
 
@@ -292,8 +298,7 @@ describe("Integration of host/src/server", function() {
 				const origWaitForReady = server._waitForReady;
 				server._waitForReady = () => {
 					server._waitForReady = origWaitForReady;
-					// Mangle port so it fails to connect.
-					Object.defineProperty(server, "rconPort", { value: server.rconPort - 1, configurable: true });
+					server.rconPort -= 1; // Mangle port so it fails to connect.
 					return server._waitForReady();
 				};
 				try {
@@ -304,7 +309,6 @@ describe("Integration of host/src/server", function() {
 					await server.stop();
 
 				} finally {
-					delete server.rconPort;
 					if (server._state !== "init") {
 						await server.kill();
 						assert.fail("Server did not stop");

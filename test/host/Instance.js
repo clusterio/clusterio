@@ -5,7 +5,6 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { PlayerStats, wait } from "@clusterio/lib";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
-import { PortRegistry } from "@clusterio/host/dist/node/src/ports.js";
 import { MockConnector, MockLogger, MockServer } from "../mock.js";
 
 import "../setup_logging.js";
@@ -21,6 +20,7 @@ describe("class Instance", function() {
 		let sent;
 		let saveListUpdates;
 		let requests;
+		let ports;
 		function makeConfig(fields) {
 			return new lib.InstanceConfig("host", { "instance.id": 5, "instance.name": "foo", ...fields });
 		}
@@ -34,9 +34,12 @@ describe("class Instance", function() {
 			sent = [];
 			saveListUpdates = [];
 			requests = [];
+			ports = { gamePort: 34100, rconPort: 34101 };
 			host = {
-				ports: new PortRegistry(),
-				assignFreeGamePort: async () => 34100,
+				async reserveInstancePorts(instanceId) {
+					requests.push(`reserveInstancePorts(${instanceId})`);
+					return ports;
+				},
 				send(event) { sent.push(event); },
 				async sendTo(dst, request) {
 					requests.push(request.constructor.name);
@@ -58,22 +61,26 @@ describe("class Instance", function() {
 			assert.equal(instance.server.version, "0.1.2");
 			assert.equal(instance.server.gamePort, 34100);
 			assert.deepEqual(sent, [new lib.InstanceStatusChangedEvent(5, "starting", 34100, "latest")]);
-			assert.deepEqual(requests, ["FactorioVersionsRequest"]);
+			assert.deepEqual(requests, ["reserveInstancePorts(5)", "FactorioVersionsRequest"]);
 		});
-		it("should use the configured game port", async function() {
-			const instance = await fromConfig(makeConfig({ "factorio.game_port": 34200 }));
+		it("should give the server the ports reserved by the host", async function() {
+			ports = { gamePort: 34200, rconPort: 1000, luaUdpPort: 1001, hostUdpPort: 1002 };
+			const instance = await fromConfig(makeConfig({ "factorio.enable_lua_udp": true }));
 			assert.equal(instance.server.gamePort, 34200);
+			assert.equal(instance.server.rconPort, 1000);
+			assert.equal(instance.server.luaUdpPort, 1001);
+			assert.equal(instance.server._hostUdpPort, 1002);
 		});
-		it("should reserve ports in the host's registry for the instance", async function() {
-			const instance = await fromConfig(makeConfig({ "factorio.rcon_port": 1000, "factorio.lua_udp_port": 0 }));
-			assert.equal(instance.server._portRegistry, host.ports);
-			assert.equal(instance.server._portOwner, 5);
-			assert.deepEqual(instance.server.configuredPorts, { game: 34100, rcon: 1000, lua_udp: 0 });
+		it("should not report starting if the host cannot reserve ports", async function() {
+			const err = new lib.ConflictError("Cannot use TCP port 1000");
+			host.reserveInstancePorts = async () => { throw err; };
+			await assert.rejects(fromConfig(makeConfig({})), err);
+			assert.deepEqual(sent, []);
 		});
 		it("should resolve a release channel through the controller", async function() {
 			const instance = await fromConfig(makeConfig({ "factorio.version": "stable" }));
 			assert.equal(instance.server.version, "0.1.1");
-			assert.deepEqual(requests, ["FactorioVersionsRequest", "LatestReleasesRequest"]);
+			assert.deepEqual(requests, ["reserveInstancePorts(5)", "FactorioVersionsRequest", "LatestReleasesRequest"]);
 		});
 		it("should load player stats", async function() {
 			await fs.writeFile(path.join(dir, "instance-stats.json"), JSON.stringify({

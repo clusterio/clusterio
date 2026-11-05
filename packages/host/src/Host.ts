@@ -16,7 +16,7 @@ import type { HostConnector } from "../host.js";
 import Instance from "./Instance.js";
 import InstanceConnection from "./InstanceConnection.js";
 import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
-import { PortRegistry } from "./ports.js";
+import { type InstancePorts, PortRegistry } from "./ports.js";
 
 
 function checkRequestSaveName(name: string) {
@@ -339,7 +339,7 @@ export default class Host extends lib.Link {
 	discoveredInstances = new Map<number, UnloadedInstance>();
 	/** A map of instances that are assigned to this host */
 	assignedInstances = new Map<number, UnloadedInstance>();
-	/** Ports configured on assigned instances and reserved by running ones */
+	/** Ports configured on assigned instances and reserved for running ones */
 	ports = new PortRegistry(instanceId => {
 		const config = (
 			this.assignedInstances.get(instanceId)?.config ?? this.instanceConnections.get(instanceId)?.instance.config
@@ -919,6 +919,57 @@ export default class Host extends lib.Link {
 		}
 	}
 
+	/**
+	 * Reserve the ports an instance runs Factorio with
+	 *
+	 * Fixed ports from the config are used as is, the rest are picked
+	 * free.  The ports stay reserved until the instance stops.
+	 *
+	 * @param instanceId - ID of the instance to reserve ports for.
+	 * @returns the reserved ports.
+	 * @throws {lib.ConflictError} if a fixed port is in use by another instance.
+	 */
+	async reserveInstancePorts(instanceId: number): Promise<InstancePorts> {
+		const config = this.getRequestInstance(instanceId).config;
+		const gamePort = config.get("factorio.game_port");
+		const rconPort = config.get("factorio.rcon_port");
+		const enableLuaUdp = config.get("factorio.enable_lua_udp");
+		const luaUdpPort = config.get("factorio.lua_udp_port");
+		this.ports.release(instanceId);
+		try {
+			// Fixed ports first so free ones are not picked from them.
+			if (gamePort) {
+				this.ports.reserveFixed(instanceId, "game", "udp", gamePort);
+			}
+			if (rconPort) {
+				this.ports.reserveFixed(instanceId, "rcon", "tcp", rconPort);
+			}
+			if (enableLuaUdp && luaUdpPort) {
+				this.ports.reserveFixed(instanceId, "lua_udp", "udp", luaUdpPort);
+			}
+
+			let reservedGamePort = gamePort;
+			if (gamePort === null) {
+				const assigned = await this.assignFreeGamePort(instanceId);
+				reservedGamePort = this.ports.reserveFixed(instanceId, "game", "udp", assigned);
+			} else if (!gamePort) {
+				reservedGamePort = await this.ports.reserveFree(instanceId, "game", "udp");
+			}
+			const ports: InstancePorts = {
+				gamePort: reservedGamePort!,
+				rconPort: rconPort || await this.ports.reserveFree(instanceId, "rcon", "tcp"),
+			};
+			if (enableLuaUdp) {
+				ports.luaUdpPort = luaUdpPort || await this.ports.reserveFree(instanceId, "lua_udp", "udp");
+				ports.hostUdpPort = await this.ports.reserveFree(instanceId, "host_lua_udp", "udp");
+			}
+			return ports;
+		} catch (err) {
+			this.ports.release(instanceId);
+			throw err;
+		}
+	}
+
 	/** Status of an instance without a connection */
 	_unconnectedStatus(instanceId: number) {
 		return this._startingInstances.has(instanceId) ? "starting" as const : "stopped" as const;
@@ -946,6 +997,9 @@ export default class Host extends lib.Link {
 				unloadedInstance.config, this, connectionClient,
 				unloadedInstance.path, this.config.get("host.factorio_directory"),
 			);
+		} catch (err) {
+			this.ports.release(instanceId);
+			throw err;
 		} finally {
 			this._startingInstances.delete(instanceId);
 		}

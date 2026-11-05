@@ -711,7 +711,8 @@ end`.replace(/\r?\n/g, " ");
 		const id = config.get("instance.id");
 		// TODO: factorio.version is not validated
 		const targetVersion = config.get("factorio.version") as lib.TargetVersion;
-		const gamePort = config.get("factorio.game_port") ?? await host.assignFreeGamePort(id);
+		const ports = await host.reserveInstancePorts(id);
+		const gamePort = ports.gamePort;
 		host.send(new lib.InstanceStatusChangedEvent(id, "starting", gamePort, targetVersion));
 
 		let server: FactorioServer;
@@ -740,13 +741,9 @@ end`.replace(/\r?\n/g, " ");
 				logger,
 				version,
 				executablePath: config.get("factorio.executable_path") ?? undefined,
-				gamePort,
-				rconPort: config.get("factorio.rcon_port") ?? undefined,
+				...ports,
 				rconPassword: config.get("factorio.rcon_password") ?? undefined,
 				enableLuaUdp: config.get("factorio.enable_lua_udp"),
-				luaUdpPort: config.get("factorio.lua_udp_port") ?? undefined,
-				portRegistry: host.ports,
-				portOwner: id,
 				enableWhitelist: config.get("factorio.enable_whitelist"),
 				enableAuthserverBans: config.get("factorio.enable_authserver_bans"),
 				verboseLogging: config.get("factorio.verbose_logging"),

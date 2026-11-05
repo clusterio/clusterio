@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import * as lib from "@clusterio/lib";
 import Host, { _discoverInstances, HostRouter } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import InstanceConnection from "@clusterio/host/dist/node/src/InstanceConnection.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
 import { computePluginStatuses } from "../../packages/web_ui/src/util/plugin_status.ts";
 import "../setup_logging.js";
@@ -303,13 +304,13 @@ describe("host/src/Host", function() {
 				const port = held.address().port + 1;
 				host.config.set("host.factorio_port_range", `${port}-${port + 1}`);
 				instanceConfig.set("factorio.host_assigned_game_port", port);
-				host.ports.reserve(2, "lua_udp", "udp", port);
+				host.ports.reserveFixed(2, "lua_udp", "udp", port);
 				assert.equal(await host.assignFreeGamePort(1), port + 1);
 			});
 			it("does not skip ports only used by TCP", async function() {
 				const port = held.address().port + 1;
 				host.config.set("host.factorio_port_range", String(port));
-				host.ports.reserve(2, "rcon", "tcp", port);
+				host.ports.reserveFixed(2, "rcon", "tcp", port);
 				assert.equal(await host.assignFreeGamePort(1), port);
 			});
 			it("claims the assigned port so concurrent assignments pick different ports", async function() {
@@ -404,6 +405,94 @@ describe("host/src/Host", function() {
 				}) } });
 				assert.equal(host.ports.describeOwner(3), 'instance "leaving" (ID 3)');
 				assert.equal(host.ports.describeOwner(4), "instance 4");
+			});
+		});
+		describe(".reserveInstancePorts()", function() {
+			let host;
+			let config;
+			let rangePort;
+			beforeEach(async function() {
+				const hostConfig = new lib.HostConfig("host");
+				host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				const probe = dgram.createSocket("udp4");
+				await events.once(probe.bind(0, "127.0.0.1"), "listening");
+				rangePort = probe.address().port;
+				probe.close();
+				host.config.set("host.factorio_port_range", String(rangePort));
+				config = new lib.InstanceConfig("host", { "instance.id": 1, "instance.name": "inst1" });
+				host.assignedInstances.set(1, { config, path: "" });
+			});
+			function reservedPorts(id) {
+				return Object.fromEntries(host.ports.reserved(id).map(claim => [claim.endpoint, claim.port]));
+			}
+
+			it("uses fixed ports as is and picks the rest", async function() {
+				config.set("factorio.rcon_port", 1000);
+				config.set("factorio.enable_lua_udp", true);
+				const ports = await host.reserveInstancePorts(1);
+				assert.equal(ports.gamePort, rangePort);
+				assert.equal(ports.rconPort, 1000);
+				assert(ports.luaUdpPort > 0 && ports.hostUdpPort > 0);
+				assert.notEqual(ports.luaUdpPort, ports.hostUdpPort);
+				assert.deepEqual(reservedPorts(1), {
+					rcon: 1000, game: rangePort, lua_udp: ports.luaUdpPort, host_lua_udp: ports.hostUdpPort,
+				});
+			});
+			it("picks a free port outside the range for game_port 0", async function() {
+				config.set("factorio.game_port", 0);
+				const ports = await host.reserveInstancePorts(1);
+				assert(ports.gamePort > 0);
+				assert.equal(config.get("factorio.host_assigned_game_port"), null);
+			});
+			it("does not reserve Lua UDP ports when Lua UDP is disabled", async function() {
+				config.set("factorio.lua_udp_port", 40000);
+				const ports = await host.reserveInstancePorts(1);
+				assert.deepEqual(Object.keys(ports), ["gamePort", "rconPort"]);
+				assert.deepEqual(Object.keys(reservedPorts(1)).sort(), ["game", "rcon"]);
+			});
+			it("rejects a fixed port reserved for another instance and keeps nothing", async function() {
+				host.ports.reserveFixed(2, "rcon", "tcp", 1000);
+				config.set("factorio.game_port", 34197);
+				config.set("factorio.rcon_port", 1000);
+				await assert.rejects(
+					host.reserveInstancePorts(1),
+					new lib.ConflictError(
+						'Cannot use TCP port 1000 for the RCON port of instance "inst1" (ID 1), ' +
+						"it is in use by the RCON port of instance 2"
+					),
+				);
+				assert.deepEqual(host.ports.reserved(1), []);
+			});
+			it("releases the reserved ports if picking a free one fails", async function() {
+				config.set("factorio.game_port", 34197);
+				host.ports._probe = async () => { throw new Error("probe failed"); };
+				await assert.rejects(host.reserveInstancePorts(1), /probe failed/);
+				assert.deepEqual(host.ports.reserved(1), []);
+			});
+			it("releases the ports if creating the instance fails", async function() {
+				const fromConfig = Instance.fromConfig;
+				Instance.fromConfig = async () => {
+					await host.reserveInstancePorts(1);
+					throw new Error("create failed");
+				};
+				try {
+					await assert.rejects(host._connectInstance(1), /create failed/);
+				} finally {
+					Instance.fromConfig = fromConfig;
+				}
+				assert.deepEqual(host.ports.reserved(1), []);
+			});
+			it("releases the ports when the instance stops", async function() {
+				await host.reserveInstancePorts(1);
+				const instance = { id: 1, status: "stopped" };
+				const [, server] = lib.VirtualConnector.makePair(
+					new lib.Address(lib.Address.instance, 1), new lib.Address(lib.Address.host, 1)
+				);
+				const connection = new InstanceConnection(server, host, instance);
+				host.instanceConnections.set(1, connection);
+				await connection.snoopInstanceStatusChangedEvent();
+				assert(!host.instanceConnections.has(1));
+				assert.deepEqual(host.ports.reserved(1), []);
 			});
 		});
 		describe(".handlePluginListRequest()", function() {

@@ -13,7 +13,7 @@ function instanceConfig(id, fields = {}) {
 	return new lib.InstanceConfig("host", { "instance.id": id, "instance.name": `inst${id}`, ...fields });
 }
 
-// Socket stand-in for reserveSocket, records if it was closed.
+// Probe stand-in, records if it was closed.
 function fakeBound(port) {
 	return { port, closed: false, async close() { this.closed = true; } };
 }
@@ -218,7 +218,7 @@ describe("host/src/ports", function() {
 			});
 			it("keeps reservations of the instance", function() {
 				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				registry.reserve(1, "rcon", "tcp", 1000);
+				registry.reserveFixed(1, "rcon", "tcp", 1000);
 				registry.clearConfigured(1);
 				assert(registry.isClaimed("tcp", 1000));
 			});
@@ -232,114 +232,117 @@ describe("host/src/ports", function() {
 				assert(registry.isClaimed("udp", 34100, { owner: 2, endpoint: "game" }));
 			});
 			it("keeps TCP and UDP separate", function() {
-				registry.reserve(1, "rcon", "tcp", 1000);
+				registry.reserveFixed(1, "rcon", "tcp", 1000);
 				assert(registry.isClaimed("tcp", 1000));
 				assert(!registry.isClaimed("udp", 1000));
 			});
 		});
 
-		describe(".reserve()", function() {
-			it("rejects a port reserved by another server with owner and endpoint", function() {
-				registry.reserve(1, "rcon", "tcp", 1000);
+		describe(".reserveFixed()", function() {
+			it("rejects a port reserved by another instance with owner and endpoint", function() {
+				registry.reserveFixed(1, "rcon", "tcp", 1000);
 				assert.throws(
-					() => registry.reserve(2, "rcon", "tcp", 1000),
+					() => registry.reserveFixed(2, "rcon", "tcp", 1000),
 					new lib.ConflictError(
 						'Cannot use TCP port 1000 for the RCON port of instance "inst2", ' +
 						'it is in use by the RCON port of instance "inst1"'
 					),
 				);
+				assert.deepEqual(registry.reserved(2), []);
 			});
 			it("rejects a port reserved by another endpoint of the same instance", function() {
-				registry.reserve(1, "game", "udp", 34197);
+				registry.reserveFixed(1, "game", "udp", 34197);
 				assert.throws(
-					() => registry.reserve(1, "lua_udp", "udp", 34197),
+					() => registry.reserveFixed(1, "lua_udp", "udp", 34197),
 					/Lua UDP port of instance "inst1", it is in use by the game port of instance "inst1"/,
 				);
 			});
 			it("allows a port configured on a stopped instance", function() {
 				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				const reservation = registry.reserve(2, "rcon", "tcp", 1000);
-				assert.equal(reservation.port, 1000);
+				assert.equal(registry.reserveFixed(2, "rcon", "tcp", 1000), 1000);
 			});
 			it("allows TCP and UDP to share a port number", function() {
-				registry.reserve(1, "game", "udp", 34197);
-				const reservation = registry.reserve(1, "rcon", "tcp", 34197);
-				assert.equal(reservation.protocol, "tcp");
-			});
-			it("frees the port once released", function() {
-				const reservation = registry.reserve(1, "rcon", "tcp", 1000);
-				assert(!reservation.released);
-				reservation.release();
-				assert(reservation.released);
-				assert(!registry.isClaimed("tcp", 1000));
-				registry.reserve(2, "rcon", "tcp", 1000);
+				registry.reserveFixed(1, "game", "udp", 34197);
+				registry.reserveFixed(1, "rcon", "tcp", 34197);
+				assert.deepEqual(registry.reserved(1), [
+					{ owner: 1, endpoint: "game", protocol: "udp", port: 34197 },
+					{ owner: 1, endpoint: "rcon", protocol: "tcp", port: 34197 },
+				]);
 			});
 		});
 
-		describe(".reserveSocket()", function() {
+		describe(".release()", function() {
+			it("frees all ports of the instance", function() {
+				registry.reserveFixed(1, "game", "udp", 34197);
+				registry.reserveFixed(1, "rcon", "tcp", 1000);
+				registry.reserveFixed(2, "rcon", "tcp", 1001);
+				registry.release(1);
+				assert.deepEqual(registry.reserved(1), []);
+				assert(!registry.isClaimed("udp", 34197));
+				registry.reserveFixed(3, "rcon", "tcp", 1000);
+				assert(registry.isClaimed("tcp", 1001));
+			});
+		});
+
+		describe(".reserveFree()", function() {
+			function fakeProbes(ports) {
+				const probes = ports.map(fakeBound);
+				const queue = [...probes];
+				registry._probe = async () => queue.shift();
+				return probes;
+			}
 			it("skips ports configured on stopped instances and reserved by running ones", async function() {
 				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				registry.reserve(2, "rcon", "tcp", 1001);
-				const sockets = [fakeBound(1000), fakeBound(1001), fakeBound(1002)];
-				const queue = [...sockets];
-				const bind = async () => queue.shift();
-				const { reservation, socket } = await registry.reserveSocket(3, "rcon", "tcp", bind);
-				assert.equal(reservation.port, 1002);
-				assert.equal(reservation.owner, 3);
-				assert.equal(socket, sockets[2]);
-				assert.deepEqual(sockets.map(s => s.closed), [true, true, false]);
+				registry.reserveFixed(2, "rcon", "tcp", 1001);
+				const probes = fakeProbes([1000, 1001, 1002]);
+				assert.equal(await registry.reserveFree(3, "rcon", "tcp"), 1002);
+				assert.deepEqual(registry.reserved(3), [{ owner: 3, endpoint: "rcon", protocol: "tcp", port: 1002 }]);
+				assert(probes.every(probe => probe.closed));
 			});
 			it("does not skip a port only claimed on the other protocol", async function() {
 				registry.setConfigured(1, instanceConfig(1, { "factorio.game_port": 1000 }));
-				const { reservation } = await registry.reserveSocket(2, "rcon", "tcp", async () => fakeBound(1000));
-				assert.equal(reservation.port, 1000);
+				fakeProbes([1000]);
+				assert.equal(await registry.reserveFree(2, "rcon", "tcp"), 1000);
 			});
 			it("gives up after 100 claimed ports", async function() {
-				registry.reserve(1, "rcon", "tcp", 1000);
-				const sockets = [];
+				registry.reserveFixed(1, "rcon", "tcp", 1000);
+				const probes = fakeProbes(Array(101).fill(1000));
 				await assert.rejects(
-					registry.reserveSocket(2, "rcon", "tcp", async () => {
-						sockets.push(fakeBound(1000));
-						return sockets.at(-1);
-					}),
+					registry.reserveFree(2, "rcon", "tcp"),
 					new lib.EnvironmentError('No free TCP port found for the RCON port of instance "inst2"'),
 				);
-				assert.equal(sockets.length, 100);
-				assert(sockets.every(s => s.closed));
+				assert.equal(probes.filter(probe => probe.closed).length, 100);
 			});
-			it("closes skipped sockets if binding fails", async function() {
-				registry.reserve(1, "rcon", "tcp", 1000);
+			it("closes skipped probes if probing fails", async function() {
+				registry.reserveFixed(1, "rcon", "tcp", 1000);
 				const skipped = fakeBound(1000);
 				let calls = 0;
-				await assert.rejects(registry.reserveSocket(2, "rcon", "tcp", async () => {
+				registry._probe = async () => {
 					calls += 1;
 					if (calls > 1) {
 						throw Object.assign(new Error("denied"), { code: "EACCES" });
 					}
 					return skipped;
-				}), { code: "EACCES" });
+				};
+				await assert.rejects(registry.reserveFree(2, "rcon", "tcp"), { code: "EACCES" });
 				assert(skipped.closed);
 			});
-		});
-
-		describe(".reserveFree()", function() {
 			for (const protocol of ["tcp", "udp"]) {
 				// eslint-disable-next-line no-loop-func
 				it(`keeps concurrent ${protocol} reservations distinct`, async function() {
-					const reservations = await Promise.all(
+					const ports = await Promise.all(
 						Array.from({ length: 32 }, (_, i) => registry.reserveFree(i, "rcon", protocol))
 					);
-					assert.equal(new Set(reservations.map(r => r.port)).size, reservations.length);
-					for (const reservation of reservations) {
-						assert(registry.isClaimed(protocol, reservation.port));
-						reservation.release();
+					assert.equal(new Set(ports).size, ports.length);
+					for (const port of ports) {
+						assert(registry.isClaimed(protocol, port));
 					}
 				});
 			}
-			it("closes the probe socket", async function() {
-				const reservation = await registry.reserveFree(1, "rcon", "tcp");
+			it("leaves the port unbound", async function() {
+				const port = await registry.reserveFree(1, "rcon", "tcp");
 				const server = net.createServer();
-				server.listen({ host: "0.0.0.0", port: reservation.port });
+				server.listen({ host: "0.0.0.0", port });
 				await events.once(server, "listening");
 				await new Promise(resolve => server.close(resolve));
 			});

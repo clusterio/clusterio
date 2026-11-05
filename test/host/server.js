@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import * as hostServer from "@clusterio/host/dist/node/src/server.js";
-import { Link, wait } from "@clusterio/lib";
+import { EnvironmentError, Link, wait } from "@clusterio/lib";
 import { testLines } from "../lib/factorio/lines.js";
 import { slowTest, externalTest } from "../common.js";
 import "../setup_logging.js";
@@ -372,7 +372,11 @@ describe("host/server", function() {
 				received = [];
 				udpServer.on("message", (msg, rinfo) => received.push([msg, rinfo]));
 				await events.once(udpServer.bind(0, "127.0.0.1"), "listening");
-				server.configuredPorts.lua_udp = udpServer.address().port;
+				server.luaUdpPort = udpServer.address().port;
+				const probe = dgram.createSocket("udp4");
+				await events.once(probe.bind(0, "127.0.0.1"), "listening");
+				server._hostUdpPort = probe.address().port;
+				probe.close();
 			});
 			after(function() {
 				udpServer.close();
@@ -528,22 +532,24 @@ describe("host/server", function() {
 				await server._startUdp();
 				await assert.rejects(server._startUdp(), new Error("UDP socket is already open"));
 			});
-			it("should log an error if opening the socket fails", async function() {
+			it("should raise an error if opening the socket fails", async function() {
 				const createSocket = dgram.createSocket;
 				dgram.createSocket = (...args) => {
 					const socket = createSocket(...args);
 					socket.bind = () => process.nextTick(() => socket.emit("error", new Error("bind failed")));
 					return socket;
 				};
-				const { lines, restore } = captureLogger("error");
 				try {
-					await server._startUdp();
+					await assert.rejects(
+						server._startUdp(),
+						new EnvironmentError(
+							`Failed to bind host Lua UDP socket to port ${server._hostUdpPort}: bind failed`
+						),
+					);
 				} finally {
 					dgram.createSocket = createSocket;
-					restore();
 				}
 				assert.equal(server._udpSocket, null);
-				assert(lines[0].startsWith("Failed to open UDP socket:\nError: bind failed"), lines[0]);
 			});
 			it("should close the socket when the server exits", async function() {
 				await server._startUdp();

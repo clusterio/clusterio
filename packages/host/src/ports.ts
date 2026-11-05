@@ -16,14 +16,28 @@ const endpointNames: Record<PortEndpoint, string> = {
 	host_lua_udp: "host Lua UDP socket",
 };
 
-/** Port set in the config of an assigned instance */
-export interface ConfiguredPortClaim {
+/** Port used by an instance */
+export interface PortClaim {
 	owner: number;
 	endpoint: PortEndpoint;
 	protocol: PortProtocol;
 	port: number;
+}
+
+/** Port set in the config of an assigned instance */
+export interface ConfiguredPortClaim extends PortClaim {
 	/** Config field the port is set in */
 	field: string;
+}
+
+/** Ports the host reserved for an instance to run Factorio with */
+export interface InstancePorts {
+	gamePort: number;
+	rconPort: number;
+	/** Only set with Lua UDP enabled */
+	luaUdpPort?: number;
+	/** Only set with Lua UDP enabled */
+	hostUdpPort?: number;
 }
 
 /** Socket bound to a port, kept open until closed */
@@ -76,14 +90,7 @@ async function listenTcp(host: string): Promise<BoundPort> {
 	};
 }
 
-/**
- * Bind a UDP socket to a port picked by the OS
- *
- * @param type - Socket type, udp6 sockets are dual stack.
- * @param address - Address to bind to.
- * @returns the bound socket.
- */
-export async function bindUdp(type: "udp4" | "udp6", address: string) {
+async function bindUdp(type: "udp4" | "udp6", address: string) {
 	const socket = dgram.createSocket({ type, ipv6Only: false });
 	try {
 		await new Promise<void>((resolve, reject) => {
@@ -100,7 +107,6 @@ export async function bindUdp(type: "udp4" | "udp6", address: string) {
 		throw err;
 	}
 	return {
-		socket,
 		port: socket.address().port,
 		close: () => new Promise<void>(resolve => { socket.close(() => resolve()); }),
 	};
@@ -129,36 +135,18 @@ export async function probeFreePort(protocol: PortProtocol): Promise<BoundPort> 
 	}
 }
 
-/** Port held by a running server, the port is free again once released */
-export class PortReservation {
-	constructor(
-		private _registry: PortRegistry,
-		readonly owner: number,
-		readonly endpoint: PortEndpoint,
-		readonly protocol: PortProtocol,
-		readonly port: number,
-	) { }
-
-	get released() {
-		return !this._registry._reservations.has(this);
-	}
-
-	release() {
-		this._registry._reservations.delete(this);
-	}
-}
-
 /**
  * Ports in use by the instances of a host
  *
  * Holds the ports set in the config of assigned instances, including
- * stopped ones, and the ports reserved by running servers.  Automatic
- * ports are picked to avoid both.  This only covers the host's own
- * instances, ports taken by other processes are found by binding them.
+ * stopped ones, and the ports reserved for running instances.  Free ports
+ * are picked to avoid both.  This only covers the host's own instances,
+ * ports taken by other processes are found by binding them.
  */
 export class PortRegistry {
 	_configured = new Map<number, ConfiguredPortClaim[]>();
-	_reservations = new Set<PortReservation>();
+	_reserved = new Map<number, PortClaim[]>();
+	_probe = probeFreePort;
 
 	constructor(
 		/** Name of the owner used in messages */
@@ -193,12 +181,8 @@ export class PortRegistry {
 			if (claim.field === "factorio.host_assigned_game_port") {
 				continue; // Reassigned on start if taken
 			}
-			for (const other of this.claims(claim.protocol, claim.port)) {
-				if (
-					other === claim
-					|| other instanceof PortReservation
-					|| other.field === "factorio.host_assigned_game_port"
-				) {
+			for (const other of this._configuredClaims(claim.protocol, claim.port)) {
+				if (other === claim || other.field === "factorio.host_assigned_game_port") {
 					continue;
 				}
 				const owner = other.owner === claim.owner ? "the same instance" : this.describeOwner(other.owner);
@@ -211,26 +195,25 @@ export class PortRegistry {
 		return conflicts;
 	}
 
-	/** Configured claims and reservations of the given port */
-	claims(protocol: PortProtocol, port: number) {
-		const found: (ConfiguredPortClaim | PortReservation)[] = [];
-		for (const claims of this._configured.values()) {
-			for (const claim of claims) {
-				if (claim.protocol === protocol && claim.port === port) {
-					found.push(claim);
-				}
-			}
-		}
-		for (const reservation of this._reservations) {
-			if (reservation.protocol === protocol && reservation.port === port) {
-				found.push(reservation);
-			}
-		}
-		return found;
+	_configuredClaims(protocol: PortProtocol, port: number) {
+		return [...this._configured.values()].flat().filter(
+			claim => claim.protocol === protocol && claim.port === port
+		);
+	}
+
+	_reservedClaims(protocol: PortProtocol, port: number) {
+		return [...this._reserved.values()].flat().filter(
+			claim => claim.protocol === protocol && claim.port === port
+		);
+	}
+
+	/** Configured and reserved claims of the given port */
+	claims(protocol: PortProtocol, port: number): PortClaim[] {
+		return [...this._configuredClaims(protocol, port), ...this._reservedClaims(protocol, port)];
 	}
 
 	/**
-	 * Check if a port is claimed by config or reserved
+	 * Check if a port is configured or reserved
 	 *
 	 * @param protocol - Protocol of the port.
 	 * @param port - Port to check.
@@ -243,63 +226,72 @@ export class PortRegistry {
 		);
 	}
 
+	/** Ports reserved for an instance */
+	reserved(owner: number) {
+		return this._reserved.get(owner) ?? [];
+	}
+
+	_add(claim: PortClaim) {
+		const reserved = this._reserved.get(claim.owner);
+		if (reserved) {
+			reserved.push(claim);
+		} else {
+			this._reserved.set(claim.owner, [claim]);
+		}
+	}
+
 	/**
 	 * Reserve a fixed port
 	 *
 	 * Ports configured on stopped instances do not prevent this, only
-	 * ports reserved by running servers.
+	 * ports reserved for running instances.
 	 *
 	 * @param owner - ID of the instance reserving the port.
 	 * @param endpoint - What the port is used for.
 	 * @param protocol - Protocol of the port.
 	 * @param port - Port to reserve.
-	 * @returns the reservation.
+	 * @returns the port.
 	 * @throws {lib.ConflictError} if the port is already reserved.
 	 */
-	reserve(owner: number, endpoint: PortEndpoint, protocol: PortProtocol, port: number) {
-		for (const reservation of this._reservations) {
-			if (reservation.protocol === protocol && reservation.port === port) {
-				throw new lib.ConflictError(
-					`Cannot use ${protocol.toUpperCase()} port ${port} for the ${endpointNames[endpoint]} of ` +
-					`${this.describeOwner(owner)}, it is in use by the ${endpointNames[reservation.endpoint]} of ` +
-					`${this.describeOwner(reservation.owner)}`
-				);
-			}
+	reserveFixed(owner: number, endpoint: PortEndpoint, protocol: PortProtocol, port: number) {
+		const [other] = this._reservedClaims(protocol, port);
+		if (other) {
+			throw new lib.ConflictError(
+				`Cannot use ${protocol.toUpperCase()} port ${port} for the ${endpointNames[endpoint]} of ` +
+				`${this.describeOwner(owner)}, it is in use by the ${endpointNames[other.endpoint]} of ` +
+				`${this.describeOwner(other.owner)}`
+			);
 		}
-		const reservation = new PortReservation(this, owner, endpoint, protocol, port);
-		this._reservations.add(reservation);
-		return reservation;
+		this._add({ owner, endpoint, protocol, port });
+		return port;
 	}
 
 	/**
-	 * Reserve the port of a socket bound to a port picked by the OS
+	 * Reserve a free port picked by the OS
 	 *
-	 * Rebinds until the OS gives a port that is not claimed.
+	 * Probes until the OS gives a port that is not claimed.  The port is
+	 * free when picked, but another process may bind it before Factorio
+	 * does.
 	 *
 	 * @param owner - ID of the instance reserving the port.
 	 * @param endpoint - What the port is used for.
 	 * @param protocol - Protocol of the port.
-	 * @param bind - Binds a new socket.
-	 * @returns the reservation and the bound socket.
+	 * @returns the port.
 	 */
-	async reserveSocket<T extends BoundPort>(
-		owner: number,
-		endpoint: PortEndpoint,
-		protocol: PortProtocol,
-		bind: () => Promise<T>,
-	) {
+	async reserveFree(owner: number, endpoint: PortEndpoint, protocol: PortProtocol) {
 		// Claimed ports stay bound until done so the OS does not hand them out again.
-		const rejected: BoundPort[] = [];
+		const probes: BoundPort[] = [];
 		try {
 			for (let attempt = 0; attempt < 100; attempt++) {
-				const socket = await bind();
-				if (!this.isClaimed(protocol, socket.port)) {
-					return { reservation: this.reserve(owner, endpoint, protocol, socket.port), socket };
+				const probe = await this._probe(protocol);
+				probes.push(probe);
+				if (!this.isClaimed(protocol, probe.port)) {
+					this._add({ owner, endpoint, protocol, port: probe.port });
+					return probe.port;
 				}
-				rejected.push(socket);
 			}
 		} finally {
-			await Promise.all(rejected.map(socket => socket.close()));
+			await Promise.all(probes.map(probe => probe.close()));
 		}
 		throw new lib.EnvironmentError(
 			`No free ${protocol.toUpperCase()} port found for the ${endpointNames[endpoint]} of ` +
@@ -307,22 +299,8 @@ export class PortRegistry {
 		);
 	}
 
-	/**
-	 * Reserve a free port picked by the OS
-	 *
-	 * The port is free when picked, but another process may bind it before
-	 * the server does.
-	 *
-	 * @param owner - ID of the instance reserving the port.
-	 * @param endpoint - What the port is used for.
-	 * @param protocol - Protocol of the port.
-	 * @returns the reservation.
-	 */
-	async reserveFree(owner: number, endpoint: PortEndpoint, protocol: PortProtocol) {
-		const { reservation, socket } = await this.reserveSocket(
-			owner, endpoint, protocol, () => probeFreePort(protocol)
-		);
-		await socket.close();
-		return reservation;
+	/** Release the ports reserved for an instance */
+	release(owner: number) {
+		this._reserved.delete(owner);
 	}
 }
