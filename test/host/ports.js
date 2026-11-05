@@ -9,6 +9,8 @@ import {
 } from "@clusterio/host/dist/node/src/ports.js";
 import "../setup_logging.js";
 
+const inst1 = { instanceId: 1, instanceName: "inst1" };
+
 function instanceConfig(id, fields = {}) {
 	return new lib.InstanceConfig("host", { "instance.id": id, "instance.name": `inst${id}`, ...fields });
 }
@@ -42,9 +44,9 @@ describe("host/src/ports", function() {
 				"factorio.lua_udp_port": 40000,
 			});
 			assert.deepEqual(configuredPortClaims(config), [
-				{ owner: 1, endpoint: "game", protocol: "udp", port: 34197, field: "factorio.game_port" },
-				{ owner: 1, endpoint: "rcon", protocol: "tcp", port: 34197, field: "factorio.rcon_port" },
-				{ owner: 1, endpoint: "lua_udp", protocol: "udp", port: 40000, field: "factorio.lua_udp_port" },
+				{ ...inst1, endpoint: "game", protocol: "udp", port: 34197, field: "factorio.game_port" },
+				{ ...inst1, endpoint: "rcon", protocol: "tcp", port: 34197, field: "factorio.rcon_port" },
+				{ ...inst1, endpoint: "lua_udp", protocol: "udp", port: 40000, field: "factorio.lua_udp_port" },
 			]);
 		});
 		it("does not claim null or zero ports", function() {
@@ -61,7 +63,7 @@ describe("host/src/ports", function() {
 		it("claims the host assigned game port when game_port is null", function() {
 			const config = instanceConfig(1, { "factorio.host_assigned_game_port": 34100 });
 			assert.deepEqual(configuredPortClaims(config), [
-				{ owner: 1, endpoint: "game", protocol: "udp", port: 34100, field: "factorio.host_assigned_game_port" },
+				{ ...inst1, endpoint: "game", protocol: "udp", port: 34100, field: "factorio.host_assigned_game_port" },
 			]);
 		});
 		it("does not claim the Lua UDP port when Lua UDP is disabled", function() {
@@ -176,157 +178,175 @@ describe("host/src/ports", function() {
 	});
 
 	describe("class PortRegistry", function() {
+		let instances;
 		let registry;
 		beforeEach(function() {
-			registry = new PortRegistry(owner => `instance "inst${owner}"`);
+			instances = new Map();
+			registry = new PortRegistry(instances);
 		});
-
-		describe(".setConfigured()", function() {
-			it("replaces the claims of an instance", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				assert(registry.isClaimed("tcp", 1000));
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 2000 }));
-				assert(!registry.isClaimed("tcp", 1000));
-				assert(registry.isClaimed("tcp", 2000));
-			});
-			it("reports fixed ports configured on another instance with owner and endpoint", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.game_port": 34197 }));
-				const conflicts = registry.setConfigured(2, instanceConfig(2, {
-					"factorio.enable_lua_udp": true, "factorio.lua_udp_port": 34197,
-				}));
-				assert.deepEqual(conflicts, [
-					'factorio.lua_udp_port 34197 (UDP) is also the game port of instance "inst1", ' +
-					"only one of them can be running",
-				]);
-			});
-			it("reports fixed ports used twice by the same instance", function() {
-				const conflicts = registry.setConfigured(1, instanceConfig(1, {
-					"factorio.game_port": 34197, "factorio.enable_lua_udp": true, "factorio.lua_udp_port": 34197,
-				}));
-				assert.equal(conflicts.length, 2);
-				assert.match(conflicts[0], /game_port 34197 \(UDP\) is also the Lua UDP port of the same instance/);
-			});
-			it("does not report the same port on TCP and UDP", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.game_port": 34197 }));
-				assert.deepEqual(registry.setConfigured(2, instanceConfig(2, { "factorio.rcon_port": 34197 })), []);
-			});
-			it("does not report host assigned game ports", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.host_assigned_game_port": 34100 }));
-				assert.deepEqual(registry.setConfigured(2, instanceConfig(2, { "factorio.game_port": 34100 })), []);
-			});
-			it("does not report again if the claims did not change", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				const config = instanceConfig(2, { "factorio.rcon_port": 1000 });
-				assert.equal(registry.setConfigured(2, config).length, 1);
-				assert.equal(registry.setConfigured(2, config).length, 0);
-			});
-		});
-
-		describe(".clearConfigured()", function() {
-			it("removes the claims of an instance", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				registry.clearConfigured(1);
-				assert(!registry.isClaimed("tcp", 1000));
-			});
-			it("keeps reservations of the instance", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				registry.reserveFixed(1, "rcon", "tcp", 1000);
-				registry.clearConfigured(1);
-				assert(registry.isClaimed("tcp", 1000));
-			});
-		});
+		function assign(id, fields = {}) {
+			instances.set(id, { config: instanceConfig(id, fields) });
+		}
+		function reserve(id, fields = {}, range = new Set()) {
+			return registry.reserve(instanceConfig(id, fields), range);
+		}
+		function fakeProbes(ports) {
+			const probes = ports.map(fakeBound);
+			const queue = [...probes];
+			registry._probe = async () => queue.shift();
+			return probes;
+		}
 
 		describe(".isClaimed()", function() {
-			it("ignores claims by the excluded owner and endpoint", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.host_assigned_game_port": 34100 }));
-				assert(!registry.isClaimed("udp", 34100, { owner: 1, endpoint: "game" }));
-				assert(registry.isClaimed("udp", 34100, { owner: 1, endpoint: "lua_udp" }));
-				assert(registry.isClaimed("udp", 34100, { owner: 2, endpoint: "game" }));
+			it("follows the config of assigned instances", function() {
+				assign(1, { "factorio.rcon_port": 1000 });
+				assert(registry.isClaimed("tcp", 1000));
+				instances.get(1).config.set("factorio.rcon_port", 2000);
+				assert(!registry.isClaimed("tcp", 1000));
+				assert(registry.isClaimed("tcp", 2000));
+				instances.delete(1);
+				assert(!registry.isClaimed("tcp", 2000));
 			});
-			it("keeps TCP and UDP separate", function() {
-				registry.reserveFixed(1, "rcon", "tcp", 1000);
+			it("ignores claims by the excluded instance and endpoint", function() {
+				assign(1, { "factorio.host_assigned_game_port": 34100 });
+				assert(!registry.isClaimed("udp", 34100, { instanceId: 1, endpoint: "game" }));
+				assert(registry.isClaimed("udp", 34100, { instanceId: 1, endpoint: "lua_udp" }));
+				assert(registry.isClaimed("udp", 34100, { instanceId: 2, endpoint: "game" }));
+			});
+			it("keeps TCP and UDP separate", async function() {
+				await reserve(1, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 });
 				assert(registry.isClaimed("tcp", 1000));
 				assert(!registry.isClaimed("udp", 1000));
 			});
 		});
 
-		describe(".reserveFixed()", function() {
-			it("rejects a port reserved by another instance with owner and endpoint", function() {
-				registry.reserveFixed(1, "rcon", "tcp", 1000);
-				assert.throws(
-					() => registry.reserveFixed(2, "rcon", "tcp", 1000),
-					new lib.ConflictError(
-						'Cannot use TCP port 1000 for the RCON port of instance "inst2", ' +
-						'it is in use by the RCON port of instance "inst1"'
-					),
-				);
-				assert.deepEqual(registry.reserved(2), []);
-			});
-			it("rejects a port reserved by another endpoint of the same instance", function() {
-				registry.reserveFixed(1, "game", "udp", 34197);
-				assert.throws(
-					() => registry.reserveFixed(1, "lua_udp", "udp", 34197),
-					/Lua UDP port of instance "inst1", it is in use by the game port of instance "inst1"/,
-				);
-			});
-			it("allows a port configured on a stopped instance", function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				assert.equal(registry.reserveFixed(2, "rcon", "tcp", 1000), 1000);
-			});
-			it("allows TCP and UDP to share a port number", function() {
-				registry.reserveFixed(1, "game", "udp", 34197);
-				registry.reserveFixed(1, "rcon", "tcp", 34197);
-				assert.deepEqual(registry.reserved(1), [
-					{ owner: 1, endpoint: "game", protocol: "udp", port: 34197 },
-					{ owner: 1, endpoint: "rcon", protocol: "tcp", port: 34197 },
+		describe(".configuredConflicts()", function() {
+			it("reports fixed ports configured on another instance with owner and endpoint", function() {
+				assign(1, { "factorio.game_port": 34197 });
+				assign(2, { "factorio.enable_lua_udp": true, "factorio.lua_udp_port": 34197 });
+				assert.deepEqual(registry.configuredConflicts(2), [
+					'factorio.lua_udp_port 34197 (UDP) is also the game port of instance "inst1" (ID 1), ' +
+					"only one of them can be running",
 				]);
 			});
-		});
-
-		describe(".release()", function() {
-			it("frees all ports of the instance", function() {
-				registry.reserveFixed(1, "game", "udp", 34197);
-				registry.reserveFixed(1, "rcon", "tcp", 1000);
-				registry.reserveFixed(2, "rcon", "tcp", 1001);
-				registry.release(1);
-				assert.deepEqual(registry.reserved(1), []);
-				assert(!registry.isClaimed("udp", 34197));
-				registry.reserveFixed(3, "rcon", "tcp", 1000);
-				assert(registry.isClaimed("tcp", 1001));
+			it("reports fixed ports used twice by the same instance", function() {
+				assign(1, {
+					"factorio.game_port": 34197, "factorio.enable_lua_udp": true, "factorio.lua_udp_port": 34197,
+				});
+				const conflicts = registry.configuredConflicts(1);
+				assert.equal(conflicts.length, 2);
+				assert.match(conflicts[0], /game_port 34197 \(UDP\) is also the Lua UDP port of the same instance/);
+			});
+			it("does not report the same port on TCP and UDP", function() {
+				assign(1, { "factorio.game_port": 34197 });
+				assign(2, { "factorio.rcon_port": 34197 });
+				assert.deepEqual(registry.configuredConflicts(2), []);
+			});
+			it("does not report host assigned game ports", function() {
+				assign(1, { "factorio.host_assigned_game_port": 34100 });
+				assign(2, { "factorio.game_port": 34100 });
+				assert.deepEqual(registry.configuredConflicts(2), []);
 			});
 		});
 
-		describe(".reserveFree()", function() {
-			function fakeProbes(ports) {
-				const probes = ports.map(fakeBound);
-				const queue = [...probes];
-				registry._probe = async () => queue.shift();
-				return probes;
-			}
-			it("skips ports configured on stopped instances and reserved by running ones", async function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.rcon_port": 1000 }));
-				registry.reserveFixed(2, "rcon", "tcp", 1001);
+		describe(".reserve()", function() {
+			it("uses fixed ports as is and picks the rest", async function() {
+				fakeProbes([2000, 2001, 2002]);
+				const reservation = await reserve(1, {
+					"factorio.game_port": 34197, "factorio.enable_lua_udp": true,
+				});
+				assert.deepEqual(reservation.ports, {
+					game: 34197, rcon: 2000, luaUdp: { factorio: 2001, host: 2002 },
+				});
+				assert.deepEqual(reservation.claims.map(c => [c.endpoint, c.protocol, c.port]), [
+					["game", "udp", 34197], ["rcon", "tcp", 2000],
+					["lua_udp", "udp", 2001], ["host_lua_udp", "udp", 2002],
+				]);
+			});
+			it("has no Lua UDP ports when Lua UDP is disabled", async function() {
+				const reservation = await reserve(1, { "factorio.game_port": 34197, "factorio.lua_udp_port": 40000 });
+				assert.equal(reservation.ports.luaUdp, null);
+				assert(!registry.isClaimed("udp", 40000));
+			});
+			it("picks any free port for game_port 0 and from the range for null", async function() {
+				fakeProbes([2000, 2001]);
+				const any = await reserve(1, { "factorio.game_port": 0 });
+				assert.equal(any.ports.game, 2000);
+				registry._probe = async (protocol, port) => fakeBound(port || 3000);
+				const ranged = await reserve(2, {}, new Set([34100]));
+				assert.equal(ranged.ports.game, 34100);
+			});
+			it("rejects a fixed port reserved for another instance with owner and endpoint", async function() {
+				await reserve(1, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 });
+				await assert.rejects(
+					reserve(2, { "factorio.game_port": 34198, "factorio.rcon_port": 1000 }),
+					new lib.ConflictError(
+						'Cannot use TCP port 1000 for the RCON port of instance "inst2" (ID 2), ' +
+						'it is in use by the RCON port of instance "inst1" (ID 1)'
+					),
+				);
+				assert(!registry.isClaimed("udp", 34198), "partial reservation was kept");
+			});
+			it("rejects the same fixed UDP port for two endpoints of one instance", async function() {
+				await assert.rejects(
+					reserve(1, {
+						"factorio.game_port": 34197, "factorio.enable_lua_udp": true, "factorio.lua_udp_port": 34197,
+					}),
+					/Lua UDP port of instance "inst1" \(ID 1\), it is in use by the game port of instance "inst1"/,
+				);
+			});
+			it("allows a fixed port configured on a stopped instance", async function() {
+				assign(1, { "factorio.rcon_port": 1000 });
+				const reservation = await reserve(2, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 });
+				assert.equal(reservation.ports.rcon, 1000);
+			});
+			it("releases what it reserved if picking a free port fails", async function() {
+				registry._probe = async () => { throw new Error("probe failed"); };
+				await assert.rejects(reserve(1, { "factorio.game_port": 34197 }), /probe failed/);
+				assert(!registry.isClaimed("udp", 34197));
+			});
+			it("keeps concurrent reservations distinct", async function() {
+				const reservations = await Promise.all(Array.from({ length: 16 }, (_, i) => reserve(i, {
+					"factorio.game_port": 0, "factorio.enable_lua_udp": true,
+				})));
+				const udp = reservations.flatMap(r => [r.ports.game, r.ports.luaUdp.factorio, r.ports.luaUdp.host]);
+				assert.equal(new Set(udp).size, udp.length);
+				assert.equal(new Set(reservations.map(r => r.ports.rcon)).size, reservations.length);
+			});
+			it("leaves the picked ports unbound", async function() {
+				const { ports } = await reserve(1, { "factorio.game_port": 34197 });
+				const server = net.createServer();
+				server.listen({ host: "0.0.0.0", port: ports.rcon });
+				await events.once(server, "listening");
+				await new Promise(resolve => server.close(resolve));
+			});
+		});
+
+		describe("picking a free port", function() {
+			it("skips ports configured on stopped instances and reserved for running ones", async function() {
+				assign(1, { "factorio.rcon_port": 1000 });
+				await reserve(2, { "factorio.game_port": 34197, "factorio.rcon_port": 1001 });
 				const probes = fakeProbes([1000, 1001, 1002]);
-				assert.equal(await registry.reserveFree(3, "rcon", "tcp"), 1002);
-				assert.deepEqual(registry.reserved(3), [{ owner: 3, endpoint: "rcon", protocol: "tcp", port: 1002 }]);
+				const reservation = await reserve(3, { "factorio.game_port": 34198 });
+				assert.equal(reservation.ports.rcon, 1002);
 				assert(probes.every(probe => probe.closed));
 			});
 			it("does not skip a port only claimed on the other protocol", async function() {
-				registry.setConfigured(1, instanceConfig(1, { "factorio.game_port": 1000 }));
+				assign(1, { "factorio.game_port": 1000 });
 				fakeProbes([1000]);
-				assert.equal(await registry.reserveFree(2, "rcon", "tcp"), 1000);
+				assert.equal((await reserve(2, { "factorio.game_port": 34197 })).ports.rcon, 1000);
 			});
 			it("gives up after 100 claimed ports", async function() {
-				registry.reserveFixed(1, "rcon", "tcp", 1000);
+				await reserve(1, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 });
 				const probes = fakeProbes(Array(101).fill(1000));
 				await assert.rejects(
-					registry.reserveFree(2, "rcon", "tcp"),
-					new lib.EnvironmentError('No free TCP port found for the RCON port of instance "inst2"'),
+					reserve(2, { "factorio.game_port": 34198 }),
+					new lib.EnvironmentError('No free TCP port found for the RCON port of instance "inst2" (ID 2)'),
 				);
 				assert.equal(probes.filter(probe => probe.closed).length, 100);
 			});
 			it("closes skipped probes if probing fails", async function() {
-				registry.reserveFixed(1, "rcon", "tcp", 1000);
+				await reserve(1, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 });
 				const skipped = fakeBound(1000);
 				let calls = 0;
 				registry._probe = async () => {
@@ -336,28 +356,21 @@ describe("host/src/ports", function() {
 					}
 					return skipped;
 				};
-				await assert.rejects(registry.reserveFree(2, "rcon", "tcp"), { code: "EACCES" });
+				await assert.rejects(reserve(2, { "factorio.game_port": 34198 }), { code: "EACCES" });
 				assert(skipped.closed);
 			});
-			for (const protocol of ["tcp", "udp"]) {
-				// eslint-disable-next-line no-loop-func
-				it(`keeps concurrent ${protocol} reservations distinct`, async function() {
-					const ports = await Promise.all(
-						Array.from({ length: 32 }, (_, i) => registry.reserveFree(i, "rcon", protocol))
-					);
-					assert.equal(new Set(ports).size, ports.length);
-					for (const port of ports) {
-						assert(registry.isClaimed(protocol, port));
-					}
-				});
-			}
-			describe("with a range", function() {
+
+			describe("from a range", function() {
+				const range = new Set([34100, 34101, 34102]);
 				let busy;
 				let probed;
 				beforeEach(function() {
 					busy = new Set();
 					probed = [];
 					registry._probe = async (protocol, port) => {
+						if (protocol === "tcp") {
+							return fakeBound(1000);
+						}
 						probed.push(port);
 						if (busy.has(port)) {
 							throw Object.assign(new Error("in use"), { code: "EADDRINUSE" });
@@ -365,55 +378,79 @@ describe("host/src/ports", function() {
 						return fakeBound(port);
 					};
 				});
-				const range = new Set([34100, 34101, 34102]);
+				function reserveGame(id, preferred = null) {
+					return reserve(id, { "factorio.host_assigned_game_port": preferred }, range);
+				}
 
 				it("tries the preferred port first", async function() {
-					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 34102 }), 34102);
+					assert.equal((await reserveGame(1, 34102)).ports.game, 34102);
 					assert.deepEqual(probed, [34102]);
 				});
 				it("ignores a preferred port outside the range", async function() {
-					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 40000 }), 34100);
+					assert.equal((await reserveGame(1, 40000)).ports.game, 34100);
 				});
 				it("skips claimed ports without probing them and ports other processes use", async function() {
-					registry.setConfigured(2, instanceConfig(2, { "factorio.game_port": 34100 }));
+					assign(2, { "factorio.game_port": 34100 });
 					busy.add(34101);
-					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 34100 }), 34102);
+					assert.equal((await reserveGame(1, 34100)).ports.game, 34102);
 					assert.deepEqual(probed, [34101, 34102]);
 				});
-				it("does not skip its own configured port for the same endpoint", async function() {
-					registry.setConfigured(1, instanceConfig(1, { "factorio.host_assigned_game_port": 34101 }));
-					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 34101 }), 34101);
+				it("does not skip its own host assigned game port", async function() {
+					assign(1, { "factorio.host_assigned_game_port": 34101 });
+					assert.equal((await reserveGame(1, 34101)).ports.game, 34101);
 				});
 				it("rejects when every port in the range is taken", async function() {
-					registry.reserveFixed(2, "game", "udp", 34100);
+					await reserve(2, { "factorio.game_port": 34100, "factorio.rcon_port": 2000 });
 					busy.add(34101);
 					busy.add(34102);
 					await assert.rejects(
-						registry.reserveFree(1, "game", "udp", { range }),
+						reserveGame(1),
 						new lib.ConflictError(
-							'No free UDP port left in the range for the game port of instance "inst1" ' +
+							'No free UDP port left in the range for the game port of instance "inst1" (ID 1) ' +
 							"(2 in use by other processes)"
 						),
 					);
 				});
-				it("keeps concurrent reservations distinct", async function() {
-					const ports = await Promise.all(
-						[1, 2, 3].map(id => registry.reserveFree(id, "game", "udp", { range }))
-					);
-					assert.deepEqual(ports.sort(), [...range]);
+				it("gives concurrent reservations different ports", async function() {
+					registry._probe = async (protocol, port) => fakeBound(port || 1000 + probed.push(0));
+					const reservations = await Promise.all([1, 2, 3].map(id => reserveGame(id)));
+					assert.deepEqual(reservations.map(r => r.ports.game).sort(), [...range]);
 				});
 				it("propagates errors other than the port being in use", async function() {
+					busy.add(34100);
 					registry._probe = async () => { throw Object.assign(new Error("denied"), { code: "EACCES" }); };
-					await assert.rejects(registry.reserveFree(1, "game", "udp", { range }), { code: "EACCES" });
+					await assert.rejects(reserveGame(1), { code: "EACCES" });
 				});
 			});
-			it("leaves the port unbound", async function() {
-				const port = await registry.reserveFree(1, "rcon", "tcp");
-				const server = net.createServer();
-				server.listen({ host: "0.0.0.0", port });
-				await events.once(server, "listening");
-				await new Promise(resolve => server.close(resolve));
-			});
+		});
+	});
+
+	describe("class PortReservation", function() {
+		let instances;
+		let registry;
+		beforeEach(function() {
+			instances = new Map();
+			registry = new PortRegistry(instances);
+		});
+
+		it("frees its ports once released", async function() {
+			const reservation = await registry.reserve(
+				instanceConfig(1, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 }), new Set()
+			);
+			assert(!reservation.released);
+			reservation.release();
+			assert(reservation.released);
+			assert(!registry.isClaimed("tcp", 1000));
+			assert(!registry.isClaimed("udp", 34197));
+		});
+		it("does not free the ports of a later run of the same instance", async function() {
+			const config = instanceConfig(1, { "factorio.game_port": 34197, "factorio.rcon_port": 1000 });
+			const first = await registry.reserve(config, new Set());
+			first.release();
+			const second = await registry.reserve(config, new Set());
+			first.release();
+			assert(!second.released);
+			assert(registry.isClaimed("tcp", 1000));
 		});
 	});
 });

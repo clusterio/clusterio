@@ -11,6 +11,7 @@ const execAsync = util.promisify(exec);
 import * as lib from "@clusterio/lib";
 
 import { FactorioServer, checkForUpdates } from "./server.js";
+import type { PortReservation } from "./ports.js";
 import { loadModules, patch, unpatch } from "./patch.js";
 import { exportData } from "./export.js";
 import type Host from "./Host.js";
@@ -185,6 +186,8 @@ export default class Instance extends lib.Link {
 
 	_host: Host;
 	_dir: string;
+	/** Ports the server runs with, released when the instance exits */
+	_portReservation: PortReservation;
 	_configFieldChanged: (field: string, curr: unknown, prev: unknown) => void;
 	_status: "stopped" | "starting" | "running" | "stopping" | "creating_save" | "exporting_data" = "stopped";
 	_loadedSave: string | null = null;
@@ -201,10 +204,12 @@ export default class Instance extends lib.Link {
 		dir: string,
 		instanceConfig: lib.InstanceConfig,
 		server: FactorioServer,
+		portReservation: PortReservation,
 	) {
 		super(connector);
 		this._host = host;
 		this._dir = dir;
+		this._portReservation = portReservation;
 
 		this.config = instanceConfig;
 
@@ -643,7 +648,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	notifyExit() {
-		this._host.releaseInstancePorts(this.id);
+		this._portReservation.release();
 		this._loadedSave = null;
 		this._autoPause = false;
 		this.notifyStatus("stopped");
@@ -712,8 +717,8 @@ end`.replace(/\r?\n/g, " ");
 		const id = config.get("instance.id");
 		// TODO: factorio.version is not validated
 		const targetVersion = config.get("factorio.version") as lib.TargetVersion;
-		const ports = await host.reserveInstancePorts(id);
-		const gamePort = ports.game;
+		const portReservation = await host.reserveInstancePorts(id);
+		const gamePort = portReservation.ports.game;
 		host.send(new lib.InstanceStatusChangedEvent(id, "starting", gamePort, targetVersion));
 
 		let server: FactorioServer;
@@ -742,7 +747,7 @@ end`.replace(/\r?\n/g, " ");
 				logger,
 				version,
 				executablePath: config.get("factorio.executable_path") ?? undefined,
-				ports,
+				ports: portReservation.ports,
 				rconPassword: config.get("factorio.rcon_password") ?? undefined,
 				enableWhitelist: config.get("factorio.enable_whitelist"),
 				enableAuthserverBans: config.get("factorio.enable_authserver_bans"),
@@ -753,13 +758,13 @@ end`.replace(/\r?\n/g, " ");
 				shutdownTimeoutMs: config.get("factorio.shutdown_timeout") * 1000,
 			});
 		} catch (err) {
-			host.releaseInstancePorts(id);
+			portReservation.release();
 			host.send(new lib.InstanceStatusChangedEvent(id, "stopped", gamePort, targetVersion));
 			await host.sendSaveListUpdate(id, path.join(dir, "saves"));
 			throw err;
 		}
 
-		const instance = new this(host, connector, dir, config, server);
+		const instance = new this(host, connector, dir, config, server, portReservation);
 		instance._status = "starting";
 		instance.playerStats = stats.playerStats;
 		instance._playerAutosaveSlot = stats.playerAutosaveSlot;

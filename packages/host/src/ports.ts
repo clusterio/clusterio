@@ -1,8 +1,8 @@
 import dgram from "node:dgram";
 import net from "node:net";
-import util from "node:util";
 
 import * as lib from "@clusterio/lib";
+import type { FactorioServerPorts } from "./server.js";
 
 /** TCP and UDP ports are separate, the same number may be used by both */
 export type PortProtocol = "tcp" | "udp";
@@ -16,9 +16,14 @@ const endpointNames: Record<PortEndpoint, string> = {
 	host_lua_udp: "host Lua UDP socket",
 };
 
+/** Instance a port belongs to */
+interface PortOwner {
+	instanceId: number;
+	instanceName: string;
+}
+
 /** Port used by an instance */
-export interface PortClaim {
-	owner: number;
+export interface PortClaim extends PortOwner {
 	endpoint: PortEndpoint;
 	protocol: PortProtocol;
 	port: number;
@@ -30,8 +35,8 @@ export interface ConfiguredPortClaim extends PortClaim {
 	field: string;
 }
 
-/** Where {@link PortRegistry.reserveFree} picks a port from */
-export interface FreePortOptions {
+/** Where a free port is picked from */
+interface FreePortOptions {
 	/** Ports to pick from, any port the OS hands out if not set */
 	range?: Set<number>;
 	/** Port in the range to try first */
@@ -44,6 +49,14 @@ export interface BoundPort {
 	close(): Promise<void>;
 }
 
+function instanceLabel(owner: PortOwner) {
+	return `instance "${owner.instanceName}" (ID ${owner.instanceId})`;
+}
+
+function portOwner(config: lib.InstanceConfig): PortOwner {
+	return { instanceId: config.get("instance.id"), instanceName: config.get("instance.name") };
+}
+
 /**
  * Ports set in the config of an instance
  *
@@ -53,12 +66,12 @@ export interface BoundPort {
  * @returns ports the instance claims while assigned.
  */
 export function configuredPortClaims(config: lib.InstanceConfig) {
-	const owner = config.get("instance.id");
+	const owner = portOwner(config);
 	const claims: ConfiguredPortClaim[] = [];
 	const add = (endpoint: PortEndpoint, protocol: PortProtocol, field: keyof lib.InstanceConfigFields) => {
 		const port = config.get(field) as number | null;
 		if (port) {
-			claims.push({ owner, endpoint, protocol, port, field });
+			claims.push({ ...owner, endpoint, protocol, port, field });
 		}
 	};
 	if (config.get("factorio.game_port") === null) {
@@ -135,56 +148,86 @@ export async function probePort(protocol: PortProtocol, port = 0): Promise<Bound
 }
 
 /**
+ * Ports reserved for one run of an instance
+ *
+ * Releasing only frees the ports of this reservation, so releasing a
+ * reservation from an earlier run does not touch the ports of a later one.
+ */
+export class PortReservation {
+	constructor(
+		private _held: Set<readonly PortClaim[]>,
+		readonly claims: readonly PortClaim[],
+		readonly ports: FactorioServerPorts,
+	) { }
+
+	get released() {
+		return !this._held.has(this.claims);
+	}
+
+	release() {
+		this._held.delete(this.claims);
+	}
+}
+
+/**
  * Ports in use by the instances of a host
  *
- * Holds the ports set in the config of assigned instances, including
- * stopped ones, and the ports reserved for running instances.  Free ports
- * are picked to avoid both.  This only covers the host's own instances,
- * ports taken by other processes are found by binding them.
+ * Picks the ports an instance runs with, avoiding the ports set in the
+ * config of assigned instances, including stopped ones, and the ports
+ * reserved for running ones.  Ports taken by other processes are found by
+ * binding them.
  */
 export class PortRegistry {
-	_configured = new Map<number, ConfiguredPortClaim[]>();
-	_reserved = new Map<number, PortClaim[]>();
+	/** Claims of reservations not yet released, including ones being made */
+	_held = new Set<readonly PortClaim[]>();
 	_probe = probePort;
 
 	constructor(
-		/** Name of the owner used in messages */
-		public describeOwner: (owner: number) => string = owner => `instance ${owner}`,
+		/** Instances assigned to the host */
+		private _instances: ReadonlyMap<number, { config: lib.InstanceConfig }>,
 	) { }
 
+	/** Ports set in the config of assigned instances */
+	configuredClaims() {
+		return [...this._instances.values()].flatMap(instance => configuredPortClaims(instance.config));
+	}
+
+	/** Configured and reserved claims of the given port */
+	claims(protocol: PortProtocol, port: number): PortClaim[] {
+		return [...this.configuredClaims(), ...[...this._held].flat()].filter(
+			claim => claim.protocol === protocol && claim.port === port
+		);
+	}
+
 	/**
-	 * Replace the ports claimed by the config of an instance
+	 * Check if a port is configured or reserved
 	 *
-	 * @param owner - ID of the instance.
-	 * @param config - Current config of the instance.
-	 * @returns descriptions of new conflicts with other configured ports.
+	 * @param protocol - Protocol of the port.
+	 * @param port - Port to check.
+	 * @param except - Ignore claims by this instance and endpoint.
+	 * @returns true if the port is claimed.
 	 */
-	setConfigured(owner: number, config: lib.InstanceConfig) {
-		const claims = configuredPortClaims(config);
-		const previous = this._configured.get(owner) ?? [];
-		this._configured.set(owner, claims);
-		if (util.isDeepStrictEqual(claims, previous)) {
-			return [];
-		}
-		return this._configuredConflicts(claims);
+	isClaimed(protocol: PortProtocol, port: number, except?: { instanceId: number, endpoint: PortEndpoint }) {
+		return this.claims(protocol, port).some(
+			claim => !except || claim.instanceId !== except.instanceId || claim.endpoint !== except.endpoint
+		);
 	}
 
-	/** Remove the ports claimed by the config of an unassigned instance */
-	clearConfigured(owner: number) {
-		this._configured.delete(owner);
-	}
-
-	_configuredConflicts(claims: ConfiguredPortClaim[]) {
+	/**
+	 * Fixed ports of an instance also set on another assigned instance
+	 *
+	 * @param instanceId - ID of the instance to check.
+	 * @returns descriptions of the conflicts.
+	 */
+	configuredConflicts(instanceId: number) {
+		const all = this.configuredClaims().filter(claim => claim.field !== "factorio.host_assigned_game_port");
 		const conflicts: string[] = [];
-		for (const claim of claims) {
-			if (claim.field === "factorio.host_assigned_game_port") {
-				continue; // Reassigned on start if taken
-			}
-			for (const other of this._configuredClaims(claim.protocol, claim.port)) {
-				if (other === claim || other.field === "factorio.host_assigned_game_port") {
+		for (const claim of all.filter(c => c.instanceId === instanceId)) {
+			for (const other of all) {
+				if (other === claim || other.protocol !== claim.protocol || other.port !== claim.port) {
 					continue;
 				}
-				const owner = other.owner === claim.owner ? "the same instance" : this.describeOwner(other.owner);
+				const owner = other.instanceId === instanceId ? "the same instance" : instanceLabel(other);
 				conflicts.push(
 					`${claim.field} ${claim.port} (${claim.protocol.toUpperCase()}) is also the ` +
 					`${endpointNames[other.endpoint]} of ${owner}, only one of them can be running`
@@ -194,96 +237,80 @@ export class PortRegistry {
 		return conflicts;
 	}
 
-	_configuredClaims(protocol: PortProtocol, port: number) {
-		return [...this._configured.values()].flat().filter(
-			claim => claim.protocol === protocol && claim.port === port
-		);
-	}
-
-	_reservedClaims(protocol: PortProtocol, port: number) {
-		return [...this._reserved.values()].flat().filter(
-			claim => claim.protocol === protocol && claim.port === port
-		);
-	}
-
-	/** Configured and reserved claims of the given port */
-	claims(protocol: PortProtocol, port: number): PortClaim[] {
-		return [...this._configuredClaims(protocol, port), ...this._reservedClaims(protocol, port)];
-	}
-
 	/**
-	 * Check if a port is configured or reserved
+	 * Reserve the ports for a run of an instance
 	 *
-	 * @param protocol - Protocol of the port.
-	 * @param port - Port to check.
-	 * @param except - Ignore claims by this owner and endpoint.
-	 * @returns true if the port is claimed.
+	 * Fixed ports from the config are used as is, the rest are picked
+	 * free.  A null game port is picked from the game port range, preferring
+	 * the host assigned game port.
+	 *
+	 * @param config - Config of the instance.
+	 * @param gamePortRange - Ports to pick a null game port from.
+	 * @returns the reservation.
+	 * @throws {lib.ConflictError} if a fixed port is reserved for another run.
 	 */
-	isClaimed(protocol: PortProtocol, port: number, except?: { owner: number, endpoint: PortEndpoint }) {
-		return this.claims(protocol, port).some(
-			claim => !except || claim.owner !== except.owner || claim.endpoint !== except.endpoint
+	async reserve(config: lib.InstanceConfig, gamePortRange: Set<number>) {
+		const owner = portOwner(config);
+		const gamePort = config.get("factorio.game_port");
+		const enableLuaUdp = config.get("factorio.enable_lua_udp");
+		// Claims are added as they are picked so concurrent reservations see them.
+		const claims: PortClaim[] = [];
+		this._held.add(claims);
+		const fixed = (endpoint: PortEndpoint, protocol: PortProtocol, port: number | null) => (
+			port ? this._reserveFixed(claims, { ...owner, endpoint, protocol, port }) : null
 		);
-	}
-
-	/** Ports reserved for an instance */
-	reserved(owner: number) {
-		return this._reserved.get(owner) ?? [];
-	}
-
-	_add(claim: PortClaim) {
-		const reserved = this._reserved.get(claim.owner);
-		if (reserved) {
-			reserved.push(claim);
-		} else {
-			this._reserved.set(claim.owner, [claim]);
+		const free = (endpoint: PortEndpoint, protocol: PortProtocol, options?: FreePortOptions) => (
+			this._reserveFree(claims, owner, endpoint, protocol, options)
+		);
+		try {
+			// Fixed ports first so free ones are not picked from them.
+			const fixedGame = fixed("game", "udp", gamePort);
+			const fixedRcon = fixed("rcon", "tcp", config.get("factorio.rcon_port"));
+			const fixedLuaUdp = enableLuaUdp ? fixed("lua_udp", "udp", config.get("factorio.lua_udp_port")) : null;
+			// Only a null game port picks from the range, 0 picks any free port.
+			const gameRange = gamePort === null
+				? { range: gamePortRange, preferred: config.get("factorio.host_assigned_game_port") }
+				: undefined;
+			const ports: FactorioServerPorts = {
+				game: fixedGame ?? await free("game", "udp", gameRange),
+				rcon: fixedRcon ?? await free("rcon", "tcp"),
+				luaUdp: enableLuaUdp ? {
+					factorio: fixedLuaUdp ?? await free("lua_udp", "udp"),
+					host: await free("host_lua_udp", "udp"),
+				} : null,
+			};
+			return new PortReservation(this._held, claims, ports);
+		} catch (err) {
+			this._held.delete(claims);
+			throw err;
 		}
 	}
 
-	/**
-	 * Reserve a fixed port
-	 *
-	 * Ports configured on stopped instances do not prevent this, only
-	 * ports reserved for running instances.
-	 *
-	 * @param owner - ID of the instance reserving the port.
-	 * @param endpoint - What the port is used for.
-	 * @param protocol - Protocol of the port.
-	 * @param port - Port to reserve.
-	 * @returns the port.
-	 * @throws {lib.ConflictError} if the port is already reserved.
-	 */
-	reserveFixed(owner: number, endpoint: PortEndpoint, protocol: PortProtocol, port: number) {
-		const [other] = this._reservedClaims(protocol, port);
+	_reserveFixed(claims: PortClaim[], claim: PortClaim) {
+		// Ports configured on stopped instances do not prevent this, only reserved ones.
+		const other = [...this._held].flat().find(c => c.protocol === claim.protocol && c.port === claim.port);
 		if (other) {
 			throw new lib.ConflictError(
-				`Cannot use ${protocol.toUpperCase()} port ${port} for the ${endpointNames[endpoint]} of ` +
-				`${this.describeOwner(owner)}, it is in use by the ${endpointNames[other.endpoint]} of ` +
-				`${this.describeOwner(other.owner)}`
+				`Cannot use ${claim.protocol.toUpperCase()} port ${claim.port} for the ` +
+				`${endpointNames[claim.endpoint]} of ${instanceLabel(claim)}, it is in use by the ` +
+				`${endpointNames[other.endpoint]} of ${instanceLabel(other)}`
 			);
 		}
-		this._add({ owner, endpoint, protocol, port });
-		return port;
+		claims.push(claim);
+		return claim.port;
 	}
 
-	/**
-	 * Reserve a free port
-	 *
-	 * Picks a port no other process is bound to and no instance has
-	 * claimed, from the range if given or else from the OS.  The port is
-	 * free when picked, but another process may bind it before Factorio
-	 * does.
-	 *
-	 * @param owner - ID of the instance reserving the port.
-	 * @param endpoint - What the port is used for.
-	 * @param protocol - Protocol of the port.
-	 * @param options - Range to pick from.
-	 * @returns the port.
-	 */
-	async reserveFree(owner: number, endpoint: PortEndpoint, protocol: PortProtocol, options: FreePortOptions = {}) {
-		const own = { owner, endpoint };
+	async _reserveFree(
+		claims: PortClaim[],
+		owner: PortOwner,
+		endpoint: PortEndpoint,
+		protocol: PortProtocol,
+		options: FreePortOptions = {},
+	) {
+		const own = { instanceId: owner.instanceId, endpoint };
 		// Probes stay bound until done so the OS does not hand out a skipped port again.
 		const probes: BoundPort[] = [];
-		const candidates = options.range ? this._rangeCandidates(options.range, options.preferred) : Array(100).fill(0);
+		const candidates = options.range ? rangeCandidates(options.range, options.preferred) : Array(100).fill(0);
 		let inUse = 0;
 		try {
 			for (const candidate of candidates) {
@@ -303,30 +330,25 @@ export class PortRegistry {
 				probes.push(probe);
 				// Checked again after probing as another reservation may have claimed it meanwhile.
 				if (!this.isClaimed(protocol, probe.port, own)) {
-					this._add({ owner, endpoint, protocol, port: probe.port });
+					claims.push({ ...owner, endpoint, protocol, port: probe.port });
 					return probe.port;
 				}
 			}
 		} finally {
 			await Promise.all(probes.map(probe => probe.close()));
 		}
-		const of = `the ${endpointNames[endpoint]} of ${this.describeOwner(owner)}`;
+		const of = `the ${endpointNames[endpoint]} of ${instanceLabel(owner)}`;
 		if (options.range) {
 			const others = inUse ? ` (${inUse} in use by other processes)` : "";
 			throw new lib.ConflictError(`No free ${protocol.toUpperCase()} port left in the range for ${of}${others}`);
 		}
 		throw new lib.EnvironmentError(`No free ${protocol.toUpperCase()} port found for ${of}`);
 	}
+}
 
-	_rangeCandidates(range: Set<number>, preferred?: number | null) {
-		if (preferred && range.has(preferred)) {
-			return [preferred, ...[...range].filter(port => port !== preferred)];
-		}
-		return [...range];
+function rangeCandidates(range: Set<number>, preferred?: number | null) {
+	if (preferred && range.has(preferred)) {
+		return [preferred, ...[...range].filter(port => port !== preferred)];
 	}
-
-	/** Release the ports reserved for an instance */
-	release(owner: number) {
-		this._reserved.delete(owner);
-	}
+	return [...range];
 }

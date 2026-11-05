@@ -15,8 +15,7 @@ import type { HostConnector } from "../host.js";
 import Instance from "./Instance.js";
 import InstanceConnection from "./InstanceConnection.js";
 import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
-import { type FreePortOptions, type PortEndpoint, type PortProtocol, PortRegistry } from "./ports.js";
-import type { FactorioServerPorts } from "./server.js";
+import { PortRegistry } from "./ports.js";
 
 
 function checkRequestSaveName(name: string) {
@@ -311,12 +310,7 @@ export default class Host extends lib.Link {
 	/** A map of instances that are assigned to this host */
 	assignedInstances = new Map<number, UnloadedInstance>();
 	/** Ports configured on assigned instances and reserved for running ones */
-	ports = new PortRegistry(instanceId => {
-		const config = (
-			this.assignedInstances.get(instanceId)?.config ?? this.instanceConnections.get(instanceId)?.instance.config
-		);
-		return config ? `instance "${config.get("instance.name")}" (ID ${instanceId})` : `instance ${instanceId}`;
-	});
+	ports = new PortRegistry(this.assignedInstances);
 
 	adminlist = new Set<string>();
 	banlist = new Map<string, string>();
@@ -766,7 +760,7 @@ export default class Host extends lib.Link {
 			this.assignedInstances.set(instanceId, instance);
 			logger.verbose(`assigned instance ${instance.config.get("instance.name")}`);
 		}
-		this._updatePortClaims(instanceId, instance.config);
+		this._warnPortConflicts(instanceId);
 
 		// Somewhat hacky, but in the event of a lost session the status is
 		// resent on assigment since the controller sends an assigment
@@ -801,14 +795,13 @@ export default class Host extends lib.Link {
 			}
 
 			this.assignedInstances.delete(instanceId);
-			this.ports.clearConfigured(instanceId);
 			logger.verbose(`unassigned instance ${instance.config.get("instance.name")}`);
 		}
 	}
 
-	/** Update the ports claimed by an assigned instance after its config changed */
-	_updatePortClaims(instanceId: number, config: lib.InstanceConfig) {
-		for (const conflict of this.ports.setConfigured(instanceId, config)) {
+	/** Warn about fixed ports of an assigned instance that another instance also uses */
+	_warnPortConflicts(instanceId: number) {
+		for (const conflict of this.ports.configuredConflicts(instanceId)) {
 			logger.warn(conflict, this.instanceLogMeta(instanceId));
 		}
 	}
@@ -850,59 +843,22 @@ export default class Host extends lib.Link {
 	 * Reserve the ports an instance runs Factorio with
 	 *
 	 * Fixed ports from the config are used as is, the rest are picked
-	 * free.  The ports stay reserved until the instance stops.
+	 * free, a null game port from host.factorio_port_range.  The caller
+	 * releases the reservation once the run is over.
 	 *
 	 * @param instanceId - ID of the instance to reserve ports for.
-	 * @returns the reserved ports.
+	 * @returns the reservation.
 	 * @throws {lib.ConflictError} if a fixed port is in use by another instance.
 	 */
-	async reserveInstancePorts(instanceId: number): Promise<FactorioServerPorts> {
+	async reserveInstancePorts(instanceId: number) {
 		const config = this.getRequestInstance(instanceId).config;
-		const gamePort = config.get("factorio.game_port");
-		const enableLuaUdp = config.get("factorio.enable_lua_udp");
-		const fixed = (endpoint: PortEndpoint, protocol: PortProtocol, port: number | null) => (
-			port ? this.ports.reserveFixed(instanceId, endpoint, protocol, port) : null
-		);
-		const free = (endpoint: PortEndpoint, protocol: PortProtocol, options?: FreePortOptions) => (
-			this.ports.reserveFree(instanceId, endpoint, protocol, options)
-		);
-
-		this.ports.release(instanceId);
-		let ports: FactorioServerPorts;
-		try {
-			// Fixed ports first so free ones are not picked from them.
-			const fixedGame = fixed("game", "udp", gamePort);
-			const fixedRcon = fixed("rcon", "tcp", config.get("factorio.rcon_port"));
-			const fixedLuaUdp = enableLuaUdp ? fixed("lua_udp", "udp", config.get("factorio.lua_udp_port")) : null;
-			// Only a null game port picks from the range, 0 picks any free port.
-			const gameRange = gamePort === null ? {
-				range: lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1),
-				preferred: config.get("factorio.host_assigned_game_port"),
-			} : undefined;
-			ports = {
-				game: fixedGame ?? await free("game", "udp", gameRange),
-				rcon: fixedRcon ?? await free("rcon", "tcp"),
-				luaUdp: enableLuaUdp ? {
-					factorio: fixedLuaUdp ?? await free("lua_udp", "udp"),
-					host: await free("host_lua_udp", "udp"),
-				} : null,
-			};
-		} catch (err) {
-			this.ports.release(instanceId);
-			throw err;
-		}
-
-		if (gamePort === null) {
+		const range = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
+		const reservation = await this.ports.reserve(config, range);
+		if (config.get("factorio.game_port") === null) {
 			// Remembered so the instance keeps its port while it stays free.
-			config.set("factorio.host_assigned_game_port", ports.game);
-			this._updatePortClaims(instanceId, config);
+			config.set("factorio.host_assigned_game_port", reservation.ports.game);
 		}
-		return ports;
-	}
-
-	/** Release the ports reserved for an instance once it has stopped */
-	releaseInstancePorts(instanceId: number) {
-		this.ports.release(instanceId);
+		return reservation;
 	}
 
 	/** Status of an instance without a connection */

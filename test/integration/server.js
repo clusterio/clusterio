@@ -43,17 +43,18 @@ describe("Integration of host/src/server", function() {
 		let writePath = path.join("temp", "test", "integration");
 		let server;
 		let logFile;
-		const registry = new PortRegistry();
+		const registry = new PortRegistry(new Map());
+		let reservation;
 		async function freePorts() {
-			registry.release(0);
-			return {
-				game: await registry.reserveFree(0, "game", "udp"),
-				rcon: await getTestRconPort(),
-				luaUdp: {
-					factorio: await registry.reserveFree(0, "lua_udp", "udp"),
-					host: await registry.reserveFree(0, "host_lua_udp", "udp"),
-				},
-			};
+			if (reservation) {
+				reservation.release();
+			}
+			reservation = await registry.reserve(new lib.InstanceConfig("host", {
+				"factorio.game_port": 0,
+				"factorio.rcon_port": await getTestRconPort(),
+				"factorio.enable_lua_udp": true,
+			}), new Set());
+			return reservation.ports;
 		}
 
 		before(async function() {

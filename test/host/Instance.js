@@ -5,7 +5,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { PlayerStats, wait } from "@clusterio/lib";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
-import { MockConnector, MockLogger, MockServer } from "../mock.js";
+import { MockConnector, MockLogger, MockPortReservation, MockServer } from "../mock.js";
 
 import "../setup_logging.js";
 
@@ -36,12 +36,11 @@ describe("class Instance", function() {
 			saveListUpdates = [];
 			requests = [];
 			ports = { game: 34100, rcon: 34101, luaUdp: null };
-			released = [];
+			released = 0;
 			host = {
-				releaseInstancePorts(instanceId) { released.push(instanceId); },
 				async reserveInstancePorts(instanceId) {
 					requests.push(`reserveInstancePorts(${instanceId})`);
-					return ports;
+					return { ports, release() { released += 1; } };
 				},
 				send(event) { sent.push(event); },
 				async sendTo(dst, request) {
@@ -72,7 +71,7 @@ describe("class Instance", function() {
 			assert.equal(instance.server.gamePort, 34200);
 			assert.equal(instance.server.rconPort, 1000);
 			assert.deepEqual(instance.server.luaUdp, { factorio: 1001, host: 1002 });
-			assert.deepEqual(released, []);
+			assert.equal(released, 0);
 		});
 		it("should not report starting if the host cannot reserve ports", async function() {
 			const err = new lib.ConflictError("Cannot use TCP port 1000");
@@ -101,7 +100,7 @@ describe("class Instance", function() {
 				new lib.InstanceStatusChangedEvent(5, "stopped", 34100, "0.1.5"),
 			]);
 			assert.deepEqual(saveListUpdates, [[5, path.join(dir, "saves")]]);
-			assert.deepEqual(released, [5]);
+			assert.equal(released, 1);
 		});
 	});
 
@@ -114,18 +113,14 @@ describe("class Instance", function() {
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);
-		const host = {
-			released: [],
-			releaseInstancePorts(instanceId) { this.released.push(instanceId); },
-		};
-		instance = new Instance(host, connector, "dir", instanceConfig, new MockServer());
+		instance = new Instance({}, connector, "dir", instanceConfig, new MockServer(), new MockPortReservation());
 	});
 
 	describe(".notifyExit()", function() {
 		it("should release the ports reserved for the instance", function() {
 			instance._saveStats = async () => {};
 			instance.notifyExit();
-			assert.deepEqual(instance._host.released, [instance.id]);
+			assert(instance._portReservation.released);
 		});
 	});
 
