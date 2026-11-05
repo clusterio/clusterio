@@ -86,6 +86,17 @@ export class MockConnector extends lib.BaseConnector {
 	}
 }
 
+export class MockPortReservation {
+	constructor(ports = { game: 34197, rcon: 34198, luaUdp: null }) {
+		this.ports = ports;
+		this.released = false;
+	}
+
+	release() {
+		this.released = true;
+	}
+}
+
 export class MockServer extends events.EventEmitter {
 	constructor() {
 		super();

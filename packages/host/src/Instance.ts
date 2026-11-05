@@ -11,6 +11,7 @@ const execAsync = util.promisify(exec);
 import * as lib from "@clusterio/lib";
 
 import { FactorioServer, checkForUpdates } from "./server.js";
+import type { PortReservation } from "./ports.js";
 import { loadModules, patch, unpatch } from "./patch.js";
 import { exportData } from "./export.js";
 import type Host from "./Host.js";
@@ -185,6 +186,8 @@ export default class Instance extends lib.Link {
 
 	_host: Host;
 	_dir: string;
+	/** Ports the server runs with, released when the instance exits */
+	_portReservation: PortReservation;
 	_configFieldChanged: (field: string, curr: unknown, prev: unknown) => void;
 	_status: "stopped" | "starting" | "running" | "stopping" | "creating_save" | "exporting_data" = "stopped";
 	_loadedSave: string | null = null;
@@ -201,10 +204,12 @@ export default class Instance extends lib.Link {
 		dir: string,
 		instanceConfig: lib.InstanceConfig,
 		server: FactorioServer,
+		portReservation: PortReservation,
 	) {
 		super(connector);
 		this._host = host;
 		this._dir = dir;
+		this._portReservation = portReservation;
 
 		this.config = instanceConfig;
 
@@ -643,6 +648,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	notifyExit() {
+		this._portReservation.release();
 		this._loadedSave = null;
 		this._autoPause = false;
 		this.notifyStatus("stopped");
@@ -711,7 +717,8 @@ end`.replace(/\r?\n/g, " ");
 		const id = config.get("instance.id");
 		// TODO: factorio.version is not validated
 		const targetVersion = config.get("factorio.version") as lib.TargetVersion;
-		const gamePort = config.get("factorio.game_port") ?? await host.assignFreeGamePort(id);
+		const portReservation = await host.reserveInstancePorts(id);
+		const gamePort = portReservation.ports.game;
 		host.send(new lib.InstanceStatusChangedEvent(id, "starting", gamePort, targetVersion));
 
 		let server: FactorioServer;
@@ -740,11 +747,8 @@ end`.replace(/\r?\n/g, " ");
 				logger,
 				version,
 				executablePath: config.get("factorio.executable_path") ?? undefined,
-				gamePort,
-				rconPort: config.get("factorio.rcon_port") ?? undefined,
+				ports: portReservation.ports,
 				rconPassword: config.get("factorio.rcon_password") ?? undefined,
-				enableLuaUdp: config.get("factorio.enable_lua_udp"),
-				luaUdpPort: config.get("factorio.lua_udp_port") ?? undefined,
 				enableWhitelist: config.get("factorio.enable_whitelist"),
 				enableAuthserverBans: config.get("factorio.enable_authserver_bans"),
 				verboseLogging: config.get("factorio.verbose_logging"),
@@ -754,12 +758,13 @@ end`.replace(/\r?\n/g, " ");
 				shutdownTimeoutMs: config.get("factorio.shutdown_timeout") * 1000,
 			});
 		} catch (err) {
+			portReservation.release();
 			host.send(new lib.InstanceStatusChangedEvent(id, "stopped", gamePort, targetVersion));
 			await host.sendSaveListUpdate(id, path.join(dir, "saves"));
 			throw err;
 		}
 
-		const instance = new this(host, connector, dir, config, server);
+		const instance = new this(host, connector, dir, config, server, portReservation);
 		instance._status = "starting";
 		instance.playerStats = stats.playerStats;
 		instance._playerAutosaveSlot = stats.playerAutosaveSlot;
@@ -1311,6 +1316,16 @@ end`.replace(/\r?\n/g, " ");
 		}
 	}
 
+	/** Stop after a start failed, which may have been before Factorio was spawned */
+	async _stopAfterFailedStart() {
+		if (this.server._state !== "init") {
+			await this.stop();
+		} else if (this._status !== "stopped") {
+			this.notifyExit();
+			await this.sendSaveListUpdate();
+		}
+	}
+
 	/** Stop the instance once a start, stop or save in progress has finished */
 	async _stopWhenSettled() {
 		// Stopping concurrently with these races them and asserts on the server state.
@@ -1381,7 +1396,7 @@ end`.replace(/\r?\n/g, " ");
 				await this.start(saveName);
 			} catch (err: any) {
 				this.logger.error(`Error starting ${saveName}: ${err.message}`);
-				await this.stop();
+				await this._stopAfterFailedStart();
 				throw err;
 			}
 		} finally {
@@ -1411,7 +1426,7 @@ end`.replace(/\r?\n/g, " ");
 				await this.startScenario(scenario, seed, mapGenSettings, mapSettings);
 			} catch (err: any) {
 				this.logger.error(`Error starting scenario ${scenario}: ${err.message}`);
-				await this.stop();
+				await this._stopAfterFailedStart();
 				throw err;
 			}
 		} finally {

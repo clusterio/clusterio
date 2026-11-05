@@ -5,7 +5,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { PlayerStats, wait } from "@clusterio/lib";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
-import { MockConnector, MockLogger, MockServer } from "../mock.js";
+import { MockConnector, MockLogger, MockPortReservation, MockServer } from "../mock.js";
 
 import "../setup_logging.js";
 
@@ -20,6 +20,8 @@ describe("class Instance", function() {
 		let sent;
 		let saveListUpdates;
 		let requests;
+		let ports;
+		let released;
 		function makeConfig(fields) {
 			return new lib.InstanceConfig("host", { "instance.id": 5, "instance.name": "foo", ...fields });
 		}
@@ -33,8 +35,13 @@ describe("class Instance", function() {
 			sent = [];
 			saveListUpdates = [];
 			requests = [];
+			ports = { game: 34100, rcon: 34101, luaUdp: null };
+			released = 0;
 			host = {
-				assignFreeGamePort: async () => 34100,
+				async reserveInstancePorts(instanceId) {
+					requests.push(`reserveInstancePorts(${instanceId})`);
+					return { ports, release() { released += 1; } };
+				},
 				send(event) { sent.push(event); },
 				async sendTo(dst, request) {
 					requests.push(request.constructor.name);
@@ -56,16 +63,26 @@ describe("class Instance", function() {
 			assert.equal(instance.server.version, "0.1.2");
 			assert.equal(instance.server.gamePort, 34100);
 			assert.deepEqual(sent, [new lib.InstanceStatusChangedEvent(5, "starting", 34100, "latest")]);
-			assert.deepEqual(requests, ["FactorioVersionsRequest"]);
+			assert.deepEqual(requests, ["reserveInstancePorts(5)", "FactorioVersionsRequest"]);
 		});
-		it("should use the configured game port", async function() {
-			const instance = await fromConfig(makeConfig({ "factorio.game_port": 34200 }));
+		it("should give the server the ports reserved by the host", async function() {
+			ports = { game: 34200, rcon: 1000, luaUdp: { factorio: 1001, host: 1002 } };
+			const instance = await fromConfig(makeConfig({ "factorio.enable_lua_udp": true }));
 			assert.equal(instance.server.gamePort, 34200);
+			assert.equal(instance.server.rconPort, 1000);
+			assert.deepEqual(instance.server.luaUdp, { factorio: 1001, host: 1002 });
+			assert.equal(released, 0);
+		});
+		it("should not report starting if the host cannot reserve ports", async function() {
+			const err = new lib.ConflictError("Cannot use TCP port 1000");
+			host.reserveInstancePorts = async () => { throw err; };
+			await assert.rejects(fromConfig(makeConfig({})), err);
+			assert.deepEqual(sent, []);
 		});
 		it("should resolve a release channel through the controller", async function() {
 			const instance = await fromConfig(makeConfig({ "factorio.version": "stable" }));
 			assert.equal(instance.server.version, "0.1.1");
-			assert.deepEqual(requests, ["FactorioVersionsRequest", "LatestReleasesRequest"]);
+			assert.deepEqual(requests, ["reserveInstancePorts(5)", "FactorioVersionsRequest", "LatestReleasesRequest"]);
 		});
 		it("should load player stats", async function() {
 			await fs.writeFile(path.join(dir, "instance-stats.json"), JSON.stringify({
@@ -83,6 +100,7 @@ describe("class Instance", function() {
 				new lib.InstanceStatusChangedEvent(5, "stopped", 34100, "0.1.5"),
 			]);
 			assert.deepEqual(saveListUpdates, [[5, path.join(dir, "saves")]]);
+			assert.equal(released, 1);
 		});
 	});
 
@@ -95,7 +113,15 @@ describe("class Instance", function() {
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);
-		instance = new Instance({}, connector, "dir", instanceConfig, new MockServer());
+		instance = new Instance({}, connector, "dir", instanceConfig, new MockServer(), new MockPortReservation());
+	});
+
+	describe(".notifyExit()", function() {
+		it("should release the ports reserved for the instance", function() {
+			instance._saveStats = async () => {};
+			instance.notifyExit();
+			assert(instance._portReservation.released);
+		});
 	});
 
 	describe(".name", function() {
@@ -304,6 +330,58 @@ describe("class Instance", function() {
 			await first;
 			instance.notifyStatus("stopped");
 			await second;
+			assert.deepEqual(calls, ["stop"]);
+		});
+	});
+
+	describe("failed start", function() {
+		let closed;
+		beforeEach(function() {
+			closed = 0;
+			connector.on("close", () => { closed += 1; });
+			instance.prepare = async () => {};
+			instance.prepareSave = async () => "save.zip";
+			instance.writeServerSettings = async () => {};
+			instance.sendSaveListUpdate = async () => {};
+			instance._saveStats = async () => {};
+			instance.notifyStatus("starting");
+			instance.server._state = "init";
+		});
+		function failBeforeSpawnTest(request, method, handler) {
+			it(`should report stopped when ${method} fails before spawning Factorio`, async function() {
+				const err = new lib.ConflictError("Cannot use TCP port 1000");
+				instance.config.set("factorio.enable_save_patching", false);
+				instance.server[method] = async () => { throw err; };
+				instance.server.stop = async () => { throw new Error("stop called"); };
+				await assert.rejects(instance[handler](request), err);
+				assert.equal(instance.status, "stopped");
+				assert.equal(closed, 1);
+			});
+		}
+		failBeforeSpawnTest(new lib.InstanceStartRequest(), "start", "handleInstanceStartRequest");
+		failBeforeSpawnTest(
+			new lib.InstanceLoadScenarioRequest("base/freeplay"), "startScenario", "handleInstanceLoadScenarioRequest"
+		);
+		it("should not report the exit twice when Factorio exited during the start", async function() {
+			instance.server.start = async () => {
+				instance.notifyExit();
+				throw new Error("Factorio exited");
+			};
+			await assert.rejects(
+				instance.handleInstanceStartRequest(new lib.InstanceStartRequest()), /Factorio exited/
+			);
+			assert.equal(instance.status, "stopped");
+			assert.equal(closed, 1);
+		});
+		it("should stop Factorio if it was spawned", async function() {
+			const calls = [];
+			instance.server.start = async () => {
+				instance.server._state = "running";
+				throw new Error("start failed");
+			};
+			instance.server.stop = async () => { calls.push("stop"); };
+			instance.hooks.stop.invoke = async () => {};
+			await assert.rejects(instance.handleInstanceStartRequest(new lib.InstanceStartRequest()), /start failed/);
 			assert.deepEqual(calls, ["stop"]);
 		});
 	});

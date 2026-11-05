@@ -11,7 +11,9 @@ describe("host/src/export", function() {
 	let testServer;
 	before(async function() {
 		let writePath = path.join("temp", "test", "server");
-		testServer = await FactorioServer.fromOptions(path.join("test", "file", "factorio"), writePath, {});
+		testServer = await FactorioServer.fromOptions(path.join("test", "file", "factorio"), writePath, {
+			ports: { game: 34197, rcon: 34198, luaUdp: null },
+		});
 	});
 
 	let warnings;

@@ -406,6 +406,7 @@ Defaults to "localhost".
 UDP ports the host hands out to instances that don't have factorio.game_port set.
 Written as a comma separated list of ports and/or ranges of ports separated with a dash, for example "34100-34199" or "34100, 34200-34210".
 A port is picked when the instance is started and remembered in factorio.host_assigned_game_port, so an instance keeps the same port as long as it is still free.
+UDP ports used by other instances on the host are skipped, including ports set on stopped instances.
 Starting an instance fails if all ports in the range are taken.
 
 Defaults to "34100-34199".
@@ -578,7 +579,9 @@ Defaults to 300.
 ### factorio.game_port
 
 UDP port to run the Factorio server on.
-If null a port from host.factorio_port_range on the host is assigned to the instance.
+If null a port from host.factorio_port_range on the host is assigned to the instance, if 0 a free port is picked each time the instance starts.
+A port set here is kept for the instance while it is assigned to a host, even when it is stopped, so the host doesn't pick it for other instances.
+Starting the instance fails if another running instance on the host is using the port.
 Negative values are rejected.
 
 Defaults to null.
@@ -593,7 +596,8 @@ Internal, set by the host and only accessible from the host.
 ### factorio.rcon_port
 
 TCP port to start the RCON interface on the Factorio server on.
-If null a random port in the dynamic range is assigned each time the instance starts.
+If null or 0 a free port is picked each time the instance starts.
+A port set here is kept for the instance in the same way as factorio.game_port.
 Negative values are rejected.
 
 Defaults to null.
@@ -668,7 +672,8 @@ Defaults to false.
 ### factorio.lua_udp_port
 
 UDP port on localhost the Factorio server receives Lua UDP messages on when `factorio.enable_lua_udp` is enabled.
-If null a random port in the dynamic range is assigned each time the instance starts.
+If null or 0 a free port is picked each time the instance starts.
+A port set here is kept for the instance in the same way as factorio.game_port while Lua UDP is enabled.
 
 Defaults to null.
 

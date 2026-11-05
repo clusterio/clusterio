@@ -6,6 +6,7 @@ import path from "node:path";
 import * as lib from "@clusterio/lib";
 import { InstanceManager } from "@clusterio/controller";
 import { FactorioServer, _getFactorioVersion } from "@clusterio/host/dist/node/src/server.js";
+import { PortRegistry } from "@clusterio/host/dist/node/src/ports.js";
 import { logger } from "@clusterio/lib";
 
 import { factorioDir, requiresFactorio } from "./index.js";
@@ -42,11 +43,23 @@ describe("Integration of host/src/server", function() {
 		let writePath = path.join("temp", "test", "integration");
 		let server;
 		let logFile;
+		const registry = new PortRegistry(new Map());
+		let reservation;
+		async function freePorts() {
+			if (reservation) {
+				reservation.release();
+			}
+			reservation = await registry.reserve(new lib.InstanceConfig("host", {
+				"factorio.game_port": 0,
+				"factorio.rcon_port": await getTestRconPort(),
+				"factorio.enable_lua_udp": true,
+			}), new Set());
+			return reservation.ports;
+		}
 
 		before(async function() {
-			server = await FactorioServer.fromOptions(factorioDir, writePath, {});
-			// Let Factorio bind an OS-assigned UDP port instead of guessing a free one.
-			server.gamePort = 0;
+			server = await FactorioServer.fromOptions(factorioDir, writePath, { ports: await freePorts() });
+			server.luaUdp = null;
 
 			// Delete result from previous run of these tests
 			await fs.rm(writePath, { force: true, recursive: true, maxRetries: 10 });
@@ -73,7 +86,10 @@ describe("Integration of host/src/server", function() {
 
 		beforeEach(async function() {
 			if (server.pid === null) {
-				server.rconPort = await getTestRconPort();
+				const ports = await freePorts();
+				server.gamePort = ports.game;
+				server.rconPort = ports.rcon;
+				server.luaUdp = server.luaUdp && ports.luaUdp;
 			}
 		});
 
@@ -132,7 +148,9 @@ describe("Integration of host/src/server", function() {
 				await assert.doesNotReject(fs.access(mapPath), "save is missing");
 
 				// Lua UDP needs Factorio 2.1.10, see docs/configuration.md
-				server.enableLuaUdp = lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.10");
+				if (lib.integerFullVersion(server.version) >= lib.integerFullVersion("2.1.10")) {
+					server.luaUdp = (await freePorts()).luaUdp;
+				}
 				await server.start("test.zip");
 			});
 		});
@@ -170,7 +188,7 @@ describe("Integration of host/src/server", function() {
 		describe("Lua UDP", function() {
 			it("emits udp events for packets sent from the game", async function() {
 				slowTest(this);
-				if (!server.enableLuaUdp) {
+				if (!server.luaUdp) {
 					this.skip();
 				}
 				log("Lua UDP from game");
@@ -183,7 +201,7 @@ describe("Integration of host/src/server", function() {
 			});
 			it("delivers packets sent with sendUdp to the game", async function() {
 				slowTest(this);
-				if (!server.enableLuaUdp) {
+				if (!server.luaUdp) {
 					this.skip();
 				}
 				log("Lua UDP to game");

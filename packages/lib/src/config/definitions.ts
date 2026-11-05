@@ -673,7 +673,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			// Internal value, extendedValidation not used
 		},
 		"factorio.rcon_port": {
-			description: "TCP port to run RCON on, uses a random port if null",
+			description: "TCP port to run RCON on, picks a free port if null or 0",
 			restartRequired: true,
 			type: "number",
 			optional: true,
@@ -695,7 +695,8 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: false,
 		},
 		"factorio.lua_udp_port": {
-			description: "UDP port for the Factorio server to receive Lua UDP messages on, uses a random port if null",
+			description:
+				"UDP port for the Factorio server to receive Lua UDP messages on, picks a free port if null or 0",
 			restartRequired: true,
 			type: "number",
 			optional: true,

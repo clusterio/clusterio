@@ -1,4 +1,3 @@
-import dgram from "node:dgram";
 import fs from "node:fs/promises";
 import path from "path";
 import pidusage from "pidusage";
@@ -16,6 +15,7 @@ import type { HostConnector } from "../host.js";
 import Instance from "./Instance.js";
 import InstanceConnection from "./InstanceConnection.js";
 import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
+import { PortRegistry } from "./ports.js";
 
 
 function checkRequestSaveName(name: string) {
@@ -55,35 +55,6 @@ async function moveSaveExclusive(sourcePath: string, targetPath: string) {
 		await fs.unlink(targetPath).catch(() => {});
 		throw err;
 	}
-}
-
-/**
- * Checks that no socket is bound to the given UDP port, on IPv4 or IPv6
- *
- * Factorio binds the game port on both 0.0.0.0 and [::].
- *
- * @param port - UDP port to check.
- * @returns true if the port can be bound.
- * @internal
- */
-async function udpPortFree(port: number) {
-	for (const type of ["udp4", "udp6"] as const) {
-		const socket = dgram.createSocket({ type, ipv6Only: type === "udp6" });
-		try {
-			await new Promise<void>((resolve, reject) => {
-				socket.once("error", reject);
-				socket.bind(port, resolve);
-			});
-		} catch (err: any) {
-			// Other errors, such as no IPv6 support on the host, don't stop Factorio from binding the port.
-			if (err.code === "EADDRINUSE") {
-				return false;
-			}
-		} finally {
-			socket.close();
-		}
-	}
-	return true;
 }
 
 /**
@@ -338,6 +309,8 @@ export default class Host extends lib.Link {
 	discoveredInstances = new Map<number, UnloadedInstance>();
 	/** A map of instances that are assigned to this host */
 	assignedInstances = new Map<number, UnloadedInstance>();
+	/** Ports configured on assigned instances and reserved for running ones */
+	ports = new PortRegistry(this.assignedInstances);
 
 	adminlist = new Set<string>();
 	banlist = new Map<string, string>();
@@ -787,6 +760,7 @@ export default class Host extends lib.Link {
 			this.assignedInstances.set(instanceId, instance);
 			logger.verbose(`assigned instance ${instance.config.get("instance.name")}`);
 		}
+		this._warnPortConflicts(instanceId);
 
 		// Somewhat hacky, but in the event of a lost session the status is
 		// resent on assigment since the controller sends an assigment
@@ -825,6 +799,13 @@ export default class Host extends lib.Link {
 		}
 	}
 
+	/** Warn about fixed ports of an assigned instance that another instance also uses */
+	_warnPortConflicts(instanceId: number) {
+		for (const conflict of this.ports.configuredConflicts(instanceId)) {
+			logger.warn(conflict, this.instanceLogMeta(instanceId));
+		}
+	}
+
 	instanceLogMeta(instanceId: number, instance?: { config: lib.InstanceConfig }) {
 		instance = instance || this.assignedInstances.get(instanceId);
 		if (!instance) {
@@ -858,57 +839,26 @@ export default class Host extends lib.Link {
 		);
 	}
 
-	assignGamePort(instanceId: number, inUse = new Set<number>()) {
-		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
-		for (const port of inUse) {
-			availablePorts.delete(port);
-		}
-		for (const [id, instance] of this.assignedInstances) {
-			if (id === instanceId) {
-				continue;
-			}
-			const port = (
-				instance.config.get("factorio.game_port")
-				?? instance.config.get("factorio.host_assigned_game_port")
-			);
-			if (port !== null) {
-				availablePorts.delete(port);
-			}
-		}
-		const instanceToAssign = this.assignedInstances.get(instanceId)!;
-		const assignedPort = instanceToAssign.config.get("factorio.host_assigned_game_port");
-		if (assignedPort !== null && availablePorts.has(assignedPort)) {
-			return assignedPort;
-		}
-		if (!availablePorts.size) {
-			const others = inUse.size ? ` (${inUse.size} in use by other processes)` : "";
-			throw new lib.ConflictError(`No available port left to assign from host.factorio_port_range${others}`);
-		}
-		const [newPort] = availablePorts;
-		instanceToAssign.config.set("factorio.host_assigned_game_port", newPort);
-		return newPort;
-	}
-
 	/**
-	 * Assign a game port that no other process is bound to
+	 * Reserve the ports an instance runs Factorio with
 	 *
-	 * Replaces the stored port if it is taken, so a port another process
-	 * holds is not reused on every start.
+	 * Fixed ports from the config are used as is, the rest are picked
+	 * free, a null game port from host.factorio_port_range.  The caller
+	 * releases the reservation once the run is over.
 	 *
-	 * @param instanceId - ID of the instance to assign a game port to.
-	 * @returns the assigned port.
+	 * @param instanceId - ID of the instance to reserve ports for.
+	 * @returns the reservation.
+	 * @throws {lib.ConflictError} if a fixed port is in use by another instance.
 	 */
-	async assignFreeGamePort(instanceId: number) {
-		const inUse = new Set<number>();
-		for (;;) {
-			// Picking and storing the port before checking it keeps concurrent assignments from picking the same one.
-			const port = this.assignGamePort(instanceId, inUse);
-			if (await udpPortFree(port)) {
-				return port;
-			}
-			logger.warn(`Game port ${port} is in use by another process`, this.instanceLogMeta(instanceId));
-			inUse.add(port);
+	async reserveInstancePorts(instanceId: number) {
+		const config = this.getRequestInstance(instanceId).config;
+		const range = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
+		const reservation = await this.ports.reserve(config, range);
+		if (config.get("factorio.game_port") === null) {
+			// Remembered so the instance keeps its port while it stays free.
+			config.set("factorio.host_assigned_game_port", reservation.ports.game);
 		}
+		return reservation;
 	}
 
 	/** Status of an instance without a connection */

@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import * as hostServer from "@clusterio/host/dist/node/src/server.js";
-import { Link, wait } from "@clusterio/lib";
+import { EnvironmentError, Link, wait } from "@clusterio/lib";
 import { testLines } from "../lib/factorio/lines.js";
 import { slowTest, externalTest } from "../common.js";
 import "../setup_logging.js";
@@ -208,24 +208,6 @@ describe("host/server", function() {
 		});
 	});
 
-	describe("randomDynamicPort()", function() {
-		it("should return a port number", function() {
-			let port = hostServer._randomDynamicPort();
-			assert.equal(typeof port, "number");
-			assert(Number.isInteger(port));
-			assert(port >= 0 && port < 2**16);
-		});
-
-		it("should return a port number in the dynamic range", function() {
-			function validate(port) {
-				return (49152 <= port && port <= 65535);
-			}
-			for (let i=0; i < 20; i++) {
-				assert(validate(hostServer._randomDynamicPort()));
-			}
-		});
-	});
-
 	describe("generatePassword()", function() {
 		it("should return a string", async function() {
 			let password = await hostServer._generatePassword(1);
@@ -254,10 +236,13 @@ describe("host/server", function() {
 	});
 
 	describe("class FactorioServer", function() {
+		const ports = { game: 34197, rcon: 34198, luaUdp: null };
 		let writePath = path.join("temp", "test", "server");
 		let server;
 		before(async function() {
-			server = await hostServer.FactorioServer.fromOptions(path.join("test", "file", "factorio"), writePath, {});
+			server = await hostServer.FactorioServer.fromOptions(
+				path.join("test", "file", "factorio"), writePath, { ports }
+			);
 		});
 
 		describe("constructor()", function() {
@@ -268,7 +253,7 @@ describe("host/server", function() {
 					path.join("temp", "test", "server-1"),
 					path.join("test", "file", "factorio", "0.1.2", "data"),
 					"0.1.2",
-					{ stripPaths: true, rconPassword: "" }
+					{ stripPaths: true, rconPassword: "", ports }
 				);
 			});
 		});
@@ -276,7 +261,7 @@ describe("host/server", function() {
 		describe(".fromOptions()", function() {
 			it("should resolve the requested version", async function() {
 				const found = await hostServer.FactorioServer.fromOptions(
-					path.join("test", "file", "factorio"), writePath, { version: "0.1.1" }
+					path.join("test", "file", "factorio"), writePath, { version: "0.1.1", ports }
 				);
 				assert.equal(found.version, "0.1.1");
 				assert.equal(found.dataPath(), path.join("test", "file", "factorio", "0.1.1", "data"));
@@ -286,14 +271,14 @@ describe("host/server", function() {
 				assert.equal(typeof server.rconPassword, "string");
 				assert.equal(server.rconPassword.length, 10);
 				const given = await hostServer.FactorioServer.fromOptions(
-					path.join("test", "file", "factorio"), writePath, { rconPassword: "secret" }
+					path.join("test", "file", "factorio"), writePath, { rconPassword: "secret", ports }
 				);
 				assert.equal(given.rconPassword, "secret");
 			});
 			it("should reject if the version is not installed", async function() {
 				await assert.rejects(
 					hostServer.FactorioServer.fromOptions(
-						path.join("test", "file", "factorio"), writePath, { version: "0.1.5" }
+						path.join("test", "file", "factorio"), writePath, { version: "0.1.5", ports }
 					),
 					/Unable to find Factorio version 0.1.5/
 				);
@@ -360,7 +345,7 @@ describe("host/server", function() {
 				let logged = [];
 				let ipcServer = await hostServer.FactorioServer.fromOptions(
 					path.join("test", "file", "factorio"), writePath,
-					{ logger: { error: msg => { logged.push(msg); } } }
+					{ logger: { error: msg => { logged.push(msg); } }, ports }
 				);
 				class NumberEvent {
 					static type = "event";
@@ -390,9 +375,13 @@ describe("host/server", function() {
 				received = [];
 				udpServer.on("message", (msg, rinfo) => received.push([msg, rinfo]));
 				await events.once(udpServer.bind(0, "127.0.0.1"), "listening");
-				server.luaUdpPort = udpServer.address().port;
+				const probe = dgram.createSocket("udp4");
+				await events.once(probe.bind(0, "127.0.0.1"), "listening");
+				server.luaUdp = { factorio: udpServer.address().port, host: probe.address().port };
+				probe.close();
 			});
 			after(function() {
+				server.luaUdp = null;
 				udpServer.close();
 			});
 			afterEach(function() {
@@ -412,7 +401,6 @@ describe("host/server", function() {
 			it("should refuse to start on Factorio before 2.1.10", async function() {
 				const version = server._version;
 				server._version = "2.1.9";
-				server.enableLuaUdp = true;
 				try {
 					const error = new Error("Lua UDP requires Factorio 2.1.10 or later");
 					await assert.rejects(server.start("save.zip"), error);
@@ -420,13 +408,11 @@ describe("host/server", function() {
 					assert.equal(server._state, "init");
 				} finally {
 					server._version = version;
-					server.enableLuaUdp = false;
 				}
 			});
 			it("should open the socket when RCON starts", async function() {
 				const startRcon = server._startRcon;
 				server._startRcon = async () => {};
-				server.enableLuaUdp = true;
 				try {
 					server._handleOutput(Buffer.from(
 						"   0.500 Info RemoteCommandProcessor.cpp:133: Starting RCON interface"
@@ -436,7 +422,6 @@ describe("host/server", function() {
 					}
 				} finally {
 					server._startRcon = startRcon;
-					server.enableLuaUdp = false;
 				}
 				assert(server.hostUdpPort > 0, "socket was not opened");
 			});
@@ -546,22 +531,24 @@ describe("host/server", function() {
 				await server._startUdp();
 				await assert.rejects(server._startUdp(), new Error("UDP socket is already open"));
 			});
-			it("should log an error if opening the socket fails", async function() {
+			it("should raise an error if opening the socket fails", async function() {
 				const createSocket = dgram.createSocket;
 				dgram.createSocket = (...args) => {
 					const socket = createSocket(...args);
 					socket.bind = () => process.nextTick(() => socket.emit("error", new Error("bind failed")));
 					return socket;
 				};
-				const { lines, restore } = captureLogger("error");
 				try {
-					await server._startUdp();
+					await assert.rejects(
+						server._startUdp(),
+						new EnvironmentError(
+							`Failed to bind host Lua UDP socket to port ${server.luaUdp.host}: bind failed`
+						),
+					);
 				} finally {
 					dgram.createSocket = createSocket;
-					restore();
 				}
 				assert.equal(server._udpSocket, null);
-				assert(lines[0].startsWith("Failed to open UDP socket:\nError: bind failed"), lines[0]);
 			});
 			it("should close the socket when the server exits", async function() {
 				await server._startUdp();
