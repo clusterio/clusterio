@@ -1,4 +1,3 @@
-import dgram from "node:dgram";
 import fs from "node:fs/promises";
 import path from "path";
 import pidusage from "pidusage";
@@ -16,7 +15,8 @@ import type { HostConnector } from "../host.js";
 import Instance from "./Instance.js";
 import InstanceConnection from "./InstanceConnection.js";
 import { BaseHostPlugin, HostHooks } from "./BaseHostPlugin.js";
-import { type InstancePorts, PortRegistry } from "./ports.js";
+import { type FreePortOptions, type PortEndpoint, type PortProtocol, PortRegistry } from "./ports.js";
+import type { FactorioServerPorts } from "./server.js";
 
 
 function checkRequestSaveName(name: string) {
@@ -56,35 +56,6 @@ async function moveSaveExclusive(sourcePath: string, targetPath: string) {
 		await fs.unlink(targetPath).catch(() => {});
 		throw err;
 	}
-}
-
-/**
- * Checks that no socket is bound to the given UDP port, on IPv4 or IPv6
- *
- * Factorio binds the game port on both 0.0.0.0 and [::].
- *
- * @param port - UDP port to check.
- * @returns true if the port can be bound.
- * @internal
- */
-async function udpPortFree(port: number) {
-	for (const type of ["udp4", "udp6"] as const) {
-		const socket = dgram.createSocket({ type, ipv6Only: type === "udp6" });
-		try {
-			await new Promise<void>((resolve, reject) => {
-				socket.once("error", reject);
-				socket.bind(port, resolve);
-			});
-		} catch (err: any) {
-			// Other errors, such as no IPv6 support on the host, don't stop Factorio from binding the port.
-			if (err.code === "EADDRINUSE") {
-				return false;
-			}
-		} finally {
-			socket.close();
-		}
-	}
-	return true;
 }
 
 /**
@@ -875,50 +846,6 @@ export default class Host extends lib.Link {
 		);
 	}
 
-	assignGamePort(instanceId: number, inUse = new Set<number>()) {
-		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
-		for (const port of availablePorts) {
-			if (inUse.has(port) || this.ports.isClaimed("udp", port, { owner: instanceId, endpoint: "game" })) {
-				availablePorts.delete(port);
-			}
-		}
-		const instanceToAssign = this.assignedInstances.get(instanceId)!;
-		const assignedPort = instanceToAssign.config.get("factorio.host_assigned_game_port");
-		if (assignedPort !== null && availablePorts.has(assignedPort)) {
-			return assignedPort;
-		}
-		if (!availablePorts.size) {
-			const others = inUse.size ? ` (${inUse.size} in use by other processes)` : "";
-			throw new lib.ConflictError(`No available port left to assign from host.factorio_port_range${others}`);
-		}
-		const [newPort] = availablePorts;
-		instanceToAssign.config.set("factorio.host_assigned_game_port", newPort);
-		this._updatePortClaims(instanceId, instanceToAssign.config);
-		return newPort;
-	}
-
-	/**
-	 * Assign a game port that no other process is bound to
-	 *
-	 * Replaces the stored port if it is taken, so a port another process
-	 * holds is not reused on every start.
-	 *
-	 * @param instanceId - ID of the instance to assign a game port to.
-	 * @returns the assigned port.
-	 */
-	async assignFreeGamePort(instanceId: number) {
-		const inUse = new Set<number>();
-		for (;;) {
-			// Picking and storing the port before checking it keeps concurrent assignments from picking the same one.
-			const port = this.assignGamePort(instanceId, inUse);
-			if (await udpPortFree(port)) {
-				return port;
-			}
-			logger.warn(`Game port ${port} is in use by another process`, this.instanceLogMeta(instanceId));
-			inUse.add(port);
-		}
-	}
-
 	/**
 	 * Reserve the ports an instance runs Factorio with
 	 *
@@ -929,45 +856,53 @@ export default class Host extends lib.Link {
 	 * @returns the reserved ports.
 	 * @throws {lib.ConflictError} if a fixed port is in use by another instance.
 	 */
-	async reserveInstancePorts(instanceId: number): Promise<InstancePorts> {
+	async reserveInstancePorts(instanceId: number): Promise<FactorioServerPorts> {
 		const config = this.getRequestInstance(instanceId).config;
 		const gamePort = config.get("factorio.game_port");
-		const rconPort = config.get("factorio.rcon_port");
 		const enableLuaUdp = config.get("factorio.enable_lua_udp");
-		const luaUdpPort = config.get("factorio.lua_udp_port");
+		const fixed = (endpoint: PortEndpoint, protocol: PortProtocol, port: number | null) => (
+			port ? this.ports.reserveFixed(instanceId, endpoint, protocol, port) : null
+		);
+		const free = (endpoint: PortEndpoint, protocol: PortProtocol, options?: FreePortOptions) => (
+			this.ports.reserveFree(instanceId, endpoint, protocol, options)
+		);
+
 		this.ports.release(instanceId);
+		let ports: FactorioServerPorts;
 		try {
 			// Fixed ports first so free ones are not picked from them.
-			if (gamePort) {
-				this.ports.reserveFixed(instanceId, "game", "udp", gamePort);
-			}
-			if (rconPort) {
-				this.ports.reserveFixed(instanceId, "rcon", "tcp", rconPort);
-			}
-			if (enableLuaUdp && luaUdpPort) {
-				this.ports.reserveFixed(instanceId, "lua_udp", "udp", luaUdpPort);
-			}
-
-			let reservedGamePort = gamePort;
-			if (gamePort === null) {
-				const assigned = await this.assignFreeGamePort(instanceId);
-				reservedGamePort = this.ports.reserveFixed(instanceId, "game", "udp", assigned);
-			} else if (!gamePort) {
-				reservedGamePort = await this.ports.reserveFree(instanceId, "game", "udp");
-			}
-			const ports: InstancePorts = {
-				gamePort: reservedGamePort!,
-				rconPort: rconPort || await this.ports.reserveFree(instanceId, "rcon", "tcp"),
+			const fixedGame = fixed("game", "udp", gamePort);
+			const fixedRcon = fixed("rcon", "tcp", config.get("factorio.rcon_port"));
+			const fixedLuaUdp = enableLuaUdp ? fixed("lua_udp", "udp", config.get("factorio.lua_udp_port")) : null;
+			// Only a null game port picks from the range, 0 picks any free port.
+			const gameRange = gamePort === null ? {
+				range: lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1),
+				preferred: config.get("factorio.host_assigned_game_port"),
+			} : undefined;
+			ports = {
+				game: fixedGame ?? await free("game", "udp", gameRange),
+				rcon: fixedRcon ?? await free("rcon", "tcp"),
+				luaUdp: enableLuaUdp ? {
+					factorio: fixedLuaUdp ?? await free("lua_udp", "udp"),
+					host: await free("host_lua_udp", "udp"),
+				} : null,
 			};
-			if (enableLuaUdp) {
-				ports.luaUdpPort = luaUdpPort || await this.ports.reserveFree(instanceId, "lua_udp", "udp");
-				ports.hostUdpPort = await this.ports.reserveFree(instanceId, "host_lua_udp", "udp");
-			}
-			return ports;
 		} catch (err) {
 			this.ports.release(instanceId);
 			throw err;
 		}
+
+		if (gamePort === null) {
+			// Remembered so the instance keeps its port while it stays free.
+			config.set("factorio.host_assigned_game_port", ports.game);
+			this._updatePortClaims(instanceId, config);
+		}
+		return ports;
+	}
+
+	/** Release the ports reserved for an instance once it has stopped */
+	releaseInstancePorts(instanceId: number) {
+		this.ports.release(instanceId);
 	}
 
 	/** Status of an instance without a connection */
@@ -997,9 +932,6 @@ export default class Host extends lib.Link {
 				unloadedInstance.config, this, connectionClient,
 				unloadedInstance.path, this.config.get("host.factorio_directory"),
 			);
-		} catch (err) {
-			this.ports.release(instanceId);
-			throw err;
 		} finally {
 			this._startingInstances.delete(instanceId);
 		}

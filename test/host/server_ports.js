@@ -44,11 +44,11 @@ describe("host/src/server ports", function() {
 		}
 	});
 
-	function makeServer(options = {}) {
+	function makeServer(luaUdp = null) {
 		const server = new FactorioServer(
 			path.join("test", "file", "factorio"), path.join("temp", "test", "server_ports"),
 			path.join("test", "file", "factorio", "0.1.2", "data"), "2.1.10",
-			{ rconPassword: "", gamePort: 34197, rconPort: 34198, ...options },
+			{ rconPassword: "", ports: { game: 34197, rcon: 34198, luaUdp } },
 		);
 		server.binaryPath = () => "factorio";
 		// eslint-disable-next-line node/no-sync
@@ -64,33 +64,16 @@ describe("host/src/server ports", function() {
 	for (const method of ["start", "startScenario"]) {
 		// eslint-disable-next-line no-loop-func
 		describe(`.${method}()`, function() {
-			it("passes the given ports to Factorio", async function() {
-				const server = makeServer({ enableLuaUdp: true, luaUdpPort: 40000, hostUdpPort: 40001 });
-				await server[method]("save");
+			it("passes the ports it was created with to Factorio", async function() {
+				await makeServer({ factorio: 40000, host: 40001 })[method]("save");
 				const { args } = spawned[0];
 				assert.equal(argValue(args, "--port"), 34197);
 				assert.equal(argValue(args, "--rcon-port"), 34198);
 				assert.equal(argValue(args, "--enable-lua-udp"), 40000);
 			});
-			it("does not need Lua UDP ports when Lua UDP is disabled", async function() {
+			it("does not enable Lua UDP without Lua UDP ports", async function() {
 				await makeServer()[method]("save");
 				assert.equal(argValue(spawned[0].args, "--enable-lua-udp"), undefined);
-			});
-			const missingPorts = [
-				["gamePort", { gamePort: undefined }],
-				["gamePort", { gamePort: 0 }],
-				["rconPort", { rconPort: undefined }],
-				["rconPort", { rconPort: 0 }],
-				["luaUdpPort", { enableLuaUdp: true, hostUdpPort: 40001 }],
-				["hostUdpPort", { enableLuaUdp: true, luaUdpPort: 40000 }],
-			];
-			missingPorts.forEach(([name, options]) => {
-				it(`refuses to start with ${name} ${JSON.stringify(options[name])}`, async function() {
-					const server = makeServer(options);
-					await assert.rejects(server[method]("save"), new RegExp(`${name} must be set to a port`));
-					assert.equal(server._state, "init");
-					assert.equal(spawned.length, 0);
-				});
 			});
 		});
 	}
@@ -109,7 +92,7 @@ describe("host/src/server ports", function() {
 			const port = held.address().port;
 			held.close();
 			held = dgram.createSocket("udp4");
-			const server = makeServer({ enableLuaUdp: true, luaUdpPort: 40000, hostUdpPort: port });
+			const server = makeServer({ factorio: 40000, host: port });
 			await server._startUdp();
 			assert.equal(server.hostUdpPort, port);
 			server._stopUdp();
@@ -117,7 +100,7 @@ describe("host/src/server ports", function() {
 		});
 		it("raises an error if the host UDP port is taken", async function() {
 			const port = held.address().port;
-			const server = makeServer({ enableLuaUdp: true, luaUdpPort: 40000, hostUdpPort: port });
+			const server = makeServer({ factorio: 40000, host: port });
 			await assert.rejects(
 				server._startUdp(),
 				err => err instanceof lib.EnvironmentError

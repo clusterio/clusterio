@@ -523,7 +523,7 @@ const outputHeuristics: Heuristic[] = [
 		filter: { type: "log", message: /^Starting RCON interface/ },
 		action: function() {
 			this._startRcon().catch((err) => { this.emit("error", err); });
-			if (this.enableLuaUdp) {
+			if (this.luaUdp) {
 				this._startUdp().catch((err) => { this.emit("error", err); });
 			}
 		},
@@ -641,6 +641,21 @@ const outputHeuristics: Heuristic[] = [
 ];
 
 
+/** Ports a Factorio server runs with */
+export interface FactorioServerPorts {
+	/** UDP port to host the game on */
+	game: number;
+	/** TCP port to use for RCON */
+	rcon: number;
+	/** Lua UDP ports, Lua UDP is disabled if null */
+	luaUdp: {
+		/** UDP port the Factorio server receives Lua UDP messages on */
+		factorio: number;
+		/** UDP port on localhost the host receives Lua UDP messages on */
+		host: number;
+	} | null;
+}
+
 export interface FactorioServerOptions {
 	/** Logger to use for reporting errors. */
 	logger?: lib.Logger,
@@ -651,18 +666,10 @@ export interface FactorioServerOptions {
 	version?: lib.TargetVersion,
 	/** Path to executable to invoke when starting the server */
 	executablePath?: string;
-	/** UDP port to host game on, required to start. */
-	gamePort?: number,
-	/** TCP port to use for RCON, required to start. */
-	rconPort?: number,
+	/** Ports to run the server with. */
+	ports: FactorioServerPorts,
 	/** Password use for RCON. */
 	rconPassword?: string,
-	/** Enable UDP messaging with the Factorio server. */
-	enableLuaUdp?: boolean,
-	/** UDP port the Factorio server receives Lua UDP messages on, required to start with Lua UDP. */
-	luaUdpPort?: number,
-	/** UDP port on localhost the host receives Lua UDP messages on, required to start with Lua UDP. */
-	hostUdpPort?: number,
 	/** Turn on whitelisting. */
 	enableWhitelist?: boolean,
 	/** Enable Factorio.com based multiplayer bans. */
@@ -737,17 +744,13 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	/** Path to executable to invoke when starting the server */
 	executablePath?: string;
 	/** UDP port used for hosting the Factorio game server on */
-	gamePort?: number;
+	gamePort: number;
 	/** TCP port used for RCON on the Factorio game server */
-	rconPort?: number;
+	rconPort: number;
 	/** Password used for RCON on the Factorio game server */
 	rconPassword: string;
-	/** Enable UDP messaging with the Factorio game server */
-	enableLuaUdp: boolean;
-	/** UDP port the Factorio game server receives Lua UDP messages on */
-	luaUdpPort?: number;
-	/** UDP port on localhost to receive Lua UDP messages on */
-	_hostUdpPort?: number;
+	/** Lua UDP ports, Lua UDP is disabled if null */
+	luaUdp: FactorioServerPorts["luaUdp"];
 	/** Enable player whitelist */
 	enableWhitelist: boolean;
 	/** Enable Factorio.com based multiplayer bans **/
@@ -811,17 +814,11 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 		this._logger = options.logger || lib.logger;
 		this.executablePath = options.executablePath;
-		/** UDP port used for hosting the Factorio game server on */
-		this.gamePort = options.gamePort;
-		/** TCP port used for RCON on the Factorio game server */
-		this.rconPort = options.rconPort;
+		this.gamePort = options.ports.game;
+		this.rconPort = options.ports.rcon;
+		this.luaUdp = options.ports.luaUdp;
 		/** Password used for RCON on the Factorio game server */
 		this.rconPassword = options.rconPassword;
-		/** Enable UDP messaging with the Factorio game server */
-		this.enableLuaUdp = options.enableLuaUdp || false;
-		/** UDP port the Factorio game server receives Lua UDP messages on */
-		this.luaUdpPort = options.luaUdpPort;
-		this._hostUdpPort = options.hostUdpPort;
 		/** Enable player whitelist */
 		this.enableWhitelist = options.enableWhitelist || false;
 		/** Enable Factorio.com based multiplayer bans **/
@@ -942,7 +939,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	_handleUdpMessage(message: Buffer, rinfo: dgram.RemoteInfo) {
 		// Factorio sends from the socket bound to the Lua UDP port, anything
 		// else is some other local process.
-		if (rinfo.port !== this.luaUdpPort) {
+		if (rinfo.port !== this.luaUdp?.factorio) {
 			this._logger.warn(`Ignoring UDP packet from unexpected source ${rinfo.address}:${rinfo.port}`);
 			return;
 		}
@@ -964,16 +961,17 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		if (this._udpSocket !== null) {
 			throw Error("UDP socket is already open");
 		}
-		if (!this._hostUdpPort) {
-			throw new Error("hostUdpPort is not set");
+		if (!this.luaUdp) {
+			throw new Error("Lua UDP is disabled");
 		}
+		const port = this.luaUdp.host;
 
 		const socket = dgram.createSocket("udp4");
 		socket.on("message", (message, rinfo) => this._handleUdpMessage(message, rinfo));
 		try {
 			await new Promise<void>((resolve, reject) => {
 				socket.once("error", reject);
-				socket.bind(this._hostUdpPort, "127.0.0.1", () => {
+				socket.bind(port, "127.0.0.1", () => {
 					socket.off("error", reject);
 					resolve();
 				});
@@ -981,7 +979,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		} catch (err: any) {
 			socket.close();
 			throw new lib.EnvironmentError(
-				`Failed to bind host Lua UDP socket to port ${this._hostUdpPort}: ${err.message}`
+				`Failed to bind host Lua UDP socket to port ${port}: ${err.message}`
 			);
 		}
 		socket.on("error", err => this.emit("error", err));
@@ -990,20 +988,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 	// Factorio before 2.1.10 crashes when a packet is received on a headless server
 	_checkLuaUdpVersion() {
-		if (this.enableLuaUdp && lib.integerFullVersion(this._version) < lib.integerFullVersion("2.1.10")) {
+		if (this.luaUdp && lib.integerFullVersion(this._version) < lib.integerFullVersion("2.1.10")) {
 			throw new Error("Lua UDP requires Factorio 2.1.10 or later");
-		}
-	}
-
-	_checkPorts() {
-		const required: [string, number | undefined][] = [["gamePort", this.gamePort], ["rconPort", this.rconPort]];
-		if (this.enableLuaUdp) {
-			required.push(["luaUdpPort", this.luaUdpPort], ["hostUdpPort", this._hostUdpPort]);
-		}
-		for (const [name, port] of required) {
-			if (!Number.isInteger(port) || port! < 1 || port! > 65535) {
-				throw new Error(`${name} must be set to a port between 1 and 65535, got ${port}`);
-			}
 		}
 	}
 
@@ -1071,7 +1057,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 
 		let config = {
 			host: "127.0.0.1", // localhost may resolve to ::1 while Factorio listen to only IPv4 by default.
-			port: this.rconPort!,
+			port: this.rconPort,
 			password: this.rconPassword,
 			timeout: 200000, // 200s, should allow for commands up to 1250kB in length
 			maxPending: this.maxConcurrentCommands,
@@ -1401,7 +1387,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async start(save: string) {
 		this._check(["init"]);
 		this._checkLuaUdpVersion();
-		this._checkPorts();
 		this._state = "running";
 
 		try {
@@ -1417,7 +1402,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 					"--port", String(this.gamePort),
 					"--rcon-port", String(this.rconPort),
 					"--rcon-password", this.rconPassword,
-					...(this.enableLuaUdp ? ["--enable-lua-udp", String(this.luaUdpPort)] : []),
+					...(this.luaUdp ? ["--enable-lua-udp", String(this.luaUdp.factorio)] : []),
 					...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
 					...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
 					...(this.verboseLogging ? ["--verbose"] : []),
@@ -1456,7 +1441,6 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	async startScenario(scenario: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
 		this._check(["init"]);
 		this._checkLuaUdpVersion();
-		this._checkPorts();
 		this._state = "running";
 
 		try {
@@ -1478,7 +1462,7 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 					"--port", String(this.gamePort),
 					"--rcon-port", String(this.rconPort),
 					"--rcon-password", this.rconPassword,
-					...(this.enableLuaUdp ? ["--enable-lua-udp", String(this.luaUdpPort)] : []),
+					...(this.luaUdp ? ["--enable-lua-udp", String(this.luaUdp.factorio)] : []),
 					...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
 					...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
 					...(this.verboseLogging ? ["--verbose"] : []),
@@ -1570,13 +1554,14 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	 */
 	async sendUdp(message: string | Buffer) {
 		this._check(["running", "stopping"]);
-		if (!this._udpSocket) {
+		if (!this._udpSocket || !this.luaUdp) {
 			throw new Error("UDP socket is not open");
 		}
 
 		const socket = this._udpSocket;
+		const port = this.luaUdp.factorio;
 		await new Promise<void>((resolve, reject) => {
-			socket.send(message, this.luaUdpPort!, "127.0.0.1", err => (err ? reject(err) : resolve()));
+			socket.send(message, port, "127.0.0.1", err => (err ? reject(err) : resolve()));
 		});
 	}
 

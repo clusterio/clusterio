@@ -30,14 +30,12 @@ export interface ConfiguredPortClaim extends PortClaim {
 	field: string;
 }
 
-/** Ports the host reserved for an instance to run Factorio with */
-export interface InstancePorts {
-	gamePort: number;
-	rconPort: number;
-	/** Only set with Lua UDP enabled */
-	luaUdpPort?: number;
-	/** Only set with Lua UDP enabled */
-	hostUdpPort?: number;
+/** Where {@link PortRegistry.reserveFree} picks a port from */
+export interface FreePortOptions {
+	/** Ports to pick from, any port the OS hands out if not set */
+	range?: Set<number>;
+	/** Port in the range to try first */
+	preferred?: number | null;
 }
 
 /** Socket bound to a port, kept open until closed */
@@ -75,11 +73,11 @@ export function configuredPortClaims(config: lib.InstanceConfig) {
 	return claims;
 }
 
-async function listenTcp(host: string): Promise<BoundPort> {
+async function listenTcp(host: string, port: number): Promise<BoundPort> {
 	const server = net.createServer();
 	await new Promise<void>((resolve, reject) => {
 		server.once("error", reject);
-		server.listen({ host, port: 0, ipv6Only: false }, () => {
+		server.listen({ host, port, ipv6Only: false }, () => {
 			server.off("error", reject);
 			resolve();
 		});
@@ -90,12 +88,12 @@ async function listenTcp(host: string): Promise<BoundPort> {
 	};
 }
 
-async function bindUdp(type: "udp4" | "udp6", address: string) {
+async function bindUdp(type: "udp4" | "udp6", address: string, port: number) {
 	const socket = dgram.createSocket({ type, ipv6Only: false });
 	try {
 		await new Promise<void>((resolve, reject) => {
 			socket.once("error", reject);
-			socket.bind(0, address, () => {
+			socket.bind(port, address, () => {
 				socket.off("error", reject);
 				resolve();
 			});
@@ -113,18 +111,19 @@ async function bindUdp(type: "udp4" | "udp6", address: string) {
 }
 
 /**
- * Bind a port picked by the OS on all addresses
+ * Bind a port on all addresses
  *
  * Binds dual stack on [::], or 0.0.0.0 if IPv6 is unavailable, so the port
  * is free on both IPv4 and IPv6.
  *
  * @param protocol - Protocol to bind.
+ * @param port - Port to bind, 0 lets the OS pick a free one.
  * @returns the bound socket.
  */
-export async function probeFreePort(protocol: PortProtocol): Promise<BoundPort> {
+export async function probePort(protocol: PortProtocol, port = 0): Promise<BoundPort> {
 	const bind = protocol === "tcp"
-		? listenTcp
-		: (address: string) => bindUdp(address === "::" ? "udp6" : "udp4", address);
+		? (address: string) => listenTcp(address, port)
+		: (address: string) => bindUdp(address === "::" ? "udp6" : "udp4", address, port);
 	try {
 		return await bind("::");
 	} catch (err: any) {
@@ -146,7 +145,7 @@ export async function probeFreePort(protocol: PortProtocol): Promise<BoundPort> 
 export class PortRegistry {
 	_configured = new Map<number, ConfiguredPortClaim[]>();
 	_reserved = new Map<number, PortClaim[]>();
-	_probe = probeFreePort;
+	_probe = probePort;
 
 	constructor(
 		/** Name of the owner used in messages */
@@ -267,25 +266,43 @@ export class PortRegistry {
 	}
 
 	/**
-	 * Reserve a free port picked by the OS
+	 * Reserve a free port
 	 *
-	 * Probes until the OS gives a port that is not claimed.  The port is
+	 * Picks a port no other process is bound to and no instance has
+	 * claimed, from the range if given or else from the OS.  The port is
 	 * free when picked, but another process may bind it before Factorio
 	 * does.
 	 *
 	 * @param owner - ID of the instance reserving the port.
 	 * @param endpoint - What the port is used for.
 	 * @param protocol - Protocol of the port.
+	 * @param options - Range to pick from.
 	 * @returns the port.
 	 */
-	async reserveFree(owner: number, endpoint: PortEndpoint, protocol: PortProtocol) {
-		// Claimed ports stay bound until done so the OS does not hand them out again.
+	async reserveFree(owner: number, endpoint: PortEndpoint, protocol: PortProtocol, options: FreePortOptions = {}) {
+		const own = { owner, endpoint };
+		// Probes stay bound until done so the OS does not hand out a skipped port again.
 		const probes: BoundPort[] = [];
+		const candidates = options.range ? this._rangeCandidates(options.range, options.preferred) : Array(100).fill(0);
+		let inUse = 0;
 		try {
-			for (let attempt = 0; attempt < 100; attempt++) {
-				const probe = await this._probe(protocol);
+			for (const candidate of candidates) {
+				if (candidate && this.isClaimed(protocol, candidate, own)) {
+					continue;
+				}
+				let probe;
+				try {
+					probe = await this._probe(protocol, candidate);
+				} catch (err: any) {
+					if (candidate && err.code === "EADDRINUSE") {
+						inUse += 1;
+						continue;
+					}
+					throw err;
+				}
 				probes.push(probe);
-				if (!this.isClaimed(protocol, probe.port)) {
+				// Checked again after probing as another reservation may have claimed it meanwhile.
+				if (!this.isClaimed(protocol, probe.port, own)) {
 					this._add({ owner, endpoint, protocol, port: probe.port });
 					return probe.port;
 				}
@@ -293,10 +310,19 @@ export class PortRegistry {
 		} finally {
 			await Promise.all(probes.map(probe => probe.close()));
 		}
-		throw new lib.EnvironmentError(
-			`No free ${protocol.toUpperCase()} port found for the ${endpointNames[endpoint]} of ` +
-			`${this.describeOwner(owner)}`
-		);
+		const of = `the ${endpointNames[endpoint]} of ${this.describeOwner(owner)}`;
+		if (options.range) {
+			const others = inUse ? ` (${inUse} in use by other processes)` : "";
+			throw new lib.ConflictError(`No free ${protocol.toUpperCase()} port left in the range for ${of}${others}`);
+		}
+		throw new lib.EnvironmentError(`No free ${protocol.toUpperCase()} port found for ${of}`);
+	}
+
+	_rangeCandidates(range: Set<number>, preferred?: number | null) {
+		if (preferred && range.has(preferred)) {
+			return [preferred, ...[...range].filter(port => port !== preferred)];
+		}
+		return [...range];
 	}
 
 	/** Release the ports reserved for an instance */

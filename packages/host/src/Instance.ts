@@ -643,6 +643,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	notifyExit() {
+		this._host.releaseInstancePorts(this.id);
 		this._loadedSave = null;
 		this._autoPause = false;
 		this.notifyStatus("stopped");
@@ -712,7 +713,7 @@ end`.replace(/\r?\n/g, " ");
 		// TODO: factorio.version is not validated
 		const targetVersion = config.get("factorio.version") as lib.TargetVersion;
 		const ports = await host.reserveInstancePorts(id);
-		const gamePort = ports.gamePort;
+		const gamePort = ports.game;
 		host.send(new lib.InstanceStatusChangedEvent(id, "starting", gamePort, targetVersion));
 
 		let server: FactorioServer;
@@ -741,9 +742,8 @@ end`.replace(/\r?\n/g, " ");
 				logger,
 				version,
 				executablePath: config.get("factorio.executable_path") ?? undefined,
-				...ports,
+				ports,
 				rconPassword: config.get("factorio.rcon_password") ?? undefined,
-				enableLuaUdp: config.get("factorio.enable_lua_udp"),
 				enableWhitelist: config.get("factorio.enable_whitelist"),
 				enableAuthserverBans: config.get("factorio.enable_authserver_bans"),
 				verboseLogging: config.get("factorio.verbose_logging"),
@@ -753,6 +753,7 @@ end`.replace(/\r?\n/g, " ");
 				shutdownTimeoutMs: config.get("factorio.shutdown_timeout") * 1000,
 			});
 		} catch (err) {
+			host.releaseInstancePorts(id);
 			host.send(new lib.InstanceStatusChangedEvent(id, "stopped", gamePort, targetVersion));
 			await host.sendSaveListUpdate(id, path.join(dir, "saves"));
 			throw err;

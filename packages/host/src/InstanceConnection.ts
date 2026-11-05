@@ -25,7 +25,6 @@ export default class InstanceConnection extends lib.Link {
 	async snoopInstanceStatusChangedEvent(event: lib.InstanceStatusChangedEvent) {
 		if (this.instance.status === "stopped") {
 			this.host.instanceConnections.delete(this.instance.id);
-			this.host.ports.release(this.instance.id);
 		}
 	}
 }

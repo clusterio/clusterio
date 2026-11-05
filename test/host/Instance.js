@@ -21,6 +21,7 @@ describe("class Instance", function() {
 		let saveListUpdates;
 		let requests;
 		let ports;
+		let released;
 		function makeConfig(fields) {
 			return new lib.InstanceConfig("host", { "instance.id": 5, "instance.name": "foo", ...fields });
 		}
@@ -34,8 +35,10 @@ describe("class Instance", function() {
 			sent = [];
 			saveListUpdates = [];
 			requests = [];
-			ports = { gamePort: 34100, rconPort: 34101 };
+			ports = { game: 34100, rcon: 34101, luaUdp: null };
+			released = [];
 			host = {
+				releaseInstancePorts(instanceId) { released.push(instanceId); },
 				async reserveInstancePorts(instanceId) {
 					requests.push(`reserveInstancePorts(${instanceId})`);
 					return ports;
@@ -64,12 +67,12 @@ describe("class Instance", function() {
 			assert.deepEqual(requests, ["reserveInstancePorts(5)", "FactorioVersionsRequest"]);
 		});
 		it("should give the server the ports reserved by the host", async function() {
-			ports = { gamePort: 34200, rconPort: 1000, luaUdpPort: 1001, hostUdpPort: 1002 };
+			ports = { game: 34200, rcon: 1000, luaUdp: { factorio: 1001, host: 1002 } };
 			const instance = await fromConfig(makeConfig({ "factorio.enable_lua_udp": true }));
 			assert.equal(instance.server.gamePort, 34200);
 			assert.equal(instance.server.rconPort, 1000);
-			assert.equal(instance.server.luaUdpPort, 1001);
-			assert.equal(instance.server._hostUdpPort, 1002);
+			assert.deepEqual(instance.server.luaUdp, { factorio: 1001, host: 1002 });
+			assert.deepEqual(released, []);
 		});
 		it("should not report starting if the host cannot reserve ports", async function() {
 			const err = new lib.ConflictError("Cannot use TCP port 1000");
@@ -98,6 +101,7 @@ describe("class Instance", function() {
 				new lib.InstanceStatusChangedEvent(5, "stopped", 34100, "0.1.5"),
 			]);
 			assert.deepEqual(saveListUpdates, [[5, path.join(dir, "saves")]]);
+			assert.deepEqual(released, [5]);
 		});
 	});
 
@@ -110,7 +114,19 @@ describe("class Instance", function() {
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);
-		instance = new Instance({}, connector, "dir", instanceConfig, new MockServer());
+		const host = {
+			released: [],
+			releaseInstancePorts(instanceId) { this.released.push(instanceId); },
+		};
+		instance = new Instance(host, connector, "dir", instanceConfig, new MockServer());
+	});
+
+	describe(".notifyExit()", function() {
+		it("should release the ports reserved for the instance", function() {
+			instance._saveStats = async () => {};
+			instance.notifyExit();
+			assert.deepEqual(instance._host.released, [instance.id]);
+		});
 	});
 
 	describe(".name", function() {

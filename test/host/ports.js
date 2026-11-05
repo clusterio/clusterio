@@ -5,7 +5,7 @@ import net from "node:net";
 
 import * as lib from "@clusterio/lib";
 import {
-	PortRegistry, configuredPortClaims, probeFreePort,
+	PortRegistry, configuredPortClaims, probePort,
 } from "@clusterio/host/dist/node/src/ports.js";
 import "../setup_logging.js";
 
@@ -70,10 +70,10 @@ describe("host/src/ports", function() {
 		});
 	});
 
-	describe("probeFreePort()", function() {
+	describe("probePort()", function() {
 		for (const protocol of ["tcp", "udp"]) {
 			it(`returns a ${protocol} port that is bound until closed`, async function() {
-				const bound = await probeFreePort(protocol);
+				const bound = await probePort(protocol);
 				try {
 					assert(bound.port > 0);
 					if (protocol === "tcp") {
@@ -94,6 +94,18 @@ describe("host/src/ports", function() {
 			});
 		}
 
+		it("binds the given port", async function() {
+			const free = await probePort("udp");
+			await free.close();
+			const bound = await probePort("udp", free.port);
+			try {
+				assert.equal(bound.port, free.port);
+				await assert.rejects(probePort("udp", free.port), { code: "EADDRINUSE" });
+			} finally {
+				await bound.close();
+			}
+		});
+
 		for (const host of ["127.0.0.1", "::1"]) {
 			it(`avoids the local port of an established outgoing connection on ${host}`, async function() {
 				const listener = net.createServer();
@@ -111,7 +123,7 @@ describe("host/src/ports", function() {
 				const [peer] = await accepted;
 				await events.once(client, "connect").catch(() => {});
 				try {
-					const bound = await probeFreePort("tcp");
+					const bound = await probePort("tcp");
 					await bound.close();
 					assert.notEqual(bound.port, client.localPort);
 				} finally {
@@ -127,7 +139,7 @@ describe("host/src/ports", function() {
 				net.Server.prototype, "listen", "EAFNOSUPPORT", ([options]) => options.host === "::"
 			);
 			try {
-				const bound = await probeFreePort("tcp");
+				const bound = await probePort("tcp");
 				assert(bound.port > 0);
 				await bound.close();
 				assert.equal(stub.calls(), 2);
@@ -140,7 +152,7 @@ describe("host/src/ports", function() {
 				dgram.Socket.prototype, "bind", "EADDRNOTAVAIL", ([, address]) => address === "::"
 			);
 			try {
-				const bound = await probeFreePort("udp");
+				const bound = await probePort("udp");
 				assert(bound.port > 0);
 				await bound.close();
 				assert.equal(stub.calls(), 2);
@@ -154,7 +166,7 @@ describe("host/src/ports", function() {
 			it(`propagates ${protocol} permission errors without retrying`, async function() {
 				const stub = failNextListen(prototype, method, "EACCES");
 				try {
-					await assert.rejects(probeFreePort(protocol), { code: "EACCES" });
+					await assert.rejects(probePort(protocol), { code: "EACCES" });
 					assert.equal(stub.calls(), 1);
 				} finally {
 					stub.restore();
@@ -339,6 +351,62 @@ describe("host/src/ports", function() {
 					}
 				});
 			}
+			describe("with a range", function() {
+				let busy;
+				let probed;
+				beforeEach(function() {
+					busy = new Set();
+					probed = [];
+					registry._probe = async (protocol, port) => {
+						probed.push(port);
+						if (busy.has(port)) {
+							throw Object.assign(new Error("in use"), { code: "EADDRINUSE" });
+						}
+						return fakeBound(port);
+					};
+				});
+				const range = new Set([34100, 34101, 34102]);
+
+				it("tries the preferred port first", async function() {
+					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 34102 }), 34102);
+					assert.deepEqual(probed, [34102]);
+				});
+				it("ignores a preferred port outside the range", async function() {
+					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 40000 }), 34100);
+				});
+				it("skips claimed ports without probing them and ports other processes use", async function() {
+					registry.setConfigured(2, instanceConfig(2, { "factorio.game_port": 34100 }));
+					busy.add(34101);
+					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 34100 }), 34102);
+					assert.deepEqual(probed, [34101, 34102]);
+				});
+				it("does not skip its own configured port for the same endpoint", async function() {
+					registry.setConfigured(1, instanceConfig(1, { "factorio.host_assigned_game_port": 34101 }));
+					assert.equal(await registry.reserveFree(1, "game", "udp", { range, preferred: 34101 }), 34101);
+				});
+				it("rejects when every port in the range is taken", async function() {
+					registry.reserveFixed(2, "game", "udp", 34100);
+					busy.add(34101);
+					busy.add(34102);
+					await assert.rejects(
+						registry.reserveFree(1, "game", "udp", { range }),
+						new lib.ConflictError(
+							'No free UDP port left in the range for the game port of instance "inst1" ' +
+							"(2 in use by other processes)"
+						),
+					);
+				});
+				it("keeps concurrent reservations distinct", async function() {
+					const ports = await Promise.all(
+						[1, 2, 3].map(id => registry.reserveFree(id, "game", "udp", { range }))
+					);
+					assert.deepEqual(ports.sort(), [...range]);
+				});
+				it("propagates errors other than the port being in use", async function() {
+					registry._probe = async () => { throw Object.assign(new Error("denied"), { code: "EACCES" }); };
+					await assert.rejects(registry.reserveFree(1, "game", "udp", { range }), { code: "EACCES" });
+				});
+			});
 			it("leaves the port unbound", async function() {
 				const port = await registry.reserveFree(1, "rcon", "tcp");
 				const server = net.createServer();
