@@ -16,7 +16,8 @@ It is on by default.
 The first server to turn following on with something queued shares its queue as the cluster queue, and servers that turn it on after that take the cluster's.
 A server's first start counts as turning it on; a later restart takes the cluster queue, even an empty one.
 Whenever the cluster queue is empty (for example, everything in it has finished), the next server that turns following on shares its queue again.
-Every change to the cluster queue prints a chat line on every server.
+Every change to the cluster queue prints a chat line on every server naming the technologies added, removed or moved, with the level each queued entry researches.
+Entries dropped because their research finished only print the "Researched" line.
 
 It needs Factorio 2.0.56 or later, older servers ignore the queue.
 To turn it off without the GUI, run `/sc research_sync.set_follow(false)` on that server.

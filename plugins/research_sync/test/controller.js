@@ -4,10 +4,10 @@ import path from "node:path";
 
 import * as lib from "@clusterio/lib";
 import * as mock from "../../../test/mock.js";
-import controllerEntrypoint from "../dist/node/controller.js";
+import controllerEntrypoint, { queueChanges } from "../dist/node/controller.js";
 import { plugin as info } from "../dist/node/index.js";
 import {
-	ContributionEvent, FinishedEvent, QueueEvent, QueueSyncRequest, QueueUpdateEvent,
+	ContributionEvent, FinishedEvent, QueueChange, QueueEvent, QueueSyncRequest, QueueUpdateEvent,
 	SyncTechnologiesRequest, TechnologySync,
 } from "../dist/node/messages.js";
 
@@ -57,6 +57,24 @@ describe("research_sync controller", function() {
 		assert.equal(sent[0][1].player, "Bob");
 		assert.equal(sent[0][1].instance, "rs-1");
 		assert.deepEqual(await sync(), ["a", "b"]);
+	});
+	it("should send what changed with an update", async function() {
+		await update(["a", "b"], "Bob");
+		await update(["b", "a", "c"], "Bob");
+		assert.deepEqual(queueEvents().map(([, m]) => m.changes), [
+			[new QueueChange("added", "a", 0, 1), new QueueChange("added", "b", 0, 2)],
+			[new QueueChange("added", "c", 0, 3), new QueueChange("moved", "a", 0, 2)],
+		]);
+	});
+	it("should send what changed when seeding from a sync request", async function() {
+		await sync(["x"], "Bob");
+		assert.deepEqual(queueEvents()[0][1].changes, [new QueueChange("added", "x", 0, 1)]);
+	});
+	it("should send no changes when dropping a finished technology", async function() {
+		await update(["x", "y"]);
+		sent.length = 0;
+		await mock.getHandler(controller, FinishedEvent)(new FinishedEvent("x", 1), src);
+		assert.equal(queueEvents()[0][1].changes, null);
 	});
 	it("should not broadcast an unchanged update", async function() {
 		await update(["a", "b"]);
@@ -210,6 +228,41 @@ describe("research_sync controller", function() {
 			await contribute("mining-productivity-3", 4, 0.5);
 			let techs = await syncTechs();
 			assert.deepEqual(techs.get("mining-productivity-3"), tech(5, null));
+		});
+	});
+
+	describe("queueChanges()", function() {
+		const added = (name, offset, position) => new QueueChange("added", name, offset, position);
+		const removed = (name, offset, position) => new QueueChange("removed", name, offset, position);
+		const moved = (name, offset, position) => new QueueChange("moved", name, offset, position);
+
+		it("should return nothing for equal queues", function() {
+			assert.deepEqual(queueChanges(["a", "b"], ["a", "b"]), []);
+			assert.deepEqual(queueChanges([], []), []);
+		});
+		it("should list an entry added anywhere", function() {
+			assert.deepEqual(queueChanges(["a", "b"], ["a", "x", "b"]), [added("x", 0, 2)]);
+			assert.deepEqual(queueChanges([], ["a"]), [added("a", 0, 1)]);
+		});
+		it("should list an entry removed with its old position", function() {
+			assert.deepEqual(queueChanges(["a", "x", "b"], ["a", "b"]), [removed("x", 0, 2)]);
+			assert.deepEqual(queueChanges(["a"], []), [removed("a", 0, 1)]);
+		});
+		it("should list a moved entry with its new position", function() {
+			assert.deepEqual(queueChanges(["a", "b", "c", "d"], ["d", "a", "b", "c"]), [moved("d", 0, 1)]);
+			assert.deepEqual(queueChanges(["a", "b", "c", "d"], ["b", "c", "a", "d"]), [moved("a", 0, 3)]);
+		});
+		it("should give repeated levels increasing offsets", function() {
+			assert.deepEqual(queueChanges(["m", "m"], ["m", "m", "m"]), [added("m", 2, 3)]);
+			assert.deepEqual(queueChanges([], ["m", "a", "m"]), [added("m", 0, 1), added("a", 0, 2), added("m", 1, 3)]);
+		});
+		it("should remove the highest levels when a repeated technology shrinks", function() {
+			assert.deepEqual(queueChanges(["m", "m", "m"], ["m"]), [removed("m", 1, 2), removed("m", 2, 3)]);
+		});
+		it("should list removed, then added, then moved", function() {
+			assert.deepEqual(queueChanges(["a", "b", "c"], ["c", "x", "a"]), [
+				removed("b", 0, 2), added("x", 0, 2), moved("a", 0, 3),
+			]);
 		});
 	});
 
