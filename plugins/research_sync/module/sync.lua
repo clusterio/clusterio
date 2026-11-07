@@ -177,17 +177,43 @@ local function write_queue(force, names)
 	end
 end
 
---- @param names string[]
---- @return string
-local function format_queue(names)
-	if #names == 0 then
-		return "(empty)"
+--- localised_name of a levelled technology includes its current level, so build the name with the given level
+--- @param tech LuaTechnology
+--- @param level number
+--- @return LocalisedString
+local function technology_label(tech, level)
+	if tech.name:find("-%d+$") then
+		return {"", {"technology-name." .. tech.name:gsub("-%d+$", "")}, " ", level}
 	end
-	local tags = {}
-	for _, name in ipairs(names) do
-		table.insert(tags, "[technology=" .. name .. "]")
+	return tech.localised_name
+end
+
+--- @class ResearchSyncQueueChange
+--- @field type "added"|"removed"|"moved"
+--- @field name string
+--- @field offset integer
+--- @field position integer
+
+--- @param changes ResearchSyncQueueChange[]
+--- @return LocalisedString[]
+local function format_changes(changes)
+	local force = game.forces["player"]
+	local parts = {}
+	for i, change in ipairs(changes) do
+		local tech = force.technologies[change.name]
+		local label
+		if tech then
+			label = technology_label(tech, tech.level + change.offset)
+		else
+			label = change.name
+		end
+		local part = {"", i > 1 and ", " or "", change.type, " ", label}
+		if change.type == "moved" then
+			table.insert(part, " to position " .. change.position)
+		end
+		table.insert(parts, part)
 	end
-	return table.concat(tags, " ")
+	return parts
 end
 
 --- @param player LuaPlayer
@@ -392,11 +418,7 @@ function research_sync.research_technology(name, level)
 		tech.level = level
 		tech.researched = true
 
-		if tech.name:find("-%d+$") then
-			game.print {"", "Researched ", {"technology-name." .. tech.name:gsub("-%d+$", "")}, " ", level}
-		else
-			game.print {"", "Researched ", {"technology-name." .. tech.name}}
-		end
+		game.print {"", "Researched ", technology_label(tech, level)}
 		game.play_sound { path = "utility/research_completed" }
 	end
 	script_data.ignore_research_finished = false
@@ -424,19 +446,28 @@ function research_sync.queue_state()
 	}))
 end
 
---- @param data string JSON {queue: string[], player?: string, instance?: string}
+--- @param data string JSON {queue: string[], player?: string, instance?: string, changes?: ResearchSyncQueueChange[]}
 function research_sync.apply_queue(data)
 	if not research_queue_api then
 		return
 	end
 	local msg = compat.json_to_table(data) --[[@as table]]
 	local queue = msg.queue or {}
-	if msg.instance then
-		local list = format_queue(queue)
+	if msg.instance and msg.changes then
+		-- "Bob added X on 0_1", or "Research queue on 0_1: added X"
+		local text = {"", msg.player and msg.player .. " " or "Research queue on " .. msg.instance .. ": "}
+		for _, part in ipairs(format_changes(msg.changes)) do
+			table.insert(text, part)
+		end
 		if msg.player then
-			game.print(msg.player .. " changed the research queue on " .. msg.instance .. ": " .. list)
+			table.insert(text, " on " .. msg.instance)
+		end
+		game.print(text)
+	elseif msg.instance then
+		if msg.player then
+			game.print(msg.player .. " changed the research queue on " .. msg.instance)
 		else
-			game.print("The research queue was changed on " .. msg.instance .. ": " .. list)
+			game.print("The research queue was changed on " .. msg.instance)
 		end
 	end
 

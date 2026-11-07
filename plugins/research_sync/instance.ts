@@ -8,6 +8,7 @@ import {
 	SyncTechnologiesRequest,
 	QueueUpdateEvent,
 	QueueEvent,
+	QueueChange,
 	QueueSyncRequest,
 } from "./messages.js";
 
@@ -22,6 +23,7 @@ type IpcFinished = {
 	level: number,
 };
 type IpcQueue = { queue: unknown, player?: string };
+type ApplyQueue = { queue: string[], instance?: string, player?: string, changes?: QueueChange[] };
 
 export default async function(context: InstancePluginContext) {
 	const { instance, host, logger, plugin } = context;
@@ -49,7 +51,7 @@ export default async function(context: InstancePluginContext) {
 		return Array.isArray(v) ? v : [];
 	}
 
-	async function applyQueue(data: { queue: string[], instance?: string, player?: string }) {
+	async function applyQueue(data: ApplyQueue) {
 		await sendOrderedRcon(`/sc research_sync.apply_queue("${lib.escapeString(JSON.stringify(data))}")`, true);
 	}
 
@@ -177,12 +179,15 @@ export default async function(context: InstancePluginContext) {
 		if (!syncStarted || !["starting", "running"].includes(instance.status)) {
 			return;
 		}
-		let data: { queue: string[], instance?: string, player?: string } = { queue: event.queue };
+		let data: ApplyQueue = { queue: event.queue };
 		if (event.instance !== null) {
 			data.instance = event.instance;
 		}
 		if (event.player !== null) {
 			data.player = event.player;
+		}
+		if (event.changes?.length) {
+			data.changes = event.changes;
 		}
 		queueEventsApplied += 1;
 		await applyQueue(data);
