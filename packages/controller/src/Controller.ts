@@ -473,7 +473,7 @@ export default class Controller {
 
 		// Only start listening for connections after all plugins have loaded
 		if (httpPort) {
-			this.httpServer = http.createServer(this.app);
+			this.httpServer = http.createServer(routes.httpServerOptions, this.app);
 			this.httpServerCloser = new HttpCloser(this.httpServer);
 			await this.listen(this.httpServer, httpPort, bindAddress);
 			logger.info(`Listening for HTTP on port ${(this.httpServer.address() as AddressInfo).port}`);
@@ -492,6 +492,7 @@ export default class Controller {
 			}
 
 			this.httpsServer = https.createServer({
+				...routes.httpServerOptions,
 				key: privateKey,
 				cert: certificate,
 			}, this.app);

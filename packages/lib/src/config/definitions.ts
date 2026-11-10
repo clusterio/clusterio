@@ -31,6 +31,7 @@ export interface ControllerConfigFields {
 	"controller.max_subscription_filters": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
+	"controller.transfer_idle_timeout": number;
 	"controller.factorio_username": string | null;
 	"controller.factorio_token": string | null;
 	"controller.share_factorio_credentials_with_hosts": boolean;
@@ -213,6 +214,13 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			description: "Interval heartbeats are sent out on WebSocket connections.",
 			type: "number",
 			initialValue: 15,
+			validator: validators.greaterThanZero,
+		},
+		"controller.transfer_idle_timeout": {
+			title: "Transfer Idle Timeout",
+			description: "Time in seconds an upload or download can go without progress before it's closed.",
+			type: "number",
+			initialValue: 60,
 			validator: validators.greaterThanZero,
 		},
 		"controller.session_timeout": {

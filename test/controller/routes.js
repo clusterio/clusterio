@@ -12,6 +12,7 @@ import { HostPairingManager, HostRecord } from "@clusterio/controller";
 
 import * as routes from "@clusterio/controller/dist/node/src/routes.js";
 import * as mock from "../mock.js";
+import { createZipBuffer } from "../common.js";
 
 import "../setup_logging.js";
 
@@ -22,7 +23,7 @@ describe("controller/src/routes", function() {
 	beforeEach(async function() {
 		controller = new mock.MockController();
 		routes.addRouteHandlers(controller.app);
-		server = http.createServer(controller.app);
+		server = http.createServer(routes.httpServerOptions, controller.app);
 		server.listen(0, "localhost");
 		await events.once(server, "listening");
 		port = server.address().port;
@@ -30,6 +31,67 @@ describe("controller/src/routes", function() {
 	afterEach(function() {
 		server.close();
 	});
+
+	const largeSize = 64 * 1024 * 1024;
+	/**
+	 * Send a large body at about 6 MiB/s whether or not the server reads it,
+	 * the way a proxy in front of the controller passes on an upload, until
+	 * the connection closes, and count what the server read.
+	 * @param {string} url - URL to send to.
+	 * @param {object} options - Options for the request.
+	 * @param {string=} options.method - HTTP method, defaults to PUT.
+	 * @param {object=} options.headers - Headers to send.
+	 * @param {string=} options.prefix - Content to send before the large body.
+	 * @returns {Promise<{ status: number|undefined, body: string, serverBytesRead: number }>} result
+	 */
+	async function sendLargeBody(url, { method = "PUT", headers = {}, prefix = "" } = {}) {
+		const sockets = [];
+		const onConnection = socket => sockets.push(socket);
+		server.on("connection", onConnection);
+		const request = http.request(url, {
+			method, headers: { "Content-Length": Buffer.byteLength(prefix) + largeSize, ...headers },
+		});
+		let status;
+		let body = "";
+		request.on("response", response => {
+			status = response.statusCode;
+			response.setEncoding("utf8");
+			response.on("data", chunk => { body += chunk; });
+			response.on("error", () => {});
+		});
+		// The server may close the connection while the body is being sent
+		request.on("error", () => {});
+		const closed = new Promise(resolve => request.on("close", resolve));
+		request.write(prefix);
+		const chunk = Buffer.alloc(64 * 1024);
+		for (let sent = 0; sent < largeSize && !request.closed; sent += chunk.length) {
+			request.write(chunk);
+			await lib.wait(10);
+		}
+		if (!request.closed) {
+			request.end();
+		}
+		await closed;
+		server.off("connection", onConnection);
+		await Promise.all(sockets.map(
+			socket => socket.destroyed || new Promise(resolve => socket.on("close", resolve))
+		));
+		return { status, body, serverBytesRead: sockets.reduce((total, socket) => total + socket.bytesRead, 0) };
+	}
+	function assertNotRead(result) {
+		assert(
+			result.serverBytesRead < largeSize / 4,
+			`server read ${result.serverBytesRead} of ${largeSize} bytes`
+		);
+	}
+	function multipartPrefix(boundary, fields, filename, mime = "application/zip") {
+		let prefix = "";
+		for (const [name, value] of Object.entries(fields)) {
+			prefix += `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+		}
+		return `${prefix}--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
+			`Content-Type: ${mime}\r\n\r\n`;
+	}
 	describe("/api/stream/:id", function() {
 		let endpoint;
 		beforeEach(function() {
@@ -49,57 +111,78 @@ describe("controller/src/routes", function() {
 			let response = await fetch(`${endpoint}/${stream.id}`);
 			assert.equal(response.status, 500);
 		});
-		/**
-		 * PUT a body at about 6 MiB/s whether or not the server reads it, the way
-		 * a proxy in front of the controller passes on an upload, until the
-		 * connection closes, and count what the server read.
-		 * @param {string} url - URL to PUT to.
-		 * @param {number} size - Size of the body in bytes.
-		 * @returns {Promise<{ status: number|undefined, serverBytesRead: number }>} result
-		 */
-		async function putLargeBody(url, size) {
-			const sockets = [];
-			const onConnection = socket => sockets.push(socket);
-			server.on("connection", onConnection);
-			const request = http.request(url, { method: "PUT", headers: { "Content-Length": size } });
-			let status;
-			request.on("response", response => {
-				status = response.statusCode;
-				response.on("error", () => {});
-				response.resume();
-			});
-			// The server may close the connection while the body is being sent
-			request.on("error", () => {});
-			const closed = new Promise(resolve => request.on("close", resolve));
-			const chunk = Buffer.alloc(64 * 1024);
-			for (let sent = 0; sent < size && !request.closed; sent += chunk.length) {
-				request.write(chunk);
-				await wait(10);
-			}
-			if (!request.closed) {
-				request.end();
-			}
-			await closed;
-			server.off("connection", onConnection);
-			await Promise.all(sockets.map(
-				socket => socket.destroyed || new Promise(resolve => socket.on("close", resolve))
-			));
-			return { status, serverBytesRead: sockets.reduce((total, socket) => total + socket.bytesRead, 0) };
-		}
 		it("should not read the body of a PUT to a stream that doesn't exist", async function() {
 			this.timeout(30000);
-			const size = 64 * 1024 * 1024;
-			const result = await putLargeBody(`${endpoint}/01020304`, size);
+			const result = await sendLargeBody(`${endpoint}/01020304`);
 			assert.equal(result.status, 404);
-			assert(result.serverBytesRead < size / 4, `server read ${result.serverBytesRead} of ${size} bytes`);
+			assertNotRead(result);
 		});
 		it("should not read the body of a PUT to a stream that times out", async function() {
 			this.timeout(30000);
-			const size = 64 * 1024 * 1024;
 			const stream = await routes.createProxyStream(controller.app);
-			const result = await putLargeBody(`${endpoint}/${stream.id}`, size);
+			const result = await sendLargeBody(`${endpoint}/${stream.id}`);
 			assert.equal(result.status, 500);
-			assert(result.serverBytesRead < size / 4, `server read ${result.serverBytesRead} of ${size} bytes`);
+			assertNotRead(result);
+		});
+		it("should respond with 500 and stop reading when the receiver disconnects", async function() {
+			this.timeout(30000);
+			const stream = await routes.createProxyStream(controller.app);
+			const upload = sendLargeBody(`${endpoint}/${stream.id}`);
+			const abort = new AbortController();
+			const response = await fetch(`${endpoint}/${stream.id}`, { signal: abort.signal });
+			assert.equal(response.status, 200);
+			await response.body.getReader().read();
+			abort.abort();
+			const result = await upload;
+			assert.equal(result.status, 500);
+			assertNotRead(result);
+		});
+		it("should close the receiver when the upload is cut short", async function() {
+			const stream = await routes.createProxyStream(controller.app);
+			const request = http.request(
+				`${endpoint}/${stream.id}`, { method: "PUT", headers: { "Content-Length": 1024 * 1024 } }
+			);
+			request.on("error", () => {});
+			request.write(Buffer.alloc(1024));
+			const response = await fetch(`${endpoint}/${stream.id}`);
+			assert.equal(response.status, 200);
+			request.destroy();
+			await assert.rejects(response.arrayBuffer());
+		});
+		it("should close a transfer that stops making progress", async function() {
+			controller.mockConfigEntries.set("controller.transfer_idle_timeout", 0.5);
+			const stream = await routes.createProxyStream(controller.app);
+			const request = http.request(
+				`${endpoint}/${stream.id}`, { method: "PUT", headers: { "Content-Length": 1024 * 1024 } }
+			);
+			request.on("error", () => {});
+			const closed = new Promise(resolve => request.on("close", resolve));
+			request.write(Buffer.alloc(1024));
+			const response = await fetch(`${endpoint}/${stream.id}`);
+			assert.equal(response.status, 200);
+			const start = Date.now();
+			await assert.rejects(response.arrayBuffer());
+			await closed;
+			assert(Date.now() - start < 1500, `closed after ${Date.now() - start} ms`);
+		});
+		it("should not close a slow transfer that makes progress", async function() {
+			this.timeout(10000);
+			controller.mockConfigEntries.set("controller.transfer_idle_timeout", 0.5);
+			const stream = await routes.createProxyStream(controller.app);
+			const request = http.request(
+				`${endpoint}/${stream.id}`, { method: "PUT", headers: { "Content-Length": 10 * 1024 } }
+			);
+			const uploaded = events.once(request, "response");
+			const download = fetch(`${endpoint}/${stream.id}`).then(response => response.arrayBuffer());
+			for (let i = 0; i < 10; i++) {
+				request.write(Buffer.alloc(1024));
+				await lib.wait(200);
+			}
+			request.end();
+			const [response] = await uploaded;
+			response.resume();
+			assert.equal(response.statusCode, 200);
+			assert.equal((await download).byteLength, 10 * 1024);
 		});
 		it("should passthrough a stream", async function() {
 			let stream;
@@ -859,6 +942,254 @@ describe("controller/src/routes", function() {
 			});
 			assert.deepEqual(await response.json(), { saves: ["test.zip"] });
 			assert.equal(response.status, 200);
+		});
+
+		function uploadVariants() {
+			return [
+				{
+					url: `${endpoint}?instance_id=123&filename=test.zip`,
+					headers: { "Content-Type": "application/zip" },
+				},
+				{
+					url: endpoint,
+					headers: { "Content-Type": "multipart/form-data; boundary=test" },
+					prefix: multipartPrefix("test", { instance_id: "123" }, "test.zip"),
+				},
+			];
+		}
+		it("should not read the body of an upload without a valid token", async function() {
+			this.timeout(30000);
+			const result = await sendLargeBody(`${endpoint}?instance_id=123&filename=file.zip`, {
+				method: "POST", headers: { "Content-Type": "application/zip" },
+			});
+			assert.equal(result.status, 401);
+			assertNotRead(result);
+		});
+		it("should not read the body of an invalid file request", async function() {
+			this.timeout(30000);
+			const result = await sendLargeBody(`${endpoint}?instance_id=123&filename=test.txt`, {
+				method: "POST", headers: { "Content-Type": "application/zip", "X-Access-Token": testToken },
+			});
+			assert.equal(result.status, 400);
+			assert.deepEqual(JSON.parse(result.body), { request_errors: ["filename must end with .zip"] });
+			assertNotRead(result);
+		});
+		it("should not read the body of an invalid multipart request", async function() {
+			this.timeout(30000);
+			const result = await sendLargeBody(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "multipart/form-data; boundary=test", "X-Access-Token": testToken },
+				prefix: multipartPrefix("test", { instance_id: "invalid" }, "test.zip"),
+			});
+			assert.equal(result.status, 400);
+			assert.deepEqual(JSON.parse(result.body), { request_errors: ["invalid instance_id"] });
+			assertNotRead(result);
+		});
+		it("should not read the body of an upload the host fails to receive", async function() {
+			this.timeout(30000);
+			controller.sendToHostByInstanceId = async (request) => {
+				throw new Error("Something went wrong");
+			};
+			for (const options of uploadVariants()) {
+				const result = await sendLargeBody(options.url, {
+					method: "POST",
+					headers: { ...options.headers, "X-Access-Token": testToken },
+					prefix: options.prefix,
+				});
+				assert.equal(result.status, 500);
+				assert.deepEqual(JSON.parse(result.body), { errors: ["Something went wrong"], request_errors: [] });
+				assertNotRead(result);
+			}
+		});
+		it("should not read the body of an upload the host never fetches", async function() {
+			this.timeout(30000);
+			controller.sendToHostByInstanceId = async (request) => {
+				await new Promise(() => {});
+			};
+			const result = await sendLargeBody(`${endpoint}?instance_id=123&filename=test.zip`, {
+				method: "POST", headers: { "Content-Type": "application/zip", "X-Access-Token": testToken },
+			});
+			assert.equal(result.status, 500);
+			assert.deepEqual(
+				JSON.parse(result.body), { errors: ["Timed out establishing stream to host"], request_errors: [] }
+			);
+			assertNotRead(result);
+		});
+		async function cutUploadShort(options) {
+			const request = http.request(options.url, {
+				method: "POST",
+				headers: { ...options.headers, "X-Access-Token": testToken, "Content-Length": 1024 * 1024 },
+			});
+			request.on("error", () => {});
+			const transfer = new Promise(resolve => {
+				controller.sendToHostByInstanceId = async (pullRequest) => {
+					const stream = await fetch(`http://localhost:${port}/api/stream/${pullRequest.streamId}`);
+					request.destroy();
+					try {
+						await stream.arrayBuffer();
+						resolve("completed");
+					} catch (err) {
+						resolve("failed");
+						throw err;
+					}
+					return pullRequest.name;
+				};
+			});
+			request.write(options.prefix ?? "");
+			request.write(Buffer.alloc(1024));
+			return await transfer;
+		}
+		it("should fail the transfer to the host when the upload is cut short", async function() {
+			for (const options of uploadVariants()) {
+				assert.equal(await cutUploadShort(options), "failed");
+			}
+		});
+	});
+	describe("/api/upload-mod", function() {
+		let endpoint, testToken, modsDirectory;
+		beforeEach(async function() {
+			endpoint = `http://localhost:${port}/api/upload-mod`;
+			testToken = controller.users.signUserToken({ id: "test" });
+			modsDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-mods-"));
+			controller.mockConfigEntries.set("controller.mods_directory", modsDirectory);
+			controller.modStore = { addMod() {} };
+		});
+		afterEach(async function() {
+			await fs.rm(modsDirectory, { recursive: true, force: true });
+		});
+		async function waitForEmptyModsDirectory() {
+			for (let i = 0; i < 50 && (await fs.readdir(modsDirectory)).length; i++) {
+				await lib.wait(20);
+			}
+			assert.deepEqual(await fs.readdir(modsDirectory), []);
+		}
+
+		it("should respond with 403 when user has insufficient permission", async function() {
+			const user = controller.users.getOrCreateUser("player");
+			const response = await fetch(`${endpoint}?filename=mod_1.0.0.zip`, {
+				method: "POST",
+				headers: { "Content-Type": "application/zip", "X-Access-Token": controller.users.signUserToken(user) },
+				body: "totally a zip file",
+			});
+			assert.equal(response.status, 403);
+		});
+		it("should respond with 415 if content type is invalid", async function() {
+			const response = await fetch(`${endpoint}?filename=mod_1.0.0.zip`, {
+				method: "POST",
+				headers: { "Content-Type": "text/plain", "X-Access-Token": testToken },
+				body: "totally a zip file",
+			});
+			assert.equal(response.status, 415);
+			assert.deepEqual(await response.json(), { request_errors: ["invalid Content-Type"] });
+		});
+		it("should store an uploaded mod", async function() {
+			const info = await fs.readFile(path.join("test", "file", "empty_mod", "info.json"));
+			const zip = await createZipBuffer([["empty_mod_1.0.0/info.json", info]]);
+			const form = new FormData();
+			form.append("file", new Blob([zip], { type: "application/zip" }), "upload.zip");
+			for (const options of [
+				{ url: `${endpoint}?filename=upload.zip`, headers: { "Content-Type": "application/zip" }, body: zip },
+				{ url: endpoint, body: form },
+			]) {
+				const added = [];
+				controller.modStore = { addMod: mod => added.push(mod.filename) };
+				const response = await fetch(options.url, {
+					method: "POST", headers: { ...options.headers, "X-Access-Token": testToken }, body: options.body,
+				});
+				assert.equal(response.status, 200);
+				assert.equal((await response.json()).mods[0].name, "empty_mod");
+				assert.deepEqual(added, ["empty_mod_1.0.0.zip"]);
+				assert.deepEqual(await fs.readdir(modsDirectory), ["empty_mod_1.0.0.zip"]);
+			}
+		});
+		it("should respond with 500 and remove the file if it's not a mod", async function() {
+			for (const options of [
+				{ url: `${endpoint}?filename=mod_1.0.0.zip`, type: "application/zip", body: "totally a zip file" },
+				{ url: endpoint, body: new FormData() },
+			]) {
+				if (options.body instanceof FormData) {
+					options.body.append(
+						"file", new Blob(["totally a zip file"], { type: "application/zip" }), "mod_1.0.0.zip"
+					);
+				}
+				const response = await fetch(options.url, {
+					method: "POST",
+					headers: { ...options.type && { "Content-Type": options.type }, "X-Access-Token": testToken },
+					body: options.body,
+				});
+				assert.equal(response.status, 500);
+				const result = await response.json();
+				assert.equal(result.errors.length, 1);
+				assert.deepEqual(result.request_errors, []);
+				assert.deepEqual(await fs.readdir(modsDirectory), []);
+			}
+		});
+		it("should not read the body of an invalid file request", async function() {
+			this.timeout(30000);
+			const result = await sendLargeBody(`${endpoint}?filename=mod_1.0.0.txt`, {
+				method: "POST", headers: { "Content-Type": "application/zip", "X-Access-Token": testToken },
+			});
+			assert.equal(result.status, 400);
+			assert.deepEqual(JSON.parse(result.body), { request_errors: ["filename must end with .zip"] });
+			assertNotRead(result);
+		});
+		it("should not read the body of an invalid multipart request", async function() {
+			this.timeout(30000);
+			const result = await sendLargeBody(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "multipart/form-data; boundary=test", "X-Access-Token": testToken },
+				prefix: multipartPrefix("test", {}, "mod_1.0.0.zip", "text/plain"),
+			});
+			assert.equal(result.status, 400);
+			assert.deepEqual(JSON.parse(result.body), { request_errors: ["invalid file Content-Type"] });
+			assertNotRead(result);
+		});
+		it("should remove the file when the upload is cut short", async function() {
+			for (const options of [
+				{ url: `${endpoint}?filename=mod_1.0.0.zip`, headers: { "Content-Type": "application/zip" } },
+				{
+					url: endpoint,
+					headers: { "Content-Type": "multipart/form-data; boundary=test" },
+					prefix: multipartPrefix("test", {}, "mod_1.0.0.zip"),
+				},
+			]) {
+				const request = http.request(options.url, {
+					method: "POST",
+					headers: { ...options.headers, "X-Access-Token": testToken, "Content-Length": 1024 * 1024 },
+				});
+				request.on("error", () => {});
+				request.write(options.prefix ?? "");
+				request.write(Buffer.alloc(1024));
+				for (let i = 0; i < 50 && !(await fs.readdir(modsDirectory)).length; i++) {
+					await lib.wait(20);
+				}
+				assert.deepEqual(await fs.readdir(modsDirectory), ["mod_1.0.0.tmp.zip"]);
+				request.destroy();
+				await waitForEmptyModsDirectory();
+			}
+		});
+	});
+	describe("/api/upload-export", function() {
+		let endpoint;
+		beforeEach(function() {
+			endpoint = `http://localhost:${port}/api/upload-export`;
+		});
+		it("should not read the body of an upload without a valid token", async function() {
+			this.timeout(30000);
+			const result = await sendLargeBody(`${endpoint}?mod_pack_id=1`, {
+				headers: { "Content-Type": "application/zip" },
+			});
+			assert.equal(result.status, 401);
+			assertNotRead(result);
+		});
+		it("should not read the body of an invalid upload", async function() {
+			this.timeout(30000);
+			const hostToken = controller.hosts.signHostToken(controller.hosts.createHost("Host A").id);
+			const result = await sendLargeBody(`${endpoint}?mod_pack_id=invalid`, {
+				headers: { "Content-Type": "application/zip", "X-Access-Token": hostToken },
+			});
+			assert.equal(result.status, 400);
+			assertNotRead(result);
 		});
 	});
 });

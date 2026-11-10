@@ -231,6 +231,17 @@ Must be greater than 0.
 Defaults to 15.
 
 
+### controller.transfer_idle_timeout
+
+Time in seconds an upload to or download from the controller can go without any data being transferred before the controller closes it.
+This applies to saves, mods and exports uploaded to the controller and to proxy streams through it.
+There is no limit on how long a transfer can take as long as it keeps making progress.
+Time spent waiting for a proxy stream to start also counts, so this should be higher than controller.proxy_stream_timeout.
+Must be greater than 0.
+
+Defaults to 60.
+
+
 ### controller.factorio_username
 
 Username of the Factorio.com account to authenticate with the Factorio API with.
