@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Alert, Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Segmented, Space, Spin, Tooltip, Typography,
+	Button, Descriptions, Dropdown, Flex, MenuProps, Modal, Segmented, Space, Tag, Tooltip, Typography,
 	message,
 } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
@@ -16,6 +16,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import InstanceConfigTree from "./InstanceConfigTree";
 import LogConsole, { SelectMaxLogLevel } from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
@@ -25,12 +26,16 @@ import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
 import OnlinePlayersList from "./OnlinePlayersList";
 import { notifyErrorHandler } from "../util/notify";
-import { useInstance } from "../model/instance";
+import { useInstance, useInstances } from "../model/instance";
+import { CreateInstanceButton } from "./InstancesPage";
 import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
-import { instancePublicAddress } from "../util/instance";
+import { instanceModPack, instancePublicAddress } from "../util/instance";
+import { useDefaultModPack, useModPacks } from "../model/mod_pack";
+import InstanceModPack from "./InstanceModPack";
 import useLocalStorage from "../util/useLocalStorage";
+import useResourceState from "../util/useResourceState";
 import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -43,6 +48,37 @@ type InstanceDescriptionProps = {
 	host?: Readonly<lib.HostDetails>;
 	instance: Readonly<lib.InstanceDetails>;
 };
+function TemplateDescription(props: { instance: Readonly<lib.InstanceDetails> }) {
+	const [instances] = useInstances();
+	const inheritors = [...instances.values()].filter(i => i.templateId === props.instance.id);
+	return <Descriptions bordered size="small" column={1}>
+		<Descriptions.Item label="Inherited by">
+			{inheritors.length
+				? <Space wrap>
+					{inheritors.map(i => <Link key={i.id} to={`/instances/${i.id}/view`}>{i.name}</Link>)}
+				</Space>
+				: <em>No instances</em>}
+		</Descriptions.Item>
+		{props.instance.templateId !== undefined && <Descriptions.Item label="Template">
+			<TemplateLink id={props.instance.templateId} />
+		</Descriptions.Item>}
+		<Descriptions.Item label="Mod Pack">
+			<ModPackDescription modPackId={props.instance.modPackId} />
+		</Descriptions.Item>
+	</Descriptions>;
+}
+
+function ModPackDescription(props: { modPackId?: number }) {
+	const [modPacks] = useModPacks();
+	const defaultModPack = useDefaultModPack();
+	return <InstanceModPack resolved={instanceModPack(props.modPackId, modPacks, defaultModPack)} />;
+}
+
+function TemplateLink(props: { id: number }) {
+	const [template] = useInstance(props.id);
+	return <Link to={`/instances/${props.id}/view`}>{template?.name ?? props.id}</Link>;
+}
+
 function InstanceDescription(props: InstanceDescriptionProps) {
 	let account = useAccount();
 
@@ -92,9 +128,15 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Version">
 			{instance.factorioVersion ?? "unknown"}
 		</Descriptions.Item>
+		<Descriptions.Item label="Mod Pack">
+			<ModPackDescription modPackId={instance.modPackId} />
+		</Descriptions.Item>
 		<Descriptions.Item label="Last Start Time">
 			<MetricRelativeDate timeMs={instance.startedAtMs}/>
 		</Descriptions.Item>
+		{instance.templateId !== undefined && <Descriptions.Item label="Template">
+			<TemplateLink id={instance.templateId} />
+		</Descriptions.Item>}
 	</Descriptions>;
 }
 
@@ -106,6 +148,8 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let instance = props.instance;
 	let instanceId = instance.id!;
 	let [host] = useHost(instance.assignedHost);
+	const [instances] = useInstances();
+	const canCreate = account.hasPermission("core.instance.create");
 
 	let instanceButtonMenuItems: MenuItem[] = [];
 	if (account.hasPermission("core.instance.export_data")) {
@@ -134,6 +178,21 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			label: "Delete",
 		});
 	}
+	function confirmDelete() {
+		Modal.confirm({
+			autoFocusButton: "cancel",
+			content: "Permamently delete instance and server saves?",
+			okText: "Delete",
+			okButtonProps: { danger: true },
+			onOk: () => {
+				control.send(
+					new lib.InstanceDeleteRequest(instanceId)
+				).then(() => {
+					navigate("/instances");
+				}).catch(notifyErrorHandler("Error deleting instance"));
+			},
+		});
+	}
 	let instanceButtonsMenuProps: MenuProps = {
 		items: instanceButtonMenuItems,
 		onClick: ({ key }: { key: string }) => {
@@ -155,22 +214,25 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 				).catch(notifyErrorHandler("Error extracting player data"));
 
 			} else if (key === "delete") {
-				Modal.confirm({
-					autoFocusButton: "cancel",
-					content: "Permamently delete instance and server saves?",
-					okText: "Delete",
-					okButtonProps: { danger: true },
-					onOk: () => {
-						control.send(
-							new lib.InstanceDeleteRequest(instanceId)
-						).then(() => {
-							navigate("/instances");
-						}).catch(notifyErrorHandler("Error deleting instance"));
-					},
-				});
+				confirmDelete();
 			}
 		},
 	};
+	if (instance.isTemplate) {
+		return <Space wrap>
+			{canCreate && <CreateInstanceButton
+				instances={instances}
+				initial={{ template: instanceId }}
+				buttonText="Create instance from template"
+			/>}
+			{account.hasPermission("core.instance.delete") && <Button
+				danger
+				icon={<DeleteOutlined />}
+				onClick={confirmDelete}
+			>Delete</Button>}
+		</Space>;
+	}
+
 	return <Space wrap>
 		{
 			account.hasAnyPermission(...InstanceControlButtonPermissions)
@@ -188,6 +250,12 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			Connect via Steam
 		</Button>
 		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
+		{canCreate && <CreateInstanceButton
+			instances={instances}
+			initial={{ instanceClone: instanceId, asTemplate: true, linkSource: true }}
+			buttonText="Create template"
+			buttonType="default"
+		/>}
 		{account.hasAnyPermission(
 			"core.instance.export_data",
 			"core.instance.extract_players",
@@ -208,36 +276,30 @@ export default function InstanceViewPage() {
 	let navigate = useNavigate();
 
 	let account = useAccount();
-	let [instance, synced] = useInstance(instanceId);
+	let [instance, synced, error] = useInstance(instanceId);
+	const state = useResourceState(instance, synced, error, instanceId);
 	let [host] = useHost(instance?.assignedHost);
 
 	let nav = [{ name: "Instances", path: "/instances" }, { name: instance?.name ?? String(instanceId) }];
 	if (!instance) {
-		if (!synced) {
-			return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<Alert
-				message={"Instance not found"}
-				showIcon
-				description={<>Instance with id {instanceId} was not found on the controller.</>}
-				type="warning"
-				action={
-					<Link to="/instances">Go back to instances list</Link>
-				}
-			/>
-		</PageLayout>;
+		return <ResourceState
+			state={state} type="Instance" id={instanceId} nav={nav} listPath="/instances" error={error}
+		/>;
 	}
 
 	return <PageLayout nav={nav}>
 		<PageHeader
 			title={instance.name ?? ""}
-			status={<InstanceStatusTag status={instance.status} />}
+			status={instance.isTemplate
+				? <Tag color="purple">Template</Tag>
+				: <InstanceStatusTag status={instance.status} />}
 			extra={<InstanceButtons instance={instance} />}
 		/>
-		<InstanceDescription host={host} instance={instance} />
+		{instance.isTemplate
+			? <TemplateDescription instance={instance} />
+			: <InstanceDescription host={host} instance={instance} />}
 		<ResourceNotes resourceType="instance" resourceId={instanceId} />
+		{!instance.isTemplate && <>
 
 		{account.hasPermission("core.user.list") && <OnlinePlayersList instanceId={instanceId} />}
 
@@ -284,6 +346,7 @@ export default function InstanceViewPage() {
 			account.hasPermission("core.instance.send_rcon")
 			&& <InstanceRcon id={instanceId} disabled={instance.status !== "running"} />
 		}
+		</>}
 
 		{account.hasPermission("core.instance.get_config") && <InstanceConfigTree id={instanceId} />}
 

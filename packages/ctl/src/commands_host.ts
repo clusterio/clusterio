@@ -5,7 +5,6 @@ import os from "os";
 import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
-import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
 import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
@@ -51,62 +50,78 @@ hostCommands.add(new lib.Command({
 	},
 }));
 
+/** Format a duration in milliseconds as a short age like "1m 5s" */
+function formatAge(ms: number) {
+	const seconds = Math.max(0, Math.floor(ms / 1000));
+	if (seconds < 60) {
+		return `${seconds}s`;
+	}
+	if (seconds < 3600) {
+		return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+	}
+	return `${Math.floor(seconds / 3600)}h ${Math.floor(seconds / 60) % 60}m`;
+}
+
+/** Strip case and separators the same way the controller does when matching pairing codes */
+function plainCode(code: string) {
+	return code.toUpperCase().replace(/[^0-9A-Z]/g, "");
+}
+
 hostCommands.add(new lib.Command({
-	definition: ["generate-token", "Generate token for a host", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
-	}],
-	handler: async function(args: { id?: number }, ctl: Ctl) {
-		let hostId = typeof args.id === "number" ? args.id : undefined;
-		let response = await ctl.send(new lib.HostGenerateTokenRequest(hostId));
-		print(response);
+	definition: ["pending", "List host installers waiting for approval"],
+	handler: async function(args: object, ctl: Ctl) {
+		let requests = await ctl.send(new lib.HostPairingListRequest());
+		if (!requests.length) {
+			print("No pending host requests");
+			return;
+		}
+		let now = Date.now();
+		print(asTable(requests.map(request => ({
+			code: request.code,
+			name: request.name,
+			address: request.remoteAddress,
+			age: formatAge(now - request.createdAtMs),
+		}))));
 	},
 }));
 
 hostCommands.add(new lib.Command({
-	definition: ["revoke-token <host>", "Revoke all tokens for a host", (yargs) => {
-		yargs.positional("host", { describe: "Host to revoke tokens for", type: "string" });
+	definition: ["approve <code>", "Approve a host installer waiting for approval", (yargs) => {
+		yargs.positional("code", { describe: "Code shown by the installer", type: "string" });
+		yargs.option("name", {
+			type: "string", nargs: 1, describe: "Name to give the host instead of the one it asked for",
+		});
+	}],
+	handler: async function(args: { code: string, name?: string }, ctl: Ctl) {
+		let name = args.name?.trim();
+		if (name === undefined) {
+			let requests = await ctl.send(new lib.HostPairingListRequest());
+			name = requests.find(request => plainCode(request.code) === plainCode(args.code))?.name;
+		}
+		let hostId = await ctl.send(new lib.HostPairingApproveRequest(args.code, args.name));
+		print(name ? `Approved host ${name} with id ${hostId}` : `Approved host with id ${hostId}`);
+	},
+}));
+
+hostCommands.add(new lib.Command({
+	definition: ["reject <code>", "Reject a host installer waiting for approval", (yargs) => {
+		yargs.positional("code", { describe: "Code shown by the installer", type: "string" });
+	}],
+	handler: async function(args: { code: string }, ctl: Ctl) {
+		await ctl.send(new lib.HostPairingRejectRequest(args.code));
+	},
+}));
+
+hostCommands.add(new lib.Command({
+	definition: ["revoke <host>", "Remove a host from the cluster and disconnect it", (yargs) => {
+		yargs.positional("host", { describe: "Host to revoke", type: "string" });
 	}],
 	handler: async function(args: { host: string }, ctl: Ctl) {
 		let hostId = await lib.resolveHost(ctl, args.host);
-		await ctl.send(new lib.HostRevokeTokensRequest(hostId));
+		await ctl.send(new lib.HostRevokeRequest(hostId));
 	},
 }));
 
-hostCommands.add(new lib.Command({
-	definition: ["create-config", "Create host config", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
-		yargs.option("name", { type: "string", nargs: 1, describe: "Host name" });
-		yargs.option("generate-token", {
-			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false,
-		});
-		yargs.option("output", {
-			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-host.json",
-		});
-	}],
-	handler: async function(
-		args: { id?: number, name?: string, generateToken: boolean, output: string },
-		ctl: Ctl
-	) {
-		let config = await ctl.send(
-			new lib.HostConfigCreateRequest(args.id, args.name, args.generateToken)
-		);
-
-		let content = JSON.stringify(config, null, "\t");
-		if (args.output === "-") {
-			print(content);
-		} else {
-			logger.info(`Writing ${args.output}`);
-			try {
-				await fs.writeFile(args.output, content, { flag: "wx", mode: 0o600 });
-			} catch (err: any) {
-				if (err.code === "EEXIST") {
-					throw new lib.CommandError(`File ${args.output} already exists`);
-				}
-				throw err;
-			}
-		}
-	},
-}));
 hostCommands.add(new lib.Command({
 	definition: ["update <host>", "Update the host", (yargs) => {
 		yargs.positional("host", { describe: "Host to update", type: "string" });

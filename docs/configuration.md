@@ -48,6 +48,23 @@ Must be greater than 0.
 Defaults to 60.
 
 
+### controller.host_pairing_timeout
+
+Time in seconds a host can wait for approval before its request expires, after which the host requests again with a new code.
+Set to 0 for no limit.
+
+Defaults to 3600.
+
+
+### controller.host_pairing_max_pending
+
+Maximum number of hosts that can wait for approval at the same time.
+Hosts over the limit keep trying until there is room.
+Set to 0 for no limit.
+
+Defaults to 50.
+
+
 ### controller.http_port
 
 Port to host HTTP server on.
@@ -93,7 +110,7 @@ Defaults to null meaning the header is never trusted.
 ### controller.public_url
 
 Public address the controller is accessible on.
-Used as the URL in configs generated with `clusteriocontroller bootstrap create-ctl-config` and `clusterioctl host create-config`, and by plugins like Player Auth that need to show the address of the web interface in-game.
+Used as the URL in configs generated with `clusteriocontroller bootstrap create-ctl-config`, and by plugins like Player Auth that need to show the address of the web interface in-game.
 This should be a full URL ending with a /.
 
 Defaults to null meaning assume localhost.
@@ -277,6 +294,7 @@ Defaults to 1000.
 
 Whether the `controller update` command in clusterioctl and the update button in the web interface are allowed to update the `@clusterio/controller` package with npm.
 For security reasons this can only be changed locally with `clusteriocontroller config set` while the controller is stopped, and it is hidden in the web interface.
+The installer sets this, controller.allow_plugin_updates and controller.allow_plugin_install from one question about remote updates and plugin installs.
 See [Managing a Cluster](/docs/managing-a-cluster.md) for details on remote updates.
 
 Defaults to true.
@@ -326,6 +344,7 @@ Defaults to "New Host".
 ### host.id
 
 Immutable numeric id of the host which uniquely identifies this host in the cluster.
+The controller picks the id when the host is approved and the host writes it here, the controller does not accept hosts with an id it has not approved.
 Hidden in the web interface.
 
 Defaults to a random 31 bit number.
@@ -335,6 +354,7 @@ Defaults to a random 31 bit number.
 
 Directory to look for the Factorio server(s) in.
 This can either point to a Factorio server directory, or to a directory containing multiple versions of the Factorio server.
+The headless build has no graphics, so when exporting data from an instance running it the base game's icons are read from a full install of the same major and minor version in this directory instead, if there is one.
 
 Defaults to "factorio".
 
@@ -365,7 +385,9 @@ Defaults to "http://localhost:8080/".
 ### host.controller_token
 
 Access token used for authenticating with the controller.
-You can generate an access token with `clusterioctl host generate-token --id <host-id>`, or use the `clusterioctl host create-config` to create a new host config with the correct url and token in it.
+The host saves it together with host.id when it is approved, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
+The token only works while the host exists on the controller, if the host is revoked it asks to be approved again the next time it starts.
+Set it to `enter token here` to make the host ask to join again.
 The value can only be read and changed from the host itself.
 
 Defaults to "enter token here".
@@ -418,6 +440,7 @@ Defaults to 60.
 
 Whether the `host update` command in clusterioctl and the update button in the web interface are allowed to update the `@clusterio/host` package with npm.
 For security reasons this can only be changed locally with `clusteriohost config set` while the host is stopped, and it is hidden in the web interface.
+The installer sets this, host.allow_plugin_updates and host.allow_plugin_install from one question about remote updates and plugin installs.
 See [Managing a Cluster](/docs/managing-a-cluster.md) for details on remote updates.
 
 Defaults to true.
@@ -496,6 +519,31 @@ If enabled this instance will be excluded from the "Start all" button operation 
 This allows you to prevent certain instances from being started when using the bulk start operation.
 
 Defaults to false.
+
+
+### instance.is_template
+
+If enabled this instance is a template other instances can inherit config values from.
+Templates cannot be assigned to a host and therefore never start.
+Hidden from `instance list` in clusterioctl unless `--templates` is passed, and listed separately in the web interface.
+An instance cannot stop being a template while other instances inherit from it.
+Hidden in the web interface, set when creating the template.
+
+Defaults to false.
+
+
+### instance.template_id
+
+ID of the template to inherit config values from.
+Inherited fields take their value from the template and follow it when it changes, setting a field on this instance stops inheriting it.
+Object fields like `factorio.settings` are inherited per property, properties set on this instance override the ones from the template.
+When set on an existing instance fields with the same value as the template or the default value become inherited, except the server name in `factorio.settings`.
+`instance.name`, `instance.is_template`, `instance.template_id`, the port fields, `factorio.rcon_password` and hidden fields are never inherited.
+A template may itself inherit from another template, but not from itself through a chain of templates.
+The fields currently inherited are stored in the hidden `instance.inherited_fields` field.
+In the web interface inherited values are linked and read only until they are unlinked.
+
+Defaults to null meaning no template.
 
 
 ### factorio.version
@@ -591,6 +639,8 @@ Most plugins require the use of save patching to function.
 Turning it off makes it possible to use Clusterio to run and manage regular vanilla games and scenarios not compatible with Clusterio.
 Plugins that need save patching can't be loaded on the instance while this is disabled.
 Disabling it while such a plugin is loaded is rejected, and so is loading such a plugin while it is disabled.
+Saves patched before are restored to their original control.lua and have the modules removed when started with this disabled.
+Data the modules stored in the game is left in place.
 
 Defaults to true.
 
@@ -741,9 +791,9 @@ Defaults to 5.
 
 Whether to load the given plugin on the instance.
 Note that plugins need to be loaded on the controller and the host in order for them to be loaded on instances.
-Loading a plugin that requires save patching or script commands is rejected while factorio.enable_save_patching or factorio.enable_script_commands respectively is disabled on the instance.
+Loading a plugin that requires save patching, script commands or Lua UDP is rejected while factorio.enable_save_patching, factorio.enable_script_commands or factorio.enable_lua_udp respectively is disabled on the instance.
 
-Defaults to true.
+Defaults to true, or false if the instance does not have the features the plugin requires.
 
 
 ## Ctl Configuration

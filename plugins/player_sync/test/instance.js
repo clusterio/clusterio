@@ -64,6 +64,29 @@ describe("player_sync", function() {
 			await apply(playerData, undefined);
 			assert.deepEqual(await decode(playerData.recipe_notifications), { full: true });
 		});
+		// helpers.table_to_json in Factorio encodes an empty list as {}
+		it("should treat an empty current list encoded as {} as empty", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode(["a", "b"]) };
+			await apply(playerData, await encode({}));
+			assert.deepEqual(await decode(playerData.recipe_notifications), { add: ["a", "b"] });
+		});
+		it("should treat an empty stored list encoded as {} as empty", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode({}) };
+			await apply(playerData, await encode(["a"]));
+			assert.deepEqual(await decode(playerData.recipe_notifications), { remove: ["a"] });
+		});
+		it("should mark an empty stored list encoded as {} full without a current list", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode({}) };
+			await apply(playerData, undefined);
+			assert.deepEqual(await decode(playerData.recipe_notifications), { full: true });
+		});
+		it("should drop the field when the list is a non-empty object", async function() {
+			const playerData = { name: "test", recipe_notifications: await encode({ a: 1 }) };
+			const count = warnings.length;
+			await apply(playerData, await encode(["a"]));
+			assert.equal(playerData.recipe_notifications, undefined);
+			assert.equal(warnings.length, count + 1);
+		});
 		it("should do nothing without stored notifications", async function() {
 			const playerData = { name: "test" };
 			await apply(playerData, await encode(["a"]));
@@ -71,9 +94,10 @@ describe("player_sync", function() {
 		});
 		it("should drop the field on invalid input", async function() {
 			const playerData = { name: "test", recipe_notifications: "not base64 zlib" };
+			const count = warnings.length;
 			await apply(playerData, await encode(["a"]));
 			assert.equal(playerData.recipe_notifications, undefined);
-			assert.equal(warnings.length, 1);
+			assert.equal(warnings.length, count + 1);
 		});
 	});
 

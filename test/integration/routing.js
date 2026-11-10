@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import * as lib from "@clusterio/lib";
 import { Host, Instance, InstanceConnection } from "@clusterio/host";
-import { ControlConnection, Controller, HostConnection, InstanceRecord } from "@clusterio/controller";
+import { ControlConnection, Controller, HostConnection, HostRecord, InstanceRecord } from "@clusterio/controller";
 import { MockServer } from "../mock.js";
 
 // Although there are no imports, the file has side-effects such as "before" which can effect tests
@@ -19,6 +19,8 @@ class Control extends lib.Link { }
 function connectHost(controller, hostId, plugins) {
 	const [controllerSide, hostSide] = lib.VirtualConnector.makePair(addr("controller"), addr({ hostId }));
 	const registerData = new lib.RegisterHostData("", "0.0.0", hostId, plugins);
+	// Hosts can only connect once approved, which creates their record.
+	controller.hosts.records.set(new HostRecord(hostId, `host-${hostId}`, "", new Map()));
 	const hostConnection = new HostConnection(registerData, controllerSide, controller, "host-a.test");
 	controller.wsServer.hostConnections.set(hostId, hostConnection);
 	const hostConfig = new lib.HostConfig("host");
@@ -39,7 +41,8 @@ function connectInstance(controller, host, instanceId) {
 	instanceConfig.set("instance.id", instanceId);
 	instanceConfig.set("instance.assigned_host", host.config.get("host.id"));
 	host.assignedInstances.set(instanceId, { path: "invalid", config: instanceConfig });
-	controller.instances.records.set(new InstanceRecord(instanceConfig, "stopped"));
+	const controllerConfig = new lib.InstanceConfig("controller", instanceConfig.toRemote("controller"));
+	controller.instances.records.set(new InstanceRecord(controllerConfig, "stopped"));
 	const instance = new Instance(host, instanceSide, "invalid", instanceConfig, new MockServer());
 	const instanceConnection = new InstanceConnection(hostSide, host, instance);
 	host.instanceConnections.set(instanceId, instanceConnection);

@@ -262,15 +262,33 @@ export async function checkForUpdates(
  * @param targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
+ * @param headless -
+ *     Only consider headless installs if true, or only full installs if
+ *     false.
  * @returns Array with path to data dir and version found.
  */
 export async function findVersion(
 	factorioDir: string,
 	targetVersion: lib.TargetVersion,
+	headless?: boolean,
 ): Promise<[string, lib.FullVersion]> {
+	let kind = "";
+	if (headless !== undefined) {
+		kind = headless ? "headless " : "full ";
+	}
+	const checkInstallType = async (dir: string) => (
+		headless === undefined || await isHeadless(path.join(dir, "data")) === headless
+	);
+
 	// Check if this is a direct installation dir
 	const directVersion = await getFactorioVersion(factorioDir);
 	if (directVersion !== null) {
+		if (!await checkInstallType(factorioDir)) {
+			throw new Error(
+				`Unable to find a ${kind}install of Factorio ${targetVersion}: ${factorioDir} is a direct ` +
+				`(single-version) install of the ${headless ? "full" : "headless"} build.`
+			);
+		}
 		if (targetVersion === "latest" || directVersion === targetVersion || directVersion.startsWith(targetVersion)) {
 			return [path.join(factorioDir, "data"), directVersion];
 		}
@@ -287,7 +305,7 @@ export async function findVersion(
 		// Avoid any fancy directory detection in order to follow symlinks
 		const fullPath = path.join(factorioDir, name);
 		const version = await getFactorioVersion(fullPath);
-		if (version === null) {
+		if (version === null || !await checkInstallType(fullPath)) {
 			continue;
 		}
 
@@ -299,7 +317,7 @@ export async function findVersion(
 	}
 
 	if (!versions.size) {
-		throw new Error(`Unable to find any Factorio install in ${factorioDir}`);
+		throw new Error(`Unable to find any ${kind}Factorio install in ${factorioDir}`);
 	}
 
 	if (lib.isPartialVersion(targetVersion)) {
@@ -315,7 +333,26 @@ export async function findVersion(
 		return [path.join(factorioDir, versions.get(latest)!, "data"), latest];
 	}
 
-	throw new Error(`Unable to find Factorio version ${targetVersion}`);
+	throw new Error(`Unable to find ${kind}Factorio version ${targetVersion}`);
+}
+
+/**
+ * Check if a Factorio install is the headless build
+ *
+ * The headless build has no icons, which is what tells it apart.
+ *
+ * @param dataDir - Path to the data dir of the install.
+ */
+export async function isHeadless(dataDir: string) {
+	try {
+		await fs.access(path.join(dataDir, "base", "graphics", "icons"));
+		return false;
+	} catch (err: any) {
+		if (err.code === "ENOENT" || err.code === "ENOTDIR") {
+			return true;
+		}
+		throw err;
+	}
 }
 
 /**

@@ -3,7 +3,7 @@ import http from "node:http";
 import express from "express";
 
 import * as lib from "@clusterio/lib";
-import { User, UserManager, UserRecord, InstanceManager, ControllerHooks } from "@clusterio/controller";
+import { User, UserManager, UserRecord, HostManager, InstanceManager, ControllerHooks } from "@clusterio/controller";
 import { HostHooks, InstanceHooks } from "@clusterio/host";
 
 const addr = lib.Address.fromShorthand;
@@ -176,6 +176,8 @@ export class MockController {
 			["controller.auth_secret", "TestSecretDoNotUse"],
 			["controller.proxy_stream_timeout", 1],
 			["controller.metrics_timeout", 1],
+			["controller.host_pairing_timeout", 3600],
+			["controller.host_pairing_max_pending", 50],
 		]);
 		this.config = {
 			get: (name) => {
@@ -206,7 +208,7 @@ export class MockController {
 
 		this.instances = new InstanceManager(new lib.KeyValueDatastore(), this);
 
-		this.hosts = new lib.KeyValueDatastore();
+		this.hosts = new HostManager(new lib.SubscribableDatastore(), this);
 		this.handles = new Map();
 		this.hooks = new ControllerHooks(new MockLogger());
 		this.loadedPlugins = new Set();

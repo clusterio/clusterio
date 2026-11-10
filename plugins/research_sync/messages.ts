@@ -160,6 +160,29 @@ export class QueueUpdateEvent {
 	}
 }
 
+export class QueueChange {
+	constructor(
+		public type: "added" | "removed" | "moved",
+		public name: string,
+		/** Entries for the same technology before this one, the level above the first queued level */
+		public offset: number,
+		/** 1-based position in the new queue, or in the old queue for removed */
+		public position: number,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"type": Type.Union([Type.Literal("added"), Type.Literal("removed"), Type.Literal("moved")]),
+		"name": Type.String(),
+		"offset": Type.Integer(),
+		"position": Type.Integer(),
+	});
+
+	static fromJSON(json: Static<typeof QueueChange.jsonSchema>): QueueChange {
+		return new this(json.type, json.name, json.offset, json.position);
+	}
+}
+
 export class QueueEvent {
 	declare ["constructor"]: typeof QueueEvent;
 	static type = "event" as const;
@@ -171,6 +194,8 @@ export class QueueEvent {
 		public queue: string[],
 		public player: string | null,
 		public instance: string | null,
+		/** What changed, null for a silent update or an older controller */
+		public changes: QueueChange[] | null = null,
 	) {
 	}
 
@@ -178,10 +203,16 @@ export class QueueEvent {
 		"queue": Type.Array(Type.String()),
 		"player": Type.Union([Type.String(), Type.Null()]),
 		"instance": Type.Union([Type.String(), Type.Null()]),
+		"changes": Type.Optional(Type.Union([Type.Array(QueueChange.jsonSchema), Type.Null()])),
 	});
 
 	static fromJSON(json: Static<typeof QueueEvent.jsonSchema>): QueueEvent {
-		return new this(json.queue, json.player, json.instance);
+		return new this(
+			json.queue,
+			json.player,
+			json.instance,
+			json.changes ? json.changes.map(c => QueueChange.fromJSON(c)) : null,
+		);
 	}
 }
 

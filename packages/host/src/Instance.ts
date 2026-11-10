@@ -11,7 +11,7 @@ const execAsync = util.promisify(exec);
 import * as lib from "@clusterio/lib";
 
 import { FactorioServer, checkForUpdates } from "./server.js";
-import { loadModules, patch } from "./patch.js";
+import { loadModules, patch, unpatch } from "./patch.js";
 import { exportData } from "./export.js";
 import type Host from "./Host.js";
 import { BaseInstancePlugin, InstanceHooks } from "./BaseInstancePlugin.js";
@@ -693,7 +693,7 @@ end`.replace(/\r?\n/g, " ");
 			players: [...this.playerStats],
 			player_autosave_slot: this._playerAutosaveSlot,
 		}, null, "\t");
-		await lib.safeOutputFile(this.path("instance-stats.json"), content);
+		await lib.atomicOverwriteFile(this.path("instance-stats.json"), content);
 	}
 
 	/**
@@ -870,7 +870,7 @@ end`.replace(/\r?\n/g, " ");
 			"_comment_warning": warning,
 			...await this.resolveServerSettings(this.config.get("factorio.settings"), includeCredentials),
 		};
-		await lib.safeOutputFile(
+		await lib.atomicOverwriteFile(
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, "\t")
 		);
@@ -996,7 +996,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_adminlist") !== "disabled") {
 			this.logger.verbose("Writing server-adminlist.json");
-			await lib.safeOutputFile(
+			await lib.atomicOverwriteFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._host.adminlist], null, "\t")
 			);
@@ -1004,7 +1004,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_banlist") !== "disabled") {
 			this.logger.verbose("Writing server-banlist.json");
-			await lib.safeOutputFile(
+			await lib.atomicOverwriteFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._host.banlist].map(
 					([username, reason]) => ({ username, reason })
@@ -1014,7 +1014,7 @@ end`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_whitelist") !== "disabled") {
 			this.logger.verbose("Writing server-whitelist.json");
-			await lib.safeOutputFile(
+			await lib.atomicOverwriteFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._host.whitelist], null, "\t")
 			);
@@ -1082,6 +1082,9 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		if (!this.config.get("factorio.enable_save_patching")) {
+			if (await unpatch(this.path("saves", saveName))) {
+				this.logger.info("Removed Clusterio modules from save as save patching is disabled");
+			}
 			return saveName;
 		}
 

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import events from "node:events";
 import * as lib from "@clusterio/lib";
-import { Controller, ControlConnection, ControllerHooks, InstanceManager } from "@clusterio/controller";
+import {
+	Controller, ControlConnection, ControllerHooks, HostConnection, HostRecord, InstanceManager, InstanceRecord,
+} from "@clusterio/controller";
 import { MockConnector, MockController, MockLogger } from "../mock.js";
+import "../setup_logging.js";
 
 const addr = lib.Address.fromShorthand;
 
@@ -153,6 +156,142 @@ describe("controller/src/ControlConnection", function() {
 			assert.equal(clone.config.get("instance.name"), "clone");
 			assert.equal(clone.config.get("instance.assigned_host"), null);
 		});
+
+		it("creates an instance inheriting from a template", async function() {
+			await create({ "instance.id": 4001, "instance.name": "template", "instance.is_template": true });
+			mockController.instances.getMutable(4001).config.set("factorio.version", "2.0");
+
+			await create({ "instance.id": 4002, "instance.name": "child", "instance.template_id": 4001 });
+			const child = mockController.instances.get(4002);
+			assert.equal(child.config.get("factorio.version"), "2.0");
+			assert.equal(child.config.isInherited("factorio.version"), true);
+			assert.equal(child.config.isInherited("instance.name"), false);
+		});
+
+		it("rejects a template that is not a template", async function() {
+			await create({ "instance.id": 4001, "instance.name": "plain" });
+			await assert.rejects(
+				create({ "instance.id": 4002, "instance.name": "child", "instance.template_id": 4001 }),
+				new lib.ValidationError("Instance plain is not a template"),
+			);
+			assert.equal(mockController.instances.has(4002), false);
+		});
+	});
+
+	describe("instance config set handlers", function() {
+		let mockController;
+		let connection;
+
+		beforeEach(async function() {
+			mockController = new MockController();
+			mockController.mockConfigEntries.set("controller.name", "Test");
+			mockController.instances = new InstanceManager(new lib.SubscribableDatastore(), mockController);
+			mockController.instanceConfigUpdated = async () => {};
+			connection = {
+				_controller: mockController,
+				checkStagedInheritance: ControlConnection.prototype.checkStagedInheritance,
+			};
+			for (const [id, fields] of [
+				[1, { "instance.is_template": true, "factorio.version": "2.0" }],
+				[2, { "instance.template_id": 1 }],
+			]) {
+				const config = new lib.InstanceConfig("controller", {
+					"instance.id": id, "instance.name": `i${id}`, ...fields,
+				});
+				if (fields["instance.template_id"]) {
+					mockController.instances.applyTemplate(
+						config, ["instance.id", "instance.name", "instance.template_id"],
+					);
+				}
+				await mockController.instances.createInstance(config);
+			}
+		});
+
+		function call(handler, request) {
+			return ControlConnection.prototype[handler].call(connection, request);
+		}
+		async function create(config, cloneFromId) {
+			await ControlConnection.prototype.handleInstanceCreateRequest.call(
+				connection, new lib.InstanceCreateRequest(config, cloneFromId),
+			);
+		}
+		const setField = (...args) => new lib.InstanceConfigSetFieldRequest(...args);
+		const setFields = (...args) => new lib.InstanceConfigSetRequest(...args);
+
+		it("stops inheriting a field set to the inherited value", async function() {
+			await call("handleInstanceConfigSetFieldRequest", setField(2, "factorio.version", "2.0"));
+			assert.equal(mockController.instances.get(2).config.isInherited("factorio.version"), false);
+		});
+
+		it("stops inheriting a field set through set request", async function() {
+			await call("handleInstanceConfigSetRequest", setFields(2, { "factorio.version": "2.0" }));
+			assert.equal(mockController.instances.get(2).config.isInherited("factorio.version"), false);
+		});
+
+		it("stops inheriting a property set through set-prop", async function() {
+			await call(
+				"handleInstanceConfigSetPropRequest",
+				new lib.InstanceConfigSetPropRequest(2, "factorio.settings", "max_players", 0),
+			);
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.isInherited("factorio.settings", "max_players"), false);
+			assert.equal(config.isInherited("factorio.settings", "auto_pause"), true);
+		});
+
+		it("rejects template_id pointing at a non-template", async function() {
+			await assert.rejects(
+				call("handleInstanceConfigSetFieldRequest", setField(1, "instance.template_id", "2")),
+				new lib.ValidationError("Instance i2 is not a template"),
+			);
+			assert.equal(mockController.instances.get(1).config.get("instance.template_id"), null);
+		});
+
+		it("rejects unmarking a template with inheritors through set request", async function() {
+			await assert.rejects(
+				call("handleInstanceConfigSetRequest", setFields(1, { "instance.is_template": "false" })),
+				new lib.ConflictError("Instance is the template of 1 other instance(s)"),
+			);
+			assert.equal(mockController.instances.get(1).config.get("instance.is_template"), true);
+		});
+
+		it("stops inheriting only the properties set through set request", async function() {
+			await call("handleInstanceConfigSetRequest", setFields(2, { "factorio.settings": { max_players: 3 } }));
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.isInherited("factorio.settings", "max_players"), false);
+			assert.equal(config.isInherited("factorio.settings", "auto_pause"), true);
+		});
+
+		it("inherits a property again", async function() {
+			await call("handleInstanceConfigSetPropRequest", new lib.InstanceConfigSetPropRequest(
+				2, "factorio.settings", "max_players", 3,
+			));
+			await call(
+				"handleInstanceConfigInheritFieldRequest",
+				new lib.InstanceConfigInheritFieldRequest(2, "factorio.settings", "max_players"),
+			);
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.get("factorio.settings").max_players, 0);
+			assert.equal(config.isInherited("factorio.settings", "max_players"), true);
+		});
+
+		it("creates a template from an existing instance", async function() {
+			await create({ "instance.id": 3, "instance.name": "copy", "instance.is_template": true }, 2);
+			const config = mockController.instances.get(3).config;
+			assert.equal(config.get("instance.is_template"), true);
+			assert.equal(config.get("instance.template_id"), 1);
+			assert.equal(config.get("factorio.version"), "2.0");
+		});
+
+		it("inherits a field again", async function() {
+			await call("handleInstanceConfigSetFieldRequest", setField(2, "factorio.version", "2.1"));
+			await call(
+				"handleInstanceConfigInheritFieldRequest",
+				new lib.InstanceConfigInheritFieldRequest(2, "factorio.version"),
+			);
+			const config = mockController.instances.get(2).config;
+			assert.equal(config.get("factorio.version"), "2.0");
+			assert.equal(config.isInherited("factorio.version"), true);
+		});
 	});
 
 	describe("close cleanup", function() {
@@ -270,6 +409,166 @@ describe("controller/src/ControlConnection", function() {
 
 			await deleteUser(player, "player");
 			assert.equal(player.connector.terminated, true);
+		});
+	});
+
+	describe("host management", function() {
+		/** @type {Controller} */
+		let controller;
+		/** @type {ControlConnection} */
+		let connection;
+		let audits;
+		let originalAudit;
+
+		beforeEach(function() {
+			const config = new lib.ControllerConfig("controller");
+			config.set("controller.auth_secret", Buffer.from("TestSecretDoNotUse").toString("base64"));
+			controller = new Controller(lib.logger, [], config);
+			const connector = new lib.VirtualConnector(addr("controller"), addr({ controlId: 1 }));
+			const user = controller.users.getOrCreateUser("admin");
+			connection = new ControlConnection({ version: "2.0.0" }, connector, controller, user, 1);
+			audits = [];
+			originalAudit = lib.logger.audit;
+			lib.logger.audit = msg => { audits.push(msg); };
+		});
+		afterEach(function() {
+			lib.logger.audit = originalAudit;
+		});
+
+		describe(".handleHostRevokeRequest()", function() {
+			let record;
+			let broadcasts;
+
+			beforeEach(function() {
+				record = new HostRecord(10, "host-10", "", new Map());
+				controller.hosts.records.set(record);
+				broadcasts = [];
+				controller.subscriptions.broadcast = event => {
+					if (event instanceof lib.HostUpdatesEvent) {
+						broadcasts.push(...event.updates.map(host => ({ id: host.id, isDeleted: host.isDeleted })));
+					}
+				};
+			});
+
+			function assignInstance(id, name, hostId) {
+				const instanceConfig = new lib.InstanceConfig("controller");
+				instanceConfig.set("instance.id", id);
+				instanceConfig.set("instance.name", name);
+				instanceConfig.set("instance.assigned_host", hostId);
+				controller.instances.records.set(new InstanceRecord(instanceConfig, "stopped"));
+			}
+
+			async function revoke(hostId = 10) {
+				await connection.handleHostRevokeRequest(new lib.HostRevokeRequest(hostId));
+			}
+
+			it("deletes the host record", async function() {
+				await revoke();
+				assert.equal(controller.hosts.has(10), false);
+				assert.deepEqual(broadcasts, [{ id: 10, isDeleted: true }]);
+				assert.equal(audits.length, 1);
+				assert.match(audits[0], /User admin revoked host host-10 \(10\)/);
+			});
+			it("deletes the note of the host", async function() {
+				controller.setNote("host", "10", "rack 3", "someone");
+				controller.setNote("host", "11", "rack 4", "someone");
+				await revoke();
+				const note = controller.notes.get("host/10");
+				assert.equal(note.isDeleted, true);
+				assert.equal(note.content, "");
+				assert.equal(note.updatedBy, "admin");
+				assert.equal(controller.notes.get("host/11").isDeleted, false);
+			});
+			it("terminates the connection of the host", async function() {
+				let terminated = false;
+				controller.wsServer.hostConnections.set(10, { connector: { terminate() { terminated = true; } } });
+				await revoke();
+				assert.equal(terminated, true);
+			});
+			it("does not leave a host record behind when the connection closes", async function() {
+				const connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
+				connector.terminate = () => { connector.emit("close"); };
+				const hostConnection = new HostConnection(
+					new lib.RegisterHostData("", "2.0.0", 10, {}), connector, controller, "10.0.0.1"
+				);
+				controller.wsServer.hostConnections.set(10, hostConnection);
+				assert.equal(controller.hosts.get(10).connected, true);
+
+				await revoke();
+				assert.equal(controller.hosts.has(10), false, "host record was recreated");
+				assert.deepEqual(broadcasts.at(-1), { id: 10, isDeleted: true });
+			});
+			it("unassigns the instances of the host without waiting for it", async function() {
+				let closing = false;
+				controller.wsServer.hostConnections.set(10, {
+					connector: { terminate() { closing = true; }, get closing() { return closing; } },
+					send: () => new Promise(() => {}),
+				});
+				assignInstance(101, "alpha", 10);
+				assignInstance(102, "beta", 10);
+				assignInstance(201, "gamma", 20);
+
+				await revoke();
+				assert.equal(controller.hosts.has(10), false);
+				for (const id of [101, 102]) {
+					const instance = controller.instances.get(id);
+					assert.equal(instance.config.get("instance.assigned_host"), null);
+					assert.equal(instance.status, "unassigned");
+				}
+				assert.equal(controller.instances.get(201).config.get("instance.assigned_host"), 20);
+			});
+			it("removes the system metrics of the host", async function() {
+				controller.systems.set(await lib.gatherSystemInfo(10, false, false, 0));
+				controller.systems.set(await lib.gatherSystemInfo("controller", false, false, 0));
+				await revoke();
+				assert.equal(controller.systems.has(10), false);
+				assert.equal(controller.systems.has("controller"), true);
+			});
+			it("throws NotFoundError for an unknown host", async function() {
+				await assert.rejects(revoke(99), new lib.NotFoundError("Unknown host id (99)"));
+				assert.equal(controller.hosts.has(10), true);
+			});
+		});
+
+		describe("host pairing requests", function() {
+			it("lists pending requests", async function() {
+				const first = controller.hostPairing.create("Host A", "2.0.0", "10.0.0.1");
+				const second = controller.hostPairing.create("Host B", "2.0.0", "10.0.0.2");
+				const list = await connection.handleHostPairingListRequest(new lib.HostPairingListRequest());
+				assert(list.every(details => details instanceof lib.HostPairingDetails));
+				assert.deepEqual(list.map(details => details.code).sort(), [first.code, second.code].sort());
+				assert.equal(list.find(details => details.code === first.code).name, "Host A");
+			});
+			it("leaves out expired, approved and rejected requests when listing", async function() {
+				const expired = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				const approved = controller.hostPairing.create("Host B", "", "10.0.0.2");
+				const rejected = controller.hostPairing.create("Host C", "", "10.0.0.3");
+				const pending = controller.hostPairing.create("Host D", "", "10.0.0.4");
+				controller.hostPairing._bySecret.get(expired.requestId).lastPollMs -= 60e3;
+				controller.hostPairing.approve(approved.code, undefined, "admin");
+				controller.hostPairing.reject(rejected.code, "admin");
+
+				const list = await connection.handleHostPairingListRequest(new lib.HostPairingListRequest());
+				assert.deepEqual(list.map(details => details.code), [pending.code]);
+			});
+			it("approves a request and returns the new host id", async function() {
+				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				const hostId = await connection.handleHostPairingApproveRequest(
+					new lib.HostPairingApproveRequest(code.toLowerCase().replace("-", ""))
+				);
+				assert.equal(typeof hostId, "number");
+				assert.equal(controller.hosts.get(hostId).name, "Host A");
+				assert.equal(controller.hostPairing.poll(requestId).hostId, hostId);
+				assert(audits.some(msg => msg.startsWith(`User admin approved host Host A (${hostId})`)));
+			});
+			it("rejects a request", async function() {
+				const { requestId, code } = controller.hostPairing.create("Host A", "", "10.0.0.1");
+				await connection.handleHostPairingRejectRequest(new lib.HostPairingRejectRequest(code.toLowerCase()));
+				assert.equal(controller.hostPairing.records.has(code), false);
+				assert.throws(() => controller.hostPairing.poll(requestId), /Request was rejected/);
+				assert.equal(controller.hosts.records.size, 0);
+				assert(audits.some(msg => msg.startsWith(`User admin rejected host Host A with code ${code}`)));
+			});
 		});
 	});
 });

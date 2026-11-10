@@ -2,7 +2,7 @@ import path from "path";
 import fs from "node:fs/promises";
 import { EventEmitter } from "events";
 
-import { safeOutputFile } from "./file_ops.js";
+import { atomicOverwriteFile } from "./file_ops.js";
 import { SubscribableValue } from "./subscriptions.js";
 import { logger } from "./logging.js";
 import { ControllerConfig } from "./config/index.js";
@@ -56,7 +56,7 @@ export class JsonDatastoreProvider<
 	// Save the data to the json file
 	async save(data: Map<string, V>) {
 		logger.verbose(`Saving ${this.filePath}`);
-		await safeOutputFile(this.filePath, JSON.stringify(Object.fromEntries(data), null, "\t"));
+		await atomicOverwriteFile(this.filePath, JSON.stringify(Object.fromEntries(data), null, "\t"));
 	}
 
 	// Load the data from the json file
@@ -91,7 +91,7 @@ export class JsonDatastoreProvider<
 			logger.warn(
 				`Duplicates detected in ${this.filePath}, a backup was written to: ${backupPath}`
 			);
-			await safeOutputFile(backupPath, JSON.stringify(rawJson, null, "\t"));
+			await atomicOverwriteFile(backupPath, JSON.stringify(rawJson, null, "\t"));
 		}
 
 		return result;
@@ -115,7 +115,7 @@ export class JsonIdDatastoreProvider<
 	// Save the data to the json file
 	async save(data: Map<V["id"], V>) {
 		logger.verbose(`Saving ${this.filePath}`);
-		await safeOutputFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
+		await atomicOverwriteFile(this.filePath, JSON.stringify([...data.values()], null, "\t"));
 	}
 
 	// Load the data from the json file
@@ -150,7 +150,7 @@ export class JsonIdDatastoreProvider<
 			logger.warn(
 				`Duplicates detected in ${this.filePath}, a backup was written to: ${backupPath}`
 			);
-			await safeOutputFile(backupPath, JSON.stringify(rawJson, null, "\t"));
+			await atomicOverwriteFile(backupPath, JSON.stringify(rawJson, null, "\t"));
 		}
 
 		return result;
@@ -166,6 +166,7 @@ export abstract class Datastore<
 		"update": [ updates: U[] ],
 	}> {
 	private dirty = false;
+	private saving: Promise<void> = Promise.resolve();
 
 	constructor(
 		private provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
@@ -181,10 +182,22 @@ export abstract class Datastore<
 
 	// Save the datastore to the provider
 	async save() {
-		if (this.dirty) {
-			await this.provider.save(this.data);
+		// Saves run one at a time so an older snapshot can't be written after a newer one.
+		const save = this.saving.catch(() => {}).then(async () => {
+			if (!this.dirty) {
+				return;
+			}
+			// Cleared before writing so changes made while saving are saved by the next save.
 			this.dirty = false;
-		}
+			try {
+				await this.provider.save(this.data);
+			} catch (err) {
+				this.dirty = true;
+				throw err;
+			}
+		});
+		this.saving = save;
+		await save;
 	}
 
 	// Load the datastore from the provider

@@ -37,6 +37,8 @@ export interface ControllerConfigFields {
 	"controller.default_mod_pack_id": number | null;
 	"controller.default_role_id": number | null;
 	"controller.autosave_interval": number;
+	"controller.host_pairing_timeout": number;
+	"controller.host_pairing_max_pending": number;
 	"controller.mod_portal_cache_duration_minutes": number;
 	"controller.mod_portal_page_size": number;
 	"controller.allow_remote_updates": boolean;
@@ -97,6 +99,20 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 60,
 			validator: validators.greaterThanZero,
+		},
+		"controller.host_pairing_timeout": {
+			title: "Host Pairing Timeout",
+			description: "Time in seconds a host can wait for approval before it has to request again, 0 for no limit.",
+			type: "number",
+			initialValue: 3600,
+			validator: validators.greaterThanEqualZero,
+		},
+		"controller.host_pairing_max_pending": {
+			title: "Host Pairing Max Pending",
+			description: "Maximum number of hosts that can wait for approval at the same time, 0 for no limit.",
+			type: "number",
+			initialValue: 50,
+			validator: validators.all(validators.integer, validators.greaterThanEqualZero),
 		},
 		"controller.http_port": {
 			title: "HTTP Port",
@@ -472,6 +488,9 @@ export interface InstanceConfigFields {
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
 	"instance.exclude_from_start_all": boolean;
+	"instance.is_template": boolean;
+	"instance.template_id": number | null;
+	"instance.inherited_fields": Record<string, true | string[]>;
 	[key: `${string}.load_plugin`]: boolean;
 	[key: `${string}.version`]: string;
 
@@ -523,6 +542,38 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 		return config;
 	}
 
+	/** Fields that are never inherited from a template, ports clash on a shared host and secrets stay per instance */
+	static uninheritableFields = [
+		"instance.name", "instance.is_template", "instance.template_id",
+		"factorio.game_port", "factorio.rcon_port", "factorio.rcon_password", "factorio.lua_udp_port",
+	];
+
+	/** True if the field can take its value from a template */
+	static isInheritable(name: string) {
+		const def = this.fieldDefinitions[name as keyof InstanceConfigFields];
+		return Boolean(def)
+			&& !def.hidden
+			&& (def.access ?? this.defaultAccess).includes("controller")
+			&& !this.uninheritableFields.includes(name);
+	}
+
+	/**
+	 * True if the field, or the given property of an object field, takes its value from the template
+	 *
+	 * @param name - Name of field to check.
+	 * @param prop - Property of an object field to check.
+	 */
+	isInherited(name: string, prop?: string) {
+		if (this.get("instance.template_id") === null) {
+			return false;
+		}
+		const entry = this.get("instance.inherited_fields")[name];
+		if (entry instanceof Array) {
+			return prop === undefined || !entry.includes(prop);
+		}
+		return Boolean(entry);
+	}
+
 	static fieldDefinitions: classes.ConfigDefs<InstanceConfigFields> = {
 		"instance.name": {
 			type: "string",
@@ -549,6 +600,33 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description: "Exclude this instance from the 'Start all' button operation",
 			type: "boolean",
 			initialValue: false,
+		},
+		"instance.is_template": {
+			description:
+				"Mark this instance as a template other instances can inherit config from. " +
+				"Templates cannot be assigned to a host or started.",
+			access: ["controller", "control"],
+			type: "boolean",
+			initialValue: false,
+			hidden: true,
+		},
+		"instance.template_id": {
+			title: "Template",
+			description: "ID of the template to inherit config values from",
+			access: ["controller", "control"],
+			inputComponent: "instance_template",
+			type: "number",
+			optional: true,
+			// Checked by the controller
+		},
+		"instance.inherited_fields": {
+			description:
+				"Fields whose value comes from the template, for object fields the properties set on this instance",
+			access: ["controller", "control"],
+			readonly: ["controller"],
+			type: "object",
+			initialValue: {},
+			hidden: true,
 		},
 		"factorio.version": {
 			description:
@@ -800,36 +878,31 @@ export function addPluginFieldDefinitions(
 
 	// The validator is dynamic based on the feature requirements of the plugin
 	if (kind === "instanceConfigFields" && pluginInfo.features) {
-		fieldDef.dependsOn = [];
-
-		const savePatching = pluginInfo.features.includes("SavePatching");
-		if (savePatching) {
-			fieldDef.dependsOn.push("factorio.enable_save_patching");
+		const requirements: [string, string][] = [];
+		if (pluginInfo.features.includes("SavePatching")) {
+			requirements.push(["factorio.enable_save_patching", "save patching"]);
+		}
+		if (pluginInfo.features.includes("ScriptCommands")) {
+			requirements.push(["factorio.enable_script_commands", "script commands"]);
+		}
+		if (pluginInfo.features.includes("LuaUdp")) {
+			requirements.push(["factorio.enable_lua_udp", "Lua UDP"]);
 		}
 
-		const scriptCommands = pluginInfo.features.includes("ScriptCommands");
-		if (scriptCommands) {
-			fieldDef.dependsOn.push("factorio.enable_script_commands");
-		}
-
-		const luaUdp = pluginInfo.features.includes("LuaUdp");
-		if (luaUdp) {
-			fieldDef.dependsOn.push("factorio.enable_lua_udp");
-		}
-
-		if (scriptCommands || savePatching || luaUdp) {
+		if (requirements.length) {
+			fieldDef.dependsOn = requirements.map(([field]) => field);
+			// Default to not loaded when the instance does not meet the requirements
+			fieldDef.initialValue = (config: classes.Config<any>) => requirements.every(
+				([field]) => config.get(field)
+			);
 			fieldDef.validator = (enabled, config) => {
 				if (!enabled) {
 					return;
 				}
-				if (savePatching && !config.get("factorio.enable_save_patching")) {
-					throw new Error(`Plugin ${pluginInfo.name} requires save patching`);
-				}
-				if (scriptCommands && !config.get("factorio.enable_script_commands")) {
-					throw new Error(`Plugin ${pluginInfo.name} requires script commands`);
-				}
-				if (luaUdp && !config.get("factorio.enable_lua_udp")) {
-					throw new Error(`Plugin ${pluginInfo.name} requires Lua UDP`);
+				for (const [field, description] of requirements) {
+					if (!config.get(field)) {
+						throw new Error(`Plugin ${pluginInfo.name} requires ${description}`);
+					}
 				}
 			};
 		}

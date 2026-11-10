@@ -863,29 +863,36 @@ function serialize.deserialize_crafting_queue(player, serialized)
 	player.crafting_queue_progress = serialized.crafting_queue_progress
 end
 
+--- @param player LuaPlayer
+--- @return table<string, true> enabled Recipes which can have a notification on this server
+--- @return table<string, true> cleared Enabled recipes without a notification
+local function crafting_notification_state(player)
+	local enabled = {}
+	local cleared = {}
+	for _, recipe in pairs(player.force.recipes) do
+		if recipe.enabled and not recipe.hidden then
+			enabled[recipe.name] = true
+			cleared[recipe.name] = true
+		end
+	end
+	for _, recipe in pairs(player.get_recipe_notifications()) do
+		cleared[recipe.name] = nil
+	end
+	return enabled, cleared
+end
+
 ---@param player LuaPlayer
 ---@param failed string[]?
 ---@return string?
 function serialize.serialize_crafting_notifications(player, failed)
-	-- Get all unlocked recipes
-	local recipes = {}
-	for _, recipe in pairs(player.force.recipes) do
-		if recipe.enabled and not recipe.hidden then
-			recipes[recipe.name] = true
-		end
-	end
-
-	-- Remove those with notifications
-	for _, recipe in pairs(player.get_recipe_notifications()) do
-		recipes[recipe.name] = nil
-	end
+	local _, cleared = crafting_notification_state(player)
 
 	-- Convert to a list of names, including previously failed recipes if any
 	local recipe_names = {}
 	for _, name in ipairs(failed or {}) do
 		recipe_names[#recipe_names + 1] = name
 	end
-	for name in pairs(recipes) do
+	for name in pairs(cleared) do
 		recipe_names[#recipe_names + 1] = name
 	end
 
@@ -893,57 +900,53 @@ function serialize.serialize_crafting_notifications(player, failed)
 end
 
 --- @class CraftingNotificationDelta
---- @field add string[]? Recipes cleared elsewhere that still have a notification here
---- @field remove string[]? Recipes with a notification elsewhere that are cleared here
+--- @field add string[]? Stored recipes missing from the cleared list sent with the download request
+--- @field remove string[]? Recipes in the sent list that are not stored
 --- @field full boolean? add is the whole stored list, sent without this save's (a prefetched copy)
 
 --- @param player LuaPlayer
---- @param serialized string Encoded delta against the state sent with the download request
+--- @param serialized string Encoded delta against the cleared list sent with the download request
+--- @param sent string? That list, as sent. Without it the delta applies to the player's current list
 --- @return string[]? failed Recipe names that do not exist
-function serialize.deserialize_crafting_notifications(player, serialized)
+function serialize.deserialize_crafting_notifications(player, serialized, sent)
 	--- @type CraftingNotificationDelta
 	local delta = helpers.json_to_table(assert(helpers.decode_string(serialized)))
 	assert(type(delta) == "table", "wrong type decoded from json_to_table")
+	local enabled, cleared_here = crafting_notification_state(player)
 
-	-- Recipes which can have a notification on this server
-	local enabled = {}
-	for _, recipe in pairs(player.force.recipes) do
-		if recipe.enabled and not recipe.hidden then
-			enabled[recipe.name] = true
-		end
-	end
-
-	-- Clear notifications the player has cleared elsewhere, this means "add seen notification"
-	local failed = {}
-	for _, recipe_name in pairs(delta.add or {}) do
-		if enabled[recipe_name] then
-			player.clear_recipe_notification(recipe_name)
-		else
-			failed[#failed + 1] = recipe_name -- Recipe does not exist on this server
-		end
-	end
-
-	-- Add notifications the player has elsewhere, this means "remove seen notification"
-	for _, recipe_name in pairs(delta.remove or {}) do
-		if enabled[recipe_name] then
-			player.add_recipe_notification(recipe_name)
-		end
-	end
-
-	-- A full delta has no remove: recipes cleared here that aren't in add get their notification back, as remove does
-	if delta.full then
-		local stored = {}
-		for _, recipe_name in pairs(delta.add or {}) do
-			stored[recipe_name] = true
-		end
-		local notified = {}
-		for _, recipe in pairs(player.get_recipe_notifications()) do
-			notified[recipe.name] = true
-		end
-		for recipe_name in pairs(enabled) do
-			if not stored[recipe_name] and not notified[recipe_name] then
-				player.add_recipe_notification(recipe_name)
+	-- Rebuild the stored list, then merge it against the force the player has now
+	local stored = {}
+	if not delta.full then
+		if sent then
+			local sent_names = helpers.json_to_table(assert(helpers.decode_string(sent)))
+			assert(type(sent_names) == "table", "wrong type decoded from json_to_table")
+			for _, recipe_name in pairs(sent_names) do
+				stored[recipe_name] = true
 			end
+		else
+			for recipe_name in pairs(cleared_here) do
+				stored[recipe_name] = true
+			end
+		end
+		for _, recipe_name in pairs(delta.remove or {}) do
+			stored[recipe_name] = nil
+		end
+	end
+	for _, recipe_name in pairs(delta.add or {}) do
+		stored[recipe_name] = true
+	end
+
+	local failed = {}
+	for recipe_name in pairs(stored) do
+		if not enabled[recipe_name] then
+			failed[#failed + 1] = recipe_name -- Recipe does not exist on this server
+		elseif not cleared_here[recipe_name] then
+			player.clear_recipe_notification(recipe_name)
+		end
+	end
+	for recipe_name in pairs(cleared_here) do
+		if not stored[recipe_name] then
+			player.add_recipe_notification(recipe_name)
 		end
 	end
 
@@ -1287,9 +1290,10 @@ end
 --- @param serialized SerializedPlayerData
 --- @param components SyncComponents
 --- @param local_controller LocalControllerState? Controller to restore when the controller is not synced
+--- @param sent_recipe_notifications string? Cleared recipes sent with the download request
 --- @return FailedDeserializationPlayerData?, table[]? Serialized stacks which did not fit, see spill_items
 --- @return integer? inventory_bonus_raise See raise_inventory_bonus
-function serialize.deserialize_player(player, serialized, components, local_controller)
+function serialize.deserialize_player(player, serialized, components, local_controller, sent_recipe_notifications)
 	local failed_deserialization = {}
 	local sync_controller = syncs(components, "controller")
 	local sync_inventories = syncs(components, "inventories")
@@ -1448,8 +1452,9 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 
 	-- Deserialize recipe notifications
 	if recipe_notifications_api and syncs(components, "recipe_notifications") and serialized.recipe_notifications then
-		failed_deserialization.recipe_notifications =
-			serialize.deserialize_crafting_notifications(player, serialized.recipe_notifications)
+		failed_deserialization.recipe_notifications = serialize.deserialize_crafting_notifications(
+			player, serialized.recipe_notifications, sent_recipe_notifications
+		)
 	end
 
 	return next(failed_deserialization) and failed_deserialization or nil, spill, inventory_bonus_raise

@@ -145,6 +145,20 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.get("test.func"), 42);
 				assert.equal(testInstance.get("test.priv"), null);
 			});
+			it("should call initialValue functions with the loaded config", function() {
+				class DerivedConfig extends lib.Config {
+					static defaultAccess = ["local"];
+					static fieldDefinitions = {
+						"test.base": { type: "number", initialValue: 1 },
+						"test.derived": { type: "number", initialValue: config => config.get("test.base") * 2 },
+					};
+				}
+				assert.equal(new DerivedConfig("local").get("test.derived"), 2);
+				assert.equal(new DerivedConfig("local", { "test.base": 5 }).get("test.derived"), 10);
+				assert.equal(new DerivedConfig("local", { "test.base": 5, "test.derived": 3 }).get("test.derived"), 3);
+				const invalid = new DerivedConfig("local", { "test.base": 5, "test.derived": "x" });
+				assert.equal(invalid.get("test.derived"), 10);
+			});
 			it("should not initalize inaccessible fields", function() {
 				let testInstance = new TestConfig("remote");
 				assert.equal(testInstance.fields["test.enum"], "b");

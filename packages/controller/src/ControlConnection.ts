@@ -8,6 +8,7 @@ import { logFilter, logger } from "@clusterio/lib";
 import BaseConnection from "./BaseConnection.js";
 import User from "./User.js";
 import UserRecord from "./UserRecord.js";
+import type InstanceRecord from "./InstanceRecord.js";
 import * as routes from "./routes.js";
 import Controller from "./Controller.js";
 
@@ -81,10 +82,11 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ControllerConfigSetRequest, this.handleControllerConfigSetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
-		this.handle(lib.HostRevokeTokensRequest, this.handleHostRevokeTokensRequest.bind(this));
+		this.handle(lib.HostRevokeRequest, this.handleHostRevokeRequest.bind(this));
 		this.handle(lib.HostListRequest, this.handleHostListRequest.bind(this));
-		this.handle(lib.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
-		this.handle(lib.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
+		this.handle(lib.HostPairingListRequest, this.handleHostPairingListRequest.bind(this));
+		this.handle(lib.HostPairingApproveRequest, this.handleHostPairingApproveRequest.bind(this));
+		this.handle(lib.HostPairingRejectRequest, this.handleHostPairingRejectRequest.bind(this));
 		this.handle(lib.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
 		this.handle(lib.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
@@ -93,6 +95,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.InstanceConfigSetRequest, this.handleInstanceConfigSetRequest.bind(this));
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
+		this.handle(lib.InstanceConfigInheritFieldRequest, this.handleInstanceConfigInheritFieldRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
 		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceRenameSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
@@ -248,49 +251,25 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.config.setProp(field as keyof lib.ControllerConfigFields, prop, value, "control");
 	}
 
-	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
-		const host = this._controller.hosts.getMutable(request.hostId);
-		if (!host) {
-			throw new Error(`Unknown host id (${request.hostId})`);
-		}
-
-		host.tokenValidAfter = Math.floor(Date.now() / 1000);
-
-		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
-		if (hostConnection) {
-			hostConnection.connector.terminate();
-		}
-
-		this._controller.hosts.set(host);
+	async handleHostRevokeRequest(request: lib.HostRevokeRequest) {
+		await this._controller.hosts.revokeHost(request.hostId, this.user.name);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
 		return [...this._controller.hosts.values()].map(host => host.toHostDetails());
 	}
 
-	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
-		let hostId = message.hostId;
-		if (hostId === undefined) {
-			hostId = Math.random() * 2**31 | 0;
-		}
-		return this._controller.generateHostToken(hostId);
+	async handleHostPairingListRequest(): Promise<lib.HostPairingDetails[]> {
+		this._controller.hostPairing.prune();
+		return [...this._controller.hostPairing.records.values()];
 	}
 
-	async handleHostConfigCreateRequest(request: lib.HostConfigCreateRequest) {
-		const hostConfig = new lib.HostConfig("host");
+	async handleHostPairingApproveRequest(request: lib.HostPairingApproveRequest) {
+		return this._controller.hostPairing.approve(request.code, request.name, this.user.name);
+	}
 
-		hostConfig.set("host.controller_url", this._controller.getControllerUrl());
-		if (request.id !== undefined) {
-			hostConfig.set("host.id", request.id);
-		}
-		if (request.name !== undefined) {
-			hostConfig.set("host.name", request.name);
-		}
-		if (request.generateToken) {
-			this.user.checkPermission("core.host.generate_token");
-			hostConfig.set("host.controller_token", this._controller.generateHostToken(hostConfig.get("host.id")));
-		}
-		return hostConfig.toJSON();
+	async handleHostPairingRejectRequest(request: lib.HostPairingRejectRequest) {
+		this._controller.hostPairing.reject(request.code, this.user.name);
 	}
 
 	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {
@@ -315,6 +294,12 @@ export default class ControlConnection extends BaseConnection {
 			instanceConfig.set("instance.assigned_host", null); // New instances are unassigned
 		}
 		instanceConfig.update(request.config, false, "control");
+		this._controller.instances.checkInheritance(
+			instanceConfig, instanceConfig.get("instance.is_template"), instanceConfig.get("instance.template_id")
+		);
+		if (Object.hasOwn(request.config, "instance.template_id")) {
+			this._controller.instances.applyTemplate(instanceConfig, Object.keys(request.config));
+		}
 		await this._controller.instances.createInstance(instanceConfig);
 	}
 
@@ -355,17 +340,41 @@ export default class ControlConnection extends BaseConnection {
 				}
 			}
 
+			this.checkStagedInheritance(instance);
 			instance.config.commitStaging();
+			for (const [fieldName, fieldValue] of Object.entries(request.fields)) {
+				const props = typeof fieldValue === "object"
+					? Object.keys(fieldValue).filter(prop => fieldValue[prop] !== undefined)
+					: undefined;
+				this._controller.instances.overrideField(instance, fieldName, props);
+			}
 			await this._controller.instanceConfigUpdated(instance);
 		} finally {
 			instance.config.revertStaging();
 		}
 	}
 
+	private checkStagedInheritance(instance: InstanceRecord) {
+		const staged = instance.config.staging;
+		this._controller.instances.checkInheritance(
+			instance.config, staged.get("instance.is_template"), staged.get("instance.template_id")
+		);
+	}
+
 	async handleInstanceConfigSetFieldRequest(request: lib.InstanceConfigSetFieldRequest) {
 		const instance = this._controller.instances.getForRequest(request.instanceId);
-		ControlConnection.validateInstanceConfigSetField(request.field);
-		instance.config.set(request.field as keyof lib.InstanceConfigFields, request.value, "control");
+		const field = request.field as keyof lib.InstanceConfigFields;
+		ControlConnection.validateInstanceConfigSetField(field);
+		if (["instance.is_template", "instance.template_id"].includes(field)) {
+			try {
+				instance.config.stage(field, request.value, "control");
+				this.checkStagedInheritance(instance);
+			} finally {
+				instance.config.revertStaging();
+			}
+		}
+		instance.config.set(field, request.value, "control");
+		this._controller.instances.overrideField(instance, field);
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
@@ -374,7 +383,16 @@ export default class ControlConnection extends BaseConnection {
 		let { field, prop, value } = request;
 		ControlConnection.validateInstanceConfigSetField(field);
 		instance.config.setProp(field as keyof lib.InstanceConfigFields, prop, value, "control");
+		if (value !== undefined) {
+			this._controller.instances.overrideField(instance, field, [prop]);
+		}
 		await this._controller.instanceConfigUpdated(instance);
+	}
+
+	async handleInstanceConfigInheritFieldRequest(request: lib.InstanceConfigInheritFieldRequest) {
+		ControlConnection.validateInstanceConfigSetField(request.field);
+		this._controller.instances.inheritField(request.instanceId, request.field, request.prop);
+		await this._controller.instanceConfigUpdated(this._controller.instances.getForRequest(request.instanceId));
 	}
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {

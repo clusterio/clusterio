@@ -271,4 +271,92 @@ describe("host/patch", function() {
 			);
 		});
 	});
+
+	describe("unpatch()", function() {
+		const freeplayControl = "require('__base__/script/freeplay/control.lua')\n";
+		const zipPath = path.join("temp", "test", "unpatch.zip");
+		let testModule;
+		before(async function() {
+			testModule = new patch.SaveModule(new lib.ModuleInfo("test", "1.0.0"));
+			await testModule.loadFiles("test/file/modules/test");
+		});
+		async function readSave() {
+			const zip = await lib.ZipArchive.fromFile(zipPath);
+			try {
+				const files = new Map();
+				for (const name of zip.entries.keys()) {
+					files.set(name, (await zip.readFile(name)).toString("utf8"));
+				}
+				return files;
+			} finally {
+				zip.close();
+			}
+		}
+
+		it("should leave saves that are not patched untouched", async function() {
+			await fs.writeFile(zipPath, await createZipBuffer([["world/control.lua", freeplayControl]]));
+			assert.equal(await patch.unpatch(zipPath), false);
+			assert.deepEqual([...(await readSave()).keys()], ["world/control.lua"]);
+		});
+		it("should restore control.lua and remove module files", async function() {
+			await fs.writeFile(zipPath, await createZipBuffer([
+				["world/control.lua", freeplayControl],
+				["world/level.dat0", "level"],
+			]));
+			await patch.patch(zipPath, [testModule]);
+			assert.equal(await patch.unpatch(zipPath), true);
+
+			const files = await readSave();
+			assert.deepEqual(
+				[...files.keys()].sort(),
+				["world/clusterio.json", "world/control.lua", "world/level.dat0"],
+			);
+			assert.equal(files.get("world/control.lua"), freeplayControl);
+			const patchInfo = JSON.parse(files.get("world/clusterio.json"));
+			assert.equal(patchInfo.patch_number, 1);
+			assert.deepEqual(patchInfo.modules, []);
+
+			assert.equal(await patch.unpatch(zipPath), false, "unpatched twice");
+		});
+		it("should throw on a newer patch version", async function() {
+			const scenario = new lib.ModuleInfo("freeplay", "2.0.29", [], ["scenario"]);
+			const patchInfo = { version: 2, patch_number: 1, scenario, modules: [] };
+			await fs.writeFile(zipPath, await createZipBuffer([
+				["world/control.lua", freeplayControl],
+				["world/clusterio.json", JSON.stringify(patchInfo)],
+			]));
+			await assert.rejects(patch.unpatch(zipPath), /Save patch version 2 is newer/);
+			await assert.rejects(patch.patch(zipPath, []), /Save patch version 2 is newer/);
+		});
+		it("should keep counting the patch number when patched again", async function() {
+			await fs.writeFile(zipPath, await createZipBuffer([["world/control.lua", freeplayControl]]));
+			await patch.patch(zipPath, [testModule]);
+			await patch.unpatch(zipPath);
+			await patch.patch(zipPath, [testModule]);
+
+			const files = await readSave();
+			assert.equal(JSON.parse(files.get("world/clusterio.json")).patch_number, 2);
+			assert(files.has("world/modules/test/test.lua"));
+			assert.equal(files.get("world/scenario.lua"), freeplayControl);
+			assert.match(files.get("world/control.lua"), /^-- Auto generated scenario module loader/);
+		});
+		it("should keep the loader of scenarios made for Clusterio", async function() {
+			const scenario = new lib.ModuleInfo("custom", "1.0.0", [], ["custom"]);
+			const patchInfo = new patch.PatchInfo(3, scenario, [testModule]);
+			await fs.writeFile(zipPath, await createZipBuffer([
+				["world/control.lua", patch._generateLoader(patchInfo)],
+				["world/clusterio.json", JSON.stringify(patchInfo)],
+				["world/custom.lua", "-- custom\n"],
+				...[...testModule.files].map(([name, content]) => [`world/${name}`, content]),
+			]));
+			assert.equal(await patch.unpatch(zipPath), true);
+
+			const files = await readSave();
+			assert.deepEqual(
+				[...files.keys()].sort(),
+				["world/clusterio.json", "world/control.lua", "world/custom.lua"],
+			);
+			assert.equal(files.get("world/control.lua"), patch._generateLoader(new patch.PatchInfo(3, scenario, [])));
+		});
+	});
 });

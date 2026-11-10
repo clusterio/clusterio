@@ -1,11 +1,11 @@
-import type { Application, Request, Response } from "express";
+import express, { type Application, type Request, type Response } from "express";
 import Controller from "./Controller.js";
+import HostPairingManager, { HostPairingError } from "./HostPairingManager.js";
 
 import busboy from "busboy";
 import crypto from "crypto";
 import events from "events";
 import fs from "node:fs/promises";
-import jwt from "jsonwebtoken";
 import path from "path";
 import nodeStream from "stream";
 import util from "util";
@@ -188,17 +188,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		const tokenPayload = jwt.verify(token, req.app.locals.controller.authSecret, { audience: "host" });
-		if (typeof tokenPayload === "string") {
-			throw new Error("unexpected JsonWebToken type");
-		}
-		let host = req.app.locals.controller.hosts.get(tokenPayload.host);
-		if (!host) {
-			throw new Error("invalid host");
-		}
-		if (!tokenPayload.iat || tokenPayload.iat < (host.tokenValidAfter ?? 0)) {
-			throw new Error("invalid token");
-		}
+		req.app.locals.controller.hosts.verifyHostToken(token);
 	} catch (err) {
 		res.sendStatus(401);
 		return;
@@ -215,25 +205,112 @@ function validateUserToken(req: Request, res: Response, next: any) {
 	}
 
 	try {
-		const tokenPayload = jwt.verify(token, req.app.locals.controller.authSecret, { audience: "user" });
-		if (typeof tokenPayload === "string") {
-			throw new Error("unexpected JsonWebToken type");
-		}
-		let user = req.app.locals.controller.users.getByName(tokenPayload.user);
-		if (!user) {
-			throw new Error("invalid user");
-		}
-		if (!tokenPayload.iat || tokenPayload.iat < user.tokenValidAfter) {
-			throw new Error("invalid token");
-		}
-		res.locals.user = user;
-
+		res.locals.user = req.app.locals.controller.users.verifyUserToken(token);
 	} catch (err) {
 		res.sendStatus(401);
 		return;
 	}
 
 	next();
+}
+
+// Responds with the status of a pairing error, returns false for other errors.
+function sendHostPairingError(res: Response, err: unknown) {
+	if (!(err instanceof HostPairingError)) {
+		return false;
+	}
+	if (err.retryAfter !== undefined) {
+		res.set("Retry-After", String(err.retryAfter));
+	}
+	res.status(err.status).json({ error: err.message });
+	return true;
+}
+
+// Checks recovery mode and the request id for the pairing endpoints, returns false if responded to.
+function checkHostPairingRequest(req: Request, res: Response, needsRequestId: boolean) {
+	if (req.app.locals.controller.recoveryMode) {
+		res.status(503).json({ error: "Controller is in recovery mode" });
+		return false;
+	}
+	if (needsRequestId && typeof req.body?.requestId !== "string") {
+		res.status(400).json({ error: "requestId is required" });
+		return false;
+	}
+	return true;
+}
+
+// Request from a host for a host to join the cluster.
+function createHostPairing(req: Request, res: Response) {
+	if (!checkHostPairingRequest(req, res, false)) {
+		return;
+	}
+	const controller = req.app.locals.controller;
+	const remoteAddress = controller.wsServer.remoteAddr(req);
+	try {
+		const name = HostPairingManager.validateName(req.body?.name);
+		const version = typeof req.body?.version === "string" ? req.body.version.slice(0, 64) : "";
+
+		// A user allowed to approve hosts can skip the wait by passing their token.
+		const token = getAccessToken(req);
+		if (token !== undefined) {
+			let user;
+			try {
+				user = controller.users.verifyUserToken(token);
+			} catch (err) {
+				res.status(401).json({ error: "Invalid user token" });
+				return;
+			}
+			try {
+				user.checkPermission("core.host.approve");
+			} catch (err) {
+				logger.audit(
+					`User ${user.name} tried to approve host ${name} from ${remoteAddress} without permission`
+				);
+				res.status(403).json({ error: `User ${user.name} is not allowed to approve hosts` });
+				return;
+			}
+			const host = controller.hosts.createHost(name);
+			logger.audit(
+				`User ${user.name} approved host ${host.name} (${host.id}) from ${remoteAddress} with their token`
+			);
+			res.status(200).json({ hostId: host.id, token: controller.hosts.signHostToken(host.id), name: host.name });
+			return;
+		}
+
+		res.status(202).json(controller.hostPairing.create(name, version, remoteAddress));
+	} catch (err) {
+		if (!sendHostPairingError(res, err)) {
+			throw err;
+		}
+	}
+}
+
+// Poll from a host for the result of its request.
+function pollHostPairing(req: Request, res: Response) {
+	if (!checkHostPairingRequest(req, res, true)) {
+		return;
+	}
+	try {
+		const result = req.app.locals.controller.hostPairing.poll(req.body.requestId);
+		if (result) {
+			res.status(200).json(result);
+		} else {
+			res.status(202).json({ status: "pending" });
+		}
+	} catch (err) {
+		if (!sendHostPairingError(res, err)) {
+			throw err;
+		}
+	}
+}
+
+// Cancel from a host that stopped waiting.
+function cancelHostPairing(req: Request, res: Response) {
+	if (!checkHostPairingRequest(req, res, true)) {
+		return;
+	}
+	req.app.locals.controller.hostPairing.cancel(req.body.requestId);
+	res.sendStatus(204);
 }
 
 // Handle an uploaded export package.
@@ -290,7 +367,7 @@ async function uploadExport(req: Request, res: Response) {
 		let { name, ext } = path.posix.parse(filePath);
 		let hash = await lib.hashStream(await zip.openStream(file));
 		assets[name] = `${name}.${hash}${ext}`;
-		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), content);
+		await lib.atomicOverwriteFile(path.join("static", `${name}.${hash}${ext}`), content);
 	}
 
 	modPack.exportManifest = new lib.ExportManifest(assets, new Date().toISOString());
@@ -298,6 +375,30 @@ async function uploadExport(req: Request, res: Response) {
 	res.app.locals.controller.modPacks.set(modPack);
 
 	res.sendStatus(200);
+}
+
+// Reached when no static file matched, drops exports whose files were removed
+export function missingExportAsset(req: Request, res: Response, next: any) {
+	const file = req.path.slice(1);
+	if (!["GET", "HEAD"].includes(req.method) || !file) {
+		next();
+		return;
+	}
+	const modPacks = res.app.locals.controller.modPacks;
+	const affected = [...modPacks.valuesMutable()].filter(
+		modPack => modPack.exportManifest && Object.values(modPack.exportManifest.assets).includes(file)
+	);
+	if (!affected.length) {
+		next();
+		return;
+	}
+	for (const modPack of affected) {
+		Controller.dropExport(modPack, `${file} was removed from disk`);
+	}
+	modPacks.setMany(affected);
+	res.status(404).type("text/plain").send(
+		`Export data file ${file} is missing, run export-data on an instance to regenerate it`
+	);
 }
 
 type ProxyStreamEvents = {
@@ -716,6 +817,18 @@ export function addRouteHandlers(app: Application) {
 	);
 	app.get("/api/plugins", getPlugins);
 	app.get("/api/cluster-name", getClusterName);
+	// Set before parsing so errors from the body parser and token check are not cached either.
+	const noStore = (req: Request, res: Response, next: any) => {
+		res.set("Cache-Control", "no-store");
+		next();
+	};
+	const pairingJson = express.json({ limit: "4kb" });
+	app.post("/api/host-pairing", noStore, pairingJson, createHostPairing);
+	app.post("/api/host-pairing/poll", noStore, pairingJson, pollHostPairing);
+	app.post("/api/host-pairing/cancel", noStore, pairingJson, cancelHostPairing);
+	app.get("/api/host-pairing/check", noStore, validateHostToken, (req: Request, res: Response) => {
+		res.json({ valid: true });
+	});
 	app.put("/api/upload-export",
 		validateHostToken,
 		(req:Request, res:Response, next:any) => uploadExport(req, res).catch(next)

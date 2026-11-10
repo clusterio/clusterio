@@ -7,7 +7,7 @@ import isDeepStrictEqual from "#is_deep_strict_equal";
 import { basicType } from "../helpers.js";
 import * as libSchema from "../schema.js";
 import { StringEnum } from "../data/composites.js";
-import { safeOutputFile } from "../file_ops.js";
+import { atomicOverwriteFile } from "../file_ops.js";
 import * as validators from "./validators.js";
 import { InvalidAccessError, InvalidFieldError, InvalidValueError } from "../errors.js";
 import type { SyncHook } from "../SyncHook.js";
@@ -88,10 +88,11 @@ export interface FieldDefinition<
 	optional?: Type extends null ? true : false;
 	/**
 	 * Value this config field should take in a newly initialized config.
-	 * This can also be a synchronous function returning the value to use.
+	 * This can also be a synchronous function returning the value to use,
+	 * it is called after the stored fields are loaded so that it can read them.
 	 * Promise results are not awaited.
 	 */
-	initialValue?: unknown | (() => unknown);
+	initialValue?: unknown | ((config: Config<Fields>) => unknown);
 	/**
 	 * Array of all values that are acceptible.  Useful for making
 	 * enumerated values.
@@ -139,9 +140,6 @@ export type ConfigDefs<
 function defaultValue(def: FieldDefinition) {
 	if (def.initialValue === undefined) {
 		return null;
-	}
-	if (typeof def.initialValue === "function") {
-		return def.initialValue();
 	}
 	return def.initialValue;
 }
@@ -246,14 +244,12 @@ export class Config<
 		}
 		super();
 
+		const defs = Object.entries(this.constructor.fieldDefinitions).filter(
+			([name, def]) => this._checkAccess(name, def, location, ConfigAccess.read, false)
+		);
+		// Function initial values are left undefined until the stored fields are loaded
 		this.fields = Object.fromEntries(
-			Object.entries(
-				this.constructor.fieldDefinitions
-			).filter(
-				([name, def]) => this._checkAccess(name, def, location, ConfigAccess.read, false)
-			).map(
-				([name, def]) => [name, defaultValue(def)]
-			)
+			defs.map(([name, def]) => [name, typeof def.initialValue === "function" ? undefined : defaultValue(def)])
 		) as Fields;
 
 		if (fields) {
@@ -262,6 +258,12 @@ export class Config<
 				migrated = this.constructor.pluginMigrations.reduce(migrated);
 			}
 			this.update(migrated, false, location);
+		}
+
+		for (const [name, def] of defs) {
+			if (this.fields[name as keyof Fields] === undefined) {
+				this.fields[name as keyof Fields] = (def.initialValue as (config: Config<Fields>) => any)(this);
+			}
 		}
 
 		for (const [pluginName, version] of this.constructor.pluginVersions) {
@@ -475,7 +477,7 @@ export class Config<
 		if (!this.filepath) {
 			throw new Error("Cannot save config which has no filepath");
 		}
-		await safeOutputFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
+		await atomicOverwriteFile(this.filepath, JSON.stringify(this, null, "\t"), { mode: 0o600 });
 		this._dirty = false;
 	}
 

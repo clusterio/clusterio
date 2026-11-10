@@ -3,8 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import {
 	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
-	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
-	TablePaginationConfig, Alert, notification, FormProps,
+	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Switch, Modal, Tooltip,
+	TablePaginationConfig, Alert, notification, FormProps, Collapse,
 } from "antd";
 
 import {
@@ -21,11 +21,15 @@ import { useAccount } from "../model/account";
 import { useModPack } from "../model/mod_pack";
 import { useMods } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
+import { modSettingFields, ModSettingField, ModSettingScope } from "../util/mod_settings";
 import notify, { notifyErrorHandler } from "../util/notify";
+import { modSettingDescription, modSettingName, modSettingValueName } from "../util/locale";
+import useResourceState from "../util/useResourceState";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ResourceNotes from "./ResourceNotes";
+import ResourceState from "./ResourceState";
 import ModDetails from "./ModDetails";
 import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
@@ -854,11 +858,6 @@ function hasChange(changes: ModChange[], field:Partial<ModChange>) {
 			.every(([key, value]) => (change as any)[key] === value));
 }
 
-// picks out the value property from settings.
-function pickValue(map: Map<string, lib.ModSetting>): [string, lib.ModSetting["value"]][] {
-	return [...map].map(([name, value]) => [name, value.value]);
-}
-
 function groupToMap(array: any[], fn: (...args:any) => any) {
 	const map = new Map();
 	for (let index = 0; index < array.length; index++) {
@@ -901,10 +900,19 @@ function InputColor(props: {
 type SettingsTableFieldProps = {
 	name: string;
 	type: string;
-	scope: string;
+	scope: ModSettingScope;
 	allowedValues: any;
+	localisedName?: lib.FactorioLocalisedString;
+	localisedDescription?: lib.FactorioLocalisedString;
 	locale: Map<string, any>;
 	changed: boolean;
+	/** Saved value of the setting, used when the field is created and when the form is reset */
+	initialValue: lib.ModSetting["value"] | undefined;
+	/** Show a remove link, or a revert link if removed is set */
+	removable?: boolean;
+	removed?: boolean;
+	onChange?: (change: ModChange) => void;
+	onRevert?: (change: ModChange) => void;
 };
 const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const name = props.name;
@@ -912,6 +920,7 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const isColor = props.type === "color-setting";
 	const isNumber = ["int-setting", "double-setting"].includes(props.type);
 	const isSelect = Boolean(props.allowedValues);
+	const prototype = { name, localised_name: props.localisedName, localised_description: props.localisedDescription };
 	let input;
 	if (isBoolean) {
 		input = <Checkbox />;
@@ -919,40 +928,61 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 		const PartialInputColor = InputColor as () => React.JSX.Element;
 		input = <PartialInputColor />;
 	} else if (isSelect) {
-		const options = Object.values(props.allowedValues).map(value => ({
+		const options = Object.values(props.allowedValues as (string | number)[]).map(value => ({
 			value,
-			label: props.locale.get(`string-mod-setting.${name}-${value}`) || value,
+			label: modSettingValueName(props.locale, name, value),
 		}));
 		input = <Select options={options} />;
 	} else {
 		input = <Input />;
 	}
 
+	const label = modSettingName(props.locale, prototype);
+	const change: ModChange = {
+		type: "settings.delete", scope: props.scope, name, value: { value: props.initialValue! },
+	};
 	return <Form.Item
-		name={[props.scope, name]}
-		label={props.locale.get(`mod-setting-name.${name}`) || name}
-		tooltip={props.locale.get(`mod-setting-description.${name}`)}
+		label={props.removed ? <Text delete>{label}</Text> : label}
+		tooltip={modSettingDescription(props.locale, prototype)}
 		labelCol={{ span: 8 }}
 		wrapperCol={{ span: 16 }}
-		valuePropName={isBoolean ? "checked" : "value"}
-		rules={[...isNumber ? [{
-			validator(rule: any, value: any) {
-				if (Number.isNaN(Number(value))) {
-					return Promise.reject(new Error("Must be a number"));
-				}
-				return Promise.resolve();
-			},
-		}] : []]}
 		className={props.changed ? "changed" : ""}
 	>
-		{input}
+		<Space>
+			<ConfigProvider componentDisabled={props.removed}><Form.Item
+				noStyle
+				name={[props.scope, name]}
+				initialValue={props.initialValue}
+				valuePropName={isBoolean ? "checked" : "value"}
+				rules={[...isNumber ? [{
+					validator(rule: any, value: any) {
+						if (Number.isNaN(Number(value))) {
+							return Promise.reject(new Error("Must be a number"));
+						}
+						return Promise.resolve();
+					},
+				}] : []]}
+			>
+				{input}
+			</Form.Item></ConfigProvider>
+			{props.removable && !props.removed && <Typography.Link
+				type="danger"
+				onClick={() => props.onChange?.(change)}
+			>remove</Typography.Link>}
+			{props.removable && props.removed && <Typography.Link
+				onClick={() => props.onRevert?.(change)}
+			>revert</Typography.Link>}
+		</Space>
 	</Form.Item>;
 });
 
 
 type SettingsTableProps = {
 	modPack: lib.ModPack;
-	prototypes: any;
+	/** Mod pack without unsaved changes, reverting the form goes back to its values */
+	savedModPack: lib.ModPack;
+	/** Exported setting prototypes, undefined if the mod pack has no export data */
+	prototypes: lib.ExportSettings | undefined;
 	locale: any;
 	changes: ModChange[];
 	onChange: (change: ModChange) => void;
@@ -966,55 +996,52 @@ function SettingsTable(props: SettingsTableProps) {
 		.map(mod => [mod.name, mod.title])
 	);
 
-	const types = ["bool-setting", "int-setting", "double-setting", "string-setting", "color-setting"];
-	let prototypes = Object.entries(props.prototypes)
-		.filter(([type, _]) => types.includes(type))
-		.flatMap<any>(([_, settingPrototypes]: [string, any]) => Object.values(settingPrototypes))
-	;
+	function field(scope: ModSettingScope, setting: ModSettingField, removable = false) {
+		return <SettingsTableField
+			key={`${scope} ${setting.name}`}
+			name={setting.name}
+			type={setting.type}
+			scope={scope}
+			allowedValues={setting.allowed_values}
+			localisedName={setting.localised_name}
+			localisedDescription={setting.localised_description}
+			locale={props.locale}
+			changed={hasChange(props.changes, { type: "settings.set", scope, name: setting.name })}
+			initialValue={props.savedModPack.settings[scope].get(setting.name)?.value}
+			removable={removable}
+			removed={removable && hasChange(props.changes, { type: "settings.delete", scope, name: setting.name })}
+			onChange={props.onChange}
+			onRevert={props.onRevert}
+		/>;
+	}
 
-	function controls(
-		scope: "startup"|"runtime-global"|"runtime-per-user",
-		storedFields: [string, lib.ModSetting["value"]][]
-	) {
-		let fields = new Map(prototypes
-			.filter(p => p.setting_type === scope)
-			.sort((a, b) => strcmp(a.mod, b.mod) || strcmp(a.order || "", b.order || "") || strcmp(a.name, b.name))
-			.map(p => [p.name, p])
-		);
-		for (let [name, value] of storedFields) {
-			if (!fields.has(name)) {
-				let type;
-				if (typeof value === "boolean") {
-					type = "bool-setting";
-				} else if (typeof value === "number") {
-					type = "double-setting";
-				} else if (typeof value === "string") {
-					type = "string-setting";
-				} else if (typeof value === "object" && "r" in value) {
-					type = "color-setting";
-				} else {
-					throw Error(`Unhandled setting type ${typeof value}`);
-				}
-				fields.set(name, { mod: "Unknown Fields", name, setting_type: scope, type });
-			}
-		}
-		let fieldsByMod = groupToMap([...fields.values()], prototype => prototype.mod);
-		return [...fieldsByMod].map(([mod, fieldsForMod]) => <Fragment key={mod}>
-			<Typography.Title level={5}>
-				{props.locale.get(`mod-name.${mod}`) || modTitles.get(mod) || mod}
-			</Typography.Title>
-			{[...fieldsForMod].map(
-				prototype => <SettingsTableField
-					key={`${scope} ${prototype.name}`}
-					name={prototype.name}
-					type={prototype.type}
-					scope={scope}
-					allowedValues={prototype.allowed_values}
-					locale={props.locale}
-					changed={hasChange(props.changes, { type: "settings.set", scope, name: prototype.name })}
-				/>
-			)}
-		</Fragment>);
+	function controls(scope: ModSettingScope) {
+		// Listed from the saved pack so removed settings stay visible until applied
+		const { known, unknown } = modSettingFields(props.prototypes, scope, props.savedModPack.settings[scope]);
+		const fieldsByMod = groupToMap(known, setting => setting.mod);
+		return <>
+			{[...fieldsByMod].map(([mod, fieldsForMod]) => <Fragment key={mod ?? ""}>
+				{mod !== undefined && <Typography.Title level={5}>
+					{props.locale.get(`mod-name.${mod}`) || modTitles.get(mod) || mod}
+				</Typography.Title>}
+				{fieldsForMod.map((setting: ModSettingField) => field(scope, setting))}
+			</Fragment>)}
+			{unknown.length > 0 && <Collapse
+				size="small"
+				style={{ marginBottom: 24 }}
+				items={[{
+					key: "unknown",
+					label: `Unknown settings (${unknown.length})`,
+					children: <>
+						<Typography.Paragraph type="secondary">
+							No mod in the exported data defines these settings. They are kept so the values come back
+							if a mod that uses them is added again.
+						</Typography.Paragraph>
+						{unknown.map(setting => field(scope, setting, true))}
+					</>,
+				}]}
+			/>}
+		</>;
 	}
 
 	return <>
@@ -1023,15 +1050,15 @@ function SettingsTable(props: SettingsTableProps) {
 		/>
 		<Typography.Paragraph>Run export data on an instance to update available fields.</Typography.Paragraph>
 		<Typography.Title level={4}>Startup</Typography.Title>
-		{controls("startup", pickValue(props.modPack.settings["startup"]))}
+		{controls("startup")}
 
 		<Typography.Title level={4}>Map</Typography.Title>
 		<Typography.Paragraph>These only apply for new saves.</Typography.Paragraph>
-		{controls("runtime-global", pickValue(props.modPack.settings["runtime-global"]))}
+		{controls("runtime-global")}
 
 		<Typography.Title level={4}>Per Player</Typography.Title>
 		<Typography.Paragraph>Default settings for new players, these only apply for new saves.</Typography.Paragraph>
-		{controls("runtime-per-user", pickValue(props.modPack.settings["runtime-per-user"]))}
+		{controls("runtime-per-user")}
 	</>;
 }
 
@@ -1093,14 +1120,16 @@ function ExportButton(props: { modPack: lib.ModPack }) {
 }
 
 function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"locale"): Map<any, any> | any {
-	let [assetData, setAssetData] = useState<Map<any, any>|any>(asset === "locale" ? new Map() : {});
+	let [assetData, setAssetData] = useState<Map<any, any>|any>(asset === "locale" ? new Map() : undefined);
 	let assetFilename: string | undefined;
 	if (modPack instanceof lib.ModPack && modPack.exportManifest?.assets[asset]) {
 		assetFilename = modPack.exportManifest.assets[asset];
 	}
 	useEffect(() => {
 		async function load() {
+			const empty = asset === "locale" ? new Map() : undefined;
 			if (!assetFilename) {
+				setAssetData(empty);
 				return;
 			}
 
@@ -1109,7 +1138,14 @@ function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"l
 				let data = await response.json();
 				setAssetData(asset === "locale" ? new Map(data) : data);
 			} else {
-				logger.error(`Error loading mod pack asset "${asset}" (${response.status}): ${await response.text()}`);
+				if (response.status === 404) {
+					logger.warn(`Mod pack asset "${asset}" is missing on the controller`);
+				} else {
+					logger.error(
+						`Error loading mod pack asset "${asset}" (${response.status}): ${await response.text()}`
+					);
+				}
+				setAssetData(empty);
 			}
 		}
 
@@ -1183,8 +1219,9 @@ export default function ModPackViewPage() {
 	let modPackId = Number(params.id);
 
 	const [form] = Form.useForm();
-	const [modPack, synced] = useModPack(modPackId);
-	let prototypes: any = useExportedAsset(modPack, "settings");
+	const [modPack, synced, error] = useModPack(modPackId);
+	const state = useResourceState(modPack, synced, error, modPackId);
+	let prototypes: lib.ExportSettings | undefined = useExportedAsset(modPack, "settings");
 	let locale: Map<any, any> = useExportedAsset(modPack, "locale");
 	let [changes, setChanges] = useState<ModChange[]>([]);
 	let syncTimeout = useRef<ReturnType<typeof setTimeout>|undefined>();
@@ -1214,7 +1251,7 @@ export default function ModPackViewPage() {
 		setChanges(oldChanges => {
 			const newChanges = [...oldChanges];
 			const index = newChanges.findLastIndex(reference => (
-				change.type === reference.type && change.name === reference.name
+				change.type === reference.type && change.name === reference.name && change.scope === reference.scope
 			));
 			if (index === -1) {
 				logger.error(`Unable to revert ${change.type} ${change.name}: change not found`);
@@ -1237,6 +1274,9 @@ export default function ModPackViewPage() {
 				}
 			} else if (["startup", "runtime-global", "runtime-per-user"].includes(field.name[0])) {
 				let [scope, settingName]: ["startup"|"runtime-global"|"runtime-per-user", string] = field.name;
+				if (modPack!.settings[scope].has(settingName) && !modifiedModPack!.settings[scope].has(settingName)) {
+					continue; // Removed
+				}
 				let value = field.value;
 				if (typeof modPack!.settings[scope].get(settingName)?.value === "number") {
 					value = Number(value);
@@ -1253,17 +1293,7 @@ export default function ModPackViewPage() {
 
 	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack?.name ?? String(modPackId) }];
 	if (!modifiedModPack || !modPack) {
-		if (!synced) {
-			return <PageLayout nav={nav}>
-				<PageHeader title={String(modPackId)} />
-				<Spin size="large" />
-			</PageLayout>;
-		}
-
-		return <PageLayout nav={nav}>
-			<PageHeader title="Mod Pack Not Found" />
-			<p>Mod pack with id {modPackId} was not found on the controller.</p>
-		</PageLayout>;
+		return <ResourceState state={state} type="Mod pack" id={modPackId} nav={nav} listPath="/mods" error={error} />;
 	}
 
 	return <PageLayout nav={nav}>
@@ -1301,13 +1331,12 @@ export default function ModPackViewPage() {
 					syncTimeout.current = setTimeout(syncPack.bind(undefined, allFields), 500);
 				}
 			}}
+			// Mod settings get their value on each field instead, the form only applies initialValues when it is
+			// created, so settings added by an export while the page is open would show up empty.
 			initialValues={{
 				name: modPack.name,
 				description: modPack.description,
 				factorioVersion: modPack.factorioVersion,
-				"startup": Object.fromEntries(pickValue(modPack.settings["startup"])),
-				"runtime-global": Object.fromEntries(pickValue(modPack.settings["runtime-global"])),
-				"runtime-per-user": Object.fromEntries(pickValue(modPack.settings["runtime-per-user"])),
 			}}
 		>
 			<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
@@ -1356,6 +1385,7 @@ export default function ModPackViewPage() {
 			/>
 			<SettingsTable
 				modPack={modifiedModPack}
+				savedModPack={modPack}
 				changes={changes}
 				onChange={pushChange}
 				onRevert={revertChange}

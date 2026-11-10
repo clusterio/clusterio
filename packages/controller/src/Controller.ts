@@ -11,7 +11,6 @@ import events from "events";
 import fs from "node:fs/promises";
 import http from "http";
 import https from "https";
-import jwt from "jsonwebtoken";
 import path from "path";
 import semver from "semver";
 import stream from "stream";
@@ -28,7 +27,9 @@ import User from "./User.js";
 import UserRecord from "./UserRecord.js";
 import UserManager from "./UserManager.js";
 import WsServer from "./WsServer.js";
+import HostManager from "./HostManager.js";
 import HostRecord from "./HostRecord.js";
+import HostPairingManager from "./HostPairingManager.js";
 import { BaseControllerPlugin, ControllerHooks } from "./BaseControllerPlugin.js";
 import ControllerRouter from "./ControllerRouter.js";
 import InstanceManager from "./InstanceManager.js";
@@ -87,10 +88,14 @@ export default class Controller {
 
 	/** Event subscription controller */
 	subscriptions: lib.SubscriptionController;
+	/** Host manager for the cluster, also contains access to the host records */
+	hosts: HostManager;
 	/** User manager for the cluster, also contains access to the user records */
 	users: UserManager;
 	/** Instance manager for the cluster, also contains access to the user records */
 	instances: InstanceManager;
+	/** Pending requests from hosts to join the cluster */
+	hostPairing: HostPairingManager;
 
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -135,7 +140,7 @@ export default class Controller {
 		const cachePath = path.join(this.config.get("controller.database_directory"), "latest-releases.json");
 		try {
 			const releases = await lib.fetchLatestReleases();
-			await lib.safeOutputFile(cachePath, JSON.stringify(releases, null, "\t"));
+			await lib.atomicOverwriteFile(cachePath, JSON.stringify(releases, null, "\t"));
 			return releases;
 		} catch (err: any) {
 			logger.warn(`Failed to retrieve Factorio releases ${err.message}`);
@@ -223,6 +228,8 @@ export default class Controller {
 		await fs.mkdir(modsDirectory, { recursive: true });
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
 
+		await this.validateExports(modPacks, "static");
+
 		// Add default mod packs
 		if (modPacks.size === 0) {
 			modPacks.setMany(lib.ModPack.defaultModPacks);
@@ -267,7 +274,7 @@ export default class Controller {
 		public recoveryMode: boolean = false,
 		public systems = new lib.SubscribableDatastore<lib.SystemInfo>(),
 		/** Mapping of host id to host record */
-		public hosts = new lib.SubscribableDatastore<HostRecord>(),
+		hosts = new lib.SubscribableDatastore<HostRecord>(),
 		/** Mapping of instance id to instance record */
 		instances = new lib.SubscribableDatastore<InstanceRecord>(),
 		/** Mapping of save id to save details */
@@ -294,8 +301,10 @@ export default class Controller {
 		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
 
+		this.hosts = new HostManager(hosts, this);
 		this.users = new UserManager(users, roles, config);
 		this.instances = new InstanceManager(instances, this);
+		this.hostPairing = new HostPairingManager(this);
 
 		this.modStore.on("change", mod => {
 			this.modsUpdated([mod]);
@@ -305,6 +314,7 @@ export default class Controller {
 		this.subscriptions = new lib.SubscriptionController(config.get("controller.max_subscription_filters"));
 		this.subscriptions.handle(lib.SystemInfoUpdateEvent, this.handleSystemInfoSubscription.bind(this));
 		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
+		this.subscriptions.handle(lib.HostPairingUpdatesEvent, this.handleHostPairingSubscription.bind(this));
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
 		this.subscriptions.handle(
 			lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsSubscription.bind(this)
@@ -317,7 +327,8 @@ export default class Controller {
 
 		// Handle updates for datastores
 		this.systems.on("update", this.systemsUpdated.bind(this));
-		this.hosts.on("update", this.hostsUpdated.bind(this));
+		this.hosts.records.on("update", this.hostsUpdated.bind(this));
+		this.hostPairing.records.on("update", this.hostPairingRequestsUpdated.bind(this));
 		this.instances.records.on("update", this.instanceUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
 		this.modPacks.on("update", this.modPacksUpdated.bind(this));
@@ -420,7 +431,7 @@ export default class Controller {
 			this.app.use(this.devServer.middlewares);
 		}
 
-		if (!args.dev) {
+		if (!this.devServer) {
 			let manifestPath = path.join(import.meta.dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
@@ -489,6 +500,7 @@ export default class Controller {
 			logger.info(`Listening for HTTPS on port ${(this.httpsServer.address() as AddressInfo).port}`);
 		}
 
+		this.hostPairing.start();
 		this.onAutosaveIntervalChanged();
 		this.onSystemMetricsIntervalChanged();
 
@@ -527,14 +539,14 @@ export default class Controller {
 			},
 			plugins: [webUiVite.clusterioDevPlugins(pluginDirs)],
 		});
-		if (args.dev) {
-			this.app.locals.webBundle = {
-				main: this.devServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
-				imports: Object.fromEntries(webUiVite.sharedModules.map(
-					name => [name, webUiVite.devSharedUrl(name)]
-				)),
-			};
-		}
+		// Plugins served from source import the shared modules from the development server, the web
+		// interface has to use the same copies, so it is served from source as well with --dev-plugin.
+		this.app.locals.webBundle = {
+			main: this.devServer.config.plugins.find(p => p.name === "clusterio:app")!.api.entry,
+			imports: Object.fromEntries(webUiVite.sharedModules.map(
+				name => [name, webUiVite.devSharedUrl(name)]
+			)),
+		};
 		this.app.locals.devServer = this.devServer;
 	}
 
@@ -581,6 +593,8 @@ export default class Controller {
 			clearInterval(this.autosaveInterval);
 			this.autosaveInterval = undefined;
 		}
+
+		this.hostPairing.stop();
 
 		if (this.clusterLogIndex) {
 			await this.clusterLogIndex.save();
@@ -785,7 +799,7 @@ export default class Controller {
 		await Promise.all([
 			this.config.save(),
 			this.systems.save(),
-			this.hosts.save(),
+			this.hosts.records.save(),
 			this.instances.records.save(),
 			this.saves.save(),
 			this.modPacks.save(),
@@ -867,8 +881,43 @@ export default class Controller {
 		});
 	}
 
+	/** Remove export manifests that reference files missing from staticDirectory */
+	static async validateExports(modPacks: lib.SubscribableDatastore<lib.ModPack>, staticDirectory: string) {
+		const invalid: lib.ModPack[] = [];
+		for (const modPack of modPacks.valuesMutable()) {
+			if (!modPack.exportManifest) {
+				continue;
+			}
+			const missing: string[] = [];
+			for (const file of Object.values(modPack.exportManifest.assets)) {
+				const valid = path.basename(file) === file
+					&& await fs.stat(path.join(staticDirectory, file)).then(s => s.isFile(), () => false);
+				if (!valid) {
+					missing.push(file);
+				}
+			}
+			if (missing.length) {
+				Controller.dropExport(modPack, `missing ${missing.join(", ")}`);
+				invalid.push(modPack);
+			}
+		}
+		if (invalid.length) {
+			modPacks.setMany(invalid);
+		}
+	}
+
+	/** Clear the export manifest of a mutable mod pack, caller must save it */
+	static dropExport(modPack: lib.ModPack, reason: string) {
+		logger.warn(`Removing export data of mod pack ${modPack.name} (id ${modPack.id}): ${reason}`);
+		modPack.exportManifest = undefined;
+	}
+
 	static migrateRoles(rawJson: unknown[]): Static<typeof lib.Role.jsonSchema>[] {
 		const serialized = rawJson as Static<typeof lib.Role.jsonSchema>[];
+		// migrate: host token permissions were removed with host pairing in 2.1
+		const removedPermissions = new Set([
+			"core.host.generate_token", "core.host.revoke_token", "core.host.create_config",
+		]);
 		return serialized.map(json => {
 			json.permissions = json.permissions.map(permission => {
 				// migrate: core.instance.save.list.subscribe was renamed in alpha 17
@@ -876,7 +925,7 @@ export default class Controller {
 					return "core.instance.save.subscribe";
 				}
 				return permission;
-			});
+			}).filter(permission => !removedPermissions.has(permission));
 			return lib.Role.pluginMigrations.reduce(json);
 		});
 	}
@@ -971,6 +1020,7 @@ export default class Controller {
 			express.static(path.join(import.meta.dirname, "..", "..", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
+		app.use("/static", routes.missingExportAsset);
 
 		// Add API routes
 		routes.addRouteHandlers(app);
@@ -1002,19 +1052,23 @@ export default class Controller {
 		return systems.length ? new lib.SystemInfoUpdateEvent(systems) : null;
 	}
 
-	/**
-	 * Generate access token for host
-	 *
-	 * @returns access token for host
-	 * @param hostId - ID of host to generate a token for.
-	 */
-	generateHostToken(hostId: number): string {
-		return jwt.sign({ aud: "host", host: hostId }, this.authSecret);
-	}
-
 	hostsUpdated(hosts: HostRecord[]) {
 		let updates = hosts.map(host => host.toHostDetails());
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
+	}
+
+	hostPairingRequestsUpdated(requests: lib.HostPairingDetails[]) {
+		this.subscriptions.broadcast(new lib.HostPairingUpdatesEvent(requests));
+	}
+
+	async handleHostPairingSubscription(request: lib.SubscriptionRequest) {
+		if (request.action === "unsubscribe") {
+			return null;
+		}
+		const requests = [...this.hostPairing.records.values()].filter(
+			pairing => pairing.updatedAtMs > request.lastRequestTimeMs,
+		);
+		return requests.length ? new lib.HostPairingUpdatesEvent(requests) : null;
 	}
 
 	async handleHostSubscription(request: lib.SubscriptionRequest) {

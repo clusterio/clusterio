@@ -252,20 +252,8 @@ ${err.stack}`
 		}
 
 		try {
-			// migrate: allow pre-rename tokens issued to hosts before alpha-14
-			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: ["host", "slave"] });
-			if (typeof tokenPayload === "string") {
-				throw new Error("unexpected JsonWebToken type");
-			}
-
-			// migrate: allow pre-rename tokens issued to hosts before alpha-14
-			if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
+			if (this.controller.hosts.verifyHostToken(data.token).id !== data.id) {
 				throw new Error("missmatched host id");
-			}
-
-			let host = this.controller.hosts.get(data.id);
-			if (!tokenPayload.iat || tokenPayload.iat < (host?.tokenValidAfter ?? 0)) {
-				throw new Error("invalid token");
 			}
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
@@ -303,6 +291,13 @@ ${err.stack}`
 			);
 		}
 
+		// The host may have been revoked while waiting for the old connection to close.
+		if (!this.controller.hosts.has(data.id)) {
+			wsRejectedConnectionsCounter.inc();
+			socket.close(lib.ConnectionClosed.Unauthorized, "Authentication failed: host was revoked");
+			return;
+		}
+
 		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));
 
 		// Handle close before HostConnection does. This avoids a host
@@ -325,18 +320,7 @@ ${err.stack}`
 	async registerControl(data: lib.RegisterControlData, socket: WebSocket, req: IncomingMessage) {
 		let user;
 		try {
-			const tokenPayload = jwt.verify(data.token, this.controller.authSecret, { audience: "user" });
-			if (typeof tokenPayload === "string") {
-				throw new Error("unexpected JsonWebToken type");
-			}
-
-			user = this.controller.users.getByNameMutable(tokenPayload.user);
-			if (!user) {
-				throw new Error("invalid user");
-			}
-			if ((tokenPayload.iat || 0) < user.tokenValidAfter) {
-				throw new Error("invalid token");
-			}
+			user = this.controller.users.verifyUserToken(data.token);
 			user.checkPermission("core.control.connect");
 
 		} catch (err: any) {

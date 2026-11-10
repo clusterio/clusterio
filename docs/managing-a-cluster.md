@@ -16,17 +16,40 @@ The easiest way to do this is to run `npx clusteriocontroller bootstrap create-c
 
 Lists all hosts.
 
-### Generate token
+Hosts are added to the cluster by running the installer on the computer the host runs on and approving the code it shows, see [Setting up remote hosts](/README.md#setting-up-remote-hosts).
+Listing, approving and rejecting hosts waiting for approval needs the `core.host.approve` permission.
 
-    ctl> host generate-token [--id <host id>]
+### List pending hosts
 
-Generate a token for a host. `--id` is the host id.
+    ctl> host pending
 
-### Create config
+Lists hosts waiting for approval with the code they show, the name they asked for, the address they connected from and how long they have been waiting.
+A request goes away when its host stops waiting, and after the time set by `controller.host_pairing_timeout`, an hour by default, after which the host asks again with a new code.
 
-    ctl> host create-config [--id <host id>] [--name <host name>] [--generate-token <bool>] [--output <path to output>]
+### Approve host
 
-Create a host config. `--id` id the host id. `--name` is the host name. `--generate-token` decides whether to also generate a token, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-host.json", "-" for stdout.
+    ctl> host approve <code> [--name <host name>]
+
+Approves the host showing the code and prints the id of the new host.
+The code is not case sensitive and the dash can be left out.
+`--name` gives the host a different name than the one it asked for.
+Approving gives the host full access to the cluster, check with `host pending` that the name and address match the computer you are setting up.
+
+### Reject host
+
+    ctl> host reject <code>
+
+Rejects the host showing the code, the host then exits with an error.
+
+### Revoke host
+
+    ctl> host revoke <host>
+
+Specify the host by name or ID.
+Removes the host from the cluster, disconnects it and makes its token stop working.
+Instances assigned to the host become unassigned, their files stay on the computer.
+Requires the `core.host.revoke` permission.
+To add the computer back to the cluster, start the host again and approve it.
 
 ### Update Clusterio
 
@@ -56,15 +79,16 @@ Marks the host as requiring a restart, the same way a plugin update does. Use it
 
 ### List Instances
 
-    ctl> instance list
+    ctl> instance list [--templates]
 
 List instances.
+Templates are only listed if `--templates` is passed.
 
 ### Create instance
 
-    ctl> instance create <name> [--id <instance id>]
+    ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--template <instance>] [--as-template]
 
-Create a new instance. `name` is the instance name. `--id` is the optional id.
+Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--template` makes the new instance inherit all config values from the given template. `--as-template` creates the instance as a template, see `instance.is_template` in the [configuration docs](configuration.md). Use `--as-template --from <instance>` to make a template out of an existing instance.
 
 ### Kill instance
 
@@ -97,7 +121,7 @@ Most notably Clusterio records wall clock time while the save time is recorded i
 
     ctl> instance config list <instance>
 
-List config values for an instance. `instance` is the instance whose config values to list.
+List config values for an instance. `instance` is the instance whose config values to list. Values inherited from a template are marked with `(inherited)`, object fields also list the properties set on the instance.
 
 #### Set config value
 
@@ -109,11 +133,17 @@ Set field in instance config. `instance` is instance to set. `field` is field to
 
 To be written.
 
+#### Inherit config value
+
+    ctl> instance config inherit <instance> <field> [prop]
+
+Make a field in the instance config take its value from the template again, undoing a previous `set`. `instance` is the instance to update, `field` is the field to inherit, `prop` limits it to one property of an object field.
+
 #### Edit instance config
 
     ctl> instance config edit <instance> [editor]
 
-Edit instance config in a text editor. Once file is saved and editor has been exited, config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
+Edit instance config in a text editor. Once file is saved and editor has been exited, changed config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
 
 ### Assign instance to host
 
@@ -270,9 +300,11 @@ To be written.
 
 ## Plugins (Remote)
 
-By default, remote updates are enabled unless you selected "no" during installation.
-Remote updates allow ctl and the web UI to update plugins on machines within the cluster.
-However, remote installations are disabled by default to prevent the risk of arbitrary code execution through the installation of malicious npm packages onto the machine. See below if you wish to enable this feature.
+The installer asks "Allow remote updates and plugin installs from the web interface?" and the answer sets `allow_remote_updates`, `allow_plugin_updates` and `allow_plugin_install` together on that machine, pass `--remote-npm` or `--no-remote-npm` to answer it from the command line.
+Remote updates allow ctl and the web UI to update Clusterio and plugins on machines within the cluster.
+Remote installs allow them to install any package from npm onto the machine, which is a risk of arbitrary code execution through malicious npm packages, so only allow them if you trust everyone with access to install plugins.
+In a config created without the installer remote updates are enabled and remote installs are disabled by default.
+See below for changing these settings after installing.
 
 ### List
 

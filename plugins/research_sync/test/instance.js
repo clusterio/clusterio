@@ -5,8 +5,8 @@ import * as mock from "../../../test/mock.js";
 import loadInstancePlugin from "../dist/node/instance.js";
 import { plugin as info } from "../dist/node/index.js";
 import {
-	ContributionEvent, FinishedEvent, QueueEvent, QueueSyncRequest, QueueUpdateEvent, SyncTechnologiesRequest,
-	TechnologySync,
+	ContributionEvent, FinishedEvent, QueueChange, QueueEvent, QueueSyncRequest, QueueUpdateEvent,
+	SyncTechnologiesRequest, TechnologySync,
 } from "../dist/node/messages.js";
 
 describe("research_sync instance", function() {
@@ -74,6 +74,11 @@ describe("research_sync instance", function() {
 		it("should apply the queue with the player", async function() {
 			await handler()(new QueueEvent(["a"], "Bob", "rs-2"));
 			assert.equal(lastCommand(), applyCommand({ queue: ["a"], instance: "rs-2", player: "Bob" }));
+		});
+		it("should pass on the changes", async function() {
+			const changes = [new QueueChange("added", "a", 0, 1)];
+			await handler()(new QueueEvent(["a"], "Bob", "rs-2", changes));
+			assert.equal(lastCommand(), applyCommand({ queue: ["a"], instance: "rs-2", player: "Bob", changes }));
 		});
 		it("should leave out a null player", async function() {
 			await handler()(new QueueEvent(["a"], null, "rs-2"));

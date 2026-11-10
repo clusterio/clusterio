@@ -15,6 +15,7 @@ import {
 	TechnologyProgress,
 	QueueUpdateEvent,
 	QueueEvent,
+	QueueChange,
 	QueueSyncRequest,
 } from "./messages.js";
 
@@ -49,7 +50,7 @@ async function saveTechnologies(
 ) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
-	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
+	await lib.atomicOverwriteFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
 }
 
 const MAX_QUEUE = 7;
@@ -71,7 +72,60 @@ async function loadQueue(controllerConfig: lib.ControllerConfig, logger: lib.Log
 async function saveQueue(controllerConfig: lib.ControllerConfig, queue: string[], logger: lib.Logger) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "research_queue.json");
 	logger.verbose(`writing ${filePath}`);
-	await lib.safeOutputFile(filePath, JSON.stringify(queue, null, "\t"));
+	await lib.atomicOverwriteFile(filePath, JSON.stringify(queue, null, "\t"));
+}
+
+/**
+ * Lists the entries removed, added and moved between two queues. An entry is identified by its name and how many
+ * entries for the same name come before it, so extra levels of an infinite technology count as added or removed
+ * at the end. Moved entries are those outside the longest common subsequence of the kept entries.
+ */
+export function queueChanges(oldQueue: string[], newQueue: string[]): QueueChange[] {
+	function keyed(queue: string[]) {
+		const seen = new Map<string, number>();
+		return queue.map((name, index) => {
+			const offset = seen.get(name) ?? 0;
+			seen.set(name, offset + 1);
+			return { name, offset, position: index + 1, key: `${offset}:${name}` };
+		});
+	}
+	const oldEntries = keyed(oldQueue);
+	const newEntries = keyed(newQueue);
+	const oldKeys = new Set(oldEntries.map(e => e.key));
+	const newKeys = new Set(newEntries.map(e => e.key));
+	const keptOld = oldEntries.filter(e => newKeys.has(e.key));
+	const keptNew = newEntries.filter(e => oldKeys.has(e.key));
+
+	// lcs[i][j] is the length of the longest common subsequence of keptOld[i..] and keptNew[j..]
+	const lcs = Array.from({ length: keptOld.length + 1 }, () => new Array<number>(keptNew.length + 1).fill(0));
+	for (let i = keptOld.length - 1; i >= 0; i--) {
+		for (let j = keptNew.length - 1; j >= 0; j--) {
+			lcs[i][j] = keptOld[i].key === keptNew[j].key
+				? lcs[i + 1][j + 1] + 1
+				: Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+		}
+	}
+	const inPlace = new Set<string>();
+	for (let i = 0, j = 0; i < keptOld.length && j < keptNew.length;) {
+		if (keptOld[i].key === keptNew[j].key) {
+			inPlace.add(keptOld[i].key);
+			i += 1;
+			j += 1;
+		} else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+			i += 1;
+		} else {
+			j += 1;
+		}
+	}
+
+	const change = (type: QueueChange["type"], e: { name: string, offset: number, position: number }) => (
+		new QueueChange(type, e.name, e.offset, e.position)
+	);
+	return [
+		...oldEntries.filter(e => !newKeys.has(e.key)).map(e => change("removed", e)),
+		...newEntries.filter(e => !oldKeys.has(e.key)).map(e => change("added", e)),
+		...keptNew.filter(e => !inPlace.has(e.key)).map(e => change("moved", e)),
+	];
 }
 
 export default async function(context: ControllerPluginContext) {
@@ -112,9 +166,10 @@ export default async function(context: ControllerPluginContext) {
 		if (newQueue.length === queue.length && newQueue.every((name, i) => name === queue[i])) {
 			return;
 		}
+		const changes = queueChanges(queue, newQueue);
 		queue = newQueue;
 		queueDirty = true;
-		controller.sendTo("allInstances", new QueueEvent(queue, player, instanceName(src)));
+		controller.sendTo("allInstances", new QueueEvent(queue, player, instanceName(src), changes));
 	}
 
 	function broadcastProgress() {

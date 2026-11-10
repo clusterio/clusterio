@@ -40,8 +40,8 @@ export default class UserManager {
 			}
 
 			// We intentionally write the roles first because if it fails then the old user file will still contain them
-			await lib.safeOutputFile(rolesFilePath, JSON.stringify(combinedJson.roles));
-			await lib.safeOutputFile(usersFilePath, JSON.stringify(combinedJson.users));
+			await lib.atomicOverwriteFile(rolesFilePath, JSON.stringify(combinedJson.roles));
+			await lib.atomicOverwriteFile(usersFilePath, JSON.stringify(combinedJson.users));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
@@ -151,11 +151,34 @@ export default class UserManager {
 	 * @returns JWT access token for the user.
 	 */
 	signUserToken(user: UserRecord): string {
-		return jwt.sign(
-			{ aud: "user", user: user.id },
-			// auth secret is never null after startup
-			Buffer.from(this._controllerConfig.get("controller.auth_secret")!, "base64")
-		);
+		return jwt.sign({ aud: "user", user: user.id }, this._authSecret);
+	}
+
+	/**
+	 * Check a user token
+	 *
+	 * @param token - User token to check.
+	 * @returns the user the token was issued to.
+	 * @throws if the token is invalid, its user does not exist or it was issued before tokenValidAfter.
+	 */
+	verifyUserToken(token: string): User {
+		const payload = jwt.verify(token, this._authSecret, { audience: "user" });
+		if (typeof payload === "string") {
+			throw new Error("unexpected JsonWebToken type");
+		}
+		const user = this.getByNameMutable(payload.user);
+		if (!user) {
+			throw new Error("invalid user");
+		}
+		if (!payload.iat || payload.iat < user.tokenValidAfter) {
+			throw new Error("invalid token");
+		}
+		return user;
+	}
+
+	private get _authSecret() {
+		// auth secret is never null after startup
+		return Buffer.from(this._controllerConfig.get("controller.auth_secret")!, "base64");
 	}
 
 	/** Clear all player stats for specific instance */
