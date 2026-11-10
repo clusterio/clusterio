@@ -1271,8 +1271,23 @@ local function ensure_character(player)
 		player.teleport(force.get_spawn_position(planet_surface), planet_surface)
 	end
 
-	-- Create and return the character
+	-- create_character needs a free spot within 200 tiles and does not generate chunks to find one. It fails in a chunk
+	-- which does not exist yet, such as one the player was teleported into a moment ago, and where water or void is all
+	-- there is. The character is then made at the force's spawn. From a missing chunk it is moved back, as the game
+	-- generates the chunks around a character. Otherwise there is nowhere to stand, and it stays at the spawn.
 	if not player.create_character() then
+		surface = player.surface
+		local position = player.position
+		local force = player.force --[[@as LuaForce]]
+		local missing_chunk = not surface.is_chunk_generated({ math.floor(position.x / 32), math.floor(position.y / 32) })
+		player.teleport(force.get_spawn_position(surface), surface)
+		if player.create_character() and missing_chunk then
+			player.teleport(position, surface)
+		end
+	end
+
+	-- Return the character
+	if not player.character then
 		error(string.format(
 			"Failed to create character (controller: %s, physical: %s, surface: %s, connected: %s, driving: %s)",
 			controller_to_name[player.controller_type],
