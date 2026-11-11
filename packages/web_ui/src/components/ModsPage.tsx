@@ -1,7 +1,8 @@
-import React, { Fragment, useState, useContext, useEffect, useMemo } from "react";
+import React, { Fragment, useState, useContext, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-	Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select, Tooltip, notification,
+	Button, Form, Input, InputRef, Modal, Popconfirm, Space, Table, Typography, Upload, Alert, Select, Tooltip,
+	notification,
 } from "antd";
 import {
 	ImportOutlined, PlusOutlined, SearchOutlined, DownloadOutlined,
@@ -147,6 +148,7 @@ function SearchModsButton() {
 	const account = useAccount();
 	const [open, setOpen] = useState(false);
 	const [form] = Form.useForm();
+	const nameInputRef = useRef<InputRef>(null);
 	const [searchText, setSearchText] = useState("");
 	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion>("2.0");
 
@@ -333,6 +335,7 @@ function SearchModsButton() {
 			title="Search Mod Portal"
 			open={open}
 			onCancel={() => { setOpen(false); }}
+			afterOpenChange={visible => { if (visible) { nameInputRef.current?.focus(); } }}
 			width={1000}
 			footer={[
 				<Button key="close" onClick={() => { setOpen(false); }}>
@@ -349,7 +352,7 @@ function SearchModsButton() {
 				initialValues={{ factorioVersion: factorioVersion, name: searchText }}
 			>
 				<Form.Item name="name" label="Filter by Name or Title">
-					<Input placeholder="Start typing to filter..." />
+					<Input ref={nameInputRef} placeholder="Start typing to filter..." />
 				</Form.Item>
 				<Form.Item
 					name="factorioVersion"

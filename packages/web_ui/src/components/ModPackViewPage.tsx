@@ -182,6 +182,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 
 	return <>
 		<Input
+			autoFocus
 			placeholder="Search Mods"
 			style={{ marginBottom: 8 }}
 			onChange={(event) => {
