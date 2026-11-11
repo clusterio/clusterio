@@ -46,6 +46,10 @@ const factorioLocations = {
 	],
 	darwin: [
 		"/Applications/factorio.app/Contents",
+		path.join(
+			os.homedir(), "Library", "Application Support", "Steam", "steamapps", "common", "Factorio",
+			"factorio.app", "Contents",
+		),
 	],
 };
 
