@@ -7,6 +7,7 @@ import type { ColumnType } from "antd/es/table/interface";
 import { useAccount } from "../model/account";
 import { useSystems } from "../model/system";
 import { useHosts } from "../model/host";
+import { useUsers } from "../model/user";
 import { useDefaultModPack, useModPacks } from "../model/mod_pack";
 import { RestartRequired } from "./system_metrics";
 import InstanceStatusTag from "./InstanceStatusTag";
@@ -33,6 +34,17 @@ export default function InstanceList(props: InstanceListProps) {
 	const [systems] = useSystems();
 	const [modPacks] = useModPacks();
 	const defaultModPack = useDefaultModPack();
+	const [users] = useUsers();
+	const canUsers = account.hasPermission("core.user.subscribe");
+	const onlineCounts = React.useMemo(() => {
+		const counts = new Map<number, number>();
+		for (const user of users.values()) {
+			for (const instanceId of user.instances ?? []) {
+				counts.set(instanceId, (counts.get(instanceId) ?? 0) + 1);
+			}
+		}
+		return counts;
+	}, [users]);
 	const tableState = useTableQueryState<lib.InstanceDetails>({
 		namespace: "instance", defaultSortKey: "name",
 	});
@@ -145,6 +157,18 @@ export default function InstanceList(props: InstanceListProps) {
 			sortOrder: tableState.sortOrder("status"),
 		},
 	];
+
+	if (canUsers) {
+		const playerCount = (instance: lib.InstanceDetails) => onlineCounts.get(instance.id) ?? 0;
+		columns.push({
+			title: "Players",
+			key: "players",
+			render: (_, instance) => playerCount(instance),
+			sorter: (a, b) => playerCount(a) - playerCount(b),
+			sortOrder: tableState.sortOrder("players"),
+			responsive: ["md"],
+		});
+	}
 
 	if (account.hasAnyPermission(...InstanceControlButtonPermissions)) {
 		columns.push({
