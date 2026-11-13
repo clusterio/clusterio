@@ -1,11 +1,8 @@
-import asTableModule from "as-table";
 
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
+import { asTable, print } from "./command_ops.js";
 
 export const roleCommands = new lib.CommandTree({ name: "role", description: "Role management" });
 roleCommands.add(new lib.Command({
