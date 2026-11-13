@@ -284,6 +284,7 @@ Defaults to true.
 
 ID of the mod pack to use for instances that don't have factorio.mod_pack_id set.
 Instances without a mod pack of their own fail to start if this is null.
+When the controller adds the default mod packs to a new cluster it sets this to the newest Base Game pack if it is null.
 
 Defaults to null.
 
