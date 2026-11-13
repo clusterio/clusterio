@@ -181,7 +181,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	function confirmDelete() {
 		Modal.confirm({
 			autoFocusButton: "cancel",
-			content: "Permamently delete instance and server saves?",
+			content: "Permanently delete instance and server saves?",
 			okText: "Delete",
 			okButtonProps: { danger: true },
 			onOk: () => {

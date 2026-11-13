@@ -123,6 +123,43 @@ describe("controller/src/ControlConnection", function() {
 		});
 	});
 
+	describe(".handleModPortalGetAllRequest()", function() {
+		let mockController;
+		let _fetch;
+		let urls;
+
+		beforeEach(function() {
+			mockController = {
+				config: new lib.ControllerConfig("controller"),
+				modPortalCache: new Map(),
+			};
+			urls = [];
+			_fetch = global.fetch;
+			global.fetch = async url => {
+				urls.push(new URL(url));
+				return { ok: true, json: async () => ({ results: [], pagination: { page_count: 1 } }) };
+			};
+		});
+		afterEach(function() {
+			global.fetch = _fetch;
+		});
+
+		async function getAll(request) {
+			return await ControlConnection.prototype.handleModPortalGetAllRequest.call(
+				{ _controller: mockController }, request,
+			);
+		}
+
+		it("treats a missing hide_deprecated as false", async function() {
+			await getAll(new lib.ModPortalGetAllRequest("2.1"));
+			assert.deepEqual([...mockController.modPortalCache.keys()], ["2.1-false"]);
+			assert.equal(urls[0].searchParams.get("hide_deprecated"), "false");
+
+			await getAll(new lib.ModPortalGetAllRequest("2.1", false));
+			assert.equal(urls.length, 1, "explicit false should hit the cache");
+		});
+	});
+
 	describe(".handleInstanceCreateRequest()", function() {
 		let mockController;
 
