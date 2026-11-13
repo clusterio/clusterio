@@ -662,13 +662,20 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 	return entry --[[@as string]]
 end
 
+--- Slots over all 10 quick bar pages, a page is as wide as the player set it from 2.1 and 10 slots before
+--- @param player LuaPlayer
+--- @return integer
+local function quick_bar_slot_count(player)
+	return 10 * (v2_1_quick_bar_api and player.quick_bar_width or 10)
+end
+
 --- @param player LuaPlayer
 --- @return table<string, QuickBarSlotEncoded>?
 function serialize.serialize_quick_bar(player)
 	local serialized
 	local width = v2_1_quick_bar_api and player.quick_bar_width
 
-	for i = 1, 100 do
+	for i = 1, quick_bar_slot_count(player) do
 		local slot
 
 		if v2_1_quick_bar_api then
@@ -699,7 +706,7 @@ function serialize.deserialize_quick_bar(player, serialized)
 	-- previous server does not come back from this server's old copy
 	serialized = serialized or {}
 	local width = v2_1_quick_bar_api and player.quick_bar_width
-	for i = 1, 100 do
+	for i = 1, quick_bar_slot_count(player) do
 		local entry = serialized[tostring(i)]
 		local slot = entry ~= nil and serialize.deserialize_quick_bar_slot(entry, player) or nil
 		if v2_1_quick_bar_api then
@@ -710,6 +717,30 @@ function serialize.deserialize_quick_bar(player, serialized)
 			--- @diagnostic disable-next-line: param-type-mismatch
 			player.set_quick_bar_slot(i, slot)
 		end
+	end
+end
+
+--- Quick bar page shown on each quick bar row of the screen, kept by every save on its own
+--- @param player LuaPlayer
+--- @return integer[]?
+function serialize.serialize_quick_bar_pages(player)
+	local pages = {}
+	for screen = 1, 10 do
+		-- pcall: the number of rows the API knows is not documented for older versions
+		local ok, page = pcall(player.get_active_quick_bar_page, screen)
+		if not ok or not page then
+			break
+		end
+		pages[screen] = page
+	end
+	return pages[1] and pages or nil
+end
+
+--- @param player LuaPlayer
+--- @param pages integer[]? Absent in data from before pages were synced, the rows then stay as they are here
+function serialize.deserialize_quick_bar_pages(player, pages)
+	for screen, page in ipairs(pages or {}) do
+		player.set_active_quick_bar_page(screen, page)
 	end
 end
 
@@ -977,6 +1008,7 @@ end
 --- @field inventories table<string, table>?
 --- @field hotbar table<string, string>?
 --- @field quick_bar table<string, QuickBarSlotEncoded>?
+--- @field quick_bar_pages integer[]? Page shown on each quick bar row
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
@@ -1181,6 +1213,7 @@ function serialize.serialize_player(player, failed_deserialization, components)
 	-- Serialize quick bar
 	if syncs(components, "quick_bar") then
 		serialized.quick_bar = serialize.serialize_quick_bar(player)
+		serialized.quick_bar_pages = serialize.serialize_quick_bar_pages(player)
 	end
 
 	-- Serialize crafting queue
@@ -1463,6 +1496,7 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 	-- Deserialize quick bar (named hotbar in old data)
 	if syncs(components, "quick_bar") then
 		serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
+		serialize.deserialize_quick_bar_pages(player, serialized.quick_bar_pages)
 	end
 
 	-- Deserialize recipe notifications
