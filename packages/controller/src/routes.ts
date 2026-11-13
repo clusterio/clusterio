@@ -417,6 +417,9 @@ export interface ProxyStream {
 	filename: string | null;
 	events: events.EventEmitter<ProxyStreamEvents>;
 	timeout: ReturnType<typeof setTimeout>;
+	closed: boolean;
+	/** Bytes the receiver has taken, set once the stream is flowing */
+	progress?: () => number;
 }
 
 export async function createProxyStream(app: Application): Promise<ProxyStream> {
@@ -433,8 +436,10 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 		timeout: setTimeout(() => {
 			stream.events.emit("timeout");
 		}, app.locals.controller.config.get("controller.proxy_stream_timeout") * 1000),
+		closed: false,
 	};
 	stream.events.on("close", () => {
+		stream.closed = true;
 		clearTimeout(stream.timeout);
 		app.locals.streams.delete(id);
 	});
@@ -445,24 +450,105 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 	return stream;
 }
 
+/**
+ * Options for the HTTP servers the routes are served from
+ *
+ * Node closes requests that have not been received in full after 5 minutes
+ * by default, which would cut off large uploads over slow connections.
+ * Requests are instead closed by guardRequest when they move too little.
+ * Turning the limit off also turns off the limit on receiving the headers,
+ * which guardRequest can't cover, so that is set back to its default.
+ */
+export const httpServerOptions = { requestTimeout: 0, headersTimeout: 60_000 };
+
+/** Time an upload is read and thrown away after it was answered, before its connection is closed */
+const answeredUploadDrainMs = 1000;
+
+/**
+ * Guard requests against wasted and stalled transfers
+ *
+ * Node reads and discards the body of a request answered before it was
+ * read to keep the connection open. A client, or a proxy in front of the
+ * controller, that keeps sending would upload the whole body for nothing,
+ * so the connection is closed if the body hasn't ended shortly after the
+ * response. Closing it right away could make the client lose the response.
+ *
+ * The connection is also closed if the request moved less than
+ * controller.transfer_min_progress during a check interval, so that a
+ * request which stalled or is trickled in does not stay open forever while
+ * a slow one can take the time it needs. For a request body this is what
+ * was received of it. For both ends of a proxy stream it is what the
+ * receiver has taken, as the sender is held back when the receiver is the
+ * slow one. Time spent waiting for a proxy stream to start is not counted,
+ * controller.proxy_stream_timeout limits that.
+ * @param checkIntervalMs - Interval to check the progress of requests on.
+ * @returns Express middleware.
+ */
+function guardRequest(checkIntervalMs: number) {
+	return function(req: Request, res: Response, next: any) {
+		const socket = req.socket;
+		res.once("finish", () => {
+			if (req.complete || socket.destroyed) {
+				return;
+			}
+			const timeout = setTimeout(() => socket.destroy(), answeredUploadDrainMs);
+			const onClose = () => clearTimeout(timeout);
+			socket.once("close", onClose);
+			// The connection may be kept open for more requests, so don't leave a listener on it
+			req.once("end", () => {
+				clearTimeout(timeout);
+				socket.off("close", onClose);
+			});
+		});
+
+		const received = () => socket.bytesRead;
+		let measure: (() => number) | undefined = received;
+		let last = received();
+		const check = setInterval(() => {
+			const stream: ProxyStream | undefined = res.locals.proxyStream;
+			let current: (() => number) | undefined;
+			if (stream && !stream.closed) {
+				current = stream.progress;
+			} else if (!req.complete) {
+				current = received;
+			}
+			const minProgress = req.app.locals.controller.config.get("controller.transfer_min_progress");
+			if (current !== measure || !current || !minProgress) {
+				// What to measure changed, start over from here.
+				measure = current;
+				last = current ? current() : 0;
+				return;
+			}
+			const progress = current();
+			if (progress - last < minProgress * 1024) {
+				logger.warn(
+					`Closing ${req.method} ${req.path}, it moved less than ${minProgress} KiB ` +
+					`in ${checkIntervalMs / 1000} seconds`
+				);
+				socket.destroy();
+			}
+			last = progress;
+		}, checkIntervalMs);
+		res.once("close", () => clearInterval(check));
+		next();
+	};
+}
+
 async function putStream(req: Request<{ id: string }>, res: Response) {
 	const stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.source) {
 		res.sendStatus(404);
 		return;
 	}
+	res.locals.proxyStream = stream;
 	stream.source = req;
 	stream.mime = req.get("Content-Type");
 	stream.size = req.get("Content-Length");
 
 	stream.events.emit("source");
 	stream.events.on("close", () => {
-		if (!stream.flowing) {
-			req.resume();
-			res.sendStatus(500);
-		} else {
-			res.sendStatus(200);
-		}
+		// The stream also closes when it timed out or the receiver disconnected.
+		res.sendStatus(stream.flowing && req.complete ? 200 : 500);
 	});
 }
 
@@ -476,9 +562,22 @@ function startStream(res: Response, stream: ProxyStream) {
 	} else {
 		res.append("Content-Disposition", "attachment");
 	}
-	stream.source!.pipe(res);
+	const source = stream.source!;
+	const socket = res.socket!;
+	source.pipe(res);
 	stream.flowing = true;
+	// Counts completed writes, so data waiting in a buffer is not progress.
+	stream.progress = () => socket.bytesWritten - socket.writableLength;
+	// Pipe does not pass on a source that was cut short, the receiver would wait forever.
+	const onSourceClose = () => {
+		if (!res.writableEnded) {
+			res.destroy();
+		}
+	};
+	source.once("close", onSourceClose);
 	res.on("close", () => {
+		source.off("close", onSourceClose);
+		source.unpipe(res);
 		stream.events.emit("close");
 	});
 	clearTimeout(stream.timeout);
@@ -490,6 +589,7 @@ async function getStream(req: Request<{ id: string }>, res: Response) {
 		res.sendStatus(404);
 		return;
 	}
+	res.locals.proxyStream = stream;
 
 	if (stream.source) {
 		startStream(res, stream);
@@ -509,6 +609,141 @@ const zipMimes = [
 
 const contentTypeRegExp = /^([!#$%&'*+\-.^_`|~0-9A-Za-z]+\/[!#$%&'*+\-.^_`|~0-9A-Za-z]+)/;
 
+/** Error in an upload that is the fault of the request */
+class UploadRequestError extends Error {
+	constructor(message: string, public status = 400) {
+		super(message);
+	}
+}
+
+interface UploadedZip {
+	/** Content of the file, ends with an error if the upload is cut short */
+	stream: nodeStream.Readable;
+	filename: string;
+	mime: string;
+	/** Form fields received before the file, or the query parameters of a zip upload */
+	fields: Map<string, string>;
+	/** True if the file is part of a multipart form */
+	multipart: boolean;
+}
+
+/**
+ * Receive zip files uploaded as either the request body or a multipart form
+ *
+ * Responds with the first error, without reading the rest of the upload.
+ * Errors other than UploadRequestError are logged and responded to with 500.
+ * @param req - The upload.
+ * @param res - Response to the upload.
+ * @param kind - What is uploaded, for the log.
+ * @param handleFile -
+ *     Called with each file, the next file is not read before the stream of
+ *     the previous has been consumed.
+ * @returns true if all files were handled, false if an error was responded with.
+ */
+async function receiveZipUpload(
+	req: Request,
+	res: Response,
+	kind: string,
+	handleFile: (file: UploadedZip) => Promise<void>,
+): Promise<boolean> {
+	function fail(err: any) {
+		if (res.headersSent) {
+			return;
+		}
+		if (err instanceof UploadRequestError) {
+			res.status(err.status).json({ request_errors: [err.message] });
+			return;
+		}
+		logger.error(`Error uploading ${kind}: ${err.message}`);
+		res.status(500).json({ errors: [err.message], request_errors: [] });
+	}
+
+	const match = contentTypeRegExp.exec(req.get("Content-Type") || "");
+	const contentMime = match ? match[1].toLowerCase() : "";
+
+	if (zipMimes.includes(contentMime)) {
+		try {
+			const filename = req.query.filename;
+			if (typeof filename !== "string") {
+				throw new UploadRequestError("Missing or invalid filename parameter");
+			}
+			if (!filename.endsWith(".zip")) {
+				throw new UploadRequestError("filename must end with .zip");
+			}
+			const fields = new Map<string, string>();
+			for (const [name, value] of Object.entries(req.query)) {
+				if (typeof value === "string") {
+					fields.set(name, value);
+				}
+			}
+			await handleFile({ stream: req, filename, mime: contentMime, fields, multipart: false });
+		} catch (err: any) {
+			fail(err);
+			return false;
+		}
+		return true;
+	}
+
+	if (contentMime !== "multipart/form-data") {
+		fail(new UploadRequestError("invalid Content-Type", 415));
+		return false;
+	}
+
+	let parser: busboy.Busboy;
+	try {
+		parser = busboy({ headers: req.headers });
+	} catch (err: any) {
+		fail(new UploadRequestError(err.message));
+		return false;
+	}
+
+	return await new Promise<boolean>(resolve => {
+		const fields = new Map<string, string>();
+		const tasks: Promise<void>[] = [];
+		let failed = false;
+		function onError(err: any) {
+			if (failed) {
+				return;
+			}
+			failed = true;
+			fail(err);
+			// Stop reading the upload, this ends the file being read with an error.
+			req.unpipe(parser);
+			parser.destroy();
+			resolve(false);
+		}
+		parser.on("field", (name, value) => {
+			fields.set(name, value);
+		});
+		parser.on("file", (name, stream, { filename, mimeType }) => {
+			// The handler may be done with the stream by the time it fails.
+			stream.on("error", () => {});
+			if (failed) {
+				stream.resume();
+			} else if (!zipMimes.includes(mimeType)) {
+				onError(new UploadRequestError("invalid file Content-Type"));
+			} else if (!filename?.endsWith(".zip")) {
+				onError(new UploadRequestError("filename must end with .zip"));
+			} else {
+				tasks.push(handleFile({
+					stream, filename, mime: mimeType, fields: new Map(fields), multipart: true,
+				}).catch(onError));
+			}
+		});
+		parser.on("error", onError);
+		parser.on("close", () => {
+			Promise.all(tasks).then(() => resolve(!failed));
+		});
+		// Pipe does not end the parser if the upload is cut short.
+		req.once("close", () => {
+			if (!req.complete) {
+				onError(new Error("Upload was aborted"));
+			}
+		});
+		req.pipe(parser);
+	});
+}
+
 async function uploadSave(req: Request, res: Response) {
 	try {
 		res.locals.user.checkPermission("core.instance.save.upload");
@@ -517,26 +752,25 @@ async function uploadSave(req: Request, res: Response) {
 		return;
 	}
 
-	let contentType = req.get("Content-Type") || "";
-	let match = contentTypeRegExp.exec(contentType);
-	if (!match) {
-		res.status(415).json({ request_errors: ["invalid Content-Type"] });
-		return;
-	}
-	let contentMime = match[1].toLowerCase();
-
-	let tasks = [];
-	let errors: string[] = [];
-	let requestErrors = [];
 	let saves: string[] = [];
+	async function handleFile(file: UploadedZip) {
+		const value = file.fields.get("instance_id");
+		if (value === undefined && file.multipart) {
+			throw new UploadRequestError("instance_id must come before files uploaded");
+		}
+		const instanceId = Number.parseInt(String(value), 10);
+		if (Number.isNaN(instanceId)) {
+			throw new UploadRequestError(
+				file.multipart ? "invalid instance_id" : "Missing or invalid instance_id parameter"
+			);
+		}
 
-	async function handleFile(instanceId:number, stream: nodeStream.Readable, filename: string, streamMime: string) {
 		let proxyStream = await createProxyStream(req.app);
-		proxyStream.source = stream;
-		proxyStream.mime = streamMime;
+		res.locals.proxyStream = proxyStream;
+		proxyStream.source = file.stream;
+		proxyStream.mime = file.mime;
 		let timeout = new Promise<never>((_, reject) => {
 			proxyStream.events.on("timeout", () => {
-				stream.resume();
 				reject(new Error("Timed out establishing stream to host"));
 			});
 		});
@@ -547,7 +781,7 @@ async function uploadSave(req: Request, res: Response) {
 					new lib.InstancePullSaveRequest(
 						instanceId,
 						proxyStream.id,
-						filename,
+						file.filename,
 					)
 				),
 				timeout,
@@ -556,90 +790,13 @@ async function uploadSave(req: Request, res: Response) {
 
 		} catch (err: any) {
 			proxyStream.events.emit("close");
-			logger.error(`Error uploading save: ${err.message}`);
-			errors.push(err.message);
-			stream.resume();
+			throw err;
 		}
 	}
 
-	if (contentMime === "multipart/form-data") {
-		await new Promise(resolve => {
-			let instanceId: number | undefined;
-			function fileHandler(
-				name: string,
-				stream: nodeStream.Readable,
-				{ filename, mimeType }: { filename: string, mimeType: string }
-			) {
-				if (instanceId === undefined) {
-					requestErrors.push("instance_id must come before files uploaded");
-				}
-				if (!zipMimes.includes(mimeType)) {
-					requestErrors.push("invalid file Content-Type");
-				}
-				if (!filename.endsWith(".zip")) {
-					requestErrors.push("filename must end with .zip");
-				}
-				if (errors.length || requestErrors.length) {
-					stream.resume();
-					return;
-				}
-				tasks.push(handleFile(instanceId as number, stream, filename, mimeType));
-			}
-			let parser = busboy({ headers: req.headers });
-			parser.on("file", fileHandler);
-			parser.on("field", (name, value, info) => {
-				if (name === "instance_id") {
-					instanceId = Number.parseInt(value, 10);
-					if (Number.isNaN(instanceId)) {
-						requestErrors.push("invalid instance_id");
-					}
-				}
-			});
-			parser.on("close", resolve);
-			parser.on("error", (err: any) => {
-				logger.error(`Error parsing multipart request in upload-save:\n${err.stack}`);
-				errors.push(err.message);
-			});
-			req.pipe(parser);
-		});
-
-	} else if (zipMimes.includes(contentMime)) {
-		let filename = req.query.filename;
-		if (typeof filename !== "string") {
-			requestErrors.push("Missing or invalid filename parameter");
-		} else if (!filename.endsWith(".zip")) {
-			requestErrors.push("filename must end with .zip");
-		}
-		let instanceId = Number.parseInt(String(req.query.instance_id), 10);
-		if (Number.isNaN(instanceId)) {
-			requestErrors.push("Missing or invalid instance_id parameter");
-		}
-
-		if (errors.length || requestErrors.length) {
-			req.resume();
-		} else {
-			tasks.push(handleFile(instanceId, req, filename as string, contentMime));
-		}
-
-	} else {
-		res.status(415).json({ request_errors: ["invalid Content-Type"] });
-		return;
+	if (await receiveZipUpload(req, res, "save", handleFile)) {
+		res.json({ saves });
 	}
-
-	await Promise.all(tasks);
-
-	if (errors.length) {
-		res.status(500);
-		res.json({ errors, request_errors: requestErrors });
-		return;
-	}
-	if (requestErrors.length) {
-		res.status(400);
-		res.json({ request_errors: requestErrors });
-		return;
-	}
-
-	res.json({ saves });
 }
 
 function checkModName(name: string) {
@@ -658,37 +815,18 @@ async function uploadMod(req: Request, res: Response) {
 		return;
 	}
 
-	let contentType = req.get("Content-Type")!;
-	let match = contentTypeRegExp.exec(contentType);
-	if (!match) {
-		res.status(415).json({ request_errors: ["invalid Content-Type"] });
-		return;
-	}
-	let contentMime = match[1].toLowerCase();
-
-	let tasks = [];
-	let errors: string[] = [];
-	let requestErrors = [];
 	let mods: any[] = [];
-
-	async function handleFile(stream: nodeStream.Readable, filename: string) {
-		try {
-			checkModName(filename);
-
-		} catch (err: any) {
-			logger.error(`Error uploading mod: ${err.message}`);
-			errors.push(err.message);
-			stream.resume();
-			return;
-		}
+	async function handleFile(file: UploadedZip) {
+		checkModName(file.filename);
 
 		const modsDirectory = req.app.locals.controller.config.get("controller.mods_directory");
-		const filePath = path.join(modsDirectory, filename);
+		const filePath = path.join(modsDirectory, file.filename);
 		const [tempFilePath, writeStream] = await lib.createTempWriteStream(filePath);
 
 		try {
-			stream.pipe(writeStream);
-			await finished(writeStream);
+			file.stream.pipe(writeStream);
+			// Pipe does not pass on an upload that was cut short.
+			await Promise.all([finished(file.stream), finished(writeStream)]);
 
 			const modInfo = await lib.ModInfo.fromModFile(tempFilePath);
 			checkModName(modInfo.filename);
@@ -697,11 +835,8 @@ async function uploadMod(req: Request, res: Response) {
 			mods.push(modInfo.toJSON());
 
 		} catch (err: any) {
-			logger.error(`Error uploading mod: ${err.message}`);
-			errors.push(err.message);
-			stream.resume();
-
 			// Attempt to clean up.
+			file.stream.unpipe(writeStream);
 			writeStream.destroy();
 
 			try {
@@ -711,76 +846,18 @@ async function uploadMod(req: Request, res: Response) {
 					logger.error(`Error removing ${tempFilePath}: ${unlinkErr.message}`);
 				}
 			}
+			throw err;
 		}
 	}
 
-	if (contentMime === "multipart/form-data") {
-		await new Promise(resolve => {
-			function fileHandler(
-				name: string,
-				stream: nodeStream.Readable,
-				{ filename, mimeType }: { filename: string, mimeType: string }
-			) {
-				if (!zipMimes.includes(mimeType)) {
-					requestErrors.push("invalid file Content-Type");
-				}
-				if (!filename.endsWith(".zip")) {
-					requestErrors.push("filename must end with .zip");
-				}
-				if (errors.length || requestErrors.length) {
-					stream.resume();
-					return;
-				}
-				tasks.push(handleFile(stream, filename));
-			}
-
-			let parser = busboy({ headers: req.headers });
-			parser.on("file", fileHandler);
-			parser.on("close", resolve);
-			parser.on("error", (err: any) => {
-				logger.error(`Error parsing multipart request in upload-mod:\n${err.stack}`);
-				errors.push(err.message);
-			});
-			req.pipe(parser);
-		});
-
-	} else if (zipMimes.includes(contentMime)) {
-		let filename = req.query.filename;
-		if (typeof filename !== "string") {
-			requestErrors.push("Missing or invalid filename parameter");
-		} else if (!filename.endsWith(".zip")) {
-			requestErrors.push("filename must end with .zip");
-		}
-
-		if (errors.length || requestErrors.length) {
-			req.resume();
-		} else {
-			tasks.push(handleFile(req, filename as string));
-		}
-
-	} else {
-		res.status(415).json({ request_errors: ["invalid Content-Type"] });
-		return;
+	if (await receiveZipUpload(req, res, "mod", handleFile)) {
+		res.json({ mods });
 	}
-
-	await Promise.all(tasks);
-
-	if (errors.length) {
-		res.status(500);
-		res.json({ errors, request_errors: requestErrors });
-		return;
-	}
-	if (requestErrors.length) {
-		res.status(400);
-		res.json({ request_errors: requestErrors });
-		return;
-	}
-
-	res.json({ mods });
 }
 
 
-export function addRouteHandlers(app: Application) {
+export function addRouteHandlers(app: Application, progressCheckIntervalMs = 30_000) {
+	app.use(guardRequest(progressCheckIntervalMs));
 	app.get("/metrics",
 		validateUserToken,
 		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)

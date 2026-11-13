@@ -31,6 +31,7 @@ export interface ControllerConfigFields {
 	"controller.max_subscription_filters": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
+	"controller.transfer_min_progress": number;
 	"controller.factorio_username": string | null;
 	"controller.factorio_token": string | null;
 	"controller.share_factorio_credentials_with_hosts": boolean;
@@ -222,6 +223,13 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 15,
 			validator: validators.greaterThanZero,
+		},
+		"controller.transfer_min_progress": {
+			title: "Transfer Minimum Progress",
+			description: "KiB an upload or download has to move every 30 seconds to not be closed, 0 for no limit.",
+			type: "number",
+			initialValue: 30,
+			validator: validators.greaterThanEqualZero,
 		},
 		"controller.session_timeout": {
 			title: "Session Timeout",
