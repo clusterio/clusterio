@@ -662,13 +662,20 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 	return entry --[[@as string]]
 end
 
+--- Slots over all 10 quick bar pages, a page is as wide as the player set it from 2.1 and 10 slots before
+--- @param player LuaPlayer
+--- @return integer
+local function quick_bar_slot_count(player)
+	return 10 * (v2_1_quick_bar_api and player.quick_bar_width or 10)
+end
+
 --- @param player LuaPlayer
 --- @return table<string, QuickBarSlotEncoded>?
 function serialize.serialize_quick_bar(player)
 	local serialized
 	local width = v2_1_quick_bar_api and player.quick_bar_width
 
-	for i = 1, 100 do
+	for i = 1, quick_bar_slot_count(player) do
 		local slot
 
 		if v2_1_quick_bar_api then
@@ -699,7 +706,7 @@ function serialize.deserialize_quick_bar(player, serialized)
 	-- previous server does not come back from this server's old copy
 	serialized = serialized or {}
 	local width = v2_1_quick_bar_api and player.quick_bar_width
-	for i = 1, 100 do
+	for i = 1, quick_bar_slot_count(player) do
 		local entry = serialized[tostring(i)]
 		local slot = entry ~= nil and serialize.deserialize_quick_bar_slot(entry, player) or nil
 		if v2_1_quick_bar_api then
