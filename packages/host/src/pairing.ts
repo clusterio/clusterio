@@ -297,9 +297,12 @@ export async function ensurePaired(
 		},
 	});
 
+	// The host has not started yet, so the new token needs no restart.
+	const restartRequired = config.restartRequired;
 	config.set("host.id", result.hostId);
 	config.set("host.name", result.name);
 	config.set("host.controller_token", result.token);
+	config.restartRequired = restartRequired;
 	await config.save();
 	logger.info(`Host approved as "${result.name}" with id ${result.hostId}`);
 }
