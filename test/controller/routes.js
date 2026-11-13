@@ -22,7 +22,8 @@ describe("controller/src/routes", function() {
 	let port;
 	beforeEach(async function() {
 		controller = new mock.MockController();
-		routes.addRouteHandlers(controller.app);
+		// Check the progress of requests every 500 ms instead of every 30 seconds.
+		routes.addRouteHandlers(controller.app, 500);
 		server = http.createServer(routes.httpServerOptions, controller.app);
 		server.listen(0, "localhost");
 		await events.once(server, "listening");
@@ -149,8 +150,36 @@ describe("controller/src/routes", function() {
 			request.destroy();
 			await assert.rejects(response.arrayBuffer());
 		});
+		/**
+		 * PUT to a stream at a steady pace until the connection closes or the body is sent
+		 * @param {string} id - Stream to send to.
+		 * @param {number} chunkSize - Bytes to send every 100 ms.
+		 * @param {number} chunks - Number of chunks the body consists of.
+		 * @returns {Promise<number|undefined>} status responded with, if any.
+		 */
+		async function putPaced(id, chunkSize, chunks) {
+			const request = http.request(
+				`${endpoint}/${id}`, { method: "PUT", headers: { "Content-Length": chunkSize * chunks } }
+			);
+			let status;
+			request.on("response", response => {
+				status = response.statusCode;
+				response.resume();
+			});
+			request.on("error", () => {});
+			const closed = new Promise(resolve => request.on("close", resolve));
+			for (let i = 0; i < chunks && !request.closed; i++) {
+				request.write(Buffer.alloc(chunkSize));
+				await lib.wait(100);
+			}
+			if (!request.closed) {
+				request.end();
+			}
+			await closed;
+			return status;
+		}
 		it("should close a transfer that stops making progress", async function() {
-			controller.mockConfigEntries.set("controller.transfer_idle_timeout", 0.5);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 1);
 			const stream = await routes.createProxyStream(controller.app);
 			const request = http.request(
 				`${endpoint}/${stream.id}`, { method: "PUT", headers: { "Content-Length": 1024 * 1024 } }
@@ -165,24 +194,58 @@ describe("controller/src/routes", function() {
 			await closed;
 			assert(Date.now() - start < 1500, `closed after ${Date.now() - start} ms`);
 		});
+		it("should close a transfer that is trickled in", async function() {
+			this.timeout(10000);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 4);
+			const stream = await routes.createProxyStream(controller.app);
+			const start = Date.now();
+			const upload = putPaced(stream.id, 200, 50);
+			const response = await fetch(`${endpoint}/${stream.id}`);
+			assert.equal(response.status, 200);
+			await assert.rejects(response.arrayBuffer());
+			assert.equal(await upload, undefined);
+			assert(Date.now() - start < 2000, `closed after ${Date.now() - start} ms`);
+		});
 		it("should not close a slow transfer that makes progress", async function() {
 			this.timeout(10000);
-			controller.mockConfigEntries.set("controller.transfer_idle_timeout", 0.5);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 1);
 			const stream = await routes.createProxyStream(controller.app);
-			const request = http.request(
-				`${endpoint}/${stream.id}`, { method: "PUT", headers: { "Content-Length": 10 * 1024 } }
-			);
-			const uploaded = events.once(request, "response");
+			const upload = putPaced(stream.id, 1024, 20);
 			const download = fetch(`${endpoint}/${stream.id}`).then(response => response.arrayBuffer());
-			for (let i = 0; i < 10; i++) {
-				request.write(Buffer.alloc(1024));
-				await lib.wait(200);
-			}
-			request.end();
-			const [response] = await uploaded;
-			response.resume();
-			assert.equal(response.statusCode, 200);
-			assert.equal((await download).byteLength, 10 * 1024);
+			assert.equal(await upload, 200);
+			assert.equal((await download).byteLength, 20 * 1024);
+		});
+		it("should not close a transfer held back by a slow receiver", async function() {
+			this.timeout(20000);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 16);
+			const size = 4 * 1024 * 1024;
+			const stream = await routes.createProxyStream(controller.app);
+			const upload = fetch(`${endpoint}/${stream.id}`, { method: "PUT", body: Buffer.alloc(size) });
+			const received = await new Promise((resolve, reject) => {
+				http.get(`${endpoint}/${stream.id}`, response => {
+					let bytes = 0;
+					response.on("data", chunk => {
+						bytes += chunk.length;
+						response.pause();
+						setTimeout(() => response.resume(), 50);
+					});
+					response.on("end", () => resolve(bytes));
+					response.on("error", reject);
+				}).on("error", reject);
+			});
+			assert.equal(received, size);
+			assert.equal((await upload).status, 200);
+		});
+		it("should not count the time waiting for the stream to start", async function() {
+			this.timeout(10000);
+			controller.mockConfigEntries.set("controller.proxy_stream_timeout", 3);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 1);
+			const stream = await routes.createProxyStream(controller.app);
+			const download = fetch(`${endpoint}/${stream.id}`);
+			await lib.wait(1500);
+			const upload = await fetch(`${endpoint}/${stream.id}`, { method: "PUT", body: "test content" });
+			assert.equal(upload.status, 200);
+			assert.equal(await (await download).text(), "test content");
 		});
 		it("should passthrough a stream", async function() {
 			let stream;
@@ -1167,6 +1230,65 @@ describe("controller/src/routes", function() {
 				request.destroy();
 				await waitForEmptyModsDirectory();
 			}
+		});
+	});
+	describe("guardRequest()", function() {
+		async function trickle(url, headers) {
+			const request = http.request(url, { method: "POST", headers: { ...headers, "Content-Length": 2 ** 20 } });
+			let status;
+			request.on("response", response => {
+				status = response.statusCode;
+				response.resume();
+			});
+			request.on("error", () => {});
+			const closed = new Promise(resolve => request.on("close", resolve));
+			const start = Date.now();
+			while (!request.closed && Date.now() - start < 5000) {
+				request.write(Buffer.alloc(200));
+				await lib.wait(100);
+			}
+			request.destroy();
+			await closed;
+			return { status, duration: Date.now() - start };
+		}
+		it("should keep the limit on receiving headers", function() {
+			assert.equal(server.requestTimeout, 0);
+			assert.equal(server.headersTimeout, 60000);
+		});
+		it("should close an upload that is trickled in", async function() {
+			this.timeout(10000);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 4);
+			const modsDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-mods-"));
+			try {
+				controller.mockConfigEntries.set("controller.mods_directory", modsDirectory);
+				const result = await trickle(`http://localhost:${port}/api/upload-mod?filename=mod_1.0.0.zip`, {
+					"Content-Type": "application/zip",
+					"X-Access-Token": controller.users.signUserToken({ id: "test" }),
+				});
+				assert.equal(result.status, undefined);
+				assert(result.duration < 2000, `closed after ${result.duration} ms`);
+				for (let i = 0; i < 50 && (await fs.readdir(modsDirectory)).length; i++) {
+					await lib.wait(20);
+				}
+				assert.deepEqual(await fs.readdir(modsDirectory), []);
+			} finally {
+				await fs.rm(modsDirectory, { recursive: true, force: true });
+			}
+		});
+		it("should close a request to another route that is trickled in", async function() {
+			this.timeout(10000);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 4);
+			controller.app.post("/test", express.raw({ type: "*/*", limit: "2mb" }), (req, res) => res.sendStatus(200));
+			const result = await trickle(`http://localhost:${port}/test`, { "Content-Type": "text/plain" });
+			assert.equal(result.status, undefined);
+			assert(result.duration < 2000, `closed after ${result.duration} ms`);
+		});
+		it("should not close a trickled in request when the limit is 0", async function() {
+			this.timeout(10000);
+			controller.mockConfigEntries.set("controller.transfer_min_progress", 0);
+			controller.app.post("/test", express.raw({ type: "*/*", limit: "2mb" }), (req, res) => res.sendStatus(200));
+			const result = await trickle(`http://localhost:${port}/test`, { "Content-Type": "text/plain" });
+			assert(result.duration >= 5000, `closed after ${result.duration} ms`);
 		});
 	});
 	describe("/api/upload-export", function() {

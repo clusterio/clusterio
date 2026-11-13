@@ -417,6 +417,9 @@ export interface ProxyStream {
 	filename: string | null;
 	events: events.EventEmitter<ProxyStreamEvents>;
 	timeout: ReturnType<typeof setTimeout>;
+	closed: boolean;
+	/** Bytes the receiver has taken, set once the stream is flowing */
+	progress?: () => number;
 }
 
 export async function createProxyStream(app: Application): Promise<ProxyStream> {
@@ -433,8 +436,10 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 		timeout: setTimeout(() => {
 			stream.events.emit("timeout");
 		}, app.locals.controller.config.get("controller.proxy_stream_timeout") * 1000),
+		closed: false,
 	};
 	stream.events.on("close", () => {
+		stream.closed = true;
 		clearTimeout(stream.timeout);
 		app.locals.streams.delete(id);
 	});
@@ -450,15 +455,17 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
  *
  * Node closes requests that have not been received in full after 5 minutes
  * by default, which would cut off large uploads over slow connections.
- * Transfers are instead closed when they stop making progress.
+ * Requests are instead closed by guardRequest when they move too little.
+ * Turning the limit off also turns off the limit on receiving the headers,
+ * which guardRequest can't cover, so that is set back to its default.
  */
-export const httpServerOptions = { requestTimeout: 0 };
+export const httpServerOptions = { requestTimeout: 0, headersTimeout: 60_000 };
 
 /** Time an upload is read and thrown away after it was answered, before its connection is closed */
 const answeredUploadDrainMs = 1000;
 
 /**
- * Guard a route transferring files against wasted and stalled transfers
+ * Guard requests against wasted and stalled transfers
  *
  * Node reads and discards the body of a request answered before it was
  * read to keep the connection open. A client, or a proxy in front of the
@@ -466,35 +473,65 @@ const answeredUploadDrainMs = 1000;
  * so the connection is closed if the body hasn't ended shortly after the
  * response. Closing it right away could make the client lose the response.
  *
- * The connection is also closed if no data was sent or received on it for
- * controller.transfer_idle_timeout, so that a transfer which stopped
- * making progress does not linger while a slow one can take its time.
- * @param req - Request to guard.
- * @param res - Response to the request.
- * @param next - Next handler for the route.
+ * The connection is also closed if the request moved less than
+ * controller.transfer_min_progress during a check interval, so that a
+ * request which stalled or is trickled in does not stay open forever while
+ * a slow one can take the time it needs. For a request body this is what
+ * was received of it. For both ends of a proxy stream it is what the
+ * receiver has taken, as the sender is held back when the receiver is the
+ * slow one. Time spent waiting for a proxy stream to start is not counted,
+ * controller.proxy_stream_timeout limits that.
+ * @param checkIntervalMs - Interval to check the progress of requests on.
+ * @returns Express middleware.
  */
-function guardTransfer(req: Request, res: Response, next: any) {
-	const socket = req.socket;
-	const idleTimeout = req.app.locals.controller.config.get("controller.transfer_idle_timeout");
-	// Node sets the timeout for the next request on the connection itself.
-	res.setTimeout(idleTimeout * 1000, () => {
-		logger.warn(`Closing ${req.method} ${req.path} after ${idleTimeout} seconds without progress`);
-		socket.destroy();
-	});
-	res.once("finish", () => {
-		if (req.complete || socket.destroyed) {
-			return;
-		}
-		const timeout = setTimeout(() => socket.destroy(), answeredUploadDrainMs);
-		const onClose = () => clearTimeout(timeout);
-		socket.once("close", onClose);
-		// The connection may be kept open for more requests, so don't leave a listener on it
-		req.once("end", () => {
-			clearTimeout(timeout);
-			socket.off("close", onClose);
+function guardRequest(checkIntervalMs: number) {
+	return function(req: Request, res: Response, next: any) {
+		const socket = req.socket;
+		res.once("finish", () => {
+			if (req.complete || socket.destroyed) {
+				return;
+			}
+			const timeout = setTimeout(() => socket.destroy(), answeredUploadDrainMs);
+			const onClose = () => clearTimeout(timeout);
+			socket.once("close", onClose);
+			// The connection may be kept open for more requests, so don't leave a listener on it
+			req.once("end", () => {
+				clearTimeout(timeout);
+				socket.off("close", onClose);
+			});
 		});
-	});
-	next();
+
+		const received = () => socket.bytesRead;
+		let measure: (() => number) | undefined = received;
+		let last = received();
+		const check = setInterval(() => {
+			const stream: ProxyStream | undefined = res.locals.proxyStream;
+			let current: (() => number) | undefined;
+			if (stream && !stream.closed) {
+				current = stream.progress;
+			} else if (!req.complete) {
+				current = received;
+			}
+			const minProgress = req.app.locals.controller.config.get("controller.transfer_min_progress");
+			if (current !== measure || !current || !minProgress) {
+				// What to measure changed, start over from here.
+				measure = current;
+				last = current ? current() : 0;
+				return;
+			}
+			const progress = current();
+			if (progress - last < minProgress * 1024) {
+				logger.warn(
+					`Closing ${req.method} ${req.path}, it moved less than ${minProgress} KiB ` +
+					`in ${checkIntervalMs / 1000} seconds`
+				);
+				socket.destroy();
+			}
+			last = progress;
+		}, checkIntervalMs);
+		res.once("close", () => clearInterval(check));
+		next();
+	};
 }
 
 async function putStream(req: Request<{ id: string }>, res: Response) {
@@ -503,6 +540,7 @@ async function putStream(req: Request<{ id: string }>, res: Response) {
 		res.sendStatus(404);
 		return;
 	}
+	res.locals.proxyStream = stream;
 	stream.source = req;
 	stream.mime = req.get("Content-Type");
 	stream.size = req.get("Content-Length");
@@ -525,8 +563,11 @@ function startStream(res: Response, stream: ProxyStream) {
 		res.append("Content-Disposition", "attachment");
 	}
 	const source = stream.source!;
+	const socket = res.socket!;
 	source.pipe(res);
 	stream.flowing = true;
+	// Counts completed writes, so data waiting in a buffer is not progress.
+	stream.progress = () => socket.bytesWritten - socket.writableLength;
 	// Pipe does not pass on a source that was cut short, the receiver would wait forever.
 	const onSourceClose = () => {
 		if (!res.writableEnded) {
@@ -548,6 +589,7 @@ async function getStream(req: Request<{ id: string }>, res: Response) {
 		res.sendStatus(404);
 		return;
 	}
+	res.locals.proxyStream = stream;
 
 	if (stream.source) {
 		startStream(res, stream);
@@ -724,6 +766,7 @@ async function uploadSave(req: Request, res: Response) {
 		}
 
 		let proxyStream = await createProxyStream(req.app);
+		res.locals.proxyStream = proxyStream;
 		proxyStream.source = file.stream;
 		proxyStream.mime = file.mime;
 		let timeout = new Promise<never>((_, reject) => {
@@ -813,7 +856,8 @@ async function uploadMod(req: Request, res: Response) {
 }
 
 
-export function addRouteHandlers(app: Application) {
+export function addRouteHandlers(app: Application, progressCheckIntervalMs = 30_000) {
+	app.use(guardRequest(progressCheckIntervalMs));
 	app.get("/metrics",
 		validateUserToken,
 		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)
@@ -833,25 +877,20 @@ export function addRouteHandlers(app: Application) {
 		res.json({ valid: true });
 	});
 	app.put("/api/upload-export",
-		guardTransfer,
 		validateHostToken,
 		(req:Request, res:Response, next:any) => uploadExport(req, res).catch(next)
 	);
 	app.put("/api/stream/:id",
-		guardTransfer,
 		(req:Request<{ id: string }>, res:Response, next:any) => putStream(req, res).catch(next)
 	);
 	app.get("/api/stream/:id",
-		guardTransfer,
 		(req:Request<{ id: string }>, res:Response, next:any) => getStream(req, res).catch(next)
 	);
 	app.post("/api/upload-save",
-		guardTransfer,
 		validateUserToken,
 		(req:Request, res:Response, next:any) => uploadSave(req, res).catch(next)
 	);
 	app.post("/api/upload-mod",
-		guardTransfer,
 		validateUserToken,
 		(req:Request, res:Response, next:any) => uploadMod(req, res).catch(next)
 	);
