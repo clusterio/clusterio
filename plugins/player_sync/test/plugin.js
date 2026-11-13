@@ -117,6 +117,7 @@ describe("player_sync plugin", function() {
 					3: { t: "i", n: "main", s: 4, b: [2] },
 					4: { t: "r", p: [1], y: "blueprint" },
 				},
+				quick_bar_pages: [2, 1, 3],
 				crafting_queue: {
 					crafting_queue: [{ recipe: "iron-gear-wheel", count: 5 }],
 					crafting_queue_progress: 0.25,
@@ -172,6 +173,8 @@ describe("player_sync plugin", function() {
 					["quick_bar", { 1: { t: "i", n: "main" } }],
 					["quick_bar", { 1: { t: "r", y: "blueprint" } }],
 					["quick_bar", { 1: 5 }],
+					["quick_bar_pages", [0]],
+					["quick_bar_pages", [11]],
 					["personal_logistic_slots", { enabled: true, sections: [] }],
 					["personal_logistic_slots", { enabled: true, trash_not_requested: false, sections: [{}] }],
 					["personal_logistic_slots", { 1: { min: 50 } }],

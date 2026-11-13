@@ -9,7 +9,7 @@ export const components = {
 	// inventories holds the god inventory and the hidden ghost inventory
 	inventories: ["character", "crafting_queue", "inventories"],
 	logistics: ["personal_logistic_slots"],
-	quick_bar: ["quick_bar", "hotbar"],
+	quick_bar: ["quick_bar", "quick_bar_pages", "hotbar"],
 	settings: ["flashlight", "shortcuts", "game_view_settings"],
 	recipe_notifications: ["recipe_notifications"],
 } as const;

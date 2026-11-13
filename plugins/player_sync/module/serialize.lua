@@ -713,6 +713,30 @@ function serialize.deserialize_quick_bar(player, serialized)
 	end
 end
 
+--- Quick bar page shown on each quick bar row of the screen, kept by every save on its own
+--- @param player LuaPlayer
+--- @return integer[]?
+function serialize.serialize_quick_bar_pages(player)
+	local pages = {}
+	for screen = 1, 10 do
+		-- pcall: the number of rows the API knows is not documented for older versions
+		local ok, page = pcall(player.get_active_quick_bar_page, screen)
+		if not ok or not page then
+			break
+		end
+		pages[screen] = page
+	end
+	return pages[1] and pages or nil
+end
+
+--- @param player LuaPlayer
+--- @param pages integer[]? Absent in data from before pages were synced, the rows then stay as they are here
+function serialize.deserialize_quick_bar_pages(player, pages)
+	for screen, page in ipairs(pages or {}) do
+		player.set_active_quick_bar_page(screen, page)
+	end
+end
+
 -- Crafting queue is a table with the following fields:
 --  crafting_queue
 --  ingredients
@@ -974,6 +998,7 @@ end
 --- @field inventories table<string, table>?
 --- @field hotbar table<string, string>?
 --- @field quick_bar table<string, QuickBarSlotEncoded>?
+--- @field quick_bar_pages integer[]? Page shown on each quick bar row
 --- @field personal_logistic_slots table?
 --- @field crafting_queue table?
 --- @field recipe_notifications string?
@@ -1178,6 +1203,7 @@ function serialize.serialize_player(player, failed_deserialization, components)
 	-- Serialize quick bar
 	if syncs(components, "quick_bar") then
 		serialized.quick_bar = serialize.serialize_quick_bar(player)
+		serialized.quick_bar_pages = serialize.serialize_quick_bar_pages(player)
 	end
 
 	-- Serialize crafting queue
@@ -1444,6 +1470,7 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 	-- Deserialize quick bar (named hotbar in old data)
 	if syncs(components, "quick_bar") then
 		serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
+		serialize.deserialize_quick_bar_pages(player, serialized.quick_bar_pages)
 	end
 
 	-- Deserialize recipe notifications
