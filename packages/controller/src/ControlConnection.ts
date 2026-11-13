@@ -631,7 +631,8 @@ export default class ControlConnection extends BaseConnection {
 	 * @param request - The request object containing factorioVersion.
 	 */
 	async handleModPortalGetAllRequest(request: lib.ModPortalGetAllRequest) {
-		const cacheKey = `${request.factorioVersion}-${request.hide_deprecated}`;
+		const hideDeprecated = request.hide_deprecated ?? false;
+		const cacheKey = `${request.factorioVersion}-${hideDeprecated}`;
 		const cachedData = this._controller.modPortalCache.get(cacheKey);
 
 		const cacheDuration = this._controller.config.get("controller.mod_portal_cache_duration_minutes") * 60 * 1000;
@@ -644,7 +645,7 @@ export default class ControlConnection extends BaseConnection {
 			const mods = await lib.ModStore.fetchAllModsFromPortal(
 				request.factorioVersion,
 				this._controller.config.get("controller.mod_portal_page_size"),
-				request.hide_deprecated
+				hideDeprecated
 			);
 			this._controller.modPortalCache.set(cacheKey, { timestamp: Date.now(), data: mods });
 			// The Response class is defined inline within the Request class
