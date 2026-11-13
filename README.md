@@ -306,7 +306,7 @@ If you want to use a different user for the command line interface, you can gene
 
 - `@hornwitser/server_select@2.0.1` fails to load with Clusterio 2.0 because its entrypoints omit the required `.js` extension.
   `@hornwitser/discord_bridge@0.2.5` is not automatically discovered because it lacks the `clusterio-plugin` keyword.
-  The Clusterio 2.0.2 installer still offers these versions; leave them unchecked until compatible plugin releases are available.
+  The installer no longer offers them, but installs made with the 2.0.2 installer or earlier may still have them.
   If already installed, stop the controller and host, run `npm uninstall @hornwitser/server_select @hornwitser/discord_bridge` in each affected installation directory, and restart them to continue with the core plugins.
   See [#1102](https://github.com/clusterio/clusterio/issues/1102).
 - After updating Factorio you may get the error `Error: Expected empty response but got "Cannot execute command. Error: [string "clusterio_private.update_instance(..."]:1: attempt to index global 'clusterio_private' (a nil value)?` on instance start.
