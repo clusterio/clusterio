@@ -252,6 +252,7 @@ describe("host/src/pairing", function() {
 			config = new lib.HostConfig("host", undefined, path.join(directory, "config-host.json"));
 			config.set("host.name", "My Host");
 			config.set("host.controller_url", stub.url);
+			config.restartRequired = false;
 		});
 		afterEach(async function() {
 			await fs.rm(directory, { recursive: true, force: true, maxRetries: 10 });
@@ -279,6 +280,9 @@ describe("host/src/pairing", function() {
 			assert.equal(saved["host.id"], 1234);
 			assert.equal(saved["host.name"], "Approved");
 			assert.equal(saved["host.controller_token"], "host-token");
+			assert.equal(config.restartRequired, false, "pairing flagged a restart");
+			config.set("host.controller_token", "other-token");
+			assert.equal(config.restartRequired, true, "later change did not flag a restart");
 		});
 
 		it("does nothing when the controller accepts the saved token", async function() {
@@ -294,6 +298,7 @@ describe("host/src/pairing", function() {
 
 		it("asks to join again with the user token when the saved token is not accepted", async function() {
 			config.set("host.controller_token", "revoked-token");
+			config.restartRequired = false;
 			stub.handler = ({ url, headers }) => {
 				if (url === "/api/host-pairing/check") {
 					return [401, undefined];
@@ -307,6 +312,7 @@ describe("host/src/pairing", function() {
 			assert.equal(saved["host.id"], 5);
 			assert.equal(saved["host.controller_token"], "new-token");
 			assert(!JSON.stringify(saved).includes("user-token"), "user token must not be saved");
+			assert.equal(config.restartRequired, false, "pairing flagged a restart");
 		});
 
 		it("stops when aborted while checking the saved token", async function() {
