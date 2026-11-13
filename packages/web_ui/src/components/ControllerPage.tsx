@@ -1,5 +1,5 @@
 import React, {useContext, useState} from "react";
-import { Descriptions, Flex, Popconfirm, Space, Tooltip, Typography } from "antd";
+import { Descriptions, Flex, Modal, Popconfirm, Space, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 
 import * as lib from "@clusterio/lib";
@@ -28,6 +28,7 @@ type ControllerControlButtonProps = { canRestart?: boolean, restartRequired?: bo
 function ControllerControlButton({ canRestart, restartRequired }: ControllerControlButtonProps) {
 	const account = useAccount();
 	const control = useContext(ControlContext);
+	const [modal, modalContext] = Modal.useModal();
 	const actions: VariableDropdownButtonProps["actions"] = [];
 
 	if (account.hasPermission("core.controller.restart") && canRestart) {
@@ -40,9 +41,18 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 				</Space></Tooltip>
 			),
 			onClick: () => {
-				control.send(
-					new lib.ControllerRestartRequest()
-				).catch(notifyErrorHandler("Error restarting controller"));
+				modal.confirm({
+					title: "Restart the controller?",
+					content: "Hosts and this page lose their connection until the controller is back.",
+					okText: "Restart",
+					okButtonProps: { danger: true },
+					autoFocusButton: "cancel",
+					onOk: () => {
+						control.send(
+							new lib.ControllerRestartRequest()
+						).catch(notifyErrorHandler("Error restarting controller"));
+					},
+				});
 			},
 		});
 	}
@@ -87,7 +97,10 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 		});
 	}
 
-	return <VariableDropdownButton actions={actions} />;
+	return <>
+		<VariableDropdownButton actions={actions} />
+		{modalContext}
+	</>;
 }
 
 
