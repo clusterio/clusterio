@@ -1277,7 +1277,7 @@ local function ensure_character(player)
 	-- generates the chunks around a character. Otherwise there is nowhere to stand, and it stays at the spawn.
 	if not player.create_character() then
 		surface = player.surface
-		local position = player.position
+		local position = player.position --[[@as MapPosition.struct]]
 		local force = player.force --[[@as LuaForce]]
 		local missing_chunk = not surface.is_chunk_generated({ math.floor(position.x / 32), math.floor(position.y / 32) })
 		player.teleport(force.get_spawn_position(surface), surface)
