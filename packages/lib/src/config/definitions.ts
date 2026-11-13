@@ -38,6 +38,7 @@ export interface ControllerConfigFields {
 	"controller.default_mod_pack_id": number | null;
 	"controller.default_role_id": number | null;
 	"controller.autosave_interval": number;
+	"controller.log_retention_days": number;
 	"controller.host_pairing_timeout": number;
 	"controller.host_pairing_max_pending": number;
 	"controller.mod_portal_cache_duration_minutes": number;
@@ -100,6 +101,13 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "number",
 			initialValue: 60,
 			validator: validators.greaterThanZero,
+		},
+		"controller.log_retention_days": {
+			title: "Log Retention Days",
+			description: "Days to keep controller and cluster log files for, 0 to keep them forever.",
+			type: "number",
+			initialValue: 30,
+			validator: validators.all(validators.integer, validators.greaterThanEqualZero),
 		},
 		"controller.host_pairing_timeout": {
 			title: "Host Pairing Timeout",
@@ -357,6 +365,7 @@ export interface HostConfigFields {
 	"host.factorio_username": string | null,
 	"host.factorio_token": string | null,
 	"host.max_reconnect_delay": number;
+	"host.log_retention_days": number;
 	"host.allow_remote_updates": boolean;
 	"host.allow_plugin_updates": boolean;
 	"host.allow_plugin_install": boolean;
@@ -465,6 +474,13 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			type: "number",
 			initialValue: 60,
 			validator: validators.greaterThanZero,
+		},
+		"host.log_retention_days": {
+			title: "Log Retention Days",
+			description: "Days to keep host log files for, 0 to keep them forever.",
+			type: "number",
+			initialValue: 30,
+			validator: validators.all(validators.integer, validators.greaterThanEqualZero),
 		},
 		"host.allow_remote_updates": {
 			description: "When true, allows a remote event to trigger a clusterio update via npm",

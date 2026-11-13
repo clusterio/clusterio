@@ -30,6 +30,42 @@ const wsRejectedConnectionsCounter = new lib.Counter(
 	"How many WebSocket connections have been rejected during the handshake on the controller"
 );
 
+const wsReadyCounter = new lib.Counter(
+	"clusterio_controller_websocket_ready_total",
+	"How many WebSocket sessions have been established on the controller",
+	{ labels: ["type"] }
+);
+
+const wsResumeCounter = new lib.Counter(
+	"clusterio_controller_websocket_resume_total",
+	"How many WebSocket sessions have been resumed on the controller",
+	{ labels: ["type"] }
+);
+
+const wsDropCounter = new lib.Counter(
+	"clusterio_controller_websocket_drop_total",
+	"How many WebSocket sessions have lost their connection without closing on the controller",
+	{ labels: ["type"] }
+);
+
+const wsSessionTimeoutCounter = new lib.Counter(
+	"clusterio_controller_websocket_session_timeout_total",
+	"How many WebSocket sessions have timed out waiting for a resume on the controller",
+	{ labels: ["type"] }
+);
+
+const wsFailedResumeCounter = new lib.Counter(
+	"clusterio_controller_websocket_failed_resume_total",
+	"How many WebSocket resume attempts have been rejected due to an unknown or expired session on the controller"
+);
+
+for (const type of ["host", "control"]) {
+	wsReadyCounter.labels(type);
+	wsResumeCounter.labels(type);
+	wsDropCounter.labels(type);
+	wsSessionTimeoutCounter.labels(type);
+}
+
 /**
  * WebSocket server
  * @alias module:controller/src/WsServer
@@ -240,6 +276,12 @@ ${err.stack}`
 			this.activeConnectors.delete(sessionId);
 		});
 
+		const type = dst.type === lib.Address.host ? "host" : "control";
+		connector.on("connect", () => wsReadyCounter.labels(type).inc());
+		connector.on("resume", () => wsResumeCounter.labels(type).inc());
+		connector.on("drop", () => wsDropCounter.labels(type).inc());
+		connector.on("timeout", () => wsSessionTimeoutCounter.labels(type).inc());
+
 		return [connector, sessionToken];
 	}
 
@@ -367,6 +409,7 @@ ${err.stack}`
 			}
 
 		} catch (err) {
+			wsFailedResumeCounter.inc();
 			socket.send(JSON.stringify(new lib.MessageInvalidate()));
 			this.attachHandler(socket, req);
 			return;

@@ -170,7 +170,7 @@ Defaults to `true`.
 
 ### player_sync.sync_quick_bar
 
-Sync the quick bar.
+Sync the quick bar and the page shown on each of its rows.
 
 Defaults to `true`.
 

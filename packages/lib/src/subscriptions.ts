@@ -460,6 +460,39 @@ export interface SubscribableValue {
  * Multiple handlers can be subscribed at the same time
  */
 export class EventSubscriber<E, S = null> {
+	/** Subscribers created on each connector, they share one connect and one close listener on it */
+	private static connectorSubscribers = new WeakMap<object, Set<EventSubscriber<any, any>>>();
+
+	/**
+	 * Pass connect and close events of a connector on to a subscriber
+	 * Uses one listener for all subscribers, so that plugins creating many subscribers do not go past the
+	 * listener limit set on the connector.
+	 * @param connector - connector of the link the subscriber was created on
+	 * @param subscriber - subscriber to pass the events to
+	 */
+	private static addConnectorSubscriber(
+		connector: WebSocketBaseConnector,
+		subscriber: EventSubscriber<any, any>,
+	) {
+		let subscribers = EventSubscriber.connectorSubscribers.get(connector);
+		if (!subscribers) {
+			const created = new Set<EventSubscriber<any, any>>();
+			EventSubscriber.connectorSubscribers.set(connector, created);
+			connector.on("connect", () => {
+				for (const entry of created) {
+					entry.handleConnectionEvent("connect");
+				}
+			});
+			connector.on("close", () => {
+				for (const entry of created) {
+					entry.handleConnectionEvent("close");
+				}
+			});
+			subscribers = created;
+		}
+		subscribers.add(subscriber);
+	}
+
 	/** The time at which an event was last received, is less than 0 when there have been no events */
 	lastUpdatedMs = -1;
 	/** True if this subscriber is currently synced with the source */
@@ -485,13 +518,7 @@ export class EventSubscriber<E, S = null> {
 	) {
 		control.handle(Event, this._handleEvent.bind(this));
 		// The events below exist only on websocket connectors, we can't early return because of test mocking
-		const webSocketConnector = control.connector as WebSocketBaseConnector;
-		webSocketConnector.on("connect", () => {
-			this.handleConnectionEvent("connect");
-		});
-		webSocketConnector.on("close", () => {
-			this.handleConnectionEvent("close");
-		});
+		EventSubscriber.addConnectorSubscriber(control.connector as WebSocketBaseConnector, this);
 		// Only the web Control reports account changes
 		const accountControl = control as Link & { onAccountUpdate?: (handler: () => void) => void };
 		if (typeof accountControl.onAccountUpdate === "function") {

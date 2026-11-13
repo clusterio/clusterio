@@ -210,6 +210,11 @@ async function startHost() {
 	// From this point on the host should run
 	await hostConfigLock.acquire();
 
+	lib.startLogRetention(
+		[path.join(args.logDirectory, "host")],
+		() => hostConfig.get("host.log_retention_days"),
+	);
+
 	// If we get here the command was run
 	await fs.mkdir(hostConfig.get("host.instances_directory"), { recursive: true });
 	await fs.mkdir(hostConfig.get("host.mods_directory"), { recursive: true });

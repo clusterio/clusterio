@@ -7,13 +7,17 @@ import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 
 
+type WsServerConnectorEvents = {
+	"timeout": [],
+};
+
 /**
  * Connector for controller connections
  *
  * @extends module:lib.WebSocketBaseConnector
  * @alias module:controller/src/WsServerConnector
  */
-export default class WsServerConnector extends lib.WebSocketBaseConnector {
+export default class WsServerConnector extends lib.WebSocketBaseConnector<WsServerConnectorEvents> {
 	_timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
@@ -119,6 +123,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 
 	_timedOut() {
 		logger.verbose(`Connector | Connection to ${this.dst} timed out`);
+		this.emit("timeout");
 		this._close();
 	}
 

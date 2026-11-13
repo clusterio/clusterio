@@ -113,6 +113,58 @@ describe("controller/src/WsServer", function() {
 			});
 		});
 	});
+	describe("connection metrics", function() {
+		const req = { socket: { remoteAddress: "10.0.0.1", remoteFamily: "IPv4" }, headers: {} };
+		/** @type {WsServer} */
+		let wsServer;
+		before(function() {
+			const config = new ControllerConfig("controller");
+			config.set("controller.auth_secret", Buffer.from("TestSecretDoNotUse").toString("base64"));
+			wsServer = new Controller(lib.logger, [], config).wsServer;
+		});
+
+		function counter(name) {
+			return lib.defaultRegistry.collectors.find(collector => collector.metric.name === name);
+		}
+		function value(name, type) {
+			const collector = counter(`clusterio_controller_websocket_${name}_total`);
+			return type ? collector.labels(type).get() : collector.get();
+		}
+
+		[["host", lib.Address.host], ["control", lib.Address.control]].forEach(([type, addressType]) => {
+			it(`should count ready, drop, resume and timeout for ${type} sessions`, function() {
+				const before = Object.fromEntries(
+					["ready", "drop", "resume", "session_timeout"].map(name => [name, value(name, type)])
+				);
+				const [connector, sessionToken] = wsServer.createSession(new lib.Address(addressType, 1));
+				connector.ready(new MockWebSocket(), new lib.Address(addressType, 1), sessionToken, undefined);
+				assert.equal(value("ready", type), before.ready + 1);
+
+				connector._socket.terminate();
+				assert.equal(value("drop", type), before.drop + 1);
+
+				wsServer.resumeSession(new lib.ResumeData(sessionToken, 0), new MockWebSocket(), req);
+				assert.equal(value("resume", type), before.resume + 1);
+
+				connector._socket.terminate();
+				connector._timedOut();
+				assert.equal(value("session_timeout", type), before.session_timeout + 1);
+				assert.equal(value("drop", type), before.drop + 2);
+				assert.equal(value("ready", type), before.ready + 1);
+			});
+		});
+		it("should count resumes of unknown sessions as failed", function() {
+			const before = value("failed_resume");
+			const socket = new MockWebSocket();
+			wsServer.resumeSession(new lib.ResumeData("invalid", 0), socket, req);
+			try {
+				assert.equal(value("failed_resume"), before + 1);
+				assert.equal(socket.sent[0].type, "invalidate");
+			} finally {
+				socket.emit("message", "not json"); // ends the handshake and its timeout
+			}
+		});
+	});
 	describe(".registerHost()", function() {
 		const secret = Buffer.from("TestSecretDoNotUse");
 		const req = { socket: { remoteAddress: "10.0.0.1", remoteFamily: "IPv4" }, headers: {} };
