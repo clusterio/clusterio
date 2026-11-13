@@ -195,6 +195,20 @@ describe("create installer CLI", function() {
 			await fs.access(path.join(directory, `run-host${process.platform === "win32" ? ".cmd" : ".sh"}`));
 		});
 
+		it("writes a run script that exits with the code that stopped the restart loop", async function() {
+			if (process.platform === "win32") {
+				this.skip();
+			}
+			await run(hostArgs());
+			const binDir = path.join(directory, "node_modules", ".bin");
+			await fs.mkdir(binDir, { recursive: true });
+			await fs.writeFile(path.join(binDir, "clusteriohost"), "#!/bin/sh\nexit 8\n", { mode: 0o755 });
+			await assert.rejects(
+				execFileAsync(path.join(directory, "run-host.sh"), [], { cwd: directory }),
+				{ code: 8 },
+			);
+		});
+
 		it("adds the trailing slash the host requires to the controller URL", async function() {
 			await run(hostArgs(controllerUrl.slice(0, -1)));
 			assert((await commands()).includes(hostSet("host.controller_url", controllerUrl)));
