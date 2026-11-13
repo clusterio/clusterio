@@ -2204,8 +2204,10 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("role list", function() {
-			it("runs", async function() {
-				await execCtl("role list");
+			it("prints permissions as a list", async function() {
+				const output = await execCtlOutput("role list");
+				assert(!output.includes("[object"), output);
+				assert.match(output, /Cluster Admin .*core\.admin/);
 			});
 		});
 
@@ -2316,8 +2318,10 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("user list", function() {
-			it("runs", async function() {
-				await execCtl("user list");
+			it("prints roles and instances as lists", async function() {
+				const output = await execCtlOutput("user list");
+				assert(!output.includes("[object"), output);
+				assert.match(output, /roleIds/);
 			});
 		});
 

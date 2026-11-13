@@ -1,12 +1,9 @@
 import fs from "node:fs/promises";
-import asTableModule from "as-table";
 import path from "path";
 
 import * as lib from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
+import { asTable, print } from "./command_ops.js";
 
 export const userCommands = new lib.CommandTree({ name: "user", alias: ["u"], description: "User management" });
 userCommands.add(new lib.Command({
