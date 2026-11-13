@@ -48,6 +48,16 @@ Must be greater than 0.
 Defaults to 60.
 
 
+### controller.log_retention_days
+
+Number of days to keep the controller and cluster log files in the log directory for.
+Log files are named by the UTC date they were written and a file is deleted once its date is more than this many days in the past.
+Old files are checked for on startup and every hour after that.
+Set to 0 to keep logs forever.
+
+Defaults to 30.
+
+
 ### controller.host_pairing_timeout
 
 Time in seconds a host can wait for approval before its request expires, after which the host requests again with a new code.
@@ -434,6 +444,15 @@ The actual delay on each reconnect will be a random number between 0 and this co
 Must be greater than 0.
 
 Defaults to 60.
+
+
+### host.log_retention_days
+
+Number of days to keep the host log files in the log directory for.
+Works the same way as controller.log_retention_days.
+Set to 0 to keep logs forever.
+
+Defaults to 30.
 
 
 ### host.allow_remote_updates

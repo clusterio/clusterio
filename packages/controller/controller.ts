@@ -492,6 +492,11 @@ async function startup() {
 		controller.stop();
 	});
 
+	lib.startLogRetention(
+		[path.join(args.logDirectory, "cluster"), path.join(args.logDirectory, "controller")],
+		() => controllerConfig.get("controller.log_retention_days"),
+	);
+
 	await controller.start(args);
 }
 

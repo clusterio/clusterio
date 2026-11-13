@@ -45,11 +45,61 @@ describe("lib/logging_utils.js", function() {
 				logIndex
 			);
 		});
+		it("should drop entries for files no longer present", async function() {
+			let tempDir = path.join("temp", "test", "log_index_prune");
+			await fs.rm(tempDir, { recursive: true, force: true });
+			await fs.cp(logDir, tempDir, { recursive: true });
+			let logIndex = await lib.LogIndex.load(tempDir);
+			await logIndex.buildIndex();
+			await fs.unlink(path.join(tempDir, "test-2021-12-10.log"));
+			await logIndex.buildIndex();
+			assert.deepEqual(
+				new Set(logIndex.index.keys()),
+				new Set(["test-2021-12-11.log", "test-2021-12-12.log"])
+			);
+		});
 		it("should handle loading broken index", async function() {
 			let tempDir = path.join("temp", "test", "log");
 			await fs.writeFile(path.join(tempDir, "index.json"), "Broken JSON");
 			let logIndex = await lib.LogIndex.load(tempDir);
 			assert.deepEqual(logIndex.index, new Map());
+		});
+	});
+
+	describe("deleteOldLogs", function() {
+		let tempDir = path.join("temp", "test", "log_retention");
+		let files = [
+			"cluster-2026-10-01.log",
+			"cluster-2026-10-12.log",
+			"cluster-2026-10-13.log",
+			"cluster-2026-11-12.log",
+			"index.json",
+			"notes-2026-10-01.txt",
+			".0123abcd-audit.json",
+		];
+		let now = Date.parse("2026-11-12T08:00:00Z");
+		beforeEach(async function() {
+			await fs.rm(tempDir, { recursive: true, force: true });
+			await fs.mkdir(tempDir, { recursive: true });
+			for (let file of files) {
+				await fs.writeFile(path.join(tempDir, file), "");
+			}
+		});
+
+		it("should delete only dated log files past the retention", async function() {
+			let deleted = await lib.deleteOldLogs(tempDir, 30, now);
+			assert.deepEqual(deleted.sort(), ["cluster-2026-10-01.log", "cluster-2026-10-12.log"]);
+			assert.deepEqual(
+				(await fs.readdir(tempDir)).sort(),
+				files.filter(file => !deleted.includes(file)).sort(),
+			);
+		});
+		it("should keep everything with a retention of 0", async function() {
+			assert.deepEqual(await lib.deleteOldLogs(tempDir, 0, now), []);
+			assert.deepEqual((await fs.readdir(tempDir)).sort(), [...files].sort());
+		});
+		it("should ignore a missing directory", async function() {
+			assert.deepEqual(await lib.deleteOldLogs(path.join(tempDir, "missing"), 30, now), []);
 		});
 	});
 

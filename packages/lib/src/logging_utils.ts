@@ -358,8 +358,15 @@ export class LogIndex {
 	 */
 	async buildIndex() {
 		let today = new Date(Date.now() - 300e3).toISOString().slice(0, 10);
+		let files = await fs.readdir(this.logDirectory);
 
-		for (let file of await fs.readdir(this.logDirectory)) {
+		for (let file of this.index.keys()) {
+			if (!files.includes(file)) {
+				this.index.delete(file);
+			}
+		}
+
+		for (let file of files) {
 			let match = logFileGlob.exec(file);
 			if (!match || match[1] >= today || this.index.has(file)) {
 				continue;
@@ -410,6 +417,80 @@ export class LogIndex {
 		}
 		return false;
 	}
+}
+
+/**
+ * Delete dated log files older than the given number of days
+ *
+ * Only files named like name-YYYY-MM-DD.log are deleted, and only once
+ * every entry they can hold is older than retentionDays.
+ *
+ * @param logDirectory - Directory to delete log files from.
+ * @param retentionDays - Days to keep log files for, 0 keeps them forever.
+ * @param now - Current time in milliseconds since the epoch.
+ * @returns names of the deleted files.
+ */
+export async function deleteOldLogs(logDirectory: string, retentionDays: number, now = Date.now()) {
+	if (!(retentionDays > 0)) {
+		return [];
+	}
+
+	let files: string[];
+	try {
+		files = await fs.readdir(logDirectory);
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			return [];
+		}
+		throw err;
+	}
+
+	const cutoff = new Date(now - retentionDays * 86400e3).toISOString().slice(0, 10);
+	const deleted: string[] = [];
+	for (const file of files) {
+		const match = logFileGlob.exec(file);
+		if (!match || match[1] >= cutoff) {
+			continue;
+		}
+		try {
+			await fs.unlink(path.join(logDirectory, file));
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+		}
+		deleted.push(file);
+	}
+	return deleted;
+}
+
+/**
+ * Delete old logs now and then every hour
+ *
+ * @param logDirectories - Directories to delete old log files from.
+ * @param getRetentionDays - Called before each run to get the retention.
+ * @returns the interval timer, which does not keep the process alive.
+ */
+export function startLogRetention(logDirectories: string[], getRetentionDays: () => number) {
+	async function run() {
+		const retentionDays = getRetentionDays();
+		for (const logDirectory of logDirectories) {
+			try {
+				const deleted = await deleteOldLogs(logDirectory, retentionDays);
+				if (deleted.length) {
+					logger.info(
+						`Deleted ${deleted.length} log files older than ${retentionDays} days from ${logDirectory}`
+					);
+				}
+			} catch (err: any) {
+				logger.error(`Failed to delete old logs from ${logDirectory}:\n${err.stack}`);
+			}
+		}
+	}
+	run();
+	const interval = setInterval(run, 3600e3);
+	interval.unref();
+	return interval;
 }
 
 /**
