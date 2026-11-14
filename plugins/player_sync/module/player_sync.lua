@@ -634,6 +634,7 @@ player_sync.on_nth_tick[33] = function(event)
 	player_sync.check_players_in_cutscene()
 	player_sync.check_active_downloads()
 	player_sync.check_active_uploads()
+	player_sync.check_missing_quick_bar_records()
 end
 
 player_sync.events[defines.events.on_cutscene_waypoint_reached] = function(event)
@@ -776,6 +777,20 @@ function player_sync.check_active_downloads()
 						message = "Inventory download failed",
 					})
 				end
+			end
+		end
+	end
+end
+
+-- Quick bar slots pointing into the blueprint library are set once the save has the player's library
+function player_sync.check_missing_quick_bar_records()
+	local script_data = get_script_data()
+	for player_name, failed in pairs(script_data.failed_deserialization) do
+		local player = failed.quick_bar and game.get_player(player_name)
+		if player and player.connected then
+			failed.quick_bar = serialize.restore_missing_quick_bar_records(player, failed.quick_bar)
+			if not next(failed) then
+				script_data.failed_deserialization[player_name] = nil
 			end
 		end
 	end

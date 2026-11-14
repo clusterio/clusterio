@@ -494,6 +494,27 @@ local function find_item_path(inventory, item_number)
 	return nil
 end
 
+--- The record a quick bar slot entry points at, if the player's library has it at that path
+--- @param player LuaPlayer
+--- @param entry QuickBarSlotEncoded.record
+--- @return LuaRecord?
+local function find_record(player, entry)
+	-- The record must still be what was stored, a shifted library must not set the wrong one
+	local records = player.blueprints
+	local record --[[@as LuaRecord?]]
+	for _, index in ipairs(entry.p) do
+		record = records[index]
+		if not (record and record.valid) then
+			return nil
+		end
+		records = record.type == "blueprint-book" and record.contents or {}
+	end
+	if record and record.type == entry.y and (record.label or "") == (entry.l or "") then
+		return record
+	end
+	return nil
+end
+
 --- @param filter ItemFilter
 --- @return QuickBarSlotEncoded
 local function serialize_filter(filter)
@@ -611,18 +632,8 @@ function serialize.deserialize_quick_bar_slot(entry, player)
 		end
 
 		if entry.t == "r" then
-			-- The record must still be what was stored, a shifted library must not set the wrong one
-			local records = player.blueprints
-			local record --[[@as LuaRecord?]]
-			for _, index in ipairs(entry.p) do
-				record = records[index]
-				if not (record and record.valid) then
-					record = nil
-					break
-				end
-				records = record.type == "blueprint-book" and record.contents or {}
-			end
-			if record and record.valid and record.type == entry.y and (record.label or "") == (entry.l or "") then
+			local record = find_record(player, entry)
+			if record then
 				return { type = "record", record = record } --[[@as QuickBarSlot]]
 			end
 
@@ -670,8 +681,9 @@ local function quick_bar_slot_count(player)
 end
 
 --- @param player LuaPlayer
+--- @param missing table<string, QuickBarSlotEncoded.record>? Entries deserialize_quick_bar could not find the record of
 --- @return table<string, QuickBarSlotEncoded>?
-function serialize.serialize_quick_bar(player)
+function serialize.serialize_quick_bar(player, missing)
 	local serialized
 	local width = v2_1_quick_bar_api and player.quick_bar_width
 
@@ -696,19 +708,63 @@ function serialize.serialize_quick_bar(player)
 		end
 	end
 
+	-- A record still missing here is stored again as it came, unless the player put something else in its slot
+	for index, entry in pairs(missing or {}) do
+		serialized = serialized or {}
+		serialized[index] = serialized[index] or entry
+	end
+
 	return serialized
+end
+
+--- Slot index to page and slot on it
+--- @param player LuaPlayer
+--- @param i integer
+local function quick_bar_location(player, i)
+	local width = player.quick_bar_width
+	return math.floor((i - 1) / width) + 1, ((i - 1) % width) + 1
+end
+
+--- Set the slots whose records were not in the player's library when the data was applied. A save gets the library
+--- of a player from the client some seconds after the join, later than the data of a player new to it is applied.
+--- @param player LuaPlayer
+--- @param missing table<string, QuickBarSlotEncoded.record>
+--- @return table<string, QuickBarSlotEncoded.record>? missing Entries whose record is still not there
+function serialize.restore_missing_quick_bar_records(player, missing)
+	for index, entry in pairs(missing) do
+		local page, page_slot = quick_bar_location(player, tonumber(index) --[[@as integer]])
+		if player.get_quick_bar_slot(page, page_slot) ~= nil then
+			-- The player put something else there
+			missing[index] = nil
+		else
+			local record = find_record(player, entry)
+			if record then
+				player.set_quick_bar_slot(page, page_slot, { type = "record", record = record })
+				missing[index] = nil
+			end
+		end
+	end
+	return next(missing) and missing or nil
 end
 
 --- @param player LuaPlayer
 --- @param serialized table<string, string | QuickBarSlotEncoded>?
+--- @return table<string, QuickBarSlotEncoded.record>? missing Entries whose record is not in the player's library
 function serialize.deserialize_quick_bar(player, serialized)
 	-- Every slot is set, and the ones not in the data are cleared, so a slot moved or cleared on the
 	-- previous server does not come back from this server's old copy
 	serialized = serialized or {}
 	local width = v2_1_quick_bar_api and player.quick_bar_width
+	local missing
 	for i = 1, quick_bar_slot_count(player) do
 		local entry = serialized[tostring(i)]
 		local slot = entry ~= nil and serialize.deserialize_quick_bar_slot(entry, player) or nil
+		if slot == nil and v2_1_quick_bar_api and type(entry) == "table" and entry.t == "r" then
+			-- ponytail: kept until the record shows up or the slot is used for something else, so the entry of a
+			-- record deleted from the library is carried along. Drop them by age if that ever matters.
+			missing = missing or {}
+			missing[tostring(i)] = entry
+		end
 		if v2_1_quick_bar_api then
 			local page = math.floor((i - 1) / width) + 1
 			local page_slot = ((i - 1) % width) + 1
@@ -718,6 +774,7 @@ function serialize.deserialize_quick_bar(player, serialized)
 			player.set_quick_bar_slot(i, slot)
 		end
 	end
+	return missing
 end
 
 --- Quick bar page shown on each quick bar row of the screen, kept by every save on its own
@@ -1212,7 +1269,7 @@ function serialize.serialize_player(player, failed_deserialization, components)
 
 	-- Serialize quick bar
 	if syncs(components, "quick_bar") then
-		serialized.quick_bar = serialize.serialize_quick_bar(player)
+		serialized.quick_bar = serialize.serialize_quick_bar(player, failed_deserialization.quick_bar)
 		serialized.quick_bar_pages = serialize.serialize_quick_bar_pages(player)
 	end
 
@@ -1333,6 +1390,7 @@ end
 
 --- @class FailedDeserializationPlayerData
 --- @field recipe_notifications string[]?
+--- @field quick_bar table<string, QuickBarSlotEncoded.record>? Slots whose record is not in the library (yet)
 
 --- @param player LuaPlayer
 --- @param serialized SerializedPlayerData
@@ -1495,7 +1553,9 @@ function serialize.deserialize_player(player, serialized, components, local_cont
 
 	-- Deserialize quick bar (named hotbar in old data)
 	if syncs(components, "quick_bar") then
-		serialize.deserialize_quick_bar(player, serialized.quick_bar or serialized.hotbar)
+		failed_deserialization.quick_bar = serialize.deserialize_quick_bar(
+			player, serialized.quick_bar or serialized.hotbar
+		)
 		serialize.deserialize_quick_bar_pages(player, serialized.quick_bar_pages)
 	end
 
