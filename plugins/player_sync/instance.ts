@@ -200,11 +200,12 @@ export default async function(context: InstancePluginContext) {
 		delete player_data.destination_instance_id;
 
 		logger.verbose(`Uploading ${player_data.name} (${JSON.stringify(player_data).length / 1000}kB)`);
+		let stored: boolean;
 		try {
-			await instance.sendTo(
+			({ stored } = await instance.sendTo(
 				"controller",
 				new UploadRequest(instance.id, player_data.name, player_data, destinationInstanceId),
-			);
+			));
 
 		} catch (err: any) {
 			if (!(err instanceof lib.SessionLost)) {
@@ -213,8 +214,10 @@ export default async function(context: InstancePluginContext) {
 			return;
 		}
 
+		// A copy the controller did not store must not pass for the stored one: the save downloads at the next join
+		const reply = stored ? "confirm_upload" : "reject_upload";
 		await instance.sendRcon(
-			`/sc player_sync.confirm_upload("${player_data.name}", ${player_data.generation})`, true, plugin.name
+			`/sc player_sync.${reply}("${player_data.name}", ${player_data.generation})`, true, plugin.name
 		);
 	}
 

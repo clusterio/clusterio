@@ -384,12 +384,14 @@ function player_sync.check_players_in_cutscene()
 end
 
 -- Whether a join should take the stored data: there is some, and this save hasn't synced the player in that epoch at
--- that generation or newer with every component synced here now. A player without a record here has nothing to keep.
+-- that generation or newer with every component synced here now, or the controller did not store its last upload
+-- (reject_upload). A player without a record here has nothing to keep.
 local function download_needed(player_record, acquire_response, script_data)
 	return acquire_response.has_data
 		and (
 			not player_record
 			or not player_record.sync
+			or player_record.outdated
 			or (player_record.epoch or 0) ~= (acquire_response.epoch or 0)
 			or acquire_response.generation > player_record.generation
 			or serialize.newly_synced(player_record.components, script_data.components)
@@ -543,6 +545,8 @@ function player_sync.sync_player(acquire_response)
 		start_sync(player_record, script_data.components)
 		player_record.dirty = true
 		player_record.sync_in_progress = false
+		-- Nothing stored to download: the copy here is all there is
+		player_record.outdated = nil
 		-- Deleted data keeps its generation and epoch so the next upload is accepted as the new baseline
 		player_record.epoch = epoch
 		-- A copy from another epoch has nothing to do with the stored generation
@@ -573,6 +577,7 @@ function player_sync.finish_download(player, finished_record)
 
 	player_record.dirty = true
 	player_record.sync_in_progress = false
+	player_record.outdated = nil
 	start_sync(player_record, finished_record.components)
 	player_record.generation = finished_record.generation
 	player_record.epoch = finished_record.epoch
@@ -722,6 +727,32 @@ function player_sync.confirm_upload(player_name, generation)
 	log("Confirmed upload of " .. player_name)
 	script_data.active_uploads[player_name] = nil
 	player_record.dirty = false
+end
+
+-- Invoked by the instance code when the controller did not store the uploaded data: it holds another copy that is
+-- newer, locked by another instance or from another epoch. This save's copy lost, even at the same generation, so it
+-- is not uploaded again and the next join downloads. A retry of an upload the controller already stored ends up here
+-- too, and then downloads what this save sent.
+function player_sync.reject_upload(player_name, generation)
+	local player = game.get_player(player_name)
+	if not player then
+		return
+	end
+	local script_data = get_script_data()
+	-- A player who is back already still waits for the acquire reply, which the controller sent after this one, and
+	-- that join then downloads. Past that reply the join has decided and this is not about the copy here any more.
+	if player.connected and not script_data.players_waiting_for_acquire[player_name] then
+		return
+	end
+	local player_record = script_data.players[player.name]
+	if not player_record or player_record.generation ~= generation then
+		return
+	end
+
+	log("Upload of " .. player_name .. " was not stored, the next join downloads")
+	script_data.active_uploads[player_name] = nil
+	player_record.dirty = false
+	player_record.outdated = true
 end
 
 function player_sync.initiate_inventory_download(player, player_record, generation, epoch)
