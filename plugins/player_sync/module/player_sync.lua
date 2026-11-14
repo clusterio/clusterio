@@ -785,6 +785,11 @@ end
 -- Quick bar slots pointing into the blueprint library are set once the save has the player's library
 function player_sync.check_missing_quick_bar_records()
 	local script_data = get_script_data()
+	-- Not once the quick bar stopped being synced here. The entries stay for the upload, which goes by the
+	-- components of the player's session.
+	if not serialize.syncs(script_data.components, "quick_bar") then
+		return
+	end
 	for player_name, failed in pairs(script_data.failed_deserialization) do
 		local player = failed.quick_bar and game.get_player(player_name)
 		if player and player.connected then
