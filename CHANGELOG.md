@@ -31,6 +31,124 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.1.0
+
+### Features
+
+- Added `Instance.autoPaused` and the `autoPauseChanged` instance hook so plugins can skip periodic commands while the game is auto paused. [#258](<https://github.com/clusterio/clusterio/issues/258>)
+- Hosts ask to join the cluster when first started and are approved in the web interface or with clusterioctl host approve. [#1161](<https://github.com/clusterio/clusterio/pull/1161>)
+- Exporting data from an instance running the headless build of Factorio now reads the base game's icons from a full install of the same version in `host.factorio_directory`, if there is one. [#1068](<https://github.com/clusterio/clusterio/issues/1068>)
+- Added instance templates that other instances inherit config values from, with linked inherited values in the web interface, see `instance.is_template` and `instance.template_id`. [#200](<https://github.com/clusterio/clusterio/issues/200>)
+- Added the mod pack an instance uses to the instance list and instance page, with a link to it. [#852](<https://github.com/clusterio/clusterio/issues/852>)
+- Added controller metrics for WebSocket ready, resume, drop, session timeout and failed resume events. [#1192](<https://github.com/clusterio/clusterio/issues/1192>)
+- Added online player count column to the instance list in the web interface. [#1193](<https://github.com/clusterio/clusterio/issues/1193>)
+- Added controller.log_retention_days and host.log_retention_days to delete log files older than the given number of days. [#1200](<https://github.com/clusterio/clusterio/pull/1200>)
+- Added a plugin browser to the plugins page that searches npm for packages with the clusterio-plugin keyword and installs them on a chosen set of machines, defaulting to every connected machine that allows remote installs. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added a field to the plugin browser for installing a package by name. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added a Versions column to the plugins page showing how many machines run each plugin version now and after a restart, with restart pending, disabled, not installed and offline counts. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added a table of machines to the plugin page with the version and status of the plugin on each, and an install or update button for machines that aren't on the latest version. Plugins only installed on hosts have a page too. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added "Update to X" and "Update all" actions to the plugins page that bring every machine to the latest version of a plugin on npm, installing it where it's missing, with a checklist of the changes to make. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added a "Restart pending" action to the plugins page that restarts the chosen machines with a pending restart, hosts first and the controller last. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added support for `name@version` in plugin install and update requests and the matching clusterioctl commands, for installing a specific version or updating past the range saved in package.json. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added `PluginLatestVersionsRequest` for looking up the latest version of plugins published on npm. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added `controller plugin search` command to clusterioctl. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added `core.plugin.search` permission. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Added a `handleSignals` constructor argument to `LockFile` for locks that should only be released on exit. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+
+### Fixes
+
+- Fixed the plugin template asking for an older TypeBox version than lib, which made new plugins fail to compile. [#1127](<https://github.com/clusterio/clusterio/issues/1127>)
+- Fixed subspace_storage and statistics_exporter keeping auto paused servers running with their periodic RCON commands. [#258](<https://github.com/clusterio/clusterio/issues/258>)
+- Fixed research_sync losing research progress and finished research while the controller was unreachable. [#1123](<https://github.com/clusterio/clusterio/issues/1123>)
+- Fixed stopping an instance while it is starting failing with "Expected state running but state is stopping" or leaving it running. The stop now takes effect once the instance has started, and the control button shows as loading while the instance is starting or stopping. [#879](<https://github.com/clusterio/clusterio/issues/879>)
+- Raised the required Node.js version to 22.18 or 24.2, since earlier 22.x and 24.x releases silently skipped CLI startup. [#1109](<https://github.com/clusterio/clusterio/issues/1109>)
+- Fixed user view page not updating the displayed roles when they change. [#775](<https://github.com/clusterio/clusterio/issues/775>)
+- Fixed role view page discarding unsaved edits when the role is updated, and not showing changes made elsewhere alongside local edits. [#776](<https://github.com/clusterio/clusterio/issues/776>)
+- Fixed data export failing completely when one icon could not be read or decoded, the icon is now skipped with a warning. [#841](<https://github.com/clusterio/clusterio/issues/841>)
+- Fixed mod settings added by a data export showing up empty on an open mod pack page until it was reloaded. [#840](<https://github.com/clusterio/clusterio/issues/840>)
+- Fixed Player Sync dropping recipe notifications on download when the player had no cleared recipes, which also replaced the stored list on the next upload. [#964](<https://github.com/clusterio/clusterio/issues/964>)
+- Fixed export-data on headless Factorio counting blank layered icons as exported and not reporting that the base game icons were missing. [#1068](<https://github.com/clusterio/clusterio/issues/1068>)
+- Controller drops export data whose files were deleted, at startup or when a missing file is requested, and the web interface falls back cleanly instead of showing errors. [#878](<https://github.com/clusterio/clusterio/issues/878>)
+- Fixed player_sync leaving a player as a spectator with no body, and uploading that empty state, after a download stalled while the controller was down. [#1124](<https://github.com/clusterio/clusterio/issues/1124>)
+- Fixed player_sync teleporting a player back after another mod, such as universal edges, teleported them while their player data downloaded. [#908](<https://github.com/clusterio/clusterio/issues/908>)
+- Fixed plugins that need save patching, script commands or Lua UDP defaulting to loaded on instances with that feature disabled, which made saving the instance config fail. [#651](<https://github.com/clusterio/clusterio/issues/651>)
+- Fixed Player Sync keeping cleared recipe notifications and losing ones for recipes missing here when a download changed the player's force. [#964](<https://github.com/clusterio/clusterio/issues/964>)
+- Fixed the instance filter on the users page and the icon reference search being lost when navigating back to the page. [#1185](<https://github.com/clusterio/clusterio/pull/1185>)
+- Fixed the web UI ignoring `localised_name` and `localised_description` of mod settings and showing rich text tags in setting names. [#768](<https://github.com/clusterio/clusterio/issues/768>)
+- Fixed saves patched by a newer version of Clusterio not being rejected. [#1184](<https://github.com/clusterio/clusterio/pull/1184>)
+- Fixed the research_sync queue chat line showing the same level for every queued level of an infinite technology. [#1186](<https://github.com/clusterio/clusterio/issues/1186>)
+- Fixed the web interface logging MaxListenersExceededWarning when plugins create more than 7 subscribers. [#1145](<https://github.com/clusterio/clusterio/issues/1145>)
+- Fixed Player Sync failing with "Failed to create character" when the player was in a chunk that was not generated yet or had no land nearby. [#1187](<https://github.com/clusterio/clusterio/issues/1187>)
+- Fixed player_sync not syncing which page each quick bar row shows, so the quick bar could show other slots after switching servers. [#1201](<https://github.com/clusterio/clusterio/issues/1201>)
+- Fixed the controller reading the whole body of save, mod and export uploads it had rejected, when running behind a reverse proxy. [#595](<https://github.com/clusterio/clusterio/issues/595>)
+- Fixed uploads to the controller taking more than 5 minutes failing. [#1173](<https://github.com/clusterio/clusterio/pull/1173>)
+- Fixed a plugin list entry for a path that no longer exists taking precedence over an npm package providing the same plugin. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Fixed npm plugins already in the plugin list logging "already in the plugin list, but with a different path" on every startup. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+
+### Changes
+
+- Errors thrown by request handlers are received by the requester as the same class instead of a generic `RequestError`. Plugins can register their own error classes with `errors` in the plugin declaration. [#900](<https://github.com/clusterio/clusterio/issues/900>)
+- Replaced webpack with Vite for building the web interface and plugin web modules. `--dev` now uses the Vite development server with hot module replacement. [#1127](<https://github.com/clusterio/clusterio/issues/1127>)
+- Removed the separate web interface load state from the plugins pages, web load errors now show with the plugin's versions. [#1140](<https://github.com/clusterio/clusterio/pull/1140>)
+- Build the published packages with TypeScript 7, and use it in the plugin template. Plugins can keep using TypeScript 5.9 or 6. [#1147](<https://github.com/clusterio/clusterio/pull/1147>)
+- `ctl host plugin list` shows the plugin state in place of the loaded and enabled columns. [#1134](<https://github.com/clusterio/clusterio/issues/1134>)
+- Reduced the size of a host install by replacing jimp with only the jimp modules the export uses. [#1162](<https://github.com/clusterio/clusterio/pull/1162>)
+- `@clusterio/web_ui` no longer installs typescript. Plugins that compile with `tsc` need typescript in their own devDependencies. [#1163](<https://github.com/clusterio/clusterio/pull/1163>)
+- Commands of clusteriocontroller and clusteriohost that don't start the server, like config and bootstrap, start about 45% faster. [#1159](<https://github.com/clusterio/clusterio/pull/1159>)
+- Made web interface view pages show resources that are loading, missing, deleted or failed to load the same way, instead of spinning forever without the subscribe permission. [#1165](<https://github.com/clusterio/clusterio/issues/1165>)
+- Added `ResourceState` and `useResourceState` to the web_ui package, and `useHost`, `useInstance`, `useUser`, `useRole` and `useModPack` now also return the subscription error. [#1165](<https://github.com/clusterio/clusterio/issues/1165>)
+- Reduced the download size of the create tool by replacing inquirer 8 with the standalone @inquirer prompt packages. [#1164](<https://github.com/clusterio/clusterio/pull/1164>)
+- `clusterioctl instance config edit` only sends the fields changed in the editor. [#200](<https://github.com/clusterio/clusterio/issues/200>)
+- Mod settings that no mod in a mod pack's export data defines are now hidden in a collapsed section on the mod pack page and can be removed from there. [#773](<https://github.com/clusterio/clusterio/issues/773>)
+- Added `UserManager.verifyUserToken` for checking user tokens. [#1180](<https://github.com/clusterio/clusterio/pull/1180>)
+- subspace_storage now requires save patching on the instance, it did not work without it. [#651](<https://github.com/clusterio/clusterio/issues/651>)
+- Saves started with save patching disabled now have the Clusterio modules removed and their original control.lua restored. [#651](<https://github.com/clusterio/clusterio/issues/651>)
+- The research_sync chat line for a research queue change names only the technologies added, removed or moved, instead of printing the whole queue. [#1186](<https://github.com/clusterio/clusterio/issues/1186>)
+- Focused the search input when opening mod search on the mods page and the mod pack view. [#1194](<https://github.com/clusterio/clusterio/issues/1194>)
+- The online player list on the instance page is always shown, collapsed when no players are online. [#1191](<https://github.com/clusterio/clusterio/issues/1191>)
+- The installer detects Factorio installed through Steam on macOS. [#1190](<https://github.com/clusterio/clusterio/issues/1190>)
+- Log files older than 30 days are now deleted by default. Existing installs will lose logs older than 30 days on the first start after upgrading. To keep them, set controller.log_retention_days and host.log_retention_days to 0 with the config command after upgrading but before starting the controller and hosts. [#1200](<https://github.com/clusterio/clusterio/pull/1200>)
+- Requests to the controller moving less than controller.transfer_min_progress KiB in 30 seconds are now closed. [#842](<https://github.com/clusterio/clusterio/issues/842>)
+- Plugin lists now include the version installed on disk and npm plugins installed since startup. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- System metrics now include the plugins on each machine, kept for hosts while they are offline. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- The "Updates" button on the host and controller pages is now "Update Clusterio" and no longer installs or updates plugins. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Plugin installs and updates are rejected while another npm operation is running on the same machine, including between a standalone controller and host sharing an installation directory. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Plugin installs and pinned updates are rejected when the package by that name is installed from a path, git, url, tarball or alias, either by the root package.json or by another plugin, as installing by name would replace it. Such plugins no longer report an npm package. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Hosts and the controller refuse to restart while a plugin install or update is running on the machine. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Lock files now include the process start time, so a lock left by an earlier process with the same pid is treated as stale. A lock file is only removed by the process that wrote it. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+- Plugins in `optionalDependencies` are now found on startup, and their entries override `dependencies` of the same name like they do in npm. [#1001](<https://github.com/clusterio/clusterio/issues/1001>)
+
+### Breaking Changes
+
+- Removed `lib.findUnusedName`, its result could be taken by another process before use. [#1128](<https://github.com/clusterio/clusterio/pull/1128>)
+- Replaced `DatastoreProvider.bootstrap()` with `KeyValueDatastore.fromProvider()` and `SubscribableDatastore.fromProvider()`, and `Controller.bootstrap()` / `Host.bootstrap()` with `Controller.fromConfig()` / `Host.fromConfig()`. [#1126](<https://github.com/clusterio/clusterio/issues/1126>)
+- Replaced `FactorioServer.init()` and `setTargetVersion()` with `FactorioServer.fromOptions()`, and `FactorioServer.checkForUpdates()` with an exported `checkForUpdates()` function. [#1126](<https://github.com/clusterio/clusterio/issues/1126>)
+- Replaced `Instance.init()` with `Instance.fromConfig()` followed by `instance.loadPlugins()`. The `Instance` constructor now takes the `FactorioServer` instead of the factorio directory. [#1126](<https://github.com/clusterio/clusterio/issues/1126>)
+- Replaced `RequestError` with error classes following HTTP status codes: `ClientError` (`ValidationError`, `ForbiddenError`, `NotFoundError`, `TimeoutError`, `ConflictError`) and `ServerError` (`InternalServerError`, `UnavailableError`). [#900](<https://github.com/clusterio/clusterio/issues/900>)
+- Renamed `InvalidValue`, `InvalidField` and `InvalidAccess` to `InvalidValueError`, `InvalidFieldError` and `InvalidAccessError`. [#900](<https://github.com/clusterio/clusterio/issues/900>)
+- Plugin web modules must be built with Vite using `clusterioPlugin` from `@clusterio/web_ui/vite.mjs`. Plugins built with webpack no longer load. See docs/devs/plugin-migration-to-2.1.md. [#1127](<https://github.com/clusterio/clusterio/issues/1127>)
+- Renamed `lib.PluginWebpackEnvInfo` to `lib.PluginWebEnvInfo`. [#1127](<https://github.com/clusterio/clusterio/issues/1127>)
+- `PluginDetails` takes a `state` in place of `loaded` and `enabled`, use the `loaded` and `loadsOnRestart` getters to read them. [#1134](<https://github.com/clusterio/clusterio/issues/1134>)
+- Node.js 22.0 to 22.17 and 24.0 to 24.1 are no longer supported. [#1109](<https://github.com/clusterio/clusterio/issues/1109>)
+- Removed host token management: clusterioctl host generate-token, revoke-token and create-config, bootstrap generate-host-token and their permissions. Hosts are revoked from the host page or with clusterioctl host revoke. [#1161](<https://github.com/clusterio/clusterio/pull/1161>)
+- Renamed `lib.safeOutputFile` to `lib.atomicOverwriteFile`. [#876](<https://github.com/clusterio/clusterio/issues/876>)
+- Added `HostManager` as `controller.hosts`; the hosts datastore moved to `controller.hosts.records`, `Controller.generateHostToken` and `verifyHostToken` became `controller.hosts.signHostToken` and `verifyHostToken`, and `HostPairingManager.createHost` became `controller.hosts.createHost`, which returns the host record. [#1180](<https://github.com/clusterio/clusterio/pull/1180>)
+
+### Meta
+
+- Replaced ESLint with Oxlint. [#1127](<https://github.com/clusterio/clusterio/issues/1127>)
+- Removed TypeDoc and the `pnpm docs` script. [#1147](<https://github.com/clusterio/clusterio/pull/1147>)
+
+### Contributors
+
+Many thanks to the following for contributing to this release:
+[@psihius](<https://github.com/psihius>), [@bbassie](<https://github.com/bbassie>), [@Danielv123](<https://github.com/Danielv123>), [@ILLISIS](<https://github.com/ILLISIS>)
+
+### Statistics
+
+Commits: 148  Pull Requests: 55  Files Changed: 296  Additions: +17,343  Deletions: -4,190
+
+
 ## Version 2.0.3
 
 ### Features
