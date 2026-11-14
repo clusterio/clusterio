@@ -735,10 +735,15 @@ end
 -- too, and then downloads what this save sent.
 function player_sync.reject_upload(player_name, generation)
 	local player = game.get_player(player_name)
-	if not player or player.connected then
+	if not player then
 		return
 	end
 	local script_data = get_script_data()
+	-- A player who is back already still waits for the acquire reply, which the controller sent after this one, and
+	-- that join then downloads. Past that reply the join has decided and this is not about the copy here any more.
+	if player.connected and not script_data.players_waiting_for_acquire[player_name] then
+		return
+	end
 	local player_record = script_data.players[player.name]
 	if not player_record or player_record.generation ~= generation then
 		return

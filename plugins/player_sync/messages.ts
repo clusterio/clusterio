@@ -269,12 +269,13 @@ export class UploadResponse {
 	) {
 	}
 
-	static jsonSchema = Type.Object({
-		"stored": Type.Boolean(),
+	// No type: a controller from before this response replies with nothing, which counts as stored
+	static jsonSchema = Type.Unsafe<{ stored: boolean } | undefined>({
+		properties: { "stored": { type: "boolean" } },
 	});
 
 	static fromJSON(json: Static<typeof UploadResponse.jsonSchema>) {
-		return new this(json.stored);
+		return new this(json?.stored ?? true);
 	}
 }
 
