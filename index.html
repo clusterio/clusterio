@@ -1,0 +1,2 @@
+<!doctype html>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Plugin layout fixture</title></head><body><div id="root"></div><script>window.webRoot = "/";</script><script type="module" src="/temp/plugin-layout/main.tsx"></script></body></html>
