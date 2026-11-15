@@ -169,8 +169,10 @@ export default function SiteLayout() {
 	/>;
 
 	let accountMenu = <Dropdown menu={accountMenuProps} trigger={["click"]} placement="bottomRight">
-		<Button type="text" icon={<UserOutlined />} style={{ marginInlineStart: "auto" }}>
-			{account.name}
+		<Button type="text" icon={<UserOutlined />} style={{ marginInlineStart: "auto" }}
+			aria-label={`Account menu for ${account.name}`}
+		>
+			<span className="site-layout-account-name">{account.name}</span>
 		</Button>
 	</Dropdown>;
 
@@ -228,7 +230,7 @@ export default function SiteLayout() {
 			<Link to="/" style={{ display: "flex", alignItems: "center" }}>
 				<img src={logo} width={56} height={56} alt="Clusterio logo" />
 			</Link>
-			<Flex vertical justify="center">
+			<Flex vertical justify="center" className="site-layout-brand">
 				<Typography.Title level={4} style={{ margin: 0, lineHeight: 1.2 }}>Clusterio</Typography.Title>
 				<Tooltip title="View changelog" placement="right">
 					<Typography.Text
