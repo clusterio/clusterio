@@ -11,7 +11,7 @@ import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useMods } from "../model/mods";
-import { useModPacks } from "../model/mod_pack";
+import { useDefaultModPack, useModPacks } from "../model/mod_pack";
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
@@ -143,6 +143,16 @@ function CreateModPackButton() {
 	</>;
 }
 
+function defaultSearchVersion(modPack?: lib.ModPack): lib.MajorMinorVersion {
+	if (modPack) {
+		const version = lib.normaliseMajorMinorVersion(modPack.factorioVersion);
+		if ((lib.ApiVersions as readonly string[]).includes(version)) {
+			return version;
+		}
+	}
+	return lib.ApiVersions[lib.ApiVersions.length - 1];
+}
+
 function SearchModsButton() {
 	const control = useContext(ControlContext);
 	const account = useAccount();
@@ -150,7 +160,9 @@ function SearchModsButton() {
 	const [form] = Form.useForm();
 	const nameInputRef = useRef<InputRef>(null);
 	const [searchText, setSearchText] = useState("");
-	const [factorioVersion, setFactorioVersion] = useState<lib.MajorMinorVersion>("2.0");
+	const defaultModPack = useDefaultModPack();
+	const [pickedVersion, setPickedVersion] = useState<lib.MajorMinorVersion>();
+	const factorioVersion = pickedVersion ?? defaultSearchVersion(defaultModPack);
 
 	// State for all mods fetched from backend
 	const [allMods, setAllMods] = useState<ModPortalModType[]>([]);
@@ -274,22 +286,20 @@ function SearchModsButton() {
 		return filtered.length;
 	}, [allMods, searchText]);
 
-	// Update search text and factorio version from form
+	// Update search text from form
 	const handleSearch = (changedValues: any, allValues: any) => {
 		const nameValue = allValues.name;
-		const versionValue = allValues.factorioVersion as lib.MajorMinorVersion | undefined;
-
-		// Only trigger state updates if values actually changed
 		if (nameValue !== searchText) {
 			setSearchText(nameValue || "");
+			setPage(1);
 		}
-		if (versionValue && versionValue !== factorioVersion) {
-			setFactorioVersion(versionValue);
+	};
+
+	const handleVersionChange = (version: lib.MajorMinorVersion) => {
+		if (version !== factorioVersion) {
+			setPickedVersion(version);
 			setAllMods([]); // Clear mods when version changes, useEffect will fetch new ones
 			setLoading(true); // Show loading indicator immediately
-		}
-		// Reset page only if search text or version changed
-		if (nameValue !== searchText || (versionValue && versionValue !== factorioVersion)) {
 			setPage(1);
 		}
 	};
@@ -349,16 +359,13 @@ function SearchModsButton() {
 				labelCol={{ span: 6 }}
 				wrapperCol={{ span: 18 }}
 				onValuesChange={handleSearch}
-				initialValues={{ factorioVersion: factorioVersion, name: searchText }}
+				initialValues={{ name: searchText }}
 			>
 				<Form.Item name="name" label="Filter by Name or Title">
 					<Input ref={nameInputRef} placeholder="Start typing to filter..." />
 				</Form.Item>
-				<Form.Item
-					name="factorioVersion"
-					label="Factorio Version"
-				>
-					<Select>
+				<Form.Item label="Factorio Version">
+					<Select value={factorioVersion} onChange={handleVersionChange}>
 						{lib.ApiVersions.map(version => (
 							<Select.Option key={version} value={version}>
 								{version}
