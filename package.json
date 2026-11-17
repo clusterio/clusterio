@@ -9,7 +9,7 @@
 		"watch": "tsc --build --watch",
 		"build-mod": "pnpm run -r build-mod --output-dir ../../dist",
 		"test": "pnpm run build && NODE_EXTRA_CA_CERTS=$(pwd)/test/file/tls/cert.pem mocha --enable-source-maps --check-leaks -R ./test/reporter.cjs --recursive test \"plugins/*/test/**\" --exclude \"test/manual/**\"",
-		"silent-test": "SILENT_TEST=y pnpm test",
+		"silent-test": "TEST_OUTPUT=silent pnpm test",
 		"fast-test": "FAST_TEST=y pnpm test",
 		"no-external-test": "NO_EXTERNAL_TEST=y pnpm test",
 		"cover": "c8 pnpm test",

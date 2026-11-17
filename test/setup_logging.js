@@ -5,11 +5,8 @@ import { ConsoleTransport, TerminalFormat, logger } from "@clusterio/lib";
 // running tests individually.
 
 before(function() {
-	const silent = process.env.SILENT_TEST;
-
 	logger.add(new ConsoleTransport({
 		level: "info",
 		format: new TerminalFormat(),
-		filter: () => !silent,
 	}));
 });

@@ -69,13 +69,13 @@ jobs:
       if: ${{ !matrix.coverage }}
       env:
         # Re-run with debug logging to see output from passing tests
-        VERBOSE_TEST: ${{ runner.debug }}
+        TEST_OUTPUT: ${{ runner.debug == '1' && 'verbose' || 'normal' }}
       run: pnpm test --grep "^(Integration of Clusterio (clusterioctl|plugin system)|Clusterio Instance) " ${{ matrix.tests == 'other' && '--invert' || '' }}
     - name: Run coverage
       if: ${{ matrix.coverage }}
       env:
         # Re-run with debug logging to see output from passing tests
-        VERBOSE_TEST: ${{ runner.debug }}
+        TEST_OUTPUT: ${{ runner.debug == '1' && 'verbose' || 'normal' }}
       run: pnpm run ci-cover --grep "^(Integration of Clusterio (clusterioctl|plugin system)|Clusterio Instance) " ${{ matrix.tests == 'other' && '--invert' || '' }}
     - name: Upload coverage to Codecov
       if: ${{ matrix.coverage }}

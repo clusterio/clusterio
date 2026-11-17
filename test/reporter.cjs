@@ -1,5 +1,6 @@
-// Spec reporter that holds back console output and prints it only for
-// failing tests and hooks. Set VERBOSE_TEST to print everything as it happens.
+// Spec reporter controlling console output with TEST_OUTPUT:
+// verbose prints everything, normal (default) prints only output from failing
+// tests and hooks, silent prints only the results.
 "use strict";
 const util = require("node:util");
 const Mocha = require("mocha");
@@ -7,11 +8,16 @@ const Mocha = require("mocha");
 const { Spec } = Mocha.reporters;
 const { EVENT_TEST_FAIL, EVENT_TEST_PASS, EVENT_TEST_PENDING } = Mocha.Runner.constants;
 const methods = ["log", "info", "debug", "warn", "error"];
+const modes = ["verbose", "normal", "silent"];
 
 class CaptureReporter extends Spec {
 	constructor(runner, options) {
 		super(runner, options);
-		if (process.env.VERBOSE_TEST) {
+		const mode = process.env.TEST_OUTPUT || "normal";
+		if (!modes.includes(mode)) {
+			throw new Error(`Invalid TEST_OUTPUT "${mode}", expected one of ${modes.join(", ")}`);
+		}
+		if (mode === "verbose") {
 			return;
 		}
 
@@ -19,7 +25,9 @@ class CaptureReporter extends Spec {
 		const captured = [];
 		for (const method of methods) {
 			original[method] = console[method];
-			console[method] = (...args) => { captured.push([method, util.format(...args)]); };
+			console[method] = mode === "silent"
+				? () => {}
+				: (...args) => { captured.push([method, util.format(...args)]); };
 		}
 
 		const discard = () => { captured.length = 0; };
