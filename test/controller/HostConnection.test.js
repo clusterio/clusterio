@@ -136,6 +136,46 @@ describe("controller/src/HostConnection", function() {
 		});
 	});
 
+	describe("system info on connect", function() {
+		let controller;
+		let connector;
+		let connection;
+
+		beforeEach(function() {
+			controller = new Controller(lib.logger, [], new lib.ControllerConfig("controller"));
+			controller.hosts.records.set(new HostRecord(10, "host-10", "1.0.0", new Map()));
+			connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
+			connection = new HostConnection(
+				new lib.RegisterHostData("", "2.0.0", 10, {}), connector, controller, "10.0.0.1"
+			);
+		});
+
+		function systemInfoRequests() {
+			return connector.sentMessages.filter(message => message.name === "SystemInfoRequest");
+		}
+
+		it("should request system info as soon as the host connects", async function() {
+			connector.emit("connect");
+			const [request] = systemInfoRequests();
+			assert(request, "SystemInfoRequest was not sent");
+			assert.equal(connection.id, 10);
+
+			const info = await lib.gatherSystemInfo(10, false, true, 0);
+			connector.emit("message", new lib.MessageResponse(request.seq, request.dst, request.src, info));
+			await new Promise(resolve => setImmediate(resolve));
+			assert.equal(controller.systems.get(10)?.restartRequired, true);
+		});
+		it("should not request system info when a session resumes", function() {
+			connector.emit("resume");
+			assert.deepEqual(systemInfoRequests(), []);
+		});
+		it("should not request system info when system metrics are disabled", function() {
+			controller.config.set("controller.system_metrics_interval", 0);
+			connector.emit("connect");
+			assert.deepEqual(systemInfoRequests(), []);
+		});
+	});
+
 	describe(".handleInstanceSaveDetailsUpdatesEvent()", function() {
 		// Instance 1 is on host 10, instance 2 is on host 20.
 		const assignments = new Map([[1, 10], [2, 20]]);

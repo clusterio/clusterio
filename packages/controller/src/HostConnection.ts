@@ -51,6 +51,7 @@ export default class HostConnection extends BaseConnection {
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			this.connector.on(event, () => this._controller.hooks.hostConnectionEvent.invoke(this, event));
 		}
+		this.connector.on("connect", () => { this._controller.updateHostSystem(this); });
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.

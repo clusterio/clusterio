@@ -634,6 +634,32 @@ describe("controller/src/Controller", function() {
 				assert.equal(controller.config.restartRequired, true);
 			});
 		});
+		describe(".onSystemMetricsIntervalChanged()", function() {
+			let calls;
+			beforeEach(function() {
+				calls = 0;
+				controller.updateSystems = async () => { calls += 1; };
+			});
+			afterEach(function() {
+				clearInterval(controller.systemMetricsInterval);
+				controller.systemMetricsInterval = undefined;
+				delete controller.updateSystems;
+				controller.config.set("controller.system_metrics_interval", 10);
+			});
+			it("updates systems right away and then on every interval", async function() {
+				controller.config.set("controller.system_metrics_interval", 0.01);
+				controller.onSystemMetricsIntervalChanged();
+				assert.equal(calls, 1, "first update waited for the interval");
+				await new Promise(resolve => setTimeout(resolve, 35));
+				assert(calls >= 3, `expected interval updates, got ${calls} calls`);
+			});
+			it("does nothing when the interval is 0", function() {
+				controller.config.set("controller.system_metrics_interval", 0);
+				controller.onSystemMetricsIntervalChanged();
+				assert.equal(calls, 0);
+				assert.equal(controller.systemMetricsInterval, undefined);
+			});
+		});
 		describe(".checkRestartDowngrade()", function() {
 			it("returns null when the installed version matches", async function() {
 				controller.config.set("controller.version", controllerVersion);
