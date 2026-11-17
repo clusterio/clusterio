@@ -446,7 +446,7 @@ set "NODE_OPTIONS=--enable-source-maps %NODE_OPTIONS%"
 :restart
 call .\\node_modules\\.bin\\clusteriocontroller.cmd run --can-restart
 if %errorlevel% equ 0 exit /b
-if %errorlevel% equ 8 exit /b
+if %errorlevel% equ 8 exit /b 8
 goto restart
 `
 			);
@@ -458,7 +458,8 @@ goto restart
 export "NODE_OPTIONS=--enable-source-maps $NODE_OPTIONS"
 while true; do
 	./node_modules/.bin/clusteriocontroller run --can-restart
-	if [[ $? -eq 0 || $? -eq 8 ]]; then exit $?; fi
+	code=$?
+	if [[ $code -eq 0 || $code -eq 8 ]]; then exit $code; fi
 done
 `,
 				{ mode: 0o755 },
@@ -498,7 +499,7 @@ set "NODE_OPTIONS=--enable-source-maps %NODE_OPTIONS%"
 ${extraCaCertsLine}:restart
 call .\\node_modules\\.bin\\clusteriohost.cmd run --can-restart
 if %errorlevel% equ 0 exit /b
-if %errorlevel% equ 8 exit /b
+if %errorlevel% equ 8 exit /b 8
 goto restart
 `
 			);
@@ -511,7 +512,8 @@ goto restart
 export "NODE_OPTIONS=--enable-source-maps $NODE_OPTIONS"
 ${extraCaCertsLine}while true; do
 	./node_modules/.bin/clusteriohost run --can-restart
-	if [[ $? -eq 0 || $? -eq 8 ]]; then exit $?; fi
+	code=$?
+	if [[ $code -eq 0 || $code -eq 8 ]]; then exit $code; fi
 done
 `,
 				{ mode: 0o755 },
