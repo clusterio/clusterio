@@ -2,6 +2,21 @@
 
 This folder contains files used for performing manual tests that are non-trivial to automate.
 
+
+## Plugins page on small screens
+
+Use a cluster with several plugins, including one with different running and installed versions and one with a web load error.
+Compare the Plugins page at 390px and 1440px viewport widths, and check the 768px breakpoint.
+
+1. On phones, check that each row shows its name, versions, machine counts, status and update action vertically, without clipping or breaking ordinary words.
+2. Check that a long plugin name wraps and the header branding stays on one line.
+3. Search and sort by name, reload, and check that the selected filter and sort order remain applied.
+4. Open an update or restart checklist, then cancel it; update actions must not navigate to the plugin page.
+5. Open a plugin by its name and by clicking elsewhere in its row.
+6. Open the account menu using the user icon on mobile; the full account name should appear in the menu.
+7. On desktop, check that the name, versions and update action remain separate columns.
+
+
 ## Setup test mod
 
 Run `node packages/lib/dist/node/build_mod.js --source-dir test/manual/test_mod/ --output-dir mods/` to create the test mod.

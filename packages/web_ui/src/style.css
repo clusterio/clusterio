@@ -72,6 +72,38 @@ body {
 	background: #001529;
 }
 
+.site-layout-brand {
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+	.site-layout-account-name {
+		display: none;
+	}
+
+	.plugins-table .table-link-cell > a {
+		font-weight: 600;
+		overflow-wrap: anywhere;
+	}
+}
+
+.plugin-mobile-details {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 12px;
+	margin-top: 8px;
+	overflow-wrap: anywhere;
+}
+
+.plugin-version {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: 12px;
+}
+
 /* Keep the sidebar fixed in place (below the header) while content scrolls. */
 .site-layout-sider {
 	position: sticky;

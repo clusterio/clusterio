@@ -172,10 +172,12 @@ export function PluginVersions(props: { status: PluginStatus, latest?: string })
 		{versions.map(version => {
 			const now = count(machine => machine.running === version);
 			const after = count(machine => machine.afterRestart === version);
-			return <div key={version}>
-				<Text>{version}</Text>
-				{props.latest === version && <Tag color="success" style={{ marginLeft: 6 }}>latest</Tag>}
-				<Text type="secondary" style={{ marginLeft: 12 }}>
+			return <div key={version} className="plugin-version">
+				<span>
+					<Text>{version}</Text>
+					{props.latest === version && <Tag color="success" style={{ marginLeft: 6 }}>latest</Tag>}
+				</span>
+				<Text type="secondary">
 					{plural(now, "machine")}{now !== after && ` → ${after} after restart`}
 				</Text>
 			</div>;

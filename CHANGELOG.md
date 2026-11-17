@@ -31,6 +31,13 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Unreleased
+
+### Fixes
+
+- Fixed cramped plugin rows and wrapping header branding on mobile screens.
+
+
 ## Version 2.1.0
 
 ### Features

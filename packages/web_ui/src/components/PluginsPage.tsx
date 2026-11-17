@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Space, Table, Tooltip, Typography } from "antd";
+import { Grid, Space, Table, Tooltip, Typography } from "antd";
 import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
 
 import type { PluginWebApi } from "@clusterio/lib";
@@ -48,6 +48,8 @@ function WebError(props: { error: string }) {
 export default function PluginsPage() {
 	const control = useContext(ControlContext);
 	const account = useAccount();
+	const screens = Grid.useBreakpoint();
+	const isMobile = screens.md === false;
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 	const tableState = useTableQueryState<PluginRow>({
 		namespace: "plugin", defaultSortKey: "name",
@@ -96,6 +98,24 @@ export default function PluginsPage() {
 	const latestOf = (plugin: PluginRow) => (
 		plugin.status?.npmPackage ? latestVersions[plugin.status.npmPackage] : undefined
 	);
+	const versions = (plugin: PluginRow) => <>
+		{plugin.status
+			? <PluginVersions status={plugin.status} latest={latestOf(plugin)} />
+			: plugin.meta?.version}
+		{plugin.webError && <WebError error={plugin.webError} />}
+	</>;
+	const updateAction = (plugin: PluginRow) => (plugin.status
+		// Keep clicks on the update action from opening the plugin.
+		? <span onClick={event => { event.stopPropagation(); }}>
+			<PluginUpdateButton
+				status={plugin.status}
+				title={plugin.title}
+				latest={latestOf(plugin)}
+				installer={installer}
+			/>
+		</span>
+		: null
+	);
 
 	return <PageLayout nav={[{ name: "Plugins" }]}>
 		<PageHeader
@@ -115,14 +135,22 @@ export default function PluginsPage() {
 			</Space>}
 		/>
 		<Table
+			className="plugins-table"
+			tableLayout={isMobile ? "fixed" : "auto"}
 			columns={[
 				{
 					title: "Name",
 					key: "name",
 					className: "table-link-cell",
-					render: (_, plugin) => <Link to={pluginPath(plugin)} style={{ color: "inherit" }}>
-						{plugin.title}
-					</Link>,
+					render: (_, plugin) => <>
+						<Link to={pluginPath(plugin)} style={{ color: "inherit" }}>
+							{plugin.title}
+						</Link>
+						{isMobile && <div className="plugin-mobile-details">
+							<div>{versions(plugin)}</div>
+							{updateAction(plugin)}
+						</div>}
+					</>,
 					sorter: (a, b) => strcmp(a.title, b.title),
 					sortOrder: tableState.sortOrder("name"),
 					filteredValue: tableState.filteredValue("name"),
@@ -131,28 +159,14 @@ export default function PluginsPage() {
 				{
 					title: "Versions",
 					key: "versions",
-					render: (_, plugin) => <>
-						{plugin.status
-							? <PluginVersions status={plugin.status} latest={latestOf(plugin)} />
-							: plugin.meta?.version}
-						{plugin.webError && <WebError error={plugin.webError} />}
-					</>,
+					responsive: ["md"],
+					render: (_, plugin) => versions(plugin),
 				},
 				{
 					key: "actions",
 					align: "right",
-					render: (_, plugin) => (plugin.status
-						// Keep clicks on the update action from opening the plugin
-						? <span onClick={event => { event.stopPropagation(); }}>
-							<PluginUpdateButton
-								status={plugin.status}
-								title={plugin.title}
-								latest={latestOf(plugin)}
-								installer={installer}
-							/>
-						</span>
-						: null
-					),
+					responsive: ["md"],
+					render: (_, plugin) => updateAction(plugin),
 				},
 			]}
 			dataSource={tableContents}
