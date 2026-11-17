@@ -1155,9 +1155,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 			}
 
 			const newWhitelist = new Set(newWhitelistJson);
-			// Set.difference added in node v22 and so we can not use this due to v20 support
-			const added = newWhitelistJson.filter(e => !this._whitelist.has(e));
-			const removed = [...this._whitelist.values()].filter(e => !newWhitelist.has(e));
+			const added = [...newWhitelist.difference(this._whitelist)];
+			const removed = [...this._whitelist.difference(newWhitelist)];
 			this._whitelist = newWhitelist;
 
 			this.emit("whitelist-change", added, removed);
