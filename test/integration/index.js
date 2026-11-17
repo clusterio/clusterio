@@ -297,16 +297,8 @@ export async function writeHostConfig(configPath, pairing, fields = {}) {
 /** @returns {Promise<child_process.ChildProcess>} */
 export function spawn(name, cmd, waitFor, options = {}) {
 
-	const silent = process.env.SILENT_TEST;
-	const bootstrap = !controllerProcess || !hostProcess;
-	function log(...args) {
-		if (!silent || bootstrap) {
-			console.log(...args);
-		}
-	}
-
 	return new Promise((resolve, reject) => {
-		log(cmd);
+		console.log(cmd);
 		let parts = cmd.split(" ");
 		let process = child_process.spawn(parts[0], parts.slice(1), childOptions(options));
 		let stdout = new LineSplitter({ readableObjectMode: true });
@@ -314,13 +306,9 @@ export function spawn(name, cmd, waitFor, options = {}) {
 		let onData = line => {
 			line = line.toString("utf8");
 			if (waitFor.test(line)) {
-				if (silent) {
-					stdout.off("data", onData);
-					stderr.off("data", onData);
-				}
 				resolve(process);
 			}
-			log(name, line);
+			console.log(name, line);
 		};
 		stdout.on("data", onData);
 		stderr.on("data", onData);
@@ -335,12 +323,6 @@ export function spawnNode(name, cmd, waitFor, options) {
 
 before(async function() {
 	this.timeout(40000);
-
-
-	const silent = process.env.SILENT_TEST;
-	if (silent) {
-		console.log("SILENT_TEST is present in env, loggers after bootstrap will be muted.");
-	}
 
 	// If fast test is enabled then output that it is
 

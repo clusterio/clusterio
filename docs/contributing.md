@@ -197,6 +197,9 @@ Use `pnpm run fast-test` to skip tests marked as slow, or `pnpm run no-external-
 These correspond to setting the `FAST_TEST` and `NO_EXTERNAL_TEST` environment variables and can be combined.
 For example, `FAST_TEST=y NO_EXTERNAL_TEST=y pnpm test` combines both exclusions.
 These flags still run the remaining integration setup and tests; neither produces an isolated unit-test run.
+Console and log output is only printed for tests and hooks that fail, just above the failure.
+Set `TEST_OUTPUT=verbose` to print all of it as it happens, or `TEST_OUTPUT=silent` (`pnpm run silent-test`) to print only the results.
+In CI, re-running a job with debug logging enabled gives verbose output.
 When writing slow tests call `slowTest(this)`, and for external API tests call `externalTest(this)`; both are exported from `test/common.js`.
 For tests that need a Factorio installation, call `requiresFactorio(this)` in the test or pass the suite to `requiresFactorio`, imported from `test/integration/index.js`.
 `test/common.js` also provides JSON round-trip/schema helpers, and `test/mock.js` provides shared mocks.

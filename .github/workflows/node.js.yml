@@ -67,9 +67,15 @@ jobs:
       run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ matrix.factorio-version }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
       if: ${{ !matrix.coverage }}
+      env:
+        # Re-run with debug logging to see output from passing tests
+        TEST_OUTPUT: ${{ runner.debug == '1' && 'verbose' || 'normal' }}
       run: pnpm test --grep "^(Integration of Clusterio (clusterioctl|plugin system)|Clusterio Instance) " ${{ matrix.tests == 'other' && '--invert' || '' }}
     - name: Run coverage
       if: ${{ matrix.coverage }}
+      env:
+        # Re-run with debug logging to see output from passing tests
+        TEST_OUTPUT: ${{ runner.debug == '1' && 'verbose' || 'normal' }}
       run: pnpm run ci-cover --grep "^(Integration of Clusterio (clusterioctl|plugin system)|Clusterio Instance) " ${{ matrix.tests == 'other' && '--invert' || '' }}
     - name: Upload coverage to Codecov
       if: ${{ matrix.coverage }}

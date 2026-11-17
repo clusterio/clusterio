@@ -13,6 +13,7 @@ import { InvalidFieldError, InvalidValueError } from "./errors.js";
 import { logger } from "./logging.js";
 import * as libHelpers from "./helpers.js";
 import { LockFile } from "./LockFile.js";
+import { LineSplitter } from "./stream.js";
 import { pathToFileURL } from "url";
 
 
@@ -88,11 +89,21 @@ function npmInstall(packageSpec: string) {
 	const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 	return new Promise<void>((resolve, reject) => {
 		const child = spawn(npm, ["install", "--save", "--no-audit", "--no-fund", packageSpec], {
-			stdio: "inherit",
+			stdio: ["ignore", "pipe", "pipe"],
 			shell: process.platform === "win32",
 		});
+		for (const [output, level] of [[child.stdout, "info"], [child.stderr, "warn"]] as const) {
+			const lines = new LineSplitter({ readableObjectMode: true });
+			lines.on("data", (line: Buffer) => {
+				const text = line.toString("utf8").trimEnd();
+				if (text) {
+					logger.log(level, text);
+				}
+			});
+			output.pipe(lines);
+		}
 		child.on("error", reject);
-		child.on("exit", code => {
+		child.on("close", code => {
 			if (code === 0) {
 				resolve();
 			} else {
