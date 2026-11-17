@@ -209,31 +209,39 @@ Note: This bans the user from logging in to Factorio servers in the cluster, it 
 
 ### Bulk importing admin, whitelist and ban lists
 
-Whitelists and admin lists can be bulk imported with the following commands:
+Admin lists, whitelists and banlists can be bulk imported with the following command:
 
-    ctl> user whitelist-bulk-import <file> [--create]
-    ctl> user admin-bulk-import <file> [--create]
+    ctl> user import <file> [--admins|--whitelist|--bans|--users]
 
-The file should simply be newline seperated names:
+The admin list and whitelist files should be a JSON array of names, the same format as Factorio's server-adminlist.json and server-whitelist.json:
 
-    joe
-    bob
-    allan
+    ["joe", "bob", "allan"]
 
-The `--create` option will create the user if they do not exist, and then set the relevent value.
+The banlist file uses the format of Factorio's server-banlist.json, where each entry is either a name or an object with a username and reason:
 
-Banlists can be bulk imported with the following command:
-    
-    ctl> user banned-bulk-import <file> [--create]
+    [
+        "joe",
+        {"username": "bob", "reason": "stole materials"},
+        {"username": "allan", "reason": "rude language"}
+    ]
 
-The file should be names, followed by a ban reason:
+The `--users` option imports a file written by `user export`, which holds the admin, whitelist and ban status of every user.
+If no option is given the type is guessed from the file, files with an `export_version` field are treated as user exports, otherwise the file name must contain ban, admin or whitelist.
+Users that do not exist are created.
+Importing only adds to the existing lists, it never removes anyone from them.
 
-    joe greifed copper mines
-    bob stole materials
-    allan rude language
+To replace a list instead, use restore:
 
-The first string on the line is used as the username, the others are used as the ban reason.
-The `--create` option will create the user if they do not exist, then ban them.
+    ctl> user restore <file> [--admins|--whitelist|--bans|--users] [--no-backup]
+
+This takes the same files as import, but removes everyone not in the file from the list.
+The previous list is written to `<type>-backup.json` in the current directory unless `--no-backup` is passed.
+
+The current lists can be exported with the following command:
+
+    ctl> user export <file> [--admins|--whitelist|--bans|--users]
+
+Defaults to exporting users.
 
 ### Set Cluster Roles
 
