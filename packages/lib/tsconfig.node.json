@@ -5,6 +5,6 @@
 	"compilerOptions": {
 		"allowJs": true,
 		// SubscriptionFilters.union clashes with the native Set.union
-		"lib": ["es2023"],
+		"lib": ["es2024"],
 	},
 }

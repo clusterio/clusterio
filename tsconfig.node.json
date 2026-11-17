@@ -1,7 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"lib": ["es2023", "es2025.collection"],
+		"lib": ["es2024", "es2025.collection"],
 		"types": ["node"],
 		"module": "nodenext",
 		"moduleResolution": "node16",
