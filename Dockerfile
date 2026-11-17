@@ -11,7 +11,9 @@ RUN apt update \
 && apt install -y wget \
 && mkdir /clusterio
 WORKDIR /clusterio
-RUN wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "arm64" ]; then build=linux-arm64; else build=linux64; fi \
+&& wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/$build && tar -xf factorio.tar.gz && rm factorio.tar.gz
 # Copy project files into the container
 COPY . .
 

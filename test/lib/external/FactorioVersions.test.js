@@ -1,10 +1,23 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-import { fetchFactorioVersions } from "@clusterio/lib";
+import { factorioHeadlessUrl, fetchFactorioVersions } from "@clusterio/lib";
 import { slowTest, externalTest } from "../../common.js";
 
 describe("FactorioVersions", function() {
+	describe("factorioHeadlessUrl", function() {
+		it("should return the linux64 build by default", function() {
+			assert.equal(
+				factorioHeadlessUrl("2.1.24"), "https://www.factorio.com/get-download/2.1.24/headless/linux64"
+			);
+		});
+		it("should return the linux-arm64 build for arm64", function() {
+			assert.equal(
+				factorioHeadlessUrl("2.1.24", "arm64"),
+				"https://www.factorio.com/get-download/2.1.24/headless/linux-arm64",
+			);
+		});
+	});
 	describe("fetchFactorioVersions", function() {
 		const originalFetch = global.fetch;
 

@@ -1,6 +1,6 @@
 // Factorio Server interface
 import fs from "node:fs/promises";
-import { type FSWatcher, createWriteStream, watch as fsWatch, writeFileSync } from "node:fs";
+import { type FSWatcher, createWriteStream, existsSync, watch as fsWatch, writeFileSync } from "node:fs";
 import child_process from "child_process";
 import dgram from "dgram";
 import path from "path";
@@ -182,6 +182,19 @@ async function downloadAndExtractTar(url: string, targetDir: string) {
 	}
 }
 
+/**
+ * Factorio Linux build architecture matching this host
+ *
+ * @returns "arm64" on ARM64 Linux, otherwise "x64".
+ */
+function factorioArch(): lib.FactorioHeadlessArch {
+	return process.platform === "linux" && process.arch === "arm64" ? "arm64" : "x64";
+}
+
+function hasArm64Headless(version: lib.FullVersion) {
+	return lib.integerFullVersion(version) >= lib.integerFullVersion(lib.minimumArm64HeadlessVersion);
+}
+
 // Factorio downloads in progress by target directory, shared by every server in the process
 const downloadsInProgress = new Map<string, Promise<void>>();
 
@@ -202,14 +215,27 @@ export async function checkForUpdates(
 	logger: lib.Logger = lib.logger,
 ) {
 
-	const latestVersion = availableVersions
-		.filter(v => (
-			targetVersion === "latest" || v.version === targetVersion || v.version.startsWith(targetVersion)
-		))
+	const matchesTarget = (version: string) => (
+		targetVersion === "latest" || version === targetVersion || version.startsWith(targetVersion)
+	);
+	const arch = factorioArch();
+	const matching = availableVersions.filter(v => matchesTarget(v.version));
+	const latestVersion = matching
+		.filter(v => arch !== "arm64" || hasArm64Headless(v.version))
 		.sort((v1, v2) => versionOrder(v1.version, v2.version))
 		[0];
 
 	if (!latestVersion) {
+		if (matching.length && arch === "arm64" && process.platform === "linux") {
+			const installed = await listFactorioVersions(factorioDir);
+			if (!installed.direct && ![...installed.versions].some(matchesTarget)) {
+				throw new Error(
+					`Factorio ${targetVersion} has no ARM64 Linux headless build to download, ` +
+					`ARM64 builds start at ${lib.minimumArm64HeadlessVersion}. Install it manually ` +
+					`or use version ${lib.minimumArm64HeadlessVersion} or later.`
+				);
+			}
+		}
 		return;
 	}
 
@@ -242,7 +268,7 @@ export async function checkForUpdates(
 			logger.info(`A newer version of factorio is available (${v}), waiting for download...`);
 		} else {
 			logger.info(`A newer version of factorio is available (${v}), starting download...`);
-			download = downloadAndExtractTar(latestVersion.headlessUrl, dst).finally(() => {
+			download = downloadAndExtractTar(lib.factorioHeadlessUrl(v, arch), dst).finally(() => {
 				downloadsInProgress.delete(dst);
 			});
 			downloadsInProgress.set(dst, download);
@@ -1734,8 +1760,8 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 	/**
 	 * Get Factorio binary path
 	 *
-	 * Get the path to the factorio binary depending on the configuration
-	 * and or the platform (MacOS support)
+	 * Get the path to the factorio binary depending on the configuration,
+	 * the platform (MacOS support) and the bin/x64 or bin/arm64 dir present
 	 *
 	 * @returns Path to factorio binary
 	 */
@@ -1746,7 +1772,16 @@ export class FactorioServer extends events.EventEmitter<FactorioServerEvents> {
 		if (process.platform === "darwin") {
 			return this.dataPath("..", "MacOS", "factorio");
 		}
-		return this.dataPath("..", "bin", "x64", "factorio");
+		// Prefer the native build, fall back to whichever one is installed
+		const arches = factorioArch() === "arm64" ? ["arm64", "x64"] : ["x64", "arm64"];
+		for (const arch of arches) {
+			const binary = this.dataPath("..", "bin", arch, "factorio");
+			// eslint-disable-next-line node/no-sync
+			if (existsSync(binary)) {
+				return binary;
+			}
+		}
+		return this.dataPath("..", "bin", arches[0], "factorio");
 	}
 
 	/**

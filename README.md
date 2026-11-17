@@ -129,6 +129,10 @@ Check out all our of decisions for [node, factorio, and operation support](/docs
 
 3.  Optionally copy the generated systemd service files in `systemd` folder to `/etc/systemd/system/`.
 
+Hosts on Linux download the headless build of Factorio as needed.
+On ARM64 (aarch64) Linux this only works for Factorio 2.1.18 and later, which is the first version Factorio published an ARM64 headless build for.
+Older versions have to be installed manually, for example the x64 build run through an emulator.
+
 
 **Ubuntu with Docker**
 

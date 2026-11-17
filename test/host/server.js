@@ -328,6 +328,54 @@ describe("host/server", function() {
 			});
 		});
 
+		describe(".binaryPath()", function() {
+			const _platform = process.platform;
+			const _arch = process.arch;
+			const installDir = path.join("temp", "test", "binary-path");
+			function serverFor(dir) {
+				return new hostServer.FactorioServer(
+					installDir, writePath, path.join(installDir, dir, "data"), "2.1.24", { rconPassword: "" }
+				);
+			}
+			function mockHost(platform, arch) {
+				Object.defineProperty(process, "platform", { value: platform });
+				Object.defineProperty(process, "arch", { value: arch });
+			}
+			before(async function() {
+				await fs.rm(installDir, { force: true, recursive: true });
+				const layouts = [["none", []], ["x64", ["x64"]], ["arm64", ["arm64"]], ["both", ["x64", "arm64"]]];
+				for (const [dir, arches] of layouts) {
+					await fs.mkdir(path.join(installDir, dir, "data"), { recursive: true });
+					for (const arch of arches) {
+						await fs.mkdir(path.join(installDir, dir, "bin", arch), { recursive: true });
+						await fs.writeFile(path.join(installDir, dir, "bin", arch, "factorio"), "");
+					}
+				}
+			});
+			afterEach(function() {
+				mockHost(_platform, _arch);
+			});
+			const binary = (dir, arch) => path.join(installDir, dir, "bin", arch, "factorio");
+			for (const [platform, arch, dir, expected] of [
+				["linux", "x64", "both", "x64"],
+				["linux", "arm64", "both", "arm64"],
+				["linux", "x64", "arm64", "arm64"],
+				["linux", "arm64", "x64", "x64"],
+				["linux", "x64", "none", "x64"],
+				["linux", "arm64", "none", "arm64"],
+				["win32", "arm64", "none", "x64"],
+			]) {
+				it(`should pick bin/${expected} on ${platform} ${arch} with ${dir} installed`, function() {
+					mockHost(platform, arch);
+					assert.equal(serverFor(dir).binaryPath(), binary(dir, expected));
+				});
+			}
+			it("should use MacOS/factorio on darwin", function() {
+				mockHost("darwin", "arm64");
+				assert.equal(serverFor("both").binaryPath(), path.join(installDir, "both", "MacOS", "factorio"));
+			});
+		});
+
 		describe("._handleIpc()", function() {
 			it("should emit the correct ipc event", async function() {
 				let waiter = events.once(server, "ipc-channel");
@@ -760,15 +808,46 @@ describe("host/server", function() {
 							stable: false,
 							version: "0.1.0",
 							headlessUrl: "test3",
-						}], logger), new Error("Failed to fetch test1: -1 Fetch called"));
+						}], logger), /Failed to fetch \S+\/get-download\/0\.1\.5\/headless\/linux64/);
 
-						assert.equal(fetchCalledWith, "test1");
+						assert.equal(fetchCalledWith, "https://www.factorio.com/get-download/0.1.5/headless/linux64");
 						assert.ok(logLine !== null);
 						assert.ok(logLine.endsWith("starting download..."));
 					});
 				});
 				/* eslint-enable no-loop-func */
 			}
+			describe("on ARM64 Linux", function() {
+				const _arch = process.arch;
+				const factorioDir = path.join("test", "file", "factorio");
+				beforeEach(function() {
+					Object.defineProperty(process, "platform", { value: "linux" });
+					Object.defineProperty(process, "arch", { value: "arm64" });
+				});
+				afterEach(function() {
+					Object.defineProperty(process, "arch", { value: _arch });
+				});
+				const versions = [
+					{ stable: false, version: "2.1.25", headlessUrl: "test1" },
+					{ stable: true, version: "2.1.17", headlessUrl: "test2" },
+					{ stable: true, version: "0.1.5", headlessUrl: "test3" },
+				];
+				it("should download the linux-arm64 build", async function() {
+					await assert.rejects(hostServer.checkForUpdates(factorioDir, "latest", versions), /Fetch called/);
+					assert.equal(fetchCalledWith, "https://www.factorio.com/get-download/2.1.25/headless/linux-arm64");
+				});
+				it("should reject versions older than 2.1.18", async function() {
+					await assert.rejects(
+						hostServer.checkForUpdates(factorioDir, "2.1.17", versions),
+						/Factorio 2.1.17 has no ARM64 Linux headless build to download, ARM64 builds start at 2.1.18/
+					);
+					assert.equal(fetchCalledWith, null);
+				});
+				it("should accept an older version that is already installed", async function() {
+					await hostServer.checkForUpdates(factorioDir, "0.1", versions);
+					assert.equal(fetchCalledWith, null);
+				});
+			});
 			describe("concurrent downloads", function() {
 				const versions = [{ stable: true, version: "0.1.5", headlessUrl: "test1" }];
 

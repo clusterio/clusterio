@@ -592,7 +592,8 @@ Defaults to "latest".
 ### factorio.executable_path
 
 Path relative to the Factorio installation directory of the executable to run.
-If null the path is auto detected, which is `bin/x64/factorio` on Linux and Windows and `MacOS/factorio` on macOS.
+If null the path is auto detected, which is `MacOS/factorio` on macOS and otherwise `bin/x64/factorio` or `bin/arm64/factorio`, whichever exists.
+When both exist the one matching the CPU is used.
 Only needed in special setups.
 
 Defaults to null.

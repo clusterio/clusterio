@@ -14,6 +14,24 @@ export const ExternalFactorioVersionSchema = Type.Object({
 
 export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>;
 
+/** CPU architectures Factorio publishes Linux headless builds for */
+export type FactorioHeadlessArch = "x64" | "arm64";
+
+/** First Factorio version with an ARM64 Linux headless build */
+export const minimumArm64HeadlessVersion = "2.1.18";
+
+/**
+ * Download URL of the Linux headless build of a Factorio version
+ *
+ * @param version - Factorio version to download.
+ * @param arch - CPU architecture of the build.
+ * @returns URL redirecting to the tarball.
+ */
+export function factorioHeadlessUrl(version: string, arch: FactorioHeadlessArch = "x64") {
+	const build = arch === "arm64" ? "linux-arm64" : "linux64";
+	return `https://www.factorio.com/get-download/${version}/headless/${build}`;
+}
+
 /**
  * Fetch all factorio versions that support headless
  *
@@ -60,7 +78,7 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 			versions.set(version, {
 				version: version,
 				stable: kind === "stable",
-				headlessUrl: `https://www.factorio.com/get-download/${version}/headless/linux64`,
+				headlessUrl: factorioHeadlessUrl(version),
 			});
 		}
 	}
