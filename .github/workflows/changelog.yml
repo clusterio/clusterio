@@ -1,0 +1,30 @@
+name: Changelog
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Bot pull requests do not fill in the template.
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+      - name: Check changelog in pull request description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check_pr_changelog.mts
