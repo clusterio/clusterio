@@ -42,8 +42,8 @@ function main() {
 	for (const problem of problems) {
 		console.log(`::error title=Invalid changelog::${escapeAnnotation(problem)}`);
 	}
-	const rules = `Valid sections are ${changelogSections.join(", ")}. `
-		+ "Each entry must reference an issue, or this pull request if there is no issue.";
+	const rules = `Valid sections are ${changelogSections.join(", ")}. ` +
+		"Each entry must reference an issue, or this pull request if there is no issue.";
 	console.log(`\n${rules}`);
 	console.log(`Expected format in the pull request description:\n\n${expectedFormat}`);
 	if (summaryPath) {

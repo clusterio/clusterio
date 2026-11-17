@@ -46,14 +46,16 @@ describe("scripts/check_pr_changelog", function() {
 		const text = body("```", "- Orphan #1", "### Bugs", "- Fixed it", "Loose text", "```");
 		assert.deepEqual(findChangelogProblems(text), [
 			"Unexpected content \"- Orphan #1\" outside of a changelog section on line 1",
-			"Changelog section Bugs on line 2 is not one of "
-				+ "Major Features, Features, Fixes, Changes, Breaking Changes, Meta",
+			"Changelog section Bugs on line 2 is not one of " +
+				"Major Features, Features, Fixes, Changes, Breaking Changes, Meta",
 			"Changelog entry on line 3 does not reference an issue",
 			"Unexpected content \"Loose text\" on line 4",
 		]);
 	});
 	it("rejects the unedited template", function() {
-		const text = body("```", "### Features", "- Added doodad to web interface. #999", "", "### Changes", "- ...", "```");
+		const text = body(
+			"```", "### Features", "- Added doodad to web interface. #999", "", "### Changes", "- ...", "```",
+		);
 		assert.deepEqual(findChangelogProblems(text), ["Changelog entry on line 5 does not reference an issue"]);
 	});
 });
