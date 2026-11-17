@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Descriptions, Typography, Button, Space, Popconfirm, Flex, Tooltip } from "antd";
+import { Descriptions, Typography, Button, Space, Popconfirm, Flex, Tooltip, Modal } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -29,11 +29,17 @@ import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableD
 
 const { Title } = Typography;
 
-type HostControlButtonProps = { hostId: number, canRestart?: boolean, restartRequired?: boolean };
+type HostControlButtonProps = {
+	hostId: number,
+	instances: ReadonlyMap<number, lib.InstanceDetails>,
+	canRestart?: boolean,
+	restartRequired?: boolean,
+};
 
-function HostControlButton({ hostId, canRestart, restartRequired }: HostControlButtonProps) {
+function HostControlButton({ hostId, instances, canRestart, restartRequired }: HostControlButtonProps) {
 	const account = useAccount();
 	const control = useContext(ControlContext);
+	const [modal, modalContext] = Modal.useModal();
 	const actions: VariableDropdownButtonProps["actions"] = [];
 
 	if (account.hasPermission("core.host.restart") && canRestart) {
@@ -46,10 +52,28 @@ function HostControlButton({ hostId, canRestart, restartRequired }: HostControlB
 				</Space></Tooltip>
 			),
 			onClick: () => {
-				control.sendTo(
-					{ hostId },
-					new lib.HostRestartRequest()
-				).catch(notifyErrorHandler("Error restarting host"));
+				const running = [...instances.values()]
+					.filter(instance => !["unknown", "unassigned", "stopped", "deleted"].includes(instance.status))
+					.map(instance => instance.name);
+				modal.confirm({
+					title: "Restart the host?",
+					content: running.length
+						? <>
+							This stops {running.length} running {running.length === 1 ? "instance" : "instances"}:
+							{" "}{running.join(", ")}.<br />
+							They stay stopped after the restart unless instance.auto_start is enabled.
+						</>
+						: "No instances are running on this host.",
+					okText: "Restart",
+					okButtonProps: { danger: true },
+					autoFocusButton: "cancel",
+					onOk: () => {
+						control.sendTo(
+							{ hostId },
+							new lib.HostRestartRequest()
+						).catch(notifyErrorHandler("Error restarting host"));
+					},
+				});
 			},
 		});
 	}
@@ -96,7 +120,10 @@ function HostControlButton({ hostId, canRestart, restartRequired }: HostControlB
 		});
 	}
 
-	return <VariableDropdownButton actions={actions} />;
+	return <>
+		<VariableDropdownButton actions={actions} />
+		{modalContext}
+	</>;
 }
 
 type RevokeHostButtonProps = { host: lib.HostDetails, instances: ReadonlyMap<number, lib.InstanceDetails> };
@@ -146,7 +173,12 @@ export default function HostViewPage() {
 	}
 
 	let hostButtons = <Space wrap>
-		<HostControlButton hostId={hostId} canRestart={system?.canRestart} restartRequired={system?.restartRequired}/>
+		<HostControlButton
+			hostId={hostId}
+			instances={hostInstances}
+			canRestart={system?.canRestart}
+			restartRequired={system?.restartRequired}
+		/>
 		{account.hasPermission("core.host.revoke") && <RevokeHostButton host={host} instances={hostInstances} />}
 		{canShowNpm && (
 			<NpmButton target={{ hostId }} canRestart={system?.canRestart} disabled={!host["connected"]}/>
