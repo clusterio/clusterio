@@ -93,6 +93,43 @@ describe("controller/src/Controller", function() {
 				assert(loaded.modPacks.size > 0, "default mod packs were not added");
 				await fs.access(modsDirectory);
 			});
+			it("should default to the newest Base Game pack on a new cluster", async function() {
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion,
+					"controller.database_directory": path.join(dir, "database"),
+					"controller.mods_directory": path.join(dir, "mods"),
+				});
+
+				const loaded = await Controller.fromConfig(config, [], {});
+				const id = config.get("controller.default_mod_pack_id");
+				assert.equal(loaded.modPacks.get(id).name, "Base Game 2.1");
+			});
+			it("should keep a set default mod pack when seeding mod packs", async function() {
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion,
+					"controller.database_directory": path.join(dir, "database"),
+					"controller.mods_directory": path.join(dir, "mods"),
+					"controller.default_mod_pack_id": 42,
+				});
+
+				await Controller.fromConfig(config, [], {});
+				assert.equal(config.get("controller.default_mod_pack_id"), 42);
+			});
+			it("should not set a default mod pack when mod packs exist", async function() {
+				const databaseDirectory = path.join(dir, "database");
+				await fs.mkdir(databaseDirectory);
+				await fs.writeFile(path.join(databaseDirectory, "mod-packs.json"), JSON.stringify([
+					new ModPack().toJSON(),
+				]));
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion,
+					"controller.database_directory": databaseDirectory,
+					"controller.mods_directory": path.join(dir, "mods"),
+				});
+
+				await Controller.fromConfig(config, [], {});
+				assert.equal(config.get("controller.default_mod_pack_id"), null);
+			});
 			it("should start and stop with an existing database", async function() {
 				this.timeout(10000);
 				const databaseDirectory = path.join(dir, "database");

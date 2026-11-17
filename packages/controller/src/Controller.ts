@@ -233,6 +233,12 @@ export default class Controller {
 		// Add default mod packs
 		if (modPacks.size === 0) {
 			modPacks.setMany(lib.ModPack.defaultModPacks);
+			if (config.get("controller.default_mod_pack_id") === null) {
+				const baseGame = lib.ModPack.defaultModPacks
+					.filter(pack => pack.name.startsWith("Base Game "))
+					.reduce((a, b) => (b.integerFactorioVersion > a.integerFactorioVersion ? b : a));
+				config.set("controller.default_mod_pack_id", baseGame.id);
+			}
 		}
 
 		// Add default roles
