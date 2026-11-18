@@ -1,20 +1,46 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-import { factorioHeadlessUrl, fetchFactorioVersions } from "@clusterio/lib";
+import { factorioHeadlessUrl, fetchFactorioVersions, hasFactorioHeadless } from "@clusterio/lib";
 import { slowTest, externalTest } from "../../common.js";
 
 describe("FactorioVersions", function() {
+	describe("hasFactorioHeadless", function() {
+		for (const [version, platform, arch, expected] of [
+			["0.17.79", "linux", "x64", true],
+			["2.1.17", "linux", "arm64", false],
+			["2.1.18", "linux", "arm64", true],
+			["2.1.24", "win32", "x64", false],
+			["2.1.24", "win32", "arm64", false],
+		]) {
+			it(`should return ${expected} for ${version} ${platform} ${arch}`, function() {
+				assert.equal(hasFactorioHeadless(version, platform, arch), expected);
+			});
+		}
+	});
 	describe("factorioHeadlessUrl", function() {
-		it("should return the linux64 build by default", function() {
+		it("should return the linux64 build for x64", function() {
 			assert.equal(
-				factorioHeadlessUrl("2.1.24"), "https://www.factorio.com/get-download/2.1.24/headless/linux64"
+				factorioHeadlessUrl("2.1.24", "linux", "x64"),
+				"https://www.factorio.com/get-download/2.1.24/headless/linux64",
 			);
 		});
 		it("should return the linux-arm64 build for arm64", function() {
 			assert.equal(
-				factorioHeadlessUrl("2.1.24", "arm64"),
+				factorioHeadlessUrl("2.1.24", "linux", "arm64"),
 				"https://www.factorio.com/get-download/2.1.24/headless/linux-arm64",
+			);
+		});
+		it("should throw for Windows", function() {
+			assert.throws(
+				() => factorioHeadlessUrl("2.1.24", "win32", "x64"),
+				new Error("Factorio 2.1.24 has no headless build for win32 x64"),
+			);
+		});
+		it("should throw for linux arm64 before 2.1.18", function() {
+			assert.throws(
+				() => factorioHeadlessUrl("2.1.17", "linux", "arm64"),
+				new Error("Factorio 2.1.17 has no headless build for linux arm64"),
 			);
 		});
 	});

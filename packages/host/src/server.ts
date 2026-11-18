@@ -191,10 +191,6 @@ function factorioArch(): lib.FactorioHeadlessArch {
 	return process.platform === "linux" && process.arch === "arm64" ? "arm64" : "x64";
 }
 
-function hasArm64Headless(version: lib.FullVersion) {
-	return lib.integerFullVersion(version) >= lib.integerFullVersion(lib.minimumArm64HeadlessVersion);
-}
-
 // Factorio downloads in progress by target directory, shared by every server in the process
 const downloadsInProgress = new Map<string, Promise<void>>();
 
@@ -221,7 +217,7 @@ export async function checkForUpdates(
 	const arch = factorioArch();
 	const matching = availableVersions.filter(v => matchesTarget(v.version));
 	const latestVersion = matching
-		.filter(v => arch !== "arm64" || hasArm64Headless(v.version))
+		.filter(v => process.platform !== "linux" || lib.hasFactorioHeadless(v.version, "linux", arch))
 		.sort((v1, v2) => versionOrder(v1.version, v2.version))
 		[0];
 
@@ -268,7 +264,7 @@ export async function checkForUpdates(
 			logger.info(`A newer version of factorio is available (${v}), waiting for download...`);
 		} else {
 			logger.info(`A newer version of factorio is available (${v}), starting download...`);
-			download = downloadAndExtractTar(lib.factorioHeadlessUrl(v, arch), dst).finally(() => {
+			download = downloadAndExtractTar(lib.factorioHeadlessUrl(v, "linux", arch), dst).finally(() => {
 				downloadsInProgress.delete(dst);
 			});
 			downloadsInProgress.set(dst, download);
