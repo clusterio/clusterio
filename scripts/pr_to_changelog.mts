@@ -20,7 +20,7 @@ type Statistics = {
 const repository = "clusterio/clusterio";
 const branch = "master";
 
-const changelogSections = [
+export const changelogSections = [
 	"Major Features",
 	"Features",
 	"Fixes",
@@ -79,7 +79,7 @@ function extractPullRequestChangelog(
 {
 	const headerFail = skipToLine(parser, /^###? Changelog *$/);
 	if (headerFail) {
-		return [failure, , "Header not found"];
+		return [failure, , "\"### Changelog\" header not found"];
 	}
 	parser.pos += 1;
 	skipEmptyLines(parser);
@@ -97,10 +97,19 @@ function extractPullRequestChangelog(
 	if (blockEndFail) {
 		return [failure, , "End of code block not found after header"];
 	}
-	return [success, parser.lines.slice(blockStartPos, parser.pos)];
+	const lines = parser.lines.slice(blockStartPos, parser.pos);
+	if (!lines.some(line => line.trim() !== "")) {
+		return [failure, , "Code block is empty, replace it with \"None.\" if nothing applies"];
+	}
+	return [success, lines];
 }
 
-function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Changelog, string[]] {
+/** Pass no issues to skip the checks that need the GitHub API. */
+function parseChangelog(
+	parser: ParserState,
+	pr?: Issue,
+	issues?: Issue[],
+): [Changelog, string[]] {
 	let section: string | undefined;
 	let changelog: Changelog = Object.create(null);
 	let warnings: string[] = [];
@@ -120,6 +129,10 @@ function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Chang
 			changelog[section] = changelog[section] ?? [];
 			continue;
 		}
+		if (!section && /^None/i.test(line)) {
+			warnings.push(`"${line}" on line ${parser.pos} must replace the code block, not sit inside it`);
+			continue;
+		}
 		if (!section) {
 			warnings.push(`Unexpected content "${line}" outside of a changelog section on line ${parser.pos}`);
 			continue;
@@ -132,6 +145,9 @@ function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Chang
 			let hasRef = false
 			for (const ref of entry.matchAll(/#(\d+)/g)) {
 				hasRef = true;
+				if (!issues || !pr) {
+					continue;
+				}
 				const id = Number.parseInt(ref[1], 10);
 				const refIssue = issues.find(issue => issue.number === id);
 				if (!refIssue) {
@@ -157,23 +173,34 @@ function parseChangelog(parser: ParserState, pr: Issue, issues: Issue[]): [Chang
 	return [changelog, warnings];
 }
 
+export function checkPullRequestBody(
+	body: string | null | undefined,
+	pr?: Issue,
+	issues?: Issue[],
+): { changelog: Changelog, error?: string, warnings: string[] } {
+	if (!body) {
+		return { changelog: Object.create(null), error: "Pull request has no body", warnings: [] };
+	}
+	const [
+		changelogFail,
+		changelogLines,
+		changelogFailReason
+	] = extractPullRequestChangelog(createParser(body.split(/\r?\n/)));
+	if (changelogFail) {
+		return { changelog: Object.create(null), error: changelogFailReason, warnings: [] };
+	}
+	const [changelog, warnings] = parseChangelog(createParser(changelogLines), pr, issues);
+	return { changelog, warnings };
+}
+
 function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 	const mergedChangelog: Changelog = Object.create(null);
 	for (const pr of pullRequests) {
-		if (!pr.body) {
-			console.error(`Failed to extract changelog in ${pr.html_url}: Pull request has no body`);
+		const { changelog, error, warnings } = checkPullRequestBody(pr.body, pr, issues);
+		if (error) {
+			console.error(`Failed to extract changelog in ${pr.html_url}: ${error}`)
 			continue;
 		}
-		const [
-			changelogFail,
-			changelogLines,
-			changelogFailReason
-		] = extractPullRequestChangelog(createParser(pr.body.split(/\r?\n/)));
-		if (changelogFail) {
-			console.error(`Failed to extract changelog in ${pr.html_url}: ${changelogFailReason}`)
-			continue;
-		}
-		const [changelog, warnings] = parseChangelog(createParser(changelogLines), pr, issues);
 		for (const warning of warnings) {
 			console.warn(`Warning in changelog for ${pr.html_url}: ${warning}`)
 		}
