@@ -273,6 +273,28 @@ describe("host/server", function() {
 			});
 		});
 
+		describe("._watchWhitelist()", function() {
+			it("should emit the added and removed players on change", async function() {
+				const whitelistPath = path.join(writePath, "server-whitelist.json");
+				await fs.mkdir(writePath, { recursive: true });
+				await fs.writeFile(whitelistPath, JSON.stringify(["a", "b"]));
+				server.enableWhitelist = true;
+				server._whitelist = new Set(["a", "b"]);
+				server._watchWhitelist();
+				try {
+					const waiter = events.once(server, "whitelist-change");
+					await fs.writeFile(whitelistPath, JSON.stringify(["b", "c", "c"]));
+					const [added, removed] = await waiter;
+					assert.deepEqual(added, ["c"]);
+					assert.deepEqual(removed, ["a"]);
+					assert.deepEqual([...server._whitelist], ["b", "c"]);
+				} finally {
+					server._whitelistWatcher?.close();
+					server.enableWhitelist = false;
+				}
+			});
+		});
+
 		describe(".fromOptions()", function() {
 			it("should resolve the requested version", async function() {
 				const found = await hostServer.FactorioServer.fromOptions(

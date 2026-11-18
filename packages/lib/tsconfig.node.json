@@ -4,5 +4,7 @@
 	"exclude": ["src/**/*.browser.ts"],
 	"compilerOptions": {
 		"allowJs": true,
+		// SubscriptionFilters.union clashes with the native Set.union
+		"lib": ["es2024"],
 	},
 }
