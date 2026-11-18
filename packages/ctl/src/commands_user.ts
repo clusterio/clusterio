@@ -55,29 +55,18 @@ userCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(args: { stats: boolean, attributes: boolean }, ctl: Ctl) {
-		let users = await ctl.send(new lib.UserListRequest());
-		for (let user of users) {
-			if (args.stats) {
-				Object.assign(user, user.playerStats);
-			}
-			// @ts-expect-error Terrible hack
-			delete user.playerStats;
-			// @ts-expect-error Terrible hack
-			delete user.isDeleted;
-			// @ts-expect-error Terrible hack
-			delete user.banReason;
-			// @ts-expect-error Terrible hack
-			delete user.instanceStats;
-			if (!args.attributes) {
-				// @ts-expect-error Terrible hack
-				delete user.isAdmin;
-				// @ts-expect-error Terrible hack
-				delete user.isWhitelisted;
-				// @ts-expect-error Terrible hack
-				delete user.isBanned;
-			}
-		}
-		ctl.output.table(users);
+		const users = await ctl.send(new lib.UserListRequest());
+		const rows = users.map(user => {
+			const {
+				playerStats, isDeleted, banReason, instanceStats, isAdmin, isWhitelisted, isBanned, ...row
+			} = user;
+			return {
+				...row,
+				...args.attributes && { isAdmin, isWhitelisted, isBanned },
+				...args.stats && playerStats,
+			};
+		});
+		ctl.output.result(users, () => print(asTable(rows)));
 	},
 }));
 

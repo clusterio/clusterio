@@ -85,8 +85,9 @@ export class Ctl extends lib.Link {
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
-		if (this.output.json && this.output.streaming) {
-			this.output.result(event.info);
+		// Only streaming commands print log events as results, the rest log them to stderr
+		if (this.output.streaming) {
+			this.output.result(event.info, () => logger.log(event.info as any));
 		} else {
 			logger.log(event.info as any);
 		}
@@ -292,27 +293,30 @@ export async function runCommand(
 	link.output.finish();
 }
 
-async function startCtl(output: CommandOutput) {
+async function startCtl() {
 	const {
 		args,
 		shouldRun,
 		rootCommands,
 		ctlConfig,
 	} = await initialize(process.argv.slice(2));
-	output.format = args.output;
 	if (!shouldRun || !rootCommands || !ctlConfig) {
 		return;
 	}
 
-	if (!ctlConfig.get("ctl.controller_url") || !ctlConfig.get("ctl.controller_token")) {
-		const message = "Missing URL and/or token to connect with.  See README.md for setting up access.";
-		if (output.json) {
-			output.error(new lib.StartupError(message));
-		} else {
-			logger.error(message);
+	try {
+		await connectAndRun(args, rootCommands, ctlConfig);
+	} catch (err) {
+		if (args.output !== "human") {
+			new CommandOutput(args.output).error(err);
 		}
-		process.exitCode = 1;
-		return;
+		throw err;
+	}
+}
+
+async function connectAndRun(args: CtlArguments, rootCommands: lib.CommandTree, ctlConfig: lib.CtlConfig) {
+	if (!ctlConfig.get("ctl.controller_url") || !ctlConfig.get("ctl.controller_token")) {
+		throw new lib.StartupError("Missing URL and/or token to connect with.  See README.md for setting up access.");
 	}
 
 	let controlConnector = new CtlConnector(
@@ -340,30 +344,22 @@ async function startCtl(output: CommandOutput) {
 
 	} catch (err) {
 		ctl.keepOpen = false;
-		const expected = err instanceof lib.CommandError || err instanceof lib.ClientError
-			|| err instanceof lib.ServerError;
-		if (ctl.output.json) {
-			ctl.output.error(err);
-			process.exitCode = 1;
-			if (!expected) {
-				logger.error((err as Error).stack ?? String(err));
-			}
-
-		} else if (err instanceof lib.CommandError) {
+		if (err instanceof lib.CommandError) {
 			logger.error(`Error running command: ${err.message}`);
-			process.exitCode = 1;
 
 		} else if (err instanceof lib.ClientError || err instanceof lib.UnavailableError) {
 			logger.error(`Error sending request: ${err.message}`);
-			process.exitCode = 1;
 
 		} else if (err instanceof lib.ServerError) {
 			logger.error(`Error sending request:\n${err.stack ?? err.message}`);
-			process.exitCode = 1;
 
 		} else {
 			throw err;
 		}
+		if (!ctl.output.human) {
+			ctl.output.error(err);
+		}
+		process.exitCode = 1;
 
 	} finally {
 		if (!ctl.keepOpen) {
@@ -373,13 +369,8 @@ async function startCtl(output: CommandOutput) {
 }
 
 export function bootstrap() {
-	const output = new CommandOutput();
-	startCtl(output).catch(err => {
+	startCtl().catch(err => {
 		process.exitCode = 1;
-		if (output.json) {
-			output.error(err);
-			return;
-		}
 		if (err.errors) {
 			logger.fatal(JSON.stringify(err.errors, null, "\t"));
 		}
@@ -392,7 +383,7 @@ export function bootstrap() {
 ${err.stack}`
 			);
 		} else {
-			logger.error(`
+			logger.fatal(`
 +---------------------------------+
 | Unable to to start clusterioctl |
 +---------------------------------+

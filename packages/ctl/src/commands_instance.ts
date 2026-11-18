@@ -575,7 +575,7 @@ instanceCommands.add(new lib.Command({
 			return;
 		}
 
-		const human = !ctl.output.json;
+		const human = ctl.output.human;
 		if (human) {
 			print(`Starting ${instancesToStart.length} instance(s):`);
 			for (const instance of instancesToStart) {
@@ -662,7 +662,7 @@ instanceCommands.add(new lib.Command({
 			return;
 		}
 
-		const human = !ctl.output.json;
+		const human = ctl.output.human;
 		if (human) {
 			print(`Stopping ${instancesToStop.length} instance(s):`);
 			for (const instance of instancesToStop) {

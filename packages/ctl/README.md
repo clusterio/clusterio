@@ -23,9 +23,9 @@ Common options:
  * `--create-config` If the config file is missing, create a new one and carry on instead of exiting with an error.
    Alternative to the `config create` command.
 
- * `--output <human|json>` Format to print the results of cluster commands in.
+ * `--output <human|json|wire>` Format to print the results of cluster commands in.
    Defaults to `human`.
-   See [Output format](/docs/managing-a-cluster.md#output-format) for what `json` prints.
+   See [Output format](/docs/managing-a-cluster.md#output-format) for what `json` and `wire` print.
    The `plugin` and `config` commands described below always print human readable text.
 
 

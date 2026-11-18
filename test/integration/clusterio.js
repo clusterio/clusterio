@@ -2326,7 +2326,18 @@ describe("Integration of Clusterio", function() {
 				const { id } = JSON.parse(await execCtlOutput("--output json role create json-role"));
 				const roles = await getControl().send(new lib.RoleListRequest());
 				assert.equal(roles.find(role => role.id === id)?.name, "json-role");
-				assert.equal(await execCtlOutput(`--output json role delete ${id}`), "{}");
+				assert.equal(await execCtlOutput(`--output json role delete ${id}`), '{"success":true}');
+			});
+			it("prints the toJSON format in wire mode", async function() {
+				const [jsonUser] = JSON.parse(await execCtlOutput("--output json user list"));
+				const [wireUser] = JSON.parse(await execCtlOutput("--output wire user list"));
+				assert("roleIds" in jsonUser);
+				assert(!("roleIds" in wireUser));
+				assert.equal(wireUser.name, jsonUser.name);
+			});
+			it("prints a success line for commands without a result", async function() {
+				const { id } = JSON.parse(await execCtlOutput("--output json role create human-role"));
+				assert.equal(await execCtlOutput(`role delete ${id}`), "Command ran successfully");
 			});
 			it("prints log queries as an array", async function() {
 				const log = JSON.parse(await execCtlOutput("--output json log query --controller --limit 1"));

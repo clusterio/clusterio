@@ -981,9 +981,10 @@ handler: async function(args, ctl) {
 },
 ```
 
-`ctl.output.result(data, human)` prints `data` as JSON in json mode and calls `human` otherwise.
+`ctl.output.result(data, human)` prints `data` as JSON in json and wire mode and calls `human` otherwise.
 `ctl.output.table(rows)` prints an array of objects as a table or as a JSON array.
-Commands that print nothing get `{}` printed for them in json mode, and errors thrown from the handler are printed as `{"error": "<ClassName>", "message": "<message>"}`.
+`ctl.output.human` is true when the output is meant for reading.
+Commands that print nothing get `Command ran successfully` or `{"success": true}` printed for them, and errors thrown from the handler are printed as `{"error": "<ClassName>", "message": "<message>"}` in json and wire mode.
 
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in the `addCommands` hook of the ctl entrypoint:
 

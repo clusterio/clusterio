@@ -30,7 +30,7 @@ playerSyncCommands.add(new lib.Command({
 	handler: async function(args: object, ctl: Ctl) {
 		let players = await ctl.send(new msg.ListPlayersRequest());
 		players.sort((a, b) => a.name.localeCompare(b.name));
-		if (ctl.output.json) {
+		if (!ctl.output.human) {
 			ctl.output.result(players);
 			return;
 		}
@@ -54,36 +54,36 @@ playerSyncCommands.add(new lib.Command({
 	handler: async function(args: { player: string }, ctl: Ctl) {
 		let response = await ctl.send(new msg.GetPlayerDataRequest(args.player));
 		let playerData = response.playerData;
-		if (ctl.output.json) {
-			ctl.output.result({
-				instanceId: response.instanceId,
-				...playerData && {
-					generation: playerData.generation,
-					size: JSON.stringify(playerData).length,
-					controller: playerData.controller,
-					force: playerData.force,
-					inventories: summarizePlayerInventories(playerData),
-				},
-			});
-			return;
-		}
-		print(`acquired by: ${await instanceName(ctl, response.instanceId)}`);
-		if (!playerData) {
-			print(`No player data stored for ${args.player}`);
-			return;
-		}
-		print(`generation: ${playerData.generation}`);
-		print(`size: ${lib.formatBytes(JSON.stringify(playerData).length)}`);
-		print(`controller: ${playerData.controller}`);
-		print(`force: ${playerData.force}`);
-		for (let inventory of summarizePlayerInventories(playerData)) {
-			print(`${inventory.name}:`);
-			for (let item of inventory.items) {
-				let quality = item.quality ? ` (${item.quality})` : "";
-				let size = item.exportSize ? ` ${lib.formatBytes(item.exportSize)}` : "";
-				print(`  ${item.count} ${item.name}${quality}${size}`);
+		const summary = {
+			instanceId: response.instanceId,
+			...playerData && {
+				generation: playerData.generation,
+				size: JSON.stringify(playerData).length,
+				controller: playerData.controller,
+				force: playerData.force,
+				inventories: summarizePlayerInventories(playerData),
+			},
+		};
+		const acquiredBy = ctl.output.human ? await instanceName(ctl, response.instanceId) : "";
+		ctl.output.result(summary, () => {
+			print(`acquired by: ${acquiredBy}`);
+			if (!playerData) {
+				print(`No player data stored for ${args.player}`);
+				return;
 			}
-		}
+			print(`generation: ${summary.generation}`);
+			print(`size: ${lib.formatBytes(summary.size!)}`);
+			print(`controller: ${summary.controller}`);
+			print(`force: ${summary.force}`);
+			for (let inventory of summary.inventories!) {
+				print(`${inventory.name}:`);
+				for (let item of inventory.items) {
+					let quality = item.quality ? ` (${item.quality})` : "";
+					let size = item.exportSize ? ` ${lib.formatBytes(item.exportSize)}` : "";
+					print(`  ${item.count} ${item.name}${quality}${size}`);
+				}
+			}
+		});
 	},
 }));
 

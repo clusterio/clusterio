@@ -60,6 +60,7 @@ export function serializedConfigToString(
 export function printConfig(ctl: Ctl, config: lib.ConfigSchema, note = (name: string) => "") {
 	ctl.output.result(config, () => {
 		for (let [name, value] of Object.entries(config)) {
+			// Shown as an (inherited) note on each field by instance config list instead
 			if (name !== "instance.inherited_fields") {
 				print(`${name} ${JSON.stringify(value)}${note(name)}`);
 			}

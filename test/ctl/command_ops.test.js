@@ -43,6 +43,9 @@ describe("ctl/command_ops", function() {
 			assert.deepEqual(captureLog(() => output.result({ a: 1 }, human)), ["human"]);
 			assert.deepEqual(captureLog(() => output.finish()), []);
 		});
+		it("prints a success line in human mode for commands without a result", function() {
+			assert.deepEqual(captureLog(() => new CommandOutput("human").finish()), ["Command ran successfully"]);
+		});
 		it("prints one line of JSON per result in json mode", function() {
 			const output = new CommandOutput("json");
 			const lines = captureLog(() => {
@@ -52,8 +55,14 @@ describe("ctl/command_ops", function() {
 			});
 			assert.deepEqual(lines, ['{"a":[1]}', '[{"b":2}]']);
 		});
-		it("prints {} for commands without a result", function() {
-			assert.deepEqual(captureLog(() => new CommandOutput("json").finish()), ["{}"]);
+		it("prints the toJSON format in wire mode", function() {
+			const output = new CommandOutput("wire");
+			const role = new lib.Role(1, "name", "desc", new Set(["core.admin"]));
+			const lines = captureLog(() => output.result({ role, set: new Set([1]), map: new Map([["a", 2]]) }));
+			assert.deepEqual(JSON.parse(lines[0]), { role: JSON.parse(JSON.stringify(role)), set: [1], map: { a: 2 } });
+		});
+		it("prints success for commands without a result", function() {
+			assert.deepEqual(captureLog(() => new CommandOutput("json").finish()), ['{"success":true}']);
 			const streaming = new CommandOutput("json");
 			streaming.streaming = true;
 			assert.deepEqual(captureLog(() => streaming.finish()), []);
