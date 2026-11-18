@@ -33,6 +33,9 @@ describe("Integration of lib/link", function() {
 		hostConnector = new TestHostConnector(url, 0.2);
 		hostConnector.token = linkHost.token;
 		hostConnector.hostId = linkHost.hostId;
+		// The controller requests system info on connect and waits for it before disconnecting
+		const hostLink = new lib.Link(hostConnector);
+		hostLink.handle(lib.SystemInfoRequest, () => lib.gatherSystemInfo(linkHost.hostId, false, false, 0));
 	});
 	afterEach(async function() {
 		await controlConnector.disconnect();
