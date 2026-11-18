@@ -1,5 +1,5 @@
 import { Static, Type } from "@sinclair/typebox";
-import { FullVersionSchema, integerFullVersion, isFullVersion } from "../data/version.js";
+import { FullVersion, FullVersionSchema, integerFullVersion, isFullVersion } from "../data/version.js";
 
 const ARCHIVE_URL = "https://factorio.com/download/archive/";
 
@@ -9,10 +9,60 @@ const ARCHIVE_URL = "https://factorio.com/download/archive/";
 export const ExternalFactorioVersionSchema = Type.Object({
 	stable: Type.Boolean(),
 	version: FullVersionSchema,
+	/** @deprecated Linux x64 only, use {@link factorioHeadlessUrl} instead. */
 	headlessUrl: Type.String(),
 });
 
 export type ExternalFactorioVersion = Static<typeof ExternalFactorioVersionSchema>;
+
+/** Platforms Factorio may publish headless builds for, named as in Node's process.platform */
+export type FactorioHeadlessPlatform = "linux" | "win32";
+
+/** CPU architectures Factorio may publish headless builds for, named as in Node's process.arch */
+export type FactorioHeadlessArch = "x64" | "arm64";
+
+/** First Factorio version with an ARM64 Linux headless build */
+export const minimumArm64HeadlessVersion = "2.1.18";
+
+/**
+ * Check if Factorio publishes a headless build of a version
+ *
+ * @param version - Factorio version to check.
+ * @param platform - Platform of the build.
+ * @param arch - CPU architecture of the build.
+ * @returns true if the build can be downloaded.
+ */
+export function hasFactorioHeadless(
+	version: FullVersion,
+	platform: FactorioHeadlessPlatform,
+	arch: FactorioHeadlessArch,
+) {
+	if (platform !== "linux") {
+		return false;
+	}
+	return arch === "x64" || integerFullVersion(version) >= integerFullVersion(minimumArm64HeadlessVersion);
+}
+
+/**
+ * Download URL of the headless build of a Factorio version
+ *
+ * @param version - Factorio version to download.
+ * @param platform - Platform of the build.
+ * @param arch - CPU architecture of the build.
+ * @returns URL redirecting to the archive.
+ * @throws Error if Factorio has no headless build for the platform and arch.
+ */
+export function factorioHeadlessUrl(
+	version: FullVersion,
+	platform: FactorioHeadlessPlatform,
+	arch: FactorioHeadlessArch,
+) {
+	if (!hasFactorioHeadless(version, platform, arch)) {
+		throw new Error(`Factorio ${version} has no headless build for ${platform} ${arch}`);
+	}
+	const build = arch === "arm64" ? "linux-arm64" : "linux64";
+	return `https://www.factorio.com/get-download/${version}/headless/${build}`;
+}
 
 /**
  * Fetch all factorio versions that support headless
@@ -60,7 +110,7 @@ function parseFactorioVersions(html: string): ExternalFactorioVersion[] {
 			versions.set(version, {
 				version: version,
 				stable: kind === "stable",
-				headlessUrl: `https://www.factorio.com/get-download/${version}/headless/linux64`,
+				headlessUrl: factorioHeadlessUrl(version, "linux", "x64"),
 			});
 		}
 	}
