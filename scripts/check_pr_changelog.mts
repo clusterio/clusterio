@@ -15,7 +15,7 @@ const expectedFormat = [
 	"Or, when nothing user facing changed, replace the code block with:",
 	"",
 	"### Changelog",
-	"None. Only changes CI configuration.",
+	"None. Reason no change log is required.",
 ].join("\n");
 
 /** Returns the problems found in the body, an empty list means it is valid. */

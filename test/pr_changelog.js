@@ -30,11 +30,11 @@ describe("scripts/check_pr_changelog", function() {
 	});
 	it("rejects a missing body or section", function() {
 		assert.deepEqual(findChangelogProblems(null), ["Pull request has no body"]);
-		assert.deepEqual(findChangelogProblems("Description only."), ["### Changelog header not found"]);
+		assert.deepEqual(findChangelogProblems("Description only."), ["\"### Changelog\" header not found"]);
 		assert.deepEqual(findChangelogProblems(body("Text")), ["Code block not found after header"]);
 		assert.deepEqual(findChangelogProblems(body("```", "### Fixes")), ["End of code block not found after header"]);
 		assert.deepEqual(findChangelogProblems(body("```", "", "```")), [
-			"Code block is empty, replace it with None. if nothing applies",
+			"Code block is empty, replace it with \"None.\" if nothing applies",
 		]);
 	});
 	it("rejects None. inside the code block", function() {

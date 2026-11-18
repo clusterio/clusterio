@@ -79,7 +79,7 @@ function extractPullRequestChangelog(
 {
 	const headerFail = skipToLine(parser, /^###? Changelog *$/);
 	if (headerFail) {
-		return [failure, , "### Changelog header not found"];
+		return [failure, , "\"### Changelog\" header not found"];
 	}
 	parser.pos += 1;
 	skipEmptyLines(parser);
@@ -99,7 +99,7 @@ function extractPullRequestChangelog(
 	}
 	const lines = parser.lines.slice(blockStartPos, parser.pos);
 	if (!lines.some(line => line.trim() !== "")) {
-		return [failure, , "Code block is empty, replace it with None. if nothing applies"];
+		return [failure, , "Code block is empty, replace it with \"None.\" if nothing applies"];
 	}
 	return [success, lines];
 }
