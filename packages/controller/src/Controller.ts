@@ -509,10 +509,10 @@ export default class Controller {
 		}
 
 		this.hostPairing.start();
-		this.onAutosaveIntervalChanged();
 
 		logger.info("Started controller");
 		this.startedAtMs = Date.now();
+		this.onAutosaveIntervalChanged();
 		this.onSystemMetricsIntervalChanged();
 		this._state = "running";
 	}
