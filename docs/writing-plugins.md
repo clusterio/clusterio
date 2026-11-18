@@ -972,6 +972,19 @@ For a command the `definition` is the arguments to pass to [yargs.command](http:
 The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Ctl` class of clusterioctl.
 Note that messages sent from clusterioctl needs to have `"control"` as a part of `src` for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
 
+Commands print their results through `ctl.output` so that `--output json` works for them:
+
+```js
+handler: async function(args, ctl) {
+    const result = await ctl.sendTo("controller", new messages.FrobnicateRequest(args.type));
+    ctl.output.result(result, () => console.log(`Frobnicated ${result.count} foos`));
+},
+```
+
+`ctl.output.result(data, human)` prints `data` as JSON in json mode and calls `human` otherwise.
+`ctl.output.table(rows)` prints an array of objects as a table or as a JSON array.
+Commands that print nothing get `{}` printed for them in json mode, and errors thrown from the handler are printed as `{"error": "<ClassName>", "message": "<message>"}`.
+
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in the `addCommands` hook of the ctl entrypoint:
 
 ```js

@@ -1,11 +1,7 @@
-import asTableModule from "as-table";
-
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
 
 export const modPackCommands = new lib.CommandTree({ name: "mod-pack", description: "Mod Pack" });
 modPackCommands.add(new lib.Command({
@@ -19,41 +15,44 @@ modPackCommands.add(new lib.Command({
 		let modPack = await ctl.send(
 			new lib.ModPackGetRequest(await lib.resolveModPack(ctl, args.modPack))
 		);
-
-		for (let [field, value] of Object.entries(modPack)) {
-			if (field === "mods") {
-				print(`${field}:`);
-				for (let [name, entry] of value) {
-					const mod = mods.get(`${name}_${entry.version}`);
-					const missing = !mod && "? ";
-					const badChecksum = mod && entry.sha1 && entry.sha1 !== mod.sha1 && "! ";
-					const warn = missing || badChecksum || "";
-					const enabled = entry.enabled ? "" : "(disabled) ";
-					print(`  ${warn}${enabled}${name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
-				}
-			} else if (field === "settings") {
-				print(`${field}:`);
-				for (let [scope, settings] of Object.entries(value)) {
-					print(`  ${scope}:`);
-					for (let [setting, settingValue] of settings as any) {
-						print(`    ${setting}: ${JSON.stringify(settingValue.value)}`);
-					}
-				}
-			} else if (field === "exportManifest") {
-				print(`${field}:`);
-				if (value && value.assets) {
-					print("  assets:");
-					for (let [name, fileName] of Object.entries(value.assets)) {
-						print(`    ${name}: ${fileName}`);
-					}
-				}
-
-			} else {
-				print(`${field}: ${value}`);
-			}
-		}
+		ctl.output.result(modPack, () => printModPack(modPack, mods));
 	},
 }));
+
+function printModPack(modPack: lib.ModPack, mods: Map<string, lib.ModInfo>) {
+	for (let [field, value] of Object.entries(modPack)) {
+		if (field === "mods") {
+			print(`${field}:`);
+			for (let [name, entry] of value) {
+				const mod = mods.get(`${name}_${entry.version}`);
+				const missing = !mod && "? ";
+				const badChecksum = mod && entry.sha1 && entry.sha1 !== mod.sha1 && "! ";
+				const warn = missing || badChecksum || "";
+				const enabled = entry.enabled ? "" : "(disabled) ";
+				print(`  ${warn}${enabled}${name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
+			}
+		} else if (field === "settings") {
+			print(`${field}:`);
+			for (let [scope, settings] of Object.entries(value)) {
+				print(`  ${scope}:`);
+				for (let [setting, settingValue] of settings as any) {
+					print(`    ${setting}: ${JSON.stringify(settingValue.value)}`);
+				}
+			}
+		} else if (field === "exportManifest") {
+			print(`${field}:`);
+			if (value && value.assets) {
+				print("  assets:");
+				for (let [name, fileName] of Object.entries(value.assets)) {
+					print(`    ${name}: ${fileName}`);
+				}
+			}
+
+		} else {
+			print(`${field}: ${value}`);
+		}
+	}
+}
 
 modPackCommands.add(new lib.Command({
 	definition: [["list", "l"], "List mod packs in the cluster"],
@@ -68,7 +67,7 @@ modPackCommands.add(new lib.Command({
 				}
 			}
 		}
-		print(asTable(modPacks));
+		ctl.output.table(modPacks);
 	},
 }));
 
@@ -194,9 +193,16 @@ modPackCommands.add(new lib.Command({
 		setModPackModsEnabled(modPack, args.disabledMods, false);
 		setModPackSettings(modPack, args);
 		await ctl.send(new lib.ModPackCreateRequest(modPack));
-		print(`Created mod pack ${modPack.name} (${modPack.id})`);
+		printCreated(ctl, modPack);
 	},
 }));
+
+function printCreated(ctl: Ctl, modPack: lib.ModPack) {
+	ctl.output.result(
+		{ id: modPack.id, name: modPack.name },
+		() => print(`Created mod pack ${modPack.name} (${modPack.id})`),
+	);
+}
 
 modPackCommands.add(new lib.Command({
 	definition: ["import <string>", "Import mod pack string", (yargs) => {
@@ -205,7 +211,7 @@ modPackCommands.add(new lib.Command({
 	handler: async function(args: { string: string }, ctl: Ctl) {
 		const modPack = lib.ModPack.fromModPackString(args.string);
 		await ctl.send(new lib.ModPackCreateRequest(modPack));
-		print(`Created mod pack ${modPack.name} (${modPack.id})`);
+		printCreated(ctl, modPack);
 	},
 }));
 
@@ -217,7 +223,8 @@ modPackCommands.add(new lib.Command({
 		const modPack = await ctl.send(
 			new lib.ModPackGetRequest(await lib.resolveModPack(ctl, args.modPack))
 		);
-		print(modPack.toModPackString());
+		const modPackString = modPack.toModPackString();
+		ctl.output.result({ modPackString }, () => print(modPackString));
 	},
 }));
 

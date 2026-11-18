@@ -10,7 +10,7 @@ import events from "node:events";
 import * as lib from "@clusterio/lib";
 import { LineSplitter, logger } from "@clusterio/lib";
 
-import { selectTargetCommand, initialize as initializeCtl } from "@clusterio/ctl";
+import { runCommand, initialize as initializeCtl } from "@clusterio/ctl";
 import { _listFactorioVersions } from "@clusterio/host/dist/node/src/server.js";
 import { pairHost } from "@clusterio/host";
 
@@ -242,8 +242,7 @@ export async function execCtl(command) {
 		}
 
 		control.config = initArgs.ctlConfig;
-		const targetCommand = selectTargetCommand(initArgs.args, initArgs.rootCommands);
-		await targetCommand.run(initArgs.args, control);
+		await runCommand(initArgs.args, initArgs.rootCommands, control);
 	} finally {
 		process.chdir("../..");
 		inExecCtl = false;

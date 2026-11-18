@@ -17,6 +17,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import * as commands from "./src/commands.js";
 import { BaseCtlPlugin, CtlHooks } from "./src/BaseCtlPlugin.js";
+import { CommandOutput, outputFormats, type OutputFormat } from "./src/command_ops.js";
 
 
 /**
@@ -55,6 +56,8 @@ export class Ctl extends lib.Link {
 	config: lib.CtlConfig;
 	/** Keep the control connection alive after the command completes. */
 	keepOpen = false;
+	/** Output of the command being run. */
+	output = new CommandOutput();
 
 	constructor(
 		connector: CtlConnector,
@@ -82,12 +85,19 @@ export class Ctl extends lib.Link {
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
-		logger.log(event.info as any);
+		if (this.output.json && this.output.streaming) {
+			this.output.result(event.info);
+		} else {
+			logger.log(event.info as any);
+		}
 	}
 
 	async handleDebugWsMessageEvent(event: lib.DebugWsMessageEvent) {
-		// eslint-disable-next-line no-console
-		console.log("WS", event.direction, event.content);
+		this.output.result(
+			{ direction: event.direction, content: event.content },
+			// eslint-disable-next-line no-console
+			() => console.log("WS", event.direction, event.content),
+		);
 	}
 
 	async shutdown() {
@@ -126,6 +136,7 @@ interface CtlArguments {
 	$0: string,
 	_: (string | number)[],
 	logLevel: keyof typeof levels,
+	output: OutputFormat,
 	config: string,
 	pluginList: string,
 	bypassLockFile: boolean,
@@ -163,6 +174,13 @@ export async function initialize(
 			describe: "Log level to print to stderr",
 			default: "server",
 			choices: Object.keys(levels),
+			type: "string",
+		})
+		.option("output", {
+			nargs: 1,
+			describe: "Format to print command results in",
+			default: "human",
+			choices: outputFormats,
 			type: "string",
 		})
 		.option("config", {
@@ -260,19 +278,39 @@ export function selectTargetCommand(args: CtlArguments, rootCommands: lib.Comman
 	return targetCommand;
 }
 
-async function startCtl() {
+/**
+ * Run the command selected by args, printing results in the format given by args.output
+ */
+export async function runCommand(
+	args: CtlArguments,
+	rootCommands: lib.CommandTree,
+	link: lib.Link & { output?: CommandOutput },
+) {
+	link.output = new CommandOutput(args.output);
+	const targetCommand = selectTargetCommand(args, rootCommands);
+	await targetCommand.run(args, link);
+	link.output.finish();
+}
+
+async function startCtl(output: CommandOutput) {
 	const {
 		args,
 		shouldRun,
 		rootCommands,
 		ctlConfig,
 	} = await initialize(process.argv.slice(2));
+	output.format = args.output;
 	if (!shouldRun || !rootCommands || !ctlConfig) {
 		return;
 	}
 
 	if (!ctlConfig.get("ctl.controller_url") || !ctlConfig.get("ctl.controller_token")) {
-		logger.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
+		const message = "Missing URL and/or token to connect with.  See README.md for setting up access.";
+		if (output.json) {
+			output.error(new lib.StartupError(message));
+		} else {
+			logger.error(message);
+		}
 		process.exitCode = 1;
 		return;
 	}
@@ -298,12 +336,20 @@ async function startCtl() {
 	process.on("SIGTERM", lib.createShutdownGuard(logger, "termination", ctl.shutdown.bind(ctl)));
 
 	try {
-		const targetCommand = selectTargetCommand(args, rootCommands);
-		await targetCommand.run(args, ctl);
+		await runCommand(args, rootCommands, ctl);
 
 	} catch (err) {
 		ctl.keepOpen = false;
-		if (err instanceof lib.CommandError) {
+		const expected = err instanceof lib.CommandError || err instanceof lib.ClientError
+			|| err instanceof lib.ServerError;
+		if (ctl.output.json) {
+			ctl.output.error(err);
+			process.exitCode = 1;
+			if (!expected) {
+				logger.error((err as Error).stack ?? String(err));
+			}
+
+		} else if (err instanceof lib.CommandError) {
 			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
 
@@ -327,7 +373,13 @@ async function startCtl() {
 }
 
 export function bootstrap() {
-	startCtl().catch(err => {
+	const output = new CommandOutput();
+	startCtl(output).catch(err => {
+		process.exitCode = 1;
+		if (output.json) {
+			output.error(err);
+			return;
+		}
 		if (err.errors) {
 			logger.fatal(JSON.stringify(err.errors, null, "\t"));
 		}
@@ -347,8 +399,6 @@ ${err.stack}`
 ${err.stack}`
 			);
 		}
-
-		process.exitCode = 1;
 	});
 }
 

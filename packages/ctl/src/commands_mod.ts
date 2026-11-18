@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import asTableModule from "as-table";
 import events from "events";
 import path from "path";
 import stream from "stream";
@@ -8,9 +7,7 @@ import util from "util";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
+import { asTable, print } from "./command_ops.js";
 const finished = util.promisify(stream.finished);
 
 export const modCommands = new lib.CommandTree({ name: "mod", description: "Manage uploaded mods" });
@@ -24,16 +21,18 @@ modCommands.add(new lib.Command({
 			throw new lib.CommandError("mod-version must match format digit.digit.digit");
 		}
 		let modInfo = await ctl.send(new lib.ModGetRequest(args.name, args.modVersion));
-		for (let [field, value] of Object.entries(modInfo)) {
-			if (value instanceof Array) {
-				print(`${field}:`);
-				for (let entry of value) {
-					print(`  ${entry}`);
+		ctl.output.result(modInfo, () => {
+			for (let [field, value] of Object.entries(modInfo)) {
+				if (value instanceof Array) {
+					print(`${field}:`);
+					for (let entry of value) {
+						print(`  ${entry}`);
+					}
+				} else {
+					print(`${field}: ${value}`);
 				}
-			} else {
-				print(`${field}: ${value}`);
 			}
-		}
+		});
 	},
 }));
 
@@ -60,7 +59,7 @@ modCommands.add(new lib.Command({
 				}
 			}
 		}
-		print(asTable(mods));
+		ctl.output.table(mods);
 	},
 }));
 
@@ -131,11 +130,19 @@ modCommands.add(new lib.Command({
 				}
 			}
 		}
-		for (let issue of response.queryIssues) {
-			print(issue);
-		}
-		print(`page ${args.page} of ${response.pageCount} (${response.resultCount} results)`);
-		print(asTable(results));
+		ctl.output.result({
+			page: args.page,
+			pageCount: response.pageCount,
+			resultCount: response.resultCount,
+			queryIssues: response.queryIssues,
+			results,
+		}, () => {
+			for (let issue of response.queryIssues) {
+				print(issue);
+			}
+			print(`page ${args.page} of ${response.pageCount} (${response.resultCount} results)`);
+			print(asTable(results));
+		});
 	},
 }));
 
@@ -174,14 +181,16 @@ modCommands.add(new lib.Command({
 			logger.error(requestError);
 		}
 
-		if (result.mods && result.mods.length) {
-			const mod = lib.ModInfo.fromJSON(result.mods[0]);
-			logger.info(`Successfully uploaded ${mod.filename}`);
-		}
-
 		if ((result.errors || []).length || (result.request_errors || []).length) {
 			throw new lib.CommandError("Uploading mod failed");
 		}
+
+		const uploaded = result.mods?.length ? lib.ModInfo.fromJSON(result.mods[0]).filename : undefined;
+		ctl.output.result({ filename: uploaded }, () => {
+			if (uploaded) {
+				print(`Successfully uploaded ${uploaded}`);
+			}
+		});
 	},
 }));
 
@@ -201,7 +210,7 @@ modCommands.add(new lib.Command({
 		let filename = `${args.name}_${args.modVersion}.zip`;
 		await lib.downloadFile(url, filename, "overwrite");
 
-		logger.info(`Downloaded ${filename}`);
+		ctl.output.result({ filename }, () => print(`Downloaded ${filename}`));
 	},
 }));
 

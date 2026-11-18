@@ -2317,6 +2317,41 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("--output json", function() {
+			it("prints lists as an array of objects", async function() {
+				const roles = JSON.parse(await execCtlOutput("--output json role list"));
+				assert.deepEqual(roles.find(role => role.id === 0).permissions, ["core.admin"]);
+			});
+			it("prints single results as an object", async function() {
+				const { id } = JSON.parse(await execCtlOutput("--output json role create json-role"));
+				const roles = await getControl().send(new lib.RoleListRequest());
+				assert.equal(roles.find(role => role.id === id)?.name, "json-role");
+				assert.equal(await execCtlOutput(`--output json role delete ${id}`), "{}");
+			});
+			it("prints log queries as an array", async function() {
+				const log = JSON.parse(await execCtlOutput("--output json log query --controller --limit 1"));
+				assert.equal(log.length, 1);
+				assert.equal(typeof log[0].message, "string");
+			});
+			it("prints errors as JSON with a non-zero exit code", async function() {
+				await assert.rejects(
+					execCtlProcess("--output json instance stop no-such-instance"),
+					err => {
+						assert.equal(err.code, 1);
+						assert.deepEqual(
+							JSON.parse(err.stdout),
+							{ error: "CommandError", message: "No instance named no-such-instance" },
+						);
+						return true;
+					},
+				);
+				await assert.rejects(
+					execCtlProcess("--output json user set-admin no-such-user"),
+					err => JSON.parse(err.stdout).error === "NotFoundError",
+				);
+			});
+		});
+
 		describe("user list", function() {
 			it("prints roles and instances as lists", async function() {
 				const output = await execCtlOutput("user list");

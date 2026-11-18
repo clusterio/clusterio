@@ -30,14 +30,20 @@ playerSyncCommands.add(new lib.Command({
 	handler: async function(args: object, ctl: Ctl) {
 		let players = await ctl.send(new msg.ListPlayersRequest());
 		players.sort((a, b) => a.name.localeCompare(b.name));
-		print("name | generation | size | acquired by");
-		for (let player of players) {
-			print(
-				`${player.name} | ${player.generation ?? "-"} | ` +
-				`${player.size === undefined ? "-" : lib.formatBytes(player.size)} | ` +
-				`${await instanceName(ctl, player.instanceId)}`
-			);
+		if (ctl.output.json) {
+			ctl.output.result(players);
+			return;
 		}
+		let rows = [];
+		for (let player of players) {
+			rows.push({
+				name: player.name,
+				generation: player.generation ?? "-",
+				size: player.size === undefined ? "-" : lib.formatBytes(player.size),
+				"acquired by": await instanceName(ctl, player.instanceId),
+			});
+		}
+		ctl.output.table(rows);
 	},
 }));
 
@@ -47,8 +53,21 @@ playerSyncCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { player: string }, ctl: Ctl) {
 		let response = await ctl.send(new msg.GetPlayerDataRequest(args.player));
-		print(`acquired by: ${await instanceName(ctl, response.instanceId)}`);
 		let playerData = response.playerData;
+		if (ctl.output.json) {
+			ctl.output.result({
+				instanceId: response.instanceId,
+				...playerData && {
+					generation: playerData.generation,
+					size: JSON.stringify(playerData).length,
+					controller: playerData.controller,
+					force: playerData.force,
+					inventories: summarizePlayerInventories(playerData),
+				},
+			});
+			return;
+		}
+		print(`acquired by: ${await instanceName(ctl, response.instanceId)}`);
 		if (!playerData) {
 			print(`No player data stored for ${args.player}`);
 			return;
@@ -81,9 +100,12 @@ playerSyncCommands.add(new lib.Command({
 		let content = JSON.stringify(response.playerData, null, "\t");
 		if (args.file) {
 			await fs.writeFile(args.file, content);
-			print(`Wrote player data for ${args.player} to ${args.file}`);
+			ctl.output.result(
+				{ file: args.file },
+				() => print(`Wrote player data for ${args.player} to ${args.file}`),
+			);
 		} else {
-			print(content);
+			ctl.output.result(response.playerData, () => print(content));
 		}
 	},
 }));
@@ -101,7 +123,10 @@ playerSyncCommands.add(new lib.Command({
 		playerData.name = args.player;
 		playerData.generation ??= 0;
 		let response = await ctl.send(new msg.SetPlayerDataRequest(args.player, playerData));
-		print(`Stored player data for ${args.player} as generation ${response.generation}`);
+		ctl.output.result(
+			{ generation: response.generation },
+			() => print(`Stored player data for ${args.player} as generation ${response.generation}`),
+		);
 	},
 }));
 

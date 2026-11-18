@@ -8,6 +8,21 @@ Before `clusterioctl` can be used it needs to be configured for the cluster it w
 The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-ctl.json` for managing the cluster as the given user.
 
 
+## Output Format
+
+    ctl> --output json <command>
+
+Print the result of the command as JSON on stdout instead of text meant for reading.
+Lists are printed as an array of objects, other results as an object, and commands that have no result print `{}`.
+If the command fails it prints `{"error": "<ClassName>", "message": "<message>"}` and exits with a non-zero exit code.
+Log messages are written to stderr in both formats.
+
+`log follow` and `debug dump-ws` keep running and print one JSON object per line as entries arrive.
+`instance start-all` and `instance stop-all` print an array with an entry per instance, which has an `error` property if that instance failed to start or stop.
+
+The default is `--output human`.
+
+
 ## Hosts
 
 ### List hosts
