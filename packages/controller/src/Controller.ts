@@ -2,6 +2,7 @@ import type winston from "winston";
 import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller.js";
 import type ControlConnection from "./ControlConnection.js";
+import type HostConnection from "./HostConnection.js";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
 import finalhandler from "finalhandler";
@@ -508,11 +509,11 @@ export default class Controller {
 		}
 
 		this.hostPairing.start();
-		this.onAutosaveIntervalChanged();
-		this.onSystemMetricsIntervalChanged();
 
 		logger.info("Started controller");
 		this.startedAtMs = Date.now();
+		this.onAutosaveIntervalChanged();
+		this.onSystemMetricsIntervalChanged();
 		this._state = "running";
 	}
 
@@ -669,6 +670,7 @@ export default class Controller {
 				this.updateSystems.bind(this),
 				systemMetricsIntervalSeconds * 1000
 			);
+			this.updateSystems();
 		}
 	}
 
@@ -691,6 +693,20 @@ export default class Controller {
 			}
 		} catch (err: any) {
 			logger.error(`Unexpected error updating system infos:\n${err.stack ?? err.message}`);
+		}
+	}
+
+	/** Fetch system info from a host that just connected instead of waiting for the next interval */
+	async updateHostSystem(hostConnection: HostConnection) {
+		if (!(this.config.get("controller.system_metrics_interval") > 0)) {
+			return;
+		}
+		try {
+			this.systems.set(await hostConnection.send(new lib.SystemInfoRequest()));
+		} catch (err: any) {
+			logger.error(
+				`Unexpected error updating system info of host ${hostConnection.id}:\n${err.stack ?? err.message}`
+			);
 		}
 	}
 
