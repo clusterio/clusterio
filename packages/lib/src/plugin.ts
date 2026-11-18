@@ -41,6 +41,8 @@ export type PluginDeclaration = {
 	migrationEntrypoint?: string;
 
 	features?: (typeof PluginFeatureFlags)[number][];
+	/** Names of Factorio mods the plugin needs in the instance's mod pack */
+	requiredMods?: string[];
 
 	messages?: any[];
 	errors?: ErrorClass[];

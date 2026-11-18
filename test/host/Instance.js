@@ -336,6 +336,39 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe(".checkRequiredMods()", function() {
+		let warnings;
+		beforeEach(function() {
+			warnings = [];
+			instance.logger = { warn(message) { warnings.push(message); } };
+			instance.loadedPlugins = new Set([
+				{ name: "foo", requiredMods: ["foo_mod", "bar_mod"] },
+				{ name: "bar" },
+			]);
+		});
+		function modPack(mods) {
+			return lib.ModPack.fromJSON({ name: "pack", mods });
+		}
+
+		it("should not warn when the required mods are enabled", function() {
+			instance.checkRequiredMods(modPack([
+				{ name: "foo_mod", enabled: true, version: "1.0.0" },
+				{ name: "bar_mod", enabled: true, version: "1.0.0" },
+			]));
+			assert.deepEqual(warnings, []);
+		});
+
+		it("should warn about missing and disabled required mods", function() {
+			instance.checkRequiredMods(modPack([
+				{ name: "foo_mod", enabled: false, version: "1.0.0" },
+			]));
+			assert.deepEqual(warnings, [
+				"Plugin foo requires foo_mod, bar_mod which are not enabled in mod pack pack. " +
+				"Add them to the mod pack or set foo.load_plugin to false for this instance.",
+			]);
+		});
+	});
+
 	describe("save name checks", function() {
 		it("should reject a start save outside the saves directory", async function() {
 			await assert.rejects(

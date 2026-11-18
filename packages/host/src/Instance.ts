@@ -1032,6 +1032,24 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		await this.syncMods();
+		this.checkRequiredMods(this.activeModPack);
+	}
+
+	/**
+	 * Warn about mods required by loaded plugins that the mod pack lacks
+	 */
+	checkRequiredMods(modPack: lib.ModPack) {
+		for (const pluginInfo of this.loadedPlugins) {
+			const missing = (pluginInfo.requiredMods ?? []).filter(name => !modPack.mods.get(name)?.enabled);
+			if (missing.length) {
+				this.logger.warn(
+					`Plugin ${pluginInfo.name} requires ${missing.join(", ")} which ` +
+					`${missing.length === 1 ? "is" : "are"} not enabled in mod pack ${modPack.name}. ` +
+					`Add ${missing.length === 1 ? "it" : "them"} to the mod pack or set ` +
+					`${pluginInfo.name}.load_plugin to false for this instance.`
+				);
+			}
+		}
 	}
 
 	/**

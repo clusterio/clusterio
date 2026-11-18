@@ -151,6 +151,10 @@ The following properties are recognized:
     Array of features the plugin needs from the instances it is loaded on, any of `"SavePatching"`, `"ScriptCommands"` and `"LuaUdp"`.
     See [Handling Invalid Configuration](#handling-invalid-configuration)
 
+**requiredMods**:
+    Array of names of Factorio mods the plugin needs in the mod pack of the instances it is loaded on.
+    See [Handling Invalid Configuration](#handling-invalid-configuration)
+
 **messages**:
     Array of request and event classes for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
@@ -320,6 +324,19 @@ export const plugin = {
 
 Enabling the plugin on an instance that has the feature turned off then fails config validation, so the mistake is caught when the config is edited instead of when the instance starts.
 Instances that have the feature turned off get the plugin disabled by default when it is added.
+
+If the plugin talks to a Factorio mod, list the mod under `requiredMods`:
+
+```js
+export const plugin = {
+    name: "subspace_storage",
+    // ...
+    requiredMods: ["subspace_storage"],
+};
+```
+
+When an instance with the plugin loaded starts with a mod pack that does not have the mod enabled, the host logs a warning to the instance log naming the missing mods.
+The mods are not added automatically, and the instance still starts.
 
 Other constraints on config fields are expressed with a `validator` on the field definition, which throws when the value is not acceptable.
 Use `dependsOn` when the check involves other fields so that the validator runs when those change too.
