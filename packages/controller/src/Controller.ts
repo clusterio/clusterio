@@ -77,6 +77,7 @@ export default class Controller {
 	hooks = new ControllerHooks(logger);
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
+	private _pluginLoader = new lib.PluginLoader(logger);
 	/** Latest versions of plugins on npm, as shown on the plugins page */
 	pluginLatestVersionCache: lib.LatestVersionCache = new Map();
 
@@ -1317,8 +1318,22 @@ export default class Controller {
 		}
 	}
 
+	/**
+	 * Wait for another plugin to load
+	 *
+	 * @param waiter - Name of the plugin waiting, used in warnings.
+	 * @param name - Name of the plugin to wait for.
+	 * @param timeoutMs - Time to wait before giving up.
+	 * @returns
+	 *     What the plugin's entrypoint returned, or undefined with a
+	 *     warning logged if it did not load.
+	 */
+	waitForPlugin<T = unknown>(waiter: string, name: string, timeoutMs?: number) {
+		return this._pluginLoader.waitFor<T>(waiter, name, timeoutMs);
+	}
+
 	async loadPlugins() {
-		const context = { metrics, logger, controller: this };
+		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of this.pluginInfos) {
 			try {
 				const manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
@@ -1341,17 +1356,20 @@ export default class Controller {
 				continue;
 			}
 
+			toLoad.push(pluginInfo);
+		}
+
+		const context = { metrics, logger, controller: this };
+		await this._pluginLoader.load(toLoad, async pluginInfo => {
+			let api;
 			try {
-				await lib.loadPlugin(
+				api = await lib.loadPlugin(
 					pluginInfo,
 					"controller",
 					context,
 					"ControllerPlugin",
 					BaseControllerPlugin,
 				);
-
-				this.loadedPlugins.add(pluginInfo);
-
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
 					throw err;
@@ -1360,6 +1378,11 @@ export default class Controller {
 			}
 
 			logger.info(`Loaded plugin ${pluginInfo.name}`);
+			return api;
+		});
+
+		for (const pluginInfo of toLoad) {
+			this.loadedPlugins.add(pluginInfo);
 		}
 	}
 

@@ -331,6 +331,7 @@ export default class Host extends lib.Link {
 	hooks = new HostHooks(logger);
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
+	private _pluginLoader = new lib.PluginLoader(logger);
 
 	/** A map from instance id to instance connection. Only present when instance is running. */
 	instanceConnections = new Map<number, InstanceConnection>();
@@ -487,8 +488,22 @@ export default class Host extends lib.Link {
 		this.handle(lib.InstanceDeleteInternalRequest, this.handleInstanceDeleteInternalRequest.bind(this));
 	}
 
+	/**
+	 * Wait for another host plugin to load
+	 *
+	 * @param waiter - Name of the plugin waiting, used in warnings.
+	 * @param name - Name of the plugin to wait for.
+	 * @param timeoutMs - Time to wait before giving up.
+	 * @returns
+	 *     What the plugin's host entrypoint returned, or undefined with
+	 *     a warning logged if it did not load.
+	 */
+	waitForPlugin<T = unknown>(waiter: string, name: string, timeoutMs?: number) {
+		return this._pluginLoader.waitFor<T>(waiter, name, timeoutMs);
+	}
+
 	async loadPlugins() {
-		const context = { logger, host: this };
+		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of this.pluginInfos) {
 			if (
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
@@ -502,17 +517,20 @@ export default class Host extends lib.Link {
 				continue;
 			}
 
+			toLoad.push(pluginInfo);
+		}
+
+		const context = { logger, host: this };
+		await this._pluginLoader.load(toLoad, async pluginInfo => {
+			let api;
 			try {
-				await lib.loadPlugin(
+				api = await lib.loadPlugin(
 					pluginInfo,
 					"host",
 					context,
 					"HostPlugin",
 					BaseHostPlugin,
 				);
-
-				this.loadedPlugins.add(pluginInfo);
-
 			} catch (err: any) {
 				if (err.code === "InstallationError") {
 					throw err;
@@ -521,6 +539,11 @@ export default class Host extends lib.Link {
 			}
 
 			logger.info(`Loaded plugin ${pluginInfo.name}`);
+			return api;
+		});
+
+		for (const pluginInfo of toLoad) {
+			this.loadedPlugins.add(pluginInfo);
 		}
 	}
 

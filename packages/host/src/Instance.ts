@@ -181,6 +181,7 @@ export default class Instance extends lib.Link {
 	hooks: InstanceHooks;
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
+	private _pluginLoader: lib.PluginLoader;
 
 
 	_host: Host;
@@ -211,6 +212,7 @@ export default class Instance extends lib.Link {
 		this.id = this.config.get("instance.id");
 
 		this.logger = instanceLogger(instanceConfig);
+		this._pluginLoader = new lib.PluginLoader(this.logger);
 
 		this.hooks = new InstanceHooks(this.logger);
 
@@ -767,13 +769,26 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	/**
+	 * Wait for another instance plugin to load
+	 *
+	 * @param waiter - Name of the plugin waiting, used in warnings.
+	 * @param name - Name of the plugin to wait for.
+	 * @param timeoutMs - Time to wait before giving up.
+	 * @returns
+	 *     What the plugin's instance entrypoint returned, or undefined with
+	 *     a warning logged if it did not load.
+	 */
+	waitForPlugin<T = unknown>(waiter: string, name: string, timeoutMs?: number) {
+		return this._pluginLoader.waitFor<T>(waiter, name, timeoutMs);
+	}
+
+	/**
 	 * Load the instance plugins and report the instance as initialised
 	 *
 	 * Must be called once the instance is connected to the host.
 	 */
 	async loadPlugins(pluginInfos: lib.PluginNodeEnvInfo[]) {
-		// load plugins
-		const plugins: Record<string, string> = {};
+		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
@@ -788,26 +803,33 @@ end`.replace(/\r?\n/g, " ");
 				continue;
 			}
 
-			try {
+			toLoad.push(pluginInfo);
+		}
+
+		try {
+			await this._pluginLoader.load(toLoad, async pluginInfo => {
 				let pluginLoadStartedMs = Date.now();
-				await lib.loadPlugin(
+				const api = await lib.loadPlugin(
 					pluginInfo,
 					"instance",
 					{ logger: this.logger, host: this._host, instance: this },
 					"InstancePlugin",
 					BaseInstancePlugin,
 				);
-
-				this.loadedPlugins.add(pluginInfo);
-				plugins[pluginInfo.name] = pluginInfo.version;
 				this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
-			} catch (err) {
-				this.notifyExit();
-				await this.sendSaveListUpdate();
-				throw err;
-			}
+				return api;
+			});
+		} catch (err) {
+			this.notifyExit();
+			await this.sendSaveListUpdate();
+			throw err;
 		}
 
+		const plugins: Record<string, string> = {};
+		for (const pluginInfo of toLoad) {
+			this.loadedPlugins.add(pluginInfo);
+			plugins[pluginInfo.name] = pluginInfo.version;
+		}
 		this.send(new lib.InstanceInitialisedEvent(plugins));
 	}
 

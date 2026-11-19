@@ -185,6 +185,7 @@ describe("lib/plugin_loader", function() {
 			await writeEntrypoint(functionPlugin, `
 				export default async function(context) {
 					context.controller.loadedWith = context;
+					return { api: true };
 				}
 			`);
 			await writeEntrypoint(classPlugin, `
@@ -231,7 +232,10 @@ describe("lib/plugin_loader", function() {
 		});
 		it("should call the default export with the load context", async function() {
 			const pluginInfo = info(functionPlugin);
-			await lib.loadPlugin(pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin);
+			const result = await lib.loadPlugin(
+				pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin,
+			);
+			assert.deepEqual(result, { api: true });
 			assert.equal(controller.loadedWith.controller, controller);
 			assert.equal(controller.loadedWith.plugin, pluginInfo);
 			assert.equal(controller.loadedWith.logger, logger);
@@ -239,7 +243,10 @@ describe("lib/plugin_loader", function() {
 		});
 		it("should load a deprecated class export", async function() {
 			const pluginInfo = info(classPlugin);
-			await lib.loadPlugin(pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin);
+			const result = await lib.loadPlugin(
+				pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin,
+			);
+			assert.equal(result, controller.loadedWith);
 			assert(controller.loadedWith instanceof BaseControllerPlugin);
 			assert.equal(controller.loadedWith.info, pluginInfo);
 			assert.deepEqual([...controller.hooks.save.attached], ["test"]);

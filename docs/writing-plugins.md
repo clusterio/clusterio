@@ -212,6 +212,32 @@ An error thrown by a handler is logged and does not affect the other handlers, t
 
 For TypeScript the context types are exported as `ControllerPluginContext`, `HostPluginContext`, `InstancePluginContext`, `CtlPluginContext` and `WebPluginContext` from their respective packages.
 
+### Depending on other plugins
+
+Plugins are loaded at the same time, so there is no order between them.
+A plugin that uses another plugin can wait for it with `waitForPlugin(waiter, name, timeoutMs)` on the controller, host or instance it is loaded for.
+`waiter` is the name of the plugin waiting, `name` is the plugin to wait for, and `timeoutMs` defaults to 30 seconds.
+It resolves to the value returned by the other plugin's entrypoint for the same controller, host or instance, so a plugin that offers an API to other plugins should return it from its entrypoint.
+For deprecated class based plugins it resolves to the plugin instance.
+
+```js
+export default async function({ controller, plugin }) {
+    const other = await controller.waitForPlugin(plugin.name, "other_plugin");
+    if (other) {
+        other.doSomething();
+    }
+}
+```
+
+If the plugin is already loaded it resolves right away.
+If the plugin is not installed, has load_plugin set to false, or plugins are disabled by recovery mode, it resolves to undefined once all plugins have loaded.
+If it times out it resolves to undefined.
+In both cases a warning naming both plugins is logged.
+
+Startup does not continue until every entrypoint has returned.
+Two plugins awaiting each other in their entrypoints hold up startup until one of them times out.
+Use `.then` or wait from a hook instead if the other plugin may also wait on yours.
+
 ### Class based plugins
 
 Plugins written as classes deriving from `BaseControllerPlugin`, `BaseHostPlugin`, `BaseInstancePlugin`, `BaseCtlPlugin` or `BaseWebPlugin` still load, but this way of defining plugins is deprecated and a warning is logged when such a plugin is loaded.

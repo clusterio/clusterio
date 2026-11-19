@@ -17,7 +17,7 @@ export async function loadPluginEntrypoint<
 		throw new Error(`Expected ${pluginType} plugin ${pluginInfo.name} to export a default function`);
 	}
 
-	await init(context);
+	return await init(context) as unknown;
 }
 
 export async function loadPluginClass<

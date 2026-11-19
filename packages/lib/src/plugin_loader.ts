@@ -256,15 +256,13 @@ export async function loadPlugin<
 	};
 
 	if (typeof module.default === "function") {
-		await loadPluginEntrypoint(pluginInfo, pluginType, pluginContext, module);
-		return;
+		return await loadPluginEntrypoint(pluginInfo, pluginType, pluginContext, module);
 	}
 
 	// migrate: accept plugins which export classes
 	if (module[exportName]) {
 		pluginContext.logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
-		await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
-		return;
+		return await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
 	}
 
 	throw new Error(`Plugin ${pluginInfo.name} must export either a default function or ${exportName} class`);
