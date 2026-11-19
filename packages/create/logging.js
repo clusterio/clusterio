@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import chalk from "chalk";
+import { styleText } from "node:util";
 
 export const levels = Object.freeze({
 	fatal: 0,
@@ -27,10 +27,7 @@ for (let [name, level] of Object.entries(levels)) {
 		if (level > maxLogLevel) {
 			return;
 		}
-		let style = chalk;
-		for (let part of colors[name].split(" ")) {
-			style = style[part];
-		}
+		const style = text => styleText(colors[name].split(" "), text);
 		if (["fatal", "error"].includes(name)) {
 			console.error(`${style(name)} ${message}`);
 		} else if (["warn"].includes(name)) {

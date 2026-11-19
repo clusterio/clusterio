@@ -36,7 +36,6 @@
 		"@inquirer/confirm": "^6.3.5",
 		"@inquirer/input": "^5.1.9",
 		"@inquirer/select": "^5.2.8",
-		"chalk": "catalog:",
 		"yargs": "catalog:"
 	}
 }
