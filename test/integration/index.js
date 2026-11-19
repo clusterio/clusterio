@@ -360,6 +360,7 @@ before(async function() {
 	await fs.writeFile(path.join(subspaceStorageDir, "info.json"), JSON.stringify({
 		name: "subspace_storage",
 		variants: [
+			{ version: "2.3.11", factorio_version: "1.1" },
 			{ version: "2.3.20", factorio_version: "2.0" },
 			{ version: "2.3.21", factorio_version: "2.1" },
 		],
