@@ -15,7 +15,7 @@ The easiest way to do this is to run `npx clusteriocontroller bootstrap create-c
 Print the result of the command as JSON on stdout instead of text meant for reading.
 Lists are printed as an array of objects, other results as an object, and commands that have no result print `{"success": true}`.
 If the command fails it prints `{"error": "<ClassName>", "message": "<message>"}` and exits with a non-zero exit code.
-Log messages, including the error message, are written to stderr in all formats.
+Log messages are written to stderr in all formats.
 
 `--output wire` prints the same results in the format they are sent between the controller, hosts and clusterioctl, which uses snake_case names like `is_admin`.
 The `json` format uses the property names shown in the tables of the human format.

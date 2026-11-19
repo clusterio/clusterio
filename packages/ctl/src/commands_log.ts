@@ -27,7 +27,7 @@ logCommands.add(new lib.Command({
 		let hostIds = args.host ? [await lib.resolveHost(ctl, args.host)] : [];
 		await ctl.setLogSubscriptions({ all: args.all, controller: args.controller, hostIds, instanceIds });
 		ctl.keepOpen = true;
-		ctl.output.streaming = true;
+		ctl.output.streamingLog = true;
 	},
 }));
 

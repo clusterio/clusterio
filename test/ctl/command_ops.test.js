@@ -64,16 +64,25 @@ describe("ctl/command_ops", function() {
 		it("prints success for commands without a result", function() {
 			assert.deepEqual(captureLog(() => new CommandOutput("json").finish()), ['{"success":true}']);
 			const streaming = new CommandOutput("json");
-			streaming.streaming = true;
+			streaming.streamingLog = true;
 			assert.deepEqual(captureLog(() => streaming.finish()), []);
 		});
 		it("prints errors as JSON", function() {
 			const output = new CommandOutput("json");
 			const lines = captureLog(() => {
-				output.error(new lib.CommandError("failed"));
+				output.error(new lib.CommandError("failed"), () => assert.fail("called human formatter"));
 				output.finish();
 			});
 			assert.deepEqual(lines, ['{"error":"CommandError","message":"failed"}']);
+		});
+		it("calls the human error reporter in human mode", function() {
+			const output = new CommandOutput("human");
+			const human = () => console.log("failed"); // eslint-disable-line no-console
+			const lines = captureLog(() => {
+				output.error(new lib.CommandError("failed"), human);
+				output.finish();
+			});
+			assert.deepEqual(lines, ["failed"]);
 		});
 	});
 });

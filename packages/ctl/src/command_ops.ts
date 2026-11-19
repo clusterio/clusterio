@@ -62,8 +62,8 @@ export type OutputFormat = typeof outputFormats[number];
 export class CommandOutput {
 	/** True once a result has been printed */
 	written = false;
-	/** Command prints a JSON line per item as it runs instead of a single result */
-	streaming = false;
+	/** Command prints log events as results while it runs and has no final result */
+	streamingLog = false;
 
 	constructor(
 		public format: OutputFormat = "human",
@@ -90,20 +90,34 @@ export class CommandOutput {
 		}
 	}
 
-	/** Print a list of objects as a table, or as an array in json and wire mode */
-	table(rows: object[]) {
-		this.result(rows, () => print(asTable(rows)));
+	/**
+	 * Print a list of objects as a table, or as an array in json and wire mode
+	 *
+	 * @param rows - Printed as is in json and wire mode.
+	 * @param map - Converts each row into the table row printed in human mode.
+	 */
+	table<T extends object>(rows: T[], map: (row: T) => object = row => row) {
+		this.result(rows, () => print(asTable(rows.map(map))));
 	}
 
-	/** Print an error as `{ "error": ClassName, "message": string }` */
-	error(err: unknown) {
+	/**
+	 * Print an error as `{ "error": ClassName, "message": string }` in json and wire mode
+	 *
+	 * @param err - Error to print.
+	 * @param human - Reports the error in human mode.
+	 */
+	error(err: unknown, human: () => void) {
 		this.written = true;
-		print(JSON.stringify(errorToJson(err)));
+		if (this.human) {
+			human();
+		} else {
+			print(JSON.stringify(errorToJson(err)));
+		}
 	}
 
 	/** Print a success result for commands that finished without printing one */
 	finish() {
-		if (!this.written && !this.streaming) {
+		if (!this.written && !this.streamingLog) {
 			this.result({ success: true }, () => print("Command ran successfully"));
 		}
 	}

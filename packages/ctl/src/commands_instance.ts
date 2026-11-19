@@ -9,7 +9,7 @@ import util from "util";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { asTable, errorToJson, print } from "./command_ops.js";
+import { errorToJson, print } from "./command_ops.js";
 import { serializedConfigToString, getEditor, configToKeyVal, printConfig } from "./config_ops.js";
 
 const finished = util.promisify(stream.finished);
@@ -287,9 +287,7 @@ instanceSaveCommands.add(new lib.Command({
 		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		let saves = await ctl.sendTo("controller", new lib.InstanceSaveDetailsListRequest());
 		saves = saves.filter(save => save.instanceId === instanceId);
-		ctl.output.result(saves, () => print(asTable(saves.map(
-			({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() })
-		))));
+		ctl.output.table(saves, ({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() }));
 	},
 }));
 

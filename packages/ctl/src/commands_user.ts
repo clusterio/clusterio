@@ -56,7 +56,7 @@ userCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { stats: boolean, attributes: boolean }, ctl: Ctl) {
 		const users = await ctl.send(new lib.UserListRequest());
-		const rows = users.map(user => {
+		ctl.output.table(users, user => {
 			const {
 				playerStats, isDeleted, banReason, instanceStats, isAdmin, isWhitelisted, isBanned, ...row
 			} = user;
@@ -66,7 +66,6 @@ userCommands.add(new lib.Command({
 				...args.stats && playerStats,
 			};
 		});
-		ctl.output.result(users, () => print(asTable(rows)));
 	},
 }));
 

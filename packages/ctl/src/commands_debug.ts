@@ -8,7 +8,7 @@ debugCommands.add(new lib.Command({
 	handler: async function(args: object, ctl: Ctl) {
 		await ctl.send(new lib.DebugDumpWsRequest());
 		ctl.keepOpen = true;
-		ctl.output.streaming = true;
+		ctl.output.streamingLog = true;
 	},
 }));
 

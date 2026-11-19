@@ -17,7 +17,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import * as commands from "./src/commands.js";
 import { BaseCtlPlugin, CtlHooks } from "./src/BaseCtlPlugin.js";
-import { CommandOutput, outputFormats, type OutputFormat } from "./src/command_ops.js";
+import { CommandOutput, errorToJson, outputFormats, print, type OutputFormat } from "./src/command_ops.js";
 
 
 /**
@@ -85,8 +85,8 @@ export class Ctl extends lib.Link {
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
-		// Only streaming commands print log events as results, the rest log them to stderr
-		if (this.output.streaming) {
+		// Only log following commands print log events as results, the rest log them to stderr
+		if (this.output.streamingLog) {
 			this.output.result(event.info, () => logger.log(event.info as any));
 		} else {
 			logger.log(event.info as any);
@@ -308,7 +308,7 @@ async function startCtl() {
 		await connectAndRun(args, rootCommands, ctlConfig);
 	} catch (err) {
 		if (args.output !== "human") {
-			new CommandOutput(args.output).error(err);
+			print(JSON.stringify(errorToJson(err)));
 		}
 		throw err;
 	}
@@ -344,21 +344,20 @@ async function connectAndRun(args: CtlArguments, rootCommands: lib.CommandTree, 
 
 	} catch (err) {
 		ctl.keepOpen = false;
+		let message: string;
 		if (err instanceof lib.CommandError) {
-			logger.error(`Error running command: ${err.message}`);
+			message = `Error running command: ${err.message}`;
 
 		} else if (err instanceof lib.ClientError || err instanceof lib.UnavailableError) {
-			logger.error(`Error sending request: ${err.message}`);
+			message = `Error sending request: ${err.message}`;
 
 		} else if (err instanceof lib.ServerError) {
-			logger.error(`Error sending request:\n${err.stack ?? err.message}`);
+			message = `Error sending request:\n${err.stack ?? err.message}`;
 
 		} else {
 			throw err;
 		}
-		if (!ctl.output.human) {
-			ctl.output.error(err);
-		}
+		ctl.output.error(err, () => logger.error(message));
 		process.exitCode = 1;
 
 	} finally {

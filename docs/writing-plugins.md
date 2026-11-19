@@ -982,7 +982,7 @@ handler: async function(args, ctl) {
 ```
 
 `ctl.output.result(data, human)` prints `data` as JSON in json and wire mode and calls `human` otherwise.
-`ctl.output.table(rows)` prints an array of objects as a table or as a JSON array.
+`ctl.output.table(rows, map)` prints an array of objects as a JSON array, or as a table in human mode with `map` applied to each row first.
 `ctl.output.human` is true when the output is meant for reading.
 Commands that print nothing get `Command ran successfully` or `{"success": true}` printed for them, and errors thrown from the handler are printed as `{"error": "<ClassName>", "message": "<message>"}` in json and wire mode.
 
