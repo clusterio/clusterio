@@ -13,8 +13,8 @@ Run the following commands in the folder Clusterio is installed to:
 Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicate host or ctl installation respectively.
 
 The plugin needs the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) in the mod pack of every instance it is loaded on.
-Instances started without it log a warning, and the plugin's commands fail in game.
-Set `subspace_storage.load_plugin` to false on instances that should not use it.
+The controller downloads it from the mod portal on start if the Factorio credentials are configured, but you have to add it to the mod packs yourself.
+Instances with the plugin loaded refuse to start without it. Set `subspace_storage.load_plugin` to false on instances that should not use it.
 
 
 ## Controller Configuration

@@ -9,6 +9,7 @@ import type { PermissionDefinition } from "./permissions.js";
 import type { PlayerStats, Role } from "./data/index.js";
 import type { SyncHook } from "./SyncHook.js";
 import type { ErrorClass } from "./link/index.js";
+import { ModDependency } from "./data/ModInfo.js";
 
 export const PluginFeatureFlags = [
 	/** The plugin requires module code to be patched into the save */
@@ -41,7 +42,10 @@ export type PluginDeclaration = {
 	migrationEntrypoint?: string;
 
 	features?: (typeof PluginFeatureFlags)[number][];
-	/** Names of Factorio mods the plugin needs in the instance's mod pack */
+	/**
+	 * Factorio mods the plugin needs in the instance's mod pack, as Factorio
+	 * dependency strings like `"subspace_storage >= 2.3.0"`.
+	 */
 	requiredMods?: string[];
 
 	messages?: any[];
@@ -65,6 +69,23 @@ export function pluginNeedsWebBuild(info: PluginDeclaration) {
 		|| info.instanceConfigFields
 		|| info.ctlConfigFields
 	);
+}
+
+/**
+ * Parse the requiredMods of a plugin
+ *
+ * A mod listed more than once must satisfy every entry, which gives a range.
+ *
+ * @throws Error if an entry is invalid or has a dependency prefix.
+ */
+export function pluginRequiredMods(pluginInfo: PluginDeclaration) {
+	return (pluginInfo.requiredMods ?? []).map(spec => {
+		const dependency = new ModDependency(spec);
+		if (dependency.type !== "required") {
+			throw new Error(`requiredMods entry "${spec}" can not have a dependency prefix`);
+		}
+		return dependency;
+	});
 }
 
 export type PluginNodeEnvInfo = PluginDeclaration & {

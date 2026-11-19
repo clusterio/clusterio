@@ -337,12 +337,9 @@ describe("class Instance", function() {
 	});
 
 	describe(".checkRequiredMods()", function() {
-		let warnings;
 		beforeEach(function() {
-			warnings = [];
-			instance.logger = { warn(message) { warnings.push(message); } };
 			instance.loadedPlugins = new Set([
-				{ name: "foo", requiredMods: ["foo_mod", "bar_mod"] },
+				{ name: "foo", requiredMods: ["foo_mod", "bar_mod >= 1.1.0", "bar_mod < 2.0.0"] },
 				{ name: "bar" },
 			]);
 		});
@@ -350,22 +347,35 @@ describe("class Instance", function() {
 			return lib.ModPack.fromJSON({ name: "pack", mods });
 		}
 
-		it("should not warn when the required mods are enabled", function() {
+		it("should accept a mod pack with the required mods", function() {
 			instance.checkRequiredMods(modPack([
 				{ name: "foo_mod", enabled: true, version: "1.0.0" },
-				{ name: "bar_mod", enabled: true, version: "1.0.0" },
+				{ name: "bar_mod", enabled: true, version: "1.1.0" },
 			]));
-			assert.deepEqual(warnings, []);
 		});
 
-		it("should warn about missing and disabled required mods", function() {
-			instance.checkRequiredMods(modPack([
-				{ name: "foo_mod", enabled: false, version: "1.0.0" },
-			]));
-			assert.deepEqual(warnings, [
-				"Plugin foo requires foo_mod, bar_mod which are not enabled in mod pack pack. " +
-				"Add them to the mod pack or set foo.load_plugin to false for this instance.",
-			]);
+		it("should reject missing, disabled and out of range mods", function() {
+			const expected = (unmet) => new lib.ConflictError(
+				"Mod pack pack does not have the mods required by the loaded plugins. " +
+				`Plugin foo requires ${unmet}. ` +
+				"Add the mods to the mod pack or set <plugin>.load_plugin to false for this instance."
+			);
+			assert.throws(
+				() => instance.checkRequiredMods(modPack([{ name: "bar_mod", enabled: true, version: "1.0.0" }])),
+				expected("foo_mod (missing), bar_mod >= 1.1.0 (found 1.0.0)"),
+			);
+			assert.throws(
+				() => instance.checkRequiredMods(modPack([
+					{ name: "foo_mod", enabled: false, version: "1.0.0" },
+					{ name: "bar_mod", enabled: true, version: "2.0.0" },
+				])),
+				expected("foo_mod (disabled), bar_mod < 2.0.0 (found 2.0.0)"),
+			);
+		});
+
+		it("should ignore plugins that are not loaded", function() {
+			instance.loadedPlugins = new Set([{ name: "bar" }]);
+			instance.checkRequiredMods(modPack([]));
 		});
 	});
 

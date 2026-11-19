@@ -24,4 +24,22 @@ describe("lib/plugin", function() {
 			}
 		});
 	});
+	describe("pluginRequiredMods()", function() {
+		it("should parse dependency strings", function() {
+			const mods = lib.pluginRequiredMods({
+				name: "foo", title: "Foo", requiredMods: ["bar", "baz >= 1.2.0", "baz < 2.0.0"],
+			});
+			assert.deepEqual(mods.map(mod => [mod.name, mod.version?.toString()]), [
+				["bar", undefined], ["baz", ">= 1.2.0"], ["baz", "< 2.0.0"],
+			]);
+		});
+		it("should return an empty list without requiredMods", function() {
+			assert.deepEqual(lib.pluginRequiredMods({ name: "foo", title: "Foo" }), []);
+		});
+		it("should reject dependency prefixes and invalid versions", function() {
+			for (const spec of ["? bar", "! bar", "~ bar", "bar >= 1..2"]) {
+				assert.throws(() => lib.pluginRequiredMods({ name: "foo", title: "Foo", requiredMods: [spec] }));
+			}
+		});
+	});
 });
