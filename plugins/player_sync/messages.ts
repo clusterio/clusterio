@@ -262,12 +262,30 @@ export class ReleaseRequest {
 	}
 }
 
+export class UploadResponse {
+	constructor(
+		/** False when the controller kept what it has: another copy is newer, locked or from another epoch */
+		public stored: boolean,
+	) {
+	}
+
+	// No type: a controller from before this response replies with nothing, which counts as stored
+	static jsonSchema = Type.Unsafe<{ stored: boolean } | undefined>({
+		properties: { "stored": { type: "boolean" } },
+	});
+
+	static fromJSON(json: Static<typeof UploadResponse.jsonSchema>) {
+		return new this(json?.stored ?? true);
+	}
+}
+
 export class UploadRequest {
 	declare ["constructor"]: typeof UploadRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
 	static dst = "controller" as const;
 	static plugin = "player_sync" as const;
+	static Response = UploadResponse;
 
 	constructor(
 		public instanceId: number,

@@ -77,6 +77,18 @@ describe("player_sync controller", function() {
 				.playerData;
 		}
 
+		it("should reply whether the upload was stored", async function() {
+			const handler = mock.getHandler(controller, msg.UploadRequest);
+			const send = (instanceId, generation) => handler(
+				{ instanceId, playerName: "test", playerData: { generation, name: "test" } }
+			);
+			assert.deepEqual(await send(1, 2), new msg.UploadRequest.Response(true));
+			// A crashed instance restarting with the generation another instance already uploaded
+			assert.deepEqual(await send(1, 2), new msg.UploadRequest.Response(false));
+			await mock.getHandler(controller, msg.AcquireRequest)(new msg.AcquireRequest(1, "test"));
+			controller.instances.set(2, controller.instances.get(1));
+			assert.deepEqual(await send(2, 3), new msg.UploadRequest.Response(false));
+		});
 		it("should store the upload as is when it has no components", async function() {
 			const playerData = { generation: 2, name: "test", force: "enemy", tag: "uploaded" };
 			assert.deepEqual(await upload(playerData), playerData);

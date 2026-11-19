@@ -60,6 +60,14 @@ describe("player_sync plugin", function() {
 				assert(!validate({ instanceId: 1, playerName: "player", playerData: data }), `accepted ${deleted}`);
 			}
 		});
+		it("should take the empty reply of an older controller as a stored upload", function() {
+			const validate = lib.compile(msg.UploadResponse.jsonSchema);
+			assert(validate(undefined));
+			assert.equal(msg.UploadResponse.fromJSON(undefined).stored, true);
+			assert(validate({ stored: false }));
+			assert.equal(msg.UploadResponse.fromJSON({ stored: false }).stored, false);
+			assert(!validate({ stored: "no" }));
+		});
 		describe("SetPlayerDataRequest schema", function() {
 			const validate = lib.compile(msg.SetPlayerDataRequest.jsonSchema);
 			// Shaped like module/serialize.lua output

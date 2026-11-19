@@ -5,7 +5,7 @@ import * as lib from "@clusterio/lib";
 
 import * as mock from "../../../test/mock.js";
 import loadInstancePlugin, { recipeNotificationDelta, applyRecipeNotificationDelta } from "../dist/node/instance.js";
-import { AcquireResponse, DownloadResponse, PrefetchEvent } from "../dist/node/messages.js";
+import { AcquireResponse, DownloadResponse, PrefetchEvent, UploadResponse } from "../dist/node/messages.js";
 import { components } from "../dist/node/components.js";
 import { plugin as info } from "../dist/node/index.js";
 
@@ -274,6 +274,25 @@ describe("player_sync", function() {
 		it("should send no destination without the field", async function() {
 			const request = await upload({ name: "test", generation: 2 });
 			assert.equal(request.destinationInstanceId, undefined);
+		});
+		async function rconAfterReply(stored) {
+			instance.server.reset();
+			instance.connector.once("send", message => {
+				instance.connector.emit("message", new lib.MessageResponse(
+					1, message.dst, message.src, new UploadResponse(stored)
+				));
+			});
+			instance.server.emit("ipc-player_sync_upload", { name: "test", generation: 2 });
+			for (let i = 0; i < 100 && !instance.server.rconCommands.length; i++) {
+				await lib.wait(1);
+			}
+			return instance.server.rconCommands;
+		}
+		it("should confirm an upload the controller stored", async function() {
+			assert.deepEqual(await rconAfterReply(true), ['/sc player_sync.confirm_upload("test", 2)']);
+		});
+		it("should reject an upload the controller did not store", async function() {
+			assert.deepEqual(await rconAfterReply(false), ['/sc player_sync.reject_upload("test", 2)']);
 		});
 	});
 

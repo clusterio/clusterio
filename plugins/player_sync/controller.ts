@@ -258,6 +258,7 @@ export default async function(context: ControllerPluginContext) {
 				prefetch(instanceId, request.destinationInstanceId, merged);
 			}
 		}
+		return new msg.UploadRequest.Response(store);
 	});
 
 	controller.handle(msg.DownloadRequest, async (request: msg.DownloadRequest) => {

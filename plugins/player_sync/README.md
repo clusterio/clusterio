@@ -6,7 +6,7 @@ As a player, it mostly just works. Most important to know is that factorio data 
 
 A note on crashing servers:
 
-When a server crashes while you are online there won't be time to immediately upload the inventory. Instead, the inventory is uploaded as soon as the server restarts. This means if you have been playing on a different server from the one that crashed and gathered/consumed items but are offline at the time of the first server coming online again your inventory will reset to the autosave.
+When a server crashes while you are online there won't be time to immediately upload the inventory. Instead, the inventory is uploaded as soon as the server restarts. If you have been playing on a different server in the meantime the controller keeps what that server uploaded, and the crashed server downloads it the next time you join it.
 
 ## Installation
 
