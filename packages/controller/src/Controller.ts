@@ -512,6 +512,9 @@ export default class Controller {
 
 		logger.info("Started controller");
 		this.startedAtMs = Date.now();
+		this.downloadRequiredMods().catch(
+			err => logger.warn(`Unable to download mods required by plugins: ${err.message}`)
+		);
 		this.onAutosaveIntervalChanged();
 		this.onSystemMetricsIntervalChanged();
 		this._state = "running";
@@ -1168,6 +1171,265 @@ export default class Controller {
 		return saves.length ? new lib.InstanceSaveDetailsUpdatesEvent(saves) : null;
 	}
 
+
+	/**
+	 * Download mods from the Factorio mod portal to the mod store
+	 *
+	 * Mods already in the mod store are skipped.
+	 *
+	 * @throws {lib.ConflictError} if the Factorio credentials are not configured.
+	 */
+	async downloadModsFromPortal(mods: lib.ModNameVersionPair[], factorioVersion: lib.MajorMinorVersion) {
+		const toDownload = this.modStore.filterInstalled(mods, false);
+
+		if (toDownload.length > 0) {
+			// Get Factorio credentials from config
+			const username = this.config.get("controller.factorio_username");
+			const token = this.config.get("controller.factorio_token");
+
+			if (!username || username === "" || !token || token === "") {
+				throw new lib.ConflictError("Factorio credentials (username, token) not configured on the controller.");
+			}
+
+			try {
+				logger.info(`Downloading ${toDownload.length} mods for Factorio ${factorioVersion} from portal.`);
+				await this.modStore.downloadMods(toDownload, username, token, factorioVersion);
+
+			} catch (error: any) {
+				logger.error(`Error downloading mods from portal: ${error.message}`);
+				const errorMessage = "Mod portal download failed";
+				if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+					throw new lib.ConflictError(
+						`${errorMessage}: Authentication failed. Check Factorio username/token in controller config.`
+					);
+				}
+				if (error.message.includes("404") || error.message.includes("Not Found")) {
+					throw new lib.NotFoundError(`${errorMessage}: Mod version not found on the portal.`);
+				}
+				throw new lib.InternalServerError(`${errorMessage}: ${error.message}`);
+			}
+		}
+	}
+
+	/**
+	 * Resolve mods and their dependencies against the mod store and the Factorio mod portal
+	 */
+	// eslint-disable-next-line complexity
+	async resolveModDependencies(
+		mods: lib.ModDependency[],
+		factorioVersion: lib.MajorMinorVersion,
+		checkForUpdates = false,
+	) {
+		const searchQueue = [...mods];
+		const localInfos = [...this.modStore.mods()];
+
+		const builtInModNames = lib.ModPack.getBuiltinModNames(factorioVersion);
+		const skipSearch = new Set(builtInModNames);
+
+		type ModPortalModType = InstanceType<typeof lib.ModPortalGetAllRequest.Response>["mods"][number];
+		type ModPortalReleaseType = NonNullable<ModPortalModType["releases"]>[number];
+		const dependencyRequirements = new Map<string, lib.ModVersionRange>();
+		const recommendedRequirements = new Map<string, lib.ModVersionRange>();
+		const optionalRequirements = new Map<string, lib.ModVersionRange>();
+		const candidateReleases = new Map<string, lib.ModInfo>();
+		const errors = new Map<string, lib.ModDependencyResolveErrors>();
+
+		const _modPortalReleases = new Map<string, ModPortalModType | null>();
+		async function fetchModReleases(modName: string) {
+			let releases = _modPortalReleases.get(modName);
+			if (releases === undefined) {
+				try {
+					releases = await lib.ModStore.fetchModReleases(modName);
+				} catch (error: any) {
+					if (!error.message.includes("404") && !error.message.includes("Not Found")) {
+						logger.error(`Error fetching mod from portal: ${error.message}`);
+						throw new lib.InternalServerError(`Dependency resolution failed: ${error.message}`);
+					} else {
+						releases = null;
+					}
+				}
+			}
+			_modPortalReleases.set(modName, releases);
+			return releases;
+		}
+
+		function selectModRelease(releases: ModPortalModType | null, versionRange: lib.ModVersionRange) {
+			if (!releases || !releases.releases) {
+				return null;
+			}
+
+			// Select the latest matching version for the mod pack's Factorio version
+			const release = releases.releases
+				.filter(info => (
+					versionRange.testVersion(info.version)
+					&& lib.normaliseMajorMinorVersion(
+						lib.normaliseSourceVersion(info.info_json.factorio_version)
+					) === factorioVersion
+				))
+				.reduce<ModPortalReleaseType | undefined>((max, cur) => (
+					max && lib.integerSourceVersion(max.version) > lib.integerSourceVersion(cur.version) ? max : cur
+				), undefined);
+
+			if (!release) {
+				return null;
+			}
+
+			// Create the mod info class from the selected
+			try {
+				return lib.ModInfo.fromJSON({
+					...release.info_json, // includes dependencies
+					sha1: release.sha1,
+					version: release.version,
+					name: releases.name,
+					author: releases.owner,
+					title: releases.title,
+				});
+			} catch {
+				// Can error if there are invalid dependencies
+				errors.set(releases.name, "invalidDependency");
+				return null;
+			}
+		}
+
+		while (searchQueue.length > 0) {
+			// Dequeue the next mod, skip if incompatible
+			const mod = searchQueue.shift()!;
+			if (mod.incompatible) {
+				errors.set(mod.name, "incompatible");
+				continue;
+			}
+
+			// Get the current version range (dependencies can be promoted to a stricter requirement)
+			const versionRange =
+				dependencyRequirements.get(mod.name)
+				?? recommendedRequirements.get(mod.name)
+				?? optionalRequirements.get(mod.name)
+				?? new lib.ModVersionRange();
+
+			if (mod.required) {
+				// Add to required, remove from recommended and optional
+				dependencyRequirements.set(mod.name, versionRange);
+				recommendedRequirements.delete(mod.name);
+				optionalRequirements.delete(mod.name);
+
+			} else if (mod.recommended) {
+				// If not required, add to recommended and remove from optional
+				if (!dependencyRequirements.has(mod.name)) {
+					recommendedRequirements.set(mod.name, versionRange);
+					optionalRequirements.delete(mod.name);
+				}
+
+			} else if (
+				!dependencyRequirements.has(mod.name)
+				&& !recommendedRequirements.has(mod.name)
+			) {
+				// If not required or recommended, add to optional
+				optionalRequirements.set(mod.name, versionRange);
+			}
+
+			// Update the version range if needed
+			if (mod.version) {
+				versionRange.combineVersion(mod.version);
+				if (!versionRange.valid) {
+					candidateReleases.delete(mod.name);
+					errors.set(mod.name, "unsatisfiable");
+					continue;
+				}
+			}
+
+			// Do not add dependencies for errors, skips, optionals, or valid candidates
+			const existingCandidate = candidateReleases.get(mod.name);
+			if (errors.has(mod.name) || skipSearch.has(mod.name) || optionalRequirements.has(mod.name) || (
+				existingCandidate && versionRange.testVersion(existingCandidate.version)
+			)) {
+				continue;
+			}
+
+			// Check if a local version fits the requirements
+			let candidate = localInfos
+				.filter(info => (
+					info.name === mod.name
+					&& info.factorioVersion === factorioVersion
+					&& versionRange.testVersion(info.version)
+				))
+				.reduce<lib.ModInfo | undefined>((max, cur) => (
+					max && max.integerVersion > cur.integerVersion ? max : cur
+				), undefined);
+
+			// Check if a mod poral version fits the requirements
+			if (!candidate || checkForUpdates) {
+				const releases = await fetchModReleases(mod.name);
+				const release = selectModRelease(releases, versionRange);
+				// We only select the mod portal release if it is more recent than the local candidate
+				if (release && (!candidate || release.integerVersion > candidate.integerVersion)) {
+					candidate = release;
+				}
+			}
+
+			// Queue the dependencies of the new candidate
+			if (candidate) {
+				candidateReleases.set(mod.name, candidate);
+				for (const dep of candidate.dependencies) {
+					searchQueue.push(dep);
+				}
+			} else {
+				candidateReleases.delete(mod.name);
+				skipSearch.add(mod.name);
+			}
+		}
+
+		// Add the not found dependencies as errors
+		for (const modName of dependencyRequirements.keys()) {
+			if (!candidateReleases.has(modName) && !errors.has(modName)) {
+				errors.set(modName, "notFound");
+			}
+		}
+
+		// Remove incompatible and unsatisfiable dependencies if they aren't required by others
+		for (const [modName, error] of errors) {
+			if (!dependencyRequirements.has(modName) && (error === "incompatible" || error === "unsatisfiable")) {
+				errors.delete(modName);
+			}
+		}
+
+		return new lib.ModDependencyResolveRequest.Response(
+			[...candidateReleases.values()], errors,
+		);
+	}
+
+	/**
+	 * Download the mods required by plugins that are missing from the mod store
+	 *
+	 * Resolves for the Factorio version of the default mod pack. Dependencies
+	 * of the required mods are downloaded too.
+	 */
+	async downloadRequiredMods() {
+		const required = this.pluginInfos.flatMap(pluginInfo => lib.pluginRequiredMods(pluginInfo));
+		const modPackId = this.config.get("controller.default_mod_pack_id");
+		const modPack = modPackId !== null ? this.modPacks.get(modPackId) : undefined;
+		if (!required.length || !modPack) {
+			return;
+		}
+
+		const factorioVersion = lib.normaliseMajorMinorVersion(modPack.factorioVersion);
+		const { dependencies, errors } = await this.resolveModDependencies(required, factorioVersion);
+		const builtInMods = new Set(lib.ModPack.getBuiltinModNames(factorioVersion));
+		for (const [name, error] of errors) {
+			if (!builtInMods.has(name)) {
+				logger.warn(`Unable to resolve mod ${name} required by plugins: ${error}`);
+			}
+		}
+		const toDownload = this.modStore.filterInstalled(dependencies.map(
+			info => ({ name: info.name, version: new lib.ModVersionEquality("=", info.normalisedVersion) })
+		), false);
+		if (!toDownload.length) {
+			return;
+		}
+
+		const names = toDownload.map(mod => `${mod.name} ${mod.version.version}`).join(", ");
+		logger.info(`Downloading mods required by plugins: ${names}`);
+		await this.downloadModsFromPortal(toDownload, factorioVersion);
+	}
 
 	modPacksUpdated(modPacks: lib.ModPack[]) {
 		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));

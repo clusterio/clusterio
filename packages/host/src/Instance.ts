@@ -1032,6 +1032,39 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		await this.syncMods();
+		this.checkRequiredMods(this.activeModPack);
+	}
+
+	/**
+	 * Check that the mod pack has the mods required by the loaded plugins
+	 *
+	 * @throws {lib.ConflictError} if a required mod is missing, disabled or the wrong version.
+	 */
+	checkRequiredMods(modPack: lib.ModPack) {
+		const problems = [];
+		for (const pluginInfo of this.loadedPlugins) {
+			const unmet = [];
+			for (const dependency of lib.pluginRequiredMods(pluginInfo)) {
+				const mod = modPack.mods.get(dependency.name);
+				if (!mod) {
+					unmet.push(`${dependency.spec} (missing)`);
+				} else if (!mod.enabled) {
+					unmet.push(`${dependency.spec} (disabled)`);
+				} else if (dependency.version && !dependency.version.testVersion(mod.version)) {
+					unmet.push(`${dependency.spec} (found ${mod.version})`);
+				}
+			}
+			if (unmet.length) {
+				problems.push(`Plugin ${pluginInfo.name} requires ${unmet.join(", ")}.`);
+			}
+		}
+		if (problems.length) {
+			throw new lib.ConflictError(
+				`Mod pack ${modPack.name} does not have the mods required by the loaded plugins. ` +
+				`${problems.join(" ")} ` +
+				"Add the mods to the mod pack or set <plugin>.load_plugin to false for this instance."
+			);
+		}
 	}
 
 	/**

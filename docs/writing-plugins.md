@@ -151,6 +151,10 @@ The following properties are recognized:
     Array of features the plugin needs from the instances it is loaded on, any of `"SavePatching"`, `"ScriptCommands"` and `"LuaUdp"`.
     See [Handling Invalid Configuration](#handling-invalid-configuration)
 
+**requiredMods**:
+    Array of Factorio mods the plugin needs in the mod pack of the instances it is loaded on, written as Factorio dependency strings.
+    See [Handling Invalid Configuration](#handling-invalid-configuration)
+
 **messages**:
     Array of request and event classes for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
@@ -320,6 +324,25 @@ export const plugin = {
 
 Enabling the plugin on an instance that has the feature turned off then fails config validation, so the mistake is caught when the config is edited instead of when the instance starts.
 Instances that have the feature turned off get the plugin disabled by default when it is added.
+
+If the plugin talks to a Factorio mod, list the mod under `requiredMods` using the same format as `dependencies` in a mod's info.json, without a prefix.
+List a mod twice to give a version range:
+
+```js
+export const plugin = {
+    name: "foo_frobber",
+    // ...
+    requiredMods: ["frobber >= 1.2.0", "frobber < 2.0.0"],
+};
+```
+
+An instance with the plugin loaded refuses to start if its mod pack is missing one of the mods, has it disabled, or has a version outside the range.
+Leave out the dependencies of the required mods. Factorio checks those itself.
+When the controller starts it downloads required mods it does not have, and their dependencies, from the mod portal for the Factorio version of the default mod pack.
+This needs `controller.factorio_username` and `controller.factorio_token` to be set.
+The mods still have to be added to the mod packs by hand.
+
+Forks of a required mod are not supported.
 
 Other constraints on config fields are expressed with a `validator` on the field definition, which throws when the value is not acceptable.
 Use `dependsOn` when the check involves other fields so that the validator runs when those change too.

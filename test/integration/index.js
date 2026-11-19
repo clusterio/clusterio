@@ -353,6 +353,22 @@ before(async function() {
 		sourceDir: "packages/host/lua/clusterio_lib",
 		outputDir: modsDir,
 	});
+	// Stand-in for the mod required by the subspace_storage plugin
+	const subspaceStorageDir = path.join("temp", "test", "subspace_storage");
+	await fs.rm(subspaceStorageDir, { force: true, recursive: true });
+	await fs.mkdir(subspaceStorageDir, { recursive: true });
+	await fs.writeFile(path.join(subspaceStorageDir, "info.json"), JSON.stringify({
+		name: "subspace_storage",
+		variants: [
+			{ version: "2.3.11", factorio_version: "1.1" },
+			{ version: "2.3.20", factorio_version: "2.0" },
+			{ version: "2.3.21", factorio_version: "2.1" },
+		],
+		title: "Subspace Storage test stub",
+		author: "Clusterio Team",
+		dependencies: ["base", "clusterio_lib"],
+	}));
+	await lib.build({ build: true, pack: true, sourceDir: subspaceStorageDir, outputDir: modsDir });
 
 	console.log("Setting Controller Config");
 	await execController("config create");
@@ -410,6 +426,9 @@ before(async function() {
 
 	const [major, minor] = lib.normaliseMajorMinorVersion(latestFactorioVersion).split(".");
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: `2.1.${major}${minor}` });
+	testPack.mods.set(
+		"subspace_storage", { name: "subspace_storage", enabled: true, version: `2.3.${major}${minor}` }
+	);
 
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
