@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
-import { CommandOutput, errorToJson, toPlain } from "@clusterio/ctl/dist/node/src/command_ops.js";
+import { CommandOutput, errorToJson, pickFields, toPlain } from "@clusterio/ctl/dist/node/src/command_ops.js";
 
 /** Run fn and return the lines it printed with console.log */
 function captureLog(fn) {
@@ -26,6 +26,13 @@ describe("ctl/command_ops", function() {
 		it("uses own properties instead of toJSON", function() {
 			const role = new lib.Role(1, "name", "desc", new Set(["core.admin"]));
 			assert.deepEqual(toPlain(role).permissions, ["core.admin"]);
+		});
+	});
+
+	describe("pickFields()", function() {
+		it("keeps only the given fields unless all is given", function() {
+			assert.deepEqual(pickFields({ a: 1, b: 2 }, ["a"]), { a: 1 });
+			assert.deepEqual(pickFields({ a: 1, b: 2 }, ["all"]), { a: 1, b: 2 });
 		});
 	});
 

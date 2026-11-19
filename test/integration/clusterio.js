@@ -2122,6 +2122,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod show", function() {
 			it("gives details of a mod", async function() {
+				assert.match(await execCtlOutput("mod show empty_mod 1.0.0"), /name: empty_mod/);
 				let result = await execCtlProcess("mod show empty_mod 1.0.0");
 				let hash = await lib.hashFile(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
 				let stat = await fs.stat(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
@@ -2395,6 +2396,20 @@ describe("Integration of Clusterio", function() {
 			it("prints the user and instance stats in human mode", async function() {
 				const output = await execCtlOutput("user show test --instance-stats");
 				assert.match(output, /name +\| test/);
+			});
+			it("prints the result of human mode commands with more options", async function() {
+				assert.match(await execCtlOutput("user list --stats --attributes"), /isAdmin/);
+				const exchange = JSON.parse(await execCtlOutput(
+					`--output json debug parse-exchange-string ${testStrings.default.replace(/\s/g, "")}`
+				));
+				assert.equal(typeof exchange, "object");
+			});
+			it("follows the log without a final result", async function() {
+				try {
+					assert.equal(await execCtlOutput("--output json log follow --controller"), "");
+				} finally {
+					getControl().keepOpen = false;
+				}
 			});
 			it("prints log queries in human mode", async function() {
 				assert.notEqual(await execCtlOutput("log query --controller --limit 1"), "");
