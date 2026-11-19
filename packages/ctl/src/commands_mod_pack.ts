@@ -1,7 +1,7 @@
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
+import { pickFields, print } from "./command_ops.js";
 
 export const modPackCommands = new lib.CommandTree({ name: "mod-pack", description: "Mod Pack" });
 modPackCommands.add(new lib.Command({
@@ -58,16 +58,7 @@ modPackCommands.add(new lib.Command({
 	definition: [["list", "l"], "List mod packs in the cluster"],
 	handler: async function(args: object, ctl: Ctl) {
 		let modPacks = await ctl.send(new lib.ModPackListRequest());
-		let fields = ["id", "name", "factorioVersion"];
-		for (let entry of modPacks) {
-			for (let field of Object.keys(entry)) {
-				if (!fields.includes(field)) {
-					// @ts-expect-error terrible hack
-					delete entry[field];
-				}
-			}
-		}
-		ctl.output.table(modPacks);
+		ctl.output.table(modPacks, modPack => pickFields(modPack, ["id", "name", "factorioVersion"]));
 	},
 }));
 

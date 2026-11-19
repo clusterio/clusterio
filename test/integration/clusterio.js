@@ -2064,6 +2064,9 @@ describe("Integration of Clusterio", function() {
 				const roundtrip = lib.ModPack.fromModPackString(result.stdout.trim());
 				roundtrip.id = reference.id;
 				assert.deepEqual(roundtrip, reference);
+				const shown = await execCtlOutput("mod-pack show imported-pack");
+				assert.match(shown, /empty_mod 1\.0\.0/);
+				assert.match(shown, /MyDouble: 12\.25/);
 			});
 		});
 
@@ -2317,6 +2320,46 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("config edit", function() {
+			/** Write an editor script that replaces the edited file with content */
+			async function writeEditor(content) {
+				const file = path.resolve("temp", "test", "editor.sh");
+				await fs.writeFile(file, `#!/bin/sh\ncat > "$1" <<'EOF'\n${content}\nEOF\n`, { mode: 0o755 });
+				return file;
+			}
+			before(function() {
+				if (process.platform === "win32") {
+					this.skip();
+				}
+			});
+
+			it("sets controller config fields and reports failed ones", async function() {
+				const config = await getControl().send(new lib.ControllerConfigGetRequest());
+				const name = config["controller.name"];
+				const editor = await writeEditor("controller.name = Edited-Cluster\ncontroller.no_such_field = 1");
+				await execCtl(`controller config edit ${editor}`);
+				const edited = await getControl().send(new lib.ControllerConfigGetRequest());
+				assert.equal(edited["controller.name"], "Edited-Cluster");
+				await execCtl(`controller config set controller.name ${name}`);
+			});
+			it("sets host config fields and reports failed ones", async function() {
+				const config = await getControl().sendTo({ hostId }, new lib.HostConfigGetRequest());
+				const editor = await writeEditor(`host.name = ${config["host.name"]}\nhost.no_such_field = 1`);
+				await execCtl(`host config edit ${hostId} ${editor}`);
+			});
+			it("sets instance config fields and reports failed ones", async function() {
+				const { id } = JSON.parse(await execCtlOutput("--output json instance create config-edit"));
+				try {
+					const editor = await writeEditor("instance.auto_start = true\ninstance.no_such_field = 1");
+					await execCtl(`instance config edit ${id} ${editor}`);
+					const config = await getControl().send(new lib.InstanceConfigGetRequest(id));
+					assert.equal(config["instance.auto_start"], true);
+				} finally {
+					await execCtl(`instance delete ${id}`);
+				}
+			});
+		});
+
 		describe("--output json", function() {
 			it("prints lists as an array of objects", async function() {
 				const roles = JSON.parse(await execCtlOutput("--output json role list"));
@@ -2338,6 +2381,26 @@ describe("Integration of Clusterio", function() {
 			it("prints a success line for commands without a result", async function() {
 				const { id } = JSON.parse(await execCtlOutput("--output json role create human-role"));
 				assert.equal(await execCtlOutput(`role delete ${id}`), "Command ran successfully");
+			});
+			it("prints whole objects for lists that hide fields in human mode", async function() {
+				const [mod] = JSON.parse(await execCtlOutput("--output json mod list"));
+				assert("sha1" in mod);
+				const [wireMod] = JSON.parse(await execCtlOutput("--output wire mod list"));
+				assert("factorio_version" in wireMod);
+				const [modPack] = JSON.parse(await execCtlOutput("--output wire mod-pack list"));
+				assert("mods" in modPack);
+				const user = JSON.parse(await execCtlOutput("--output wire user show test --instance-stats"));
+				assert.equal(user.name, "test");
+			});
+			it("prints the user and instance stats in human mode", async function() {
+				const output = await execCtlOutput("user show test --instance-stats");
+				assert.match(output, /name +\| test/);
+			});
+			it("prints log queries in human mode", async function() {
+				assert.notEqual(await execCtlOutput("log query --controller --limit 1"), "");
+			});
+			it("prints pending host requests in human mode", async function() {
+				assert.notEqual(await execCtlOutput("host pending"), "");
 			});
 			it("prints log queries as an array", async function() {
 				const log = JSON.parse(await execCtlOutput("--output json log query --controller --limit 1"));

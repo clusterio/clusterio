@@ -14,6 +14,14 @@ function formatCell(value: unknown) {
 
 export const asTable = asTableModule.configure({ delimiter: " | ", print: formatCell });
 
+/** Copy of object with only the given fields, or all of them if fields includes "all" */
+export function pickFields(object: object, fields: string[]) {
+	if (fields.includes("all")) {
+		return object;
+	}
+	return Object.fromEntries(Object.entries(object).filter(([field]) => fields.includes(field)));
+}
+
 /** Convert class instances, Sets and Maps into plain JSON values, ignoring wire format toJSON methods */
 export function toPlain(value: unknown): unknown {
 	if (value instanceof Set || value instanceof Array) {

@@ -7,7 +7,7 @@ import util from "util";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { asTable, print } from "./command_ops.js";
+import { asTable, pickFields, print } from "./command_ops.js";
 const finished = util.promisify(stream.finished);
 
 export const modCommands = new lib.CommandTree({ name: "mod", description: "Manage uploaded mods" });
@@ -49,17 +49,7 @@ modCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { fields: string[] }, ctl: Ctl) {
 		let mods = await ctl.send(new lib.ModListRequest());
-		if (!args.fields.includes("all")) {
-			for (let entry of mods) {
-				for (let field of Object.keys(entry)) {
-					if (!args.fields.includes(field)) {
-						// @ts-expect-error terrible hack
-						delete entry[field];
-					}
-				}
-			}
-		}
-		ctl.output.table(mods);
+		ctl.output.table(mods, mod => pickFields(mod, args.fields));
 	},
 }));
 
@@ -120,16 +110,6 @@ modCommands.add(new lib.Command({
 			args.sortOrder
 		));
 		let results = response.results.flatMap(result => result.versions);
-		if (!args.fields.includes("all")) {
-			for (let entry of results) {
-				for (let field of Object.keys(entry)) {
-					if (!args.fields.includes(field)) {
-						// @ts-expect-error terrible hack
-						delete entry[field];
-					}
-				}
-			}
-		}
 		ctl.output.result({
 			page: args.page,
 			pageCount: response.pageCount,
@@ -141,7 +121,7 @@ modCommands.add(new lib.Command({
 				print(issue);
 			}
 			print(`page ${args.page} of ${response.pageCount} (${response.resultCount} results)`);
-			print(asTable(results));
+			print(asTable(results.map(mod => pickFields(mod, args.fields))));
 		});
 	},
 }));

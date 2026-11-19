@@ -18,27 +18,18 @@ userCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(args: { name: string, instanceStats: boolean }, ctl: Ctl) {
-		let user = await ctl.send(new lib.UserGetRequest(args.name));
-		Object.assign(user, user.playerStats);
-		// @ts-expect-error Terrible hack
-		delete user.playerStats;
-		let instanceStats = user.instanceStats;
-		// @ts-expect-error Terrible hack
-		delete user.instanceStats;
-		if (!args.instanceStats) {
-			ctl.output.result(user, () => printProperties(user));
-			return;
-		}
-
-		let instances = await ctl.send(new lib.InstanceDetailsListRequest());
-		const stats = [...instanceStats || []].map(([id, playerInstanceStats]) => ({
-			id,
-			name: instances.find(i => i.id === id)?.name ?? "<deleted>",
-			stats: playerInstanceStats,
-		}));
-		ctl.output.result({ ...user, instanceStats: stats }, () => {
-			printProperties(user);
-			for (let { id, name, stats: playerInstanceStats } of stats) {
+		const user = await ctl.send(new lib.UserGetRequest(args.name));
+		const { playerStats, instanceStats, ...properties } = user;
+		const instances = args.instanceStats && ctl.output.human
+			? await ctl.send(new lib.InstanceDetailsListRequest())
+			: [];
+		ctl.output.result(user, () => {
+			printProperties({ ...properties, ...playerStats });
+			if (!args.instanceStats) {
+				return;
+			}
+			for (let [id, playerInstanceStats] of instanceStats) {
+				const name = instances.find(i => i.id === id)?.name ?? "<deleted>";
 				print();
 				print(`Instance ${name} (${id}):`);
 				printProperties(playerInstanceStats);
