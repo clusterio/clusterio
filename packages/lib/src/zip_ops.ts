@@ -7,9 +7,27 @@ import { PassThrough, type Readable } from "stream";
 import util from "util";
 import zlib from "zlib";
 import yauzl from "yauzl";
-import type yazl from "yazl";
 
 const deflateRaw = util.promisify(zlib.deflateRaw);
+
+/**
+ * Entry in a ZipArchive
+ */
+export interface ZipEntry {
+	fileName: string;
+	fileComment: string;
+	versionMadeBy: number;
+	versionNeededToExtract: number;
+	generalPurposeBitFlag: number;
+	compressionMethod: number;
+	lastModFileTime: number;
+	lastModFileDate: number;
+	crc32: number;
+	compressedSize: number;
+	uncompressedSize: number;
+	externalFileAttributes: number;
+	getLastModDate(options?: { timezone?: "local" | "UTC" | null, forceDosFormat?: boolean }): Date;
+}
 
 
 /**
@@ -21,10 +39,9 @@ const deflateRaw = util.promisify(zlib.deflateRaw);
  */
 export class ZipArchive {
 	private constructor(
-		/** Underlying yauzl zip file. */
-		public zipfile: yauzl.ZipFile,
+		private zipfile: yauzl.ZipFile,
 		/** Entries by file name in the order they appear in the central directory. */
-		public entries: Map<string, yauzl.Entry>,
+		public entries: Map<string, ZipEntry>,
 	) { }
 
 	/**
@@ -77,8 +94,17 @@ export class ZipArchive {
 	 *
 	 * @param entry - Entry to read, must belong to this archive.
 	 */
-	openStream(entry: yauzl.Entry): Promise<Readable> {
-		return this.zipfile.openReadStreamPromise(entry);
+	openStream(entry: ZipEntry): Promise<Readable> {
+		return this.zipfile.openReadStreamPromise(entry as yauzl.Entry);
+	}
+
+	/**
+	 * Open a stream of the content of an entry as stored in the archive
+	 *
+	 * @param entry - Entry to read, must belong to this archive.
+	 */
+	openRawStream(entry: ZipEntry): Promise<Readable> {
+		return this.zipfile.openReadStreamPromise(entry as yauzl.Entry, { decodeFileData: false });
 	}
 
 	/**
@@ -86,7 +112,7 @@ export class ZipArchive {
 	 *
 	 * @param entry - Entry to read, must belong to this archive.
 	 */
-	async readEntry(entry: yauzl.Entry) {
+	async readEntry(entry: ZipEntry) {
 		const chunks: Buffer[] = [];
 		for await (const chunk of await this.openStream(entry)) {
 			chunks.push(chunk);
@@ -153,7 +179,10 @@ export function findRoot(zip: ZipArchive) {
  *
  * @param zipFile - zip file being written.
  */
-export function zipOutputStream(zipFile: yazl.ZipFile) {
+export function zipOutputStream(zipFile: {
+	outputStream: NodeJS.ReadableStream,
+	on(event: "error", listener: (err: Error) => void): unknown,
+}) {
 	const output = zipFile.outputStream as Readable;
 	zipFile.on("error", err => output.destroy(err));
 	return output;
@@ -224,7 +253,7 @@ export class ZipWriter {
 	 * @param zip - Archive to copy from.
 	 * @param entry - Entry to copy, must belong to zip.
 	 */
-	async addEntry(zip: ZipArchive, entry: yauzl.Entry) {
+	async addEntry(zip: ZipArchive, entry: ZipEntry) {
 		const writerEntry: WriterEntry = {
 			fileName: Buffer.from(entry.fileName, "utf8"),
 			fileComment: Buffer.from(entry.fileComment, "utf8"),
@@ -242,7 +271,7 @@ export class ZipWriter {
 			offset: this.offset,
 		};
 		await this.write(this.localFileHeader(writerEntry));
-		const stream = await zip.zipfile.openReadStreamPromise(entry, { decodeFileData: false });
+		const stream = await zip.openRawStream(entry);
 		for await (const chunk of stream) {
 			await this.write(chunk);
 		}
