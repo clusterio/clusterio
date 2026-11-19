@@ -49,7 +49,6 @@
 		"semver": "catalog:",
 		"set-blocking": "catalog:",
 		"winston": "catalog:",
-		"winston-daily-rotate-file": "catalog:",
 		"yargs": "catalog:",
 		"yazl": "catalog:"
 	},

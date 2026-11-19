@@ -5,7 +5,8 @@
  * @module lib/logging_utils
  */
 import fs from "node:fs/promises";
-import type { ReadStream } from "node:fs";
+import { type ReadStream, type WriteStream, createWriteStream, mkdirSync } from "node:fs";
+import os from "node:os";
 import path from "path";
 import stream from "stream";
 import util from "util";
@@ -223,6 +224,55 @@ export class LinkTransport extends Transport {
 			}
 		}
 		return callback();
+	}
+}
+
+/**
+ * Writes log entries as lines to dirname/prefix-YYYY-MM-DD.log, opening
+ * a new file when the UTC date changes.
+ */
+export class DailyFileTransport extends Transport {
+	dirname: string;
+	prefix: string;
+	now: () => number;
+	date?: string;
+	stream?: WriteStream;
+
+	constructor(
+		options: Transport.TransportStreamOptions & {
+			dirname: string,
+			prefix: string,
+			now?: () => number,
+		}
+	) {
+		super(options);
+		this.dirname = options.dirname;
+		this.prefix = options.prefix;
+		this.now = options.now ?? Date.now;
+		// eslint-disable-next-line node/no-sync
+		mkdirSync(this.dirname, { recursive: true });
+	}
+
+	log(info: any, callback: () => void) {
+		const date = new Date(this.now()).toISOString().slice(0, 10);
+		if (!this.stream || date !== this.date) {
+			this.stream?.end();
+			this.date = date;
+			this.stream = createWriteStream(path.join(this.dirname, `${this.prefix}-${date}.log`), { flags: "a" });
+			this.stream.on("error", err => this.emit("error", err));
+		}
+		this.stream.write(info[MESSAGE] + os.EOL);
+		return callback();
+	}
+
+	close(callback?: () => void) {
+		const fileStream = this.stream;
+		this.stream = undefined;
+		if (fileStream) {
+			fileStream.end(callback);
+		} else {
+			callback?.();
+		}
 	}
 }
 

@@ -34,7 +34,6 @@ catalog:
   typescript: ^7.0.2
   vite: ^8.3.4
   winston: ^3.19.0
-  winston-daily-rotate-file: ^5.0.0
   winston-transport: ^4.9.0
   ws: ^8.22.0
   yargs: ^18.2.0
