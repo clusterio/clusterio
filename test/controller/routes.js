@@ -179,7 +179,7 @@ describe("controller/src/routes", function() {
 			return status;
 		}
 		it("should close a transfer that stops making progress", async function() {
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 1);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 2);
 			const stream = await routes.createProxyStream(controller.app);
 			const request = http.request(
 				`${endpoint}/${stream.id}`, { method: "PUT", headers: { "Content-Length": 1024 * 1024 } }
@@ -196,7 +196,7 @@ describe("controller/src/routes", function() {
 		});
 		it("should close a transfer that is trickled in", async function() {
 			this.timeout(10000);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 4);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 8);
 			const stream = await routes.createProxyStream(controller.app);
 			const start = Date.now();
 			const upload = putPaced(stream.id, 200, 50);
@@ -208,7 +208,7 @@ describe("controller/src/routes", function() {
 		});
 		it("should not close a slow transfer that makes progress", async function() {
 			this.timeout(10000);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 1);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 2);
 			const stream = await routes.createProxyStream(controller.app);
 			const upload = putPaced(stream.id, 1024, 20);
 			const download = fetch(`${endpoint}/${stream.id}`).then(response => response.arrayBuffer());
@@ -217,29 +217,39 @@ describe("controller/src/routes", function() {
 		});
 		it("should not close a transfer held back by a slow receiver", async function() {
 			this.timeout(20000);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 16);
-			const size = 4 * 1024 * 1024;
-			const stream = await routes.createProxyStream(controller.app);
-			const upload = fetch(`${endpoint}/${stream.id}`, { method: "PUT", body: Buffer.alloc(size) });
-			const received = await new Promise((resolve, reject) => {
-				http.get(`${endpoint}/${stream.id}`, response => {
-					let bytes = 0;
-					response.on("data", chunk => {
-						bytes += chunk.length;
-						response.pause();
-						setTimeout(() => response.resume(), 50);
-					});
-					response.on("end", () => resolve(bytes));
-					response.on("error", reject);
-				}).on("error", reject);
-			});
-			assert.equal(received, size);
-			assert.equal((await upload).status, 200);
+			// The OS takes over a second to free buffered data at this speed, longer than the usual 500 ms checks.
+			const slowController = new mock.MockController();
+			routes.addRouteHandlers(slowController.app, 3000);
+			const slowServer = http.createServer(routes.httpServerOptions, slowController.app);
+			slowServer.listen(0, "localhost");
+			await events.once(slowServer, "listening");
+			const slowEndpoint = `http://localhost:${slowServer.address().port}/api/stream`;
+			try {
+				const size = 8 * 1024 * 1024;
+				const stream = await routes.createProxyStream(slowController.app);
+				const upload = fetch(`${slowEndpoint}/${stream.id}`, { method: "PUT", body: Buffer.alloc(size) });
+				const received = await new Promise((resolve, reject) => {
+					http.get(`${slowEndpoint}/${stream.id}`, response => {
+						let bytes = 0;
+						response.on("data", chunk => {
+							bytes += chunk.length;
+							response.pause();
+							setTimeout(() => response.resume(), 50);
+						});
+						response.on("end", () => resolve(bytes));
+						response.on("error", reject);
+					}).on("error", reject);
+				});
+				assert.equal(received, size);
+				assert.equal((await upload).status, 200);
+			} finally {
+				slowServer.close();
+			}
 		});
 		it("should not count the time waiting for the stream to start", async function() {
 			this.timeout(10000);
 			controller.mockConfigEntries.set("controller.proxy_stream_timeout", 3);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 1);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 2);
 			const stream = await routes.createProxyStream(controller.app);
 			const download = fetch(`${endpoint}/${stream.id}`);
 			await lib.wait(1500);
@@ -1257,7 +1267,7 @@ describe("controller/src/routes", function() {
 		});
 		it("should close an upload that is trickled in", async function() {
 			this.timeout(10000);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 4);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 8);
 			const modsDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-mods-"));
 			try {
 				controller.mockConfigEntries.set("controller.mods_directory", modsDirectory);
@@ -1277,7 +1287,7 @@ describe("controller/src/routes", function() {
 		});
 		it("should close a request to another route that is trickled in", async function() {
 			this.timeout(10000);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 4);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 8);
 			controller.app.post("/test", express.raw({ type: "*/*", limit: "2mb" }), (req, res) => res.sendStatus(200));
 			const result = await trickle(`http://localhost:${port}/test`, { "Content-Type": "text/plain" });
 			assert.equal(result.status, undefined);
@@ -1285,7 +1295,7 @@ describe("controller/src/routes", function() {
 		});
 		it("should not close a trickled in request when the limit is 0", async function() {
 			this.timeout(10000);
-			controller.mockConfigEntries.set("controller.transfer_min_progress", 0);
+			controller.mockConfigEntries.set("controller.transfer_min_speed", 0);
 			controller.app.post("/test", express.raw({ type: "*/*", limit: "2mb" }), (req, res) => res.sendStatus(200));
 			const result = await trickle(`http://localhost:${port}/test`, { "Content-Type": "text/plain" });
 			assert(result.duration >= 5000, `closed after ${result.duration} ms`);
