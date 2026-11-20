@@ -8,11 +8,10 @@ import fs from "node:fs/promises";
 import type { ReadStream } from "node:fs";
 import path from "path";
 import stream from "stream";
-import util from "util";
+import util, { styleText } from "util";
 import winston from "winston";
 import Transport from "winston-transport";
 import { LEVEL, MESSAGE } from "triple-beam";
-import chalk from "chalk";
 
 import * as libData from "./data/index.js";
 import * as libErrors from "./errors.js";
@@ -108,30 +107,30 @@ export type ParsedFactorioOutput =
 function formatServerOutput(parsed: ParsedFactorioOutput) {
 	let time = "";
 	if (parsed.format === "seconds") {
-		time = `${chalk.yellow(parsed.time.padStart(8))} `;
+		time = `${styleText("yellow", parsed.time.padStart(8))} `;
 	} else if (parsed.format === "date") {
-		time = `${chalk.yellow(parsed.time)} `;
+		time = `${styleText("yellow", parsed.time)} `;
 	}
 
 	let info = "";
 	if (parsed.type === "log") {
 		let level = parsed.level;
 		if (level === "Script") {
-			level = chalk.bold.greenBright(level);
+			level = styleText(["bold", "greenBright"], level);
 		} else if (level === "Verbose") {
-			level = chalk.bold.gray(level);
+			level = styleText(["bold", "gray"], level);
 		} else if (level === "Info") {
-			level = chalk.bold.blueBright(level);
+			level = styleText(["bold", "blueBright"], level);
 		} else if (parsed.level === "Warning") {
-			level = chalk.bold.yellowBright(level);
+			level = styleText(["bold", "yellowBright"], level);
 		} else if (parsed.level === "Error") {
-			level = chalk.bold.redBright(level);
+			level = styleText(["bold", "redBright"], level);
 		}
 
-		info = `${level} ${chalk.gray(parsed.file)}: `;
+		info = `${level} ${styleText("gray", parsed.file)}: `;
 
 	} else if (parsed.type === "action") {
-		info = `[${chalk.yellow(parsed.action)}] `;
+		info = `[${styleText("yellow", parsed.action)}] `;
 	}
 
 	return time + info + parsed.message;
