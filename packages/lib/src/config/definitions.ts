@@ -234,7 +234,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		},
 		"controller.transfer_min_speed": {
 			title: "Transfer Minimum Speed",
-			description: "KiB/s an upload or download has to move at over 30 seconds to not be closed, 0 for no limit.",
+			description: "KiB/s an upload or download has to move at over 60 seconds to not be closed, 0 for no limit.",
 			type: "number",
 			initialValue: 64,
 			validator: validators.greaterThanEqualZero,

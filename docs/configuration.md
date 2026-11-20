@@ -243,13 +243,13 @@ Defaults to 15.
 
 ### controller.transfer_min_speed
 
-Speed in KiB/s a request to the controller has to move at, measured over 30 seconds, requests moving slower are closed.
+Speed in KiB/s a request to the controller has to move at, measured over 60 seconds, requests moving slower are closed.
 This closes uploads and downloads that have stalled or are sent too slowly to ever finish, while there is no limit on how long a transfer making progress can take.
 It applies to saves, mods and exports uploaded to the controller, proxy streams through it, and the body of any other request.
 Time spent waiting for a proxy stream to start is not counted, see controller.proxy_stream_timeout.
 Setting it lower than the default is not recommended.
 Downloads through a proxy stream are measured on what the controller has handed to the OS.
-The OS can buffer a couple of MiB per connection and only accepts more once a large part of that has been sent, so at lower values a download that keeps moving can go 30 seconds without the controller passing anything on and be closed.
+The OS can buffer a couple of MiB per connection and only accepts more once a large part of that has been sent, so at lower values a download that keeps moving can go 60 seconds without the controller passing anything on and be closed.
 Set to 0 for no limit.
 Must be 0 or greater.
 

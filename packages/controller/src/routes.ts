@@ -857,7 +857,7 @@ async function uploadMod(req: Request, res: Response) {
 }
 
 
-export function addRouteHandlers(app: Application, progressCheckIntervalMs = 30_000) {
+export function addRouteHandlers(app: Application, progressCheckIntervalMs = 60_000) {
 	app.use(guardRequest(progressCheckIntervalMs));
 	app.get("/metrics",
 		validateUserToken,
