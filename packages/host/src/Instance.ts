@@ -181,7 +181,6 @@ export default class Instance extends lib.Link {
 	hooks: InstanceHooks;
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
-	private _pluginLoader: lib.PluginLoader;
 
 
 	_host: Host;
@@ -212,7 +211,6 @@ export default class Instance extends lib.Link {
 		this.id = this.config.get("instance.id");
 
 		this.logger = instanceLogger(instanceConfig);
-		this._pluginLoader = new lib.PluginLoader(this.logger);
 
 		this.hooks = new InstanceHooks(this.logger);
 
@@ -769,20 +767,6 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	/**
-	 * Wait for another instance plugin to load
-	 *
-	 * @param waiter - Name of the plugin waiting, used in warnings.
-	 * @param name - Name of the plugin to wait for.
-	 * @param timeoutMs - Time to wait before giving up.
-	 * @returns
-	 *     What the plugin's instance entrypoint returned, or undefined with
-	 *     a warning logged if it did not load.
-	 */
-	waitForPlugin<T = unknown>(waiter: string, name: string, timeoutMs?: number) {
-		return this._pluginLoader.waitFor<T>(waiter, name, timeoutMs);
-	}
-
-	/**
 	 * Load the instance plugins and report the instance as initialised
 	 *
 	 * Must be called once the instance is connected to the host.
@@ -806,19 +790,17 @@ end`.replace(/\r?\n/g, " ");
 			toLoad.push(pluginInfo);
 		}
 
+		let loaded;
 		try {
-			await this._pluginLoader.load(toLoad, async pluginInfo => {
-				let pluginLoadStartedMs = Date.now();
-				const api = await lib.loadPlugin(
-					pluginInfo,
-					"instance",
-					{ logger: this.logger, host: this._host, instance: this },
-					"InstancePlugin",
-					BaseInstancePlugin,
-				);
-				this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
-				return api;
-			});
+			({ loaded } = await lib.PluginLoader.load({
+				type: "instance",
+				context: { host: this._host, instance: this },
+				logger: this.logger,
+				installed: pluginInfos,
+				load: toLoad,
+				exportName: "InstancePlugin",
+				baseClass: BaseInstancePlugin,
+			}));
 		} catch (err) {
 			this.notifyExit();
 			await this.sendSaveListUpdate();
@@ -826,7 +808,7 @@ end`.replace(/\r?\n/g, " ");
 		}
 
 		const plugins: Record<string, string> = {};
-		for (const pluginInfo of toLoad) {
+		for (const pluginInfo of loaded.keys()) {
 			this.loadedPlugins.add(pluginInfo);
 			plugins[pluginInfo.name] = pluginInfo.version;
 		}

@@ -77,7 +77,6 @@ export default class Controller {
 	hooks = new ControllerHooks(logger);
 	/** Plugins which are currently loaded */
 	loadedPlugins: Set<lib.PluginNodeEnvInfo> = new Set();
-	private _pluginLoader = new lib.PluginLoader(logger);
 	/** Latest versions of plugins on npm, as shown on the plugins page */
 	pluginLatestVersionCache: lib.LatestVersionCache = new Map();
 
@@ -1580,20 +1579,6 @@ export default class Controller {
 		}
 	}
 
-	/**
-	 * Wait for another plugin to load
-	 *
-	 * @param waiter - Name of the plugin waiting, used in warnings.
-	 * @param name - Name of the plugin to wait for.
-	 * @param timeoutMs - Time to wait before giving up.
-	 * @returns
-	 *     What the plugin's entrypoint returned, or undefined with a
-	 *     warning logged if it did not load.
-	 */
-	waitForPlugin<T = unknown>(waiter: string, name: string, timeoutMs?: number) {
-		return this._pluginLoader.waitFor<T>(waiter, name, timeoutMs);
-	}
-
 	async loadPlugins() {
 		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of this.pluginInfos) {
@@ -1621,29 +1606,16 @@ export default class Controller {
 			toLoad.push(pluginInfo);
 		}
 
-		const context = { metrics, logger, controller: this };
-		await this._pluginLoader.load(toLoad, async pluginInfo => {
-			let api;
-			try {
-				api = await lib.loadPlugin(
-					pluginInfo,
-					"controller",
-					context,
-					"ControllerPlugin",
-					BaseControllerPlugin,
-				);
-			} catch (err: any) {
-				if (err.code === "InstallationError") {
-					throw err;
-				}
-				throw new lib.PluginError(pluginInfo.name, err);
-			}
-
-			logger.info(`Loaded plugin ${pluginInfo.name}`);
-			return api;
+		const { loaded } = await lib.PluginLoader.load({
+			type: "controller",
+			context: { metrics, controller: this },
+			logger,
+			installed: this.pluginInfos,
+			load: toLoad,
+			exportName: "ControllerPlugin",
+			baseClass: BaseControllerPlugin,
 		});
-
-		for (const pluginInfo of toLoad) {
+		for (const pluginInfo of loaded.keys()) {
 			this.loadedPlugins.add(pluginInfo);
 		}
 	}

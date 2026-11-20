@@ -239,15 +239,16 @@ describe("controller/src/Controller", function() {
 				});
 			});
 		});
-		describe(".waitForPlugin()", function() {
+		describe(".loadPlugins()", function() {
 			const names = ["wait_early", "wait_late", "wait_off"];
 			let dir;
 			before(async function() {
 				addPluginConfigFields(names.map(name => ({ name, version: "1.0.0", controllerEntrypoint: "x" })));
 				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-wait-"));
 				const entrypoints = {
-					wait_early: `export default async function({ controller, plugin }) {
-						controller.lateApi = await controller.waitForPlugin(plugin.name, "wait_late");
+					wait_early: `export default async function({ controller, plugins }) {
+						controller.lateApi = await plugins.waitFor("wait_late");
+						controller.offApi = await plugins.waitFor("wait_off", 60_000);
 					}`,
 					wait_late: "export default function() { return { late: true }; }",
 					wait_off: "export default function() { return { off: true }; }",
@@ -278,25 +279,17 @@ describe("controller/src/Controller", function() {
 				}));
 				return new Controller({}, infos, config, false, recoveryMode);
 			}
-			it("should resolve to what a plugin later in the list returned", async function() {
+			it("should let plugins wait for each other", async function() {
 				const pluginsController = pluginController();
 				await pluginsController.loadPlugins();
 				assert.deepEqual(pluginsController.lateApi, { late: true });
-				assert.deepEqual(await pluginsController.waitForPlugin("test", "wait_late"), { late: true });
+				assert.equal(pluginsController.offApi, undefined);
+				assert.deepEqual([...pluginsController.loadedPlugins].map(p => p.name), ["wait_early", "wait_late"]);
 			});
-			it("should resolve undefined once loading finishes for plugins not loaded", async function() {
-				const pluginsController = pluginController();
-				const off = pluginsController.waitForPlugin("test", "wait_off", 60_000);
-				const missing = pluginsController.waitForPlugin("test", "missing", 60_000);
-				await pluginsController.loadPlugins();
-				assert.equal(await off, undefined);
-				assert.equal(await missing, undefined);
-			});
-			it("should resolve undefined once loading finishes in recovery mode", async function() {
+			it("should load nothing in recovery mode", async function() {
 				const pluginsController = pluginController(true);
-				const late = pluginsController.waitForPlugin("test", "wait_late", 60_000);
 				await pluginsController.loadPlugins();
-				assert.equal(await late, undefined);
+				assert.equal(pluginsController.loadedPlugins.size, 0);
 			});
 		});
 		describe(".validateExports()", function() {

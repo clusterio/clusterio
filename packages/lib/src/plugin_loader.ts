@@ -8,8 +8,8 @@ import fs from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as libErrors from "./errors.js";
 import * as libPlugin from "./plugin.js";
-import { type Logger, logger } from "./logging.js";
-import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin.js";
+import { logger } from "./logging.js";
+import { PluginLoader } from "./PluginLoader.js";
 import { Config } from "./config/classes.js";
 import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
 import Role from "./data/Role.js";
@@ -217,59 +217,12 @@ export async function loadPluginMigrations(pluginInfos: libPlugin.PluginNodeEnvI
 
 	for (const pluginInfo of pluginInfos) {
 		Config.pluginVersions.set(pluginInfo.name, pluginInfo.version);
-		if (!pluginInfo.migrationEntrypoint) {
-			continue;
-		}
-
-		try {
-			const module = await import(pathToFileURL(
-				path.join(path.dirname(pluginInfo.packagePath), pluginInfo.migrationEntrypoint)
-			).href);
-			const context: libPlugin.MigrationContext = {
-				hooks,
-				plugin: pluginInfo,
-				logger: logger.child({ plugin: pluginInfo.name }),
-			};
-			await loadPluginEntrypoint(pluginInfo, "migration", context, module);
-		} catch (err: any) {
-			throw new libErrors.PluginError(pluginInfo.name, err);
-		}
 	}
-}
-
-export async function loadPlugin<
-	Context extends { logger: Logger },
-	Class extends libPlugin.PluginClass<Context, libPlugin.PluginNodeEnvInfo>,
-> (
-	pluginInfo: libPlugin.PluginNodeEnvInfo,
-	pluginType: libPlugin.PluginType,
-	context: Context,
-	exportName: `${string}Plugin`,
-	baseClass: Class,
-) {
-	const entrypoint = `${pluginType}Entrypoint` as const;
-	const requirePath = pluginInfo[entrypoint];
-
-	if (!requirePath) {
-		return;
-	}
-
-	const module = await import(pathToFileURL(path.join(path.dirname(pluginInfo.packagePath), requirePath)).href);
-	const pluginContext: libPlugin.PluginLoadContext<Context> = {
-		...context,
-		plugin: pluginInfo,
-		logger: context.logger.child({ plugin: pluginInfo.name }),
-	};
-
-	if (typeof module.default === "function") {
-		return await loadPluginEntrypoint(pluginInfo, pluginType, pluginContext, module);
-	}
-
-	// migrate: accept plugins which export classes
-	if (module[exportName]) {
-		pluginContext.logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
-		return await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
-	}
-
-	throw new Error(`Plugin ${pluginInfo.name} must export either a default function or ${exportName} class`);
+	await PluginLoader.load({
+		type: "migration",
+		context: { hooks },
+		logger,
+		installed: pluginInfos,
+		load: pluginInfos,
+	});
 }

@@ -251,7 +251,7 @@ describe("host/src/Host", function() {
 				assert.equal(host.config.restartRequired, true);
 			});
 		});
-		describe(".waitForPlugin()", function() {
+		describe(".loadPlugins()", function() {
 			let dir;
 			before(async function() {
 				lib.addPluginConfigFields([
@@ -259,8 +259,8 @@ describe("host/src/Host", function() {
 					{ name: "host_wait_late", version: "1.0.0", hostEntrypoint: "x" },
 				]);
 				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-host-wait-"));
-				await fs.writeFile(path.join(dir, "early.js"), `export default async function({ host, plugin }) {
-					host.lateApi = await host.waitForPlugin(plugin.name, "host_wait_late");
+				await fs.writeFile(path.join(dir, "early.js"), `export default async function({ host, plugins }) {
+					host.lateApi = await plugins.waitFor("host_wait_late");
 				}`);
 				await fs.writeFile(path.join(dir, "late.js"), "export default function() { return { late: true }; }");
 			});
@@ -272,7 +272,7 @@ describe("host/src/Host", function() {
 				}
 				await fs.rm(dir, { recursive: true, force: true });
 			});
-			it("should resolve to what a host plugin later in the list returned", async function() {
+			it("should let plugins wait for each other", async function() {
 				const pluginInfos = [["host_wait_early", "early.js"], ["host_wait_late", "late.js"]].map(
 					([name, hostEntrypoint]) => ({
 						name, hostEntrypoint, packagePath: path.resolve(dir, "package.json"),
@@ -280,10 +280,9 @@ describe("host/src/Host", function() {
 				);
 				const hostConfig = new lib.HostConfig("host");
 				const host = new Host(new HostConnector(hostConfig, pluginInfos), hostConfig, pluginInfos);
-				const missing = host.waitForPlugin("test", "missing", 60_000);
 				await host.loadPlugins();
 				assert.deepEqual(host.lateApi, { late: true });
-				assert.equal(await missing, undefined);
+				assert.deepEqual([...host.loadedPlugins].map(p => p.name), ["host_wait_early", "host_wait_late"]);
 			});
 		});
 		describe(".assignFreeGamePort()", function() {

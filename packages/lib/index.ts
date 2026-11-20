@@ -25,7 +25,6 @@ export * from "./src/permissions.js";
 export * from "./src/plugin.js";
 export * from "./src/plugin_loader.js";
 export * from "./src/PluginLoader.js";
-export * from "./src/loadPlugin.js";
 export * from "./src/prometheus.js";
 export * from "./src/schema.js";
 export * from "./src/shared_commands.js";

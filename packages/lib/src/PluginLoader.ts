@@ -1,5 +1,8 @@
-import { logger as defaultLogger, type Logger } from "./logging.js";
-import type { PluginNodeEnvInfo } from "./plugin.js";
+// Shared by node and the web interface, node specifics go in #plugin_module
+import importPluginModule from "#plugin_module";
+import { PluginError } from "./errors.js";
+import type { Logger } from "./logging.js";
+import type { PluginClass, PluginDeclaration, PluginLoadContext, PluginRegistry, PluginType } from "./plugin.js";
 
 type Waiter = {
 	resolve: (api: unknown) => void,
@@ -7,80 +10,164 @@ type Waiter = {
 	waiter: string,
 };
 
+export type PluginLoadOptions<Context extends object, Info extends PluginDeclaration> = {
+	/** Entrypoint to load, e.g. controller loads controllerEntrypoint */
+	type: PluginType,
+	/** Context passed to each plugin, plugin, logger and plugins are added per plugin */
+	context: Context | ((pluginInfo: Info) => Context),
+	/** Logger for warnings, plugins get a child of it */
+	logger: Logger,
+	/** All installed plugins, used by checkInstalled */
+	installed: Info[],
+	/** Plugins to load */
+	load: Info[],
+	/** Name of the deprecated class export, class exports are not accepted if unset */
+	exportName?: string,
+	baseClass?: PluginClass<any, any>,
+	/** Return failed plugins instead of throwing the first error */
+	continueOnError?: boolean,
+};
+
+export type PluginLoadResult<Info> = {
+	/** What each loaded plugin's entrypoint returned, in load order */
+	loaded: Map<Info, unknown>,
+	failed: Map<Info, Error>,
+};
+
 /**
  * Loads plugins concurrently and lets them wait for each other
  *
- * Owned by the object plugins are loaded into (controller, host or
- * instance).
+ * Created for one load of plugins with {@link PluginLoader.load}.
  */
-export class PluginLoader {
+export class PluginLoader<Context extends object, Info extends PluginDeclaration> {
 	private _apis = new Map<string, unknown>();
 	private _waiters = new Map<string, Waiter[]>();
-	private _finished = false;
+	private _installed: Set<string>;
+	/** Plugins still loading */
+	private _pending: Set<string>;
 
-	constructor(
-		private _logger: Logger = defaultLogger,
-	) {}
+	private constructor(
+		private _options: PluginLoadOptions<Context, Info>,
+	) {
+		this._installed = new Set(_options.installed.map(pluginInfo => pluginInfo.name));
+		this._pending = new Set(_options.load.map(pluginInfo => pluginInfo.name));
+	}
 
 	/**
 	 * Load plugins concurrently
 	 *
-	 * Waits for all loads to settle, then throws the error of the first
-	 * plugin in the list that failed.
+	 * Waits for all plugins to settle, then throws the error of the first
+	 * plugin in the list that failed unless continueOnError is set.
+	 * Errors are wrapped in PluginError.
 	 *
-	 * @param pluginInfos - Plugins to load.
-	 * @param loadPlugin - Loads one plugin and returns what its entrypoint returned.
+	 * @param options - What to load and how.
+	 * @returns Loaded and failed plugins.
 	 */
-	async load(pluginInfos: PluginNodeEnvInfo[], loadPlugin: (pluginInfo: PluginNodeEnvInfo) => Promise<unknown>) {
-		try {
-			const results = await Promise.allSettled(pluginInfos.map(async pluginInfo => {
-				this._loaded(pluginInfo.name, await loadPlugin(pluginInfo));
-			}));
-			const failed = results.find(result => result.status === "rejected");
-			if (failed) {
-				throw failed.reason;
+	static async load<Context extends object, Info extends PluginDeclaration>(
+		options: PluginLoadOptions<Context, Info>
+	): Promise<PluginLoadResult<Info>> {
+		return await new PluginLoader(options)._load();
+	}
+
+	private async _load() {
+		const results = await Promise.allSettled(this._options.load.map(async pluginInfo => {
+			const startedMs = Date.now();
+			try {
+				const api = await this._loadPlugin(pluginInfo);
+				if (this._options.type !== "migration" && pluginInfo[`${this._options.type}Entrypoint`]) {
+					this._options.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - startedMs}ms`);
+				}
+				this._settle(pluginInfo.name, true, api);
+				return api;
+			} catch (err) {
+				this._settle(pluginInfo.name, false);
+				throw err;
 			}
-		} finally {
-			this._finish();
+		}));
+
+		const loaded = new Map<Info, unknown>();
+		const failed = new Map<Info, Error>();
+		for (const [index, result] of results.entries()) {
+			const pluginInfo = this._options.load[index];
+			if (result.status === "fulfilled") {
+				loaded.set(pluginInfo, result.value);
+			} else {
+				failed.set(pluginInfo, result.reason);
+			}
+		}
+		if (failed.size && !this._options.continueOnError) {
+			throw failed.values().next().value;
+		}
+		return { loaded, failed };
+	}
+
+	private async _loadPlugin(pluginInfo: Info) {
+		const { type, exportName, baseClass } = this._options;
+		const entrypoint = pluginInfo[`${type}Entrypoint`];
+		if (!entrypoint) {
+			return undefined;
+		}
+
+		const options = this._options;
+		const context = typeof options.context === "function" ? options.context(pluginInfo) : options.context;
+		const pluginContext: PluginLoadContext<Context, Info> = {
+			...context,
+			plugin: pluginInfo,
+			logger: options.logger.child({ plugin: pluginInfo.name }),
+			plugins: this._registry(pluginInfo.name),
+		};
+
+		try {
+			const module = await importPluginModule(pluginInfo, entrypoint);
+			if (typeof module.default === "function") {
+				return await module.default(pluginContext) as unknown;
+			}
+
+			// migrate: accept plugins which export classes
+			if (exportName && baseClass && module[exportName]) {
+				pluginContext.logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
+				return await loadPluginClass(pluginInfo, pluginContext, module[exportName], exportName, baseClass);
+			}
+
+			throw new Error(exportName
+				? `Plugin ${pluginInfo.name} must export either a default function or ${exportName} class`
+				: `Expected ${type} plugin ${pluginInfo.name} to export a default function`
+			);
+		} catch (err: any) {
+			if (err.code === "InstallationError") {
+				throw err;
+			}
+			throw new PluginError(pluginInfo.name, err);
 		}
 	}
 
-	private _loaded(name: string, api: unknown) {
-		this._apis.set(name, api);
+	private _registry(waiter: string): PluginRegistry {
+		return {
+			waitFor: (name, timeoutMs) => this._waitFor(waiter, name, timeoutMs),
+			checkInstalled: name => this._installed.has(name),
+		};
+	}
+
+	private _settle(name: string, loaded: boolean, api?: unknown) {
+		this._pending.delete(name);
+		if (loaded) {
+			this._apis.set(name, api);
+		}
 		for (const entry of this._waiters.get(name) ?? []) {
 			clearTimeout(entry.timeout);
+			if (!loaded) {
+				this._warnNotLoaded(entry.waiter, name);
+			}
 			entry.resolve(api);
 		}
 		this._waiters.delete(name);
 	}
 
-	private _finish() {
-		this._finished = true;
-		for (const [name, entries] of this._waiters) {
-			for (const entry of entries) {
-				clearTimeout(entry.timeout);
-				this._warnNotLoaded(entry.waiter, name);
-				entry.resolve(undefined);
-			}
-		}
-		this._waiters.clear();
-	}
-
-	/**
-	 * Wait for a plugin to load
-	 *
-	 * @param waiter - Name of the plugin waiting, used in warnings.
-	 * @param name - Name of the plugin to wait for.
-	 * @param timeoutMs - Time to wait before giving up.
-	 * @returns
-	 *     What the plugin's entrypoint returned, or undefined with a
-	 *     warning logged if it did not load.
-	 */
-	waitFor<T = unknown>(waiter: string, name: string, timeoutMs = 30_000): Promise<T | undefined> {
+	private _waitFor<T>(waiter: string, name: string, timeoutMs = 30_000): Promise<T | undefined> {
 		if (this._apis.has(name)) {
 			return Promise.resolve(this._apis.get(name) as T);
 		}
-		if (this._finished) {
+		if (!this._pending.has(name)) {
 			this._warnNotLoaded(waiter, name);
 			return Promise.resolve(undefined);
 		}
@@ -92,7 +179,9 @@ export class PluginLoader {
 				timeout: setTimeout(() => {
 					const entries = this._waiters.get(name)!;
 					entries.splice(entries.indexOf(entry), 1);
-					this._logger.warn(`Plugin ${waiter} timed out after ${timeoutMs}ms waiting for plugin ${name}`);
+					this._options.logger.warn(
+						`Plugin ${waiter} timed out after ${timeoutMs}ms waiting for plugin ${name}`
+					);
 					resolve(undefined);
 				}, timeoutMs),
 			};
@@ -106,6 +195,32 @@ export class PluginLoader {
 	}
 
 	private _warnNotLoaded(waiter: string, name: string) {
-		this._logger.warn(`Plugin ${waiter} waited for plugin ${name} which is not loaded`);
+		this._options.logger.warn(`Plugin ${waiter} waited for plugin ${name} which is not loaded`);
 	}
+}
+
+async function loadPluginClass(
+	pluginInfo: PluginDeclaration,
+	context: PluginLoadContext<object, any>,
+	pluginClass: unknown,
+	exportName: string,
+	baseClass: PluginClass<any, any>,
+) {
+	if (typeof pluginClass !== "function") {
+		throw new Error(`Expected plugin ${pluginInfo.name} to export a class named ${exportName}`);
+	}
+
+	if (!(pluginClass.prototype instanceof baseClass)) {
+		throw new Error(`Expected ${exportName} exported from ${pluginInfo.name} to extend ${baseClass.name}`);
+	}
+
+	const plugin = (pluginClass as PluginClass<any, any>).fromContext(context);
+	try {
+		await plugin.init();
+	} catch (err) {
+		plugin.detachHooks();
+		throw err;
+	}
+
+	return plugin;
 }

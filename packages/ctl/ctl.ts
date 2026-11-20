@@ -118,17 +118,16 @@ async function loadPlugins(pluginList: Map<string, string>, hooks: CtlHooks) {
 	lib.registerPluginPermissions(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	const ctlPlugins = new Set<lib.PluginNodeEnvInfo>();
-	for (let pluginInfo of pluginInfos) {
-		if (!pluginInfo.ctlEntrypoint) {
-			continue;
-		}
-
-		const context = { hooks, logger, plugin: pluginInfo };
-		await lib.loadPlugin(pluginInfo, "ctl", context, "CtlPlugin", BaseCtlPlugin);
-		ctlPlugins.add(pluginInfo);
-	}
-
+	const { loaded } = await lib.PluginLoader.load({
+		type: "ctl",
+		context: { hooks },
+		logger,
+		installed: pluginInfos,
+		load: pluginInfos.filter(pluginInfo => pluginInfo.ctlEntrypoint),
+		exportName: "CtlPlugin",
+		baseClass: BaseCtlPlugin,
+	});
+	const ctlPlugins = new Set(loaded.keys());
 	return ctlPlugins;
 }
 

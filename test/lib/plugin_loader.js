@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 
 import * as mock from "../mock.js";
 import * as lib from "@clusterio/lib";
-import { BaseControllerPlugin } from "@clusterio/controller";
 import { computePluginStatuses, planUpdate } from "../../packages/web_ui/src/util/plugin_status.ts";
 
 
@@ -105,10 +104,13 @@ describe("lib/plugin_loader", function() {
 				assert.equal(pluginInfo.packagePath, path.join(packageDir, "package.json"));
 
 				const controller = new mock.MockController();
-				await lib.loadPlugin(
-					pluginInfo, "controller", { controller, metrics: {}, logger: new mock.MockLogger() },
-					"ControllerPlugin", BaseControllerPlugin,
-				);
+				await lib.PluginLoader.load({
+					type: "controller",
+					context: { controller },
+					logger: new mock.MockLogger(),
+					installed: [pluginInfo],
+					load: [pluginInfo],
+				});
 				assert.equal(controller.loadedNpmPlugin, true);
 			});
 		});
@@ -162,119 +164,6 @@ describe("lib/plugin_loader", function() {
 			await assert.rejects(
 				lib.loadPluginMigrations([info("throwing.js")]),
 				err => err instanceof lib.PluginError && err.pluginName === "test"
-			);
-		});
-	});
-	describe("loadPlugin()", function() {
-		const baseDir = path.join("temp", "test", "plugin");
-		const functionPlugin = path.resolve(baseDir, "function_plugin");
-		const classPlugin = path.resolve(baseDir, "class_plugin");
-		const throwingClassPlugin = path.resolve(baseDir, "throwing_class_plugin");
-		const missingClassPlugin = path.resolve(baseDir, "missing_class_plugin");
-		const wrongParentClassPlugin = path.resolve(baseDir, "wrong_parent_class_plugin");
-		let controller;
-		let logger;
-		let context;
-
-		before(async function() {
-			async function writeEntrypoint(pluginPath, content) {
-				await fs.mkdir(pluginPath, { recursive: true });
-				await fs.writeFile(path.join(pluginPath, "controller.js"), content);
-			}
-
-			await writeEntrypoint(functionPlugin, `
-				export default async function(context) {
-					context.controller.loadedWith = context;
-					return { api: true };
-				}
-			`);
-			await writeEntrypoint(classPlugin, `
-				import { BaseControllerPlugin } from "@clusterio/controller";
-				export class ControllerPlugin extends BaseControllerPlugin {
-					async init() { this.controller.loadedWith = this; }
-					async onSaveData() { }
-				}
-			`);
-			await writeEntrypoint(throwingClassPlugin, `
-				import { BaseControllerPlugin } from "@clusterio/controller";
-				export class ControllerPlugin extends BaseControllerPlugin {
-					async init() { throw new Error("init failed"); }
-					async onSaveData() { }
-				}
-			`);
-			await writeEntrypoint(missingClassPlugin, "");
-			await writeEntrypoint(wrongParentClassPlugin, "export class ControllerPlugin {};\n");
-		});
-
-		beforeEach(function() {
-			controller = new mock.MockController();
-			logger = new mock.MockLogger();
-			logger.warnings = [];
-			logger.warn = msg => logger.warnings.push(msg);
-			context = { controller, metrics: {}, logger };
-		});
-
-		function info(requirePath, entrypoint = "controller.js") {
-			return {
-				name: "test",
-				requirePath,
-				packagePath: path.join(requirePath, "package.json"),
-				controllerEntrypoint: entrypoint,
-			};
-		}
-
-		it("should do nothing when the entrypoint is not set", async function() {
-			await lib.loadPlugin(
-				{ name: "test", requirePath: missingClassPlugin }, "controller", context,
-				"ControllerPlugin", BaseControllerPlugin,
-			);
-			assert.equal(controller.loadedWith, undefined);
-		});
-		it("should call the default export with the load context", async function() {
-			const pluginInfo = info(functionPlugin);
-			const result = await lib.loadPlugin(
-				pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin,
-			);
-			assert.deepEqual(result, { api: true });
-			assert.equal(controller.loadedWith.controller, controller);
-			assert.equal(controller.loadedWith.plugin, pluginInfo);
-			assert.equal(controller.loadedWith.logger, logger);
-			assert.deepEqual(logger.warnings, []);
-		});
-		it("should load a deprecated class export", async function() {
-			const pluginInfo = info(classPlugin);
-			const result = await lib.loadPlugin(
-				pluginInfo, "controller", context, "ControllerPlugin", BaseControllerPlugin,
-			);
-			assert.equal(result, controller.loadedWith);
-			assert(controller.loadedWith instanceof BaseControllerPlugin);
-			assert.equal(controller.loadedWith.info, pluginInfo);
-			assert.deepEqual([...controller.hooks.save.attached], ["test"]);
-			assert.deepEqual(logger.warnings, ["Plugin test is using deprecated class export"]);
-		});
-		it("should detach hooks if init throws", async function() {
-			await assert.rejects(
-				lib.loadPlugin(
-					info(throwingClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
-				),
-				new Error("init failed")
-			);
-			assert.equal(controller.hooks.size, 0);
-		});
-		it("should throw if neither a function nor a class is exported", async function() {
-			await assert.rejects(
-				lib.loadPlugin(
-					info(missingClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
-				),
-				new Error("Plugin test must export either a default function or ControllerPlugin class")
-			);
-		});
-		it("should throw if the class is not a subclass of the base class", async function() {
-			await assert.rejects(
-				lib.loadPlugin(
-					info(wrongParentClassPlugin), "controller", context, "ControllerPlugin", BaseControllerPlugin
-				),
-				new Error("Expected ControllerPlugin exported from test to extend BaseControllerPlugin")
 			);
 		});
 	});

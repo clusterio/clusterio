@@ -206,6 +206,9 @@ The context has the following properties:
 **logger**:
     Logger for this plugin, see [Logging Messages](#logging-messages).
 
+**plugins**:
+    The other plugins loaded alongside this one, see [Depending on other plugins](#depending-on-other-plugins).
+
 **controller**, **host**, **instance**, **hooks** or **control**:
     The object the entrypoint is loaded for.
     Controller entrypoints get `controller`, host entrypoints get `host`, instance entrypoints get both `instance` and `host`, clusterioctl entrypoints get `hooks` and web entrypoints get `control`.
@@ -219,14 +222,13 @@ For TypeScript the context types are exported as `ControllerPluginContext`, `Hos
 ### Depending on other plugins
 
 Plugins are loaded at the same time, so there is no order between them.
-A plugin that uses another plugin can wait for it with `waitForPlugin(waiter, name, timeoutMs)` on the controller, host or instance it is loaded for.
-`waiter` is the name of the plugin waiting, `name` is the plugin to wait for, and `timeoutMs` defaults to 30 seconds.
-It resolves to the value returned by the other plugin's entrypoint for the same controller, host or instance, so a plugin that offers an API to other plugins should return it from its entrypoint.
+A plugin that uses another plugin can wait for it with `plugins.waitFor(name, timeoutMs)` from its context, `timeoutMs` defaults to 30 seconds.
+It resolves to the value returned by the other plugin's entrypoint for the same controller, host, instance, clusterioctl or web interface, so a plugin that offers an API to other plugins should return it from its entrypoint.
 For deprecated class based plugins it resolves to the plugin instance.
 
 ```js
-export default async function({ controller, plugin }) {
-    const other = await controller.waitForPlugin(plugin.name, "other_plugin");
+export default async function({ plugins }) {
+    const other = await plugins.waitFor("other_plugin");
     if (other) {
         other.doSomething();
     }
@@ -234,9 +236,10 @@ export default async function({ controller, plugin }) {
 ```
 
 If the plugin is already loaded it resolves right away.
-If the plugin is not installed, has load_plugin set to false, or plugins are disabled by recovery mode, it resolves to undefined once all plugins have loaded.
+If the plugin is not installed, has load_plugin set to false, is disabled by recovery mode, or fails to load, it resolves to undefined right away.
 If it times out it resolves to undefined.
 In both cases a warning naming both plugins is logged.
+`plugins.checkInstalled(name)` tells if a plugin is installed, use it to avoid the warning for optional plugins.
 
 Startup does not continue until every entrypoint has returned.
 Two plugins awaiting each other in their entrypoints hold up startup until one of them times out.

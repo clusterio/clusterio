@@ -38,6 +38,13 @@
 			},
 			"import": "./src/zlib_sync.browser.ts"
 		},
+		"#plugin_module": {
+			"node": {
+				"types": "./src/plugin_module.node.ts",
+				"default": "./dist/node/src/plugin_module.node.js"
+			},
+			"import": "./src/plugin_module.browser.ts"
+		},
 		"#is_deep_strict_equal": {
 			"node": {
 				"types": "./src/is_deep_strict_equal.node.ts",
