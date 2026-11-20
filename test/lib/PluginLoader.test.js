@@ -31,6 +31,9 @@ describe("lib/PluginLoader", function() {
 				}`,
 			"empty.js": "",
 			"wrong_parent.js": "export class ControllerPlugin {};\n",
+			"not_class.js": "export const ControllerPlugin = 1;\n",
+			"installation_error.js": `import { InstallationError } from "@clusterio/lib";
+				export default function() { throw new InstallationError("missing dependency"); }`,
 			"throwing.js": `export default async function({ plugin }) {
 				await new Promise(resolve => setTimeout(resolve, plugin.delay ?? 0));
 				throw new Error(\`\${plugin.name} failed\`);
@@ -127,6 +130,18 @@ describe("lib/PluginLoader", function() {
 			await assert.rejects(
 				loadOne(info("test", "wrong_parent.js")),
 				{ message: "PluginError: Expected ControllerPlugin exported from test to extend BaseControllerPlugin" },
+			);
+		});
+		it("should throw if the class export is not a class", async function() {
+			await assert.rejects(
+				loadOne(info("test", "not_class.js")),
+				{ message: "PluginError: Expected plugin test to export a class named ControllerPlugin" },
+			);
+		});
+		it("should not wrap installation errors", async function() {
+			await assert.rejects(
+				loadOne(info("test", "installation_error.js")),
+				err => err instanceof lib.InstallationError,
 			);
 		});
 		it("should finish loading the rest before throwing the first error in list order", async function() {
