@@ -19,6 +19,7 @@ export const plugin: lib.PluginDeclaration = {
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
 	instanceEntrypoint: "dist/node/instance.js",
+	requiredMods: ["subspace_storage >= 1.99.0"],
 	instanceConfigFields: {
 		"subspace_storage.log_item_transfers": {
 			title: "Log Item Transfers",

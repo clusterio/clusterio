@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import asTableModule from "as-table";
 import events from "events";
 import path from "path";
 import os from "os";
@@ -10,10 +9,9 @@ import util from "util";
 import * as lib from "@clusterio/lib";
 import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
-import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
+import { errorToJson, print } from "./command_ops.js";
+import { serializedConfigToString, getEditor, configToKeyVal, printConfig } from "./config_ops.js";
 
-const asTable = asTableModule.configure({ delimiter: " | " });
 const finished = util.promisify(stream.finished);
 
 export const instanceCommands = new lib.CommandTree({
@@ -27,7 +25,7 @@ instanceCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { templates: boolean }, ctl: Ctl) {
 		let list = await ctl.send(new lib.InstanceDetailsListRequest());
-		print(asTable(list.filter(instance => args.templates || !instance.isTemplate)));
+		ctl.output.table(list.filter(instance => args.templates || !instance.isTemplate));
 	},
 }));
 
@@ -64,6 +62,7 @@ instanceCommands.add(new lib.Command({
 			instanceConfig.toRemote("controller", fields),
 			args.from
 		));
+		ctl.output.result({ id: instanceConfig.get("instance.id") }, () => {});
 	},
 }));
 
@@ -81,19 +80,13 @@ instanceConfigCommands.add(new lib.Command({
 			? config["instance.inherited_fields"] as Record<string, true | string[]> ?? {}
 			: {};
 
-		for (let [name, value] of Object.entries(config)) {
-			if (name === "instance.inherited_fields") {
-				continue;
-			}
+		printConfig(ctl, config, name => {
 			const entry = inherited[name];
-			let note = "";
 			if (entry instanceof Array && entry.length) {
-				note = ` (inherited except ${entry.join(", ")})`;
-			} else if (entry) {
-				note = " (inherited)";
+				return ` (inherited except ${entry.join(", ")})`;
 			}
-			print(`${name} ${JSON.stringify(value)}${note}`);
-		}
+			return entry ? " (inherited)" : "";
+		});
 	},
 }));
 
@@ -225,19 +218,22 @@ instanceConfigCommands.add(new lib.Command({
 						index,
 						final[index],
 					));
-				} catch (err) {
-					// eslint-disable-next-line
-					print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+				} catch (err: any) {
 					// If the string is empty, it's better to just print "" instead of nothing
-					print(err);
+					logger.error(
+						`Attempt to set ${index} to ${final[index] || String(null)} failed; ` +
+						`set back to previous value: ${err.message}`
+					);
 				}
 			}
 		}
 		try {
 			await fs.unlink(tmpFile);
 		} catch (err) {
-			print("err: temporary file", tmpFile, "could not be deleted.");
-			print("This is not fatal, but they may build up over time if the issue persists.");
+			logger.warn(
+				`Temporary file ${tmpFile} could not be deleted. ` +
+				"This is not fatal, but they may build up over time if the issue persists."
+			);
 		}
 	},
 }));
@@ -291,9 +287,7 @@ instanceSaveCommands.add(new lib.Command({
 		let instanceId = await lib.resolveInstance(ctl, args.instance);
 		let saves = await ctl.sendTo("controller", new lib.InstanceSaveDetailsListRequest());
 		saves = saves.filter(save => save.instanceId === instanceId);
-		print(asTable(saves.map(
-			({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() })
-		)));
+		ctl.output.table(saves, ({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() }));
 	},
 }));
 
@@ -394,13 +388,16 @@ instanceSaveCommands.add(new lib.Command({
 			logger.error(requestError);
 		}
 
-		if (result.saves && result.saves.length) {
-			logger.info(`Successfully uploaded as ${result.saves[0]}`);
-		}
-
 		if ((result.errors || []).length || (result.request_errors || []).length) {
 			throw new lib.CommandError("Uploading save failed");
 		}
+
+		const name = result.saves?.[0];
+		ctl.output.result({ name }, () => {
+			if (name) {
+				print(`Successfully uploaded as ${name}`);
+			}
+		});
 	},
 }));
 
@@ -439,7 +436,10 @@ instanceSaveCommands.add(new lib.Command({
 				args.copy
 			)
 		);
-		print(`Transferred as ${storedName} to ${args.targetInstance}.`);
+		ctl.output.result(
+			{ name: storedName, instanceId: targetInstanceId },
+			() => print(`Transferred as ${storedName} to ${args.targetInstance}.`),
+		);
 	},
 }));
 
@@ -456,7 +456,10 @@ instanceSaveCommands.add(new lib.Command({
 		url.pathname += `api/stream/${streamId}`;
 		const filename = await lib.downloadFile(url, args.save, "rename");
 
-		logger.info(`Downloaded ${args.save}${args.save === filename ? "" : ` as ${filename}`}`);
+		ctl.output.result(
+			{ filename },
+			() => print(`Downloaded ${args.save}${args.save === filename ? "" : ` as ${filename}`}`),
+		);
 	},
 }));
 
@@ -566,27 +569,34 @@ instanceCommands.add(new lib.Command({
 		});
 
 		if (instancesToStart.length === 0) {
-			print("No instances to start.");
+			ctl.output.result([], () => print("No instances to start."));
 			return;
 		}
 
-		print(`Starting ${instancesToStart.length} instance(s):`);
-		for (const instance of instancesToStart) {
-			print(`  - ${instance.name} (ID: ${instance.id})`);
+		const human = ctl.output.human;
+		if (human) {
+			print(`Starting ${instancesToStart.length} instance(s):`);
+			for (const instance of instancesToStart) {
+				print(`  - ${instance.name} (ID: ${instance.id})`);
+			}
 		}
 
 		// Start all filtered instances
-		const startPromises = instancesToStart.map(async (instance: lib.InstanceDetails) => {
+		const results = await Promise.all(instancesToStart.map(async (instance: lib.InstanceDetails) => {
 			try {
 				await ctl.sendTo({ instanceId: instance.id }, new lib.InstanceStartRequest());
-				print(`✓ Started ${instance.name}`);
+				if (human) {
+					print(`✓ Started ${instance.name}`);
+				}
+				return { id: instance.id, name: instance.name };
 			} catch (error) {
-				print(`✗ Failed to start ${instance.name}: ${error}`);
+				if (human) {
+					print(`✗ Failed to start ${instance.name}: ${error}`);
+				}
+				return { id: instance.id, name: instance.name, error: errorToJson(error) };
 			}
-		});
-
-		await Promise.all(startPromises);
-		print("Start all operation completed.");
+		}));
+		ctl.output.result(results, () => print("Start all operation completed."));
 	},
 }));
 
@@ -646,27 +656,34 @@ instanceCommands.add(new lib.Command({
 			.filter((instance: lib.InstanceDetails) => ["starting", "running"].includes(instance.status));
 
 		if (instancesToStop.length === 0) {
-			print("No instances to stop.");
+			ctl.output.result([], () => print("No instances to stop."));
 			return;
 		}
 
-		print(`Stopping ${instancesToStop.length} instance(s):`);
-		for (const instance of instancesToStop) {
-			print(`  - ${instance.name} (ID: ${instance.id})`);
+		const human = ctl.output.human;
+		if (human) {
+			print(`Stopping ${instancesToStop.length} instance(s):`);
+			for (const instance of instancesToStop) {
+				print(`  - ${instance.name} (ID: ${instance.id})`);
+			}
 		}
 
 		// Stop all filtered instances
-		const stopPromises = instancesToStop.map(async (instance: lib.InstanceDetails) => {
+		const results = await Promise.all(instancesToStop.map(async (instance: lib.InstanceDetails) => {
 			try {
 				await ctl.sendTo({ instanceId: instance.id }, new lib.InstanceStopRequest());
-				print(`✓ Stopped ${instance.name}`);
+				if (human) {
+					print(`✓ Stopped ${instance.name}`);
+				}
+				return { id: instance.id, name: instance.name };
 			} catch (error) {
-				print(`✗ Failed to stop ${instance.name}: ${error}`);
+				if (human) {
+					print(`✗ Failed to stop ${instance.name}: ${error}`);
+				}
+				return { id: instance.id, name: instance.name, error: errorToJson(error) };
 			}
-		});
-
-		await Promise.all(stopPromises);
-		print("Stop all operation completed.");
+		}));
+		ctl.output.result(results, () => print("Stop all operation completed."));
 	},
 }));
 
@@ -703,6 +720,6 @@ instanceCommands.add(new lib.Command({
 		);
 
 		// Factorio includes a newline in its response output.
-		process.stdout.write(result);
+		ctl.output.result({ result }, () => process.stdout.write(result));
 	},
 }));

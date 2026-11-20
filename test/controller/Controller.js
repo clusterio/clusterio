@@ -365,6 +365,50 @@ describe("controller/src/Controller", function() {
 				await assert.rejects(Controller.loadJsonObject(path.join(dir, "invalid.json")), SyntaxError);
 			});
 		});
+		describe(".downloadRequiredMods()", function() {
+			let ctrl, resolveCalls, downloadCalls, resolved;
+			function modInfo(name, version) {
+				return lib.ModInfo.fromJSON({ name, version, factorio_version: "2.0" });
+			}
+			beforeEach(function() {
+				const config = new ControllerConfig("controller", { "controller.version": controllerVersion });
+				ctrl = new Controller({}, [
+					{ name: "foo", title: "Foo", requiredMods: ["foo_mod >= 1.0.0"] },
+					{ name: "bar", title: "Bar" },
+				], config);
+				const modPack = ModPack.fromJSON({ id: 7, name: "default", factorio_version: "2.0.10" });
+				ctrl.modPacks.set(modPack);
+				config.set("controller.default_mod_pack_id", 7);
+				resolveCalls = [];
+				downloadCalls = [];
+				resolved = [modInfo("foo_mod", "1.2.0"), modInfo("dep_mod", "0.1.0")];
+				ctrl.resolveModDependencies = async (mods, factorioVersion) => {
+					resolveCalls.push([mods.map(mod => mod.spec), factorioVersion]);
+					return new lib.ModDependencyResolveRequest.Response(resolved, new Map());
+				};
+				ctrl.downloadModsFromPortal = async (mods, factorioVersion) => {
+					downloadCalls.push([mods.map(mod => `${mod.name} ${mod.version}`), factorioVersion]);
+				};
+			});
+
+			it("should download required mods and their dependencies for the default mod pack", async function() {
+				await ctrl.downloadRequiredMods();
+				assert.deepEqual(resolveCalls, [[["foo_mod >= 1.0.0"], "2.0"]]);
+				assert.deepEqual(downloadCalls, [[["foo_mod = 1.2.0", "dep_mod = 0.1.0"], "2.0"]]);
+			});
+
+			it("should skip mods already in the mod store", async function() {
+				ctrl.modStore = new lib.ModStore("mods", new Map(resolved.map(info => [info.filename, info])));
+				await ctrl.downloadRequiredMods();
+				assert.deepEqual(downloadCalls, []);
+			});
+
+			it("should do nothing when no plugin requires mods", async function() {
+				ctrl.pluginInfos = [{ name: "bar", title: "Bar" }];
+				await ctrl.downloadRequiredMods();
+				assert.deepEqual(resolveCalls, []);
+			});
+		});
 		describe(".loggableHeaders()", function() {
 			it("should redact credentials and keep other headers", function() {
 				const headers = {

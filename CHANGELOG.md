@@ -31,11 +31,47 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
-## Unreleased
+## Version 2.1.1
+
+### Features
+
+- Hosts on ARM64 Linux download and run the ARM64 headless build of Factorio, available from Factorio 2.1.18. [#1228](<https://github.com/clusterio/clusterio/pull/1228>)
+- Added `requiredMods` to plugin declarations. Instances refuse to start when their mod pack lacks a mod a loaded plugin requires, and the controller downloads missing required mods and their dependencies from the mod portal on start. Subspace Storage requires the subspace_storage mod. [#535](<https://github.com/clusterio/clusterio/issues/535>)
+- Added `--output json` and `--output wire` to clusterioctl for machine readable results and errors. [#1230](<https://github.com/clusterio/clusterio/pull/1230>)
 
 ### Fixes
 
-- Fixed cramped plugin rows and wrapping header branding on mobile screens.
+- Fixed a newly paired host reporting that it needs a restart. [#1204](<https://github.com/clusterio/clusterio/issues/1204>)
+- Fixed the installer's run-controller and run-host scripts exiting with 0 when the controller or host exited with 8 to stop the restart loop. [#1208](<https://github.com/clusterio/clusterio/issues/1208>)
+- Fixed clusterioctl user list, user show and role list printing [object Set] for roles, instances and permissions. [#1205](<https://github.com/clusterio/clusterio/issues/1205>)
+- Fixed typo in the delete instance confirmation. [#1209](<https://github.com/clusterio/clusterio/issues/1209>)
+- The Search Mod Portal dialog now opens on the default mod pack's Factorio version instead of always 2.0. [#1209](<https://github.com/clusterio/clusterio/issues/1209>)
+- Fixed the mod portal cache key logging "undefined" when hide_deprecated was not sent. [#1209](<https://github.com/clusterio/clusterio/issues/1209>)
+- Fixed player_sync losing quick bar slots of blueprint library records when a player joins an instance for the first time. [#1219](<https://github.com/clusterio/clusterio/issues/1219>)
+- Fixed cramped plugin rows and wrapping header branding on mobile screens. [#1223](<https://github.com/clusterio/clusterio/pull/1223>)
+- Fixed player_sync keeping an instance's old copy of a player after the controller refused its upload, which let an instance restarted after a crash overwrite newer player data. [#1218](<https://github.com/clusterio/clusterio/issues/1218>)
+
+### Changes
+
+- Restarting the controller or a host from the web interface now asks for confirmation, and for hosts lists the running instances that will be stopped. [#1207](<https://github.com/clusterio/clusterio/issues/1207>)
+- New clusters default controller.default_mod_pack_id to the newest Base Game mod pack, so instances can create saves and start without setting it first. [#1203](<https://github.com/clusterio/clusterio/issues/1203>)
+- Output from npm during `plugin install` now goes through the logger. [#1224](<https://github.com/clusterio/clusterio/pull/1224>)
+- The controller collects system info, including restart required, right after it starts and when a host connects instead of waiting for the first system metrics interval. [#1227](<https://github.com/clusterio/clusterio/pull/1227>)
+- clusterioctl prints all tables with the same formatter and prints command results to stdout instead of the log. [#1230](<https://github.com/clusterio/clusterio/pull/1230>)
+- clusterioctl prints "Command ran successfully" for commands that have no other output. [#1230](<https://github.com/clusterio/clusterio/pull/1230>)
+
+### Meta
+
+- Added a CI check that pull request descriptions have a valid changelog section. [#1226](<https://github.com/clusterio/clusterio/pull/1226>)
+
+### Contributors
+
+Many thanks to the following for contributing to this release:
+[@bbassie](<https://github.com/bbassie>), [@ILLISIS](<https://github.com/ILLISIS>), [@Danielv123](<https://github.com/Danielv123>)
+
+### Statistics
+
+Commits: 44  Pull Requests: 19  Files Changed: 81  Additions: +2,676  Deletions: -739
 
 
 ## Version 2.1.0

@@ -5,6 +5,10 @@ import * as lib from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
 import { asTable, print } from "./command_ops.js";
 
+function printProperties(object: object) {
+	print(asTable(Object.entries(object).map(([property, value]) => ({ property, value }))));
+}
+
 export const userCommands = new lib.CommandTree({ name: "user", alias: ["u"], description: "User management" });
 userCommands.add(new lib.Command({
 	definition: ["show <name>", "Show details for one user", (yargs) => {
@@ -14,30 +18,23 @@ userCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(args: { name: string, instanceStats: boolean }, ctl: Ctl) {
-		let user = await ctl.send(new lib.UserGetRequest(args.name));
-		Object.assign(user, user.playerStats);
-		// @ts-expect-error Terrible hack
-		delete user.playerStats;
-		let instanceStats = user.instanceStats;
-		// @ts-expect-error Terrible hack
-		delete user.instanceStats;
-		print(asTable(Object.entries(user).map(([property, value]) => ({ property, value }))));
-
-		if (args.instanceStats) {
-			let instances = await ctl.send(new lib.InstanceDetailsListRequest());
-			function instanceName(id: number) {
-				let instance = instances.find(i => i.id === id);
-				if (instance) {
-					return instance.name;
-				}
-				return "<deleted>";
+		const user = await ctl.send(new lib.UserGetRequest(args.name));
+		const { playerStats, instanceStats, ...properties } = user;
+		const instances = args.instanceStats && ctl.output.human
+			? await ctl.send(new lib.InstanceDetailsListRequest())
+			: [];
+		ctl.output.result(user, () => {
+			printProperties({ ...properties, ...playerStats });
+			if (!args.instanceStats) {
+				return;
 			}
-			for (let [id, playerInstanceStats] of instanceStats || []) {
+			for (let [id, playerInstanceStats] of instanceStats) {
+				const name = instances.find(i => i.id === id)?.name ?? "<deleted>";
 				print();
-				print(`Instance ${instanceName(id)} (${id}):`);
-				print(asTable(Object.entries(playerInstanceStats).map(([property, value]) => ({ property, value }))));
+				print(`Instance ${name} (${id}):`);
+				printProperties(playerInstanceStats);
 			}
-		}
+		});
 	},
 }));
 
@@ -49,29 +46,17 @@ userCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(args: { stats: boolean, attributes: boolean }, ctl: Ctl) {
-		let users = await ctl.send(new lib.UserListRequest());
-		for (let user of users) {
-			if (args.stats) {
-				Object.assign(user, user.playerStats);
-			}
-			// @ts-expect-error Terrible hack
-			delete user.playerStats;
-			// @ts-expect-error Terrible hack
-			delete user.isDeleted;
-			// @ts-expect-error Terrible hack
-			delete user.banReason;
-			// @ts-expect-error Terrible hack
-			delete user.instanceStats;
-			if (!args.attributes) {
-				// @ts-expect-error Terrible hack
-				delete user.isAdmin;
-				// @ts-expect-error Terrible hack
-				delete user.isWhitelisted;
-				// @ts-expect-error Terrible hack
-				delete user.isBanned;
-			}
-		}
-		print(asTable(users));
+		const users = await ctl.send(new lib.UserListRequest());
+		ctl.output.table(users, user => {
+			const {
+				playerStats, isDeleted, banReason, instanceStats, isAdmin, isWhitelisted, isBanned, ...row
+			} = user;
+			return {
+				...row,
+				...args.attributes && { isAdmin, isWhitelisted, isBanned },
+				...args.stats && playerStats,
+			};
+		});
 	},
 }));
 
@@ -219,11 +204,17 @@ async function handleImportOrRestore(args: {
 		new lib.UserBulkImportRequest(importType, importType === "users" ? data.users : data, restore)
 	);
 
-	print(`${restore ? "Restored" : "Imported"} ${importType} from ${args.filepath}`);
+	let backupFile: string | undefined;
 	if (restore && backup && !args.noBackup) {
-		await fs.writeFile(`${importType}-backup.json`, JSON.stringify(backup, undefined, "\t"));
-		print(`Wrote backup to ${importType}-backup.json`);
+		backupFile = `${importType}-backup.json`;
+		await fs.writeFile(backupFile, JSON.stringify(backup, undefined, "\t"));
 	}
+	ctl.output.result({ type: importType, backupFile }, () => {
+		print(`${restore ? "Restored" : "Imported"} ${importType} from ${args.filepath}`);
+		if (backupFile) {
+			print(`Wrote backup to ${backupFile}`);
+		}
+	});
 }
 
 userCommands.add(new lib.Command({
@@ -296,6 +287,9 @@ userCommands.add(new lib.Command({
 		await fs.writeFile(args.filepath, JSON.stringify(await ctl.send(
 			new lib.UserBulkExportRequest(exportType)
 		), undefined, "\t"));
-		print(`Exported ${exportType} to ${args.filepath}`);
+		ctl.output.result(
+			{ type: exportType, filepath: args.filepath },
+			() => print(`Exported ${exportType} to ${args.filepath}`),
+		);
 	},
 }));

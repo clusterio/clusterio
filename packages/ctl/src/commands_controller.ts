@@ -1,15 +1,15 @@
 import fs from "node:fs/promises";
-import asTableModule from "as-table";
 import events from "events";
 import os from "os";
 import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
+import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
-import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
+import { asTable, print } from "./command_ops.js";
+import {
+	serializedConfigToString, getEditor, configToKeyVal, printConfig, printRestartRequired,
+} from "./config_ops.js";
 
 export const controllerCommands = new lib.CommandTree({ name: "controller", description: "Controller management" });
 controllerCommands.add(new lib.Command({
@@ -44,9 +44,8 @@ controllerCommands.add(new lib.Command({
 		}
 		if (args.restart) {
 			await ctl.send(new lib.ControllerRestartRequest());
-		} else {
-			print("Controller updated; a restart is required to apply the changes.");
 		}
+		printRestartRequired(ctl, !args.restart, "Controller updated");
 	},
 }));
 
@@ -57,11 +56,7 @@ const controllerConfigCommands = new lib.CommandTree({
 controllerConfigCommands.add(new lib.Command({
 	definition: ["list", "List controller configuration"],
 	handler: async function(args: object, ctl: Ctl) {
-		let config = await ctl.send(new lib.ControllerConfigGetRequest());
-
-		for (let [name, value] of Object.entries(config)) {
-			print(`${name} ${JSON.stringify(value)}`);
-		}
+		printConfig(ctl, await ctl.send(new lib.ControllerConfigGetRequest()));
 	},
 }));
 
@@ -146,19 +141,22 @@ controllerConfigCommands.add(new lib.Command({
 						index,
 						final[index],
 					));
-				} catch (err) {
-					// eslint-disable-next-line
-					print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
-					print(err);
+				} catch (err: any) {
 					// If the string is empty, it's better to just print "" instead of nothing
+					logger.error(
+						`Attempt to set ${index} to ${final[index] || String(null)} failed; ` +
+						`set back to previous value: ${err.message}`
+					);
 				}
 			}
 		}
 		try {
 			await fs.unlink(tmpFile);
 		} catch (err) {
-			print("err: temporary file", tmpFile, "could not be deleted.");
-			print("This is not fatal, but they may build up over time if the issue persists.");
+			logger.warn(
+				`Temporary file ${tmpFile} could not be deleted. ` +
+				"This is not fatal, but they may build up over time if the issue persists."
+			);
 		}
 	},
 }));
@@ -175,7 +173,7 @@ controllerPluginCommands.add(new lib.Command({
 		let url = new URL(ctl.config.get("ctl.controller_url")!);
 		url.pathname += "api/plugins";
 		let response = await fetch(url);
-		print(asTable(await response.json() as []));
+		ctl.output.table(await response.json() as object[]);
 	},
 }));
 controllerPluginCommands.add(new lib.Command({
@@ -187,9 +185,8 @@ controllerPluginCommands.add(new lib.Command({
 		await ctl.sendTo("controller", new lib.PluginUpdateRequest(args.plugin));
 		if (args.restart) {
 			await ctl.send(new lib.ControllerRestartRequest());
-		} else {
-			print("Plugin updated; a restart is required to apply the changes.");
 		}
+		printRestartRequired(ctl, !args.restart, "Plugin updated");
 	},
 }));
 controllerPluginCommands.add(new lib.Command({
@@ -202,13 +199,16 @@ controllerPluginCommands.add(new lib.Command({
 		const response = await ctl.sendTo(
 			"controller", new lib.PluginSearchRequest(args.query, args.page, args.pageSize)
 		);
-		print(asTable(response.results.map(plugin => ({
+		const results = response.results.map(plugin => ({
 			name: plugin.name,
 			version: plugin.version,
 			publisher: plugin.publisher ?? "",
 			description: plugin.description ?? "",
-		}))));
-		print(`Showing ${response.results.length} of ${response.total} results`);
+		}));
+		ctl.output.result({ total: response.total, results }, () => {
+			print(asTable(results));
+			print(`Showing ${results.length} of ${response.total} results`);
+		});
 	},
 }));
 controllerPluginCommands.add(new lib.Command({
@@ -220,9 +220,8 @@ controllerPluginCommands.add(new lib.Command({
 		await ctl.sendTo("controller", new lib.PluginInstallRequest(args.plugin));
 		if (args.restart) {
 			await ctl.send(new lib.ControllerRestartRequest());
-		} else {
-			print("Plugin installed; a restart is required to apply the changes.");
 		}
+		printRestartRequired(ctl, !args.restart, "Plugin installed");
 	},
 }));
 

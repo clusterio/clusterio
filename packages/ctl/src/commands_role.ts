@@ -1,15 +1,13 @@
 
 import * as lib from "@clusterio/lib";
-import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { asTable, print } from "./command_ops.js";
+import { print } from "./command_ops.js";
 
 export const roleCommands = new lib.CommandTree({ name: "role", description: "Role management" });
 roleCommands.add(new lib.Command({
 	definition: [["list", "l"], "List roles in the cluster"],
 	handler: async function(args: object, ctl: Ctl) {
-		let roles = await ctl.send(new lib.RoleListRequest());
-		print(asTable(roles));
+		ctl.output.table(await ctl.send(new lib.RoleListRequest()));
 	},
 }));
 
@@ -27,7 +25,7 @@ roleCommands.add(new lib.Command({
 			args.description,
 			args.permissions,
 		));
-		logger.info(`Created role ID ${id}`);
+		ctl.output.result({ id }, () => print(`Created role ID ${id}`));
 	},
 }));
 

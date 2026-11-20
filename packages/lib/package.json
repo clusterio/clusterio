@@ -1,6 +1,6 @@
 {
 	"name": "@clusterio/lib",
-	"version": "2.1.0",
+	"version": "2.1.1",
 	"description": "Shared library for Clusterio",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"author": "Hornwitser <github@hornwitser.no>",
@@ -31,6 +31,13 @@
 			},
 			"import": "./src/link/WebSocket.browser.ts"
 		},
+		"#zlib_sync": {
+			"node": {
+				"types": "./src/zlib_sync.node.ts",
+				"default": "./dist/node/src/zlib_sync.node.js"
+			},
+			"import": "./src/zlib_sync.browser.ts"
+		},
 		"#is_deep_strict_equal": {
 			"node": {
 				"types": "./src/is_deep_strict_equal.node.ts",
@@ -51,11 +58,9 @@
 
 	"dependencies": {
 		"@sinclair/typebox": "catalog:",
-		"@types/yauzl": "catalog:",
-		"@types/yazl": "catalog:",
 		"ajv": "^8.20.0",
-		"chalk": "catalog:",
 		"fast-deep-equal": "^3.1.3",
+		"fflate": "catalog:",
 		"set-blocking": "catalog:",
 		"triple-beam": "^1.4.1",
 		"winston": "catalog:",
@@ -71,6 +76,8 @@
 		"@types/triple-beam": "^1.3.5",
 		"@types/ws": "catalog:",
 		"@types/yargs": "catalog:",
+		"@types/yauzl": "catalog:",
+		"@types/yazl": "catalog:",
 		"typescript": "catalog:"
 	}
 }

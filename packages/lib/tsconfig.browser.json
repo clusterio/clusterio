@@ -19,6 +19,7 @@
 		"./src/hash.ts",
 		"./src/ini.ts",
 		"./src/is_deep_strict_equal.browser.ts",
+		"./src/zlib_sync.browser.ts",
 		"./src/link/*.ts",
 		"./src/lua_tools.ts",
 		"./src/logging.ts",

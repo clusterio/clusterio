@@ -5,14 +5,14 @@
  * @module lib/logging_utils
  */
 import fs from "node:fs/promises";
-import type { ReadStream } from "node:fs";
+import { type ReadStream, type WriteStream, createWriteStream, mkdirSync } from "node:fs";
+import os from "node:os";
 import path from "path";
 import stream from "stream";
-import util from "util";
+import util, { styleText } from "util";
 import winston from "winston";
 import Transport from "winston-transport";
 import { LEVEL, MESSAGE } from "triple-beam";
-import chalk from "chalk";
 
 import * as libData from "./data/index.js";
 import * as libErrors from "./errors.js";
@@ -108,30 +108,30 @@ export type ParsedFactorioOutput =
 function formatServerOutput(parsed: ParsedFactorioOutput) {
 	let time = "";
 	if (parsed.format === "seconds") {
-		time = `${chalk.yellow(parsed.time.padStart(8))} `;
+		time = `${styleText("yellow", parsed.time.padStart(8))} `;
 	} else if (parsed.format === "date") {
-		time = `${chalk.yellow(parsed.time)} `;
+		time = `${styleText("yellow", parsed.time)} `;
 	}
 
 	let info = "";
 	if (parsed.type === "log") {
 		let level = parsed.level;
 		if (level === "Script") {
-			level = chalk.bold.greenBright(level);
+			level = styleText(["bold", "greenBright"], level);
 		} else if (level === "Verbose") {
-			level = chalk.bold.gray(level);
+			level = styleText(["bold", "gray"], level);
 		} else if (level === "Info") {
-			level = chalk.bold.blueBright(level);
+			level = styleText(["bold", "blueBright"], level);
 		} else if (parsed.level === "Warning") {
-			level = chalk.bold.yellowBright(level);
+			level = styleText(["bold", "yellowBright"], level);
 		} else if (parsed.level === "Error") {
-			level = chalk.bold.redBright(level);
+			level = styleText(["bold", "redBright"], level);
 		}
 
-		info = `${level} ${chalk.gray(parsed.file)}: `;
+		info = `${level} ${styleText("gray", parsed.file)}: `;
 
 	} else if (parsed.type === "action") {
-		info = `[${chalk.yellow(parsed.action)}] `;
+		info = `[${styleText("yellow", parsed.action)}] `;
 	}
 
 	return time + info + parsed.message;
@@ -223,6 +223,55 @@ export class LinkTransport extends Transport {
 			}
 		}
 		return callback();
+	}
+}
+
+/**
+ * Writes log entries as lines to dirname/prefix-YYYY-MM-DD.log, opening
+ * a new file when the UTC date changes.
+ */
+export class DailyFileTransport extends Transport {
+	dirname: string;
+	prefix: string;
+	now: () => number;
+	date?: string;
+	stream?: WriteStream;
+
+	constructor(
+		options: Transport.TransportStreamOptions & {
+			dirname: string,
+			prefix: string,
+			now?: () => number,
+		}
+	) {
+		super(options);
+		this.dirname = options.dirname;
+		this.prefix = options.prefix;
+		this.now = options.now ?? Date.now;
+		// eslint-disable-next-line node/no-sync
+		mkdirSync(this.dirname, { recursive: true });
+	}
+
+	log(info: any, callback: () => void) {
+		const date = new Date(this.now()).toISOString().slice(0, 10);
+		if (!this.stream || date !== this.date) {
+			this.stream?.end();
+			this.date = date;
+			this.stream = createWriteStream(path.join(this.dirname, `${this.prefix}-${date}.log`), { flags: "a" });
+			this.stream.on("error", err => this.emit("error", err));
+		}
+		this.stream.write(info[MESSAGE] + os.EOL);
+		return callback();
+	}
+
+	close(callback?: () => void) {
+		const fileStream = this.stream;
+		this.stream = undefined;
+		if (fileStream) {
+			fileStream.end(callback);
+		} else {
+			callback?.();
+		}
 	}
 }
 

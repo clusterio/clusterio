@@ -21,7 +21,6 @@ import crypto from "crypto";
 import yargs from "yargs";
 import util from "util";
 import winston from "winston";
-import DailyRotateFile from "winston-daily-rotate-file";
 
 
 // homebrew modules
@@ -355,19 +354,17 @@ async function initialize(): Promise<InitializeParameters> {
 		level: "verbose",
 		levels,
 	});
-	clusterLogger.add(new DailyRotateFile({
+	clusterLogger.add(new lib.DailyFileTransport({
 		format: winston.format.json(),
-		filename: "cluster-%DATE%.log",
-		utc: true,
 		dirname: path.join(args.logDirectory, "cluster"),
+		prefix: "cluster",
 	}));
 
 	// Log stream for the controller.
-	logger.add(new DailyRotateFile({
+	logger.add(new lib.DailyFileTransport({
 		format: winston.format.json(),
-		filename: "controller-%DATE%.log",
-		utc: true,
 		dirname: path.join(args.logDirectory, "controller"),
+		prefix: "controller",
 	}));
 	logger.add(new winston.transports.Stream({
 		stream: clusterLogger,

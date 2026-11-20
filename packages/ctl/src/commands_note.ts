@@ -1,10 +1,6 @@
-import asTableModule from "as-table";
-
 import * as lib from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
 import { print } from "./command_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
 
 export const noteCommands = new lib.CommandTree({
 	name: "note", description: "Notes attached to hosts, instances, users and other resources",
@@ -20,12 +16,12 @@ noteCommands.add(new lib.Command({
 		if (args.type !== undefined) {
 			notes = notes.filter(note => note.resourceType === args.type);
 		}
-		print(asTable(notes.map(note => ({
+		ctl.output.table(notes, note => ({
 			type: note.resourceType,
 			id: note.resourceId,
 			updatedBy: note.updatedBy,
 			content: note.content,
-		}))));
+		}));
 	},
 }));
 
@@ -42,7 +38,7 @@ noteCommands.add(new lib.Command({
 		if (!note) {
 			throw new lib.CommandError(`No note for ${args.type} ${args.id}`);
 		}
-		print(note.content);
+		ctl.output.result(note, () => print(note.content));
 	},
 }));
 

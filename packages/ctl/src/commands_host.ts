@@ -1,15 +1,15 @@
 import fs from "node:fs/promises";
-import asTableModule from "as-table";
 import events from "events";
 import os from "os";
 import child_process from "child_process";
 
 import * as lib from "@clusterio/lib";
+import { logger } from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
-import { print } from "./command_ops.js";
-import { serializedConfigToString, getEditor, configToKeyVal } from "./config_ops.js";
-
-const asTable = asTableModule.configure({ delimiter: " | " });
+import { asTable, print } from "./command_ops.js";
+import {
+	serializedConfigToString, getEditor, configToKeyVal, printConfig, printRestartRequired,
+} from "./config_ops.js";
 
 export const hostCommands = new lib.CommandTree({ name: "host", description: "Host management" });
 hostCommands.add(new lib.Command({
@@ -45,8 +45,7 @@ hostCommands.add(new lib.Command({
 hostCommands.add(new lib.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
 	handler: async function(args: object, ctl: Ctl) {
-		let hosts = await ctl.send(new lib.HostListRequest());
-		print(asTable(hosts));
+		ctl.output.table(await ctl.send(new lib.HostListRequest()));
 	},
 }));
 
@@ -71,17 +70,19 @@ hostCommands.add(new lib.Command({
 	definition: ["pending", "List host installers waiting for approval"],
 	handler: async function(args: object, ctl: Ctl) {
 		let requests = await ctl.send(new lib.HostPairingListRequest());
-		if (!requests.length) {
-			print("No pending host requests");
-			return;
-		}
-		let now = Date.now();
-		print(asTable(requests.map(request => ({
-			code: request.code,
-			name: request.name,
-			address: request.remoteAddress,
-			age: formatAge(now - request.createdAtMs),
-		}))));
+		ctl.output.result(requests, () => {
+			if (!requests.length) {
+				print("No pending host requests");
+				return;
+			}
+			let now = Date.now();
+			print(asTable(requests.map(request => ({
+				code: request.code,
+				name: request.name,
+				address: request.remoteAddress,
+				age: formatAge(now - request.createdAtMs),
+			}))));
+		});
 	},
 }));
 
@@ -99,7 +100,10 @@ hostCommands.add(new lib.Command({
 			name = requests.find(request => plainCode(request.code) === plainCode(args.code))?.name;
 		}
 		let hostId = await ctl.send(new lib.HostPairingApproveRequest(args.code, args.name));
-		print(name ? `Approved host ${name} with id ${hostId}` : `Approved host with id ${hostId}`);
+		ctl.output.result(
+			{ id: hostId, name },
+			() => print(name ? `Approved host ${name} with id ${hostId}` : `Approved host with id ${hostId}`),
+		);
 	},
 }));
 
@@ -137,9 +141,8 @@ hostCommands.add(new lib.Command({
 		}
 		if (args.restart) {
 			await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
-		} else {
-			print("Host updated; a restart is required to apply the changes.");
 		}
+		printRestartRequired(ctl, !args.restart, "Host updated");
 	},
 }));
 
@@ -153,11 +156,7 @@ hostConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { host: string }, ctl: Ctl) {
 		let hostId = await lib.resolveHost(ctl, args.host);
-		let config = await ctl.sendTo({ hostId }, new lib.HostConfigGetRequest());
-
-		for (let [name, value] of Object.entries(config)) {
-			print(`${name} ${JSON.stringify(value)}`);
-		}
+		printConfig(ctl, await ctl.sendTo({ hostId }, new lib.HostConfigGetRequest()));
 	},
 }));
 
@@ -255,19 +254,22 @@ hostConfigCommands.add(new lib.Command({
 						index,
 						final[index],
 					));
-				} catch (err) {
-					// eslint-disable-next-line
-					print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+				} catch (err: any) {
 					// If the string is empty, it's better to just print "" instead of nothing
-					print(err);
+					logger.error(
+						`Attempt to set ${index} to ${final[index] || String(null)} failed; ` +
+						`set back to previous value: ${err.message}`
+					);
 				}
 			}
 		}
 		try {
 			await fs.unlink(tmpFile);
 		} catch (err) {
-			print("err: temporary file", tmpFile, "could not be deleted.");
-			print("This is not fatal, but they may build up over time if the issue persists.");
+			logger.warn(
+				`Temporary file ${tmpFile} could not be deleted. ` +
+				"This is not fatal, but they may build up over time if the issue persists."
+			);
 		}
 	},
 }));
@@ -285,9 +287,9 @@ hostPluginCommands.add(new lib.Command({
 	handler: async function(args: { host: string }, ctl: Ctl) {
 		let hostId = await lib.resolveHost(ctl, args.host);
 		const plugins = await ctl.sendTo({ hostId }, new lib.PluginListRequest());
-		print(asTable(plugins.map(p => ({
+		ctl.output.table(plugins, p => ({
 			title: p.title, version: p.version, state: p.state, npmPackage: p.npmPackage,
-		}))));
+		}));
 	},
 }));
 hostPluginCommands.add(new lib.Command({
@@ -301,9 +303,8 @@ hostPluginCommands.add(new lib.Command({
 		await ctl.sendTo({ hostId }, new lib.PluginUpdateRequest(args.plugin));
 		if (args.restart) {
 			await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
-		} else {
-			print("Plugin updated; a restart is required to apply the changes.");
 		}
+		printRestartRequired(ctl, !args.restart, "Plugin updated");
 	},
 }));
 hostPluginCommands.add(new lib.Command({
@@ -317,9 +318,8 @@ hostPluginCommands.add(new lib.Command({
 		await ctl.sendTo({ hostId }, new lib.PluginInstallRequest(args.plugin));
 		if (args.restart) {
 			await ctl.sendTo({ hostId }, new lib.HostRestartRequest());
-		} else {
-			print("Plugin installed; a restart is required to apply the changes.");
 		}
+		printRestartRequired(ctl, !args.restart, "Plugin installed");
 	},
 }));
 hostCommands.add(hostPluginCommands);

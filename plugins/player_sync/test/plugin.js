@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import * as lib from "@clusterio/lib";
-import { CtlHooks } from "@clusterio/ctl";
+import { CommandOutput, CtlHooks } from "@clusterio/ctl";
 
 import * as mock from "../../../test/mock.js";
 import { testRoundTripJsonSerialisable, testMatrix } from "../../../test/common.js";
@@ -59,6 +59,14 @@ describe("player_sync plugin", function() {
 				const data = playerData("player", 5, { deleted });
 				assert(!validate({ instanceId: 1, playerName: "player", playerData: data }), `accepted ${deleted}`);
 			}
+		});
+		it("should take the empty reply of an older controller as a stored upload", function() {
+			const validate = lib.compile(msg.UploadResponse.jsonSchema);
+			assert(validate(undefined));
+			assert.equal(msg.UploadResponse.fromJSON(undefined).stored, true);
+			assert(validate({ stored: false }));
+			assert.equal(msg.UploadResponse.fromJSON({ stored: false }).stored, false);
+			assert(!validate({ stored: "no" }));
 		});
 		describe("SetPlayerDataRequest schema", function() {
 			const validate = lib.compile(msg.SetPlayerDataRequest.jsonSchema);
@@ -295,6 +303,7 @@ describe("player_sync plugin", function() {
 		let printed;
 		let responses;
 		const ctl = {
+			output: new CommandOutput(),
 			async send(message) {
 				sent.push(message);
 				const handler = responses.get(message.constructor);
@@ -323,6 +332,7 @@ describe("player_sync plugin", function() {
 		beforeEach(function() {
 			sent = [];
 			printed = [];
+			ctl.output = new CommandOutput();
 			responses = new Map([
 				[lib.InstanceDetailsGetRequest, request => ({ id: request.instanceId, name: "Test" })],
 				[msg.ListPlayersRequest, () => [
@@ -352,10 +362,12 @@ describe("player_sync plugin", function() {
 
 		it("list should print sorted entries", async function() {
 			await run("list");
-			assert.deepEqual(printed, [
-				"name | generation | size | acquired by",
-				`alice | 2 | ${lib.formatBytes(100)} | -`,
-				"bob | - | - | Test (1)",
+			const lines = printed.join("\n").split("\n").map(line => line.trimEnd());
+			assert.deepEqual(lines, [
+				"name  | generation | size      | acquired by",
+				"--------------------------------------------",
+				`alice | 2          | ${lib.formatBytes(100)} | -`,
+				"bob   | -          | -         | Test (1)",
 			]);
 		});
 		it("show should print a summary", async function() {
@@ -376,7 +388,7 @@ describe("player_sync plugin", function() {
 				throw new lib.PermissionError("Permission denied");
 			});
 			await run("list");
-			assert.equal(printed[2], "bob | - | - | 1");
+			assert.match(printed[0], /bob +\| - +\| - +\| 1/);
 			printed = [];
 			await run("show", { player: "alice" });
 			assert.equal(printed[0], "acquired by: 1");
@@ -412,6 +424,23 @@ describe("player_sync plugin", function() {
 				run("import", { player: "alice", file }),
 				new lib.CommandError("Player data must be a JSON object"),
 			);
+		});
+		it("should print JSON in json mode", async function() {
+			ctl.output = new CommandOutput("json");
+			await run("list");
+			assert.deepEqual(JSON.parse(printed[0]), [
+				{ name: "alice", generation: 2, size: 100 },
+				{ name: "bob", instanceId: 1 },
+			]);
+			printed = [];
+			await run("show", { player: "alice" });
+			const shown = JSON.parse(printed[0]);
+			assert.equal(shown.instanceId, 1);
+			assert.equal(shown.generation, 2);
+			assert.deepEqual(shown.inventories[0].items[0], { name: "wood", count: 5, quality: "rare" });
+			printed = [];
+			await run("export", { player: "alice" });
+			assert.deepEqual(JSON.parse(printed[0]), storedData);
 		});
 		it("delete and release should send requests", async function() {
 			await run("delete", { player: "alice" });

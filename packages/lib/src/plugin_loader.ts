@@ -84,6 +84,12 @@ export async function loadPluginInfos(pluginList: Map<string, string>, skippedNp
 			);
 		}
 
+		try {
+			libPlugin.pluginRequiredMods(pluginInfo);
+		} catch (err: any) {
+			throw new libErrors.PluginError(pluginName, err);
+		}
+
 		// migrate: ignore incompatible old plugins
 		if (pluginInfo.messages && !(pluginInfo.messages instanceof Array)) {
 			logger.warn(`Ignoring incompatible pre alpha.14 plugin ${pluginName}`);

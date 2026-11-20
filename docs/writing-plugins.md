@@ -151,6 +151,10 @@ The following properties are recognized:
     Array of features the plugin needs from the instances it is loaded on, any of `"SavePatching"`, `"ScriptCommands"` and `"LuaUdp"`.
     See [Handling Invalid Configuration](#handling-invalid-configuration)
 
+**requiredMods**:
+    Array of Factorio mods the plugin needs in the mod pack of the instances it is loaded on, written as Factorio dependency strings.
+    See [Handling Invalid Configuration](#handling-invalid-configuration)
+
 **messages**:
     Array of request and event classes for this plugin.
     See guide for [defining link messages](#defining-link-messages) below.
@@ -346,6 +350,25 @@ export const plugin = {
 
 Enabling the plugin on an instance that has the feature turned off then fails config validation, so the mistake is caught when the config is edited instead of when the instance starts.
 Instances that have the feature turned off get the plugin disabled by default when it is added.
+
+If the plugin talks to a Factorio mod, list the mod under `requiredMods` using the same format as `dependencies` in a mod's info.json, without a prefix.
+List a mod twice to give a version range:
+
+```js
+export const plugin = {
+    name: "foo_frobber",
+    // ...
+    requiredMods: ["frobber >= 1.2.0", "frobber < 2.0.0"],
+};
+```
+
+An instance with the plugin loaded refuses to start if its mod pack is missing one of the mods, has it disabled, or has a version outside the range.
+Leave out the dependencies of the required mods. Factorio checks those itself.
+When the controller starts it downloads required mods it does not have, and their dependencies, from the mod portal for the Factorio version of the default mod pack.
+This needs `controller.factorio_username` and `controller.factorio_token` to be set.
+The mods still have to be added to the mod packs by hand.
+
+Forks of a required mod are not supported.
 
 Other constraints on config fields are expressed with a `validator` on the field definition, which throws when the value is not acceptable.
 Use `dependsOn` when the check involves other fields so that the validator runs when those change too.
@@ -997,6 +1020,20 @@ fooFrobberCommands.add(new Command({
 For a command the `definition` is the arguments to pass to [yargs.command](http://yargs.js.org/docs/#api-reference-commandcmd-desc-builder-handler) (see also [yargs.positional](http://yargs.js.org/docs/#api-reference-positionalkey-opt) and [yargs.options](http://yargs.js.org/docs/#api-reference-optionskey-opt) for setting up positional and optional arguments to commands).
 The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Ctl` class of clusterioctl.
 Note that messages sent from clusterioctl needs to have `"control"` as a part of `src` for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
+
+Commands print their results through `ctl.output` so that `--output json` works for them:
+
+```js
+handler: async function(args, ctl) {
+    const result = await ctl.sendTo("controller", new messages.FrobnicateRequest(args.type));
+    ctl.output.result(result, () => console.log(`Frobnicated ${result.count} foos`));
+},
+```
+
+`ctl.output.result(data, human)` prints `data` as JSON in json and wire mode and calls `human` otherwise.
+`ctl.output.table(rows, map)` prints an array of objects as a JSON array, or as a table in human mode with `map` applied to each row first.
+`ctl.output.human` is true when the output is meant for reading.
+Commands that print nothing get `Command ran successfully` or `{"success": true}` printed for them, and errors thrown from the handler are printed as `{"error": "<ClassName>", "message": "<message>"}` in json and wire mode.
 
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in the `addCommands` hook of the ctl entrypoint:
 

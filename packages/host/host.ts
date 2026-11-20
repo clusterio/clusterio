@@ -17,7 +17,6 @@ import path from "path";
 import yargs from "yargs";
 import packageConfig from "@clusterio/host/package.json" with { type: "json" };
 import winston from "winston";
-import "winston-daily-rotate-file";
 
 // internal libraries
 // Reduce startup time by lazy compiling schemas.
@@ -147,11 +146,10 @@ async function startHost() {
 		.parseSync()
 	;
 
-	logger.add(new winston.transports.DailyRotateFile({
+	logger.add(new lib.DailyFileTransport({
 		format: winston.format.json(),
-		filename: "host-%DATE%.log",
-		utc: true,
 		dirname: path.join(args.logDirectory, "host"),
+		prefix: "host",
 	}));
 	if (args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({

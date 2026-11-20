@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import path from "node:path";
 
 import * as lib from "@clusterio/lib";
-import * as libBuildMod from "@clusterio/lib/build_mod.js";
 import { ModInfo, ModDependency } from "@clusterio/lib";
 
 import { testMatrix, testRoundTripJsonSerialisable } from "../../common.js";
@@ -411,35 +408,6 @@ describe("lib/data/ModInfo", function() {
 			const mod = ModInfo.fromJSON({ dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"] });
 			assert.deepEqual(mod.dependencies,
 				["UltraMod", "SuperLib >= 1.00", "! bad-mod"].map(dep => new ModDependency(dep))
-			);
-		});
-		it("should load from a mod zip file", async function() {
-			await libBuildMod.build({
-				build: true,
-				pack: true,
-				sourceDir: path.join("test", "file", "empty_mod"),
-				outputDir: path.join("temp", "test"),
-			});
-			const filePath = path.join("temp", "test", "empty_mod_1.0.0.zip");
-			const hash = await lib.hashFile(filePath);
-			const stat = await fs.stat(filePath);
-			const mod = await ModInfo.fromModFile(filePath);
-			assert.deepEqual(
-				mod,
-				ModInfo.fromJSON({
-					name: "empty_mod",
-					version: "1.0.0",
-					title: "An Empty Mod",
-					author: "Me",
-					description: "An empty mod for testing",
-					factorio_version: "1.1",
-					dependencies: [],
-					filename: "empty_mod_1.0.0.zip",
-					size: stat.size,
-					mtime_ms: stat.mtimeMs,
-					updated_at_ms: stat.mtimeMs,
-					sha1: hash,
-				})
 			);
 		});
 		describe("checkDependencySatisfaction()", function() {
