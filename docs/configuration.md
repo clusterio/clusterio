@@ -241,17 +241,20 @@ Must be greater than 0.
 Defaults to 15.
 
 
-### controller.transfer_min_progress
+### controller.transfer_min_speed
 
-Amount in KiB a request to the controller has to move every 30 seconds, requests moving less are closed.
+Speed in KiB/s at which a request to the controller is never closed for moving too slowly.
 This closes uploads and downloads that have stalled or are sent too slowly to ever finish, while there is no limit on how long a transfer making progress can take.
 It applies to saves, mods and exports uploaded to the controller, proxy streams through it, and the body of any other request.
 Time spent waiting for a proxy stream to start is not counted, see controller.proxy_stream_timeout.
-Data is passed on in chunks of up to 64 KiB and progress is counted per chunk, so a proxy stream moving less than about that in 30 seconds may also be closed.
+Requests are checked every 60 seconds and must have moved this speed times 60 seconds, less 2 MiB, since the last check.
+The 2 MiB covers the OS sending data in bursts, it can buffer a couple of MiB per connection and only accept more once a large part of that has gone out.
+So at the default a request moving slower than about 30 KiB/s is closed, and one moving between that and 64 KiB/s may be.
+Set below about 34 KiB/s, only requests that moved nothing in 60 seconds are closed.
 Set to 0 for no limit.
 Must be 0 or greater.
 
-Defaults to 30.
+Defaults to 64.
 
 
 ### controller.factorio_username

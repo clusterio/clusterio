@@ -419,7 +419,7 @@ export interface ProxyStream {
 	timeout: ReturnType<typeof setTimeout>;
 	closed: boolean;
 	/** Bytes the receiver has taken, set once the stream is flowing */
-	progress?: () => number;
+	bytesTaken?: () => number;
 }
 
 export async function createProxyStream(app: Application): Promise<ProxyStream> {
@@ -473,18 +473,23 @@ const answeredUploadDrainMs = 1000;
  * so the connection is closed if the body hasn't ended shortly after the
  * response. Closing it right away could make the client lose the response.
  *
- * The connection is also closed if the request moved less than
- * controller.transfer_min_progress during a check interval, so that a
+ * The connection is also closed if the request moved too little during a
+ * check interval for controller.transfer_min_speed, so that a
  * request which stalled or is trickled in does not stay open forever while
  * a slow one can take the time it needs. For a request body this is what
  * was received of it. For both ends of a proxy stream it is what the
  * receiver has taken, as the sender is held back when the receiver is the
  * slow one. Time spent waiting for a proxy stream to start is not counted,
  * controller.proxy_stream_timeout limits that.
+ *
+ * The OS hands data on in bursts, so a transfer at the minimum speed can
+ * move up to a burst less than that in a check. The burst allowance is
+ * taken off what a check requires so such a transfer is never closed.
  * @param checkIntervalMs - Interval to check the progress of requests on.
+ * @param burstAllowanceBytes - Bytes taken off what a check requires.
  * @returns Express middleware.
  */
-function guardRequest(checkIntervalMs: number) {
+function guardRequest(checkIntervalMs: number, burstAllowanceBytes: number) {
 	return function(req: Request, res: Response, next: any) {
 		const socket = req.socket;
 		res.once("finish", () => {
@@ -501,33 +506,36 @@ function guardRequest(checkIntervalMs: number) {
 			});
 		});
 
-		const received = () => socket.bytesRead;
-		let measure: (() => number) | undefined = received;
-		let last = received();
+		const bytesReceived = () => socket.bytesRead;
+		let measuredBytes: (() => number) | undefined = bytesReceived;
+		let lastBytes = bytesReceived();
 		const check = setInterval(() => {
 			const stream: ProxyStream | undefined = res.locals.proxyStream;
-			let current: (() => number) | undefined;
+			let currentBytes: (() => number) | undefined;
 			if (stream && !stream.closed) {
-				current = stream.progress;
+				currentBytes = stream.bytesTaken;
 			} else if (!req.complete) {
-				current = received;
+				currentBytes = bytesReceived;
 			}
-			const minProgress = req.app.locals.controller.config.get("controller.transfer_min_progress");
-			if (current !== measure || !current || !minProgress) {
+			const minSpeedKiBps = req.app.locals.controller.config.get("controller.transfer_min_speed");
+			if (currentBytes !== measuredBytes || !currentBytes || !minSpeedKiBps) {
 				// What to measure changed, start over from here.
-				measure = current;
-				last = current ? current() : 0;
+				measuredBytes = currentBytes;
+				lastBytes = currentBytes ? currentBytes() : 0;
 				return;
 			}
-			const progress = current();
-			if (progress - last < minProgress * 1024) {
+			const bytes = currentBytes();
+			const intervalS = checkIntervalMs / 1000;
+			// At least 1 so a transfer that moved nothing is closed at any speed setting.
+			const requiredBytes = Math.max(minSpeedKiBps * 1024 * intervalS - burstAllowanceBytes, 1);
+			if (bytes - lastBytes < requiredBytes) {
 				logger.warn(
-					`Closing ${req.method} ${req.path}, it moved less than ${minProgress} KiB ` +
-					`in ${checkIntervalMs / 1000} seconds`
+					`Closing ${req.method} ${req.path}, it moved ${bytes - lastBytes} bytes in ${intervalS} seconds, ` +
+					`less than the ${requiredBytes} required for ${minSpeedKiBps} KiB/s`
 				);
 				socket.destroy();
 			}
-			last = progress;
+			lastBytes = bytes;
 		}, checkIntervalMs);
 		res.once("close", () => clearInterval(check));
 		next();
@@ -567,7 +575,7 @@ function startStream(res: Response, stream: ProxyStream) {
 	source.pipe(res);
 	stream.flowing = true;
 	// Counts completed writes, so data waiting in a buffer is not progress.
-	stream.progress = () => socket.bytesWritten - socket.writableLength;
+	stream.bytesTaken = () => socket.bytesWritten - socket.writableLength;
 	// Pipe does not pass on a source that was cut short, the receiver would wait forever.
 	const onSourceClose = () => {
 		if (!res.writableEnded) {
@@ -856,8 +864,12 @@ async function uploadMod(req: Request, res: Response) {
 }
 
 
-export function addRouteHandlers(app: Application, progressCheckIntervalMs = 30_000) {
-	app.use(guardRequest(progressCheckIntervalMs));
+export function addRouteHandlers(
+	app: Application,
+	progressCheckIntervalMs = 60_000,
+	burstAllowanceBytes = 2 * 1024 * 1024,
+) {
+	app.use(guardRequest(progressCheckIntervalMs, burstAllowanceBytes));
 	app.get("/metrics",
 		validateUserToken,
 		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)

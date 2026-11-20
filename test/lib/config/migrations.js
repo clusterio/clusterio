@@ -15,6 +15,16 @@ describe("lib/config/definitions/migrations", function() {
 			assert.equal(config.fields["controller.external_address"], undefined,
 				"external_address was not removed");
 		});
+		it("should migrate 'transfer_min_progress' to 'transfer_min_speed'", function() { // 2.1.2
+			const migrate = value => lib.ControllerConfig.fromJSON({
+				"controller.transfer_min_progress": value,
+			}, "controller");
+			assert.equal(migrate(30).get("controller.transfer_min_speed"), 64, "old default was kept");
+			assert.equal(migrate(0).get("controller.transfer_min_speed"), 0, "no limit was not kept");
+			assert.equal(migrate(3000).get("controller.transfer_min_speed"), 100, "value was not converted");
+			assert.equal(migrate(30).fields["controller.transfer_min_progress"], undefined,
+				"transfer_min_progress was not removed");
+		});
 	});
 	describe("Host Config", function() {
 

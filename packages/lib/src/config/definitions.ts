@@ -31,7 +31,7 @@ export interface ControllerConfigFields {
 	"controller.max_subscription_filters": number;
 	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
-	"controller.transfer_min_progress": number;
+	"controller.transfer_min_speed": number;
 	"controller.factorio_username": string | null;
 	"controller.factorio_token": string | null;
 	"controller.share_factorio_credentials_with_hosts": boolean;
@@ -62,6 +62,14 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		if (config.hasOwnProperty("controller.external_address")) {
 			config["controller.public_url"] = config["controller.external_address"];
 			delete config["controller.external_address"];
+		}
+		if (config.hasOwnProperty("controller.transfer_min_progress")) {
+			// Was KiB per 30 s, the old default is left out so the new one applies
+			const kib = config["controller.transfer_min_progress"];
+			if (kib !== 30) {
+				config["controller.transfer_min_speed"] = typeof kib === "number" ? kib / 30 : kib;
+			}
+			delete config["controller.transfer_min_progress"];
 		}
 
 		return config;
@@ -224,11 +232,11 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			initialValue: 15,
 			validator: validators.greaterThanZero,
 		},
-		"controller.transfer_min_progress": {
-			title: "Transfer Minimum Progress",
-			description: "KiB an upload or download has to move every 30 seconds to not be closed, 0 for no limit.",
+		"controller.transfer_min_speed": {
+			title: "Transfer Minimum Speed",
+			description: "KiB/s at which an upload or download is never closed for moving too slowly, 0 for no limit.",
 			type: "number",
-			initialValue: 30,
+			initialValue: 64,
 			validator: validators.greaterThanEqualZero,
 		},
 		"controller.session_timeout": {
