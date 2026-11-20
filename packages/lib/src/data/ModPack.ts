@@ -1,4 +1,4 @@
-import zlib from "zlib";
+import * as zlib from "#zlib_sync";
 import { Type, Static } from "@sinclair/typebox";
 
 import * as libSchema from "../schema.js";
@@ -306,7 +306,7 @@ export default class ModPack {
 
 		// eslint-disable-next-line node/no-sync
 		let buf = zlib.deflateSync(JSON.stringify(json));
-		return buf.toString("base64");
+		return Buffer.from(buf).toString("base64");
 	}
 
 	static fromModPackString(modPackString: string) {
