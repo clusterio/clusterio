@@ -5,7 +5,7 @@ import { logger } from "../logging.js";
 import * as libSchema from "../schema.js";
 import { dataClasses, errorClasses } from "./messages.js";
 import { BaseConnector, WebSocketBaseConnector } from "./connectors.js";
-import { strict as assert } from "assert";
+import { assert } from "./assert.js";
 import type { PluginNodeEnvInfo, PluginWebEnvInfo } from "../plugin.js";
 import type {
 	AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent, IUser,
