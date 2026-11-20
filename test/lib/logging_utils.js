@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { testLines } from "./factorio/lines.js";
@@ -63,6 +64,77 @@ describe("lib/logging_utils.js", function() {
 			await fs.writeFile(path.join(tempDir, "index.json"), "Broken JSON");
 			let logIndex = await lib.LogIndex.load(tempDir);
 			assert.deepEqual(logIndex.index, new Map());
+		});
+	});
+
+	describe("class DailyFileTransport", function() {
+		let tempDir = path.join("temp", "test", "daily_file");
+		beforeEach(async function() {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		});
+
+		function create(now, dirname = tempDir) {
+			return new lib.DailyFileTransport({ dirname, prefix: "test", now });
+		}
+		function write(transport, message) {
+			transport.log({ [Symbol.for("message")]: JSON.stringify({ message }) }, () => {});
+		}
+		async function close(transport) {
+			await new Promise(resolve => transport.close(resolve));
+		}
+		async function read(file) {
+			let content = await fs.readFile(path.join(tempDir, file), "utf8");
+			assert(content.endsWith(os.EOL));
+			return content.split(os.EOL).slice(0, -1).map(line => JSON.parse(line).message);
+		}
+
+		it("should create the directory and write lines to the file for the UTC date", async function() {
+			let transport = create(() => Date.parse("2026-11-19T12:00:00Z"), path.join(tempDir, "nested"));
+			write(transport, "first");
+			write(transport, "second");
+			await close(transport);
+			assert.deepEqual(await read(path.join("nested", "test-2026-11-19.log")), ["first", "second"]);
+		});
+
+		it("should append to an existing file", async function() {
+			await fs.mkdir(tempDir, { recursive: true });
+			await fs.writeFile(path.join(tempDir, "test-2026-11-19.log"), `{"message":"old"}${os.EOL}`);
+			let transport = create(() => Date.parse("2026-11-19T12:00:00Z"));
+			write(transport, "new");
+			await close(transport);
+			assert.deepEqual(await read("test-2026-11-19.log"), ["old", "new"]);
+		});
+
+		it("should switch files when the UTC date changes", async function() {
+			let time = Date.parse("2026-11-19T23:59:59.999Z");
+			let transport = create(() => time);
+			write(transport, "before");
+			time += 1;
+			write(transport, "after");
+			await close(transport);
+			assert.deepEqual((await fs.readdir(tempDir)).sort(), ["test-2026-11-19.log", "test-2026-11-20.log"]);
+			assert.deepEqual(await read("test-2026-11-19.log"), ["before"]);
+			assert.deepEqual(await read("test-2026-11-20.log"), ["after"]);
+		});
+
+		it("should use the UTC date rather than the local one", async function() {
+			let transport = create(() => Date.parse("2026-11-20T00:30:00+02:00"));
+			write(transport, "message");
+			await close(transport);
+			assert.deepEqual(await fs.readdir(tempDir), ["test-2026-11-19.log"]);
+		});
+
+		it("should emit write errors", async function() {
+			await fs.mkdir(path.join(tempDir, "test-2026-11-19.log"), { recursive: true });
+			let transport = create(() => Date.parse("2026-11-19T12:00:00Z"));
+			let error = new Promise(resolve => transport.once("error", resolve));
+			write(transport, "message");
+			assert.equal((await error).code, "EISDIR");
+		});
+
+		it("should close when nothing was written", async function() {
+			await close(create(Date.now));
+			assert.deepEqual(await fs.readdir(tempDir), []);
 		});
 	});
 
