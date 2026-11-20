@@ -156,6 +156,8 @@ export interface PluginRegistry {
 	waitFor<T = unknown>(name: string, timeoutMs?: number): Promise<T | undefined>;
 	/** Check if a plugin is installed, it may still be disabled */
 	checkInstalled(name: string): boolean;
+	/** Check if a plugin is being loaded alongside this one */
+	checkEnabled(name: string): boolean;
 }
 
 export type PluginLoadContext<

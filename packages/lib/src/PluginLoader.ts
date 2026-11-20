@@ -1,8 +1,13 @@
-// Shared by node and the web interface, node specifics go in #plugin_module
-import importPluginModule from "#plugin_module";
+// Shared by node and the web interface, node specifics go in #import_plugin
+import importPlugin from "#import_plugin";
+import { Config } from "./config/classes.js";
+import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
+import Role from "./data/Role.js";
 import { PluginError } from "./errors.js";
-import type { Logger } from "./logging.js";
-import type { PluginClass, PluginDeclaration, PluginLoadContext, PluginRegistry, PluginType } from "./plugin.js";
+import { logger, type Logger } from "./logging.js";
+import type {
+	MigrationHooks, PluginClass, PluginDeclaration, PluginLoadContext, PluginNodeEnvInfo, PluginRegistry, PluginType,
+} from "./plugin.js";
 
 type Waiter = {
 	resolve: (api: unknown) => void,
@@ -19,7 +24,7 @@ export type PluginLoadOptions<Context extends object, Info extends PluginDeclara
 	logger: Logger,
 	/** All installed plugins, used by checkInstalled */
 	installed: Info[],
-	/** Plugins to load */
+	/** Plugins to load, used by checkEnabled */
 	load: Info[],
 	/** Name of the deprecated class export, class exports are not accepted if unset */
 	exportName?: string,
@@ -43,6 +48,7 @@ export class PluginLoader<Context extends object, Info extends PluginDeclaration
 	private _apis = new Map<string, unknown>();
 	private _waiters = new Map<string, Waiter[]>();
 	private _installed: Set<string>;
+	private _enabled: Set<string>;
 	/** Plugins still loading */
 	private _pending: Set<string>;
 
@@ -50,7 +56,8 @@ export class PluginLoader<Context extends object, Info extends PluginDeclaration
 		private _options: PluginLoadOptions<Context, Info>,
 	) {
 		this._installed = new Set(_options.installed.map(pluginInfo => pluginInfo.name));
-		this._pending = new Set(_options.load.map(pluginInfo => pluginInfo.name));
+		this._enabled = new Set(_options.load.map(pluginInfo => pluginInfo.name));
+		this._pending = new Set(this._enabled);
 	}
 
 	/**
@@ -118,7 +125,7 @@ export class PluginLoader<Context extends object, Info extends PluginDeclaration
 		};
 
 		try {
-			const module = await importPluginModule(pluginInfo, entrypoint);
+			const module = await importPlugin(pluginInfo, entrypoint);
 			if (typeof module.default === "function") {
 				return await module.default(pluginContext) as unknown;
 			}
@@ -145,6 +152,7 @@ export class PluginLoader<Context extends object, Info extends PluginDeclaration
 		return {
 			waitFor: (name, timeoutMs) => this._waitFor(waiter, name, timeoutMs),
 			checkInstalled: name => this._installed.has(name),
+			checkEnabled: name => this._enabled.has(name),
 		};
 	}
 
@@ -223,4 +231,34 @@ async function loadPluginClass(
 	}
 
 	return plugin;
+}
+
+/**
+ * Load the migration entrypoints of plugins
+ *
+ * Must be called before configs and roles are loaded for the migrations
+ * to run on them. Loaded for every plugin, including those disabled with
+ * load_plugin. Also registers the plugin versions written to each config
+ * after the migrations run.
+ *
+ * @param pluginInfos - Plugins to load migrations for.
+ */
+export async function loadPluginMigrations(pluginInfos: PluginNodeEnvInfo[]) {
+	const hooks: MigrationHooks = {
+		controllerConfig: ControllerConfig.pluginMigrations,
+		hostConfig: HostConfig.pluginMigrations,
+		instanceConfig: InstanceConfig.pluginMigrations,
+		role: Role.pluginMigrations,
+	};
+
+	for (const pluginInfo of pluginInfos) {
+		Config.pluginVersions.set(pluginInfo.name, pluginInfo.version);
+	}
+	await PluginLoader.load({
+		type: "migration",
+		context: { hooks },
+		logger,
+		installed: pluginInfos,
+		load: pluginInfos,
+	});
 }

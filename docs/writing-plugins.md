@@ -239,7 +239,8 @@ If the plugin is already loaded it resolves right away.
 If the plugin is not installed, has load_plugin set to false, is disabled by recovery mode, or fails to load, it resolves to undefined right away.
 If it times out it resolves to undefined.
 In both cases a warning naming both plugins is logged.
-`plugins.checkInstalled(name)` tells if a plugin is installed, use it to avoid the warning for optional plugins.
+`plugins.checkInstalled(name)` tells if a plugin is installed, and `plugins.checkEnabled(name)` tells if it is being loaded alongside yours.
+Use `checkEnabled` to avoid the warning for optional plugins.
 
 Startup does not continue until every entrypoint has returned.
 Two plugins awaiting each other in their entrypoints hold up startup until one of them times out.

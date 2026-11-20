@@ -211,4 +211,61 @@ describe("lib/PluginLoader", function() {
 			assert.equal(plugins.checkInstalled("missing"), false);
 		});
 	});
+
+	describe("plugins.checkEnabled()", function() {
+		it("should check the load list", async function() {
+			const pluginInfo = info("test", "function.js");
+			await load([pluginInfo], { installed: [pluginInfo, { name: "off" }] });
+			const { plugins } = controller.loadedWith;
+			assert.equal(plugins.checkEnabled("test"), true);
+			assert.equal(plugins.checkEnabled("off"), false);
+			assert.equal(plugins.checkEnabled("missing"), false);
+		});
+	});
+	describe("loadPluginMigrations()", function() {
+		const baseDir = path.resolve("temp", "test", "plugin", "migration_plugin");
+		before(async function() {
+			await fs.mkdir(baseDir, { recursive: true });
+			await fs.writeFile(path.join(baseDir, "migrations.js"), `
+				export default function(context) {
+					context.hooks.controllerConfig.attach(context.plugin.name, config => {
+						config.migratedBy = context.plugin.name;
+						return config;
+					});
+				}
+			`);
+			await fs.writeFile(path.join(baseDir, "throwing.js"), `
+				export default function() { throw new Error("load failed"); }
+			`);
+		});
+		afterEach(function() {
+			lib.ControllerConfig.pluginMigrations.clear();
+			lib.Config.pluginVersions.clear();
+		});
+
+		function migrationInfo(entrypoint) {
+			return {
+				name: "test",
+				version: "1.0.0",
+				packagePath: path.join(baseDir, "package.json"),
+				migrationEntrypoint: entrypoint,
+			};
+		}
+
+		it("should attach migrations from the migration entrypoint", async function() {
+			await lib.loadPluginMigrations([migrationInfo("migrations.js"), { name: "other" }]);
+			assert.deepEqual([...lib.ControllerConfig.pluginMigrations.attached], ["test"]);
+			assert.deepEqual(lib.ControllerConfig.pluginMigrations.reduce({}), { migratedBy: "test" });
+		});
+		it("should register the version of every plugin", async function() {
+			await lib.loadPluginMigrations([migrationInfo("migrations.js"), { name: "other", version: "2.0.0" }]);
+			assert.deepEqual([...lib.Config.pluginVersions], [["test", "1.0.0"], ["other", "2.0.0"]]);
+		});
+		it("should reject with a PluginError if the entrypoint throws", async function() {
+			await assert.rejects(
+				lib.loadPluginMigrations([migrationInfo("throwing.js")]),
+				err => err instanceof lib.PluginError && err.pluginName === "test"
+			);
+		});
+	});
 });

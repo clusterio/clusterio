@@ -2,7 +2,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginDeclaration, PluginNodeEnvInfo } from "./plugin.js";
 
-export default async function importPluginModule(
+export default async function importPlugin(
 	pluginInfo: PluginDeclaration, entrypoint: string
 ): Promise<Record<string, any>> {
 	const packagePath = (pluginInfo as PluginNodeEnvInfo).packagePath;

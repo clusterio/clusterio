@@ -26,7 +26,7 @@
 		"./src/permissions.ts",
 		"./src/prometheus.ts",
 		"./src/PluginLoader.ts",
-		"./src/plugin_module.browser.ts",
+		"./src/import_plugin.browser.ts",
 		"./src/plugin.ts",
 		"./src/schema.ts",
 		"./src/subscriptions.ts",

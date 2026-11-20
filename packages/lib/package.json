@@ -38,12 +38,12 @@
 			},
 			"import": "./src/zlib_sync.browser.ts"
 		},
-		"#plugin_module": {
+		"#import_plugin": {
 			"node": {
-				"types": "./src/plugin_module.node.ts",
-				"default": "./dist/node/src/plugin_module.node.js"
+				"types": "./src/import_plugin.node.ts",
+				"default": "./dist/node/src/import_plugin.node.js"
 			},
-			"import": "./src/plugin_module.browser.ts"
+			"import": "./src/import_plugin.browser.ts"
 		},
 		"#is_deep_strict_equal": {
 			"node": {

@@ -1,7 +1,7 @@
 
 /**
- * Helpers for loading plugins in Node.js
- * @module lib/plugin_loader
+ * Helpers for finding installed plugins and reading their info in Node.js
+ * @module lib/plugin_info
  */
 import path from "path";
 import fs from "node:fs/promises";
@@ -9,10 +9,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as libErrors from "./errors.js";
 import * as libPlugin from "./plugin.js";
 import { logger } from "./logging.js";
-import { PluginLoader } from "./PluginLoader.js";
-import { Config } from "./config/classes.js";
-import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
-import Role from "./data/Role.js";
 import { PluginDetails } from "./data/messages_plugin.js";
 import {
 	discoverNpmPluginPackages, findNonRegistryDirs, installedDependencies, readPackageJson, realDir, resolvePackagePath,
@@ -195,34 +191,4 @@ export async function listPluginDetails(
 	}
 
 	return plugins;
-}
-
-/**
- * Load the migration entrypoints of plugins
- *
- * Must be called before configs and roles are loaded for the migrations
- * to run on them. Loaded for every plugin, including those disabled with
- * load_plugin. Also registers the plugin versions written to each config
- * after the migrations run.
- *
- * @param pluginInfos - Plugins to load migrations for.
- */
-export async function loadPluginMigrations(pluginInfos: libPlugin.PluginNodeEnvInfo[]) {
-	const hooks: libPlugin.MigrationHooks = {
-		controllerConfig: ControllerConfig.pluginMigrations,
-		hostConfig: HostConfig.pluginMigrations,
-		instanceConfig: InstanceConfig.pluginMigrations,
-		role: Role.pluginMigrations,
-	};
-
-	for (const pluginInfo of pluginInfos) {
-		Config.pluginVersions.set(pluginInfo.name, pluginInfo.version);
-	}
-	await PluginLoader.load({
-		type: "migration",
-		context: { hooks },
-		logger,
-		installed: pluginInfos,
-		load: pluginInfos,
-	});
 }

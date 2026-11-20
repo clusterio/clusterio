@@ -127,8 +127,7 @@ async function loadPlugins(pluginList: Map<string, string>, hooks: CtlHooks) {
 		exportName: "CtlPlugin",
 		baseClass: BaseCtlPlugin,
 	});
-	const ctlPlugins = new Set(loaded.keys());
-	return ctlPlugins;
+	return new Set(loaded.keys());
 }
 
 interface CtlArguments {

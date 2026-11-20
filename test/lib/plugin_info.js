@@ -8,7 +8,7 @@ import * as lib from "@clusterio/lib";
 import { computePluginStatuses, planUpdate } from "../../packages/web_ui/src/util/plugin_status.ts";
 
 
-describe("lib/plugin_loader", function() {
+describe("lib/plugin_info", function() {
 	describe("loadPluginInfos()", function() {
 		let baseDir = path.join("temp", "test", "plugin");
 		let missingPlugin = path.join(baseDir, "missing_plugin");
@@ -118,52 +118,6 @@ describe("lib/plugin_loader", function() {
 			await assert.rejects(
 				lib.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
 				{ message: `Expected plugin at ${path.resolve(invalidPlugin)} to be named invalid but got wrong` }
-			);
-		});
-	});
-	describe("loadPluginMigrations()", function() {
-		const baseDir = path.resolve("temp", "test", "plugin", "migration_plugin");
-		before(async function() {
-			await fs.mkdir(baseDir, { recursive: true });
-			await fs.writeFile(path.join(baseDir, "migrations.js"), `
-				export default function(context) {
-					context.hooks.controllerConfig.attach(context.plugin.name, config => {
-						config.migratedBy = context.plugin.name;
-						return config;
-					});
-				}
-			`);
-			await fs.writeFile(path.join(baseDir, "throwing.js"), `
-				export default function() { throw new Error("load failed"); }
-			`);
-		});
-		afterEach(function() {
-			lib.ControllerConfig.pluginMigrations.clear();
-			lib.Config.pluginVersions.clear();
-		});
-
-		function info(entrypoint) {
-			return {
-				name: "test",
-				version: "1.0.0",
-				packagePath: path.join(baseDir, "package.json"),
-				migrationEntrypoint: entrypoint,
-			};
-		}
-
-		it("should attach migrations from the migration entrypoint", async function() {
-			await lib.loadPluginMigrations([info("migrations.js"), { name: "other" }]);
-			assert.deepEqual([...lib.ControllerConfig.pluginMigrations.attached], ["test"]);
-			assert.deepEqual(lib.ControllerConfig.pluginMigrations.reduce({}), { migratedBy: "test" });
-		});
-		it("should register the version of every plugin", async function() {
-			await lib.loadPluginMigrations([info("migrations.js"), { name: "other", version: "2.0.0" }]);
-			assert.deepEqual([...lib.Config.pluginVersions], [["test", "1.0.0"], ["other", "2.0.0"]]);
-		});
-		it("should reject with a PluginError if the entrypoint throws", async function() {
-			await assert.rejects(
-				lib.loadPluginMigrations([info("throwing.js")]),
-				err => err instanceof lib.PluginError && err.pluginName === "test"
 			);
 		});
 	});
