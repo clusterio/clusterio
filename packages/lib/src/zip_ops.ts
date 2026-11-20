@@ -12,6 +12,9 @@ const deflateRaw = util.promisify(zlib.deflateRaw);
 
 /**
  * Entry in a ZipArchive
+ *
+ * Local subset of yauzl.Entry so the published declarations do not import
+ * yauzl, which would make @types/yauzl a runtime dependency of lib.
  */
 export interface ZipEntry {
 	fileName: string;
