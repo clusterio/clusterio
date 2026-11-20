@@ -1,4 +1,4 @@
-import zlib from "zlib";
+import * as zlib from "#zlib_sync";
 
 class MapReaderState {
 	pos = 0;

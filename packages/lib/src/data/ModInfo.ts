@@ -1,10 +1,6 @@
-import fs from "node:fs/promises";
-import path from "path";
 import { Type, Static } from "@sinclair/typebox";
 
-import * as libHash from "../hash.js";
 import * as libSchema from "../schema.js";
-import { ZipArchive, findRoot } from "../zip_ops.js";
 import { ModRecord } from "./ModPack.js";
 
 import {
@@ -348,35 +344,5 @@ export default class ModInfo {
 		if (this.updatedAtMs) { json.updated_at_ms = this.updatedAtMs; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
-	}
-
-	static async fromModFile(modPath: string) {
-		let modInfo: Static<typeof ModInfo.jsonSchema>;
-		let zip = await ZipArchive.fromFile(modPath);
-		try {
-			let content = await zip.readFile(path.posix.join(findRoot(zip), "info.json"));
-			if (content === null) {
-				throw new Error("Mod contains no info.json file");
-			}
-			modInfo = JSON.parse(content.toString("utf8"));
-		} finally {
-			zip.close();
-		}
-
-		let valid = this.validateInfo(modInfo);
-		if (!valid) {
-			throw new Error("Mod's info.json is not valid");
-		}
-
-		const stat = await fs.stat(modPath);
-		return this.fromJSON({
-			...modInfo,
-
-			size: stat.size,
-			sha1: await libHash.hashFile(modPath),
-			mtime_ms: stat.mtimeMs,
-			updated_at_ms: stat.mtimeMs,
-			is_deleted: false,
-		});
 	}
 }

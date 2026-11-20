@@ -1,5 +1,4 @@
 // Connection adapters for Links
-import { strict as assert } from "assert";
 import events from "events";
 
 import { WebSocket } from "#WebSocket";
@@ -7,6 +6,7 @@ import * as libData from "../data/index.js";
 import * as libErrors from "../errors.js";
 import { logger } from "../logging.js";
 import ExponentialBackoff from "../ExponentialBackoff.js";
+import { assert } from "./assert.js";
 import type { Request, Event } from "./link.js";
 
 /**
