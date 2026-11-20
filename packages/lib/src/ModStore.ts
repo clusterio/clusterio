@@ -4,6 +4,8 @@ import events from "events";
 import { Static } from "@sinclair/typebox";
 import { logger } from "./logging.js";
 import { downloadFile, atomicOverwriteFile } from "./file_ops.js";
+import { hashFile } from "./hash.js";
+import { ZipArchive, findRoot } from "./zip_ops.js";
 import { ModPortalReleaseSchema, ModPortalDetailsSchema, ModNameVersionPair } from "./data/messages_mod.js";
 import { ModInfo, ModPack, MajorMinorVersion, ModVersionEquality, SourceVersion } from "./data/index.js";
 
@@ -54,8 +56,44 @@ export default class ModStore extends events.EventEmitter<ModStoreEvents> {
 
 	mods() { return this.files.values(); }
 
+	/**
+	 * Read the info.json of a mod zip file along with its size, mtime and hash
+	 *
+	 * @param modPath - Path to the mod zip file.
+	 * @returns Mod info for the file.
+	 */
+	static async readModInfo(modPath: string) {
+		let modInfo: Static<typeof ModInfo.jsonSchema>;
+		let zip = await ZipArchive.fromFile(modPath);
+		try {
+			let content = await zip.readFile(path.posix.join(findRoot(zip), "info.json"));
+			if (content === null) {
+				throw new Error("Mod contains no info.json file");
+			}
+			modInfo = JSON.parse(content.toString("utf8"));
+		} finally {
+			zip.close();
+		}
+
+		let valid = ModInfo.validateInfo(modInfo);
+		if (!valid) {
+			throw new Error("Mod's info.json is not valid");
+		}
+
+		const stat = await fs.stat(modPath);
+		return ModInfo.fromJSON({
+			...modInfo,
+
+			size: stat.size,
+			sha1: await hashFile(modPath),
+			mtime_ms: stat.mtimeMs,
+			updated_at_ms: stat.mtimeMs,
+			is_deleted: false,
+		});
+	}
+
 	static async loadFile(modsDirectory: string, file: string) {
-		let modInfo = await ModInfo.fromModFile(path.join(modsDirectory, file));
+		let modInfo = await ModStore.readModInfo(path.join(modsDirectory, file));
 		if (modInfo.filename !== file) {
 			throw new Error(`filename does not match the expected name ${modInfo.filename}.`);
 		}

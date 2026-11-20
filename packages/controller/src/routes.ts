@@ -828,7 +828,7 @@ async function uploadMod(req: Request, res: Response) {
 			// Pipe does not pass on an upload that was cut short.
 			await Promise.all([finished(file.stream), finished(writeStream)]);
 
-			const modInfo = await lib.ModInfo.fromModFile(tempFilePath);
+			const modInfo = await lib.ModStore.readModInfo(tempFilePath);
 			checkModName(modInfo.filename);
 			await fs.rename(tempFilePath, path.join(modsDirectory, modInfo.filename));
 			req.app.locals.controller.modStore.addMod(modInfo);

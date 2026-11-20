@@ -6,7 +6,8 @@ import stream from "node:stream";
 // Capture native fetch before any potential mocks are applied
 const nativeFetch = global.fetch;
 
-import { ModStore, ModInfo, ModVersionEquality, zipOutputStream } from "@clusterio/lib";
+import { ModStore, ModInfo, ModVersionEquality, zipOutputStream, hashFile } from "@clusterio/lib";
+import * as libBuildMod from "@clusterio/lib/build_mod.js";
 import { externalTest, createZip, createZipBuffer } from "../common.js";
 import "../setup_logging.js";
 
@@ -706,6 +707,38 @@ describe("lib/ModStore", function () {
 	});
 
 	// === Instance Methods ===
+	describe("readModInfo (static)", function () {
+		it("should load from a mod zip file", async function () {
+			await libBuildMod.build({
+				build: true,
+				pack: true,
+				sourceDir: path.join("test", "file", "empty_mod"),
+				outputDir: path.join("temp", "test"),
+			});
+			const filePath = path.join("temp", "test", "empty_mod_1.0.0.zip");
+			const hash = await hashFile(filePath);
+			const stat = await fs.stat(filePath);
+			const mod = await ModStore.readModInfo(filePath);
+			assert.deepEqual(
+				mod,
+				ModInfo.fromJSON({
+					name: "empty_mod",
+					version: "1.0.0",
+					title: "An Empty Mod",
+					author: "Me",
+					description: "An empty mod for testing",
+					factorio_version: "1.1",
+					dependencies: [],
+					filename: "empty_mod_1.0.0.zip",
+					size: stat.size,
+					mtime_ms: stat.mtimeMs,
+					updated_at_ms: stat.mtimeMs,
+					sha1: hash,
+				})
+			);
+		});
+	});
+
 	describe("Instance Methods", function () {
 		let modStore;
 		let testMod1Name = "test-mod-1";
