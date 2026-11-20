@@ -27,6 +27,7 @@ logCommands.add(new lib.Command({
 		let hostIds = args.host ? [await lib.resolveHost(ctl, args.host)] : [];
 		await ctl.setLogSubscriptions({ all: args.all, controller: args.controller, hostIds, instanceIds });
 		ctl.keepOpen = true;
+		ctl.output.streamingLog = true;
 	},
 }));
 
@@ -75,16 +76,18 @@ logCommands.add(new lib.Command({
 			result.log.reverse();
 		}
 
-		let stdoutLogger = winston.createLogger({
-			level: "verbose",
-			levels,
-			format: new lib.TerminalFormat({ showTimestamp: true }),
-			transports: [
-				new ConsoleTransport({ errorLevels: [], warnLevels: [] }),
-			],
+		ctl.output.result(result.log, () => {
+			let stdoutLogger = winston.createLogger({
+				level: "verbose",
+				levels,
+				format: new lib.TerminalFormat({ showTimestamp: true }),
+				transports: [
+					new ConsoleTransport({ errorLevels: [], warnLevels: [] }),
+				],
+			});
+			for (let info of result.log) {
+				stdoutLogger.log(info as any);
+			}
 		});
-		for (let info of result.log) {
-			stdoutLogger.log(info as any);
-		}
 	},
 }));

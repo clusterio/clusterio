@@ -17,6 +17,7 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import * as commands from "./src/commands.js";
 import { BaseCtlPlugin, CtlHooks } from "./src/BaseCtlPlugin.js";
+import { CommandOutput, errorToJson, outputFormats, print, type OutputFormat } from "./src/command_ops.js";
 
 
 /**
@@ -55,6 +56,8 @@ export class Ctl extends lib.Link {
 	config: lib.CtlConfig;
 	/** Keep the control connection alive after the command completes. */
 	keepOpen = false;
+	/** Output of the command being run. */
+	output = new CommandOutput();
 
 	constructor(
 		connector: CtlConnector,
@@ -82,12 +85,20 @@ export class Ctl extends lib.Link {
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
-		logger.log(event.info as any);
+		// Only log following commands print log events as results, the rest log them to stderr
+		if (this.output.streamingLog) {
+			this.output.result(event.info, () => logger.log(event.info as any));
+		} else {
+			logger.log(event.info as any);
+		}
 	}
 
 	async handleDebugWsMessageEvent(event: lib.DebugWsMessageEvent) {
-		// eslint-disable-next-line no-console
-		console.log("WS", event.direction, event.content);
+		this.output.result(
+			{ direction: event.direction, content: event.content },
+			// eslint-disable-next-line no-console
+			() => console.log("WS", event.direction, event.content),
+		);
 	}
 
 	async shutdown() {
@@ -126,6 +137,7 @@ interface CtlArguments {
 	$0: string,
 	_: (string | number)[],
 	logLevel: keyof typeof levels,
+	output: OutputFormat,
 	config: string,
 	pluginList: string,
 	bypassLockFile: boolean,
@@ -163,6 +175,13 @@ export async function initialize(
 			describe: "Log level to print to stderr",
 			default: "server",
 			choices: Object.keys(levels),
+			type: "string",
+		})
+		.option("output", {
+			nargs: 1,
+			describe: "Format to print command results in",
+			default: "human",
+			choices: outputFormats,
 			type: "string",
 		})
 		.option("config", {
@@ -260,6 +279,20 @@ export function selectTargetCommand(args: CtlArguments, rootCommands: lib.Comman
 	return targetCommand;
 }
 
+/**
+ * Run the command selected by args, printing results in the format given by args.output
+ */
+export async function runCommand(
+	args: CtlArguments,
+	rootCommands: lib.CommandTree,
+	link: lib.Link & { output?: CommandOutput },
+) {
+	link.output = new CommandOutput(args.output);
+	const targetCommand = selectTargetCommand(args, rootCommands);
+	await targetCommand.run(args, link);
+	link.output.finish();
+}
+
 async function startCtl() {
 	const {
 		args,
@@ -271,10 +304,19 @@ async function startCtl() {
 		return;
 	}
 
+	try {
+		await connectAndRun(args, rootCommands, ctlConfig);
+	} catch (err) {
+		if (args.output !== "human") {
+			print(JSON.stringify(errorToJson(err)));
+		}
+		throw err;
+	}
+}
+
+async function connectAndRun(args: CtlArguments, rootCommands: lib.CommandTree, ctlConfig: lib.CtlConfig) {
 	if (!ctlConfig.get("ctl.controller_url") || !ctlConfig.get("ctl.controller_token")) {
-		logger.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
-		process.exitCode = 1;
-		return;
+		throw new lib.StartupError("Missing URL and/or token to connect with.  See README.md for setting up access.");
 	}
 
 	let controlConnector = new CtlConnector(
@@ -298,26 +340,25 @@ async function startCtl() {
 	process.on("SIGTERM", lib.createShutdownGuard(logger, "termination", ctl.shutdown.bind(ctl)));
 
 	try {
-		const targetCommand = selectTargetCommand(args, rootCommands);
-		await targetCommand.run(args, ctl);
+		await runCommand(args, rootCommands, ctl);
 
 	} catch (err) {
 		ctl.keepOpen = false;
+		let message: string;
 		if (err instanceof lib.CommandError) {
-			logger.error(`Error running command: ${err.message}`);
-			process.exitCode = 1;
+			message = `Error running command: ${err.message}`;
 
 		} else if (err instanceof lib.ClientError || err instanceof lib.UnavailableError) {
-			logger.error(`Error sending request: ${err.message}`);
-			process.exitCode = 1;
+			message = `Error sending request: ${err.message}`;
 
 		} else if (err instanceof lib.ServerError) {
-			logger.error(`Error sending request:\n${err.stack ?? err.message}`);
-			process.exitCode = 1;
+			message = `Error sending request:\n${err.stack ?? err.message}`;
 
 		} else {
 			throw err;
 		}
+		ctl.output.error(err, () => logger.error(message));
+		process.exitCode = 1;
 
 	} finally {
 		if (!ctl.keepOpen) {
@@ -328,6 +369,7 @@ async function startCtl() {
 
 export function bootstrap() {
 	startCtl().catch(err => {
+		process.exitCode = 1;
 		if (err.errors) {
 			logger.fatal(JSON.stringify(err.errors, null, "\t"));
 		}
@@ -340,15 +382,13 @@ export function bootstrap() {
 ${err.stack}`
 			);
 		} else {
-			logger.error(`
+			logger.fatal(`
 +---------------------------------+
 | Unable to to start clusterioctl |
 +---------------------------------+
 ${err.stack}`
 			);
 		}
-
-		process.exitCode = 1;
 	});
 }
 

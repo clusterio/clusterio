@@ -1,5 +1,6 @@
 import * as lib from "@clusterio/lib";
 import type { Ctl } from "../ctl.js";
+import { print } from "./command_ops.js";
 
 export const debugCommands = new lib.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new lib.Command({
@@ -7,6 +8,7 @@ debugCommands.add(new lib.Command({
 	handler: async function(args: object, ctl: Ctl) {
 		await ctl.send(new lib.DebugDumpWsRequest());
 		ctl.keepOpen = true;
+		ctl.output.streamingLog = true;
 	},
 }));
 
@@ -20,12 +22,6 @@ debugCommands.add(new lib.Command({
 		}],
 	handler: async function(args: { exchangeString: string, pretty: boolean }, ctl: Ctl) {
 		const result = lib.readMapExchangeString(args.exchangeString);
-		if (args.pretty) {
-			// eslint-disable-next-line no-console
-			console.log(JSON.stringify(result, null, 2));
-		} else {
-			// eslint-disable-next-line no-console
-			console.log(JSON.stringify(result));
-		}
+		ctl.output.result(result, () => print(JSON.stringify(result, null, args.pretty ? 2 : undefined)));
 	},
 }));

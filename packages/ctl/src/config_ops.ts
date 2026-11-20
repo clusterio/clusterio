@@ -1,4 +1,6 @@
 import * as lib from "@clusterio/lib";
+import type { Ctl } from "../ctl.js";
+import { print } from "./command_ops.js";
 
 export async function getEditor(argsEditor: string) {
 	// eslint-disable-next-line
@@ -52,4 +54,25 @@ export function serializedConfigToString(
 		allConfigElements += `# ${def.description ?? "No description found"}\n${name} = ${value}\n\n`;
 	}
 	return allConfigElements;
+}
+
+/** Print config fields as `name value` lines, or as an object in json mode */
+export function printConfig(ctl: Ctl, config: lib.ConfigSchema, note = (name: string) => "") {
+	ctl.output.result(config, () => {
+		for (let [name, value] of Object.entries(config)) {
+			// Shown as an (inherited) note on each field by instance config list instead
+			if (name !== "instance.inherited_fields") {
+				print(`${name} ${JSON.stringify(value)}${note(name)}`);
+			}
+		}
+	});
+}
+
+/** Print whether a restart is still needed after an update or install */
+export function printRestartRequired(ctl: Ctl, restartRequired: boolean, action: string) {
+	ctl.output.result({ restartRequired }, () => {
+		if (restartRequired) {
+			print(`${action}; a restart is required to apply the changes.`);
+		}
+	});
 }

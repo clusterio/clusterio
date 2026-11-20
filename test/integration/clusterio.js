@@ -2064,6 +2064,9 @@ describe("Integration of Clusterio", function() {
 				const roundtrip = lib.ModPack.fromModPackString(result.stdout.trim());
 				roundtrip.id = reference.id;
 				assert.deepEqual(roundtrip, reference);
+				const shown = await execCtlOutput("mod-pack show imported-pack");
+				assert.match(shown, /empty_mod 1\.0\.0/);
+				assert.match(shown, /MyDouble: 12\.25/);
 			});
 		});
 
@@ -2119,6 +2122,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod show", function() {
 			it("gives details of a mod", async function() {
+				assert.match(await execCtlOutput("mod show empty_mod 1.0.0"), /name: empty_mod/);
 				let result = await execCtlProcess("mod show empty_mod 1.0.0");
 				let hash = await lib.hashFile(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
 				let stat = await fs.stat(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
@@ -2314,6 +2318,126 @@ describe("Integration of Clusterio", function() {
 				await execCtl(`note delete host ${hostId}`);
 				const notes = await getControl().send(new lib.NoteListRequest());
 				assert(!notes.find(n => n.id === `host/${hostId}`), "Note was not deleted");
+			});
+		});
+
+		describe("config edit", function() {
+			/** Write an editor script that replaces the edited file with content */
+			async function writeEditor(content) {
+				const file = path.resolve("temp", "test", "editor.sh");
+				await fs.writeFile(file, `#!/bin/sh\ncat > "$1" <<'EOF'\n${content}\nEOF\n`, { mode: 0o755 });
+				return file;
+			}
+			before(function() {
+				if (process.platform === "win32") {
+					this.skip();
+				}
+			});
+
+			it("sets controller config fields and reports failed ones", async function() {
+				const config = await getControl().send(new lib.ControllerConfigGetRequest());
+				const name = config["controller.name"];
+				const editor = await writeEditor("controller.name = Edited-Cluster\ncontroller.no_such_field = 1");
+				await execCtl(`controller config edit ${editor}`);
+				const edited = await getControl().send(new lib.ControllerConfigGetRequest());
+				assert.equal(edited["controller.name"], "Edited-Cluster");
+				await execCtl(`controller config set controller.name ${name}`);
+			});
+			it("sets host config fields and reports failed ones", async function() {
+				const config = await getControl().sendTo({ hostId }, new lib.HostConfigGetRequest());
+				const editor = await writeEditor(`host.name = ${config["host.name"]}\nhost.no_such_field = 1`);
+				await execCtl(`host config edit ${hostId} ${editor}`);
+			});
+			it("sets instance config fields and reports failed ones", async function() {
+				const { id } = JSON.parse(await execCtlOutput("--output json instance create config-edit"));
+				try {
+					const editor = await writeEditor("instance.auto_start = true\ninstance.no_such_field = 1");
+					await execCtl(`instance config edit ${id} ${editor}`);
+					const config = await getControl().send(new lib.InstanceConfigGetRequest(id));
+					assert.equal(config["instance.auto_start"], true);
+				} finally {
+					await execCtl(`instance delete ${id}`);
+				}
+			});
+		});
+
+		describe("--output json", function() {
+			it("prints lists as an array of objects", async function() {
+				const roles = JSON.parse(await execCtlOutput("--output json role list"));
+				assert.deepEqual(roles.find(role => role.id === 0).permissions, ["core.admin"]);
+			});
+			it("prints single results as an object", async function() {
+				const { id } = JSON.parse(await execCtlOutput("--output json role create json-role"));
+				const roles = await getControl().send(new lib.RoleListRequest());
+				assert.equal(roles.find(role => role.id === id)?.name, "json-role");
+				assert.equal(await execCtlOutput(`--output json role delete ${id}`), '{"success":true}');
+			});
+			it("prints the toJSON format in wire mode", async function() {
+				const [jsonUser] = JSON.parse(await execCtlOutput("--output json user list"));
+				const [wireUser] = JSON.parse(await execCtlOutput("--output wire user list"));
+				assert("roleIds" in jsonUser);
+				assert(!("roleIds" in wireUser));
+				assert.equal(wireUser.name, jsonUser.name);
+			});
+			it("prints a success line for commands without a result", async function() {
+				const { id } = JSON.parse(await execCtlOutput("--output json role create human-role"));
+				assert.equal(await execCtlOutput(`role delete ${id}`), "Command ran successfully");
+			});
+			it("prints whole objects for lists that hide fields in human mode", async function() {
+				const [mod] = JSON.parse(await execCtlOutput("--output json mod list"));
+				assert("sha1" in mod);
+				const [wireMod] = JSON.parse(await execCtlOutput("--output wire mod list"));
+				assert("factorio_version" in wireMod);
+				const [modPack] = JSON.parse(await execCtlOutput("--output wire mod-pack list"));
+				assert("mods" in modPack);
+				const user = JSON.parse(await execCtlOutput("--output wire user show test --instance-stats"));
+				assert.equal(user.name, "test");
+			});
+			it("prints the user and instance stats in human mode", async function() {
+				const output = await execCtlOutput("user show test --instance-stats");
+				assert.match(output, /name +\| test/);
+			});
+			it("prints the result of human mode commands with more options", async function() {
+				assert.match(await execCtlOutput("user list --stats --attributes"), /isAdmin/);
+				const exchange = JSON.parse(await execCtlOutput(
+					`--output json debug parse-exchange-string ${testStrings.default.replace(/\s/g, "")}`
+				));
+				assert.equal(typeof exchange, "object");
+			});
+			it("follows the log without a final result", async function() {
+				try {
+					assert.equal(await execCtlOutput("--output json log follow --controller"), "");
+				} finally {
+					getControl().keepOpen = false;
+				}
+			});
+			it("prints log queries in human mode", async function() {
+				assert.notEqual(await execCtlOutput("log query --controller --limit 1"), "");
+			});
+			it("prints pending host requests in human mode", async function() {
+				assert.notEqual(await execCtlOutput("host pending"), "");
+			});
+			it("prints log queries as an array", async function() {
+				const log = JSON.parse(await execCtlOutput("--output json log query --controller --limit 1"));
+				assert.equal(log.length, 1);
+				assert.equal(typeof log[0].message, "string");
+			});
+			it("prints errors as JSON with a non-zero exit code", async function() {
+				await assert.rejects(
+					execCtlProcess("--output json instance stop no-such-instance"),
+					err => {
+						assert.equal(err.code, 1);
+						assert.deepEqual(
+							JSON.parse(err.stdout),
+							{ error: "CommandError", message: "No instance named no-such-instance" },
+						);
+						return true;
+					},
+				);
+				await assert.rejects(
+					execCtlProcess("--output json user set-admin no-such-user"),
+					err => JSON.parse(err.stdout).error === "NotFoundError",
+				);
 			});
 		});
 
