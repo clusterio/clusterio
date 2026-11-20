@@ -22,8 +22,8 @@ describe("controller/src/routes", function() {
 	let port;
 	beforeEach(async function() {
 		controller = new mock.MockController();
-		// Check the progress of requests every 500 ms instead of every 30 seconds.
-		routes.addRouteHandlers(controller.app, 500);
+		// Check the progress of requests every 500 ms without a burst allowance.
+		routes.addRouteHandlers(controller.app, 500, 0);
 		server = http.createServer(routes.httpServerOptions, controller.app);
 		server.listen(0, "localhost");
 		await events.once(server, "listening");
@@ -216,16 +216,17 @@ describe("controller/src/routes", function() {
 			assert.equal((await download).byteLength, 20 * 1024);
 		});
 		it("should not close a transfer held back by a slow receiver", async function() {
-			this.timeout(20000);
-			// The OS takes over a second to free buffered data at this speed, longer than the usual 500 ms checks.
+			this.timeout(40000);
+			// The receiver takes about 1.2 MB/s, which the OS hands on in bursts of over a MB.
 			const slowController = new mock.MockController();
+			slowController.mockConfigEntries.set("controller.transfer_min_speed", 1024);
 			routes.addRouteHandlers(slowController.app, 3000);
 			const slowServer = http.createServer(routes.httpServerOptions, slowController.app);
 			slowServer.listen(0, "localhost");
 			await events.once(slowServer, "listening");
 			const slowEndpoint = `http://localhost:${slowServer.address().port}/api/stream`;
 			try {
-				const size = 8 * 1024 * 1024;
+				const size = 16 * 1024 * 1024;
 				const stream = await routes.createProxyStream(slowController.app);
 				const upload = fetch(`${slowEndpoint}/${stream.id}`, { method: "PUT", body: Buffer.alloc(size) });
 				const received = await new Promise((resolve, reject) => {
@@ -1292,6 +1293,56 @@ describe("controller/src/routes", function() {
 			const result = await trickle(`http://localhost:${port}/test`, { "Content-Type": "text/plain" });
 			assert.equal(result.status, undefined);
 			assert(result.duration < 2000, `closed after ${result.duration} ms`);
+		});
+		describe("with a burst allowance", function() {
+			let burstServer, burstUrl;
+			beforeEach(async function() {
+				// Each check requires 256 KiB/s * 0.5 s - 64 KiB = 64 KiB.
+				const burstController = new mock.MockController();
+				burstController.mockConfigEntries.set("controller.transfer_min_speed", 256);
+				routes.addRouteHandlers(burstController.app, 500, 64 * 1024);
+				burstController.app.post("/test", express.raw({ type: "*/*", limit: "2mb" }), (req, res) => {
+					res.sendStatus(200);
+				});
+				burstServer = http.createServer(routes.httpServerOptions, burstController.app);
+				burstServer.listen(0, "localhost");
+				await events.once(burstServer, "listening");
+				burstUrl = `http://localhost:${burstServer.address().port}/test`;
+			});
+			afterEach(function() {
+				burstServer.close();
+			});
+			async function sendBursts(burstBytes) {
+				const bursts = 12;
+				const request = http.request(burstUrl, {
+					method: "POST", headers: { "Content-Type": "text/plain", "Content-Length": burstBytes * bursts },
+				});
+				let status;
+				request.on("response", response => {
+					status = response.statusCode;
+					response.resume();
+				});
+				request.on("error", () => {});
+				const closed = new Promise(resolve => request.on("close", resolve));
+				for (let i = 0; i < bursts && !request.closed; i++) {
+					request.write(Buffer.alloc(burstBytes));
+					await lib.wait(300);
+				}
+				if (!request.closed) {
+					request.end();
+				}
+				await closed;
+				return status;
+			}
+			it("should not close a request at the minimum speed arriving in bursts", async function() {
+				this.timeout(10000);
+				// 78 KiB every 300 ms is 260 KiB/s, a check can see only one burst.
+				assert.equal(await sendBursts(78 * 1024), 200);
+			});
+			it("should close a request below the minimum speed arriving in bursts", async function() {
+				this.timeout(10000);
+				assert.equal(await sendBursts(39 * 1024), undefined);
+			});
 		});
 		it("should not close a trickled in request when the limit is 0", async function() {
 			this.timeout(10000);

@@ -473,18 +473,23 @@ const answeredUploadDrainMs = 1000;
  * so the connection is closed if the body hasn't ended shortly after the
  * response. Closing it right away could make the client lose the response.
  *
- * The connection is also closed if the request moved slower than
- * controller.transfer_min_speed during a check interval, so that a
+ * The connection is also closed if the request moved too little during a
+ * check interval for controller.transfer_min_speed, so that a
  * request which stalled or is trickled in does not stay open forever while
  * a slow one can take the time it needs. For a request body this is what
  * was received of it. For both ends of a proxy stream it is what the
  * receiver has taken, as the sender is held back when the receiver is the
  * slow one. Time spent waiting for a proxy stream to start is not counted,
  * controller.proxy_stream_timeout limits that.
+ *
+ * The OS hands data on in bursts, so a transfer at the minimum speed can
+ * move up to a burst less than that in a check. The burst allowance is
+ * taken off what a check requires so such a transfer is never closed.
  * @param checkIntervalMs - Interval to check the progress of requests on.
+ * @param burstAllowanceBytes - Bytes taken off what a check requires.
  * @returns Express middleware.
  */
-function guardRequest(checkIntervalMs: number) {
+function guardRequest(checkIntervalMs: number, burstAllowanceBytes: number) {
 	return function(req: Request, res: Response, next: any) {
 		const socket = req.socket;
 		res.once("finish", () => {
@@ -521,10 +526,12 @@ function guardRequest(checkIntervalMs: number) {
 			}
 			const bytes = currentBytes();
 			const intervalS = checkIntervalMs / 1000;
-			if (bytes - lastBytes < minSpeedKiBps * 1024 * intervalS) {
+			// At least 1 so a transfer that moved nothing is closed at any speed setting.
+			const requiredBytes = Math.max(minSpeedKiBps * 1024 * intervalS - burstAllowanceBytes, 1);
+			if (bytes - lastBytes < requiredBytes) {
 				logger.warn(
-					`Closing ${req.method} ${req.path}, it moved slower than ${minSpeedKiBps} KiB/s ` +
-					`over ${intervalS} seconds`
+					`Closing ${req.method} ${req.path}, it moved ${bytes - lastBytes} bytes in ${intervalS} seconds, ` +
+					`less than the ${requiredBytes} required for ${minSpeedKiBps} KiB/s`
 				);
 				socket.destroy();
 			}
@@ -857,8 +864,12 @@ async function uploadMod(req: Request, res: Response) {
 }
 
 
-export function addRouteHandlers(app: Application, progressCheckIntervalMs = 60_000) {
-	app.use(guardRequest(progressCheckIntervalMs));
+export function addRouteHandlers(
+	app: Application,
+	progressCheckIntervalMs = 60_000,
+	burstAllowanceBytes = 2 * 1024 * 1024,
+) {
+	app.use(guardRequest(progressCheckIntervalMs, burstAllowanceBytes));
 	app.get("/metrics",
 		validateUserToken,
 		(req:Request, res:Response, next:any) => getMetrics(req, res).catch(next)
