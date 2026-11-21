@@ -600,6 +600,53 @@ function ModsTable(props: ModsTableProps) {
 	}
 	mods = lib.applyModRecordAdvisories(mods, lib.getInstalledModUpdates(mods, modInfos.values()));
 
+	const versionsByName = new Map<string, lib.ModInfo[]>();
+	for (const info of modInfos.values()) {
+		const versions = versionsByName.get(info.name) ?? [];
+		versions.push(info);
+		versionsByName.set(info.name, versions);
+	}
+	for (const versions of versionsByName.values()) {
+		versions.sort((a, b) => b.integerVersion - a.integerVersion);
+	}
+	let packFactorioVersion: lib.MajorMinorVersion | undefined;
+	try {
+		packFactorioVersion = lib.normaliseMajorMinorVersion(props.modPack.factorioVersion);
+	} catch {
+		// Invalid pack version, every mod already shows wrong_factorio_version
+	}
+
+	function versionSelect(mod: lib.ModRecord) {
+		const versions = versionsByName.get(mod.name) ?? [];
+		if (deletedMods.has(mod.name) || !versions.some(info => info.version !== mod.version)) {
+			return mod.version;
+		}
+		const options = versions.map(info => ({
+			value: info.version,
+			label: info.factorioVersion === packFactorioVersion
+				? info.version : `${info.version} (Factorio ${info.factorioVersion})`,
+		}));
+		if (!versions.some(info => info.version === mod.version)) {
+			options.unshift({ value: mod.version, label: `${mod.version} (missing)` });
+		}
+		return <Select
+			size="small"
+			variant="borderless"
+			style={{ marginInlineStart: -8 }} // Line up with the plain text versions
+			popupMatchSelectWidth={false}
+			value={mod.version}
+			options={options}
+			onChange={(version: string) => {
+				const info = versions.find(candidate => candidate.version === version)!;
+				props.onChange({
+					type: "mods.set",
+					name: mod.name,
+					value: { ...props.modPack.mods.get(mod.name)!, version: info.version, sha1: info.sha1 },
+				});
+			}}
+		/>;
+	}
+
 	async function fixDependencyIssues(mod: lib.ModRecord) {
 		if (!mod.info) {
 			throw new Error("Mod record has no info"); // Should be unreachable
@@ -822,7 +869,8 @@ function ModsTable(props: ModsTableProps) {
 				},
 				{
 					title: "Version",
-					dataIndex: "version",
+					key: "version",
+					render: (_, mod: lib.ModRecord) => versionSelect(mod),
 					sorter: (a, b) => strcmp(a.version, b.version),
 				},
 				{
