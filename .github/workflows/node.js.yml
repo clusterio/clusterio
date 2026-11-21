@@ -23,7 +23,7 @@ jobs:
   test:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -89,7 +89,7 @@ jobs:
   version-compat:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     timeout-minutes: 15
     env:
       # npm version spec for the published side of the compatibility test.
@@ -121,7 +121,7 @@ jobs:
   lint:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.js_lint != 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     timeout-minutes: 5
     steps:
     - uses: actions/checkout@v7
@@ -134,7 +134,7 @@ jobs:
   build:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     timeout-minutes: 5
     steps:
     - uses: actions/checkout@v7

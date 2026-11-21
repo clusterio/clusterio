@@ -15,14 +15,14 @@ on:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     timeout-minutes: 5
     outputs:
       build_and_test: ${{ steps.syntax.outputs.build_and_test || steps.paths.outputs.code }}
       js_lint: ${{ steps.lint.outputs.js_lint }}
       lua_lint: ${{ steps.lint.outputs.lua_lint }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
         with:
           fetch-depth: 0
       - uses: dorny/paths-filter@v4

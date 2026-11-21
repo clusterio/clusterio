@@ -18,9 +18,9 @@ jobs:
   lint:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.lua_lint != 'false' }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2604
     steps:
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
       - uses: actions/setup-node@v7
         with:
           node-version: lts/*
