@@ -195,20 +195,21 @@ export function checkPullRequestBody(
 
 function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 	const mergedChangelog: Changelog = Object.create(null);
+	const problems: string[] = [];
 	for (const pr of pullRequests) {
 		const { changelog, error, warnings } = checkPullRequestBody(pr.body, pr, issues);
 		if (error) {
-			console.error(`Failed to extract changelog in ${pr.html_url}: ${error}`)
+			problems.push(`Failed to extract changelog in ${pr.html_url}: ${error}`);
 			continue;
 		}
 		for (const warning of warnings) {
-			console.warn(`Warning in changelog for ${pr.html_url}: ${warning}`)
+			problems.push(`Warning in changelog for ${pr.html_url}: ${warning}`);
 		}
 		for (const [section, items] of Object.entries(changelog)) {
 			mergedChangelog[section] = [...mergedChangelog[section] ?? [], ...items];
 		}
 	}
-	return mergedChangelog;
+	return [mergedChangelog, problems] as const;
 }
 
 async function fetchLastRelease() {
@@ -316,11 +317,13 @@ export async function generateReleaseNotes() {
 		&& issue.pull_request.merged_at > lastRelease.created_at
 	));
 
-	const changelog = changelogFromPullRequests(pullRequests, issues);
+	const [changelog, problems] = changelogFromPullRequests(pullRequests, issues);
 	const users = [...new Map(pullRequests.map(issue => [issue.user.login, issue.user])).values()];
 	const statistics = await fetchStatistics(lastRelease, pullRequests);
 
 	return {
+		/** Errors and warnings from the pull request changelogs. */
+		problems,
 		github: formatMarkdown(changelog, issues, users, statistics,
 			issue => `${repository}#${issue.number}`,
 			user => `@${user.login}`,
@@ -334,6 +337,9 @@ export async function generateReleaseNotes() {
 
 async function main() {
 	const notes = await generateReleaseNotes();
+	for (const problem of notes.problems) {
+		console.warn(problem);
+	}
 
 	console.log();
 	console.log("=== Github Release Markdown ===");

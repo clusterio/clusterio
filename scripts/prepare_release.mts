@@ -1,5 +1,6 @@
 // Bumps the package versions, adds the release notes to CHANGELOG.md, then commits and tags the release.
-// Usage: node scripts/prepare_release.mts <version>
+// Usage: node scripts/prepare_release.mts [--force] <version>
+// --force continues when pull request changelogs have errors or warnings.
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -46,9 +47,11 @@ async function packageFiles() {
 }
 
 async function main() {
-	const version = process.argv[2];
-	if (!version || !versionPattern.test(version)) {
-		console.error("Usage: node scripts/prepare_release.mts <version>, e.g. 2.1.2");
+	const args = process.argv.slice(2);
+	const force = args.includes("--force");
+	const [version, ...rest] = args.filter(arg => arg !== "--force");
+	if (!version || rest.length || !versionPattern.test(version)) {
+		console.error("Usage: node scripts/prepare_release.mts [--force] <version>, e.g. 2.1.2");
 		process.exitCode = 1;
 		return;
 	}
@@ -61,6 +64,15 @@ async function main() {
 
 	// Done first so a GitHub API failure leaves the working tree untouched.
 	const notes = await generateReleaseNotes();
+	for (const problem of notes.problems) {
+		console.warn(problem);
+	}
+	if (notes.problems.length && !force) {
+		throw new Error(
+			`Found ${notes.problems.length} changelog problem(s) in merged pull requests. ` +
+			"Fix the pull request descriptions and run it again, or pass --force to continue anyway."
+		);
+	}
 	const changelogPath = path.join(root, "CHANGELOG.md");
 	const changelog = addChangelogEntry(await fs.readFile(changelogPath, "utf8"), version, notes.changelog);
 

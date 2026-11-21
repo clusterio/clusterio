@@ -38,6 +38,8 @@ The steps below describe publishing npm packages manually instead.
    It sets the version in the `package.json` files under `packages/` and `plugins/`, adds the changelog from merged pull requests to the top of CHANGELOG.md, commits it as "Prepare 2.0.2" and tags that commit `v2.0.2`.
    Nothing is pushed.
    It also prints the GitHub Release Markdown for the release notes.
+   If a merged pull request has a missing or malformed changelog section, the script lists the problems and stops before changing anything.
+   Fix the pull request description and run it again, or pass `--force` to continue anyway. Entries with warnings are kept, pull requests whose changelog section could not be read are left out.
 
     ```sh
     node scripts/prepare_release.mts 2.0.2
