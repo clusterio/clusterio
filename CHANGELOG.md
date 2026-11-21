@@ -1,36 +1,5 @@
 # Changelog
 
-<!-- Template for entries. Add sections that apply as changes are made.
-## Version 2.0.0-alpha.xx
-
-### Major Features
-
-- Major additions and/or major improvements to managing clusters.
-
-### Features
-
-- New features added.
-
-### Changes
-
-- Small changes to existing behaviour.
-
-### Fixes
-
-- Bugfixes
-
-### Breaking Changes
-
-- Changes which break backwards compatibility with older hosts or plugins code.
-
-### Meta
-
-- Changes to the project activities / structure worth highlighting but have no impact on the published package.
-
-Many thanks to the following for contributing to this release:  
-[@username](https://github.com/username)
--->
-
 ## Version 2.1.1
 
 ### Features
