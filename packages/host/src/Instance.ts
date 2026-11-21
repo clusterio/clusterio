@@ -44,6 +44,9 @@ const transitoryStatuses: ReadonlySet<Instance["_status"]> = new Set([
 	"starting", "stopping", "creating_save", "exporting_data",
 ]);
 
+// Crashes sooner than this after starting are not restarted to avoid boot loops.
+const crashRestartMinUptimeMs = 10 * 60e3;
+
 const instanceRconCommandDuration = new lib.Histogram(
 	"clusterio_instance_rcon_command_duration_seconds",
 	"Histogram of the RCON command duration from request to response.",
@@ -194,6 +197,8 @@ export default class Instance extends lib.Link {
 	_playerAutosaveSlot = 1;
 	_expectedUserUpdates: { action: string, name: string, reason: string }[] = [];
 	_settleWaiters: (() => void)[] = [];
+	_startedAtMs: number | null = null;
+	_killRequested = false;
 
 	constructor(
 		host: Host,
@@ -594,6 +599,9 @@ end`.replace(/\r?\n/g, " ");
 
 	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
+		if (status === "running") {
+			this._startedAtMs = Date.now();
+		}
 		if (!transitoryStatuses.has(status)) {
 			const waiters = this._settleWaiters;
 			this._settleWaiters = [];
@@ -643,6 +651,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	notifyExit() {
+		const crashed = this._status === "running" && !this._killRequested;
 		this._loadedSave = null;
 		this._autoPause = false;
 		this.notifyStatus("stopped");
@@ -668,6 +677,29 @@ end`.replace(/\r?\n/g, " ");
 			this._recordPlayerLeave(player, "server_quit");
 		}
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
+
+		if (crashed && this.config.get("instance.restart_after_crash") && !this._host._shuttingDown) {
+			this._restartAfterCrash(Date.now() - this._startedAtMs!);
+		}
+	}
+
+	_restartAfterCrash(uptimeMs: number) {
+		if (uptimeMs < crashRestartMinUptimeMs) {
+			this.logger.error(`Instance ${this.name} crashed within 10 minutes of starting, not restarting it`);
+			return;
+		}
+		const limit = this.config.get("instance.crash_retry_attempts");
+		const attempts = this._host._crashRetryAttempts.get(this.id) ?? 0;
+		if (limit > 0 && attempts >= limit) {
+			this.logger.error(`Instance ${this.name} reached the limit of ${limit} crash restarts, not restarting it`);
+			return;
+		}
+		this._host._crashRetryAttempts.set(this.id, attempts + 1);
+		const of = limit > 0 ? ` of ${limit}` : "";
+		this.logger.warn(`Restarting instance ${this.name} after crash, attempt ${attempts + 1}${of}`);
+		this._host._connectInstance(this.id)
+			.then(connection => connection.instance._startSave())
+			.catch(err => this.logger.error(`Error restarting instance ${this.name} after crash:\n${err.stack}`));
 	}
 
 	static async _readStats(statsPath: string) {
@@ -1358,6 +1390,7 @@ end`.replace(/\r?\n/g, " ");
 		if (this._status === "stopped") {
 			return;
 		}
+		this._killRequested = true;
 		await this.server.kill(true);
 	}
 
@@ -1395,7 +1428,11 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceStartRequest(request: lib.InstanceStartRequest) {
-		let saveName = request.save;
+		this._host._crashRetryAttempts.delete(this.id);
+		await this._startSave(request.save);
+	}
+
+	async _startSave(saveName?: string) {
 		if (saveName !== undefined) {
 			checkRequestSaveName(saveName);
 		}
@@ -1424,6 +1461,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceLoadScenarioRequest(request: lib.InstanceLoadScenarioRequest) {
+		this._host._crashRetryAttempts.delete(this.id);
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
 			throw new lib.ConflictError("Load scenario cannot be used with save patching enabled");
