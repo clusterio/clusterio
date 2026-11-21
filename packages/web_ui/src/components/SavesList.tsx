@@ -10,6 +10,7 @@ import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import useTableQueryState from "../util/useTableQueryState";
+import useColumnSearch from "../util/useColumnSearch";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
@@ -107,17 +108,46 @@ function CopyModal(props: ModalProps) {
 }
 
 
-function TransferModal(props: ModalProps) {
+type TransferModalProps = {
+	disabled: boolean;
+	saves: lib.SaveDetails[];
+	instanceId: number;
+	buttonText?: string;
+	onDone?: (failed: string[]) => void;
+};
+
+function TransferModal(props: TransferModalProps) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 	let [instances] = useInstances();
+	const single = props.saves.length === 1 ? props.saves[0] : undefined;
+	const canCopy = account.hasPermission("core.instance.save.copy");
+
+	async function transfer(values: { targetInstanceId: number, transferredName?: string, copy: boolean }) {
+		const failed: string[] = [];
+		for (const save of props.saves) {
+			try {
+				await control.send(new lib.InstanceTransferSaveRequest(
+					props.instanceId,
+					save.name,
+					values.targetInstanceId,
+					(single && values.transferredName) || save.name,
+					values.copy,
+				));
+			} catch (err: any) {
+				failed.push(save.name);
+				notifyErrorHandler(`Error transfering ${save.name}`)(err);
+			}
+		}
+		return failed;
+	}
 
 	return <>
-		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Transfer</Button>
+		<Button disabled={props.disabled} onClick={() => setOpen(true)}>{props.buttonText ?? "Transfer"}</Button>
 		<Modal
-			title="Transfer save"
+			title={single ? "Transfer save" : `Transfer ${props.saves.length} saves`}
 			okText="Transfer"
 			open={open}
 			onOk={() => form.submit()}
@@ -128,22 +158,17 @@ function TransferModal(props: ModalProps) {
 				form={form}
 				labelCol={{ span: 6 }}
 				wrapperCol={{ span: 18 }}
-				initialValues={{ transferredName: props.save.name, copy: false }}
+				initialValues={{ transferredName: single?.name, copy: !single && canCopy }}
 				onFinish={values => {
 					setOpen(false);
-					let hide = message.loading("Transferring save...", 0);
-					control.send(new lib.InstanceTransferSaveRequest(
-						props.instanceId,
-						props.save.name,
-						values.targetInstanceId,
-						values.transferredName || props.save.name,
-						values.copy,
-					)).then(() => {
-						message.success("Transfer complete");
+					let hide = message.loading(single ? "Transferring save..." : "Transferring saves...", 0);
+					transfer(values).then(failed => {
+						if (failed.length < props.saves.length) {
+							message.success(failed.length ? "Transfer partially complete" : "Transfer complete");
+						}
 						form.resetFields();
-					}).catch(
-						notifyErrorHandler("Error transfering save")
-					).finally(() => hide());
+						props.onDone?.(failed);
+					}).finally(() => hide());
 				}}
 			>
 				<Form.Item
@@ -170,23 +195,21 @@ function TransferModal(props: ModalProps) {
 						</Select.Option>)}
 					</Select>
 				</Form.Item>
-				<Form.Item
+				{single && <Form.Item
 					name="transferredName"
 					label="Transferred name"
 				>
 					<Input
 						disabled={!account.hasAnyPermission("core.instance.save.rename", "core.instance.save.copy")}
 					/>
-				</Form.Item>
+				</Form.Item>}
 				<Form.Item
 					name="copy"
 					valuePropName="checked"
 					label="Copy"
 					tooltip="Copy instead of moving the save to the new instance."
 				>
-					<Checkbox
-						disabled={!account.hasPermission("core.instance.save.copy")}
-					/>
+					<Checkbox disabled={!canCopy} />
 				</Form.Item>
 			</Form>
 		</Modal>
@@ -203,6 +226,17 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	const tableState = useTableQueryState<lib.SaveDetails>({
 		namespace: "save", defaultSortKey: "mtimeMs", defaultSortOrder: "descend", pagination: { defaultPageSize: 10 },
 	});
+	const nameSearch = useColumnSearch<lib.SaveDetails>(tableState, "name", save => save.name, "Search saves");
+	const [selectedNames, setSelectedNames] = useState<string[]>([]);
+
+	const saveList = [...saves.values()];
+	const selectedSaves = saveList.filter(save => selectedNames.includes(save.name));
+	const nameFilter = tableState.filteredValue("name")?.[0]?.toLowerCase();
+	const visibleNames = saveList
+		.filter(save => !nameFilter || save.name.toLowerCase().includes(nameFilter))
+		.map(save => save.name);
+	const visibleSelected = visibleNames.filter(name => selectedNames.includes(name)).length;
+	const canTransfer = account.hasPermission("core.instance.save.transfer");
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
@@ -219,6 +253,8 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				</>,
 				sorter: (a, b) => a.name.localeCompare(b.name),
 				sortOrder: tableState.sortOrder("name"),
+				filteredValue: tableState.filteredValue("name"),
+				...nameSearch,
 			},
 			{
 				title: "Size",
@@ -237,10 +273,24 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				sortOrder: tableState.sortOrder("mtimeMs"),
 			},
 		]}
-		dataSource={[...saves.values()]}
+		dataSource={saveList}
 		pagination={tableState.pagination}
 		onChange={tableState.onChange}
 		rowKey={save => save.name}
+		rowSelection={canTransfer ? {
+			selectedRowKeys: selectedSaves.map(save => save.name),
+			onChange: keys => setSelectedNames(keys as string[]),
+			// Select all covers every save matching the search, not just the current page.
+			columnTitle: <Checkbox
+				disabled={!visibleNames.length}
+				checked={visibleNames.length > 0 && visibleSelected === visibleNames.length}
+				indeterminate={visibleSelected > 0 && visibleSelected < visibleNames.length}
+				onChange={e => setSelectedNames(e.target.checked
+					? [...new Set([...selectedNames, ...visibleNames])]
+					: selectedNames.filter(name => !visibleNames.includes(name))
+				)}
+			/>,
+		} : undefined}
 		expandable={{
 			columnWidth: 33,
 			expandRowByClick: true,
@@ -281,8 +331,8 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 							);
 						}}
 					>Download</Button>}
-					{account.hasPermission("core.instance.save.transfer") && <TransferModal
-						disabled={hostOffline} instanceId={props.instance.id!} save={save}
+					{canTransfer && <TransferModal
+						disabled={hostOffline} instanceId={props.instance.id!} saves={[save]}
 					/>}
 					{account.hasPermission("core.instance.save.delete") && <Popconfirm
 						title="Permanently delete save?"
@@ -320,6 +370,13 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 
 	return <div>
 		<SectionHeader title="Saves" extra={<Space wrap>
+			{canTransfer && selectedSaves.length > 0 && <TransferModal
+				disabled={hostOffline}
+				instanceId={props.instance.id!}
+				saves={selectedSaves}
+				buttonText={`Transfer ${selectedSaves.length} selected`}
+				onDone={failed => setSelectedNames(failed)}
+			/>}
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
 				<UploadButton disabled={hostOffline}>
 					Upload save
