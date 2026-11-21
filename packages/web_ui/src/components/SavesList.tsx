@@ -69,16 +69,16 @@ function RenameModal(props: ModalProps) {
 	</>;
 }
 
-function CopyModal(props: ModalProps) {
+function DuplicateModal(props: ModalProps) {
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	return <>
-		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Copy</Button>
+		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Duplicate</Button>
 		<Modal
-			title="Copy save"
-			okText="Copy"
+			title="Duplicate save"
+			okText="Duplicate"
 			open={open}
 			onOk={() => form.submit()}
 			onCancel={() => setOpen(false)}
@@ -93,7 +93,7 @@ function CopyModal(props: ModalProps) {
 					).then(() => {
 						setOpen(false);
 						form.resetFields();
-					}).catch(notifyErrorHandler("Error copying save"));
+					}).catch(notifyErrorHandler("Error duplicating save"));
 				}}
 			>
 				<Form.Item
@@ -383,11 +383,11 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 								() => { setStarting(false); }
 							);
 						}}
-					>Load save</Button>}
+					>Load</Button>}
 					{account.hasPermission("core.instance.save.rename") && <RenameModal
 						disabled={hostOffline} instanceId={props.instance.id!} save={save}
 					/>}
-					{account.hasPermission("core.instance.save.copy") && <CopyModal
+					{account.hasPermission("core.instance.save.copy") && <DuplicateModal
 						disabled={hostOffline} instanceId={props.instance.id!} save={save}
 					/>}
 					{account.hasPermission("core.instance.save.download") && <Button
@@ -444,9 +444,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				onDone={setSelectedNames}
 			/>}
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
-				<UploadButton disabled={hostOffline}>
-					Upload save
-				</UploadButton>
+				<UploadButton disabled={hostOffline} icon={null} />
 			</Upload>}
 			{account.hasPermission("core.instance.save.create") && <CreateSaveModal instance={props.instance} />}
 		</Space>} />

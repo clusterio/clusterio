@@ -96,7 +96,7 @@ export default function CreateSaveModal(props: CreateSaveModalProps) {
 				setOpen(true);
 			}}
 		>
-			Create save
+			Create
 		</Button>
 		<Modal
 			title="Create Save"

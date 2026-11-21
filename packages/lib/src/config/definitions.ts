@@ -19,6 +19,7 @@ export interface ControllerConfigFields {
 	"controller.bind_address": string | null;
 	"controller.trusted_proxies": string | null;
 	"controller.public_url": string | null;
+	"controller.favicon_url": string | null;
 	"controller.static_url": string | null;
 	"controller.grafana_url": string | null;
 	"controller.tls_certificate": string | null;
@@ -176,6 +177,12 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			type: "string",
 			optional: true,
 			// TODO extendedValidation, valid url including the protocol
+		},
+		"controller.favicon_url": {
+			title: "Favicon URL",
+			description: "URL of the icon shown in the browser tab, defaults to the Clusterio logo.",
+			type: "string",
+			optional: true,
 		},
 		"controller.static_url": {
 			title: "Static URL",

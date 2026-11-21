@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Collapse } from "antd";
+import { Collapse, ConfigProvider } from "antd";
 
 import { useUsers } from "../model/user";
 import UsersTable from "./UsersTable";
@@ -24,12 +24,15 @@ export default function OnlinePlayersList({ instanceId }: OnlinePlayersListProps
 		items={[{
 			key: "players",
 			label: `Online Players (${onlineCount})`,
-			children: <UsersTable instanceId={instanceId} onlyOnline size="small" pagination={{
-				defaultPageSize: 10,
-				showSizeChanger: true,
-				pageSizeOptions: ["10", "20", "50", "100", "200"],
-				showTotal: (total: number) => `${total} Users`,
-			}} />,
+			styles: { body: { padding: 0 } },
+			children: <ConfigProvider theme={{ components: { Table: { headerBorderRadius: 0 } } }}>
+				<UsersTable instanceId={instanceId} onlyOnline size="small" pagination={{
+					defaultPageSize: 10,
+					showSizeChanger: true,
+					pageSizeOptions: ["10", "20", "50", "100", "200"],
+					showTotal: (total: number) => `${total} Users`,
+				}} />
+			</ConfigProvider>,
 		}]}
 	/>;
 }

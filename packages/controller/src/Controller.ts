@@ -48,6 +48,11 @@ const logSizeGauge = new Gauge(
 
 type InstanceId = { instanceId: number };
 
+const htmlEscapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
+function escapeHtml(text: string) {
+	return text.replace(/[&<>"']/g, char => htmlEscapes[char]);
+}
+
 type ControllerDebugEvents = {
 	"message": [ { direction: "in" | "out", content: string } ],
 };
@@ -1720,8 +1725,16 @@ export default class Controller {
 				path.join(import.meta.dirname, "..", "..", "..", "web", "index.html"),
 				"utf8",
 			).then(async (content) => {
+				const config: lib.ControllerConfig = res.app.locals.controller.config;
+				let faviconUrl = config.get("controller.favicon_url");
+				// Relative to the web root rather than the page
+				if (faviconUrl && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(faviconUrl)) {
+					faviconUrl = webRoot + faviconUrl;
+				}
+				const favicon = faviconUrl ? `<link rel="icon" href="${escapeHtml(faviconUrl)}" />` : "";
 				content = content
-					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))
+					.replace(/__CLUSTER_NAME__/g, () => escapeHtml(config.get("controller.name")))
+					.replace(/__FAVICON__/g, () => favicon)
 					.replace(/__WEB_ROOT__/g, webRoot)
 					.replace(/__STATIC_ROOT__/g, staticRoot)
 					.replace(/__IMPORT_MAP__/g, () => importMap)

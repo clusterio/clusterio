@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Layout, Breadcrumb } from "antd";
 import Link from "./Link";
 
@@ -11,7 +11,19 @@ type PageLayoutProps = {
 	}[];
 	children?: any;
 };
+function clusterName() {
+	const meta = document.querySelector<HTMLMetaElement>("meta[name=application-name]");
+	return meta?.content || "Clusterio";
+}
+
 export default function PageLayout(props: PageLayoutProps) {
+	const page = props.nav.at(-1)?.name;
+	useEffect(() => {
+		const name = clusterName();
+		document.title = page ? `${page} - ${name}` : name;
+		return () => { document.title = name; };
+	}, [page]);
+
 	return <>
 		<Breadcrumb
 			className="site-breadcrumb"

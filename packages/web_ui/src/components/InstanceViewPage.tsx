@@ -27,7 +27,7 @@ import SavesList from "./SavesList";
 import OnlinePlayersList from "./OnlinePlayersList";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance, useInstances } from "../model/instance";
-import { CreateInstanceButton } from "./InstancesPage";
+import { CreateInstanceButton, CreateInstanceModal } from "./InstancesPage";
 import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
@@ -146,6 +146,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
 	let [exportingData, setExportingData] = useState(false);
+	const [modal, setModal] = useState<"scenario" | "template">();
 	let instance = props.instance;
 	let instanceId = instance.id!;
 	let [host] = useHost(instance.assignedHost);
@@ -154,6 +155,9 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	const pluginActions = usePluginActions("InstanceViewPage", { instance });
 
 	let instanceButtonMenuItems: MenuItem[] = [];
+	if (canCreate) {
+		instanceButtonMenuItems.push({ key: "template", label: "Create template" });
+	}
 	if (account.hasPermission("core.instance.export_data")) {
 		instanceButtonMenuItems.push({
 			disabled: exportingData || instance.status !== "stopped",
@@ -199,7 +203,9 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let instanceButtonsMenuProps: MenuProps = {
 		items: instanceButtonMenuItems,
 		onClick: ({ key }: { key: string }) => {
-			if (key === "export") {
+			if (key === "template") {
+				setModal("template");
+			} else if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
 					{ instanceId },
@@ -240,10 +246,19 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 		</Space>;
 	}
 
+	const canLoadScenario = account.hasPermission("core.instance.load_scenario");
 	return <Space wrap>
 		{
-			account.hasAnyPermission(...InstanceControlButtonPermissions)
-			&& <InstanceControlButton instance={instance} />
+			account.hasAnyPermission(...InstanceControlButtonPermissions, "core.instance.load_scenario")
+			&& <InstanceControlButton
+				instance={instance}
+				extraActions={canLoadScenario ? [{
+					key: "scenario",
+					label: "Load scenario",
+					disabled: instance.status !== "stopped",
+					onClick: () => setModal("scenario"),
+				}] : []}
+			/>
 		}
 		<Button
 			onClick={() => {
@@ -256,17 +271,21 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 		>
 			Connect via Steam
 		</Button>
-		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
-		{canCreate && <CreateInstanceButton
-			instances={instances}
-			initial={{ instanceClone: instanceId, asTemplate: true, linkSource: true }}
-			buttonText="Create template"
-			buttonType="default"
-		/>}
 		{instanceButtonMenuItems.length > 0
 			&& <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
 				<Button>More <DownOutlined /></Button>
 			</Dropdown>}
+		{canLoadScenario && <LoadScenarioModal
+			instance={instance}
+			open={modal === "scenario"}
+			onClose={() => setModal(undefined)}
+		/>}
+		{canCreate && <CreateInstanceModal
+			instances={instances}
+			initial={{ instanceClone: instanceId, asTemplate: true, linkSource: true }}
+			open={modal === "template"}
+			onClose={() => setModal(undefined)}
+		/>}
 	</Space>;
 }
 

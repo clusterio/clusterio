@@ -11,6 +11,8 @@ import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableD
 type InstanceControlButtonProps = Omit<VariableDropdownButtonProps, "actions"> & {
 	instance: lib.InstanceDetails;
 	onFinish?: () => void;
+	/** Added to the dropdown before Kill */
+	extraActions?: VariableDropdownButtonProps["actions"];
 };
 
 export const InstanceControlButtonPermissions = [
@@ -23,8 +25,9 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 	const [switching, setSwitching] = useState<boolean>(false);
 	const [popconfirm, setPopconfirm] = useState<string | null>(null);
 
-	const instanceId = props.instance.id;
-	const instanceStatus = props.instance.status;
+	const { instance, onFinish, extraActions, ...buttonProps } = props;
+	const instanceId = instance.id;
+	const instanceStatus = instance.status;
 	// While starting or stopping the button shows the action in progress as loading.
 	const showStart = ["stopped", "starting"].includes(instanceStatus);
 	const showStop = ["running", "stopping"].includes(instanceStatus);
@@ -32,8 +35,8 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 
 	function actionFinish() {
 		setSwitching(false);
-		if (props.onFinish) {
-			props.onFinish();
+		if (onFinish) {
+			onFinish();
 		}
 	}
 
@@ -88,6 +91,8 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 		});
 	}
 
+	actions.push(...extraActions ?? []);
+
 	if (account.hasPermission("core.instance.kill")) {
 		actions.push({
 			key: "kill",
@@ -100,7 +105,7 @@ export default function InstanceControlButton(props: InstanceControlButtonProps)
 
 	return <div style={{ position: "relative", display: "inline-block" }}>
 		<VariableDropdownButton
-			{...props}
+			{...buttonProps}
 			type="primary"
 			actions={actions}
 			loading={switching || transitioning}
