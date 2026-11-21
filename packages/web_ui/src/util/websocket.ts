@@ -64,6 +64,7 @@ export class Control extends lib.Link {
 	public loadedPlugins = new Map<string, lib.PluginWebEnvInfo>();
 	public inputComponents = new Map<string, WebPlugin.InputComponent>();
 	public extensionComponents: Partial<WebPlugin.ExtensionComponents> = {};
+	public pageActions: Partial<WebPlugin.PageActions> = {};
 	public loginForms: WebPlugin.PluginLoginForm[] = [];
 	public pages: WebPlugin.PluginPage[] = [];
 

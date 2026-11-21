@@ -25,22 +25,25 @@ import {
 import { useSystems } from "../model/system";
 import useResourceState from "../util/useResourceState";
 import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
+import usePluginActions from "../util/usePluginActions";
 import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableDropdownButton";
 
 const { Title } = Typography;
 
 type HostControlButtonProps = {
-	hostId: number,
+	host: lib.HostDetails,
 	instances: ReadonlyMap<number, lib.InstanceDetails>,
 	canRestart?: boolean,
 	restartRequired?: boolean,
 };
 
-function HostControlButton({ hostId, instances, canRestart, restartRequired }: HostControlButtonProps) {
+function HostControlButton({ host, instances, canRestart, restartRequired }: HostControlButtonProps) {
 	const account = useAccount();
 	const control = useContext(ControlContext);
 	const [modal, modalContext] = Modal.useModal();
+	const hostId = host.id;
 	const actions: VariableDropdownButtonProps["actions"] = [];
+	const pluginActions = usePluginActions("HostViewPage", { host });
 
 	if (account.hasPermission("core.host.restart") && canRestart) {
 		actions.push({
@@ -92,6 +95,8 @@ function HostControlButton({ hostId, instances, canRestart, restartRequired }: H
 			},
 		});
 	}
+
+	actions.push(...pluginActions);
 
 	if (account.hasPermission("core.host.stop")) {
 		actions.push({
@@ -174,7 +179,7 @@ export default function HostViewPage() {
 
 	let hostButtons = <Space wrap>
 		<HostControlButton
-			hostId={hostId}
+			host={host}
 			instances={hostInstances}
 			canRestart={system?.canRestart}
 			restartRequired={system?.restartRequired}
