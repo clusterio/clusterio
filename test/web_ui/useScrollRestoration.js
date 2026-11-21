@@ -56,19 +56,32 @@ function resize(maxScroll) {
 	}
 }
 
+// Non-enumerable so mocha --check-leaks ignores them
 function withDom() {
+	const names = ["window", "document", "sessionStorage", "ResizeObserver"];
+	const saved = new Map();
 	beforeEach(function() {
 		FakeResizeObserver.observers.clear();
-		globalThis.window = new FakeWindow();
-		globalThis.document = { body: {} };
-		globalThis.sessionStorage = new MemoryStorage();
-		globalThis.ResizeObserver = FakeResizeObserver;
+		const fakes = {
+			window: new FakeWindow(),
+			document: { body: {} },
+			sessionStorage: new MemoryStorage(),
+			ResizeObserver: FakeResizeObserver,
+		};
+		for (const name of names) {
+			saved.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
+			Object.defineProperty(globalThis, name, { value: fakes[name], configurable: true, writable: true });
+		}
 	});
 	afterEach(function() {
-		delete globalThis.window;
-		delete globalThis.document;
-		delete globalThis.sessionStorage;
-		delete globalThis.ResizeObserver;
+		for (const name of names) {
+			const descriptor = saved.get(name);
+			if (descriptor) {
+				Object.defineProperty(globalThis, name, descriptor);
+			} else {
+				delete globalThis[name];
+			}
+		}
 	});
 }
 
