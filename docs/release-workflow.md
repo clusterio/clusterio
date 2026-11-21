@@ -62,7 +62,7 @@ The steps below describe publishing npm packages manually instead.
     The repository does not track `pnpm-lock.yaml`, so allow pnpm to generate or update it during installation.
 
     ```sh
-    node clean.js --dry-run
+    node scripts/clean.js --dry-run
     pnpm clean
     pnpm install --no-frozen-lockfile
     pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match publish

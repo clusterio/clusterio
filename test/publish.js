@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { publishMods, uploadModRelease } from "../publish.js";
+import { publishMods, uploadModRelease } from "../scripts/publish.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -94,7 +94,7 @@ describe("mod publishing", function() {
 		`;
 		const { stdout, stderr } = await execFileAsync(process.execPath, [
 			"--import", `data:text/javascript,${encodeURIComponent(mockFetch)}`,
-			"publish.js", "factorio", directory, "--dry-run",
+			"scripts/publish.js", "factorio", directory, "--dry-run",
 		]);
 		assert.equal(stderr, "");
 		assert(stdout.includes("Requesting current releases of cli_publish_test"));

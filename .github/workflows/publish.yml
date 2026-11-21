@@ -40,7 +40,7 @@ jobs:
           node-version: 24.x
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm -r --filter='./packages/*' --filter='./plugins/*' --fail-if-no-match run build-mod --output-dir ../../dist
-      - run: node ./publish.js factorio ./dist
+      - run: node ./scripts/publish.js factorio ./dist
         env:
           FACTORIO_TOKEN: ${{ secrets.FACTORIO_TOKEN }}
       - uses: softprops/action-gh-release@v3

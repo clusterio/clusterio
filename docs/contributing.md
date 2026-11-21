@@ -229,13 +229,13 @@ For documentation changes, check that links, paths, and example commands are cor
 
 ### Cleaning generated and runtime files
 
-Inspect `node clean.js --help` and preview the selected scope with `--dry-run` before cleaning.
+Inspect `node scripts/clean.js --help` and preview the selected scope with `--dry-run` before cleaning.
 
 | Command | Removal scope |
 | --- | --- |
-| `node clean.js --dry-run` | Preview workspace package/plugin build output and Vite dependency caches; omit `--dry-run` to clean, or use `pnpm clean`. |
-| `node clean.js tests --dry-run` | Also preview root `.nyc_output/`, `coverage/`, the whole `temp/` directory, and `static/`. |
-| `node clean.js all --dry-run` | Also preview runtime databases, instances, logs, mods, local configs, `FactorioAdminToken.txt`, and `plugin-list.json`. |
+| `node scripts/clean.js --dry-run` | Preview workspace package/plugin build output and Vite dependency caches; omit `--dry-run` to clean, or use `pnpm clean`. |
+| `node scripts/clean.js tests --dry-run` | Also preview root `.nyc_output/`, `coverage/`, the whole `temp/` directory, and `static/`. |
+| `node scripts/clean.js all --dry-run` | Also preview runtime databases, instances, logs, mods, local configs, `FactorioAdminToken.txt`, and `plugin-list.json`. |
 
 `all` deletes cluster runtime data, including configurations and saves; back up anything you want to keep before using it.
 The cleaner excludes `external_plugins/` and does not remove mod archives in root `dist/`.
