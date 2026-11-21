@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { type Location, useLocation, useNavigationType } from "react-router-dom";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { type Location, type NavigationType, useLocation, useNavigationType } from "react-router-dom";
 
 const storageKey = "scroll_positions";
 const maxEntries = 100;
@@ -49,7 +49,7 @@ export function scrollKey(location: Pick<Location, "key" | "pathname" | "search"
  * Scroll to y, retrying as the page grows while its data loads. Gives up after
  * a timeout or when the user scrolls.
  */
-function restoreScroll(y: number, onDone: () => void) {
+export function restoreScroll(y: number, onDone: () => void) {
 	const inputEvents = ["wheel", "touchstart", "keydown", "pointerdown"];
 	const observer = new ResizeObserver(attempt);
 	const timeout = setTimeout(stop, restoreTimeoutMs);
@@ -83,6 +83,56 @@ function restoreScroll(y: number, onDone: () => void) {
 	return stop;
 }
 
+export class ScrollRestorer {
+	positions = loadScrollPositions(sessionStorage);
+	restoring = false;
+
+	key: string;
+	pathname: string;
+
+	constructor(key: string, pathname: string) {
+		this.key = key;
+		this.pathname = pathname;
+	}
+
+	/** Start recording scroll positions, returns a function that stops it. */
+	attach() {
+		window.history.scrollRestoration = "manual";
+		const onScroll = () => {
+			if (!this.restoring) {
+				setScrollPosition(this.positions, this.key, window.scrollY);
+			}
+		};
+		const persist = () => saveScrollPositions(sessionStorage, this.positions);
+		window.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("pagehide", persist);
+		return () => {
+			window.removeEventListener("scroll", onScroll);
+			window.removeEventListener("pagehide", persist);
+			persist();
+		};
+	}
+
+	/** Handle a location change, returns a function that cancels a pending restore. */
+	navigate(key: string, pathname: string, navigationType: NavigationType) {
+		this.key = key;
+		saveScrollPositions(sessionStorage, this.positions);
+		const pathChanged = this.pathname !== pathname;
+		this.pathname = pathname;
+		// Table sort, filter and page changes only change the query
+		if (navigationType === "PUSH" && pathChanged) {
+			window.scrollTo(0, 0);
+			return undefined;
+		}
+		if (navigationType !== "POP") {
+			setScrollPosition(this.positions, key, window.scrollY);
+			return undefined;
+		}
+		this.restoring = true;
+		return restoreScroll(this.positions.get(key) ?? 0, () => { this.restoring = false; });
+	}
+}
+
 /**
  * Restore the window scroll position on back/forward and page reload, and
  * scroll to the top when navigating to another page.
@@ -91,48 +141,7 @@ export default function useScrollRestoration() {
 	const location = useLocation();
 	const navigationType = useNavigationType();
 	const key = scrollKey(location);
-	const positions = useRef<Map<string, number> | null>(null);
-	const currentKey = useRef(key);
-	const restoring = useRef(false);
-	const pathname = useRef(location.pathname);
-	if (!positions.current) {
-		positions.current = loadScrollPositions(sessionStorage);
-	}
-
-	useEffect(() => {
-		window.history.scrollRestoration = "manual";
-		function onScroll() {
-			if (!restoring.current) {
-				setScrollPosition(positions.current!, currentKey.current, window.scrollY);
-			}
-		}
-		function persist() {
-			saveScrollPositions(sessionStorage, positions.current!);
-		}
-		window.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("pagehide", persist);
-		return () => {
-			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("pagehide", persist);
-			persist();
-		};
-	}, []);
-
-	useLayoutEffect(() => {
-		currentKey.current = key;
-		saveScrollPositions(sessionStorage, positions.current!);
-		const pathChanged = pathname.current !== location.pathname;
-		pathname.current = location.pathname;
-		// Table sort, filter and page changes only change the query
-		if (navigationType === "PUSH" && pathChanged) {
-			window.scrollTo(0, 0);
-			return undefined;
-		}
-		if (navigationType !== "POP") {
-			setScrollPosition(positions.current!, key, window.scrollY);
-			return undefined;
-		}
-		restoring.current = true;
-		return restoreScroll(positions.current!.get(key) ?? 0, () => { restoring.current = false; });
-	}, [key]);
+	const [restorer] = useState(() => new ScrollRestorer(key, location.pathname));
+	useEffect(() => restorer.attach(), []);
+	useLayoutEffect(() => restorer.navigate(key, location.pathname, navigationType), [key]);
 }
