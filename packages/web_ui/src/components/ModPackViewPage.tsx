@@ -4,8 +4,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
 	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Switch, Modal, Tooltip,
-	TablePaginationConfig, Alert, notification, FormProps, Collapse,
+	TablePaginationConfig, Alert, notification, FormProps, Collapse, Upload,
 } from "antd";
+import type { UploadChangeParam } from "antd/es/upload";
 
 import {
 	ExportOutlined, FileUnknownOutlined, FileExclamationOutlined, FileSyncOutlined,
@@ -31,6 +32,9 @@ import SectionHeader from "./SectionHeader";
 import ResourceNotes from "./ResourceNotes";
 import ResourceState from "./ResourceState";
 import ModDetails from "./ModDetails";
+import { Dropzone } from "./Dropzone";
+import UploadButton from "./UploadButton";
+import { useUploadProgress } from "./UploadProgress";
 import { InputPartialVersion } from "./InputVersion";
 import Link from "./Link";
 
@@ -526,6 +530,16 @@ function DownloadDependenciesButton(props: DownloadDependenciesProps) {
 	</>;
 }
 
+function UploadDragger(props: React.ComponentProps<typeof Upload.Dragger>) {
+	if (props.disabled) {
+		return <>{props.children}</>;
+	}
+	return <Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...props}>
+		<Dropzone />
+		{props.children}
+	</Upload.Dragger>;
+}
+
 type ModsTableProps = {
 	modPack: lib.ModPack;
 	changes: ModChange[];
@@ -535,6 +549,8 @@ type ModsTableProps = {
 };
 function ModsTable(props: ModsTableProps) {
 	const account = useAccount();
+	const control = useContext(ControlContext);
+	const { customRequest, list: uploadList } = useUploadProgress();
 	const [modInfos] = useMods();
 
 	const [showAddMods, setShowAddMods] = useState(false);
@@ -743,6 +759,33 @@ function ModsTable(props: ModsTableProps) {
 		</Space>;
 	}
 
+	function onUpload({ file }: UploadChangeParam) {
+		if (file.status !== "done") {
+			return;
+		}
+		for (const json of file.response.mods) {
+			const mod = lib.ModInfo.fromJSON(json);
+			props.onChange({
+				type: "mods.set",
+				name: mod.name,
+				value: { name: mod.name, enabled: true, version: mod.version, sha1: mod.sha1 },
+			});
+		}
+	}
+
+	const canUpload = account.hasPermission("core.mod.upload");
+	const uploadProps = {
+		disabled: !canUpload,
+		name: "file",
+		accept: ".zip",
+		multiple: true,
+		showUploadList: false,
+		headers: { "X-Access-Token": control.connector.token || "" },
+		action: `${webRoot}api/upload-mod`,
+		customRequest,
+		onChange: onUpload,
+	};
+
 	return <>
 		<SectionHeader
 			title="Mods"
@@ -779,6 +822,7 @@ function ModsTable(props: ModsTableProps) {
 						builtInModNames={props.builtInModNames}
 						checkForUpdates
 					/>}
+				{canUpload && <Upload {...uploadProps}><UploadButton /></Upload>}
 				<Button icon={<PlusOutlined />} onClick={() => setShowAddMods(true)}>Add</Button>
 			</Space>}
 		/>
@@ -790,113 +834,120 @@ function ModsTable(props: ModsTableProps) {
 		>
 			<SearchModsTable modPack={props.modPack} changes={props.changes} onChange={props.onChange} />
 		</Card>}
-		<Table
-			size="small"
-			rowSelection={{
-				type: "checkbox",
-				selectedRowKeys: [...props.modPack.mods.values()].filter(mod => mod.enabled).map(mod => mod.name),
-				getCheckboxProps(mod) {
-					return { disabled: deletedMods.has(mod.name) };
-				},
-				onChange(selectedRowKeys, selectedRows) {
-					function setEnabled(modNames: string[], enabled: boolean) {
-						for (let name of modNames) {
-							props.onChange({
-								type: "mods.set",
-								name,
-								value: { ...props.modPack.mods.get(name)!, enabled },
-							});
-						}
-					}
-					const added = selectedRowKeys.filter(
-						key => !props.modPack.mods.get(key as string)?.enabled
-					) as string[];
-					const removed = [...props.modPack.mods.values()].filter(
-						mod => mod.enabled && selectedRowKeys.indexOf(mod.name) === -1
-					).map(mod => mod.name);
-					setEnabled(added, true);
-					setEnabled(removed, false);
-				},
-			}}
-			columns={[
-				{
-					title: "Name",
-					key: "name",
-					render: (_, mod: lib.ModRecord) => {
-						const recommendedBy = mod.advisories
-							?.filter(advisory => advisory.type === "recommended_dependency")
-							.map(advisory => advisory.sourceModName) ?? [];
-						const update = mod.advisories
-							?.find(advisory => advisory.type === "update_available");
-						return <>
-							{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
-								<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
-							</Tooltip>}
-							{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
-								<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
-							</Tooltip>}
-							{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
-								<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
-							</Tooltip>}
-							{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
-								<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
-							</Tooltip>}
-							{mod.warning === "wrong_version" && <Tooltip
-								title="Mod has wrong dependency version added."
-							>
-								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
-							</Tooltip>}
-							{mod.warning === "wrong_factorio_version" && <Tooltip
-								title="Mod has wrong factorio version."
-							>
-								<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
-							</Tooltip>}
-							{recommendedBy.length > 0 && <Tooltip
-								title={`Recommended by ${recommendedBy.join(", ")}, but currently disabled.`}
-							>
-								<LikeOutlined style={{ color: "#0958d9" }} />{" "}
-							</Tooltip>}
-							{update?.type === "update_available" && <Tooltip
-								title={`A newer compatible version (${update.version}) is available.`}
-							>
-								<CloudSyncOutlined style={{ color: "#0958d9" }} />{" "}
-							</Tooltip>}
-							{mod.info?.title || mod.name}
-						</>;
+		{uploadList}
+		<UploadDragger {...uploadProps}>
+			<Table
+				size="small"
+				rowSelection={{
+					type: "checkbox",
+					selectedRowKeys: [...props.modPack.mods.values()].filter(mod => mod.enabled).map(mod => mod.name),
+					getCheckboxProps(mod) {
+						return { disabled: deletedMods.has(mod.name) };
 					},
-					defaultSortOrder: "ascend",
-					sorter: (a, b) => strcmp(a.name, b.name),
-				},
-				{
-					title: "Version",
-					key: "version",
-					render: (_, mod: lib.ModRecord) => versionSelect(mod),
-					sorter: (a, b) => strcmp(a.version, b.version),
-				},
-				{
-					title: "Action",
-					key: "action",
-					responsive: ["lg"],
-					render: mod => actions(mod),
-				},
-			]}
-			expandable={{
-				expandedRowRender: mod => <ModDetails mod={mod} mods={mods.filter(m => m.enabled)} actions={actions} />,
-				expandedRowClassName: () => "no-expanded-padding",
-			}}
-			dataSource={mods}
-			pagination={false}
-			rowKey="name"
-			rowClassName={mod => {
-				if (deletedMods.has(mod.name)) {
-					return "deleted";
-				}
-				if (changedMods.has(mod.name)) {
-					return "changed";
-				}
-				return "";
-			}}
-		/>
+					onChange(selectedRowKeys, selectedRows) {
+						function setEnabled(modNames: string[], enabled: boolean) {
+							for (let name of modNames) {
+								props.onChange({
+									type: "mods.set",
+									name,
+									value: { ...props.modPack.mods.get(name)!, enabled },
+								});
+							}
+						}
+						const added = selectedRowKeys.filter(
+							key => !props.modPack.mods.get(key as string)?.enabled
+						) as string[];
+						const removed = [...props.modPack.mods.values()].filter(
+							mod => mod.enabled && selectedRowKeys.indexOf(mod.name) === -1
+						).map(mod => mod.name);
+						setEnabled(added, true);
+						setEnabled(removed, false);
+					},
+				}}
+				columns={[
+					{
+						title: "Name",
+						key: "name",
+						render: (_, mod: lib.ModRecord) => {
+							const recommendedBy = mod.advisories
+								?.filter(advisory => advisory.type === "recommended_dependency")
+								.map(advisory => advisory.sourceModName) ?? [];
+							const update = mod.advisories
+								?.find(advisory => advisory.type === "update_available");
+							return <>
+								{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
+									<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
+								</Tooltip>}
+								{mod.error === "bad_checksum" && <Tooltip title="Mod checksum mismatch.">
+									<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
+								</Tooltip>}
+								{mod.warning === "incompatible" && <Tooltip title="Mod is incompatible with another.">
+									<FileExclamationOutlined style={{ color: "#dd5e14" }} />{" "}
+								</Tooltip>}
+								{mod.warning === "missing_dependency" && <Tooltip title="Mod is missing a dependency.">
+									<FileUnknownOutlined style={{ color: "#dd5e14" }} />{" "}
+								</Tooltip>}
+								{mod.warning === "wrong_version" && <Tooltip
+									title="Mod has wrong dependency version added."
+								>
+									<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+								</Tooltip>}
+								{mod.warning === "wrong_factorio_version" && <Tooltip
+									title="Mod has wrong factorio version."
+								>
+									<FileSyncOutlined style={{ color: "#dd5e14" }} />{" "}
+								</Tooltip>}
+								{recommendedBy.length > 0 && <Tooltip
+									title={`Recommended by ${recommendedBy.join(", ")}, but currently disabled.`}
+								>
+									<LikeOutlined style={{ color: "#0958d9" }} />{" "}
+								</Tooltip>}
+								{update?.type === "update_available" && <Tooltip
+									title={`A newer compatible version (${update.version}) is available.`}
+								>
+									<CloudSyncOutlined style={{ color: "#0958d9" }} />{" "}
+								</Tooltip>}
+								{mod.info?.title || mod.name}
+							</>;
+						},
+						defaultSortOrder: "ascend",
+						sorter: (a, b) => strcmp(a.name, b.name),
+					},
+					{
+						title: "Version",
+						key: "version",
+						render: (_, mod: lib.ModRecord) => versionSelect(mod),
+						sorter: (a, b) => strcmp(a.version, b.version),
+					},
+					{
+						title: "Action",
+						key: "action",
+						responsive: ["lg"],
+						render: mod => actions(mod),
+					},
+				]}
+				expandable={{
+					expandedRowRender: mod => <ModDetails
+						mod={mod}
+						mods={mods.filter(m => m.enabled)}
+						actions={actions}
+					/>,
+					expandedRowClassName: () => "no-expanded-padding",
+				}}
+				dataSource={mods}
+				pagination={false}
+				rowKey="name"
+				rowClassName={mod => {
+					if (deletedMods.has(mod.name)) {
+						return "deleted";
+					}
+					if (changedMods.has(mod.name)) {
+						return "changed";
+					}
+					return "";
+				}}
+			/>
+		</UploadDragger>
 	</>;
 }
 
