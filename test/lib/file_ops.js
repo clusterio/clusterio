@@ -412,6 +412,20 @@ describe("lib/file_ops", function() {
 			await assert.rejects(fs.readFile(downloadPath), { code: "ENOENT" });
 		});
 
+		it("should not leave a temporary file behind if interrupted while writing", async function () {
+			const downloadPath = path.join(downloadDir, "interrupted-writing.txt");
+			onStream = (res) => {
+				res.write(Buffer.alloc(1024 * 1024));
+				setTimeout(() => res.destroy(), 100);
+			};
+			await assert.rejects(lib.downloadFile(new URL("/stream", baseUrl), downloadPath, "rename"));
+			await assert.rejects(
+				fs.readFile(path.join(downloadDir, "interrupted-writing.tmp.txt")),
+				{ code: "ENOENT" },
+			);
+			await assert.rejects(fs.readFile(downloadPath), { code: "ENOENT" });
+		});
+
 		it("should throw if overwriteMode is rename and directory disappeared", async function () {
 			if (process.platform === "win32") {
 				// Can't remove the directory while the stream is running on Windows.
