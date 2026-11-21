@@ -2,7 +2,6 @@
  * @module lib/file_ops
  */
 import crypto from "crypto";
-import events from "events";
 import fs from "node:fs/promises";
 import path from "path";
 import stream from "stream";
@@ -258,7 +257,8 @@ export async function createTempWriteStream(filePath: string) {
 async function discardPartialDownload(writeStream: stream.Writable, tempFilePath: string) {
 	if (!writeStream.closed) {
 		writeStream.destroy();
-		await events.once(writeStream, "close");
+		// Not events.once, it rejects if the stream is still erroring from the aborted pipe.
+		await new Promise(resolve => writeStream.once("close", resolve));
 	}
 	try {
 		await fs.unlink(tempFilePath);
