@@ -19,6 +19,7 @@ import PageLayout from "./PageLayout";
 import notify, { notifyErrorHandler } from "../util/notify";
 import webUiPackage from "../../package.json";
 import { hasNpmButtonPermission, NpmButton } from "./NpmButton";
+import usePluginActions from "../util/usePluginActions";
 import VariableDropdownButton, { VariableDropdownButtonProps } from "./VariableDropdownButton";
 
 const { Title } = Typography;
@@ -30,6 +31,7 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 	const control = useContext(ControlContext);
 	const [modal, modalContext] = Modal.useModal();
 	const actions: VariableDropdownButtonProps["actions"] = [];
+	const pluginActions = usePluginActions("ControllerPage", {});
 
 	if (account.hasPermission("core.controller.restart") && canRestart) {
 		actions.push({
@@ -70,6 +72,8 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 			},
 		});
 	}
+
+	actions.push(...pluginActions);
 
 	if (account.hasPermission("core.controller.stop")) {
 		actions.push({

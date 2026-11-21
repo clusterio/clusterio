@@ -15,19 +15,20 @@ export default function VariableDropdownButton(props: VariableDropdownButtonProp
 		return <></>;
 	}
 
+	const mainDisabled = props.disabled || mainAction.disabled;
 	const buttonProps: DropdownButtonProps = {
 		...props,
 		danger: mainAction.danger,
 		onClick: (event) => {
 			event.stopPropagation();
-			if (mainAction.onClick) {
+			if (!mainDisabled && mainAction.onClick) {
 				mainAction.onClick();
 			}
 		},
 	};
 
 	return menuActions.length === 0
-		? <Button {...buttonProps}>
+		? <Button {...buttonProps} disabled={mainDisabled}>
 			{mainAction.label}
 		</Button>
 		: <Dropdown.Button
@@ -35,7 +36,8 @@ export default function VariableDropdownButton(props: VariableDropdownButtonProp
 			// stopPropagation is needed to prevent propagation to table rows
 			menu={{ items: menuActions, onClick: (e: any) => e.domEvent.stopPropagation() }}
 			buttonsRender={([left, right]) => [
-				left, React.cloneElement(right as any, { onClick: (e: any) => e.stopPropagation() }),
+				React.cloneElement(left as any, { disabled: mainDisabled }),
+				React.cloneElement(right as any, { onClick: (e: any) => e.stopPropagation() }),
 			]}
 		>
 			{mainAction.label}

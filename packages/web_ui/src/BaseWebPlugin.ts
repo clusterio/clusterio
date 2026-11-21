@@ -140,6 +140,46 @@ export type ExtensionComponent<K extends PluginExtensionSlot> = React.ComponentT
 
 export type ExtensionComponents = { [K in PluginExtensionSlot]: Map<string, ExtensionComponent<K>> };
 
+/**
+ * Action added by a plugin to the actions dropdown of a page.
+ */
+export type PluginPageAction = {
+	/** Unique within the plugin, the web UI prefixes it with the plugin name. */
+	key: string;
+	label: React.ReactNode;
+	icon?: React.ReactNode;
+	disabled?: boolean;
+	danger?: boolean;
+	onClick?: () => void;
+};
+
+export type PageActionsSlotProps = {
+	/** Controller control button on the controller page. */
+	ControllerPage: Record<never, never>;
+	/** Host control button on each host page. */
+	HostViewPage: {
+		host: lib.HostDetails;
+	};
+	/** More dropdown on each instance and template page. */
+	InstanceViewPage: {
+		instance: lib.InstanceDetails;
+	};
+	/** More dropdown on each user page. */
+	UserViewPage: {
+		user: lib.UserDetails;
+	};
+};
+
+export type PageActionsSlot = keyof PageActionsSlotProps;
+
+/**
+ * Returns the actions to add to a page. It is called during render like a
+ * React hook, so it may call hooks such as useAccount or useState.
+ */
+export type PageActionsHook<K extends PageActionsSlot> = (props: PageActionsSlotProps[K]) => PluginPageAction[];
+
+export type PageActions = { [K in PageActionsSlot]: Map<string, PageActionsHook<K>> };
+
 export type WebPluginContext = lib.PluginLoadContext<{
 	control: Control;
 	container: any;
@@ -156,6 +196,7 @@ export class WebHooks extends lib.AsyncHookCollection {
 		this.extensionComponents = this.newHook();
 		this.inputComponents = this.newHook();
 		this.loginForms = this.newHook();
+		this.pageActions = this.newHook();
 		this.pages = this.newHook();
 	}
 
@@ -224,6 +265,28 @@ export class WebHooks extends lib.AsyncHookCollection {
 	 * Each must has a unique name prefixed with the plugin name.
 	 */
 	readonly loginForms: lib.AsyncHook<[], PluginLoginForm[]>;
+
+	/**
+	 * Additional actions for the actions dropdown on resource pages.
+	 *
+	 * Each plugin may return a partial mapping of page names to
+	 * functions returning the actions for that page. Plugin actions are
+	 * placed after the built in ones and before stop and delete.
+	 *
+	 * @example
+	 * ```ts
+	 * control.hooks.pageActions.attach("my_plugin", () => ({
+	 *     UserViewPage: ({ user }) => [{
+	 *         key: "warn",
+	 *         label: "Warn",
+	 *         onClick: () => control.send(new WarnUserRequest(user.name)),
+	 *     }],
+	 * }));
+	 * ```
+	 */
+	readonly pageActions: lib.AsyncHook<[], Partial<{
+		[K in PageActionsSlot]: PageActionsHook<K>;
+	}>>;
 
 	/**
 	 * Additional pages accessible on the web ui.

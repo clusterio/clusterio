@@ -36,6 +36,7 @@ import { useDefaultModPack, useModPacks } from "../model/mod_pack";
 import InstanceModPack from "./InstanceModPack";
 import useLocalStorage from "../util/useLocalStorage";
 import useResourceState from "../util/useResourceState";
+import usePluginActions from "../util/usePluginActions";
 import { MetricRelativeDate } from "./system_metrics";
 
 type MenuItem = Required<MenuProps>["items"][number];
@@ -150,6 +151,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let [host] = useHost(instance.assignedHost);
 	const [instances] = useInstances();
 	const canCreate = account.hasPermission("core.instance.create");
+	const pluginActions = usePluginActions("InstanceViewPage", { instance });
 
 	let instanceButtonMenuItems: MenuItem[] = [];
 	if (account.hasPermission("core.instance.export_data")) {
@@ -166,6 +168,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			label: "Extract players from save",
 		});
 	}
+	instanceButtonMenuItems.push(...pluginActions);
 	if (account.hasPermission("core.instance.delete")) {
 		if (instanceButtonMenuItems.length) {
 			instanceButtonMenuItems.push({ type: "divider" });
@@ -230,6 +233,10 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 				icon={<DeleteOutlined />}
 				onClick={confirmDelete}
 			>Delete</Button>}
+			{pluginActions.length > 0
+				&& <Dropdown placement="bottomRight" trigger={["click"]} menu={{ items: pluginActions }}>
+					<Button>More <DownOutlined /></Button>
+				</Dropdown>}
 		</Space>;
 	}
 
@@ -256,11 +263,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			buttonText="Create template"
 			buttonType="default"
 		/>}
-		{account.hasAnyPermission(
-			"core.instance.export_data",
-			"core.instance.extract_players",
-			"core.instance.delete",
-		)
+		{instanceButtonMenuItems.length > 0
 			&& <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
 				<Button>More <DownOutlined /></Button>
 			</Dropdown>}

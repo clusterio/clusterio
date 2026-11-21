@@ -12,6 +12,7 @@ import { InputInstanceTemplate } from "./components/InputInstance";
 import { InputTargetVersion, InputPartialVersion, InputFullVersion } from "./components/InputVersion";
 import { Control, ControlConnector } from "./util/websocket";
 import { loadedPluginSetKey } from "./util/pluginSet";
+import { pageActionsFromHooks } from "./util/plugin_actions";
 import * as WebPlugin from "./BaseWebPlugin";
 import { pages } from "./pages";
 
@@ -209,6 +210,7 @@ export default async function bootstrap() {
 
 	control.inputComponents = await inputComponentsFromHooks(control);
 	control.extensionComponents = await extensionComponentsFromHooks(control);
+	control.pageActions = await pageActionsFromHooks(control.hooks);
 	control.loginForms = await loginFormsFromHooks(control);
 	control.pages = await pagesFromHooks(control);
 

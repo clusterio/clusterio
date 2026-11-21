@@ -1,10 +1,11 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Button, Col, Descriptions, Form, Input, Popconfirm,
+	Button, Col, Descriptions, Dropdown, Form, Input, Popconfirm,
 	Row, Table, Tag, Select, Space, Switch,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
+import DownOutlined from "@ant-design/icons/DownOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -21,6 +22,7 @@ import ResourceNotes from "./ResourceNotes";
 import ResourceState from "./ResourceState";
 import useRowNavigation from "../util/useRowNavigation";
 import useResourceState from "../util/useResourceState";
+import usePluginActions from "../util/usePluginActions";
 import Link from "./Link";
 import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
@@ -28,6 +30,16 @@ import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUser }
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
+
+function UserPluginActions(props: { user: lib.UserDetails }) {
+	const pluginActions = usePluginActions("UserViewPage", { user: props.user });
+	if (!pluginActions.length) {
+		return null;
+	}
+	return <Dropdown placement="bottomRight" trigger={["click"]} menu={{ items: pluginActions }}>
+		<Button>More <DownOutlined /></Button>
+	</Dropdown>;
+}
 
 // The user page has a lot of optional elements, that does not make it
 // praticularly complicated.
@@ -167,6 +179,7 @@ export default function UserViewPage() {
 						<DeleteOutlined />
 					</Button>
 				</Popconfirm>}
+				<UserPluginActions user={user} />
 			</Space>}
 		/>
 		<Form
