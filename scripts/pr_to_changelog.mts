@@ -195,20 +195,21 @@ export function checkPullRequestBody(
 
 function changelogFromPullRequests(pullRequests: Issue[], issues: Issue[]) {
 	const mergedChangelog: Changelog = Object.create(null);
+	const problems: string[] = [];
 	for (const pr of pullRequests) {
 		const { changelog, error, warnings } = checkPullRequestBody(pr.body, pr, issues);
 		if (error) {
-			console.error(`Failed to extract changelog in ${pr.html_url}: ${error}`)
+			problems.push(`Failed to extract changelog in ${pr.html_url}: ${error}`);
 			continue;
 		}
 		for (const warning of warnings) {
-			console.warn(`Warning in changelog for ${pr.html_url}: ${warning}`)
+			problems.push(`Warning in changelog for ${pr.html_url}: ${warning}`);
 		}
 		for (const [section, items] of Object.entries(changelog)) {
 			mergedChangelog[section] = [...mergedChangelog[section] ?? [], ...items];
 		}
 	}
-	return mergedChangelog;
+	return [mergedChangelog, problems] as const;
 }
 
 async function fetchLastRelease() {
@@ -258,7 +259,7 @@ async function fetchStatistics(lastRelease: Release, pullRequests: Issue[]): Pro
 	};
 }
 
-function printMarkdown(
+function formatMarkdown(
 	changelog: Changelog,
 	issues: Issue[],
 	users: Issue["user"][],
@@ -266,12 +267,13 @@ function printMarkdown(
 	refText: (issue: Issue) => string,
 	userText: (user: Issue["user"]) => string,
 ) {
+	const lines: string[] = [];
 	const sections = new Set([...changelogSections, ...Object.keys(changelog)]);
 	for (const section of sections) {
 		if (section in changelog) {
-			console.log(`### ${section}\n`);
+			lines.push(`### ${section}`, "");
 			const entries = changelog[section];
-			console.log(entries.map(text => (
+			lines.push(...entries.map(text => (
 				`- ${text.replaceAll(/#(\d+)/g, (ref, idAsText) => {
 					const id = Number.parseInt(idAsText, 10);
 					if (!Number.isFinite(id)) {
@@ -283,27 +285,29 @@ function printMarkdown(
 					}
 					return refText(issue);
 				})}`
-			)).join("\n"));
-			console.log();
+			)));
+			lines.push("");
 		}
 	}
 
-	console.log("### Contributors\n");
-	console.log(`Many thanks to the following for contributing to this release:`);
-	console.log(users.map(userText).join(", "));
+	lines.push("### Contributors", "");
+	lines.push("Many thanks to the following for contributing to this release:");
+	lines.push(users.map(userText).join(", "));
 
 	const format = (value: number) => value.toLocaleString("en-US");
-	console.log("\n### Statistics\n");
-	console.log([
+	lines.push("", "### Statistics", "");
+	lines.push([
 		`Commits: ${format(statistics.commits)}`,
 		`Pull Requests: ${format(statistics.pullRequests)}`,
 		`Files Changed: ${format(statistics.filesChanged)}`,
 		`Additions: +${format(statistics.lineAdditions)}`,
 		`Deletions: -${format(statistics.lineDeletions)}`,
 	].join("  "));
+	return lines.join("\n");
 }
 
-async function main() {
+/** Builds the release notes for the changes merged since the last release. */
+export async function generateReleaseNotes() {
 	const lastRelease = await fetchLastRelease();
 	const issues = await fetchIssuesUpdatedSince(lastRelease.created_at);
 
@@ -313,23 +317,37 @@ async function main() {
 		&& issue.pull_request.merged_at > lastRelease.created_at
 	));
 
-	const changelog = changelogFromPullRequests(pullRequests, issues);
-	const users = [...new Map(pullRequests.map(issue => [issue.user.login, issue.user])).values()]
+	const [changelog, problems] = changelogFromPullRequests(pullRequests, issues);
+	const users = [...new Map(pullRequests.map(issue => [issue.user.login, issue.user])).values()];
 	const statistics = await fetchStatistics(lastRelease, pullRequests);
+
+	return {
+		/** Errors and warnings from the pull request changelogs. */
+		problems,
+		github: formatMarkdown(changelog, issues, users, statistics,
+			issue => `${repository}#${issue.number}`,
+			user => `@${user.login}`,
+		),
+		changelog: formatMarkdown(changelog, issues, users, statistics,
+			issue => `[#${issue.number}](<${issue.html_url}>)`,
+			user => `[@${user.login}](<${user.html_url}>)`
+		),
+	};
+}
+
+async function main() {
+	const notes = await generateReleaseNotes();
+	for (const problem of notes.problems) {
+		console.warn(problem);
+	}
 
 	console.log();
 	console.log("=== Github Release Markdown ===");
-	printMarkdown(changelog, issues, users, statistics,
-		issue => `${repository}#${issue.number}`,
-		user => `@${user.login}`,
-	);
+	console.log(notes.github);
 
 	console.log();
 	console.log("=== Discord / Changelog Markdown ===");
-	printMarkdown(changelog, issues, users, statistics,
-		issue => `[#${issue.number}](<${issue.html_url}>)`,
-		user => `[@${user.login}](<${user.html_url}>)`
-	);
+	console.log(notes.changelog);
 }
 
 if (import.meta.main) {
