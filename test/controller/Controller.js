@@ -369,9 +369,10 @@ describe("controller/src/Controller", function() {
 
 		describe(".serveWeb()", function() {
 			let server, port;
+			const config = new Map([["controller.name", "Test Cluster"], ["controller.favicon_url", null]]);
 			before(async function() {
 				const app = express();
-				app.locals.controller = { config: { get: () => "Test Cluster" } };
+				app.locals.controller = { config: { get: field => config.get(field) } };
 				app.locals.webBundle = {
 					main: "static/main.abc.js",
 					imports: { "react": "static/shared-react.abc.js" },
@@ -404,6 +405,33 @@ describe("controller/src/Controller", function() {
 				html = await (await fetch(`http://localhost:${port}/instances/1/view/`)).text();
 				assert(html.includes("src=\"../../../static/main.abc.js\""));
 				assert(html.includes("new URL(\"../../../static/\", document.location)"));
+			});
+			it("should escape the cluster name", async function() {
+				config.set("controller.name", "A&B \"<x>\"");
+				try {
+					const html = await (await fetch(`http://localhost:${port}/`)).text();
+					assert(html.includes("<title>A&amp;B &quot;&lt;x&gt;&quot;</title>"));
+					assert(html.includes('<meta name="application-name" content="A&amp;B &quot;&lt;x&gt;&quot;" />'));
+				} finally {
+					config.set("controller.name", "Test Cluster");
+				}
+			});
+			it("should link favicon_url relative to the web root", async function() {
+				let html = await (await fetch(`http://localhost:${port}/`)).text();
+				assert(!html.includes("rel=\"icon\""));
+				try {
+					config.set("controller.favicon_url", "static/icon.png");
+					html = await (await fetch(`http://localhost:${port}/instances/1/view`)).text();
+					assert(html.includes('<link rel="icon" href="../../static/icon.png" />'));
+					config.set("controller.favicon_url", "https://example.com/icon.png?a=1&b=2");
+					html = await (await fetch(`http://localhost:${port}/instances/1/view`)).text();
+					assert(html.includes('<link rel="icon" href="https://example.com/icon.png?a=1&amp;b=2" />'));
+					config.set("controller.favicon_url", "/icon.png");
+					html = await (await fetch(`http://localhost:${port}/instances/1/view`)).text();
+					assert(html.includes('<link rel="icon" href="/icon.png" />'));
+				} finally {
+					config.set("controller.favicon_url", null);
+				}
 			});
 		});
 		describe(".parseTrustedProxies()", function() {
