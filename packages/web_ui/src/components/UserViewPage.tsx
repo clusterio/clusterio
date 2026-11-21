@@ -67,10 +67,13 @@ export default function UserViewPage() {
 	});
 	// Local edits on top of the live user
 	const [rolesEdit, setRolesEdit] = useState<number[]>();
+	const [bannedEdit, setBannedEdit] = useState<boolean>();
 	const [banReasonEdit, setBanReasonEdit] = useState<string>();
 	const [applying, setApplying] = useState(false);
 	const canUpdateRoles = account.hasPermission("core.user.update_roles");
 	const canBan = account.hasPermission("core.user.set_banned");
+	const canSetAdmin = account.hasPermission("core.user.set_admin");
+	const canSetWhitelisted = account.hasPermission("core.user.set_whitelisted");
 
 	// Drop edits that now match the user, and roles deleted since
 	useEffect(() => {
@@ -81,11 +84,13 @@ export default function UserViewPage() {
 			const next = prev?.filter(id => !rolesSynced || roles.has(id));
 			return next && sameIds(next, user.roleIds) ? undefined : next;
 		});
+		setBannedEdit(prev => (prev === user.isBanned ? undefined : prev));
 		setBanReasonEdit(prev => (prev === user.banReason ? undefined : prev));
 	}, [user, roles, rolesSynced]);
 
 	useEffect(() => {
 		setRolesEdit(undefined);
+		setBannedEdit(undefined);
 		setBanReasonEdit(undefined);
 	}, [userName]);
 
@@ -95,13 +100,14 @@ export default function UserViewPage() {
 	}
 
 	const roleIds = rolesEdit ?? [...user.roleIds];
-	const banReason = banReasonEdit ?? user.banReason;
+	const banned = bannedEdit ?? user.isBanned;
+	const banReason = banned ? banReasonEdit ?? user.banReason : "";
 	const rolesChanged = rolesEdit !== undefined && !sameIds(rolesEdit, user.roleIds);
-	// Only a banned user has a ban reason to update, otherwise it is used by the Banned switch
-	const banReasonChanged = user.isBanned && banReason !== user.banReason;
+	const banChanged = banned !== user.isBanned || banReason !== user.banReason;
 
 	function revertChanges() {
 		setRolesEdit(undefined);
+		setBannedEdit(undefined);
 		setBanReasonEdit(undefined);
 	}
 
@@ -110,8 +116,9 @@ export default function UserViewPage() {
 			await control.send(new lib.UserUpdateRolesRequest(userName, roleIds));
 			setRolesEdit(undefined);
 		}
-		if (banReasonChanged) {
-			await control.send(new lib.UserSetBannedRequest(userName, false, true, banReason));
+		if (banChanged) {
+			await control.send(new lib.UserSetBannedRequest(userName, false, banned, banReason));
+			setBannedEdit(undefined);
 			setBanReasonEdit(undefined);
 		}
 	}
@@ -180,7 +187,7 @@ export default function UserViewPage() {
 				<UserPluginActions user={user} />
 			</Space>}
 		/>
-		{(rolesChanged || banReasonChanged) && <UnsavedChangesBar
+		{(rolesChanged || banChanged) && <UnsavedChangesBar
 			applying={applying}
 			onRevert={revertChanges}
 			onApply={() => {
@@ -201,43 +208,40 @@ export default function UserViewPage() {
 				options={[...roles.values()].map(r => ({ value: r.id, label: r.name }))}
 			/>
 		</FieldRow>
-		{account.hasPermission("core.user.set_admin") && <FieldRow label="In-game Admin">
-			<Switch
-				checked={user.isAdmin}
-				onClick={() => {
-					control.send(
-						new lib.UserSetAdminRequest(userName, false, !user.isAdmin)
-					).catch(notifyErrorHandler("Error toggling user admin status"));
-				}}
-			/>
+		{(canSetAdmin || canSetWhitelisted || canBan) && <FieldRow label="Status">
+			<Space size="large" wrap>
+				{canSetAdmin && <label><Space>
+					In-game Admin
+					<Switch
+						checked={user.isAdmin}
+						onClick={() => {
+							control.send(
+								new lib.UserSetAdminRequest(userName, false, !user.isAdmin)
+							).catch(notifyErrorHandler("Error toggling user admin status"));
+						}}
+					/>
+				</Space></label>}
+				{canSetWhitelisted && <label><Space>
+					Whitelisted
+					<Switch
+						checked={user.isWhitelisted}
+						onClick={() => {
+							control.send(
+								new lib.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
+							).catch(notifyErrorHandler("Error toggling user whitelisted status"));
+						}}
+					/>
+				</Space></label>}
+				{canBan && <label><Space>
+					Banned
+					<Switch checked={banned} onClick={() => setBannedEdit(!banned)} />
+				</Space></label>}
+			</Space>
 		</FieldRow>}
-		{account.hasPermission("core.user.set_whitelisted") && <FieldRow label="Whitelisted">
-			<Switch
-				checked={user.isWhitelisted}
-				onClick={() => {
-					control.send(
-						new lib.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
-					).catch(notifyErrorHandler("Error toggling user whitelisted status"));
-				}}
-			/>
-		</FieldRow>}
-		{canBan && <FieldRow label="Banned">
-			<Switch
-				checked={user.isBanned}
-				onClick={() => {
-					control.send(new lib.UserSetBannedRequest(
-						userName, false, !user.isBanned, user.isBanned ? "" : banReason
-					)).then(() => {
-						setBanReasonEdit(undefined);
-					}).catch(notifyErrorHandler(user.isBanned ? "Error unbanning user" : "Error banning user"));
-				}}
-			/>
-		</FieldRow>}
-		{(canBan || user.isBanned) && <FieldRow label="Ban reason">
+		{banned && <FieldRow label="Ban reason">
 			<Input
 				value={banReason}
 				disabled={!canBan}
-				placeholder={user.isBanned ? undefined : "Reason given when the user is banned"}
 				onChange={e => setBanReasonEdit(e.target.value)}
 			/>
 		</FieldRow>}
