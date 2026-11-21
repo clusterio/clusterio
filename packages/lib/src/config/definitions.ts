@@ -520,6 +520,8 @@ export interface InstanceConfigFields {
 	"instance.assigned_host": number | null;
 	"instance.auto_start": boolean;
 	"instance.exclude_from_start_all": boolean;
+	"instance.restart_after_crash": boolean;
+	"instance.crash_retry_attempts": number;
 	"instance.is_template": boolean;
 	"instance.template_id": number | null;
 	"instance.inherited_fields": Record<string, true | string[]>;
@@ -632,6 +634,16 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			description: "Exclude this instance from the 'Start all' button operation",
 			type: "boolean",
 			initialValue: false,
+		},
+		"instance.restart_after_crash": {
+			description: "Start this instance again if it crashes after running for at least 10 minutes",
+			type: "boolean",
+			initialValue: false,
+		},
+		"instance.crash_retry_attempts": {
+			description: "Restarts after a crash before giving up, 0 for no limit. Reset when the instance is stopped",
+			type: "number",
+			initialValue: 3,
 		},
 		"instance.is_template": {
 			description:
