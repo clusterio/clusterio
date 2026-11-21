@@ -139,16 +139,6 @@ function downloadSave(control: Control, instanceId: number, name: string) {
 	});
 }
 
-function unusedSaveName(name: string, taken: Set<string>) {
-	const base = name.replace(/\.zip$/, "");
-	for (let i = 2; ; i++) {
-		const candidate = `${base}-${i}.zip`;
-		if (!taken.has(candidate)) {
-			return candidate;
-		}
-	}
-}
-
 type TransferModalProps = {
 	disabled: boolean;
 	saves: lib.SaveDetails[];
@@ -252,7 +242,6 @@ type BulkActionsProps = {
 	disabled: boolean;
 	instanceId: number;
 	saves: lib.SaveDetails[];
-	allNames: string[];
 	onDone: (failed: string[]) => void;
 };
 
@@ -269,21 +258,9 @@ function BulkActions(props: BulkActionsProps) {
 			.finally(() => setRunning(undefined));
 	}
 
-	function copy() {
-		const taken = new Set(props.allNames);
-		run("copy", save => {
-			const destination = unusedSaveName(save.name, taken);
-			taken.add(destination);
-			return control.send(new lib.InstanceCopySaveRequest(props.instanceId, save.name, destination));
-		}, "Error copying");
-	}
-
 	const disabled = props.disabled || running !== undefined;
 	return <Space wrap>
 		<Typography.Text type="secondary">{count} selected</Typography.Text>
-		{account.hasPermission("core.instance.save.copy") && <Button
-			disabled={disabled} loading={running === "copy"} onClick={copy}
-		>Copy</Button>}
 		{account.hasPermission("core.instance.save.download") && <Button
 			disabled={disabled}
 			loading={running === "download"}
@@ -329,7 +306,6 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	const visibleSelected = visibleNames.filter(name => selectedNames.includes(name)).length;
 	const canTransfer = account.hasPermission("core.instance.save.transfer");
 	const canSelect = account.hasAnyPermission(
-		"core.instance.save.copy",
 		"core.instance.save.download",
 		"core.instance.save.transfer",
 		"core.instance.save.delete",
@@ -465,7 +441,6 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				disabled={hostOffline}
 				instanceId={props.instance.id!}
 				saves={selectedSaves}
-				allNames={saveList.map(save => save.name)}
 				onDone={setSelectedNames}
 			/>}
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
