@@ -641,7 +641,7 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: false,
 		},
 		"instance.crash_retry_attempts": {
-			description: "Restarts after a crash before giving up, 0 for no limit. Reset when the instance is stopped",
+			description: "Restarts after a crash before giving up, 0 for no limit. Reset when the instance is started",
 			type: "number",
 			initialValue: 3,
 		},

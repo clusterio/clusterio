@@ -351,7 +351,7 @@ export default class Host extends lib.Link {
 	_shuttingDown = false;
 	/** Instances waiting on {@link Instance.fromConfig} */
 	_startingInstances = new Set<number>();
-	/** Restarts after a crash per instance ID since the last manual stop */
+	/** Restarts after a crash per instance ID since the last manual start */
 	_crashRetryAttempts = new Map<number, number>();
 
 	startedAtMs = Date.now();

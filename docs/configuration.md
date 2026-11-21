@@ -560,7 +560,7 @@ Defaults to false.
 ### instance.crash_retry_attempts
 
 Number of times the host restarts this instance after a crash before giving up and logging an error.
-The count resets when the instance is stopped or restarted by a user, or the host is restarted.
+The count resets when a user starts or restarts the instance, or the host is restarted.
 Set to 0 for no limit.
 
 Defaults to 3.

@@ -197,7 +197,7 @@ export default class Instance extends lib.Link {
 	_playerAutosaveSlot = 1;
 	_expectedUserUpdates: { action: string, name: string, reason: string }[] = [];
 	_settleWaiters: (() => void)[] = [];
-	_runningSinceMs: number | null = null;
+	_startedAtMs: number | null = null;
 	_killRequested = false;
 
 	constructor(
@@ -600,7 +600,7 @@ end`.replace(/\r?\n/g, " ");
 	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
 		if (status === "running") {
-			this._runningSinceMs = Date.now();
+			this._startedAtMs = Date.now();
 		}
 		if (!transitoryStatuses.has(status)) {
 			const waiters = this._settleWaiters;
@@ -679,7 +679,7 @@ end`.replace(/\r?\n/g, " ");
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 
 		if (crashed && this.config.get("instance.restart_after_crash") && !this._host._shuttingDown) {
-			this._restartAfterCrash(Date.now() - this._runningSinceMs!);
+			this._restartAfterCrash(Date.now() - this._startedAtMs!);
 		}
 	}
 
@@ -698,7 +698,7 @@ end`.replace(/\r?\n/g, " ");
 		const of = limit > 0 ? ` of ${limit}` : "";
 		this.logger.warn(`Restarting instance ${this.name} after crash, attempt ${attempts + 1}${of}`);
 		this._host._connectInstance(this.id)
-			.then(connection => connection.instance.handleInstanceStartRequest(new lib.InstanceStartRequest()))
+			.then(connection => connection.instance._startSave())
 			.catch(err => this.logger.error(`Error restarting instance ${this.name} after crash:\n${err.stack}`));
 	}
 
@@ -1428,7 +1428,11 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceStartRequest(request: lib.InstanceStartRequest) {
-		let saveName = request.save;
+		this._host._crashRetryAttempts.delete(this.id);
+		await this._startSave(request.save);
+	}
+
+	async _startSave(saveName?: string) {
 		if (saveName !== undefined) {
 			checkRequestSaveName(saveName);
 		}
@@ -1457,6 +1461,7 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceLoadScenarioRequest(request: lib.InstanceLoadScenarioRequest) {
+		this._host._crashRetryAttempts.delete(this.id);
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
 			throw new lib.ConflictError("Load scenario cannot be used with save patching enabled");
@@ -1573,7 +1578,6 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceRestartRequest(request: lib.InstanceRestartRequest) {
-		this._host._crashRetryAttempts.delete(this.id);
 		await this._stopWhenSettled();
 		// Stopping invalidates this instance object, a new one must be created by the host
 		// To do this we simulate a waking an instance and sending a start request
@@ -1582,12 +1586,10 @@ end`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceStopRequest() {
-		this._host._crashRetryAttempts.delete(this.id);
 		await this._stopWhenSettled();
 	}
 
 	async handleInstanceKillRequest() {
-		this._host._crashRetryAttempts.delete(this.id);
 		await this.kill();
 	}
 

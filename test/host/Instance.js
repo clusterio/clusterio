@@ -321,13 +321,13 @@ describe("class Instance", function() {
 			instance._saveStats = async () => {};
 			instance._host._connectInstance = async id => {
 				starts.push(id);
-				return { instance: { handleInstanceStartRequest: async () => {} } };
+				return { instance: { _startSave: async () => {} } };
 			};
 			instance.config.set("instance.restart_after_crash", true);
 		});
 		function crash(uptimeMinutes) {
 			instance.notifyStatus("running");
-			instance._runningSinceMs = Date.now() - uptimeMinutes * 60e3;
+			instance._startedAtMs = Date.now() - uptimeMinutes * 60e3;
 			instance.notifyExit();
 		}
 
@@ -360,7 +360,7 @@ describe("class Instance", function() {
 		it("should not restart after a stop or kill", async function() {
 			instance.server.kill = async () => {};
 			instance.notifyStatus("running");
-			instance._runningSinceMs = 0;
+			instance._startedAtMs = 0;
 			await instance.handleInstanceKillRequest();
 			instance.notifyExit();
 			instance.notifyStatus("stopping");
@@ -373,10 +373,11 @@ describe("class Instance", function() {
 			crash(11);
 			assert.deepEqual(starts, []);
 		});
-		it("should reset the attempts on a manual stop", async function() {
+		it("should reset the attempts on a manual start", async function() {
 			instance.config.set("instance.crash_retry_attempts", 1);
+			instance._startSave = async () => {};
 			crash(11);
-			await instance.handleInstanceStopRequest();
+			await instance.handleInstanceStartRequest(new lib.InstanceStartRequest());
 			crash(11);
 			assert.equal(starts.length, 2);
 		});
