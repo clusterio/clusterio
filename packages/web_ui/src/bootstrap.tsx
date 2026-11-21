@@ -69,49 +69,36 @@ async function loadPlugins(
 	pluginInfos: lib.PluginWebEnvInfo[],
 	control: Control
 ) {
-	const plugins = new Map<string, WebPlugin.BaseWebPlugin>();
+	const { loaded, failed } = await lib.PluginLoader.load({
+		type: "web",
+		context: (pluginInfo: lib.PluginWebEnvInfo) => ({
+			control,
+			container: pluginInfo.container,
+			package: pluginInfo.package,
+		}),
+		logger,
+		installed: pluginInfos,
+		load: pluginInfos.filter(pluginInfo => pluginInfo.enabled && pluginInfo.webEntrypoint),
+		exportName: "WebPlugin",
+		baseClass: WebPlugin.BaseWebPlugin,
+		continueOnError: true,
+	});
 
-	for (const pluginInfo of pluginInfos) {
-		if (!pluginInfo.enabled || !pluginInfo.webEntrypoint) {
-			continue;
-		}
-
-		try {
-			const webModule = await pluginInfo.container.get(pluginInfo.webEntrypoint);
-
-			const pluginContext: WebPlugin.WebPluginContext = {
-				control,
-				plugin: pluginInfo,
-				container: pluginInfo.container,
-				package: pluginInfo.package,
-				logger: logger.child({ plugin: pluginInfo.name }),
-			};
-
-			if (typeof webModule.default === "function") {
-				await lib.loadPluginEntrypoint(pluginInfo, "web", pluginContext, webModule);
-				continue;
-			}
-
-			// migrate: accept plugins which export classes
-			if (webModule.WebPlugin) {
-				logger.warn(`Plugin ${pluginInfo.name} is using deprecated class hooks`);
-				plugins.set(pluginInfo.name, await lib.loadPluginClass(
-					pluginInfo, "web", pluginContext, webModule, "WebPlugin", WebPlugin.BaseWebPlugin
-				));
-				continue;
-			}
-
-			throw new Error(`Plugin ${pluginInfo.name} must export either a default function or WebPlugin`);
-
-		} catch (err: any) {
-			pluginInfo.error = `Error loading plugin: ${err.message}`;
-			logger.error(`Failed to load plugin ${pluginInfo.name}`);
-			if (err.stack) {
-				logger.error(err.stack);
-			}
+	for (const [pluginInfo, err] of failed) {
+		const cause = err instanceof lib.PluginError ? err.original : err;
+		pluginInfo.error = `Error loading plugin: ${cause.message}`;
+		logger.error(`Failed to load plugin ${pluginInfo.name}`);
+		if (cause.stack) {
+			logger.error(cause.stack);
 		}
 	}
 
+	const plugins = new Map<string, WebPlugin.BaseWebPlugin>();
+	for (const [pluginInfo, api] of loaded) {
+		if (api instanceof WebPlugin.BaseWebPlugin) {
+			plugins.set(pluginInfo.name, api);
+		}
+	}
 	return plugins;
 }
 

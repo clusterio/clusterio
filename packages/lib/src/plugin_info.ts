@@ -1,18 +1,14 @@
 
 /**
- * Helpers for loading plugins in Node.js
- * @module lib/plugin_loader
+ * Helpers for finding installed plugins and reading their info in Node.js
+ * @module lib/plugin_info
  */
 import path from "path";
 import fs from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as libErrors from "./errors.js";
 import * as libPlugin from "./plugin.js";
-import { type Logger, logger } from "./logging.js";
-import { loadPluginEntrypoint, loadPluginClass } from "./loadPlugin.js";
-import { Config } from "./config/classes.js";
-import { ControllerConfig, HostConfig, InstanceConfig } from "./config/definitions.js";
-import Role from "./data/Role.js";
+import { logger } from "./logging.js";
 import { PluginDetails } from "./data/messages_plugin.js";
 import {
 	discoverNpmPluginPackages, findNonRegistryDirs, installedDependencies, readPackageJson, realDir, resolvePackagePath,
@@ -195,83 +191,4 @@ export async function listPluginDetails(
 	}
 
 	return plugins;
-}
-
-/**
- * Load the migration entrypoints of plugins
- *
- * Must be called before configs and roles are loaded for the migrations
- * to run on them. Loaded for every plugin, including those disabled with
- * load_plugin. Also registers the plugin versions written to each config
- * after the migrations run.
- *
- * @param pluginInfos - Plugins to load migrations for.
- */
-export async function loadPluginMigrations(pluginInfos: libPlugin.PluginNodeEnvInfo[]) {
-	const hooks: libPlugin.MigrationHooks = {
-		controllerConfig: ControllerConfig.pluginMigrations,
-		hostConfig: HostConfig.pluginMigrations,
-		instanceConfig: InstanceConfig.pluginMigrations,
-		role: Role.pluginMigrations,
-	};
-
-	for (const pluginInfo of pluginInfos) {
-		Config.pluginVersions.set(pluginInfo.name, pluginInfo.version);
-		if (!pluginInfo.migrationEntrypoint) {
-			continue;
-		}
-
-		try {
-			const module = await import(pathToFileURL(
-				path.join(path.dirname(pluginInfo.packagePath), pluginInfo.migrationEntrypoint)
-			).href);
-			const context: libPlugin.MigrationContext = {
-				hooks,
-				plugin: pluginInfo,
-				logger: logger.child({ plugin: pluginInfo.name }),
-			};
-			await loadPluginEntrypoint(pluginInfo, "migration", context, module);
-		} catch (err: any) {
-			throw new libErrors.PluginError(pluginInfo.name, err);
-		}
-	}
-}
-
-export async function loadPlugin<
-	Context extends { logger: Logger },
-	Class extends libPlugin.PluginClass<Context, libPlugin.PluginNodeEnvInfo>,
-> (
-	pluginInfo: libPlugin.PluginNodeEnvInfo,
-	pluginType: libPlugin.PluginType,
-	context: Context,
-	exportName: `${string}Plugin`,
-	baseClass: Class,
-) {
-	const entrypoint = `${pluginType}Entrypoint` as const;
-	const requirePath = pluginInfo[entrypoint];
-
-	if (!requirePath) {
-		return;
-	}
-
-	const module = await import(pathToFileURL(path.join(path.dirname(pluginInfo.packagePath), requirePath)).href);
-	const pluginContext: libPlugin.PluginLoadContext<Context> = {
-		...context,
-		plugin: pluginInfo,
-		logger: context.logger.child({ plugin: pluginInfo.name }),
-	};
-
-	if (typeof module.default === "function") {
-		await loadPluginEntrypoint(pluginInfo, pluginType, pluginContext, module);
-		return;
-	}
-
-	// migrate: accept plugins which export classes
-	if (module[exportName]) {
-		pluginContext.logger.warn(`Plugin ${pluginInfo.name} is using deprecated class export`);
-		await loadPluginClass(pluginInfo, pluginType, pluginContext, module, exportName, baseClass);
-		return;
-	}
-
-	throw new Error(`Plugin ${pluginInfo.name} must export either a default function or ${exportName} class`);
 }

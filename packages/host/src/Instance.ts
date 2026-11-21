@@ -772,8 +772,7 @@ end`.replace(/\r?\n/g, " ");
 	 * Must be called once the instance is connected to the host.
 	 */
 	async loadPlugins(pluginInfos: lib.PluginNodeEnvInfo[]) {
-		// load plugins
-		const plugins: Record<string, string> = {};
+		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
@@ -788,26 +787,31 @@ end`.replace(/\r?\n/g, " ");
 				continue;
 			}
 
-			try {
-				let pluginLoadStartedMs = Date.now();
-				await lib.loadPlugin(
-					pluginInfo,
-					"instance",
-					{ logger: this.logger, host: this._host, instance: this },
-					"InstancePlugin",
-					BaseInstancePlugin,
-				);
-
-				this.loadedPlugins.add(pluginInfo);
-				plugins[pluginInfo.name] = pluginInfo.version;
-				this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
-			} catch (err) {
-				this.notifyExit();
-				await this.sendSaveListUpdate();
-				throw err;
-			}
+			toLoad.push(pluginInfo);
 		}
 
+		let loaded;
+		try {
+			({ loaded } = await lib.PluginLoader.load({
+				type: "instance",
+				context: { host: this._host, instance: this },
+				logger: this.logger,
+				installed: pluginInfos,
+				load: toLoad,
+				exportName: "InstancePlugin",
+				baseClass: BaseInstancePlugin,
+			}));
+		} catch (err) {
+			this.notifyExit();
+			await this.sendSaveListUpdate();
+			throw err;
+		}
+
+		const plugins: Record<string, string> = {};
+		for (const pluginInfo of loaded.keys()) {
+			this.loadedPlugins.add(pluginInfo);
+			plugins[pluginInfo.name] = pluginInfo.version;
+		}
 		this.send(new lib.InstanceInitialisedEvent(plugins));
 	}
 

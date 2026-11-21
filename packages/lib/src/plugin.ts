@@ -142,12 +142,31 @@ export interface PlayerEvent {
 	stats: PlayerStats,
 }
 
+/** Access to the other plugins loaded alongside a plugin */
+export interface PluginRegistry {
+	/**
+	 * Wait for another plugin to load
+	 *
+	 * @param name - Name of the plugin to wait for.
+	 * @param timeoutMs - Time to wait before giving up, defaults to 30 seconds.
+	 * @returns
+	 *     What the plugin's entrypoint returned, or undefined with a
+	 *     warning logged if it did not load.
+	 */
+	waitFor<T = unknown>(name: string, timeoutMs?: number): Promise<T | undefined>;
+	/** Check if a plugin is installed, it may still be disabled */
+	checkInstalled(name: string): boolean;
+	/** Check if a plugin is being loaded alongside this one */
+	checkEnabled(name: string): boolean;
+}
+
 export type PluginLoadContext<
 	Context extends object,
 	Info extends PluginDeclaration = PluginNodeEnvInfo
 > = Context & {
 	logger: Logger;
 	plugin: Info;
+	plugins: PluginRegistry;
 };
 
 /** Hooks for migrating data that Clusterio stores on behalf of plugins */

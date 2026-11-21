@@ -488,7 +488,7 @@ export default class Host extends lib.Link {
 	}
 
 	async loadPlugins() {
-		const context = { logger, host: this };
+		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of this.pluginInfos) {
 			if (
 				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
@@ -502,25 +502,20 @@ export default class Host extends lib.Link {
 				continue;
 			}
 
-			try {
-				await lib.loadPlugin(
-					pluginInfo,
-					"host",
-					context,
-					"HostPlugin",
-					BaseHostPlugin,
-				);
+			toLoad.push(pluginInfo);
+		}
 
-				this.loadedPlugins.add(pluginInfo);
-
-			} catch (err: any) {
-				if (err.code === "InstallationError") {
-					throw err;
-				}
-				throw new lib.PluginError(pluginInfo.name, err);
-			}
-
-			logger.info(`Loaded plugin ${pluginInfo.name}`);
+		const { loaded } = await lib.PluginLoader.load({
+			type: "host",
+			context: { host: this },
+			logger,
+			installed: this.pluginInfos,
+			load: toLoad,
+			exportName: "HostPlugin",
+			baseClass: BaseHostPlugin,
+		});
+		for (const pluginInfo of loaded.keys()) {
+			this.loadedPlugins.add(pluginInfo);
 		}
 	}
 
