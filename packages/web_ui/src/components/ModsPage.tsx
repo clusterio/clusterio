@@ -25,6 +25,7 @@ import Link from "./Link";
 import ModDetails from "./ModDetails";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
+import { useUploadProgress } from "./UploadProgress";
 import { InputPartialVersion } from "./InputVersion";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
@@ -524,6 +525,7 @@ export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [mods] = useMods();
+	const { customRequest, list: uploadList } = useUploadProgress();
 	let [modPacks] = useModPacks();
 	const modPackTable = useTableQueryState<lib.ModPack>({
 		namespace: "modPack", defaultSortKey: "name",
@@ -582,6 +584,7 @@ export default function ModsPage() {
 				"X-Access-Token": control.connector.token || "",
 			}}
 			action={`${webRoot}api/upload-mod`}
+			customRequest={customRequest}
 		>
 			<UploadButton />
 		</Upload>;
@@ -635,6 +638,7 @@ export default function ModsPage() {
 			<SearchModsButton />
 			{uploadButton}
 		</Space>} />
+		{uploadList}
 
 		<Upload.Dragger
 			className="save-list-dragger"
@@ -646,6 +650,7 @@ export default function ModsPage() {
 				"X-Access-Token": control.connector.token || "",
 			}}
 			action={`${webRoot}api/upload-mod`}
+			customRequest={customRequest}
 			showUploadList={false}
 		>
 			<Dropzone />

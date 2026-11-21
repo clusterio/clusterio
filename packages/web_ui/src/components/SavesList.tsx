@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import {
-	message, Button, Checkbox, Form, Input, List, Modal,
-	Popconfirm, Progress, Select, Space, Table, Tooltip, Upload,
+	message, Button, Checkbox, Form, Input, Modal,
+	Popconfirm, Select, Space, Table, Tooltip, Upload,
 } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
@@ -19,6 +19,7 @@ import { useSavesOfInstance } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
 import { Dropzone } from "./Dropzone";
 import UploadButton from "./UploadButton";
+import { useUploadProgress } from "./UploadProgress";
 
 
 type ModalProps = {
@@ -193,19 +194,12 @@ function TransferModal(props: ModalProps) {
 }
 
 
-type File = {
-	uid: string;
-	name: string;
-	percent: number;
-	status: string;
-};
-
 export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [saves] = useSavesOfInstance(props.instance.id);
 	let [starting, setStarting] = useState(false);
-	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+	const { customRequest, list: uploadList } = useUploadProgress();
 	const tableState = useTableQueryState<lib.SaveDetails>({
 		namespace: "save", defaultSortKey: "mtimeMs", defaultSortOrder: "descend", pagination: { defaultPageSize: 10 },
 	});
@@ -309,38 +303,6 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		}}
 	/>;
 
-	function onChange(changeEvent: any) {
-		if (["done", "error"].includes(changeEvent.file.status)) {
-			if (changeEvent.file.status === "error") {
-				notifyErrorHandler("Error uploading file")(changeEvent.file.error);
-			}
-
-			let newUploadingFiles = [...uploadingFiles];
-			let index = newUploadingFiles.findIndex(f => f.uid === changeEvent.file.uid);
-			if (index !== -1) {
-				newUploadingFiles.splice(index, 1);
-				setUploadingFiles(newUploadingFiles);
-			}
-			return;
-		}
-
-		let file: File = {
-			uid: changeEvent.file.uid,
-			name: changeEvent.file.name,
-			percent: changeEvent.file.percent,
-			status: changeEvent.file.status,
-		};
-
-		let newUploadingFiles = [...uploadingFiles];
-		let index = newUploadingFiles.findIndex(f => f.uid === changeEvent.file.uid);
-		if (index !== -1) {
-			newUploadingFiles[index] = file;
-		} else {
-			newUploadingFiles.push(file);
-		}
-		setUploadingFiles(newUploadingFiles);
-	}
-
 	let uploadProps = {
 		disabled: hostOffline,
 		name: "file",
@@ -353,7 +315,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		},
 		showUploadList: false,
 		action: `${webRoot}api/upload-save`,
-		onChange,
+		customRequest,
 	};
 
 	return <div>
@@ -365,6 +327,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 			</Upload>}
 			{account.hasPermission("core.instance.save.create") && <CreateSaveModal instance={props.instance} />}
 		</Space>} />
+		{uploadList}
 		{
 			account.hasPermission("core.instance.save.upload")
 				? <Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
@@ -373,15 +336,5 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				</Upload.Dragger>
 				: saveTable
 		}
-		{uploadingFiles.length ? <List>
-			{uploadingFiles.map(file => <List.Item key={file.uid}>
-				{file.name}
-				<Progress
-					percent={file.percent}
-					format={percent => `${Math.floor(percent || 0)}%`}
-					status={file.status === "error" ? "exception" : "normal"}
-				/>
-			</List.Item>)}
-		</List> : null}
 	</div>;
 }
