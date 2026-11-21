@@ -17,7 +17,7 @@
 		"ci-cover": "c8 --reporter=lcovonly pnpm test",
 		"lint": "oxlint packages plugins test",
 		"lint-fix": "oxlint --fix packages plugins test",
-		"clean": "node ./clean.js",
+		"clean": "node ./scripts/clean.js",
 		"bundle-dependencies": "bundle-dependencies"
 	},
 	"c8": {

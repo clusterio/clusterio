@@ -30,7 +30,7 @@ Use the detailed guides for the affected area:
   The harness needs Factorio, recreates `temp/test/`, and shares ports 8880/4443; do not run competing suites.
 - Report checks, failures, skips, and unverified behavior precisely.
   Documentation-only changes need path, command, and formatting checks.
-- Preview cleanup with `node clean.js --dry-run`; see the [cleanup scopes](docs/contributing.md#cleaning-generated-and-runtime-files).
+- Preview cleanup with `node scripts/clean.js --dry-run`; see the [cleanup scopes](docs/contributing.md#cleaning-generated-and-runtime-files).
   Runtime-data deletion and release publication require explicit authorization.
   Keep local configs, credentials, runtime data, and generated output out of commits.
 - Follow the [PR template](.github/pull_request_template.md), including `### Changelog` (`None.` when appropriate).

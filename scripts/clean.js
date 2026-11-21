@@ -10,7 +10,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import yargs from "yargs";
 
-import npmPackage from "./package.json" with { type: "json" };
+import npmPackage from "../package.json" with { type: "json" };
 const workspaces = npmPackage.workspaces
 	.map(p => p.slice(0, -2))
 	.filter(p => !p.includes("external_plugins"));
