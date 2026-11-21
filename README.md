@@ -20,7 +20,7 @@ Plugin authors should also follow the [2.0 migration guide](docs/devs/plugin-mig
 ### Ways to support me/the project:
 
 * Contribute with code/documentation.
-  See [Contributing](docs/contributing.md) for how to make pull requests.
+  See [Contributing](docs/devs/contributing.md) for how to make pull requests.
   Always nice to move the project forward.
 
 * Support me monetarily on [patreon](https://www.patreon.com/danielv123) or paypal: danielv@live.no
@@ -93,7 +93,7 @@ The installer offers the six plugins maintained in this repository.
 Community plugins are versioned and released independently of Clusterio; check their compatibility before installing them manually.
 
 Want to make your own plugin?
-Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for where to start.
+Check out the documentation on [Writing Plugins](/docs/devs/writing-plugins.md) for where to start.
 If you have a plugin written for an earlier 2.0 alpha, see [Migrating Plugins to 2.0](/docs/devs/plugin-migration-to-2.0.md).
 Note that from 2.0 onwards minor versions of Clusterio may contain breaking changes for plugins, while breaking changes for users running a cluster are held back for major versions.
 
@@ -107,7 +107,7 @@ If you already have a supported Node.js version installed, you can set it up in 
     npm init "@clusterio"
 
 Otherwise see below for OS specific instructions.  
-Check out all our of decisions for [node, factorio, and operation support](/docs/decisions.md#supportability).
+Check out all our of decisions for [node, factorio, and operation support](/docs/devs/decisions.md#supportability).
 
 ### Ubuntu setup
 

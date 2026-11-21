@@ -4,7 +4,7 @@ You are probably reading this because you want to contribute code to Clusterio.
 Great!  We need people like you.
 Though we have some conventions and workflows that we kindly ask you to follow.
 This document covers the development workflow, commands, and repository layout.
-Read our [past decisions](/docs/decisions.md) for compatibility policies and design rationale.
+Read our [past decisions](/docs/devs/decisions.md) for compatibility policies and design rationale.
 
 
 ## Contents
@@ -51,7 +51,7 @@ Clusterio manages distributed Factorio servers through a controller, hosts, and 
 | `packages/host/lua/` | Factorio mod sources, including `clusterio_lib`. |
 | `test/` | Root test suite, fixtures, helpers, integration harness, and manual tests. Plugin tests also live under `plugins/*/test/`. |
 
-Start with [how it works](how-it-works.md), [communication](communication.md), and the [config system](config-system.md) for architecture.
+Start with [how it works](../how-it-works.md), [communication](communication.md), and the [config system](config-system.md) for architecture.
 See [writing plugins](writing-plugins.md) and [developing for Clusterio](developing-for-clusterio.md) for plugin and Factorio contracts.
 
 
@@ -223,7 +223,7 @@ It locates Factorio through `host.factorio_directory` in root `config-host.json`
 The full harness currently requires a usable Factorio installation: a missing directory fails discovery, and an empty directory fails setup while selecting a version.
 Some individual tests have conditional skips, but these do not make a full run without Factorio succeed.
 
-Use the relevant production bundle, mod build, or [manual scenario](../test/manual/README.md) for changes affecting those surfaces.
+Use the relevant production bundle, mod build, or [manual scenario](../../test/manual/README.md) for changes affecting those surfaces.
 For documentation changes, check that links, paths, and example commands are correct.
 
 
@@ -261,8 +261,8 @@ If there are no changelog entries to add, remove the code block and start the ch
 The version-compat job in CI runs the local controller with the latest published host, and the published controller with the local host.
 It fails if a link message changed its src, dst, data or response schema since that release.
 Control is left out of src and dst, and messages that only go between control and the controller are not checked, as the web UI is served by the controller it talks to.
-If the break is intended, add an entry to [scripts/version-compat-breaks.json](../scripts/version-compat-breaks.json) in the same pull request.
-Breaking changes are only accepted if the next release is intended to include them, see our decision on [breaking changes](/docs/decisions.md#breaking-changes).
+If the break is intended, add an entry to [scripts/version-compat-breaks.json](../../scripts/version-compat-breaks.json) in the same pull request.
+Breaking changes are only accepted if the next release is intended to include them, see our decision on [breaking changes](/docs/devs/decisions.md#breaking-changes).
 The entry is keyed by the published version directly before the breaking change was introduced, which is the latest release at the time.
 Every entry needs the pull request number, a reason saying what breaks, and an impact saying why end users are not or only minimally affected.
 
@@ -332,35 +332,35 @@ GitHub has no interface or functionality for keeping the branches in your fork u
 
 ### Publishing releases to npm
 
-For publishing new releases see [package release workflow](./release-workflow.md#packages).
+For publishing new releases see [package release workflow](release-workflow.md#packages).
 
 ## Changelog
 
-There's a [Changelog](../CHANGELOG.md) in the root of the project.
+There's a [Changelog](../../CHANGELOG.md) in the root of the project.
 If you make changes that are visible to users of this project you should add an entry to the changelog describing what has changed.
-The format of this log should be self explanatory, please follow it carefully. Please make sure to document any [breaking changes](/docs/decisions.md#breaking-changes).
+The format of this log should be self explanatory, please follow it carefully. Please make sure to document any [breaking changes](/docs/devs/decisions.md#breaking-changes).
 
 
 ## Supported Node.js and Factorio Versions
 
-For development, use the latest Node.js LTS release, following the [installation instructions](../README.md#installation).
+For development, use the latest Node.js LTS release, following the [installation instructions](../../README.md#installation).
 Make sure the Node.js built-in APIs and npm packages you use remain compatible with the supported versions.
 The GitHub Actions tests run every Factorio version on the latest Node.js, and every other supported Node.js version with the latest Factorio only, which keeps the number of jobs within GitHub's concurrent job limit.
-Coverage is collected on the oldest supported Node.js; see the [CI workflow](../.github/workflows/node.js.yml) for the version matrix.
+Coverage is collected on the oldest supported Node.js; see the [CI workflow](../../.github/workflows/node.js.yml) for the version matrix.
 
 For Factorio, active support covers the latest stable version and the previous major version, using version lines such as 2.1, 2.0 and 1.1 as described in the [Factorio support policy](decisions.md#factorio).
 Older versions from 0.17 onwards receive passive support where it does not restrict actively supported versions.
 Check the Lua API documentation for the Factorio versions your changes target and preserve compatibility with the actively supported versions.
-The GitHub Actions tests use pinned Factorio releases; see the [CI workflow](../.github/workflows/node.js.yml) for the current version matrix.
+The GitHub Actions tests use pinned Factorio releases; see the [CI workflow](../../.github/workflows/node.js.yml) for the current version matrix.
 
-Check out all our of decisions for [node, factorio, and operation support](/docs/decisions.md#supportability).
+Check out all our of decisions for [node, factorio, and operation support](/docs/devs/decisions.md#supportability).
 
 
 ## Code Style
 
 The style of the code is a bit of a mixed bag at the moment.
 But there are at least a few things that have been agreed upon.
-See our [decisions document](/docs/decisions.md) for justifcations.
+See our [decisions document](/docs/devs/decisions.md) for justifcations.
 
 ### Naming style
 

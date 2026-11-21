@@ -10,7 +10,7 @@ Plugins still on alpha 13 should start with the [alpha 14 guide](plugin-migratio
 From 2.0.0 onwards a major version (3.0.0) contains breaking changes for users running a cluster, while a minor version (2.1.0) may contain breaking changes for the plugin API.
 This means a plugin written for 2.0 is not guaranteed to work with 2.1 without changes.
 Check the Breaking Changes section of the changelog when a new minor version is released and publish an update to your plugin if needed.
-See [Breaking Changes](/docs/decisions.md#breaking-changes) in the decision log.
+See [Breaking Changes](/docs/devs/decisions.md#breaking-changes) in the decision log.
 
 
 ## Convert to ES modules
@@ -22,7 +22,7 @@ Keep `"clusterio-plugin"` in the package's `"keywords"` for automatic discovery,
 An `"exports"` map is not required for ES modules.
 If you add one, expose `"./package.json": "./package.json"`; otherwise Clusterio cannot discover or load the plugin by its package name.
 Clusterio currently reads the implementation path from `"main"` rather than conditional exports.
-See [Plugin Structure](../writing-plugins.md#plugin-structure) for a compatible package example.
+See [Plugin Structure](writing-plugins.md#plugin-structure) for a compatible package example.
 
 Relative imports must include the full filename with the `.js` extension.
 This also applies in TypeScript, where you import `./messages.js` even though the source file is `messages.ts`.
@@ -77,7 +77,7 @@ Converting the plugin avoids the problem.
 Entrypoints now export a default async function instead of a class deriving from `BaseControllerPlugin`, `BaseHostPlugin`, `BaseInstancePlugin`, `BaseCtlPlugin` or `BaseWebPlugin`.
 The function is called once when the plugin loads and attaches handlers to the hooks it needs.
 Class exports still load, but they are deprecated and a warning is logged for each one.
-See [Defining the plugin entrypoint](/docs/writing-plugins.md#defining-the-plugin-entrypoint) for the details.
+See [Defining the plugin entrypoint](/docs/devs/writing-plugins.md#defining-the-plugin-entrypoint) for the details.
 
 **Alpha 27**
 ```js
@@ -289,7 +289,7 @@ declare module "@clusterio/lib" {
 ```
 
 The plugin template's `tsconfig.browser.json` now includes `index.ts` so the web build also sees the declaration, add it to the `include` list if your plugin has its own tsconfig for the browser.
-See [Plugin Permissions](/docs/writing-plugins.md#plugin-permissions).
+See [Plugin Permissions](/docs/devs/writing-plugins.md#plugin-permissions).
 
 
 ## Renamed ctl classes and config
