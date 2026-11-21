@@ -95,7 +95,9 @@ describe("class Instance", function() {
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);
-		instance = new Instance({}, connector, "dir", instanceConfig, new MockServer());
+		instance = new Instance(
+			{ _crashRetryAttempts: new Map() }, connector, "dir", instanceConfig, new MockServer()
+		);
 	});
 
 	describe(".name", function() {
@@ -305,6 +307,79 @@ describe("class Instance", function() {
 			instance.notifyStatus("stopped");
 			await second;
 			assert.deepEqual(calls, ["stop"]);
+		});
+	});
+
+	describe("restart after crash", function() {
+		let errors;
+		let starts;
+		beforeEach(function() {
+			errors = [];
+			starts = [];
+			instance.logger = new MockLogger();
+			instance.logger.error = message => errors.push(message);
+			instance._saveStats = async () => {};
+			instance._host._connectInstance = async id => {
+				starts.push(id);
+				return { instance: { _startSave: async () => {} } };
+			};
+			instance.config.set("instance.restart_after_crash", true);
+		});
+		function crash(uptimeMinutes) {
+			instance.notifyStatus("running");
+			instance._startedAtMs = Date.now() - uptimeMinutes * 60e3;
+			instance.notifyExit();
+		}
+
+		it("should restart after running for 10 minutes until the attempts run out", function() {
+			for (let i = 0; i < 4; i++) {
+				crash(11);
+			}
+			assert.deepEqual(starts, [instance.id, instance.id, instance.id]);
+			assert.deepEqual(errors, ["Instance foo reached the limit of 3 crash restarts, not restarting it"]);
+		});
+		it("should restart without limit when attempts is 0", function() {
+			instance.config.set("instance.crash_retry_attempts", 0);
+			for (let i = 0; i < 5; i++) {
+				crash(11);
+			}
+			assert.equal(starts.length, 5);
+			assert.deepEqual(errors, []);
+		});
+		it("should not restart a crash within 10 minutes of starting", function() {
+			crash(9);
+			assert.deepEqual(starts, []);
+			assert.deepEqual(errors, ["Instance foo crashed within 10 minutes of starting, not restarting it"]);
+		});
+		it("should not restart when disabled", function() {
+			instance.config.set("instance.restart_after_crash", false);
+			crash(11);
+			assert.deepEqual(starts, []);
+			assert.deepEqual(errors, []);
+		});
+		it("should not restart after a stop or kill", async function() {
+			instance.server.kill = async () => {};
+			instance.notifyStatus("running");
+			instance._startedAtMs = 0;
+			await instance.handleInstanceKillRequest();
+			instance.notifyExit();
+			instance.notifyStatus("stopping");
+			instance.notifyExit();
+			assert.deepEqual(starts, []);
+			assert.deepEqual(errors, []);
+		});
+		it("should not restart while the host shuts down", function() {
+			instance._host._shuttingDown = true;
+			crash(11);
+			assert.deepEqual(starts, []);
+		});
+		it("should reset the attempts on a manual start", async function() {
+			instance.config.set("instance.crash_retry_attempts", 1);
+			instance._startSave = async () => {};
+			crash(11);
+			await instance.handleInstanceStartRequest(new lib.InstanceStartRequest());
+			crash(11);
+			assert.equal(starts.length, 2);
 		});
 	});
 

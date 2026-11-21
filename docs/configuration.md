@@ -549,6 +549,23 @@ Does not affect start or stop of the instance while the host is running.
 Defaults to false.
 
 
+### instance.restart_after_crash
+
+If enabled the host starts this instance again when the Factorio server exits unexpectedly after running for at least 10 minutes.
+A crash sooner than that is logged as an error and the instance is left stopped, as it is likely to crash again.
+
+Defaults to false.
+
+
+### instance.crash_retry_attempts
+
+Number of times the host restarts this instance after a crash before giving up and logging an error.
+The count resets when a user starts or restarts the instance, or the host is restarted.
+Set to 0 for no limit.
+
+Defaults to 3.
+
+
 ### instance.exclude_from_start_all
 
 If enabled this instance will be excluded from the "Start all" button operation in the web interface.
