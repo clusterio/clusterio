@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import {
 	message, Button, Checkbox, Form, Input, Modal,
-	Popconfirm, Select, Space, Table, Tooltip, Upload,
+	Popconfirm, Select, Space, Table, Tooltip, Typography, Upload,
 } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
@@ -11,6 +11,7 @@ import * as lib from "@clusterio/lib";
 import { useAccount } from "../model/account";
 import useTableQueryState from "../util/useTableQueryState";
 import useColumnSearch from "../util/useColumnSearch";
+import type { Control } from "../util/websocket";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
@@ -108,11 +109,50 @@ function CopyModal(props: ModalProps) {
 }
 
 
+/** Runs action on each save in turn, returning the names that failed. */
+async function forEachSave(
+	saves: lib.SaveDetails[],
+	action: (save: lib.SaveDetails) => Promise<unknown>,
+	errorText: string,
+) {
+	const failed: string[] = [];
+	for (const save of saves) {
+		try {
+			await action(save);
+		} catch (err: any) {
+			failed.push(save.name);
+			notifyErrorHandler(`${errorText} ${save.name}`)(err);
+		}
+	}
+	return failed;
+}
+
+function downloadSave(control: Control, instanceId: number, name: string) {
+	return control.send(new lib.InstanceDownloadSaveRequest(instanceId, name)).then(streamId => {
+		let url = new URL(webRoot, document.location.href);
+		url.pathname += `api/stream/${streamId}`;
+		// A download link instead of navigating, so several downloads do not cancel each other.
+		const link = document.createElement("a");
+		link.href = url.href;
+		link.download = name;
+		link.click();
+	});
+}
+
+function unusedSaveName(name: string, taken: Set<string>) {
+	const base = name.replace(/\.zip$/, "");
+	for (let i = 2; ; i++) {
+		const candidate = `${base}-${i}.zip`;
+		if (!taken.has(candidate)) {
+			return candidate;
+		}
+	}
+}
+
 type TransferModalProps = {
 	disabled: boolean;
 	saves: lib.SaveDetails[];
 	instanceId: number;
-	buttonText?: string;
 	onDone?: (failed: string[]) => void;
 };
 
@@ -125,27 +165,18 @@ function TransferModal(props: TransferModalProps) {
 	const single = props.saves.length === 1 ? props.saves[0] : undefined;
 	const canCopy = account.hasPermission("core.instance.save.copy");
 
-	async function transfer(values: { targetInstanceId: number, transferredName?: string, copy: boolean }) {
-		const failed: string[] = [];
-		for (const save of props.saves) {
-			try {
-				await control.send(new lib.InstanceTransferSaveRequest(
-					props.instanceId,
-					save.name,
-					values.targetInstanceId,
-					(single && values.transferredName) || save.name,
-					values.copy,
-				));
-			} catch (err: any) {
-				failed.push(save.name);
-				notifyErrorHandler(`Error transfering ${save.name}`)(err);
-			}
-		}
-		return failed;
+	function transfer(values: { targetInstanceId: number, transferredName?: string, copy: boolean }) {
+		return forEachSave(props.saves, save => control.send(new lib.InstanceTransferSaveRequest(
+			props.instanceId,
+			save.name,
+			values.targetInstanceId,
+			(single && values.transferredName) || save.name,
+			values.copy,
+		)), "Error transfering");
 	}
 
 	return <>
-		<Button disabled={props.disabled} onClick={() => setOpen(true)}>{props.buttonText ?? "Transfer"}</Button>
+		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Transfer</Button>
 		<Modal
 			title={single ? "Transfer save" : `Transfer ${props.saves.length} saves`}
 			okText="Transfer"
@@ -217,6 +248,66 @@ function TransferModal(props: TransferModalProps) {
 }
 
 
+type BulkActionsProps = {
+	disabled: boolean;
+	instanceId: number;
+	saves: lib.SaveDetails[];
+	allNames: string[];
+	onDone: (failed: string[]) => void;
+};
+
+function BulkActions(props: BulkActionsProps) {
+	const account = useAccount();
+	const control = useContext(ControlContext);
+	const [running, setRunning] = useState<string>();
+	const count = props.saves.length;
+
+	function run(name: string, action: (save: lib.SaveDetails) => Promise<unknown>, errorText: string) {
+		setRunning(name);
+		forEachSave(props.saves, action, errorText)
+			.then(props.onDone)
+			.finally(() => setRunning(undefined));
+	}
+
+	function copy() {
+		const taken = new Set(props.allNames);
+		run("copy", save => {
+			const destination = unusedSaveName(save.name, taken);
+			taken.add(destination);
+			return control.send(new lib.InstanceCopySaveRequest(props.instanceId, save.name, destination));
+		}, "Error copying");
+	}
+
+	const disabled = props.disabled || running !== undefined;
+	return <Space wrap>
+		<Typography.Text type="secondary">{count} selected</Typography.Text>
+		{account.hasPermission("core.instance.save.copy") && <Button
+			disabled={disabled} loading={running === "copy"} onClick={copy}
+		>Copy</Button>}
+		{account.hasPermission("core.instance.save.download") && <Button
+			disabled={disabled}
+			loading={running === "download"}
+			onClick={() => run(
+				"download", save => downloadSave(control, props.instanceId, save.name), "Error downloading"
+			)}
+		>Download</Button>}
+		{account.hasPermission("core.instance.save.transfer") && <TransferModal
+			disabled={disabled} instanceId={props.instanceId} saves={props.saves} onDone={props.onDone}
+		/>}
+		{account.hasPermission("core.instance.save.delete") && <Popconfirm
+			title={`Permanently delete ${count} ${count === 1 ? "save" : "saves"}?`}
+			okText="Delete"
+			okButtonProps={{ danger: true }}
+			onConfirm={() => run("delete", save => control.send(
+				new lib.InstanceDeleteSaveRequest(props.instanceId, save.name)
+			), "Error deleting")}
+		>
+			<Button danger disabled={disabled} loading={running === "delete"}>Delete</Button>
+		</Popconfirm>}
+	</Space>;
+}
+
+
 export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -237,6 +328,12 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		.map(save => save.name);
 	const visibleSelected = visibleNames.filter(name => selectedNames.includes(name)).length;
 	const canTransfer = account.hasPermission("core.instance.save.transfer");
+	const canSelect = account.hasAnyPermission(
+		"core.instance.save.copy",
+		"core.instance.save.download",
+		"core.instance.save.transfer",
+		"core.instance.save.delete",
+	);
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
@@ -277,7 +374,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		pagination={tableState.pagination}
 		onChange={tableState.onChange}
 		rowKey={save => save.name}
-		rowSelection={canTransfer ? {
+		rowSelection={canSelect ? {
 			selectedRowKeys: selectedSaves.map(save => save.name),
 			onChange: keys => setSelectedNames(keys as string[]),
 			// Select all covers every save matching the search, not just the current page.
@@ -320,13 +417,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 					{account.hasPermission("core.instance.save.download") && <Button
 						disabled={hostOffline}
 						onClick={() => {
-							control.send(
-								new lib.InstanceDownloadSaveRequest(props.instance.id!, save.name)
-							).then(streamId => {
-								let url = new URL(webRoot, document.location.href);
-								url.pathname += `api/stream/${streamId}`;
-								document.location.assign(url);
-							}).catch(
+							downloadSave(control, props.instance.id!, save.name).catch(
 								notifyErrorHandler("Error downloading save")
 							);
 						}}
@@ -370,12 +461,12 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 
 	return <div>
 		<SectionHeader title="Saves" extra={<Space wrap>
-			{canTransfer && selectedSaves.length > 0 && <TransferModal
+			{selectedSaves.length > 0 && <BulkActions
 				disabled={hostOffline}
 				instanceId={props.instance.id!}
 				saves={selectedSaves}
-				buttonText={`Transfer ${selectedSaves.length} selected`}
-				onDone={failed => setSelectedNames(failed)}
+				allNames={saveList.map(save => save.name)}
+				onDone={setSelectedNames}
 			/>}
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
 				<UploadButton disabled={hostOffline}>
