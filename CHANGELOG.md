@@ -1,5 +1,60 @@
 # Changelog
 
+## Version 2.1.2
+
+### Features
+
+- Added a version select to mods in the mod pack view. [#1245](<https://github.com/clusterio/clusterio/issues/1245>)
+- Added upload progress with a cancel button for mods and saves in the web interface. [#1242](<https://github.com/clusterio/clusterio/issues/1242>)
+- Added `instance.restart_after_crash` and `instance.crash_retry_attempts` to restart instances that crash after running for at least 10 minutes. [#1251](<https://github.com/clusterio/clusterio/issues/1251>)
+- Plugins can add actions to the dropdown menus on the controller, host, instance and user pages. [#1243](<https://github.com/clusterio/clusterio/issues/1243>)
+- Added mod upload to the mod pack view. [#1246](<https://github.com/clusterio/clusterio/issues/1246>)
+- Added name search and row selection to the saves table, with buttons to download, transfer or delete the selected saves. [#1253](<https://github.com/clusterio/clusterio/issues/1253>)
+- Added the Clusterio logo as the web interface favicon, with `controller.favicon_url` to replace it. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Added the page name to the browser tab title. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Added the bind address and public URL to the controller page. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Added `plugins.waitFor`, `plugins.checkInstalled` and `plugins.checkEnabled` to the plugin load context so plugins can wait for another plugin to load and get the value its entrypoint returned. [#1232](<https://github.com/clusterio/clusterio/pull/1232>)
+- The web interface now restores the scroll position when navigating back/forward, reloading the page or returning to it. [#1247](<https://github.com/clusterio/clusterio/issues/1247>)
+
+### Fixes
+
+- Fixed proxy stream downloads by a slow receiver being closed while above the minimum transfer speed. [#1237](<https://github.com/clusterio/clusterio/pull/1237>)
+- Fixed failed mod uploads in the web interface not showing an error. [#1242](<https://github.com/clusterio/clusterio/issues/1242>)
+- Fixed a cancelled save upload leaving a temporary file in the instance saves folder. [#1242](<https://github.com/clusterio/clusterio/issues/1242>)
+- Fixed the cluster name not being HTML escaped in the page title. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+
+### Changes
+
+- Replaced chalk with Node's built-in `util.styleText`. Factorio output colours in the terminal now respect `NO_COLOR`. [#1233](<https://github.com/clusterio/clusterio/pull/1233>)
+- Replaced the winston-daily-rotate-file dependency with a built-in log file transport. Log file names are unchanged. The `.*-audit.json` files in the log directories are no longer used and can be deleted. [#1234](<https://github.com/clusterio/clusterio/pull/1234>)
+- `@types/yauzl` and `@types/yazl` are no longer installed with `@clusterio/lib`, which also drops `@types/node` from server installs. [#1235](<https://github.com/clusterio/clusterio/pull/1235>)
+- Reduced the size of the web interface by about 100 KB by keeping yauzl, browserify-zlib and the assert polyfill out of it. [#1236](<https://github.com/clusterio/clusterio/pull/1236>)
+- Renamed the save Copy button to Duplicate and shortened the save buttons to Load, Upload and Create. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Moved Load scenario into the instance control button and Create template into the More menu. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Restyled the user page settings to match the role page, with the status switches on one row and an unsaved changes bar for roles and bans. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Removed the padding and rounded corners around the online players table. [#1260](<https://github.com/clusterio/clusterio/issues/1260>)
+- Plugins now load concurrently instead of one at a time in plugin list order. [#1232](<https://github.com/clusterio/clusterio/pull/1232>)
+
+### Breaking Changes
+
+- `lib.ZipArchive.zipfile` is now private and archive entries are typed as `lib.ZipEntry` instead of yauzl's `Entry`. Use `ZipArchive.openStream`/`openRawStream` to read entries. TypeScript plugins that relied on `@types/node` coming in through `@clusterio/lib` need to list it in their own devDependencies. [#1235](<https://github.com/clusterio/clusterio/pull/1235>)
+- `ModInfo.fromModFile` has been moved to `ModStore.readModInfo`. [#1236](<https://github.com/clusterio/clusterio/pull/1236>)
+- Replaced controller.transfer_min_progress (KiB per 30 seconds) with controller.transfer_min_speed, the speed in KiB/s that is never closed for moving too slowly, defaulting to 64. Configs on the old default move to the new one, other values are converted. [#1237](<https://github.com/clusterio/clusterio/pull/1237>)
+
+### Meta
+
+- Added `scripts/prepare_release.mts`, which bumps the package versions, adds the changelog and commits and tags a release. [#1240](<https://github.com/clusterio/clusterio/issues/1240>)
+
+### Contributors
+
+Many thanks to the following for contributing to this release:
+[@bbassie](<https://github.com/bbassie>)
+
+### Statistics
+
+Commits: 56  Pull Requests: 19  Files Changed: 105  Additions: +4,328  Deletions: -1,710
+
+
 ## Version 2.1.1
 
 ### Features
