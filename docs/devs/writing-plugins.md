@@ -44,7 +44,7 @@ For automatic discovery, include `"clusterio-plugin"` in the package's `"keyword
 Installed npm plugins are discovered from the installation's dependencies when controller, host or ctl loads its configuration, and added to `plugin-list.json`.
 Discovery starts with the root package's `dependencies`, not `devDependencies`, and follows dependencies of recognized plugins.
 It does not search arbitrary nested dependency trees for plugins.
-For tooling that needs the same discovery behavior, reuse [loadPluginList](../packages/lib/src/load_plugin_list.ts) rather than maintaining another package scanner.
+For tooling that needs the same discovery behavior, reuse [loadPluginList](../../packages/lib/src/load_plugin_list.ts) rather than maintaining another package scanner.
 
 A possible workflow for developing plugins is to place the plugin in a sub-directory of where clusterio has been installed, and rely on Node.js searching up the folder heirarchy for it to find `@clusterio/lib`.
 After creating a directory for your plugin, the boilerplate can be generated automaticlly from a set of tempaltes using `npm exec @clusterio/create -y -- --plugin-template` after which you will be asked which areas your plugin will interact with and your plugin's name.
@@ -250,7 +250,7 @@ Use `.then` or wait from a hook instead if the other plugin may also wait on you
 
 Plugins written as classes deriving from `BaseControllerPlugin`, `BaseHostPlugin`, `BaseInstancePlugin`, `BaseCtlPlugin` or `BaseWebPlugin` still load, but this way of defining plugins is deprecated and a warning is logged when such a plugin is loaded.
 The base class constructor attaches the `on*` methods overridden by the plugin to the corresponding hooks, and the async `init` method is called immediately after.
-See [Migrating Plugins to 2.0](devs/plugin-migration-to-2.0.md) for how to convert them.
+See [Migrating Plugins to 2.0](plugin-migration-to-2.0.md) for how to convert them.
 
 
 ## Logging Messages

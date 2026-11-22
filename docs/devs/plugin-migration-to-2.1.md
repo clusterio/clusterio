@@ -7,7 +7,7 @@ Plugins still on an alpha should start with the [2.0 guide](plugin-migration-to-
 ## Request errors
 
 `RequestError` is gone.
-Errors thrown by request handlers are now received by the requester as the same class, see [Request errors](/docs/writing-plugins.md#request-errors).
+Errors thrown by request handlers are now received by the requester as the same class, see [Request errors](/docs/devs/writing-plugins.md#request-errors).
 Replace `RequestError` with the class that fits:
 
 - Invalid input: `ValidationError`.

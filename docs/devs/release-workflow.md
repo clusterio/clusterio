@@ -12,7 +12,7 @@ If the script fails due to GitHub's 60/hour public access rate limit, you can se
 
 ## Packages
 
-The [Publish workflow](../.github/workflows/publish.yml) publishes npm packages and Lua mods on GitHub's `release: released` event for a stable release.
+The [Publish workflow](../../.github/workflows/publish.yml) publishes npm packages and Lua mods on GitHub's `release: released` event for a stable release.
 Publishing a prerelease does not trigger it; see [GitHub's release event documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release).
 The npm release includes the packages under `packages/` and the six core plugins under `plugins/`.
 Community plugins hosted in separate repositories have independent versions and releases.

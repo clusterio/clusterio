@@ -17,7 +17,7 @@ The blue arrows point from the hosts and clients to the controller they connect 
 The orange lines connect each host to the Factorio processes it manages.
 Open the [full-size diagram](assets/clusterio_2.0_block_diagram.svg) to zoom in, or use the [Draw.io source](assets/clusterio_2.0_block_diagram.drawio) to edit it.
 
-For how messages are handled and routed between these components, see the [communication guide](communication.md).
+For how messages are handled and routed between these components, see the [communication guide](devs/communication.md).
 
 
 ## Save Patching

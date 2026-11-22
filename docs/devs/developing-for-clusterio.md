@@ -122,7 +122,7 @@ There's also the `add_libraries` function exported by event_handler, which accep
 ## Communicating with Clusterio
 
 Clusterio uses a homebrew protocol based on sending JSON payloads over a WebSocket connection.
-See [protocol.md](devs/protocol.md) for the implementation details of it.
+See [protocol.md](protocol.md) for the implementation details of it.
 
 It's also possible to write a plugin for Clusterio that exposes a custom interface over HTTP, WebSocket or any other technology supported by Node.js.
 
@@ -193,7 +193,7 @@ In particular, player-leaving, console-command, and configuration-change handler
 Use an idempotent state accessor in handlers that can run early.
 It should migrate any legacy namespace before creating fresh state, fill missing fields, and return the same state on repeated calls.
 A guard that returns early because the new namespace is absent can silently discard recovery work on an older save.
-See [player_sync's state accessor](../plugins/player_sync/module/get_script_data.lua) for an implementation that handles a renamed namespace and [the module template](../packages/create/templates/common/module/control.lua) for lifecycle setup.
+See [player_sync's state accessor](../../plugins/player_sync/module/get_script_data.lua) for an implementation that handles a renamed namespace and [the module template](../../packages/create/templates/common/module/control.lua) for lifecycle setup.
 
 Use `on_load` only to restore local references and other operations permitted by Factorio's load lifecycle; do not create or migrate persistent state there.
 Perform state changes in startup or other events that permit them.
@@ -227,7 +227,7 @@ end
 Access persistent state from the appropriate lifecycle callbacks, after initialisation or loading has made it available.
 The JSON helpers also work before runtime; other compatibility helpers may require `game` to be available.
 Legacy examples using `global` or `game.table_to_json` directly are version-specific.
-See [compat.lua](../packages/host/modules/clusterio/compat.lua) and the [Factorio support policy](decisions.md#factorio) before introducing version checks.
+See [compat.lua](../../packages/host/modules/clusterio/compat.lua) and the [Factorio support policy](decisions.md#factorio) before introducing version checks.
 
 
 ### clusterio_api library

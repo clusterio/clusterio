@@ -8,6 +8,7 @@ If there is a particular issue or concern you would like the team to comment on 
 <!-- For code style, add (Lang) to section names if present in both -->
 
 1. Documentation
+    - [Audiences](#audiences)
     - [Decision Log](#decision-log)
     - [TSDoc](#tsdoc)
 2. Code Style (General)
@@ -69,6 +70,17 @@ Remember to have one sentence per line.
 
 
 ## Documentation
+
+### Audiences
+
+🧾 21st November 2026 | [Github Issue #1254](https://github.com/clusterio/clusterio/issues/1254)
+
+> Write each document for one audience and keep it where that audience looks: `docs/` for cluster admins and `docs/devs/` for Clusterio and plugin developers.
+
+Admins were confused by developer documents mixed in with the guides they needed, and some topics were covered in several places that drifted apart.
+The root README covers installing and starting a cluster, `docs/` covers running it, the package READMEs cover the command line options of each package, and `docs/devs/` covers developing Clusterio and plugins.
+When a topic belongs to another document, link to it instead of repeating it.
+
 
 ### Decision Log
 
@@ -462,7 +474,7 @@ While we aim to increase the number of useful checks performed by CI in the futu
 > We publish packages and mods when a maintainer publishes a stable GitHub release.
 
 Changes merged into the main branch are bundled into releases before publication.
-Publishing a stable GitHub release triggers the [Publish workflow](../.github/workflows/publish.yml), which publishes npm packages and Factorio mods.
+Publishing a stable GitHub release triggers the [Publish workflow](../../.github/workflows/publish.yml), which publishes npm packages and Factorio mods.
 Publishing a prerelease or pushing a tag alone does not trigger publication.
 Running clusters are updated by their operators.
 See the [release workflow](release-workflow.md) for the publication procedure.
@@ -484,5 +496,5 @@ However, we are always looking for a better framework which is worth the effort 
 
 > We perform all tests through GitHub actions using Ubuntu latest, using all supported versions of node and all supported versions of factorio.
 
-The [current CI workflow](../.github/workflows/node.js.yml) tests selected Node.js major versions and pinned Factorio releases.
+The [current CI workflow](../../.github/workflows/node.js.yml) tests selected Node.js major versions and pinned Factorio releases.
 However, we do not conduct tests on all supported operating systems, as the added demand on our testing resources would be significant, and the value it would provide for a cross-platform engine like NodeJS would be limited.

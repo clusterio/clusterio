@@ -2,7 +2,7 @@
 
 Clusterio communicates using a simple homebrew message passing protocol based on JSON over WebSocket with limited support for reliable transport of messages.
 The protocol is implemented in [packages/lib/src/link](/packages/lib/src/link) and uses the `ws` library to handle the WebSocket connections on the Node.js side and the native WebSocket API on the browser side.
-The wire schemas are defined in [messages_core.ts](/packages/lib/src/data/messages_core.ts); see the [communication overview](../communication.md) for how links, connectors, and routing fit together.
+The wire schemas are defined in [messages_core.ts](/packages/lib/src/data/messages_core.ts); see the [communication overview](communication.md) for how links, connectors, and routing fit together.
 
 Two general kinds of messages are supported: events and requests.
 Events are messages sent by one party and received by the other and offer no notification for the sender on whether it was actually received.
@@ -111,7 +111,7 @@ Along with the following events emitted when transition between states:
 - `close` - The connector is closed, moving from any state to `closed`.
 
 Invalidation or closure rejects pending requests with `SessionLost`.
-Plugins must handle lost sessions, stale state, and application retries where required; see [connection handling](../writing-plugins.md#handling-connection-events) for the plugin hooks and queueing behavior.
+Plugins must handle lost sessions, stale state, and application retries where required; see [connection handling](writing-plugins.md#handling-connection-events) for the plugin hooks and queueing behavior.
 
 ![Conector States](../assets/connector_states.svg)
 
