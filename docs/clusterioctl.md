@@ -1,11 +1,46 @@
 # Clusterioctl
 
-Clusterio clusters are managed through the controller by using the `clusterioctl` command line interface which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
+Clusterio clusters can be managed from the command line with `clusterioctl`, which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
+It connects to the controller the same way the web interface does, and what it is allowed to do depends on the roles of the user it logs in as.
+See [Managing a Cluster](managing-a-cluster.md) for a guide to the day to day tasks.
 This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` should be executed.
 Mandatory parameters are shown in `<angles bracket>` and optional pameters are in `[square brackets]`.
+Hosts, instances, roles and mod packs can be given by name or by ID.
 
-Before `clusterioctl` can be used it needs to be configured for the cluster it will connect to.
-The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-ctl.json` for managing the cluster as the given user.
+Run `npx clusterioctl --help` for the list of commands and `npx clusterioctl <command> --help` for the options of a command.
+Plugins may add their own commands, these are documented in the plugin's README.
+
+
+## Setting up
+
+clusterioctl is installed separately from the controller and host.
+Run the installer as described in the [README](/README.md#installation) and choose "Ctl only" as the operating mode, either in the same directory as the controller or on another computer.
+The installer asks for the controller URL and an authentication token, these are the same as you would use to log in to the web interface, and saves them to `config-ctl.json`.
+
+When clusterioctl is installed in the same directory as the controller, `npx clusteriocontroller bootstrap create-ctl-config <username>` writes `config-ctl.json` for managing the cluster as the given user.
+The config created this way connects to `localhost`, so it only works on the controller computer.
+
+To set it up by hand, generate a token for the user on the controller:
+
+    npx clusteriocontroller bootstrap generate-user-token <username>
+
+Then create the config and set the URL and token on the computer you run clusterioctl on:
+
+    npx clusterioctl config create
+    npx clusterioctl config set ctl.controller_url https://example.com/
+    npx clusterioctl config set ctl.controller_token <token>
+
+The `config` command works offline and is described in the [readme for @clusterio/ctl](/packages/ctl/README.md), along with the other command line options.
+See [Ctl Configuration](configuration.md#ctl-configuration) for the available settings.
+
+The token logs in as the user it was generated for and gives the same access as that user's roles.
+Anyone holding it can manage the cluster as that user, so keep `config-ctl.json` private.
+A token stops working when it is revoked with [`user revoke-token`](#revoke-user-token).
+
+If the controller uses a self-signed certificate, Node.js has to be told to trust it before clusterioctl can connect, see [Setting up TLS](setting-up-tls.md#creating-and-using-a-self-signed-certificate).
+For example on Linux:
+
+    NODE_EXTRA_CA_CERTS=path/to/cert.pem npx clusterioctl instance list
 
 
 ## Output Format
@@ -24,6 +59,56 @@ The `json` format uses the property names shown in the tables of the human forma
 `instance start-all` and `instance stop-all` print an array with an entry per instance, which has an `error` property if that instance failed to start or stop.
 
 The default is `--output human`, which prints `Command ran successfully` for commands that have no result.
+
+
+## Controller
+
+### Stop controller
+
+    ctl> controller stop
+
+Stops the controller.
+The run scripts and systemd services created by the installer do not start it again.
+
+### Restart controller
+
+    ctl> controller restart
+
+Restarts the controller.
+This only works if the controller was started with `run --can-restart`, which the run scripts and systemd services created by the installer do, otherwise the request is refused.
+It is also refused while a plugin install or update is running.
+
+### Controller config
+
+The controller config can be changed while the controller runs, unlike `npx clusteriocontroller config set` which must only be used while it is stopped.
+See [Controller Configuration](configuration.md#controller-configuration) for the available fields.
+
+#### List controller config
+
+    ctl> controller config list
+
+Lists the config of the controller.
+
+#### Set controller config value
+
+    ctl> controller config set <field> [value] [--stdin]
+
+Sets a field in the controller config.
+If `value` is left out the field is cleared, `--stdin` reads the value from stdin instead.
+Some fields, like `controller.allow_remote_updates`, can not be changed remotely and have to be set on the controller computer while it is stopped.
+
+#### Set controller config property
+
+    ctl> controller config set-prop <field> <prop> [value] [--stdin]
+
+Sets one property of an object field in the controller config, see [Set config property of field](#set-config-property-of-field).
+
+#### Edit controller config
+
+    ctl> controller config edit [editor]
+
+Opens the controller config in a text editor and applies the changed values once the editor exits.
+If `editor` is not given the `EDITOR` or `VISUAL` environment variable is used.
 
 
 ## Hosts
@@ -69,6 +154,52 @@ Instances assigned to the host become unassigned, their files stay on the comput
 Requires the `core.host.revoke` permission.
 To add the computer back to the cluster, start the host again and approve it.
 
+### Stop host
+
+    ctl> host stop <host>
+
+Stops the host and the instances running on it.
+The run scripts and systemd services created by the installer do not start it again, it has to be started on the computer it runs on.
+
+### Restart host
+
+    ctl> host restart <host>
+
+Restarts the host.
+Like the controller, this only works if the host was started with `run --can-restart`.
+
+### Host config
+
+The config of a connected host can be changed from clusterioctl.
+See [Host Configuration](configuration.md#host-configuration) for the available fields.
+
+#### List host config
+
+    ctl> host config list <host>
+
+Lists the config of the host given by name or ID.
+
+#### Set host config value
+
+    ctl> host config set <host> <field> [value] [--stdin]
+
+Sets a field in the host config.
+If `value` is left out the field is cleared, `--stdin` reads the value from stdin instead.
+Some fields, like `host.allow_remote_updates`, can not be changed remotely and have to be set on the host computer while it is stopped.
+
+#### Set host config property
+
+    ctl> host config set-prop <host> <field> <prop> [value] [--stdin]
+
+Sets one property of an object field in the host config, see [Set config property of field](#set-config-property-of-field).
+
+#### Edit host config
+
+    ctl> host config edit <host> [editor]
+
+Opens the host config in a text editor and applies the changed values once the editor exits.
+If `editor` is not given the `EDITOR` or `VISUAL` environment variable is used.
+
 ### Update Clusterio
 
     ctl> host update <host> [--all] [--restart]
@@ -107,6 +238,71 @@ Templates are only listed if `--templates` is passed.
     ctl> instance create <name> [--id <instance id>] [--from <instance id>] [--template <instance>] [--as-template]
 
 Create a new instance. `name` is the instance name. `--id` is the optional id. `--from` copies the config of an existing instance. `--template` makes the new instance inherit all config values from the given template. `--as-template` creates the instance as a template, see `instance.is_template` in the [configuration docs](configuration.md). Use `--as-template --from <instance>` to make a template out of an existing instance.
+
+### Delete instance
+
+    ctl> instance delete <instance>
+
+Deletes the instance and all its files, including saves, from the host it is assigned to.
+The instance must be stopped, and can not be deleted while it is the template of other instances.
+
+### Start instance
+
+    ctl> instance start <instance> [--save <name>] [--keep-open]
+
+Starts the instance, which must be assigned to a host.
+Loads the given save, or the most recently modified save if `--save` is not passed.
+`--keep-open` keeps clusterioctl running and prints the log of the instance until it is stopped with Ctrl+C.
+
+### Restart instance
+
+    ctl> instance restart <instance> [--save <name>] [--keep-open]
+
+Stops the instance if it is running and starts it again, takes the same options as `start`.
+
+### Load scenario
+
+    ctl> instance load-scenario <instance> <scenario> [--seed <seed>] [--map-exchange-string <string>] [--map-gen-settings <file>] [--map-settings <file>] [--keep-open]
+
+Starts the instance with a new game from the given scenario, for example `base/freeplay`.
+This only works with save patching turned off for the instance with `factorio.enable_save_patching`, see [Save Patching](how-it-works.md#save-patching).
+`--map-exchange-string` sets the map generation from a map exchange string copied from Factorio.
+`--map-gen-settings` and `--map-settings` take paths to the JSON files Factorio uses for these, and `--seed` overrides the seed in them.
+
+### Stop instance
+
+    ctl> instance stop <instance>
+
+Saves the game and stops the instance.
+
+### Start all instances
+
+    ctl> instance start-all [--force]
+
+Starts every stopped instance that is assigned to a host.
+Instances with `instance.exclude_from_start_all` set are skipped unless `--force` is passed.
+
+### Stop all instances
+
+    ctl> instance stop-all
+
+Stops every running instance.
+
+### Send RCON command
+
+    ctl> instance send-rcon <instance> <command>
+
+Sends a command to the Factorio server of a running instance and prints the reply, for example `ctl> instance send-rcon "My World" /players`.
+Quote the command if it contains spaces.
+
+### Export data
+
+    ctl> instance export-data <instance>
+
+Exports the item icons, names and mod settings from Factorio for the mod pack the instance uses, and uploads them to the controller.
+The instance must be stopped.
+The web interface needs this data to show icons and names of items, and to show the settings of the mods in a mod pack.
+See [Exporting data](managing-a-cluster.md#exporting-data) for when to run it.
 
 ### Kill instance
 
@@ -149,7 +345,15 @@ Set field in instance config. `instance` is instance to set. `field` is field to
 
 #### Set config property of field
 
-To be written.
+    ctl> instance config set-prop <instance> <field> <prop> [value] [--stdin]
+
+Set one property of an object field, like `factorio.settings`, without replacing the rest of the object.
+`value` is parsed as JSON if it can be, otherwise it is used as a string.
+If `value` is left out the property is removed.
+For example, to set the max player count and remove the game password:
+
+    ctl> instance config set-prop "My World" factorio.settings max_players 16
+    ctl> instance config set-prop "My World" factorio.settings game_password
 
 #### Inherit config value
 
@@ -169,6 +373,62 @@ Edit instance config in a text editor. Once file is saved and editor has been ex
 
 Assigns instance to host. `instance` is instance to assign, `host` is host to assign to. If `host` is not provided, instance will be unassigned.
 
+### Saves
+
+Saves are stored on the host the instance is assigned to.
+The commands below need the instance to be assigned, and the host to be connected.
+
+#### List saves
+
+    ctl> instance save list <instance>
+
+Lists the saves of the instance.
+`loadByDefault` marks the save that is loaded when the instance is started without `--save`.
+
+#### Create save
+
+    ctl> instance save create <instance> [name] [--seed <seed>] [--map-exchange-string <string>] [--map-gen-settings <file>] [--map-settings <file>]
+
+Creates a new save with a freshly generated map without starting the server.
+The name defaults to `world.zip`.
+The map options work the same as for [load-scenario](#load-scenario).
+
+#### Upload save
+
+    ctl> instance save upload <instance> <file> [--name <name>]
+
+Uploads a save from this computer to the instance.
+`--name` gives it a different name on the host, the name must end with `.zip`.
+If a save with the same name exists the upload is stored under a new name.
+
+#### Download save
+
+    ctl> instance save download <instance> <save>
+
+Downloads a save from the instance to the current directory.
+
+#### Rename save
+
+    ctl> instance save rename <instance> <old-name> <new-name>
+
+#### Copy save
+
+    ctl> instance save copy <instance> <source> <destination>
+
+Copies a save within the same instance.
+
+#### Transfer save
+
+    ctl> instance save transfer <source-instance> <source-save> <target-instance> [target-save] [--copy]
+
+Moves a save to another instance, which can be on a different host.
+`--copy` leaves the original in place.
+If a save with the target name exists the transferred save is stored under a new name, which is printed.
+
+#### Delete save
+
+    ctl> instance save delete <instance> <save>
+
 ## Users
 
 Clusterio automatically creates user accounts for all players that join an instance when save patching is enabled.
@@ -176,9 +436,17 @@ These accounts are used to store per player data shared between instances, like 
 
 ### List users
 
-    ctl> user list
+    ctl> user list [--attributes] [--stats]
 
 Lists all user accounts in the cluster along with some data for each.
+`--attributes` adds the admin, whitelisted and banned status, and `--stats` adds online time and join counts.
+
+### Show user
+
+    ctl> user show <name> [--instance-stats]
+
+Shows the account data of one user.
+`--instance-stats` adds the online time and join count for each instance.
 
 
 ### Create User
@@ -271,6 +539,14 @@ Calling with an empty roles argument will remove all roles from the user.
 By default there's a roled named Cluster Admin which grants access to everything and a role named Player which grants a limited read access to the cluster, see [the section on roles](#roles) for more information about setting up roles and permissions.
 
 
+### Revoke user token
+
+    ctl> user revoke-token <name>
+
+Makes every authentication token issued to the user stop working, including the one used by the web interface and clusterioctl.
+The user has to log in again, or be given a new token with `npx clusteriocontroller bootstrap generate-user-token <name>`.
+Revoking the token of another user needs the `core.user.revoke_other_token` permission.
+
 ### Delete user
 
     ctl> user delete <name>
@@ -284,7 +560,139 @@ Note: If the player joins the cluster again a new account will be made for them 
 
 ## Roles
 
-To be written.
+Access to manage the cluster is granted through roles.
+A role is a named set of permissions, and a user has the permissions of all the roles they have.
+By default there are two roles: Cluster Admin, which has the `core.admin` permission that grants everything, and Player, which can view most of the cluster but not change it.
+New users get the Player role, this is set by `controller.default_role_id`.
+Use [`user set-roles`](#set-cluster-roles) to give roles to a user.
+
+### List roles
+
+    ctl> role list
+
+Lists the roles with their ID, description and permissions.
+
+### Create role
+
+    ctl> role create <name> [--description <text>] [--permissions <permission>]...
+
+Creates a new role and prints its ID.
+Pass `--permissions` once for each permission the role should grant, for example:
+
+    ctl> role create "Instance Operator" --permissions core.instance.start --permissions core.instance.stop
+
+### Edit role
+
+    ctl> role edit <role> [--name <name>] [--description <text>] [--set-perms <permission...>] [--add-perms <permission...>] [--remove-perms <permission...>] [--grant-default]
+
+Changes the name, description or permissions of a role.
+`--set-perms` replaces the permissions of the role, `--add-perms` and `--remove-perms` change them, and these take several permissions separated by spaces.
+`--grant-default` adds the permissions shown as granted by default in [`permission list`](#list-permissions), which are the ones the Player role starts with.
+
+### Delete role
+
+    ctl> role delete <role>
+
+Deletes the role, users that had it lose the permissions it granted.
+
+
+## Permissions
+
+### List permissions
+
+    ctl> permission list
+
+Lists all permissions with their name, title, description and whether they are granted by default.
+Plugins can add their own permissions, these show up here when the plugin is loaded on the controller.
+
+
+## Mods
+
+Mods are stored on the controller and sent to hosts when an instance needs them.
+
+### List mods
+
+    ctl> mod list [--fields <field...>]
+
+Lists the mods stored on the controller.
+`--fields` picks the columns to show, `--fields all` shows every field.
+
+### Search mods
+
+    ctl> mod search <factorio-version> [query] [--page <n>] [--page-size <n>] [--sort <field>] [--sort-order asc|desc] [--fields <field...>]
+
+Searches the mods stored on the controller that work with the given major version of Factorio, for example `2.0`.
+This does not search the Factorio Mod Portal, use the Mods page of the web interface for that.
+
+### Show mod
+
+    ctl> mod show <name> <version>
+
+Shows the details of a stored mod.
+
+### Upload mod
+
+    ctl> mod upload <file>
+
+Uploads a mod zip file to the controller.
+
+### Download mod
+
+    ctl> mod download <name> <version>
+
+Downloads a stored mod to the current directory.
+
+### Delete mod
+
+    ctl> mod delete <name> <version>
+
+Deletes a stored mod from the controller.
+
+
+## Mod Packs
+
+A mod pack is a list of mods with their versions and mod settings, see [Mod packs](managing-a-cluster.md#mod-packs).
+
+### List mod packs
+
+    ctl> mod-pack list
+
+### Show mod pack
+
+    ctl> mod-pack show <mod-pack>
+
+Shows the mods and settings of a mod pack.
+
+### Create mod pack
+
+    ctl> mod-pack create <name> <factorio-version> [--description <text>] [--mods <name:version...>] [--disabled-mods <name...>] [--bool-setting <scope> <name> <value>] ...
+
+Creates a mod pack for the given version of Factorio and prints its ID.
+The built in mods of Factorio, like `base` and `space-age`, are added automatically with only `base` enabled.
+Mods are given as `name:version`, and optionally `name:version:sha1`.
+`--disabled-mods` takes the names of mods from `--mods` that should be in the pack but not enabled.
+Mod settings are set with `--bool-setting`, `--int-setting`, `--double-setting`, `--string-setting` and `--color-setting`, which each take a scope, a setting name and a value.
+The scope is one of `startup`, `runtime-global` or `runtime-per-user`, and a color is given as JSON like `{"r":1,"g":0,"b":0,"a":1}`.
+
+### Edit mod pack
+
+    ctl> mod-pack edit <mod-pack> [--name <name>] [--description <text>] [--factorio-version <version>] [--add-mods <name:version...>] [--enable-mods <name...>] [--disable-mods <name...>] [--remove-mods <name...>] [--<type>-setting <scope> <name> <value>] [--remove-setting <scope> <name>]
+
+Changes a mod pack, the options work the same as for `create`.
+`--add-mods` also replaces the version of a mod already in the pack.
+Mods are not checked against the mods stored on the controller, make sure the mods you add have been uploaded.
+
+### Export and import mod packs
+
+    ctl> mod-pack export <mod-pack>
+    ctl> mod-pack import <string>
+
+`export` prints the mod pack as a string, and `import` creates a new mod pack from such a string.
+This is the same string as the Import string button and the Export to string action in the web interface use.
+
+### Delete mod pack
+
+    ctl> mod-pack delete <mod-pack>
 
 
 ## Notes
@@ -319,9 +727,29 @@ Removes the note of a resource.
 Notes are also removed when the resource they are attached to is deleted.
 
 
+## Logs
+
+### Query log
+
+    ctl> log query [--all] [--controller] [--host <host>] [--instance <instance>] [--max-level <level>] [--limit <n>] [--start]
+
+Prints entries from the cluster log stored on the controller.
+At least one of `--all`, `--controller`, `--host` and `--instance` must be passed to pick which logs to read.
+`--max-level` leaves out entries less important than the given level, for example `warn`.
+Prints the last 1000 entries by default, `--limit` changes the number and `--start` takes them from the start of the log instead.
+
+### Follow log
+
+    ctl> log follow [--all] [--controller] [--host <host>] [--instance <instance>]
+
+Prints new log entries as they come in until stopped with Ctrl+C.
+Takes the same options for picking logs as `query`.
+
+
 ## Plugins (Local)
 
-To be written.
+The plugins loaded by clusterioctl are managed with the `plugin` command, which works without a connection to the controller.
+See the [readme for @clusterio/ctl](/packages/ctl/README.md#plugin-command).
 
 
 ## Plugins (Remote)
