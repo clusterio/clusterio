@@ -55,4 +55,4 @@ See [writing plugins](writing-plugins.md#defining-link-messages) for a complete 
 
 When changing a wire message structure in [messages_core.ts](../../packages/lib/src/data/messages_core.ts), rebuild the packages with `pnpm -r run prepare` to regenerate the standalone validator.
 When changing a request or event class, keep serialization, allowed endpoints, permission checks, registration, and handlers consistent.
-The [contributor guide](contributing.md#checking-your-code-for-errors) explains how to run focused tests.
+The [contributor guide](../../contributing.md#checking-your-code-for-errors) explains how to run focused tests.

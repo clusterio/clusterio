@@ -20,7 +20,7 @@ Plugin authors should also follow the [2.0 migration guide](docs/devs/plugin-mig
 ### Ways to support me/the project:
 
 * Contribute with code/documentation.
-  See [Contributing](docs/devs/contributing.md) for how to make pull requests.
+  See [Contributing](contributing.md) for how to make pull requests.
   Always nice to move the project forward.
 
 * Support me monetarily on [patreon](https://www.patreon.com/danielv123) or paypal: danielv@live.no

@@ -2,7 +2,7 @@
 
 Review observable behavior across the whole PR, including callers, consumers, and lifecycle transitions.
 Reading every changed file and passing tests do not establish that those behaviors were covered.
-Use [contributing](contributing.md) for setup and validation commands.
+Use [contributing](../../contributing.md) for setup and validation commands.
 
 
 ## Establish the scope

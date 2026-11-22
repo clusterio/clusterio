@@ -15,7 +15,7 @@
  *
  * Listed messages are warned about instead of failing the test, and an entry
  * with connect skips starting the cluster.  Entries for other versions are
- * ignored.  See docs/devs/contributing.md for when to add an entry.
+ * ignored.  See contributing.md for when to add an entry.
  */
 "use strict";
 import fs from "node:fs/promises";
