@@ -206,6 +206,9 @@ The context has the following properties:
 **logger**:
     Logger for this plugin, see [Logging Messages](#logging-messages).
 
+**plugins**:
+    The other plugins loaded alongside this one, see [Depending on other plugins](#depending-on-other-plugins).
+
 **controller**, **host**, **instance**, **hooks** or **control**:
     The object the entrypoint is loaded for.
     Controller entrypoints get `controller`, host entrypoints get `host`, instance entrypoints get both `instance` and `host`, clusterioctl entrypoints get `hooks` and web entrypoints get `control`.
@@ -215,6 +218,33 @@ Handlers are attached under a name, which should be the name of the plugin, and 
 An error thrown by a handler is logged and does not affect the other handlers, the same goes for handlers that take more than 15 seconds to complete.
 
 For TypeScript the context types are exported as `ControllerPluginContext`, `HostPluginContext`, `InstancePluginContext`, `CtlPluginContext` and `WebPluginContext` from their respective packages.
+
+### Depending on other plugins
+
+Plugins are loaded at the same time, so there is no order between them.
+A plugin that uses another plugin can wait for it with `plugins.waitFor(name, timeoutMs)` from its context, `timeoutMs` defaults to 30 seconds.
+It resolves to the value returned by the other plugin's entrypoint for the same controller, host, instance, clusterioctl or web interface, so a plugin that offers an API to other plugins should return it from its entrypoint.
+For deprecated class based plugins it resolves to the plugin instance.
+
+```js
+export default async function({ plugins }) {
+    const other = await plugins.waitFor("other_plugin");
+    if (other) {
+        other.doSomething();
+    }
+}
+```
+
+If the plugin is already loaded it resolves right away.
+If the plugin is not installed, has load_plugin set to false, is disabled by recovery mode, or fails to load, it resolves to undefined right away.
+If it times out it resolves to undefined.
+In both cases a warning naming both plugins is logged.
+`plugins.checkInstalled(name)` tells if a plugin is installed, and `plugins.checkEnabled(name)` tells if it is being loaded alongside yours.
+Use `checkEnabled` to avoid the warning for optional plugins.
+
+Startup does not continue until every entrypoint has returned.
+Two plugins awaiting each other in their entrypoints hold up startup until one of them times out.
+Use `.then` or wait from a hook instead if the other plugin may also wait on yours.
 
 ### Class based plugins
 

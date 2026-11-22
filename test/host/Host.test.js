@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import dgram from "node:dgram";
 import events from "node:events";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -248,6 +249,40 @@ describe("host/src/Host", function() {
 				const result = await host.checkRestartRequired();
 				assert.equal(result, true);
 				assert.equal(host.config.restartRequired, true);
+			});
+		});
+		describe(".loadPlugins()", function() {
+			let dir;
+			before(async function() {
+				lib.addPluginConfigFields([
+					{ name: "host_wait_early", version: "1.0.0", hostEntrypoint: "x" },
+					{ name: "host_wait_late", version: "1.0.0", hostEntrypoint: "x" },
+				]);
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-host-wait-"));
+				await fs.writeFile(path.join(dir, "early.js"), `export default async function({ host, plugins }) {
+					host.lateApi = await plugins.waitFor("host_wait_late");
+				}`);
+				await fs.writeFile(path.join(dir, "late.js"), "export default function() { return { late: true }; }");
+			});
+			after(async function() {
+				for (const name of Object.keys(lib.HostConfig.fieldDefinitions)) {
+					if (name.startsWith("host_wait_")) {
+						delete lib.HostConfig.fieldDefinitions[name];
+					}
+				}
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			it("should let plugins wait for each other", async function() {
+				const pluginInfos = [["host_wait_early", "early.js"], ["host_wait_late", "late.js"]].map(
+					([name, hostEntrypoint]) => ({
+						name, hostEntrypoint, packagePath: path.resolve(dir, "package.json"),
+					})
+				);
+				const hostConfig = new lib.HostConfig("host");
+				const host = new Host(new HostConnector(hostConfig, pluginInfos), hostConfig, pluginInfos);
+				await host.loadPlugins();
+				assert.deepEqual(host.lateApi, { late: true });
+				assert.deepEqual([...host.loadedPlugins].map(p => p.name), ["host_wait_early", "host_wait_late"]);
 			});
 		});
 		describe(".assignFreeGamePort()", function() {

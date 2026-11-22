@@ -1585,7 +1585,7 @@ export default class Controller {
 	}
 
 	async loadPlugins() {
-		const context = { metrics, logger, controller: this };
+		const toLoad: lib.PluginNodeEnvInfo[] = [];
 		for (let pluginInfo of this.pluginInfos) {
 			try {
 				const manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
@@ -1608,25 +1608,20 @@ export default class Controller {
 				continue;
 			}
 
-			try {
-				await lib.loadPlugin(
-					pluginInfo,
-					"controller",
-					context,
-					"ControllerPlugin",
-					BaseControllerPlugin,
-				);
+			toLoad.push(pluginInfo);
+		}
 
-				this.loadedPlugins.add(pluginInfo);
-
-			} catch (err: any) {
-				if (err.code === "InstallationError") {
-					throw err;
-				}
-				throw new lib.PluginError(pluginInfo.name, err);
-			}
-
-			logger.info(`Loaded plugin ${pluginInfo.name}`);
+		const { loaded } = await lib.PluginLoader.load({
+			type: "controller",
+			context: { metrics, controller: this },
+			logger,
+			installed: this.pluginInfos,
+			load: toLoad,
+			exportName: "ControllerPlugin",
+			baseClass: BaseControllerPlugin,
+		});
+		for (const pluginInfo of loaded.keys()) {
+			this.loadedPlugins.add(pluginInfo);
 		}
 	}
 

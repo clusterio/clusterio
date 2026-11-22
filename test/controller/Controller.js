@@ -239,6 +239,59 @@ describe("controller/src/Controller", function() {
 				});
 			});
 		});
+		describe(".loadPlugins()", function() {
+			const names = ["wait_early", "wait_late", "wait_off"];
+			let dir;
+			before(async function() {
+				addPluginConfigFields(names.map(name => ({ name, version: "1.0.0", controllerEntrypoint: "x" })));
+				dir = await fs.mkdtemp(path.join(os.tmpdir(), "clusterio-wait-"));
+				const entrypoints = {
+					wait_early: `export default async function({ controller, plugins }) {
+						controller.lateApi = await plugins.waitFor("wait_late");
+						controller.offApi = await plugins.waitFor("wait_off", 60_000);
+					}`,
+					wait_late: "export default function() { return { late: true }; }",
+					wait_off: "export default function() { return { off: true }; }",
+				};
+				for (const [name, content] of Object.entries(entrypoints)) {
+					await fs.mkdir(path.join(dir, name, "dist", "web"), { recursive: true });
+					await fs.writeFile(path.join(dir, name, "dist", "web", "manifest.json"), "{}");
+					await fs.writeFile(path.join(dir, name, "controller.js"), content);
+				}
+			});
+			after(async function() {
+				for (const name of Object.keys(lib.ControllerConfig.fieldDefinitions)) {
+					if (names.some(plugin => name.startsWith(`${plugin}.`))) {
+						delete lib.ControllerConfig.fieldDefinitions[name];
+					}
+				}
+				await fs.rm(dir, { recursive: true, force: true });
+			});
+			function pluginController(recoveryMode = false) {
+				const config = new ControllerConfig("controller", {
+					"controller.version": controllerVersion, "wait_off.load_plugin": false,
+				});
+				const infos = names.map(name => ({
+					name,
+					requirePath: path.join(dir, name),
+					packagePath: path.join(dir, name, "package.json"),
+					controllerEntrypoint: "controller.js",
+				}));
+				return new Controller({}, infos, config, false, recoveryMode);
+			}
+			it("should let plugins wait for each other", async function() {
+				const pluginsController = pluginController();
+				await pluginsController.loadPlugins();
+				assert.deepEqual(pluginsController.lateApi, { late: true });
+				assert.equal(pluginsController.offApi, undefined);
+				assert.deepEqual([...pluginsController.loadedPlugins].map(p => p.name), ["wait_early", "wait_late"]);
+			});
+			it("should load nothing in recovery mode", async function() {
+				const pluginsController = pluginController(true);
+				await pluginsController.loadPlugins();
+				assert.equal(pluginsController.loadedPlugins.size, 0);
+			});
+		});
 		describe(".validateExports()", function() {
 			let dir;
 			before(async function() {
