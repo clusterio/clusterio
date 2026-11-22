@@ -223,21 +223,9 @@ See the [readme for @clusterio/controller](/packages/controller/README.md) for m
 
 ## Managing Factorio mods
 
-Mods in Clusterio are managed as parts of mod packs.
-On the Mods page of the web interface, use **Search** to browse the Factorio Mod Portal and download mods to the controller, or upload mod zip files directly.
-Mod Portal downloads require the controller's [Factorio account credentials](docs/configuration.md#controllerfactorio_username) to be configured.
-Use **Create** in the Mod Packs section to create a mod pack, then add the mods you want to use.
-Assign the mod pack to an instance under Instance config -> Factorio -> Mod pack, or set a default mod pack for new instances in the controller settings.
-
-![Select mod pack for instance](docs/assets/config_select_mod_pack.png)
-
-Mod settings can be managed under the modpack configuration page in the web UI. For mod settings to show, you first need to run an export. This is done by creating an instance with the modpack assigned, opening the instance page and pressing More -> Export data.
-
-![Export mod configuration data](docs/assets/export_mod_config_data.png)
-
-Once this is done, the mod settings will show up under the modpack configuration page.
-
-![Mod settings configuration in web interface](docs/assets/mod_settings_configuration.png)
+Mods in Clusterio are managed as parts of mod packs, which are set up on the Mods page of the web interface and assigned to instances.
+See [Mod Packs](docs/managing-a-cluster.md#mod-packs) in the Managing a Cluster guide.
+To see item icons and names and to edit mod settings in the web interface, data has to be exported from Factorio first, see [Exporting data](docs/managing-a-cluster.md#exporting-data).
 
 
 ## Setting up shared storage
@@ -258,6 +246,7 @@ Once the controller process is running you can log into the web interface which 
 The first time a host starts it prints a link for approving it, open the link and click Approve.
 
 The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a host and then click start. You can also use the "Connect via Steam" button to launch Factorio directly and connect to the server using Steam's protocol handler.
+See [Managing a Cluster](docs/managing-a-cluster.md) for a guide to the day to day tasks, like managing saves and mod packs and giving other users access.
 
 ### Running via Systemd
 
@@ -298,12 +287,9 @@ To add the computer back to the cluster start the host again, it asks for approv
 
 ## Setting up clusterioctl
 
-There's a command line interface available for Clusterio which is installed separately with the same installer as for the controller and host.
-Run the installer as described in the installation section and choose "Ctl only" as the operating mode to install, you can do this in the same directory as you have installed other Clusterio component(s) to.
-The installer will ask for a controller URL and an authentication token, these are the same as you would use to connect to the web interface.
-If you want to use a different user for the command line interface, you can generate an authentication token for an existing user with
-
-    npx clusteriocontroller bootstrap generate-user-token <username>
+There's a command line interface available for Clusterio called clusterioctl.
+It is installed separately with the same installer as for the controller and host, by choosing "Ctl only" as the operating mode, you can do this in the same directory as you have installed other Clusterio component(s) to.
+See [Clusterioctl](docs/clusterioctl.md#setting-up) for how to set it up and the commands it has.
 
 
 ## Known Issues

@@ -3,7 +3,7 @@
 
 Provides a command line interface for managing a Clusterio cluster.
 
-Note that this document only describes the options and commands for managing clusterioctl itself, see [Managing a cluster](/docs/managing-a-cluster.md) for the available commands used for managing a cluster.
+Note that this document only describes the options and commands for managing clusterioctl itself, see [Clusterioctl](/docs/clusterioctl.md) for the available commands used for managing a cluster.
 
 
 ## Usage
@@ -25,7 +25,7 @@ Common options:
 
  * `--output <human|json|wire>` Format to print the results of cluster commands in.
    Defaults to `human`.
-   See [Output format](/docs/managing-a-cluster.md#output-format) for what `json` and `wire` print.
+   See [Output format](/docs/clusterioctl.md#output-format) for what `json` and `wire` print.
    The `plugin` and `config` commands described below always print human readable text.
 
 
@@ -112,6 +112,6 @@ Lists up all configuration entries with their currently configured values.
 
 ## See Also
 
-[Managing a cluster](/docs/managing-a-cluster.md) for the available commands used for managing a cluster.
+[Clusterioctl](/docs/clusterioctl.md) for the available commands used for managing a cluster.
 
 [The Clusterio repository](https://github.com/clusterio/clusterio) for instructions on how to set up a cluster.

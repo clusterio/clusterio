@@ -1,7 +1,7 @@
 # Configuration
 
 Config values are changed with the `config set` commands of clusterioctl, clusteriocontroller and clusteriohost, or from the settings pages in the web interface.
-See [Managing a Cluster](/docs/managing-a-cluster.md) for the commands.
+See [Clusterioctl](/docs/clusterioctl.md) for the commands.
 
 All values are checked against the type of the field when set.
 Some fields have additional rules on top of that, such as a number having to be greater than 0, and these are listed under the field.
@@ -330,7 +330,7 @@ Defaults to 1000.
 Whether the `controller update` command in clusterioctl and the update button in the web interface are allowed to update the `@clusterio/controller` package with npm.
 For security reasons this can only be changed locally with `clusteriocontroller config set` while the controller is stopped, and it is hidden in the web interface.
 The installer sets this, controller.allow_plugin_updates and controller.allow_plugin_install from one question about remote updates and plugin installs.
-See [Managing a Cluster](/docs/managing-a-cluster.md) for details on remote updates.
+See [Plugins (Remote)](/docs/clusterioctl.md#plugins-remote) for details on remote updates.
 
 Defaults to true.
 
@@ -485,7 +485,7 @@ Defaults to 30.
 Whether the `host update` command in clusterioctl and the update button in the web interface are allowed to update the `@clusterio/host` package with npm.
 For security reasons this can only be changed locally with `clusteriohost config set` while the host is stopped, and it is hidden in the web interface.
 The installer sets this, host.allow_plugin_updates and host.allow_plugin_install from one question about remote updates and plugin installs.
-See [Managing a Cluster](/docs/managing-a-cluster.md) for details on remote updates.
+See [Plugins (Remote)](/docs/clusterioctl.md#plugins-remote) for details on remote updates.
 
 Defaults to true.
 
