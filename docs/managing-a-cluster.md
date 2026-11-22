@@ -39,7 +39,8 @@ Instances are assigned to a host, which is where the server runs and the saves a
 ### Creating an instance
 
 Click Create on the Instances page and give the instance a name.
-Leave Start after creation unticked for now, as the instance needs a host before it can start.
+The Host field assigns it to a host straight away, and once a host is picked the Start after creation box starts the instance as soon as it is created.
+In this example leave the host unassigned and the box unticked, so the instance can be set up before it starts.
 Then open the instance and assign it to a host with the Assign button.
 
 The instance uses the default mod pack set on the Controller page, which is the base game of the newest Factorio version unless changed.
@@ -53,8 +54,11 @@ Click Start on the instance page.
 The instance loads the save that was modified last, or creates a new map if it has no saves.
 To load a different save, click it in the saves list and use Load save, see [Saves](#saves).
 Players connect to the address shown under Public address, or with the Connect via Steam button.
+If Factorio credentials are available to the instance and it is set to public, which it is by default, it is also listed in the in-game server browser.
+Credentials are taken from the controller, see [Mod Packs](#mod-packs), or set on the host or the instance.
 
 Stop saves the game and shuts the server down.
+Restart, in the menu next to Stop, stops the instance and starts it again with the latest save.
 Start all and Stop all on the Instances page do the same for every instance, start all skips instances with `instance.exclude_from_start_all` set.
 
 An instance can be started automatically when its host starts with `instance.auto_start`, and restarted after a crash with `instance.restart_after_crash`.
@@ -107,8 +111,14 @@ Every instance uses one mod pack, and hosts download the mods in it from the con
 
 On the Mods page, use Search to browse the Factorio Mod Portal and download mods to the controller, or upload mod zip files with Upload.
 Mod Portal downloads require the controller's [Factorio account credentials](configuration.md#controllerfactorio_username) to be configured.
+The username and token are on your profile page on factorio.com, use the token there and not your password.
+By default the controller also sends these credentials to the hosts, which put them in the server settings of every instance they start.
+This is needed for instances to be listed in the in-game server browser, but it means anyone with access to a host computer can read the token.
+Turn off `controller.share_factorio_credentials_with_hosts` if you don't trust the hosts with it.
 
 Use Create in the Mod Packs section to create a mod pack, then add the mods you want to use.
+The built in mods of Factorio, like `space-age`, `quality` and `elevated-rails`, are part of every mod pack for a Factorio version that has them.
+They can't be removed, but they can be disabled, and only `base` is enabled in a new mod pack.
 Assign the mod pack to an instance under Instance config -> Factorio -> Mod pack, or set a default mod pack for new instances on the Controller page.
 
 ![Select mod pack for instance](assets/config_select_mod_pack.png)
@@ -148,7 +158,7 @@ ctl: [Export data](clusterioctl.md#export-data).
 
 ### Players
 
-Clusterio creates a user account for every player that joins an instance with save patching enabled.
+Clusterio creates a user account for every player that joins an instance.
 The Users page lists them with their online time.
 The page of a user shows their stats per instance, and has switches for making them an in-game admin, whitelisting them, and banning them.
 These lists are shared between all instances that have `factorio.sync_adminlist`, `factorio.sync_whitelist` and `factorio.sync_banlist` turned on, which they are by default.
@@ -166,9 +176,16 @@ There are two roles by default: Cluster Admin, which can do everything, and Play
 New users get the Player role.
 
 To let someone manage part of the cluster, create a role on the Roles page and tick the permissions it should grant.
-For example, a role for starting and stopping servers needs `core.instance.start` and `core.instance.stop`, along with the permissions the Player role has for viewing instances.
+Every user keeps the Player role, so a new role only needs the permissions on top of it.
+For example, a role for starting and stopping servers needs only `core.instance.start` and `core.instance.stop`.
 Then add the role to the user under Roles on the page of the user.
 Use the Cluster Admin role for people who should have full control.
+
+Be careful with what a role grants, some permissions give much more control than their name suggests.
+The Roles page marks the permissions that stop, kill, delete, revoke or update things as dangerous.
+For example `core.controller.stop` and `core.host.stop` shut down Clusterio on that computer, and it can only be started again by someone with access to the computer.
+`core.user.update_roles` and `core.role.update` are not marked, but they are as powerful as Cluster Admin.
+Setting roles has no restrictions, so a user who can do it can give themselves the Cluster Admin role.
 
 The user can then log in as described in [Logging in](#logging-in).
 

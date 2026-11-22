@@ -1,6 +1,6 @@
 # Clusterioctl
 
-Clusterio clusters can be managed from the command line with `clusterioctl`, which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
+Clusterio clusters can be managed from the command line with `clusterioctl`, which is invoked by running `npx clusterioctl <command>` in the directory it was installed in.
 It connects to the controller the same way the web interface does, and what it is allowed to do depends on the roles of the user it logs in as.
 See [Managing a Cluster](managing-a-cluster.md) for a guide to the day to day tasks.
 This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` should be executed.
@@ -14,11 +14,15 @@ Plugins may add their own commands, these are documented in the plugin's README.
 ## Setting up
 
 clusterioctl is installed separately from the controller and host.
-Run the installer as described in the [README](/README.md#installation) and choose "Ctl only" as the operating mode, either in the same directory as the controller or on another computer.
+It only needs to reach the controller over the network, so it can be installed on any computer, in any directory, including next to a controller or host.
+Run the installer as described in the [README](/README.md#installation) in the directory you want it in and choose "Ctl only" as the operating mode.
 The installer asks for the controller URL and an authentication token, these are the same as you would use to log in to the web interface, and saves them to `config-ctl.json`.
 
 When clusterioctl is installed in the same directory as the controller, `npx clusteriocontroller bootstrap create-ctl-config <username>` writes `config-ctl.json` for managing the cluster as the given user.
 The config created this way connects to `localhost`, so it only works on the controller computer.
+
+The web interface can also make this file, click your user name in the top right of the page and pick Ctl Config.
+This downloads a `config-ctl.json` for your account that connects to the same address as the web interface, place it in the directory clusterioctl is installed in.
 
 To set it up by hand, generate a token for the user on the controller:
 
@@ -431,7 +435,7 @@ If a save with the target name exists the transferred save is stored under a new
 
 ## Users
 
-Clusterio automatically creates user accounts for all players that join an instance when save patching is enabled.
+Clusterio automatically creates user accounts for all players that join an instance.
 These accounts are used to store per player data shared between instances, like if the player should be whitelisted, admin or banned.
 
 ### List users
@@ -455,7 +459,7 @@ Shows the account data of one user.
 
 Creates a new empty user account for the given Factorio player.
 Note that case matters here.
-This is usually not required as user accounts are created automatically for players that join instances with save patching enabled.
+This is usually not required as user accounts are created automatically for players that join instances.
 
 
 ### Promote User to Server Admin
