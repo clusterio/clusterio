@@ -15,6 +15,7 @@ import { loadedPluginSetKey } from "./util/pluginSet";
 import { pageActionsFromHooks } from "./util/plugin_actions";
 import * as WebPlugin from "./BaseWebPlugin";
 import { pages } from "./pages";
+import logo from "./images/logo.png";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
@@ -190,6 +191,13 @@ async function pagesFromHooks(control: Control) {
 }
 
 export default async function bootstrap() {
+	// The controller adds a link when controller.favicon_url is set
+	if (!document.querySelector("link[rel=icon]")) {
+		const icon = document.createElement("link");
+		icon.rel = "icon";
+		icon.href = logo;
+		document.head.appendChild(icon);
+	}
 	logger.add(new ConsoleTransport({
 		level: "verbose",
 		format: new WebConsoleFormat(),

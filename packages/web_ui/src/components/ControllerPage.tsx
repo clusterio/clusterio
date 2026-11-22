@@ -1,4 +1,4 @@
-import React, {useContext, useState} from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Descriptions, Flex, Modal, Popconfirm, Space, Tooltip, Typography } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 
@@ -108,12 +108,49 @@ function ControllerControlButton({ canRestart, restartRequired }: ControllerCont
 }
 
 
+function formatListen(config: lib.ControllerConfig) {
+	let address = config.get("controller.bind_address") || "*";
+	if (address.includes(":")) {
+		address = `[${address}]`;
+	}
+	const listen = [];
+	for (const protocol of ["http", "https"] as const) {
+		const port = config.get(`controller.${protocol}_port`);
+		if (port) {
+			listen.push(`${protocol}://${address}:${port}`);
+		}
+	}
+	return listen.join(", ");
+}
+
+function useControllerConfig() {
+	const account = useAccount();
+	const control = useContext(ControlContext);
+	const [config, setConfig] = useState<lib.ControllerConfig>();
+	const canConfig = account.hasPermission("core.controller.get_config");
+
+	useEffect(() => {
+		if (!canConfig) {
+			return undefined;
+		}
+		let canceled = false;
+		control.send(new lib.ControllerConfigGetRequest()).then(serialized => {
+			if (!canceled) {
+				setConfig(lib.ControllerConfig.fromJSON(serialized, "control"));
+			}
+		}).catch(notifyErrorHandler("Error loading controller config"));
+		return () => { canceled = true; };
+	}, [control, canConfig]);
+	return config;
+}
+
 export default function ControllerPage() {
 	const account = useAccount();
 	const [systems] = useSystems();
 	const system = systems.get("controller");
 	const [maxLevel, setMaxLevel] = useState<keyof typeof lib.levels>("info");
 	const canShowNpm = hasNpmButtonPermission(true);
+	const config = useControllerConfig();
 
 	return <PageLayout nav={[{ name: "Controller" }]}>
 		<PageHeader
@@ -138,7 +175,8 @@ export default function ControllerPage() {
 			<Descriptions.Item label="Process Uptime">
 				<MetricRelativeDate timeMs={system?.processStartedAtMs}/>
 			</Descriptions.Item>
-			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="Hostname" span={config ? 1 : 2}>{system?.hostname}</Descriptions.Item>
+			{config && <Descriptions.Item label="Bind Address">{formatListen(config)}</Descriptions.Item>}
 			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
 			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>
@@ -146,6 +184,9 @@ export default function ControllerPage() {
 			<Descriptions.Item label="Memory"><MetricMemoryUsed system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Disk Usage"><MetricDiskRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Disk"><MetricDiskUsed system={system} /></Descriptions.Item>
+			{config && <Descriptions.Item label="Public URL">
+				{config.get("controller.public_url") || <em>Not set</em>}
+			</Descriptions.Item>}
 		</Descriptions>
 		{account.hasPermission("core.log.follow") && <>
 			<Flex justify="space-between" align="baseline">

@@ -9,6 +9,8 @@ import { useRole } from "../model/roles";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
+import UnsavedChangesBar from "./UnsavedChangesBar";
+import FieldRow from "./FieldRow";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import ResourceNotes from "./ResourceNotes";
@@ -292,46 +294,15 @@ export default function RoleViewPage() {
 				</Space>}
 			/>
 
-			{edited && (
-				<div style={{
-					position: "fixed",
-					bottom: 24,
-					left: "50%",
-					transform: "translateX(-50%)",
-					background: "#2a1912",
-					borderRadius: 8,
-					boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-					padding: "10px 14px",
-					display: "flex",
-					alignItems: "center",
-					gap: 12,
-					zIndex: 1000,
-				}}>
-					<span style={{ color: "#FFF" }}>
-						You have unsaved changes
-					</span>
+			{edited && <UnsavedChangesBar onRevert={revertChanges} onApply={applyChanges} />}
 
-					<Space>
-						<Button onClick={revertChanges}>
-							Revert
-						</Button>
-
-						<Button type="primary" onClick={applyChanges}>
-							Apply
-						</Button>
-					</Space>
-				</div>
-			)}
-
-			<div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
-				<label style={{ width: 110, flexShrink: 0 }}>Name</label>
+			<FieldRow label="Name">
 				<Input value={name} disabled={!canUpdate} onChange={e => setNameEdit(e.target.value)} />
-			</div>
+			</FieldRow>
 
-			<div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
-				<label style={{ width: 110, flexShrink: 0 }}>Description</label>
+			<FieldRow label="Description">
 				<Input value={description} disabled={!canUpdate} onChange={e => setDescriptionEdit(e.target.value)} />
-			</div>
+			</FieldRow>
 
 			<ResourceNotes resourceType="role" resourceId={roleId} />
 

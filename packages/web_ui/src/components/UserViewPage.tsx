@@ -1,8 +1,7 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Button, Col, Descriptions, Dropdown, Form, Input, Popconfirm,
-	Row, Table, Tag, Select, Space, Switch,
+	Button, Descriptions, Dropdown, Input, Popconfirm, Table, Tag, Select, Space, Switch,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
@@ -14,12 +13,14 @@ import useTableQueryState from "../util/useTableQueryState";
 import { useAccount } from "../model/account";
 import { useInstances } from "../model/instance";
 import ControlContext from "./ControlContext";
+import FieldRow from "./FieldRow";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ResourceNotes from "./ResourceNotes";
 import ResourceState from "./ResourceState";
+import UnsavedChangesBar from "./UnsavedChangesBar";
 import useRowNavigation from "../util/useRowNavigation";
 import useResourceState from "../util/useResourceState";
 import usePluginActions from "../util/usePluginActions";
@@ -29,6 +30,10 @@ import { formatDuration } from "../util/time_format";
 import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUser } from "../model/user";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
+function sameIds(ids: number[], set: Set<number>) {
+	return ids.length === set.size && ids.every(id => set.has(id));
+}
 
 
 function UserPluginActions(props: { user: lib.UserDetails }) {
@@ -57,66 +62,66 @@ export default function UserViewPage() {
 	const [user, synced, error] = useUser(userName);
 	const state = useResourceState(user, synced, error, userName);
 	let [roles, rolesSynced] = useRoles();
-	let [form] = Form.useForm();
 	const statsTable = useTableQueryState<[number, lib.PlayerStats]>({
 		namespace: "stats", defaultSortKey: "instance",
 	});
-	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
-	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);
-	let [applyingRoles, setApplyingRoles] = useState<boolean>(false);
-	let [rolesError, setRolesError] = useState<string|undefined>();
+	// Local edits on top of the live user
+	const [rolesEdit, setRolesEdit] = useState<number[]>();
+	const [bannedEdit, setBannedEdit] = useState<boolean>();
+	const [banReasonEdit, setBanReasonEdit] = useState<string>();
+	const [applying, setApplying] = useState(false);
+	const canUpdateRoles = account.hasPermission("core.user.update_roles");
+	const canBan = account.hasPermission("core.user.set_banned");
+	const canSetAdmin = account.hasPermission("core.user.set_admin");
+	const canSetWhitelisted = account.hasPermission("core.user.set_whitelisted");
 
+	// Drop edits that now match the user, and roles deleted since
 	useEffect(() => {
-		if (
-			account.hasPermission("core.user.set_banned")
-			&& !banReasonDirty
-			&& user
-			&& user.banReason !== form.getFieldValue("banReason")
-		) {
-			form.setFieldsValue({ "banReason": user.banReason });
-		}
-	}, [account, form, user, banReasonDirty]);
-
-	useEffect(() => {
-		if (!user || !account.hasPermission("core.user.update_roles")) {
+		if (!user) {
 			return;
 		}
-		const current: number[] = form.getFieldValue("roles") ?? [];
-		// Keep local edits, but drop roles deleted since
-		const next = rolesDirty
-			? current.filter(id => !rolesSynced || roles.has(id))
-			: [...user.roleIds];
-		if (next.length !== current.length || next.some((id, i) => id !== current[i])) {
-			form.setFieldsValue({ "roles": next });
-		}
-	}, [account, form, user, roles, rolesSynced, rolesDirty]);
+		setRolesEdit(prev => {
+			const next = prev?.filter(id => !rolesSynced || roles.has(id));
+			return next && sameIds(next, user.roleIds) ? undefined : next;
+		});
+		setBannedEdit(prev => (prev === user.isBanned ? undefined : prev));
+		setBanReasonEdit(prev => (prev === user.banReason ? undefined : prev));
+	}, [user, roles, rolesSynced]);
+
+	useEffect(() => {
+		setRolesEdit(undefined);
+		setBannedEdit(undefined);
+		setBanReasonEdit(undefined);
+	}, [userName]);
 
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
 	if (!user) {
 		return <ResourceState state={state} type="User" id={userName} nav={nav} listPath="/users" error={error} />;
 	}
 
-	let roleSelector = <Form.Item
-		noStyle
-		name="roles"
-		initialValue={[...user.roleIds]}
-		rules={[
-			{ validator: () => (rolesError ? Promise.reject(rolesError) : Promise.resolve()) },
-		]}
-	>
-		<Select
-			onChange={() => setRolesDirty(true)}
-			loading={!roles}
-			mode="multiple"
-			optionFilterProp="name"
-		>
-			{[...roles.values()].map(r => <Select.Option
-				key={r.id}
-				value={r.id}
-				name={r.name}
-			>{r.name}</Select.Option>)}
-		</Select>
-	</Form.Item>;
+	const roleIds = rolesEdit ?? [...user.roleIds];
+	const banned = bannedEdit ?? user.isBanned;
+	const banReason = banned ? banReasonEdit ?? user.banReason : "";
+	const rolesChanged = rolesEdit !== undefined && !sameIds(rolesEdit, user.roleIds);
+	const banChanged = banned !== user.isBanned || banReason !== user.banReason;
+
+	function revertChanges() {
+		setRolesEdit(undefined);
+		setBannedEdit(undefined);
+		setBanReasonEdit(undefined);
+	}
+
+	async function applyChanges() {
+		if (rolesChanged) {
+			await control.send(new lib.UserUpdateRolesRequest(userName, roleIds));
+			setRolesEdit(undefined);
+		}
+		if (banChanged) {
+			await control.send(new lib.UserSetBannedRequest(userName, false, banned, banReason));
+			setBannedEdit(undefined);
+			setBanReasonEdit(undefined);
+		}
+	}
 
 	function instanceName(id: number) {
 		return instances.get(id)?.name ?? String(id);
@@ -182,134 +187,64 @@ export default function UserViewPage() {
 				<UserPluginActions user={user} />
 			</Space>}
 		/>
-		<Form
-			form={form}
-			labelCol={{
-				sm: { span: 6 },
-				md: { span: 6 },
-				lg: { span: 4 },
-				xl: { span: 3 },
-				xxl: { span: 2 },
+		{(rolesChanged || banChanged) && <UnsavedChangesBar
+			applying={applying}
+			onRevert={revertChanges}
+			onApply={() => {
+				setApplying(true);
+				applyChanges()
+					.catch(notifyErrorHandler("Error applying changes"))
+					.finally(() => setApplying(false));
 			}}
-			wrapperCol={{
-				sm: { span: 18 },
-				md: { span: 18 },
-				lg: { span: 20 },
-				xl: { span: 21 },
-				xxl: { span: 22 },
-			}}
-		>
-			<Form.Item
-				label="Roles"
-			>
-				<Row gutter={[8, 8]}>
-					<Col flex="auto">
-						{account.hasPermission("core.user.update_roles")
-							? roleSelector
-							: [...user.roleIds!].map(id => <Tag key={id}>{
-								roles?.get(id)?.name ?? id
-							}</Tag>)
-						}
-					</Col>
-					{account.hasPermission("core.user.update_roles") && <Col flex="0 0 auto">
-						<Button
-							type={"primary"}
-							disabled={!rolesDirty}
-							loading={applyingRoles}
-							onClick={() => {
-								let newRoles = form.getFieldValue("roles");
-								setApplyingRoles(true);
-								control.send(
-									new lib.UserUpdateRolesRequest(userName, newRoles)
-								).then(() => {
-									setRolesDirty(false);
-									setRolesError(undefined);
-								}).catch(err => {
-									setRolesError(err.message);
-									return form.validateFields();
-								}).finally(() => {
-									setApplyingRoles(false);
-								});
-							}}
-						>Apply</Button>
-					</Col>}
-				</Row>
-			</Form.Item>
-			{account.hasPermission("core.user.set_admin") && <Form.Item label="In-game Admin">
-				<Switch
-					checked={user.isAdmin}
-					onClick={() => {
-						control.send(
-							new lib.UserSetAdminRequest(userName, false, !user.isAdmin)
-						).catch(notifyErrorHandler("Error toggling user admin status"));
-					}}
-				/>
-			</Form.Item>}
-			{account.hasPermission("core.user.set_whitelisted") && <Form.Item label="Whitelisted">
-				<Switch
-					checked={user.isWhitelisted}
-					onClick={() => {
-						control.send(
-							new lib.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
-						).catch(notifyErrorHandler("Error toggling user whitelisted status"));
-					}}
-				/>
-			</Form.Item>}
-			{account.hasPermission("core.user.set_banned")
-				? <Form.Item label="Ban reason">
-					<Row gutter={[8, 8]} justify={"end"}>
-						<Col flex="auto" style={{ minWidth: "20em" }}>
-							<Form.Item noStyle name="banReason" initialValue={user.banReason}>
-								<Input
-									onChange={e => {
-										setBanReasonDirty(e.target.value !== user.banReason);
-									}}
-								/>
-							</Form.Item>
-						</Col>
-						<Col flex="0 0 auto">
-							{user.isBanned
-								? <Space>
-									<Button
-										type={banReasonDirty ? "primary" : "default"}
-										onClick={() => {
-											control.send(
-												new lib.UserSetBannedRequest(
-													userName, false, true, form.getFieldValue("banReason")
-												)
-											).then(() => {
-												setBanReasonDirty(false);
-											}).catch(notifyErrorHandler("Error updating ban"));
-										}}
-									>Update</Button>
-									<Button
-										onClick={() => {
-											control.send(
-												new lib.UserSetBannedRequest(userName, false, false, "")
-											).catch(notifyErrorHandler("Error unbanning user"));
-										}}
-									>Unban</Button>
-								</Space>
-								: <Button
-									type={banReasonDirty ? "primary" : "default"}
-									onClick={() => {
-										control.send(
-											new lib.UserSetBannedRequest(
-												userName, false, true, form.getFieldValue("banReason")
-											)
-										).then(() => {
-											setBanReasonDirty(false);
-										}).catch(notifyErrorHandler("Error banning user"));
-									}}
-								>Ban</Button>
-							}
-						</Col>
-					</Row>
-				</Form.Item>
-				: user.isBanned
-					&& <Form.Item label="Ban reason">{user.banReason}</Form.Item>
-			}
-		</Form>
+		/>}
+		<FieldRow label="Roles">
+			<Select
+				style={{ width: "100%" }}
+				mode="multiple"
+				disabled={!canUpdateRoles}
+				value={roleIds}
+				onChange={setRolesEdit}
+				optionFilterProp="label"
+				options={[...roles.values()].map(r => ({ value: r.id, label: r.name }))}
+			/>
+		</FieldRow>
+		{(canSetAdmin || canSetWhitelisted || canBan) && <FieldRow label="Status">
+			<Space size="large" wrap>
+				{canSetAdmin && <label><Space>
+					In-game Admin
+					<Switch
+						checked={user.isAdmin}
+						onClick={() => {
+							control.send(
+								new lib.UserSetAdminRequest(userName, false, !user.isAdmin)
+							).catch(notifyErrorHandler("Error toggling user admin status"));
+						}}
+					/>
+				</Space></label>}
+				{canSetWhitelisted && <label><Space>
+					Whitelisted
+					<Switch
+						checked={user.isWhitelisted}
+						onClick={() => {
+							control.send(
+								new lib.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
+							).catch(notifyErrorHandler("Error toggling user whitelisted status"));
+						}}
+					/>
+				</Space></label>}
+				{canBan && <label><Space>
+					Banned
+					<Switch checked={banned} onClick={() => setBannedEdit(!banned)} />
+				</Space></label>}
+			</Space>
+		</FieldRow>}
+		{banned && <FieldRow label="Ban reason">
+			<Input
+				value={banReason}
+				disabled={!canBan}
+				onChange={e => setBanReasonEdit(e.target.value)}
+			/>
+		</FieldRow>}
 		<ResourceNotes resourceType="user" resourceId={user.id} />
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2, xxl: 2 }}>

@@ -97,10 +97,28 @@ export function CreateInstanceButton({ buttonText = "Create", buttonType = "prim
 	buttonType?: "primary" | "default";
 	buttonSize?: "small";
 }) {
+	const [open, setOpen] = useState(false);
+	return <>
+		<Button type={buttonType} size={props.buttonSize} onClick={() => setOpen(true)}>{buttonText}</Button>
+		<CreateInstanceModal
+			instances={props.instances}
+			initial={props.initial}
+			open={open}
+			onClose={() => setOpen(false)}
+		/>
+	</>;
+}
+
+export function CreateInstanceModal(props: {
+	instances: ReturnType<typeof useInstances>[0];
+	initial?: CreateInstanceInitial;
+	open: boolean;
+	onClose: () => void;
+}) {
+	const { open } = props;
 	let control = useContext(ControlContext);
 	let account = useAccount();
 	let navigate = useNavigate();
-	let [open, setOpen] = useState(false);
 	let [creating, setCreating] = useState(false);
 	let [form] = Form.useForm();
 	let [hosts] = useHosts();
@@ -190,100 +208,91 @@ export function CreateInstanceButton({ buttonText = "Create", buttonType = "prim
 		} finally {
 			setCreating(false);
 			if (created) {
-				setOpen(false);
+				props.onClose();
 				navigate(`/instances/${instanceId}/view`);
 			}
 		}
 	}
 
-	return <>
-		<Button
-			type={buttonType}
-			size={props.buttonSize}
-			onClick={() => {
-				setOpen(true);
+	return <Modal
+		title={asTemplate ? "Create Template" : "Create Instance"}
+		okText="Create"
+		open={open}
+		confirmLoading={creating}
+		onOk={() => { createInstance().catch(notifyErrorHandler("Error creating instance")); }}
+		onCancel={props.onClose}
+		destroyOnHidden
+	>
+		<Form
+			form={form}
+			initialValues={{
+				host: "null", instanceClone: -1, saveMode: "none", startAfter: false,
+				template: null, asTemplate: false, linkSource: true, ...props.initial,
 			}}
-		>{buttonText}</Button>
-		<Modal
-			title={asTemplate ? "Create Template" : "Create Instance"}
-			okText="Create"
-			open={open}
-			confirmLoading={creating}
-			onOk={() => { createInstance().catch(notifyErrorHandler("Error creating instance")); }}
-			onCancel={() => { setOpen(false); }}
-			destroyOnHidden
 		>
-			<Form
-				form={form}
-				initialValues={{
-					host: "null", instanceClone: -1, saveMode: "none", startAfter: false,
-					template: null, asTemplate: false, linkSource: true, ...props.initial,
-				}}
+			<Form.Item name="instanceName" label="Name">
+				<Input />
+			</Form.Item>
+			<Tooltip title="Templates hold shared config for other instances and cannot be started">
+				<Form.Item name="asTemplate" valuePropName="checked">
+					<Checkbox>Create as template</Checkbox>
+				</Form.Item>
+			</Tooltip>
+			{canAssign && !asTemplate && <Form.Item name="host" label="Host">
+				<Select showSearch optionFilterProp="name">
+					<Select.Option value={"null"}>
+						<Typography.Text italic>Unassigned</Typography.Text>
+					</Select.Option>
+					{[...hosts.values()].sort((a, b) => strcmp(a.name, b.name)).map(h => <Select.Option
+						key={h.id}
+						value={h.id}
+						name={h.name}
+						disabled={!h.connected}
+					>
+						{h.name}
+						{!h.connected && " (offline)"}
+					</Select.Option>)}
+				</Select>
+			</Form.Item>}
+			<ConfigSourceFields
+				instances={props.instances}
+				templateId={templateId}
+				source={source}
+				asTemplate={asTemplate}
+			/>
+			{copySettings && <Tooltip
+				title="Name of the server as shown in the in-game server browser"
 			>
-				<Form.Item name="instanceName" label="Name">
+				<Form.Item name="serverName" label="Server Name">
 					<Input />
 				</Form.Item>
-				<Tooltip title="Templates hold shared config for other instances and cannot be started">
-					<Form.Item name="asTemplate" valuePropName="checked">
-						<Checkbox>Create as template</Checkbox>
-					</Form.Item>
-				</Tooltip>
-				{canAssign && !asTemplate && <Form.Item name="host" label="Host">
-					<Select showSearch optionFilterProp="name">
-						<Select.Option value={"null"}>
-							<Typography.Text italic>Unassigned</Typography.Text>
-						</Select.Option>
-						{[...hosts.values()].sort((a, b) => strcmp(a.name, b.name)).map(h => <Select.Option
-							key={h.id}
-							value={h.id}
-							name={h.name}
-							disabled={!h.connected}
-						>
-							{h.name}
-							{!h.connected && " (offline)"}
-						</Select.Option>)}
-					</Select>
-				</Form.Item>}
-				<ConfigSourceFields
-					instances={props.instances}
-					templateId={templateId}
-					source={source}
-					asTemplate={asTemplate}
+			</Tooltip>}
+			{source && hostId !== undefined && <Form.Item name="saveMode" label="Copy Save">
+				<Select
+					options={[
+						{ value: "none", label: "None" },
+						{
+							value: "copy",
+							label: activeSave ? `Copy ${activeSave.name}` : "Copy active save",
+							disabled: !activeSave,
+						},
+						{
+							value: "save_and_copy",
+							label: "Save the running game and copy it",
+							disabled: !sourceRunning || !activeSave,
+						},
+					]}
 				/>
-				{copySettings && <Tooltip
-					title="Name of the server as shown in the in-game server browser"
-				>
-					<Form.Item name="serverName" label="Server Name">
-						<Input />
-					</Form.Item>
-				</Tooltip>}
-				{source && hostId !== undefined && <Form.Item name="saveMode" label="Copy Save">
-					<Select
-						options={[
-							{ value: "none", label: "None" },
-							{
-								value: "copy",
-								label: activeSave ? `Copy ${activeSave.name}` : "Copy active save",
-								disabled: !activeSave,
-							},
-							{
-								value: "save_and_copy",
-								label: "Save the running game and copy it",
-								disabled: !sourceRunning || !activeSave,
-							},
-						]}
-					/>
-				</Form.Item>}
-				{hostId !== undefined && <Form.Item
-					name="startAfter"
-					valuePropName="checked"
-					extra={saveMode === "none" ? "A new save is created if none is copied" : undefined}
-				>
-					<Checkbox>Start after creation</Checkbox>
-				</Form.Item>}
-			</Form>
-		</Modal>
-	</>;
+			</Form.Item>}
+			{hostId !== undefined && <Form.Item
+				name="startAfter"
+				valuePropName="checked"
+				extra={saveMode === "none" ? "A new save is created if none is copied" : undefined}
+			>
+				<Checkbox>Start after creation</Checkbox>
+			</Form.Item>}
+		</Form>
+	</Modal>;
 }
 
 function TemplateList(props: { instances: ReturnType<typeof useInstances>[0] }) {

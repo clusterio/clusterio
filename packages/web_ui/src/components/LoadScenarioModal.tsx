@@ -8,9 +8,10 @@ import { notifyErrorHandler } from "../util/notify";
 
 type LoadScenarioModalProps = {
 	instance: lib.InstanceDetails;
+	open: boolean;
+	onClose: () => void;
 };
 export default function LoadScenarioModal(props: LoadScenarioModalProps) {
-	let [open, setOpen] = useState(false);
 	let [loadingScenario, setLoadingScenario] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
@@ -57,7 +58,7 @@ export default function LoadScenarioModal(props: LoadScenarioModalProps) {
 			{ instanceId: props.instance.id },
 			new lib.InstanceLoadScenarioRequest(scenario, seed, mapGenSettings, mapSettings),
 		).then(() => {
-			setOpen(false);
+			props.onClose();
 		}).catch(
 			notifyErrorHandler("Error loading scenario")
 		).finally(() => {
@@ -81,58 +82,43 @@ export default function LoadScenarioModal(props: LoadScenarioModalProps) {
 		});
 	}
 
-	function handleCancel() {
-		setOpen(false);
-	}
-
-	return <>
-		<Button
-			loading={loadingScenario}
-			disabled={props.instance.status !== "stopped"}
-			onClick={() => {
-				setOpen(true);
-			}}
-		>
-			Load scenario
-		</Button>
-		<Modal
-			title="Load Scenario"
-			width={560}
-			okText="Load"
-			open={open}
-			confirmLoading={loadingScenario}
-			onOk={loadScenario}
-			onCancel={handleCancel}
-			destroyOnHidden
-		>
-			<Form form={form} layout="vertical">
-				<Form.Item name="scenario" label="Scenario">
-					<Input placeholder="base/freeplay" />
-				</Form.Item>
-				<Form.Item name="seed" label="Seed">
-					<Input type="number" />
-				</Form.Item>
-				<Form.Item name="exchangeString" label="Map Exchange String">
-					<Input.TextArea allowClear={true} autoSize={{ minRows: 3 }} />
-				</Form.Item>
-				<div style={{ textAlign: "right", marginTop: -8 }}>
-					<Button onClick={() => convertExchangeString()}>Convert to settings</Button>
-				</div>
-				<Form.Item
-					name="mapGenSettings"
-					label="Map Gen Settings"
-					tooltip="JSON data to pass to Factorio with --map-gen-settings, overrides Map Exchange String"
-				>
-					<Input.TextArea allowClear={true} autoSize={{ minRows: 1 }} />
-				</Form.Item>
-				<Form.Item
-					name="mapSettings"
-					label="Map Settings"
-					tooltip="JSON data to pass to Factorio with --map-settings, overrides Map Exchange String"
-				>
-					<Input.TextArea allowClear={true} autoSize={{ minRows: 1 }} />
-				</Form.Item>
-			</Form>
-		</Modal>
-	</>;
+	return <Modal
+		title="Load Scenario"
+		width={560}
+		okText="Load"
+		open={props.open}
+		confirmLoading={loadingScenario}
+		onOk={loadScenario}
+		onCancel={props.onClose}
+		destroyOnHidden
+	>
+		<Form form={form} layout="vertical">
+			<Form.Item name="scenario" label="Scenario">
+				<Input placeholder="base/freeplay" />
+			</Form.Item>
+			<Form.Item name="seed" label="Seed">
+				<Input type="number" />
+			</Form.Item>
+			<Form.Item name="exchangeString" label="Map Exchange String">
+				<Input.TextArea allowClear={true} autoSize={{ minRows: 3 }} />
+			</Form.Item>
+			<div style={{ textAlign: "right", marginTop: -8 }}>
+				<Button onClick={() => convertExchangeString()}>Convert to settings</Button>
+			</div>
+			<Form.Item
+				name="mapGenSettings"
+				label="Map Gen Settings"
+				tooltip="JSON data to pass to Factorio with --map-gen-settings, overrides Map Exchange String"
+			>
+				<Input.TextArea allowClear={true} autoSize={{ minRows: 1 }} />
+			</Form.Item>
+			<Form.Item
+				name="mapSettings"
+				label="Map Settings"
+				tooltip="JSON data to pass to Factorio with --map-settings, overrides Map Exchange String"
+			>
+				<Input.TextArea allowClear={true} autoSize={{ minRows: 1 }} />
+			</Form.Item>
+		</Form>
+	</Modal>;
 }

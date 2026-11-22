@@ -126,6 +126,14 @@ This should be a full URL ending with a /.
 Defaults to null meaning assume localhost.
 
 
+### controller.favicon_url
+
+URL of the icon shown in the browser tab.
+A relative URL is relative to the web interface root, so `static/icon.png` loads `icon.png` from the `static` folder in the controller's working directory.
+
+Defaults to null meaning use the Clusterio logo.
+
+
 ### controller.static_url
 
 Used to override where static assets such as the web bundle is loaded from.
