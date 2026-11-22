@@ -11,6 +11,7 @@ import AboutModal from "./AboutModal";
 import Link from "./Link";
 
 import { saveJson } from "../util/save_file";
+import useScrollRestoration from "../util/useScrollRestoration";
 import { useAccount } from "../model/account";
 import { DraggingContext } from "../model/is_dragging";
 import webUiPackage from "../../package.json";
@@ -50,6 +51,7 @@ function isActiveDropzone(element: HTMLElement | null): boolean {
 
 export default function SiteLayout() {
 	let navigate = useNavigate();
+	useScrollRestoration();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
 	const screens = Grid.useBreakpoint();
 	// On phone screens the sidebar becomes an overlay drawer instead of a fixed sider.
