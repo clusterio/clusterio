@@ -939,7 +939,75 @@ See the [migration guide](https://github.com/clusterio/clusterio/blob/e0755cb4ee
 Many thanks to the following for contributing code in this release:  
 [@Hornwitser](https://github.com/Hornwitser) [@Luciole0x](https://github.com/Luciole0x) [@Cooldude2606](https://github.com/Cooldude2606) [@Danielv123](https://github.com/Danielv123) [@Reavershark](https://github.com/Reavershark) [@Laar](https://github.com/Laar) [@rstrom1763](https://github.com/rstrom1763)
 
-## Version 2.0.0
+## Version 2.0.0-alpha.13
+
+### Changes
+
+- Instance names can be any string again.
+  Characters that are not valid in a file name are replaced with an underscore in the instance folder name.
+
+## Version 2.0.0-alpha.12
+
+### Features
+
+- Added renaming, copying and transferring of saves.
+
+## Version 2.0.0-alpha.8
+
+### Features
+
+- Added Node.js based installer to simplify setting up a cluster.
+
+## Version 2.0.0-alpha.7
+
+### Major Features
+
+- Added remote save management with the ability to list, create, upload, download, delete and load saves for instances.
+
+### Changes
+
+- Removed rotation of factorio-current.log files.
+
+## Version 2.0.0-alpha.6
+
+### Breaking Changes
+
+- Node.js versions below 12 are no longer supported.
+
+## Version 2.0.0-alpha.5
+
+### Features
+
+- Added an overview of the installed plugins to the web interface.
+- Added clusterioctl command to list plugins on the controller.
+- Added Player Auth plugin for logging in to the web interface by proving the ability to log in to a server as a given user.
+
+## Version 2.0.0-alpha.4
+
+### Features
+
+- Added option to configure timeout for exported Prometheus metrics.
+- Added option to set address to bind HTTP(S) port to.
+
+### Breaking Changes
+
+- Removed automatic creation of self-signed TLS certificate.
+
+## Version 2.0.0-alpha.3
+
+### Major Features
+
+- Added centralized logging for the cluster.
+  All logs from both Clusterio and Factorio is stored in a shared log which can be inspected and queried.
+
+### Features
+
+- Added stripping of long paths in the Factorio server log.
+- Added option to configure maximum number of commands to send in parallel.
+- Added option to auto start instances on host startup.
+- Added metric mapping of host and instance ids to their names, allowing them to be displayed by name in queries that join with the mapping.
+
+## Version 2.0.0-alpha.0
 
 ### Major Features
 
@@ -956,9 +1024,6 @@ Many thanks to the following for contributing code in this release:
   Plugins now inherit from a base class and use the same WebSocket connection Clusterio uses to communicate.
 - New configuration system with support for initializing configs when needed, modifying config entries using built-in commands, and updating instance configuration remotely.
 - Packaged and uploaded to npm again, greatly simplifying distribution and installation of both Clusterio and plugins.
-- Added centralized logging for the cluster.
-  All logs from both Clusterio and Factorio is stored in a shared log which can be inspected and queried.
-- Added remote save management with the ability to list, create, rename, copy, upload, download, transfer, delete and load saves for instances.
 
 ### Features
 
@@ -974,19 +1039,11 @@ Many thanks to the following for contributing code in this release:
 - Added integrated user management for controlling access and storing per player data.
 - Added synchronization of in-game adminlist, banlist and whitelist to Clusterio core.
   Previously this was handled by the playerManager plugin.
-- Added stripping of long paths in the Factorio server log.
-- Added option to configure maximum number of commands to send in parallel.
-- Added option to auto start instances on host startup.
-- Added metric mapping of host and instance ids to their names, allowing them to be displayed by name in queries that join with the mapping.
-- Added option to configure timeout for exported Prometheus metrics.
-- Added option to set address to bind HTTP(S) port to.
-- Added an overview of the installed plugins to the web interface.
-- Added clusterioctl command to list plugins on the controller.
-- Added Player Auth plugin for logging in to the web interface by proving the ability to log in to a server as a given user.
-- Added Node.js based installer to simplify setting up a cluster.
 
 ### Changes
 
+- Fixed sslCert and sslPrivKey entries being ignored in the config.
+- Changed ssl key creation to be done at startup instead of on npm install.
 - Added error handling during controller startup.
 - Factorio game and rcon port now defaults to a random port above 49151.
 - Removed unimplemented mods update command.
@@ -1017,7 +1074,6 @@ Many thanks to the following for contributing code in this release:
   UPS statistics is exported by the statistics exporter plugin.
 - Controller now defaults to hosting on https on port 8443.
 - Renamed client to slave.
-- Removed rotation of factorio-current.log files.
 
 ### Breaking Changes
 
@@ -1025,6 +1081,7 @@ Many thanks to the following for contributing code in this release:
   Breaks playerManager.
 - The masterIP and masterPort config entries has been merged into masterURL.
   Breaks discordChat, playerManager, serverSelect, trainTeleports and clusterioModel.
+- Instance names can no longer be invalid Windows file names.
 - Removed config management from the command line and the server manager.
 - Moved ejs templates into views folder and changed their extension to .ejs.
   Breaks playerManager.
@@ -1080,9 +1137,6 @@ Many thanks to the following for contributing code in this release:
 - Removed usage of socket.io entirely in favor of a plain WebSocket connection.
 - Renamed clusterioMod plugin to subspace_storage.
 - Controller no longer creates secret-api-token.txt.
-- Removed automatic creation of self-signed TLS certificate.
-- Node.js versions below 12 are no longer supported.
-
 ## Version 1.2.4
 
 - Removed broken remote combinator signaling.
