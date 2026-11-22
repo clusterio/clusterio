@@ -1,4 +1,4 @@
-# Managing a Cluster
+# Clusterioctl
 
 Clusterio clusters are managed through the controller by using the `clusterioctl` command line interface which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
 This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` should be executed.
