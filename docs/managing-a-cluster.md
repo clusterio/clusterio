@@ -181,11 +181,10 @@ For example, a role for starting and stopping servers needs only `core.instance.
 Then add the role to the user under Roles on the page of the user.
 Use the Cluster Admin role for people who should have full control.
 
-Be careful with what a role grants, some permissions give much more control than their name suggests.
-The Roles page marks the permissions that stop, kill, delete, revoke or update things as dangerous.
+Be careful with what a role grants, some permissions give much more control than their name first suggests.
+The Roles page marks these permissions that can stop, kill, delete, revoke or update things as dangerous.
 For example `core.controller.stop` and `core.host.stop` shut down Clusterio on that computer, and it can only be started again by someone with access to the computer.
-`core.user.update_roles` and `core.role.update` are not marked, but they are as powerful as Cluster Admin.
-Setting roles has no restrictions, so a user who can do it can give themselves the Cluster Admin role.
+Or `core.user.update_roles` and `core.role.update` which are as powerful as Cluster Admin because setting roles has no restrictions, so a user can give themselves the Cluster Admin role.
 
 The user can then log in as described in [Logging in](#logging-in).
 
