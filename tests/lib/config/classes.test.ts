@@ -273,8 +273,7 @@ t.test("Config", async t1 => {
 		t2.test("stores the filepath", async t3 => {
 			t3.equal(testConfig("controller", undefined, "filepath").filepath, "filepath");
 		});
-		const required = { todo: "required fields are left null instead" };
-		t2.test("throws if a required field has no initialValue", required, async t3 => {
+		t2.test("throws if a required field has no initialValue", async t3 => {
 			class BrokenConfig extends lib.Config<any> {
 				static fieldDefinitions: lib.ConfigDefs<any> = {
 					"test.required": { type: "string" },
@@ -316,7 +315,7 @@ t.test("Config", async t1 => {
 			}
 			t3.equal(NoValidatorConfig.fieldDependents.size, 0);
 		});
-		t2.test("is computed per subclass", { todo: "subclass reads the parent's cached map" }, async t3 => {
+		t2.test("is computed per subclass", async t3 => {
 			class ParentConfig extends lib.Config<any> {
 				static fieldDefinitions: lib.ConfigDefs<any> = {
 					"a": { type: "number", initialValue: 1 },
@@ -708,16 +707,25 @@ t.test("Config", async t1 => {
 				);
 			}
 		});
-		tt.test(
-			"rejects Infinity",
-			{ todo: "Infinity is accepted, then fails the JSON schema so staging and every later set() throw" },
-			async t3 => {
-				const config = testConfig();
-				t3.throws(() => set(config, "test.func", "Infinity"), lib.InvalidValueError);
-				set(config, "test.func", 1);
-				t3.equal(get(config, "test.func"), 1);
-			},
-		);
+		tt.test("rejects Infinity and NaN", async t3 => {
+			const config = testConfig();
+			for (const s of ["Infinity", "-Infinity"]) {
+				t3.throws(
+					() => set(config, "test.func", s),
+					error(lib.InvalidValueError, "Expected type of test.func to be number, not string"),
+					s,
+				);
+			}
+			for (const n of [Infinity, -Infinity, NaN]) {
+				t3.throws(
+					() => set(config, "test.func", n),
+					error(lib.InvalidValueError, `Expected test.func to be a finite number, not ${n}`),
+					String(n),
+				);
+			}
+			set(config, "test.func", 1);
+			t3.equal(get(config, "test.func"), 1);
+		});
 		tt.test("converts strings to objects", async t3 => {
 			const config = testConfig();
 			set(config, "test.json", "{\"json\": true}");
@@ -855,7 +863,6 @@ t.test("Config", async t1 => {
 		});
 		t2.test(
 			"validates dependents the remote cannot read",
-			{ todo: "dependent values are read with the remote's access, so this throws InvalidAccessError" },
 			async t3 => {
 				class CredentialConfig extends lib.Config<any> {
 					static fieldDefinitions: lib.ConfigDefs<any> = {

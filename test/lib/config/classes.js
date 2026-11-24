@@ -39,8 +39,8 @@ describe("lib/config/classes", function() {
 				"test.json": { type: "object", initialValue: {}, optional: true },
 				"test.rest": { type: "object", initialValue: {}, optional: true, restartRequired: true },
 				"test.priv": { access: ["local"], type: "string", optional: true },
-				"test.cred": { credential: ["local"] },
-				"test.rdo": { readonly: ["local"] },
+				"test.cred": { credential: ["local"], optional: true },
+				"test.rdo": { readonly: ["local"], optional: true },
 				"test.base": { type: "number", initialValue: 1 },
 				"test.dependent": {
 					type: "number",
@@ -176,7 +176,6 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.filepath, "filepath");
 			});
 			it("should throw if a required field has no initialValue", function() {
-				this.skip(); // TODO known bug that was discovered but of of scope for #856
 				class BrokenConfig extends lib.Config {
 					static fieldDefinitions = {
 						"test.required": { type: "string" },
@@ -755,16 +754,17 @@ describe("lib/config/classes", function() {
 					".23e5",
 					"-.1e-2",
 					"100.0001",
-					"Infinity",
 				]) {
 					set("test.func", s);
 					assert.equal(get("test.func"), Number.parseFloat(s));
 				}
 
-				assert.throws(
-					() => set("test.func", "blah"),
-					new lib.InvalidValueError("Expected type of test.func to be number, not string")
-				);
+				for (let s of ["blah", "Infinity"]) {
+					assert.throws(
+						() => set("test.func", s),
+						new lib.InvalidValueError("Expected type of test.func to be number, not string")
+					);
+				}
 			});
 			it("should auto convert string to object", function() {
 				set("test.json", '{"json": true}');
