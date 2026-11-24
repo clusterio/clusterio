@@ -500,8 +500,11 @@ export class EventSubscriber<E, S = null> {
 	/** Error value from last attempted subscription event */
 	error = null as Error | null;
 	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
-	private _snapshot: readonly [S, boolean, Error | null] = [this.makeSnapshot(), false, null];
+	private _snapshot?: readonly [S, boolean, Error | null];
+	private _snapshotRevision = -1;
 	private _snapshotLastUpdatedMs = -1;
+	/** Incremented whenever the values change, timestamps can repeat within a millisecond */
+	protected revision = 0;
 	/** Callbacks will be called when an event is received or the synced state changes */
 	private _callbacks = new Array<EventSubscriberCallback<E>>();
 	/** Filters applied to the filtered handler, if empty the filtered handler will not be called */
@@ -579,6 +582,7 @@ export class EventSubscriber<E, S = null> {
 		}
 		this.synced = this._hasSubscriptions();
 		this.processEvent(event);
+		this.revision += 1;
 		this._notify(event);
 	}
 
@@ -680,10 +684,13 @@ export class EventSubscriber<E, S = null> {
 	 */
 	getSnapshot(): readonly [S, boolean, Error | null] {
 		if (
-			this._snapshotLastUpdatedMs !== this.lastUpdatedMs
+			!this._snapshot
+			|| this._snapshotRevision !== this.revision
+			|| this._snapshotLastUpdatedMs !== this.lastUpdatedMs
 			|| this._snapshot[1] !== this.synced
 			|| this._snapshot[2] !== this.error
 		) {
+			this._snapshotRevision = this.revision;
 			this._snapshotLastUpdatedMs = this.lastUpdatedMs;
 			this._snapshot = [this.makeSnapshot(), this.synced, this.error];
 		}

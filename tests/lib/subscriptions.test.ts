@@ -746,9 +746,6 @@ function recorded() {
 	return { control, connector, sent, requests, respond };
 }
 
-// Known bug, see the todo tests in getSnapshot()
-const snapshotTodo = "snapshot is only remade when lastUpdatedMs changes";
-
 const nextTimeout = () => new Promise(resolve => { setTimeout(resolve); });
 
 t.test("EventSubscriber", async t1 => {
@@ -1250,8 +1247,7 @@ t.test("ValueSubscriber", async t1 => {
 	});
 
 	t1.test("getSnapshot()", async t2 => {
-		const todo = "the base class makes the first snapshot before value is set";
-		t2.test("returns null before a value is received", { todo }, async t3 => {
+		t2.test("returns null before a value is received", async t3 => {
 			const { subscriber } = valueSetup();
 			t3.strictSame(subscriber.getSnapshot(), [null, false, null]);
 		});
@@ -1262,7 +1258,7 @@ t.test("ValueSubscriber", async t1 => {
 			t3.strictSame(subscriber.getSnapshot(), [item(1, 50), false, null]);
 		});
 
-		t2.test("updates when the value changes in the same millisecond", { todo: snapshotTodo }, async t3 => {
+		t2.test("updates when the value changes in the same millisecond", async t3 => {
 			const { subscriber, receive } = valueSetup();
 			receive(item(1, 50, { name: "a" }));
 			subscriber.getSnapshot();
@@ -1337,7 +1333,7 @@ t.test("MapSubscriber", async t1 => {
 			t3.equal(snap2.has(2), true);
 		});
 
-		t2.test("updates when a value changes in the same millisecond", { todo: snapshotTodo }, async t3 => {
+		t2.test("updates when a value changes in the same millisecond", async t3 => {
 			const { subscriber, receive } = mapSetup();
 			receive(item(1, 10));
 			subscriber.getSnapshot();
