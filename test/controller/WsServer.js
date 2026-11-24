@@ -112,6 +112,19 @@ describe("controller/src/WsServer", function() {
 				}
 			});
 		});
+		describe(".handleHandshake()", function() {
+			it("should reject a handshake that does not match the message schema", async function() {
+				const socket = { close(code, reason) { this.closed = [code, reason]; } };
+				const req = { socket: { remoteAddress: "1.2.3.4", remoteFamily: "IPv4" }, headers: {} };
+				await wsServer.handleHandshake(
+					JSON.stringify({ type: "registerHost", data: { token: 1 } }), socket, req
+				);
+				assert.deepEqual(
+					socket.closed,
+					[lib.ConnectionClosed.ProtocolError, "Invalid message: does not match the message schema"]
+				);
+			});
+		});
 	});
 	describe("connection metrics", function() {
 		const req = { socket: { remoteAddress: "10.0.0.1", remoteFamily: "IPv4" }, headers: {} };

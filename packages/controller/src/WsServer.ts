@@ -222,7 +222,9 @@ ${err.stack}`
 		let message;
 		try {
 			const json = JSON.parse(rawMessage);
-			lib.Message.validate(json);
+			if (!lib.Message.validate(json)) {
+				throw new Error("does not match the message schema");
+			}
 			message = lib.Message.fromJSON(json);
 		} catch (err: any) {
 			logger.verbose(`WsServer | closing ${this.remoteAddr(req)} after receiving invalid message`);

@@ -17,7 +17,7 @@
 		"ci-cover": "c8 --reporter=lcovonly pnpm test",
 		"test:tap": "pnpm run build && tap --disable-coverage",
 		"test:unit": "pnpm run build && tap --disable-coverage \"tests/!(integrations|shared)/**/*.test.ts\"",
-		"test:integration": "pnpm run build && tap --disable-coverage tests/integrations",
+		"test:integration": "pnpm run build && tap --disable-coverage \"tests/integrations/**/*.test.ts\"",
 		"test:plugins": "pnpm run build && tap --disable-coverage \"plugins/*/test/**/*.test.ts\"",
 		"test:coverage": "pnpm run build && tap --allow-incomplete-coverage --coverage-report=text --coverage-report=html --no-browser",
 		"test:typecheck": "tsc -p tests",

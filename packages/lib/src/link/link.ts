@@ -289,8 +289,7 @@ export class Link {
 			throw err;
 		}
 
-		if (message.type === "request") {
-			assert(message instanceof libData.MessageRequest);
+		if (message instanceof libData.MessageRequest) {
 			let entry = Link._requestsByName.get(message.name);
 			if (!entry) {
 				let err = new libErrors.InvalidMessage(`Unrecognized request ${message.name}`);
@@ -308,15 +307,9 @@ export class Link {
 				throw err;
 			}
 			return entry;
+		}
 
-		} else if (message.type === "response") {
-			return undefined;
-
-		} else if (message.type === "responseError") {
-			return undefined;
-
-		} else if (message.type === "event") {
-			assert(message instanceof libData.MessageEvent);
+		if (message instanceof libData.MessageEvent) {
 			let entry = Link._eventsByName.get(message.name);
 			if (!entry) {
 				throw new libErrors.InvalidMessage(`Unrecognized event ${message.name}`);
@@ -337,7 +330,8 @@ export class Link {
 			return entry;
 		}
 
-		throw new Error("Should be unreachable");
+		// Responses are matched to their request when processed
+		return undefined;
 	}
 
 	/**
@@ -366,24 +360,16 @@ export class Link {
 			throw err;
 		}
 
-		let fallback =
-			message.type === "request" ? this._requestFallbacks.get((entry as RequestEntry).Request) : undefined
-		;
+		// Only requests can have a fallback handler
+		const request = message instanceof libData.MessageRequest ? message : undefined;
+		const fallback = request ? this._requestFallbacks.get((entry as RequestEntry).Request) : undefined;
 		if (this.router.forwardMessage(this, message, entry, Boolean(fallback))) {
 			return;
 		}
-		if (!fallback) {
+		if (!request || !fallback) {
 			throw new Error("Router requested fallback handling when fallback is unavailable");
 		}
-		if (message.type !== "request") {
-			throw new Error(`Router requested fallback handling of unsupported message type ${message.type}`);
-		}
-		this._processRequest(
-			message as libData.MessageRequest,
-			entry as RequestEntry,
-			fallback,
-			(message as libData.MessageRequest).dst
-		);
+		this._processRequest(request, entry as RequestEntry, fallback, request.dst);
 	}
 
 	_processRequest(

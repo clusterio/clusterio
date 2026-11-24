@@ -77,6 +77,14 @@ class PluginRequest {
 	static permission = null;
 	static plugin = "link_test";
 }
+class PluginEvent {
+	declare ["constructor"]: typeof PluginEvent;
+	static type = "event" as const;
+	static src = ["controller", "control"] as const;
+	static dst = ["controller", "control"] as const;
+	static permission = null;
+	static plugin = "link_test";
+}
 class TestPluginError extends lib.ConflictError {
 	static plugin = "link_test";
 }
@@ -84,7 +92,8 @@ for (const Class of [SimpleRequest, NumberRequest, HostRequest, SimpleEvent, Num
 	lib.Link.register(Class as any);
 }
 lib.registerPluginMessages([
-	{ name: "link_test", messages: [PluginRequest], errors: [TestPluginError] } as any,
+	{ name: "link_test", messages: [PluginRequest, PluginEvent], errors: [TestPluginError] } as any,
+	{ name: "link_test_empty" } as any,
 ]);
 
 // Link at a control, the other end is the controller.
@@ -1185,6 +1194,12 @@ t.test("Link", async t1 => {
 });
 
 t.test("registerPluginMessages()", async t1 => {
+	t1.test("registers messages under the plugin name", async t2 => {
+		t2.equal(lib.Link._requestsByName.get("link_test:PluginRequest")?.Request, PluginRequest);
+		t2.equal(lib.Link._eventsByName.get("link_test:PluginEvent")?.Event, PluginEvent);
+		t2.equal(lib.Link._eventsByName.has("PluginEvent"), false);
+	});
+
 	t1.test("requires messages to set the plugin property", async t2 => {
 		class MissingPluginEvent {
 			static type = "event" as const;

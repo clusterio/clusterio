@@ -85,11 +85,12 @@ Schemas the generator cannot satisfy, such as strings that must parse as a mod d
 | `pnpm test:typecheck` | `tsc` over the tests. |
 
 These scripts build first.
-For a single package or file, build and call tap directly:
+For a single package or file, build and call tap directly.
+Pass a file or a quoted glob, tap finds nothing when given a directory.
 
 ```sh
 pnpm build
-pnpm exec tap --disable-coverage tests/lib
+pnpm exec tap --disable-coverage "tests/lib/**/*.test.ts"
 pnpm exec tap --disable-coverage tests/lib/link/link.test.ts
 ```
 
