@@ -1,0 +1,15 @@
+// Type checks the TAP tests, which Node.js runs directly by stripping the types.
+{
+	"extends": "../tsconfig.node.json",
+	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"incremental": false,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"erasableSyntaxOnly": true,
+		"verbatimModuleSyntax": true,
+	},
+	"include": ["./**/*.ts", "../plugins/*/test/**/*.test.ts"],
+}

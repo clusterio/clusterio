@@ -62,7 +62,7 @@ async function removeBuildArtifacts() {
  */
 async function removeTestArtifacts() {
 	const artifacts = [
-		".nyc_output", "coverage", "temp", "static",
+		".nyc_output", ".tap", "coverage", "temp", "static",
 	];
 
 	await Promise.all(artifacts.map(artifact => tryRemove(path.resolve(artifact))));

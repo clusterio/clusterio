@@ -50,6 +50,7 @@ Clusterio manages distributed Factorio servers through a controller, hosts, and 
 | `packages/host/modules/` | Lua modules injected into saves. |
 | `packages/host/lua/` | Factorio mod sources, including `clusterio_lib`. |
 | `test/` | Root test suite, fixtures, helpers, integration harness, and manual tests. Plugin tests also live under `plugins/*/test/`. |
+| `tests/` | TAP test suite replacing `test/`, see [its readme](tests/README.md). |
 
 Start with [how it works](../how-it-works.md), [communication](communication.md), and the [config system](config-system.md) for architecture.
 See [writing plugins](writing-plugins.md) and [developing for Clusterio](developing-for-clusterio.md) for plugin and Factorio contracts.
@@ -213,6 +214,9 @@ NODE_EXTRA_CA_CERTS="$PWD/test/file/tls/cert.pem" pnpm exec mocha \
 ```
 
 Replace the example file with the relevant test; use `--grep` to narrow it further.
+
+A TAP suite in `tests/` is replacing the Mocha suite one area at a time.
+New unit tests go there; see [the TAP test readme](tests/README.md) for layout, conventions and commands.
 Preserve the test TLS CA configuration for HTTPS integration tests.
 Use `--require ./test/setup_logging.js` when an isolated test needs the shared logger configured.
 Some tests import `test/integration/index.js`, which installs root hooks and starts a controller and host even for a targeted invocation.
@@ -234,7 +238,7 @@ Inspect `node scripts/clean.js --help` and preview the selected scope with `--dr
 | Command | Removal scope |
 | --- | --- |
 | `node scripts/clean.js --dry-run` | Preview workspace package/plugin build output and Vite dependency caches; omit `--dry-run` to clean, or use `pnpm clean`. |
-| `node scripts/clean.js tests --dry-run` | Also preview root `.nyc_output/`, `coverage/`, the whole `temp/` directory, and `static/`. |
+| `node scripts/clean.js tests --dry-run` | Also preview root `.nyc_output/`, `.tap/`, `coverage/`, the whole `temp/` directory, and `static/`. |
 | `node scripts/clean.js all --dry-run` | Also preview runtime databases, instances, logs, mods, local configs, `FactorioAdminToken.txt`, and `plugin-list.json`. |
 
 `all` deletes cluster runtime data, including configurations and saves; back up anything you want to keep before using it.

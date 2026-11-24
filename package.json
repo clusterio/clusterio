@@ -15,10 +15,17 @@
 		"cover": "c8 pnpm test",
 		"fast-cover": "FAST_TEST=y c8 pnpm test",
 		"ci-cover": "c8 --reporter=lcovonly pnpm test",
-		"lint": "oxlint packages plugins test",
-		"lint-fix": "oxlint --fix packages plugins test",
+		"test:tap": "pnpm run build && tap --disable-coverage",
+		"test:unit": "pnpm run build && tap --disable-coverage \"tests/!(integrations|shared)/**/*.test.ts\"",
+		"test:integration": "pnpm run build && tap --disable-coverage tests/integrations",
+		"test:plugins": "pnpm run build && tap --disable-coverage \"plugins/*/test/**/*.test.ts\"",
+		"test:coverage": "pnpm run build && tap --allow-incomplete-coverage --coverage-report=text --coverage-report=html --no-browser",
+		"test:typecheck": "tsc -p tests",
+		"lint": "oxlint packages plugins test tests",
+		"lint-fix": "oxlint --fix packages plugins test tests",
 		"clean": "node ./scripts/clean.js",
-		"bundle-dependencies": "bundle-dependencies"
+		"bundle-dependencies": "bundle-dependencies",
+		"prepare": "tap build"
 	},
 	"c8": {
 		"exclude": [
@@ -49,6 +56,7 @@
 		"jsonwebtoken": "catalog:",
 		"mocha": "^12.0.3",
 		"oxlint": "^1.88.0",
+		"tap": "^21.8.1",
 		"typescript": "catalog:",
 		"yargs": "catalog:",
 		"yauzl": "catalog:",

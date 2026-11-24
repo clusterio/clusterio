@@ -47,3 +47,6 @@ autoInstallPeers: false
 linkWorkspacePackages: true
 
 shellEmulator: true
+
+allowBuilds:
+  '@swc/core': false

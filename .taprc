@@ -1,0 +1,6 @@
+# Node.js strips the types itself, see tests/README.md
+plugin:
+  - "!@tapjs/typescript"
+include:
+  - "tests/**/*.test.ts"
+  - "plugins/*/test/**/*.test.ts"
