@@ -13,6 +13,7 @@ export class HostHooks extends lib.AsyncHookCollection {
 	constructor(logger: lib.Logger) {
 		super(logger);
 		this.metrics = this.newHook();
+		this.ready = this.newHook();
 		this.shutdown = this.newHook();
 		this.hostConfigFieldChanged = this.newHook();
 		this.controllerConnectionEvent = this.newHook();
@@ -47,6 +48,16 @@ export class HostHooks extends lib.AsyncHookCollection {
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
 	readonly metrics: lib.AsyncHook<[], AsyncIterable<lib.CollectorResult> | void>;
+
+	/**
+	 * Called once the host has finished starting up
+	 *
+	 * Invoked a single time per host process, after the host has
+	 * connected to the controller and the controller has pushed the
+	 * instances assigned to this host and the user lists. Instances with
+	 * `instance.auto_start` are started after this hook returns.
+	 */
+	readonly ready: lib.AsyncHook<[]>;
 
 	/**
 	 * Called when the host is shutting down
@@ -109,6 +120,7 @@ export class HostHooks extends lib.AsyncHookCollection {
 export interface BaseHostPlugin {
 	onHostConfigFieldChanged?(field: string, curr: unknown, prev: unknown): Promise<void>;
 	onMetrics?(): Promise<void | AsyncIterable<lib.CollectorResult>>;
+	onReady?(): Promise<void>;
 	onShutdown?(): Promise<void>;
 	onControllerConnectionEvent?(event: "connect" | "drop" | "resume" | "close"): void;
 	onPrepareControllerDisconnect?(connection: Host): Promise<void>;
@@ -140,6 +152,7 @@ export class BaseHostPlugin {
 
 		attach(host.hooks.hostConfigFieldChanged, this.onHostConfigFieldChanged);
 		attach(host.hooks.metrics, this.onMetrics);
+		attach(host.hooks.ready, this.onReady);
 		attach(host.hooks.shutdown, this.onShutdown);
 		attach(host.hooks.controllerConnectionEvent, this.onControllerConnectionEvent);
 		attach(host.hooks.prepareControllerDisconnect, this.onPrepareControllerDisconnect);

@@ -103,6 +103,46 @@ describe("host/src/Host", function() {
 				assert.equal(host.instanceConnections.has(7), false);
 			});
 		});
+		describe(".updateInstances()", function() {
+			const instancesDirectory = path.join("temp", "test", "host_update_instances");
+			let host;
+			let calls;
+			beforeEach(async function() {
+				await fs.rm(instancesDirectory, { recursive: true, force: true });
+				await fs.mkdir(instancesDirectory, { recursive: true });
+				const hostConfig = new lib.HostConfig("host", { "host.instances_directory": instancesDirectory });
+				host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				calls = [];
+				host.send = async message => { calls.push(message.constructor.name); };
+				host.hooks.ready.attach("test", () => { calls.push("ready"); });
+				host._connectInstance = async instanceId => {
+					calls.push(`start ${instanceId}`);
+					return { instance: { handleInstanceStartRequest: async () => {} } };
+				};
+				const instanceConfig = new lib.InstanceConfig("host", {
+					"instance.id": 7, "instance.auto_start": true,
+				});
+				host.assignedInstances.set(7, { path: "dir", config: instanceConfig });
+			});
+			it("invokes ready after the sync and before auto start", async function() {
+				await host.updateInstances();
+				assert.deepEqual(calls, ["InstancesUpdateRequest", "ready", "start 7"]);
+			});
+			it("invokes ready only on the first sync", async function() {
+				await host.updateInstances();
+				calls = [];
+				await host.updateInstances();
+				assert.deepEqual(calls, ["InstancesUpdateRequest"]);
+			});
+			it("invokes ready on the next sync if the first one failed", async function() {
+				const send = host.send;
+				host.send = async () => { throw new lib.SessionLost("lost"); };
+				await assert.rejects(host.updateInstances(), lib.SessionLost);
+				host.send = send;
+				await host.updateInstances();
+				assert.deepEqual(calls, ["InstancesUpdateRequest", "ready", "start 7"]);
+			});
+		});
 		describe(".handleSyncUserListsEvent()", function() {
 			const hostAddress = lib.Address.fromShorthand({ hostId: 1 });
 			const instanceAddress = lib.Address.fromShorthand({ instanceId: 1 });
