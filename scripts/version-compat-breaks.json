@@ -12,5 +12,19 @@
 				"impact": "Hosts send FactorioVersionsRequest first, so a 2.0.3 controller rejects the start before this is sent, starting it works again once the controller is updated."
 			}
 		}
+	},
+	"2.1.2": {
+		"messages": {
+			"request HostMetricsRequest": {
+				"pr": 1266,
+				"reason": "Metric samples that are Infinity or NaN are sent as \"+Inf\", \"-Inf\" or \"NaN\", which the 2.1.2 response schema does not accept.",
+				"impact": "None, 2.1.2 sent these values as null, which its schema rejected as well. Finite values are sent as numbers like before."
+			},
+			"request InstanceMetricsRequest": {
+				"pr": 1266,
+				"reason": "Metric samples that are Infinity or NaN are sent as \"+Inf\", \"-Inf\" or \"NaN\", which the 2.1.2 response schema does not accept.",
+				"impact": "None, 2.1.2 sent these values as null, which its schema rejected as well. Finite values are sent as numbers like before."
+			}
+		}
 	}
 }
