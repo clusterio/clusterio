@@ -1714,7 +1714,13 @@ function deserializeSampleValue(value: number | NonFiniteSampleValue) {
 	if (typeof value === "number") {
 		return value;
 	}
-	return value === "+Inf" ? Infinity : value === "-Inf" ? -Infinity : NaN;
+	if (value === "+Inf") {
+		return Infinity;
+	}
+	if (value === "-Inf") {
+		return -Infinity;
+	}
+	return NaN;
 }
 
 export const CollectorResultSerialized = Type.Object({
