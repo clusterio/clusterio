@@ -868,6 +868,10 @@ export class InstanceDetailsChangedEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(InstanceDetails.fromJSON(json));
 	}
+
+	toJSON() {
+		return this.details;
+	}
 }
 
 export class InstanceBanlistUpdateEvent {

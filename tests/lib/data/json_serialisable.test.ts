@@ -33,16 +33,11 @@ const excluded = new Set([
 	"InstanceConfig",
 ]);
 
-// Known failures, reported as todo until fixed.
-const todo = new Map([
-	["InstanceDetailsChangedEvent", "has no toJSON, so it serialises as { details } instead of InstanceDetails"],
-]);
-
 for (const [name, Class] of jsonSerialisableClasses(lib)) {
 	if (excluded.has(name)) {
 		continue;
 	}
-	t.test(name, { todo: todo.get(name) }, async t1 => {
+	t.test(name, async t1 => {
 		testJsonSerialisable(t1, Class, jsonSamples(Class, known));
 	});
 }
