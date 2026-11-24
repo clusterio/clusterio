@@ -11,13 +11,6 @@ async function collectAll(iterable: AsyncIterable<Result>) {
 	return results;
 }
 
-// Known bugs, reported as todo until fixed
-const staleChildTodo = "a cached child writes undefined + n, exporting NaN";
-const backslashNTodo = "keyToLabels unescapes \\n before \\\\";
-const emptyValueTodo = "keyToLabels regex needs one or more characters in a value";
-const emptyAddLabelsTodo = "appends a trailing comma to the key";
-const nonFiniteTodo = "JSON turns Infinity and NaN into null";
-
 // Register collectors to a fresh registry and return its exposition
 async function expose(...collectors: lib.Collector[]) {
 	const registry = new lib.CollectorRegistry();
@@ -176,7 +169,7 @@ t.test("LabeledCollector", async t1 => {
 			t3.throws(() => gauge.remove({}), new Error("labels cannot be empty"));
 			t3.equal(gauge.get(), 0, "default value is kept");
 		});
-		t2.test("does not re-export the series from a stale child", { todo: staleChildTodo }, async t3 => {
+		t2.test("does not re-export the series from a stale child", async t3 => {
 			const gauge = labeledGauge();
 			const child = gauge.labels("1", "2");
 			gauge.remove("1", "2");
@@ -220,13 +213,13 @@ t.test("LabeledCollector", async t1 => {
 			gauge.removeAll({ a: "1" });
 			t3.equal(gauge._values.size, 0);
 		});
-		t2.test("matches a literal backslash followed by n", { todo: backslashNTodo }, async t3 => {
+		t2.test("matches a literal backslash followed by n", async t3 => {
 			const gauge = labeledGauge();
 			gauge.labels("\\n", "2");
 			gauge.removeAll({ a: "\\n" });
 			t3.equal(gauge._values.size, 0);
 		});
-		t2.test("handles empty label values", { todo: emptyValueTodo }, async t3 => {
+		t2.test("handles empty label values", async t3 => {
 			const gauge = labeledGauge();
 			gauge.labels("", "2");
 			t3.doesNotThrow(() => gauge.removeAll({ b: "2" }));
@@ -555,6 +548,14 @@ t.test("Summary", async t1 => {
 			t3.strictSame([...s._sumValues.keys()], ['a="3",b="4"']);
 			t3.strictSame([...s._countValues.keys()], ['a="3",b="4"']);
 		});
+		t2.test("does not re-export the series from a stale child", async t3 => {
+			const s = labeled();
+			const child = s.labels("1", "2");
+			s.remove("1", "2");
+			child.observe(1);
+			t3.equal(s._sumValues.size, 0);
+			t3.equal(s._countValues.size, 0);
+		});
 	});
 
 	t1.test("removeAll()", async t2 => {
@@ -734,6 +735,15 @@ t.test("Histogram", async t1 => {
 			t3.strictSame([...h._bucketValues.keys()], ['a="3",b="4",le="1"', 'a="3",b="4",le="+Inf"']);
 			t3.strictSame([...h._sumValues.keys()], ['a="3",b="4"']);
 			t3.strictSame([...h._countValues.keys()], ['a="3",b="4"']);
+		});
+		t2.test("does not re-export the series from a stale child", async t3 => {
+			const h = labeled();
+			const child = h.labels("1", "2");
+			h.remove("1", "2");
+			child.observe(1);
+			t3.equal(h._bucketValues.size, 0);
+			t3.equal(h._sumValues.size, 0);
+			t3.equal(h._countValues.size, 0);
 		});
 	});
 
@@ -1033,7 +1043,7 @@ t.test("serializeResult()", async t1 => {
 		t2.strictSame(original.samples, new Map([["", new Map([['a="4"', 3]])]]));
 		t2.strictSame(original.metric.labels, ["a"]);
 	});
-	t1.test("leaves labeled samples unchanged for an empty addLabels", { todo: emptyAddLabelsTodo }, async t2 => {
+	t1.test("leaves labeled samples unchanged for an empty addLabels", async t2 => {
 		t2.strictSame(lib.serializeResult(result(["a"], [["", [['a="4"', 3]]]]), { addLabels: {} }).samples, [
 			["", [['a="4"', 3]]],
 		]);
@@ -1085,12 +1095,18 @@ t.test("deserializeResult()", async t1 => {
 		t2.strictSame(deserialized, results);
 		t2.equal(await lib.exposition(deserialized), await lib.exposition(results));
 	});
-	t1.test("round trips non-finite values through JSON", { todo: nonFiniteTodo }, async t2 => {
+	t1.test("round trips non-finite values through JSON", async t2 => {
 		const gauge = new lib.Gauge("test", "Help", { register: false, labels: ["n"] });
 		gauge.labels("1").set(Infinity);
-		gauge.labels("2").set(NaN);
+		gauge.labels("2").set(-Infinity);
+		gauge.labels("3").set(NaN);
 		const results = await collectAll(gauge.collect());
 		const json = JSON.parse(JSON.stringify(results.map(r => lib.serializeResult(r))));
-		t2.equal(await lib.exposition(json.map((r: any) => lib.deserializeResult(r))), await lib.exposition(results));
+		const validate = lib.compile(lib.CollectorResultSerialized as any);
+		t2.ok(validate(json[0]), "matches CollectorResultSerialized", { errors: validate.errors });
+		t2.strictSame(json[0].samples, [["", [['n="1"', "+Inf"], ['n="2"', "-Inf"], ['n="3"', "NaN"]]]]);
+		const deserialized = json.map((r: any) => lib.deserializeResult(r));
+		t2.strictSame(deserialized, results);
+		t2.equal(await lib.exposition(deserialized), await lib.exposition(results));
 	});
 });
