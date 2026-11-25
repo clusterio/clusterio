@@ -300,7 +300,7 @@ t.test("SubscriptionRequest", async t1 => {
 			t3.strictSame(check(["StringPermissionEvent", "subscribe", 0]), ["StringPermission"]);
 			t3.throws(
 				() => check(["StringPermissionEvent", "subscribe", 0], "StringPermission"),
-				{ constructor: lib.PermissionError, message: "Permission denied" },
+				new lib.PermissionError("Permission denied"),
 			);
 		});
 
@@ -583,12 +583,12 @@ t.test("SubscriptionController", async t1 => {
 				subscriptions.handle(TestEvent);
 				await t4.rejects(
 					request(0, "TestEvent", "subscribe", 0, ["a", "b", "c"]),
-					{ constructor: lib.ValidationError, message: "Subscription exceeds the limit of 2 filters" },
+					new lib.ValidationError("Subscription exceeds the limit of 2 filters"),
 				);
 				await request(0, "TestEvent", "subscribe", 0, ["a", "b"]);
 				await t4.rejects(
 					request(0, "TestEvent", "subscribe", 0, "c"),
-					{ constructor: lib.ValidationError, message: "Subscription exceeds the limit of 2 filters" },
+					new lib.ValidationError("Subscription exceeds the limit of 2 filters"),
 				);
 				subscriptions.broadcast(new TestEvent("c") as any);
 				t4.strictSame(controls[0].events(), []);
@@ -705,7 +705,7 @@ t.test("SubscriptionController", async t1 => {
 				await request(0, "TestEvent", "subscribe", 0, ["a"]);
 				await t4.rejects(
 					request(0, "TestEvent", "replace", 0, ["a", "b", "c"]),
-					{ constructor: lib.ValidationError, message: "Subscription exceeds the limit of 2 filters" },
+					new lib.ValidationError("Subscription exceeds the limit of 2 filters"),
 				);
 				t4.strictSame(subscriptions._events.get("TestEvent")!.subscriptions.get("4:1" as any), undefined);
 			});

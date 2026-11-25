@@ -1285,7 +1285,7 @@ describe("Integration of Clusterio", function() {
 
 				await assert.rejects(
 					execCtl("instance send-rcon test /c"),
-					new Error(
+					new lib.InternalServerError(
 						"Attempted to use script command while disabled. " +
 						"See config factorio.enable_script_commands.\nCommand: /c"
 					)
@@ -2503,7 +2503,7 @@ describe("Integration of Clusterio", function() {
 
 					await assert.rejects(
 						tempControl.send(new lib.UserCreateRequest("notallowed")),
-						new Error("Permission denied")
+						new lib.PermissionError("Permission denied")
 					);
 
 				} finally {

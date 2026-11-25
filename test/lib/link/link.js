@@ -428,7 +428,7 @@ describe("lib/link/link", function() {
 				}
 				assert.equal(logged.length, 1);
 				assert(logged[0].startsWith(
-					"Unexpected error handling SimpleEvent:\nError: Event NumberEvent failed validation\n"
+					"Unexpected error handling SimpleEvent:\nInvalidMessage: Event NumberEvent failed validation\n"
 				));
 				assert(logged[0].includes('"message": "must be number"'));
 			});
@@ -816,7 +816,7 @@ describe("lib/link/link", function() {
 				}
 				assert.equal(logged.length, 1);
 				assert(logged[0].startsWith(
-					"Unexpected error snooping SimpleEvent:\nError: Event NumberEvent failed validation\n"
+					"Unexpected error snooping SimpleEvent:\nInvalidMessage: Event NumberEvent failed validation\n"
 				));
 				assert(logged[0].includes('"message": "must be number"'));
 			});

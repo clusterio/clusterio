@@ -155,7 +155,7 @@ t.test("Link", async t1 => {
 			const { link, connector } = controlSide();
 			const pending = link.send(new SimpleRequest());
 			connector.emit("close");
-			await t3.rejects(pending, { constructor: lib.SessionLost, message: "Session Closed" });
+			await t3.rejects(pending, new lib.SessionLost("Session Closed"));
 			t3.equal(link.pendingRequestCount, 0);
 		});
 
@@ -163,7 +163,7 @@ t.test("Link", async t1 => {
 			const { link, connector } = controlSide();
 			const pending = link.send(new SimpleRequest());
 			connector.emit("invalidate");
-			await t3.rejects(pending, { constructor: lib.SessionLost, message: "Session Lost" });
+			await t3.rejects(pending, new lib.SessionLost("Session Lost"));
 		});
 
 		t2.test("sends disconnect ready on disconnectPrepare", async t3 => {
@@ -256,7 +256,7 @@ t.test("Link", async t1 => {
 			const { link, receive, sent } = controlSide();
 			const pending = link.send(new SimpleRequest());
 			receive(new lib.MessageResponseError(1, controller, sent[0].src, new lib.ResponseError("Error")));
-			await t3.rejects(pending, { constructor: lib.InternalServerError, message: "Error" });
+			await t3.rejects(pending, new lib.InternalServerError("Error"));
 			t3.equal(link.pendingRequestCount, 0);
 		});
 
@@ -266,7 +266,7 @@ t.test("Link", async t1 => {
 			receive(new lib.MessageResponse(1, controller, sent[0].src, "not a number"));
 			await t3.rejects(
 				pending,
-				{ constructor: lib.InvalidMessage, message: "Response for request NumberRequest failed validation" },
+				{ name: "InvalidMessage", message: "Response for request NumberRequest failed validation" },
 			);
 		});
 
@@ -651,7 +651,7 @@ t.test("Link", async t1 => {
 			const { link } = controlSide();
 			t3.throws(
 				() => link._processMessage({ type: "invalid" } as any),
-				{ constructor: lib.InvalidMessage, message: "Unhandled message type invalid" },
+				new lib.InvalidMessage("Unhandled message type invalid"),
 			);
 		});
 
@@ -1180,7 +1180,7 @@ t.test("Link", async t1 => {
 
 		t2.test("keeps the local stack when the response has none", async t3 => {
 			const err = lib.Link.errorFromResponse(new lib.ResponseError("Missing", "NotFoundError"));
-			t3.match(err.stack, /^Error: Missing\n\s+at /);
+			t3.match(err.stack, /^NotFoundError: Missing\n\s+at /);
 		});
 
 		t2.test("uses InternalServerError for unknown and missing names", async t3 => {

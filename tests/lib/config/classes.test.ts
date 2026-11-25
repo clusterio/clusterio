@@ -181,14 +181,10 @@ function validatorLog(tt: Test) {
 }
 
 /** Error object matcher for t.throws, compares class and message */
-function error(Class: new (message: string) => Error, message: string | RegExp) {
-	return { constructor: Class, message };
-}
-
 t.test("Config", async t1 => {
 	t1.test("constructor", async t2 => {
 		t2.test("throws if location is not a string", async t3 => {
-			t3.throws(() => new TestConfig(undefined as any), error(Error, "location must be a string"));
+			t3.throws(() => new TestConfig(undefined as any), new Error("location must be a string"));
 		});
 		t2.test("initialises every readable field", async t3 => {
 			t3.strictSame(testConfig().toJSON(), defaults);
@@ -335,11 +331,11 @@ t.test("Config", async t1 => {
 	t1.test("Config.fromJSON()", async t2 => {
 		t2.test("throws on input that is not an object", async t3 => {
 			for (const json of [null, undefined, [], "a", 1]) {
-				t3.throws(() => TestConfig.fromJSON(json as any, "controller"), error(Error, "Invalid config"));
+				t3.throws(() => TestConfig.fromJSON(json as any, "controller"), new Error("Invalid config"));
 			}
 		});
 		t2.test("throws on field values that are arrays", async t3 => {
-			t3.throws(() => TestConfig.fromJSON({ "a": [] as any }, "controller"), error(Error, "Invalid config"));
+			t3.throws(() => TestConfig.fromJSON({ "a": [] as any }, "controller"), new Error("Invalid config"));
 		});
 		t2.test("loads defaults for missing fields", async t3 => {
 			const config = TestConfig.fromJSON({ "alpha.foo": "a", "test.enum": "a" }, "controller");
@@ -377,7 +373,7 @@ t.test("Config", async t1 => {
 			await t3.rejects(TestConfig.fromFile("controller", path.join(dir, "bad.json")), SyntaxError);
 			for (const file of ["null.json", "array.json"]) {
 				const filepath = path.join(dir, file);
-				await t3.rejects(TestConfig.fromFile("controller", filepath), error(Error, "Invalid config"), file);
+				await t3.rejects(TestConfig.fromFile("controller", filepath), new Error("Invalid config"), file);
 			}
 		});
 		t2.test("loads fields and stores the filepath", async t3 => {
@@ -396,7 +392,7 @@ t.test("Config", async t1 => {
 		t2.test("throws if there is no filepath", async t3 => {
 			const config = testConfig();
 			config.set("alpha.foo", "b");
-			await t3.rejects(config.save(), error(Error, "Cannot save config which has no filepath"));
+			await t3.rejects(config.save(), new Error("Cannot save config which has no filepath"));
 		});
 		t2.test("does nothing when not dirty", async t3 => {
 			const filepath = path.join(t3.testdir(), "config.json");
@@ -514,7 +510,7 @@ t.test("Config", async t1 => {
 		t2.test("throws on invalid input", async t3 => {
 			const config = testConfig();
 			for (const json of [undefined, null, [], "a"]) {
-				t3.throws(() => config.update(json as any, false), error(Error, "Invalid config"));
+				t3.throws(() => config.update(json as any, false), new Error("Invalid config"));
 			}
 		});
 		t2.test("emits fieldChanged only when notify is true", async t3 => {
@@ -557,13 +553,13 @@ t.test("Config", async t1 => {
 		t2.test("throws if the field does not exist", async t3 => {
 			t3.throws(
 				() => testConfig().canAccess("invalid", CA.read),
-				error(lib.InvalidFieldError, "No field named 'invalid'"),
+				new lib.InvalidFieldError("No field named 'invalid'"),
 			);
 		});
 		t2.test("throws if mode is not passed", async t3 => {
 			t3.throws(
 				() => (testConfig() as any).canAccess("alpha.foo"),
-				error(TypeError, "mode argument is required to canAccess"),
+				new TypeError("mode argument is required to canAccess"),
 			);
 		});
 		// field => [read, write, readWrite] from host, all are fully accessible from controller
@@ -593,7 +589,7 @@ t.test("Config", async t1 => {
 
 	t1.test("get()", async t2 => {
 		t2.test("throws if the field does not exist", async t3 => {
-			t3.throws(() => testConfig().get("invalid"), error(lib.InvalidFieldError, "No field named 'invalid'"));
+			t3.throws(() => testConfig().get("invalid"), new lib.InvalidFieldError("No field named 'invalid'"));
 		});
 		t2.test("returns the field value", async t3 => {
 			const config = testConfig("controller", { ...loaded, "test.priv": "blah" });
@@ -604,13 +600,13 @@ t.test("Config", async t1 => {
 		t2.test("throws if the field is remotely inaccessible", async t3 => {
 			t3.throws(
 				() => testConfig().get("test.priv", "host"),
-				error(lib.InvalidAccessError, "Field 'test.priv' is not accessible from host"),
+				new lib.InvalidAccessError("Field 'test.priv' is not accessible from host"),
 			);
 		});
 		t2.test("throws if the field is locally inaccessible", async t3 => {
 			t3.throws(
 				() => testConfig("host").get("test.priv"),
-				error(lib.InvalidAccessError, "Field 'test.priv' is not accessible from host"),
+				new lib.InvalidAccessError("Field 'test.priv' is not accessible from host"),
 			);
 		});
 		t2.test("returns write only fields locally", async t3 => {
@@ -634,25 +630,25 @@ t.test("Config", async t1 => {
 		tt.test("throws if the field does not exist", async t3 => {
 			t3.throws(
 				() => set(testConfig(), "test.bar", 1),
-				error(lib.InvalidFieldError, "No field named 'test.bar'"),
+				new lib.InvalidFieldError("No field named 'test.bar'"),
 			);
 		});
 		tt.test("throws if the field is remotely inaccessible", async t3 => {
 			t3.throws(
 				() => set(testConfig(), "test.priv", "bad", "host"),
-				error(lib.InvalidAccessError, "Field 'test.priv' is not accessible from host"),
+				new lib.InvalidAccessError("Field 'test.priv' is not accessible from host"),
 			);
 		});
 		tt.test("throws if the field is locally inaccessible", async t3 => {
 			t3.throws(
 				() => set(testConfig("host"), "test.priv", "bad", "controller"),
-				error(lib.InvalidAccessError, "Field 'test.priv' is not accessible from host"),
+				new lib.InvalidAccessError("Field 'test.priv' is not accessible from host"),
 			);
 		});
 		tt.test("throws if the value is not in enum", async t3 => {
 			t3.throws(
 				() => set(testConfig(), "test.enum", "bar"),
-				error(lib.InvalidValueError, "Expected one of [a, b, c], not bar"),
+				new lib.InvalidValueError("Expected one of [a, b, c], not bar"),
 			);
 		});
 		tt.test("accepts a value in enum", async t3 => {
@@ -663,7 +659,7 @@ t.test("Config", async t1 => {
 		tt.test("throws on null for a required field", async t3 => {
 			t3.throws(
 				() => set(testConfig(), "test.func", null),
-				error(lib.InvalidValueError, "Field test.func cannot be null"),
+				new lib.InvalidValueError("Field test.func cannot be null"),
 			);
 		});
 		tt.test("accepts null for an optional field", async t3 => {
@@ -674,7 +670,7 @@ t.test("Config", async t1 => {
 		tt.test("throws on the wrong type", async t3 => {
 			t3.throws(
 				() => set(testConfig(), "test.test", 1),
-				error(lib.InvalidValueError, "Expected type of test.test to be string, not number"),
+				new lib.InvalidValueError("Expected type of test.test to be string, not number"),
 			);
 		});
 		tt.test("treats empty string as null", async t3 => {
@@ -690,7 +686,7 @@ t.test("Config", async t1 => {
 			t3.equal(get(config, "test.bool"), false);
 			t3.throws(
 				() => set(config, "test.bool", "blah"),
-				error(lib.InvalidValueError, "Expected type of test.bool to be boolean, not string"),
+				new lib.InvalidValueError("Expected type of test.bool to be boolean, not string"),
 			);
 		});
 		tt.test("converts strings to numbers", async t3 => {
@@ -702,7 +698,7 @@ t.test("Config", async t1 => {
 			for (const s of ["blah", "1x", "0x10", "NaN", "1e"]) {
 				t3.throws(
 					() => set(config, "test.func", s),
-					error(lib.InvalidValueError, "Expected type of test.func to be number, not string"),
+					new lib.InvalidValueError("Expected type of test.func to be number, not string"),
 					s,
 				);
 			}
@@ -712,14 +708,14 @@ t.test("Config", async t1 => {
 			for (const s of ["Infinity", "-Infinity"]) {
 				t3.throws(
 					() => set(config, "test.func", s),
-					error(lib.InvalidValueError, "Expected type of test.func to be number, not string"),
+					new lib.InvalidValueError("Expected type of test.func to be number, not string"),
 					s,
 				);
 			}
 			for (const n of [Infinity, -Infinity, NaN]) {
 				t3.throws(
 					() => set(config, "test.func", n),
-					error(lib.InvalidValueError, `Expected test.func to be a finite number, not ${n}`),
+					new lib.InvalidValueError(`Expected test.func to be a finite number, not ${n}`),
 					String(n),
 				);
 			}
@@ -732,11 +728,11 @@ t.test("Config", async t1 => {
 			t3.strictSame(get(config, "test.json"), { json: true });
 			t3.throws(
 				() => set(config, "test.json", "blah"),
-				error(lib.InvalidValueError, /^Error parsing value for test\.json: /),
+				new lib.InvalidValueError("Error parsing value for test.json: "),
 			);
 			t3.throws(
 				() => set(config, "test.json", "[]"),
-				error(lib.InvalidValueError, "Expected type of test.json to be object, not array"),
+				new lib.InvalidValueError("Expected type of test.json to be object, not array"),
 			);
 		});
 	}
@@ -752,25 +748,25 @@ t.test("Config", async t1 => {
 		tt.test("throws if the field does not exist", async t3 => {
 			t3.throws(
 				() => setProp(testConfig(), "test.bar", "prop", 1),
-				error(lib.InvalidFieldError, "No field named 'test.bar'"),
+				new lib.InvalidFieldError("No field named 'test.bar'"),
 			);
 		});
 		tt.test("throws if the field is remotely inaccessible", async t3 => {
 			t3.throws(
 				() => setProp(testConfig(), "test.priv", "prop", "bad", "host"),
-				error(lib.InvalidAccessError, "Field 'test.priv' is not accessible from host"),
+				new lib.InvalidAccessError("Field 'test.priv' is not accessible from host"),
 			);
 		});
 		tt.test("throws if the field is locally inaccessible", async t3 => {
 			t3.throws(
 				() => setProp(testConfig("host"), "test.priv", "prop", "bad", "controller"),
-				error(lib.InvalidAccessError, "Field 'test.priv' is not accessible from host"),
+				new lib.InvalidAccessError("Field 'test.priv' is not accessible from host"),
 			);
 		});
 		tt.test("throws if the field is not an object", async t3 => {
 			t3.throws(
 				() => setProp(testConfig(), "test.enum", "prop", "a"),
-				error(lib.InvalidValueError, "Cannot set property on non-object field 'test.enum'"),
+				new lib.InvalidValueError("Cannot set property on non-object field 'test.enum'"),
 			);
 		});
 		tt.test("sets a property", async t3 => {
@@ -829,7 +825,7 @@ t.test("Config", async t1 => {
 			const config = testConfig();
 			t3.throws(
 				() => config.set("test.validated", -1),
-				error(lib.InvalidValueError, "Failed validation of test.validated: must be positive"),
+				new lib.InvalidValueError("Failed validation of test.validated: must be positive"),
 			);
 			t3.equal(config.get("test.validated"), null);
 			t3.strictSame(log, [["test.validated", -1]]);
@@ -853,8 +849,7 @@ t.test("Config", async t1 => {
 			const config = testConfig();
 			t3.throws(
 				() => config.set("test.base", 5),
-				error(
-					lib.InvalidValueError,
+				new lib.InvalidValueError(
 					"Failed validation of dependent test.dependent: dependent must be >= base",
 				),
 			);
@@ -920,7 +915,7 @@ t.test("Config", async t1 => {
 			const config = testConfig();
 			t3.throws(
 				() => config.setProp("test.objValidated", "bad", true),
-				error(lib.InvalidValueError, "Failed validation of test.objValidated: bad key"),
+				new lib.InvalidValueError("Failed validation of test.objValidated: bad key"),
 			);
 			t3.strictSame(config.get("test.objValidated"), {});
 			t3.strictSame(log, [["test.objValidated", { bad: true }]]);
@@ -940,7 +935,7 @@ t.test("Config", async t1 => {
 			const log = validatorLog(t3);
 			t3.throws(
 				() => config.setProp("test.objDependent", "base", 0),
-				error(lib.InvalidValueError, "Failed validation of dependent test.dependent: objDependent cannot be 0"),
+				new lib.InvalidValueError("Failed validation of dependent test.dependent: objDependent cannot be 0"),
 			);
 			t3.strictSame(config.get("test.objDependent"), {});
 			t3.strictSame(log, [
@@ -1024,7 +1019,7 @@ t.test("Config", async t1 => {
 			config.stage("test.validated", -1);
 			t3.throws(
 				() => config.commitStaging(),
-				error(lib.InvalidValueError, "Failed validation of test.validated: must be positive"),
+				new lib.InvalidValueError("Failed validation of test.validated: must be positive"),
 			);
 			t3.equal(config.get("test.validated"), null);
 			t3.equal(config.staging.get("test.validated"), -1, "staging is kept");
@@ -1036,7 +1031,7 @@ t.test("Config", async t1 => {
 		});
 		t2.test("validates the staged values together", async t3 => {
 			const config = testConfig();
-			t3.throws(() => config.set("test.base", 10), error(lib.InvalidValueError, /dependent must be >= base/));
+			t3.throws(() => config.set("test.base", 10), new lib.InvalidValueError("dependent must be >= base"));
 			config.stage("test.base", 10);
 			config.stage("test.dependent", 15);
 			config.commitStaging();
@@ -1088,7 +1083,7 @@ t.test("Config", async t1 => {
 				const config = testConfig();
 				t3.throws(
 					() => config.set("test.badValidator", method),
-					error(lib.InvalidValueError, /config is readonly and cannot have values changed/),
+					new lib.InvalidValueError("config is readonly and cannot have values changed"),
 				);
 				t3.equal(config.get("alpha.foo"), null);
 				t3.strictSame(config.get("beta.bar"), {});
@@ -1098,7 +1093,7 @@ t.test("Config", async t1 => {
 				config.set("test.badValidator", method);
 				t3.throws(
 					() => config.set("test.base", 1),
-					error(lib.InvalidValueError, /config is readonly and cannot have values changed/),
+					new lib.InvalidValueError("config is readonly and cannot have values changed"),
 				);
 			});
 		}
@@ -1120,7 +1115,7 @@ t.test("Config._coerceValue()", async t1 => {
 		t2.equal(lib.Config._coerceValue("n", def, 1), 1);
 		t2.throws(
 			() => lib.Config._coerceValue("n", def, "1"),
-			error(lib.InvalidValueError, "Expected one of [1, 2], not 1"),
+			new lib.InvalidValueError("Expected one of [1, 2], not 1"),
 		);
 	});
 	t1.test("passes through non string values of the right type", async t2 => {
