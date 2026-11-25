@@ -612,6 +612,27 @@ describe("lib/link/link", function() {
 					assert(handled, "broadcast was not handled locally");
 				});
 
+				it("should run the fallback handler if the router asks for it", async function() {
+					let handled = false;
+					testLink.router = { forwardMessage: () => false };
+					testLink.fallbackRequest(SimpleRequest, async () => { handled = true; });
+					const requestSrc = new lib.Address(lib.Address.controller, 0, 1);
+					const message = new lib.MessageRequest(1, requestSrc, addr({ controlId: 2 }), "SimpleRequest");
+					testConnector.emit("message", message);
+					await new Promise(resolve => setImmediate(resolve));
+					assert(handled, "fallback handler was not run");
+				});
+
+				it("should throw if the router asks for a fallback that does not exist", function() {
+					testLink.router = { forwardMessage: () => false };
+					const entry = lib.Link._eventsByName.get("SimpleEvent");
+					const message = new lib.MessageEvent(1, src, addr("controller"), "SimpleEvent");
+					assert.throws(
+						() => testLink._routeMessage(message, entry),
+						new Error("Router requested fallback handling when fallback is unavailable")
+					);
+				});
+
 				it("should not route a non broadcast addressed to this link", function() {
 					const record = {};
 					testLink.router = mockRouter(record);

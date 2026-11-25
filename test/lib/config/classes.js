@@ -765,6 +765,12 @@ describe("lib/config/classes", function() {
 						new lib.InvalidValueError("Expected type of test.func to be number, not string")
 					);
 				}
+				for (let n of [Infinity, -Infinity, NaN]) {
+					assert.throws(
+						() => set("test.func", n),
+						new lib.InvalidValueError(`Expected test.func to be a finite number, not ${n}`)
+					);
+				}
 			});
 			it("should auto convert string to object", function() {
 				set("test.json", '{"json": true}');
