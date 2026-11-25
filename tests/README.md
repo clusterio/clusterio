@@ -5,7 +5,7 @@ Mocha is removed once this suite has similar coverage.
 Write new unit tests here.
 
 Tests are TypeScript, run by Node.js directly with type stripping.
-The `@tapjs/typescript` plugin is disabled in `.taprc`, so only [erasable syntax](https://www.typescriptlang.org/tsconfig/#erasableSyntaxOnly) works: no enums, parameter properties or namespaces.
+`type-strip-only` in `.taprc` keeps tap from compiling them with ts-node, so only [erasable syntax](https://www.typescriptlang.org/tsconfig/#erasableSyntaxOnly) works: no enums, parameter properties or namespaces.
 Relative imports use the `.ts` extension.
 Packages are imported by name, which resolves to their compiled output, so build before running.
 
@@ -104,9 +104,8 @@ pnpm exec tap --disable-coverage tests/lib/link/link.test.ts
 `--jobs=<n>` sets the number of test files run at once, which defaults to the number of CPUs.
 Run tap from the root rather than through `pnpm -r`, which would run a worker pool per package.
 
-`pnpm install` runs `tap build` to apply the plugin list in `.taprc`.
-`patches/@tapjs__test.patch` makes it link with a junction, which Windows allows without an admin terminal.
-Run it again after changing that list.
+Keep tap's default plugins.
+Changing the plugin list in `.taprc` makes tap rebuild itself with `tap build`, which needs an admin terminal on Windows.
 
 CI runs this suite in `.github/workflows/tap.yml` on the latest Node.js and Factorio only.
 Coverage reported to Codecov still comes from the Mocha suite.

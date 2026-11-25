@@ -24,8 +24,7 @@
 		"lint": "oxlint packages plugins test tests",
 		"lint-fix": "oxlint --fix packages plugins test tests",
 		"clean": "node ./scripts/clean.js",
-		"bundle-dependencies": "bundle-dependencies",
-		"prepare": "tap build"
+		"bundle-dependencies": "bundle-dependencies"
 	},
 	"c8": {
 		"exclude": [

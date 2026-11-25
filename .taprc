@@ -1,6 +1,5 @@
-# Node.js strips the types itself, see tests/README.md
-plugin:
-  - "!@tapjs/typescript"
+# Node.js strips the types itself instead of ts-node, see tests/README.md
+type-strip-only: true
 include:
   - "tests/**/*.test.ts"
   - "plugins/*/test/**/*.test.ts"
