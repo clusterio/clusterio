@@ -294,6 +294,13 @@ describe("lib/prometheus", function() {
 				assert(!labeledSummary._sumValues.has('a="1",b="2"'), "sum value not removed");
 				assert(!labeledSummary._countValues.has('a="1",b="2"'), "count value not removed");
 			});
+			it("should not add the label set back when observed through a removed child", function() {
+				const child = labeledSummary.labels("1", "2");
+				labeledSummary.remove("1", "2");
+				child.observe(1);
+				assert(!labeledSummary._sumValues.has('a="1",b="2"'), "sum value added back");
+				assert(!labeledSummary._countValues.has('a="1",b="2"'), "count value added back");
+			});
 		});
 		describe(".removeAll()", function() {
 			it("should remove a label set created with .labels()", function() {
@@ -465,6 +472,14 @@ describe("lib/prometheus", function() {
 				assert(!labeledHistogram._bucketValues.has('a="1",b="2",le="+Inf"'), "bucket value not removed");
 				assert(!labeledHistogram._sumValues.has('a="1",b="2"'), "sum value not removed");
 				assert(!labeledHistogram._countValues.has('a="1",b="2"'), "count value not removed");
+			});
+			it("should not add the label set back when observed through a removed child", function() {
+				const child = labeledHistogram.labels("1", "2");
+				labeledHistogram.remove("1", "2");
+				child.observe(1);
+				assert(!labeledHistogram._bucketValues.has('a="1",b="2",le="+Inf"'), "bucket value added back");
+				assert(!labeledHistogram._sumValues.has('a="1",b="2"'), "sum value added back");
+				assert(!labeledHistogram._countValues.has('a="1",b="2"'), "count value added back");
 			});
 		});
 		describe(".removeAll()", function() {
@@ -1014,6 +1029,23 @@ describe("lib/prometheus", function() {
 			let roundTripExposition = await prometheus.exposition(deserialized);
 
 			assert.equal(roundTripExposition, exposition);
+		});
+		it("should round trip non-finite values through JSON", async function() {
+			let gauge = new prometheus.Gauge("test", "Help", { register: false, labels: ["n"] });
+			gauge.labels("1").set(Infinity);
+			gauge.labels("2").set(-Infinity);
+			gauge.labels("3").set(NaN);
+			let results = [];
+			for await (let result of gauge.collect()) {
+				results.push(result);
+			}
+			let jsonRoundtrip = JSON.parse(JSON.stringify(results.map(res => prometheus.serializeResult(res))));
+			assert.deepEqual(
+				jsonRoundtrip[0].samples, [["", [['n="1"', "+Inf"], ['n="2"', "-Inf"], ['n="3"', "NaN"]]]]
+			);
+			let deserialized = jsonRoundtrip.map(res => prometheus.deserializeResult(res));
+			assert.deepEqual(deserialized, results);
+			assert.equal(await prometheus.exposition(deserialized), await prometheus.exposition(results));
 		});
 	});
 

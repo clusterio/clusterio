@@ -9,7 +9,7 @@ describe("lib/errors", function() {
 			let err = new lib.InvalidMessage("Request Test failed validation", errors);
 			assert.equal(err.message, "Request Test failed validation");
 			assert.equal(err.errors, errors);
-			assert(err.stack.startsWith("Error: Request Test failed validation\n"));
+			assert(err.stack.startsWith("InvalidMessage: Request Test failed validation\n"));
 			assert(err.stack.endsWith(`\n${JSON.stringify(errors, null, "\t")}`));
 		});
 		it("should leave the stack alone without errors", function() {

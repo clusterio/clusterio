@@ -46,7 +46,7 @@ describe("Integration of lib/link", function() {
 		controlConnector.token = "gibberish";
 		await assert.rejects(
 			controlConnector.connect(),
-			new Error("Authentication failed: jwt malformed")
+			new AuthenticationFailed("Authentication failed: jwt malformed")
 		);
 	});
 
@@ -147,7 +147,7 @@ describe("Integration of lib/link", function() {
 		hostConnector.token = controlToken;
 		await assert.rejects(
 			hostConnector.connect(),
-			new Error("Authentication failed: jwt audience invalid. expected: host or slave")
+			new AuthenticationFailed("Authentication failed: jwt audience invalid. expected: host or slave")
 		);
 	});
 
@@ -155,7 +155,7 @@ describe("Integration of lib/link", function() {
 		hostConnector.hostId = linkHost.hostId + 1;
 		await assert.rejects(
 			hostConnector.connect(),
-			new Error("Authentication failed: missmatched host id")
+			new AuthenticationFailed("Authentication failed: missmatched host id")
 		);
 	});
 
@@ -164,7 +164,7 @@ describe("Integration of lib/link", function() {
 		hostConnector.hostId = 0;
 		await assert.rejects(
 			hostConnector.connect(),
-			new Error(
+			new AuthenticationFailed(
 				"Authentication failed: host is not registered, start the host again to request to join the cluster"
 			)
 		);
@@ -194,7 +194,7 @@ describe("Integration of lib/link", function() {
 		hostConnector.hostId = hostId; // Same as already running host
 		await assert.rejects(
 			hostConnector.connect(),
-			new Error("Authentication failed: missmatched host id")
+			new AuthenticationFailed("Authentication failed: missmatched host id")
 		);
 	});
 });

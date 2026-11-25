@@ -1,0 +1,38 @@
+# TAP test suite, run alongside the mocha suite in node.js.yml until it reaches
+# similar coverage. Only the latest Node.js and Factorio are tested here.
+
+name: TAP tests
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 26.x
+  FACTORIO_VERSION: 2.1.17
+
+jobs:
+  changes:
+    uses: ./.github/workflows/ci-changes.yml
+
+  test:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build_and_test != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v7
+    - name: Prepare and install
+      uses: ./.github/actions/pnpm-install
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    - name: Use Factorio ${{ env.FACTORIO_VERSION }}
+      run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/${{ env.FACTORIO_VERSION }}/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
+    - name: Type check tests
+      run: pnpm run test:typecheck
+    - name: Run tests
+      run: pnpm run test:tap

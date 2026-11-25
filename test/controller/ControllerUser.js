@@ -32,12 +32,18 @@ describe("controller/src/User", function() {
 				let c = User.fromJSON({ name: "null", roles: [] }, {}, roles);
 
 				a.checkPermission("core.control.connect");
-				assert.throws(() => b.checkPermission("core.control.connect"), new Error("Permission denied"));
-				assert.throws(() => c.checkPermission("core.control.connect"), new Error("Permission denied"));
+				assert.throws(
+					() => b.checkPermission("core.control.connect"), new lib.PermissionError("Permission denied")
+				);
+				assert.throws(
+					() => c.checkPermission("core.control.connect"), new lib.PermissionError("Permission denied")
+				);
 
 				a.checkPermission("user-test");
 				b.checkPermission("user-test");
-				assert.throws(() => c.checkPermission("user-test"), new Error("Permission denied"));
+				assert.throws(
+					() => c.checkPermission("user-test"), new lib.PermissionError("Permission denied")
+				);
 
 				assert.throws(() => a.checkPermission("invalid"), new Error("permission invalid does not exist"));
 			});

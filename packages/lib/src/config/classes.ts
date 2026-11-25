@@ -244,6 +244,12 @@ export class Config<
 		}
 		super();
 
+		for (const [name, def] of Object.entries(this.constructor.fieldDefinitions)) {
+			if (!def.optional && def.initialValue === undefined) {
+				throw new Error(`Field ${name} is not optional and has no initialValue`);
+			}
+		}
+
 		const defs = Object.entries(this.constructor.fieldDefinitions).filter(
 			([name, def]) => this._checkAccess(name, def, location, ConfigAccess.read, false)
 		);
@@ -309,7 +315,8 @@ export class Config<
 
 	/** Map of all fields whose validators depend on the given field */
 	static get fieldDependents(): typeof this._fieldDependents {
-		if (this._fieldDependents) {
+		// Own property only, a cached map on a parent class has the parent's fields
+		if (Object.hasOwn(this, "_fieldDependents") && this._fieldDependents) {
 			return this._fieldDependents;
 		}
 
@@ -364,7 +371,7 @@ export class Config<
 				}
 
 			} else if (def.type === "number") {
-				const numberRegExp = /^[+-]?(Infinity|\d+\.(\d+)?([eE][+-]?\d+)?|\.?\d+([eE][+-]?\d+)?)$/;
+				const numberRegExp = /^[+-]?(\d+\.(\d+)?([eE][+-]?\d+)?|\.?\d+([eE][+-]?\d+)?)$/;
 				if (numberRegExp.test(value.trim())) {
 					value = Number.parseFloat(value);
 				}
@@ -387,6 +394,10 @@ export class Config<
 		// Check if is the correct type
 		} else if (basicType(value) !== def.type) {
 			throw new InvalidValueError(`Expected type of ${name} to be ${def.type}, not ${basicType(value)}`);
+
+		// JSON has no representation for Infinity and NaN
+		} else if (typeof value === "number" && !Number.isFinite(value)) {
+			throw new InvalidValueError(`Expected ${name} to be a finite number, not ${value}`);
 		}
 
 		return value as FieldType<T["type"]>;
@@ -482,7 +493,7 @@ export class Config<
 	}
 
 	static jsonSchema = ConfigSchema;
-	static validate = libSchema.compile(this.jsonSchema as any);
+	static validate = libSchema.compile<ConfigSchema>(this.jsonSchema as any);
 
 	/**
 	 * Create config from a serialized object
@@ -562,17 +573,13 @@ export class Config<
 	 * @param remote - Location this serialised representation was received from.
 	 */
 	update(
-		json: Static<typeof Config.jsonSchema>,
+		json: unknown,
 		notify: boolean,
 		remote = this.location
 	) {
-		const valid = Config.validate(json);
-		if (!valid) {
+		// Can come from the network, the schema guarantees an object
+		if (!Config.validate(json)) {
 			throw new Error("Invalid config");
-		}
-
-		if (basicType(json) !== "object") {
-			throw new Error(`Expected object, not ${basicType(json)} for Config`);
 		}
 
 		for (let [name, value] of Object.entries(json) as [keyof Fields & string, FieldValue][]) {
@@ -701,7 +708,7 @@ export class Config<
 			try {
 				for (const dependent of dependents) {
 					try {
-						dependent.def.validator(this.get(dependent.name as any, remote), this.staging);
+						dependent.def.validator(this.get(dependent.name as any), this.staging);
 					} catch (err: any) {
 						throw new InvalidValueError(`Failed validation of dependent ${dependent.name}: ${err.message}`);
 					}
@@ -780,7 +787,7 @@ export class Config<
 			try {
 				for (const dependent of dependents) {
 					try {
-						dependent.def.validator(this.get(dependent.name as any, remote), this.staging);
+						dependent.def.validator(this.get(dependent.name as any), this.staging);
 					} catch (err: any) {
 						throw new InvalidValueError(`Failed validation of dependent ${dependent.name}: ${err.message}`);
 					}

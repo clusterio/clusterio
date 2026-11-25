@@ -39,8 +39,8 @@ describe("lib/config/classes", function() {
 				"test.json": { type: "object", initialValue: {}, optional: true },
 				"test.rest": { type: "object", initialValue: {}, optional: true, restartRequired: true },
 				"test.priv": { access: ["local"], type: "string", optional: true },
-				"test.cred": { credential: ["local"] },
-				"test.rdo": { readonly: ["local"] },
+				"test.cred": { credential: ["local"], optional: true },
+				"test.rdo": { readonly: ["local"], optional: true },
 				"test.base": { type: "number", initialValue: 1 },
 				"test.dependent": {
 					type: "number",
@@ -176,7 +176,6 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.filepath, "filepath");
 			});
 			it("should throw if a required field has no initialValue", function() {
-				this.skip(); // TODO known bug that was discovered but of of scope for #856
 				class BrokenConfig extends lib.Config {
 					static fieldDefinitions = {
 						"test.required": { type: "string" },
@@ -580,7 +579,10 @@ describe("lib/config/classes", function() {
 		describe(".canAccess()", function() {
 			it("should throw if field does not exist", function() {
 				let testInstance = new TestConfig("local");
-				assert.throws(() => testInstance.canAccess("invalid", CA.read), new Error("No field named 'invalid'"));
+				assert.throws(
+					() => testInstance.canAccess("invalid", CA.read),
+					new lib.InvalidFieldError("No field named 'invalid'")
+				);
 			});
 
 			it("should throw if mode is not passed ", function() {
@@ -650,7 +652,7 @@ describe("lib/config/classes", function() {
 		describe(".get()", function() {
 			it("should throw if field does not exist", function() {
 				let testInstance = new TestConfig("local");
-				assert.throws(() => testInstance.get("invalid"), new Error("No field named 'invalid'"));
+				assert.throws(() => testInstance.get("invalid"), new lib.InvalidFieldError("No field named 'invalid'"));
 			});
 			it("should retreive value of field", function() {
 				let testInstance = new TestConfig("local", {
@@ -710,7 +712,7 @@ describe("lib/config/classes", function() {
 			it("should throw if field is not in enum", function() {
 				assert.throws(
 					() => set("test.enum", "bar"),
-					new Error("Expected one of [a, b, c], not bar")
+					new lib.InvalidValueError("Expected one of [a, b, c], not bar")
 				);
 			});
 			it("should work if field is in enum", function() {
@@ -720,7 +722,7 @@ describe("lib/config/classes", function() {
 			it("should throw if field is not optional", function() {
 				assert.throws(
 					() => set("test.func", null),
-					new Error("Field test.func cannot be null")
+					new lib.InvalidValueError("Field test.func cannot be null")
 				);
 			});
 			it("should work if field is optional", function() {
@@ -730,7 +732,7 @@ describe("lib/config/classes", function() {
 			it("should throw if field is of wrong type", function() {
 				assert.throws(
 					() => set("test.test", 1),
-					new Error("Expected type of test.test to be string, not number")
+					new lib.InvalidValueError("Expected type of test.test to be string, not number")
 				);
 			});
 			it("should treat empty string as null", function() {
@@ -755,16 +757,23 @@ describe("lib/config/classes", function() {
 					".23e5",
 					"-.1e-2",
 					"100.0001",
-					"Infinity",
 				]) {
 					set("test.func", s);
 					assert.equal(get("test.func"), Number.parseFloat(s));
 				}
 
-				assert.throws(
-					() => set("test.func", "blah"),
-					new lib.InvalidValueError("Expected type of test.func to be number, not string")
-				);
+				for (let s of ["blah", "Infinity"]) {
+					assert.throws(
+						() => set("test.func", s),
+						new lib.InvalidValueError("Expected type of test.func to be number, not string")
+					);
+				}
+				for (let n of [Infinity, -Infinity, NaN]) {
+					assert.throws(
+						() => set("test.func", n),
+						new lib.InvalidValueError(`Expected test.func to be a finite number, not ${n}`)
+					);
+				}
 			});
 			it("should auto convert string to object", function() {
 				set("test.json", '{"json": true}');
@@ -888,7 +897,7 @@ describe("lib/config/classes", function() {
 			it("should throw if field is not an object", function() {
 				assert.throws(
 					() => setProp("test.enum", "prop", "a"),
-					new lib.InvalidFieldError("Cannot set property on non-object field 'test.enum'")
+					new lib.InvalidValueError("Cannot set property on non-object field 'test.enum'")
 				);
 			});
 			it("should work if field is an object", function() {

@@ -428,7 +428,7 @@ describe("lib/link/link", function() {
 				}
 				assert.equal(logged.length, 1);
 				assert(logged[0].startsWith(
-					"Unexpected error handling SimpleEvent:\nError: Event NumberEvent failed validation\n"
+					"Unexpected error handling SimpleEvent:\nInvalidMessage: Event NumberEvent failed validation\n"
 				));
 				assert(logged[0].includes('"message": "must be number"'));
 			});
@@ -610,6 +610,27 @@ describe("lib/link/link", function() {
 					testLink.handle(SimpleEvent, async () => { handled = true; });
 					testConnector.emit("message", new lib.MessageEvent(1, dst, addr("allControls"), "SimpleEvent"));
 					assert(handled, "broadcast was not handled locally");
+				});
+
+				it("should run the fallback handler if the router asks for it", async function() {
+					let handled = false;
+					testLink.router = { forwardMessage: () => false };
+					testLink.fallbackRequest(SimpleRequest, async () => { handled = true; });
+					const requestSrc = new lib.Address(lib.Address.controller, 0, 1);
+					const message = new lib.MessageRequest(1, requestSrc, addr({ controlId: 2 }), "SimpleRequest");
+					testConnector.emit("message", message);
+					await new Promise(resolve => setImmediate(resolve));
+					assert(handled, "fallback handler was not run");
+				});
+
+				it("should throw if the router asks for a fallback that does not exist", function() {
+					testLink.router = { forwardMessage: () => false };
+					const entry = lib.Link._eventsByName.get("SimpleEvent");
+					const message = new lib.MessageEvent(1, src, addr("controller"), "SimpleEvent");
+					assert.throws(
+						() => testLink._routeMessage(message, entry),
+						new Error("Router requested fallback handling when fallback is unavailable")
+					);
 				});
 
 				it("should not route a non broadcast addressed to this link", function() {
@@ -795,7 +816,7 @@ describe("lib/link/link", function() {
 				}
 				assert.equal(logged.length, 1);
 				assert(logged[0].startsWith(
-					"Unexpected error snooping SimpleEvent:\nError: Event NumberEvent failed validation\n"
+					"Unexpected error snooping SimpleEvent:\nInvalidMessage: Event NumberEvent failed validation\n"
 				));
 				assert(logged[0].includes('"message": "must be number"'));
 			});

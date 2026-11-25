@@ -213,16 +213,16 @@ function escapeLabelValue(value: string) {
 export type LabelValues = string[] | [Record<string, string>];
 
 /**
- * Convert label expression to unique string
+ * Validate a label expression and convert it to an object of label values
  *
  * @param labels -
- *     label values to compute key for.
+ *     label values to convert.
  * @param metricLabels - labels defined for the metric.
- * @returns computed key
+ * @returns label name to value mapping
  * @private
  */
-function labelsToKey(labels: LabelValues, metricLabels: string[]) {
-	let items = [];
+function labelsToRecord(labels: LabelValues, metricLabels: string[]) {
+	const record: Record<string, string> = {};
 	if (labels.length === 1 && typeof labels[0] === "object") {
 		let labelObj = labels[0];
 		for (let name of metricLabels) {
@@ -234,7 +234,7 @@ function labelsToKey(labels: LabelValues, metricLabels: string[]) {
 					`Expected value for label '${name}' to be a string`
 				);
 			}
-			items.push(`${name}="${escapeLabelValue(labelObj[name])}"`);
+			record[name] = labelObj[name];
 		}
 
 		for (let name of Object.keys(labelObj)) {
@@ -259,61 +259,22 @@ function labelsToKey(labels: LabelValues, metricLabels: string[]) {
 					`Expected value for label '${metricLabels[i]}' to be a string`
 				);
 			}
-			items.push(`${metricLabels[i]}="${escapeLabelValue(label)}"`);
+			record[metricLabels[i]] = label;
 		}
 	}
 
-	if (items.length === 1) {
-		return items[0];
-	}
-
-	return items.join(",");
+	return record;
 }
 
-function keyToLabels(key: string) {
-	let labels = new Map<string, string>();
-
-	let pos = 0;
-	let matchLabel = /([^=]+)="(([^\\"]|\\["n\\])+)"/y;
-	while (pos < key.length) {
-		if (pos !== 0) {
-			/* istanbul ignore if */
-			if (key[pos] !== ",") {
-				// Should be unreachable
-				throw Error(`Expected , at pos ${pos} in "${key}"`);
-			}
-			pos += 1;
-		}
-		matchLabel.lastIndex = pos;
-		const match = matchLabel.exec(key);
-		/* istanbul ignore else */
-		if (match) {
-			let [, name, value] = match;
-			labels.set(name, value
-				.replace(/\\"/g, "\"")
-				.replace(/\\n/g, "\n")
-				.replace(/\\\\/g, "\\")
-			);
-			pos += match[0].length;
-		} else {
-			// Should be unreachable
-			throw new Error(`Failed to parse label at pos ${pos} in "${key}"`);
-		}
-	}
-
-	return labels;
-}
-
-function removeMatchingLabels(mapping: Map<string, unknown>, labels: Record<string, string>) {
-	for (let key of mapping.keys()) {
-		let candidate = keyToLabels(key);
-		let hasLabels = Object.entries(labels).every(([name, value]) => (
-			candidate.get(name) === value
-		));
-		if (hasLabels) {
-			mapping.delete(key);
-		}
-	}
+/**
+ * Convert label values to unique string
+ *
+ * @param record - label name to value mapping.
+ * @returns computed key
+ * @private
+ */
+function recordToKey(record: Record<string, string>) {
+	return Object.entries(record).map(([name, value]) => `${name}="${escapeLabelValue(value)}"`).join(",");
 }
 
 /**
@@ -330,6 +291,8 @@ export class LabeledCollector<Child> extends Collector {
 	metric: Metric;
 
 	private _children: Map<string, Child>;
+	/** Label values of each child, used to match partial label sets */
+	private _childLabels: Map<string, Record<string, string>>;
 	private _childClass: { new(collector: any, key: string): Child };
 
 	/**
@@ -380,6 +343,7 @@ export class LabeledCollector<Child> extends Collector {
 		this.callback = callback;
 		this.metric = metric;
 		this._children = new Map();
+		this._childLabels = new Map();
 		this._childClass = childClass;
 	}
 
@@ -401,11 +365,13 @@ export class LabeledCollector<Child> extends Collector {
 	 * @returns Child collector for the given labels.
 	 */
 	labels(...labels: LabelValues): Child {
-		let key = labelsToKey(labels, this.metric.labels);
+		const record = labelsToRecord(labels, this.metric.labels);
+		const key = recordToKey(record);
 		let child = this._children.get(key);
 		if (child === undefined) {
 			child = new this._childClass(this, key);
 			this._children.set(key, child);
+			this._childLabels.set(key, record);
 		}
 		return child;
 	}
@@ -423,11 +389,12 @@ export class LabeledCollector<Child> extends Collector {
 	 * @returns key for labels to remove (for use in subclasses).
 	 */
 	remove(...labels: LabelValues) {
-		let key = labelsToKey(labels, this.metric.labels);
+		const key = recordToKey(labelsToRecord(labels, this.metric.labels));
 		if (key === "") {
 			throw new Error("labels cannot be empty");
 		}
 		this._children.delete(key);
+		this._childLabels.delete(key);
 		return key;
 	}
 
@@ -442,13 +409,23 @@ export class LabeledCollector<Child> extends Collector {
 	 * @param {Object<string,string>} labels -
 	 *     Object mapping with label name to label values that should be
 	 *     matches.
+	 * @returns keys of the removed label sets (for use in subclasses).
 	 */
 	removeAll(labels: Record<string, string>) {
-		if (!Object.keys(labels).length) {
+		const entries = Object.entries(labels);
+		if (!entries.length) {
 			throw new Error("labels cannot be empty");
 		}
 
-		removeMatchingLabels(this._children, labels);
+		const removed = [];
+		for (const [key, childLabels] of this._childLabels) {
+			if (entries.every(([name, value]) => childLabels[name] === value)) {
+				this._children.delete(key);
+				this._childLabels.delete(key);
+				removed.push(key);
+			}
+		}
+		return removed;
 	}
 
 	/**
@@ -462,6 +439,7 @@ export class LabeledCollector<Child> extends Collector {
 			throw new Error("Cannot clear unlabeled metric");
 		}
 		this._children = new Map();
+		this._childLabels = new Map();
 	}
 }
 
@@ -536,8 +514,11 @@ export class ValueCollector<Child extends { get(): number }> extends LabeledColl
 	}
 
 	removeAll(labels: Record<string, string>) {
-		super.removeAll(labels);
-		removeMatchingLabels(this._values, labels);
+		const removed = super.removeAll(labels);
+		for (const key of removed) {
+			this._values.delete(key);
+		}
+		return removed;
 	}
 
 	clear() {
@@ -568,6 +549,13 @@ class ValueCollectorChild {
 	get() {
 		return this._values.get(this._key)!;
 	}
+
+	/** Update the value, unless this label set was removed from the collector */
+	protected _update(value: number) {
+		if (this._values.has(this._key)) {
+			this._values.set(this._key, value);
+		}
+	}
 }
 
 /**
@@ -585,7 +573,7 @@ class CounterChild extends ValueCollectorChild {
 			throw new Error("Expected value to be a positive number");
 		}
 
-		this._values.set(this._key, this._values.get(this._key)! + value);
+		this._update(this.get() + value);
 	}
 }
 
@@ -721,7 +709,7 @@ class GaugeChild extends ValueCollectorChild {
 	 * @param value - number to increment by.
 	 */
 	inc(value = 1) {
-		this._values.set(this._key, this._values.get(this._key)! + value);
+		this._update(this.get() + value);
 	}
 
 	/**
@@ -730,7 +718,7 @@ class GaugeChild extends ValueCollectorChild {
 	 * @param value - number to decrease by.
 	 */
 	dec(value = 1) {
-		this._values.set(this._key, this._values.get(this._key)! - value);
+		this._update(this.get() - value);
 	}
 
 	/**
@@ -739,14 +727,14 @@ class GaugeChild extends ValueCollectorChild {
 	 * @param value - number to set gauge to.
 	 */
 	set(value: number) {
-		this._values.set(this._key, value);
+		this._update(value);
 	}
 
 	/**
 	 * Set to current Unix epoch time in seconds for label set
 	 */
 	setToCurrentTime() {
-		this._values.set(this._key, Date.now() / 1000);
+		this._update(Date.now() / 1000);
 	}
 
 	/**
@@ -984,6 +972,10 @@ class SummaryChild {
 	 * @param value - number to count into summary.
 	 */
 	observe(value: number) {
+		// Removed from the collector
+		if (!this._countValues.has(this._key)) {
+			return;
+		}
 		this._sumValues.set(this._key, this._sumValues.get(this._key)! + value);
 		this._countValues.set(this._key, this._countValues.get(this._key)! + 1);
 	}
@@ -1174,9 +1166,12 @@ export class Summary extends LabeledCollector<SummaryChild> {
 	}
 
 	removeAll(labels: Record<string, string>) {
-		super.removeAll(labels);
-		removeMatchingLabels(this._sumValues, labels);
-		removeMatchingLabels(this._countValues, labels);
+		const removed = super.removeAll(labels);
+		for (const key of removed) {
+			this._sumValues.delete(key);
+			this._countValues.delete(key);
+		}
+		return removed;
 	}
 
 	clear() {
@@ -1259,6 +1254,10 @@ class HistogramChild {
 	 * @param value - number to count into histogram buckets.
 	 */
 	observe(value: number) {
+		// Removed from the collector
+		if (!this._countValues.has(this._key)) {
+			return;
+		}
 		for (let [bound, key] of this._bucketKeys) {
 			if (value <= bound) {
 				this._bucketValues.set(key, this._bucketValues.get(key)! + 1);
@@ -1487,14 +1486,15 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	}
 
 	removeAll(labels: Record<string, string>) {
-		super.removeAll(labels);
-		for (let bucket of this._buckets) {
-			removeMatchingLabels(
-				this._bucketValues, { ...labels, le: formatValue(bucket) }
-			);
+		const removed = super.removeAll(labels);
+		for (const key of removed) {
+			for (let bucket of this._buckets) {
+				this._bucketValues.delete(formatBucketKey(bucket, key));
+			}
+			this._sumValues.delete(key);
+			this._countValues.delete(key);
 		}
-		removeMatchingLabels(this._sumValues, labels);
-		removeMatchingLabels(this._countValues, labels);
+		return removed;
 	}
 
 	clear() {
@@ -1702,6 +1702,27 @@ export async function exposition(
  */
 export const expositionContentType = "text/plain; version=0.0.4";
 
+// JSON has no representation for these, they are sent as their exposition format
+const NonFiniteSampleValue = StringEnum(["+Inf", "-Inf", "NaN"]);
+type NonFiniteSampleValue = Static<typeof NonFiniteSampleValue>;
+
+function serializeSampleValue(value: number): number | NonFiniteSampleValue {
+	return Number.isFinite(value) ? value : formatValue(value) as NonFiniteSampleValue;
+}
+
+function deserializeSampleValue(value: number | NonFiniteSampleValue) {
+	if (typeof value === "number") {
+		return value;
+	}
+	if (value === "+Inf") {
+		return Infinity;
+	}
+	if (value === "-Inf") {
+		return -Infinity;
+	}
+	return NaN;
+}
+
 export const CollectorResultSerialized = Type.Object({
 	metric: Type.Object({
 		type: StringEnum(["counter", "gauge", "histogram", "summary", "untyped"]),
@@ -1713,7 +1734,7 @@ export const CollectorResultSerialized = Type.Object({
 		Type.Tuple([
 			Type.String(),
 			Type.Array(
-				Type.Tuple([Type.String(), Type.Number()])
+				Type.Tuple([Type.String(), Type.Union([Type.Number(), NonFiniteSampleValue])])
 			),
 		]),
 	),
@@ -1762,15 +1783,11 @@ export function serializeResult(
 
 	} else {
 		samples = new Map();
-		let key = labelsToKey([addLabels], [...Object.keys(addLabels)]);
+		const key = recordToKey(labelsToRecord([addLabels], Object.keys(addLabels)));
 		for (let [suffix, suffixSamples] of result.samples) {
 			let labeledSamples = new Map();
 			for (let [labels, value] of suffixSamples) {
-				if (labels === "") {
-					labeledSamples.set(key, value);
-				} else {
-					labeledSamples.set(`${labels},${key}`, value);
-				}
+				labeledSamples.set([labels, key].filter(Boolean).join(","), value);
 			}
 			samples.set(suffix, labeledSamples);
 		}
@@ -1783,9 +1800,10 @@ export function serializeResult(
 			help: metricHelp,
 			labels: [...result.metric.labels, ...Object.keys(addLabels)],
 		},
-		samples: [...samples].map(
-			([name, metricSamples]) => [name, [...metricSamples]] as [string, [string, number][]]
-		),
+		samples: [...samples].map(([name, metricSamples]) => [
+			name,
+			[...metricSamples].map(([key, value]) => [key, serializeSampleValue(value)]),
+		] as CollectorResultSerialized["samples"][number]),
 	};
 }
 
@@ -1809,7 +1827,10 @@ export function deserializeResult(
 		),
 		samples: new Map(
 			serializedResult.samples.map(
-				([suffix, suffixSamples]) => [suffix, new Map(suffixSamples)]
+				([suffix, suffixSamples]) => [
+					suffix,
+					new Map(suffixSamples.map(([key, value]) => [key, deserializeSampleValue(value)])),
+				]
 			)
 		),
 	};

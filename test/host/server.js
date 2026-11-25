@@ -446,7 +446,9 @@ describe("host/server", function() {
 				await new Promise(resolve => setImmediate(resolve));
 
 				assert.equal(logged.length, 1);
-				assert(logged[0].startsWith("Error handling ipc event:\nError: Event NumberEvent failed validation\n"));
+				assert(logged[0].startsWith(
+					"Error handling ipc event:\nInvalidMessage: Event NumberEvent failed validation\n"
+				));
 				assert(logged[0].includes('"message": "must be number"'));
 			});
 		});
