@@ -1,0 +1,26 @@
+diff --git a/dist/commonjs/set-plugin-core-link.js b/dist/commonjs/set-plugin-core-link.js
+index 0d20a2accc6f4e82c7218a6033c91e598ce06111..17742937b89211aaa75175708af9583b17a5baf2 100644
+--- a/dist/commonjs/set-plugin-core-link.js
++++ b/dist/commonjs/set-plugin-core-link.js
+@@ -21,7 +21,7 @@ const setPluginCoreLink = (pluginDir, core) => {
+     if (target !== core) {
+         (0, rimraf_1.rimrafSync)(pluginCore);
+         (0, mkdirp_1.mkdirpSync)((0, path_1.dirname)(pluginCore));
+-        (0, fs_1.symlinkSync)(core, pluginCore);
++        (0, fs_1.symlinkSync)(core, pluginCore, 'junction');
+     }
+ };
+ exports.setPluginCoreLink = setPluginCoreLink;
+diff --git a/dist/esm/set-plugin-core-link.js b/dist/esm/set-plugin-core-link.js
+index ec7c14bdc84bc5108deeb55d0c48711f938c8225..ac2ff3c9b460e2148144b096ee91f067fe1b71d0 100644
+--- a/dist/esm/set-plugin-core-link.js
++++ b/dist/esm/set-plugin-core-link.js
+@@ -18,7 +18,7 @@ export const setPluginCoreLink = (pluginDir, core) => {
+     if (target !== core) {
+         rimrafSync(pluginCore);
+         mkdirpSync(dirname(pluginCore));
+-        symlinkSync(core, pluginCore);
++        symlinkSync(core, pluginCore, 'junction');
+     }
+ };
+ //# sourceMappingURL=set-plugin-core-link.js.map

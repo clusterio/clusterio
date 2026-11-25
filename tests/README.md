@@ -57,6 +57,10 @@ t.test("RoleMapping", async t1 => {
   No test may depend on another test having run or passed.
 - Share immutable fixtures and expensive read-only resources at module scope.
 - Mark known bugs with `{ todo: "reason" }` so they show up without failing the run.
+- Match errors with `t.throws(fn, new lib.InvalidValueError("message"))`.
+  tap compares the error's `name` and message, and lib errors set their `name` to the class, so this checks the exact class.
+  A base class such as `lib.ClientError` does not match a subclass.
+  Use `{ name, message }` for errors with extra fields, such as the validation errors on `InvalidMessage`.
 
 Each test file runs in its own process, in parallel with the others.
 Keep files independent of each other.
@@ -101,6 +105,7 @@ pnpm exec tap --disable-coverage tests/lib/link/link.test.ts
 Run tap from the root rather than through `pnpm -r`, which would run a worker pool per package.
 
 `pnpm install` runs `tap build` to apply the plugin list in `.taprc`.
+`patches/@tapjs__test.patch` makes it link with a junction, which Windows allows without an admin terminal.
 Run it again after changing that list.
 
 CI runs this suite in `.github/workflows/tap.yml` on the latest Node.js and Factorio only.

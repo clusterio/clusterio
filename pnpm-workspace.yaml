@@ -50,3 +50,6 @@ shellEmulator: true
 
 allowBuilds:
   '@swc/core': false
+
+patchedDependencies:
+  '@tapjs/test': patches/@tapjs__test.patch
