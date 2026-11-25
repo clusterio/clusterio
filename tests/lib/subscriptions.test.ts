@@ -128,11 +128,7 @@ t.test("SubscriptionFilters", async t1 => {
 	});
 
 	t1.test("SubscriptionFilters.fromJSON()", async t2 => {
-		t2.test("round trips filters", async t3 => {
-			const f = lib.SubscriptionFilters.fromJSON(JSON.parse(JSON.stringify(filters(["foo", "bar"]))));
-			t3.strictSame(f.toJSON(), ["foo", "bar"]);
-		});
-
+		// Round trips are covered by tests/lib/data/json_serialisable.test.ts
 		t2.test("does not preserve all", async t3 => {
 			// SubscriptionRequest leaves the filters out to mean all
 			const f = lib.SubscriptionFilters.fromJSON(JSON.parse(JSON.stringify(lib.SubscriptionFilters.all())));
@@ -283,16 +279,7 @@ t.test("SubscriptionRequest", async t1 => {
 	});
 
 	t1.test("fromJSON()", async t2 => {
-		t2.test("round trips every action and filter kind", async t3 => {
-			for (const action of ["subscribe", "unsubscribe", "replace"] as const) {
-				for (const f of [lib.SubscriptionFilters.all(), lib.SubscriptionFilters.empty(), filters(["a", "b"])]) {
-					const request = new lib.SubscriptionRequest("TestEvent", action, 7, f);
-					const copy = lib.SubscriptionRequest.fromJSON(JSON.parse(JSON.stringify(request)));
-					t3.strictSame(copy, request, `${action} ${f}`);
-				}
-			}
-		});
-
+		// Round trips are covered by tests/lib/data/json_serialisable.test.ts
 		t2.test("throws for unregistered events", async t3 => {
 			t3.throws(
 				() => lib.SubscriptionRequest.fromJSON(["UnregisteredEvent", "subscribe", 0]),

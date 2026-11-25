@@ -18,10 +18,10 @@ const known: KnownSamples = new Map<object, unknown[]>([
 	]],
 	[lib.ModDependency.jsonSchema, ["base", "? a > 1.0.0"]],
 	[lib.ModVersionEquality.jsonSchema, ["= 1.0.0", ">= 2.1.0"]],
-	[lib.SubscriptionRequest.jsonSchema, [
-		["InstanceDetailsUpdatesEvent", "subscribe", 0],
-		["InstanceDetailsUpdatesEvent", "replace", 10, ["a", "b"]],
-	]],
+	// The event name must be registered, the rest of the tuples is generated
+	...(lib.SubscriptionRequest.jsonSchema as any).anyOf.map(
+		(tuple: any) => [tuple.items[0], ["InstanceDetailsUpdatesEvent"]] as const
+	),
 ]);
 
 // Classes whose fromJSON needs more than the JSON value, they have their own tests.

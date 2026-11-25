@@ -69,6 +69,8 @@ Tests that need an exclusive resource such as a fixed port go in a directory mar
 `shared/` builds tests that apply to many classes.
 `shared/json_serialisable.ts` tests the [JSON serialisable class pattern](../docs/devs/json-serialisable-classes.md): a value survives `JSON.stringify` and `fromJSON`, and the serialised form matches `jsonSchema`.
 Samples are generated from the schema, with and without optional properties.
+On top of those, each union branch, enum value and boolean gets a sample where it differs from the default and everything else stays the same.
+This covers every possible value of each union without trying every combination of them.
 `lib/data/json_serialisable.test.ts` runs it for every serialisable class exported by `@clusterio/lib`, so new data classes and messages are covered without adding a test.
 Schemas the generator cannot satisfy, such as strings that must parse as a mod dependency, get hand written samples in that file.
 
