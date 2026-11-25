@@ -11,6 +11,20 @@ index 0d20a2accc6f4e82c7218a6033c91e598ce06111..17742937b89211aaa75175708af9583b
      }
  };
  exports.setPluginCoreLink = setPluginCoreLink;
+diff --git a/dist/esm/build.mjs b/dist/esm/build.mjs
+index f8a65dea3325ee7c6b176419486988d843635c18..9a09e2e73fe2ac249e9ba3900ed64b4011d4f41a 100755
+--- a/dist/esm/build.mjs
++++ b/dist/esm/build.mjs
+@@ -52,7 +52,8 @@ const dirNM = resolve(dir, 'node_modules');
+ rimrafSync(dirNM);
+ mkdirp.sync(dir);
+ // link the node_modules so it can find all installed plugins
+-symlinkSync(relative(dir, resolve(pluginDir, 'node_modules')), dirNM);
++// junctions need an absolute target, and no admin rights on Windows
++symlinkSync(resolve(pluginDir, 'node_modules'), dirNM, 'junction');
+ mkdirp.sync(resolve(dir, 'src'));
+ mkdirp.sync(resolve(dir, 'scripts'));
+ const out = resolve(dir, 'src/index.ts');
 diff --git a/dist/esm/set-plugin-core-link.js b/dist/esm/set-plugin-core-link.js
 index ec7c14bdc84bc5108deeb55d0c48711f938c8225..ac2ff3c9b460e2148144b096ee91f067fe1b71d0 100644
 --- a/dist/esm/set-plugin-core-link.js
