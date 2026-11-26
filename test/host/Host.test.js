@@ -10,6 +10,7 @@ import * as lib from "@clusterio/lib";
 import Host, { _discoverInstances, HostRouter } from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { HostConnector } from "@clusterio/host/dist/node/host.js";
+import { MockServer } from "../mock.js";
 import { computePluginStatuses } from "../../packages/web_ui/src/util/plugin_status.ts";
 import "../setup_logging.js";
 
@@ -95,12 +96,189 @@ describe("host/src/Host", function() {
 
 				const first = host._connectInstance(7);
 				await assert.rejects(host._connectInstance(7), /Instance with ID 7 is running/);
-				assert.equal(host._unconnectedStatus(7), "starting");
+				assert.equal(host.instanceStatus(7), "starting");
 
 				fail(new Error("start failed"));
 				await assert.rejects(first, /start failed/);
-				assert.equal(host._unconnectedStatus(7), "stopped");
+				assert.equal(host.instanceStatus(7), "stopped");
 				assert.equal(host.instanceConnections.has(7), false);
+			});
+			it("should reject while the host is shutting down", async function() {
+				const hostConfig = new lib.HostConfig("host");
+				const host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				host.assignedInstances.set(7, { path: "dir", config: new lib.InstanceConfig("host") });
+				host._shuttingDown = true;
+				await assert.rejects(host._connectInstance(7), /Host is shutting down/);
+			});
+		});
+		describe("stopping instances", function() {
+			const originalFromConfig = Instance.fromConfig;
+			let host;
+			let created;
+			let stops;
+			let release;
+			const instanceDir = path.join("temp", "test", "host_stop_instances");
+			beforeEach(async function() {
+				await fs.mkdir(instanceDir, { recursive: true });
+				const hostConfig = new lib.HostConfig("host");
+				host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
+				host.send = () => {};
+				host.connector.forward = () => {};
+				for (const id of [7, 8]) {
+					const config = new lib.InstanceConfig("host", { "instance.id": id, "instance.name": `i${id}` });
+					host.assignedInstances.set(id, { path: instanceDir, config });
+				}
+				created = new Map();
+				stops = [];
+				release = undefined;
+				Instance.fromConfig = async (config, fromHost, connector) => {
+					await new Promise(resolve => { release = resolve; });
+					const instance = new Instance(fromHost, connector, instanceDir, config, new MockServer());
+					instance._status = "starting";
+					instance.writeServerSettings = async () => {};
+					instance.sendSaveListUpdate = async () => {};
+					instance.prepare = async () => {};
+					instance.prepareSave = async () => "save.zip";
+					instance.start = async () => {
+						instance.server._state = "running";
+						instance.notifyStatus("running");
+					};
+					instance.server.stop = async () => {
+						stops.push(instance.id);
+						instance.notifyExit();
+					};
+					created.set(instance.id, instance);
+					return instance;
+				};
+			});
+			afterEach(function() {
+				Instance.fromConfig = originalFromConfig;
+			});
+			async function connect(id) {
+				const connecting = host._connectInstance(id);
+				await wait(1);
+				release();
+				return (await connecting).instance;
+			}
+			function wait(ms) {
+				return new Promise(resolve => setTimeout(resolve, ms));
+			}
+			/** Start an instance and hold it in prepare until the returned function is called */
+			async function startHeld(id) {
+				const instance = await connect(id);
+				let finishPrepare;
+				instance.prepare = () => new Promise(resolve => { finishPrepare = resolve; });
+				const started = instance._startSave();
+				await wait(1);
+				return async () => { finishPrepare(); await started; };
+			}
+
+			describe(".instanceStatus()", function() {
+				it("should report the status of a connected instance", async function() {
+					const instance = await connect(7);
+					instance.notifyStatus("exporting_data");
+					assert.equal(host.instanceStatus(7), "exporting_data");
+					assert.equal(host.instanceStatus(8), "stopped");
+				});
+			});
+			describe(".handleInstanceUnassignInternalRequest()", function() {
+				it("should stop an instance once a pending start connects and runs", async function() {
+					const connecting = host._connectInstance(7);
+					await wait(1);
+					const unassigned = host.handleInstanceUnassignInternalRequest(
+						new lib.InstanceUnassignInternalRequest(7)
+					);
+					release();
+					const { instance } = await connecting;
+					await instance._startSave();
+					await unassigned;
+					assert.deepEqual(stops, [7]);
+					assert.equal(instance.status, "stopped");
+					assert.equal(host.assignedInstances.has(7), false);
+				});
+				it("should unassign when a pending start fails", async function() {
+					Instance.fromConfig = async () => { throw new Error("download failed"); };
+					const connecting = host._connectInstance(7);
+					const unassigned = host.handleInstanceUnassignInternalRequest(
+						new lib.InstanceUnassignInternalRequest(7)
+					);
+					await assert.rejects(connecting, /download failed/);
+					await unassigned;
+					assert.equal(host.assignedInstances.has(7), false);
+				});
+				async function stopsOnceSettled(status) {
+					const instance = await connect(7);
+					instance.server._state = "running";
+					instance.notifyStatus(status);
+					const unassigned = host.handleInstanceUnassignInternalRequest(
+						new lib.InstanceUnassignInternalRequest(7)
+					);
+					await wait(1);
+					assert.equal(host.assignedInstances.has(7), true, "unassigned before settling");
+					instance.notifyStatus("running");
+					await unassigned;
+					assert.deepEqual(stops, [7]);
+					assert.equal(host.assignedInstances.has(7), false);
+				}
+				it("should stop an instance once creating_save finishes", async function() {
+					await stopsOnceSettled("creating_save");
+				});
+				it("should stop an instance once exporting_data finishes", async function() {
+					await stopsOnceSettled("exporting_data");
+				});
+				it("should stop an instance still preparing to start", async function() {
+					const finish = await startHeld(7);
+					const unassigned = host.handleInstanceUnassignInternalRequest(
+						new lib.InstanceUnassignInternalRequest(7)
+					);
+					await finish();
+					await unassigned;
+					assert.deepEqual(stops, [7]);
+					assert.equal(created.get(7).status, "stopped");
+				});
+				it("should unassign a stopped instance", async function() {
+					await host.handleInstanceUnassignInternalRequest(new lib.InstanceUnassignInternalRequest(7));
+					assert.equal(host.assignedInstances.has(7), false);
+					assert.deepEqual(stops, []);
+				});
+			});
+			describe(".shutdown()", function() {
+				it("should stop an instance shut down while preparing to start", async function() {
+					const finish = await startHeld(7);
+					const shutdown = host.shutdown();
+					await finish();
+					await shutdown;
+					assert.deepEqual(stops, [7]);
+					assert.equal(created.get(7).status, "stopped");
+				});
+				it("should wait for pending starts and stop running instances", async function() {
+					const running = await connect(7);
+					await running._startSave();
+					const connecting = host._connectInstance(8);
+					await wait(1);
+					const shutdown = host.shutdown();
+					await wait(1);
+					assert.deepEqual(stops, [7]);
+					release();
+					await (await connecting).instance._startSave().catch(() => {});
+					await shutdown;
+					assert.deepEqual(stops, [7, 8]);
+				});
+				it("should log errors stopping an instance and carry on", async function() {
+					const instance = await connect(7);
+					await instance._startSave();
+					instance.server.stop = async () => { throw new Error("stop failed"); };
+					const logged = [];
+					const originalError = lib.logger.error;
+					lib.logger.error = text => { logged.push(text); };
+					try {
+						await host.shutdown();
+					} finally {
+						lib.logger.error = originalError;
+					}
+					assert.equal(logged.length, 1);
+					assert.match(logged[0], /stop failed/);
+				});
 			});
 		});
 		describe(".handleSyncUserListsEvent()", function() {
