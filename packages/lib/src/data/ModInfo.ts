@@ -335,7 +335,7 @@ export default class ModInfo {
 		if (this.homepage) { json.homepage = this.homepage; }
 		if (this.description) { json.description = this.description; }
 		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion as SourceVersion; }
-		if (this.dependencies.length !== 1 || this.dependencies[0].name !== "base") {
+		if (this.dependencies.length !== 1 || this.dependencies[0].spec !== "base") {
 			json.dependencies = this.dependencySpecifications;
 		}
 		if (this.size) { json.size = this.size; }
