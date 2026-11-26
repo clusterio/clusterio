@@ -81,8 +81,7 @@ t.test("installPackage()", async t1 => {
 			"../../packages/lib/dist/node/src/logging.js": {
 				logger: { audit: (msg: string) => { audits.push(msg); } },
 			},
-			// Splitting on "/dist/" hides the packages directory from the dev check
-			"path": { ...path, default: { ...path, sep: `${path.sep}dist${path.sep}` } },
+			"../../packages/lib/dist/node/src/dev_install.js": { isDevInstall: () => false },
 			"child_process": {
 				exec: (cmd: string, callback: (err: Error | null, stdout: string, stderr: string) => void) => {
 					commands.push(cmd);

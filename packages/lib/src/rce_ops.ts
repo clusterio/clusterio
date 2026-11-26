@@ -7,13 +7,8 @@ import type { PluginNodeEnvInfo } from "./plugin.js";
 import { isNonRegistryPackage } from "./load_plugin_list.js";
 import { LockFile, LockFileExistsError, LockFileRecoveryError } from "./LockFile.js";
 import { checkRegistry, parsePackageSpec } from "./npm_registry.js";
+import { isDevInstall } from "./dev_install.js";
 const execAsync = util.promisify(exec);
-
-function isDev() {
-	//  dev:                 <devRoot>/packages/lib/dist/src/rce_ops.js
-	// prod: <prodRoot>/node_modules/@clusterio/lib/dist/src/rce_ops.js
-	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
-}
 
 const operationInProgressMessage = "Another package operation is already in progress on this machine";
 
@@ -56,7 +51,7 @@ async function logExec(cmd: string, check?: () => Promise<void>) {
 		try {
 			await check?.();
 			logger.audit(`RCE | ${cmd}`);
-			if (!isDev()) {
+			if (!isDevInstall()) {
 				await execAsync(cmd);
 			}
 		} finally {
