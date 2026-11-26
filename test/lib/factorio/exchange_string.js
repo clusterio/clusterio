@@ -98,6 +98,12 @@ describe("lib/factorio/exchange_string", function() {
 			});
 		});
 
+		it("should ignore text around the markers", function() {
+			assert.deepEqual(
+				lib.readMapExchangeString(`Map: ${testStrings.default} (copied)`),
+				lib.readMapExchangeString(testStrings.default),
+			);
+		});
 		it("should handle malformed strings", function() {
 			assert.throws(
 				() => lib.readMapExchangeString("<<blah>>"),
@@ -123,6 +129,15 @@ describe("lib/factorio/exchange_string", function() {
 				}
 				// eslint-disable-next-line node/no-sync
 				data = zlib.deflateSync(data);
+				assert.throws(
+					() => lib.readMapExchangeString(`>>>${data.toString("base64")}<<<`),
+					new Error("Malformed map exchange string: reached end before finishing parsing")
+				);
+			}
+
+			for (let length of [0, 1]) {
+				// eslint-disable-next-line node/no-sync
+				let data = zlib.deflateSync(Buffer.alloc(length));
 				assert.throws(
 					() => lib.readMapExchangeString(`>>>${data.toString("base64")}<<<`),
 					new Error("Malformed map exchange string: reached end before finishing parsing")

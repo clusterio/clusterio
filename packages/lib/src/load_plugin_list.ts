@@ -14,7 +14,7 @@ const corePackages = new Set([
 ]);
 
 function isPluginPackageJson(packageJson: any): boolean {
-	return Boolean(packageJson?.keywords?.includes?.("clusterio-plugin"));
+	return Array.isArray(packageJson?.keywords) && packageJson.keywords.includes("clusterio-plugin");
 }
 
 /**

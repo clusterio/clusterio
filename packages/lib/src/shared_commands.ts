@@ -292,25 +292,26 @@ export async function handleConfigCommand(
 
 	} else if (command === "set") {
 		await lockFile.acquire();
-
-		if (args.stdin) {
-			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
-
-		} else if (args.value === undefined) {
-			args.value = null;
-		}
-
 		try {
-			instance.set(args.field as string, args.value);
-			await instance.save();
-		} catch (err) {
-			if (err instanceof InvalidFieldError || err instanceof InvalidValueError) {
-				logger.error(err.message);
-			} else {
-				throw err;
-			}
-		}
+			if (args.stdin) {
+				args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 
-		await lockFile.release();
+			} else if (args.value === undefined) {
+				args.value = null;
+			}
+
+			try {
+				instance.set(args.field as string, args.value);
+				await instance.save();
+			} catch (err) {
+				if (err instanceof InvalidFieldError || err instanceof InvalidValueError) {
+					logger.error(err.message);
+				} else {
+					throw err;
+				}
+			}
+		} finally {
+			await lockFile.release();
+		}
 	}
 }

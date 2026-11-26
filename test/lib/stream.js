@@ -85,6 +85,13 @@ describe("lib/stream", function() {
 			ls.end();
 			assert.deepEqual(lines, ["4", "3", "", "2", "", "1"]);
 		});
+		it("should give an empty line for a lone CRLF", function() {
+			let lines = [];
+			let ls = createReverseSplitter(lines);
+			ls.write(Buffer.from("\r\n"));
+			ls.end();
+			assert.deepEqual(lines, [""]);
+		});
 		it("should give the first line on .end()", function() {
 			let lines = [];
 			let ls = createReverseSplitter(lines);

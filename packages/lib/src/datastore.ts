@@ -291,8 +291,10 @@ export class KeyValueDatastore<
 	deleteMany(keys: K[]) {
 		const updates = [] as [K, V, true][];
 		for (const key of keys) {
-			const value = this.data.get(key);
-			updates.push([key, value!, true]);
+			if (!this.data.has(key)) {
+				continue;
+			}
+			updates.push([key, this.data.get(key)!, true]);
 			this.data.delete(key);
 		}
 		this.touch(updates);

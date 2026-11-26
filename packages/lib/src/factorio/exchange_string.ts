@@ -16,12 +16,20 @@ class MapReaderState {
 		if (vMinor !== minor) { return vMinor > minor; }
 		return vPatch >= patch;
 	}
+
+	/** Advance past size bytes and return the offset they start at */
+	take(size: number) {
+		if (this.pos + size > this.buf.length) {
+			throw new Error("Malformed map exchange string: reached end before finishing parsing");
+		}
+		const offset = this.pos;
+		this.pos += size;
+		return offset;
+	}
 }
 
 function readUInt8(state: MapReaderState) {
-	let value = state.buf.readUInt8(state.pos);
-	state.pos += 1;
-	return value;
+	return state.buf.readUInt8(state.take(1));
 }
 
 function readBool(state: MapReaderState) {
@@ -30,27 +38,19 @@ function readBool(state: MapReaderState) {
 }
 
 function readInt16(state: MapReaderState) {
-	let value = state.buf.readInt16LE(state.pos);
-	state.pos += 2;
-	return value;
+	return state.buf.readInt16LE(state.take(2));
 }
 
 function readUInt16(state: MapReaderState) {
-	let value = state.buf.readUInt16LE(state.pos);
-	state.pos += 2;
-	return value;
+	return state.buf.readUInt16LE(state.take(2));
 }
 
 function readInt32(state: MapReaderState) {
-	let value = state.buf.readInt32LE(state.pos);
-	state.pos += 4;
-	return value;
+	return state.buf.readInt32LE(state.take(4));
 }
 
 function readUInt32(state: MapReaderState) {
-	let value = state.buf.readUInt32LE(state.pos);
-	state.pos += 4;
-	return value;
+	return state.buf.readUInt32LE(state.take(4));
 }
 
 function readUInt32so(state: MapReaderState) {
@@ -63,22 +63,17 @@ function readUInt32so(state: MapReaderState) {
 }
 
 function readFloat(state: MapReaderState) {
-	let value = state.buf.readFloatLE(state.pos);
-	state.pos += 4;
-	return value;
+	return state.buf.readFloatLE(state.take(4));
 }
 
 function readDouble(state: MapReaderState) {
-	let value = state.buf.readDoubleLE(state.pos);
-	state.pos += 8;
-	return value;
+	return state.buf.readDoubleLE(state.take(8));
 }
 
 function readString(state: MapReaderState) {
 	let size = readUInt32so(state);
-	let data = state.buf.subarray(state.pos, state.pos + size).toString("utf-8");
-	state.pos += size;
-	return data;
+	const offset = state.take(size);
+	return state.buf.subarray(offset, offset + size).toString("utf-8");
 }
 
 function readOptional<T>(state: MapReaderState, readValue: (s: MapReaderState) => T) {
@@ -153,7 +148,7 @@ function readMapPosition(state: MapReaderState) {
 		y = state.last_position.y + y_diff;
 	}
 	state.last_position.x = x;
-	state.last_position.x = y;
+	state.last_position.y = y;
 	return { x, y };
 }
 
@@ -451,39 +446,32 @@ export interface MapExchangeData {
  */
 export function readMapExchangeString(exchangeString: string) {
 	exchangeString = exchangeString.replace(/[ \t\n\r]+/g, "");
-	if (!/>>>[0-9a-zA-Z\/+]+={0,3}<<</.test(exchangeString)) {
+	const match = />>>([0-9a-zA-Z\/+]+={0,3})<<</.exec(exchangeString);
+	if (!match) {
 		throw new Error("Not a map exchange string");
 	}
 
-	let buf = Buffer.from(exchangeString.slice(3, -3), "base64");
+	let buf = Buffer.from(match[1], "base64");
 	try {
 		// eslint-disable-next-line node/no-sync
 		buf = Buffer.from(zlib.inflateSync(buf));
 	} catch (err: any) {
-		if (err.code.startsWith("Z_")) {
+		if (typeof err?.code === "string" && err.code.startsWith("Z_")) {
 			throw new Error("Malformed map exchange string: zlib inflate failed");
-		}
-	}
-
-	let state = new MapReaderState(buf);
-	let data: MapExchangeData;
-
-	try {
-		const version = readVersion(state);
-		state.version = version;
-		data = {
-			version: version,
-			unknown: readUInt8(state),
-			map_gen_settings: readMapGenSettings(state),
-			map_settings: readMapSettings(state),
-			checksum: readUInt32(state),
-		};
-	} catch (err: any) {
-		if (err.code === "ERR_OUT_OF_RANGE") {
-			throw new Error("Malformed map exchange string: reached end before finishing parsing");
 		}
 		throw err;
 	}
+
+	let state = new MapReaderState(buf);
+	const version = readVersion(state);
+	state.version = version;
+	const data: MapExchangeData = {
+		version: version,
+		unknown: readUInt8(state),
+		map_gen_settings: readMapGenSettings(state),
+		map_settings: readMapSettings(state),
+		checksum: readUInt32(state),
+	};
 
 	if (state.pos !== buf.length) {
 		throw new Error("Malformed map exchange string: data after end");

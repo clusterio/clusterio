@@ -589,6 +589,8 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 
 		if (this._reconnectId !== undefined) {
 			logger.error("Unexpected double call to reconnect");
+			clearTimeout(this._reconnectId);
+			this._reconnectId = undefined;
 		}
 
 		let delayMs = this._backoff.delay();
@@ -599,9 +601,9 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector<We
 			logger.error("Connector | Session timed out trying to resume");
 			if (this._closing) {
 				this._close();
-			} else {
-				this._invalidate();
+				return;
 			}
+			this._invalidate();
 		}
 		logger.verbose(
 			`Connector | waiting ${(Math.round(delayMs / 10) / 100)} seconds for reconnect`

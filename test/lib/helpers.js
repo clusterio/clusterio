@@ -233,6 +233,14 @@ describe("lib/helpers", function() {
 			assert.equal(lib.formatBytes(123.4 * 2**30, "binary"), "123\u{A0}GiB");
 			assert.equal(lib.formatBytes(123.4 * 2**40, "binary"), "123\u{A0}TiB");
 		});
+		it("should move to the next unit when rounding reaches the base", function() {
+			assert.equal(lib.formatBytes(999.96e3), "1.00\u{A0}MB");
+			assert.equal(lib.formatBytes(1023.6 * 2**10, "binary"), "1.00\u{A0}MiB");
+		});
+		it("should stay within the units it has", function() {
+			assert.equal(lib.formatBytes(1e15), "1000\u{A0}TB");
+			assert.equal(lib.formatBytes(0.5), "0.50\u{A0}Bytes");
+		});
 	});
 
 	describe("redactUrl()", function() {
@@ -278,6 +286,9 @@ describe("lib/helpers", function() {
 				"/api/plugin/callback?code=REDACTED&state=abc"
 			);
 			assert.equal(lib.redactUrl("/api/plugin?page=2"), "/api/plugin?page=2");
+		});
+		it("should redact a path starting with //", function() {
+			assert.equal(lib.redactUrl("//api/plugin?token=secret#top"), "//api/plugin?token=REDACTED#top");
 		});
 		it("should keep the original encoding when there is nothing to redact", function() {
 			assert.equal(lib.redactUrl("/search?q=a%20b"), "/search?q=a%20b");

@@ -71,8 +71,8 @@ async function buildMod(args, info, modName) {
 				mode: fs.constants.COPYFILE_FICLONE,
 				recursive: true,
 			});
-			for (let [fileName, pathParts] of Object.entries(info.additional_files) || []) {
-				let filePath = path.join(...pathParts);
+			for (let [fileName, pathParts] of Object.entries(info.additional_files || {})) {
+				let filePath = path.join(args.sourceDir, ...pathParts);
 				await fs.copyFile(
 					filePath,
 					path.join(modDir, fileName),
@@ -99,7 +99,12 @@ export async function build(args) {
 
 	if (args.clean) {
 		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/;
-		for (let entry of await fs.readdir(args.outputDir)) {
+		for (let entry of await fs.readdir(args.outputDir).catch(err => {
+			if (err.code === "ENOENT") {
+				return [];
+			}
+			throw err;
+		})) {
 			let match = splitter.exec(entry);
 			if (match) {
 				let name = match[1];
@@ -158,5 +163,8 @@ async function main() {
 }
 
 if (import.meta.main) {
-	main().catch(err => { console.log(err); });
+	main().catch(err => {
+		console.error(err);
+		process.exitCode = 1;
+	});
 }

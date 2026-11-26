@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import stream from "node:stream";
 
 import * as lib from "@clusterio/lib";
 import { slowTest } from "../common.js";
@@ -125,6 +126,47 @@ describe("lib/shared_commands", function() {
 			assert.equal(pluginList.size, 0);
 			await run("remove", "test_plugin");
 			assert.equal(process.exitCode, 1);
+		});
+	});
+
+	describe("handleConfigCommand()", function() {
+		const tempDir = path.join("temp", "test", "shared_commands_config");
+		const file = path.join(tempDir, "config.json");
+		beforeEach(async function() {
+			await fs.rm(tempDir, { recursive: true, force: true });
+			await fs.mkdir(tempDir, { recursive: true });
+		});
+		after(async function() {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		});
+
+		it("should release the lock when saving fails on set", async function() {
+			const config = new lib.CtlConfig("control", undefined, file);
+			config.save = async () => { throw new Error("disk full"); };
+			const lockFile = new lib.LockFile(`${file}.lock`);
+			const args = { _: ["config", "set"], field: "ctl.controller_url", value: "x" };
+			await assert.rejects(lib.handleConfigCommand(args, config, lockFile), new Error("disk full"));
+			await assert.rejects(fs.access(`${file}.lock`), { code: "ENOENT" });
+		});
+		it("should read the value from stdin on set", async function() {
+			const config = new lib.CtlConfig("control", undefined, file);
+			const lockFile = new lib.LockFile(`${file}.lock`);
+			const stdin = Object.getOwnPropertyDescriptor(process, "stdin");
+			Object.defineProperty(process, "stdin", { value: stream.Readable.from([Buffer.from("http://a/\n")]) });
+			try {
+				const args = { _: ["config", "set"], field: "ctl.controller_url", stdin: true };
+				await lib.handleConfigCommand(args, config, lockFile);
+			} finally {
+				Object.defineProperty(process, "stdin", stdin);
+			}
+			assert.equal(config.get("ctl.controller_url"), "http://a/");
+		});
+		it("should clear the field when set has no value", async function() {
+			const config = new lib.CtlConfig("control", undefined, file);
+			config.set("ctl.controller_url", "http://a/");
+			const lockFile = new lib.LockFile(`${file}.lock`);
+			await lib.handleConfigCommand({ _: ["config", "set"], field: "ctl.controller_url" }, config, lockFile);
+			assert.equal(config.get("ctl.controller_url"), null);
 		});
 	});
 });
