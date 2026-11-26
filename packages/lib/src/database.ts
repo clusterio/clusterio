@@ -27,7 +27,8 @@ export function mapToObject<T>(map: Map<string, T>) {
 			);
 		}
 
-		obj[key] = value;
+		// Plain assignment to "__proto__" would set the prototype
+		Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
 	}
 	return obj;
 }
