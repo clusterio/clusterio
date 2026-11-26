@@ -311,7 +311,7 @@ export default class ModInfo {
 		try {
 			if (json.dependencies) { modInfo.dependencies = json.dependencies.map(d => new ModDependency(d)); }
 		} catch (err: any) {
-			throw new Error(`Failed for parse dependencies for ${json.name}: ${err}`);
+			throw new Error(`Failed to parse dependencies for ${json.name}: ${err}`);
 		}
 
 		// Additional data
