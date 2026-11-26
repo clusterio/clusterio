@@ -27,6 +27,7 @@ describe("host/src/BaseHostPlugin", function() {
 			let calls = [];
 			class HostPlugin extends host.BaseHostPlugin {
 				async onHostConfigFieldChanged(field, curr, prev) { calls.push(["config", field, curr, prev]); }
+				async onReady() { calls.push(["ready", this]); }
 				async onShutdown() { calls.push(["shutdown", this]); }
 			}
 			const plugin = new HostPlugin(info, mockHost, new mock.MockLogger());
@@ -34,8 +35,11 @@ describe("host/src/BaseHostPlugin", function() {
 			assert.equal(mockHost.hooks.metrics.size, 0);
 
 			await mockHost.hooks.hostConfigFieldChanged.invoke("host.name", "new", "old");
+			await mockHost.hooks.ready.invoke();
 			await mockHost.hooks.shutdown.invoke();
-			assert.deepEqual(calls, [["config", "host.name", "new", "old"], ["shutdown", plugin]]);
+			assert.deepEqual(calls, [
+				["config", "host.name", "new", "old"], ["ready", plugin], ["shutdown", plugin],
+			]);
 		});
 		it("should detach hooks", async function() {
 			class HostPlugin extends host.BaseHostPlugin {

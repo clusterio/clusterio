@@ -1328,6 +1328,7 @@ export default class Host extends lib.Link {
 		// Handle configured auto startup instances
 		if (this._startup) {
 			this._startup = false;
+			await this.hooks.ready.invoke();
 
 			for (let [instanceId, instance] of this.assignedInstances) {
 				if (instance.config.get("instance.auto_start")) {

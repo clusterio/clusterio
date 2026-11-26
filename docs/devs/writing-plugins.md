@@ -896,6 +896,10 @@ However while in the dropped state any requests and events sent gets queued up i
 This means that if your plugin sends a lot of events or requests, they can end up being queued up in a buffer and sent out all at once the connection is re-estabished.
 To avoid this you should be throtteling and/or stopping your requests/events after `drop` has been raised, and continue back as normal when `resume` is raised.
 
+On the host, `connect` is raised before the controller has sent the host its assigned instances and user lists.
+Host plugins that need those should use the `ready` hook instead.
+It is invoked once per host process when that first exchange has finished, before instances with `instance.auto_start` are started.
+
 
 ## Web Pages for a Single Resource
 
