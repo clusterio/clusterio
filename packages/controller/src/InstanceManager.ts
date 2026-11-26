@@ -94,6 +94,24 @@ export default class InstanceManager {
 		await this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 	}
 
+	/**
+	 * Set the status of an instance, save it and invoke the
+	 * instanceStatusChanged hook with the previous status.
+	 *
+	 * @param instance - Instance to update.
+	 * @param status - New status.
+	 */
+	async setStatus(instance: InstanceRecord, status: lib.InstanceStatus): Promise<void> {
+		const prev = instance.status;
+		instance.status = status;
+		if (status === "running" && prev === "starting") {
+			instance.startedAtMs = Date.now();
+		}
+		this.records.set(instance);
+		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${status}`);
+		await this._notifyStatusChanged(instance, prev);
+	}
+
 	private async _notifyConfigFieldChanged(
 		instance: InstanceRecord,
 		field: string,
@@ -497,15 +515,12 @@ export default class InstanceManager {
 			} catch (err) {
 				// Leave unassigned so the assign can be retried
 				instance.config.set("instance.assigned_host", null);
-				instance.status = "unassigned";
-				this.records.set(instance);
+				await this.setStatus(instance, "unassigned");
 				throw err;
 			}
 		} else {
-			instance.status = "unassigned";
+			await this.setStatus(instance, "unassigned");
 		}
-
-		this.records.set(instance);
 	}
 
 	/**
