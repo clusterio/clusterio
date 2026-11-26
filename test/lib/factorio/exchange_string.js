@@ -129,6 +129,15 @@ describe("lib/factorio/exchange_string", function() {
 				);
 			}
 
+			for (let length of [0, 1]) {
+				// eslint-disable-next-line node/no-sync
+				let data = zlib.deflateSync(Buffer.alloc(length));
+				assert.throws(
+					() => lib.readMapExchangeString(`>>>${data.toString("base64")}<<<`),
+					new Error("Malformed map exchange string: reached end before finishing parsing")
+				);
+			}
+
 			let pastEnd = Buffer.from(testStrings.default.replace(/><\n/g, ""), "base64");
 			// eslint-disable-next-line node/no-sync
 			pastEnd = zlib.deflateSync(Buffer.concat([zlib.inflateSync(pastEnd), Buffer.from("junk")]));

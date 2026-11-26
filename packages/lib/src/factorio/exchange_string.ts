@@ -153,7 +153,7 @@ function readMapPosition(state: MapReaderState) {
 		y = state.last_position.y + y_diff;
 	}
 	state.last_position.x = x;
-	state.last_position.x = y;
+	state.last_position.y = y;
 	return { x, y };
 }
 
@@ -460,9 +460,10 @@ export function readMapExchangeString(exchangeString: string) {
 		// eslint-disable-next-line node/no-sync
 		buf = Buffer.from(zlib.inflateSync(buf));
 	} catch (err: any) {
-		if (err.code.startsWith("Z_")) {
+		if (typeof err?.code === "string" && err.code.startsWith("Z_")) {
 			throw new Error("Malformed map exchange string: zlib inflate failed");
 		}
+		throw err;
 	}
 
 	let state = new MapReaderState(buf);
@@ -479,7 +480,7 @@ export function readMapExchangeString(exchangeString: string) {
 			checksum: readUInt32(state),
 		};
 	} catch (err: any) {
-		if (err.code === "ERR_OUT_OF_RANGE") {
+		if (err.code === "ERR_OUT_OF_RANGE" || err.code === "ERR_BUFFER_OUT_OF_BOUNDS") {
 			throw new Error("Malformed map exchange string: reached end before finishing parsing");
 		}
 		throw err;
