@@ -73,7 +73,9 @@ export default class ExponentialBackoff {
 			this._exp = 0;
 		}
 
-		this._exp = Math.min(this._exp + 1, Math.log2(this.max));
-		return Math.random() * this.base * 2 ** this._exp * 1000;
+		if (this.base * 2 ** this._exp < this.max) {
+			this._exp += 1;
+		}
+		return Math.random() * Math.min(this.base * 2 ** this._exp, this.max) * 1000;
 	}
 }
