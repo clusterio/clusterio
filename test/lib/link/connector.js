@@ -191,6 +191,14 @@ describe("lib/link/connectors", function() {
 				assert.notEqual(connector._reconnectId, first);
 				assert.equal(first._destroyed, true);
 			});
+			it("should invalidate the session on timeout when not closing", function() {
+				connector._state = "resuming";
+				connector._sessionTimeout = 10;
+				connector._startedResumingMs = Date.now() - 20000;
+				connector.reconnect();
+				assert.equal(connector._state, "connecting");
+				assert.notEqual(connector._reconnectId, undefined);
+			});
 			it("should not schedule a reconnect after closing on session timeout", function() {
 				connector._state = "resuming";
 				connector._closing = true;

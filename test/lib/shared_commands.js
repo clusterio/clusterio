@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
+import stream from "node:stream";
 
 import * as lib from "@clusterio/lib";
 import { slowTest } from "../common.js";
@@ -146,6 +147,26 @@ describe("lib/shared_commands", function() {
 			const args = { _: ["config", "set"], field: "ctl.controller_url", value: "x" };
 			await assert.rejects(lib.handleConfigCommand(args, config, lockFile), new Error("disk full"));
 			await assert.rejects(fs.access(`${file}.lock`), { code: "ENOENT" });
+		});
+		it("should read the value from stdin on set", async function() {
+			const config = new lib.CtlConfig("control", undefined, file);
+			const lockFile = new lib.LockFile(`${file}.lock`);
+			const stdin = Object.getOwnPropertyDescriptor(process, "stdin");
+			Object.defineProperty(process, "stdin", { value: stream.Readable.from([Buffer.from("http://a/\n")]) });
+			try {
+				const args = { _: ["config", "set"], field: "ctl.controller_url", stdin: true };
+				await lib.handleConfigCommand(args, config, lockFile);
+			} finally {
+				Object.defineProperty(process, "stdin", stdin);
+			}
+			assert.equal(config.get("ctl.controller_url"), "http://a/");
+		});
+		it("should clear the field when set has no value", async function() {
+			const config = new lib.CtlConfig("control", undefined, file);
+			config.set("ctl.controller_url", "http://a/");
+			const lockFile = new lib.LockFile(`${file}.lock`);
+			await lib.handleConfigCommand({ _: ["config", "set"], field: "ctl.controller_url" }, config, lockFile);
+			assert.equal(config.get("ctl.controller_url"), null);
 		});
 	});
 });
