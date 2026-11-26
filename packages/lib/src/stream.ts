@@ -163,7 +163,6 @@ export async function createReverseReadStream(path: string, options?: ReadStream
 			filePosition -= length;
 			return fs.read(fd, buffer, offset, length, filePosition, callback);
 		},
-		open() { assert(false); },
 		close(fd: number, callback: () => void) { return fs.close(fd, callback); },
 	};
 	return fs.createReadStream("", { ...options, fd: fileFd, fs: reverseFs });
