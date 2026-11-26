@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import * as lib from "@clusterio/lib";
-import { Controller, HostConnection, HostRecord } from "@clusterio/controller";
+import { Controller, HostConnection, HostRecord, InstanceRecord } from "@clusterio/controller";
 import { MockConnector } from "../mock.js";
 
 const addr = lib.Address.fromShorthand;
@@ -173,6 +173,68 @@ describe("controller/src/HostConnection", function() {
 			controller.config.set("controller.system_metrics_interval", 0);
 			connector.emit("connect");
 			assert.deepEqual(systemInfoRequests(), []);
+		});
+	});
+
+	describe("instance status", function() {
+		let controller;
+		let connector;
+		let connection;
+		let calls;
+
+		function addInstance(id, hostId, status) {
+			const config = new lib.InstanceConfig("controller", {
+				"instance.id": id, "instance.name": `i${id}`, "instance.assigned_host": hostId,
+			});
+			const instance = new InstanceRecord(config, status);
+			controller.instances.records.set(instance);
+			return instance;
+		}
+
+		beforeEach(function() {
+			controller = new Controller(lib.logger, [], new lib.ControllerConfig("controller"));
+			controller.hosts.records.set(new HostRecord(10, "host-10", "1.0.0", new Map()));
+			connector = new MockConnector(addr("controller"), addr({ hostId: 10 }));
+			connection = new HostConnection(
+				new lib.RegisterHostData("", "2.0.0", 10, {}), connector, controller, "10.0.0.1"
+			);
+			calls = [];
+			controller.hooks.instanceStatusChanged.attach("test", async (inst, prev) => {
+				calls.push([inst.id, inst.status, prev]);
+			});
+		});
+
+		it("should set instances on this host to unknown when the connection closes", async function() {
+			addInstance(1, 10, "running");
+			addInstance(2, 20, "running");
+			connector.emit("close");
+			await new Promise(resolve => setImmediate(resolve));
+			assert.equal(controller.instances.get(1).status, "unknown");
+			assert.equal(controller.instances.get(2).status, "running");
+			assert.deepEqual(calls, [[1, "unknown", "running"]]);
+		});
+
+		it("should apply status changed events from the host", async function() {
+			const instance = addInstance(1, 10, "starting");
+			await connection.handleInstanceStatusChangedEvent(
+				new lib.InstanceStatusChangedEvent(1, "running", 34197, "2.0.0")
+			);
+			assert.equal(instance.status, "running");
+			assert.equal(instance.gamePort, 34197);
+			assert.notEqual(instance.startedAtMs, 0);
+			assert.deepEqual(calls, [[1, "running", "starting"]]);
+		});
+
+		it("should apply status from an instances update for known instances", async function() {
+			const instance = addInstance(1, 10, "starting");
+			connection.send = async () => {};
+			await connection.handleInstancesUpdateRequest(new lib.InstancesUpdateRequest([
+				new lib.HostInstanceUpdate(instance.config.toRemote("host"), "running", 34197, "2.0.0"),
+			]));
+			assert.equal(instance.status, "running");
+			assert.equal(instance.gamePort, 34197);
+			assert.notEqual(instance.startedAtMs, 0);
+			assert.deepEqual(calls, [[1, "running", "starting"]]);
 		});
 	});
 

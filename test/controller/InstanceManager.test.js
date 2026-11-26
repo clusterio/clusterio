@@ -168,6 +168,35 @@ describe("controller/InstanceManager", function () {
 		});
 	});
 
+	describe(".setStatus()", function () {
+		let calls;
+		beforeEach(function () {
+			calls = [];
+			controller.hooks.instanceStatusChanged.attach("test", async (inst, prev) => {
+				calls.push([inst.id, inst.status, prev]);
+			});
+		});
+
+		it("should save the record and invoke the hook with the previous status", async function () {
+			const before = instance.updatedAtMs;
+			await instances.setStatus(instance, "stopped");
+			assert.equal(instances.records.get(1).status, "stopped");
+			assert(instance.updatedAtMs > before);
+			assert.deepEqual(calls, [[1, "stopped", "unassigned"]]);
+		});
+
+		it("should set startedAtMs only when going from starting to running", async function () {
+			instance.status = "unknown";
+			await instances.setStatus(instance, "running");
+			assert.equal(instance.startedAtMs, 0);
+
+			instance.status = "starting";
+			const before = Date.now();
+			await instances.setStatus(instance, "running");
+			assert(instance.startedAtMs >= before);
+		});
+	});
+
 	describe(".assignInstance()", function () {
 		it("should throw if host not connected", async function () {
 			await assert.rejects(
@@ -336,6 +365,50 @@ describe("controller/InstanceManager", function () {
 			assert.equal(instance.config.get("instance.assigned_host"), 6);
 			assert(assignRequest instanceof lib.InstanceAssignInternalRequest);
 			assert.equal(assignRequest.instanceId, 1);
+		});
+	});
+
+	describe("instanceStatusChanged on assign", function () {
+		let calls;
+		beforeEach(function () {
+			calls = [];
+			controller.hooks.instanceStatusChanged.attach("test", async (inst, prev) => {
+				calls.push([inst.status, prev]);
+			});
+		});
+
+		it("should invoke the hook when unassigning", async function () {
+			controller.wsServer.hostConnections.set(5, {
+				send: async () => {},
+				connector: { closing: false },
+			});
+			instance.config.set("instance.assigned_host", 5);
+			instance.status = "running";
+
+			await instances.unassignInstance(1);
+			assert.deepEqual(calls, [["unassigned", "running"]]);
+		});
+
+		it("should invoke the hook when the new host fails the assign", async function () {
+			controller.wsServer.hostConnections.set(6, {
+				send: async () => { throw new lib.InternalServerError("failed"); },
+				connector: { closing: false },
+			});
+			instance.config.set("instance.assigned_host", 5);
+			instance.status = "unknown";
+
+			await assert.rejects(() => instances.assignInstance(1, 6));
+			assert.deepEqual(calls, [["unassigned", "unknown"]]);
+		});
+
+		it("should leave the status to the host on a successful assign", async function () {
+			controller.wsServer.hostConnections.set(5, {
+				send: async () => {},
+				connector: { closing: false },
+			});
+
+			await instances.assignInstance(1, 5);
+			assert.deepEqual(calls, []);
 		});
 	});
 

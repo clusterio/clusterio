@@ -55,18 +55,11 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
-			const instances: InstanceRecord[] = [];
 			for (let instance of this._controller.instances.valuesMutable()) {
-				if (instance.config.get("instance.assigned_host") !== this.id) {
-					continue;
+				if (instance.config.get("instance.assigned_host") === this.id) {
+					this._controller.instances.setStatus(instance, "unknown");
 				}
-
-				instances.push(instance);
-				let prev = instance.status;
-				instance.status = "unknown";
-				this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
 			}
-			this._controller.instances.records.setMany(instances);
 
 			this.info.connected = false;
 			this.saveRecord();
@@ -210,18 +203,9 @@ export default class HostConnection extends BaseConnection {
 			return;
 		}
 
-		let prev = instance.status;
-		instance.status = request.status;
-		// If the instance has transitioned to running then updated the started at time
-		if (request.status === "running" && prev === "starting") {
-			instance.startedAtMs = Date.now();
-		}
-
 		instance.gamePort = request.gamePort;
 		instance.factorioVersion = request.factorioVersion;
-		this._controller.instances.records.set(instance);
-		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		await this._controller.hooks.instanceStatusChanged.invoke(instance, prev);
+		await this._controller.instances.setStatus(instance, request.status);
 	}
 
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
@@ -235,7 +219,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		// Assign instances the host has but controller does not
-		const instanceUpdates: InstanceRecord[] = [];
+		const newInstances: InstanceRecord[] = [];
 		for (let instanceData of request.instances) {
 			const instanceConfig = new lib.InstanceConfig("controller");
 			instanceConfig.update(instanceData.config, false, "host");
@@ -252,16 +236,9 @@ export default class HostConnection extends BaseConnection {
 
 				// Already have this instance, update state instead
 				if (controllerInstance.status !== instanceData.status) {
-					let prev = controllerInstance.status;
-					controllerInstance.status = instanceData.status;
 					controllerInstance.gamePort = instanceData.gamePort;
 					controllerInstance.factorioVersion = instanceData.factorioVersion;
-					if (instanceData.status === "running" && prev === "starting") {
-						controllerInstance.startedAtMs = Date.now();
-					}
-					instanceUpdates.push(controllerInstance);
-					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					await this._controller.hooks.instanceStatusChanged.invoke(controllerInstance, prev);
+					await this._controller.instances.setStatus(controllerInstance, instanceData.status);
 				}
 				continue;
 			}
@@ -271,12 +248,12 @@ export default class HostConnection extends BaseConnection {
 			newInstance.factorioVersion = instanceData.factorioVersion;
 			newInstance.gamePort = instanceData.gamePort;
 			newInstance.status = instanceData.status;
-			instanceUpdates.push(newInstance);
+			newInstances.push(newInstance);
 		}
 
 		// We suppress the changes made by createInstance so we must manually make them here
-		this._controller.instances.records.setMany(instanceUpdates);
-		await Promise.all(instanceUpdates.flatMap(newInstance => [
+		this._controller.instances.records.setMany(newInstances);
+		await Promise.all(newInstances.flatMap(newInstance => [
 			this._controller.hooks.instanceStatusChanged.invoke(newInstance, undefined),
 			this.send(
 				new lib.InstanceAssignInternalRequest(
