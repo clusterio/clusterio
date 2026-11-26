@@ -592,10 +592,6 @@ export function parseSearchString(
 		}
 		pos = skipWhitespace(pos, input);
 	}
-	// istanbul ignore if (should not be possible)
-	if (pos !== input.length) {
-		throw new Error(`parse search ended at ${pos} which is not the end of the input (${input.length})`);
-	}
 	return parsed;
 }
 
