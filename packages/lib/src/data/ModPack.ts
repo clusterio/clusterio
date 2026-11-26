@@ -315,9 +315,10 @@ export default class ModPack {
 			// eslint-disable-next-line node/no-sync
 			buf = Buffer.from(zlib.inflateSync(buf));
 		} catch (err: any) {
-			if (err.code.startsWith("Z_")) {
+			if (typeof err.code === "string" && err.code.startsWith("Z_")) {
 				throw new Error("Malformed mod pack string: zlib inflate failed");
 			}
+			throw err;
 		}
 
 		let json: unknown;
