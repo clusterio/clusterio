@@ -1,5 +1,6 @@
 import type { Test } from "tap";
 import * as lib from "@clusterio/lib";
+import type Host from "@clusterio/host/dist/node/src/Host.js";
 import Instance from "@clusterio/host/dist/node/src/Instance.js";
 import { FactorioServer } from "@clusterio/host/dist/node/src/server.js";
 import { addr } from "./link.ts";
@@ -9,6 +10,19 @@ const processMethods = [
 	"create", "start", "startScenario", "stop", "kill", "sendRcon", "sendUdp", "disableAchievements",
 ] as const;
 
+export type TestInstanceOptions = {
+	/** Called with the instance config before the instance is created */
+	configure?: (config: lib.InstanceConfig) => void,
+	/** Config to use instead of a new one named test */
+	config?: lib.InstanceConfig,
+	/** Host to create the instance on, defaults to a stub */
+	host?: Host,
+	/** Connector to the host, defaults to one paired with a recorder */
+	connector?: lib.VirtualConnector,
+	/** Instance directory, defaults to a test dir */
+	dir?: string,
+};
+
 /**
  * Instance on a real FactorioServer that cannot reach Factorio.
  *
@@ -16,14 +30,17 @@ const processMethods = [
  * instance directory is a test dir and the instance logger is captured.
  *
  * @param t - Test the instance belongs to.
- * @param configure - Called with the instance config before the instance is created.
+ * @param options - Parts of the instance to supply instead of the defaults.
  * @returns the instance, its server, the messages it sent and its logs.
  */
-export function testInstance(t: Test, configure?: (config: lib.InstanceConfig) => void) {
-	const dir = t.testdir();
-	const config = new lib.InstanceConfig("host");
-	config.set("instance.name", "test");
-	configure?.(config);
+export function testInstance(t: Test, options: TestInstanceOptions = {}) {
+	const dir = options.dir ?? t.testdir();
+	let config = options.config;
+	if (!config) {
+		config = new lib.InstanceConfig("host");
+		config.set("instance.name", "test");
+	}
+	options.configure?.(config);
 
 	const server = new FactorioServer(dir, dir, dir, "2.0.0", { rconPassword: "test" });
 	for (const name of processMethods) {
@@ -32,13 +49,13 @@ export function testInstance(t: Test, configure?: (config: lib.InstanceConfig) =
 		});
 	}
 
-	const src = addr({ instanceId: config.get("instance.id") });
-	const [connector, peer] = lib.VirtualConnector.makePair(src, addr({ hostId: 1 }));
+	const connector = options.connector
+		?? lib.VirtualConnector.makePair(addr({ instanceId: config.get("instance.id") }), addr({ hostId: 1 }))[0];
 	const sent: lib.Message[] = [];
-	peer.on("message", message => { sent.push(message); });
+	connector.other.on("message", message => { sent.push(message); });
 
-	const host = { _crashRetryAttempts: new Map(), _shuttingDown: false };
-	const instance = new Instance(host as any, connector, dir, config, server);
+	const host = options.host ?? { _crashRetryAttempts: new Map(), _shuttingDown: false } as unknown as Host;
+	const instance = new Instance(host, connector, dir, config, server);
 	// Not awaited by notifyExit, so writing it would race the test dir removal
 	t.intercept(instance, "_saveStats", { value: async () => {} });
 	const logs = {

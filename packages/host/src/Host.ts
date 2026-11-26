@@ -350,7 +350,7 @@ export default class Host extends lib.Link {
 	_disconnecting = false;
 	_shuttingDown = false;
 	/** Instances waiting on {@link Instance.fromConfig} */
-	_startingInstances = new Set<number>();
+	_startingInstances = new Map<number, Promise<InstanceConnection>>();
 	/** Restarts after a crash per instance ID since the last manual start */
 	_crashRetryAttempts = new Map<number, number>();
 
@@ -792,7 +792,7 @@ export default class Host extends lib.Link {
 		this.send(
 			new lib.InstanceStatusChangedEvent(
 				instanceId,
-				instanceConnection ? instanceConnection.instance.status : this._unconnectedStatus(instanceId),
+				this.instanceStatus(instanceId),
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection
 					? instanceConnection.instance.server.version
@@ -812,11 +812,7 @@ export default class Host extends lib.Link {
 		let instanceId = request.instanceId;
 		let instance = this.assignedInstances.get(instanceId);
 		if (instance) {
-			let instanceConnection = this.instanceConnections.get(instanceId);
-			if (instanceConnection && ["starting", "running"].includes(instanceConnection.instance.status)) {
-				await instanceConnection.send(new lib.InstanceStopRequest());
-			}
-
+			await this._stopInstance(instanceId);
 			this.assignedInstances.delete(instanceId);
 			logger.verbose(`unassigned instance ${instance.config.get("instance.name")}`);
 		}
@@ -908,9 +904,26 @@ export default class Host extends lib.Link {
 		}
 	}
 
-	/** Status of an instance without a connection */
-	_unconnectedStatus(instanceId: number) {
+	/** Status of an instance, including starts still waiting on {@link Instance.fromConfig} */
+	instanceStatus(instanceId: number) {
+		const instanceConnection = this.instanceConnections.get(instanceId);
+		if (instanceConnection) {
+			return instanceConnection.instance.status;
+		}
 		return this._startingInstances.has(instanceId) ? "starting" as const : "stopped" as const;
+	}
+
+	/** Stop an instance once any start, save or export in progress has finished */
+	async _stopInstance(instanceId: number) {
+		const pending = this._startingInstances.get(instanceId);
+		if (pending) {
+			try {
+				await pending;
+			} catch {
+				return; // Failed starts report themselves stopped
+			}
+		}
+		await this.instanceConnections.get(instanceId)?.instance._stopWhenSettled();
 	}
 
 	/**
@@ -921,6 +934,9 @@ export default class Host extends lib.Link {
 	 */
 	async _connectInstance(instanceId: number) {
 		let unloadedInstance = this.getRequestInstance(instanceId);
+		if (this._shuttingDown) {
+			throw new lib.UnavailableError("Host is shutting down");
+		}
 		if (this.instanceConnections.has(instanceId) || this._startingInstances.has(instanceId)) {
 			throw new lib.ConflictError(`Instance with ID ${instanceId} is running`);
 		}
@@ -928,20 +944,22 @@ export default class Host extends lib.Link {
 		let hostAddress = new lib.Address(lib.Address.host, this.config.get("host.id"));
 		let instanceAddress = new lib.Address(lib.Address.instance, instanceId);
 		let [connectionClient, connectionServer] = lib.VirtualConnector.makePair(instanceAddress, hostAddress);
-		let instance: Instance;
-		this._startingInstances.add(instanceId);
+		const pending = Instance.fromConfig(
+			unloadedInstance.config, this, connectionClient,
+			unloadedInstance.path, this.config.get("host.factorio_directory"),
+		).then(instance => {
+			const connection = new InstanceConnection(connectionServer, this, instance);
+			this.instanceConnections.set(instanceId, connection);
+			return connection;
+		});
+		this._startingInstances.set(instanceId, pending);
+		let instanceConnection: InstanceConnection;
 		try {
-			instance = await Instance.fromConfig(
-				unloadedInstance.config, this, connectionClient,
-				unloadedInstance.path, this.config.get("host.factorio_directory"),
-			);
+			instanceConnection = await pending;
 		} finally {
 			this._startingInstances.delete(instanceId);
 		}
-		let instanceConnection = new InstanceConnection(connectionServer, this, instance);
-
-		this.instanceConnections.set(instanceId, instanceConnection);
-		await instance.loadPlugins(this.pluginInfos);
+		await instanceConnection.instance.loadPlugins(this.pluginInfos);
 
 		return instanceConnection;
 	}
@@ -1318,7 +1336,7 @@ export default class Host extends lib.Link {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push(new lib.HostInstanceUpdate(
 				instance.config.toRemote("controller"),
-				instanceConnection ? instanceConnection.instance.status : this._unconnectedStatus(instanceId),
+				this.instanceStatus(instanceId),
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 				instanceConnection ? instanceConnection.instance.server.version : undefined,
 			));
@@ -1369,13 +1387,14 @@ export default class Host extends lib.Link {
 
 		await this.hooks.shutdown.invoke();
 
-		for (let instanceConnection of this.instanceConnections.values()) {
+		const instanceIds = new Set([...this.instanceConnections.keys(), ...this._startingInstances.keys()]);
+		await Promise.all([...instanceIds].map(async instanceId => {
 			try {
-				await instanceConnection.instance.stop();
+				await this._stopInstance(instanceId);
 			} catch (err: any) {
-				logger.error(`Unexpected error stopping instance:\n${err.stack}`);
+				logger.error(`Unexpected error stopping instance:\n${err.stack}`, this.instanceLogMeta(instanceId));
 			}
-		}
+		}));
 
 		try {
 			await this.connector.disconnect();
