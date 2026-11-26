@@ -589,6 +589,12 @@ describe("lib/datastore", function() {
 					["save", new Map([...datastoreProvider.value.entries()].filter((v, k) => !keys.includes(k)))]
 				);
 			});
+			it("skips keys that are not present", async function() {
+				datastore.deleteMany(["foo", "missing"]);
+				assert.deepEqual(eventsRaised, [[["foo", "fooValue", true]]]);
+				datastore.deleteMany(["missing"]);
+				assert.equal(eventsRaised.length, 1);
+			});
 		});
 	});
 

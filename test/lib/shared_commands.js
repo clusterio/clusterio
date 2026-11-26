@@ -127,4 +127,25 @@ describe("lib/shared_commands", function() {
 			assert.equal(process.exitCode, 1);
 		});
 	});
+
+	describe("handleConfigCommand()", function() {
+		const tempDir = path.join("temp", "test", "shared_commands_config");
+		const file = path.join(tempDir, "config.json");
+		beforeEach(async function() {
+			await fs.rm(tempDir, { recursive: true, force: true });
+			await fs.mkdir(tempDir, { recursive: true });
+		});
+		after(async function() {
+			await fs.rm(tempDir, { recursive: true, force: true });
+		});
+
+		it("should release the lock when saving fails on set", async function() {
+			const config = new lib.CtlConfig("control", undefined, file);
+			config.save = async () => { throw new Error("disk full"); };
+			const lockFile = new lib.LockFile(`${file}.lock`);
+			const args = { _: ["config", "set"], field: "ctl.controller_url", value: "x" };
+			await assert.rejects(lib.handleConfigCommand(args, config, lockFile), new Error("disk full"));
+			await assert.rejects(fs.access(`${file}.lock`), { code: "ENOENT" });
+		});
+	});
 });
