@@ -22,4 +22,22 @@ describe("lib/zlib_sync.browser", function() {
 			err => err.code === "Z_DATA_ERROR"
 		);
 	});
+	it("should throw with the same code as node:zlib", function() {
+		const deflated = zlib.deflateSync(text);
+		const cases = [
+			[new Uint8Array(0), "Z_BUF_ERROR"],
+			[deflated.subarray(0, 2), "Z_BUF_ERROR"],
+			[deflated.subarray(0, deflated.length - 1), "Z_BUF_ERROR"],
+			[zlib.deflateSync(text, { dictionary: Buffer.from("pack") }), "Z_NEED_DICT"],
+		];
+		for (const [data, code] of cases) {
+			assert.throws(() => browserZlib.inflateSync(data), err => err.code === code);
+			assert.throws(() => zlib.inflateSync(data), err => err.code === code);
+		}
+	});
+	it("should reject a wrong checksum", function() {
+		const deflated = Buffer.from(zlib.deflateSync(Buffer.alloc(10000, 1)));
+		deflated[deflated.length - 1] ^= 0xff;
+		assert.throws(() => browserZlib.inflateSync(deflated), err => err.code === "Z_DATA_ERROR");
+	});
 });
