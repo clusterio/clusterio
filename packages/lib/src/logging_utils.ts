@@ -371,6 +371,7 @@ export class LogIndex {
 		let filePath = path.join(this.logDirectory, file);
 		let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
 		let fileStream = (await fs.open(filePath)).createReadStream();
+		fileStream.on("error", err => lineStream.destroy(err));
 		fileStream.pipe(lineStream);
 		let entry = {
 			levels: new Set() as Set<keyof typeof levels>,
@@ -633,6 +634,7 @@ export async function queryLog(logDirectory: string, filter: QueryLogFilter, ind
 				}
 			}
 		});
+		fileStream.on("error", err => lineStream.destroy(err));
 		fileStream.pipe(lineStream);
 		try {
 			await finished(lineStream);

@@ -46,6 +46,13 @@ describe("lib/logging_utils.js", function() {
 				logIndex
 			);
 		});
+		it("should reject indexing a file that fails to read", async function() {
+			let tempDir = path.join("temp", "test", "log_index_read_error");
+			await fs.rm(tempDir, { recursive: true, force: true });
+			await fs.mkdir(path.join(tempDir, "test-2021-01-01.log"), { recursive: true });
+			let logIndex = await lib.LogIndex.load(tempDir);
+			await assert.rejects(logIndex.indexFile("test-2021-01-01.log"), { code: "EISDIR" });
+		});
 		it("should drop entries for files no longer present", async function() {
 			let tempDir = path.join("temp", "test", "log_index_prune");
 			await fs.rm(tempDir, { recursive: true, force: true });
@@ -199,6 +206,12 @@ describe("lib/logging_utils.js", function() {
 	});
 
 	describe("queryLog", function() {
+		it("should reject when a log file fails to read", async function() {
+			let tempDir = path.join("temp", "test", "log_query_read_error");
+			await fs.rm(tempDir, { recursive: true, force: true });
+			await fs.mkdir(path.join(tempDir, "test-2021-01-01.log"), { recursive: true });
+			await assert.rejects(lib.queryLog(tempDir, { all: true }), { code: "EISDIR" });
+		});
 		for (let index of [() => undefined, () => logIndex]) {
 			describe(index() === undefined ? "without index" : "with index", function() {
 				it("returns nothing with an empty filter", async function() {
