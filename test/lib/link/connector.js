@@ -175,6 +175,33 @@ describe("lib/link/connectors", function() {
 			});
 		});
 
+		describe(".reconnect()", function() {
+			let connector;
+			beforeEach(function() {
+				connector = new lib.WebSocketClientConnector("url", 1);
+				connector._backoff.delay = () => 60000;
+			});
+			afterEach(function() {
+				clearTimeout(connector._reconnectId);
+			});
+			it("should replace the timer on a double call", function() {
+				connector.reconnect();
+				const first = connector._reconnectId;
+				connector.reconnect();
+				assert.notEqual(connector._reconnectId, first);
+				assert.equal(first._destroyed, true);
+			});
+			it("should not schedule a reconnect after closing on session timeout", function() {
+				connector._state = "resuming";
+				connector._closing = true;
+				connector._sessionTimeout = 10;
+				connector._startedResumingMs = Date.now() - 20000;
+				connector.reconnect();
+				assert.equal(connector._state, "closed");
+				assert.equal(connector._reconnectId, undefined);
+			});
+		});
+
 		describe(".parseMessage()", function() {
 			it("should close on invalid json", function() {
 				testConnector._socket.closeCalled = false;
