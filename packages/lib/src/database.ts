@@ -185,7 +185,6 @@ export class ItemDatabase {
 		// Verify the content of the serialized database
 		if (serialized !== undefined) {
 			for (let [name, qualities] of Object.entries(serialized)) {
-				checkName(name);
 				// Migration from pre-quality database format
 				if (typeof qualities === "number") {
 					qualities = { normal: qualities };
