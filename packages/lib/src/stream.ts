@@ -113,7 +113,7 @@ export class ReverseLineSplitter extends stream.Transform {
 			if (this._partial[end] === "\n".charCodeAt(0)) {
 				end -= 1;
 				// Eat carriage return as well if present
-				if (end > 0 && this._partial[end] === "\r".charCodeAt(0)) {
+				if (end >= 0 && this._partial[end] === "\r".charCodeAt(0)) {
 					end -= 1;
 				}
 			}
