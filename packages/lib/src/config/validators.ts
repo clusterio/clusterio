@@ -37,7 +37,7 @@ export const greaterThanZero = greaterThan(0);
 export function greaterThanEqual(min: number) {
 	return function (value: number) {
 		if (value < min) {
-			throw new Error(`Value must be greater than ${min}`);
+			throw new Error(`Value must be greater than or equal to ${min}`);
 		}
 	};
 }

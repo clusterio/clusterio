@@ -128,7 +128,7 @@ describe("lib/config/validators", function() {
 
 			assert.throws(
 				() => validator(4),
-				/Value must be greater than 5/,
+				/Value must be greater than or equal to 5/,
 				"did not throw on smaller value"
 			);
 		});
@@ -146,7 +146,7 @@ describe("lib/config/validators", function() {
 		it("should throw on negative values", function() {
 			assert.throws(
 				() => validators.greaterThanEqualZero(-1),
-				/Value must be greater than 0/
+				/Value must be greater than or equal to 0/
 			);
 		});
 	});
