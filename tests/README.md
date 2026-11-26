@@ -78,6 +78,9 @@ This covers every possible value of each union without trying every combination 
 `lib/data/json_serialisable.test.ts` runs it for every serialisable class exported by `@clusterio/lib`, so new data classes and messages are covered without adding a test.
 Schemas the generator cannot satisfy, such as strings that must parse as a mod dependency, get hand written samples in that file.
 
+`shared/instance.ts` makes a host `Instance` on a real `FactorioServer` for unit tests.
+The server methods that spawn or talk to Factorio throw until the test intercepts them, so these tests never start a process.
+
 
 ## Running
 
