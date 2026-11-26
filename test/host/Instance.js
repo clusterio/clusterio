@@ -310,6 +310,20 @@ describe("class Instance", function() {
 		});
 	});
 
+	describe("._startSave()", function() {
+		it("should end up stopped if the server fails to start before spawning Factorio", async function() {
+			instance.server._state = "init";
+			instance.server.start = async () => { throw new Error("start failed"); };
+			instance.prepare = async () => {};
+			instance.prepareSave = async () => "save.zip";
+			instance.writeServerSettings = async () => {};
+			instance._saveStats = async () => {};
+			instance.notifyStatus("starting");
+			await assert.rejects(instance._startSave(), new Error("start failed"));
+			assert.equal(instance.status, "stopped");
+		});
+	});
+
 	describe("restart after crash", function() {
 		let errors;
 		let starts;
