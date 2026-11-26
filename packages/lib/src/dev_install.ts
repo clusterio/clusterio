@@ -1,8 +1,7 @@
 import path from "path";
 
-/** True when lib runs from a source checkout rather than an npm install */
+/** True when lib runs from a source checkout rather than an install of the published package */
 export function isDevInstall() {
-	//  dev:                 <devRoot>/packages/lib/dist/node/src/dev_install.js
-	// prod: <prodRoot>/node_modules/@clusterio/lib/dist/node/src/dev_install.js
-	return import.meta.dirname.split(path.sep).at(-5) === "packages"; // opposed to "@clusterio"
+	// Published copies are always under node_modules, the workspace symlink resolves to packages/lib
+	return !import.meta.dirname.split(path.sep).includes("node_modules");
 }
