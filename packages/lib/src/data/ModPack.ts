@@ -149,7 +149,7 @@ const ModRecordJsonSchema = Type.Object({
 	"sha1": Type.Optional(Type.String()),
 });
 
-type PropertyType = null | boolean | number | string | PropertyType[] | { [key: string]: PropertyType };
+type PropertyType = boolean | number | string | { [key: string]: PropertyType };
 
 /**
  * Factorio Mod Pack
@@ -364,10 +364,7 @@ export default class ModPack {
 				buf,
 			]);
 		}
-		function immutableStringBytes(str?: string) {
-			if (str === undefined) {
-				return uint8Byte(1); // empty
-			}
+		function immutableStringBytes(str: string) {
 			return Buffer.concat([
 				uint8Byte(0), // empty
 				stringBytes(str),
@@ -383,7 +380,7 @@ export default class ModPack {
 				Buffer.alloc(1), // reserved byte
 			]);
 		}
-		function propertyTreeListBytes(entries: [string | undefined, PropertyType][]) {
+		function propertyTreeListBytes(entries: [string, PropertyType][]) {
 			const sizeBytes = uint32Bytes(entries.length);
 			const itemBytes = entries.flatMap(([key, item]) => [
 				immutableStringBytes(key),
@@ -398,10 +395,7 @@ export default class ModPack {
 		function propertyTreeBytes(element: PropertyType) {
 			let type: number;
 			let dataBytes: Buffer;
-			if (element === null) {
-				type = 1;
-				dataBytes = Buffer.alloc(0);
-			} else if (typeof element === "boolean") {
+			if (typeof element === "boolean") {
 				type = 1;
 				dataBytes = uint8Byte(Number(element));
 			} else if (typeof element === "number") {
@@ -410,14 +404,9 @@ export default class ModPack {
 			} else if (typeof element === "string") {
 				type = 3;
 				dataBytes = immutableStringBytes(element);
-			} else if (element instanceof Array) {
-				type = 4;
-				dataBytes = propertyTreeListBytes(element.map(item => [undefined, item]));
-			} else if (typeof element === "object" && element !== null) {
+			} else {
 				type = 5;
 				dataBytes = propertyTreeListBytes(Object.entries(element));
-			} else {
-				throw new Error("Bad element passed to propertyTreeBytes");
 			}
 			return Buffer.concat([
 				uint8Byte(type),
@@ -470,7 +459,7 @@ export default class ModPack {
 				value = prototype.default_value;
 			}
 			if (type === "string-setting" && typeof value !== "string") {
-				value = typeof value === "object" ? prototype.default_value : String(value ?? "");
+				value = typeof value === "object" ? prototype.default_value : String(value);
 			}
 			if (type === "color-setting") {
 				value = libLuaTools.normalizeColor(value as object);
