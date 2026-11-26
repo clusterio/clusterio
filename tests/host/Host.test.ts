@@ -1,82 +1,62 @@
-import events from "node:events";
 import t, { type Test } from "tap";
 import * as lib from "@clusterio/lib";
-import { Host, Instance } from "@clusterio/host";
-import { HostConnector } from "@clusterio/host/dist/node/host.js";
+import Instance from "@clusterio/host/dist/node/src/Instance.js";
+import { testHost } from "../shared/host.ts";
+import type { testInstance } from "../shared/instance.ts";
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
+const unassign = (id: number) => new lib.InstanceUnassignInternalRequest(id);
 
 /**
- * Host with instances 7 and 8 assigned, and Instance.fromConfig replaced by
- * a start that waits for release() and makes an instance with a fake server.
+ * Let _startSave bring the instance up to running without Factorio
+ *
+ * @returns calls made to server.stop.
  */
-function setup(tt: Test) {
-	const dir = tt.testdir();
-	const hostConfig = new lib.HostConfig("host");
-	const host = new Host(new HostConnector(hostConfig, []), hostConfig, []);
-	tt.capture(host, "send");
-	tt.capture(host.connector, "forward");
-	for (const id of [7, 8]) {
-		const config = new lib.InstanceConfig("host", { "instance.id": id, "instance.name": `i${id}` });
-		host.assignedInstances.set(id, { path: dir, config });
-	}
-
-	const stops: number[] = [];
-	const releases: (() => void)[] = [];
-	tt.capture(Instance, "fromConfig", async (config, fromHost, connector) => {
-		await new Promise<void>(resolve => releases.push(resolve));
-		const server: any = new events.EventEmitter();
-		server._state = "init";
-		const instance = new Instance(fromHost, connector, dir, config, server);
-		instance._status = "starting";
-		tt.capture(instance, "writeServerSettings");
-		tt.capture(instance, "sendSaveListUpdate");
-		tt.capture(instance, "prepare");
-		tt.capture(instance, "prepareSave", async () => "save.zip");
-		tt.capture(instance, "start", async () => {
-			server._state = "running";
-			instance.notifyStatus("running");
-		});
-		server.stop = async () => {
-			stops.push(instance.id);
-			instance.notifyExit();
-		};
-		return instance;
+function stubStart(tt: Test, { instance, server }: ReturnType<typeof testInstance>) {
+	tt.intercept(instance, "prepare", { value: async () => {} });
+	tt.intercept(instance, "prepareSave", { value: async () => "save.zip" });
+	tt.intercept(instance, "writeServerSettings", { value: async () => ({}) });
+	tt.intercept(instance, "sendSaveListUpdate", { value: async () => {} });
+	tt.intercept(server, "start", { value: async () => { server._state = "running"; } });
+	tt.intercept(server, "disableAchievements", { value: async () => false });
+	tt.intercept(server, "sendRcon", { value: async () => "" });
+	return tt.intercept(server, "stop", {
+		value: async () => {
+			server._state = "init";
+			server.emit("exit");
+		},
 	});
-
-	/** Let the oldest pending fromConfig finish */
-	const release = () => releases.shift()!();
-	async function connect(id: number) {
-		const connecting = host._connectInstance(id);
-		await tick();
-		release();
-		return (await connecting).instance;
-	}
-	/** Start an instance and hold it in prepare until the returned function is called */
-	async function startHeld(id: number) {
-		const instance = await connect(id);
-		let finishPrepare!: () => void;
-		tt.capture(instance, "prepare", () => new Promise<void>(resolve => { finishPrepare = resolve; }));
-		const started = instance._startSave();
-		await tick();
-		return async () => {
-			finishPrepare();
-			await started;
-		};
-	}
-	return { host, stops, release, connect, startHeld };
 }
 
-const unassign = (id: number) => new lib.InstanceUnassignInternalRequest(id);
+/** Start an instance and hold it in prepare until the returned function is called */
+async function startHeld(tt: Test, made: ReturnType<typeof testInstance>) {
+	const stop = stubStart(tt, made);
+	let finishPrepare!: () => void;
+	tt.intercept(made.instance, "prepare", {
+		value: () => new Promise<void>(resolve => { finishPrepare = resolve; }),
+	});
+	const started = made.instance._startSave();
+	await tick();
+	return {
+		stop,
+		async finish() {
+			finishPrepare();
+			await started;
+		},
+	};
+}
 
 t.test("Host", async t1 => {
 	t1.test("instanceStatus()", async t2 => {
 		t2.test("is stopped for an instance that is not connected", async t3 => {
-			const { host } = setup(t3);
+			const { host, assign } = testHost(t3);
+			assign(7);
 			t3.equal(host.instanceStatus(7), "stopped");
 		});
 		t2.test("is starting while waiting on fromConfig", async t3 => {
-			const { host, release } = setup(t3);
+			const { host, assign, holdStarts } = testHost(t3);
+			assign(7);
+			const release = holdStarts();
 			const connecting = host._connectInstance(7);
 			await tick();
 			t3.equal(host.instanceStatus(7), "starting");
@@ -84,8 +64,9 @@ t.test("Host", async t1 => {
 			await connecting;
 		});
 		t2.test("is the status of a connected instance", async t3 => {
-			const { host, connect } = setup(t3);
-			const instance = await connect(7);
+			const { host, assign, connect } = testHost(t3);
+			assign(7);
+			const { instance } = await connect(7);
 			instance.notifyStatus("exporting_data");
 			t3.equal(host.instanceStatus(7), "exporting_data");
 		});
@@ -93,15 +74,17 @@ t.test("Host", async t1 => {
 
 	t1.test("_connectInstance()", async t2 => {
 		t2.test("rejects while the host is shutting down", async t3 => {
-			const { host } = setup(t3);
+			const { host, assign } = testHost(t3);
+			assign(7);
 			host._shuttingDown = true;
 			await t3.rejects(host._connectInstance(7), new lib.UnavailableError("Host is shutting down"));
 		});
 		t2.test("rejects a second start while the first waits on fromConfig", async t3 => {
-			const { host, release } = setup(t3);
+			const { host, assign, holdStarts } = testHost(t3);
+			assign(7);
+			const release = holdStarts();
 			const first = host._connectInstance(7);
 			await t3.rejects(host._connectInstance(7), new lib.ConflictError("Instance with ID 7 is running"));
-			await tick();
 			release();
 			await first;
 		});
@@ -109,27 +92,32 @@ t.test("Host", async t1 => {
 
 	t1.test("handleInstanceUnassignInternalRequest()", async t2 => {
 		t2.test("unassigns a stopped instance", async t3 => {
-			const { host, stops } = setup(t3);
+			const { host, assign } = testHost(t3);
+			assign(7);
 			await host.handleInstanceUnassignInternalRequest(unassign(7));
 			t3.equal(host.assignedInstances.has(7), false);
-			t3.same(stops, []);
 		});
 		t2.test("stops an instance once a pending start connects and runs", async t3 => {
-			const { host, stops, release } = setup(t3);
+			const { host, assign, holdStarts, instances } = testHost(t3);
+			assign(7);
+			const release = holdStarts();
 			const connecting = host._connectInstance(7);
 			await tick();
 			const unassigned = host.handleInstanceUnassignInternalRequest(unassign(7));
 			release();
-			const { instance } = await connecting;
-			await instance._startSave();
+			await connecting;
+			const made = instances.get(7)!;
+			const stop = stubStart(t3, made);
+			await made.instance._startSave();
 			await unassigned;
-			t3.same(stops, [7]);
-			t3.equal(instance.status, "stopped");
+			t3.equal(stop().length, 1);
+			t3.same(made.statuses(), ["running", "stopping", "stopped"]);
 			t3.equal(host.assignedInstances.has(7), false);
 		});
 		t2.test("unassigns when a pending start fails", async t3 => {
-			const { host } = setup(t3);
-			t3.capture(Instance, "fromConfig", async () => { throw new Error("download failed"); });
+			const { host, assign } = testHost(t3);
+			assign(7);
+			t3.intercept(Instance, "fromConfig", { value: async () => { throw new Error("download failed"); } });
 			const connecting = host._connectInstance(7);
 			const unassigned = host.handleInstanceUnassignInternalRequest(unassign(7));
 			await t3.rejects(connecting, new Error("download failed"));
@@ -137,26 +125,29 @@ t.test("Host", async t1 => {
 			t3.equal(host.assignedInstances.has(7), false);
 		});
 		t2.test("stops an instance still preparing to start", async t3 => {
-			const { host, stops, startHeld } = setup(t3);
-			const finish = await startHeld(7);
+			const { host, assign, connect } = testHost(t3);
+			assign(7);
+			const { stop, finish } = await startHeld(t3, await connect(7));
 			const unassigned = host.handleInstanceUnassignInternalRequest(unassign(7));
 			await finish();
 			await unassigned;
-			t3.same(stops, [7]);
+			t3.equal(stop().length, 1);
 			t3.equal(host.instanceStatus(7), "stopped");
 		});
 		for (const status of ["creating_save", "exporting_data"] as const) {
 			t2.test(`stops an instance once ${status} finishes`, async t3 => {
-				const { host, stops, connect } = setup(t3);
-				const instance = await connect(7);
-				(instance.server as any)._state = "running";
-				instance.notifyStatus(status);
+				const { host, assign, connect } = testHost(t3);
+				assign(7);
+				const made = await connect(7);
+				const stop = stubStart(t3, made);
+				made.server._state = "running";
+				made.instance.notifyStatus(status);
 				const unassigned = host.handleInstanceUnassignInternalRequest(unassign(7));
 				await tick();
 				t3.equal(host.assignedInstances.has(7), true, "waits for the status to settle");
-				instance.notifyStatus("running");
+				made.instance.notifyStatus("running");
 				await unassigned;
-				t3.same(stops, [7]);
+				t3.equal(stop().length, 1);
 				t3.equal(host.assignedInstances.has(7), false);
 			});
 		}
@@ -164,52 +155,69 @@ t.test("Host", async t1 => {
 
 	t1.test("shutdown()", async t2 => {
 		t2.test("stops an instance shut down while preparing to start", async t3 => {
-			const { host, stops, startHeld } = setup(t3);
-			const finish = await startHeld(7);
+			const { host, assign, connect } = testHost(t3);
+			assign(7);
+			const { stop, finish } = await startHeld(t3, await connect(7));
 			const shutdown = host.shutdown();
 			await finish();
 			await shutdown;
-			t3.same(stops, [7]);
+			t3.equal(stop().length, 1);
 			t3.equal(host.instanceStatus(7), "stopped");
 		});
 		t2.test("waits for pending starts and stops running instances", async t3 => {
-			const { host, stops, connect, release } = setup(t3);
-			await (await connect(7))._startSave();
+			const { host, assign, connect, holdStarts, instances } = testHost(t3);
+			assign(7);
+			assign(8);
+			const running = await connect(7);
+			const stopRunning = stubStart(t3, running);
+			await running.instance._startSave();
+			const release = holdStarts();
 			const connecting = host._connectInstance(8);
 			await tick();
 			const shutdown = host.shutdown();
 			await tick();
-			t3.same(stops, [7]);
+			t3.equal(stopRunning().length, 1);
 			release();
-			await (await connecting).instance._startSave();
+			await connecting;
+			const pending = instances.get(8)!;
+			const stopPending = stubStart(t3, pending);
+			await pending.instance._startSave();
 			await shutdown;
-			t3.same(stops, [7, 8]);
+			t3.equal(stopPending().length, 1);
 		});
 		t2.test("does not wait on a pending start that fails", async t3 => {
-			const { host, stops } = setup(t3);
-			t3.capture(Instance, "fromConfig", async () => { throw new Error("download failed"); });
+			const { host, assign } = testHost(t3);
+			assign(7);
+			t3.intercept(Instance, "fromConfig", { value: async () => { throw new Error("download failed"); } });
 			const connecting = host._connectInstance(7);
 			await host.shutdown();
 			await t3.rejects(connecting, new Error("download failed"));
-			t3.same(stops, []);
 		});
 		t2.test("logs an error stopping an instance and stops the rest", async t3 => {
-			const { host, stops, connect } = setup(t3);
+			const { host, assign, connect } = testHost(t3);
+			assign(7);
+			assign(8);
 			const failing = await connect(7);
-			await failing._startSave();
-			await (await connect(8))._startSave();
-			(failing.server as any).stop = async () => { throw new Error("stop failed"); };
+			stubStart(t3, failing);
+			await failing.instance._startSave();
+			const other = await connect(8);
+			const stopOther = stubStart(t3, other);
+			await other.instance._startSave();
+			t3.intercept(failing.server, "stop", { value: async () => { throw new Error("stop failed"); } });
 			const errors = t3.capture(lib.logger, "error");
 			await host.shutdown();
 			t3.match(errors.args(), [[/^Unexpected error stopping instance:\nError: stop failed/, { instance_id: 7 }]]);
-			t3.same(stops, [8]);
+			t3.equal(stopOther().length, 1);
 		});
 		t2.test("returns at once when already shutting down", async t3 => {
-			const { host, stops, connect } = setup(t3);
-			await (await connect(7))._startSave();
+			const { host, assign, connect } = testHost(t3);
+			assign(7);
+			const made = await connect(7);
+			const stop = stubStart(t3, made);
+			await made.instance._startSave();
 			host._shuttingDown = true;
 			await host.shutdown();
-			t3.same(stops, []);
+			t3.equal(stop().length, 0);
 		});
 	});
 });

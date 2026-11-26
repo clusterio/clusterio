@@ -80,6 +80,7 @@ Schemas the generator cannot satisfy, such as strings that must parse as a mod d
 
 `shared/instance.ts` makes a host `Instance` on a real `FactorioServer` for unit tests.
 The server methods that spawn or talk to Factorio throw until the test intercepts them, so these tests never start a process.
+`shared/host.ts` makes a `Host` without a controller whose instances come from `shared/instance.ts`.
 
 
 ## Running
