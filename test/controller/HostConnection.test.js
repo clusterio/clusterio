@@ -224,6 +224,18 @@ describe("controller/src/HostConnection", function() {
 			assert.notEqual(instance.startedAtMs, 0);
 			assert.deepEqual(calls, [[1, "running", "starting"]]);
 		});
+
+		it("should apply status from an instances update for known instances", async function() {
+			const instance = addInstance(1, 10, "starting");
+			connection.send = async () => {};
+			await connection.handleInstancesUpdateRequest(new lib.InstancesUpdateRequest([
+				new lib.HostInstanceUpdate(instance.config.toRemote("host"), "running", 34197, "2.0.0"),
+			]));
+			assert.equal(instance.status, "running");
+			assert.equal(instance.gamePort, 34197);
+			assert.notEqual(instance.startedAtMs, 0);
+			assert.deepEqual(calls, [[1, "running", "starting"]]);
+		});
 	});
 
 	describe(".handleInstanceSaveDetailsUpdatesEvent()", function() {
