@@ -1377,6 +1377,9 @@ end`.replace(/\r?\n/g, " ");
 			|| this.server._state === "create"
 		) {
 			await this.server.kill();
+		} else if (this.server._state === "init") {
+			// Start failed before Factorio was spawned, no exit event will follow
+			this.notifyExit();
 		}
 	}
 
