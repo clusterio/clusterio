@@ -78,7 +78,7 @@ export class WebConsoleFormat {
 			src += `h:${info.host_name} - `;
 		}
 		if (info.instance_id !== undefined) {
-			src += `i:${info.instance_name}`;
+			src += `i:${info.instance_name} `;
 		}
 		if (info.plugin) {
 			src += `${info.plugin}: `;
