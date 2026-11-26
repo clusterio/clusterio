@@ -98,6 +98,12 @@ describe("lib/factorio/exchange_string", function() {
 			});
 		});
 
+		it("should ignore text around the markers", function() {
+			assert.deepEqual(
+				lib.readMapExchangeString(`Map: ${testStrings.default} (copied)`),
+				lib.readMapExchangeString(testStrings.default),
+			);
+		});
 		it("should handle malformed strings", function() {
 			assert.throws(
 				() => lib.readMapExchangeString("<<blah>>"),

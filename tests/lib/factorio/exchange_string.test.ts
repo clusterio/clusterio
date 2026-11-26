@@ -156,6 +156,11 @@ t.test("readMapExchangeString()", async t1 => {
 			[{ x: 10, y: 20 }, { x: 11, y: 22 }]);
 	});
 
+	t1.test("reads the string between the markers and ignores text around them", async t2 => {
+		const expected = lib.readMapExchangeString(strings.default);
+		t2.strictSame(lib.readMapExchangeString(`Map: ${strings.default} (copied)`), expected);
+		t2.strictSame(lib.readMapExchangeString(`<<<${strings.default}>>>`), expected);
+	});
 	t1.test("rejects text that is not an exchange string", async t2 => {
 		t2.throws(() => lib.readMapExchangeString("<<blah>>"), new Error("Not a map exchange string"));
 		t2.throws(() => lib.readMapExchangeString(">>><<<"), new Error("Not a map exchange string"));
