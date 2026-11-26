@@ -262,7 +262,11 @@ export function formatBytes(bytes: number, prefixes: "si" | "binary" = "si") {
 		base = 1024;
 		units = ["\u{A0}Bytes", "\u{A0}kiB", "\u{A0}MiB", "\u{A0}GiB", "\u{A0}TiB"];
 	}
-	const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(base)), units.length);
+	let exponent = Math.min(Math.max(Math.floor(Math.log(bytes) / Math.log(base)), 0), units.length - 1);
+	// Move up a unit if rounding would display the base, like 1000 kB
+	if (exponent < units.length - 1 && bytes / base ** exponent >= base - 0.5) {
+		exponent += 1;
+	}
 	const significant = bytes / base ** exponent;
 	const fractionDigits = Number(significant < 99.95) + Number(significant < 9.995);
 	return significant.toFixed(fractionDigits) + units[exponent];
@@ -301,24 +305,36 @@ const sensitiveSearchParams = new Set([
  * @returns url with credentials replaced by `REDACTED`.
  */
 export function redactUrl(url: URL | string) {
-	const isPath = typeof url === "string" && url.startsWith("/") && !url.startsWith("//");
+	if (typeof url === "string" && url.startsWith("/")) {
+		// Split by hand, a path like //api would parse as a host
+		const [, pathname, search = "", hash = ""] = /^([^?#]*)(\?[^#]*)?(#[^]*)?$/.exec(url)!;
+		const redacted = redactSearchParams(new URLSearchParams(search));
+		return redacted === undefined ? url : `${pathname}?${redacted}${hash}`;
+	}
+
 	let parsed;
 	try {
-		parsed = isPath ? new URL(url, "http://localhost") : new URL(url);
+		parsed = new URL(url);
 	} catch {
 		return String(url);
 	}
-	if (![...parsed.searchParams.keys()].some(name => sensitiveSearchParams.has(name.toLowerCase()))) {
+	const redacted = redactSearchParams(parsed.searchParams);
+	if (redacted === undefined) {
 		return String(url);
 	}
+	parsed.search = redacted;
+	return parsed.toString();
+}
 
+function redactSearchParams(params: URLSearchParams) {
+	if (![...params.keys()].some(name => sensitiveSearchParams.has(name.toLowerCase()))) {
+		return undefined;
+	}
 	const searchParams = new URLSearchParams();
-	for (const [name, value] of parsed.searchParams) {
+	for (const [name, value] of params) {
 		searchParams.append(name, sensitiveSearchParams.has(name.toLowerCase()) ? "REDACTED" : value);
 	}
-
-	parsed.search = searchParams.toString();
-	return isPath ? parsed.pathname + parsed.search + parsed.hash : parsed.toString();
+	return searchParams.toString();
 }
 
 const gitProtocols = new Set(["git:", "git+http:", "git+https:", "git+ssh:", "ssh:"]);
