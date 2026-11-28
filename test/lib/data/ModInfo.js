@@ -322,6 +322,7 @@ describe("lib/data/ModInfo", function() {
 			check(ModInfo.fromJSON({ description: "My Description" }));
 			check(ModInfo.fromJSON({ factorio_version: "2.0" }));
 			check(ModInfo.fromJSON({ dependencies: [] }));
+			check(ModInfo.fromJSON({ dependencies: ["base >= 1.1"] }));
 			check(ModInfo.fromJSON({ dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"] }));
 			check(ModInfo.fromJSON({ filename: "MyMod_1.0.0.zip" }));
 			check(ModInfo.fromJSON({ size: 1024 }));

@@ -15,6 +15,11 @@ describe("lib/migrations", function() {
 			lib.renameConfigField(config, "foo.bar", "foo.bar_baz");
 			assert.deepEqual(config, { "foo.bar_baz": 2 });
 		});
+		it("should keep the field when renamed to itself", function() {
+			const config = { "foo.bar": 1 };
+			lib.renameConfigField(config, "foo.bar", "foo.bar");
+			assert.deepEqual(config, { "foo.bar": 1 });
+		});
 		it("should do nothing if the old name is missing", function() {
 			const config = { "foo.bar_baz": 2 };
 			lib.renameConfigField(config, "foo.bar", "foo.bar_baz");

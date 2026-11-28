@@ -58,5 +58,17 @@ describe("lib/RateLimiter", function() {
 			await wait(20);
 			assert.equal(invokedCount, 1, "expected one invocation");
 		});
+
+		it("should schedule the action again after being canceled", async function() {
+			let invokedCount = 0;
+			rateLimiter.maxRate = 50;
+			rateLimiter.action = () => { invokedCount += 1; };
+			rateLimiter.activate();
+			rateLimiter.activate();
+			rateLimiter.cancel();
+			rateLimiter.activate();
+			await wait(40);
+			assert.equal(invokedCount, 2, "expected two invocations");
+		});
 	});
 });

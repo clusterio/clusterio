@@ -96,6 +96,7 @@ export default class RateLimiter {
 	cancel() {
 		if (this._runTimeout) {
 			clearTimeout(this._runTimeout);
+			this._runTimeout = undefined;
 		}
 	}
 }

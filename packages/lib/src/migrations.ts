@@ -12,7 +12,7 @@ type SerializedRole = Static<typeof Role.jsonSchema>;
  * Rename a field in a serialized config
  *
  * The value is moved if the old field exists and the new one doesn't. The
- * old field is removed either way.
+ * old field is removed either way, unless both names are the same.
  *
  * @param config - Serialized config to update.
  * @param from - Current name of the field.
@@ -20,7 +20,7 @@ type SerializedRole = Static<typeof Role.jsonSchema>;
  * @returns The config passed in.
  */
 export function renameConfigField(config: ConfigSchema, from: string, to: string) {
-	if (Object.hasOwn(config, from)) {
+	if (from !== to && Object.hasOwn(config, from)) {
 		if (!Object.hasOwn(config, to)) {
 			config[to] = config[from];
 		}

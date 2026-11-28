@@ -18,6 +18,15 @@ describe("lib/data/messages_user", function() {
 			);
 		});
 
+		it("should deny missing data with a ValidationError", function() {
+			const user = grantAllUser();
+			assert.throws(
+				() => lib.UserBulkImportRequest.permission(user, { data: undefined }),
+				new lib.ValidationError("Missing import / restore data"),
+			);
+			assert.deepEqual(user.checked, []);
+		});
+
 		it("should check permissions for a known importType", function() {
 			const user = grantAllUser();
 			lib.UserBulkImportRequest.permission(user, { data: { importType: "admins", users: [] } });

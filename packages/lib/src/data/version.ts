@@ -264,12 +264,15 @@ export class ModVersionRange {
 	}
 
 	get valid() {
-		return this.minVersion.testIntegerVersion(this.maxVersion.integerVersion)
-			&& this.maxVersion.testIntegerVersion(this.minVersion.integerVersion);
+		// The range is not empty if the lowest version min allows or the
+		// highest version max allows is in it.
+		const min = this.minVersion.integerVersion + (this.minVersion.equality === ">" ? 1 : 0);
+		const max = this.maxVersion.integerVersion - (this.maxVersion.equality === "<" ? 1 : 0);
+		return this.testIntegerVersion(min as IntegerVersion) || this.testIntegerVersion(max as IntegerVersion);
 	}
 
 	invalidate() {
-		this.maxVersion = new ModVersionEquality(">", "0.0.0");
+		this.maxVersion = new ModVersionEquality("<", "0.0.0");
 	}
 
 	testIntegerVersion(other: IntegerVersion) {

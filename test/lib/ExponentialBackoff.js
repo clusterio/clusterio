@@ -41,6 +41,14 @@ describe("lib/ExponentialBackoff", function() {
 			}
 		});
 
+		it("should not exceed max value with a base other than 1", function() {
+			let backoff = new ExponentialBackoff({ base: 5, max: 10 });
+			for (let j = 0; j < 100; j++) {
+				assert(backoff.delay() <= 10000);
+			}
+			assert.equal(backoff._exp, 1);
+		});
+
 		it("should reset if enough time passes", function() {
 			let backoff = new ExponentialBackoff({ reset: 100 });
 			backoff.delay();

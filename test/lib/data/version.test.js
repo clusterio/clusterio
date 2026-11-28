@@ -367,6 +367,20 @@ describe("lib/data/version", function() {
 				);
 				assert.equal(rangeImpossible.valid, false);
 			});
+			it("should be false if no version fits between exclusive bounds", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">", "1.0.0"),
+					new lib.ModVersionEquality("<", "1.0.1"),
+				);
+				assert.equal(range.valid, false);
+			});
+			it("should be true for = within the other bound", function() {
+				const range = new lib.ModVersionRange(
+					new lib.ModVersionEquality(">=", "1.0.0"),
+					new lib.ModVersionEquality("=", "2.0.0"),
+				);
+				assert.equal(range.valid, true);
+			});
 		});
 		describe("invalidate()", function() {
 			it("should result in the range becoming invalid", function() {
@@ -380,6 +394,7 @@ describe("lib/data/version", function() {
 				const defaultRange = new lib.ModVersionRange();
 				defaultRange.invalidate();
 				assert.equal(defaultRange.valid, false);
+				assert.equal(defaultRange.testVersion("1.0.0"), false);
 			});
 		});
 		describe("testIntegerVersion()", function() {

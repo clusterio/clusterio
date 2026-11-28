@@ -27,7 +27,8 @@ export function mapToObject<T>(map: Map<string, T>) {
 			);
 		}
 
-		obj[key] = value;
+		// Plain assignment to "__proto__" would set the prototype
+		Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
 	}
 	return obj;
 }
@@ -184,7 +185,6 @@ export class ItemDatabase {
 		// Verify the content of the serialized database
 		if (serialized !== undefined) {
 			for (let [name, qualities] of Object.entries(serialized)) {
-				checkName(name);
 				// Migration from pre-quality database format
 				if (typeof qualities === "number") {
 					qualities = { normal: qualities };

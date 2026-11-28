@@ -34,6 +34,14 @@ if (mode !== "noop") {
 }
 `;
 
+// Stand-in for cmd.exe that runs the quoted command with sh
+const fakeCmdExe = `#!/bin/sh
+[ "$1 $2 $3" = "/d /s /c" ] || exit 99
+command="$4"
+command="\${command#\\"}"
+exec sh -c "\${command%\\"}"
+`;
+
 const installPackageJson = JSON.stringify({ name: "clusterio-install", private: true });
 
 function pluginPackage(pluginName: string, packageName: string, main?: string) {
@@ -263,6 +271,28 @@ t.test("handlePluginCommand()", async t1 => {
 			t3.equal(pluginList.size, 0);
 			t3.strictSame(errors(), ["Failed to install some-package: npm install exited with code 3"]);
 			t3.ok(log().some(c => c.args[0] === "warn" && c.args[1] === "npm error failed"));
+		});
+
+		t2.test("runs npm.cmd through the shell on Windows", async t3 => {
+			const dir = await setup(t3, {
+				"package.json": installPackageJson,
+				"plugin": pluginPackage("my_plugin", "my_plugin_pkg"),
+			});
+			// Only npm.cmd is on PATH, and a .cmd file only runs through a shell
+			await fs.rename(path.join(dir, "bin", "npm"), path.join(dir, "bin", "npm.js"));
+			const npmCmd = '#!/bin/sh\nexec node "$(dirname "$0")/npm.js" "$@"\n';
+			await fs.writeFile(path.join(dir, "bin", "npm.cmd"), npmCmd, { mode: 0o755 });
+			// Node runs shell commands on Windows as: cmd.exe /d /s /c "<command>"
+			await fs.writeFile(path.join(dir, "bin", "cmd.exe"), fakeCmdExe, { mode: 0o755 });
+			t3.intercept(process, "platform", { value: "win32" });
+			const print = capturePrint(t3);
+			t3.capture(lib.logger, "log");
+			captureLogs(t3, "info");
+			const pluginList = new Map();
+			await pluginCommand(pluginList, "install", path.join(dir, "plugin"));
+			t3.equal(process.exitCode, undefined);
+			t3.strictSame([...pluginList], [["my_plugin", "my_plugin_pkg"]]);
+			t3.strictSame(print(), ["Installed my_plugin"]);
 		});
 
 		t2.test("fails when npm cannot be started", async t3 => {

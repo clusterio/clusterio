@@ -23,6 +23,12 @@ describe("lib/database", function() {
 				{ "a": 1, "b": true }
 			);
 		});
+
+		it("should keep a __proto__ key as a property", function() {
+			const obj = lib.mapToObject(new Map([["__proto__", 1]]));
+			assert.deepEqual(Object.keys(obj), ["__proto__"]);
+			assert.equal(Object.getPrototypeOf(obj), Object.prototype);
+		});
 	});
 
 	describe("loadJsonAsMap()", function() {

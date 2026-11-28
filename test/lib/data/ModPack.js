@@ -257,6 +257,16 @@ describe("lib/data/ModPack", function() {
 		});
 
 		describe(".fromModPackString()", function() {
+			it("should pass on inflate errors that are not zlib data errors", function() {
+				const error = new RangeError("Cannot create a Buffer larger than 4 GiB");
+				const original = zlib.inflateSync;
+				zlib.inflateSync = () => { throw error; };
+				try {
+					assert.throws(() => ModPack.fromModPackString("AMalformedString"), error);
+				} finally {
+					zlib.inflateSync = original;
+				}
+			});
 			it("should handle malformed strings", function() {
 				assert.throws(
 					() => ModPack.fromModPackString("AMalformedString"),
