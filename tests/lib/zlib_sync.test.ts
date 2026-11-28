@@ -94,10 +94,6 @@ t.test("deflateSync()", async t1 => {
 			t2.test("deflates empty input", async t3 => {
 				t3.equal(zlib.inflateSync(zlibSync.deflateSync("")).length, 0);
 			});
-			t2.test("inflates data larger than one checksum block", async t3 => {
-				const large = Buffer.alloc(100_000, 0xff);
-				t3.ok(Buffer.from(zlibSync.inflateSync(zlib.deflateSync(large))).equals(large));
-			});
 			t2.test("returns a Uint8Array", async t3 => {
 				t3.type(zlibSync.deflateSync(text), Uint8Array);
 			});

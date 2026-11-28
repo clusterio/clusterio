@@ -399,7 +399,19 @@ t.test("ModPack", async t1 => {
 				record("space-age", "2.0.5", false),
 			]);
 		});
-		t2.test("adds the recycler from 2.1", async t3 => {
+		t2.test("adds the disabled recycler from 2.1", async t3 => {
+			t3.strictSame(ModPack.getBuiltinMods("2.1.3"), [
+				record("base", "2.1.3"),
+				record("elevated-rails", "2.1.3", false),
+				record("quality", "2.1.3", false),
+				record("space-age", "2.1.3", false),
+				record("recycler", "2.1.3", false),
+			]);
+		});
+	});
+
+	t1.test("ModPack.getBuiltinModNames()", async t2 => {
+		t2.test("lists the names of the builtin mods", async t3 => {
 			t3.strictSame(ModPack.getBuiltinModNames("2.1"), [
 				"base", "elevated-rails", "quality", "space-age", "recycler",
 			]);

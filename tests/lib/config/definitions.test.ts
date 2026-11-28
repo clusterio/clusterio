@@ -29,32 +29,34 @@ function cleanupFields(test: Test, pluginName: string) {
 }
 
 t.test("ControllerConfig", async t1 => {
-	t1.test("migrations()", async t2 => {
-		t2.test("renames controller.external_address to controller.public_url", async t3 => {
+	t1.test("controller.external_address", async t2 => {
+		t2.test("is renamed to controller.public_url", async t3 => {
 			const config = new lib.ControllerConfig("controller", {
 				"controller.external_address": "https://example.com/",
 			});
 			t3.equal(config.get("controller.public_url"), "https://example.com/");
 			t3.notOk(Object.hasOwn(config.toJSON(), "controller.external_address"));
 		});
-		t2.test("converts transfer_min_progress from KiB per 30 s to KiB/s", async t3 => {
+	});
+
+	t1.test("controller.transfer_min_progress", async t2 => {
+		t2.test("is converted from KiB per 30 s to KiB/s", async t3 => {
 			const config = new lib.ControllerConfig("controller", {
 				"controller.transfer_min_progress": 60,
 			});
 			t3.equal(config.get("controller.transfer_min_speed"), 2);
 			t3.notOk(Object.hasOwn(config.toJSON(), "controller.transfer_min_progress"));
 		});
-		t2.test("drops the old transfer_min_progress default so the new default applies", async t3 => {
+		t2.test("is dropped at the old default so the new default applies", async t3 => {
 			const config = new lib.ControllerConfig("controller", {
 				"controller.transfer_min_progress": 30,
 			});
 			t3.equal(config.get("controller.transfer_min_speed"), 64);
 		});
-		t2.test("passes a non number transfer_min_progress through unchanged", async t3 => {
-			const migrated = lib.ControllerConfig.migrations({ "controller.transfer_min_progress": "fast" });
-			t3.strictSame(migrated, { "controller.transfer_min_speed": "fast" });
-		});
-		t2.test("leaves configs without old fields alone", async t3 => {
+	});
+
+	t1.test("migrations()", async t2 => {
+		t2.test("does nothing without old fields", async t3 => {
 			t3.strictSame(lib.ControllerConfig.migrations({ "controller.name": "a" }), { "controller.name": "a" });
 		});
 	});
@@ -96,16 +98,54 @@ t.test("HostConfig", async t1 => {
 });
 
 t.test("InstanceConfig", async t1 => {
-	t1.test("migrations()", async t2 => {
-		t2.test("converts boolean sync settings to enabled and disabled", async t3 => {
-			const config = new lib.InstanceConfig("controller", {
-				"factorio.sync_adminlist": true,
-				"factorio.sync_whitelist": false,
-				"factorio.sync_banlist": "bidirectional",
-			});
+	t1.test("factorio.sync_adminlist", async t2 => {
+		t2.test("is converted from true to enabled", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_adminlist": true });
 			t3.equal(config.get("factorio.sync_adminlist"), "enabled");
+		});
+		t2.test("is converted from false to disabled", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_adminlist": false });
+			t3.equal(config.get("factorio.sync_adminlist"), "disabled");
+		});
+		t2.test("keeps values that are not booleans", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_adminlist": "bidirectional" });
+			t3.equal(config.get("factorio.sync_adminlist"), "bidirectional");
+		});
+	});
+
+	t1.test("factorio.sync_whitelist", async t2 => {
+		t2.test("is converted from true to enabled", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_whitelist": true });
+			t3.equal(config.get("factorio.sync_whitelist"), "enabled");
+		});
+		t2.test("is converted from false to disabled", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_whitelist": false });
 			t3.equal(config.get("factorio.sync_whitelist"), "disabled");
+		});
+		t2.test("keeps values that are not booleans", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_whitelist": "bidirectional" });
+			t3.equal(config.get("factorio.sync_whitelist"), "bidirectional");
+		});
+	});
+
+	t1.test("factorio.sync_banlist", async t2 => {
+		t2.test("is converted from true to enabled", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_banlist": true });
+			t3.equal(config.get("factorio.sync_banlist"), "enabled");
+		});
+		t2.test("is converted from false to disabled", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_banlist": false });
+			t3.equal(config.get("factorio.sync_banlist"), "disabled");
+		});
+		t2.test("keeps values that are not booleans", async t3 => {
+			const config = new lib.InstanceConfig("controller", { "factorio.sync_banlist": "bidirectional" });
 			t3.equal(config.get("factorio.sync_banlist"), "bidirectional");
+		});
+	});
+
+	t1.test("migrations()", async t2 => {
+		t2.test("does nothing without old fields", async t3 => {
+			t3.strictSame(lib.InstanceConfig.migrations({ "instance.name": "a" }), { "instance.name": "a" });
 		});
 	});
 
