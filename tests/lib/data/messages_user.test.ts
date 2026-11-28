@@ -36,10 +36,15 @@ t.test("UserBulkImportRequest", async t1 => {
 				new lib.ValidationError("Unknown import / restore type: mods"),
 			);
 		});
-		t2.test("checks nothing without data", async t3 => {
-			const { user, checked } = permissionRecorder();
-			lib.UserBulkImportRequest.permission(user, request(undefined));
-			t3.strictSame(checked, []);
+		t2.test("rejects missing data with a ValidationError", async t3 => {
+			for (const data of [undefined, null, "users"]) {
+				const { user, checked } = permissionRecorder();
+				t3.throws(
+					() => lib.UserBulkImportRequest.permission(user, request(data)),
+					new lib.ValidationError("Missing import / restore data"),
+				);
+				t3.strictSame(checked, []);
+			}
 		});
 		t2.test("throws when a permission is denied", async t3 => {
 			const { user } = permissionRecorder("core.user.bulk_import");

@@ -251,36 +251,37 @@ export class UserBulkImportRequest {
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
+	// Runs before the data is validated against jsonSchema
 	static permission(user: IUser, message: MessageRequest) {
-		if (typeof message.data === "object" && message.data !== null) {
-			const data = message.data as Static<typeof UserBulkImportRequest.jsonSchema>;
-			// Check if this is a restore or import request
-			if (data.restore) {
-				user.checkPermission("core.user.bulk_restore");
-			} else {
-				user.checkPermission("core.user.bulk_import");
-			}
-			// Check if they have the permission for that type
-			switch (data.importType) {
-				case "users":
-					user.checkPermission("core.user.set_admin");
-					user.checkPermission("core.user.set_banned");
-					user.checkPermission("core.user.set_whitelisted");
-					break;
-				case "admins":
-					user.checkPermission("core.user.set_admin");
-					break;
-				case "bans":
-					user.checkPermission("core.user.set_banned");
-					break;
-				case "whitelist":
-					user.checkPermission("core.user.set_whitelisted");
-					break;
-				default:
-					// Unvalidated input during permission check: reject, don't throw a bare Error
-					// @ts-expect-error Unreachable
-					throw new ValidationError(`Unknown import / restore type: ${data.importType}`);
-			}
+		if (typeof message.data !== "object" || message.data === null) {
+			throw new ValidationError("Missing import / restore data");
+		}
+		const data = message.data as Static<typeof UserBulkImportRequest.jsonSchema>;
+		// Check if this is a restore or import request
+		if (data.restore) {
+			user.checkPermission("core.user.bulk_restore");
+		} else {
+			user.checkPermission("core.user.bulk_import");
+		}
+		// Check if they have the permission for that type
+		switch (data.importType) {
+			case "users":
+				user.checkPermission("core.user.set_admin");
+				user.checkPermission("core.user.set_banned");
+				user.checkPermission("core.user.set_whitelisted");
+				break;
+			case "admins":
+				user.checkPermission("core.user.set_admin");
+				break;
+			case "bans":
+				user.checkPermission("core.user.set_banned");
+				break;
+			case "whitelist":
+				user.checkPermission("core.user.set_whitelisted");
+				break;
+			default:
+				// @ts-expect-error Unreachable after validation
+				throw new ValidationError(`Unknown import / restore type: ${data.importType}`);
 		}
 	}
 
