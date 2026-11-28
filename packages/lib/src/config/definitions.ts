@@ -66,9 +66,9 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		}
 		if (config.hasOwnProperty("controller.transfer_min_progress")) {
 			// Was KiB per 30 s, the old default is left out so the new one applies
-			const kib = config["controller.transfer_min_progress"];
+			const kib = config["controller.transfer_min_progress"] as number;
 			if (kib !== 30) {
-				config["controller.transfer_min_speed"] = typeof kib === "number" ? kib / 30 : kib;
+				config["controller.transfer_min_speed"] = kib / 30;
 			}
 			delete config["controller.transfer_min_progress"];
 		}
